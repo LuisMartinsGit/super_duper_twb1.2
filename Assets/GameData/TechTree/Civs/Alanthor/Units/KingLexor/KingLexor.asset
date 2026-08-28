@@ -1,0 +1,52 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
+  m_Name: KingLexor
+  m_EditorClassIdentifier:
+  id: King Lexor
+  displayName: King Lexor
+  unitClass: melee
+  hp: 650
+  speed: 7
+  trainingTime: 90
+  damage: 45
+  damageType: melee
+  armorType: cavalry_heavy
+  defense:
+    melee: 6
+    ranged: 5
+    siege: 0
+    magic: 3
+  attackCooldown: 1.4
+  attackRange: 1
+  minAttackRange: 0
+  lineOfSight: 26
+  radius: 0.6
+  cost:
+    Supplies: 480
+    Iron: 250
+    Veilstone: 100
+    Veilsteel: 30
+  minBuildingLevel: 1
+  buildSpeed: 0
+  gatheringSpeed: 0
+  healsPerSecond: 0
+  tags:
+  - Cavalry
+  - Heavy
+  bonusVsTags: []
+  abilities:
+  - King's Call
+  - Liquid Courage
+  prefab: {fileID: 55333835282279, guid: 52da919c6d7ad7cc3aaa7e3f816e9c7f, type: 3}
+  presentationId: 251
+  animatorController: {fileID: 0}

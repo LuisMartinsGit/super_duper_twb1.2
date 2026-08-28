@@ -93,7 +93,7 @@ const SECTS = [
     passive: { name: 'Hands That Mend', text: 'Your buildings auto-repair at 2% max HP/s while out of combat.' },
     building: { name: 'Mending Hall', cap: 5, text: 'An open-sided infirmary. Damaged units that walk inside heal over time.' },
     unit: { name: 'Scar Guard', cap: 5, text: 'Heavy frontline that deals more damage the closer it is to dying — deliberately combos with Second Wind, which pins it at 1 HP.' },
-    research: { name: "Mason's Charter", text: 'All buildings gain +20% HP and construct 25% faster.' },
+    research: { name: 'Field Hospital', text: 'Your Litharchs unlock Deploy Field Hospital: a temporary infirmary raised at the caster, healing allies around it before destroying itself after 2 minutes. 300s cooldown.' },
   },
   {
     id: 'Fortitude', cluster: 'Alanthor', epithet: 'the wall-keepers',

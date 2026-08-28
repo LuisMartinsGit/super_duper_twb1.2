@@ -53,9 +53,24 @@ namespace TheWaningBorder.Systems.Combat
             foreach (var (transform, target, cooldown, damage, entity) in SystemAPI
                 .Query<RefRO<LocalTransform>, RefRW<Target>, RefRW<AttackCooldown>, RefRO<Damage>>()
                 .WithAll<UnitTag>()
-                .WithNone<ArcherTag>()  // Exclude ranged units
+                .WithNone<ArcherTag>()             // Exclude ranged units
+                // A CORPSE DOES NOT SWING. DeathAnimationState is added the
+                // moment DeathSystem registers the death and the entity then
+                // survives for the length of its death animation — two whole
+                // seconds in which it was still acquiring, cooling down and
+                // landing hits. Excluding it here is the same treatment
+                // UnitIntegratorSystem already gives movement.
+                .WithNone<DeathAnimationState>()
                 .WithEntityAccess())
             {
+                // The marker lands via an EndSimulation ECB, so on the FRAME a
+                // unit dies it is still in this query. Health is authoritative
+                // and already zero by then, so one cheap read closes that
+                // window — without it a lethal blow and the victim's reply
+                // still trade in the same frame.
+                if (SystemAPI.HasComponent<Health>(entity)
+                    && SystemAPI.GetComponent<Health>(entity).Value <= 0) continue;
+
                 ref var tgt = ref target.ValueRW;
                 ref var cd = ref cooldown.ValueRW;
 

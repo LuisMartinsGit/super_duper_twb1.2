@@ -116,6 +116,15 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/GameData/Scenes/Scenarios/Scenario_WallSiege.unity
     guid: e419667e56fa77d0f3b0b3ef16dbc9d7
+  - enabled: 1
+    path: Assets/GameData/Scenes/Scenarios/Scenario_Sandbox.unity
+    guid: 7d7de0cb5a204e87a6f13f6df3b75e94
+  - enabled: 1
+    path: Assets/GameData/Scenes/Maps/Sundered Reach/SunderedReach.unity
+    guid: 00b59038376df7d479a44126d13ca288
+  - enabled: 1
+    path: Assets/GameData/Scenes/Scenarios/Scenario_FormationOctagon.unity
+    guid: 18c4e962547a4f4b88c8c070f8d7c9c3
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

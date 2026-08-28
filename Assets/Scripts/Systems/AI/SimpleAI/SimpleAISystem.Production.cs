@@ -87,7 +87,10 @@ namespace TheWaningBorder.AI
         {
             // Clamp at the system cap (4) so a typo in a build order can't
             // request 50 veilstone miners and starve iron entirely.
-            aiState.VeilstoneMinerTarget = math.clamp(count, 0, MaxVeilstoneMiners);
+            // Cap held locally now that the mining allocator (which owned
+            // MaxVeilstoneMiners) is gone. The field is vestigial and is kept
+            // only so existing build orders still parse.
+            aiState.VeilstoneMinerTarget = math.clamp(count, 0, 4);
             return true;
         }
 
@@ -543,10 +546,11 @@ namespace TheWaningBorder.AI
             EntityManager em, Entity brainEntity, Faction faction, float now, bool counterComp)
         {
             // Own composition.
-            int ownMelee = 0, ownRanged = 0;
+            int ownMelee = 0, ownRanged = 0, ownCav = 0, ownSiege = 0;
             var q = em.CreateEntityQuery(
                 ComponentType.ReadOnly<UnitTag>(),
                 ComponentType.ReadOnly<FactionTag>());
+            using (var ents = q.ToEntityArray(Allocator.Temp))
             using (var tags = q.ToComponentDataArray<UnitTag>(Allocator.Temp))
             using (var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp))
             {
@@ -554,8 +558,14 @@ namespace TheWaningBorder.AI
                 {
                     if (facs[i].Value != faction) continue;
                     var c = tags[i].Class;
-                    if (c == UnitClass.Ranged) ownRanged++;
-                    else if (IsCombatClass(c)) ownMelee++;
+                    if (!IsCombatClass(c)) continue;
+                    // Cavalry first: a Cataphract is UnitClass.Melee, so
+                    // counting by class alone would file the whole horse arm
+                    // under melee and the cavalry share would never open.
+                    if (em.HasComponent<CavalryTag>(ents[i])) ownCav++;
+                    else if (c == UnitClass.Siege) ownSiege++;
+                    else if (c == UnitClass.Ranged) ownRanged++;
+                    else ownMelee++;
                 }
             }
 
@@ -599,6 +609,52 @@ namespace TheWaningBorder.AI
                         "Alanthor_Swordsman", "Spearman");
             }
 
+            // ── CAVALRY AND SIEGE. ──
+            //
+            // The ladder had only a melee line and a ranged line, so the AI
+            // could not ASK for a Cataphract or a Catapult no matter what it
+            // had built. One logged AI raised a Royal Stable at 12:43 and a
+            // Siege Yard at 17:58 and trained neither, because nothing in this
+            // method can name their units; over 30 minutes four AIs produced
+            // 23 Workers, 17 Spearmen and 4 Scouts and nothing else.
+            //
+            // That is also why veilstone piled to 6,000-15,000 unspent. The
+            // Age-0 line costs supplies and iron and NO veilstone
+            // (Spearman 80/30/0, Archer 50/25/0), while the units that cost it
+            // are exactly these two branches — Cataphract 320/120/60,
+            // Catapult 180/80/40, Trebuchet 320/180/100. The sink was never
+            // missing from the design; it was unreachable by the AI.
+            string cavalry = null, siege = null;
+            if (FactionCultureOf(em, faction) == Cultures.Alanthor)
+            {
+                cavalry = FirstTrainableOrNull(em, faction,
+                    "Alanthor_Cataphract", "Alanthor_Outrider");
+                siege = FirstTrainableOrNull(em, faction,
+                    "Alanthor_Trebuchet", "Alanthor_Catapult", "Alanthor_Ballista");
+            }
+
+            int totalArmy = ownMelee + ownRanged + ownCav + ownSiege;
+
+            // SPEND WHAT YOU ARE DROWNING IN. A bank fat with veilstone and
+            // thin on supplies cannot buy another Spearman but CAN buy the
+            // heavy line, so surplus veilstone pulls the composition toward
+            // the branches priced in it. This is the difference between an
+            // economy with a sink and a number that only goes up.
+            bool veilstoneRich = false;
+            if (FactionEconomy.TryGetBank(em, faction, out var compBank))
+            {
+                var res = em.GetComponentData<FactionResources>(compBank);
+                veilstoneRich = res.Veilstone > 600 && res.Veilstone > res.Supplies;
+            }
+
+            float cavFrac = veilstoneRich ? 0.30f : 0.18f;
+            float siegeFrac = veilstoneRich ? 0.20f : 0.10f;
+
+            if (cavalry != null && totalArmy > 0 && ownCav < totalArmy * cavFrac)
+                return cavalry;
+            if (siege != null && totalArmy >= 4 && ownSiege < totalArmy * siegeFrac)
+                return siege;
+
             // Ranged is an Age-1 unlock (2026-08-11): with no Archery Range
             // standing (era 1 cannot build one, or it was razed), the ranged
             // pick has no trainer — train the melee line instead of feeding
@@ -609,6 +665,32 @@ namespace TheWaningBorder.AI
             int total = ownMelee + ownRanged;
             if (total == 0) return melee;
             return ownRanged < total * desiredRangedFrac ? ranged : melee;
+        }
+
+        /// <summary>
+        /// Like <see cref="FirstTrainable"/>, but returns NULL when none of the
+        /// candidates can be trained instead of falling back to the last one.
+        ///
+        /// The fallback is right for the melee and ranged lines, which always
+        /// have an Age-0 answer. It is wrong for cavalry and siege, which
+        /// simply do not exist until the building does — falling back would
+        /// name a unit with no trainer and feed the "floor blocked" retry loop
+        /// every tick.
+        /// </summary>
+        private static string FirstTrainableOrNull(EntityManager em, Faction faction,
+            params string[] priority)
+        {
+            for (int i = 0; i < priority.Length; i++)
+            {
+                string id = priority[i];
+                if (!TechCatalog.TryGetUnit(id, out var def) || def == null) continue;
+                Entity trainer = FindTrainerForUnit(em, faction, id);
+                if (trainer == Entity.Null) continue;
+                if (em.HasComponent<UnderConstruction>(trainer)) continue;
+                if (!CommandRouter.CanTrainAtBuilding(em, trainer, id, out _, out _)) continue;
+                return id;
+            }
+            return null;
         }
 
         /// <summary>First unit in <paramref name="priority"/> that has a

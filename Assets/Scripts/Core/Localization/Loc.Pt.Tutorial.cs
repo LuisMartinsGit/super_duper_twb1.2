@@ -143,16 +143,7 @@ namespace TheWaningBorder.Core.Localization
               + "Alimentam coisas diferentes: o ferro paga soldados e edifícios, o "
               + "veilstone paga tudo aquilo de que o Templo e as seitas precisam.";
 
-            t["Place a good Gatherer's Hut"] = "Coloca uma boa Cabana do Recoletor";
-            t["A Gatherer's Hut earns from the open ground inside its circle. While "
-              + "placing it, the preview shows a <b>yield percentage</b> — blocked "
-              + "ground, other huts' circles and the map edge all eat into it.\n"
-              + "Find a spot reading <b>90% or better</b>."] =
-                "Uma Cabana do Recoletor rende a partir do terreno aberto dentro do "
-              + "seu círculo. Enquanto a colocas, a pré-visualização mostra uma "
-              + "<b>percentagem de rendimento</b> — terreno bloqueado, os círculos de "
-              + "outras cabanas e a borda do mapa reduzem-na.\n"
-              + "Encontra um sítio que marque <b>90% ou melhor</b>.";
+            t["Fill a territory with Gatherer's Huts"] = "Enche um território com Cabanas do Recoletor";
 
             // ── 3. Combat ──────────────────────────────────────────────────
             t["Raise a Barracks"] = "Ergue um Quartel";
@@ -174,12 +165,12 @@ namespace TheWaningBorder.Core.Localization
 
             // ── 4. Culture ─────────────────────────────────────────────────
             t["Choose your special building"] = "Escolhe o teu edifício especial";
-            t["Pick one of <b>Shrine of Ahridan</b>, <b>Vault of Almiérra</b> or "
+            t["Pick one of <b>Shrine of Ridan</b>, <b>Vault of Almiérra</b> or "
               + "<b>Fiendstone Keep</b> from the top of the screen and place it. "
               + "Hover each for what it does.\n"
               + "This choice is final for the match, and it is what unlocks your "
               + "culture."] =
-                "Escolhe entre <b>Santuário de Ahridan</b>, <b>Cofre de Almiérra</b> "
+                "Escolhe entre <b>Santuário de Ridan</b>, <b>Cofre de Almiérra</b> "
               + "ou <b>Torreão de Fiendstone</b> no topo do ecrã e coloca-o. Passa o "
               + "rato sobre cada um para veres o que faz.\n"
               + "Esta escolha é definitiva para a partida, e é ela que desbloqueia a "

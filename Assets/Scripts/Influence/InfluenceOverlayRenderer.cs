@@ -46,6 +46,39 @@ namespace TheWaningBorder.Influence
         private const byte VisibleAlpha = 230;
         private const byte RevealedAlpha = 110;
 
+        // ── Territory outlines ────────────────────────────────────────────
+        //
+        // The player-coloured line is driven by TERRITORY OWNERSHIP, not by the
+        // influence field. docs/Design/Regions.md §6 supersedes the influence
+        // model for "who holds this ground", and the practical consequence was
+        // that nobody could see their borders at all: influence is an AGE 1
+        // thing (InfluenceMapSystem grants nothing to Age 0 buildings), so for
+        // the whole opening every channel was flat zero and this renderer had
+        // no contour to trace.
+        //
+        // Ownership is a per-REGION fact, so the field is binary — 1 in the
+        // regions you hold, 0 everywhere else — and the marching squares below
+        // trace the outline of the union. Regions are static for the match, so
+        // the expensive half (which region is each grid cell in) is baked once.
+        private const float TerritoryThreshold = 0.7f;
+        // Above 0.5 on purpose. On a binary field the crossing interpolates to
+        // `t` along the cell edge, so a 0.7 contour sits INSIDE the ground it
+        // outlines. Where two players' regions touch, that separates their two
+        // lines instead of stacking them on the same edge, where one colour
+        // would simply paint over the other.
+        // 0.75 -> 0.15 (2026-08-28): a 1.5 m band across the ground read as a
+        // painted stripe rather than a border. A line marks where the ground
+        // changes hands; it should not be wide enough to be ground itself.
+        private const float TerritoryHalfWidth = 0.15f;
+
+        /// <summary>Corner-cutting passes for the territory outline. More than
+        /// the influence contour gets: the territory field is BINARY, so its
+        /// marching-squares crossings all land at the same fraction of a cell
+        /// edge and the raw polyline is a pure 45-degree staircase. Two passes
+        /// leave that staircase visible as a zig-zag; four resolve it into the
+        /// curve the partition actually describes.</summary>
+        private const int TerritoryChaikinIterations = 4;
+
         // Blood layer — same spline treatment, its own contour + colour.
         private const float BloodThreshold = 0.35f;
         private static readonly Color32 BloodColor = new Color32(140, 20, 20, 255);
@@ -120,6 +153,11 @@ namespace TheWaningBorder.Influence
         private bool[] _used = new bool[256];
         private sbyte[] _dominant;   // strongest channel per cell
         private float[] _field;      // scalar field currently being marched
+        /// <summary>Region id per grid cell, baked once — the partition never
+        /// moves, only who owns it does.</summary>
+        private short[] _regionCell;
+        private bool _regionCellsBaked;
+        private bool _territoryLogged;
 
         private void ApplyVisible(bool on)
         {
@@ -237,8 +275,39 @@ namespace TheWaningBorder.Influence
             // each channel's march would be nine passes instead of one.
             PlayerInfluenceMap.FillDominantChannels(_dominant);
 
+            // PLAYERS: outline the territory they hold, in their banner colour.
+            // Falls back to the influence contour only where there is no
+            // partition to outline (a scenario fixture, or a map shipped
+            // without region seeds) — there the influence field is still the
+            // only statement this renderer can make about ownership.
+            bool byTerritory = BakeRegionCells();
+            int outlined = 0;
+
             for (int ch = 0; ch < PlayerInfluenceMap.ChannelCount; ch++)
             {
+                bool isPlayer = ch < PlayerInfluenceMap.PlayerChannels;
+
+                if (isPlayer && byTerritory)
+                {
+                    // Cheap reject first: most factions hold nothing, and
+                    // filling + marching an all-zero field to discover that
+                    // costs a full grid pass per faction per rebuild.
+                    if (!BuildTerritoryField(ch)) continue;
+
+                    _segA.Clear();
+                    _segB.Clear();
+                    MarchField(TerritoryThreshold);
+                    if (_segA.Count == 0) continue;
+
+                    ChainAndEmit(PlayerInfluenceMap.ChannelColor(ch), TerritoryHalfWidth,
+                        TerritoryChaikinIterations);
+                    outlined++;
+                    continue;
+                }
+
+                // The curse keeps its influence contour: Regions.md §3 (the
+                // curse takes territory by force) is unimplemented, so it owns
+                // no regions and has nothing to outline.
                 if (!BuildClippedField(ch)) continue;
 
                 _segA.Clear();
@@ -246,7 +315,19 @@ namespace TheWaningBorder.Influence
                 MarchField(Threshold);
                 if (_segA.Count == 0) continue;
 
-                ChainAndEmit(PlayerInfluenceMap.ChannelColor(ch));
+                ChainAndEmit(PlayerInfluenceMap.ChannelColor(ch), HalfWidth, ChaikinIterations);
+            }
+
+            // Once, at the moment the first outline actually reaches the mesh.
+            // Its ABSENCE is the useful half: no line here means ownership
+            // never resolved, which is a different failure from a partition
+            // that never loaded (that one leaves byTerritory false).
+            if (byTerritory && outlined > 0 && !_territoryLogged)
+            {
+                _territoryLogged = true;
+                Debug.Log($"[InfluenceOverlay] territory outlines online — " +
+                          $"{TheWaningBorder.World.Regions.RegionMap.Count} region(s), " +
+                          $"{outlined} faction(s) outlined.");
             }
 
             // Blood — an independent field with its own contour level.
@@ -260,7 +341,7 @@ namespace TheWaningBorder.Influence
                 _segA.Clear();
                 _segB.Clear();
                 MarchField(BloodThreshold);
-                if (_segA.Count > 0) ChainAndEmit(BloodColor);
+                if (_segA.Count > 0) ChainAndEmit(BloodColor, HalfWidth, ChaikinIterations);
             }
 
             _mesh.Clear();
@@ -268,6 +349,86 @@ namespace TheWaningBorder.Influence
             _mesh.SetColors(_colors);
             _mesh.SetTriangles(_tris, 0);
             _mesh.RecalculateBounds();
+        }
+
+        /// <summary>
+        /// Bake which region each grid cell belongs to. Once per match: the
+        /// seeds are authored and never move, and the domain warp is a pure
+        /// function of position, so the partition is fixed for the whole match
+        /// and only its OWNERS change.
+        ///
+        /// RegionAt, so ground no region can own is owned by NOBODY: Regions.md
+        /// §1 — "mountains and cliffs are pure structure, scenery that divides
+        /// territories and belongs to nobody, ever". A massif inside your
+        /// holding is therefore a hole in your outline and the border runs
+        /// around its foot, which is the whole point of excluding it.
+        ///
+        /// (This was NearestRegion first, to avoid exactly those holes. That
+        /// was the wrong call: the holes are the design, not an artefact.)
+        ///
+        /// False while the partition does not exist yet (it is built during the
+        /// loading coroutine, after this renderer comes alive) or the map ships
+        /// none at all.
+        /// </summary>
+        private bool BakeRegionCells()
+        {
+            if (_regionCellsBaked) return true;
+            if (!TheWaningBorder.World.Regions.RegionMap.Ready) return false;
+
+            int res = PlayerInfluenceMap.Resolution;
+            Vector2 min = PlayerInfluenceMap.WorldMin;
+            Vector2 size = PlayerInfluenceMap.WorldSize;
+            if (_regionCell == null || _regionCell.Length != res * res)
+                _regionCell = new short[res * res];
+
+            for (int y = 0; y < res; y++)
+            {
+                float wz = min.y + (y + 0.5f) / res * size.y;
+                int row = y * res;
+                for (int x = 0; x < res; x++)
+                {
+                    float wx = min.x + (x + 0.5f) / res * size.x;
+                    _regionCell[row + x] =
+                        (short)TheWaningBorder.World.Regions.RegionMap.RegionAt(wx, wz);
+                }
+            }
+
+            _regionCellsBaked = true;
+            return true;
+        }
+
+        /// <summary>
+        /// Load a binary "this faction holds it" field for the marching pass.
+        /// False when the faction holds nothing, which is the common case and
+        /// worth answering before touching the grid at all.
+        /// </summary>
+        private bool BuildTerritoryField(int faction)
+        {
+            // Ownership is normally derived by TerritoryIncomeSystem's 5 s
+            // tick, whose first run is a full interval after the match starts.
+            // Waiting for it would leave every player's border missing for the
+            // opening five seconds — exactly when they are looking for it.
+            if (!TheWaningBorder.World.Regions.TerritoryOwnership.Ready)
+            {
+                var w = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+                if (w == null || !w.IsCreated) return false;
+                TheWaningBorder.World.Regions.TerritoryOwnership.Recompute(w.EntityManager);
+            }
+
+            if (TheWaningBorder.World.Regions.TerritoryOwnership.CountOf((Faction)faction) == 0)
+                return false;
+
+            for (int i = 0; i < _field.Length; i++)
+            {
+                int region = _regionCell[i];
+                // RegionMap.None (-1) is unclaimable ground — mountain, cliff,
+                // water, the rim. It belongs to nobody, so it is 0 for every
+                // faction and the contour closes around it.
+                _field[i] = region >= 0
+                    && TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(region) == faction
+                        ? 1f : 0f;
+            }
+            return true;
         }
 
         /// <summary>
@@ -364,7 +525,7 @@ namespace TheWaningBorder.Influence
             return (ix << 32) | (uint)iy;
         }
 
-        private void ChainAndEmit(Color32 color)
+        private void ChainAndEmit(Color32 color, float halfWidth, int smoothing)
         {
             int n = _segA.Count;
             if (_used.Length < n) _used = new bool[Mathf.NextPowerOfTwo(n)];
@@ -393,10 +554,10 @@ namespace TheWaningBorder.Influence
                 bool closed = _pts.Count > 3 && Key(_pts[0]) == Key(_pts[_pts.Count - 1]);
                 if (closed) _pts.RemoveAt(_pts.Count - 1);
 
-                for (int it = 0; it < ChaikinIterations; it++)
+                for (int it = 0; it < smoothing; it++)
                     Chaikin(_pts, closed);
 
-                EmitRibbon(_pts, closed, color);
+                EmitRibbon(_pts, closed, color, halfWidth);
             }
         }
 
@@ -452,7 +613,7 @@ namespace TheWaningBorder.Influence
             pts.AddRange(_smoothScratch);
         }
 
-        private void EmitRibbon(List<Vector2> pts, bool closed, Color32 color)
+        private void EmitRibbon(List<Vector2> pts, bool closed, Color32 color, float halfWidth)
         {
             int count = pts.Count;
             if (count < 2) return;
@@ -482,7 +643,7 @@ namespace TheWaningBorder.Influence
                 Vector2 dir = GridToWorld(next) - GridToWorld(prev);
                 float len = dir.magnitude;
                 dir = len > 1e-5f ? dir / len : Vector2.right;
-                Vector2 normal = new Vector2(-dir.y, dir.x) * HalfWidth;
+                Vector2 normal = new Vector2(-dir.y, dir.x) * halfWidth;
 
                 // Fog of war: hidden → invisible, revealed → dim, visible → full.
                 byte alpha = VisibleAlpha;

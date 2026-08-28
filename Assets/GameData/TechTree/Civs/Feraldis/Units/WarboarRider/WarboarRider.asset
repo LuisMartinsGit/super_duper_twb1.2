@@ -1,0 +1,47 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
+  m_Name: WarboarRider
+  m_EditorClassIdentifier: 
+  id: 'Feraldis_WarboarRider'
+  displayName: 'Feraldis_WarboarRider'
+  unitClass: 'human_cavalry'
+  hp: 160
+  speed: 7
+  trainingTime: 40
+  damage: 16
+  damageType: 'melee'
+  armorType: 'cavalry'
+  defense:
+    melee: 1
+    ranged: 0
+    siege: 0
+    magic: 0
+  attackCooldown: 1
+  attackRange: 1.5
+  minAttackRange: 0
+  lineOfSight: 20
+  radius: 0.6
+  cost:
+    Supplies: 168
+    Iron: 80
+    Crystal: 40
+    Veilsteel: 15
+  minBuildingLevel: 2
+  buildSpeed: 0
+  gatheringSpeed: 0
+  carryCapacity: 0
+  healsPerSecond: 0
+  tags:
+  - 'Cavalry'
+  bonusVsTags: []
+  presentationId: 339

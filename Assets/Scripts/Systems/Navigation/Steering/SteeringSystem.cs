@@ -282,6 +282,9 @@ namespace TheWaningBorder.Systems.Navigation
             // The group dissolves the moment the leader lands (design §2.8),
             // so the settle itself still gets the full arrival damping.
             bool inFormation = MemberLookup.HasComponent(self);
+            // Which group, so a neighbour in the SAME formation can be
+            // recognised below. Entity.Null when this unit travels alone.
+            Entity myGroup = inFormation ? MemberLookup[self].Group : Entity.Null;
 
             float arrivalScale = 1f;
             bool atGoal = false;
@@ -371,8 +374,29 @@ namespace TheWaningBorder.Systems.Navigation
                             dist = math.sqrt(distSq);
                         }
 
+                        // FORMATION-MATES DO NOT PUSH EACH OTHER.
+                        //
+                        // The layout already IS the spacing: slots sit 2.0 m
+                        // apart (FormationMoveCommandHelper.Spacing), while
+                        // unit-avoidance reaches 2.5 m and separation 1.5 m. A
+                        // squad standing correctly in its slots was therefore
+                        // permanently inside its own avoidance radius, so the
+                        // reciprocal sidestep never rested: eight units in a
+                        // straight-line march jostled sideways the whole way,
+                        // swapped lateral positions, and settled a slot-width
+                        // off their marks. That is the infighting — every unit
+                        // being told to hold a position and simultaneously told
+                        // to get away from the units holding the next ones.
+                        //
+                        // Only members of the SAME group are exempt. Another
+                        // formation, a loose unit or an enemy still pushes
+                        // normally, so two squads meeting still resolve.
+                        bool sameFormation = myGroup != Entity.Null
+                            && MemberLookup.HasComponent(other)
+                            && MemberLookup[other].Group == myGroup;
+
                         // 1. Separation -- triggers within SeparationRadius
-                        if (dist < SeparationRadius)
+                        if (!sameFormation && dist < SeparationRadius)
                         {
                             // Push depth = how much we overlap. Normalised
                             // direction times overlap gives a "deeper overlap
@@ -384,7 +408,7 @@ namespace TheWaningBorder.Systems.Navigation
 
                         // 2. Unit-avoidance -- within UnitAvoidanceRadius
                         //    sidestep perpendicular to the line between us.
-                        if (dist < UnitAvoidanceRadius)
+                        if (!sameFormation && dist < UnitAvoidanceRadius)
                         {
                             // Right-perpendicular (in XZ plane) of toMe.
                             // Deterministic choice of side: always right of

@@ -1,0 +1,78 @@
+// Feraldis Iconoclast — the high-value Lv 3 unit whose attacks bypass
+// Veilstone node invulnerability (spec refinement #1). Every other unit's
+// damage to a node is refunded by NodeInvulnerabilitySystem; an
+// Iconoclast attack is the only path to Destroyed.
+//
+// Slow + hard-hitting + heavy HP. Trained at a fully-leveled Feraldis
+// Longhouse (minBuildingLevel: 3 in TechTree.json). 4 pop slots.
+
+using Unity.Entities;
+using Unity.Mathematics;
+using Unity.Transforms;
+using TheWaningBorder.Economy;
+using static TheWaningBorder.Core.Config.BorderConstants;
+
+namespace TheWaningBorder.Entities
+{
+    public static class Iconoclast
+    {
+        public static Entity Create(EntityManager em, float3 position, Faction faction)
+            => CreateInternal(new EmCreator(em), position, faction);
+
+        public static Entity Create(EntityCommandBuffer ecb, float3 position, Faction faction)
+            => CreateInternal(new EcbCreator(ecb), position, faction);
+
+        private static Entity CreateInternal<TCreator>(TCreator creator, float3 position, Faction faction)
+            where TCreator : struct, IEntityCreator
+        {
+            float hp = IconoclastHP;
+            float speed = IconoclastSpeed;
+            float damage = IconoclastDamage;
+            float los = IconoclastLoS;
+            float attackRange = IconoclastAttackRange;
+            float cooldown = IconoclastAttackCooldown;
+
+            var def = TechCatalog.Unit("Feraldis_Iconoclast");
+            hp = def.hp;
+            speed = def.speed;
+            damage = def.damage;
+            los = def.lineOfSight;
+            attackRange = def.attackRange;
+            cooldown = def.attackCooldown;
+
+            var entity = creator.CreateEntity();
+            creator.AddComponent(entity, new PresentationId { Id = IconoclastPresentationID });
+            creator.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            creator.AddComponent(entity, new FactionTag { Value = faction });
+            creator.AddComponent(entity, new UnitTag { Class = UnitClass.Melee });
+            creator.AddComponent<IconoclastTag>(entity);
+            // THE CORRUPTOR (design 2026-08-05 rev.5). This unit is Feraldis's
+            // Temple-trained answer to the Alanthor Scholar, and it now
+            // finally does something: CorruptionRitualSystem reads CorruptorTag
+            // to channel a well open. The old "Iconoclast aura" it was
+            // originally specced for was never implemented — nothing in the
+            // codebase read IconoclastTag at all — so the tag is kept purely
+            // for reference stability and CorruptorTag carries the behaviour.
+            creator.AddComponent<CorruptorTag>(entity);
+            creator.AddComponent<FeraldisUnitTag>(entity);
+            creator.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
+            creator.AddComponent(entity, new MoveSpeed { Value = speed });
+            creator.AddComponent(entity, new Damage { Value = (int)damage });
+            creator.AddComponent(entity, new LineOfSight { Radius = los });
+            creator.AddComponent(entity, new Radius { Value = def.radius });
+            creator.AddComponent(entity, new Target { Value = Entity.Null });
+            creator.AddComponent(entity, new AttackCooldown { Cooldown = cooldown, Timer = 0f });
+            // 4, matching PopulationHelper.GetUnitPopulationCost — the two
+            // disagreed (factory 1 vs table 4), and this is a game-ender unit
+            // that is meant to be scarce.
+            creator.AddComponent(entity, new PopulationCost { Amount = 4 });
+            creator.AddComponent(entity, new DesiredDestination { Position = float3.zero, Has = 0 });
+
+            creator.AddComponent(entity, new DamageTypeData { Value = DamageType.Melee });
+            creator.AddComponent(entity, new ArmorTypeData { Value = ArmorType.InfantryHeavy });
+            creator.AddComponent(entity, new Defense { Melee = 4, Ranged = 3, Siege = 1, Magic = 2 });
+
+            return entity;
+        }
+    }
+}

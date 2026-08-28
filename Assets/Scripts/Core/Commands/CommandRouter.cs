@@ -303,51 +303,6 @@ namespace TheWaningBorder.Core.Commands
         }
 
         // ═══════════════════════════════════════════════════════════════
-        // GATHER COMMANDS
-        // ═══════════════════════════════════════════════════════════════
-
-        /// <summary>
-        /// Issue a gather command to a miner unit.
-        /// </summary>
-        public static void IssueGather(EntityManager em, Entity miner, Entity resource,
-            CommandSource source = CommandSource.LocalPlayer)
-        {
-            if (ShouldDropCommand(source)) return;
-            if (miner == Entity.Null || !em.Exists(miner)) return;
-            if (IsBlockedByNotControllable(em, miner, source)) return;
-
-            if (ShouldQueueForLockstep(source))
-            {
-                QueueGatherForLockstep(em, miner, resource);
-            }
-            else
-            {
-                GatherCommandHelper.Execute(em, miner, resource);
-            }
-        }
-
-        /// <summary>
-        /// Issue a dig-the-Veil command (position-targeted veilstone
-        /// gathering from the curse sheet — there is no resource entity).
-        /// </summary>
-        public static void IssueGatherVeil(EntityManager em, Entity miner, float3 site,
-            CommandSource source = CommandSource.LocalPlayer)
-        {
-            if (ShouldDropCommand(source)) return;
-            if (miner == Entity.Null || !em.Exists(miner)) return;
-            if (IsBlockedByNotControllable(em, miner, source)) return;
-
-            if (ShouldQueueForLockstep(source))
-            {
-                QueueGatherVeilForLockstep(em, miner, site);
-            }
-            else
-            {
-                GatherVeilCommandHelper.Execute(em, miner, site);
-            }
-        }
-
-        // ═══════════════════════════════════════════════════════════════
         // HEAL COMMANDS
         // ═══════════════════════════════════════════════════════════════
 
@@ -1620,6 +1575,36 @@ namespace TheWaningBorder.Core.Commands
             if (SectBuildingCapReached(em, buildingId, faction))
                 return false;
 
+            // TERRITORY GATE (docs/Design/Regions.md §2 + §6). You build in the
+            // ground you hold; a claim structure is the one thing that may go
+            // on Natural ground, because planting it is how ground is taken.
+            //
+            // Enforced HERE and not only in the placement UI: the UI paints the
+            // preview red, but the AI, the lockstep replay and any future
+            // command source come through this function, and a rule only the
+            // local player's mouse obeys is not a rule. Same spend-then-place
+            // contract as the caps above — a rejected placement refunds.
+            if (!TheWaningBorder.World.Regions.TerritoryOwnership.CanBuildAt(
+                    em, faction, buildingId, position.x, position.z))
+                return false;
+
+            // EVERY EXTRACTOR STANDS ON ITS OWN NODE, one per node
+            // (docs/Design/Regions.md §4): Gatherer's Hut on a supply site,
+            // Mine on iron, Veilstone Mine on a veilstone outcropping, Smelter
+            // on a veilsteel deposit. The node count is what limits how many a
+            // territory supports, so there is no separate cap.
+            if (!TheWaningBorder.World.Regions.TerritoryOwnership.OnFreeNodeFor(
+                    em, buildingId, position.x, position.z))
+                return false;
+
+            // One Hall per territory. A second claims nothing (the first
+            // already holds the ground), so it is only a way to waste 600
+            // supplies.
+            if (buildingId == "Hall"
+                && TheWaningBorder.World.Regions.TerritoryOwnership.HallCapReached(
+                       em, position.x, position.z))
+                return false;
+
             if (source == CommandSource.LocalPlayer)
                 TheWaningBorder.AI.AILogger.LogPlayer(faction, "BUILD",
                     $"{buildingId} at ({position.x:0},{position.z:0})");
@@ -1704,17 +1689,13 @@ namespace TheWaningBorder.Core.Commands
                 else
                     em.SetComponentData(building, new UnderConstruction { Progress = 0f, Total = buildTime });
 
-            // Set HP to 1 during construction. Mason's Charter (Renewal) raises
-            // the MAX the site will complete to by 20%, applied here so the
-            // building is stamped with its final ceiling from birth rather than
-            // being retro-patched by a system that would also have to know when
-            // to take the bonus away again.
+            // Set HP to 1 during construction; the site completes to the def's
+            // own Max. No sect research scales building HP any more - Renewal
+            // sells Field Hospital where Mason's Charter used to sit.
             if (em.HasComponent<Health>(building))
             {
                 var hp = em.GetComponentData<Health>(building);
-                int maxHp = (int)(hp.Max * TheWaningBorder.Economy.SectResearchEffects
-                    .BuildingHpMultiplier(faction));
-                em.SetComponentData(building, new Health { Value = 1, Max = maxHp });
+                em.SetComponentData(building, new Health { Value = 1, Max = hp.Max });
             }
 
             // Choice buildings (Shrine / Vault / Keep) self-construct with no
@@ -1749,6 +1730,21 @@ namespace TheWaningBorder.Core.Commands
 
         private static float GetBuildTime(string buildingId)
         {
+            // THE SO OWNS THE NUMBER. BuildingDef.buildTime exists precisely so
+            // a designer can find it; this switch was the authority instead, so
+            // every buildTime authored on a building asset was dead data and
+            // the real figures lived in a file no designer opens. Same trap
+            // CLAUDE.md describes for the 74 factories that carried a
+            // DefaultHP ladder.
+            //
+            // The table below is now a FALLBACK for ids with no def (and the
+            // source the assets were seeded from, so nothing changed hands
+            // behaviourally). A zero on a def is treated as unset rather than
+            // as instant: an instant building is never what anyone meant.
+            if (TechCatalog.TryGetBuilding(buildingId, out var def)
+                && def != null && def.buildTime > 0f)
+                return def.buildTime;
+
             return buildingId switch
             {
                 "Hut" => 15f,
@@ -1768,6 +1764,7 @@ namespace TheWaningBorder.Core.Commands
                 "Feraldis_WarTotem" => 15f,
                 "Feraldis_Pasture" => 30f,
                 "Mine" => 25f,
+                "Alanthor_Sawyer" => 22f,
                 "Feraldis_Longhouse" or "Runai_TradeHub" => 30f,
                 "Alanthor_SiegeYard" or "Runai_SiegeWorkshop"
                     or "Feraldis_SiegeYard" => 35f,
@@ -1866,10 +1863,6 @@ namespace TheWaningBorder.Core.Commands
                 em.RemoveComponent<Types.MoveCommand>(unit);
             if (em.HasComponent<Types.AttackCommand>(unit))
                 em.RemoveComponent<Types.AttackCommand>(unit);
-            if (em.HasComponent<Types.GatherCommand>(unit))
-                em.RemoveComponent<Types.GatherCommand>(unit);
-            if (em.HasComponent<Types.GatherVeilCommand>(unit))
-                em.RemoveComponent<Types.GatherVeilCommand>(unit);
             if (em.HasComponent<Types.BuildCommand>(unit))
                 em.RemoveComponent<Types.BuildCommand>(unit);
             if (em.HasComponent<BuildOrder>(unit))
@@ -1932,6 +1925,11 @@ namespace TheWaningBorder.Core.Commands
                 em.RemoveComponent<FormationMemberState>(unit);
             if (em.HasComponent<FormationSpeedOverride>(unit))
                 em.RemoveComponent<FormationSpeedOverride>(unit);
+            // Out of the formation for good, so forget the slot too —
+            // otherwise a later formation order would put this unit back
+            // into a rank it has long since left.
+            if (em.HasComponent<FormationSlotMemory>(unit))
+                em.RemoveComponent<FormationSlotMemory>(unit);
         }
     }
 }

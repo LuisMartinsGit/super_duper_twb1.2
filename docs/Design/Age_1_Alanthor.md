@@ -138,6 +138,7 @@ Royal Stable building** (see [§ Royal Stable](#royal-stable--cataphract-host-ne
 | **Spearman** | early-mid game line infantry | L1 | `Spearman` (renamed from `Swordsman` per [Age_0.md](Age_0.md)) | HP 120 / 7 s train / 80 S + 30 I / pop 1 |
 | **Swordsman** | mid-late game line infantry | L2 | **(new — no code entry; design draft only)** | TBD (place between Spearman and Royal Guard on the damage / HP curve) |
 | **Royal Guard** | late-game line infantry (Spearman apex) | L3 | **(new — no code entry; design draft only)** | TBD |
+| **Nobleman** | all-rounder — no bonus vs anything, expensive | L2 | `Alanthor_Nobleman` *(shipped)* | Confirmed 2026-08-27 as a deliberate fourth Garrison trainable. It is **not** the Royal Guard: the Nobleman's identity is having no counter-matchup at all, so it never wins an exchange on type advantage and never loses one either. Prices the flexibility. |
 | **Sentinel** | late game **damage-sponge / siege-melee** *(parallel to the line-infantry tier, not on it)* | L2 | `Alanthor_Sentinel` ([TechTree.json:1442](../../Assets/Resources/TechTree.json#L1442)) | HP 160 / spd 5.0 / 18 s train / dmg 12 melee / def 3/2/0/1 / range 1.7 / cost 90 S + 20 Vs / pop 1 |
 
 > **Battalion unit** per [Overview.md § Unit granularity](Overview.md#unit-granularity--single-units-vs-battalions) —
@@ -163,7 +164,15 @@ research cost listed below.
 
 ---
 
-### Practice Range — cultured Archery Range
+### Archery Range — era 2, no cultured rename
+
+> **Renamed back, 2026-08-27.** This section was "Practice Range — cultured
+> Archery Range". The Archery Range is `minEra: 2` and never appears in Age 0,
+> so for Alanthor there is nothing to rename: it is the Archery Range in both
+> ages. Every "Practice Range" below should be read as "Archery Range".
+> Its roster is settled as **Archer / Crossbowman / Longbowman**, and the
+> Archer's canonical id is now `Alanthor_Archer` (the bare `Archer` id survives
+> only as a factory alias for old scenarios and saves).
 
 **Code id:** `Alanthor_PracticeRange` ([TechTree.json:1351](../../Assets/Resources/TechTree.json#L1351)).
 **Doc id:** Archery Range *(the user's draft still calls it "Archery Range" — match design name; code id `Alanthor_PracticeRange` is fine internally).*
@@ -414,7 +423,7 @@ applies — exact tech names TBD (suggest **Barding** / **Iron barding** /
 | LoS | 20 |
 | Defense | 1 / 1 / 0 / 0 |
 | Build cost | 260 S + 100 I + 60 C |
-| Trains | Alanthor_Catapult *(was Alanthor_Ballista — replaced 2026-08-02)* |
+| Trains | Alanthor_Ballista, Alanthor_BatteringRam, **Alanthor_Catapult**, Alanthor_Trebuchet *(all four — settled 2026-08-27; the 2026-08-02 "Catapult replaced Ballista" swap is reversed, they now coexist as opposite halves of the tier: the Ballista is the flat single-target +30 vs Building bolt, the Catapult is the lobbed AOE r3 anti-INFANTRY stone)* |
 
 ### Smelter (Forge) — `Alanthor_Smelter`
 

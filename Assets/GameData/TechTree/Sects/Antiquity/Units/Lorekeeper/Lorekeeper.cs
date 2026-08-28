@@ -18,9 +18,6 @@ namespace TheWaningBorder.Entities
 {
     public static class Lorekeeper
     {
-        private const float DefaultHP = 90f;
-        private const float DefaultSpeed = 3.4f;
-        private const float DefaultLoS = 16f;
         public const int PresentationID = 387; // after Iconoclast (386)
 
         public static Entity Create(EntityManager em, float3 position, Faction faction)
@@ -32,16 +29,10 @@ namespace TheWaningBorder.Entities
         private static Entity CreateInternal<TCreator>(TCreator creator, float3 position, Faction faction)
             where TCreator : struct, IEntityCreator
         {
-            float hp = DefaultHP;
-            float speed = DefaultSpeed;
-            float los = DefaultLoS;
-
-            if (TechCatalog.TryGetUnit("Sect_Lorekeeper", out var def))
-            {
-                if (def.hp > 0) hp = def.hp;
-                if (def.speed > 0) speed = def.speed;
-                if (def.lineOfSight > 0) los = def.lineOfSight;
-            }
+            var def = TechCatalog.Unit("Sect_Lorekeeper");
+            float hp = def.hp;
+            float speed = def.speed;
+            float los = def.lineOfSight;
 
             var entity = creator.CreateEntity();
             creator.AddComponent(entity, new PresentationId { Id = PresentationID });
@@ -52,7 +43,7 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
             creator.AddComponent(entity, new MoveSpeed { Value = speed });
             creator.AddComponent(entity, new LineOfSight { Radius = los });
-            creator.AddComponent(entity, new Radius { Value = 0.5f });
+            creator.AddComponent(entity, new Radius { Value = def.radius });
             creator.AddComponent(entity, new PopulationCost { Amount = 1 });
 
             // Armor identity: unarmored support (no Damage — never fights).

@@ -171,6 +171,7 @@ namespace TheWaningBorder.Core.Localization
             t["Need at least 2 AI warbands to observe!"] =
                 "São necessários pelo menos 2 exércitos de IA para observar!";
             t["Need at least 1 human player!"] = "É necessário pelo menos 1 jogador humano!";
+            t["Everyone is on the same team — someone has to be the enemy!"] = "Estão todos na mesma equipa — alguém tem de ser o inimigo!";
 
             // ── ScenariosPanel ──────────────────────────────────────────
             t["NO SCENARIOS"] = "SEM CENÁRIOS";

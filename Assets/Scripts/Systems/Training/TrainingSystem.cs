@@ -340,17 +340,11 @@ namespace TheWaningBorder.Systems.Training
             {
                 // Resource rally — point miners straight at the deposit so
                 // they auto-gather without any further player input.
-                bool issuedGather = false;
-                if (em.HasComponent<MinerTag>(unit)
-                    && ResourceNodeQuery.IsGatherable(em, rallyTargetEntity))
-                {
-                    TheWaningBorder.Core.Commands.CommandRouter.IssueGather(
-                        em, unit, rallyTargetEntity,
-                        TheWaningBorder.Core.Commands.CommandSource.LocalPlayer);
-                    issuedGather = true;
-                }
-
-                if (!issuedGather)
+                // Rallying onto a resource used to hand miners a GatherCommand.
+                // Nothing gathers now (Regions.md §4), so EVERY unit takes the
+                // stand-beside path below -- which is the one that mattered
+                // anyway: a node stamps its cell impassable, so aiming at its
+                // centre walks the unit into a wall.
                 {
                     // Rallied at a resource but this unit can't gather (a
                     // soldier out of a Hall that also trains workers). Its

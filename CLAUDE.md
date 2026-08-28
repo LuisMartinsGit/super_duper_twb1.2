@@ -32,7 +32,10 @@ without updating the Design folder first.
 | [docs/Design/Age_1_Alanthor.md](docs/Design/Age_1_Alanthor.md) | Alanthor (defense focus) Age 1 tree |
 | [docs/Design/Age_1_Runai.md](docs/Design/Age_1_Runai.md) | Runai (economy / movement focus) Age 1 tree |
 | [docs/Design/Age_1_Feraldis.md](docs/Design/Age_1_Feraldis.md) | Feraldis (military focus) Age 1 tree |
+| [docs/Design/Regions.md](docs/Design/Regions.md) | **Regions** - the map is cut into nearest-seed (Voronoi) regions authored as RegionSeedMarkers. **Age 0 you hold ONLY your start region and can build nowhere else, and it shows no culture aesthetics; age-up is what lets you claim outward** - so title and appearance are separate halves. From Age 1 a region flips to whoever dominates it on the EXISTING influence map (0.6 claim / 0.4 release + 20 s dwell), the curse included. **The build gate now applies to EVERY culture, not just Alanthor** (Gatherer's Hut / Watch Tower exemptions kept, or expansion is impossible). Supersedes two Overview.md statements - see its §4. Every map needs regions or it has no legal build space: `Waning Border > Maps > Seed Regions For Open Scene` |
+| [docs/Design/Territory_And_Nature.md](docs/Design/Territory_And_Nature.md) | **Nature regions as the territory readout** - impassable forests that change appearance with the owning influence channel (Wild / Blighted / Cultivated / Stilled / Ashen), the hysteresis + dwell rules that stop them flickering, the fog rule that keeps them from leaking influence, the Feraldis burn-down exception (the only state that changes passability), and the **author-once substitution model** - the map is built in its mint natural state and a TerrainAnalogueSet maps each natural asset to its per-owner analogue (dirt -> tiles / sandstone / ash), transferring splat weight per layer so the authored PATTERN survives; analogues are SHADER OVERLAYS (TWBTerrainOverlays.hlsl + InfluenceMaskTexture's 128² culture mask), NOT terrain layers - adding a culture look costs zero splat layers, and InfluenceTerrainPainter's runtime SetAlphamaps path is superseded. In-world borders stay lines-only per Overview.md |
 | [docs/Design/Fire.md](docs/Design/Fire.md) | **Fire** — the four ground states (Fuel/Burning/Ash/Bare), slow orthogonal spread, burn DOT, the blood chain-ignition rule (one blood tile lit = every blood tile lit), ash reverting to its original terrain, and the two effect languages |
+| [docs/Design/Unit_Power.md](docs/Design/Unit_Power.md) | **The Power number** — one derived statistic per unit (combat output per resource invested, ~100 = par) for comparing and balancing them. Purely computed from stats the unit already has, so it can never disagree with the SO; `UnitPower.cs` is the only implementation |
 | [docs/Design/Sects.md](docs/Design/Sects.md) | **The 12 sects** — 3 active powers (levels I-III), 1 passive, 1 unit, 1 research each; the four fixed casting radii; the adoption-timing level rule; **no chapel auras**. Supersedes the sect sections of task-063 and the shipped `SectLeverEffects` numbers. Visualization: [docs/SectReference.html](docs/SectReference.html) |
 
 Player-facing UX (controls, hotkeys, AI personalities, multiplayer) lives
@@ -43,21 +46,168 @@ the code currently does, often pre-design-pass) lives in
 ## Architecture
 
 ### ECS (Data-Oriented)
-- **Per-entity code is co-located with its data** in `Assets/GameData/TechTree/{Units,Buildings}/<Culture>/<Entity>/`: the factory, the entity's components file, any single-entity systems and visuals, next to its SO/prefab. Kept in the runtime assembly via `Assets/GameData/TechTree/TheWaningBorder.Runtime.asmref`. Sect units follow the same pattern under `Units/Sects/<Unit>/` and **sect buildings under `Buildings/Sects/<Building>/`** (a branch beside the cultures — Chapel and Reliquary today, the other eleven sect-unique buildings when they land); the curse's two structures live at `Buildings/Border/LargeNode/` (BorderMainNode, the corner well / verb objective) and `Buildings/Border/SmallNode/` (the blight-pocket / corrupted-crop anchor, formerly "Sporeling").
-- **Set-level code sits one level above**: culture-wide tier components at `.../<Culture>/` (e.g. `Age0UnitComponents.cs`), all-unit/all-building code at `Units/` / `Buildings/` root (e.g. `UnitComponents.cs`, `BuildingUpgradeSystem.cs`, wall-set systems at `Buildings/Alanthor/`).
+- **The TechTree is inverted: age/civ FIRST, then Buildings, then the building's
+  own Research and Units.** Restructured 2026-08-27. The top level is:
+
+  ```
+  TechTree/
+    Age0/Buildings/<Building>/{Research,Units,Abilities}/   ArcheryRange, Barracks,
+    Age0/Units/                                             Hall, Hut, GatherersHut,
+                                                            ShrineOfRidan, TempleOfRidan,
+                                                            VaultOfAlmierra, FiendstoneKeep
+    Civs/<Culture>/Buildings/<Building>/{Research,Units,Abilities}/
+    Civs/<Culture>/Units/<Unit>/{Abilities}/   units no building trains
+    Sects/<Sect>/{Abilities,Units,Buildings}/      unchanged — see the sect branch
+    Border/{LargeNode,SmallNode,Units}/            the curse; no age, no civ
+    ResourceNodes/<Node>/
+    Shared/{Buildings,Abilities}/                  all-building / all-ability code
+  ```
+
+  **A unit folder lives under the building that trains it**, read from that
+  building's `trains[]` — never hand-placed. Where a unit has two trainers the
+  first wins (`Feraldis_Berserker` is under WarHall, not Longhouse). Units no
+  building trains sit in `Civs/<Culture>/Units/`.
+- **A cultured building is the SAME entity renamed, so its folder is the
+  CULTURED name.** Alanthor units trained at the Age 0 `ArcheryRange` live under
+  `Civs/Alanthor/Buildings/PracticeRange/Units/`, because for an Alanthor player
+  that building *is* the Practice Range. This is why an Age 0 building's
+  `trains[]` legitimately lists `Alanthor_*` and `Feraldis_*` ids — the roster is
+  culture-gated by id prefix at runtime, per
+  [Age_1_Feraldis.md](docs/Design/Age_1_Feraldis.md) ("the Age 0 Barracks entity,
+  renamed at age-up… the roster lives in the Barracks def's trains list").
+  Do **not** "fix" that by splitting the building into per-culture ids.
+- **Per-entity code is co-located with its data** in the entity's folder above:
+  the factory, the entity's components file, any single-entity systems and
+  visuals, next to its SO/prefab. Kept in the runtime assembly via
+  `Assets/GameData/TechTree/TheWaningBorder.Runtime.asmref`.
+- **Set-level code sits one level above**: culture-wide code at `Civs/<Culture>/`
+  (e.g. `AlanthorCombatPassives.cs` + its system), building-wide code at
+  `Civs/<Culture>/Buildings/` (e.g. `AlanthorBuildingComponents.cs`), all-building
+  / all-unit code at `Shared/Buildings/` and `Age0/Units/`.
+- **A component file lives with the system it was split out of.** Several
+  `*Components.cs` files were lifted out of their systems "so the simulation's
+  vocabulary lives in one place" and then filed under `Scripts/Components/<Culture>/`,
+  a completely different tree from the system that owned them. Alanthor's three were
+  reunited 2026-08-27 (`AlanthorCombatPassives`, `LayeredMoveComponents`,
+  `WallGarrisonComponents`). **Feraldis (8 files), Runai, Border and Age 0 still have
+  the split** under `Scripts/Components/{Buildings,Units}/` — same treatment applies
+  when those cultures get their pass. Only genuinely cross-domain components stay in
+  `Scripts/Components/` root.
+- **The Alanthor wall set is one folder**: `Civs/Alanthor/Buildings/Walls/` holds
+  `Wall/`, `WallGate/`, `WallTower/` and the two-layer `LayeredMove*` pair. They are
+  one BFME2-style hub-and-segment system — the gate and the wall tower are
+  conversion-only from a wall instance and cannot be placed directly — so they are
+  filed as a set, not as three sibling buildings. `Tower/` is NOT part of it: the
+  watch tower is a stand-alone building from the Age 0 hut conversion.
 - **Cross-domain components** (CoreComponents, CombatComponents, etc.) stay in `Scripts/Components/`; **cross-domain systems** (Combat, Navigation, Work, Training, AI, Border) stay in `Scripts/Systems/` by domain.
-- **`Scripts/<Domain>/` vs `Scripts/Systems/<Domain>/`** — four domains (AI, Abilities, World, Economy) appear in both places, and the rule is:
-  - `Scripts/<Domain>/` holds the domain's **state, policy and helpers** used from anywhere — `AIBrain`, `TargetScorer`, `AbilityCatalog`, `FactionResources`, `TerrainUtility`, `PassabilityGrid`.
+- **`Scripts/<Domain>/` vs `Scripts/Systems/<Domain>/`** — three domains (AI, World, Economy) appear in both places, and the rule is:
+  - `Scripts/<Domain>/` holds the domain's **state, policy and helpers** used from anywhere — `AIBrain`, `TargetScorer`, `FactionResources`, `TerrainUtility`, `PassabilityGrid`.
   - `Scripts/Systems/<Domain>/` holds its **ECS systems**, plus helpers used *only* by them (`AIEndgameCommon`, `AIPivotalReserve`).
 
-  Audited 2026-08-26: the rule holds in every file — no ECS system sits in a domain folder, and no domain-wide helper sits under `Systems/`. It looked like the same domain scattered across two folders, which is why it is written down now; splitting a domain's state from its systems is deliberate, not drift.
+  Audited 2026-08-26: the rule holds in every file — no ECS system sits in a domain folder, and no domain-wide helper sits under `Systems/`. It looked like the same domain scattered across two folders, which is why it is written down now; splitting a domain's state from its systems is deliberate, not drift. **Abilities was the fourth such domain and no longer is** — it left `Scripts/` entirely on 2026-08-27 (next bullet but one).
 - **Shared factories are DISPATCH ONLY**: `UnitFactory.cs` in `Entities/Units/` and `BuildingFactory.cs` in `Entities/Buildings/` hold the id→recipe table and the cross-entity queries; the per-entity creation code lives in that entity's GameData folder as its own static class (`Hall.Create`, `KingsCourt.Create`, …, both an `EntityManager` and an `EntityCommandBuffer` overload). Adding a building = write its class in its folder, add one row to the recipe table.
-- **Abilities are co-located too**: `Assets/GameData/TechTree/Abilities/{Unit,Status}/<Ability>/` carries one `AbilityDefSO` per ability plus its icon/VFX-prefab slots (generate via `Waning Border > Tech Tree > Generate Ability SOs`; the `AbilityCatalog` code seed is the runtime fallback). The generic ability engine stays in `Scripts/Abilities/` + `Scripts/Systems/Abilities/`, sect god powers stay JSON-backed. **Sect abilities are NOT here** — see the sect branch below.
-- **Presentation** lives at the TechTree top layer: `Assets/GameData/TechTree/Presentation/{Spawn,Buildings,Units,Border,Vfx,Procedural}/` holds the shared pipeline (PresentationSpawnSystem core, EntityViewManager, all-building/all-unit visual systems). Entity-specific visuals live in that entity's folder — including `PresentationSpawnSystem.<Entity>.cs` partials for procedural builders (Smelter, Vault of Almierra, Border LargeNode, the Alanthor wall set).
+- **An ability lives with whatever OWNS it**, in an `Abilities/<Ability>/`
+  folder one level down — never in a shared ability pool. There is no
+  `Age0/Abilities/` or `Civs/<Culture>/Abilities/` any more (flattened
+  2026-08-27):
+  - the **unit that casts it** — `Age0/Buildings/Hall/Units/Scout/Abilities/{ScoutSight,UseCelestar}/`,
+    `Civs/Alanthor/Units/KingLexor/Abilities/{KingsCall,LiquidCourage,VeilshiftWithdrawal,LifeCling}/`
+    (an aftermath ability files under the caster of the ability that chains
+    into it), `Civs/Alanthor/Units/Ledger/Abilities/{AutomateFacility,UnderAutomation}/`
+  - the **building whose research grants it**, when the grant spans a whole
+    roster rather than one unit — `Civs/Alanthor/Buildings/RoyalStable/Abilities/{WarHorn,FullGallop}/`,
+    granted to every cavalry unit by the Royal Stable techs of the same name
+  - the **sect that sells it**, which outranks both of the above —
+    `Sects/Renewal/Abilities/DeployFieldHospital/`. The Litharch casts it, but
+    it is the Sect of Renewal's `[RESEARCH]`, so it files under the sect and not
+    under the Age 0 unit. **The building an ability conjures files with the
+    ability**, not under `Buildings/`: the temporary Field Hospital's four
+    `FieldHospital*.cs` live in that same folder, because it exists only as the
+    ability's payload and is not the sect's `[BUILDING]` slot (that is the
+    Mending Hall).
+
+  Each folder carries one `AbilityDefSO` plus its icon/VFX-prefab slots (the
+  `AbilityCatalog` code seed is the runtime fallback). Sect god powers stay
+  JSON-backed — see the sect branch below. The generic ability **engine** is no
+  longer under `Scripts/` at all: see the next bullet.
+- **`TechTree/` holds only what the player directly interacts with** — buildings,
+  units, research and abilities. It is a CONTENT branch, not a code branch.
+  Game systems that merely happen to act on that content live elsewhere; the
+  Presentation pipeline used to sit at the TechTree top layer and was moved out
+  on 2026-08-27 for exactly this reason. Do not add a system folder back under
+  `TechTree/`.
+- **`Assets/GameSystems/` is where a game system lives** — code that acts on
+  TechTree content without being content itself. Two of them today:
+  `Presentation/` and `Abilities/`.
+- **The ability engine is a game system**: `Assets/GameSystems/Abilities/`
+  holds the whole generic engine — `AbilityRuntimeComponents`,
+  `AbilityEffectExecutor`, `AbilityDamageHooks`, `AbilityAssignment`,
+  `AbilityQuery`, the two ECS systems (`AbilityAuraSystem`,
+  `AbilityLifecycleSystem`) and the spell-VFX authoring layer in `Vfx/`
+  (namespace `TheWaningBorder.Abilities.Vfx`). Moved out of
+  `Scripts/{Abilities,Systems/Abilities}/` on 2026-08-27. The whole folder is
+  one namespace, `TheWaningBorder.Abilities` — the two systems used to declare
+  `TheWaningBorder.Systems.Abilities`, which matched no folder once
+  `Scripts/Systems/Abilities/` was gone. **`AlanthorCombatPassiveSystem.cs` at
+  `Civs/Alanthor/` still declares that dead namespace** and is the last file
+  that does; it is the namespace-lies trap, not a surviving folder.
+  **The ability DATA MODEL went the other way**, to
+  `GameData/TechTree/Shared/Abilities/` — `AbilityCard.cs` (the card shape +
+  `AbilityEffectKind`) and `AbilityCatalog.cs` (the card library and its code
+  seed), next to the `AbilityDefSO` / `AbilityCatalogSO` already there. The
+  split is the same one the whole tree uses: what an ability *is* is content,
+  what *runs* it is a system. Adding an ability that reuses existing effect
+  kinds touches only the GameData side.
+- **Presentation is a game system**: `Assets/GameSystems/Presentation/{Spawn,Buildings,Units,Border,Vfx,Procedural}/`
+  holds the shared pipeline (PresentationSpawnSystem core, EntityViewManager,
+  all-building/all-unit visual systems). `Assets/GameSystems/` carries its own
+  `TheWaningBorder.Runtime.asmref`, so it compiles into the runtime assembly
+  exactly as the TechTree branch does — the move was folder-only, and the
+  namespace stayed `TheWaningBorder.Presentation`.
+  **That namespace does not match the folder, and it also does not match the
+  `TheWaningBorder.Presentation` ASSEMBLY** (which is `Assets/Scripts/Presentation/`
+  = UI + Input, namespaces `TheWaningBorder.UI.*` / `TheWaningBorder.Input`).
+  Renaming it to `TheWaningBorder.Systems.Presentation` would touch ~77 files
+  and is a deliberate follow-up, not drift.
+  Entity-specific visuals still live in that entity's TechTree folder — including
+  the seven `PresentationSpawnSystem.<Entity>.cs` partials (Vault of Almierra,
+  Smelter, Alanthor Wall, Border LargeNode, and the three ResourceNodes). They
+  MUST stay in the runtime assembly: a partial class cannot span assemblies.
+- **Shared art the presentation code paints with** lives at
+  `Assets/GameData/Art/{Atlases,Placeholders}/` — the building texture atlases
+  (referenced by FBX importer material remaps, not by prefabs) and the six
+  `PLACEHOLDER_*.mat` materials used by the procedural placeholder visuals. Art
+  belongs under `GameData/`, never under `Assets/Scripts/` or `Assets/GameSystems/`.
 - **Resource nodes follow the same convention**: `Assets/GameData/TechTree/ResourceNodes/{VeilstoneOutcropping,VeilsteelDeposit,IronDeposit}/` carry each node's factory, bootstrap, map marker and visual code (the veilstone gem-cluster prefab cache lives in VeilstoneOutcropping and is shared by the well and veilsteel visuals). The branch is named `ResourceNodes`, **not** `Resources`, on purpose: a folder called `Resources` anywhere in `Assets/` is a Unity magic folder, so every asset under it would be force-included in builds and `Resources.Load`-able. Do not rename it back.
+- **Every entity stat comes from the SO. Factories hold no numbers.** A factory
+  reads `TechCatalog.Unit(id)` / `TechCatalog.Building(id)` — never-null
+  accessors — and assigns straight from the def:
+
+  ```csharp
+  var def = TechCatalog.Unit("Spearman");
+  float hp = def.hp;
+  float radius = def.radius;
+  ```
+
+  **Do not reintroduce a `private const float DefaultHP = 800f` ladder, and do
+  not write `if (def.hp > 0) hp = def.hp;`.** That guard is a magic number in
+  disguise: it makes the SO authoritative only when it happens to be filled in,
+  and a C# constant authoritative — silently — whenever it is not. 74 factories
+  carried that pattern until 2026-08-27; 50 stat fields were living in code
+  where no designer could find them, and the Caravan's SO had drifted a full
+  rebalance behind the constants that actually shipped.
+  A missing or zero stat is a DATA bug, caught loudly at load by the stat audit
+  in `TechCatalog.ValidateCrossReferences()`, not a runtime branch in 74 files.
+  `UnitDef` gained `radius` / `aimTime` / `healRange`; `BuildingDef` gained
+  `buildTime` / `populationProvided` / `suppliesPerTick` / `suppliesInterval` /
+  `maxIron` / `maxVeilstone` / `segmentHp` / `segmentLineOfSight`, so there is a
+  home for every number a factory used to hold.
+  Genuinely engine-side constants still belong in code — projectile aim
+  handling, steering, lockstep timing, AI patrol caps. The test is whether a
+  designer would ever want to tune it per entity.
 - **Technologies are SOs, filed under the building that researches them**: one
-  `TechDefSO` per tech at `Assets/GameData/TechTree/Buildings/<Culture>/<Building>/Research/<Tech>.asset` (a sect building's is at `Sects/<Sect>/Buildings/<Building>/Research/`)
-  (e.g. `Buildings/Age 0/ArcheryRange/Research/Fletching.asset`), carrying its costs,
+  `TechDefSO` per tech at `Age0/Buildings/<Building>/Research/<Tech>.asset` or `Civs/<Culture>/Buildings/<Building>/Research/<Tech>.asset` (a sect building's is at `Sects/<Sect>/Buildings/<Building>/Research/`)
+  (e.g. `Age0/Buildings/ArcheryRange/Research/Fletching.asset`), carrying its costs,
   prerequisites, culture gate and both effect models. `TechTreeCatalog.asset` holds the
   references so they load without a magic `Resources/` folder; JSON is the deprecated
   fallback, same as units/buildings.
@@ -102,7 +252,7 @@ one layer at a time (see the restructure plan):
 
 | Assembly | Root | Files | Contains |
 |----------|------|-------|----------|
-| `TheWaningBorder.Runtime` | `Assets/Scripts/` (+ `GameData/TechTree` via asmref) | 670 | Core, Components, Systems, Entities, Data, Multiplayer, World and all content. **References nothing of ours.** |
+| `TheWaningBorder.Runtime` | `Assets/Scripts/` (+ `GameData/TechTree` and `GameSystems/` via asmref) | 670 | Core, Components, Systems, Entities, Data, Multiplayer, World, Presentation and all content. **References nothing of ours.** |
 | `TheWaningBorder.Presentation` | `Assets/Scripts/Presentation/` | 73 | `UI/` and `Input/`. They are mutually dependent (14 files one way, 3 the other), so they are one assembly. → Runtime |
 | `TheWaningBorder.Bootstrap` | `Assets/Scripts/Bootstrap/` | 15 | wiring; the only layer allowed to know about everything. → Runtime, Presentation |
 | `TheWaningBorder.Editor` | `Assets/Scripts/Editor/` | 6 | `PlayerBuild`, `AlphaBuildPostProcess`, `MapSceneSync`, `MapInfoBaker`, `MapLobbyImageBaker`, `MapAssetFolders`. → Runtime |
@@ -148,6 +298,14 @@ builds stop.
 - Cultures: `Cultures.None / Runai / Alanthor / Feraldis`
 
 ## Key Design Decisions (Do Not Change)
+
+> **SUPERSEDED BY DESIGN, NOT YET BY CODE (2026-08-27).**
+> [docs/Design/Regions.md](docs/Design/Regions.md) §4 removes worker gathering
+> outright: income comes from territory ticks, forests and mines, and there is
+> ONE unit — the Worker — which only builds. The Miner and the Builder are gone.
+> The four mining/worker bullets below describe what the code does TODAY and are
+> accurate for it; they are no longer the design. Do not "fix" code toward them.
+
 - Player color does NOT change on culture selection
 - Mined resources are credited straight to the faction bank on each gather
   tick — there are NO carrying workers and NO dropoff buildings

@@ -244,7 +244,7 @@ public static class CultureConfig
     /// Drop a culture from this test to ship it.
     /// </summary>
     public static bool IsComingSoon(byte culture)
-        => culture == Cultures.Runai;
+        => culture == Cultures.Runai || culture == Cultures.Feraldis;
 
     /// <summary>
     /// Coerces a desired culture to one this build actually ships.

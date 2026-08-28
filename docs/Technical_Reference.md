@@ -54,6 +54,7 @@
 34. [Building Footprints](#34-building-footprints)
 35. [Rally Point System](#35-rally-point-system)
 36. [Complete Sect System (4 Pillars x 12 Sects)](#36-complete-sect-system-4-pillars-x-12-sects)
+37. [Unit Sandbox (balance-testing tool)](#37-unit-sandbox-balance-testing-tool)
 
 ---
 
@@ -1639,6 +1640,35 @@ Two-stage system:
 1. **Blood accumulation**: `SpillBlood(pos, amount)` called on unit death. Splat radius: lerp(3, 12, amount). Blood persists indefinitely.
 2. **Totem claiming**: Totem Towers claim blood-soaked territory within claimRadius (20 world units). Blood threshold: 0.1. Pipeline: read BloodMap -> test distance+threshold -> composite to B.
 
+### Terrain layer textures (2026-08-27)
+
+`InfluenceTerrainPainter` drives Unity **terrain layers by name** —
+`AlanthorInfluence`, `RunaiiInfluence`, `FeraldisInfluence`, `CurseInfluence`,
+`Blood`, `VeilstonePatch` — loaded from `Assets/Resources/TerrainLayers/`.
+Missing layers are silently skipped, which is what makes this failure quiet.
+
+Those `.terrainlayer` assets reference their textures **by GUID**, and all six
+targets had been dangling: they lived under
+`Assets/GameData/Scenes/Maps/8FFA/` and went out as collateral in
+`066d3a58 chore(world): drop the 4FFA / 8FFA test maps`. Every influence layer
+had been rendering with no diffuse ever since — Alanthor lost its paving-stone
+bricks, curse rendered nothing, and blood fell back to a flat remap-tinted fill.
+
+They now live at **`Assets/GameData/Art/TerrainLayers/`** (GUIDs preserved, so
+the layer assets resolve without edits), matching the rule that shared art the
+presentation code paints with belongs under `GameData/Art/`:
+
+| Layer | Diffuse | Also |
+|---|---|---|
+| AlanthorInfluence | `PavingStones070_2K-PNG_Color.png` | `_NormalGL` |
+| CurseInfluence | `RockSubstance003_COMPILED_basecolor.tga` | `_normal` |
+| Blood | `PaintedPlasterSubstance002_COMPILED_basecolor.tga` | `guts_height.png` (mask) |
+
+**Blood is weight-capped**, unlike the influence layers: `BloodWeightMax = 0.6`
+(ramp 0.25 -> 0.85). At a full 1.0 the layer REPLACES the ground, so saturated
+blood read as one continuous red sheet; holding the ceiling below 1 keeps the
+terrain visible underneath, letting the layer's own mask shape puddles.
+
 ---
 
 ## 31. AI Behaviors
@@ -2124,3 +2154,139 @@ Where `SpellCooldownReduction` comes from sect passives (e.g., Veiled Memory -10
       Unit: Adept / Dispel          Unit: Judicator / Condemn     Unit: Nullblade / VoidStrike
       Spell: Veil of Shadows        Spell: Dominate               Spell: Annihilation
 ```
+
+---
+
+## 37. Unit Sandbox (balance-testing tool)
+
+**Scenarios ▸ "Unit Sandbox (place any unit, live SO editing)"**
+(`ScenarioType.Sandbox`, scene `Scenario_Sandbox`).
+
+An empty flat map with no starting units, no AI and no victory check — you
+build the board yourself and tune it while it runs. It exists because every
+other scenario is a hardcoded layout in `ScenarioSetup.cs`, so trying a new
+matchup used to mean editing C# and recompiling.
+
+| Piece | Where |
+|-------|-------|
+| Palette, live resync, result readout | `Presentation/UI/HUD/SandboxPanel.cs` |
+| Scenario hook (mounts the panel, spawns nothing) | `ScenarioSetup.SpawnSandbox` |
+| Click suppression while armed / hovering | `RTSInputManager.ShouldIgnoreWorldClick` |
+| Bottom-band HUD reservation | `GameUIManager.ReservedBottomScreenHeight` |
+| Influence erase (added for the brush) | `PlayerInfluenceMap.Erase` |
+
+### Placing
+Two palette tabs, **Units** and **Buildings**. Pick an entry, pick a faction,
+then click the ground. The brush stays armed for repeat placement;
+**Ctrl+click** places one and disarms, **RMB / Esc** cancels.
+
+Units take a brush size (x1/x5/x10/x20) and drop as a centred square block.
+Buildings always place **one** — footprints differ per building and
+`BuildingFactory.Create` snaps every placement to the 2 m build grid, so a
+multi-brush would stack structures on the same cells. That same factory call
+produces a **completed** structure: `UnderConstruction` is added by the player
+placement path, not by the factory.
+
+All eight factions are available, which is why `PreInit` raises `TotalPlayers`
+to 8 for this scenario: `EconomyBootstrap` only creates that many banks, and an
+entity whose faction has no bank trips every system that reads one.
+
+### Grouping
+The list is collapsed into one foldout per TechTree branch — **Age 0**,
+**Alanthor**, **Runai**, **Feraldis**, **Sects**, **The Curse**, **Other** —
+so the full roster is never dumped at once. Typing in the filter box expands
+every group with a hit; clearing it collapses back.
+
+Grouping reads **ids**, which are the runtime taxonomy ("the roster is
+culture-gated by id prefix at runtime"), mirroring the same rules
+`EntityExtractors.GetRequiredCultureForUnit` / `GetRequiredCulture` already
+ship — including their prefix-less exceptions (`Ledger` / `King Lexor` are
+Alanthor, `ThessarasBazaar` is Runai, `Mine` is Feraldis, `FiendstoneKeep` is
+universal). Sect content is all prefixed: units `Sect_<Unit>`, chapels
+`Chapel_<SectId>`, and the five sect **buildings** `Sect_Reliquary` /
+`Sect_Stonehold` / `Sect_Veilworks` / `Sect_MendingHall` / `Sect_MusterYard` —
+their folder names drop the prefix, their ids do not. The **Other** bucket is
+the catch-all, so nothing is ever silently hidden.
+
+### Editing stats without leaving play mode
+`TechCatalog.TryGetUnit` / `TryGetBuilding` call `so.ApplyTo(cached)` on
+**every** lookup, so an Inspector edit to a `UnitDefSO` / `BuildingDefSO` is
+already visible to the next entity spawned — no catalog reload, no domain
+reload, no recompile. The panel closes the other half: it snapshots each type's
+def and pushes what changed onto entities **already on the field**, at 10 Hz.
+
+It is a **change propagator, not a clamp** — it applies deltas, and only for
+fields that moved. Re-pushing every field every tick would stomp research
+bonuses, rank bumps and ability buffs the moment they applied. HP changes
+preserve the wound fraction, so an entity at 50% stays at 50% of the new
+maximum rather than silently healing mid-fight.
+
+Live-syncable (shared components, every write `HasComponent`-guarded, which is
+what lets one code path serve both kinds): `Health.Max`, `MoveSpeed`, `Damage`,
+`AttackCooldown`, `LineOfSight`, `Radius`. Buildings carry no
+speed/damage/cooldown in their def, so those stay 0 and never register as
+changed.
+
+**Not** live-syncable: anything held in a type-specific state struct —
+`ArcherState.MinRange`/`MaxRange`/`AimTimeRequired`, projectile trajectory and
+speed, the `Defense` block, building levels. **Respawn all** covers those: it
+replays every recorded placement through the factories, so the board comes back
+fully current with the SOs.
+
+Units are identified by their `UnitTypeId` stamp; buildings carry no
+equivalent, so the panel remembers what it placed (`_buildingIdByEntity`) —
+complete by construction, since nothing else spawns in this scenario.
+
+### Result readout
+Damage is measured by watching `Health` deltas, the same way `DamageNumbersUI`
+does — that covers melee, projectiles, AoE, spells, burn DOT and regen without
+hooking a single combat system, and it only reads, so nothing can desync.
+
+Per faction and per type (buildings marked `[B]`): alive/spawned, damage taken,
+losses, healing received, and time to resolve (the clock freezes when one side
+is left standing). Damage **dealt** is reported per side only, derived as the
+sum of what every other side took — per-type attribution would need
+attacker-side hooks and is deliberately not claimed.
+
+### Terrain brush
+A third tab, **Terrain**, paints three map layers. Hold LMB and drag; stamps
+are throttled to 25/s so a slow drag does not deposit repeatedly into one cell.
+Paint / Erase toggle, radius 2-60 m, strength 0.05-1.
+
+| Layer | Writes to | Notes |
+|-------|-----------|-------|
+| **Blood** | `BloodMap` | `AddBlood` has a FIXED 2.5 m splat, so a wide brush **tiles** splats across the disc at `BloodMap.SplatRadius` spacing rather than passing a radius. Erase is `BloodMap.Drain`, which does take one. |
+| **Curse** | `PlayerInfluenceMap` ch.8 **and** `VeilField.Saturation` | The curse has two layers and the brush writes both. What you SEE is the curse influence channel; what SIMULATES is the crust byte grid. In a match only the crust is authored and `VeilFieldSystem` deposits the channel from it - but that system is gated `RequireForUpdate<BorderNodeState>` ("no wells, no veil") and the sandbox starts with none, so painting saturation alone rendered **nothing**. The channel is now deposited directly; the crust write is best-effort on top (`-1` cells = this map has no veil field). Writing crust bumps **`Generation`** - `VeilNavStampSystem` re-mirrors impassable crust into the nav field only when that counter moves - after `CompleteAllTrackedJobs`, since `VeilFieldSystem` jobs share the array. |
+| **Player influence** | `PlayerInfluenceMap` | `Deposit` into the brush faction's channel (0-7). |
+
+`PlayerInfluenceMap.Erase` was added for this: `Deposit` clamps only the UPPER
+bound, so a negative amount would drive cells below zero and leave territory
+needing an equal positive deposit before it read as neutral again. Erasing is a
+distinct operation, not negative depositing - the same relationship
+`BloodMap.Drain` already had with `AddBlood`.
+
+**These are live simulations, not a canvas.** Painted influence decays toward
+neutral, blood decays inside influence, and the curse crust grows and recedes by
+its own CA rules. The panel says so on screen, because otherwise fading paint
+reads as a broken brush.
+
+While the Terrain tab is open the brush owns the mouse outright
+(`IsPlacing` is unconditionally true), so a drag paints instead of box-selecting.
+Switch tabs to get selection back.
+
+### Screen layout
+Both overlays sit in the **top corners**. The in-game HUD owns the bottom band
+across the full width (bottom-left dock, actions panel, minimap) and the match
+clock owns top-centre, so the sandbox reads both reservations —
+`GameUIManager.ReservedBottomScreenHeight` and
+`GameClockHUD.ReservedScreenHeight` — rather than hardcoding rects. A HUD
+re-layout moves the sandbox with it instead of silently overlapping; this is
+the same contract `TopChoiceBar` already has with the clock. The readout is
+height-capped and scrolls internally so it can never grow down into the HUD.
+
+Speed controls (pause / .25x / **.5x** / **.75x** / 1x / 2x / 4x) drive
+`Time.timeScale`, on every tab, split across two rows because seven buttons do
+not fit one row at the panel width. The sub-1x steps are the ones that earn
+their place in a balance tool - .5x and .75x are where a fight is slow enough to
+read individual trades without the .25x crawl. The panel restores the scale to 1
+on unload, since it is global and survives a scene load.

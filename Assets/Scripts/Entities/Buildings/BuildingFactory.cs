@@ -98,7 +98,13 @@ namespace TheWaningBorder.Entities
                 ["Feraldis_Foundry"]        = new BuildingRecipe(FeraldisFoundry.Create, FeraldisFoundry.Create, 367),
                 ["Feraldis_WarTotem"]       = new BuildingRecipe(WarTotem.Create, WarTotem.Create, WarTotem.PresentationID),
                 ["Feraldis_Pasture"]        = new BuildingRecipe(Pasture.Create, Pasture.Create, Pasture.PresentationID),
+                ["Feraldis_HallOfAxes"]     = new BuildingRecipe(HallOfAxes.Create, HallOfAxes.Create, HallOfAxes.PresentationID),
                 ["Mine"]                    = new BuildingRecipe(Mine.Create, Mine.Create, Mine.PresentationID),
+                // The veilstone half of the extraction pair. Iron has the
+                // Mine, veilsteel has the Smelter; without this, veilstone
+                // was the one territory resource with no way to invest in it.
+                ["VeilstoneMine"]           = new BuildingRecipe(VeilstoneMine.Create, VeilstoneMine.Create, VeilstoneMine.PresentationID),
+                ["Alanthor_Sawyer"]         = new BuildingRecipe(Sawyer.Create, Sawyer.Create, Sawyer.PresentationID),
 
                 // Sect buildings — one per sect, capped at 5 per faction
                 // (SectBuilding.CapPerFaction). Each trains its sect's unit and

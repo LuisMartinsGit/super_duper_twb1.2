@@ -116,11 +116,10 @@ namespace TheWaningBorder.AI
                     _matchTimeAnchor = (float)SystemAPI.Time.ElapsedTime;
                 float now = (float)SystemAPI.Time.ElapsedTime - _matchTimeAnchor;
 
-                // The AI owns miner tasking. Idle miners get explicit
-                // GatherCommands — no auto-find anywhere. The veilstone-vs-iron
-                // split is whatever the build order set via SetVeilstoneTarget;
-                // 0 (default) means iron-only.
-                AssignIdleMiners(em, brain.Owner, aiState.VeilstoneMinerTarget, brain.Strategy, now);
+                // Miner tasking is gone: income comes from held territory, not
+                // from workers on deposits (Regions.md §4). The AI's economic
+                // decision is now WHERE TO CLAIM, which belongs in the build
+                // order rather than here.
 
                 // Replace any military/miners that died since the build order
                 // queued them. Runs before the next step so replacements take
@@ -138,9 +137,29 @@ namespace TheWaningBorder.AI
                 // built Huts.
                 EnsurePopulationHeadroom(em, brain.Owner);
 
+                // TERRITORY IS THE ECONOMY (Regions.md §4): a region yields
+                // only to whoever holds it, and a Hall is what holds it. This
+                // is the "WHERE TO CLAIM" decision noted above — opportunistic,
+                // because it depends on the bank and on what ground is still
+                // free, neither of which a scripted build order can know.
+                EnsureTerritoryClaim(em, brain.Owner, now);
+
+                // …and INVEST in the ground already held. With nodes depleting,
+                // an unworked territory gets poorer whether or not anyone is
+                // extracting from it, so the extraction buildings are not a
+                // late-game optimisation any more.
+                EnsureExtractors(em, brain.Owner, now);
+
                 // Army missions: prune the dead, regroup finished armies,
                 // retreat outmatched ones (per mission, not globally).
                 UpdateMissions(em, brain.Owner, ref aiState, settings, now);
+
+                // TACTICAL layer: what each army does once it is in contact.
+                // Runs AFTER UpdateMissions, so every mission it sees is live
+                // and has already had its dead pruned. Dispatch decides where
+                // an army goes; this decides what it fights when it gets
+                // there, and keeps it together while it does.
+                TickArmyTactics(em, brain.Owner, now);
 
                 // M4: evaluate the posture (threat near base -> Defend; gutted
                 // army -> Rebuild; assembled army + healthy bank -> Pressure)
@@ -187,9 +206,21 @@ namespace TheWaningBorder.AI
                 // matches while never banking the one resource that gates.
                 if (now > profile.AgeUpPushSeconds && aiState.AgeUpIssued == 0)
                     advancementGate = true;
-                bool suppliesStarved = FactionEconomy.TryGetBank(em, brain.Owner, out var policyBank)
-                    && em.GetComponentData<FactionResources>(policyBank).Supplies < 150;
-                AIBudget.EvaluateWeights(aiState.Posture, advancementGate, suppliesStarved,
+                // ── STRATEGY FIRST: pick (or keep) a committed plan, then let
+                //    that plan set the budget. ──
+                //
+                // The advancement gate is now an INPUT to the decision rather
+                // than an override of it. It used to tilt 65% of income to a
+                // wallet that never lends, for as long as an age-up was
+                // pending — which was most of the match, and which is why four
+                // AIs managed 17 combat units between them in 30 minutes.
+                // Now it argues for the Tech plan, and the Tech plan's commit
+                // window is what bounds the push.
+                TickStrategicPlan(em, brain.Owner, ref aiState, personality,
+                    profile, advancementGate, now);
+
+                var planProfile = PlanProfileOf(brain.Owner);
+                AIBudget.EvaluateWeights(planProfile, aiState.Posture,
                     out float wAdv, out float wMil, out float wEco);
                 AIBudget.Tick(em, brain.Owner, wAdv, wMil, wEco, thinkInterval, now);
 

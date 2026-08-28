@@ -19597,9 +19597,6 @@ MonoBehaviour:
   GameNameField: {fileID: 1815442436}
   PlayerNameField: {fileID: 401904804}
   PortField: {fileID: 159687890}
-  PlayersMinus: {fileID: 1762914840}
-  PlayersPlus: {fileID: 1791770987}
-  PlayersValue: {fileID: 432199280}
   CreateButton: {fileID: 1752718702}
   GamesContent: {fileID: 207036931}
   GameRowTemplate: {fileID: 1600848794}
@@ -19614,6 +19611,8 @@ MonoBehaviour:
   FogState: {fileID: 1407348532}
   BorderToggle: {fileID: 1724412756}
   BorderState: {fileID: 197690219}
+  ResourcesDropdown: {fileID: 0}
+  AgeDropdown: {fileID: 0}
   SlotsContent: {fileID: 1877263347}
   SlotRowTemplate: {fileID: 100348138}
   ConnectingLabel: {fileID: 941746061}

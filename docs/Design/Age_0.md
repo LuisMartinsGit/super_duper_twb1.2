@@ -72,7 +72,7 @@ Age 0 projects **no influence**, so it gets its own curse layer:
 The starting building. Provides economic units and core economy research.
 At age-up the Hall is
 **renamed and reskinned** to its cultured form (`Town Hall` / `Trader's Hall`
-/ `War Hall` â€” see [Â§ Age-up transitions](#age-up-transitions)); the cultured
+/ `Warrior's Hall` â€” see [Â§ Age-up transitions](#age-up-transitions)); the cultured
 form then starts at lvl 1 and has its own upgrade ladder. In Age 0 only the
 pre-culture lvl 0 form exists.
 
@@ -108,7 +108,7 @@ pre-culture lvl 0 form exists.
 ### Barracks â€” lvl 0 (pre-culture)
 
 Trains and upgrades melee units. At age-up the Barracks is **renamed and
-reskinned** to its cultured form (`Garrison` / `Route Guard` / `Longhouse` â€”
+reskinned** to its cultured form (`Garrison` / `Route Guard` / `War Hall` â€”
 see [Â§ Age-up transitions](#age-up-transitions)); the cultured form then
 starts at lvl 1 and has its own upgrade ladder. In Age 0 only the pre-culture
 lvl 0 form exists.
@@ -162,7 +162,7 @@ hand-mining economy every other Age 0 lesson is built on.
 > happens from age-up onward.
 
 Trains and upgrades ranged units. At age-up the Archery Range is **renamed
-and reskinned** to its cultured form (`Longbow Grounds` / `Arrowyard` /
+and reskinned** to its cultured form (`Practice Range` / `Arrowyard` /
 `Thrower Camp` â€” see [Â§ Age-up transitions](#age-up-transitions)); the
 cultured form then starts at lvl 1 and has its own upgrade ladder.
 
@@ -592,9 +592,26 @@ map so the Age 0 build order can be planned forward.
 
 | Age 0 building | Alanthor (lvl 1) | Runai (lvl 1) | Feraldis (lvl 1) |
 |----------------|------------------|---------------|------------------|
-| Hall | Town Hall | Trader's Hall | War Hall |
-| Barracks | Garrison | Route Guard | Longhouse |
-| Archery Range | Longbow Grounds | Arrowyard | Thrower Camp |
+| Hall | Town Hall | Trader's Hall | Warrior's Hall |
+| Barracks | Garrison | Route Guard | War Hall |
+| ~~Archery Range~~ | *(**not a carryover** — Alanthor-only, era 2. Runai's Arrowyard and Feraldis's Thrower Camp are separate buildings, not renames. 2026-08-27)* | — | — |
+
+> **Names corrected 2026-08-27.** This table previously read `War Hall` for the
+> cultured Hall, `Longhouse` for the cultured Barracks and `Longbow Grounds`
+> for the cultured Archery Range. The 2026-08-05 rev.4 pass moved `War Hall`
+> onto the **Barracks** and renamed the Alanthor range to **Practice Range**
+> ([Age_1_Alanthor.md](Age_1_Alanthor.md#practice-range--cultured-archery-range)),
+> which left the Feraldis Hall nameless until it was settled as
+> **Warrior's Hall**. `Feraldis_Longhouse` still exists as a standalone
+> building id — it is simply no longer the cultured Barracks.
+>
+> **2026-08-27, second correction.** The Archery Range is gated to **era 2**
+> (`minEra: 2`) and never stands in Age 0 at all, so it is not a carryover and
+> has no Age 0 identity to grow out of. Alanthor therefore does **not** rename
+> it — both "Longbow Grounds" and "Practice Range" are retired. Runai's
+> Arrowyard and Feraldis's Thrower Camp are unaffected: those are their own
+> buildings, not renames of a shared one. The row above is kept only to show
+> which building the three names attach to.
 | House | House (Alanthor) â€” standard pop ladder | *(no House â€” Runai gets instant 200 pop at age-up; standing Age 0 Houses are removed)* | **House (Feraldis)** â€” exists as a **raider-spawn building only** (0 pop, since Feraldis also gets instant 200 pop at age-up). Every build / upgrade spawns autonomous Raider units that attack the closest enemy. |
 | **Gatherer's Hut** | **transforms into a wall-segment anchor** that auto-fortifies a small radius around itself | **transforms into a mobile caravan-wagon** the player drives outward to plant their first trade post (wagons output full income *while in transit* â€” this **is** Runai's age-up power spike) | persists â€” can be upgraded to **Hunting Lodge** (wildlife synergy) or **Logging Station** (forest synergy); also see Feraldis hut-to-raider note below |
 

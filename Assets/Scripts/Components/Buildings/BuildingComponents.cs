@@ -85,9 +85,23 @@ public struct DeferredDefense : IComponentData
 }
 
 /// <summary>
-/// Defensive stats for buildings and units.
-/// Each field reduces incoming damage of that type via diminishing-returns formula:
-///   reduction = defense / (defense + 100)
+/// Defensive stats for buildings and units. ARMOR IS SUBTRACTED, Age-of-Empires
+/// style — <c>CombatModifiers.CalculateFinalDamage</c>:
+///
+///   final = max(1, baseDamage - armor) + bonusVsTags
+///
+/// This comment used to describe a diminishing-returns percentage
+/// (<c>reduction = defense / (defense + 100)</c>). That formula has not been in
+/// the game for a long time, and the values are read completely differently
+/// under the real one: 5 armor is 5% off a hit under the old comment and a
+/// THIRD off a 15-damage hit under the actual rule. Anything reasoning about
+/// effective HP from the old comment was wrong by an order of magnitude.
+///
+/// The consequence worth keeping in mind when authoring these: armor's worth
+/// scales INVERSELY with the size of the hit. 4 armor halves an 8-damage arrow
+/// and is a rounding error against a 60-damage trebuchet, which is what makes a
+/// heavy unit genuinely counter light attacks rather than everything at once.
+/// Canonical values: docs/Design/Combat_Pacing.md § Armor.
 /// </summary>
 public struct Defense : IComponentData
 {

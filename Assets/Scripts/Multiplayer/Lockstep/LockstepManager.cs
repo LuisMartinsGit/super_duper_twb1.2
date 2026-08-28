@@ -1161,18 +1161,10 @@ namespace TheWaningBorder.Multiplayer
                     if (LogCommands) TWBLog.Log($"[Lockstep] Executed Stop from player {cmd.PlayerIndex}");
                     break;
 
-                case LockstepCommandType.Gather:
-                    if (targetEntity != Entity.Null)
-                    {
-                        GatherCommandHelper.Execute(em, entity, targetEntity);
-                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed Gather from player {cmd.PlayerIndex}");
-                    }
-                    break;
-
-                case LockstepCommandType.GatherVeil:
-                    GatherVeilCommandHelper.Execute(em, entity, cmd.TargetPosition);
-                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed GatherVeil from player {cmd.PlayerIndex}");
-                    break;
+                // Gather / GatherVeil were removed with worker gathering
+                // (docs/Design/Regions.md §4). The enum members go with them:
+                // both ends must change in the SAME commit or a peer still
+                // sending the old ordinal desyncs the replay.
 
                 case LockstepCommandType.Build:
                     Entity buildTarget = cmd.TargetEntityId > 0 ? FindEntityByNetworkId(cmd.TargetEntityId) : Entity.Null;

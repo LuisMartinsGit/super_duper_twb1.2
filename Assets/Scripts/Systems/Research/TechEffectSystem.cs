@@ -131,7 +131,8 @@ namespace TheWaningBorder.Systems.Research
                     break;
                 // The Gatherer's Hut Guild "survey" (resource) and
                 // "reinforcement" (auto-repair / slow / stop) techs are read
-                // live from FactionResearchState by GathererHutIncomeSystem and
+                // live from FactionResearchState by TerritoryIncomeSystem (the
+                // survey ladders scale a territory's deposit trickle) and
                 // GathererHutReinforcementSystem — no one-shot application here.
                 // The Shrine heal ladder (HeightenedMasses/PiousMasses/
                 // FervoredMasses), the Vault banking techs, Conscription, and

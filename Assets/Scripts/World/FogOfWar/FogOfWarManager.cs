@@ -108,6 +108,34 @@ namespace TheWaningBorder.World.FogOfWar
             Array.Clear(_visible, 0, _visible.Length);
         }
 
+        /// <summary>
+        /// Mark cells EXPLORED (not currently visible) for a faction, wherever
+        /// <paramref name="accept"/> returns true for the cell centre in world XZ.
+        ///
+        /// Distinct from <see cref="Stamp"/>, which sets visible AND revealed:
+        /// this is "you know this ground", not "you can see what is on it". A
+        /// player who is granted their home region still needs units standing in
+        /// it to watch it — terrain is remembered, activity is not.
+        ///
+        /// One-shot by design (match start); it walks the whole grid.
+        /// </summary>
+        public void RevealWhere(Faction f, Func<Vector2, bool> accept)
+        {
+            if (accept == null || _revealed == null) return;
+            int fx = FOfs(f);
+
+            for (int y = 0; y < _h; y++)
+            {
+                float wz = WorldMin.y + (y + 0.5f) * CellSize;
+                for (int x = 0; x < _w; x++)
+                {
+                    float wx = WorldMin.x + (x + 0.5f) * CellSize;
+                    if (accept(new Vector2(wx, wz)))
+                        _revealed[fx + Idx(x, y)] = 1;
+                }
+            }
+        }
+
         /// <summary>Stamp a circular LoS for a faction.</summary>
         public void Stamp(Faction f, Vector3 worldPos, float radius)
         {

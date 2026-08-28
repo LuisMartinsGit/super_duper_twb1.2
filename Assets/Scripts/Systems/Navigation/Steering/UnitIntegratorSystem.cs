@@ -57,8 +57,22 @@ namespace TheWaningBorder.Systems.Navigation
     public partial struct UnitIntegratorSystem : ISystem
     {
         private const float StopDistance = 0.5f;
+
+        /// <summary>Arrival window for a unit settling into a FORMATION SLOT.
+        /// Tighter than the loose-unit window because the slot is a designed
+        /// position rather than "somewhere near the flag", and eight units each
+        /// parked anywhere in a 0.5 m disc do not read as a formation. Matches
+        /// FormationGroupSystem.InPlaceDistance so the marching shape and the
+        /// stopped shape are the same shape.</summary>
+        private const float FormationStopDistance = 0.15f;
         private const float DefaultMoveSpeed = 3.5f;
-        private const float TurnSpeed = 8f;             // rad/s (~460 deg/s)
+        // 8 -> 6 rad/s (~460 -> ~344 deg/s). At 460 deg/s a unit changing
+        // heading completed the turn inside a couple of frames, which reads
+        // as the model snapping between facings rather than turning. Still
+        // brisk enough that a unit is pointing where it walks before it has
+        // covered its own radius, which is what stops it looking like it is
+        // sliding sideways.
+        private const float TurnSpeed = 6f;             // rad/s (~344 deg/s)
 
         // Mirror of SteeringSystem.SeparationRadius. Two units cannot stand
         // closer than this, which is the whole reason for the crowded-arrival
@@ -282,12 +296,19 @@ namespace TheWaningBorder.Systems.Navigation
                     {
                         float3 myP = xf.ValueRO.Position;
                         float3 tgtPos = em.GetComponentData<LocalTransform>(tgt.Value).Position;
-                        float maxRange = 25f, minRange = 10f; // RangedCombat defaults
+                        // minRange 0 is the DEFAULT and a valid value — only
+                        // siege keeps a dead zone. This used to default to 10 m
+                        // and then only overwrite it when the unit's own value
+                        // was above zero, so a unit authored with no dead zone
+                        // got a ten-metre one here and halted outside its own
+                        // firing band. It has to agree with RangedCombatSystem
+                        // or the two flip a unit between halt and retreat.
+                        float maxRange = 25f, minRange = 0f;
                         if (em.HasComponent<ArcherState>(entity))
                         {
                             var ast = em.GetComponentData<ArcherState>(entity);
                             if (ast.MaxRange > 0) maxRange = ast.MaxRange;
-                            if (ast.MinRange > 0) minRange = ast.MinRange;
+                            minRange = math.max(0f, ast.MinRange);
                         }
                         maxRange *= TheWaningBorder.Systems.Combat.HeightAdvantage
                             .Multiplier(myP.y, tgtPos.y);
@@ -338,8 +359,25 @@ namespace TheWaningBorder.Systems.Navigation
                 // the plain test. They used to mill around the point instead,
                 // until StuckRedirectSystem noticed seconds later. Settle them
                 // immediately.
-                bool arrived = distSqr <= (StopDistance * StopDistance);
-                if (!arrived && !chasing && hasHash
+                // A FORMATION MEMBER IS NOT A CROWD. Every member has its own
+                // distinct slot, so it is never competing with anyone for the
+                // point it was sent to — the case the crowd rule exists for.
+                // Applying it anyway let a member call itself "arrived" up to
+                // CrowdStopDistance (2.0 m) from its slot the moment a
+                // neighbour happened to be nearer the goal than it was, which
+                // on a 2.0 m slot pitch is essentially always. That is why
+                // units stopped out of formation: the shape was correct right
+                // up to the last two metres, and then everyone settled wherever
+                // they happened to be.
+                //
+                // They also get a tighter window than a loose unit. 0.5 m of
+                // slop is invisible on a single unit walking to a flag and very
+                // visible across eight units meant to be standing in a line.
+                bool inFormation = em.HasComponent<FormationMemberState>(entity);
+                float stop = inFormation ? FormationStopDistance : StopDistance;
+
+                bool arrived = distSqr <= (stop * stop);
+                if (!arrived && !chasing && hasHash && !inFormation
                     && distSqr <= CrowdStopDistance * CrowdStopDistance)
                     arrived = GoalTakenByCloserNeighbour(em, in navHash, goal, pos, entity, dist);
 
@@ -348,7 +386,14 @@ namespace TheWaningBorder.Systems.Navigation
                     dd.ValueRW.Has = 0;
                     if (em.HasComponent<UserMoveOrder>(entity)) ecb.RemoveComponent<UserMoveOrder>(entity);
                     if (em.HasComponent<AttackMoveTag>(entity)) ecb.RemoveComponent<AttackMoveTag>(entity);
-                    if (em.HasComponent<FormationSpeedOverride>(entity)) ecb.RemoveComponent<FormationSpeedOverride>(entity);
+                    // Only for a unit travelling ALONE. While it is still a
+                    // formation member the group owns this component's
+                    // lifecycle and removes it on Detach; stripping it here
+                    // hands the unit back its own speed in the middle of a
+                    // march it is supposed to be marching in step with.
+                    if (!em.HasComponent<FormationMemberState>(entity)
+                        && em.HasComponent<FormationSpeedOverride>(entity))
+                        ecb.RemoveComponent<FormationSpeedOverride>(entity);
                     continue;
                 }
 
@@ -539,7 +584,9 @@ namespace TheWaningBorder.Systems.Navigation
                                 dd.ValueRW.Has = 0;
                                 if (em.HasComponent<UserMoveOrder>(entity)) ecb.RemoveComponent<UserMoveOrder>(entity);
                                 if (em.HasComponent<AttackMoveTag>(entity)) ecb.RemoveComponent<AttackMoveTag>(entity);
-                                if (em.HasComponent<FormationSpeedOverride>(entity)) ecb.RemoveComponent<FormationSpeedOverride>(entity);
+                                if (!em.HasComponent<FormationMemberState>(entity)
+                                    && em.HasComponent<FormationSpeedOverride>(entity))
+                                    ecb.RemoveComponent<FormationSpeedOverride>(entity);
                                 ecb.SetComponent(entity, new StuckState { Counter = 0, LastAttempt = 0 });
 
                                 // Tell the leash the order is abandoned, or

@@ -30,6 +30,7 @@ MonoBehaviour:
   attackRange: 0
   minAttackRange: 0
   lineOfSight: 10
+  radius: 0.5
   trajectory: 
   projectileSpeed: 0
   cost:
@@ -44,7 +45,9 @@ MonoBehaviour:
   siegeRange: 0
   siegeCooldown: 0
   aoeRadius: 0
-  tags: []
+  tags:
+  - 'Infantry'
+  - 'Heavy'
   bonusVsTags: []
   abilities: []
   prefab: {fileID: 32314801045755, guid: 05f7000860a9b9893ac91fd3aeb3f944, type: 3}

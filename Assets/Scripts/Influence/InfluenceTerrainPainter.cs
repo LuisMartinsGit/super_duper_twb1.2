@@ -9,7 +9,8 @@
 //   "Blood"              ← the blood map (unit deaths)
 //
 // Influence layers ramp in from the 0.5 border to full at 0.8; blood ramps
-// 0.15 → 0.7. Missing layers are simply skipped — add whichever textures
+// 0.25 → 0.85 and is capped at 0.6 weight so it pools instead of
+// resurfacing the ground. Missing layers are simply skipped — add whichever textures
 // you want visualized. Fog of war applies: unexplored ground keeps its
 // authored splat (no intel leak).
 //
@@ -38,8 +39,20 @@ namespace TheWaningBorder.Influence
     {
         private const float InfluenceWeightStart = 0.5f;  // border threshold
         private const float InfluenceWeightFull = 0.8f;
-        private const float BloodWeightStart = 0.15f;
-        private const float BloodWeightFull = 0.7f;
+        private const float BloodWeightStart = 0.25f;
+        private const float BloodWeightFull = 0.85f;
+
+        /// <summary>
+        /// Hard cap on the blood layer's splat weight. Blood used to ramp to a
+        /// full 1.0, which REPLACES the ground texture outright -- saturated
+        /// ground read as one continuous sheet of red rather than as pooling.
+        /// Holding the ceiling below 1 keeps the terrain underneath visible
+        /// through even the wettest cell, so the blood layer's own mottling
+        /// (its guts_height mask) is what shapes the puddle instead of a flat
+        /// fill. The influence layers are deliberately NOT capped: culture
+        /// territory is meant to fully re-surface the ground.
+        /// </summary>
+        private const float BloodWeightMax = 0.6f;
         private const float LayerRetryInterval = 5f;
 
         // Temporal smoothing: max painted-weight change per texel per SECOND.
@@ -416,7 +429,9 @@ namespace TheWaningBorder.Influence
             switch (kind)
             {
                 case SourceKind.Blood:
-                    return Ramp(BloodMap.SampleWorld(wx, wz), BloodWeightStart, BloodWeightFull);
+                    // Capped, unlike the influence layers -- see BloodWeightMax.
+                    return Ramp(BloodMap.SampleWorld(wx, wz), BloodWeightStart, BloodWeightFull)
+                           * BloodWeightMax;
 
                 case SourceKind.Curse:
                     return Ramp(PlayerInfluenceMap.ChannelStrengthWorld(

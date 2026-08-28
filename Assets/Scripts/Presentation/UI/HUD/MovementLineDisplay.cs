@@ -105,8 +105,7 @@ namespace TheWaningBorder.UI.HUD
                     lColor = attackLineColor;
                     mColor = attackMarkerColor;
                 }
-                else if (_em.HasComponent<GatherCommand>(entity)
-                      || _em.HasComponent<BuildOrder>(entity)
+                else if (_em.HasComponent<BuildOrder>(entity)
                       || _em.HasComponent<HealCommand>(entity))
                 {
                     lColor = supportLineColor;

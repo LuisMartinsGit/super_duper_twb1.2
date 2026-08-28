@@ -449,6 +449,32 @@ namespace TheWaningBorder.UI.GameUI
             float veilsteel = em.HasComponent<TheWaningBorder.Economy.VeilsteelIncome>(building)
                 ? em.GetComponentData<TheWaningBorder.Economy.VeilsteelIncome>(building).PerMinute : 0f;
 
+            // A HALL REPORTS ITS TERRITORY (docs/Design/Regions.md §4). It has
+            // no income components of its own — territory income is paid by
+            // TerritoryIncomeSystem straight into the bank, so read from
+            // nothing, the Hall showed an empty pane. What the player needs to
+            // decide where to expand is exactly what the ground pays, so the
+            // Hall states it: same call the income tick pays out of, so the
+            // sliders cannot drift from the bank.
+            if (em.HasComponent<HallTag>(building)
+                && em.HasComponent<Unity.Transforms.LocalTransform>(building))
+            {
+                var hp = em.GetComponentData<Unity.Transforms.LocalTransform>(building).Position;
+                int territory = TheWaningBorder.World.Regions.RegionMap.RegionAt(hp.x, hp.z);
+                if (territory != TheWaningBorder.World.Regions.RegionMap.None)
+                {
+                    var owner = em.HasComponent<FactionTag>(building)
+                        ? em.GetComponentData<FactionTag>(building).Value
+                        : GameSettings.LocalPlayerFaction;
+                    var ty = TheWaningBorder.Systems.World.TerritoryIncomeSystem
+                        .ComputeYield(em, territory, owner);
+                    supplies  += ty.Supplies;
+                    iron      += ty.Iron;
+                    veilstone += ty.Veilstone;
+                    veilsteel += ty.Veilsteel;
+                }
+            }
+
             bool generates = supplies > 0f || iron > 0f || veilstone > 0f || veilsteel > 0f;
             if (_resourceGenRow.activeSelf != generates) _resourceGenRow.SetActive(generates);
             if (!generates) return;

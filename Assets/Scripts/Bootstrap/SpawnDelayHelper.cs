@@ -51,6 +51,7 @@ namespace TheWaningBorder.Bootstrap
             // bootstrap below checks the registry and uses the marker list
             // when present, otherwise falls back to its procedural path.
             MapMarkerRegistry.Refresh();
+            TheWaningBorder.World.Regions.RegionMap.BuildFromMarkers();
 
             LoadingScreen.SetStatus("Spawning factions…");
             LoadingScreen.SetProgress(0.60f);
@@ -65,13 +66,26 @@ namespace TheWaningBorder.Bootstrap
             // promoted state on their first tick.
             StartAgePromoter.PromoteAllFactions();
 
+            // Nature regions (forests / rock fields) become impassable BEFORE
+            // reachability is computed, or the reachability pass would route
+            // players through stands that are about to be walls.
+            LoadingScreen.SetStatus("Raising nature regions…");
+            LoadingScreen.SetProgress(0.64f);
+            yield return null;
+            TheWaningBorder.World.MapMarkers.NatureRegionBootstrap.BlockNatureRegions();
+
+            // Each player starts holding their own region (Regions.md §2), so
+            // each player starts having SEEN it. Runs here because it needs the
+            // partition (built above) and the fog manager (built in
+            // GameBootstrap), and it must land before the player looks at the
+            // map rather than after the first frame.
+            TheWaningBorder.World.Regions.RegionStartReveal.RevealHomeRegions(
+                PlayerSpawnSystem.SpawnPositions);
+
             LoadingScreen.SetStatus("Computing reachability…");
             LoadingScreen.SetProgress(0.66f);
             yield return null;
             ComputePlayerReachability();
-
-            // Forests / rocks on hand-authored maps come from the scene's own
-            // Unity Terrain vegetation, not a procedural scatter pass.
 
             LoadingScreen.SetStatus("Placing iron deposits…");
             LoadingScreen.SetProgress(0.78f);
@@ -83,6 +97,11 @@ namespace TheWaningBorder.Bootstrap
             yield return null;
             VeilstoneOutcroppingBootstrap.SpawnVeilstoneOutcroppings();
             VeilsteelDepositBootstrap.SpawnVeilsteelDeposits();
+
+            // Supply nodes last of the resources: their fallback is laid out
+            // per TERRITORY, so it needs the partition (built above) rather
+            // than the marker list alone. docs/Design/Regions.md §4.
+            SupplyNodeBootstrap.SpawnSupplyNodes();
 
             if (GameSettings.BorderEnabled)
             {

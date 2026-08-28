@@ -71,18 +71,90 @@ public struct FormationGroup : IComponentData
     /// mistaken for a wedged one. Initialised to float.MaxValue.</summary>
     public float BestLag;
 
+    /// <summary>1 while the leader is easing for a member out of formation.
+    /// LATCHED, because the ease threshold sits inside the formation's own
+    /// steady-state noise: the offset the group settles at and the offset that
+    /// triggers the ease were within 3 cm of each other, so the leader stuck at
+    /// 90% forever and the squad simply moved slower than it should.</summary>
+    public byte Easing;
+
+    /// <summary>
+    /// Distance from the leader to the OUTERMOST slot, in metres. Taken from
+    /// the layout when the group is created.
+    ///
+    /// This is what makes a turn physically honest. While the lattice rotates
+    /// at omega rad/s, the slot on the far flank is dragged omega * Radius m/s
+    /// SIDEWAYS on top of the group's forward speed. A member has only
+    /// (CatchUpMultiplier - 1) of its speed spare, so the fastest wheel the
+    /// formation can actually hold is that headroom divided by this radius. A
+    /// wide army wheels slowly, a small one turns briskly, and neither
+    /// outruns its own flank.
+    /// </summary>
+    public float Radius;
+
+    /// <summary>Ceiling on the wheel rate (rad/s), for a formation small
+    /// enough that its radius would allow an absurd one. A quarter-turn in
+    /// about a second is as fast as a body of troops can look while doing
+    /// it.</summary>
+    public const float MaxTurnRate = 1.2f;
+
+    /// <summary>
+    /// Floor on the wheel rate (rad/s). An ANTI-DEADLOCK GUARD ONLY — it must
+    /// never be large enough to override the flank budget above.
+    ///
+    /// It was 0.25, chosen when a formation was infantry and 6.4 m across. Add
+    /// a siege train and the army is 15 m deep and its group speed drops to the
+    /// catapult's 3.0, so the headroom falls to 1.2 m/s while the floor demands
+    /// 0.25 * 15.24 = 3.8 m/s of sideways motion from the rearmost engine —
+    /// three times what it has. The floor was quietly asking for a turn the
+    /// formation could not physically make, and the units that could not make
+    /// it are exactly the ones at the ends.
+    ///
+    /// A deep, slow army wheeling slowly is not a bug to tune away. The leader
+    /// keeps its forward speed through the turn (scaled by cos), so the
+    /// formation sweeps a wide arc rather than stalling.
+    /// </summary>
+    public const float MinTurnRate = 0.05f;
+
+
+    /// <summary>
+    /// Heading error (rad) beyond which the formation stops trying to wheel
+    /// and simply RE-FORMS on the new bearing. About 100 degrees.
+    ///
+    /// Wheeling is the right answer for a corner and the wrong one for an
+    /// about-face. The turn rate is bounded by what the outer flank can
+    /// follow, so a fifteen-unit army needs ten seconds to come through 180
+    /// degrees — and it is barely translating while it does, because forward
+    /// speed scales with cos(error). A player ordering a retreat would watch
+    /// their army pivot on the spot with the enemy walking into it, which is
+    /// the kiting failure this whole system was built to fix.
+    ///
+    /// Past this angle, snapping the facing and letting the members walk to
+    /// their new spots IS the honest animation: an about-face is a re-form,
+    /// not a wheel. The slot memory means they re-form into the same ranks
+    /// rather than scrambling for new ones.
+    /// </summary>
+    public const float WheelSnapAngle = 1.75f;
+
     /// <summary>Leader-stall release threshold (ticks).</summary>
     public const byte StallReleaseTicks = 120;
 
     /// <summary>
-    /// How far the worst-placed member may fall behind its spot before the
-    /// virtual leader starts slowing down for it. The leader is a point mass:
-    /// it pays no separation, no obstacle slide, no turn-rate clamp and no
-    /// terrain / BorderDebuff speed penalty, so at equal nominal speed it
-    /// ALWAYS outruns the units it is supposed to lead — most visibly through
-    /// veil crust and during form-up, where members start up to
-    /// <see cref="CohesionRadius"/> away from their spots. Scaling the
-    /// leader's step by the group's lag is what actually holds the shape.
+    /// RETIRED 2026-08-28, kept only so the TetherTicks docs above still read.
+    ///
+    /// This was the distance at which the leader began scaling its step down,
+    /// reaching a dead stop at twice this value. The scaling existed because
+    /// the leader is a point mass — no separation, no obstacle slide, no
+    /// turn-rate clamp, no terrain or BorderDebuff penalty — so at equal
+    /// nominal speed it always outruns the units it leads.
+    ///
+    /// That is still true, but the ramp is not how it is handled any more: the
+    /// leader now takes a flat 10% cut while ANY member is out of formation
+    /// (FormationGroupSystem.OutOfFormationLeaderSpeed). The ramp was tuned
+    /// around members starting a long way from their spots, which was itself a
+    /// bug — the slot block hung a pitch behind the leader, so a correctly
+    /// formed squad began every order 2 m out of position and the leader
+    /// stalled while it "formed up" on ground it was already standing on.
     /// </summary>
     public const float LeaderTetherDistance = 3f;
     /// <summary>Ticks the leader may sit fully tethered with NO improvement
@@ -137,4 +209,34 @@ public struct FormationMemberState : IComponentData
 {
     public Entity Group;
     public float2 Slot;
+}
+
+/// <summary>
+/// The slot a unit holds, REMEMBERED ACROSS ORDERS.
+///
+/// FormationMemberState is removed the moment a group dissolves — on arrival,
+/// on combat, on any plain move — so it cannot answer "where did this unit
+/// stand last time". Without an answer, every new order re-derived the whole
+/// assignment from live positions measured along the NEW travel axis: turn an
+/// army 45 degrees and every unit's along/lateral ordering changes, so every
+/// unit is handed a different slot and the army trades places to reach it.
+/// That is not a formation turning, it is a formation dissolving and
+/// re-forming on a new heading, which is exactly what a corner looked like.
+///
+/// Held by INDEX, not by offset. The offsets themselves are re-derived per
+/// order and nudged by ResolveSlot onto standable ground, so they differ by
+/// centimetres between two identical orders and an offset match never fired.
+/// The index is exact, and LayoutKey guards it: lose a unit, change shape, and
+/// the blocks resize, the key changes, and the assignment falls through to a
+/// clean rebuild rather than reusing indices that now mean something else.
+///
+/// Survives Detach on purpose. It is cleared by the commands that genuinely
+/// take a unit out of formation (plain move, attack-move, CommandRouter).
+/// </summary>
+public struct FormationSlotMemory : IComponentData
+{
+    /// <summary>Index into the layout's slot list.</summary>
+    public int Slot;
+    /// <summary>Identifies the layout the index belongs to.</summary>
+    public uint LayoutKey;
 }

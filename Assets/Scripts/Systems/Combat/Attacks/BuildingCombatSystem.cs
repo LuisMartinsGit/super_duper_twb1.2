@@ -48,7 +48,11 @@ namespace TheWaningBorder.Systems.Combat
             foreach (var (transform, attack, faction, entity) in SystemAPI
                 .Query<RefRO<LocalTransform>, RefRW<BuildingRangedAttack>, RefRO<FactionTag>>()
                 .WithAll<BuildingTag>()
+                // BuildingCollapseState is the buildings' DeathAnimationState:
+                // a tower that has already fallen kept firing for the whole
+                // collapse.
                 .WithNone<UnderConstruction, BuildingUpgrading, NodeDormant>()
+                .WithNone<BuildingCollapseState>()
                 .WithEntityAccess())
             {
                 // Tick cooldown

@@ -493,7 +493,7 @@ namespace TheWaningBorder.UI.Menus
             // strand the game frozen.
             if (_instance == this) _instance = null;
             TheWaningBorder.Core.PresentationState.LoadingOverlayVisible = false;
-            Time.timeScale = 1f;
+            GameSpeedControl.Apply();
         }
 
         // JSON DTO matching Resources/UI/LoadingTips.json. JsonUtility

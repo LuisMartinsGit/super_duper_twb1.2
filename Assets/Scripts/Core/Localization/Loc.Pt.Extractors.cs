@@ -78,11 +78,12 @@ namespace TheWaningBorder.Core.Localization
             t["Hall"] = "Salão";
             t["Barracks"] = "Quartel";
             t["Archery Range"] = "Campo de Tiro com Arco";
+            t["Power: {0}"] = "Poder: {0}";
             t["Gatherer's Hut"] = "Cabana do Recoletor";
             t["Hut"] = "Cabana";
             t["Depot"] = "Depósito";
             t["Workshop"] = "Oficina";
-            t["Shrine of Ahridan"] = "Santuário de Ahridan";
+            t["Shrine of Ridan"] = "Santuário de Ridan";
             t["Temple of Ridan"] = "Templo de Ridan";
             t["Vault of Almiérra"] = "Cofre de Almiérra";
             t["Fiendstone Keep"] = "Fortaleza de Fiendstone";
@@ -113,7 +114,6 @@ namespace TheWaningBorder.Core.Localization
             t["War Hall"] = "Salão de Guerra";
             t["Garrison"] = "Guarnição";
             t["Thrower Camp"] = "Acampamento de Lançadores";
-            t["Practice Range"] = "Campo de Treino";
             t["Raider Camp"] = "Acampamento de Salteadores";
             t["Veilsteel Mine"] = "Mina de Veilsteel";
             t["Iron Deposit"] = "Depósito de Ferro";

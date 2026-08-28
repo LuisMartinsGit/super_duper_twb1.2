@@ -43,6 +43,9 @@ namespace TheWaningBorder.Core.Config
             public int Fullscreen = -1;           // -1 = leave whatever the player has
             public float MasterVolume = 100f;
             public float MusicVolume = 50f;
+            /// <summary>Simulation rate. 0.75 by default — the pace the
+            /// game was found to read best at.</summary>
+            public float GameSpeed = 0.75f;
 
             /// <summary>The player has been asked for a name and answered.
             /// Persisted, because "have we asked yet" has to survive the
@@ -135,6 +138,24 @@ namespace TheWaningBorder.Core.Config
         {
             get => Load().MusicVolume;
             set { Load().MusicVolume = value; }
+        }
+
+        /// <summary>
+        /// How fast the whole simulation runs. 1.0 is real time; 0.75 is the
+        /// default because that is the pace the game reads best at.
+        ///
+        /// This is the honest version of "slow the game down". Cutting unit
+        /// MOVE SPEED by 20% instead — which is what this replaced — left
+        /// combat, training, construction and income running at full rate while
+        /// units walked at 80%, so movement was slow RELATIVE to everything
+        /// else and read as sluggish. Scaling time keeps every system in
+        /// proportion, and it is one number rather than a value on all 57
+        /// unit assets.
+        /// </summary>
+        public static float GameSpeed
+        {
+            get => Load().GameSpeed;
+            set { Load().GameSpeed = UnityEngine.Mathf.Clamp(value, 0.25f, 2f); }
         }
 
         // ── Storage ─────────────────────────────────────────────────────

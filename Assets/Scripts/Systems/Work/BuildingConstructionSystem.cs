@@ -152,9 +152,9 @@ namespace TheWaningBorder.Systems.Work
                     if (em.HasComponent<AutoConstructTag>(site))
                         buildRate = BuildRatePerBuilder * 0.25f;
 
-                    // Mason's Charter (Renewal, all buildings) and Deep
-                    // Foundations (Fortitude, defensive structures only) both
-                    // speed construction, and stack on a wall or tower.
+                    // Deep Foundations (Fortitude) speeds construction of
+                    // defensive structures. It is the only sect research that
+                    // touches build rate.
                     if (em.HasComponent<FactionTag>(site))
                     {
                         var siteFaction = em.GetComponentData<FactionTag>(site).Value;
@@ -317,10 +317,11 @@ namespace TheWaningBorder.Systems.Work
         /// </summary>
         private static bool IsGathering(EntityManager em, Entity worker)
         {
-            if (em.HasComponent<TheWaningBorder.Core.Commands.Types.GatherCommand>(worker))
-                return true;
-            if (em.HasComponent<TheWaningBorder.Core.Commands.Types.GatherVeilCommand>(worker))
-                return true;
+            // Gathering was removed with the territory economy
+            // (docs/Design/Regions.md §4): the Worker only builds, so there is
+            // no gather order to be busy with. The MinerState check below is
+            // kept rather than deleted -- it is now always false, and leaving
+            // it means this reads correctly if a work state is ever added back.
             if (em.HasComponent<MinerState>(worker)
                 && em.GetComponentData<MinerState>(worker).State != MinerWorkState.Idle)
                 return true;

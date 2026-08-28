@@ -83,6 +83,40 @@ namespace TheWaningBorder.Influence
         private float[] _curseRaw; // pre-dilation curse coverage
         private float[] _curseTmp; // separable dilation scratch
         private bool _configured;
+        /// <summary>The one-shot region-boundary bake has landed. False until
+        /// RegionMap actually has a partition — see the retry in Update.</summary>
+        private bool _regionEdgesBaked;
+
+        // ── Territory-granular ground (2026-08-28) ───────────────────────
+        //
+        // The culture fills and the curse used to be drawn straight off the
+        // influence FIELD, so both read as soft point-value blobs: a bubble
+        // around whatever was depositing, with a feathered rim that belonged to
+        // nobody. Ground is owned a TERRITORY at a time (docs/Design/Regions.md
+        // §2) and it has to look that way — a player should be able to tell
+        // what they hold by looking at the floor, and "mostly ours, fading out"
+        // is not a thing you can hold.
+        //
+        // So the verdict is per territory and binary; the easing below still
+        // glides it in, which is what keeps a flip from snapping.
+        /// <summary>Region id per mask cell, baked once with the edges.</summary>
+        private short[] _regionCellIndex;
+        /// <summary>Culture holding each territory this pass, Cultures.None
+        /// for unowned. Sized to the region count.</summary>
+        private byte[] _territoryCulture;
+        /// <summary>Owning faction per territory, -1 for none — the frontier
+        /// seam needs to know WHICH player, not just which culture.</summary>
+        private sbyte[] _territoryOwner;
+        /// <summary>Whether each territory reads as cursed ground.</summary>
+        private bool[] _territoryCursed;
+
+        /// <summary>
+        /// Share of a territory's cells that must be over the curse threshold
+        /// before the whole territory reads as cursed. Deliberately well under
+        /// half: the curse arriving should flip the ground while it is still
+        /// arriving, not after it has already won.
+        /// </summary>
+        public const float CursedTerritoryShare = 0.35f;
         private bool _snapFirstFrame; // seed state appears instantly, no fade-in
         private static InfluenceMaskTexture _instance;
 
@@ -132,6 +166,22 @@ namespace TheWaningBorder.Influence
             if (!PlayerInfluenceMap.Ready) return;
             if (!_configured) Configure();
 
+            // Region lines are baked once, but NOT necessarily at Configure:
+            // we come alive the moment a terrain exists (that is all
+            // PlayerInfluenceMap.Ready needs), and the partition is built later
+            // in the loading coroutine, after the marker registry refresh. So
+            // Configure's bake usually ran against an EMPTY RegionMap, returned
+            // without writing a single texel, and — being a one-shot — never
+            // ran again: the G channel stayed 0 for the whole match and the
+            // terrain had no region boundaries at all. Retry until it lands.
+            bool regionEdgesJustBaked = false;
+            if (!_regionEdgesBaked && TheWaningBorder.World.Regions.RegionMap.Ready)
+            {
+                BakeRegionEdges();
+                _regionEdgesBaked = true;
+                regionEdgesJustBaked = true;
+            }
+
             // Instrumented (2026-08-16 perf sweep): two 128x128 passes plus a
             // texture upload on most frames (the ease keeps values creeping).
             double perfT0 = Time.realtimeSinceStartupAsDouble;
@@ -141,7 +191,12 @@ namespace TheWaningBorder.Influence
             // First frame snaps to targets so established territory shows
             // instantly instead of fading in from a clean map.
             float step = _snapFirstFrame ? float.MaxValue : EasePerSecond * Time.deltaTime;
-            bool cultureDirty = _snapFirstFrame, bloodDirty = _snapFirstFrame;
+            bool cultureDirty = _snapFirstFrame;
+            // A fresh region bake writes .g on every texel, so the blood
+            // texture must be re-uploaded even when no blood moved.
+            bool bloodDirty = _snapFirstFrame || regionEdgesJustBaked;
+
+            bool byTerritory = ResolveTerritories();
 
             for (int y = 0; y < Res; y++)
             {
@@ -151,27 +206,56 @@ namespace TheWaningBorder.Influence
                     int i = row + x;
                     int e = i * 5;
 
-                    // Owner = the single strongest PLAYER channel on this cell,
-                    // across every culture. Needed for the frontier pass below;
-                    // the culture fills themselves stay culture-collapsed.
-                    float aRaw = MaxChannelOwner(_alanthorChannels, x, y, out int aOwner);
-                    float fRaw = MaxChannelOwner(_feraldisChannels, x, y, out int fOwner);
-                    float rRaw = MaxChannelOwner(_runaiChannels,   x, y, out int rOwner);
+                    float a, f, r;
+                    int owner;
 
-                    int owner = -1;
-                    float ownerVal = InfluenceStart;
-                    if (aRaw > ownerVal) { ownerVal = aRaw; owner = aOwner; }
-                    if (fRaw > ownerVal) { ownerVal = fRaw; owner = fOwner; }
-                    if (rRaw > ownerVal) { ownerVal = rRaw; owner = rOwner; }
+                    if (byTerritory)
+                    {
+                        // WHOLE TERRITORIES. The cell's culture is its
+                        // territory's culture, at full strength or not at all —
+                        // no ramp, because there is no partial ownership to
+                        // ramp through. Unclaimable ground (RegionAt == None:
+                        // mountain, cliff, water) belongs to nobody and stays
+                        // bare, which is what keeps a culture's ground stopping
+                        // at the foot of a crag instead of climbing it.
+                        int region = _regionCellIndex[i];
+                        byte culture = region >= 0 && region < _territoryCulture.Length
+                            ? _territoryCulture[region] : Cultures.None;
+                        owner = region >= 0 && region < _territoryOwner.Length
+                            ? _territoryOwner[region] : -1;
+
+                        a = culture == Cultures.Alanthor ? 1f : 0f;
+                        f = culture == Cultures.Feraldis ? 1f : 0f;
+                        r = culture == Cultures.Runai    ? 1f : 0f;
+
+                        _curseRaw[i] = region >= 0 && region < _territoryCursed.Length
+                                       && _territoryCursed[region] ? 1f : 0f;
+                    }
+                    else
+                    {
+                        // No partition (a scenario fixture, or a map with no
+                        // seeds): fall back to the influence field, which is
+                        // the only statement about ownership available there.
+                        float aRaw = MaxChannelOwner(_alanthorChannels, x, y, out int aOwner);
+                        float fRaw = MaxChannelOwner(_feraldisChannels, x, y, out int fOwner);
+                        float rRaw = MaxChannelOwner(_runaiChannels,   x, y, out int rOwner);
+
+                        owner = -1;
+                        float ownerVal = InfluenceStart;
+                        if (aRaw > ownerVal) { ownerVal = aRaw; owner = aOwner; }
+                        if (fRaw > ownerVal) { ownerVal = fRaw; owner = fOwner; }
+                        if (rRaw > ownerVal) { ownerVal = rRaw; owner = rOwner; }
+
+                        a = Ramp(aRaw, InfluenceStart, InfluenceFull);
+                        f = Ramp(fRaw, InfluenceStart, InfluenceFull);
+                        r = Ramp(rRaw, InfluenceStart, InfluenceFull);
+                        _curseRaw[i] = Ramp(
+                            PlayerInfluenceMap.CellValue(x, y, PlayerInfluenceMap.CurseChannel),
+                            InfluenceStart, InfluenceFull);
+                    }
+
                     _owner[i] = (sbyte)owner;
-
-                    float a = Ramp(aRaw, InfluenceStart, InfluenceFull);
-                    float f = Ramp(fRaw, InfluenceStart, InfluenceFull);
-                    float r = Ramp(rRaw, InfluenceStart, InfluenceFull);
                     float b = Ramp(BloodMap.CellValue(x, y), BloodStart, BloodFull);
-                    _curseRaw[i] = Ramp(
-                        PlayerInfluenceMap.CellValue(x, y, PlayerInfluenceMap.CurseChannel),
-                        InfluenceStart, InfluenceFull);
 
                     cultureDirty |= Ease(ref _eased[e + 0], a, step);
                     cultureDirty |= Ease(ref _eased[e + 1], f, step);
@@ -282,6 +366,159 @@ namespace TheWaningBorder.Influence
                 (Time.realtimeSinceStartupAsDouble - perfT0) * 1000.0);
         }
 
+        /// <summary>
+        /// Work out, once per pass, what each TERRITORY looks like: whose
+        /// culture paints it and whether it reads as cursed. False when there is
+        /// no partition to work from, which puts the cell loop back on the
+        /// influence field.
+        ///
+        /// The curse verdict still comes from the influence field, because the
+        /// curse does not own territories — Regions.md §3 ("the curse takes
+        /// territory by force") is unimplemented, and handing it ownership here
+        /// would give it a player's home region on any map whose well sits
+        /// inside one, which is a soft-lock rather than a look. What changes is
+        /// the GRANULARITY: the field decides a whole territory at a time, so
+        /// cursed ground stops being a soft bubble with a rim belonging to
+        /// nobody.
+        /// </summary>
+        private bool ResolveTerritories()
+        {
+            if (!_regionEdgesBaked || _regionCellIndex == null) return false;
+            if (!TheWaningBorder.World.Regions.RegionMap.Ready) return false;
+
+            int regions = TheWaningBorder.World.Regions.RegionMap.Count;
+            if (regions <= 0) return false;
+
+            if (_territoryCulture == null || _territoryCulture.Length != regions)
+            {
+                _territoryCulture = new byte[regions];
+                _territoryOwner = new sbyte[regions];
+                _territoryCursed = new bool[regions];
+            }
+
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (world == null || !world.IsCreated) return false;
+            var em = world.EntityManager;
+
+            if (!TheWaningBorder.World.Regions.TerritoryOwnership.Ready)
+                TheWaningBorder.World.Regions.TerritoryOwnership.Recompute(em);
+
+            for (int t = 0; t < regions; t++)
+            {
+                int owner = TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(t);
+                _territoryOwner[t] = (sbyte)(owner >= 0 && owner <= 7 ? owner : -1);
+                // COMPLETED culture only: the ground must not change the instant
+                // the age-up research is queued.
+                _territoryCulture[t] = _territoryOwner[t] >= 0
+                    ? CultureConfig.GetCompletedCulture(
+                          em, (Faction)_territoryOwner[t])
+                    : Cultures.None;
+                _territoryCursed[t] = false;
+            }
+
+            // Curse coverage, counted per territory in one pass over the grid.
+            var cursedCells = new int[regions];
+            var totalCells = new int[regions];
+            for (int i = 0; i < _regionCellIndex.Length; i++)
+            {
+                int region = _regionCellIndex[i];
+                if (region < 0 || region >= regions) continue;
+                totalCells[region]++;
+                int x = i % Res, y = i / Res;
+                if (PlayerInfluenceMap.CellValue(x, y, PlayerInfluenceMap.CurseChannel)
+                    >= InfluenceStart)
+                    cursedCells[region]++;
+            }
+            for (int t = 0; t < regions; t++)
+                _territoryCursed[t] = totalCells[t] > 0
+                    && cursedCells[t] / (float)totalCells[t] >= CursedTerritoryShare;
+
+            return true;
+        }
+
+        /// <summary>
+        /// Region boundaries, baked ONCE into the blood mask's spare G channel.
+        ///
+        /// Two reasons this rides along instead of getting its own texture: the
+        /// partition is static for the whole match (seeds are authored and never
+        /// move), and _TWB_BloodMask only ever uses R — G/B/A were free. So the
+        /// terrain gets region lines for zero extra samplers, zero extra uploads
+        /// and zero per-frame cost. The per-frame loop writes only .r, so this
+        /// survives every subsequent upload.
+        ///
+        /// The culture mask had no spare channel, which is why the player
+        /// frontier seam had to be carved out of the fill instead.
+        /// </summary>
+        private void BakeRegionEdges()
+        {
+            if (!TheWaningBorder.World.Regions.RegionMap.Ready) return;
+
+            Vector2 min = PlayerInfluenceMap.WorldMin;
+            Vector2 size = PlayerInfluenceMap.WorldSize;
+
+            // ~2 mask texels wide, expressed in metres so the line stays the
+            // same THICKNESS ON THE GROUND on any map size rather than getting
+            // fatter as the map grows. A boundary thinner than the mask's own
+            // texel spacing can only ever be sampled by whichever texel centre
+            // happens to land near it, so it beads instead of reading as a line.
+            float width = Mathf.Max(2f, size.x / Res * 2f);
+
+            if (_regionCellIndex == null || _regionCellIndex.Length != Res * Res)
+                _regionCellIndex = new short[Res * Res];
+
+            int lit = 0;
+            for (int y = 0; y < Res; y++)
+            {
+                float wz = min.y + (y + 0.5f) / Res * size.y;
+                int row = y * Res;
+                for (int x = 0; x < Res; x++)
+                {
+                    float wx = min.x + (x + 0.5f) / Res * size.x;
+
+                    // Which territory this cell belongs to, banked in the same
+                    // pass — the partition never moves, so asking once here
+                    // spares the per-frame culture fill a nearest-seed search.
+                    if (_regionCellIndex != null)
+                        _regionCellIndex[row + x] =
+                            (short)TheWaningBorder.World.Regions.RegionMap.RegionAt(wx, wz);
+
+                    float e = Mathf.Clamp01(
+                        TheWaningBorder.World.Regions.RegionMap.EdgeStrengthAt(wx, wz, width));
+
+                    // Shape HERE, in linear maths, and store the finished
+                    // coverage — the shader then uses it as-is.
+                    //
+                    // The squaring (keeps the core dark and the falloff thin)
+                    // used to live in the shader, which crushed the line twice
+                    // over: the mask is an sRGB Texture2D and the project
+                    // renders in LINEAR colour space, so a stored 0.8 arrives
+                    // at the shader as 0.60 and squares to 0.36 — an 8 %
+                    // darkening where a 45 % one was intended. Only a texel
+                    // centre landing exactly on the boundary survived that, so
+                    // the "quiet darkening" of Regions.md §7 was invisible on
+                    // the ground even once the bake ran.
+                    //
+                    // LinearToGammaSpace pre-applies the inverse of the
+                    // sampler's sRGB decode, so what the shader reads is the
+                    // number written here. Only .g is touched: .r (blood) keeps
+                    // its own long-standing tuning, crush and all.
+                    float shaped = e * e;
+                    _bloodPixels[row + x].g =
+                        (byte)(Mathf.Clamp01(Mathf.LinearToGammaSpace(shaped)) * 255f + 0.5f);
+                    if (shaped > 0.05f) lit++;
+                }
+            }
+
+            // Loud on purpose, once per match: "the terrain has no region
+            // lines" has now had two separate causes (an empty partition at
+            // bake time, then a gamma double-crush), and neither left a trace
+            // anyone could read back afterwards. TWBLog compiles out.
+            Debug.Log($"[InfluenceMask] region boundaries baked — " +
+                      $"{TheWaningBorder.World.Regions.RegionMap.Count} region(s), " +
+                      $"{lit}/{Res * Res} mask texels on a boundary, " +
+                      $"line half-width {width:0.0} m.");
+        }
+
         private void Configure()
         {
             _cultureTex = MakeMask("TWB_CultureMask");
@@ -301,6 +538,9 @@ namespace TheWaningBorder.Influence
             // once or the GPU reads garbage as full-map coverage.
             _cultureTex.SetPixels32(_culturePixels);
             _cultureTex.Apply(false, false);
+            BakeRegionEdges();
+            _regionEdgesBaked = TheWaningBorder.World.Regions.RegionMap.Ready;
+
             _bloodTex.SetPixels32(_bloodPixels);
             _bloodTex.Apply(false, false);
 

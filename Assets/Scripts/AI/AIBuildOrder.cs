@@ -101,7 +101,7 @@ namespace TheWaningBorder.AI
 
         // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         // 2. BALANCED â€” token military + Shrine
-        //    Choice: ShrineOfAhridan. Culture: Random.
+        //    Choice: ShrineOfRidan. Culture: Random.
         //    Veilstone: 2 from mid-eco onward (steady drip for Shrine + age-up).
         // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         public static readonly BuildOrderStep[] Balanced =
@@ -123,7 +123,7 @@ namespace TheWaningBorder.AI
             BuildOrderStep.Build("Barracks"),
             BuildOrderStep.Train("Spearman"),
             BuildOrderStep.Train("Spearman"),   // was Archer — ranged is an Age-1 unlock (2026-08-11)
-            BuildOrderStep.Build("ShrineOfAhridan"),
+            BuildOrderStep.Build("ShrineOfRidan"),
             BuildOrderStep.AgeUpStep(),
             BuildOrderStep.Train("Worker"),
             BuildOrderStep.Train("Worker"),
@@ -140,7 +140,7 @@ namespace TheWaningBorder.AI
 
         // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         // 3. TECH BOOM â€” research both Barracks techs before age up
-        //    Choice: ShrineOfAhridan. Culture: Runai.
+        //    Choice: ShrineOfRidan. Culture: Runai.
         //    Veilstone: 3 â€” heaviest veilstone demand of any strategy because both
         //    techs and the Shrine cost veilstone on top of age-up.
         // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -167,7 +167,7 @@ namespace TheWaningBorder.AI
             BuildOrderStep.ResearchTech("StoneWeapons"),
             BuildOrderStep.Train("Spearman"),
             BuildOrderStep.Train("Spearman"),
-            BuildOrderStep.Build("ShrineOfAhridan"),
+            BuildOrderStep.Build("ShrineOfRidan"),
             BuildOrderStep.AgeUpStep(),
             BuildOrderStep.Train("Worker"),
             BuildOrderStep.Train("Worker"),
@@ -182,7 +182,7 @@ namespace TheWaningBorder.AI
 
         // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         // 4. RUSH â€” three attack waves (1 / 2 / 4 battalions)
-        //    Choice: ShrineOfAhridan. Culture: Feraldis.
+        //    Choice: ShrineOfRidan. Culture: Feraldis.
         //    Veilstone: 1, late â€” every miner is needed on iron for the army
         //    rush; only switch on veilstone when the Shrine + age-up draw near.
         //    Attacks: a LaunchAttack(N) step after each wave blocks the build
@@ -221,7 +221,7 @@ namespace TheWaningBorder.AI
             BuildOrderStep.Build("GatherersHut"),
             BuildOrderStep.Build("GatherersHut"),
             BuildOrderStep.SetVeilstoneTarget(1),   // late switch â€” just enough for Shrine + age-up
-            BuildOrderStep.Build("ShrineOfAhridan"),
+            BuildOrderStep.Build("ShrineOfRidan"),
             BuildOrderStep.AgeUpStep(),
             BuildOrderStep.Train("Worker"),
             BuildOrderStep.Train("Worker"),

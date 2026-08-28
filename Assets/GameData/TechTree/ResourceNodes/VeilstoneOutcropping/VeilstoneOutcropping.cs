@@ -68,8 +68,20 @@ namespace TheWaningBorder.Entities
         {
             float a = math.max(1f, veilstoneAmount);
             float t = math.clamp(math.pow(a / RefAmount, 1f / 3f), MinCellFraction, 1f);
-            return CellFillScale * t;
+            return CellFillScale * t * NodeFootprintCells;
         }
+
+        /// <summary>
+        /// The node's footprint, in build cells across. One node now stands
+        /// where a patch of many used to (docs/Design/Regions.md §4, "Nodes,
+        /// not patches"), so it has to be big enough to read as a landmark you
+        /// contest and to give a Mine something to sit against. Matches iron's
+        /// footprint, so the two resources are the same kind of object.
+        /// </summary>
+        public const int NodeFootprintCells = 3;
+
+        /// <summary>Half-extent of the node footprint, in metres.</summary>
+        public static float NodeRadius => BuildGrid.CellSize * NodeFootprintCells * 0.5f;
 
         /// <summary>
         /// Sim radius. Fixed at half a build cell regardless of deposit size:
@@ -78,7 +90,7 @@ namespace TheWaningBorder.Entities
         /// visual. The old value scaled with the deposit and bottomed out near
         /// 0.28 m — far smaller than the 3x3 m the nav field was blocking.
         /// </summary>
-        public static float ComputeRadius(int veilstoneAmount) => BuildGrid.HalfCell;
+        public static float ComputeRadius(int veilstoneAmount) => NodeRadius;
 
         /// <summary>
         /// Create a outcropping, or merge into an existing non-depleted outcropping within
@@ -167,7 +179,7 @@ namespace TheWaningBorder.Entities
             // the ONE node type that never did this — it carved the nav cost
             // field but stayed passable here, so placement validation and
             // steering both thought the ground was free.
-            PassabilityGrid.Instance?.BlockObstacle(position, BuildGrid.HalfCell);
+            PassabilityGrid.Instance?.BlockObstacle(position, NodeRadius);
 
             return entity;
         }
@@ -205,7 +217,7 @@ namespace TheWaningBorder.Entities
             // Mirror the EntityManager path's passability block. Safe to do
             // eagerly: the grid is keyed by world position, not by entity, so
             // it does not need to wait for ECB playback.
-            PassabilityGrid.Instance?.BlockObstacle(position, BuildGrid.HalfCell);
+            PassabilityGrid.Instance?.BlockObstacle(position, NodeRadius);
 
             return entity;
         }

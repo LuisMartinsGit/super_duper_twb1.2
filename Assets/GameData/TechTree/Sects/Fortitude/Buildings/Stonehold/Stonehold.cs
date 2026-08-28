@@ -18,19 +18,15 @@ namespace TheWaningBorder.Entities
         /// BuildingSizeConfig all agree on.</summary>
         public const string BuildingId = "Sect_Stonehold";
 
-        private const float DefaultHp = 1800f;
-        private const float DefaultLos = 12f;
 
         /// <summary>
         /// Built to be shot at: the highest HP of any non-Hall structure, and it
     /// blocks pathing like a wall.
         /// </summary>
         public static Entity Create(EntityManager em, float3 position, Faction faction)
-            => SectBuilding.Create<StoneholdTag>(em, BuildingId, PresentationID,
-                                             DefaultHp, DefaultLos, position, faction);
+            => SectBuilding.Create<StoneholdTag>(em, BuildingId, PresentationID, position, faction);
 
         public static Entity Create(EntityCommandBuffer ecb, float3 position, Faction faction)
-            => SectBuilding.Create<StoneholdTag>(ecb, BuildingId, PresentationID,
-                                             DefaultHp, DefaultLos, position, faction);
+            => SectBuilding.Create<StoneholdTag>(ecb, BuildingId, PresentationID, position, faction);
     }
 }

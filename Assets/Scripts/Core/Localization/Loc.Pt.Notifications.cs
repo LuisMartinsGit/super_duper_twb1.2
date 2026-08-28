@@ -12,10 +12,13 @@ namespace TheWaningBorder.Core.Localization
             // ---- Building placement (BuildCommandPannel) ----
             t["Invalid placement"] = "Colocação inválida";
             t["Maximum 10 Trading Posts"] = "Máximo de 10 Postos Comerciais";
-            t["Maximum 6 Halls per faction"] = "Máximo de 6 Salões por facção";
             t["Only one Temple of Ridan per faction"] = "Apenas um Templo de Ridan por facção";
             t["Already have a choice building"] = "Já tens um edifício de escolha";
             t["Must build inside your influence"] = "Tens de construir dentro da tua influência";
+            t["You can only build in your own territory"] = "Só podes construir no teu próprio território";
+            t["Gatherer's Huts must be built on a free supply node"] = "As Cabanas do Recoletor têm de ser construídas num nó de mantimentos livre";
+            t["This territory already has a Hall"] = "Este território já tem um Salão";
+            t["Cannot claim ground another player holds"] = "Não podes reclamar terreno que outro jogador detém";
             t["War Totems must be planted on blood"] = "Os Totens de Guerra têm de ser erguidos sobre sangue";
             t["Mines must be built next to iron or veilstone"] = "As minas têm de ser construídas junto a ferro ou veilstone";
             t["Not enough resources"] = "Recursos insuficientes";

@@ -147,7 +147,9 @@ namespace TheWaningBorder.AI
         /// fights through), and put an idle builder on the most-damaged
         /// completed building.
         /// </summary>
-        private static void DefendBase(EntityManager em, Faction faction, float3 hallPos, AISettingsSO settings)
+        // Instance, not static: registering the defence as a mission needs
+        // the per-faction mission list, which is instance state.
+        private void DefendBase(EntityManager em, Faction faction, float3 hallPos, AISettingsSO settings)
         {
             float defendRadiusSq = settings.defendRadius * settings.defendRadius;
 
@@ -167,6 +169,11 @@ namespace TheWaningBorder.AI
             bool threatFound = false;
             float threatD2 = defendRadiusSq;
             float3 threatPos = hallPos;
+            // The intruder itself, not just where it stands: UpdateMissions
+            // reads a null Target as "objective destroyed" and disbands the
+            // mission on its next tick, so a defence with no Target would be
+            // dissolved before it fought anything.
+            Entity threatEnt = Entity.Null;
             for (int i = 0; i < ents.Length; i++)
             {
                 // Allies do not count as a threat near the Hall; the curse is
@@ -176,8 +183,27 @@ namespace TheWaningBorder.AI
                 float dx = xfs[i].Position.x - hallPos.x;
                 float dz = xfs[i].Position.z - hallPos.z;
                 float d2 = dx * dx + dz * dz;
-                if (d2 < threatD2) { threatD2 = d2; threatPos = xfs[i].Position; threatFound = true; }
+                if (d2 < threatD2)
+                {
+                    threatD2 = d2; threatPos = xfs[i].Position;
+                    threatEnt = ents[i]; threatFound = true;
+                }
             }
+
+            // HOME DEFENCE IS AN ARMY TOO.
+            //
+            // Both loops below used to hand out one attack-move PER UNIT, and
+            // Defend disbands every mission on entry — so the moment the AI was
+            // attacked at home it stopped having armies at all and fought the
+            // defence as N independent units, each walking to its own nearest
+            // enemy. That is the same defect the tactical layer exists to fix,
+            // on the one occasion the AI can least afford it.
+            //
+            // Collect instead, then dispatch each group as one body, and
+            // register the defenders as a mission so SimpleAISystem.Tactics
+            // concentrates them like any other army.
+            var recalled = new System.Collections.Generic.List<Entity>();
+            var defenders = new System.Collections.Generic.List<Entity>();
 
             for (int i = 0; i < ents.Length; i++)
             {
@@ -196,8 +222,8 @@ namespace TheWaningBorder.AI
 
                 if (!home)
                 {
-                    // Fielded army: recall toward the base.
-                    CommandRouter.IssueAttackMove(em, ents[i], hallPos, CommandSource.AI);
+                    // Fielded army: recall toward the base, as a body.
+                    recalled.Add(ents[i]);
                     continue;
                 }
 
@@ -210,7 +236,34 @@ namespace TheWaningBorder.AI
                 if (em.HasComponent<AttackMoveTag>(e)) continue;
                 if (em.HasComponent<AttackCommand>(e)) continue;
                 if (em.HasComponent<UserMoveOrder>(e)) continue;
-                CommandRouter.IssueAttackMove(em, e, threatPos, CommandSource.AI);
+                defenders.Add(e);
+            }
+
+            if (recalled.Count > 0)
+                CommandRouter.IssueFormationAttackMove(
+                    em, recalled, hallPos, FormationShape.Box, CommandSource.AI);
+
+            if (threatFound && defenders.Count > 0)
+            {
+                CommandRouter.IssueFormationAttackMove(
+                    em, defenders, threatPos, FormationShape.Box, CommandSource.AI);
+
+                // Register the defence as a mission so the tactical layer picks
+                // ONE priority target for it and keeps it together, instead of
+                // every defender chasing whatever is nearest to itself.
+                // Everything already home counts: the recalled units join on
+                // arrival, through the same reinforcement path a wave uses.
+                var defence = new Mission
+                {
+                    Type = MissionType.Attack,
+                    Phase = MissionPhase.Direct,
+                    Target = threatEnt,
+                    TargetPos = threatPos,
+                    StagePos = hallPos,
+                    StartTime = (float)SystemAPI.Time.ElapsedTime,
+                };
+                defence.Members.AddRange(defenders);
+                MissionsFor(faction).Add(defence);
             }
 
             // Repair: most-damaged completed building gets one idle builder.

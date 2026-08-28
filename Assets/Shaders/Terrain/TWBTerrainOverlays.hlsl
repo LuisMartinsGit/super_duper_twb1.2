@@ -11,6 +11,9 @@
 //                     A = Curse      → "crystallized grass": the ground's own
 //                                      albedo hue-shifted to veilstone purple
 //                                      with sharp sparkle glints
+//   _TWB_BloodMask    G = Region boundary → baked once (the partition is
+//                                      static); darkens the ground along
+//                                      the line. See RegionMap.
 //   _TWB_BloodMask    R = Blood     → spatters at the rim, puddles at the
 //                                      core (coverage eroded by high-freq
 //                                      noise), wet smoothness
@@ -41,6 +44,11 @@ float  _TerraceSlopeStart;      // 1 − normal.y where masonry starts
 float  _TerraceSlopeFull;       // fully masonry at/above this steepness
 half4  _FeraldisTint;
 half4  _RunaiTint;
+
+// Region boundary look. Tint is a MULTIPLIER on the ground beneath, so
+// the line darkens whatever it crosses instead of painting over it.
+half4  _RegionEdgeTint;
+half   _RegionEdgeStrength;
 
 TEXTURE2D(_BloodAlbedo);        SAMPLER(sampler_BloodAlbedo);
 half4  _BloodTint;
@@ -108,7 +116,9 @@ void ApplyTWBGroundOverlays(float3 positionWS, half3 geoNormalWS,
 
     float2 maskUV = positionWS.xz * _TWB_MaskST.xy + _TWB_MaskST.zw;
     half4 m = SAMPLE_TEXTURE2D(_TWB_CultureMask, sampler_TWB_CultureMask, maskUV);
-    half blood = SAMPLE_TEXTURE2D(_TWB_BloodMask, sampler_TWB_BloodMask, maskUV).r;
+    half2 bloodMask = SAMPLE_TEXTURE2D(_TWB_BloodMask, sampler_TWB_BloodMask, maskUV).rg;
+    half blood      = bloodMask.r;
+    half regionEdge = bloodMask.g;   // baked once by InfluenceMaskTexture
 
     // ── Alanthor: slate paving on flats, masonry terraces on cliffs ────
     half aBlend = TWB_Edge(m.r, positionWS.xz, 0.18h);
@@ -203,6 +213,33 @@ void ApplyTWBGroundOverlays(float3 positionWS, half3 geoNormalWS,
             half3 cNrm = UnpackNormal(SAMPLE_TEXTURE2D(_CurseNormal, sampler_CurseAlbedo, cUV));
             normalTS = normalize(lerp(normalTS, cNrm, cBlend));
         #endif
+    }
+
+    // ── Region boundaries (docs/Design/Regions.md) ────────────────────────
+    // Drawn LAST so a boundary stays readable across cursed, bloodied and
+    // cultured ground alike — it is a map-structure line, not another
+    // material, and it must not disappear inside whoever owns the ground.
+    //
+    // Rendered as a DARKENING rather than a colour: the line has to sit under
+    // every culture's palette without reading as a fourth faction, and it must
+    // not compete with the influence border (the 0.5 contour), which is the
+    // brighter, coloured, moving line. Regions are fixed terrain structure and
+    // should read quieter than territory that is actually changing hands.
+    if (regionEdge > 0.004h)
+    {
+        // Used RAW. The falloff shaping (a square, so the core darkens hard
+        // and the line stays thin) is applied on the CPU in
+        // InfluenceMaskTexture.BakeRegionEdges, which also pre-compensates the
+        // sRGB decode this sampler performs. Squaring HERE as well crushed the
+        // line through gamma twice and left an invisible smudge — see the
+        // comment on that bake.
+        //
+        // NOT named `line`: that is a reserved HLSL keyword (the geometry-shader
+        // primitive type, with `point` / `triangle` / `lineadj`), and using it
+        // fails with a bare "unexpected token" that says nothing about why.
+        half edgeAmt = saturate(regionEdge * _RegionEdgeStrength);
+        albedo = lerp(albedo, albedo * _RegionEdgeTint.rgb, edgeAmt);
+        smoothness = lerp(smoothness, smoothness * 0.6h, edgeAmt);
     }
 }
 

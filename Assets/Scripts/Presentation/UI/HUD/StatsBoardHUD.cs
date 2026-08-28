@@ -235,27 +235,60 @@ namespace TheWaningBorder.UI.HUD
                 }
             }
 
-            // Influence territory %: share of map cells each channel holds at
-            // territory strength (>= 0.5, the border rule), curse included.
+            // TERRITORY %: the share of the map's territories each faction
+            // HOLDS. Counted in territories, not influence cells.
+            //
+            // It used to be the share of influence cells over 0.5, which is a
+            // different quantity entirely now that ground is claimed a
+            // territory at a time (docs/Design/Regions.md §2): influence is an
+            // Age 1 thing that nobody has in the opening, so the chart read
+            // flat zero for every player through the whole early game while
+            // they were visibly holding ground — and once it did move, it
+            // measured a bubble around buildings rather than anything owned.
+            //
+            // Weighted by each territory's CLAIMABLE area, not by a flat count,
+            // so holding one big territory outscores three slivers — otherwise
+            // the chart says a player is winning the map for taking the three
+            // smallest corners of it.
             var infCells = new int[MaxFactions];
             int curseCells = 0;
-            if (TheWaningBorder.Influence.PlayerInfluenceMap.Ready)
+            if (TheWaningBorder.World.Regions.RegionMap.Ready
+                && TheWaningBorder.World.Regions.TerritoryOwnership.Ready)
             {
                 const int res = TheWaningBorder.Influence.PlayerInfluenceMap.Resolution;
+                Vector2 wMin = TheWaningBorder.Influence.PlayerInfluenceMap.WorldMin;
+                Vector2 wSize = TheWaningBorder.Influence.PlayerInfluenceMap.WorldSize;
+                int claimable = 0;
                 for (int y = 0; y < res; y++)
+                {
+                    float wz = wMin.y + (y + 0.5f) / res * wSize.y;
                     for (int x = 0; x < res; x++)
                     {
-                        for (int ch = 0; ch < MaxFactions; ch++)
-                            if (TheWaningBorder.Influence.PlayerInfluenceMap.CellValue(x, y, ch) >= 0.5f)
-                                infCells[ch]++;
-                        if (TheWaningBorder.Influence.PlayerInfluenceMap.CellValue(
-                                x, y, TheWaningBorder.Influence.PlayerInfluenceMap.CurseChannel) >= 0.5f)
-                            curseCells++;
+                        float wx = wMin.x + (x + 0.5f) / res * wSize.x;
+                        int t = TheWaningBorder.World.Regions.RegionMap.RegionAt(wx, wz);
+                        if (t == TheWaningBorder.World.Regions.RegionMap.None) continue;
+                        claimable++;
+                        int owner = TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(t);
+                        if (owner >= 0 && owner < MaxFactions) infCells[owner]++;
                     }
-                float totalCells = res * res;
-                _curseInf[idx] = curseCells / totalCells * 100f;
-                for (int f = 0; f < MaxFactions; f++)
-                    infCells[f] = Mathf.RoundToInt(infCells[f] / totalCells * 10000f); // % x100
+                }
+                if (claimable > 0)
+                {
+                    // The curse holds no territories yet (Regions.md §3 is
+                    // unimplemented), so its share still comes from its field —
+                    // the one channel for which influence IS the statement.
+                    if (TheWaningBorder.Influence.PlayerInfluenceMap.Ready)
+                    {
+                        for (int y = 0; y < res; y++)
+                            for (int x = 0; x < res; x++)
+                                if (TheWaningBorder.Influence.PlayerInfluenceMap.CellValue(
+                                        x, y, TheWaningBorder.Influence.PlayerInfluenceMap.CurseChannel) >= 0.5f)
+                                    curseCells++;
+                        _curseInf[idx] = curseCells / (float)(res * res) * 100f;
+                    }
+                    for (int f = 0; f < MaxFactions; f++)
+                        infCells[f] = Mathf.RoundToInt(infCells[f] / (float)claimable * 10000f); // % x100
+                }
             }
 
             for (int f = 0; f < MaxFactions; f++)

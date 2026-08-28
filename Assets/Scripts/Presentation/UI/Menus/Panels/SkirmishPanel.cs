@@ -405,18 +405,54 @@ namespace TheWaningBorder.UI.Menus.Panels
             if (_teamsOverridden) return false;
 
             var info = CurrentMapInfo();
-            if (info == null || !info.HasTeamPreset) return false;
+            bool hasPreset = info != null && info.HasTeamPreset;
+
+            // Resolve the whole roster FIRST, then commit. Two rules need the
+            // full picture before anything is written:
+            //
+            //  1. A map with no preset must CLEAR teams, not leave them alone.
+            //     The presets are per-map, but LobbyConfig.Slots is static and
+            //     outlives the lobby: selecting Twin Spans (3v3) and then
+            //     switching to any other map used to leave both players sitting
+            //     on Team 1. Allied players are not hostile, so
+            //     VictoryConditionSystem saw one side remaining and ended the
+            //     match with a VICTORY banner ~10 s in, before anyone had met.
+            //
+            //  2. A preset that puts EVERY occupied slot on one team is not a
+            //     team layout, it is the same bug wearing the map's clothes —
+            //     starts are handed out randomly, so a 2-player lobby on a 3v3
+            //     map can easily draw two starts from the same shore. Fall back
+            //     to a free-for-all rather than shipping a match with no enemy.
+            var wanted = new byte[LobbyConfig.Slots.Length];
+            int occupied = 0;
+            byte firstTeam = Alliances.NoTeam;
+            bool allSameTeam = true;
+
+            for (int i = 0; i < LobbyConfig.ActiveSlotCount; i++)
+            {
+                var slot = LobbyConfig.Slots[i];
+                if (slot == null || slot.Type == SlotType.Empty) continue;
+
+                // No start yet means no shore, so no side either.
+                wanted[i] = hasPreset && slot.StartIndex != PlayerSlot.AutoStart
+                    ? info.TeamForStart(slot.StartIndex)
+                    : Alliances.NoTeam;
+
+                if (occupied == 0) firstTeam = wanted[i];
+                else if (wanted[i] != firstTeam) allSameTeam = false;
+                occupied++;
+            }
+
+            if (occupied > 1 && allSameTeam && firstTeam != Alliances.NoTeam)
+                for (int i = 0; i < wanted.Length; i++) wanted[i] = Alliances.NoTeam;
 
             bool changed = false;
             for (int i = 0; i < LobbyConfig.ActiveSlotCount; i++)
             {
                 var slot = LobbyConfig.Slots[i];
                 if (slot == null || slot.Type == SlotType.Empty) continue;
-                if (slot.StartIndex == PlayerSlot.AutoStart) continue;
-
-                byte team = info.TeamForStart(slot.StartIndex);
-                if (slot.TeamIndex == team) continue;
-                slot.TeamIndex = team;
+                if (slot.TeamIndex == wanted[i]) continue;
+                slot.TeamIndex = wanted[i];
                 changed = true;
             }
             return changed;
@@ -870,6 +906,28 @@ namespace TheWaningBorder.UI.Menus.Panels
             _ => new Color(0.32f, 0.32f, 0.36f),
         };
 
+        /// <summary>
+        /// True when two or more occupied slots exist and every one of them
+        /// sits on the same real team — a roster with no hostility in it.
+        /// Unteamed slots (Alliances.NoTeam) are hostile to everyone including
+        /// each other, so an all-unteamed roster is a normal free-for-all and
+        /// never trips this.
+        /// </summary>
+        private static bool AllSlotsOnOneTeam()
+        {
+            int occupied = 0;
+            byte team = Alliances.NoTeam;
+            for (int i = 0; i < LobbyConfig.ActiveSlotCount; i++)
+            {
+                var s = LobbyConfig.Slots[i];
+                if (s == null || s.Type == SlotType.Empty) continue;
+                if (occupied == 0) team = s.TeamIndex;
+                else if (s.TeamIndex != team) return false;
+                occupied++;
+            }
+            return occupied > 1 && team != Alliances.NoTeam;
+        }
+
         private void AddOpponent()
         {
             int idx = LobbyConfig.ActiveSlotCount; // the slot being added
@@ -1020,6 +1078,18 @@ namespace TheWaningBorder.UI.Menus.Panels
             else if (humanCount == 0)
             {
                 SetError("Need at least 1 human player!");
+                return;
+            }
+
+            // A match needs two SIDES. Teams are hostility, so a roster where
+            // every slot shares one team has no enemies in it at all — the
+            // victory check sees one side remaining and ends the match with a
+            // VICTORY banner about ten seconds in. That reads as "I instantly
+            // win", not as "my lobby was wrong", so refuse it here where the
+            // player can still fix it. docs/Design/Teams.md
+            if (AllSlotsOnOneTeam())
+            {
+                SetError("Everyone is on the same team — someone has to be the enemy!");
                 return;
             }
 

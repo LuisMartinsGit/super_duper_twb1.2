@@ -69,7 +69,20 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             // docs/Design/Lobby_Setup.md
             System.Array.Sort(starts, MapMarkerRegistry.ComparePlayerStarts);
             if (starts.Length > 0)
+            {
                 info.PlayerCount = Mathf.Clamp(starts.Length, 2, 8);
+            }
+            else
+            {
+                // Do NOT leave PlayerCount at whatever it was. A fresh MapInfo
+                // defaults to 8 (MapInfo.cs), so baking a map before its start
+                // markers are placed used to ship "8 players" on a map with
+                // zero starts -- the lobby then offered 8 slots, and every
+                // faction fell through to procedural placement.
+                Debug.LogError($"[MapInfoBaker] \"{mapName}\" has NO PlayerStartMarkers. " +
+                               $"PlayerCount is left at {info.PlayerCount} and is almost " +
+                               "certainly wrong. Place start markers and re-bake.");
+            }
             info.PlayerStarts = Normalize(starts, min, size);
 
             // Parallel faction array so a chosen start resolves to a marker by
@@ -85,8 +98,30 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                 Object.FindObjectsByType<VeilsteelDepositMarker>(FindObjectsSortMode.None), min, size);
             info.CurseNodes = Normalize(
                 Object.FindObjectsByType<BorderNodeMarker>(FindObjectsSortMode.None), min, size);
+            info.SupplyNodes = Normalize(
+                Object.FindObjectsByType<SupplyNodeMarker>(FindObjectsSortMode.None), min, size);
 
-            info.Thumbnail = CaptureThumbnail(folder, mapName, min, size);
+            // Region seeds, in the same canonical order the runtime registry
+            // uses -- the index is the region id.
+            var regions = Object.FindObjectsByType<RegionSeedMarker>(FindObjectsSortMode.None);
+            System.Array.Sort(regions, (a, b) =>
+            {
+                int n = string.CompareOrdinal(a.gameObject.name, b.gameObject.name);
+                if (n != 0) return n;
+                var pa = a.transform.position; var pb = b.transform.position;
+                int x = pa.x.CompareTo(pb.x);
+                return x != 0 ? x : pa.z.CompareTo(pb.z);
+            });
+            info.RegionSeeds = Normalize(regions, min, size);
+            info.RegionNames = new string[regions.Length];
+            for (int i = 0; i < regions.Length; i++)
+                info.RegionNames[i] = regions[i] != null ? regions[i].RegionName : "";
+            if (regions.Length == 0)
+                Debug.LogWarning($"[MapInfoBaker] \"{mapName}\" has NO RegionSeedMarkers. Under " +
+                                 "docs/Design/Regions.md a map with no regions grants no build " +
+                                 "space at all. Run Waning Border > Maps > Seed Regions For Open Scene.");
+
+            info.Thumbnail = CaptureThumbnail(folder, mapName, min, size, regions);
 
             EditorUtility.SetDirty(info);
             RegisterInIndex(info);
@@ -95,6 +130,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             Debug.Log($"[MapInfoBaker] Baked \"{mapName}\": {info.PlayerCount} players, " +
                       $"{info.PlayerStarts.Length} starts, {info.IronDeposits.Length} iron, " +
                       $"{info.VeilstoneNodes.Length} veilstone, {info.VeilsteelNodes.Length} veilsteel, " +
+                      $"{info.SupplyNodes.Length} supply, " +
                       $"{info.CurseNodes.Length} curse nodes, thumbnail " +
                       (info.Thumbnail != null ? "captured." : "FAILED."), info);
         }
@@ -142,7 +178,59 @@ namespace TheWaningBorder.Core.Maps.EditorTools
 
         // Top-down orthographic capture of the whole map, saved as a PNG in
         // the map folder and imported as the thumbnail texture.
-        private static Texture2D CaptureThumbnail(string folder, string mapName, Vector3 min, Vector3 size)
+        /// <summary>
+        /// Burn the region partition into the thumbnail.
+        ///
+        /// Baked into the PNG rather than overlaid at runtime because the
+        /// thumbnail is used in several places (lobby preview, map list) and the
+        /// partition is static -- drawing it once here means every consumer gets
+        /// it free and none needs to know what a region is.
+        ///
+        /// Goes through RegionMap rather than computing nearest-seed inline.
+        /// That is not tidiness: RegionMap domain-warps the query so boundaries
+        /// wander instead of ruling straight, and a second copy of the maths
+        /// here would draw a DIFFERENT border from the one the terrain and
+        /// minimap show. One partition, three views, one implementation.
+        /// </summary>
+        private static void DrawRegionLattice(Texture2D tex, Vector3 min, Vector3 size,
+                                              RegionSeedMarker[] regions)
+        {
+            if (regions == null || regions.Length < 2) return;
+
+            // The baker runs with no match world, so install the partition here.
+            var seeds = new Vector2[regions.Length];
+            var names = new string[regions.Length];
+            for (int i = 0; i < regions.Length; i++)
+            {
+                var p = regions[i].transform.position;
+                seeds[i] = new Vector2(p.x, p.z);
+                names[i] = regions[i].RegionName;
+            }
+            TheWaningBorder.World.Regions.RegionMap.Configure(seeds, names);
+
+            // ~1.5 px wide, in metres so it does not thin out on a large map.
+            float width = Mathf.Max(1f, size.x / ThumbnailSize * 1.5f);
+            var line = new Color(0.92f, 0.88f, 0.72f);   // parchment on dark terrain
+            var px = tex.GetPixels();
+
+            for (int y = 0; y < ThumbnailSize; y++)
+            {
+                float wz = min.z + (y + 0.5f) / ThumbnailSize * size.z;
+                int row = y * ThumbnailSize;
+                for (int x = 0; x < ThumbnailSize; x++)
+                {
+                    float wx = min.x + (x + 0.5f) / ThumbnailSize * size.x;
+                    float e = TheWaningBorder.World.Regions.RegionMap.EdgeStrengthAt(wx, wz, width);
+                    if (e <= 0.15f) continue;
+                    int i2 = row + x;
+                    px[i2] = Color.Lerp(px[i2], line, e * 0.75f);
+                }
+            }
+            tex.SetPixels(px);
+        }
+
+        private static Texture2D CaptureThumbnail(string folder, string mapName, Vector3 min, Vector3 size,
+                                                  RegionSeedMarker[] regions)
         {
             var go = new GameObject("~MapInfoBakerCamera");
             RenderTexture rt = null;
@@ -182,8 +270,10 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                 RenderTexture.active = rt;
                 var tex = new Texture2D(ThumbnailSize, ThumbnailSize, TextureFormat.RGB24, false);
                 tex.ReadPixels(new Rect(0, 0, ThumbnailSize, ThumbnailSize), 0, 0);
-                tex.Apply();
                 RenderTexture.active = prev;
+
+                DrawRegionLattice(tex, min, size, regions);
+                tex.Apply();
 
                 string pngPath = $"{folder}/{mapName} Thumbnail.png";
                 File.WriteAllBytes(pngPath, tex.EncodeToPNG());

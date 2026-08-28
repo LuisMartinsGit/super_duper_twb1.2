@@ -1,0 +1,57 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b98b52f4032a91549814ef127e8e0bff, type: 3}
+  m_Name: ShrineOfRidan
+  m_EditorClassIdentifier: 
+  id: ShrineOfRidan
+  displayName: Shrine of Ridan
+  role: Trains Litharchs (healers)
+  description: Early religious building and one of the three Age 0 choice buildings.
+    Trains Litharch healers, slowly heals friendly units in radius, and grants Religion
+    Points on build (Runai +30% heal, Feraldis -30%).
+  hp: 600
+  armorType: structure_human
+  defense:
+    melee: 3
+    ranged: 10
+    siege: 0
+    magic: 3
+  radius: 1.8
+  lineOfSight: 16
+  trains:
+  - Litharch
+  research:
+  - HeightenedMasses
+  - WarriorPriests
+  - PiousMasses
+  - FervoredMasses
+  - FieldHospital
+  minEra: 0
+  cost:
+    Supplies: 210
+    Iron: 0
+    Crystal: 70
+    Veilsteel: 0
+  tags:
+  - Building
+  attack:
+    enabled: 0
+    damage: 12
+    damageType: ranged
+    range: 22
+    cooldown: 1.5
+    maxTargets: 1
+  levels: []
+  unitUpgrades: []
+  prefabPath: 
+  canUpgradeTo: []
+  presentationId: 0

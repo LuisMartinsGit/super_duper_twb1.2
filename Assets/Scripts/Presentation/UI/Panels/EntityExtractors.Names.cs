@@ -59,44 +59,74 @@ namespace TheWaningBorder.UI
 
         /// <summary>
         /// Name for an Age 0 carryover building that its owner's culture
-        /// renames (docs/Design/Age_1_Feraldis.md, Age_1_Alanthor.md — a
-        /// cultured building is the SAME entity under a new name, not a new
-        /// building). Returns null when no rename applies.
+        /// renames. A cultured building is the SAME entity under a new name,
+        /// not a new building id — see docs/Design/Age_0.md § Age-up
+        /// transitions and the per-culture Age 1 docs. Returns null when no
+        /// rename applies (no culture yet, or the pair has no doc name).
         ///
-        /// This is the partial stand-in for the full rename layer
-        /// (task-cultured-rename-layer-071).
+        /// TRUTH SOURCE NOTE: docs/Design/Age_0.md's table (l.595-597) is the
+        /// older pass and disagrees with the per-culture docs in two cells.
+        /// The newer 2026-08-05 per-culture docs win, and are what this table
+        /// implements:
+        ///   * Archery Range / Alanthor has NO cultured name at all. Age_0.md
+        ///     said "Longbow Grounds" and Age_1_Alanthor.md said "Practice
+        ///     Range"; both are retired (2026-08-27). The Archery Range is
+        ///     gated to era 2 and never appears in Age 0, so for Alanthor
+        ///     there is nothing to rename — it is the Archery Range in both
+        ///     ages. Runai and Feraldis DO rename it, because Arrowyard and
+        ///     Thrower Camp are their own buildings, not carryovers.
+        ///   * Barracks / Feraldis is "War Hall", NOT "Longhouse" —
+        ///     Age_1_Feraldis.md l.271 says outright that War Hall "replaces
+        ///     'Longhouse' as the cultured Barracks, 2026-08-05 pass" and that
+        ///     the Feraldis_Longhouse building id is retired from that role.
+        ///     That reassignment left the Feraldis cultured HALL needing a new
+        ///     name, since the one it used to carry moved to the Barracks.
+        ///     Age_1_Feraldis.md left it TBD; settled 2026-08-27 as
+        ///     "Warrior's Hall" and written back into that doc.
         /// </summary>
         private static string CulturedBuildingName(Entity entity, EntityManager em)
         {
             if (!em.HasComponent<FactionTag>(entity)) return null;
 
+            bool isHall     = em.HasComponent<HallTag>(entity);
             bool isBarracks = em.HasComponent<BarracksTag>(entity);
-            bool isRange = em.HasComponent<ArcheryRangeTag>(entity);
-            bool isHut = em.HasComponent<GathererHutTag>(entity);
-            if (!isBarracks && !isRange && !isHut) return null;
+            bool isHut      = em.HasComponent<GathererHutTag>(entity);
+            if (!isHall && !isBarracks && !isHut) return null;
 
             var faction = em.GetComponentData<FactionTag>(entity).Value;
             byte culture = CultureConfig.GetCompletedCulture(em, faction);
+            if (culture == Cultures.None) return null; // still Age 0 — stamped name stands
+
+            if (isHall)
+            {
+                return culture switch
+                {
+                    Cultures.Alanthor => "Town Hall",
+                    Cultures.Runai    => "Trader's Hall",
+                    Cultures.Feraldis => "Warrior's Hall",
+                    _ => null,
+                };
+            }
 
             if (isBarracks)
             {
                 return culture switch
                 {
-                    Cultures.Feraldis => "War Hall",
                     Cultures.Alanthor => "Garrison",
+                    Cultures.Runai    => "Route Guard",
+                    Cultures.Feraldis => "War Hall",
                     _ => null,
                 };
             }
 
-            if (isRange)
-            {
-                return culture switch
-                {
-                    Cultures.Feraldis => "Thrower Camp",
-                    Cultures.Alanthor => "Practice Range",
-                    _ => null,
-                };
-            }
+            // NOTE: the Archery Range is NOT in this table at all. It is an
+            // Alanthor-only era-2 building (2026-08-27) — no other culture ever
+            // owns one, so there is nothing to rename. Runai's Arrowyard and
+            // Feraldis's Thrower Camp are SEPARATE buildings with their own ids,
+            // not cultured names for this one. Both design docs still describe
+            // them as "the Age 0 Archery Range, renamed at age-up"; that premise
+            // was already broken (the Archery Range is minEra 2 and never stands
+            // in Age 0) and is superseded here.
 
             // Gatherer's Hut: Feraldis huts ARE Raider Camps (they stop
             // gathering entirely), so the name has to say so.

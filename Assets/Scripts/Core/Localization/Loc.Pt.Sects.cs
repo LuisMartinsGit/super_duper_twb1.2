@@ -263,8 +263,8 @@ namespace TheWaningBorder.Core.Localization
             // ── Unique buildings (canon four) ──────────────────────────────
             t["Reliquary — a vaulted archive. Every one standing shortens your sect-power cooldowns a little. Limit 5. Trains the Lorekeeper, researches Royal Index."] =
                 "Relicário — um arquivo abobadado. Cada um de pé encurta ligeiramente as recargas dos teus poderes de seita. Limite 5. Treina o Guardião do Saber, investiga o Índice Real.";
-            t["Mending Hall — an open-sided infirmary. Damaged units that walk inside heal over time. Limit 5. Trains the Scar Guard, researches Mason's Charter."] =
-                "Salão da Cura — uma enfermaria de lados abertos. As unidades danificadas que lá entram curam-se ao longo do tempo. Limite 5. Treina o Guarda das Cicatrizes, investiga o Foral do Pedreiro.";
+            t["Mending Hall — an open-sided infirmary. Damaged units that walk inside heal over time. Limit 5. Trains the Scar Guard, researches Field Hospital."] =
+                "Salão da Cura — uma enfermaria de lados abertos. As unidades danificadas que lá entram curam-se ao longo do tempo. Limite 5. Treina o Guarda das Cicatrizes, investiga o Hospital de Campanha.";
             t["Stonehold — a squat windowless blockhouse with the highest HP of any non-Hall structure; it blocks pathing like a wall. Limit 5. Trains the Stone Warden, researches Deep Foundations."] =
                 "Bastião de Pedra — um fortim atarracado e sem janelas, com o HP mais alto de qualquer estrutura além do Hall; bloqueia a passagem como uma muralha. Limite 5. Treina o Guardião da Pedra, investiga as Fundações Profundas.";
             t["Veilworks — a smelter for cursed matter, and the only building that may be raised ON cursed ground. Limit 5. Trains the Golem Autark, researches Warden's Ledger."] =

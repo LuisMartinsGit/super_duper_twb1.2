@@ -45,6 +45,12 @@ namespace TheWaningBorder.Data
         public float attackRange = 1.5f;
         public float minAttackRange;
         public float lineOfSight = 20f;
+        [Tooltip("Wind-up seconds between acquiring a target and releasing the shot.")]
+        public float aimTime;
+
+        [Header("Spatial")]
+        [Tooltip("Collision / selection radius in metres.")]
+        public float radius = 0.5f;
 
         [Header("Projectile Profile (ranged units)")]
         [Tooltip("low = default shortbow arc | flat = crossbow straight line | high = longbow parabola")]
@@ -63,6 +69,8 @@ namespace TheWaningBorder.Data
         public float buildSpeed;
         public float gatheringSpeed;
         public float healsPerSecond;
+        [Tooltip("Reach of the heal, in metres (Litharch).")]
+        public float healRange;
 
         [Header("Siege Specials (0 = unit keeps its built-in constants)")]
         [Tooltip("Close-range direct siege attack range (Godsplinter siege mode).")]
@@ -128,6 +136,8 @@ namespace TheWaningBorder.Data
             def.attackRange    = attackRange;
             def.minAttackRange = minAttackRange;
             def.lineOfSight    = lineOfSight;
+            def.aimTime        = aimTime;
+            def.radius         = radius;
             def.trajectory     = trajectory ?? "";
             def.projectileSpeed = projectileSpeed;
             def.cost           = CloneCost(cost);
@@ -135,6 +145,7 @@ namespace TheWaningBorder.Data
             def.buildSpeed     = buildSpeed;
             def.gatheringSpeed = gatheringSpeed;
             def.healsPerSecond = healsPerSecond;
+            def.healRange      = healRange;
             def.tags           = tags == null ? System.Array.Empty<string>() : (string[])tags.Clone();
             def.bonusVsTags    = bonusVsTags;   // read-only at runtime -> reference copy
             def.abilities      = abilities == null ? System.Array.Empty<string>() : (string[])abilities.Clone();
@@ -160,6 +171,8 @@ namespace TheWaningBorder.Data
             attackRange    = def.attackRange;
             minAttackRange = def.minAttackRange;
             lineOfSight    = def.lineOfSight;
+            aimTime        = def.aimTime;
+            radius         = def.radius;
             trajectory     = def.trajectory ?? "";
             projectileSpeed = def.projectileSpeed;
             cost           = CloneCost(def.cost);
@@ -167,6 +180,7 @@ namespace TheWaningBorder.Data
             buildSpeed     = def.buildSpeed;
             gatheringSpeed = def.gatheringSpeed;
             healsPerSecond = def.healsPerSecond;
+            healRange      = def.healRange;
             tags           = def.tags == null ? System.Array.Empty<string>() : (string[])def.tags.Clone();
             bonusVsTags    = def.bonusVsTags ?? new List<DamageBonus>();
             abilities      = def.abilities == null ? System.Array.Empty<string>() : (string[])def.abilities.Clone();

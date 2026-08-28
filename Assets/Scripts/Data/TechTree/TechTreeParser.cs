@@ -127,7 +127,6 @@ namespace TheWaningBorder.Data
                 // in the JSON but missing from this list is silently never
                 // loaded, and its research button never appears.
                 ParseTechnology(json, "RoyalIndex", result);
-                ParseTechnology(json, "MasonsCharter", result);
                 ParseTechnology(json, "DeepFoundations", result);
                 ParseTechnology(json, "WardensLedger", result);
                 ParseTechnology(json, "EndlessMuster", result);
@@ -229,6 +228,9 @@ namespace TheWaningBorder.Data
                 ParseTechnology(json, "IronPlating", result);
                 ParseTechnology(json, "VeilstonePlating", result);
                 ParseTechnology(json, "ShardPlating", result);
+                // Renewal's sect research (bought at the Mending Hall, not the
+                // Shrine of Ridan) - it is listed down here rather than with the
+                // other four because it is also the Litharch ability unlock.
                 ParseTechnology(json, "FieldHospital", result);
 
                 // Sects (+ embedded sect units/techs)

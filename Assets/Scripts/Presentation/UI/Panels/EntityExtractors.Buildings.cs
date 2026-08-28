@@ -232,6 +232,7 @@ namespace TheWaningBorder.UI
             // the LEVELED Archery Range) and Alanthor_Crucible deleted (the
             // Smelter absorbs its veilsteel role) — calculator 2026-08.
             "Alanthor_Tower", "Alanthor_SiegeYard", "Alanthor_RoyalStable",
+            "Alanthor_Sawyer",
             // Feraldis culture buildings. Hunting Lodge / Logging Station
             // were CUT (2026-08-05 rev.4) — Feraldis huts became Raider
             // Camps, so the gathering-upgrade pair had nothing left to do.
@@ -333,15 +334,14 @@ namespace TheWaningBorder.UI
             Cost available = GetFactionResourcesAsCost(em, faction);
 
             // Per-faction caps — counted once so we don't re-query inside the
-            // building loop. Halls cap at 6 (post-age-up expansion); Temple of
-            // Ridan caps at 1.
-            int hallCount = !em.Equals(default(EntityManager))
-                ? BuildingFactory.GetFactionBuildingCount<HallTag>(em, faction) : 0;
+            // building loop. The Hall has no per-faction cap any more: it is one
+            // per TERRITORY, which is a question about a position and cannot be
+            // answered from a button (see the Hall case below). Temple of Ridan
+            // caps at 1.
             int templeCount = !em.Equals(default(EntityManager))
                 ? BuildingFactory.GetFactionBuildingCount<TempleOfRidanTag>(em, faction) : 0;
             int smelterCount = !em.Equals(default(EntityManager))
                 ? BuildingFactory.GetFactionBuildingCount<SmelterTag>(em, faction) : 0;
-            const int HallCap = 6;
             const int TempleCap = 1;
             const int SmelterCap = 5;   // Forge: passive veilsteel generator, limit 5 (raised from 1, endgame completeness pass)
 
@@ -356,14 +356,17 @@ namespace TheWaningBorder.UI
                     if (BuildingFactory.IsChoiceBuilding(building.id) && existingChoice != null)
                         continue;
 
-                    // Hall: post-age-up expansion, capped at 6 per faction.
-                    // Hide entirely pre-age-up (no Hall button until you've
-                    // picked a culture) and once the cap is reached.
-                    if (building.id == "Hall")
-                    {
-                        if (factionCulture == Cultures.None) continue;
-                        if (hallCount >= HallCap) continue;
-                    }
+                    // Hall: THE claim structure (docs/Design/Regions.md §2).
+                    // Always offered — it is how a player takes ground, and the
+                    // Hall is an Age 0 building, so expansion is open from the
+                    // first minute. The old rules here were both wrong under
+                    // that model: hidden until age-up (which would have made
+                    // Age 0 unexpandable) and capped at six per faction (which
+                    // capped how much of the map anyone could ever hold). The
+                    // real limit is one Hall per TERRITORY, enforced at
+                    // placement by TerritoryOwnership.HallCapReached — a cap on
+                    // a position cannot be answered from a button.
+                    
 
                     // Temple of Ridan: one per faction.
                     if (building.id == "TempleOfRidan" && templeCount >= TempleCap) continue;
@@ -455,7 +458,14 @@ namespace TheWaningBorder.UI
             // the name resolver and the Feraldis AI. The era half of the gate
             // is data: Mine.asset minEra = 1.
             // Canon: docs/Design/Age_1_Feraldis.md § Mine.
-            if (buildingId == "Mine") return Cultures.Feraldis;
+            // The Mine is UNIVERSAL as of the territory economy
+            // (docs/Design/Regions.md §4): "territories containing Iron or
+            // Veilstone produce a trickle -- a mine built on the deposit
+            // harvests more" is the rule for every culture, not a Feraldis
+            // perk. It stays in the Feraldis folder and keeps its unprefixed
+            // id for the reasons CLAUDE.md gives (renaming ripples through the
+            // recipe table, sizes, costs, build times and the name resolver).
+            if (buildingId == "Mine") return Cultures.None;
             return Cultures.None; // universal
         }
     }

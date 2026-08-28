@@ -581,10 +581,9 @@ namespace TheWaningBorder.Multiplayer
                 var blood = world.GetExistingSystemManaged<TheWaningBorder.Systems.Border.BloodCurseSpawnSystem>();
                 if (blood != null) Mix(ref h, blood.RngState);
 
-                var veilstone = world.Unmanaged.GetExistingUnmanagedSystem<TheWaningBorder.Systems.Work.VeilstoneMiningSystem>();
-                if (veilstone != SystemHandle.Null)
-                    Mix(ref h, world.Unmanaged
-                        .GetUnsafeSystemRef<TheWaningBorder.Systems.Work.VeilstoneMiningSystem>(veilstone).RngState);
+                // VeilstoneMiningSystem's RNG was hashed here; the system was
+                // deleted with worker gathering, so there is no longer any
+                // gathering randomness to keep peers agreeing about.
 
                 return h;
             }

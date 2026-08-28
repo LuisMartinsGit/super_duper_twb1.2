@@ -71,7 +71,6 @@ namespace TheWaningBorder.Core.Localization
             t["Reinforced Walls"] = "Muralhas Reforçadas";
             t["Choreographed Volleys"] = "Salvas Coreografadas";
             t["Royal Index"] = "Índice Real";
-            t["Mason's Charter"] = "Carta dos Pedreiros";
             t["Deep Foundations"] = "Fundações Profundas";
             t["Warden's Ledger"] = "Registo do Guardião";
             t["Thessara's Bazaar"] = "Bazar de Thessara";
@@ -228,7 +227,6 @@ namespace TheWaningBorder.Core.Localization
             t["The Keep's hull is reinforced: +20 percent Max HP."] = "A estrutura da Fortaleza é reforçada: +20 por cento de HP máximo.";
             t["Active skill: doubles the fire rate of all Archers for 5 s. 40 s cooldown. Faction-wide, triggered from the Archery Range panel."] = "Competência ativa: duplica a cadência de tiro de todos os Arqueiros durante 5 s. Recarga de 40 s. Para toda a fação, ativada a partir do painel do Campo de Tiro com Arco.";
             t["Sect of Antiquity. All technologies and building upgrades take 30% less time and 10% fewer resources."] = "Seita da Antiguidade. Todas as tecnologias e melhorias de edifícios demoram menos 30% de tempo e custam menos 10% de recursos.";
-            t["Sect of Renewal. All buildings gain +20% HP and construct 25% faster."] = "Seita da Renovação. Todos os edifícios ganham +20% de HP e são construídos 25% mais depressa.";
             t["Sect of Fortitude. Defensive structures cost 20% less and build 30% faster."] = "Seita da Fortitude. As estruturas defensivas custam menos 20% e são construídas 30% mais depressa.";
             t["Sect of Reclamation. Veilstone yields +25%, and every cursed node is harvestable regardless of tier."] = "Seita da Recuperação. O rendimento de Veilstone sobe +25% e todos os nós amaldiçoados podem ser explorados independentemente do nível.";
             t["Weapon tier 2: melee units deal +15% damage."] = "Armas de nível 2: as unidades corpo a corpo causam +15% de dano.";
@@ -242,12 +240,12 @@ namespace TheWaningBorder.Core.Localization
             t["Arrow tier 2: ranged units deal +15% damage."] = "Flechas de nível 2: as unidades de ataque à distância causam +15% de dano.";
             t["Arrow tier 3: ranged units deal a further +30% damage."] = "Flechas de nível 3: as unidades de ataque à distância causam mais +30% de dano.";
             t["Arrow tier 4: ranged units deal a further +75% damage. Needs Veilsteel."] = "Flechas de nível 4: as unidades de ataque à distância causam mais +75% de dano. Requer Veilsteel.";
-            t["+20 HP, +3 line of sight, +2 attack range to all Practice Range archers."] = "+20 de HP, +3 de linha de visão, +2 de alcance de ataque para todos os arqueiros do Campo de Treino.";
-            t["+20 HP, +1 damage, +3 line of sight, +2 attack range to all Practice Range archers."] = "+20 de HP, +1 de dano, +3 de linha de visão, +2 de alcance de ataque para todos os arqueiros do Campo de Treino.";
-            t["+50 HP, +2 damage, +5 line of sight, +3 attack range to all Practice Range archers."] = "+50 de HP, +2 de dano, +5 de linha de visão, +3 de alcance de ataque para todos os arqueiros do Campo de Treino.";
+            t["+20 HP, +3 line of sight, +2 attack range to all Archery Range archers."] = "+20 de HP, +3 de linha de visão, +2 de alcance de ataque para todos os arqueiros do Campo de Tiro com Arco.";
+            t["+20 HP, +1 damage, +3 line of sight, +2 attack range to all Archery Range archers."] = "+20 de HP, +1 de dano, +3 de linha de visão, +2 de alcance de ataque para todos os arqueiros do Campo de Tiro com Arco.";
+            t["+50 HP, +2 damage, +5 line of sight, +3 attack range to all Archery Range archers."] = "+50 de HP, +2 de dano, +5 de linha de visão, +3 de alcance de ataque para todos os arqueiros do Campo de Tiro com Arco.";
             t["-30% attack cooldown for all ranged units."] = "-30% de tempo de recarga de ataque para todas as unidades de ataque à distância.";
             t["Ranged attack cooldown drops to -50% total (stacks multiplicatively with Arrow Volley)."] = "O tempo de recarga do ataque à distância desce para -50% no total (acumula multiplicativamente com Salva de Flechas).";
-            t["Unlocks the Deploy Stakes passive for Practice Range archers: +50% defense against the first cavalry charge once stationary for 3 s; recharges on move."] = "Desbloqueia o passivo Colocar Estacas para os arqueiros do Campo de Treino: +50% de defesa contra a primeira carga de cavalaria após 3 s parado; recarrega ao mover-se.";
+            t["Unlocks the Deploy Stakes passive for Archery Range archers: +50% defense against the first cavalry charge once stationary for 3 s; recharges on move."] = "Desbloqueia o passivo Colocar Estacas para os arqueiros do Campo de Tiro com Arco: +50% de defesa contra a primeira carga de cavalaria após 3 s parado; recarrega ao mover-se.";
             t["+30 HP, +5% speed, +1 damage, +1 defense to Outriders and Cataphracts."] = "+30 de HP, +5% de velocidade, +1 de dano, +1 de defesa para Ginetes e Catafractos.";
             t["+30 HP, +10% speed, +1 damage, +1 defense to Outriders and Cataphracts."] = "+30 de HP, +10% de velocidade, +1 de dano, +1 de defesa para Ginetes e Catafractos.";
             t["+30 HP, +15% speed, +2 damage, +2 defense to Outriders and Cataphracts."] = "+30 de HP, +15% de velocidade, +2 de dano, +2 de defesa para Ginetes e Catafractos.";
@@ -273,7 +271,7 @@ namespace TheWaningBorder.Core.Localization
             t["Siege armour tier 1: +1 defense to all siege engines."] = "Armadura de cerco de nível 1: +1 de defesa para todas as máquinas de cerco.";
             t["Siege armour tier 2: +2 defense to all siege engines."] = "Armadura de cerco de nível 2: +2 de defesa para todas as máquinas de cerco.";
             t["Siege armour tier 3: +3 defense to all siege engines."] = "Armadura de cerco de nível 3: +3 de defesa para todas as máquinas de cerco.";
-            t["Unlocks the Deploy Field Hospital ability for Litharchs: a temporary building that heals nearby allied units, then destroys itself after 2 minutes. 300 s cooldown."] = "Desbloqueia a capacidade Montar Hospital de Campanha para os Litharchs: um edifício temporário que cura unidades aliadas próximas e se destrói passados 2 minutos. Recarga de 300 s.";
+            t["Sect of Renewal. Unlocks the Deploy Field Hospital ability for Litharchs: a temporary building that heals nearby allied units, then destroys itself after 2 minutes. 300 s cooldown."] = "Seita da Renovação. Desbloqueia a capacidade Montar Hospital de Campanha para os Litharchs: um edifício temporário que cura unidades aliadas próximas e se destrói passados 2 minutos. Recarga de 300 s.";
 
             // ============================================================
             // TechTree.json — effects, description, note
@@ -362,8 +360,8 @@ namespace TheWaningBorder.Core.Localization
             // ============================================================
             // LoadingTips.json — all 24 tips
             // ============================================================
-            t["Build Gatherer's Huts near grass — each cell of empty ground inside the circle adds to your supply trickle."] = "Constrói Cabanas do Recoletor perto de erva — cada célula de terreno vazio dentro do círculo aumenta o teu fluxo de mantimentos.";
-            t["Older Gatherer's Huts get priority — new huts placed inside an older circle earn nothing from the overlap."] = "As Cabanas do Recoletor mais antigas têm prioridade — cabanas novas colocadas dentro de um círculo mais antigo não ganham nada da sobreposição.";
+            t["A Gatherer's Hut adds a fixed amount to the territory it stands in — where you put it inside that ground does not matter."] = "Uma Cabana do Recoletor acrescenta um valor fixo ao território onde está — onde a colocas dentro desse terreno não interessa.";
+            t["A territory holds three Gatherer's Huts. Holding more ground beats stacking huts on the ground you have."] = "Um território comporta três Cabanas do Recoletor. Dominar mais terreno vale mais do que amontoar cabanas no que já tens.";
             t["Miners auto-find new iron deposits when one runs out, but only within their Line of Sight."] = "Os mineiros encontram automaticamente novos depósitos de ferro quando um se esgota, mas apenas dentro da sua Linha de Visão.";
             t["Right-click your Hall with miners selected to force them to dump their cargo immediately."] = "Clica com o botão direito no teu Salão com mineiros selecionados para os obrigar a descarregar a carga imediatamente.";
             t["Builders chain to nearby unfinished structures after completing one — keep them grouped to save micro."] = "Os construtores encadeiam para estruturas inacabadas próximas depois de concluírem uma — mantém-nos agrupados para poupar micro.";

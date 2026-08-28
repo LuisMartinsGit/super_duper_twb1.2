@@ -1005,15 +1005,6 @@
                     "researchAt": "Sect_Reliquary"
                 },
                 {
-                    "id": "MasonsCharter",
-                    "name": "Mason's Charter",
-                    "role": "Defense",
-                    "desc": "Sect of Renewal. All buildings gain +20% HP and construct 25% faster.",
-                    "cost": { "Supplies": 280, "Iron": 120, "Veilstone": 40 },
-                    "researchTime": 45,
-                    "researchAt": "Sect_MendingHall"
-                },
-                {
                     "id": "DeepFoundations",
                     "name": "Deep Foundations",
                     "role": "Defense",
@@ -1591,8 +1582,7 @@
                             "lineOfSight": 20,
                             "role": "Batch-trains melee (5 or 10) with small discount",
                             "trains": [
-                                "Feraldis_Berserker",
-                                "Feraldis_WarboarRider"
+                                "Feraldis_Berserker"
                             ],
                             "systems": {
                                 "batchTraining": {
@@ -2667,7 +2657,7 @@
                     "id": "SeasonedArchers",
                     "name": "Seasoned Archers",
                     "role": "Military",
-                    "desc": "+20 HP, +3 line of sight, +2 attack range to all Practice Range archers.",
+                    "desc": "+20 HP, +3 line of sight, +2 attack range to all Archery Range archers.",
                     "cost": {
                         "Supplies": 80,
                         "Iron": 20
@@ -2737,7 +2727,7 @@
                     "id": "VeteranArchers",
                     "name": "Veteran Archers",
                     "role": "Military",
-                    "desc": "+20 HP, +1 damage, +3 line of sight, +2 attack range to all Practice Range archers.",
+                    "desc": "+20 HP, +1 damage, +3 line of sight, +2 attack range to all Archery Range archers.",
                     "cost": {
                         "Supplies": 120,
                         "Iron": 40
@@ -2828,7 +2818,7 @@
                     "id": "EliteArchers",
                     "name": "Elite Archers",
                     "role": "Military",
-                    "desc": "+50 HP, +2 damage, +5 line of sight, +3 attack range to all Practice Range archers.",
+                    "desc": "+50 HP, +2 damage, +5 line of sight, +3 attack range to all Archery Range archers.",
                     "cost": {
                         "Supplies": 200,
                         "Iron": 80
@@ -2966,7 +2956,7 @@
                     "id": "DeployStakes",
                     "name": "Deploy Stakes",
                     "role": "Military",
-                    "desc": "Unlocks the Deploy Stakes passive for Practice Range archers: +50% defense against the first cavalry charge once stationary for 3 s; recharges on move.",
+                    "desc": "Unlocks the Deploy Stakes passive for Archery Range archers: +50% defense against the first cavalry charge once stationary for 3 s; recharges on move.",
                     "cost": {
                         "Supplies": 150,
                         "Iron": 50
@@ -3815,15 +3805,14 @@
                     "id": "FieldHospital",
                     "name": "Field Hospital",
                     "role": "Support",
-                    "desc": "Unlocks the Deploy Field Hospital ability for Litharchs: a temporary building that heals nearby allied units, then destroys itself after 2 minutes. 300 s cooldown.",
+                    "desc": "Sect of Renewal. Unlocks the Deploy Field Hospital ability for Litharchs: a temporary building that heals nearby allied units, then destroys itself after 2 minutes. 300 s cooldown.",
                     "cost": {
-                        "Supplies": 200,
-                        "Iron": 60,
+                        "Supplies": 280,
+                        "Iron": 120,
                         "Veilstone": 40
                     },
-                    "researchTime": 40,
-                    "researchAt": "ShrineOfRidan",
-                    "minBuildingLevel": 2
+                    "researchTime": 45,
+                    "researchAt": "Sect_MendingHall"
                 }
             ]
         }

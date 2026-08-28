@@ -1,0 +1,50 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
+  m_Name: Hunter
+  m_EditorClassIdentifier: 
+  id: Feraldis_Hunter
+  displayName: Axe Thrower
+  unitClass: human_ranged
+  hp: 90
+  speed: 5.7
+  trainingTime: 14
+  damage: 20
+  damageType: ranged
+  armorType: ranged
+  defense:
+    melee: 0
+    ranged: 0
+    siege: 0
+    magic: 0
+  attackCooldown: 1.2
+  attackRange: 8
+  minAttackRange: 0
+  lineOfSight: 12
+  radius: 0.5
+  aimTime: 0.3
+  cost:
+    Supplies: 90
+    Iron: 20
+    Crystal: 0
+    Veilsteel: 0
+  minBuildingLevel: 2
+  buildSpeed: 0
+  gatheringSpeed: 0
+  carryCapacity: 0
+  healsPerSecond: 0
+  tags:
+  - Ranged
+  bonusVsTags: []
+  prefab: {fileID: 1294917964949515585, guid: 7a067f615c7effa42b7198a01df3bbb5, type: 3}
+  presentationId: 338
+  animatorController: {fileID: 9100000, guid: 64aa267d074a4114a8a3974d9d63f062, type: 2}

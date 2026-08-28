@@ -18,19 +18,15 @@ namespace TheWaningBorder.Entities
         /// BuildingSizeConfig all agree on.</summary>
         public const string BuildingId = "Sect_MendingHall";
 
-        private const float DefaultHp = 750f;
-        private const float DefaultLos = 14f;
 
         /// <summary>
         /// Damaged units that walk inside heal over time, and it is the only
     /// place a Scar Guard is trained.
         /// </summary>
         public static Entity Create(EntityManager em, float3 position, Faction faction)
-            => SectBuilding.Create<MendingHallTag>(em, BuildingId, PresentationID,
-                                             DefaultHp, DefaultLos, position, faction);
+            => SectBuilding.Create<MendingHallTag>(em, BuildingId, PresentationID, position, faction);
 
         public static Entity Create(EntityCommandBuffer ecb, float3 position, Faction faction)
-            => SectBuilding.Create<MendingHallTag>(ecb, BuildingId, PresentationID,
-                                             DefaultHp, DefaultLos, position, faction);
+            => SectBuilding.Create<MendingHallTag>(ecb, BuildingId, PresentationID, position, faction);
     }
 }

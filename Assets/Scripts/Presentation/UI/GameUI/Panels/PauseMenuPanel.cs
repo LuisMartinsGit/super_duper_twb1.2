@@ -58,7 +58,9 @@ namespace TheWaningBorder.UI.GameUI
         {
             // A destroyed menu must not leave the game frozen (scene change
             // while paused, domain reload in the editor).
-            if (IsOpen && Time.timeScale == 0f) Time.timeScale = 1f;
+            // Unfreeze to the player's GAME SPEED, not to 1 — otherwise a
+            // scene change or domain reload while paused silently resets it.
+            if (IsOpen && Time.timeScale == 0f) GameSpeedControl.Apply();
             IsOpen = false;
         }
 
@@ -237,7 +239,13 @@ namespace TheWaningBorder.UI.GameUI
             // Lockstep peers cannot be frozen by one player's menu.
             if (!GameSettings.IsMultiplayer)
             {
-                _resumeTimeScale = Time.timeScale > 0f ? Time.timeScale : 1f;
+                // Resume to the player's GAME SPEED, not to whatever happened
+                // to be in timeScale. Capturing the live value is fine while
+                // running, but a pause opened during another pause (or before
+                // the first Apply) would latch 0 or 1 and quietly undo the
+                // preference on close.
+                _resumeTimeScale = Time.timeScale > 0f
+                    ? Time.timeScale : GameSpeedControl.Current;
                 Time.timeScale = 0f;
             }
         }
@@ -247,7 +255,9 @@ namespace TheWaningBorder.UI.GameUI
             if (!IsOpen) return;
             IsOpen = false;
             _root.gameObject.SetActive(false);
-            if (!GameSettings.IsMultiplayer) Time.timeScale = _resumeTimeScale;
+            if (!GameSettings.IsMultiplayer)
+                Time.timeScale = _resumeTimeScale > 0f
+                    ? _resumeTimeScale : GameSpeedControl.Current;
         }
 
         // ── Actions ────────────────────────────────────────────────────────
@@ -263,7 +273,7 @@ namespace TheWaningBorder.UI.GameUI
         {
             Close();
             // The lobby/loading path is menu-only; going back is a plain load.
-            Time.timeScale = 1f;
+            GameSpeedControl.Apply();
             SceneManager.LoadScene(MainMenuScene);
         }
 

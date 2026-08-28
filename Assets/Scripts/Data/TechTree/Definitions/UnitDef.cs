@@ -35,6 +35,16 @@ namespace TheWaningBorder.Data
         public float attackRange;
         public float minAttackRange;    // minimum attack range (for archers, siege)
         public float lineOfSight;
+        /// <summary>Wind-up seconds between acquiring a target and releasing the
+        /// shot. Was a per-factory DefaultAimTime constant in 16 unit factories
+        /// until 2026-08-27.</summary>
+        public float aimTime;
+
+        // ==================== Spatial ====================
+        /// <summary>Collision / selection radius in metres. Was a per-factory
+        /// DefaultRadius constant in 29 unit factories until 2026-08-27 — the
+        /// SO had no field for it, so no author could tune it.</summary>
+        public float radius;
 
         // ==================== Projectile Profile (ranged units) ====================
         /// <summary>"low" (default shortbow arc) | "flat" (crossbow straight line) | "high" (longbow parabola).</summary>
@@ -54,6 +64,7 @@ namespace TheWaningBorder.Data
         public float buildSpeed;        // for builders
         public float gatheringSpeed;    // for miners/gatherers
         public float healsPerSecond;    // for healers
+        public float healRange;         // reach of the heal (Litharch)
 
         // ==================== Tags & Bonus Damage (AoE4-style) ====================
         /// <summary>Tags this unit HAS (targetable by others' bonus damage).</summary>

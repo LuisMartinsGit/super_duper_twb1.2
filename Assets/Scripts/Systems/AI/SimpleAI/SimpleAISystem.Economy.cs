@@ -79,8 +79,13 @@ namespace TheWaningBorder.AI
             // personality; the WORKER target follows the difficulty's per-age
             // curve (AoE4: villager targets rise with age and difficulty) —
             // the personality floor acts as a minimum. Never reduce.
-            if (aiState.DesiredMilitary < personality.militaryFloor)
-                aiState.DesiredMilitary = personality.militaryFloor;
+            // The floor moves with the plan too, so a massing AI starts
+            // wanting troops immediately rather than waiting for the sustain
+            // loop to inch its target up one unit at a time.
+            int floorWanted = math.max(1,
+                (int)math.round(personality.militaryFloor * PlanProfileOf(faction).ArmyScale));
+            if (aiState.DesiredMilitary < floorWanted)
+                aiState.DesiredMilitary = floorWanted;
             int workerTarget = math.max(personality.minerFloor,
                 aiState.AgeUpIssued != 0 ? profile.WorkerTargetAge1 : profile.WorkerTargetAge0);
             if (aiState.DesiredMiners < workerTarget)
@@ -156,7 +161,15 @@ namespace TheWaningBorder.AI
             // queues up to one unit per trainer per tick — the parallel
             // buildings actually pump in parallel instead of growing the army
             // one unit per think tick regardless of capacity.
-            if (aiState.DesiredMilitary < profile.SustainArmyCap
+            // THE PLAN SETS THE CEILING. A flat SustainArmyCap is why every
+            // AI wanted the same army: massing and booming are the same
+            // ambition with different excuses unless the target actually
+            // moves. Mass reaches well past the difficulty cap; Boom stays
+            // deliberately thin, which is what makes it punishable.
+            int armyCap = math.max(1,
+                (int)math.round(profile.SustainArmyCap * PlanProfileOf(faction).ArmyScale));
+
+            if (aiState.DesiredMilitary < armyCap
                 && CountAliveMilitary(em, faction) >= aiState.DesiredMilitary
                 // Pivotal savings hold: army GROWTH (beyond the floor) is
                 // discretionary — it was eating every supply the instant it
@@ -166,7 +179,7 @@ namespace TheWaningBorder.AI
                 int trainers = CountFactionBuildings<BarracksTag>(em, faction)
                              + CountFactionBuildings<ArcheryRangeTag>(em, faction);
                 int burst = math.clamp(trainers, 1, 3);
-                for (int t = 0; t < burst && aiState.DesiredMilitary < profile.SustainArmyCap; t++)
+                for (int t = 0; t < burst && aiState.DesiredMilitary < armyCap; t++)
                 {
                     string unit = PickCompositionUnit(em, brainEntity, faction, now,
                         profile.CounterCompEnabled);

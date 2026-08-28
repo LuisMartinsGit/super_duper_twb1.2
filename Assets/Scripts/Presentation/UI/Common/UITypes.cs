@@ -52,6 +52,23 @@ public struct EntityDisplayInfo
     public int? VeilsteelPerMinute;
     public int? GlowPerMinute;
 
+    /// <summary>
+    /// Name of the territory a Hall claims, when this entity is one. The Hall
+    /// is where a territory states what it yields (docs/Design/Regions.md §4),
+    /// and the yield fields above carry those numbers; this labels them so the
+    /// player knows WHICH ground they are reading. Null for everything else.
+    /// </summary>
+    public string TerritoryName;
+
+    /// <summary>
+    /// The unit's Power number — combat output per resource invested, ~100 for
+    /// a par unit (docs/Design/Unit_Power.md). Derived entirely from stats the
+    /// unit already has, so it can never disagree with the rest of this panel.
+    /// Null for buildings and for units the metric does not measure (a Scout, a
+    /// Ledger: no combat or support output at all).
+    /// </summary>
+    public float? PowerRating;
+
     // Miner info
     public bool HasMinerInfo;
     public string MinerResourceType;      // "Iron" or "Veilstone"

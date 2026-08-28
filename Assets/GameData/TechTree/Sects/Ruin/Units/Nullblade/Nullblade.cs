@@ -13,12 +13,6 @@ namespace TheWaningBorder.Entities
     /// </summary>
     public static class Nullblade
     {
-        private const float DefaultHP = 150f;
-        private const float DefaultSpeed = 4.2f;
-        private const float DefaultDamage = 14f;
-        private const float DefaultLoS = 10f;
-        private const float DefaultAttackCooldown = 1.1f;
-        private const float DefaultRadius = 0.5f;
         private const int PresentationID = 381;
 
         public static Entity Create(EntityManager em, float3 position, Faction faction)
@@ -30,20 +24,13 @@ namespace TheWaningBorder.Entities
         private static Entity CreateInternal<TCreator>(TCreator creator, float3 position, Faction faction)
             where TCreator : struct, IEntityCreator
         {
-            float hp = DefaultHP;
-            float speed = DefaultSpeed;
-            float damage = DefaultDamage;
-            float los = DefaultLoS;
-            float cooldown = DefaultAttackCooldown;
-            float radius = DefaultRadius;
-
-            if (TechCatalog.TryGetUnit("Sect_Nullblade", out var def))
-            {
-                if (def.hp > 0) hp = def.hp;
-                if (def.speed > 0) speed = def.speed;
-                if (def.damage > 0) damage = def.damage;
-                if (def.lineOfSight > 0) los = def.lineOfSight;
-            }
+            var def = TechCatalog.Unit("Sect_Nullblade");
+            float hp = def.hp;
+            float speed = def.speed;
+            float damage = def.damage;
+            float los = def.lineOfSight;
+            float cooldown = def.attackCooldown;
+            float radius = def.radius;
 
             var entity = creator.CreateEntity();
 

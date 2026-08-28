@@ -51,7 +51,15 @@ namespace TheWaningBorder.Bootstrap
             bool fourPlayer =
                 GameSettings.ActiveScenario == ScenarioType.FourWayCultures ||
                 GameSettings.ActiveScenario == ScenarioType.BuildingShowcase;
-            GameSettings.TotalPlayers = fourPlayer ? 4 : 2;
+
+            // The sandbox lets you place units for ANY of the eight factions,
+            // so all eight need economy banks up front — EconomyBootstrap only
+            // creates TotalPlayers of them, and a unit whose faction has no
+            // bank trips every system that reads one. Not an observer: the
+            // whole point is to select and order the units you drop.
+            bool sandbox = GameSettings.ActiveScenario == ScenarioType.Sandbox;
+
+            GameSettings.TotalPlayers = sandbox ? 8 : (fourPlayer ? 4 : 2);
             GameSettings.LocalPlayerFaction = Faction.Blue;
             GameSettings.FogOfWarEnabled = false;
             GameSettings.IsObserver = fourPlayer;
@@ -136,6 +144,12 @@ namespace TheWaningBorder.Bootstrap
                     break;
                 case ScenarioType.HutEvolution:
                     SpawnHutEvolution(em);
+                    break;
+                case ScenarioType.FormationOctagon:
+                    SpawnFormationOctagon(em);
+                    break;
+                case ScenarioType.Sandbox:
+                    SpawnSandbox();
                     break;
             }
 
@@ -1709,6 +1723,7 @@ namespace TheWaningBorder.Bootstrap
             // Scenarios don't run the marker scan; do it here so a hand-authored
             // map's PlayerStartMarkers are honoured.
             MapMarkerRegistry.Refresh();
+            TheWaningBorder.World.Regions.RegionMap.BuildFromMarkers();
 
             PlayerStartMarker marker =
                 MapMarkerRegistry.FindPlayerMarker(GameSettings.LocalPlayerFaction);
@@ -1817,6 +1832,152 @@ namespace TheWaningBorder.Bootstrap
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// The unit sandbox spawns NOTHING. The board is whatever the user
+        /// clicks onto the ground, which is the entire point: every other
+        /// scenario is a hardcoded layout in this file, so trying a new matchup
+        /// meant editing C# and recompiling.
+        ///
+        /// All this does is aim the camera at player 1's start (flat, usable
+        /// ground) and mount SandboxPanel, which owns the palette, the
+        /// live SO resync and the result readout.
+        /// </summary>
+        /// <summary>
+        /// A mixed army walked around an octagon by FORMATION move orders — one
+        /// order per leg, never re-issued mid-leg.
+        ///
+        /// 9 Spearmen and 6 Archers, which is the case a homogeneous squad
+        /// cannot test: the melee and the bows form SEPARATE BLOCKS with a gap
+        /// between them (5 + 4 in front, 3 + 3 behind), so the test now covers
+        /// per-type block sizing and the gap surviving eight 45-degree turns —
+        /// not just whether nine identical units hold a square.
+        ///
+        /// The army spawns in the shape the first order will ask for, so leg 1
+        /// is the strictest case in the test: a correct formation ordered to
+        /// move should need ZERO correction. Anything that twitches on the
+        /// first order is a layout or assignment fault, before travel is even
+        /// involved.
+        /// </summary>
+        private static void SpawnFormationOctagon(EntityManager em)
+        {
+            // Matches FormationMoveCommandHelper so the starting block is
+            // exactly the formation the orders will ask for.
+            const float Spacing = FormationMoveCommandHelper.Spacing;
+
+            var driverGo = new UnityEngine.GameObject("FormationOctagonDriver");
+            var driver = driverGo.AddComponent<FormationOctagonDriver>();
+            float3 origin = _scenarioFocus;
+            driver.Centre = new UnityEngine.Vector3(origin.x, 0f, origin.z);
+            var corner = driver.Corner(0);
+
+            // ── The army, spawned FROM THE FORMATION'S OWN LAYOUT. ──
+            //
+            // This used to hand-mirror the block stack, the type gap and the
+            // centring so the army started in the shape the first order would
+            // ask for. That was a second copy of arithmetic that has changed
+            // four times, and per-rank spacing would have made it a third.
+            // Asking the formation where it wants everyone cannot drift.
+            //
+            // It matters more than tidiness: a spawn that disagrees with the
+            // layout by more than the pose-fit tolerance makes the very first
+            // order SNAP instead of continue, and the test then measures the
+            // army recovering from a bad spawn rather than holding its shape.
+            //
+            // No cavalry here — the cataphracts are picked up on the course.
+            var census = new int[FormationMoveCommandHelper.RankCount];
+            census[FormationMoveCommandHelper.RankHero]    = 1;   // King Lexor
+            census[FormationMoveCommandHelper.RankMelee]   = 9;   // 5 + 4
+            census[FormationMoveCommandHelper.RankRanged]  = 6;   // 3 + 3
+            census[FormationMoveCommandHelper.RankSupport] = 2;   // healers
+            census[FormationMoveCommandHelper.RankSiege]   = 2;   // engines, double spacing
+
+            FormationMoveCommandHelper.BuildLayout(census, driver.Shape,
+                out var slots, out var groupCounts, out var groupRank);
+
+            // FACE THE FIRST LEG. Laid out axis-aligned, the army stood facing
+            // +Z while leg 0 travels corner 0 -> corner 1, which is 45 degrees
+            // away — so the rear ranks began nearest the destination and the
+            // formation started every run inside-out.
+            var next = driver.Corner(1);
+            float3 fwd = math.normalizesafe(
+                new float3(next.x - corner.x, 0f, next.z - corner.z),
+                new float3(0f, 0f, 1f));
+            float3 side = math.cross(new float3(0f, 1f, 0f), fwd);
+
+            int slotIdx = 0;
+            for (int gi = 0; gi < groupCounts.Count; gi++)
+            {
+                string id = UnitIdForRank(groupRank[gi]);
+                for (int k = 0; k < groupCounts[gi]; k++, slotIdx++)
+                {
+                    var sl = slots[slotIdx];
+                    float3 pos = new float3(corner.x, 0f, corner.z)
+                        + side * sl.x + fwd * sl.y;
+                    pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
+
+                    if (string.IsNullOrEmpty(id)) continue;
+                    var e = UnitFactory.Create(em, id, pos, Faction.Blue);
+                    if (e != Entity.Null) driver.Units.Add(e);
+                }
+            }
+
+            // ── Two idle cataphracts posted at each corner ahead. ──
+            //
+            // Corner 0 is where the army stands, so it gets none: the first leg
+            // marches with infantry alone, and the army picks up a pair at
+            // every corner it reaches. Two knights ride in front; from four on,
+            // a quarter peels off to cover each flank (see the cavalry split in
+            // FormationMoveCommandHelper). Seven pairs around the course, so
+            // the army finishes the loop 14 knights heavier than it started.
+            for (int i = 1; i < 8; i++)
+            {
+                var post = driver.Corner(i);
+                var toNext = driver.Corner(i + 1) - post;
+                float3 lane = math.normalizesafe(
+                    new float3(toNext.x, 0f, toNext.z), new float3(0f, 0f, 1f));
+                float3 across = math.cross(new float3(0f, 1f, 0f), lane);
+
+                for (int k = 0; k < 2; k++)
+                {
+                    // Stand them clear of the corner itself, so the army is not
+                    // trying to walk through the units it is absorbing.
+                    float3 pos = new float3(post.x, 0f, post.z)
+                        + across * ((k - 0.5f) * Spacing * 2f)
+                        + lane * (Spacing * 2f);
+                    pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
+
+                    var e = UnitFactory.Create(em, "Alanthor_Cataphract", pos, Faction.Blue);
+                    if (e != Entity.Null) driver.Reinforcements.Add(e);
+                }
+            }
+
+            TWBLog.Log($"[ScenarioSetup] FormationOctagon: {driver.Units.Count} units " +
+                       $"(1 hero, 9 melee 5+4, 6 ranged 3+3, 2 healers, 2 siege), " +
+                       $"{driver.Reinforcements.Count} cataphracts posted around the " +
+                       $"course, radius {driver.Radius} m. F2 shows the leader + slots.");
+        }
+
+        /// <summary>What to spawn for each formation rank in the octagon test.
+        /// Cavalry is absent on purpose — it joins from the course.</summary>
+        private static string UnitIdForRank(int rank)
+        {
+            if (rank == FormationMoveCommandHelper.RankHero)    return "KingLexor";
+            if (rank == FormationMoveCommandHelper.RankMelee)   return "Spearman";
+            if (rank == FormationMoveCommandHelper.RankRanged)  return "Archer";
+            if (rank == FormationMoveCommandHelper.RankSupport) return "Litharch";
+            if (rank == FormationMoveCommandHelper.RankSiege)   return "Alanthor_Catapult";
+            return null;
+        }
+
+        private static void SpawnSandbox()
+        {
+            // No _scenarioFocus here: the shared re-center below already points
+            // the camera at the player-1 start, and with an empty board its
+            // RecenterScenario pass has nothing to shift.
+            var go = new UnityEngine.GameObject("SandboxPanel");
+            go.AddComponent<TheWaningBorder.UI.HUD.SandboxPanel>();
         }
 
         /// <summary>Offset an XZ position and re-snap its Y to terrain height.</summary>

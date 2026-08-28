@@ -107,6 +107,7 @@ namespace TheWaningBorder.Core.Maps
             "SunderedCrown",   // 4P free-for-all
             "HollowTable",     // 1v1 duel, one central well
             "TwinSpans",       // 3v3 river, two crossings, four bridgehead wells
+            "SunderedReach",   // 3P, 704 m (4x Twin Spans' area), 10 regions
         };
 
         /// <summary>
@@ -166,6 +167,11 @@ namespace TheWaningBorder.Core.Maps
                 // Available in player builds too, so this works outside the editor.
                 string path = SceneUtility.GetScenePathByBuildIndex(i);
                 if (string.IsNullOrEmpty(path)) continue;
+                // Normalise like ShouldShip does. The two used to disagree:
+                // ShouldShip replaced backslashes and this did not, so a
+                // backslashed path could pass the ship gate and still fail the
+                // MapsRoot prefix test here, hiding the map from the lobby.
+                path = path.Replace('\\', '/');
 
                 bool isMap = path.StartsWith(MapsRoot);
                 bool isScenario = IsUnderScenarioRoot(path);

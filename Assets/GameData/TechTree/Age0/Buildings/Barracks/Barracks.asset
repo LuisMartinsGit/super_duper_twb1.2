@@ -1,0 +1,92 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b98b52f4032a91549814ef127e8e0bff, type: 3}
+  m_Name: Barracks
+  m_EditorClassIdentifier: 
+  id: Barracks
+  displayName: Barracks
+  role: "Train infantry \u2014 basics at L1, advanced at L2"
+  description: Primary melee training building. Produces Spearmen and researches
+    melee upgrades. Becomes the culture's melee structure (Garrison / Route Guard
+    / Longhouse) at age-up.
+  hp: 800
+  armorType: structure_human
+  defense:
+    melee: 5
+    ranged: 11
+    siege: 0
+    magic: 2
+  radius: 1.6
+  lineOfSight: 18
+  buildTime: 30
+  populationProvided: 0
+  suppliesPerTick: 0
+  suppliesInterval: 0
+  maxIron: 0
+  maxVeilstone: 0
+  segmentHp: 0
+  segmentLineOfSight: 0
+  trains:
+  - Spearman
+  - Alanthor_Swordsman
+  - Alanthor_Sentinel
+  - Alanthor_Nobleman
+  - Feraldis_Spearman
+  - Feraldis_Bloodletter
+  - Feraldis_Suicidal
+  research:
+  - Conscription
+  - StoneWeapons
+  - IronWeapons
+  - VeilstoneWeapons
+  - ShardInfusedWeapons
+  - SeasonedInfantry
+  - VeteranInfantry
+  - EliteInfantry
+  - Charge
+  - ShieldWall
+  minEra: 0
+  cost:
+    Supplies: 220
+    Iron: 40
+    Veilstone: 0
+    Veilsteel: 0
+  tags:
+  - Building
+  attack:
+    enabled: 0
+    damage: 12
+    damageType: ranged
+    range: 22
+    cooldown: 1.5
+    maxTargets: 1
+  levels:
+  - level: 0
+    variantName: Barracks
+    culture: 
+    trainSpeedBonusPct: 0
+    trains:
+    - Spearman
+    availableUpgrades: []
+    attack:
+      enabled: 0
+      damage: 12
+      damageType: ranged
+      range: 22
+      cooldown: 1.5
+      maxTargets: 1
+  unitUpgrades: []
+  prefab: {fileID: 5787567608289956776, guid: 4d772238e3975234fa54124f03f14f47, type: 3}
+  presentationId: 510
+  prefabPath: 
+  canUpgradeTo:
+  - Alanthor_Garrison

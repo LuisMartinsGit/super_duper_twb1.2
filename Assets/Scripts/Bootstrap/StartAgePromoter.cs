@@ -38,7 +38,7 @@ namespace TheWaningBorder.Bootstrap
         // Three Alanthor-cluster choice buildings. Random pick at start.
         private static readonly string[] ChoiceBuildings =
         {
-            "ShrineOfAhridan",
+            "ShrineOfRidan",
             "VaultOfAlmierra",
             "FiendstoneKeep",
         };

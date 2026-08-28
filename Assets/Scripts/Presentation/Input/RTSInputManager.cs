@@ -221,6 +221,14 @@ namespace TheWaningBorder.Input
             if (BuilderCommandPanel.IsPlacingBuilding)
                 return true;
 
+            // Block while the unit sandbox has a unit armed — the click that
+            // drops the unit must not ALSO order the current selection to walk
+            // there. Same contract as IsPlacingBuilding above; the property is
+            // false in every mode but ScenarioType.Sandbox, where the panel is
+            // the only thing that mounts it.
+            if (TheWaningBorder.UI.HUD.SandboxPanel.IsPlacing)
+                return true;
+
             return false;
         }
         
@@ -410,13 +418,6 @@ namespace TheWaningBorder.Input
             //    influence-only (VeilCrustConstants.CrustPhysical false):
             //    veilstone comes from discrete deposits, and routing miners
             //    into the reforming crust stranded and killed them. ──
-            if (TheWaningBorder.Core.Config.VeilCrustConstants.CrustPhysical
-                && !_attackMoveMode && !_patrolMode && TryGetVeilClickVertex(out float3 veilVertex))
-            {
-                if (IssueGatherVeilCommands(veilVertex))
-                    return;
-            }
-
             // Determine target and issue appropriate command
             var target = RaycastPickEntity();
             var targetType = DetermineTargetType(target);
@@ -539,10 +540,9 @@ namespace TheWaningBorder.Input
                     break;
 
                 case TargetType.Resource:
-                    if (capabilities.CanGather)
-                        IssueGatherCommands(target);
-                    else
-                        IssueFormationMove(clickWorld);
+                    // Nothing gathers any more (Regions.md §4), so a resource
+                    // is just a thing standing in the world: walk to it.
+                    IssueFormationMove(clickWorld);
                     break;
 
                 case TargetType.Ground:
@@ -810,18 +810,6 @@ namespace TheWaningBorder.Input
                 if (!_em.HasComponent<MinerTag>(e)) continue;
 
                 CommandRouter.IssueConvert(_em, e, keep, CommandSource.LocalPlayer);
-            }
-        }
-
-        private void IssueGatherCommands(Entity resourceNode)
-        {
-            foreach (var e in SelectionSystem.CurrentSelection)
-            {
-                if (!_em.Exists(e)) continue;
-                if (!IsOwnedByLocalPlayer(e)) continue;
-                if (!_em.HasComponent<MinerTag>(e)) continue;
-
-                CommandRouter.IssueGather(_em, e, resourceNode, CommandSource.LocalPlayer);
             }
         }
 
@@ -1226,81 +1214,6 @@ namespace TheWaningBorder.Input
         /// on crust must stay clickable). Outputs the closest crusted
         /// VeilField vertex to the hit — the spot the miner will pick at.
         /// </summary>
-        private bool TryGetVeilClickVertex(out float3 vertex)
-        {
-            vertex = float3.zero;
-            var cam = Camera.main;
-            if (!cam) return false;
-
-            // Need the field to test whether the clicked ground is crusted.
-            var fieldQuery = _veilFieldQuery.Get(_em, VeilFieldQueryTypes);
-            if (fieldQuery.IsEmpty) return false;
-            var field = fieldQuery.GetSingleton<VeilField>();
-            if (field.Initialised == 0 || !field.Saturation.IsCreated) return false;
-
-            Ray ray = cam.ScreenPointToRay(UnityEngine.Input.mousePosition);
-            var hits = Physics.RaycastAll(ray, 1000f, clickMask);
-
-            float veilDist = float.MaxValue;
-            float entityDist = float.MaxValue;
-            Vector3 veilPoint = default;
-            for (int i = 0; i < hits.Length; i++)
-            {
-                // Does this collider resolve to an entity (unit/building)? Those
-                // outrank the crust — clicking a unit standing on crust targets it.
-                bool isEntity = false;
-                var current = hits[i].collider.transform;
-                while (current != null)
-                {
-                    var link = current.GetComponent<EntityReference>();
-                    if (link != null && _em.Exists(link.Entity))
-                    {
-                        entityDist = math.min(entityDist, hits[i].distance);
-                        isEntity = true;
-                        break;
-                    }
-                    current = current.parent;
-                }
-                if (isEntity) continue;
-
-                // Non-entity hit (terrain / ground mesh): it's a Veil click when
-                // the ground under the cursor is crusted. The crystals are now
-                // colliderless GPU instances, so the ray falls through to the
-                // ground and we read the field there.
-                if (field.SaturationAt(hits[i].point) >= VeilField.CrustThreshold
-                    && hits[i].distance < veilDist)
-                {
-                    veilDist = hits[i].distance;
-                    veilPoint = hits[i].point;
-                }
-            }
-            if (veilDist == float.MaxValue || entityDist < veilDist) return false;
-
-            // Snap to the closest crusted vertex of the field grid.
-            return TheWaningBorder.Core.Commands.Types.VeilMiningUtil
-                .TryFindCrustVertex(in field, (float3)veilPoint, VeilVertexSnapRadius, out vertex);
-        }
-
-        /// <summary>
-        /// Send every selected owned miner to dig the Veil at the clicked
-        /// vertex. Returns false if the selection holds no miners (the
-        /// click then falls through to a plain move).
-        /// </summary>
-        private bool IssueGatherVeilCommands(float3 vertex)
-        {
-            bool any = false;
-            foreach (var e in SelectionSystem.CurrentSelection)
-            {
-                if (!_em.Exists(e)) continue;
-                if (!IsOwnedByLocalPlayer(e)) continue;
-                if (!_em.HasComponent<MinerTag>(e)) continue;
-
-                CommandRouter.IssueGatherVeil(_em, e, vertex, CommandSource.LocalPlayer);
-                any = true;
-            }
-            return any;
-        }
-
         private bool TryGetClickPoint(out float3 point)
         {
             point = float3.zero;

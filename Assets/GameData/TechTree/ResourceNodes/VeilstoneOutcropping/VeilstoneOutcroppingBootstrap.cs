@@ -103,21 +103,17 @@ namespace TheWaningBorder.Bootstrap
         {
             if (nodeCount <= 0) return;
 
-            var positions = new Unity.Collections.NativeList<float3>(
-                nodeCount, Unity.Collections.Allocator.Temp);
-            ResourcePatchFill.CollectCells(em, center, nodeCount, raggedEdge, ref random, positions);
+            // ONE node per marker, holding what the whole patch used to
+            // (docs/Design/Regions.md §4, "Nodes, not patches"). The marker's
+            // node count and spread now read as "how much" and "how big"
+            // rather than "how many" and "how far apart" — nothing stands on a
+            // deposit any more, so the scatter bought nothing and cost a
+            // hundred-odd entities and blocked cells per patch.
+            VeilstoneOutcropping.Create(em, center, nodeCount * veilstonePerNode);
 
-            for (int i = 0; i < positions.Length; i++)
-                VeilstoneOutcropping.Create(em, positions[i], veilstonePerNode);
-
-            int placed = positions.Length;
-            positions.Dispose();
-
-            // Paint the ground the patch actually covers.
-            VeilstonePatchGround.Register(center, placed);
-
-            ResourcePatchFill.ReportFit("VeilstoneOutcroppingBootstrap",
-                center, placed, nodeCount, spread);
+            // The painted ground is the node's own footprint now rather than a
+            // block of cells, so 1 keeps Register's units honest.
+            VeilstonePatchGround.Register(center, 1);
         }
 
         /// <summary>

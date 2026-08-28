@@ -60,7 +60,11 @@ namespace TheWaningBorder.Entities
             // Age 0 design-canon line unit (Age_0.md): anti-cavalry spear
             // infantry (pid 330 polearm visuals).
             r["Spearman"]    = new UnitRecipe(Spearman.Create, Spearman.Create, UnitClass.Melee, 368);
-            r["Archer"]      = new UnitRecipe(Archer.Create, Archer.Create, UnitClass.Ranged, 202);
+            // Alanthor_Archer is canonical (2026-08-27 — the Archery Range left the
+            // Age 0 roster, so the bare "Archer" id is Alanthor's light archer and
+            // nobody else's). "Archer" stays as an alias so existing scenario /
+            // bootstrap spawn calls and saved games keep resolving.
+            r["Alanthor_Archer"] = r["Archer"] = new UnitRecipe(Archer.Create, Archer.Create, UnitClass.Ranged, 202);
             // Calculator 2026-08: crossbow/longbow are Alanthor Practice Range
             // tiers only. The bare ids stay as aliases of the Alanthor creators
             // for reference stability (old build orders / scenarios).
@@ -97,11 +101,15 @@ namespace TheWaningBorder.Entities
             r["Alanthor_Longbowman"]  = new UnitRecipe(Longbowman.Create, Longbowman.Create, UnitClass.Ranged, 205);
             r["Alanthor_Cataphract"]  = new UnitRecipe(Cataphract.Create, Cataphract.Create, UnitClass.Melee, 336);
             r["Alanthor_Outrider"]    = new UnitRecipe(Outrider.Create, Outrider.Create, UnitClass.Melee, Outrider.PresentationID);
-            // Siege Yard Lv 1 bolt-thrower (calculator 2026-08: Ballista
-            // replaced the Alanthor Catapult). The retired id stays as an
-            // alias so AI build orders / scenarios / saves keep resolving.
+            // Siege Yard bolt-thrower: single-target flat bolt, +30 vs Building.
             var ballista              = new UnitRecipe(Ballista.Create, Ballista.Create, UnitClass.Siege, 337);
-            r["Alanthor_Ballista"] = r["Alanthor_Catapult"] = ballista;
+            // Ballista and Catapult are SEPARATE units as of 2026-08-27 — the
+            // Siege Yard trains all four of Ballista / Battering Ram / Catapult /
+            // Trebuchet. The Catapult is no longer an alias of the Ballista.
+            // NOTE the class is AlanthorCatapult: plain `Catapult` is the RUNAI
+            // catapult. Same player-facing word, different entity, stats and prefab.
+            r["Alanthor_Ballista"] = ballista;
+            r["Alanthor_Catapult"] = new UnitRecipe(AlanthorCatapult.Create, AlanthorCatapult.Create, UnitClass.Siege, 350);
             // Garrison Lv 2 elite duelist infantry (calculator 2026-08).
             r["Alanthor_Nobleman"]    = new UnitRecipe(Nobleman.Create, Nobleman.Create, UnitClass.Melee, 346);
             // Siege Yard Lv 2/3 additions (calculator 2026-08): anti-building

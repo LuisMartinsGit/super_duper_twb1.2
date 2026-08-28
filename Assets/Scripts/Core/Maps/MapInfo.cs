@@ -103,5 +103,25 @@ namespace TheWaningBorder.Core.Maps
         public Vector2[] VeilstoneNodes = new Vector2[0];
         public Vector2[] VeilsteelNodes = new Vector2[0];
         public Vector2[] CurseNodes = new Vector2[0];
+
+        /// <summary>Supply nodes — the ground a Gatherer's Hut must be
+        /// built on (docs/Design/Regions.md §4). Baked so the lobby
+        /// preview can show how much supply economy a map's territories
+        /// actually hold, which is now a real difference between maps
+        /// rather than a constant.</summary>
+        public Vector2[] SupplyNodes = new Vector2[0];
+
+        /// <summary>
+        /// Region seed positions, normalized 0..1 like every other marker array
+        /// and in the same lockstep-stable order (the index IS the region id).
+        ///
+        /// Baked so the LOBBY can draw the partition before any world exists —
+        /// RegionMap is built from scene markers at match start, which the menu
+        /// scene has none of. docs/Design/Regions.md §1.
+        /// </summary>
+        public Vector2[] RegionSeeds = new Vector2[0];
+
+        /// <summary>Display names parallel to <see cref="RegionSeeds"/>.</summary>
+        public string[] RegionNames = new string[0];
     }
 }

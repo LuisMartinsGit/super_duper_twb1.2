@@ -18,19 +18,15 @@ namespace TheWaningBorder.Entities
         /// BuildingSizeConfig all agree on.</summary>
         public const string BuildingId = "Sect_Veilworks";
 
-        private const float DefaultHp = 850f;
-        private const float DefaultLos = 15f;
 
         /// <summary>
         /// The only building that may be raised ON cursed ground, and it takes
     /// no curse damage.
         /// </summary>
         public static Entity Create(EntityManager em, float3 position, Faction faction)
-            => SectBuilding.Create<VeilworksTag>(em, BuildingId, PresentationID,
-                                             DefaultHp, DefaultLos, position, faction);
+            => SectBuilding.Create<VeilworksTag>(em, BuildingId, PresentationID, position, faction);
 
         public static Entity Create(EntityCommandBuffer ecb, float3 position, Faction faction)
-            => SectBuilding.Create<VeilworksTag>(ecb, BuildingId, PresentationID,
-                                             DefaultHp, DefaultLos, position, faction);
+            => SectBuilding.Create<VeilworksTag>(ecb, BuildingId, PresentationID, position, faction);
     }
 }

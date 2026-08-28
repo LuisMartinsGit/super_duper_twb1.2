@@ -38,6 +38,28 @@ namespace TheWaningBorder.Data
         [Tooltip("Vision range")]
         public float lineOfSight = 20f;
 
+        [Header("Construction")]
+        [Tooltip("Seconds to construct. 0 = the construction system's own default.")]
+        public float buildTime;
+
+        [Header("Population & Income")]
+        [Tooltip("Population headroom this building grants its owner (Hall 20, Hut 10).")]
+        public int populationProvided;
+        [Tooltip("Supplies credited to the owner every Supplies Interval seconds.")]
+        public float suppliesPerTick;
+        [Tooltip("Seconds between supply ticks. 0 = generates no supplies.")]
+        public float suppliesInterval;
+
+        [Header("Storage (Smelter)")]
+        public int maxIron;
+        public int maxVeilstone;
+
+        [Header("Curtain Segments (Alanthor wall only)")]
+        [Tooltip("HP of one curtain segment between two hubs. The hub itself uses HP above.")]
+        public float segmentHp;
+        [Tooltip("Line of sight of one curtain segment.")]
+        public float segmentLineOfSight;
+
         [Header("Capabilities")]
         [Tooltip("Unit IDs this building can train")]
         public string[] trains;
@@ -107,6 +129,14 @@ namespace TheWaningBorder.Data
             def.defense     = UnitDefSO.CloneDefense(defense);
             def.radius      = radius;
             def.lineOfSight = lineOfSight;
+            def.buildTime   = buildTime;
+            def.populationProvided = populationProvided;
+            def.suppliesPerTick    = suppliesPerTick;
+            def.suppliesInterval   = suppliesInterval;
+            def.maxIron            = maxIron;
+            def.maxVeilstone       = maxVeilstone;
+            def.segmentHp          = segmentHp;
+            def.segmentLineOfSight = segmentLineOfSight;
             def.trains      = CloneArray(trains);
             def.research    = CloneArray(research);
             def.minEra      = minEra;
@@ -131,6 +161,14 @@ namespace TheWaningBorder.Data
             defense     = UnitDefSO.CloneDefense(def.defense);
             radius      = def.radius;
             lineOfSight = def.lineOfSight;
+            buildTime   = def.buildTime;
+            populationProvided = def.populationProvided;
+            suppliesPerTick    = def.suppliesPerTick;
+            suppliesInterval   = def.suppliesInterval;
+            maxIron            = def.maxIron;
+            maxVeilstone       = def.maxVeilstone;
+            segmentHp          = def.segmentHp;
+            segmentLineOfSight = def.segmentLineOfSight;
             trains      = CloneArray(def.trains);
             research    = CloneArray(def.research);
             minEra      = def.minEra;

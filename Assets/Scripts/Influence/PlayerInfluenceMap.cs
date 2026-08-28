@@ -182,6 +182,52 @@ namespace TheWaningBorder.Influence
             }
         }
 
+        /// <summary>
+        /// Zero a disc of influence, the counterpart to <see cref="Deposit"/> —
+        /// the same relationship <see cref="BloodMap.Drain"/> has with
+        /// <see cref="BloodMap.AddBlood"/>.
+        ///
+        /// This exists because <see cref="Deposit"/> clamps only the UPPER
+        /// bound, so a negative amount would drive cells below zero and leave
+        /// territory that needs an equal positive deposit before it reads as
+        /// neutral again. Erasing is a distinct operation, not negative
+        /// depositing.
+        /// </summary>
+        /// <param name="channel">Channel to clear, or -1 for every channel.</param>
+        public static void Erase(float worldX, float worldZ, float radius, int channel = -1)
+        {
+            if (!Ready || radius <= 0f) return;
+            if (channel >= ChannelCount) return;
+
+            float cellW = _worldSize.x / Resolution;
+            float cellH = _worldSize.y / Resolution;
+            float u = (worldX - _worldMin.x) / _worldSize.x * Resolution;
+            float v = (worldZ - _worldMin.y) / _worldSize.y * Resolution;
+            int rx = Mathf.CeilToInt(radius / cellW);
+            int ry = Mathf.CeilToInt(radius / cellH);
+            int cx = Mathf.FloorToInt(u);
+            int cy = Mathf.FloorToInt(v);
+            float r2 = radius * radius;
+
+            for (int y = cy - ry; y <= cy + ry; y++)
+            {
+                if (y < 0 || y >= Resolution) continue;
+                for (int x = cx - rx; x <= cx + rx; x++)
+                {
+                    if (x < 0 || x >= Resolution) continue;
+                    float dx = (x + 0.5f - u) * cellW;
+                    float dz = (y + 0.5f - v) * cellH;
+                    if (dx * dx + dz * dz > r2) continue;
+
+                    int cell = (y * Resolution + x) * ChannelCount;
+                    if (channel < 0)
+                        for (int c = 0; c < ChannelCount; c++) _values[cell + c] = 0f;
+                    else
+                        _values[cell + channel] = 0f;
+                }
+            }
+        }
+
         /// <summary>Dominant channel at a world position. Returns false when
         /// the cell is neutral (no channel above the display threshold) or
         /// the position is off-map.</summary>

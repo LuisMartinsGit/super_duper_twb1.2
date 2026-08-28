@@ -212,6 +212,54 @@ namespace TheWaningBorder.UI
             if (em.HasComponent<LineOfSight>(entity))
                 info.SightRadius = em.GetComponentData<LineOfSight>(entity).Radius;
 
+            // THE POWER NUMBER (docs/Design/Unit_Power.md). Read off the unit's
+            // def, not off the live entity: it is a statement about the unit
+            // TYPE — what it is worth for what it costs — and reading a
+            // veteran-ranked or buffed instance would make the same unit report
+            // a different number depending on which one you clicked.
+            if (!isBuilding && em.HasComponent<UnitTypeId>(entity))
+            {
+                string unitId = em.GetComponentData<UnitTypeId>(entity).Value.ToString();
+                if (!string.IsNullOrEmpty(unitId)
+                    && TechCatalog.TryGetUnit(unitId, out var unitDef) && unitDef != null)
+                {
+                    var power = TheWaningBorder.Data.UnitPower.Breakdown(unitDef);
+                    if (power.Measurable) info.PowerRating = power.Power;
+                }
+            }
+
+            // THE TERRITORY READOUT (docs/Design/Regions.md §4). A Hall is what
+            // claims a territory, so the Hall is where that territory states
+            // what it pays — per minute, by resource, with nothing left for the
+            // player to infer by watching their bank tick.
+            //
+            // Read straight from TerritoryIncomeSystem.ComputeYield, the same
+            // call the income tick pays out of. Two implementations would drift,
+            // and a readout that lies about income is worse than no readout.
+            if (em.HasComponent<HallTag>(entity)
+                && em.HasComponent<Unity.Transforms.LocalTransform>(entity))
+            {
+                var hp = em.GetComponentData<Unity.Transforms.LocalTransform>(entity).Position;
+                int territory = TheWaningBorder.World.Regions.RegionMap.RegionAt(hp.x, hp.z);
+                if (territory != TheWaningBorder.World.Regions.RegionMap.None)
+                {
+                    var faction = em.HasComponent<FactionTag>(entity)
+                        ? em.GetComponentData<FactionTag>(entity).Value
+                        : GameSettings.LocalPlayerFaction;
+                    var ty = TheWaningBorder.Systems.World.TerritoryIncomeSystem
+                        .ComputeYield(em, territory, faction);
+
+                    info.HasResourceGeneration = true;
+                    info.SuppliesPerMinute  = ty.Supplies;
+                    info.IronPerMinute      = UnityEngine.Mathf.RoundToInt(ty.Iron);
+                    info.VeilstonePerMinute = UnityEngine.Mathf.RoundToInt(ty.Veilstone);
+                    info.VeilsteelPerMinute = UnityEngine.Mathf.RoundToInt(ty.Veilsteel);
+                    info.YieldPerMinute     = ty.Supplies;
+                    info.TerritoryName      =
+                        TheWaningBorder.World.Regions.RegionMap.NameOf(territory);
+                }
+            }
+
             // Resource generation
             if (em.HasComponent<SuppliesIncome>(entity))
             {

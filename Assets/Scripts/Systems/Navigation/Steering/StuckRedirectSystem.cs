@@ -276,8 +276,7 @@ namespace TheWaningBorder.Systems.Navigation
                     continue;
                 }
 
-                bool hasWork = em.HasComponent<GatherVeilCommand>(e)
-                    || em.HasComponent<BuildCommand>(e)
+                bool hasWork = em.HasComponent<BuildCommand>(e)
                     || em.HasComponent<BuildOrder>(e)
                     || em.HasComponent<RepairOrder>(e)
                     || (em.HasComponent<Target>(e)
@@ -313,65 +312,12 @@ namespace TheWaningBorder.Systems.Navigation
             if (!em.Exists(entity)) return;
             float3 pos = em.GetComponentData<LocalTransform>(entity).Position;
 
-            // ── Veil digger: aim at a different, reachable crust face ──
-            if (em.HasComponent<GatherVeilCommand>(entity))
-            {
-                var cmd = em.GetComponentData<GatherVeilCommand>(entity);
-                bool retargeted = false;
-                if (hasVeil && field.Initialised != 0 && field.Saturation.IsCreated
-                    && VeilMiningUtil.TryFindCrustVertex(in field, pos,
-                        VeilRetargetRadius, out float3 next))
-                {
-                    float nx = next.x - cmd.Target.x;
-                    float nz = next.z - cmd.Target.z;
-                    if (nx * nx + nz * nz > 4f) // genuinely different face
-                    {
-                        cmd.Target = next;
-                        em.SetComponentData(entity, cmd);
-                        if (em.HasComponent<MinerState>(entity))
-                        {
-                            var ms = em.GetComponentData<MinerState>(entity);
-                            ms.State = MinerWorkState.MovingToDeposit;
-                            em.SetComponentData(entity, ms);
-                        }
-                        SetDest(em, entity, next);
-                        retargeted = true;
-                    }
-                }
-                if (!retargeted)
-                {
-                    // Same blocked face everywhere nearby — hand the worker
-                    // back to the economy layer for a fresh assignment.
-                    em.RemoveComponent<GatherVeilCommand>(entity);
-                    ClearMiner(em, entity);
-                    ClearDest(em, entity);
-                }
-                return;
-            }
-
-            // ── Deposit miner: unassign; AI auto-find picks a new one ──
-            if (em.HasComponent<MinerState>(entity)
-                && em.GetComponentData<MinerState>(entity).State == MinerWorkState.MovingToDeposit)
-            {
-                // Mark the deposit UNREACHABLE first — without this the AI
-                // allocator re-issued the exact same blocked node the moment
-                // the miner went idle, and the worker circled forever.
-                var msDeposit = em.GetComponentData<MinerState>(entity).AssignedDeposit;
-                if (msDeposit != Entity.Null && em.Exists(msDeposit))
-                {
-                    var mark = new UnreachableMark { Until = now + UnreachableMarkSeconds };
-                    if (em.HasComponent<UnreachableMark>(msDeposit))
-                        em.SetComponentData(msDeposit, mark);
-                    else
-                        em.AddComponentData(msDeposit, mark);
-                }
-
-                ClearMiner(em, entity);
-                if (em.HasComponent<GatherCommand>(entity))
-                    em.RemoveComponent<GatherCommand>(entity);
-                ClearDest(em, entity);
-                return;
-            }
+            // The veil-digger retarget and the deposit-miner unassign lived
+            // here. Both are unreachable now that worker gathering is gone
+            // (docs/Design/Regions.md §4): nothing issues GatherVeilCommand and
+            // MinerState never leaves Idle, so neither branch could ever be
+            // entered. Removed rather than left as dead weight -- but note
+            // ClearMiner survives, it is still called from the stuck path above.
 
             // ── Combat chaser: drop the unreachable target, re-acquire ──
             if (em.HasComponent<Target>(entity)

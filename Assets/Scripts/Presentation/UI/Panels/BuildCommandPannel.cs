@@ -71,7 +71,7 @@ namespace TheWaningBorder.UI.Panels
             AlanthorWatchTower, AlanthorSiegeYard, AlanthorRoyalStable,
             // Feraldis culture buildings
             FeraldisHuntingLodge, FeraldisLoggingStation, FeraldisLonghouse, FeraldisTotemTower, FeraldisSiegeYard,
-            FeraldisWarTotem, FeraldisPasture, Mine,
+            FeraldisWarTotem, FeraldisPasture, Mine, AlanthorSawyer,
             // Per-hub "Build Wall" action: anchors a new hub + connecting
             // segment onto an existing wall hub. Placed without a builder;
             // auto-builds in 30 s. Entered via
@@ -196,11 +196,28 @@ namespace TheWaningBorder.UI.Panels
                             BuildId(_currentBuild));
                         // Alanthor territorial rule: no building outside your
                         // own influence border (design 2026-07-06).
-                        if (_placementValid && !MeetsInfluenceRequirement(
+                        if (_placementValid && !MeetsTerritoryRequirement(
                                 GetSelectedFactionOrDefault(),
                                 (float3)_placingInstance.transform.position,
                                 BuildId(_currentBuild)))
                             _placementValid = false;
+                        // A hut goes ON a free supply node; a Hall goes in a
+                        // territory that has none. Both show as a red preview
+                        // rather than as a refused click.
+                        if (_placementValid)
+                        {
+                            string previewId = BuildId(_currentBuild);
+                            float pxw = _placingInstance.transform.position.x;
+                            float pzw = _placingInstance.transform.position.z;
+                            if (previewId == "GatherersHut"
+                                && !TheWaningBorder.World.Regions.TerritoryOwnership
+                                        .OnFreeSupplyNode(_em, pxw, pzw))
+                                _placementValid = false;
+                            else if (previewId == "Hall"
+                                && TheWaningBorder.World.Regions.TerritoryOwnership
+                                        .HallCapReached(_em, pxw, pzw))
+                                _placementValid = false;
+                        }
                         // Feraldis War Totems must land on blood.
                         if (_placementValid && !MeetsBloodRequirement(
                                 (float3)_placingInstance.transform.position,
@@ -326,6 +343,7 @@ namespace TheWaningBorder.UI.Panels
                 "Feraldis_WarTotem" => BuildType.FeraldisWarTotem,
                 "Feraldis_Pasture" => BuildType.FeraldisPasture,
                 "Mine" => BuildType.Mine,
+                "Alanthor_Sawyer" => BuildType.AlanthorSawyer,
                 _ => BuildType.Hut
             };
 
@@ -433,13 +451,8 @@ namespace TheWaningBorder.UI.Panels
                 // same setup the ghost shows Lv0 AND every level stacked.
                 var variant = TheWaningBorder.Presentation.BuildingVariantVisual
                     .TrySetup(_placingInstance);
-                if (variant != null)
-                {
-                    TheWaningBorder.Presentation.BuildingAbVariantPicker
-                        .Apply(_placingInstance, 0);
-                    if (playerCulture != Cultures.None)
-                        variant.ShowVariant(playerCulture, 1);
-                }
+                if (variant != null && playerCulture != Cultures.None)
+                    variant.ShowVariant(playerCulture, 1);
             }
 
             // Disable colliders on preview
@@ -460,7 +473,6 @@ namespace TheWaningBorder.UI.Panels
 
             IsPlacingBuilding = true;
             TheWaningBorder.Core.PresentationState.PlacingBuilding = true;
-            GathererHutAreaDisplay.IsPlacingGathererHutType = (_currentBuild == BuildType.GatherersHut);
         }
 
         /// <summary>
@@ -490,7 +502,6 @@ namespace TheWaningBorder.UI.Panels
             _placingInstance = null;
             IsPlacingBuilding = false;
             TheWaningBorder.Core.PresentationState.PlacingBuilding = false;
-            GathererHutAreaDisplay.IsPlacingGathererHutType = false;
             BuildFootprintOutline.Hide();
             BuildGridOverlay.Hide();
 
@@ -504,7 +515,6 @@ namespace TheWaningBorder.UI.Panels
             _placingInstance = null;
             IsPlacingBuilding = false;
             TheWaningBorder.Core.PresentationState.PlacingBuilding = false;
-            GathererHutAreaDisplay.IsPlacingGathererHutType = false;
             BuildFootprintOutline.Hide();
             BuildGridOverlay.Hide();
         }
@@ -554,22 +564,6 @@ namespace TheWaningBorder.UI.Panels
                 }
             }
 
-            // Block additional Halls past the 6-per-faction cap (counts both
-            // the starting Hall and any in-progress builds). Builders can
-            // only place Halls post-age-up — the GetBuildingActions catalog
-            // gate enforces the culture requirement at button-render time;
-            // this is the runtime fallback so a stale UI click can't bypass
-            // it.
-            if (id == "Hall")
-            {
-                int hallCount = BuildingFactory.GetFactionBuildingCount<HallTag>(_em, fac);
-                if (hallCount >= 6)
-                {
-                    PlayerNotificationSystem.Notify(Loc.T("Maximum 6 Halls per faction"));
-                    return;
-                }
-            }
-
             // Block additional Temples of Ridan — only one per faction.
             // Counts both completed and under-construction Temples so a
             // double-click during a 50 s build can't sneak a second order in.
@@ -594,11 +588,36 @@ namespace TheWaningBorder.UI.Panels
                 }
             }
 
-            // Alanthor territorial rule — runtime guard behind the preview
-            // validity check (design 2026-07-06).
-            if (!MeetsInfluenceRequirement(fac, pos, id))
+            // Territorial rule — runtime guard behind the preview validity
+            // check. EVERY culture and Age 0 included: docs/Design/Regions.md
+            // §2 (you hold your start region and nothing else until you can
+            // claim) and §6, which supersedes Overview.md's Alanthor-only
+            // influence rule with territory.
+            if (!MeetsTerritoryRequirement(fac, pos, id))
             {
-                PlayerNotificationSystem.NotifyError(Loc.T("Must build inside your influence"));
+                PlayerNotificationSystem.NotifyError(TerritoryRefusal(id));
+                return;
+            }
+
+            // A Gatherer's Hut stands on a supply node, one hut per node.
+            // Checked here as well as in the preview so a stale click cannot
+            // land one on bare ground.
+            if (id == "GatherersHut"
+                && !TheWaningBorder.World.Regions.TerritoryOwnership.OnFreeSupplyNode(
+                        _em, pos.x, pos.z))
+            {
+                PlayerNotificationSystem.NotifyError(
+                    Loc.T("Gatherer's Huts must be built on a free supply node"));
+                return;
+            }
+
+            // One Hall per territory.
+            if (id == "Hall"
+                && TheWaningBorder.World.Regions.TerritoryOwnership.HallCapReached(
+                       _em, pos.x, pos.z))
+            {
+                PlayerNotificationSystem.NotifyError(
+                    Loc.T("This territory already has a Hall"));
                 return;
             }
 
@@ -705,18 +724,21 @@ namespace TheWaningBorder.UI.Panels
         /// and Watch Towers (forward claims — they PROJECT influence into
         /// new ground).
         /// </summary>
-        private static bool MeetsInfluenceRequirement(Faction fac, float3 pos, string buildingId)
+        private static bool MeetsTerritoryRequirement(Faction fac, float3 pos, string buildingId)
         {
-            if (buildingId == "GatherersHut" || buildingId == "Alanthor_Tower") return true;
-            // COMPLETED culture only: the territorial rule must not switch on
-            // at the click that starts the 60s age-up research.
             var w = EntityWorld.DefaultGameObjectInjectionWorld;
             if (w == null || !w.IsCreated) return true;
-            if (CultureConfig.GetCompletedCulture(w.EntityManager, fac) != Cultures.Alanthor)
-                return true;
-            return TheWaningBorder.Influence.PlayerInfluenceMap.ChannelStrengthWorld(
-                (int)fac, pos.x, pos.z) >= 0.5f;
+            return TheWaningBorder.World.Regions.TerritoryOwnership.CanBuildAt(
+                w.EntityManager, fac, buildingId, pos.x, pos.z);
         }
+
+        /// <summary>The refusal to show for a blocked placement — a claim
+        /// structure fails for a different reason than an ordinary building
+        /// (someone else holds this ground, rather than you do not).</summary>
+        private static string TerritoryRefusal(string buildingId) =>
+            TheWaningBorder.World.Regions.TerritoryOwnership.IsClaimStructure(buildingId)
+                ? Loc.T("Cannot claim ground another player holds")
+                : Loc.T("You can only build in your own territory");
 
         /// <summary>
         /// Feraldis War Totems may only be planted ON BLOOD — the culture
@@ -743,6 +765,9 @@ namespace TheWaningBorder.UI.Panels
         private static TheWaningBorder.Core.CachedEntityQuery _mineIronQuery;
         private static TheWaningBorder.Core.CachedEntityQuery _mineVeilQuery;
 
+        /// <summary>How far from a forest's EDGE a Sawyer may stand.</summary>
+        private const float SawyerForestReach = 14f;
+
         /// <summary>
         /// A Mine may only be placed ON a patch — at least one iron or
         /// veilstone node within its working radius. Without the gate the
@@ -751,6 +776,30 @@ namespace TheWaningBorder.UI.Panels
         /// </summary>
         private static bool MeetsPatchRequirement(EntityManager em, float3 pos, string buildingId)
         {
+            // A Sawyer may only be raised beside a FOREST, for the same reason
+            // the Mine is gated to a patch: without it the building is placeable
+            // anywhere and simply earns nothing, which reads as broken rather
+            // than as a rule. Forests are scene markers rather than entities
+            // (NatureRegionMarker), so this asks the registry, not a query.
+            if (buildingId == "Alanthor_Sawyer")
+            {
+                var forests = TheWaningBorder.World.MapMarkers.MapMarkerRegistry.NatureRegions;
+                for (int i = 0; i < forests.Count; i++)
+                {
+                    var f = forests[i];
+                    if (f == null ||
+                        f.Kind != TheWaningBorder.World.MapMarkers.NatureRegionMarker.NatureKind.Forest)
+                        continue;
+                    var fp = f.WorldPosition;
+                    float dx = fp.x - pos.x, dz = fp.z - pos.z;
+                    // Reach the forest EDGE, not its centre: a stand is a disc
+                    // of Radius metres and a yard sits against its treeline.
+                    float reach = f.Radius + SawyerForestReach;
+                    if (dx * dx + dz * dz <= reach * reach) return true;
+                }
+                return false;
+            }
+
             if (buildingId != "Mine") return true;
             float r2 = TheWaningBorder.Systems.Economy.MineConstants.PatchRadius
                      * TheWaningBorder.Systems.Economy.MineConstants.PatchRadius;
@@ -815,6 +864,7 @@ namespace TheWaningBorder.UI.Panels
             BuildType.FeraldisWarTotem => "Feraldis_WarTotem",
             BuildType.FeraldisPasture => "Feraldis_Pasture",
             BuildType.Mine => "Mine",
+            BuildType.AlanthorSawyer => "Alanthor_Sawyer",
             _ => "Hut"
         };
 
@@ -923,11 +973,11 @@ namespace TheWaningBorder.UI.Panels
             _em = (_world ?? EntityWorld.DefaultGameObjectInjectionWorld).EntityManager;
             var fac = GetSelectedFactionOrDefault();
 
-            // Alanthor territorial rule applies to wall hubs too — walls grow
-            // the border from inside it, one influence-covered hop at a time.
-            if (!MeetsInfluenceRequirement(fac, pos, "Alanthor_Wall"))
+            // The territorial rule applies to wall hubs too — a wall fortifies
+            // ground you hold, it does not take new ground.
+            if (!MeetsTerritoryRequirement(fac, pos, "Alanthor_Wall"))
             {
-                PlayerNotificationSystem.NotifyError(Loc.T("Must build inside your influence"));
+                PlayerNotificationSystem.NotifyError(TerritoryRefusal("Alanthor_Wall"));
                 return;
             }
 
@@ -1014,11 +1064,11 @@ namespace TheWaningBorder.UI.Panels
             }
             else
             {
-                // Alanthor territorial rule — the NEW hub must sit inside the
-                // current border; hub influence (r18) covers the next hop.
-                if (!MeetsInfluenceRequirement(fac, pos, "Alanthor_Wall"))
+                // Territorial rule — the NEW hub must sit in territory you
+                // hold, same as the first one.
+                if (!MeetsTerritoryRequirement(fac, pos, "Alanthor_Wall"))
                 {
-                    PlayerNotificationSystem.NotifyError(Loc.T("Must build inside your influence"));
+                    PlayerNotificationSystem.NotifyError(TerritoryRefusal("Alanthor_Wall"));
                     _wallExtendSourceHub = Entity.Null;
                     return;
                 }

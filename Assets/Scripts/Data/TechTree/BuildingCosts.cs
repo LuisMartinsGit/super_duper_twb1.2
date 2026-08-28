@@ -29,7 +29,10 @@ namespace TheWaningBorder.Data
             // consult this table). Cost applies only to additional Halls a
             // builder places post-age-up — capped at 6 per faction in
             // BuilderCommandPanel.SpawnSelectedBuilding.
-            { "Hall",           Cost.Of(supplies: 500, iron: 150) },
+            // The claim price (docs/Design/Regions.md §2). A Hall is what
+            // takes a territory, so it is the largest single purchase in
+            // the game — and the only one that grows the economy.
+            { "Hall",           Cost.Of(supplies: 600, iron: 200) },
             { "Hut",            Cost.Of(supplies: 80) },                            // Population provider
             { "GatherersHut",   Cost.Of(supplies: 120, iron: 10) },                 // Gathering support building
             { "Barracks",       Cost.Of(supplies: 220, iron: 40) },                 // Military training
@@ -71,12 +74,15 @@ namespace TheWaningBorder.Data
             // to spill on the spot before you could plant it.
             { "Feraldis_WarTotem",       Cost.Of(supplies: 60, iron: 20) },
             { "Feraldis_Pasture",        Cost.Of(supplies: 200, iron: 60) },
+            { "Feraldis_HallOfAxes",     Cost.Of(supplies: 180, iron: 50) },
             // SUPPLIES ONLY, deliberately. The Mine is the bootstrap for
             // ore income, so charging ore for it is circular — and for
             // Feraldis (whose Workers cannot gather at all) it was a hard
             // deadlock: the 2026-08-05 match had both Feraldis AIs sitting
             // on 13k-23k supplies and ZERO iron, unable to build anything.
             { "Mine",                    Cost.Of(supplies: 220) },
+            { "VeilstoneMine",           Cost.Of(supplies: 180, iron: 60) },
+            { "Alanthor_Sawyer",         Cost.Of(supplies: 150, iron: 40) },
 
             // Alanthor Culture Buildings
             { "KingsCourt",              Cost.Of(supplies: 500, iron: 150, veilstone: 50) },
@@ -243,6 +249,8 @@ namespace TheWaningBorder.Data
             if (em.HasComponent<WarTotemTag>(entity)) return "Feraldis_WarTotem";
             if (em.HasComponent<PastureTag>(entity)) return "Feraldis_Pasture";
             if (em.HasComponent<MineTag>(entity)) return "Mine";
+            if (em.HasComponent<VeilstoneMineTag>(entity)) return "VeilstoneMine";
+            if (em.HasComponent<SawyerTag>(entity)) return "Alanthor_Sawyer";
 
             // Walls / wall instances — map to the generic Alanthor wall ID; refund
             // here is small and identical across cultures, so a per-culture branch

@@ -88,6 +88,22 @@ namespace TheWaningBorder.UI.GameUI
         private static readonly Vector2 BottomLeftDockCenter = new Vector2(750.5383f, 328.28113f);
         private static readonly Vector2 BottomLeftDockSize = new Vector2(1501.1f, 656.561f);
 
+        /// <summary>
+        /// SCREEN PIXELS the in-game HUD reserves along the BOTTOM edge of the
+        /// screen — the tallest thing docked there is the bottom-left dock, and
+        /// it clears the actions panel (440 canvas px) and the minimap too.
+        ///
+        /// Anything that draws its own overlay must stay above this, the same
+        /// way anything pinning top-centre must clear
+        /// <see cref="HUD.GameClockHUD.ReservedScreenHeight"/>.
+        ///
+        /// The conversion is exact rather than approximate: the host canvas is
+        /// ScaleWithScreenSize with matchWidthOrHeight = 0, so its scale factor
+        /// is precisely Screen.width / referenceResolution.x.
+        /// </summary>
+        public static float ReservedBottomScreenHeight =>
+            BottomLeftDockSize.y * (Screen.width / StagingReferenceResolution.x);
+
         private RectTransform _hostCanvasRect;
         private RectTransform _bottomLeftDock;
         private GameObject _resourcePanel;

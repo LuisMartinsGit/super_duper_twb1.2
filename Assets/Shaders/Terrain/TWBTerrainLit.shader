@@ -43,6 +43,10 @@ Shader "TWB/Terrain/Lit"
         _CurseSparkleScale("Curse Sparkle Scale", Float) = 3.0
         _OverlayNoiseScale("Overlay Edge Noise Scale", Float) = 0.15
 
+        [Header(Region Boundaries)]
+        _RegionEdgeTint("Region Edge Tint (multiplier)", Color) = (0.32, 0.30, 0.28, 1)
+        _RegionEdgeStrength("Region Edge Strength", Range(0,1)) = 0.55
+
         // set by terrain engine
         [HideInInspector] _Control("Control (RGBA)", 2D) = "red" {}
         [HideInInspector] _Splat3("Layer 3 (A)", 2D) = "grey" {}

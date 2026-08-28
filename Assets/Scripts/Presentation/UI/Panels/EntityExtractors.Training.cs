@@ -128,6 +128,14 @@ namespace TheWaningBorder.UI
                     available,
                     trainingTime: unit.trainingTime
                 );
+                // The Power number belongs HERE above all: the training button
+                // is where a player is actually choosing between units, and
+                // the whole point of the metric is that comparison
+                // (docs/Design/Unit_Power.md).
+                var power = TheWaningBorder.Data.UnitPower.Breakdown(unit);
+                if (power.Measurable)
+                    tooltip += "\n" + string.Format(Loc.T("Power: {0}"),
+                        UnityEngine.Mathf.RoundToInt(power.Power));
                 if (levelLocked)
                     tooltip = string.Format(Loc.T("Requires Lv {0} {1}"),
                         minLv, Loc.T(buildingDef.name ?? buildingId)) + "\n" + tooltip;

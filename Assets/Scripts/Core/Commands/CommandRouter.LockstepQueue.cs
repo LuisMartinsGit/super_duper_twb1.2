@@ -253,44 +253,6 @@ namespace TheWaningBorder.Core.Commands
             LockstepServiceLocator.Instance.QueueCommand(cmd);
         }
 
-        private static void QueueGatherForLockstep(EntityManager em, Entity miner, Entity resource)
-        {
-            int minerId = GetNetworkId(em, miner);
-            int resourceId = GetNetworkId(em, resource);
-
-            if (minerId <= 0)
-            {
-                GatherCommandHelper.Execute(em, miner, resource);
-                return;
-            }
-
-            var cmd = new LockstepCommand
-            {
-                Type = LockstepCommandType.Gather,
-                EntityNetworkId = minerId,
-                TargetEntityId = resourceId
-            };
-            LockstepServiceLocator.Instance.QueueCommand(cmd);
-        }
-
-        private static void QueueGatherVeilForLockstep(EntityManager em, Entity miner, float3 site)
-        {
-            int minerId = GetNetworkId(em, miner);
-            if (minerId <= 0)
-            {
-                GatherVeilCommandHelper.Execute(em, miner, site);
-                return;
-            }
-
-            var cmd = new LockstepCommand
-            {
-                Type = LockstepCommandType.GatherVeil,
-                EntityNetworkId = minerId,
-                TargetPosition = site
-            };
-            LockstepServiceLocator.Instance.QueueCommand(cmd);
-        }
-
         private static void QueueHealForLockstep(EntityManager em, Entity healer, Entity target)
         {
             int healerId = GetNetworkId(em, healer);

@@ -18,19 +18,15 @@ namespace TheWaningBorder.Entities
         /// BuildingSizeConfig all agree on.</summary>
         public const string BuildingId = "Sect_Reliquary";
 
-        private const float DefaultHp = 900f;
-        private const float DefaultLos = 16f;
 
         /// <summary>
         /// Every standing Reliquary shortens the faction's sect-power cooldowns
     /// a little, so spreading them out is the Antiquity tempo play.
         /// </summary>
         public static Entity Create(EntityManager em, float3 position, Faction faction)
-            => SectBuilding.Create<ReliquaryTag>(em, BuildingId, PresentationID,
-                                             DefaultHp, DefaultLos, position, faction);
+            => SectBuilding.Create<ReliquaryTag>(em, BuildingId, PresentationID, position, faction);
 
         public static Entity Create(EntityCommandBuffer ecb, float3 position, Faction faction)
-            => SectBuilding.Create<ReliquaryTag>(ecb, BuildingId, PresentationID,
-                                             DefaultHp, DefaultLos, position, faction);
+            => SectBuilding.Create<ReliquaryTag>(ecb, BuildingId, PresentationID, position, faction);
     }
 }

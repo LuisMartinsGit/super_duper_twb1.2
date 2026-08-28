@@ -18,6 +18,9 @@ namespace TheWaningBorder.World.MapMarkers
         private static readonly List<VeilsteelDepositMarker> _veilsteel = new();
         private static readonly List<BorderNodeMarker>    _border    = new();
         private static readonly List<BlightPocketMarker>  _blight    = new();
+        private static readonly List<NatureRegionMarker>  _nature    = new();
+        private static readonly List<RegionSeedMarker>    _regions   = new();
+        private static readonly List<SupplyNodeMarker>    _supply    = new();
 
         public static IReadOnlyList<PlayerStartMarker>  PlayerStarts   => _players;
         public static IReadOnlyList<IronPatchMarker>    IronPatches    => _iron;
@@ -25,6 +28,9 @@ namespace TheWaningBorder.World.MapMarkers
         public static IReadOnlyList<VeilsteelDepositMarker> VeilsteelDeposits => _veilsteel;
         public static IReadOnlyList<BorderNodeMarker>    BorderNodes     => _border;
         public static IReadOnlyList<BlightPocketMarker>  BlightPockets   => _blight;
+        public static IReadOnlyList<NatureRegionMarker>  NatureRegions   => _nature;
+        public static IReadOnlyList<RegionSeedMarker>    RegionSeeds     => _regions;
+        public static IReadOnlyList<SupplyNodeMarker>    SupplyNodes     => _supply;
 
         public static bool HasPlayerMarkers  => _players.Count  > 0;
         public static bool HasIronMarkers    => _iron.Count     > 0;
@@ -32,6 +38,9 @@ namespace TheWaningBorder.World.MapMarkers
         public static bool HasVeilsteelMarkers => _veilsteel.Count > 0;
         public static bool HasBorderMarkers   => _border.Count    > 0;
         public static bool HasBlightMarkers   => _blight.Count    > 0;
+        public static bool HasNatureRegions   => _nature.Count    > 0;
+        public static bool HasRegionSeeds     => _regions.Count   > 0;
+        public static bool HasSupplyNodes     => _supply.Count    > 0;
 
         /// <summary>
         /// Rescan the active scene for markers. Idempotent — safe to call
@@ -46,6 +55,9 @@ namespace TheWaningBorder.World.MapMarkers
             _veilsteel.Clear();
             _border.Clear();
             _blight.Clear();
+            _nature.Clear();
+            _regions.Clear();
+            _supply.Clear();
 
             _players.AddRange(Object.FindObjectsByType<PlayerStartMarker>(FindObjectsSortMode.None));
             _iron.AddRange(Object.FindObjectsByType<IronPatchMarker>(FindObjectsSortMode.None));
@@ -53,6 +65,9 @@ namespace TheWaningBorder.World.MapMarkers
             _veilsteel.AddRange(Object.FindObjectsByType<VeilsteelDepositMarker>(FindObjectsSortMode.None));
             _border.AddRange(Object.FindObjectsByType<BorderNodeMarker>(FindObjectsSortMode.None));
             _blight.AddRange(Object.FindObjectsByType<BlightPocketMarker>(FindObjectsSortMode.None));
+            _nature.AddRange(Object.FindObjectsByType<NatureRegionMarker>(FindObjectsSortMode.None));
+            _regions.AddRange(Object.FindObjectsByType<RegionSeedMarker>(FindObjectsSortMode.None));
+            _supply.AddRange(Object.FindObjectsByType<SupplyNodeMarker>(FindObjectsSortMode.None));
 
             // FindObjectsByType with SortMode.None is UNORDERED — with two
             // markers claiming the same faction (or leftover-marker
@@ -73,10 +88,15 @@ namespace TheWaningBorder.World.MapMarkers
             _veilsteel.Sort(CompareMarkers);
             _border.Sort(CompareMarkers);
             _blight.Sort(CompareMarkers);
+            // Region seeds especially: the region INDEX is their list position,
+            // so an unstable order would rename every region between peers.
+            _nature.Sort(CompareMarkers);
+            _regions.Sort(CompareMarkers);
 
             TWBLog.Log($"[MapMarkerRegistry] Refresh — players={_players.Count} " +
                       $"iron={_iron.Count} veilstone={_crystal.Count} veilsteel={_veilsteel.Count} " +
-                      $"border={_border.Count} blight={_blight.Count}");
+                      $"border={_border.Count} blight={_blight.Count} " +
+                      $"nature={_nature.Count} regions={_regions.Count}");
         }
 
         /// <summary>Drop all references — call when leaving the Game scene
@@ -89,6 +109,8 @@ namespace TheWaningBorder.World.MapMarkers
             _veilsteel.Clear();
             _border.Clear();
             _blight.Clear();
+            _nature.Clear();
+            _regions.Clear();
         }
 
         /// <summary>

@@ -1,0 +1,54 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
+  m_Name: Crossbowman
+  m_EditorClassIdentifier: 
+  id: Alanthor_Crossbowman
+  displayName: Alanthor_Crossbowman
+  unitClass: human_ranged
+  hp: 70
+  speed: 5
+  trainingTime: 22
+  damage: 18
+  damageType: ranged
+  armorType: ranged
+  defense:
+    melee: 1
+    ranged: 2
+    siege: 0
+    magic: 0
+  attackCooldown: 3
+  attackRange: 12
+  minAttackRange: 0
+  lineOfSight: 12
+  radius: 0.5
+  aimTime: 0.35
+  trajectory: flat
+  projectileSpeed: 55
+  cost:
+    Supplies: 70
+    Iron: 0
+    Crystal: 0
+    Veilsteel: 15
+  minBuildingLevel: 2
+  buildSpeed: 0
+  gatheringSpeed: 0
+  carryCapacity: 0
+  healsPerSecond: 0
+  tags:
+  - Ranged
+  bonusVsTags:
+  - vsTag: Cavalry
+    amount: 12
+  prefab: {fileID: 2130948330614242297, guid: 5166d7c3bd9625542b2403b9689e4626, type: 3}
+  presentationId: 335
+  animatorController: {fileID: 9100000, guid: f7426f3d7d1dece4d9bec86edd11afec, type: 2}

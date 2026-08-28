@@ -124,7 +124,8 @@ namespace TheWaningBorder.Bootstrap
 
             // The pause menu freezes the clock; leaving while paused must not
             // strand the menu at timeScale 0.
-            Time.timeScale = 1f;
+            // The player's game-speed preference, not a hardcoded 1.
+            GameSpeedControl.Apply();
 
             TheWaningBorder.Input.SelectionSystem.ClearSelection();
             TheWaningBorder.UI.HUD.GroundTargeting.Cancel();
@@ -587,11 +588,11 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<RitualBeamSystem>();         // Ritual broadcast beams (spec §5.1)
             managersGO.AddComponent<CaravanVisualSystem>();       // Procedural desert-traveler visual (spec refinement #3)
             managersGO.AddComponent<UnitVisualOverlaySystem>();   // Rank pips + Glow halo (spec refinement #7)
-            managersGO.AddComponent<GathererHutAreaDisplay>();   // GathererHut radius circle display
             // GathererHutGrassPainter (yellow farm-field quads around huts)
             // REMOVED entirely (2026-07-15, user request).
             managersGO.AddComponent<RallyPointDisplay>();        // Rally point marker display
             managersGO.AddComponent<MovementLineDisplay>();      // Unit movement destination lines
+            managersGO.AddComponent<FormationDebugOverlay>();   // F2: leader gimbal + member spots
             managersGO.AddComponent<UnitIndicatorSystem>();     // Direction arrows + state circles
             managersGO.AddComponent<PlanningModeOverlay>();     // Planning mode overlay (Z key)
             managersGO.AddComponent<GameStatsTracker>();          // Resource/population timeline tracker (data only)

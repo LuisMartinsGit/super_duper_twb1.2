@@ -356,6 +356,38 @@ building to inspect it (the resource bar follows whatever faction you have
 selected), but you cannot issue commands. The match runs until one AI
 faction remains and ends with a "&lt;faction&gt; WINS" banner.
 
+### Strategic plans (what an AI is doing right now)
+
+Beyond its opening build order, every AI holds a **plan** — a named
+intention that decides how it spends, how big an army it wants, and how
+much it needs before it will attack. The plan is announced in
+`logs/<session>/AI_<colour>.log` as a `PLAN:` line with the reason, so you
+can watch a match and know what each faction is up to.
+
+| Plan | What you should see |
+|---|---|
+| **BOOMING** | Claiming territory twice as often, army kept deliberately thin. A bet that nobody punishes it. |
+| **MASSING** | Most income into troops, army target well past its normal cap, and it *waits* — it will not attack until the force is big. |
+| **RUSHING** | Same military spending, opposite trade: attacks with half the normal count, constantly. |
+| **TECHING** | Advancement takes the lion's share while it races the age-up and the elite tier it unlocks. |
+| **FORTIFYING** | Keeps a real standing army but will not go looking for a fight. |
+
+A plan is **committed** for 90–140 seconds, so it lasts long enough to see
+and to accomplish something. The one thing that breaks commitment early is
+an enemy in the base — no personality gets a vote on that.
+
+**Plans are chosen by reading the board, not just its own state.** An AI
+that sees a rival holding more ground than it can defend will switch to
+RUSHING to punish the greed; one facing an army twice its size will
+FORTIFY; one that is ahead on army will MASS and commit. Personality biases
+the choice, so on an even board four AIs will pick four different plans —
+and on a decisive one (a deathball on the map, a base under attack) they
+will correctly all reach the same conclusion.
+
+The AI reads territory counts (public — they are on the map) and army
+sizes (a human would have to scout for this; it is a deliberate difficulty
+assist, like the AI knowing where the resource nodes are).
+
 ### AI Strategies
 
 Each AI commits to one strategy at match start and follows a locked-in

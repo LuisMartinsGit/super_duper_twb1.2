@@ -34,29 +34,28 @@ namespace TheWaningBorder.Entities
         /// every sect building needs its own.
         /// </summary>
         public static Entity Create<TTag>(EntityManager em, string buildingId, int presentationId,
-            float hp, float los, float3 position, Faction faction)
+            float3 position, Faction faction)
             where TTag : unmanaged, IComponentData
             => CreateInternal<EmCreator, TTag>(new EmCreator(em), buildingId, presentationId,
-                                               hp, los, position, faction);
+                                               position, faction);
 
         public static Entity Create<TTag>(EntityCommandBuffer ecb, string buildingId, int presentationId,
-            float hp, float los, float3 position, Faction faction)
+            float3 position, Faction faction)
             where TTag : unmanaged, IComponentData
             => CreateInternal<EcbCreator, TTag>(new EcbCreator(ecb), buildingId, presentationId,
-                                                hp, los, position, faction);
+                                                position, faction);
 
         private static Entity CreateInternal<TCreator, TTag>(TCreator creator, string buildingId,
-            int presentationId, float hp, float los, float3 position, Faction faction)
+            int presentationId, float3 position, Faction faction)
             where TCreator : struct, IEntityCreator
             where TTag : unmanaged, IComponentData
         {
-            // The SO/JSON def wins over the code defaults when one exists —
-            // same precedence every other building uses.
-            if (TechCatalog.TryGetBuilding(buildingId, out var def))
-            {
-                if (def.hp > 0) hp = def.hp;
-                if (def.lineOfSight > 0) los = def.lineOfSight;
-            }
+            // Stats come from the building's SO, always. A sect building with no
+            // SO is a data bug the load-time audit reports; it is not something
+            // each of the twelve building files should carry a magic number for.
+            var def = TechCatalog.Building(buildingId);
+            float hp = def.hp;
+            float los = def.lineOfSight;
 
             var entity = creator.CreateEntity();
 

@@ -1,0 +1,82 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4d2f9c81a6e34b0f8d1c5a7e2b9f6034, type: 3}
+  m_Name: Sundered Reach MapInfo
+  m_EditorClassIdentifier: 
+  SceneName: SunderedReach
+  DisplayName: Sundered Reach
+  PlayerCount: 3
+  SizeTag: LARGE / 6P
+  Description: "Six holds set on a ring, each walled from its neighbours by
+    mountains that belong to nobody. Wood inside your own ground, iron on the
+    marches, and a Node between every pair of you — shared, so the thing
+    coming out of it is never only your problem. Nothing is claimed until you
+    have a culture to claim it with."
+  Thumbnail: {fileID: 2800000, guid: 51d0c6b460810314eb2bc4b13dd27082, type: 3}
+  PlayerStarts:
+  - {x: 0.4, y: 0.79}
+  - {x: 0.805, y: 0.4}
+  - {x: 0.23200001, y: 0.15}
+  PlayerStartFactions: 000102
+  PlayerStartTeams: 
+  IronDeposits:
+  - {x: 0.104999974, y: 0.845}
+  - {x: 0.11499999, y: 0.335}
+  - {x: 0.878, y: 0.325}
+  - {x: 0.56, y: 0.185}
+  - {x: 0.425, y: 0.655}
+  - {x: 0.355, y: 0.865}
+  - {x: 0.452, y: 0.862}
+  - {x: 0.872, y: 0.445}
+  - {x: 0.645, y: 0.07799998}
+  - {x: 0.152, y: 0.183}
+  - {x: 0.905, y: 0.585}
+  - {x: 0.76, y: 0.905}
+  - {x: 0.272, y: 0.098000005}
+  VeilstoneNodes:
+  - {x: 0.122, y: 0.099999994}
+  - {x: 0.585, y: 0.128}
+  - {x: 0.16, y: 0.86}
+  - {x: 0.782, y: 0.925}
+  - {x: 0.10800002, y: 0.462}
+  - {x: 0.412, y: 0.565}
+  - {x: 0.33, y: 0.792}
+  - {x: 0.762, y: 0.442}
+  VeilsteelNodes:
+  - {x: 0.487, y: 0.648}
+  - {x: 0.912, y: 0.7}
+  - {x: 0.452, y: 0.18199998}
+  CurseNodes:
+  - {x: 0.82, y: 0.88}
+  - {x: 0.5, y: 0.69}
+  - {x: 0.148, y: 0.905}
+  - {x: 0.625, y: 0.055000003}
+  RegionSeeds:
+  - {x: 0.4, y: 0.79}
+  - {x: 0.805, y: 0.4}
+  - {x: 0.23200001, y: 0.15}
+  - {x: 0.95789474, y: 0.95789474}
+  - {x: 0.031578932, y: 0.5473684}
+  - {x: 0.6315789, y: 0.031578932}
+  - {x: 0.031578932, y: 0.94736844}
+  - {x: 0.4526316, y: 0.43157893}
+  - {x: 0.96842104, y: 0.09473684}
+  RegionNames:
+  - Blue Home
+  - Red Home
+  - Green Home
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 

@@ -55,6 +55,8 @@ namespace TheWaningBorder.Entities
             if (em.HasComponent<WarTotemTag>(entity)) return "Feraldis_WarTotem";
             if (em.HasComponent<PastureTag>(entity)) return "Feraldis_Pasture";
             if (em.HasComponent<MineTag>(entity)) return "Mine";
+            if (em.HasComponent<VeilstoneMineTag>(entity)) return "VeilstoneMine";
+            if (em.HasComponent<SawyerTag>(entity)) return "Alanthor_Sawyer";
             // Sect chapels — dynamic building ID based on sect
             if (em.HasComponent<ChapelTag>(entity))
             {

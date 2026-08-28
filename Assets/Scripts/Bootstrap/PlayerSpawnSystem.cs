@@ -15,12 +15,38 @@ namespace TheWaningBorder.Bootstrap
 {
     public static class PlayerSpawnSystem
     {
+        // ── Where each faction actually started ──────────────────────────
+        //
+        // The RESOLVED position, after the lobby's start pick, the
+        // faction-match pass, the leftover-marker pass and the procedural
+        // fallback have all had their say. Downstream code that needs to know
+        // "where is this player's home" must read this and NOT a
+        // PlayerStartMarker's Faction field: that field is what the map AUTHOR
+        // typed, and nothing writes the real assignment back into it, so on any
+        // map where the lobby moved somebody (a random start pick, more markers
+        // than players, a start chosen on the preview) the two disagree.
+        //
+        // RegionStartReveal read the marker field and revealed the wrong
+        // region: the player saw their real home (their Hall is there) plus a
+        // second, unrelated explored region across the map.
+        private static readonly System.Collections.Generic.Dictionary<Faction, Vector3>
+            _spawnPositions = new();
+
+        /// <summary>World position each active faction's base was spawned at,
+        /// keyed by faction. Empty until <see cref="SpawnAllFactions"/> runs.</summary>
+        public static System.Collections.Generic.IReadOnlyDictionary<Faction, Vector3>
+            SpawnPositions => _spawnPositions;
+
         /// <summary>
         /// Spawn starting bases and units for all active factions.
         /// Call from GameBootstrap after world initialization.
         /// </summary>
         public static void SpawnAllFactions()
         {
+            // Static, so a second match in the same process would otherwise
+            // inherit the previous map's home positions.
+            _spawnPositions.Clear();
+
             var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated)
             {
@@ -228,6 +254,10 @@ namespace TheWaningBorder.Bootstrap
 
             // Spawn Hall (main base) — use BuildingFactory for NetworkedEntity assignment
             BuildingFactory.Create(em, "Hall", spawnPos, faction);
+
+            // Record the FINAL position (post-clamp, post-height-snap) — this
+            // is the one that decides which region the player is standing in.
+            _spawnPositions[faction] = new Vector3(spawnPos.x, spawnPos.y, spawnPos.z);
 
             // Spawn starting Builders just outside the Hall's inflated
             // footprint. The Hall is 8 x 8 m (4 x 4 build cells) + 1 cell of

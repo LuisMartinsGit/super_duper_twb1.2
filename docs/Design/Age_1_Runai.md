@@ -191,7 +191,15 @@ Same 4-tier per-battalion weapon ladder as Alanthor's Garrison (per Q#5).
 
 ---
 
-### Arrowyard — cultured Archery Range
+### Arrowyard — Runai's ranged building
+
+> **Superseded 2026-08-27 — this is a SEPARATE building, not a rename.** The
+> Archery Range is an **Alanthor-only, era-2** building; no other culture ever
+> owns one, so there is nothing for Runai to rename. Arrowyard needs its own building id,
+> SO and prefab. The "Age 0 Archery Range renamed at age-up" premise below was
+> already broken regardless: the Archery Range is `minEra: 2` and never stands in
+> Age 0. Until Arrowyard is authored, Runai's ranged units have no trainer and live in
+> `Civs/Runai/Units/`.
 
 **Doc id:** Arrowyard.
 **Code mapping:** the Age 0 Archery Range, renamed at age-up — same
@@ -610,7 +618,7 @@ Cross-faction items are flagged.
    - **Trader's Hall** (cultured Hall) — Worker + Scout only, plus
      Tools + border-neutrality techs.
    - **Route Guard** (cultured Barracks) — 3-tier infantry ladder.
-   - **Arrowyard** (cultured Archery Range) — 3-tier foot-ranged ladder.
+   - **Arrowyard** (Runai's own ranged building — NOT a cultured Archery Range, 2026-08-27) — 3-tier foot-ranged ladder.
    - **Grazing Grounds** *(new)* — light cavalry + cavalry archers.
    - **Thessara's Bazaar** *(repurposed)* — trade-lane upgrade research
      only, **does not train units**.

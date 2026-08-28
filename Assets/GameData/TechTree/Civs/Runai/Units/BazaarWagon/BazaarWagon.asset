@@ -1,0 +1,50 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
+  m_Name: BazaarWagon
+  m_EditorClassIdentifier: 
+  id: Runai_BazaarWagon
+  displayName: Bazaar Wagon
+  unitClass: economy
+  hp: 600
+  speed: 3
+  trainingTime: 0
+  damage: 0
+  damageType: melee
+  armorType: structure_human
+  defense:
+    melee: 0
+    ranged: 0
+    siege: 0
+    magic: 0
+  attackCooldown: 0
+  attackRange: 0
+  minAttackRange: 0
+  lineOfSight: 8
+  aimTime: 0
+  radius: 1
+  cost:
+    Supplies: 0
+    Iron: 0
+    Veilstone: 0
+    Veilsteel: 0
+  minBuildingLevel: 0
+  buildSpeed: 0
+  gatheringSpeed: 0
+  healsPerSecond: 0
+  healRange: 0
+  tags:
+  - 'Siege'
+  - 'Light'
+  bonusVsTags: []
+  abilities: []
+  presentationId: 410

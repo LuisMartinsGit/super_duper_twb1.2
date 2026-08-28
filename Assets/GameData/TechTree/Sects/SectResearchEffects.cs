@@ -23,7 +23,7 @@ namespace TheWaningBorder.Economy
     {
         // ── Tech ids. Must match TechTree.json and TechTreeParser's allowlist ──
         public const string RoyalIndex       = "RoyalIndex";       // Antiquity
-        public const string MasonsCharter    = "MasonsCharter";    // Renewal
+        public const string FieldHospital    = "FieldHospital";    // Renewal
         public const string DeepFoundations  = "DeepFoundations";  // Fortitude
         public const string WardensLedger    = "WardensLedger";    // Reclamation
         public const string EndlessMuster    = "EndlessMuster";    // War
@@ -46,12 +46,16 @@ namespace TheWaningBorder.Economy
         public static float ResearchCostMultiplier(Faction faction)
             => Has(faction, RoyalIndex) ? 0.90f : 1f;
 
-        // ── Renewal: Mason's Charter ──────────────────────────────────────────
-        // "All buildings gain +20% HP and construct 25% faster."
-
-        /// <summary>Multiplier on every building's max HP.</summary>
-        public static float BuildingHpMultiplier(Faction faction)
-            => Has(faction, MasonsCharter) ? 1.20f : 1f;
+        // ── Renewal: Field Hospital ───────────────────────────────────────────
+        // "Your Litharchs unlock Deploy Field Hospital."
+        //
+        // The only sect research that is a pure UNLOCK rather than a number, so
+        // it has no multiplier here. Its consumers are the two ability-grant
+        // sites that both read the raw tech id: TechEffectSystem's
+        // GrantLitharchFieldHospital (re-arms Litharchs already on the field the
+        // moment it finishes) and ApplySpawnPassives (arms every Litharch
+        // trained after). The id constant lives here anyway so the twelve sect
+        // researches stay greppable from one place.
 
         // ── Fortitude: Deep Foundations ───────────────────────────────────────
         // "Defensive structures cost 20% less and build 30% faster."
@@ -63,16 +67,14 @@ namespace TheWaningBorder.Economy
             => Has(faction, DeepFoundations) && IsDefensiveStructure(buildingId) ? 0.80f : 1f;
 
         /// <summary>
-        /// Multiplier on construction SPEED (higher is faster). Mason's Charter
-        /// is universal, Deep Foundations is defensive-only, and the two stack
-        /// multiplicatively on a wall or a tower - a Renewal + Fortitude faction
-        /// raises its defences 1.25 * 1.30 = 1.625x as fast, which is the
-        /// intended reward for taking both.
+        /// Multiplier on construction SPEED (higher is faster). Deep Foundations
+        /// is the only sect research that touches construction now that Renewal
+        /// sells Field Hospital instead of Mason's Charter, so this applies to
+        /// defensive structures only.
         /// </summary>
         public static float ConstructionSpeedMultiplier(Faction faction, string buildingId)
         {
             float m = 1f;
-            if (Has(faction, MasonsCharter)) m *= 1.25f;
             if (Has(faction, DeepFoundations) && IsDefensiveStructure(buildingId)) m *= 1.30f;
             return m;
         }

@@ -30,6 +30,7 @@ MonoBehaviour:
   attackRange: 0
   minAttackRange: 0
   lineOfSight: 10
+  radius: 0.5
   trajectory: 
   projectileSpeed: 0
   cost:
@@ -44,7 +45,10 @@ MonoBehaviour:
   siegeRange: 0
   siegeCooldown: 0
   aoeRadius: 0
-  tags: []
+  tags:
+  - 'Infantry'
+  - 'Light'
+  - 'Worker'
   bonusVsTags: []
   abilities: []
   prefab: {fileID: 56885907460675, guid: bddded40733ff14ce1e1aab53a3b700c, type: 3}

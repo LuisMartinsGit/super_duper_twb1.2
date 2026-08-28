@@ -31,6 +31,7 @@ namespace TheWaningBorder.Systems.Combat
             foreach (var (transform, faction, lineOfSight, target, entity) in SystemAPI
                 .Query<RefRO<LocalTransform>, RefRO<FactionTag>, RefRO<LineOfSight>, RefRO<Target>>()
                 .WithAll<UnitTag>()
+                .WithNone<DeathAnimationState>()  // a corpse acquires nothing
                 .WithNone<AttackCommand>()
                 .WithNone<PassiveWorkerTag>()   // Builders are passive workers...
                                                 //   ...except Feraldis Workers, which are

@@ -19,8 +19,11 @@ namespace TheWaningBorder.Influence
 
         /// <summary>World-space splat radius of one death. Tightened 5 -> 2.5
         /// (2026-08-04): a single death now reads as a small LOCAL puddle,
-        /// and clustered deaths no longer blob into one oversized pool.</summary>
-        private const float SplatRadius = 2.5f;
+        /// and clustered deaths no longer blob into one oversized pool.
+        /// <para>Public so callers that need to COVER an area can tile splats
+        /// at the right spacing instead of copying the number — AddBlood's
+        /// radius is fixed, unlike Drain's.</para></summary>
+        public const float SplatRadius = 2.5f;
 
         /// <summary>Blood value a full splat (amount = 1) deposits at its
         /// centre. Raised with the radius cut (70 -> 120, 2026-08-04) so ONE

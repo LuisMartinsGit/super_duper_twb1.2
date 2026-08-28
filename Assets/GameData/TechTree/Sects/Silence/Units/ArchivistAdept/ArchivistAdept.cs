@@ -16,14 +16,6 @@ namespace TheWaningBorder.Entities
     /// </summary>
     public static class ArchivistAdept
     {
-        private const float DefaultHP = 110f;
-        private const float DefaultSpeed = 3.5f;
-        private const float DefaultDamage = 14f;
-        private const float DefaultLoS = 18f;
-        private const float DefaultMinRange = 0f;
-        private const float DefaultMaxRange = 14f;
-        private const float DefaultCooldown = 1.6f;
-        private const float DefaultAimTime = 0.4f;
         private const int PresentationID = 373;
 
         public static Entity Create(EntityManager em, float3 position, Faction faction)
@@ -35,24 +27,14 @@ namespace TheWaningBorder.Entities
         private static Entity CreateInternal<TCreator>(TCreator creator, float3 position, Faction faction)
             where TCreator : struct, IEntityCreator
         {
-            float hp = DefaultHP;
-            float speed = DefaultSpeed;
-            float damage = DefaultDamage;
-            float los = DefaultLoS;
-            float minRange = DefaultMinRange;
-            float maxRange = DefaultMaxRange;
-            float cooldown = DefaultCooldown;
-
-            if (TechCatalog.TryGetUnit("Sect_ArchivistAdept", out var def))
-            {
-                if (def.hp > 0) hp = def.hp;
-                if (def.speed > 0) speed = def.speed;
-                if (def.damage > 0) damage = def.damage;
-                if (def.lineOfSight > 0) los = def.lineOfSight;
-                if (def.minAttackRange > 0) minRange = def.minAttackRange;
-                if (def.attackRange > 0) maxRange = def.attackRange;
-                if (def.attackCooldown > 0) cooldown = def.attackCooldown;
-            }
+            var def = TechCatalog.Unit("Sect_ArchivistAdept");
+            float hp = def.hp;
+            float speed = def.speed;
+            float damage = def.damage;
+            float los = def.lineOfSight;
+            float minRange = def.minAttackRange;
+            float maxRange = def.attackRange;
+            float cooldown = def.attackCooldown;
 
             var entity = creator.CreateEntity();
             creator.AddComponent(entity, new PresentationId { Id = PresentationID });
@@ -65,14 +47,14 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new Damage { Value = (int)damage });
             creator.AddComponent(entity, new LineOfSight { Radius = los });
             creator.AddComponent(entity, new Target { Value = Entity.Null });
-            creator.AddComponent(entity, new Radius { Value = 0.5f });
+            creator.AddComponent(entity, new Radius { Value = def.radius });
             creator.AddComponent(entity, new AttackCooldown { Cooldown = cooldown, Timer = 0f });
             creator.AddComponent(entity, new PopulationCost { Amount = 1 });
 
             creator.AddComponent(entity, new ArcherState
             {
                 AimTimer = 0,
-                AimTimeRequired = DefaultAimTime,
+                AimTimeRequired = def.aimTime,
                 CooldownTimer = 0,
                 MinRange = minRange,
                 MaxRange = maxRange,

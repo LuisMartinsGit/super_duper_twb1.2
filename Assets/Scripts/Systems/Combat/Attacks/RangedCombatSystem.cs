@@ -32,8 +32,21 @@ namespace TheWaningBorder.Systems.Combat
     [UpdateAfter(typeof(TargetingSystem))]
     public partial struct RangedCombatSystem : ISystem
     {
-        // Default range values (can be overridden by ArcherState)
-        private const float DefaultMinRange = 10f;
+        // ZERO IS A VALID MIN RANGE, AND IT IS NOW THE NORMAL ONE.
+        //
+        // There used to be a DefaultMinRange of 10 m here, applied whenever
+        // ArcherState.MinRange was 0 — the `x > 0 ? x : fallback` shape
+        // CLAUDE.md warns about, and it was worse than the usual version of
+        // that mistake: authoring minAttackRange: 0 on a unit did not remove
+        // its dead zone, it gave the unit a TEN METRE one, larger than any
+        // value in the roster. The data could not express the thing a designer
+        // would most want to say.
+        //
+        // Only siege keeps a dead zone now (docs/Design/Combat_Pacing.md):
+        // an engine that cannot depress its arc is modelling something. An
+        // archer backing away from a swordsman is not — it was a third of the
+        // fight spent walking backwards, and it made the bow lines feel like
+        // they were refusing to fight.
         private const float DefaultMaxRange = 25f;
         private const float ArrowSpeed = 30f;
         private const float BoltSpeed = 55f; // Siege projectiles (ballista bolts) fly faster
@@ -54,8 +67,23 @@ namespace TheWaningBorder.Systems.Combat
             foreach (var (transform, target, archerState, damage, faction, entity) in SystemAPI
                 .Query<RefRO<LocalTransform>, RefRW<Target>, RefRW<ArcherState>, RefRO<Damage>, RefRO<FactionTag>>()
                 .WithAll<ArcherTag>()
+                // A CORPSE DOES NOT SWING. DeathAnimationState is added the
+                // moment DeathSystem registers the death and the entity then
+                // survives for the length of its death animation — two whole
+                // seconds in which it was still acquiring, cooling down and
+                // landing hits. Excluding it here is the same treatment
+                // UnitIntegratorSystem already gives movement.
+                .WithNone<DeathAnimationState>()
                 .WithEntityAccess())
             {
+                // The marker lands via an EndSimulation ECB, so on the FRAME a
+                // unit dies it is still in this query. Health is authoritative
+                // and already zero by then, so one cheap read closes that
+                // window — without it a lethal blow and the victim's reply
+                // still trade in the same frame.
+                if (SystemAPI.HasComponent<Health>(entity)
+                    && SystemAPI.GetComponent<Health>(entity).Value <= 0) continue;
+
                 ref var tgt = ref target.ValueRW;
                 ref var archer = ref archerState.ValueRW;
 
@@ -150,7 +178,9 @@ namespace TheWaningBorder.Systems.Combat
                 var dist = DistXZ(myPos, targetPos);
 
                 // Use archer's configured ranges or defaults
-                float minRange = archer.MinRange > 0 ? archer.MinRange : DefaultMinRange;
+                // MinRange is taken verbatim: 0 means no dead zone, and the
+                // retreat branch below is then simply unreachable.
+                float minRange = math.max(0f, archer.MinRange);
                 float maxRange = archer.MaxRange > 0 ? archer.MaxRange : DefaultMaxRange;
 
                 // High-ground rule: effective range scales per shot with the

@@ -56,6 +56,14 @@ namespace TheWaningBorder.AI
             public readonly float[] WindowSpends = new float[Resources];
             public bool Seeded;
             public float NextLog;
+
+            /// <summary>Resources held back from every spender, so the brain
+            /// can accumulate a lump sum it could never reach by opportunistic
+            /// buying. Zero when not saving.</summary>
+            public readonly float[] Reserved = new float[Resources];
+            /// <summary>When the reservation lapses. A saving goal that never
+            /// completes must not starve the faction forever.</summary>
+            public float ReserveExpiry;
         }
 
         private static readonly Dictionary<Faction, BrainBudget> _brains = new();
@@ -66,8 +74,49 @@ namespace TheWaningBorder.AI
         // POLICY — situational weights (Advancement, Military, Economy)
         // ─────────────────────────────────────────────────────────────
 
+        /// <summary>
+        /// Weight vector from the brain's committed PLAN — the strategic
+        /// policy, replacing the situational one below for the SimpleAI.
+        ///
+        /// The situational version steered by posture, a supply-famine flag and
+        /// an age-up gate. Those inputs are the same for everybody, so four AIs
+        /// with five different personalities produced one identical game — and
+        /// its age-up branch set adv/mil/eco to 0.65/0.20/0.10 "last and
+        /// unconditionally", permanently, into a wallet that never lends. One
+        /// logged AI sat on 6,113 supplies and 15,242 veilstone while its
+        /// Military wallet held 22 iron against a 45-iron Swordsman.
+        ///
+        /// A plan's split is deliberate and TIME-BOXED by its commit window, so
+        /// an advancement push is a phase rather than a life sentence.
+        ///
+        /// Posture still gets a say, because no plan survives being attacked at
+        /// home: a threatened AI buys troops whatever it had intended.
+        /// </summary>
+        public static void EvaluateWeights(in AIPlanProfile plan, AIPosture posture,
+            out float adv, out float mil, out float eco)
+        {
+            adv = plan.WeightAdv;
+            mil = plan.WeightMil;
+            eco = plan.WeightEco;
+
+            if (posture == AIPosture.Defend || posture == AIPosture.Rebuild)
+            {
+                mil += 0.25f;
+                adv *= 0.5f;
+            }
+
+            if (adv < WeightFloor) adv = WeightFloor;
+            if (mil < WeightFloor) mil = WeightFloor;
+            if (eco < WeightFloor) eco = WeightFloor;
+            float total = adv + mil + eco;
+            adv /= total; mil /= total; eco /= total;
+        }
+
         /// <summary>Weight vector for the situation. Inputs are things the
-        /// brain already computes each tick. Floored + normalized.</summary>
+        /// brain already computes each tick. Floored + normalized.
+        ///
+        /// SUPERSEDED for SimpleAI by the plan overload above; kept for the
+        /// endgame systems that have no plan of their own.</summary>
         public static void EvaluateWeights(AIPosture posture, bool advancementGateActive,
             bool suppliesStarved, out float adv, out float mil, out float eco)
         {
@@ -269,6 +318,13 @@ namespace TheWaningBorder.AI
         /// which case nothing is moved.
         /// </summary>
         public static bool TryAfford(Faction faction, AIBudgetCategory cat, Cost cost)
+            => TryAfford(faction, cat, cost, 0f, honourReservation: true);
+
+        /// <param name="honourReservation">False for the spender the
+        /// reservation was made FOR — otherwise the saving goal would be
+        /// blocked by its own savings.</param>
+        public static bool TryAfford(Faction faction, AIBudgetCategory cat, Cost cost,
+            float now, bool honourReservation)
         {
             var b = GetBrain(faction);
             if (!b.Seeded) return true;   // pre-allocator grace
@@ -287,11 +343,17 @@ namespace TheWaningBorder.AI
 
             // Affordability first: never move anything for a purchase that
             // still cannot happen.
+            //
+            // A reservation comes off the TOP. The wallets partition the bank,
+            // so holding a lump sum back has to be checked against the total
+            // the purchase could reach — not against one pocket, which the
+            // borrowing below would simply refill from the pot being saved.
             for (int r = 0; r < Resources; r++)
             {
-                if (want[r] <= b.Wallets[c, r]) continue;
+                float held = honourReservation ? ReservedAmount(b, r, now) : 0f;
                 float available = b.Wallets[c, r];
                 for (int i = 0; i < lenderCount; i++) available += b.Wallets[lenders[i], r];
+                available -= held;
                 if (available < want[r]) return false;
             }
 
@@ -312,6 +374,58 @@ namespace TheWaningBorder.AI
             }
             return true;
         }
+
+        /// <summary>
+        /// SAVE FOR A LUMP SUM. Holds <paramref name="cost"/> back from every
+        /// other spender until <see cref="ClearReservation"/> or the deadline.
+        ///
+        /// Opportunistic buying cannot reach a big-ticket item. Measured over a
+        /// 14-minute four-AI match: supplies oscillated between 30 and 748 with
+        /// a mean near 250, because every spender bought whatever it could
+        /// afford the moment it could afford it. A 600-supply Hall was
+        /// therefore unreachable — not once did any faction's bank sit high
+        /// enough at the instant the claim check ran, while iron piled to
+        /// 2,000+ unspent. Expanding is a DECISION, and a decision means
+        /// committing income to it instead of hoping for a windfall.
+        ///
+        /// The reservation is subtracted from what TryAfford will lend or
+        /// spend, so the pot fills instead of leaking. It ALWAYS expires: a
+        /// goal that cannot complete has to release its hold, or the faction
+        /// stalls into "banking for a building it will never buy" — the same
+        /// failure the wallet floors exist to prevent.
+        /// </summary>
+        public static void Reserve(Faction faction, Cost cost, float now, float holdSeconds)
+        {
+            var b = GetBrain(faction);
+            b.Reserved[0] = cost.Supplies;
+            b.Reserved[1] = cost.Iron;
+            b.Reserved[2] = cost.Veilstone;
+            b.Reserved[3] = cost.Veilsteel;
+            b.ReserveExpiry = now + holdSeconds;
+        }
+
+        /// <summary>Release the hold — the purchase happened, or the goal is
+        /// gone.</summary>
+        public static void ClearReservation(Faction faction)
+        {
+            var b = GetBrain(faction);
+            for (int r = 0; r < Resources; r++) b.Reserved[r] = 0f;
+            b.ReserveExpiry = 0f;
+        }
+
+        /// <summary>True while a reservation is being held for this faction.</summary>
+        public static bool IsReserving(Faction faction, float now)
+        {
+            var b = GetBrain(faction);
+            if (now >= b.ReserveExpiry) return false;
+            for (int r = 0; r < Resources; r++) if (b.Reserved[r] > 0f) return true;
+            return false;
+        }
+
+        /// <summary>How much of resource r is held back right now. Lapsed
+        /// reservations hold nothing.</summary>
+        private static float ReservedAmount(BrainBudget b, int r, float now)
+            => now < b.ReserveExpiry ? b.Reserved[r] : 0f;
 
         public static bool CanSpend(Faction faction, AIBudgetCategory cat, Cost cost)
         {

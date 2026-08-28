@@ -38,6 +38,8 @@ public static class ScenarioCatalog
         ("Building Damage Showcase (all cultures, 5%/s)", ScenarioType.BuildingDamageShowcase),
         ("Guild Defense (fully-upgraded Guild vs swarm)", ScenarioType.GuildDefenseTest),
         ("Hut Evolution (5s self-build, 3s upgrades)", ScenarioType.HutEvolution),
+        ("Unit Sandbox (place any unit, live SO editing)", ScenarioType.Sandbox),
+        ("Formation Octagon (9 units, 8 legs, formation orders)", ScenarioType.FormationOctagon),
     };
 
     /// <summary>

@@ -43,6 +43,69 @@ Building, Worker, Religious, Ship.
 
 ---
 
+## Armor (canonical values)
+
+Armor is **subtracted**, so a point of it is worth a fixed number of hit points
+*per hit* — and therefore worth wildly different amounts depending on what is
+hitting. 4 armor halves an 8-damage arrow and is a rounding error against a
+60-damage trebuchet. That inversion is the whole design: it is what lets a
+heavy unit genuinely counter light attacks without being good against
+everything at once, and it is why these are authored against the attacks that
+will actually land on them rather than picked as percentages.
+
+The `Defense` component's doc comment claimed a diminishing-returns percentage
+(`d / (d + 100)`) until 2026-08-28. That formula has not been in the game for a
+long time; anything that reasoned about durability from it was wrong by an
+order of magnitude, `UnitPower` included.
+
+### Units
+
+| Role | Melee | Ranged | Siege | Magic | Why |
+|---|--:|--:|--:|--:|---|
+| Worker / Ledger | 0 | 0 | 0 | 0-2 | Not meant to survive contact |
+| Scout | 0 | 1 | 0 | 0 | Survives by not being there |
+| Litharch / Scholar | 0 | 0-1 | 0 | 3-4 | Robes: the magic column is their only protection |
+| Spearman | 1 | 1 | 0 | 0 | Cheap line infantry; its counter is the +15 vs Cavalry, not its armor |
+| Swordsman | 4 | 2 | 0 | 1 | Mail. Takes 6 from a spear where a Spearman takes 9 |
+| Nobleman | 5 | 3 | 0 | 2 | |
+| Sentinel | 7 | 5 | 0 | 2 | The wall. An 8-damage Archer does 3 |
+| Archer / Longbowman | 0 | 1 | 0 | 0 | Glass. 0 melee armor is what makes cavalry the answer |
+| Crossbowman | 1 | 2 | 0 | 0 | |
+| Outrider | 2 | 2 | 0 | 0 | |
+| Cataphract | 5 | 4 | 0 | 1 | Barded — but the Spearman's +15 and Crossbowman's +12 land AFTER armor and ignore it, so the counters still hit in full |
+| Ballista / Catapult | 0 | 6 | 0 | 0 | Arrows bounce; swords do not. You cannot shoot a siege line down, you send something at it |
+| Trebuchet | 0 | 5 | 0 | 0 | |
+| Battering Ram | 2 | 8 | 0 | 0 | Armoured shell. An Archer does 1 to it |
+| King Lexor | 6 | 5 | 0 | 3 | |
+
+**Siege armor is 0 on every unit.** Siege damage is the universal answer, and a
+siege-armor column that did anything would make its own counter unreliable.
+
+### Buildings
+
+The shape of every building row is one statement: **arrows do almost nothing,
+infantry chips slowly, siege goes through.**
+
+| Class | Melee | Ranged | Siege | Magic |
+|---|--:|--:|--:|--:|
+| Light (Gatherer's Hut, Sawyer) | 3 | 9 | 0 | 1 |
+| Standard (Hut, Archery Range, Royal Stable, choice buildings) | 4 | 10 | 0 | 2-3 |
+| Military / industrial (Barracks, Siege Yard, Smelter) | 5 | 11 | 0 | 2 |
+| Core (Hall, Temple) | 6 | 12 | 0 | 4-6 |
+| Fortification (Tower, Wall, Wall Tower, Gate) | 6-8 | 13-14 | 0 | 3-4 |
+| King's Court | 8 | 14 | 0 | 5 |
+
+Ranged armor is set **at or above a bow's entire attack** — Archer 8,
+Crossbowman 18, Longbowman 25 — so an Archer does the minimum 1 to a wall and a
+bow line simply *cannot* take a base. That is what makes the Siege Yard a
+necessary building rather than an optional one. Siege armor stays 0 everywhere,
+so a Ballista's 40 + its `+30 vs Building` lands in full.
+
+Infantry keeps a slow path in on purpose: a Swordsman does 14 - 5 = 9 to a
+Barracks, roughly 90 swings. Possible, never efficient — the AoE relationship.
+
+---
+
 ## Counter table (canonical `bonusVsTags` values)
 
 | Unit | Bonus | Delivers the beat |
@@ -54,6 +117,44 @@ Building, Worker, Religious, Ship.
 | Alanthor_Ballista | +30 vs Building | Hard-target cracker (beat 2) |
 | Alanthor_Trebuchet | +80 vs Building | Area siege, wall-line killer (beats 2-3) |
 | Alanthor_BatteringRam | +80 vs Building | Buildings-only attacker (`BuildingsOnlyAttacker`) |
+| Alanthor_Archer | **+6 vs Infantry** | Closes the triangle (below) - massed bows clear a foot line |
+| Alanthor_Swordsman | **+10 vs Siege** | Infantry is how a siege line dies; siege carries 0 melee armor to match |
+| Alanthor_Sentinel | **+10 vs Heavy** | Gives the tank something it can actually kill: elite armour |
+| Alanthor_Catapult | **+30 vs Building, +20 vs Infantry** | Splash - the anti-mass answer as well as a wall-breaker |
+
+### The triangle
+
+The counter set is a closed rock-paper-scissors, and a new unit should be placed
+against it rather than given a bonus in isolation:
+
+- **Infantry beats Cavalry** - Spearman +15 vs Cavalry.
+- **Cavalry beats Ranged** - Cataphract +10, Outrider +6 vs Ranged.
+- **Ranged beats Infantry** - Archer +6 vs Infantry. **This leg was missing
+  until 2026-08-28**: the first two legs were authored and the third was not, so
+  infantry had no natural predator and massing Spearmen answered everything
+  except the cavalry charge the Spearman already countered.
+
+Siege sits outside the triangle: it beats Buildings, and Infantry beats it.
+
+**Longbowmen still carry no bonus.** Their dominance is raw stats (25 dmg /
+20 range against the crossbow's 18 / 12). Giving them the anti-infantry leg as
+well would leave them strong against two classes of three, which is exactly what
+makes the cavalry counter load-bearing.
+
+### Tags are what make any of this fire
+
+A bonus matches the target's `tags`, so **a unit with no tags cannot be
+countered by anything** - every bonus in the table above silently reads 0
+against it. As of 2026-08-28 that was true of every sect unit, the Ledger and
+the Bazaar Wagon; and the Feraldis Raider was tagged `Infantry` while being
+cavalry, so it walked through the anti-cavalry counter untouched.
+
+Tag vocabulary, case-insensitive (`UnitTagParse.Tag`): Infantry, Cavalry,
+Ranged, Siege, Heavy, Light, Building, Worker, Religious, Ship. An unrecognised
+tag parses to 0 and is silently ignored, so a typo reads exactly like no tag.
+
+**Every combat unit needs a class tag (Infantry / Cavalry / Ranged / Siege) and
+a weight tag (Heavy / Light).**
 
 ### The ranged ladder
 
@@ -63,11 +164,22 @@ it on the ladder, and every line shot further than it could see.
 
 | Unit | Damage | Range | Min range | Line of sight |
 |---|---|---|---|---|
-| Archer | 8 | 10 | 2 | 10 |
-| Crossbowman | 18 | 12 | 3 | 12 |
-| Longbowman | 25 | 20 | 8 | 20 |
+| Archer | 8 | 10 | 0 | 10 |
+| Crossbowman | 18 | 12 | 0 | 12 |
+| Longbowman | 25 | 20 | 0 | 20 |
 
-Two rules hold across the ladder, and new ranged units must respect both:
+**No ranged unit has a minimum range** (2026-08-28). Only SIEGE keeps a dead
+zone — an engine that cannot depress its arc is modelling something real; an
+archer backing away from a swordsman is not. In play it cost about a third of
+every engagement: the bow lines walked backwards to satisfy a dead zone instead
+of shooting, and read as though they were refusing to fight.
+
+Note for anyone re-authoring this: **`minAttackRange: 0` used to mean 10 m.**
+`RangedCombatSystem` applied a `DefaultMinRange` of 10 whenever the unit's own
+value was zero, so the data could not express "no dead zone" at all. Zero is
+taken verbatim now, in both the combat system and the steering halt band.
+
+Three rules hold across the ladder, and new ranged units must respect all:
 
 - **Range never exceeds line of sight.** A unit that outranges its own vision
   can only use the difference through someone else's eyes, which reads as

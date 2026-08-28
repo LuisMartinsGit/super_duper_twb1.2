@@ -1,0 +1,48 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
+  m_Name: Suicidal
+  m_EditorClassIdentifier:
+  id: 'Feraldis_Suicidal'
+  displayName: 'Suicidal'
+  unitClass: 'human_melee'
+  hp: 220
+  speed: 6.5
+  trainingTime: 12
+  damage: 0
+  damageType: 'melee'
+  armorType: 'infantry_heavy'
+  defense:
+    melee: 0
+    ranged: 4
+    siege: 0
+    magic: 0
+  attackCooldown: 0
+  attackRange: 0
+  minAttackRange: 0
+  lineOfSight: 14
+  radius: 0.5
+  cost:
+    Supplies: 90
+    Iron: 30
+    Crystal: 0
+    Veilsteel: 0
+  minBuildingLevel: 2
+  buildSpeed: 0
+  gatheringSpeed: 0
+  carryCapacity: 0
+  healsPerSecond: 0
+  tags:
+  - 'Infantry'
+  - 'Heavy'
+  bonusVsTags: []
+  presentationId: 343

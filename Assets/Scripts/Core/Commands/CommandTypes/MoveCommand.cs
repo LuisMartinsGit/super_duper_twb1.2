@@ -119,6 +119,11 @@ namespace TheWaningBorder.Core.Commands.Types
                 em.RemoveComponent<FormationMemberState>(unit);
             if (em.HasComponent<FormationSpeedOverride>(unit))
                 em.RemoveComponent<FormationSpeedOverride>(unit);
+            // Out of the formation for good, so forget the slot too —
+            // otherwise a later formation order would put this unit back
+            // into a rank it has long since left.
+            if (em.HasComponent<FormationSlotMemory>(unit))
+                em.RemoveComponent<FormationSlotMemory>(unit);
 
             // Add MoveCommand for MovementSystem to process
             if (!em.HasComponent<MoveCommand>(unit))

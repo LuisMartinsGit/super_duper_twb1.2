@@ -236,7 +236,7 @@ namespace TheWaningBorder.Economy
                 case SectConfig.Renewal:
                     return Loc.T("Mending Hall — an open-sided infirmary. Damaged units that walk " +
                            "inside heal over time. Limit 5. Trains the Scar Guard, researches " +
-                           "Mason's Charter.");
+                           "Field Hospital.");
                 case SectConfig.Fortitude:
                     return Loc.T("Stonehold — a squat windowless blockhouse with the highest HP of " +
                            "any non-Hall structure; it blocks pathing like a wall. Limit 5. " +

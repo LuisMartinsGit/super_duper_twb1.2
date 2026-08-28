@@ -34,7 +34,7 @@
 // against a single relaxed AI, on whatever map ships. That is the point — a
 // tutorial built on a mock-up teaches a mock-up, and it rots the moment the
 // real opening changes. Every step reads the same components the game itself
-// reads (MinerState.GatheringResource, GathererHutYield, Target, TempleLevel,
+// reads (MinerState.GatheringResource, Target, TempleLevel,
 // TempleChapelSlot, SmallNodeTag, BorderNodeState), so the only way to fail is
 // to change the game, which is exactly when the tutorial SHOULD break.
 //
@@ -215,13 +215,13 @@ namespace TheWaningBorder.UI.GameUI
             new Step
             {
                 Chapter = Ch2,
-                Title = "Place a good Gatherer's Hut",
-                Body = "A Gatherer's Hut earns from the open ground inside its circle. While "
-                     + "placing it, the preview shows a <b>yield percentage</b> — blocked "
-                     + "ground, other huts' circles and the map edge all eat into it.\n"
-                     + "Find a spot reading <b>90% or better</b>.",
+                Title = "Fill a territory with Gatherer's Huts",
+                Body = "A Gatherer's Hut adds a fixed amount to whatever territory it "
+                     + "stands in. Where you put it inside that ground does not matter, "
+                     + "only which ground it is.\n"
+                     + "A territory holds <b>three</b>. Build all three.",
                 Grant = Cost.Of(supplies: 400), GrantLabel = "a survey fund",
-                Done = (t, em, f) => t.BestHutYield(em, f) >= 0.90f,
+                Done = (t, em, f) => t.HutsBuilt(em, f) >= 3,
             },
 
             // ── 3. Combat ──────────────────────────────────────────────────
@@ -467,8 +467,9 @@ namespace TheWaningBorder.UI.GameUI
         };
         private static readonly ComponentType[] GathererHutQueryTypes =
         {
-            ComponentType.ReadOnly<GathererHutYield>(),
+            ComponentType.ReadOnly<GathererHutTag>(),
             ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.Exclude<UnderConstruction>(),
         };
         private static readonly ComponentType[] BarracksQueryTypes =
         {
@@ -980,15 +981,18 @@ namespace TheWaningBorder.UI.GameUI
             return count;
         }
 
-        private float BestHutYield(EntityManager em, Faction faction)
+        /// <summary>Completed Gatherer's Huts this faction owns. Replaces the
+        /// old best-coverage check: a hut has no coverage any more, so "place a
+        /// GOOD one" stopped being something the player could get right or
+        /// wrong — "hold enough ground for three" is what the rule is now.</summary>
+        private int HutsBuilt(EntityManager em, Faction faction)
         {
             var q = _gathererQuery.Get(em, GathererHutQueryTypes);
             using var tags = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var yields = q.ToComponentDataArray<GathererHutYield>(Allocator.Temp);
-            float best = 0f;
+            int n = 0;
             for (int i = 0; i < tags.Length; i++)
-                if (tags[i].Value == faction && yields[i].Ratio > best) best = yields[i].Ratio;
-            return best;
+                if (tags[i].Value == faction) n++;
+            return n;
         }
 
         private bool MilitaryHasEnemyTarget(EntityManager em, Faction faction)

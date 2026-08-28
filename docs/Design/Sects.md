@@ -121,15 +121,24 @@ Conjures Watch Towers outright — it does not touch construction queues.
 while out of combat.
 
 **[BUILDING] Mending Hall** — an open-sided infirmary. Damaged units that walk inside
-heal over time, and it is the only place a Scar Guard is trained. **Limit 5.**
+heal over time; it is the only place a Scar Guard is trained and the only place
+Field Hospital is researched. **Limit 5.**
 
 **[UNIT] Scar Guard** — heavy frontline infantry that deals **more damage the
 closer it is to dying**. Pairs deliberately with Second Wind, which pins it at
 1 HP: a full-strength Scar Guard line that cannot die is the sect's payoff
 combo. **Up to 5.**
 
-**[RESEARCH] Mason's Charter** — all buildings gain +20 % HP and construct 25 %
-faster.
+**[RESEARCH] Field Hospital** — your **Litharchs** unlock **Deploy Field
+Hospital**: a 3 s cast that raises a temporary infirmary at the caster's feet,
+healing allied units around it and then destroying itself after 2 minutes.
+300 s cooldown.
+
+> The Litharch is an Age 0 unit every culture trains, so this is the one sect
+> research that reaches back and re-arms a pre-culture unit. That is the point:
+> Renewal's identity is sustain, and the mobile hospital is the field half of
+> what the Mending Hall does at home. Only a faction that has adopted Renewal
+> and raised a Mending Hall can buy it.
 
 ### Sect of Fortitude — *the wall-keepers*
 Identity: static defense.

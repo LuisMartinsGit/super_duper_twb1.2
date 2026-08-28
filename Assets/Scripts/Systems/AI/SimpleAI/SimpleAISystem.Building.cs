@@ -40,7 +40,14 @@ namespace TheWaningBorder.AI
         /// Place + dispatch builders for <paramref name="buildingId"/>. The
         /// placement ring is anchored on the faction Hall.
         /// </summary>
-        private bool TryBuildBuilding(EntityManager em, Faction faction, string buildingId)
+        /// <param name="anchorOverride">Where to centre the site search. Null
+        /// means the home Hall, which is right for everything that extends a
+        /// base — and wrong for the one thing that does not. A Hall claiming
+        /// new ground has to be sited on the TARGET REGION: anchored at home,
+        /// every candidate lands in territory already held, where
+        /// HallCapReached refuses it and the AI can never expand.</param>
+        private bool TryBuildBuilding(EntityManager em, Faction faction, string buildingId,
+            float3? anchorOverride = null)
         {
             if (!TechCatalog.IsReady) return false;
             if (!TechCatalog.TryGetBuilding(buildingId, out var def) || def == null) return false;
@@ -83,6 +90,7 @@ namespace TheWaningBorder.AI
             if (hall == Entity.Null) return false;
             if (!em.HasComponent<LocalTransform>(hall)) return false;
             float3 hallPos = em.GetComponentData<LocalTransform>(hall).Position;
+            float3 anchor = anchorOverride ?? hallPos;
 
             var cost = ToCost(def.cost);
             if (!FactionEconomy.CanAfford(em, faction, cost)) return false;
@@ -100,7 +108,7 @@ namespace TheWaningBorder.AI
                 AILogger.Log(faction, "BUILDING",
                     $"FiendstoneKeep sited at the ingress chokepoint ({pos.x:F0},{pos.z:F0})");
             }
-            else if (!TryFindBuildPosition(em, hallPos, size, buildingId, faction, out pos))
+            else if (!TryFindBuildPosition(em, anchor, size, buildingId, faction, out pos))
                 return false;
 
             // Pre-flight: at least one idle builder must be available BEFORE we
@@ -205,9 +213,11 @@ namespace TheWaningBorder.AI
                 if (facs[i].Value != faction) continue;
                 var b = ents[i];
                 if (IsCommittedWorker(em, b)) continue;           // already building/repairing
-                bool mining = em.HasComponent<GatherCommand>(b)
-                    || (em.HasComponent<MinerState>(b)
-                        && em.GetComponentData<MinerState>(b).State != MinerWorkState.Idle);
+                // No worker gathers any more (Regions.md §4), so no candidate
+                // is ever "busy mining" and every uncommitted worker is an
+                // equally good pick. Kept as a named local so the sort below
+                // still reads as a preference rather than a mystery false.
+                const bool mining = false;
                 float dx = xfs[i].Position.x - sitePos.x;
                 float dz = xfs[i].Position.z - sitePos.z;
                 idle.Add(new BuilderCandidate { Entity = b, DistSq = dx * dx + dz * dz, Mining = mining });
@@ -256,10 +266,11 @@ namespace TheWaningBorder.AI
         /// was sized for is now 8 m across, not 4.</summary>
         private const float MinResourceNodeClearance = 14f;
 
-        // GathererHut income falls off when their 15 m gather circles overlap
-        // (production = unobstructed area). Two GHs need ≥2× the gather radius
-        // between centres to keep their footprints disjoint. The previous AI
-        // honoured this; this constant restores that behaviour.
+        // Kept as plain SPACING, not as an income rule. It was sized so two
+        // huts' 15 m gather circles stayed disjoint, and huts no longer earn
+        // from an area at all (docs/Design/Regions.md §4) — but three huts
+        // stacked on top of each other in one territory is still a wall across
+        // the AI's own base, so the distance earns its keep on layout alone.
         private const float MinGHutToGHutSpacing = 30f;
 
         private bool TryFindBuildPosition(EntityManager em, float3 anchor, int2 size, string buildingId, Faction faction, out float3 pos)
@@ -315,11 +326,25 @@ namespace TheWaningBorder.AI
             // hearth ring); pass 2 falls back to any valid spot so the
             // spread never deadlocks. Hut expansion now FOLLOWS the
             // influence war instead of feeding it.
+            // A CLAIM STARTS AT THE SEED. Every other building is extending a
+            // base, so it wants a ring clear of the anchor; a Hall taking a
+            // region wants the middle of that region, and starting 16 m out
+            // biases it toward the border — or straight over it into the next
+            // territory, which claims the wrong ground.
+            // An extractor is sited the same way a claim is: ON the thing it
+            // is for. Starting 16 m out would step off the node it has to stand
+            // on, and every candidate would then fail the node gate above.
+            bool onTarget = TheWaningBorder.World.Regions.TerritoryOwnership
+                                .IsClaimStructure(buildingId)
+                          || TheWaningBorder.World.Regions.TerritoryOwnership
+                                .IsExtractor(buildingId);
+            float ringMin = onTarget ? 0f : BuildRingDistanceMin;
+
             int passes = placingGHut ? 2 : 1;
             for (int pass = 0; pass < passes; pass++)
             {
                 bool requireCover = placingGHut && pass == 0;
-                for (float r = BuildRingDistanceMin; r <= maxRadius; r += 4f)
+                for (float r = ringMin; r <= maxRadius; r += 4f)
                 {
                     int angleStart = (int)(NextRandFloat01() * BuildAngleSamples);
                     for (int i = 0; i < BuildAngleSamples; i++)
@@ -365,6 +390,33 @@ namespace TheWaningBorder.AI
                         // curse crumbles the foundation before builders
                         // arrive — money in, nothing out, forever.
                         if (IsCursedGround(em, candidate))
+                            continue;
+
+                        // TERRITORY GATE — the same rule the player's placement
+                        // obeys (docs/Design/Regions.md §2). A HARD constraint,
+                        // not the covered-ground PREFERENCE above: without it
+                        // the AI keeps proposing sites outside its holdings and
+                        // CommandRouter.IssuePlaceBuilding keeps refusing them,
+                        // which reads as an AI that has stopped building.
+                        if (!TheWaningBorder.World.Regions.TerritoryOwnership.CanBuildAt(
+                                em, faction, buildingId, candidate.x, candidate.z))
+                            continue;
+
+                        // …and the placement rules the router will apply:
+                        // a hut has to land on a free supply node, and a
+                        // territory takes only one Hall. Without these the AI
+                        // proposes sites the router refuses and reads as an AI
+                        // that has stopped building.
+                        // EVERY EXTRACTOR NEEDS ITS OWN FREE NODE, not just the
+                        // hut. The router refuses a Mine that is not on iron and
+                        // a Smelter that is not on veilsteel, so proposing one
+                        // anywhere else is a step that times out silently.
+                        if (!TheWaningBorder.World.Regions.TerritoryOwnership.OnFreeNodeFor(
+                                em, buildingId, candidate.x, candidate.z))
+                            continue;
+                        if (buildingId == "Hall"
+                            && TheWaningBorder.World.Regions.TerritoryOwnership.HallCapReached(
+                                   em, candidate.x, candidate.z))
                             continue;
 
                         if (BuildCommandHelper.IsValidBuildPosition(em, candidate, size))

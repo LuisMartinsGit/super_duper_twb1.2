@@ -224,11 +224,13 @@ upgrade durations 30 s / 45 s for L2 / L3.
 
 ## Cultured carryover buildings
 
-### Feraldis Hall — cultured Hall
+### Warrior's Hall — cultured Hall
 
-**Doc id:** Feraldis Hall *(name TBD — the first pass called this the
-"War Hall", but 2026-08-05 rev.4 gives that name to the cultured BARRACKS.
-The cultured Hall needs its own name.)*
+**Doc id:** Warrior's Hall *(settled 2026-08-27. The first pass called this
+the "War Hall", but 2026-08-05 rev.4 gave that name to the cultured BARRACKS,
+leaving the cultured Hall needing its own. "Warrior's Hall" is that name —
+note it is a DIFFERENT building from the "War Hall" (cultured Barracks) named
+below in this same doc; the two are easy to confuse in a search.)*
 **Code mapping:** **The Age 0 Hall, renamed at age-up.** Same entity, same
 base HP — only the display name, visual reskin, and culture-specific tech
 list change (parallel to Alanthor's Town Hall and Runai's Trader's Hall).
@@ -288,6 +290,12 @@ def's trains list, culture-gated by the `Feraldis_` id prefix.
 | Upgrade cost | 80 S + 20 I | 160 S + 40 I + 10 C | 320 S + 80 I + 30 C |
 | Upgrade duration | (at age-up L0 → L1 automatic) | 30 s | 45 s |
 
+> **Berserker removed from the War Hall, 2026-08-27.** The War Hall does not
+> train Berserkers. The unit is **conversion-only** — the existing miner→Berserker
+> path at the Fiendstone Keep (`BerserkerConversionSystem`) — plus the Longhouse,
+> which is now its only training host. The War Hall roster is therefore
+> **Spearman / Bloodletter / Suicidal**.
+
 #### Trainable units — the four-unit combat roster (2026-08-05 canon)
 
 | Tier | Doc name | Role | Lvl unlock | Code id | Stats |
@@ -321,9 +329,21 @@ twist on Conscription. Veilsteel Frenzy lives at the **War Hall**, not here
 
 ---
 
-### Thrower Camp — cultured Archery Range
+### Hall of Axes — Feraldis's ranged building
 
-**Doc id:** Thrower Camp.
+**Doc id:** Hall of Axes *(named 2026-08-27; replaces "Thrower Camp").* Its
+throwers hurl axes and fire rather than loosing arrows, which is why it is a
+hall and not a range. Code id `Feraldis_HallOfAxes`, presentation 369,
+8x8 footprint, 180 S + 50 I, HP 600 / LoS 18. Trains `Feraldis_Archer`,
+`Feraldis_Hunter`, `Feraldis_Firethrower`.
+
+> **Not a cultured Archery Range (2026-08-27).** The Archery Range is
+> **Alanthor-only, era 2**, so there was never a shared entity for Feraldis to
+> rename — the old "Age 0 Archery Range renamed at age-up" premise was broken
+> regardless, since the Archery Range is `minEra: 2` and never stands in Age 0.
+> The Hall of Axes is a building in its own right and is **authored and
+> registered**: SO, factory, tag, footprint and cost all exist.
+
 **Code mapping:** The Age 0 Archery Range, renamed at age-up — same entity,
 multiplier-path HP, same trainer role (per Q#3). Trains the Feraldis ranged
 roster below.
@@ -369,7 +389,7 @@ Same 4-tier per-battalion arrow ladder as Alanthor's Practice Range
 | Tech | Building lvl req. | Effect (unlock) | Status |
 |------|-------------------|------------------|--------|
 | **Choreographed volleys** | L1 | Active skill: 2× fire rate for 5 s, 40 s cd *(faction-wide active)* | *(new — same as Alanthor)* |
-| **Fletching** | L2 | +15 % attack range for all Thrower Camp units *(faction-wide passive)* — worth more to Feraldis than anyone, since their whole ranged tree is range-starved | *(new)* |
+| **Fletching** | L2 | +15 % attack range for all Hall of Axes units *(faction-wide passive)* — worth more to Feraldis than anyone, since their whole ranged tree is range-starved | *(new)* |
 | **Stone-tipped arrows** (T1) → **Iron-tipped** (T2) → **Veilstone-tipped** (T3) → **Glow-tipped** (T4) | L1 / L2 / L3 / L3 | **Unlocks** per-battalion arrow upgrade tier ([Overview.md § Per-battalion](Overview.md#per-battalion-military-upgrades-cross-faction-rule)) | *(new — same pattern as Alanthor)* |
 
 ---
@@ -824,7 +844,7 @@ the ground Feraldis fights best on.
 
 ### Feraldis Hunter — ranged
 
-Trains at Thrower Camp *(if it exists — currently no trainer in code).*
+Trains at the **Hall of Axes** *(authored and registered 2026-08-27).*
 
 | Field | Value |
 |------|-------|
@@ -1009,7 +1029,7 @@ Several have **cross-faction implications** flagged at the end.
    target. Pop ladder: standard 15 / 20 / 25 + Longhouse +10. **Cross-
    faction impact:** updates [Age_0.md § Age-up transitions](Age_0.md#age-up-transitions),
    [Overview.md § Age-up](Overview.md#age-up-transform-dont-replace).
-3. **Thrower Camp existence** — **resolved.** Thrower Camp is the Age 0
+3. **Thrower Camp existence** — **superseded 2026-08-27: it is the Hall of Axes, a stand-alone building, not a cultured Age 0 range.** ~~Thrower Camp is the Age 0~~
    Archery Range renamed at age-up — same entity, multiplier-path HP,
    inherits the 4-tier arrow ladder.
 4. **Gatherer's Hut → Hunting Lodge / Logging Station rules** —
@@ -1076,7 +1096,7 @@ Several have **cross-faction implications** flagged at the end.
 
 18. **War Hall = the cultured BARRACKS** (not the cultured Hall, and not
     "Hall of Warriors"). The cultured Hall's name is now an open question.
-19. **Practice Range = the cultured Archery Range for Alanthor**; **Thrower
+19. *(superseded 2026-08-27 — Practice Range is retired and the Archery Range is Alanthor-only; Thrower Camp is a separate building.)* **Practice Range = the cultured Archery Range for Alanthor**; **Thrower
     Camp** is the Feraldis one. Both are display renames of the same entity.
 20. **Feraldis builds Archery Ranges** like everyone else — it is a
     universal Age 0 building and was never culture-gated. The Feraldis
@@ -1110,7 +1130,7 @@ Several have **cross-faction implications** flagged at the end.
   Suggested: ≈ 80 HP, speed 6.0, single-unit melee. Need final values.
 - **Raiders-per-House ramp** — currently suggested 1 / 2 / 3 per
   L1 / L2 / L3 build/upgrade. Balance TBD.
-- **L2 / L3 ranged tier names** at the Thrower Camp (placeholder
+- **L2 / L3 ranged tier names** at the Hall of Axes (placeholder
   "Tracker" / TBD).
 - **Royal Guard apex name** — does Feraldis use the same "Royal Guard"
   name as Alanthor for the L3 line-infantry tier, or does it get a

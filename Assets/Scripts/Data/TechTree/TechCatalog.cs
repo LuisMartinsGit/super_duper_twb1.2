@@ -60,11 +60,40 @@ public static class TechCatalog
         EnsureLoaded();
     }
 
+    // ─── Post-load derivations the live SO refresh must not undo ─────────
+    //
+    // TryGetBuilding re-stamps the authored SO over the cached def on every
+    // call ("live refresh", so tuning an asset in the editor takes effect
+    // without a reload). That silently reverted everything Build() derived
+    // AFTER the SOs were loaded, because ApplyTo copies the whole def:
+    //
+    //   * the era overrides below — TempleOfRidan.asset shipped minEra 0, so
+    //     the Temple was placeable in Age 0 despite the code forcing 2. The
+    //     comment on that forcing promised "a stale SO minEra can never
+    //     quietly re-open the rush"; it could, and did.
+    //   * RebuildResearchLists — CLAUDE.md makes TechDefSO.researchAt the one
+    //     source of truth for the research host and derives every building's
+    //     research[] from it. A refresh put the hand-authored array back.
+    //
+    // Recording the derived values and re-applying them after ApplyTo keeps the
+    // refresh doing what it is for (stat tuning) without letting it reach the
+    // fields Build() owns.
+    private static readonly Dictionary<string, int> _eraOverrides = new();
+    private static readonly Dictionary<string, string[]> _derivedResearch = new();
+
+    private static void ReapplyDerived(string id, BuildingDef def)
+    {
+        if (def == null) return;
+        if (_eraOverrides.TryGetValue(id, out int era)) def.minEra = era;
+        if (_derivedResearch.TryGetValue(id, out var research)) def.research = research;
+    }
+
     private static void Build()
     {
         _unitsById.Clear(); _buildingsById.Clear(); _technologiesById.Clear(); _sectsById.Clear();
         _unitSOsById.Clear(); _buildingSOsById.Clear(); _techSOsById.Clear();
         _prefabByPid.Clear(); _controllerByPid.Clear();
+        _eraOverrides.Clear(); _derivedResearch.Clear();
 
         // Fully-qualified: the `Resources` property below would shadow UnityEngine.Resources.
         var catalog = UnityEngine.Resources.Load<TechTreeCatalog>(CatalogResourceName);
@@ -195,6 +224,7 @@ public static class TechCatalog
                     if (!string.IsNullOrEmpty(id) && !merged.Contains(id)) merged.Add(id);
 
             def.research = merged.Count > 0 ? merged.ToArray() : System.Array.Empty<string>();
+            _derivedResearch[kv.Key] = def.research;
         }
 
         // A researchAt pointing at a building that does not exist would otherwise
@@ -257,6 +287,24 @@ public static class TechCatalog
                 Warn($"tech '{tech.id}' is unreachable: researchAt '{tech.researchAt}' has no AI host and no building lists it");
         }
 
+        // A FREE BUILDING is a silent balance hole, not a cheap building. The
+        // cost the player pays comes from the SO (BuildCosts.SyncFromTechTree
+        // copies it over the code table unconditionally), so an SO whose cost
+        // block was never filled in ships that building at zero — which is
+        // exactly what nine of them were doing until 2026-08-28, the Hall
+        // included. It cannot be papered over with "keep the code value when
+        // the SO reads zero": that is the `if (def.hp > 0)` pattern CLAUDE.md
+        // forbids, and it makes the SO authoritative only when it happens to be
+        // filled in. Fix the data; this is what makes the data loud.
+        foreach (var b in _buildingsById.Values)
+        {
+            if (b == null || b.cost == null) continue;
+            if (b.cost.Supplies == 0 && b.cost.Iron == 0
+                && b.cost.Veilstone == 0 && b.cost.Veilsteel == 0)
+                Warn($"building '{b.id}' costs NOTHING — its SO cost block is all zeros, " +
+                     "so it is free to build. Author the cost on the asset.");
+        }
+
         foreach (var b in _buildingsById.Values)
         {
             if (b?.trains == null) continue;
@@ -293,6 +341,25 @@ public static class TechCatalog
                 Warn($"sect '{sectId}' chapel unit '{unitId}' has no unit def");
             if (!TheWaningBorder.Entities.UnitFactory.HasRecipe(unitId))
                 Warn($"sect '{sectId}' chapel unit '{unitId}' has no UnitFactory recipe");
+        }
+
+        // ── stat audit ────────────────────────────────────────────────────
+        // Entity factories read def fields straight (TechCatalog.Unit /
+        // .Building) with no `if (> 0)` guard, because a guard is just a magic
+        // number wearing a disguise. That trade only holds if a hole in the SO
+        // is LOUD here instead of silently spawning a 0-HP unit mid-match.
+        foreach (var u in _unitsById.Values)
+        {
+            if (u == null) continue;
+            if (u.hp <= 0f)          Warn($"unit '{u.id}' has hp {u.hp} — spawns unkillable-adjacent or instantly dead");
+            if (u.lineOfSight <= 0f) Warn($"unit '{u.id}' has lineOfSight {u.lineOfSight} — it will never acquire a target");
+            if (u.radius <= 0f)      Warn($"unit '{u.id}' has radius {u.radius} — no collision or selection footprint");
+        }
+        foreach (var b in _buildingsById.Values)
+        {
+            if (b == null) continue;
+            if (b.hp <= 0f)          Warn($"building '{b.id}' has hp {b.hp}");
+            if (b.lineOfSight <= 0f) Warn($"building '{b.id}' has lineOfSight {b.lineOfSight}");
         }
 
         if (issues == 0)
@@ -347,6 +414,7 @@ public static class TechCatalog
             _buildingsById.TryGetValue(id, out var cached))
         {
             so.ApplyTo(cached);
+            ReapplyDerived(id, cached);
         }
         return _buildingsById.TryGetValue(id, out def);
     }
@@ -356,6 +424,52 @@ public static class TechCatalog
 
     public static UnitDef GetUnit(string id) => TryGetUnit(id, out var def) ? def : null;
     public static BuildingDef GetBuilding(string id) => TryGetBuilding(id, out var def) ? def : null;
+
+    // ─── never-null stat accessors (the factory contract) ────────────────────
+    // Entity factories used to carry a private `DefaultHP = 800f` ladder and
+    // fold the def in with `if (def.hp > 0) hp = def.hp;`. That made the SO the
+    // source of truth only when it happened to be filled in, and a magic number
+    // the source of truth silently whenever it was not — which is how 50 stat
+    // fields ended up living in C# where no designer could find them.
+    //
+    // These two return a def ALWAYS, so a factory can read `def.hp` straight.
+    // A missing id is a data bug, not a runtime branch: it is reported once
+    // here and again by the load-time stat audit in ValidateCrossReferences.
+    private static readonly HashSet<string> _reportedMissingDefs = new();
+
+    /// <summary>The unit's def. Never null — logs once and returns a stub if the id is unknown.</summary>
+    public static UnitDef Unit(string id)
+    {
+        if (TryGetUnit(id, out var def) && def != null) return def;
+        if (_reportedMissingDefs.Add("unit:" + id))
+            Debug.LogError($"[TechCatalog] No UnitDefSO for '{id}'. Every stat this unit " +
+                "spawns with is now a stub. Author the SO and add it to Resources/TechTreeCatalog.");
+        return StubUnit(id);
+    }
+
+    /// <summary>The building's def. Never null — logs once and returns a stub if the id is unknown.</summary>
+    public static BuildingDef Building(string id)
+    {
+        if (TryGetBuilding(id, out var def) && def != null) return def;
+        if (_reportedMissingDefs.Add("building:" + id))
+            Debug.LogError($"[TechCatalog] No BuildingDefSO for '{id}'. Every stat this building " +
+                "spawns with is now a stub. Author the SO and add it to Resources/TechTreeCatalog.");
+        return StubBuilding(id);
+    }
+
+    // hp 1 rather than 0: a stub entity should be visibly broken, not
+    // instantly dead in a way that reads as a combat bug.
+    private static UnitDef StubUnit(string id) => new UnitDef
+    {
+        id = id, name = id, hp = 1f, speed = 1f, lineOfSight = 1f, radius = 0.5f,
+        defense = new DefenseBlock(), cost = new CostBlock(),
+    };
+
+    private static BuildingDef StubBuilding(string id) => new BuildingDef
+    {
+        id = id, name = id, hp = 1f, lineOfSight = 1f, radius = 1f,
+        defense = new DefenseBlock(), cost = new CostBlock(),
+    };
     public static TechnologyDef GetTechnology(string id) { EnsureLoaded(); return _technologiesById.TryGetValue(id, out var def) ? def : null; }
 
     /// <summary>presentationId -> prefab for the spawn path. False = no prefab assigned (caller uses a primitive).</summary>
@@ -404,8 +518,26 @@ public static class TechCatalog
         // stale SO/JSON minEra can never quietly re-open the rush.
         if (_buildingsById.TryGetValue("ArcheryRange", out var range) && range != null)
             range.minEra = 2;
+        _eraOverrides["ArcheryRange"] = 2;
 
         EnsureBuildingDefault("ShrineOfRidan", "Shrine of Ridan", "Trains Litharchs, +1 RP", 800, 16, 1.8f, 1, new[] { "Litharch" }, ShrineResearch);
+
+        // The veilstone extractor. Seeded for the same reason the sect
+        // buildings are: its BuildingDefSO is authored but a new asset is not
+        // in Resources/TechTreeCatalog until Unity imports it and someone adds
+        // the reference, and until then Building() returns a 1-HP stub and the
+        // build menu shows no button. The authored SO wins the moment it
+        // loads; this only closes the gap.
+        EnsureBuildingDefault("VeilstoneMine", "Veilstone Mine",
+            "Veilstone extraction - built on a veilstone outcropping",
+            700, 12, 1.5f, 1, System.Array.Empty<string>(), System.Array.Empty<string>());
+
+        // THE TEMPLE IS AN AGE-1 BUILDING. It is common to all three cultures,
+        // but it unlocks only once the culture adoption has COMPLETED — era 2,
+        // since era 1 is pre-culture Age 0 (FactionEra, EconomyBootstrap).
+        // TempleOfRidan.asset now carries minEra 2 as well; this stays as the
+        // backstop, and unlike before it actually holds (see _eraOverrides).
+        _eraOverrides["TempleOfRidan"] = 2;
         if (!_buildingsById.ContainsKey("TempleOfRidan"))
         {
             EnsureBuildingDefault("TempleOfRidan", "Temple of Ridan", "Sect expansion, training, research", 1500, 18, 2.5f, 2, new[] { "Litharch" }, ShrineResearch);
@@ -433,7 +565,7 @@ public static class TechCatalog
         SeedSectBuilding("Sect_Reliquary",   "Reliquary",    "Antiquity sect building. Trains the Lorekeeper.",
                          900f,  16f, "Sect_Lorekeeper",  "RoyalIndex");
         SeedSectBuilding("Sect_MendingHall", "Mending Hall", "Renewal sect building. Trains the Scar Guard.",
-                         750f,  14f, "Sect_ScarGuard",   "MasonsCharter");
+                         750f,  14f, "Sect_ScarGuard",   "FieldHospital");
         SeedSectBuilding("Sect_Stonehold",   "Stonehold",    "Fortitude sect building. Trains the Stone Warden.",
                          1800f, 12f, "Sect_StoneWarden", "DeepFoundations");
         SeedSectBuilding("Sect_Veilworks",   "Veilworks",    "Reclamation sect building. Trains the Golem Autark.",

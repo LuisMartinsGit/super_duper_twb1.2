@@ -183,8 +183,10 @@ namespace TheWaningBorder.Systems.Work
             {
                 // Every Gatherer's Hut becomes a RAIDER CAMP. Same building
                 // entity — the tag switches it from gathering to producing
-                // Plunderers, and GathererHutIncomeSystem stops paying it a
-                // passive drip. Feraldis income is what its raiders steal.
+                // Plunderers. It KEEPS GathererHutTag, so TerritoryIncomeSystem
+                // excludes RaiderCampTag by hand when counting a territory's
+                // huts; without that a Feraldis player would draw the hut boost
+                // as well. Feraldis income is what its raiders steal.
                 // (docs/Design/Age_1_Feraldis.md § Raider Camp)
                 var query = em.CreateEntityQuery(
                     ComponentType.ReadOnly<GathererHutTag>(),

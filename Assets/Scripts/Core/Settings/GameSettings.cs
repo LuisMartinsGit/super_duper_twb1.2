@@ -15,6 +15,36 @@ public enum GameMode
     PathfindingTest
 }
 
+/// <summary>
+/// Applies the player's game-speed preference to the running simulation.
+///
+/// Time.timeScale is the right lever: it scales Unity's delta time, which
+/// drives BOTH the MonoBehaviour layer and the ECS SimulationSystemGroup, so
+/// movement, attack cooldowns, training, construction and income all slow
+/// together. Nothing has to be re-authored and nothing drifts out of
+/// proportion with anything else.
+///
+/// FORCED TO 1.0 IN MULTIPLAYER. Lockstep peers have to step the simulation at
+/// the same rate or they diverge immediately, and a per-player speed slider is
+/// the fastest possible desync. Single-player and scenarios only.
+/// </summary>
+public static class GameSpeedControl
+{
+    /// <summary>Speed actually in force this session.</summary>
+    public static float Current { get; private set; } = 1f;
+
+    /// <summary>Push the stored preference into the engine. Safe to call
+    /// repeatedly — every place that resets timeScale should call this instead
+    /// of assigning 1f, or the preference silently reverts on pause, victory
+    /// or a scene load.</summary>
+    public static void Apply()
+    {
+        float s = GameSettings.IsMultiplayer ? 1f : TheWaningBorder.Core.Config.PlayerProfile.GameSpeed;
+        Current = s;
+        UnityEngine.Time.timeScale = s;
+    }
+}
+
 public enum ScenarioType
 {
     LargeMelee = 0,
@@ -76,6 +106,21 @@ public enum ScenarioType
     // transition to the next Alanthor level: Lv1 -> Lv2 -> Lv3. Reviews the
     // multi-variant prefab pipeline (BuildingVariantVisual) end to end.
     HutEvolution = 26,
+
+    // Unit sandbox: an empty flat scenario with no starting units, no AI and
+    // no victory check. SandboxPanel drives it -- pick a unit, click the
+    // ground to place it, and edit its UnitDefSO in the Inspector while the
+    // game runs. Placement is recorded so "Respawn all" can rebuild the whole
+    // board from the current SOs (the only way to pick up per-unit state that
+    // a live resync cannot reach -- attack range, aim time, projectile).
+    Sandbox = 27,
+
+    // Formation octagon: nine Spearmen in a 3x3 walked around an eight-corner
+    // loop by real FORMATION move orders, one per leg. Each leg turns the
+    // squad 45 degrees, which is what makes it a formation test rather than a
+    // movement test -- every formation bug found so far was direction
+    // dependent and invisible in a straight line. Watch with F2.
+    FormationOctagon = 28,
 }
 
 /// <summary>
@@ -208,8 +253,20 @@ public static class GameSettings
     /// </summary>
     public static bool TutorialActive = false;
 
-    /// <summary>Convenience: true when current mode is Sandbox.</summary>
-    public static bool IsSandbox => Mode == GameMode.Sandbox;
+    /// <summary>
+    /// Convenience: true when current mode is Sandbox.
+    ///
+    /// The unit sandbox runs through the SCENARIO path (it needs a scene, a
+    /// menu entry, terrain and camera focus, all of which Scenario already
+    /// wires) but wants the three things GameMode.Sandbox already switches
+    /// off: AI opponents (GameBootstrap.InitializeAI), the victory check
+    /// (VictoryConditionSystem) and the 2-player lobby minimum. Folding the
+    /// scenario into this one property turns all three off at once instead of
+    /// adding a ScenarioType test at each site.
+    /// </summary>
+    public static bool IsSandbox =>
+        Mode == GameMode.Sandbox ||
+        (Mode == GameMode.Scenario && ActiveScenario == ScenarioType.Sandbox);
 
     // ==================== Spawn Settings ====================
 

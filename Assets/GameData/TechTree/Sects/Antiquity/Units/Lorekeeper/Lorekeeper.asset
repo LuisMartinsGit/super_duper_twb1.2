@@ -30,13 +30,14 @@ MonoBehaviour:
   attackRange: 0
   minAttackRange: 0
   lineOfSight: 10
+  radius: 0.5
   trajectory: 
   projectileSpeed: 0
   cost:
-    Supplies: 120
+    Supplies: 96
     Iron: 40
-    Veilstone: 0
-    Veilsteel: 0
+    Veilstone: 20
+    Veilsteel: 15
   minBuildingLevel: 1
   buildSpeed: 0
   gatheringSpeed: 0
@@ -44,7 +45,10 @@ MonoBehaviour:
   siegeRange: 0
   siegeCooldown: 0
   aoeRadius: 0
-  tags: []
+  tags:
+  - 'Ranged'
+  - 'Light'
+  - 'Religious'
   bonusVsTags: []
   abilities: []
   prefab: {fileID: 71139012203055, guid: 7e73618de32aef9ad02cbbb7d1e48e27, type: 3}

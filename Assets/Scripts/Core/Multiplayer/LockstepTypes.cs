@@ -24,7 +24,8 @@ namespace TheWaningBorder.Core.Multiplayer
         Stop = 3,
         Build = 4,
         Train = 5,
-        Gather = 6,
+        // 6 was Gather, retired with worker gathering (Regions.md §4).
+        // Ordinal reserved -- see the note at 23.
         SetRally = 7,
         Heal = 8,
         AttackMove = 9,
@@ -41,7 +42,11 @@ namespace TheWaningBorder.Core.Multiplayer
         CancelTrain = 20,        // CommandRouter.IssueCancelTrain (building + slotIndex in TargetEntityId)
         ConvertHut = 21,         // CommandRouter.IssueConvertHut (hut + HutConversionTarget byte in TargetEntityId)
         ConvertSegmentToGate = 22, // CommandRouter.IssueConvertSegmentToGate (segment + focus-instance network id in TargetEntityId)
-        GatherVeil = 23,         // CommandRouter.IssueGatherVeil (miner + dig site in TargetPosition)
+        // 23 was GatherVeil, retired with worker gathering
+        // (docs/Design/Regions.md §4). The ORDINAL stays reserved rather
+        // than being reused, the same way the retired ScenarioType indices
+        // are: a future command taking 23 would be silently mistaken for a
+        // dig order by any peer or replay still on the old build.
         LayeredMove = 24,        // CommandRouter.IssueLayeredMove (unit + dest + target layer byte in TargetEntityId)
         Research = 25,           // CommandRouter.IssueResearch (building + tech id in BuildingId)
         BuildingUpgrade = 26,    // CommandRouter.IssueBuildingUpgrade (building level-up; target level recomputed per peer)

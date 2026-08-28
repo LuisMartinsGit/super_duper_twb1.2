@@ -1,0 +1,50 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
+  m_Name: Iconoclast
+  m_EditorClassIdentifier: 
+  id: Feraldis_Iconoclast
+  displayName: Feraldis_Iconoclast
+  unitClass: human_magic
+  hp: 280
+  speed: 3.2
+  trainingTime: 68
+  damage: 10
+  damageType: melee
+  armorType: infantry_heavy
+  defense:
+    melee: 4
+    ranged: 3
+    siege: 1
+    magic: 2
+  attackCooldown: 0
+  attackRange: 1.5
+  minAttackRange: 0
+  lineOfSight: 16
+  radius: 0.7
+  cost:
+    Supplies: 300
+    Iron: 150
+    Crystal: 100
+    Veilsteel: 30
+  minBuildingLevel: 3
+  buildSpeed: 0
+  gatheringSpeed: 0
+  carryCapacity: 0
+  healsPerSecond: 0
+  tags:
+  - Infantry
+  - Heavy
+  bonusVsTags: []
+  prefab: {fileID: 7535181925236253230, guid: 276de28bfbdf0da4c8741e5e96bee8d1, type: 3}
+  presentationId: 386
+  animatorController: {fileID: 9100000, guid: f68580242e880d94eb2ddad558ca563c, type: 2}

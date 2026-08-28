@@ -52,6 +52,21 @@ namespace TheWaningBorder.AI
             public float3 TargetPos;
             public float3 StagePos;
             public float StartTime;
+
+            // ── Tactical state (SimpleAISystem.Tactics.cs). ──
+            /// <summary>What the whole army is killing right now, so the
+            /// tactical layer only re-orders everyone when this CHANGES —
+            /// re-issuing every tick resets the chase and the army never
+            /// reaches anybody.</summary>
+            public Entity Focus;
+            /// <summary>True while the army is in contact. The edges matter:
+            /// entering is when it stops marching and starts concentrating,
+            /// leaving is when it must be put back on the march as one body
+            /// rather than left as idle units standing where the fight ended.
+            /// </summary>
+            public bool Engaged;
+            public float NextTacticsTime;
+
             public readonly System.Collections.Generic.List<Entity> Members
                 = new System.Collections.Generic.List<Entity>();
         }
@@ -408,6 +423,13 @@ namespace TheWaningBorder.AI
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
+            // Collected, then sent as ONE formation. Issuing an attack-move
+            // per unit made every reinforcement its own little war: each walked
+            // the whole way alone and arrived alone, feeding the enemy army one
+            // unit at a time. Reinforcement is the dispatch layer's job, so it
+            // dispatches a body.
+            var reinforcements = new System.Collections.Generic.List<Entity>();
+
             int committed = 0, sent = 0, arrived = 0;
             for (int i = 0; i < ents.Length; i++)
             {
@@ -440,9 +462,14 @@ namespace TheWaningBorder.AI
                     continue;
                 }
 
-                CommandRouter.IssueAttackMove(em, e, aiState.WaveTarget, CommandSource.AI);
+                reinforcements.Add(e);
                 sent++;
             }
+
+            if (reinforcements.Count > 0)
+                CommandRouter.IssueFormationAttackMove(
+                    em, reinforcements, aiState.WaveTarget,
+                    FormationShape.Box, CommandSource.AI);
 
             // Nothing marching and nothing to march: the wave is over — either
             // it arrived and cleared the objective, or it died on the way.
@@ -698,6 +725,13 @@ namespace TheWaningBorder.AI
             // block — no wave ever launched again after wave 1 died.
             minUnits = math.min(minUnits,
                 math.max(profile.WaveBaseUnits, aiState.DesiredMilitary));
+
+            // THE PLAN SETS THE BAR. This is the difference between an army
+            // you watch gather and one that dribbles out in threes: Rush
+            // attacks at half the normal count, Mass waits until it has half
+            // again as many, and Fortress effectively never leaves home.
+            minUnits = math.max(1,
+                (int)math.round(minUnits * PlanProfileOf(faction).WaveBarScale));
 
             if (TryLaunchAttack(em, brainEntity, faction, minUnits,
                     ref aiState, settings, personality, profile, now))

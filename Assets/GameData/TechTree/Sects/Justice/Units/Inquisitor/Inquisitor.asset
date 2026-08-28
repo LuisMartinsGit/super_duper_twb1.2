@@ -30,6 +30,7 @@ MonoBehaviour:
   attackRange: 0
   minAttackRange: 0
   lineOfSight: 14
+  radius: 0.5
   trajectory: 
   projectileSpeed: 0
   cost:
@@ -44,7 +45,10 @@ MonoBehaviour:
   siegeRange: 0
   siegeCooldown: 0
   aoeRadius: 0
-  tags: []
+  tags:
+  - 'Ranged'
+  - 'Light'
+  - 'Religious'
   bonusVsTags: []
   abilities: []
   prefab: {fileID: 129823201014095, guid: 9130634f8c57e575880230244514fa52, type: 3}

@@ -310,6 +310,8 @@ namespace TheWaningBorder.Systems.Border
             if (em.HasComponent<Damage>(hero))
                 em.SetComponentData(hero, new Damage { Value = 60 });
             if (em.HasComponent<MoveSpeed>(hero))
+                // Overridden here rather than read from a def, so it does not
+                // move with the SOs and has to be kept in step by hand.
                 em.SetComponentData(hero, new MoveSpeed { Value = 4.2f });
             if (em.HasComponent<LineOfSight>(hero))
                 em.SetComponentData(hero, new LineOfSight { Radius = 30f });

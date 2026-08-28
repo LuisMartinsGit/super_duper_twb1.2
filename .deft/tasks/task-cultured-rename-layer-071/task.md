@@ -98,3 +98,32 @@ Consumed by tasks 068, 069, 070, 079, 080.
 ## Out of Scope
 
 - The actual L2/L3 unit tier slots — owned by [task-079](../task-age1-unit-tier-ladders-079/task.md).
+
+## Progress — 2026-08-27
+
+**R1/R2 display-name surface: DONE** in
+`Assets/Scripts/Presentation/UI/Panels/EntityExtractors.Names.cs`
+(`CulturedBuildingName`). The table above in this task file is STALE — it
+predates the 2026-08-05 per-culture pass. Shipped table:
+
+| Age 0 | Alanthor | Runai | Feraldis |
+|---|---|---|---|
+| Hall | Town Hall | Trader's Hall | **Warrior's Hall** *(settled 2026-08-27)* |
+| Barracks | Garrison | Route Guard | **War Hall** *(not Longhouse)* |
+| Archery Range | **Practice Range** *(not Longbow Grounds)* | Arrowyard | Thrower Camp |
+| Gatherer's Hut | — | — | Raider Camp |
+
+Two doc conflicts resolved in favour of the newer per-culture docs:
+Age_0.md l.595-597 still says "Longbow Grounds" and "Longhouse";
+Age_1_Alanthor.md l.166 and Age_1_Feraldis.md l.271 supersede both.
+Feraldis's cultured Hall was left unrenamed at first — War Hall had moved to
+the Barracks, leaving it nameless. Settled 2026-08-27 as **Warrior's Hall**
+and written back into Age_1_Feraldis.md and the Age_0.md summary table, so all
+three docs now agree.
+
+**Still open:** R3 (train-list filtering per culture), R4
+(`BuildingUpgradeConfig.TryGetCost` keyed on culture), R5 (web HUD surface).
+The reskin half already worked — `BuildingCultureAutoLevelSystem` bumps to L1
+at age-up and `BuildingPrefabSwapSystem` swaps the visual with the dissolve
+(`BuildingDissolveTransition` + `BuildingLevelUpEffect`); only the name was
+missing.

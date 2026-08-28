@@ -165,6 +165,31 @@ namespace TheWaningBorder.Core.Settings
                     return true;
                 // Choice-building ladders (calculator): L1 free at age-up,
                 // L2/L3 paid. Shared curve for Vault and Shrine.
+                case "Mine":
+                case "VeilstoneMine":
+                    // THE ANSWER TO A THINNING SEAM, and the recurring sink for
+                    // the two currencies that had almost nothing to buy.
+                    //
+                    // Regions.md §4 has always said mines are upgradeable and
+                    // each level adds another 25/min, but neither had a ladder
+                    // here at all — TryGetCost fell through to false, so the
+                    // upgrade button never appeared and the only way to raise
+                    // yield was to take more ground.
+                    //
+                    // Priced in veilstone and veilsteel on purpose. Those are
+                    // what a territory-holding faction accumulates and what it
+                    // could not spend (one logged AI banked 15,242 veilstone),
+                    // and now that nodes DEPLETE, upgrading is the standing
+                    // answer to falling income — a sink that recurs for as long
+                    // as the map does.
+                    cost = targetLevel switch
+                    {
+                        1 => default,
+                        2 => new Cost { Supplies = 260, Iron = 90, Veilstone = 80 },
+                        3 => new Cost { Supplies = 420, Iron = 160, Veilstone = 220, Veilsteel = 40 },
+                        _ => default,
+                    };
+                    return true;
                 case "VaultOfAlmierra":
                 case "ShrineOfRidan":
                     cost = targetLevel switch

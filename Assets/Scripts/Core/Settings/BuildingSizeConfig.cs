@@ -94,7 +94,10 @@ public static class BuildingSizeConfig
             "Feraldis_Foundry"        => new int2(8, 8),
             "Feraldis_WarTotem"       => new int2(4, 4),
             "Feraldis_Pasture"        => new int2(8, 8),
+            "Feraldis_HallOfAxes"     => new int2(8, 8),
             "Mine"                    => new int2(8, 8),
+            "VeilstoneMine"           => new int2(8, 8),
+            "Alanthor_Sawyer"         => new int2(4, 4),
 
             // Sect buildings — one per sect, capped at 5 per faction.
             "Sect_Reliquary"          => new int2(8, 8),

@@ -27,6 +27,29 @@ namespace TheWaningBorder.Data
         // ==================== Spatial ====================
         public float radius;            // building footprint radius
         public float lineOfSight;       // vision range
+
+        // ==================== Construction ====================
+        /// <summary>Seconds to construct. 0 = the construction system's own default.</summary>
+        public float buildTime;
+
+        // ==================== Population & Income ====================
+        /// <summary>Population headroom this building grants its owner (Hall 20, Hut 10).</summary>
+        public int populationProvided;
+        /// <summary>Supplies credited to the owner every <see cref="suppliesInterval"/> seconds.</summary>
+        public float suppliesPerTick;
+        /// <summary>Seconds between supply ticks. 0 = building generates no supplies.</summary>
+        public float suppliesInterval;
+
+        // ==================== Storage (Smelter) ====================
+        public int maxIron;
+        public int maxVeilstone;
+
+        // ==================== Curtain Segments (Alanthor wall) ====================
+        /// <summary>HP of one curtain segment between two hubs. The hub itself uses
+        /// <see cref="hp"/>. Only the wall uses these; 0 elsewhere.</summary>
+        public float segmentHp;
+        /// <summary>Line of sight of one curtain segment.</summary>
+        public float segmentLineOfSight;
         
         // ==================== Capabilities ====================
         public string[] trains;         // unit IDs this building can train
