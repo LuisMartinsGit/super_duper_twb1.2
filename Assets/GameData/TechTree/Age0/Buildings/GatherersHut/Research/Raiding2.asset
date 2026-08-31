@@ -24,9 +24,9 @@ MonoBehaviour:
   - Raiding1
   culture: 
   cost:
-    Supplies: 300
+    Supplies: 0
     Iron: 0
-    Veilstone: 0
+    Veilstone: 450
     Veilsteel: 0
   effects:
     gatherSpeedMult: 0

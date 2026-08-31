@@ -24,10 +24,10 @@ MonoBehaviour:
   - IronReinforcements
   culture: 
   cost:
-    Supplies: 192
+    Supplies: 0
     Iron: 100
-    Veilstone: 80
-    Veilsteel: 15
+    Veilstone: 458
+    Veilsteel: 0
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

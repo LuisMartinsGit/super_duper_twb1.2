@@ -49,7 +49,17 @@ public static class CultureConfig
     /// Veilstone is back in the gate (2026-07-25 techtree pass): the AI
     /// veil-mines inside its base tether, so the old Age-0 stall no longer applies.
     /// </summary>
-    public static readonly Cost AgeUpCost = Cost.Of(supplies: 700, iron: 140, veilstone: 105);
+    // 250/100/0 (2026-08-29; was 700/140/105). Two reasons, both design:
+    //   * The age-up is EARLY TECH, and early tech is supplies + iron under
+    //     the resource-domain rule (Regions.md) - the 105 veilstone violated
+    //     it, and with a starting bank of 0 veilstone it also chained the
+    //     age-up behind mid-game mining infrastructure. On Veilmarch, where
+    //     veilstone is centre-only, that stretched Age 0 (a one-unit melee
+    //     age) past minute 15 in most matches.
+    //   * Median age-up time target is 3-6 minutes by difficulty
+    //     (Age_0.md): from a 400-supply start, Shrine (257) + this must be
+    //     reachable inside that window against ~72-120 supplies/min.
+    public static readonly Cost AgeUpCost = Cost.Of(supplies: 250, iron: 100);
 
     /// <summary>
     /// Time in seconds for the age-up process to complete after culture is chosen.

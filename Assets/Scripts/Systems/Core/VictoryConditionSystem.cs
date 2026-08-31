@@ -48,6 +48,13 @@ namespace TheWaningBorder.Systems.Core
                 return;
             }
             Instance = this;
+
+            // A new match's instance waking is the start of an UNDECIDED
+            // match. Statics survive scene loads, so without this a second
+            // skirmish in one session would start already "decided" for
+            // anything reading the lifecycle flag.
+            TheWaningBorder.Core.MatchLifecycle.MatchDecided = false;
+            TheWaningBorder.Core.MatchLifecycle.MatchWinner = "";
         }
 
         void Start()
@@ -329,6 +336,13 @@ namespace TheWaningBorder.Systems.Core
         {
             if (_gameOver) return;
             _gameOver = true;
+
+            // The lifecycle flag, for consumers with no UI to receive the
+            // MatchEnded signal — the headless batch runner ends its run here
+            // instead of burning the rest of its time budget on a decided
+            // board.
+            TheWaningBorder.Core.MatchLifecycle.MatchDecided = true;
+            TheWaningBorder.Core.MatchLifecycle.MatchWinner = winner.ToString();
 
             if (GameStatsTracker.Instance != null)
             {

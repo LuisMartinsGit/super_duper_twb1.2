@@ -24,10 +24,10 @@ MonoBehaviour:
   - VeilstoneSurvey2
   culture: 
   cost:
-    Supplies: 300
+    Supplies: 0
     Iron: 0
-    Veilstone: 100
-    Veilsteel: 60
+    Veilstone: 325
+    Veilsteel: 110
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

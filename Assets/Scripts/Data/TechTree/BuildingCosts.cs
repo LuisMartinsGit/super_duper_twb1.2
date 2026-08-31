@@ -80,8 +80,12 @@ namespace TheWaningBorder.Data
             // Feraldis (whose Workers cannot gather at all) it was a hard
             // deadlock: the 2026-08-05 match had both Feraldis AIs sitting
             // on 13k-23k supplies and ZERO iron, unable to build anything.
-            { "Mine",                    Cost.Of(supplies: 220) },
-            { "VeilstoneMine",           Cost.Of(supplies: 180, iron: 60) },
+            // Ore extractors are priced in IRON first (Regions.md §4,
+            // 2026-08-30): supply-priced they duelled the 600-supply Hall for
+            // the famine currency and expansion stopped — six of eight batch
+            // matches with zero claims. Iron is the currency that piles up.
+            { "Mine",                    Cost.Of(supplies: 90, iron: 140) },
+            { "VeilstoneMine",           Cost.Of(supplies: 90, iron: 160) },
             { "Alanthor_Sawyer",         Cost.Of(supplies: 150, iron: 40) },
 
             // Alanthor Culture Buildings
@@ -97,7 +101,7 @@ namespace TheWaningBorder.Data
             // no inputs and is build-limited to 1 per faction (directive 2026-07-04).
             // The Crucible was deleted (calculator 2026-08); the Smelter absorbs
             // its veilsteel-engine role via the Lv1-3 upgrade ladder.
-            { "Alanthor_Smelter",        Cost.Of(supplies: 800, iron: 400, veilstone: 100) },
+            { "Alanthor_Smelter",        Cost.Of(supplies: 240, iron: 320) },
             { "Alanthor_RoyalStable",    Cost.Of(supplies: 220, iron: 80) },
 
             // Sect buildings — one per sect, unlocked by adopting that sect,

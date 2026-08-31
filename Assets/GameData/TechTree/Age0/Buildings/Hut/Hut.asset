@@ -27,7 +27,7 @@ MonoBehaviour:
   radius: 1.6
   lineOfSight: 6
   buildTime: 15
-  populationProvided: 10
+  populationProvided: 30
   suppliesPerTick: 0
   suppliesInterval: 0
   maxIron: 0

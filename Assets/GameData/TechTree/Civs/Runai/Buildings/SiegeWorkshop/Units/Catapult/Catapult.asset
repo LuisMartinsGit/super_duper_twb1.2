@@ -34,10 +34,10 @@ MonoBehaviour:
   aoeRadius: 3
   aimTime: 1.2
   cost:
-    Supplies: 208
-    Iron: 120
-    Crystal: 80
-    Veilsteel: 15
+    Supplies: 0
+    Iron: 66
+    Crystal: 169
+    Veilsteel: 0
   minBuildingLevel: 0
   buildSpeed: 0
   gatheringSpeed: 0

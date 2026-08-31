@@ -17,7 +17,22 @@ namespace TheWaningBorder.Entities
 /// BazaarPackSystem needs it as a compile-time constant for the pack/unpack HP
 /// ratio, which is why this one number is duplicated in code.</summary>
         public const int MaxHP = 600;
-        private const int PresentationID = 410;
+        public const int PresentationID = 410;
+
+        /// <summary>
+        /// UnitFactory recipe entry — a wagon spawned outside the pack flow
+        /// (scenario fixture, cheat, future trainer) starts at full HP and
+        /// unpacks into a Bazaar at its authored max HP. The pack flow
+        /// (BazaarPackSystem) keeps calling the proportional overloads below,
+        /// so the HP-transfer rule is untouched.
+        /// </summary>
+        public static Entity Create(EntityManager em, float3 position, Faction faction)
+            => Create(em, position, faction, MaxHP,
+                      (int)TechCatalog.Building("ThessarasBazaar").hp);
+
+        public static Entity Create(EntityCommandBuffer ecb, float3 position, Faction faction)
+            => Create(ecb, position, faction, MaxHP,
+                      (int)TechCatalog.Building("ThessarasBazaar").hp);
 
         /// <summary>
         /// Create a Bazaar Wagon using EntityManager.

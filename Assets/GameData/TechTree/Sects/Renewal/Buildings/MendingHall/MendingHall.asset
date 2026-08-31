@@ -31,9 +31,9 @@ MonoBehaviour:
   - FieldHospital
   minEra: 1
   cost:
-    Supplies: 260
+    Supplies: 280
     Iron: 90
-    Veilstone: 30
+    Veilstone: 0
     Veilsteel: 0
   tags:
   - Building

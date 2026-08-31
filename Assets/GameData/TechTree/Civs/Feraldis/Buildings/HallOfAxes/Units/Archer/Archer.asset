@@ -34,8 +34,8 @@ MonoBehaviour:
   aimTime: 0.4
   trajectory: low
   cost:
-    Supplies: 50
-    Iron: 25
+    Supplies: 28
+    Iron: 14
     Crystal: 0
     Veilsteel: 0
   minBuildingLevel: 1

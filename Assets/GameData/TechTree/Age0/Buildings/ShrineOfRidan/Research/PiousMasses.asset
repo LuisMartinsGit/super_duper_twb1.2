@@ -24,9 +24,9 @@ MonoBehaviour:
   - HeightenedMasses
   culture: 
   cost:
-    Supplies: 220
+    Supplies: 0
     Iron: 0
-    Veilstone: 80
+    Veilstone: 410
     Veilsteel: 0
   effects:
     gatherSpeedMult: 0

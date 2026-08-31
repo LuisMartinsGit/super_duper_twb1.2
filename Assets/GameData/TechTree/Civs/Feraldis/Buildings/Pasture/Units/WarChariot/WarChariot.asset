@@ -32,10 +32,10 @@ MonoBehaviour:
   lineOfSight: 20
   radius: 0.6
   cost:
-    Supplies: 168
-    Iron: 80
-    Crystal: 40
-    Veilsteel: 15
+    Supplies: 0
+    Iron: 44
+    Crystal: 134
+    Veilsteel: 0
   minBuildingLevel: 2
   tags:
   - 'Cavalry'

@@ -289,6 +289,23 @@ namespace TheWaningBorder.Core.Commands.Types
                     return false;
             }
 
+            // AN EXTRACTOR STANDS ON ITS NODE (docs/Design/Regions.md §4) —
+            // and the iron / veilstone / veilsteel nodes are ObstacleTag
+            // entities that also block their footprint cells, so the obstacle
+            // and passability checks below refused the ONE placement the
+            // design requires. Diagnosed from a headless batch: six 30-minute
+            // matches, 80 Gatherer's Huts (the supply node is deliberately
+            // obstacle-free) and not a single Mine, Veilstone Mine or Smelter
+            // — every on-node candidate died here, for the AI and the player
+            // alike. The node kind the building is FOR is exempt from the
+            // obstacle test; other node kinds and every other obstacle still
+            // refuse. The position cannot wander off the node on this
+            // exemption: the router's OnFreeNodeFor gate leashes an extractor
+            // to within 4 m of a free node of exactly this kind.
+            var ownNode = buildingId != null
+                ? TheWaningBorder.World.Regions.TerritoryOwnership.RequiredNodeFor(buildingId)
+                : null;
+
             // 2. Obstacle overlap check (AABB-vs-circle for natural obstacles)
             var obstacleQuery = em.CreateEntityQuery(
                 ComponentType.ReadOnly<ObstacleTag>(),
@@ -297,9 +314,13 @@ namespace TheWaningBorder.Core.Commands.Types
             );
             using var obstacleRadii = obstacleQuery.ToComponentDataArray<Radius>(Allocator.Temp);
             using var obstacleTransforms = obstacleQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var obstacleEntities = obstacleQuery.ToEntityArray(Allocator.Temp);
 
             for (int i = 0; i < obstacleRadii.Length; i++)
             {
+                if (ownNode != null && em.HasComponent(obstacleEntities[i], ownNode.Value))
+                    continue;   // the node this extractor exists to stand on
+
                 var oPos = obstacleTransforms[i].Position;
                 float oR = obstacleRadii[i].Value;
                 // Clamp circle center to AABB, check distance
@@ -343,9 +364,13 @@ namespace TheWaningBorder.Core.Commands.Types
                     return false;
             }
 
-            // 4. Passability grid check -- all cells under footprint must be passable
+            // 4. Passability grid check -- all cells under footprint must be
+            //    passable. SKIPPED FOR EXTRACTORS: the blocked cells under an
+            //    on-node candidate ARE its node (nodes block their footprint
+            //    at spawn), the 4 m node gate keeps the footprint on the node,
+            //    and the finished building blocks the same ground again.
             var grid = PassabilityGrid.Instance;
-            if (grid != null)
+            if (grid != null && ownNode == null)
             {
                 if (!grid.IsFootprintPassable(position, buildingSize))
                     return false;

@@ -24,9 +24,9 @@ MonoBehaviour:
   - WarHorn
   culture: Alanthor
   cost:
-    Supplies: 240
+    Supplies: 0
     Iron: 100
-    Veilstone: 50
+    Veilstone: 410
     Veilsteel: 0
   effects:
     gatherSpeedMult: 0

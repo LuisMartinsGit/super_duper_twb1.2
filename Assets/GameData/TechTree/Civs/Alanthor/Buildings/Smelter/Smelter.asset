@@ -43,9 +43,9 @@ MonoBehaviour:
   - 'ShardPlating'
   minEra: 0
   cost:
-    Supplies: 400
-    Iron: 200
-    Veilstone: 60
+    Supplies: 240
+    Iron: 320
+    Veilstone: 0
     Veilsteel: 0
   tags:
   - 'Building'

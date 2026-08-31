@@ -31,9 +31,9 @@ MonoBehaviour:
   - EndlessMuster
   minEra: 1
   cost:
-    Supplies: 250
+    Supplies: 270
     Iron: 150
-    Veilstone: 30
+    Veilstone: 0
     Veilsteel: 0
   tags:
   - Building

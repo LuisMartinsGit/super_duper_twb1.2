@@ -45,6 +45,7 @@ namespace TheWaningBorder.Bootstrap
             }
 
             var markers = MapMarkerRegistry.VeilsteelDeposits;
+            bool exclusive = false;
             for (int i = 0; i < markers.Count; i++)
             {
                 var m = markers[i];
@@ -53,9 +54,15 @@ namespace TheWaningBorder.Bootstrap
                 var p = m.WorldPosition;
                 float y = TerrainUtility.GetHeight(p.x, p.z);
                 CreateVeilsteelDepositEntity(em, new float3(p.x, y, p.z), m.Amount);
+                exclusive |= m.MapExclusive;
             }
 
-            SeedTerritoryCoverage(em);
+            // A MapExclusive marker means the authored list IS the map's
+            // veilsteel: the top-up would scatter deposits into regions the
+            // map deliberately keeps bare (Veilmarch confines veilsteel to
+            // the centre ring so the centre is worth fighting over).
+            if (!exclusive)
+                SeedTerritoryCoverage(em);
         }
 
         /// <summary>
@@ -96,6 +103,11 @@ namespace TheWaningBorder.Bootstrap
 
             if (have.Count >= wanted) return;
 
+            // The other half of the node-quota rule: a territory never carries
+            // more than four ore nodes, so the top-up must not hand a fifth to
+            // ground that is already full (Regions.md §4).
+            var oreCounts = ResourceNodeCoverage.OreNodeCounts(em);
+
             // Stride by three so the deposits are spread across the map rather
             // than clustered in the low-numbered regions, then sweep for any
             // remainder if the strided pass could not fill the quota.
@@ -105,15 +117,21 @@ namespace TheWaningBorder.Bootstrap
                 for (int r = 0; r < RegionMap.Count && have.Count < wanted; r += step)
                 {
                     if (have.Contains(r)) continue;
+                    if (oreCounts[r] >= ResourceNodeCoverage.MaxOreNodesPerTerritory) continue;
                     var seed = RegionMap.SeedOf(r);
-                    if (!TrySpawnNear(em, seed.x, seed.y)) continue;
+                    if (!TrySpawnNear(em, r, seed.x, seed.y)) continue;
                     have.Add(r);
+                    oreCounts[r]++;
                 }
             }
         }
 
-        /// <summary>Place a deposit on standable ground near a region seed.</summary>
-        private static bool TrySpawnNear(EntityManager em, float x, float z)
+        /// <summary>Place a deposit on standable ground near a region seed —
+        /// and INSIDE that region. The ring search reaches 48 m, wider than a
+        /// warped border can be near a seed cell edge, so an uncontained
+        /// candidate would credit the deposit (and its quota slot) to the
+        /// neighbour.</summary>
+        private static bool TrySpawnNear(EntityManager em, int region, float x, float z)
         {
             for (float ring = 0f; ring <= 48f; ring += 8f)
             {
@@ -123,6 +141,7 @@ namespace TheWaningBorder.Bootstrap
                     float a = i * (Mathf.PI * 2f / samples);
                     float px = x + Mathf.Cos(a) * ring;
                     float pz = z + Mathf.Sin(a) * ring;
+                    if (RegionMap.RegionAt(px, pz) != region) continue;
                     // Same passability idiom the midpoint fallback uses, so
                     // both paths agree about what counts as standable ground.
                     var grid = PassabilityGrid.Instance;

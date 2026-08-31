@@ -24,10 +24,10 @@ MonoBehaviour:
   - IronSurveying2
   culture: 
   cost:
-    Supplies: 300
-    Iron: 180
-    Veilstone: 0
-    Veilsteel: 0
+    Supplies: 0
+    Iron: 0
+    Veilstone: 360
+    Veilsteel: 80
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

@@ -42,5 +42,19 @@ namespace TheWaningBorder.Core
         /// where it stopped.
         /// </summary>
         public static string BootPhase = "(not started)";
+
+        /// <summary>
+        /// True from the moment the match is DECIDED — one side left standing,
+        /// or the local player's own end (VictoryConditionSystem.TriggerGameEnd
+        /// is the only writer; it resets the flag when a new match's instance
+        /// wakes). HeadlessBatch reads it so a batch run can end at the actual
+        /// victory instead of burning out a time budget on a decided board.
+        /// </summary>
+        public static bool MatchDecided;
+
+        /// <summary>Winner's name once <see cref="MatchDecided"/> is set —
+        /// for the headless runner's log line; the authoritative record is
+        /// MatchLogSession's Summary.txt outcome.</summary>
+        public static string MatchWinner = "";
     }
 }

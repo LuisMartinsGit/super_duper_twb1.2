@@ -58,6 +58,16 @@ namespace TheWaningBorder.Core.Commands
                 if (IsBlockedByNotControllable(em, u, source)) continue;
                 eligible.Add(u);
             }
+
+            // AI AUDIT TRAIL (2026-08-31): every group order, one line — so
+            // "why did that army march there" is always answerable from the
+            // log rather than from watching the replay.
+            if (source == CommandSource.AI && eligible.Count > 0
+                && em.HasComponent<FactionTag>(eligible[0]))
+                TheWaningBorder.AI.AILogger.Log(
+                    em.GetComponentData<FactionTag>(eligible[0]).Value, "CMD",
+                    $"formation {(attackMove ? "attack-move" : "move")} x{eligible.Count} " +
+                    $"-> ({destination.x:0},{destination.z:0})");
             if (eligible.Count == 0) return;
 
             if (ShouldQueueForLockstep(source))

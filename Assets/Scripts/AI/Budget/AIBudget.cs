@@ -55,6 +55,7 @@ namespace TheWaningBorder.AI
             public readonly int[] LastBank = new int[Resources];
             public readonly float[] WindowSpends = new float[Resources];
             public bool Seeded;
+            public int ReservePriority;
             public float NextLog;
 
             /// <summary>Resources held back from every spender, so the brain
@@ -333,13 +334,30 @@ namespace TheWaningBorder.AI
             var want = new float[Resources]
                 { cost.Supplies, cost.Iron, cost.Veilstone, cost.Veilsteel };
 
-            // Lenders, poorest-priority first. Advancement is absent by design.
-            System.Span<int> lenders = stackalloc int[2];
+            // Lenders, in the order they are drained.
+            //
+            // ADVANCEMENT USED TO BE EXCLUDED "by design", to stop opportunistic
+            // buying from eating the age-up savings. It stranded capital instead.
+            // Measured mid-match: Blue held 333 supplies split
+            // [Adv 199 | Mil 103 | Eco 31] and could not buy a 220-supply
+            // Barracks, because Military could only reach 134 of its own faction's
+            // money. Every faction in the match finished with ZERO military
+            // buildings for the same reason, while Advancement also sat on 1,114
+            // veilstone and 310 veilsteel it had no remaining use for — the age-up
+            // is bought once, and the weight keeps feeding the wallet afterwards.
+            //
+            // Protecting a lump sum is what Reserve/ReservedAmount is FOR, and
+            // TryAfford already subtracts a live reservation off the top. So
+            // Advancement lends like any other wallet, and goes LAST so it is
+            // touched only when the other two genuinely cannot cover the price.
+            System.Span<int> lenders = stackalloc int[3];
             int lenderCount = 0;
             if (cat != AIBudgetCategory.EconomyExpansion)
                 lenders[lenderCount++] = (int)AIBudgetCategory.EconomyExpansion;
             if (cat != AIBudgetCategory.Military)
                 lenders[lenderCount++] = (int)AIBudgetCategory.Military;
+            if (cat != AIBudgetCategory.Advancement)
+                lenders[lenderCount++] = (int)AIBudgetCategory.Advancement;
 
             // Affordability first: never move anything for a purchase that
             // still cannot happen.
@@ -394,9 +412,20 @@ namespace TheWaningBorder.AI
         /// stalls into "banking for a building it will never buy" — the same
         /// failure the wallet floors exist to prevent.
         /// </summary>
-        public static void Reserve(Faction faction, Cost cost, float now, float holdSeconds)
+        /// <param name="priority">Higher wins. There is ONE reservation slot per
+        /// faction, so two savers thrash over it and neither pot ever fills:
+        /// the Hall claim re-arms every 90 s, which meant an age-up saving
+        /// alongside it was overwritten on the very next tick. A live
+        /// reservation can only be replaced by one of equal or higher
+        /// priority. Age-up is 1 because it unlocks the culture, three
+        /// production lines and every combat technology; claiming one more
+        /// region is 0.</param>
+        public static void Reserve(Faction faction, Cost cost, float now, float holdSeconds,
+            int priority = 0)
         {
             var b = GetBrain(faction);
+            if (now < b.ReserveExpiry && priority < b.ReservePriority) return;
+            b.ReservePriority = priority;
             b.Reserved[0] = cost.Supplies;
             b.Reserved[1] = cost.Iron;
             b.Reserved[2] = cost.Veilstone;
@@ -406,11 +435,18 @@ namespace TheWaningBorder.AI
 
         /// <summary>Release the hold — the purchase happened, or the goal is
         /// gone.</summary>
-        public static void ClearReservation(Faction faction)
+        /// <param name="maxPriority">Only clear a hold at or below this
+        /// priority. A caller that owns a priority-0 hold must not destroy
+        /// the age-up's priority-1 savings; int.MaxValue (the default) keeps
+        /// the old clear-anything behaviour for the purchase-completed
+        /// paths.</param>
+        public static void ClearReservation(Faction faction, int maxPriority = int.MaxValue)
         {
             var b = GetBrain(faction);
+            if (b.ReservePriority > maxPriority) return;
             for (int r = 0; r < Resources; r++) b.Reserved[r] = 0f;
             b.ReserveExpiry = 0f;
+            b.ReservePriority = 0;
         }
 
         /// <summary>True while a reservation is being held for this faction.</summary>
@@ -422,10 +458,55 @@ namespace TheWaningBorder.AI
             return false;
         }
 
-        /// <summary>How much of resource r is held back right now. Lapsed
-        /// reservations hold nothing.</summary>
+        /// <summary>
+        /// Working capital the reservation may never touch, per resource. The
+        /// brain must be able to keep training workers and raising huts while
+        /// it saves.
+        ///
+        /// Supplies are sized at a worker (140) plus a hut (80) plus slack:
+        /// below that the opening build order simply stops.
+        /// </summary>
+        private static readonly float[] WorkingFloat = { 120f, 40f, 0f, 0f };
+        // 260/120 was sized against a 140-supply Worker plus an 80-supply Hut.
+        // Both got cheaper, and more importantly the number was ABOVE the bank:
+        // measured across a full match the supply bank sat at 15-50 the entire
+        // time, because every goal spends supplies the instant they land. Since
+        // only the surplus ABOVE this float is ever held, a float of 260 made
+        // every reservation inert -- the Hall claim logged "saving for Region N"
+        // 58 times and the pot never grew by a single supply.
+        //
+        // At 120 the hold engages: spenders are refused once the bank minus 120
+        // is spoken for, so the bank ratchets up instead of being drained flat.
+        // 120 still covers a Hut plus a Worker, which is what "keep operating
+        // while you save" has to mean.
+
+        /// <summary>
+        /// How much of resource r is held back right now.
+        ///
+        /// ONLY THE SURPLUS IS HELD. A flat hold of the full goal price starves
+        /// the faction outright: saving 600 supplies for a Hall out of a bank
+        /// of 526 left NEGATIVE availability, so TryAfford refused everything —
+        /// including the 140-supply Worker at build-order step 1, which then
+        /// timed out at 92 s, twice, for every faction in the match. The claim
+        /// takes about three minutes to afford, so a 90-second hold that
+        /// re-arms on a 12-second cooldown is effectively continuous through
+        /// the whole opening.
+        ///
+        /// Holding only what sits above the working float still fills the pot —
+        /// income above operating needs accumulates exactly as before — while
+        /// the economy keeps running underneath it. Lapsed reservations hold
+        /// nothing.
+        /// </summary>
         private static float ReservedAmount(BrainBudget b, int r, float now)
-            => now < b.ReserveExpiry ? b.Reserved[r] : 0f;
+        {
+            if (now >= b.ReserveExpiry || b.Reserved[r] <= 0f) return 0f;
+
+            float bank = 0f;
+            for (int c = 0; c < Categories; c++) bank += b.Wallets[c, r];
+            float spare = bank - (r < WorkingFloat.Length ? WorkingFloat[r] : 0f);
+            if (spare <= 0f) return 0f;
+            return System.Math.Min(b.Reserved[r], spare);
+        }
 
         public static bool CanSpend(Faction faction, AIBudgetCategory cat, Cost cost)
         {

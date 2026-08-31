@@ -23,9 +23,9 @@ MonoBehaviour:
   prerequisites: []
   culture: Alanthor
   cost:
-    Supplies: 280
+    Supplies: 320
     Iron: 160
-    Veilstone: 60
+    Veilstone: 0
     Veilsteel: 0
   effects:
     gatherSpeedMult: 0

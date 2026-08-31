@@ -34,9 +34,9 @@ MonoBehaviour:
   trajectory: 
   projectileSpeed: 0
   cost:
-    Supplies: 150
-    Iron: 60
-    Veilstone: 20
+    Supplies: 0
+    Iron: 33
+    Veilstone: 86
     Veilsteel: 0
   minBuildingLevel: 1
   buildSpeed: 0

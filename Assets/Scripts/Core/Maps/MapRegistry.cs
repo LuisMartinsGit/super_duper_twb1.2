@@ -108,6 +108,7 @@ namespace TheWaningBorder.Core.Maps
             "HollowTable",     // 1v1 duel, one central well
             "TwinSpans",       // 3v3 river, two crossings, four bridgehead wells
             "SunderedReach",   // 3P, 704 m (4x Twin Spans' area), 10 regions
+            "Veilmarch",       // 4P, 1024 m open field, curse-only centre, 21 regions
         };
 
         /// <summary>

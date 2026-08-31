@@ -31,9 +31,9 @@ MonoBehaviour:
   - RoyalIndex
   minEra: 1
   cost:
-    Supplies: 300
+    Supplies: 327
     Iron: 120
-    Veilstone: 40
+    Veilstone: 0
     Veilsteel: 0
   tags:
   - Building

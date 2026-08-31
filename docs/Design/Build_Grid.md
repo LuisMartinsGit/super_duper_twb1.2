@@ -105,9 +105,10 @@ exists**.
 
 | Thing | Rule |
 |---|---|
-| Veilstone outcropping | 1 cell, impassable, cleared when the node is exhausted |
-| Iron deposit | 1 cell, impassable, cleared when exhausted |
+| Veilstone outcropping | 3 x 3 cells, impassable, cleared when the node is exhausted |
+| Iron deposit | 3 x 3 cells, impassable, cleared when exhausted |
 | Veilsteel deposit | 1 cell, impassable, cleared when exhausted |
+| **Supply spot** | **2 x 2 cells — the Gatherer's Hut's own footprint — and PASSABLE: it is ground you build the hut ON, not a prop beside it. Snaps with even parity (cell boundary) so the hut centres on it exactly. (2026-08-29; was 1 cell)** |
 | Blight pocket / Small Node | 1 cell, impassable while alive |
 | Border Main Node (well) | **6 x 6 cells** — it is a structure, not a node |
 | Trees, rocks, bushes | 1 cell, impassable, at most one per cell |

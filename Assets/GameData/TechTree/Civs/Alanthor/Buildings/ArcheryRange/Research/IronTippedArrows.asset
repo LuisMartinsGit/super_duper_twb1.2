@@ -24,9 +24,9 @@ MonoBehaviour:
   - StoneTippedArrows
   culture: Alanthor
   cost:
-    Supplies: 150
+    Supplies: 0
     Iron: 200
-    Veilstone: 0
+    Veilstone: 225
     Veilsteel: 0
   effects:
     gatherSpeedMult: 0

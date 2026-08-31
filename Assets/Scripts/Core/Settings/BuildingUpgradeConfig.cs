@@ -111,6 +111,13 @@ namespace TheWaningBorder.Core.Settings
         /// free (zero cost) — the culture auto-level normally grants it,
         /// this just keeps a manual L0→L1 request consistent.
         /// </summary>
+        /// <summary>
+        /// UPGRADES ARE BUILDINGS, so they are priced in supplies and iron —
+        /// docs/Design/Regions.md, resource domains. The ladders used to be a
+        /// veilstone/veilsteel sink; soldiers are that sink now, and a far
+        /// larger one, because an army is lost continuously and a building is
+        /// bought once.
+        /// </summary>
         public static bool TryGetCost(string buildingId, byte targetLevel, out Cost cost)
         {
             cost = default;
@@ -125,8 +132,8 @@ namespace TheWaningBorder.Core.Settings
                     cost = targetLevel switch
                     {
                         1 => default,
-                        2 => new Cost { Supplies = 400, Iron = 100, Veilstone = 40, Veilsteel = 5 },
-                        3 => new Cost { Supplies = 600, Iron = 220, Veilstone = 160, Veilsteel = 15 },
+                        2 => new Cost { Supplies = 447, Iron = 100 },
+                        3 => new Cost { Supplies = 767, Iron = 220 },
                         _ => default,
                     };
                     return true;
@@ -138,8 +145,8 @@ namespace TheWaningBorder.Core.Settings
                     cost = targetLevel switch
                     {
                         1 => new Cost { Supplies = 80, Iron = 20 },
-                        2 => new Cost { Supplies = 160, Iron = 40, Veilstone = 10 },
-                        3 => new Cost { Supplies = 320, Iron = 80, Veilstone = 30 },
+                        2 => new Cost { Supplies = 167, Iron = 40 },
+                        3 => new Cost { Supplies = 340, Iron = 80 },
                         _ => default,
                     };
                     return true;
@@ -148,8 +155,8 @@ namespace TheWaningBorder.Core.Settings
                     cost = targetLevel switch
                     {
                         1 => default,
-                        2 => new Cost { Supplies = 240, Iron = 50, Veilstone = 15, Veilsteel = 5 },
-                        3 => new Cost { Supplies = 360, Iron = 75, Veilstone = 50, Veilsteel = 35 },
+                        2 => new Cost { Supplies = 270, Iron = 50 },
+                        3 => new Cost { Supplies = 533, Iron = 75 },
                         _ => default,
                     };
                     return true;
@@ -157,9 +164,9 @@ namespace TheWaningBorder.Core.Settings
                     // Alanthor "Guild" level ladder — 3 levels (canon costs).
                     cost = targetLevel switch
                     {
-                        1 => new Cost { Supplies = 120, Iron = 25, Veilstone = 5 },
-                        2 => new Cost { Supplies = 240, Iron = 50, Veilstone = 15, Veilsteel = 5 },
-                        3 => new Cost { Supplies = 360, Iron = 75, Veilstone = 40, Veilsteel = 20 },
+                        1 => new Cost { Supplies = 123, Iron = 25 },
+                        2 => new Cost { Supplies = 270, Iron = 50 },
+                        3 => new Cost { Supplies = 467, Iron = 75 },
                         _ => default,
                     };
                     return true;
@@ -185,8 +192,8 @@ namespace TheWaningBorder.Core.Settings
                     cost = targetLevel switch
                     {
                         1 => default,
-                        2 => new Cost { Supplies = 260, Iron = 90, Veilstone = 80 },
-                        3 => new Cost { Supplies = 420, Iron = 160, Veilstone = 220, Veilsteel = 40 },
+                        2 => new Cost { Supplies = 313, Iron = 90 },
+                        3 => new Cost { Supplies = 727, Iron = 160 },
                         _ => default,
                     };
                     return true;
@@ -195,8 +202,8 @@ namespace TheWaningBorder.Core.Settings
                     cost = targetLevel switch
                     {
                         1 => default,
-                        2 => new Cost { Supplies = 200, Iron = 50, Veilstone = 15 },
-                        3 => new Cost { Supplies = 400, Iron = 100, Veilstone = 40 },
+                        2 => new Cost { Supplies = 210, Iron = 50 },
+                        3 => new Cost { Supplies = 427, Iron = 100 },
                         _ => default,
                     };
                     return true;
@@ -204,8 +211,8 @@ namespace TheWaningBorder.Core.Settings
                     cost = targetLevel switch
                     {
                         1 => default,
-                        2 => new Cost { Supplies = 160, Iron = 40, Veilstone = 10 },
-                        3 => new Cost { Supplies = 320, Iron = 80, Veilstone = 30 },
+                        2 => new Cost { Supplies = 167, Iron = 40 },
+                        3 => new Cost { Supplies = 340, Iron = 80 },
                         _ => default,
                     };
                     return true;
@@ -213,8 +220,8 @@ namespace TheWaningBorder.Core.Settings
                     cost = targetLevel switch
                     {
                         1 => default,
-                        2 => new Cost { Supplies = 120, Iron = 60, Veilstone = 20 },
-                        3 => new Cost { Supplies = 240, Iron = 120, Veilstone = 60 },
+                        2 => new Cost { Supplies = 133, Iron = 60 },
+                        3 => new Cost { Supplies = 280, Iron = 120 },
                         _ => default,
                     };
                     return true;
@@ -224,8 +231,8 @@ namespace TheWaningBorder.Core.Settings
                     cost = targetLevel switch
                     {
                         1 => default,
-                        2 => new Cost { Supplies = 80,  Iron = 40 },
-                        3 => new Cost { Supplies = 160, Iron = 80, Veilstone = 40 },
+                        2 => new Cost { Supplies = 80, Iron = 40 },
+                        3 => new Cost { Supplies = 187, Iron = 80 },
                         _ => default,
                     };
                     return true;
@@ -233,8 +240,8 @@ namespace TheWaningBorder.Core.Settings
                     cost = targetLevel switch
                     {
                         1 => default,
-                        2 => new Cost { Supplies = 180, Iron = 60, Veilstone = 20 },
-                        3 => new Cost { Supplies = 340, Iron = 120, Veilstone = 60 },
+                        2 => new Cost { Supplies = 193, Iron = 60 },
+                        3 => new Cost { Supplies = 380, Iron = 120 },
                         _ => default,
                     };
                     return true;
@@ -244,8 +251,8 @@ namespace TheWaningBorder.Core.Settings
                     cost = targetLevel switch
                     {
                         1 => default,
-                        2 => new Cost { Supplies = 500, Iron = 250, Veilstone = 120, Veilsteel = 30 },
-                        3 => new Cost { Supplies = 700, Iron = 350, Veilstone = 200, Veilsteel = 60 },
+                        2 => new Cost { Supplies = 700, Iron = 250 },
+                        3 => new Cost { Supplies = 1073, Iron = 350 },
                         _ => default,
                     };
                     return true;

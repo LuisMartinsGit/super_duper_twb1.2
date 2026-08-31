@@ -32,10 +32,10 @@ MonoBehaviour:
   lineOfSight: 26
   radius: 0.6
   cost:
-    Supplies: 480
-    Iron: 250
-    Veilstone: 100
-    Veilsteel: 30
+    Supplies: 0
+    Iron: 138
+    Veilstone: 350
+    Veilsteel: 0
   minBuildingLevel: 1
   buildSpeed: 0
   gatheringSpeed: 0

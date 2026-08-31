@@ -92,11 +92,12 @@ namespace TheWaningBorder.World.MapMarkers
             // so an unstable order would rename every region between peers.
             _nature.Sort(CompareMarkers);
             _regions.Sort(CompareMarkers);
+            _supply.Sort(CompareMarkers);
 
             TWBLog.Log($"[MapMarkerRegistry] Refresh — players={_players.Count} " +
                       $"iron={_iron.Count} veilstone={_crystal.Count} veilsteel={_veilsteel.Count} " +
                       $"border={_border.Count} blight={_blight.Count} " +
-                      $"nature={_nature.Count} regions={_regions.Count}");
+                      $"nature={_nature.Count} regions={_regions.Count} supply={_supply.Count}");
         }
 
         /// <summary>Drop all references — call when leaving the Game scene
@@ -111,6 +112,7 @@ namespace TheWaningBorder.World.MapMarkers
             _blight.Clear();
             _nature.Clear();
             _regions.Clear();
+            _supply.Clear();
         }
 
         /// <summary>

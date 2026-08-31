@@ -34,9 +34,9 @@ MonoBehaviour:
   - 'Runai_EscortedCaravans'
   minEra: 0
   cost:
-    Supplies: 600
+    Supplies: 667
     Iron: 200
-    Veilstone: 100
+    Veilstone: 0
     Veilsteel: 0
   tags:
   - 'Building'

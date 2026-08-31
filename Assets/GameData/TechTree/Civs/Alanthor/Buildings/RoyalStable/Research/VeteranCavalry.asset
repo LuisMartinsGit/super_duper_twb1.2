@@ -24,9 +24,9 @@ MonoBehaviour:
   - SeasonedCavalry
   culture: Alanthor
   cost:
-    Supplies: 200
+    Supplies: 0
     Iron: 90
-    Veilstone: 20
+    Veilstone: 320
     Veilsteel: 0
   effects:
     gatherSpeedMult: 0

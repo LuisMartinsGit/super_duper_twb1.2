@@ -1,0 +1,19 @@
+Pool: 6 workers, 4 AI, 1800s each at 3x, launching until 12:46
+  start seed 20261001  (1 in flight, 1 launched)
+  start seed 20261002  (2 in flight, 2 launched)
+  start seed 20261003  (3 in flight, 3 launched)
+  start seed 20261004  (4 in flight, 4 launched)
+  start seed 20261005  (5 in flight, 5 launched)
+  start seed 20261006  (6 in flight, 6 launched)
+  done  seed 20261002  602s
+  done  seed 20261001  604s
+  start seed 20261007  (5 in flight, 7 launched)
+  start seed 20261008  (6 in flight, 8 launched)
+  done  seed 20261004  607s
+  done  seed 20261006  605s
+  done  seed 20261003  609s
+  done  seed 20261005  606s
+  start seed 20261009  (3 in flight, 9 launched)
+  start seed 20261010  (4 in flight, 10 launched)
+  start seed 20261011  (5 in flight, 11 launched)
+  start seed 20261012  (6 in flight, 12 launched)

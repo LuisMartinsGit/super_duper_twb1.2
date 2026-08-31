@@ -33,8 +33,8 @@ MonoBehaviour:
   radius: 0.5
   healRange: 4
   cost:
-    Supplies: 100
-    Iron: 25
+    Supplies: 55
+    Iron: 14
     Crystal: 0
     Veilsteel: 0
   minBuildingLevel: 0

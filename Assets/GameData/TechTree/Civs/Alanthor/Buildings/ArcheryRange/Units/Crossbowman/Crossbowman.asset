@@ -35,10 +35,10 @@ MonoBehaviour:
   trajectory: flat
   projectileSpeed: 55
   cost:
-    Supplies: 70
+    Supplies: 0
     Iron: 0
-    Crystal: 0
-    Veilsteel: 15
+    Crystal: 68
+    Veilsteel: 0
   minBuildingLevel: 2
   buildSpeed: 0
   gatheringSpeed: 0

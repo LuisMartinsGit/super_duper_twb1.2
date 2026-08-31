@@ -170,6 +170,15 @@ namespace TheWaningBorder.Bootstrap
         }
 
         /// <summary>
+        /// Entry point for the node-quota top-up (ResourceNodeCoverage): one
+        /// iron node holding <paramref name="depositCount"/> marker units'
+        /// worth, exactly as an authored IronPatchMarker would spawn it.
+        /// </summary>
+        public static Entity SpawnQuotaNode(EntityManager em, float3 position,
+            int depositCount)
+            => CreateIronDepositEntity(em, position, depositCount * IronPerDeposit);
+
+        /// <summary>
         /// The node's footprint, in build cells across. Sized so a single node
         /// reads as a landmark you contest rather than a pebble you walk past,
         /// and so a Mine placed on it has something to sit against.

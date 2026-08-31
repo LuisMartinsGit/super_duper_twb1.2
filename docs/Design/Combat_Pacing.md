@@ -16,7 +16,7 @@ levels and the endgame loop, not to further ages.
 
 | Beat | Keyed to | Defining meta |
 |------|----------|---------------|
-| **0 — Skirmish** | Age 0 | **A melee age**: spearmen and workers. Ranged is an Age-1 unlock (2026-08-11 — the Age-0 archer rush was uncounterable and ended matches by minute 15), so the age is about spear lines, map reading, and the economy race to age-up. |
+| **0 — Skirmish** | Age 0 | **A melee age**: spearmen and workers. Ranged is an Age-1 unlock (2026-08-11 — the Age-0 archer rush was uncounterable and ended matches by minute 15), so the age is about spear lines, map reading, and the economy race to age-up. **The race is SHORT by design: median age-up lands at 3-6 minutes depending on difficulty (2026-08-29) — Age 0 is a prologue, not a third of the match.** |
 | **1 — Lines** | Age-up, buildings L1-L2 | The bow arrives: archers and crossbowmen enter alongside swordsmen (the Archery Range unlocks at era 2) and beat the Age-0 comps. Walls appear: **walls keep you mostly safe — only siege units can attack wall pieces** (see The Wall Rule below). |
 | **2 — Maneuver** | Buildings L2-L3 | Early cavalry wins every open encounter **except against spearmen**. Longbowmen (Range L3) rule the field, urging the advent of the cataphract. Early siege cracks hard targets and brings area damage (Trebuchet). |
 | **3 — Game-enders** | L3 + veterancy / equipment tiers | Longbowmen and cataphracts answer almost everything. The triangle closes: **cavalry counters longbowmen; crossbowmen counter cataphracts; spearmen still counter cavalry**. |

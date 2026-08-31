@@ -91,6 +91,10 @@ namespace TheWaningBorder.Entities
             // Registered so the spawn routes through the factory (UnitTypeId /
             // DisplayName / counter stamps) and the validator stays quiet.
             r["Runai_Caravan"]    = new UnitRecipe(Caravan.Create, Caravan.Create, UnitClass.Economy, Caravan.PresentationID);
+            // Packed Bazaar: spawned by BazaarPackSystem, never trained — same
+            // arrangement as the Caravan above, registered so the validator
+            // stays quiet and any non-pack spawn path still works.
+            r["Runai_BazaarWagon"] = new UnitRecipe(BazaarWagon.Create, BazaarWagon.Create, UnitClass.Economy, BazaarWagon.PresentationID);
 
             // Alanthor culture units
             r["Alanthor_Sentinel"]    = new UnitRecipe(Sentinel.Create, Sentinel.Create, UnitClass.Melee, 334);

@@ -43,6 +43,16 @@ namespace TheWaningBorder.AI
         public bool ForwardStaging;
         /// <summary>Sustained-production army ceiling for the maintenance
         /// loop (DesiredMilitary grows to this while affordable).</summary>
+        /// <summary>
+        /// How large an army this difficulty keeps standing, before the plan's
+        /// ArmyScale multiplies it.
+        ///
+        /// Was 10/20/24/32 across the ladder — an order of magnitude below the
+        /// 200-population ceiling, so the AI stopped WANTING soldiers long
+        /// before it ran out of housing or money and no faction ever came near
+        /// the cap. The ceiling is ~40 workers plus ~160 soldiers, so Normal
+        /// sits at 100 and MASSING (1.6x) takes it to 160.
+        /// </summary>
         public int SustainArmyCap;
 
         /// <summary>
@@ -58,9 +68,10 @@ namespace TheWaningBorder.AI
         /// supplies banked against a 700-supply age-up. Nothing was saving,
         /// so nothing aged up.
         ///
-        /// Budget backwards from the target age-up time: push, then ~90 s to
-        /// raise the 210-supply Shrine, then bank 700 while it builds.
-        /// Targets: Expert 4-5 min, Hard 5-7, Normal 6-8, Easy 8-10.
+        /// Budget backwards from the target age-up time: push, then ~60 s to
+        /// raise the 257-supply Shrine, then bank 250 while it builds.
+        /// Targets (median, 2026-08-29 per Age_0.md): Expert ~3 min,
+        /// Hard ~4, Normal ~5, Easy ~6.
         /// </summary>
         public float AgeUpPushSeconds;
 
@@ -107,62 +118,62 @@ namespace TheWaningBorder.AI
             {
                 ThinkInterval = 5.0f,
                 OptionalStepSkipChance = 0.25f,
-                WorkerTargetAge0 = 8,
-                WorkerTargetAge1 = 12,
+                WorkerTargetAge0 = 3,
+                WorkerTargetAge1 = 5,
                 FirstAttackEarliestSeconds = 480f,
                 RaidingEnabled = false,
                 CounterCompEnabled = false,
                 ForwardStaging = false,
-                SustainArmyCap = 10,
+                SustainArmyCap = 55,
                 AttackWaveIntervalSeconds = 300f,
                 WaveBaseUnits = 4,
                 WaveGrowthUnits = 1,
                 GathererHutTarget = 8,   // a modest home cluster
-                AgeUpPushSeconds = 200f,  // target age-up 8-10 min
-                ProductionBuildingTarget = 2,
+                AgeUpPushSeconds = 120f,  // target age-up ~6 min (Easy)
+                ProductionBuildingTarget = 20,
             },
             AIDifficulty.Hard => new AIDifficultyProfile
             {
                 ThinkInterval = 0.5f,
                 OptionalStepSkipChance = 0f,
-                WorkerTargetAge0 = 16,
-                WorkerTargetAge1 = 24,
+                WorkerTargetAge0 = 4,
+                WorkerTargetAge1 = 5,
                 FirstAttackEarliestSeconds = 240f,
                 RaidingEnabled = true,
                 CounterCompEnabled = true,
                 ForwardStaging = true,
-                SustainArmyCap = 24,
+                SustainArmyCap = 125,
                 AttackWaveIntervalSeconds = 180f,
                 WaveBaseUnits = 6,
                 WaveGrowthUnits = 2,
                 GathererHutTarget = 22,  // pushes well past the home ring
-                AgeUpPushSeconds = 110f,  // target age-up 5-7 min
-                ProductionBuildingTarget = 4,
+                AgeUpPushSeconds = 60f,   // target age-up ~4 min (Hard)
+                ProductionBuildingTarget = 28,
             },
             AIDifficulty.Expert => new AIDifficultyProfile
             {
                 ThinkInterval = 0.25f,
                 OptionalStepSkipChance = 0f,
-                WorkerTargetAge0 = 20,
-                WorkerTargetAge1 = 30,
+                WorkerTargetAge0 = 4,
+                WorkerTargetAge1 = 5,
                 FirstAttackEarliestSeconds = 180f,
                 RaidingEnabled = true,
                 CounterCompEnabled = true,
                 ForwardStaging = true,
-                SustainArmyCap = 32,
+                SustainArmyCap = 150,
                 AttackWaveIntervalSeconds = 120f,
                 WaveBaseUnits = 6,
                 WaveGrowthUnits = 2,
                 GathererHutTarget = 30,  // aims to blanket the map
-                AgeUpPushSeconds = 90f,   // target age-up 4-5 min
-                ProductionBuildingTarget = 5,
+                AgeUpPushSeconds = 30f,   // target age-up ~3 min (Expert)
+                ProductionBuildingTarget = 30,
             },
             _ => new AIDifficultyProfile // Normal
             {
                 ThinkInterval = 2.0f,
                 OptionalStepSkipChance = 0.10f,
-                WorkerTargetAge0 = 12,
-                WorkerTargetAge1 = 18,
+                WorkerTargetAge0 = 3,
+                WorkerTargetAge1 = 5,
                 FirstAttackEarliestSeconds = 360f,
                 RaidingEnabled = true,
                 CounterCompEnabled = false,
@@ -170,13 +181,16 @@ namespace TheWaningBorder.AI
                 // Sharpened 2026-08-04 ("defeat me"): a Normal AI that wins
                 // the economy must also convert it — bigger ceiling, waves
                 // that escalate instead of plateauing.
-                SustainArmyCap = 20,
+                SustainArmyCap = 100,
                 AttackWaveIntervalSeconds = 240f,
                 WaveBaseUnits = 5,
                 WaveGrowthUnits = 2,
                 GathererHutTarget = 14,  // a real economic footprint
-                AgeUpPushSeconds = 150f,  // target age-up 6-8 min
-                ProductionBuildingTarget = 3,
+                AgeUpPushSeconds = 90f,   // target age-up ~5 min (Normal)
+                // 10 -> 24 (2026-08-31 directive: "military production
+                // should be 20-30"): armies die continuously at the fronts
+                // now, and production breadth is what keeps the waves fed.
+                ProductionBuildingTarget = 24,
             },
         };
 

@@ -350,12 +350,17 @@ namespace TheWaningBorder.AI
 
         private static AIPersonality GetDefaultPersonality(Faction faction)
         {
-            // Assign different personalities to different AI factions for variety
+            // COLOURS ARE PERSONALITIES (2026-08-30, batch-analysis
+            // directive): a batch is only comparable across matches when Red
+            // is always the rusher and Blue always the turtle. The canonical
+            // four: Red = rush, Yellow = tech, Green = economy, Blue =
+            // turtle. GetRandomStrategy pins the matching opener.
             return faction switch
             {
-                Faction.Red => AIPersonality.Aggressive,
-                Faction.Green => AIPersonality.Defensive,
-                Faction.Yellow => AIPersonality.Economic,
+                Faction.Red => AIPersonality.Rush,
+                Faction.Green => AIPersonality.Economic,
+                Faction.Yellow => AIPersonality.Balanced,   // tech — no tech personality; the TechRush opener carries it
+                Faction.Blue => AIPersonality.Defensive,    // turtle
                 Faction.Purple => AIPersonality.Balanced,
                 Faction.Orange => AIPersonality.Rush,
                 Faction.Teal => AIPersonality.Balanced,
@@ -407,6 +412,18 @@ namespace TheWaningBorder.AI
                     if (picked.HasValue) return picked.Value;
                     // else fall through to random roll (LobbyAIStrategy.Random)
                 }
+            }
+
+            // COLOURS ARE PERSONALITIES: the four canonical colours play
+            // their signature opening every match, so batch results compare
+            // across runs. The lobby's explicit per-slot choice above still
+            // outranks this; only the random roll is replaced.
+            switch (faction)
+            {
+                case Faction.Red: return AIStrategy.Rush;
+                case Faction.Yellow: return AIStrategy.TechRush;
+                case Faction.Green: return AIStrategy.EcoBoom;
+                case Faction.Blue: return AIStrategy.Turtle;
             }
 
             // Deterministic random based on faction + spawn seed so multiplayer stays synced.

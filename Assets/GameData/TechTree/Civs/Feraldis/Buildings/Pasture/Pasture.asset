@@ -32,9 +32,9 @@ MonoBehaviour:
   research: []
   minEra: 2
   cost:
-    Supplies: 160
+    Supplies: 180
     Iron: 60
-    Crystal: 30
+    Crystal: 0
     Veilsteel: 0
   tags:
   - 'Building'

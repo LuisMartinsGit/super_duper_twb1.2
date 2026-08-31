@@ -24,10 +24,10 @@ MonoBehaviour:
   - VeteranCrews
   culture: Alanthor
   cost:
-    Supplies: 256
-    Iron: 170
-    Veilstone: 70
-    Veilsteel: 16
+    Supplies: 0
+    Iron: 0
+    Veilstone: 390
+    Veilsteel: 87
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

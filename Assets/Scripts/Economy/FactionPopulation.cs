@@ -262,8 +262,12 @@ namespace TheWaningBorder.Economy
         {
             return buildingId switch
             {
-                "Hall" => 20,
-                "Hut" => 10,
+                // Sized so the 120 floor is reachable: a Hall plus three Huts.
+                // At 20/10 it took ten Huts and 800 supplies, and no faction in
+                // a measured match ever got there — caps sat at 20-75 while the
+                // AI logged "nothing affordable; top want = Hut" 27 times.
+                "Hall" => 30,
+                "Hut" => 30,
                 "FiendstoneKeep" => 25,
                 "KingsCourt" => 30,
                 "Feraldis_Longhouse" => 15,

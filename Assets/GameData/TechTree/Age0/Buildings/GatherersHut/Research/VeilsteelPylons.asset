@@ -24,10 +24,10 @@ MonoBehaviour:
   - VeilstoneWalls
   culture: 
   cost:
-    Supplies: 300
-    Iron: 120
-    Veilstone: 0
-    Veilsteel: 100
+    Supplies: 0
+    Iron: 0
+    Veilstone: 315
+    Veilsteel: 170
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

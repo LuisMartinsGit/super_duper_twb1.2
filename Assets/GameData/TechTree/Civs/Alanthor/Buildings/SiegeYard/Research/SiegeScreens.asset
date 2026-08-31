@@ -24,9 +24,9 @@ MonoBehaviour:
   - RangingShot
   culture: Alanthor
   cost:
-    Supplies: 280
+    Supplies: 0
     Iron: 130
-    Veilstone: 60
+    Veilstone: 480
     Veilsteel: 0
   effects:
     gatherSpeedMult: 0

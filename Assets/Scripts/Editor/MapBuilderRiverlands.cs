@@ -341,9 +341,20 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             // The partition has to exist before we can ask which territory a
             // point falls in. Seeds are in world space; the generator works in
             // normalized, hence the conversion.
+            //
+            // SORT BY NAME before Configure. FindObjectsByType returns
+            // arbitrary order, but region ids at runtime come from
+            // MapMarkerRegistry's name-ordinal sort — the "Region NN" prefix
+            // pins creation order. Feeding Configure the unsorted list makes
+            // every id in validation a scramble (Veilmarch hit exactly this:
+            // its first build reported wells "in region 18" that were sitting
+            // dead centre).
+            var seeds = new List<RegionSeedMarker>(
+                Object.FindObjectsByType<RegionSeedMarker>(FindObjectsSortMode.None));
+            seeds.Sort((x, y) => string.CompareOrdinal(x.gameObject.name, y.gameObject.name));
             var seedWorld = new List<Vector2>();
             var seedNames = new List<string>();
-            foreach (var seed in Object.FindObjectsByType<RegionSeedMarker>(FindObjectsSortMode.None))
+            foreach (var seed in seeds)
             {
                 var wp = seed.transform.position;
                 seedWorld.Add(new Vector2(wp.x, wp.z));
@@ -351,12 +362,16 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             }
             TheWaningBorder.World.Regions.RegionMap.Configure(seedWorld, seedNames);
 
+            // Node quotas (Regions.md §4): every territory carries exactly 2
+            // supply nodes — a home 4 — and 1-4 ore nodes. The runtime top-up
+            // would fill a shortfall, but an authored map should not lean on
+            // the safety net, so every one of the 25 territories is stocked
+            // here and ValidateTerritoryNodes counts them all.
             for (int i = 0; i < Sectors; i++)
             {
                 float a = Angle(i);
-                int home = TheWaningBorder.World.Regions.RegionMap.RegionAt(
-                    ToWorld(Polar(RingC, a).x, Polar(RingC, a).y).x,
-                    ToWorld(Polar(RingC, a).x, Polar(RingC, a).y).z);
+                float ha = Angle(i, half: true);
+                int home = RegionAtNorm(Polar(RingC, a));
 
                 Iron(resRoot, $"Iron Home {i}a", PlaceInHome(home, RingC - 26f, a - 0.13f));
                 Iron(resRoot, $"Iron Home {i}b", PlaceInHome(home, RingC - 26f, a + 0.13f));
@@ -365,14 +380,53 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                 NewMarker($"Veilstone Home {i}", v.x, v.y, resRoot)
                     .AddComponent<VeilstoneOutcroppingMarker>();
 
-                // Contested ground between the players.
-                Iron(resRoot, $"Iron Mid {i}", Polar(RingB, Angle(i, half: true) + 0.10f));
+                Supply(resRoot, $"Supply Home {i}a", PlaceInHome(home, RingC - 34f, a - 0.20f));
+                Supply(resRoot, $"Supply Home {i}b", PlaceInHome(home, RingC - 8f, a + 0.22f));
+                Supply(resRoot, $"Supply Home {i}c", PlaceInHome(home, RingC + 18f, a - 0.16f));
+                Supply(resRoot, $"Supply Home {i}d", PlaceInHome(home, RingC + 26f, a + 0.10f));
+
+                // Contested ground between the players — seated INSIDE its
+                // mid territory, or the domain warp can hand it (and the ore
+                // quota it satisfies) to a neighbour.
+                int mid = RegionAtNorm(Polar(RingB, ha));
+                Iron(resRoot, $"Iron Mid {i}", PlaceInHome(mid, RingB, ha + 0.10f));
+
+                // Inner ring: three carry the map's veilsteel (below); the
+                // other three get iron so no territory is ore-less.
+                int inner = RegionAtNorm(Polar(RingA, a));
+                Supply(resRoot, $"Supply Inner {i}a", PlaceInHome(inner, RingA - 14f, a - 0.30f));
+                Supply(resRoot, $"Supply Inner {i}b", PlaceInHome(inner, RingA + 12f, a + 0.28f));
+                if (i % 2 == 1)
+                    Iron(resRoot, $"Iron Inner {i}", PlaceInHome(inner, RingA + 6f, a));
+
+                Supply(resRoot, $"Supply Mid {i}a", PlaceInHome(mid, RingB - 16f, ha - 0.16f));
+                Supply(resRoot, $"Supply Mid {i}b", PlaceInHome(mid, RingB + 14f, ha + 0.20f));
+
+                int outer = RegionAtNorm(Polar(RingD, ha));
+                Iron(resRoot, $"Iron Outer {i}", PlaceInHome(outer, RingD + 8f, ha));
+                Supply(resRoot, $"Supply Outer {i}a", PlaceInHome(outer, RingD - 12f, ha - 0.18f));
+                Supply(resRoot, $"Supply Outer {i}b", PlaceInHome(outer, RingD + 22f, ha + 0.16f));
             }
             for (int i = 0; i < Sectors; i += 2)
             {
                 var p = Polar(RingA, Angle(i));
                 NewMarker($"Veilsteel {i}", p.x, p.y, resRoot).AddComponent<VeilsteelDepositMarker>();
             }
+
+            // The Hollow: the centre well territory — but a territory still,
+            // and the quota exempts nobody. Whoever clears it gets working
+            // ground.
+            int hollow = RegionAtNorm(new Vector2(0.5f, 0.5f));
+            Iron(resRoot, "Iron Hollow", PlaceInHome(hollow, 26f, 0.7f));
+            Supply(resRoot, "Supply Hollow a", PlaceInHome(hollow, 26f, 2.8f));
+            Supply(resRoot, "Supply Hollow b", PlaceInHome(hollow, 26f, 4.9f));
+        }
+
+        /// <summary>Region under a NORMALIZED map point.</summary>
+        private static int RegionAtNorm(Vector2 n)
+        {
+            var w = ToWorld(n.x, n.y);
+            return TheWaningBorder.World.Regions.RegionMap.RegionAt(w.x, w.z);
         }
 
         /// <summary>
@@ -416,6 +470,9 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             var m = NewMarker(name, p.x, p.y, parent).AddComponent<IronPatchMarker>();
             m.DepositCount = 30;
         }
+
+        private static void Supply(Transform parent, string name, Vector2 p)
+            => NewMarker(name, p.x, p.y, parent).AddComponent<SupplyNodeMarker>();
 
         private static void NewSeed(Transform parent, ref int index, Vector2 p, string name)
         {
@@ -469,7 +526,63 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             }
 
             bad += ValidateHomeResources();
+            bad += ValidateTerritoryNodes();
             return bad;
+        }
+
+        /// <summary>
+        /// The node quotas of Regions.md §4, counted over every territory:
+        /// exactly 2 supply nodes (4 where a player starts), and 1-4 ore
+        /// nodes. The runtime top-up would fill a shortfall anyway, but an
+        /// authored map should not lean on the safety net.
+        /// </summary>
+        private static int ValidateTerritoryNodes()
+        {
+            int bad = 0;
+            var iron = Object.FindObjectsByType<IronPatchMarker>(FindObjectsSortMode.None);
+            var supply = Object.FindObjectsByType<SupplyNodeMarker>(FindObjectsSortMode.None);
+            var veilstone = Object.FindObjectsByType<VeilstoneOutcroppingMarker>(FindObjectsSortMode.None);
+            var veilsteel = Object.FindObjectsByType<VeilsteelDepositMarker>(FindObjectsSortMode.None);
+
+            var homes = new HashSet<int>();
+            foreach (var start in Object.FindObjectsByType<PlayerStartMarker>(FindObjectsSortMode.None))
+            {
+                var sp = start.transform.position;
+                int r = TheWaningBorder.World.Regions.RegionMap.RegionAt(sp.x, sp.z);
+                if (r >= 0) homes.Add(r);
+            }
+
+            int regions = TheWaningBorder.World.Regions.RegionMap.Count;
+            for (int r = 0; r < regions; r++)
+            {
+                int wantSupply = homes.Contains(r) ? 4 : 2;
+                int sup = CountIn(supply, r);
+                if (sup != wantSupply)
+                {
+                    Debug.LogError($"[{MapName}] region {r} has {sup} supply node(s) — " +
+                                   $"the quota is exactly {wantSupply}.");
+                    bad++;
+                }
+                int ore = CountIn(iron, r) + CountIn(veilstone, r) + CountIn(veilsteel, r);
+                if (ore < 1 || ore > 4)
+                {
+                    Debug.LogError($"[{MapName}] region {r} has {ore} ore node(s) — " +
+                                   "the quota is 1-4.");
+                    bad++;
+                }
+            }
+            return bad;
+        }
+
+        private static int CountIn(MapMarker[] markers, int region)
+        {
+            int n = 0;
+            for (int i = 0; i < markers.Length; i++)
+            {
+                var p = markers[i].transform.position;
+                if (TheWaningBorder.World.Regions.RegionMap.RegionAt(p.x, p.z) == region) n++;
+            }
+            return n;
         }
 
         /// <summary>

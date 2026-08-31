@@ -40,9 +40,9 @@ MonoBehaviour:
   - 'SiegeScreens'
   minEra: 0
   cost:
-    Supplies: 260
+    Supplies: 300
     Iron: 100
-    Crystal: 60
+    Crystal: 0
     Veilsteel: 0
   tags:
   - 'Building'

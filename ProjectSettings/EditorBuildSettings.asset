@@ -125,6 +125,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/GameData/Scenes/Scenarios/Scenario_FormationOctagon.unity
     guid: 18c4e962547a4f4b88c8c070f8d7c9c3
+  - enabled: 1
+    path: Assets/GameData/Scenes/Maps/Veilmarch/Veilmarch.unity
+    guid: f9443d077c71c1749b56d8ad759e0222
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

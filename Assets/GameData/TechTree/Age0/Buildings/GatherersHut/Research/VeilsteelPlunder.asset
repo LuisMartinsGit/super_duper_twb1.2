@@ -24,10 +24,10 @@ MonoBehaviour:
   - VeilstonePlunder
   culture: 
   cost:
-    Supplies: 320
+    Supplies: 0
     Iron: 0
-    Veilstone: 120
-    Veilsteel: 60
+    Veilstone: 360
+    Veilsteel: 113
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

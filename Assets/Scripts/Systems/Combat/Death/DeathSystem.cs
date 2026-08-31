@@ -170,6 +170,55 @@ namespace TheWaningBorder.Systems.Combat
 
                     // Units get a death animation delay; buildings are destroyed immediately
                     bool isBuilding = state.EntityManager.HasComponent<BuildingTag>(dead);
+
+                    // KILLS AND DEATHS ARE RECORDED EVENTS (batch metrics).
+                    // The victim is this entity; the killer is whoever
+                    // CombatDamageHelper last credited on it. Curse exposure
+                    // and other unattributed deaths still count as deaths —
+                    // they just credit nobody.
+                    if (!isBuilding && state.EntityManager.HasComponent<FactionTag>(dead))
+                    {
+                        var victim = state.EntityManager.GetComponentData<FactionTag>(dead).Value;
+                        bool attributed = state.EntityManager
+                            .HasComponent<LastDamagedByFaction>(dead);
+                        var killer = attributed
+                            ? state.EntityManager.GetComponentData<LastDamagedByFaction>(dead).Value
+                            : victim;
+                        // Where it fell — the death ledger's position is what
+                        // makes battles visible on the replay map.
+                        var dpos = state.EntityManager.HasComponent<Unity.Transforms.LocalTransform>(dead)
+                            ? state.EntityManager.GetComponentData<Unity.Transforms.LocalTransform>(dead).Position
+                            : default;
+                        TheWaningBorder.Core.Diagnostics.MatchMetrics.RecordUnitDeath(
+                            victim, killer, attributed, dpos.x, dpos.z);
+                    }
+
+                    // A LOST BUILDING IS A RECORDED EVENT.
+                    //
+                    // Nothing anywhere logged it, and in an economy where
+                    // structures ARE the income that makes the most important
+                    // thing that can happen to a faction invisible. It blocked
+                    // four separate diagnoses in one session: whether a rebuilt
+                    // extractor meant the first was destroyed or the occupancy
+                    // check was broken; whether two factions claiming one
+                    // region was contention or a bug; whether a faction
+                    // claiming a rival's HOME region was a conquest; and why
+                    // five territory claims in a match never converted to a
+                    // second territory. Every one of those is answerable the
+                    // moment losses are on the record.
+                    if (isBuilding && state.EntityManager.HasComponent<FactionTag>(dead))
+                    {
+                        var lostFaction = state.EntityManager.GetComponentData<FactionTag>(dead).Value;
+                        float3 lostAt = state.EntityManager.HasComponent<LocalTransform>(dead)
+                            ? state.EntityManager.GetComponentData<LocalTransform>(dead).Position
+                            : float3.zero;
+                        string lostId = TheWaningBorder.Entities.BuildingIds.Of(
+                            dead, state.EntityManager);
+                        TheWaningBorder.AI.AILogger.Log(lostFaction, "LOST",
+                            $"{(string.IsNullOrEmpty(lostId) ? "building" : lostId)} destroyed at " +
+                            $"({lostAt.x:F0},{lostAt.z:F0})");
+                    }
+
                     if (!isBuilding)
                     {
                         ecb.AddComponent(dead, new DeathAnimationState { Timer = DeathAnimationDuration });

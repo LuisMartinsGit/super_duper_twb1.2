@@ -24,10 +24,10 @@ MonoBehaviour:
   - VeteranArchers
   culture: Alanthor
   cost:
-    Supplies: 160
-    Iron: 80
-    Veilstone: 0
-    Veilsteel: 15
+    Supplies: 0
+    Iron: 0
+    Veilstone: 180
+    Veilsteel: 55
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

@@ -24,9 +24,9 @@ MonoBehaviour:
   - ArrowVolley
   culture: Alanthor
   cost:
-    Supplies: 200
+    Supplies: 0
     Iron: 60
-    Veilstone: 0
+    Veilstone: 300
     Veilsteel: 0
   effects:
     gatherSpeedMult: 0

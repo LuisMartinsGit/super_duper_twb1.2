@@ -90,7 +90,14 @@ namespace TheWaningBorder.AI
             AIPlan.Boom => new AIPlanProfile
             {
                 WeightAdv = 0.15f, WeightMil = 0.20f, WeightEco = 0.65f,
-                ArmyScale = 0.6f, WaveBarScale = 1.2f, ClaimAppetite = 2f,
+                // ArmyScale 0.6 -> 0.9, WaveBar 1.2 -> 1.0 (2026-08-31,
+                // equal-win-rate directive). "Thin on army" was a bet that
+                // the relentless-wave meta punishes EVERY time: the economy
+                // identity was eliminated in 10 of 14 batch matches and won
+                // zero. A boomer still fields less than Mass (1.6) — but a
+                // bigger estate must mean a bigger army, or booming is just
+                // queueing for execution.
+                ArmyScale = 0.9f, WaveBarScale = 1.0f, ClaimAppetite = 2f,
                 CommitSeconds = 100f,
                 Banner = "BOOMING — taking ground, thin on army",
             },
@@ -124,7 +131,11 @@ namespace TheWaningBorder.AI
             AIPlan.Tech => new AIPlanProfile
             {
                 WeightAdv = 0.55f, WeightMil = 0.25f, WeightEco = 0.20f,
-                ArmyScale = 0.8f, WaveBarScale = 1.3f, ClaimAppetite = 1f,
+                // ArmyScale 0.8 -> 1.0 (2026-08-31, equal-win-rate
+                // directive): the tech identity's payoff is QUALITY, and
+                // quality needs enough bodies to survive to its spike —
+                // Yellow was eliminated in 11 of 14 batch matches.
+                ArmyScale = 1.0f, WaveBarScale = 1.3f, ClaimAppetite = 1f,
                 CommitSeconds = 120f,
                 Banner = "TECHING — racing the age-up and its elite tier",
             },

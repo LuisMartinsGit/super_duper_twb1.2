@@ -32,9 +32,9 @@ MonoBehaviour:
   lineOfSight: 16
   radius: 0.5
   cost:
-    Supplies: 90
-    Iron: 20
-    Crystal: 0
+    Supplies: 0
+    Iron: 11
+    Crystal: 47
     Veilsteel: 0
   minBuildingLevel: 2
   buildSpeed: 0

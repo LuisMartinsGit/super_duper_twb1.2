@@ -24,9 +24,9 @@ MonoBehaviour:
   - SeasonedInfantry
   culture: Alanthor
   cost:
-    Supplies: 180
+    Supplies: 0
     Iron: 80
-    Veilstone: 0
+    Veilstone: 270
     Veilsteel: 0
   effects:
     gatherSpeedMult: 0

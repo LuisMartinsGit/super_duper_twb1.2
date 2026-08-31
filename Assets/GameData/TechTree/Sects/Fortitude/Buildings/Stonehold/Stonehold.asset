@@ -31,9 +31,9 @@ MonoBehaviour:
   - DeepFoundations
   minEra: 1
   cost:
-    Supplies: 280
+    Supplies: 300
     Iron: 160
-    Veilstone: 30
+    Veilstone: 0
     Veilsteel: 0
   tags:
   - Building

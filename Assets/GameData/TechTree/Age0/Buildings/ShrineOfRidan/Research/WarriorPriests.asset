@@ -23,9 +23,9 @@ MonoBehaviour:
   prerequisites: []
   culture: 
   cost:
-    Supplies: 180
+    Supplies: 193
     Iron: 50
-    Veilstone: 20
+    Veilstone: 0
     Veilsteel: 0
   effects:
     gatherSpeedMult: 0

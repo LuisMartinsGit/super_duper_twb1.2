@@ -34,9 +34,9 @@ MonoBehaviour:
   aimTime: 0.5
   trajectory: high
   cost:
-    Supplies: 120
-    Iron: 30
-    Crystal: 20
+    Supplies: 0
+    Iron: 16
+    Crystal: 70
     Veilsteel: 0
   minBuildingLevel: 3
   tags:

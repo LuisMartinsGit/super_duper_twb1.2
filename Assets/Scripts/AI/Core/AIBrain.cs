@@ -148,6 +148,10 @@ namespace TheWaningBorder.AI
         /// whose target was already razed reinforced forever (2026-08-07
         /// match: Red's wave 4 ran 32 minutes and never attacked).</summary>
         public float WaveStartTime;
+
+        /// <summary>When the current reinforcement group started gathering.
+        /// Zero = nothing waiting. See ReinforceMinGroup.</summary>
+        public float ReinforceHoldSince;
     }
 
     /// <summary>

@@ -4,11 +4,13 @@
 // docs/Design/Regions.md §4: income comes from the ground you hold, not from
 // workers gathering. Per owned territory:
 //
-//   * a base SUPPLY trickle
+//   * a base SUPPLY trickle — a bare-ground floor plus a share per SUPPLY
+//     NODE standing in the territory, so the base correlates with the map
 //   * plus supplies for each FOREST inside it (a Sawyer multiplies that)
 //   * plus 50/min of supplies for each GATHERER'S HUT — and a hut may only
 //     stand on a supply node, so how many a territory supports is map data
-//   * plus 75/min of IRON / VEILSTONE / VEILSTEEL for each resource NODE in it
+//   * plus 190/min of IRON / VEILSTONE (95/min of VEILSTEEL) for each
+//     resource NODE in it
 //   * plus 25/min per MINE LEVEL built on one of those nodes
 //
 // A player's economy is therefore a map position. Losing a territory is losing
@@ -54,20 +56,31 @@ namespace TheWaningBorder.Systems.World
         /// decides how lumpy the bank looks, not how much is paid.</summary>
         private const float TickInterval = 5f;
 
-        /// <summary>Supplies a held territory pays on its own.</summary>
+        /// <summary>Supplies a held territory pays for its bare ground alone.</summary>
         // TERRITORY CONTENTS HAVE TO MATTER MORE THAN TERRITORY COUNT.
         //
-        // 72/min arrived unconditionally, on every territory, whether it held
-        // anything or not — so supplies were 63% of everything the game sells
-        // AND the one resource you got just for owning ground. Nothing on the
-        // map was worth fighting for in particular: any region fed you the
-        // same, and the located resources (iron, veilstone, veilsteel) were
-        // 24%, 11% and 2% of demand respectively.
+        // The base used to be a flat 72/min on every territory, whether it
+        // held anything or not — restored to that number after 52 starved the
+        // AI of building money ("nothing affordable" 60 times in a 15-minute
+        // match while veilstone banked past 5,000). The flat number had the
+        // same flaw at a smaller scale that the original 72 had at 63% of all
+        // demand: every region fed you identically, so no region was worth
+        // taking in particular.
         //
-        // Lowered against a raised node yield below. Bare ground still pays —
-        // holding it is never pointless — but a region WITH something in it is
-        // now clearly worth taking off somebody.
-        private const float BaseSuppliesPerMinute = 52f;
+        // The base now CORRELATES WITH THE SUPPLY NODES standing in the
+        // territory (Regions.md §4, 2026-08-29): bare ground pays this floor —
+        // holding it is never pointless — and each supply node adds its own
+        // share. Every territory is guaranteed 2 supply nodes and a home 4
+        // (the node-quota rule), so a standard territory pays 20 + 2x26 = 72,
+        // exactly the old flat base, and a home pays 124. Nothing got poorer;
+        // stocked ground got visibly richer.
+        private const float BareSuppliesPerMinute = 20f;
+
+        /// <summary>Supplies each supply NODE adds to its territory's base
+        /// tick, built on or not — the supply-side twin of the ore trickle
+        /// below. The node then also caps the huts (one each), so a rich
+        /// territory is richer twice over.</summary>
+        private const float SuppliesPerSupplyNodePerMinute = 26f;
 
         /// <summary>Supplies per Gatherer's Hut. There is no per-territory hut
         /// cap any more: a hut must stand on a supply node, so the territory's
@@ -98,7 +111,15 @@ namespace TheWaningBorder.Systems.World
         // Raised against the lowered supply base above: a node-bearing
         // territory should be visibly worth more than an empty one, because
         // that difference is the whole reason to contest a particular region.
-        private const float NodeYieldPerMinute = 95f;
+        //
+        // IRON AND VEILSTONE DOUBLED (2026-08-30 directive, Regions.md §4):
+        // armies were trained but rarely replaced fast enough to fight with —
+        // the ore trickle was the bottleneck. Veilsteel keeps the base rate;
+        // its scarcity is the design, not its rate. The doubled trickle also
+        // drains NodeReserve twice as fast, which is intended pressure.
+        private const float IronYieldPerMinute = 190f;
+        private const float VeilstoneYieldPerMinute = 190f;
+        private const float VeilsteelYieldPerMinute = 95f;
 
         /// <summary>Added per MINE LEVEL standing on a node. A fresh mine is
         /// level 1 (+25); upgrading it adds another 25 each time.</summary>
@@ -216,7 +237,12 @@ namespace TheWaningBorder.Systems.World
             var y = new TerritoryYield();
             if (territory < 0 || !RegionMap.Ready) return y;
 
-            y.Supplies = BaseSuppliesPerMinute;
+            // Base scales with the supply nodes standing in the territory
+            // (built on or not) — the guaranteed 2-node territory pays what
+            // the old flat base paid, a 4-node home pays more.
+            y.Supplies = BareSuppliesPerMinute
+                       + CountIn<SupplyNodeTag>(em, territory)
+                         * SuppliesPerSupplyNodePerMinute;
 
             // Gatherer's Huts. Feraldis Raider Camps are converted huts that
             // KEEP GathererHutTag (AgeUpSystem adds RaiderCampTag to the same
@@ -248,11 +274,14 @@ namespace TheWaningBorder.Systems.World
             // Resource nodes, and whatever mines are standing on them. Survey
             // research scales the lot: it is the only remaining consumer of the
             // Guild survey ladder now that the hut's area model is gone.
-            y.Iron      = NodeAndMineYield<IronMineTag>(em, territory, drainMinutes)
+            y.Iron      = NodeAndMineYield<IronMineTag>(em, territory, drainMinutes,
+                              IronYieldPerMinute)
                           * SurveyMultiplier(owner, IronSurveyLadder);
-            y.Veilstone = NodeAndMineYield<VeilstoneOutcroppingTag>(em, territory, drainMinutes)
+            y.Veilstone = NodeAndMineYield<VeilstoneOutcroppingTag>(em, territory, drainMinutes,
+                              VeilstoneYieldPerMinute)
                           * SurveyMultiplier(owner, VeilstoneSurveyLadder);
-            y.Veilsteel = NodeAndMineYield<VeilsteelDepositTag>(em, territory, drainMinutes)
+            y.Veilsteel = NodeAndMineYield<VeilsteelDepositTag>(em, territory, drainMinutes,
+                              VeilsteelYieldPerMinute)
                           * SurveyMultiplier(owner, VeilstoneSurveyLadder);
 
             return y;
@@ -289,7 +318,7 @@ namespace TheWaningBorder.Systems.World
         /// node's own trickle plus 25 per level of any Mine built on it.
         /// </summary>
         private static float NodeAndMineYield<TNode>(EntityManager em, int territory,
-            float drainMinutes)
+            float drainMinutes, float nodeYieldPerMinute)
             where TNode : unmanaged, IComponentData
         {
             var nodeQuery = em.CreateEntityQuery(
@@ -305,7 +334,7 @@ namespace TheWaningBorder.Systems.World
 
                 // Fresh rate: the node's own trickle plus every level of the
                 // extraction building standing on it.
-                float fresh = NodeYieldPerMinute
+                float fresh = nodeYieldPerMinute
                             + ExtractorLevelsOn<TNode>(em, np.x, np.z)
                               * MineYieldPerMinutePerLevel;
 

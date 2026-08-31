@@ -24,10 +24,10 @@ MonoBehaviour:
   - VeteranInfantry
   culture: Alanthor
   cost:
-    Supplies: 224
-    Iron: 120
-    Veilstone: 0
-    Veilsteel: 15
+    Supplies: 0
+    Iron: 0
+    Veilstone: 258
+    Veilsteel: 72
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

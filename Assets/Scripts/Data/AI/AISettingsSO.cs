@@ -53,7 +53,9 @@ namespace TheWaningBorder.Data.AI
             [Tooltip("Min idle units before a maintenance attack launches.")]
             public int attackThreshold = 3;
             public int militaryFloor = 8;
-            public int minerFloor = 6;
+            /// <summary>Workers to keep. They only BUILD now (Regions.md §4 removed
+        /// gathering), so this is a build crew, not an economy.</summary>
+        public int minerFloor = 3;
             [Tooltip("Multiplier on the risk term of the target scorer. >1 = cautious.")]
             public float riskMultiplier = 1f;
         }
@@ -62,11 +64,11 @@ namespace TheWaningBorder.Data.AI
 
         public static PersonalityBlock[] DefaultPersonalities() => new[]
         {
-            new PersonalityBlock { personality = AIPersonality.Balanced,   attackThreshold = 3, militaryFloor = 8,  minerFloor = 6,  riskMultiplier = 1.0f },
-            new PersonalityBlock { personality = AIPersonality.Aggressive, attackThreshold = 2, militaryFloor = 10, minerFloor = 5,  riskMultiplier = 0.6f },
-            new PersonalityBlock { personality = AIPersonality.Defensive,  attackThreshold = 5, militaryFloor = 12, minerFloor = 8,  riskMultiplier = 1.5f },
-            new PersonalityBlock { personality = AIPersonality.Economic,   attackThreshold = 4, militaryFloor = 6,  minerFloor = 10, riskMultiplier = 1.2f },
-            new PersonalityBlock { personality = AIPersonality.Rush,       attackThreshold = 2, militaryFloor = 10, minerFloor = 4,  riskMultiplier = 0.5f },
+            new PersonalityBlock { personality = AIPersonality.Balanced,   attackThreshold = 3, militaryFloor = 8,  minerFloor = 3,  riskMultiplier = 1.0f },
+            new PersonalityBlock { personality = AIPersonality.Aggressive, attackThreshold = 2, militaryFloor = 10, minerFloor = 2,  riskMultiplier = 0.6f },
+            new PersonalityBlock { personality = AIPersonality.Defensive,  attackThreshold = 5, militaryFloor = 12, minerFloor = 4,  riskMultiplier = 1.5f },
+            new PersonalityBlock { personality = AIPersonality.Economic,   attackThreshold = 4, militaryFloor = 6,  minerFloor = 5,  riskMultiplier = 1.2f },
+            new PersonalityBlock { personality = AIPersonality.Rush,       attackThreshold = 2, militaryFloor = 10, minerFloor = 2,  riskMultiplier = 0.5f },
         };
 
         public PersonalityBlock For(AIPersonality p)

@@ -47,9 +47,9 @@ MonoBehaviour:
   - DeployStakes
   minEra: 2
   cost:
-    Supplies: 144
+    Supplies: 162
     Iron: 50
-    Veilstone: 27
+    Veilstone: 0
     Veilsteel: 0
   tags:
   - Building

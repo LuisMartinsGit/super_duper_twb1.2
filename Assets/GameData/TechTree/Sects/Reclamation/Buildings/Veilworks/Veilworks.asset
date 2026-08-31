@@ -31,9 +31,9 @@ MonoBehaviour:
   - WardensLedger
   minEra: 1
   cost:
-    Supplies: 300
+    Supplies: 340
     Iron: 110
-    Veilstone: 60
+    Veilstone: 0
     Veilsteel: 0
   tags:
   - Building
