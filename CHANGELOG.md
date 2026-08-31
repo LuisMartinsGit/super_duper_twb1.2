@@ -15,6 +15,44 @@ Nothing yet.
 
 ---
 
+## [0.0.17] — 2026-08-31
+
+### Added
+
+- **You start with a Fortress.** Every player's first building is now the
+  capital — bigger and far tougher than a Hall, with a real garrison attack.
+  Halls are what you build to claim new territories; the Fortress is home.
+- **The curse fights for ground.** It holds the pure node's territory from the
+  first minute, conquers neighbouring territories that have veilstone and no
+  Hall, and sends raiding waves out of the ground it holds. Kill the anchor
+  crystal in a conquered territory and the ground is yours to claim again.
+  Veilstone now appears in every starting territory and across half the map —
+  the same ground that feeds your army feeds the curse if you leave it unclaimed.
+
+### Changed
+
+- **Territory borders are painted on the ground.** The old border lines floated
+  above the terrain; they are now true ground markings that follow every slope,
+  and they never paint across units or buildings.
+- **The fog edge is clean.** The boundary between explored and unexplored
+  ground is a crisp line at any map size instead of visible squares.
+- **The AI plays the whole game.** It expands territory by territory, keeps an
+  army while it saves, reaches Age 2 reliably, and fights over the map instead
+  of sitting on three regions.
+
+### Fixed
+
+- **A lot of lag.** Shadows, ambient occlusion, fog updates, animation load and
+  several per-frame systems were doing far more work than the screen ever
+  showed. Veilmarch in particular should feel dramatically smoother.
+- **Incremental updates actually work now.** 0.0.13 shipped the machinery, but
+  a server bug quietly withheld the file list it needs, so every update was
+  still the full download. That is fixed on the server side — from your NEXT
+  update onward, the launcher fetches only what changed. (This update carries a
+  lot of changed data, so it may still be a large one.)
+
+---
+
 ## [0.0.13] — 2026-08-20
 
 The last full download. From the next version on, an update fetches only
