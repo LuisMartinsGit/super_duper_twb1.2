@@ -221,15 +221,7 @@ namespace TheWaningBorder.UI
         /// Returns Cultures.None for universal units (available to all cultures).
         /// </summary>
         private static byte GetRequiredCultureForUnit(string unitId)
-        {
-            if (unitId.StartsWith("Alanthor_")) return Cultures.Alanthor;
-            if (unitId.StartsWith("Feraldis_")) return Cultures.Feraldis;
-            if (unitId.StartsWith("Runai_")) return Cultures.Runai;
-            // King's Court units carry no culture prefix (their ids are stable
-            // across the factory / ability catalog) but are Alanthor-exclusive.
-            if (unitId == "Ledger" || unitId == "King Lexor") return Cultures.Alanthor;
-            return Cultures.None; // universal
-        }
+            => TheWaningBorder.Data.CultureGate.RequiredCultureForUnit(unitId);
 
         /// <summary>
         /// True when a universal unit is REPLACED by a culture's own variant,
@@ -242,7 +234,7 @@ namespace TheWaningBorder.UI
         /// </summary>
         private static bool IsSupersededByCulture(string unitId, byte factionCulture)
         {
-            return factionCulture == Cultures.Feraldis && unitId == "Spearman";
+            return TheWaningBorder.Data.CultureGate.IsSupersededByCulture(unitId, factionCulture);
         }
 
         /// <summary>Append unit ids to a trains list without mutating the source

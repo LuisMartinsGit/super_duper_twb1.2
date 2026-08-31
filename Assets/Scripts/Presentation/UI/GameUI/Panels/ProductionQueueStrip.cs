@@ -198,10 +198,13 @@ namespace TheWaningBorder.UI.GameUI
         }
 
         /// <summary>
-        /// Paint the strip for <paramref name="building"/>. Hides itself when
-        /// the selection neither trains nor researches — an idle barracks with
-        /// an empty queue still shows its (empty) chips, which is the point:
-        /// the player can see there is nothing in production.
+        /// Paint the strip for <paramref name="building"/>. Hides itself
+        /// whenever there is NOTHING researching and nothing queued — the
+        /// old behaviour ("an idle building still shows its empty chips")
+        /// parked a dead six-slot panel over the actions grid on every
+        /// research-capable selection, and read as leftover chrome
+        /// (2026-08-31 screenshot). The strip now exists only while it has
+        /// something to say; queueing a tech brings it up instantly.
         /// </summary>
         public void Render(EntityManager em, Entity building, in EntityActionInfo info)
         {
@@ -227,6 +230,9 @@ namespace TheWaningBorder.UI.GameUI
             if (rq.Queue != null)
                 for (int i = 0; i < rq.Queue.Length && idx < Chips; i++, idx++)
                     names[idx] = rq.Queue[i];
+
+            // Empty queue, nothing researching — no ghost panel.
+            if (idx == 0 && !rq.IsResearching) { Hide(); return; }
 
             for (int i = 0; i < Chips; i++)
             {

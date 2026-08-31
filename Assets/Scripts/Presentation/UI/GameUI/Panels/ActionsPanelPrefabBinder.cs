@@ -285,6 +285,9 @@ namespace TheWaningBorder.UI.GameUI
             else
             {
                 used = RenderBuilding(em);
+                // Not a building this panel owns — movable units get the
+                // formation buttons here instead (the panel's unit mode).
+                if (used < 0) used = RenderUnitFormations(em);
                 if (used < 0) { SetShown(false); return; }
             }
 
@@ -323,6 +326,69 @@ namespace TheWaningBorder.UI.GameUI
             }
             for (int i = used; i < _slots.Length; i++) ClearSlot(_slots[i]);
             return used;
+        }
+
+        // ── Unit mode: formations ──────────────────────────────────────────
+
+        // Labels/Tips stay English — Loc.T at render, same keys the old
+        // floating strip registered in the PT table.
+        private static readonly string[] FormationLabels = { "Box", "Line", "Wedge", "Stagger" };
+        private static readonly string[] FormationTips =
+        {
+            "<b>Box</b>\nCompact rectangle. The all-round default — good for moving a "
+                + "mixed group without exposing a flank.",
+            "<b>Line</b>\nWide, shallow rank. Maximises how many units can shoot or "
+                + "engage at once; fragile if hit from the side.",
+            "<b>Wedge</b>\nArrowhead. Concentrates the leading edge for a charge that "
+                + "punches through a line.",
+            "<b>Stagger</b>\nOffset rows. Spreads the group out so area damage and "
+                + "siege hit fewer units at a time.",
+        };
+
+        /// <summary>
+        /// THE UNITS' ACTIONS PANEL (2026-08-31): a movable selection gets
+        /// the four formation buttons in the grid, replacing the floating
+        /// bottom-centre strip the old FormationsPanelBinder built. Clicking
+        /// mirrors the X-key cycle (RequestFormationShape re-slots the whole
+        /// selection immediately); the current shape is tinted gold, and the
+        /// highlight follows shape changes from EITHER path on the panel's
+        /// normal refresh.
+        /// </summary>
+        private int RenderUnitFormations(EntityManager em)
+        {
+            bool movable = false;
+            var sel = TheWaningBorder.Input.SelectionSystem.CurrentSelection;
+            if (sel != null)
+                for (int i = 0; i < sel.Count && !movable; i++)
+                    movable = em.Exists(sel[i]) && em.HasComponent<MoveSpeed>(sel[i]);
+            if (!movable) return -1;
+
+            int current = (int)TheWaningBorder.Input.RTSInputManager.CurrentFormationShape;
+            int count = Mathf.Min(4, _slots.Length);
+            for (int i = 0; i < count; i++)
+            {
+                var shape = (FormationShape)i;
+                var b = new ActionButton
+                {
+                    Id = "Formation_" + FormationLabels[i],
+                    Label = Loc.T(FormationLabels[i]),
+                    Tooltip = Loc.T(FormationTips[i]),
+                    Enabled = true,
+                    CanAfford = true,
+                };
+                FillSlot(_slots[i], b, Category.Military, null, () =>
+                {
+                    TheWaningBorder.Input.RTSInputManager.RequestFormationShape(shape);
+                    _timer = RefreshInterval;   // repaint the highlight now
+                }, em);
+
+                if (i == current)
+                    foreach (var img in _slots[i].TintBg) img.color = GameUIKit.BarGold;
+            }
+            for (int i = count; i < _slots.Length; i++) ClearSlot(_slots[i]);
+
+            _queue.Hide();   // units have no production queue
+            return count;
         }
 
         // ── Building mode ──────────────────────────────────────────────────

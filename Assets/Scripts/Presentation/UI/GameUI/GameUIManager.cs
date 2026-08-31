@@ -187,7 +187,10 @@ namespace TheWaningBorder.UI.GameUI
             // Code-built HUD extras (no authored prefabs yet): the formations
             // strip and the spells bar. Both build their own subtrees under
             // the host canvas and self-hide when the selection is irrelevant.
-            _hostCanvasRect.gameObject.AddComponent<FormationsPanelBinder>();
+            // The floating bottom-centre formations strip is gone
+            // (2026-08-31): the four formation buttons live in the authored
+            // actions panel's unit mode now — see
+            // ActionsPanelPrefabBinder.RenderUnitFormations.
             _hostCanvasRect.gameObject.AddComponent<SpellsPanelBinder>();
 
             // Pause menu (Esc). Spawned on its own full-canvas host and last

@@ -284,6 +284,15 @@ async function versionResponse(release, env) {
     sha256: manifest.sha256,
     sizeBytes: manifest.sizeBytes,
     notes: manifest.notes ?? release.body ?? "",
+    // THE DELTA UPDATE'S LIFELINE (2026-08-31). This response used to
+    // re-serialize only the four fields above, silently DROPPING the
+    // per-file list release.ps1 has published since 0.0.12 — so the
+    // launcher's fully-built incremental patcher saw `files: null`,
+    // declined without logging, and every tester downloaded the full
+    // 473 MB zip for every release, including one that differed by 78
+    // bytes. Pass the list through and the launcher fetches only what
+    // changed, by ranged reads into the same zip.
+    files: manifest.files ?? null,
   });
 }
 

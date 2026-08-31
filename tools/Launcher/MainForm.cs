@@ -290,7 +290,19 @@ internal sealed class MainForm : Form
             var plan = await Task.Run(() => Patcher.Plan(manifest, token), token).ConfigureAwait(true);
 
             Marquee(false);
-            if (plan is null) return false;
+            if (plan is null)
+            {
+                // The one decline that used to be SILENT — and it hid the
+                // 2026-08-31 bug where the update server stripped `files`
+                // from every manifest, so this fired on every update and
+                // "it always downloads the whole game" had no trail.
+                Log(manifest.Files is not { Count: > 0 }
+                    ? "Incremental update declined: the server manifest has no file list."
+                    : !Directory.Exists(AppPaths.Game)
+                        ? "Incremental update declined: first install."
+                        : "Incremental update declined: too much changed to be worth patching.");
+                return false;
+            }
 
             if (!plan.IsWorthwhile)
             {
