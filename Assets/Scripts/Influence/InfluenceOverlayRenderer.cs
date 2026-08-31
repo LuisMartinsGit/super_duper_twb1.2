@@ -1,30 +1,28 @@
 // InfluenceOverlayRenderer.cs
-// In-world influence BORDERS — the visible outline of every territory.
+// In-world territory BORDERS — the visible outline of every holding,
+// PROJECTED ONTO THE TERRAIN AS A DECAL (2026-08-31).
 //
-// Design (docs/Design/Overview.md § The influence map): "in-world overlay =
-// border lines only, traced as smooth splines along the 0.5 contour".
-// For every channel that holds ground (the 8 players + the curse) the 0.5
-// iso-contour is traced with marching squares over the influence grid, the
-// segments are chained into polylines and Chaikin-smoothed into clean
-// splines, then emitted as terrain-draped ribbon meshes — players in their
-// banner colour, the curse in purple, blood in dark red at its own level.
-// No fill, no texture, no pixelation: the FILLS are the terrain shader's job
-// (InfluenceMaskTexture), this is only the outline.
+// For every owner (the 8 players + the curse) the contour of their ground is
+// traced with marching squares over the ownership grid, chained into
+// polylines and Chaikin-smoothed — and then RASTERIZED into one map-sized
+// border texture that a single URP DecalProjector projects straight down
+// onto the terrain. The old implementation emitted the same splines as a
+// ribbon MESH floating 0.6 m above the ground, which read as a hovering
+// tape on every slope; a decal hugs the terrain by construction, at the
+// cost of one texture sample inside the projector volume. The texture is
+// redrawn only when ownership changes (Regions.md §3b — no per-frame
+// territory compute), so per frame this component is one integer compare.
 //
-// Restored 2026-08-18: the tracer was written for the old IMGUI HUD's
-// INFLUENCE button, lost its only caller in the UI redesign, and was then
-// dropped as dead code in the scripts-layout refactor — so the ground had
-// coloured territory with no borders at all. It now mounts itself on
-// gameplay scenes and is ON by default; Toggle()/SetVisible() remain for a
-// HUD hook.
+// No per-vertex fog handling any more: the fog-of-war overlay plane renders
+// above the ground and darkens the decal with everything else, which is the
+// same statement the ground fills already make (territory is public
+// information; the fog dims, it does not redact).
 //
-// Fog of war applies (as on the minimap): border vertices in unexplored
-// ground are invisible, in explored-but-unseen ground they dim.
+// The FILLS stay the terrain shader's job (InfluenceMaskTexture); this is
+// only the outline.
 
 using System.Collections.Generic;
 using TheWaningBorder.Core.Maps;
-using TheWaningBorder.Systems.Visibility;
-using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -33,18 +31,26 @@ namespace TheWaningBorder.Influence
     [DefaultExecutionOrder(2001)] // just after InfluenceMaskTexture (2000)
     public sealed class InfluenceOverlayRenderer : MonoBehaviour
     {
-        // The influence field ticks at 0.1 s; retracing every other tick is
-        // indistinguishable in motion and halves the cost.
+        // How often the version numbers are CHECKED; a rebuild only runs
+        // when ownership actually changed.
         private const float RebuildInterval = 0.2f;
         private const float Threshold = 0.5f;        // the border contour level
-        private const float HeightOffset = 0.6f;     // drape height above terrain
-        // Ribbon half-width. 0.24 was tuned for the old always-off debug
-        // overlay; at 0.4 the line reads as a border from normal RTS camera
-        // height, which is the point of having it on permanently.
-        private const float HalfWidth = 0.4f;
+        // Line half-width in metres, as rasterized into the decal. Wider than
+        // the old mesh ribbon's 0.15: a projected line has no silhouette
+        // against the sky, so it needs a little more ground to read.
+        private const float HalfWidth = 0.5f;
         private const int ChaikinIterations = 2;     // corner-cutting passes
-        private const byte VisibleAlpha = 230;
-        private const byte RevealedAlpha = 110;
+        private const byte BorderAlpha = 230;
+
+        /// <summary>Border texture resolution. 2048 over a 1024 m map is
+        /// 0.5 m per texel — a 1 m line lands ~2 texels wide, crisp under the
+        /// projector's bilinear sample.</summary>
+        private const int TexRes = 2048;
+
+        /// <summary>Rendering-layer bit the border decal projects on. The
+        /// terrain is the only renderer opted into it, so the borders land on
+        /// the ground and never paint across units or buildings.</summary>
+        private const uint TerrainDecalLayerBit = 1u << 1;
 
         // ── Territory outlines ────────────────────────────────────────────
         //
@@ -69,7 +75,10 @@ namespace TheWaningBorder.Influence
         // 0.75 -> 0.15 (2026-08-28): a 1.5 m band across the ground read as a
         // painted stripe rather than a border. A line marks where the ground
         // changes hands; it should not be wide enough to be ground itself.
-        private const float TerritoryHalfWidth = 0.15f;
+        // 0.15 -> 0.4 (2026-08-31): as a DECAL the line lies flat on the
+        // ground with no silhouette, and 0.15 m is under one border-texture
+        // texel — 0.4 m keeps it a line, not a stripe, and actually visible.
+        private const float TerritoryHalfWidth = 0.4f;
 
         /// <summary>Corner-cutting passes for the territory outline. More than
         /// the influence contour gets: the territory field is BINARY, so its
@@ -125,25 +134,14 @@ namespace TheWaningBorder.Influence
         // ─── State ────────────────────────────────────────────────────────
         private bool _visible = true;
         private bool _built;
-        private GameObject _meshGo;
-        private Mesh _mesh;
-        private Material _mat;
+        private GameObject _decalGo;
+        private UnityEngine.Rendering.Universal.DecalProjector _projector;
+        private Material _decalMat;
+        private Texture2D _tex;
+        private Color32[] _pixels;
         private float _nextRebuild;
 
-        // Terrain height cache — the ribbon has thousands of vertices and
-        // Terrain.SampleHeight per vertex per rebuild is milliseconds of main
-        // thread. One GetHeights snapshot (re-taken only when the terrain
-        // object itself changes) plus bilinear lookup is free by comparison.
-        private float[,] _heights;
-        private int _heightRes;
-        private Vector3 _terrainPos, _terrainSize;
-        private int _terrainVersion = -1;
-
-        // Reused scratch — this runs five times a second, so nothing here
-        // may allocate after warm-up.
-        private readonly List<Vector3> _verts = new();
-        private readonly List<Color32> _colors = new();
-        private readonly List<int> _tris = new();
+        // Reused scratch — nothing here may allocate after warm-up.
         private readonly List<Vector2> _segA = new();
         private readonly List<Vector2> _segB = new();
         private readonly List<Vector2> _pts = new();
@@ -159,11 +157,18 @@ namespace TheWaningBorder.Influence
         private bool _regionCellsBaked;
         private bool _territoryLogged;
 
+        /// <summary>Grid content version this mesh was last built from.
+        /// Regions.md §3b: border ribbons follow OWNERSHIP, which changes on
+        /// events, so the marching-squares pass is gated on this instead of
+        /// re-running on a timer forever (it was the single biggest measured
+        /// per-frame territory cost — 325 frame spikes in ten minutes).</summary>
+        private int _lastDataVersion = int.MinValue;
+
         private void ApplyVisible(bool on)
         {
             _visible = on;
             if (on && !_built) TryBuild();
-            if (_meshGo != null) _meshGo.SetActive(on && _built);
+            if (_decalGo != null) _decalGo.SetActive(on && _built);
             if (on) _nextRebuild = 0f;
         }
 
@@ -175,14 +180,28 @@ namespace TheWaningBorder.Influence
             {
                 TryBuild();
                 if (!_built) return;
-                _meshGo.SetActive(true);
+                _decalGo.SetActive(true);
             }
 
             if (Time.time < _nextRebuild) return;
             _nextRebuild = Time.time + RebuildInterval;
 
+            // MapMagic regenerates the terrain OBJECT late (and rebinds can
+            // replace it), which resets its rendering-layer opt-in — re-apply
+            // whenever the terrain version moves. Integer compare otherwise.
+            if (TheWaningBorder.World.Terrain.TerrainUtility.TerrainVersion != _terrainMaskVersion)
+                ApplyTerrainDecalLayer();
+
+            // EVENT-DRIVEN (Regions.md §3b): the borders can only change when
+            // ownership does, so the interval above is merely how often the
+            // version number is CHECKED. An unchanged version costs one
+            // integer compare; the marching-squares + Chaikin + rasterize
+            // pass runs only on a real change. (The decal needs no terrain
+            // gate at all — projection follows the ground for free.)
+            if (_lastDataVersion == PlayerInfluenceMap.DataVersion) return;
+            _lastDataVersion = PlayerInfluenceMap.DataVersion;
+
             double t0 = Time.realtimeSinceStartupAsDouble;
-            RefreshTerrainCache();
             RebuildBorders();
             TheWaningBorder.Core.Diagnostics.PerfSpikeLog.Report("InfluenceBorders",
                 (Time.realtimeSinceStartupAsDouble - t0) * 1000.0);
@@ -190,9 +209,21 @@ namespace TheWaningBorder.Influence
 
         private void OnDestroy()
         {
-            if (_mesh != null) Destroy(_mesh);
-            if (_mat != null) Destroy(_mat);
+            if (_tex != null) Destroy(_tex);
+            if (_decalMat != null) Destroy(_decalMat);
             if (_instance == this) _instance = null;
+        }
+
+        private int _terrainMaskVersion = int.MinValue;
+
+        /// <summary>Opt the active terrain into the border decal's rendering
+        /// layer (keeping bit 0, which lights and everything else use).</summary>
+        private void ApplyTerrainDecalLayer()
+        {
+            var terrain = TheWaningBorder.World.Terrain.TerrainUtility.GetActiveTerrain();
+            if (terrain == null) return;
+            terrain.renderingLayerMask |= TerrainDecalLayerBit;
+            _terrainMaskVersion = TheWaningBorder.World.Terrain.TerrainUtility.TerrainVersion;
         }
 
         // ─── Setup ────────────────────────────────────────────────────────
@@ -200,75 +231,71 @@ namespace TheWaningBorder.Influence
         private void TryBuild()
         {
             if (!PlayerInfluenceMap.Ready) return;
-            if (!RefreshTerrainCache()) return;
 
-            // Sprites/Default: vertex-colour, alpha-blended, double-sided —
-            // renders fine under URP, and it is in the project's
-            // always-included shader list, so Shader.Find still resolves it
-            // in a player build (unreferenced shaders get stripped).
-            var shader = Shader.Find("Sprites/Default");
-            if (shader == null)
+            // The decal material lives in Resources so its URP Decal shader
+            // ships in player builds as a dependency (Shader.Find on an
+            // unreferenced shader would be stripped — see the fog shader
+            // lesson). An instance is drawn on, never the asset.
+            var src = Resources.Load<Material>("TWBTerritoryBorderDecal");
+            if (src == null)
             {
-                Debug.LogWarning("[InfluenceOverlay] Sprites/Default missing — " +
-                                 "influence borders will not render.");
+                Debug.LogWarning("[InfluenceOverlay] Resources/TWBTerritoryBorderDecal.mat " +
+                                 "missing — territory borders will not render.");
                 return;
             }
 
-            _mesh = new Mesh
+            _tex = new Texture2D(TexRes, TexRes, TextureFormat.RGBA32, false)
             {
-                name = "InfluenceBorders",
-                indexFormat = UnityEngine.Rendering.IndexFormat.UInt32
+                name = "TerritoryBorders",
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp,
             };
-            _mesh.MarkDynamic();
+            _pixels = new Color32[TexRes * TexRes];
 
-            _mat = new Material(shader)
-            {
-                name = "InfluenceBorderMat",
-                renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent
-            };
+            _decalMat = new Material(src) { name = "TerritoryBorderDecalMat" };
+            _decalMat.SetTexture("Base_Map", _tex);
+            _decalMat.SetTexture("_BaseMap", _tex);
 
-            _meshGo = new GameObject("InfluenceBorderMesh",
-                typeof(MeshFilter), typeof(MeshRenderer));
-            _meshGo.transform.SetParent(transform, false);
-            _meshGo.GetComponent<MeshFilter>().sharedMesh = _mesh;
-            var mr = _meshGo.GetComponent<MeshRenderer>();
-            mr.sharedMaterial = _mat;
-            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            mr.receiveShadows = false;
+            // ONE map-sized projector, firing straight down. Depth spans the
+            // whole plausible height range; pivot half a depth forward so the
+            // volume hangs below the transform. The projector's local X/Y
+            // axes line up with world X/Z, which is exactly how the texture
+            // is rasterized.
+            Vector2 min = PlayerInfluenceMap.WorldMin;
+            Vector2 size = PlayerInfluenceMap.WorldSize;
+            const float Depth = 300f;
+
+            _decalGo = new GameObject("TerritoryBorderDecal");
+            _decalGo.transform.SetParent(transform, false);
+            _decalGo.transform.position = new Vector3(
+                min.x + size.x * 0.5f, Depth * 0.5f, min.y + size.y * 0.5f);
+            _decalGo.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+            _projector = _decalGo.AddComponent<UnityEngine.Rendering.Universal.DecalProjector>();
+            _projector.material = _decalMat;
+            _projector.size = new Vector3(size.x, size.y, Depth);
+            _projector.pivot = new Vector3(0f, 0f, Depth * 0.5f);
+            // TERRAIN ONLY. Everything inside the volume would receive the
+            // decal otherwise — units and buildings crossing a border got the
+            // line painted across them. The projector emits on rendering
+            // layer bit 1 (the renderer feature has decal layers enabled) and
+            // only the terrain is opted into that bit below; every renderer
+            // ships on bit 0 by default, so nothing else receives.
+            _projector.renderingLayerMask = TerrainDecalLayerBit;
+            ApplyTerrainDecalLayer();
 
             int cells = PlayerInfluenceMap.Resolution * PlayerInfluenceMap.Resolution;
             _dominant = new sbyte[cells];
             _field = new float[cells];
 
             _built = true;
-            TWBLog.Log("[InfluenceOverlay] territory borders online.");
-        }
-
-        /// <summary>Snapshot the terrain heightmap once per terrain object.
-        /// False while no terrain exists yet (MapMagic generates it late).</summary>
-        private bool RefreshTerrainCache()
-        {
-            var terrain = TheWaningBorder.World.Terrain.TerrainUtility.GetActiveTerrain();
-            if (terrain == null || terrain.terrainData == null) return false;
-            int version = TheWaningBorder.World.Terrain.TerrainUtility.TerrainVersion;
-            if (_heights != null && version == _terrainVersion) return true;
-
-            var data = terrain.terrainData;
-            _heightRes = data.heightmapResolution;
-            _heights = data.GetHeights(0, 0, _heightRes, _heightRes);
-            _terrainPos = terrain.transform.position;
-            _terrainSize = data.size;
-            _terrainVersion = version;
-            return true;
+            TWBLog.Log("[InfluenceOverlay] territory border decal online.");
         }
 
         // ─── Rebuild ──────────────────────────────────────────────────────
 
         private void RebuildBorders()
         {
-            _verts.Clear();
-            _colors.Clear();
-            _tris.Clear();
+            System.Array.Clear(_pixels, 0, _pixels.Length);
 
             // Dominance for every cell, once. The per-channel contour below
             // is ownership-clipped against it, and re-deriving that inside
@@ -305,9 +332,10 @@ namespace TheWaningBorder.Influence
                     continue;
                 }
 
-                // The curse keeps its influence contour: Regions.md §3 (the
-                // curse takes territory by force) is unimplemented, so it owns
-                // no regions and has nothing to outline.
+                // The curse channel rides the same grid: since Regions.md §3
+                // was implemented (2026-08-31) the rasterized ownership grid
+                // carries curse-held territories at full strength, so its 0.5
+                // contour IS the curse's territorial outline.
                 if (!BuildClippedField(ch)) continue;
 
                 _segA.Clear();
@@ -344,11 +372,8 @@ namespace TheWaningBorder.Influence
                 if (_segA.Count > 0) ChainAndEmit(BloodColor, HalfWidth, ChaikinIterations);
             }
 
-            _mesh.Clear();
-            _mesh.SetVertices(_verts);
-            _mesh.SetColors(_colors);
-            _mesh.SetTriangles(_tris, 0);
-            _mesh.RecalculateBounds();
+            _tex.SetPixels32(_pixels);
+            _tex.Apply(false, false);
         }
 
         /// <summary>
@@ -557,7 +582,7 @@ namespace TheWaningBorder.Influence
                 for (int it = 0; it < smoothing; it++)
                     Chaikin(_pts, closed);
 
-                EmitRibbon(_pts, closed, color, halfWidth);
+                RasterizeChain(_pts, closed, color, halfWidth);
             }
         }
 
@@ -613,97 +638,65 @@ namespace TheWaningBorder.Influence
             pts.AddRange(_smoothScratch);
         }
 
-        private void EmitRibbon(List<Vector2> pts, bool closed, Color32 color, float halfWidth)
+        /// <summary>
+        /// Draw a smoothed polyline into the border texture as a thick line —
+        /// the decal projector puts it on the ground. Cost is proportional to
+        /// line LENGTH, not map area, and it only runs on ownership change.
+        /// </summary>
+        private void RasterizeChain(List<Vector2> pts, bool closed, Color32 color, float halfWidth)
         {
             int count = pts.Count;
             if (count < 2) return;
 
-            bool fogged = GameSettings.FogOfWarEnabled;
-            // Observer perspective: outline what the VIEWED player can see;
-            // an observer with nothing selected sees every border.
-            var viewFaction = GameSettings.ViewFactionOrLocal;
-            bool fullReveal = GameSettings.IsObserver && GameSettings.ViewFaction == null;
             Vector2 min = PlayerInfluenceMap.WorldMin;
             Vector2 size = PlayerInfluenceMap.WorldSize;
             float cellX = size.x / PlayerInfluenceMap.Resolution;
             float cellZ = size.y / PlayerInfluenceMap.Resolution;
+            float texPerX = TexRes / size.x;
+            float texPerZ = TexRes / size.y;
 
-            Vector2 GridToWorld(Vector2 p) => new Vector2(
-                min.x + (p.x + 0.5f) * cellX,
-                min.y + (p.y + 0.5f) * cellZ);
+            // Grid space → texel space directly (world drops out of the
+            // middle): decal UV (0,0) sits at (WorldMin.x, WorldMin.y) and
+            // spans WorldSize, which is exactly this texture's mapping.
+            Vector2 ToTex(Vector2 p) => new Vector2(
+                (p.x + 0.5f) * cellX * texPerX,
+                (p.y + 0.5f) * cellZ * texPerZ);
 
-            int baseIndex = _verts.Count;
+            float radius = Mathf.Max(1f, halfWidth * texPerX);
+            var c = new Color32(color.r, color.g, color.b, BorderAlpha);
 
-            for (int i = 0; i < count; i++)
-            {
-                Vector2 prev = pts[closed ? (i - 1 + count) % count : Mathf.Max(0, i - 1)];
-                Vector2 next = pts[closed ? (i + 1) % count : Mathf.Min(count - 1, i + 1)];
-
-                Vector2 w = GridToWorld(pts[i]);
-                Vector2 dir = GridToWorld(next) - GridToWorld(prev);
-                float len = dir.magnitude;
-                dir = len > 1e-5f ? dir / len : Vector2.right;
-                Vector2 normal = new Vector2(-dir.y, dir.x) * halfWidth;
-
-                // Fog of war: hidden → invisible, revealed → dim, visible → full.
-                byte alpha = VisibleAlpha;
-                if (fogged && !fullReveal)
-                {
-                    var p3 = new float3(w.x, 0f, w.y);
-                    if (FogOfWarSystem.IsVisibleToFaction(viewFaction, p3))
-                        alpha = VisibleAlpha;
-                    else if (FogOfWarSystem.IsRevealedToFaction(viewFaction, p3))
-                        alpha = RevealedAlpha;
-                    else
-                        alpha = 0;
-                }
-                var c = new Color32(color.r, color.g, color.b, alpha);
-
-                AddRibbonVert(w + normal, c);
-                AddRibbonVert(w - normal, c);
-
-                if (i > 0)
-                {
-                    int b = baseIndex + i * 2;
-                    _tris.Add(b - 2); _tris.Add(b);     _tris.Add(b - 1);
-                    _tris.Add(b - 1); _tris.Add(b);     _tris.Add(b + 1);
-                }
-            }
-
-            if (closed)
-            {
-                int last = baseIndex + (count - 1) * 2;
-                _tris.Add(last);     _tris.Add(baseIndex);     _tris.Add(last + 1);
-                _tris.Add(last + 1); _tris.Add(baseIndex);     _tris.Add(baseIndex + 1);
-            }
+            int last = closed ? count : count - 1;
+            for (int i = 0; i < last; i++)
+                StampSegment(ToTex(pts[i]), ToTex(pts[(i + 1) % count]), radius, c);
         }
 
-        private void AddRibbonVert(Vector2 xz, Color32 c)
+        /// <summary>Stamp a segment as overlapping discs, in texel space.</summary>
+        private void StampSegment(Vector2 a, Vector2 b, float radius, Color32 c)
         {
-            _verts.Add(new Vector3(xz.x, HeightAt(xz.x, xz.y) + HeightOffset, xz.y));
-            _colors.Add(c);
-        }
+            float len = (b - a).magnitude;
+            int steps = Mathf.Max(1, Mathf.CeilToInt(len / (radius * 0.5f)));
+            int ri = Mathf.CeilToInt(radius);
+            float r2 = radius * radius;
 
-        /// <summary>Bilinear terrain height from the cached heightmap.</summary>
-        private float HeightAt(float worldX, float worldZ)
-        {
-            if (_heights == null || _heightRes < 2) return _terrainPos.y;
-
-            float u = Mathf.Clamp01((worldX - _terrainPos.x) / Mathf.Max(0.001f, _terrainSize.x))
-                      * (_heightRes - 1);
-            float v = Mathf.Clamp01((worldZ - _terrainPos.z) / Mathf.Max(0.001f, _terrainSize.z))
-                      * (_heightRes - 1);
-            int x0 = (int)u, y0 = (int)v;
-            int x1 = Mathf.Min(x0 + 1, _heightRes - 1);
-            int y1 = Mathf.Min(y0 + 1, _heightRes - 1);
-            float tx = u - x0, ty = v - y0;
-
-            // GetHeights is indexed [z, x] and normalized 0..1 over size.y.
-            float h00 = _heights[y0, x0], h10 = _heights[y0, x1];
-            float h01 = _heights[y1, x0], h11 = _heights[y1, x1];
-            float top = h00 + (h10 - h00) * tx;
-            float bot = h01 + (h11 - h01) * tx;
-            return _terrainPos.y + (top + (bot - top) * ty) * _terrainSize.y;
+            for (int s = 0; s <= steps; s++)
+            {
+                Vector2 p = Vector2.Lerp(a, b, s / (float)steps);
+                int px = Mathf.RoundToInt(p.x);
+                int py = Mathf.RoundToInt(p.y);
+                for (int dy = -ri; dy <= ri; dy++)
+                {
+                    int y = py + dy;
+                    if (y < 0 || y >= TexRes) continue;
+                    int row = y * TexRes;
+                    for (int dx = -ri; dx <= ri; dx++)
+                    {
+                        int x = px + dx;
+                        if (x < 0 || x >= TexRes) continue;
+                        if (dx * dx + dy * dy > r2) continue;
+                        _pixels[row + x] = c;
+                    }
+                }
+            }
         }
     }
 }

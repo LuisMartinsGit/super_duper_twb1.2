@@ -37,6 +37,11 @@ namespace TheWaningBorder.Influence
 
         public static bool Ready { get; private set; }
 
+        /// <summary>Bumped by every write, so renderers can gate their blood
+        /// passes on "did anything actually move" instead of re-reading the
+        /// grid per frame (Regions.md §3b discipline, applied to blood too).</summary>
+        public static int DataVersion { get; private set; }
+
         public static void Configure(Vector2 worldMin, Vector2 worldSize)
         {
             _worldMin = worldMin;
@@ -57,6 +62,7 @@ namespace TheWaningBorder.Influence
         public static void AddBlood(Vector3 worldPos, float amount)
         {
             if (!Ready || amount <= 0f) return;
+            DataVersion++;
 
             float cellW = _worldSize.x / Resolution;
             float cellH = _worldSize.y / Resolution;
@@ -91,6 +97,7 @@ namespace TheWaningBorder.Influence
         public static void Decay(float fraction, float linear)
         {
             if (!Ready) return;
+            DataVersion++;
             float keep = 1f - Mathf.Clamp01(fraction);
             var v = _values;
             for (int i = 0; i < v.Length; i++)
@@ -108,6 +115,7 @@ namespace TheWaningBorder.Influence
         public static void DecayInsideInfluence(float fraction, float linear, float threshold01)
         {
             if (!Ready) return;
+            DataVersion++;
             float keep = 1f - Mathf.Clamp01(fraction);
             var v = _values;
             for (int y = 0; y < Resolution; y++)
@@ -134,6 +142,7 @@ namespace TheWaningBorder.Influence
         public static void Drain(float worldX, float worldZ, float radius)
         {
             if (!Ready || radius <= 0f) return;
+            DataVersion++;
 
             float cellW = _worldSize.x / Resolution;
             float cellH = _worldSize.y / Resolution;
@@ -172,6 +181,7 @@ namespace TheWaningBorder.Influence
         public static float Consume(float worldX, float worldZ, float radius, float fraction)
         {
             if (!Ready || radius <= 0f) return 0f;
+            DataVersion++;
             fraction = Mathf.Clamp01(fraction);
 
             float cellW = _worldSize.x / Resolution;

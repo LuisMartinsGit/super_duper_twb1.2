@@ -249,7 +249,11 @@ namespace TheWaningBorder.Systems.Border
                 SampleBlocked(in field);   // rule G — growth stops at cliffs/buildings
                 StepCA(em, ref field, maintenance: true, VeilGrowthMode.None);
                 RunEnclosureFill(field);
-                DepositCurseInfluence(in field); // curse influence tracks the crust footprint (B)
+                // Curse-channel deposits are GONE (Regions.md §3b, 2026-08-31):
+                // cursed ground is territory ownership now, rasterized once per
+                // ownership change, so the crust has no field to write and the
+                // renderers stop waking every pulse. The crust itself (the CA)
+                // is unchanged — it is ground state, not influence.
                 ProcessPrecipitation(em, in field); // §2.5b — the Veil precipitates veilstone
                 mutated = true;
                 pulseSw.Stop();

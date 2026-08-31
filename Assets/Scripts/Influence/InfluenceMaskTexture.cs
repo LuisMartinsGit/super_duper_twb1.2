@@ -120,6 +120,14 @@ namespace TheWaningBorder.Influence
         private bool _snapFirstFrame; // seed state appears instantly, no fade-in
         private static InfluenceMaskTexture _instance;
 
+        // ── Event gating (Regions.md §3b, 2026-08-31) ─────────────────────
+        // Ownership and blood are the mask's only inputs, and both carry a
+        // DataVersion now. The 128² passes run only while an input moved or
+        // an ease glide is still in flight; a quiet map costs two compares.
+        private int _lastInfVersion = int.MinValue;
+        private int _lastBloodVersion = int.MinValue;
+        private bool _settled;
+
         private readonly System.Collections.Generic.List<int> _alanthorChannels = new();
         private readonly System.Collections.Generic.List<int> _feraldisChannels = new();
         private readonly System.Collections.Generic.List<int> _runaiChannels = new();
@@ -182,8 +190,18 @@ namespace TheWaningBorder.Influence
                 regionEdgesJustBaked = true;
             }
 
-            // Instrumented (2026-08-16 perf sweep): two 128x128 passes plus a
-            // texture upload on most frames (the ease keeps values creeping).
+            // EVENT-DRIVEN (Regions.md §3b): run the passes only when an
+            // input version moved, an ease is still gliding, or the region
+            // bake just landed. The 2026-08-16 instrumentation measured these
+            // passes + a texture upload on MOST frames; now a static map
+            // costs two integer compares.
+            bool inputsMoved = _lastInfVersion != PlayerInfluenceMap.DataVersion
+                            || _lastBloodVersion != BloodMap.DataVersion
+                            || regionEdgesJustBaked || _snapFirstFrame;
+            if (!inputsMoved && _settled) return;
+            _lastInfVersion = PlayerInfluenceMap.DataVersion;
+            _lastBloodVersion = BloodMap.DataVersion;
+
             double perfT0 = Time.realtimeSinceStartupAsDouble;
 
             RefreshCultureChannels();
@@ -306,7 +324,11 @@ namespace TheWaningBorder.Influence
                 _culturePixels[i].r = (byte)(_culturePixels[i].r * FrontierFill);
                 _culturePixels[i].g = (byte)(_culturePixels[i].g * FrontierFill);
                 _culturePixels[i].b = (byte)(_culturePixels[i].b * FrontierFill);
-                cultureDirty = true;
+                // Deliberately NOT setting cultureDirty: the seam is a pure
+                // function of the eased data already uploaded, so a pass in
+                // which nothing eased writes byte-identical pixels — marking
+                // dirty here forced an upload on every pass with any live
+                // frontier, and kept the version-gated mask from settling.
             }
 
             // ── Curse halo: separable max-dilate with linear falloff, so the
@@ -362,6 +384,10 @@ namespace TheWaningBorder.Influence
             }
             _snapFirstFrame = false;
 
+            // Nothing eased this pass — the mask has caught up with its
+            // inputs and can sleep until a version moves again.
+            _settled = !cultureDirty && !bloodDirty;
+
             TheWaningBorder.Core.Diagnostics.PerfSpikeLog.Report("InfluenceMask",
                 (Time.realtimeSinceStartupAsDouble - perfT0) * 1000.0);
         }
@@ -370,16 +396,12 @@ namespace TheWaningBorder.Influence
         /// Work out, once per pass, what each TERRITORY looks like: whose
         /// culture paints it and whether it reads as cursed. False when there is
         /// no partition to work from, which puts the cell loop back on the
-        /// influence field.
+        /// (now static) ownership grid.
         ///
-        /// The curse verdict still comes from the influence field, because the
-        /// curse does not own territories — Regions.md §3 ("the curse takes
-        /// territory by force") is unimplemented, and handing it ownership here
-        /// would give it a player's home region on any map whose well sits
-        /// inside one, which is a soft-lock rather than a look. What changes is
-        /// the GRANULARITY: the field decides a whole territory at a time, so
-        /// cursed ground stops being a soft bubble with a rim belonging to
-        /// nobody.
+        /// The curse verdict comes straight from TerritoryOwnership now:
+        /// Regions.md §3 is IMPLEMENTED (2026-08-31, CurseTerritorySystem) —
+        /// the curse holds whole territories exactly like a player, so the
+        /// ground reads cursed precisely where the ownership says Curse.
         /// </summary>
         private bool ResolveTerritories()
         {
@@ -413,25 +435,10 @@ namespace TheWaningBorder.Influence
                     ? CultureConfig.GetCompletedCulture(
                           em, (Faction)_territoryOwner[t])
                     : Cultures.None;
-                _territoryCursed[t] = false;
+                // Ownership IS the curse verdict now — no coverage counting.
+                _territoryCursed[t] =
+                    owner == TheWaningBorder.World.Regions.TerritoryOwnership.Curse;
             }
-
-            // Curse coverage, counted per territory in one pass over the grid.
-            var cursedCells = new int[regions];
-            var totalCells = new int[regions];
-            for (int i = 0; i < _regionCellIndex.Length; i++)
-            {
-                int region = _regionCellIndex[i];
-                if (region < 0 || region >= regions) continue;
-                totalCells[region]++;
-                int x = i % Res, y = i / Res;
-                if (PlayerInfluenceMap.CellValue(x, y, PlayerInfluenceMap.CurseChannel)
-                    >= InfluenceStart)
-                    cursedCells[region]++;
-            }
-            for (int t = 0; t < regions; t++)
-                _territoryCursed[t] = totalCells[t] > 0
-                    && cursedCells[t] / (float)totalCells[t] >= CursedTerritoryShare;
 
             return true;
         }

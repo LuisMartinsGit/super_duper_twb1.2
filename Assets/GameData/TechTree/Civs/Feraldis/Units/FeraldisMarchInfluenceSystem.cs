@@ -1,76 +1,32 @@
-// Feraldis claims ground by WALKING ON IT.
-// Canon: docs/Design/Age_1_Feraldis.md — "Marching influence".
+// RETIRED (docs/Design/Regions.md §3b, 2026-08-31): there are no influence
+// maps any more, so there is no field for a marching army to leak into.
 //
-// Each culture grows its border differently:
-//   Alanthor — builds outward from home (forts project influence)
-//   Runai    — trade lanes between nodes
-//   Feraldis — its ARMY. Every Feraldis military unit and every raider
-//              leaks a little influence into the ground beneath it, so the
-//              Feraldis border creeps toward wherever its soldiers are —
-//              which is, by definition, toward the enemy.
+// This system was the Feraldis half of the influence model — every soldier
+// deposited a little claim under its feet, so the border crept toward the
+// army ("Feraldis claims ground by WALKING ON IT",
+// docs/Design/Age_1_Feraldis.md). With fixed-shape territories the claim
+// verb is the HALL for every culture (Regions.md §2), and ownership changes
+// instantly; a creeping per-unit deposit has nothing to write to and would
+// only thrash the version-gated renderers.
 //
-// This is the second half of the Feraldis territory model. War Totems are
-// the ANCHORS (strong, permanent, planted on blood); marching influence is
-// the CONNECTIVE TISSUE that lets an army carve a corridor to a totem site
-// in the first place, and that stops a Feraldis player from sitting at 0 %
-// influence all match with no curse suppression anywhere (which is exactly
-// what five consecutive playtests showed).
-//
-// Raiders (Plunderers) and conscripted workers DO count — they are soldiers
-// on the map. A worker still on build duty does NOT: builders pottering
-// around the base would quietly claim home ground for free, which is
-// Alanthor's whole identity, not Feraldis's.
-//
-// PlayerInfluenceMap is managed main-thread state, so this is a SystemBase
-// on a slow pulse rather than a per-frame job.
+// The file stays (rather than being deleted) as the tombstone for the
+// mechanic, because Age_1_Feraldis.md still describes it and the design
+// folder has not had its Feraldis pass yet. When it does, either this file
+// goes with it or the design brings the mechanic back in territory terms
+// (e.g. an army presence requirement on the CLAIM, not a field).
 
 using Unity.Entities;
-using Unity.Transforms;
-using TheWaningBorder.Influence;
-using static TheWaningBorder.Core.Config.FeraldisConstants;
 
 namespace TheWaningBorder.Systems.World
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial class FeraldisMarchInfluenceSystem : SystemBase
     {
-        private float _tick;
-
         protected override void OnCreate()
         {
-            RequireForUpdate<UnitTag>();
+            Enabled = false;   // Regions.md §3b — no influence maps
         }
 
-        protected override void OnUpdate()
-        {
-            _tick -= SystemAPI.Time.DeltaTime;
-            if (_tick > 0f) return;
-            float slice = MarchInfluenceInterval;
-            _tick = MarchInfluenceInterval;
-
-            if (!PlayerInfluenceMap.Ready) return;
-            var em = EntityManager;
-
-            float amount = MarchInfluencePerSecond * slice;
-
-            // EVERY military unit of a Feraldis faction, not just the ones a
-            // Feraldis factory built. The old FeraldisUnitTag filter silently
-            // excluded the shared-roster Spearmen and Archers that make up
-            // most of a Feraldis army, so most of the army claimed nothing.
-            // FeraldisSoldier.Is also does the culture check (a Berserker
-            // converted at a shared Fiendstone Keep must not paint the map for
-            // an Alanthor owner) and skips builders on build duty.
-            foreach (var (xf, faction, entity) in SystemAPI
-                .Query<RefRO<LocalTransform>, RefRO<FactionTag>>()
-                .WithAll<UnitTag>()
-                .WithEntityAccess())
-            {
-                var f = faction.ValueRO.Value;
-                if (!TheWaningBorder.Systems.Border.FeraldisSoldier.Is(em, entity, f)) continue;
-
-                var p = xf.ValueRO.Position;
-                PlayerInfluenceMap.Deposit(p.x, p.z, MarchInfluenceRadius, (int)f, amount);
-            }
-        }
+        protected override void OnUpdate() { }
     }
 }

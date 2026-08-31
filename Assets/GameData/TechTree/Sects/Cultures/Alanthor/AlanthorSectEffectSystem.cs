@@ -235,9 +235,10 @@ namespace TheWaningBorder.Systems.Sect
             {
                 var pos = xf.ValueRO.Position;
 
-                PlayerInfluenceMap.Deposit(pos.x, pos.z, burst.ValueRO.Radius,
-                                           (int)burst.ValueRO.Owner,
-                                           burst.ValueRO.PerSecond * dt);
+                // The influence deposit is gone (Regions.md §3b, 2026-08-31 —
+                // no influence maps; ownership is territory-shaped and
+                // changes only through claims). The burst keeps its healing
+                // half, which is what the player actually sees.
 
                 if (burst.ValueRO.HealsAllies)
                     HealAllies(em, _healTargets, burst.ValueRO.Owner, pos, burst.ValueRO.Radius, dt);

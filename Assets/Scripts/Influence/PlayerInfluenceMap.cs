@@ -1,19 +1,22 @@
 // PlayerInfluenceMap.cs
-// CPU influence grid — design: docs/Design/Overview.md § The influence map.
+// CPU ownership grid — docs/Design/Regions.md §3b (2026-08-31).
+//
+// THERE ARE NO INFLUENCE MAPS ANY MORE. This grid used to be a simulated
+// field (per-tick deposits with falloff, slow decay, creeping fronts); it
+// is now a RASTERIZATION OF TERRITORY OWNERSHIP — each cell carries its
+// territory's owner at full strength or nothing — rebuilt ONLY when
+// ownership changes (see RebuildFromTerritories + DataVersion). The name,
+// the channel layout and the whole read API are unchanged so the many
+// readers (minimap, ground mask, border ribbon, AI, veil suppression,
+// blood cleaning) did not have to move; only the data's source did.
 //
 // One channel per player (0..7, indexed by Faction) plus the curse (8).
 // "Neutral" is not a channel: a cell whose strongest channel sits below
-// NeutralThreshold simply reads as neutral (no colour). The whole map
-// starts at 0.
+// NeutralThreshold simply reads as neutral (no colour).
 //
-// Sources deposit per simulation tick with linear falloff and everything
-// decays slowly, so influence visibly *spreads* outward while a source
-// lives (near cells cross the display threshold first, far cells later)
-// and fades back to neutral when it dies.
-//
-// Written by InfluenceMapSystem; read by MinimapRenderer. Territory is
-// public information by design — the overlay is deliberately NOT
-// fog-of-war gated.
+// Written by InfluenceMapSystem (the version-gated rasterize); read by
+// MinimapRenderer and friends. Territory is public information by design —
+// the overlay is deliberately NOT fog-of-war gated.
 //
 // (This replaces the older dormant GPU per-culture stack in this folder —
 // InfluenceManager / AlanthorInfluence / RunaiiInfluence / FeraldisInfluence
@@ -64,6 +67,54 @@ namespace TheWaningBorder.Influence
         {
             Ready = false;
             _values = null;
+            DataVersion++;
+        }
+
+        /// <summary>
+        /// Bumped whenever the grid's CONTENT changes — a territory
+        /// rasterize, or a direct sandbox paint. Renderers gate their rebuild
+        /// on this instead of re-reading the grid per frame (Regions.md §3b:
+        /// no per-frame territory compute).
+        /// </summary>
+        public static int DataVersion { get; private set; }
+
+        /// <summary>
+        /// THE ONLY REGULAR WRITER (Regions.md §3b): rasterize territory
+        /// ownership into the grid. Each cell gets its territory's owner at
+        /// full strength — players on their faction channel, the curse on
+        /// <see cref="CurseChannel"/>, Natural and unclaimable ground at
+        /// zero. Called by InfluenceMapSystem only when
+        /// TerritoryOwnership.Version moves, so between ownership changes
+        /// the grid is completely static.
+        /// </summary>
+        public static void RebuildFromTerritories()
+        {
+            if (!Ready) return;
+            System.Array.Clear(_values, 0, _values.Length);
+            DataVersion++;
+            if (!TheWaningBorder.World.Regions.RegionMap.Ready) return;
+
+            float cw = _worldSize.x / Resolution;
+            float ch = _worldSize.y / Resolution;
+            for (int y = 0; y < Resolution; y++)
+            {
+                float wz = _worldMin.y + (y + 0.5f) * ch;
+                for (int x = 0; x < Resolution; x++)
+                {
+                    float wx = _worldMin.x + (x + 0.5f) * cw;
+                    int region = TheWaningBorder.World.Regions.RegionMap.RegionAt(wx, wz);
+                    if (region < 0) continue;
+                    int owner = TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(region);
+
+                    int channel;
+                    if (owner >= 0 && owner < PlayerChannels) channel = owner;
+                    else if (owner == TheWaningBorder.World.Regions.TerritoryOwnership.Curse)
+                        channel = CurseChannel;
+                    else continue;   // Natural
+
+                    _values[(y * Resolution + x) * ChannelCount + channel] = MaxValue;
+                }
+            }
         }
 
         /// <summary>Uniform decay toward neutral. Proportional
@@ -180,6 +231,9 @@ namespace TheWaningBorder.Influence
                     _values[idx] = nv > MaxValue ? MaxValue : nv;
                 }
             }
+            // A direct paint (the sandbox brush) must wake the version-gated
+            // renderers; the next territory rasterize overwrites it.
+            DataVersion++;
         }
 
         /// <summary>
@@ -226,6 +280,7 @@ namespace TheWaningBorder.Influence
                         _values[cell + channel] = 0f;
                 }
             }
+            DataVersion++;   // wake the version-gated renderers
         }
 
         /// <summary>Dominant channel at a world position. Returns false when

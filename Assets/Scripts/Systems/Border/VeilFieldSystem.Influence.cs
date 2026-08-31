@@ -151,40 +151,14 @@ namespace TheWaningBorder.Systems.Border
                         ? (byte)(v - CleanseAuraPerPulse) : (byte)0;
                 }
         }
-        // Curse influence (PlayerInfluenceMap.CurseChannel) is deposited from the
-        // CRUST itself so the curse's influence footprint tracks the crystal
-        // growth (rule B), not just the fixed discs around the wells. The
-        // influence map self-decays (InfluenceMapSystem), so cells that lose
-        // their crust fade back to neutral on their own — that decay gap between
-        // the receding crust and the still-warded player influence is what forms
-        // the required neutral corridor (rule D). Deposited on a coarse stride
-        // (every other cell each axis) so a fully-crusted map stays a few
-        // thousand deposits per pulse, not tens of thousands.
-        private const int CurseDepositStride = 2;
-        private const float CurseCrustRate = 4f;   // per pulse; must outpace the map's ~0.05/s+0.1 decay
-        private const float CurseCrustRadiusMul = 2f; // deposit radius = CellSize * this
-
-        private void DepositCurseInfluence(in VeilField field)
-        {
-            if (!PlayerInfluenceMap.Ready) return;
-            float radius = field.CellSize * CurseCrustRadiusMul;
-            // §2.5b escalation: the crust's influence deposit strengthens
-            // very slowly over the match — see CurseInfluenceGrowthPerMinute.
-            float growth = 1f + CurseInfluenceGrowthPerMinute
-                * (float)(SystemAPI.Time.ElapsedTime / 60.0);
-            for (int z = 0; z < field.Height; z += CurseDepositStride)
-            {
-                float wz = field.Origin.y + (z + 0.5f) * field.CellSize;
-                int row = z * field.Width;
-                for (int x = 0; x < field.Width; x += CurseDepositStride)
-                {
-                    if (field.Saturation[row + x] < VeilField.CrustThreshold) continue;
-                    float wx = field.Origin.x + (x + 0.5f) * field.CellSize;
-                    PlayerInfluenceMap.Deposit(wx, wz, radius,
-                        PlayerInfluenceMap.CurseChannel, CurseCrustRate * growth);
-                }
-            }
-        }
+        // DepositCurseInfluence is DELETED (Regions.md §3b, 2026-08-31). The
+        // crust used to write the curse channel every pulse — thousands of
+        // disc stamps — so its influence footprint tracked the crystals. The
+        // curse channel is now the territory-ownership rasterize (curse-held
+        // regions at full strength), rebuilt only when ownership changes; a
+        // per-pulse writer would both fight that and wake every version-gated
+        // renderer every pulse. The crust CA itself is untouched — it is
+        // ground state (§2.5b), not influence.
 
         /// <summary>Sample the nav cost field into the per-cell <see cref="_blocked"/>
         /// ward the CA reads (rule G — "impassable terrain must stop curse
