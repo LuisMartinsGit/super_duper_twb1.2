@@ -112,6 +112,16 @@ namespace TheWaningBorder.AI
 
                     Classify(em, ents[j], out IntelCategory cat, out bool isMilitary);
                     int strength = TacticalQuery.UnitStrength(em, ents[j]);
+                    // A BUILDING'S TALLY IS ITS GARRISON (2026-08-31: scouts
+                    // register value AND strength). The building's own HP is
+                    // not the question a raid asks — "is it stray" is, so the
+                    // record carries the sighted faction's combat strength
+                    // standing around it at the moment it was seen.
+                    if (cat == IntelCategory.Hall
+                        || cat == IntelCategory.MilitaryBuilding
+                        || cat == IntelCategory.EcoBuilding)
+                        strength = TacticalQuery.FactionStrengthInRadius(
+                            em, facs[j].Value, pos, 24f);
 
                     var rec = new EnemySightingRecord
                     {

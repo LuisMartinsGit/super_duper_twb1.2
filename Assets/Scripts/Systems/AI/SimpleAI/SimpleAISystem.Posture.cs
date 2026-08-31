@@ -37,10 +37,14 @@ namespace TheWaningBorder.AI
         private void EvaluatePosture(EntityManager em, Faction faction,
             ref SimpleAIState aiState, AISettingsSO settings, AISettingsSO.PersonalityBlock personality)
         {
+            var prevPosture = aiState.Posture;
             Entity hall = FindFactionBuilding<HallTag>(em, faction);
             if (hall == Entity.Null || !em.HasComponent<LocalTransform>(hall))
             {
                 aiState.Posture = AIPosture.Rebuild; // no base: just rebuild
+                if (prevPosture != AIPosture.Rebuild)
+                    AILogger.Log(faction, "POSTURE",
+                        $"{prevPosture} -> Rebuild (no Hall standing)");
                 return;
             }
             float3 hallPos = em.GetComponentData<LocalTransform>(hall).Position;
@@ -63,6 +67,8 @@ namespace TheWaningBorder.AI
                 aiState.Posture = AIPosture.Defend;
                 if (entering)
                 {
+                    AILogger.Log(faction, "POSTURE",
+                        $"{prevPosture} -> Defend (enemy strength {enemyInBase} inside the base ring)");
                     // All hands home: standing missions are void when the
                     // base itself is under attack (the imperative exception
                     // to command follow-through).
@@ -85,6 +91,8 @@ namespace TheWaningBorder.AI
                 aiState.Posture = AIPosture.Defend;
                 if (entering)
                 {
+                    AILogger.Log(faction, "POSTURE",
+                        $"{prevPosture} -> Defend (building under attack at ({attackedPos.x:0},{attackedPos.z:0}))");
                     DisbandAllMissions(faction);
                     // Rally at the ATTACKED building, not the Hall — the
                     // defenders converge on the actual fight.
@@ -99,12 +107,18 @@ namespace TheWaningBorder.AI
             if (aiState.DesiredMilitary > 0 && aliveMil < aiState.DesiredMilitary / 2)
             {
                 aiState.Posture = AIPosture.Rebuild;
+                if (prevPosture != AIPosture.Rebuild)
+                    AILogger.Log(faction, "POSTURE",
+                        $"{prevPosture} -> Rebuild (army {aliveMil} below half of desired {aiState.DesiredMilitary})");
                 return;
             }
 
             aiState.Posture = aliveMil >= math.max(personality.attackThreshold, aiState.DesiredMilitary)
                 ? AIPosture.Pressure
                 : AIPosture.Develop;
+            if (aiState.Posture != prevPosture)
+                AILogger.Log(faction, "POSTURE",
+                    $"{prevPosture} -> {aiState.Posture} (army {aliveMil}, desired {aiState.DesiredMilitary})");
         }
 
         /// <summary>Find a damaged own building whose attacker still exists

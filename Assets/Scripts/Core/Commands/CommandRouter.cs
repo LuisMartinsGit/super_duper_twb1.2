@@ -76,6 +76,11 @@ namespace TheWaningBorder.Core.Commands
             if (unit == Entity.Null || !em.Exists(unit)) return;
             if (IsBlockedByNotControllable(em, unit, source)) return;
 
+            if (source == CommandSource.AI && em.HasComponent<FactionTag>(unit))
+                TheWaningBorder.AI.AILogger.Log(
+                    em.GetComponentData<FactionTag>(unit).Value, "CMD",
+                    $"move -> ({destination.x:0},{destination.z:0})");
+
             if (ShouldQueueForLockstep(source))
             {
                 QueueMoveForLockstep(em, unit, destination);
@@ -100,6 +105,14 @@ namespace TheWaningBorder.Core.Commands
             if (unit == Entity.Null || !em.Exists(unit)) return;
             if (IsBlockedByNotControllable(em, unit, source)) return;
             if (target == Entity.Null || !em.Exists(target)) return;
+
+            if (source == CommandSource.AI && em.HasComponent<FactionTag>(unit))
+                TheWaningBorder.AI.AILogger.Log(
+                    em.GetComponentData<FactionTag>(unit).Value, "CMD",
+                    $"attack {TheWaningBorder.Entities.BuildingIds.Of(target, em) ?? "unit"} " +
+                    (em.HasComponent<Unity.Transforms.LocalTransform>(target)
+                        ? $"at ({em.GetComponentData<Unity.Transforms.LocalTransform>(target).Position.x:0},{em.GetComponentData<Unity.Transforms.LocalTransform>(target).Position.z:0})"
+                        : ""));
 
             // Verb wells are FERALDIS-ONLY attack targets (2026-08-04): Age 0
             // and Alanthor/Runai factions can never attack a well — their
@@ -142,6 +155,11 @@ namespace TheWaningBorder.Core.Commands
             if (ShouldDropCommand(source)) return;
             if (unit == Entity.Null || !em.Exists(unit)) return;
             if (IsBlockedByNotControllable(em, unit, source)) return;
+
+            if (source == CommandSource.AI && em.HasComponent<FactionTag>(unit))
+                TheWaningBorder.AI.AILogger.Log(
+                    em.GetComponentData<FactionTag>(unit).Value, "CMD",
+                    $"attack-move -> ({destination.x:0},{destination.z:0})");
 
             if (ShouldQueueForLockstep(source))
             {
@@ -794,6 +812,9 @@ namespace TheWaningBorder.Core.Commands
             if (source == CommandSource.LocalPlayer && em.HasComponent<FactionTag>(building))
                 TheWaningBorder.AI.AILogger.LogPlayer(
                     em.GetComponentData<FactionTag>(building).Value, "TRAIN", unitId);
+            else if (source == CommandSource.AI && em.HasComponent<FactionTag>(building))
+                TheWaningBorder.AI.AILogger.Log(
+                    em.GetComponentData<FactionTag>(building).Value, "CMD", $"train {unitId}");
 
             // Authoritative level gate. Local-player path surfaces the
             // failure as a notification so the click feels intentional;
@@ -839,6 +860,9 @@ namespace TheWaningBorder.Core.Commands
             if (source == CommandSource.LocalPlayer && em.HasComponent<FactionTag>(building))
                 TheWaningBorder.AI.AILogger.LogPlayer(
                     em.GetComponentData<FactionTag>(building).Value, "RESEARCH", techId);
+            else if (source == CommandSource.AI && em.HasComponent<FactionTag>(building))
+                TheWaningBorder.AI.AILogger.Log(
+                    em.GetComponentData<FactionTag>(building).Value, "CMD", $"research {techId}");
 
             if (ShouldQueueForLockstep(source))
             {
@@ -888,6 +912,9 @@ namespace TheWaningBorder.Core.Commands
             if (source == CommandSource.LocalPlayer && em.HasComponent<FactionTag>(hall))
                 TheWaningBorder.AI.AILogger.LogPlayer(
                     em.GetComponentData<FactionTag>(hall).Value, "AGEUP", $"culture {culture}");
+            else if (source == CommandSource.AI && em.HasComponent<FactionTag>(hall))
+                TheWaningBorder.AI.AILogger.Log(
+                    em.GetComponentData<FactionTag>(hall).Value, "CMD", $"age-up culture {culture}");
 
             if (ShouldQueueForLockstep(source))
                 QueueAgeUpForLockstep(em, hall, culture);
@@ -903,6 +930,10 @@ namespace TheWaningBorder.Core.Commands
         /// everywhere (no partial effects, no culture registration).</summary>
         public static void AgeUpCommandDirect(EntityManager em, Entity hall, byte culture)
         {
+            // Entry is LOUD (2026-08-31): the whole path from issue to era-2
+            // went dark across five batches; every branch of it reports now.
+            UnityEngine.Debug.Log($"[AgeUp] direct: hall={hall.Index} culture={culture} " +
+                $"exists={em.Exists(hall)} ageing={(em.Exists(hall) && em.HasComponent<AgeUpState>(hall))}");
             if (!em.Exists(hall)) return;
             if (em.HasComponent<AgeUpState>(hall)) return;
 
@@ -911,7 +942,19 @@ namespace TheWaningBorder.Core.Commands
                 var faction = em.GetComponentData<FactionTag>(hall).Value;
                 if (!TheWaningBorder.Economy.FactionEconomy.Spend(
                         em, faction, CultureConfig.AgeUpCost))
+                {
+                    // NEVER silent (2026-08-31): this drop is invisible to
+                    // the issuer — the check-then-playback gap means the
+                    // bank can be raided between the caller's CanAfford and
+                    // this spend, and five batches of "why is nobody era 2"
+                    // traced to exactly here.
+                    UnityEngine.Debug.Log(
+                        $"[AgeUp] {faction} DROPPED — bank short at playback " +
+                        $"(cost {CultureConfig.AgeUpCost.Supplies}s/" +
+                        $"{CultureConfig.AgeUpCost.Iron}i/" +
+                        $"{CultureConfig.AgeUpCost.Veilstone}v).");
                     return;
+                }
                 FactionColors.SetFactionCulture(faction, culture);
             }
 
@@ -1608,6 +1651,9 @@ namespace TheWaningBorder.Core.Commands
             if (source == CommandSource.LocalPlayer)
                 TheWaningBorder.AI.AILogger.LogPlayer(faction, "BUILD",
                     $"{buildingId} at ({position.x:0},{position.z:0})");
+            else if (source == CommandSource.AI)
+                TheWaningBorder.AI.AILogger.Log(faction, "CMD",
+                    $"place {buildingId} at ({position.x:0},{position.z:0})");
 
             if (ShouldQueueForLockstep(source))
             {

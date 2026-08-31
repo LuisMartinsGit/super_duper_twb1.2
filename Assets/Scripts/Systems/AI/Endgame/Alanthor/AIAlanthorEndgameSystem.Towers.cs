@@ -95,6 +95,15 @@ namespace TheWaningBorder.AI
             int existing = CountFactionBuildings(em, faction, towerId);
             if (existing >= TowerBudget(difficulty)) return;
 
+            // NOT BEFORE THERE IS AN ARMY TO DEFEND WITH. This path spends
+            // straight from the bank, outside the budget wallets, so every
+            // tower silently shrinks all three of them (the allocator
+            // reconciles wallets down to the real balance). Measured: factions
+            // put up 4-7 towers and never afforded a single Barracks. Towers
+            // are the long territorial arm of a faction that HAS a military,
+            // not a substitute for having one.
+            if (AIEndgameCommon.FindFactionBuilding<BarracksTag>(em, faction) == Entity.Null) return;
+
             if (!BuildCosts.TryGet(towerId, out var cost)) return;
             if (!FactionEconomy.CanAfford(em, faction, cost)) return;
             if (CountIdleBuilders(em, faction) == 0) return;

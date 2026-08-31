@@ -152,7 +152,7 @@ namespace TheWaningBorder.AI
 
                 // Army missions: prune the dead, regroup finished armies,
                 // retreat outmatched ones (per mission, not globally).
-                UpdateMissions(em, brain.Owner, ref aiState, settings, now);
+                UpdateMissions(em, brainEntity, brain.Owner, ref aiState, settings, now);
 
                 // TACTICAL layer: what each army does once it is in contact.
                 // Runs AFTER UpdateMissions, so every mission it sees is live
@@ -312,181 +312,30 @@ namespace TheWaningBorder.AI
                 // "eventually research ALL of it" mop-up.
                 TickEndgameResearchSweep(em, brain.Owner, now);
 
-                var buildOrder = AIBuildOrder.For(brain.Strategy);
-                if (aiState.StepIndex >= buildOrder.Length)
-                {
-                    // Build order finished. Keep the AI alive: top up the army,
-                    // train replacement workers, and keep pushing attacks at
-                    // the nearest enemy (player economy or border hive).
-                    // Without this every non-Rush strategy goes idle the moment
-                    // it ages up.
-                    RunMaintenanceLoop(em, brainEntity, brain, ref aiState, settings, personality, profile, now);
-                    em.SetComponentData(brainEntity, aiState);
-                    continue;
-                }
+                // ── DECISION LAYER: a priority list, not a script. ──
+                //
+                // The strict build order is gone. It froze everything behind
+                // any step it could not pay for — measured at 31 "wallet
+                // short" refusals in ten minutes, 29 of them the opening's own
+                // Worker — while a dozen standing checks drained the same
+                // wallets with no coordination. Five blockers were found and
+                // fixed in that chain and each revealed the next.
+                //
+                // SimpleAISystem.Goals.cs walks an ordered want-list and does
+                // the first thing that is unmet, unlocked and affordable. No
+                // head-of-line blocking, no timeouts, and the AI is never idle
+                // while it can afford something further down the list.
+                TickGoals(em, brainEntity, brain, ref aiState, settings,
+                          personality, profile, now);
 
-                var step = buildOrder[aiState.StepIndex];
-
-                // Lower difficulties may randomly skip optional steps (never
-                // Hut, Barracks, Choice or AgeUp — those aren't marked Optional).
-                float skipChance = profile.OptionalStepSkipChance;
-                if (step.Optional && skipChance > 0f && NextRandFloat01() < skipChance)
-                {
-                    aiState.StepIndex++;
-                    em.SetComponentData(brainEntity, aiState);
-                    continue;
-                }
-
-                bool issued = TryIssueStep(em, brainEntity, brain, step, ref aiState, settings, personality, profile, now);
-                if (issued)
-                {
-                    AILogger.Log(brain.Owner, "BUILDORDER",
-                        $"step {aiState.StepIndex} issued: {step.Kind}:{step.Id} at {(int)now}s");
-                    aiState.StepIndex++;
-                    aiState.StepStuckSeconds = 0f;
-                }
-                else
-                {
-                    // INSTANT SKIP — REFINED (2026-08-04 match 2: the eager
-                    // version skipped step 0's Worker at t=0 because the
-                    // Hall had not spawned yet, and amputated Rush's early
-                    // Spearman steps while its Barracks was merely PENDING —
-                    // a military strategy must WAIT for its trainer, not
-                    // discard its soul). Skip only when all three hold:
-                    //   * past the opening grace (spawn systems settled),
-                    //   * the trainer building does not exist, AND
-                    //   * no foundation of it is under construction
-                    //     (in-flight trainer → keep retrying instead).
-                    if (step.Kind == BuildStepKind.TrainUnit
-                        && now > 30f
-                        && FindTrainerForUnit(em, brain.Owner, step.Id) == Entity.Null
-                        && !TrainerInFlight(em, brain.Owner, step.Id))
-                    {
-                        // BUILD THE MISSING TRAINER instead of amputating the
-                        // step (2026-08-16): the old instant-skip threw away
-                        // every military Train step of a strategy whose
-                        // Barracks step had itself been timeout-skipped —
-                        // Turtle AIs finished matches with ZERO military
-                        // production. Buildable trainer -> start it and HOLD
-                        // the step (TrainerInFlight keeps it retrying);
-                        // Hall-trained units (no buildable trainer) keep the
-                        // old skip.
-                        string trainerId = TrainerBuildingIdFor(em, step.Id);
-                        if (trainerId == null)
-                        {
-                            AILogger.Log(brain.Owner, "BUILDORDER",
-                                $"step {aiState.StepIndex} SKIPPED (no trainer for {step.Id})");
-                            aiState.StepIndex++;
-                            aiState.StepStuckSeconds = 0f;
-                            em.SetComponentData(brainEntity, aiState);
-                            continue;
-                        }
-                        if (TryBuildBuildingBudgeted(em, brain.Owner, trainerId,
-                                AIBudgetCategory.Military))
-                        {
-                            AILogger.Log(brain.Owner, "BUILDORDER",
-                                $"step {aiState.StepIndex} waiting: started {trainerId} " +
-                                $"(trainer for {step.Id}) at {(int)now}s");
-                            aiState.StepStuckSeconds = 0f;
-                            em.SetComponentData(brainEntity, aiState);
-                            continue;
-                        }
-                        // Could not start it (bank / placement) — fall through
-                        // to the stuck timer so the step still escapes
-                        // eventually, loudly.
-                    }
-
-                    // A Train step whose trainer is under construction is
-                    // WAITING, not stuck — don't let the anti-stagnation
-                    // timeout drop it while the foundation rises.
-                    if (step.Kind == BuildStepKind.TrainUnit
-                        && TrainerInFlight(em, brain.Owner, step.Id))
-                        aiState.StepStuckSeconds = 0f;
-
-                    // AGE-UP SAVINGS HOLD (2026-08-18, log-proven). The build
-                    // order is the LAST spender that ignored the save: in one
-                    // Expert match it issued two Gatherer's Huts, three
-                    // Workers and three Houses between 3:00 and 4:15 — roughly
-                    // 500 supplies — while the age-up director sat waiting for
-                    // 210. The maintenance pipelines and the research sweep
-                    // all respect AIPivotalReserve; the authored order marched
-                    // straight past it, which is why the Advancement WALLET
-                    // held 527 supplies of entitlement against a BANK of 70.
-                    //
-                    // Spending steps WAIT (they do not fail): the stuck timer
-                    // is frozen too, so a held step is never mistaken for a
-                    // broken one and skipped. The reserve releases itself
-                    // after its own window, so this cannot stall the order.
-                    if (AIPivotalReserve.ShouldHold(em, brain.Owner)
-                        && (step.Kind == BuildStepKind.TrainUnit
-                            || step.Kind == BuildStepKind.BuildBuilding
-                            || step.Kind == BuildStepKind.Research))
-                    {
-                        aiState.StepStuckSeconds = 0f;
-                        em.SetComponentData(brainEntity, aiState);
-                        continue;
-                    }
-
-                    // ANTI-STAGNATION: a step that keeps failing (unreachable
-                    // attack target, no valid build spot, pop-blocked train)
-                    // must not freeze the build order forever — that left whole
-                    // factions doing nothing but mining. Skippable steps are
-                    // abandoned after the timeout; AgeUp and the choice
-                    // building are never skipped (they gate the whole game
-                    // plan) and keep retrying.
-                    aiState.StepStuckSeconds += thinkInterval;
-                    if (aiState.StepStuckSeconds > StepTimeoutSeconds && IsSkippableStep(step))
-                    {
-                        // LOUD skip (2026-08-16): this branch used to be
-                        // silent, which is how Turtle's Temple step vanished
-                        // from a whole match's logs without a trace.
-                        AILogger.Log(brain.Owner, "BUILDORDER",
-                            $"step {aiState.StepIndex} TIMED OUT after {(int)aiState.StepStuckSeconds}s " +
-                            $"({step.Kind}:{step.Id}) — skipped");
-                        aiState.StepIndex++;
-                        aiState.StepStuckSeconds = 0f;
-                    }
-                    else if (aiState.StepStuckSeconds > StepTimeoutSeconds
-                        && (int)((aiState.StepStuckSeconds - thinkInterval) / 60f)
-                            != (int)(aiState.StepStuckSeconds / 60f))
-                    {
-                        // A NON-skippable step blocked for minutes is a whole
-                        // faction going dark (2026-08-04: choice buildings
-                        // cost 70 veilstone — zero income froze AIs with
-                        // banked iron and "no progress whatsoever"). Loud,
-                        // once a minute, with the exact step AND the failing
-                        // gate (match 2: Shrine stuck 120s with a full bank
-                        // and the log could not say why).
-                        string why = string.Empty;
-                        if (step.Kind == BuildStepKind.BuildBuilding
-                            && TechCatalog.TryGetBuilding(step.Id, out var stuckDef) && stuckDef != null)
-                        {
-                            why = $" (afford={FactionEconomy.CanAfford(em, brain.Owner, ToCost(stuckDef.cost))}" +
-                                  $", idleBuilders={CountIdleBuilders(em, brain.Owner)})";
-                        }
-                        TWBLog.Log($"[AI {brain.Owner}] build order STUCK at " +
-                                   $"{step.Kind}:{step.Id} for {(int)aiState.StepStuckSeconds}s{why}");
-                        AILogger.Log(brain.Owner, "STUCK",
-                            $"{step.Kind}:{step.Id} blocked {(int)aiState.StepStuckSeconds}s at {(int)now}s{why}");
-                    }
-                }
-
+                // The maintenance loop still runs: it owns replacements,
+                // scouting and the attack cadence, none of which are goals.
+                RunMaintenanceLoop(em, brainEntity, brain, ref aiState, settings,
+                                   personality, profile, now);
                 em.SetComponentData(brainEntity, aiState);
             }
-
-            double perfMs = (UnityEngine.Time.realtimeSinceStartupAsDouble - perfT0) * 1000.0;
-            // Pre-guard so the detail string only allocates on actual spikes.
-            if (perfThinks > 0
-                && perfMs >= TheWaningBorder.Core.Diagnostics.PerfSpikeLog.DefaultThresholdMs)
-                TheWaningBorder.Core.Diagnostics.PerfSpikeLog.Report(
-                    "AIThink", perfMs, $"brains {perfThinks}");
         }
 
-        // ─────────────────────────────────────────────────────────────────
-        // STEP DISPATCH
-        // ─────────────────────────────────────────────────────────────────
-
-        // A failing build-order step is skipped after this long (anti-stagnation).
         private const float StepTimeoutSeconds = 90f;
 
         // Match-relative clock anchor: world ElapsedTime at the first think
@@ -505,6 +354,36 @@ namespace TheWaningBorder.AI
         /// Steps the stuck-step timeout may abandon. AgeUp and the choice
         /// building are the spine of the game plan — never skipped.
         /// </summary>
+        /// <summary>
+        /// Is there a free node anywhere this faction could put that extractor?
+        /// Territory-scoped: a node on someone else's ground is not available,
+        /// and the placement gate would refuse the site anyway.
+        /// </summary>
+        private static bool AnyFreeNodeFor(EntityManager em, Faction faction, string buildingId)
+        {
+            var required = TheWaningBorder.World.Regions.TerritoryOwnership
+                .RequiredNodeFor(buildingId);
+            if (required == null) return true;      // not an extractor
+
+            var mine = TheWaningBorder.World.Regions.TerritoryOwnership.TerritoriesOf(faction);
+            if (mine.Count == 0) return true;       // pre-partition: do not block
+            var owned = new System.Collections.Generic.HashSet<int>(mine);
+
+            var q = em.CreateEntityQuery(required.Value,
+                ComponentType.ReadOnly<Unity.Transforms.LocalTransform>());
+            using var xfs = q.ToComponentDataArray<Unity.Transforms.LocalTransform>(
+                Unity.Collections.Allocator.Temp);
+            for (int i = 0; i < xfs.Length; i++)
+            {
+                var p = xfs[i].Position;
+                int r = TheWaningBorder.World.Regions.RegionMap.RegionAt(p.x, p.z);
+                if (r == TheWaningBorder.World.Regions.RegionMap.None || !owned.Contains(r)) continue;
+                if (TheWaningBorder.World.Regions.TerritoryOwnership.OnFreeNodeFor(
+                        em, buildingId, p.x, p.z)) return true;
+            }
+            return false;
+        }
+
         private static bool IsSkippableStep(BuildOrderStep step)
         {
             if (step.Kind == BuildStepKind.AgeUp) return false;

@@ -231,6 +231,8 @@ namespace TheWaningBorder.AI
                         {
                             _plans[scout] = new ScoutPlan { Target = reconPos, Since = now };
                             CommandRouter.IssueMove(em, scout, reconPos, CommandSource.AI);
+                            TheWaningBorder.AI.AILogger.Log(owner, "SCOUT",
+                                $"recon -> ({reconPos.x:0},{reconPos.z:0}) (wave held for intel)");
                             continue;
                         }
                     }
@@ -269,6 +271,9 @@ namespace TheWaningBorder.AI
 
                     _plans[scout] = new ScoutPlan { Target = dest, Since = now };
                     CommandRouter.IssueMove(em, scout, dest, CommandSource.AI);
+                    TheWaningBorder.AI.AILogger.Log(owner, "SCOUT",
+                        $"explore zone ({dest.x:0},{dest.z:0}) — " +
+                        $"{(zs.LastVisit[bestZone] < 0f ? "never visited" : $"stale {(int)(now - zs.LastVisit[bestZone])}s")}");
                 }
 
                 if (stateChanged)

@@ -42,6 +42,12 @@ namespace TheWaningBorder.AI
         public static void Clear(Faction faction, string key)
             => _pending.Remove((faction, key));
 
+        /// <summary>Is this exact reserve armed? Lets a spender yield to one
+        /// SPECIFIC savings goal — the hut pipeline yields to the Hall claim
+        /// without also pausing for temple levels or heroes.</summary>
+        public static bool Has(Faction faction, string key)
+            => _pending.ContainsKey((faction, key));
+
         /// <summary>Longest continuous hold per faction. FAMINE RELEASE
         /// (2026-08-11, 67-min match): every iron deposit on the map ran
         /// dry by minute 30, the Temple-L3 reserve (350 iron) became
@@ -51,7 +57,17 @@ namespace TheWaningBorder.AI
         /// reserve; past this window the hold releases (the reserve entry
         /// stays, so the purchase still fires the moment it ever becomes
         /// affordable).</summary>
-        private const float MaxHoldSeconds = 90f;
+        // 90 -> 240 (2026-08-31): 90 s was shorter than the time territory
+        // income needs to accumulate an expansion Hall (600 supplies), so
+        // the hold always lapsed and the claim never happened — 12 matches,
+        // zero Halls. With army training now pausing under the hold
+        // (SimpleAISystem.Production), the bank fills in well under this
+        // ceiling; the ceiling only catches a genuinely starved faction.
+        private const float MaxHoldSeconds = 240f;
+
+        /// <summary>Breathing window between holds — see the duty cycle in
+        /// <see cref="ShouldHold"/>.</summary>
+        private const float ReleaseSeconds = 60f;
 
         private static readonly Dictionary<Faction, float> _holdSince
             = new Dictionary<Faction, float>();
@@ -91,7 +107,19 @@ namespace TheWaningBorder.AI
                 _holdSince[faction] = now;
                 return true;
             }
-            return now - since <= MaxHoldSeconds;
+
+            // DUTY CYCLE, not a one-shot (2026-08-31). The old code returned
+            // false FOREVER once a hold ran past the ceiling — _holdSince was
+            // never reset while the reserve stayed pending, so a faction
+            // whose first hold lapsed in the poor opening minutes spent the
+            // whole match "saving" with every spender un-gated: 12 matches,
+            // zero expansion Halls. Now the hold breathes: save for
+            // MaxHoldSeconds, release for ReleaseSeconds (so a genuinely
+            // starved faction still gets to spend on survival), then save
+            // again — repeating until the lump sum lands or the reserve is
+            // cleared.
+            float phase = (now - since) % (MaxHoldSeconds + ReleaseSeconds);
+            return phase <= MaxHoldSeconds;
         }
     }
 }

@@ -30,7 +30,15 @@ namespace TheWaningBorder.AI
         private static int WorkerFloorFor(EntityManager em, Faction faction)
             => CultureConfig.GetCompletedCulture(em, faction) == Cultures.Feraldis
                 ? FeraldisWorkerFloor
-                : EconomyWorkerFloor;
+                // ONE EXTRA BUILDER PER CONTROLLED TERRITORY (2026-08-31
+                // directive). Workers only build now (Regions.md §4), and
+                // every territory is more construction to do — its Hall to
+                // repair, extractors on its nodes, huts on its supply sites.
+                // A flat floor meant a six-territory empire ran the same
+                // two-hands crew as a cornered rump and its ground sat
+                // unworked.
+                : EconomyWorkerFloor
+                  + TheWaningBorder.World.Regions.TerritoryOwnership.CountOf(faction);
 
         /// <summary>Builders a Feraldis faction keeps for base expansion.</summary>
         private const int FeraldisWorkerFloor = 2;
@@ -106,12 +114,46 @@ namespace TheWaningBorder.AI
                 if (FactionEconomy.TryGetBank(em, faction, out var prodBank)
                     && em.HasComponent<FactionEra>(prodBank))
                     rangedUnlocked = em.GetComponentData<FactionEra>(prodBank).Value >= 2;
-                if (barracksCount == 0)
-                    TryBuildBuildingBudgeted(em, faction, "Barracks", AIBudgetCategory.Military);
-                else if (barracksCount + rangeCount < profile.ProductionBuildingTarget)
-                    TryBuildBuildingBudgeted(em, faction,
-                        rangedUnlocked && rangeCount < barracksCount ? "ArcheryRange" : "Barracks",
-                        AIBudgetCategory.Military);
+                // MULTIPLE OF EVERY KIND, not one Barracks and nothing else.
+                //
+                // The old rotation only ever alternated Barracks and Archery
+                // Range, so the Royal Stable and Siege Yard were never built by
+                // this path at all — and with them absent, cavalry and siege
+                // had no trainer, which is why they were 0.0% of every unit
+                // built across 26 measured matches while Swordsman sat at 0.1%.
+                // Meanwhile the endgame tower spam put SIX towers per faction
+                // on the board against 0.3 Barracks.
+                //
+                // Build toward a count of EACH production building, weakest
+                // line first, so every unit type the culture owns has somewhere
+                // to come from and the lines pump in parallel.
+                int stableCount = CountFactionBuildings<RoyalStableTag>(em, faction);
+                int siegeCount  = CountFactionBuildings<SiegeYardTag>(em, faction);
+
+                // Per-kind target: the difficulty's total spread over the kinds
+                // actually unlocked, never less than one each once available.
+                int perKind = math.max(2, profile.ProductionBuildingTarget / (rangedUnlocked ? 4 : 1));
+
+                string want = null;
+                if (barracksCount == 0) want = "Barracks";
+                else if (rangedUnlocked && rangeCount == 0) want = "ArcheryRange";
+                else if (rangedUnlocked && stableCount == 0) want = "Alanthor_RoyalStable";
+                else if (rangedUnlocked && siegeCount == 0) want = "Alanthor_SiegeYard";
+                else
+                {
+                    // All present: top up whichever line is furthest behind.
+                    int least = barracksCount; want = "Barracks";
+                    if (rangedUnlocked)
+                    {
+                        if (rangeCount  < least) { least = rangeCount;  want = "ArcheryRange"; }
+                        if (stableCount < least) { least = stableCount; want = "Alanthor_RoyalStable"; }
+                        if (siegeCount  < least) { least = siegeCount;  want = "Alanthor_SiegeYard"; }
+                    }
+                    if (least >= perKind) want = null;   // every line is at target
+                }
+
+                if (want != null)
+                    TryBuildBuildingBudgeted(em, faction, want, AIBudgetCategory.Military);
             }
 
             // (Gatherer's Hut growth moved to TickEconomy — the always-on
@@ -136,10 +178,16 @@ namespace TheWaningBorder.AI
                     AIPivotalReserve.Clear(faction, "King Lexor");
             }
 
-            // Keep at least one scout alive: the intel pipeline (and the
-            // scout-then-strike gate) starves without map vision, and dead
-            // scouts were never replaced by any build order.
-            if (CountScouts(em, faction) == 0)
+            // SCOUT CORPS SCALES WITH THE STAKE (2026-08-31 intel-flow
+            // directive): every attack now marches on sightings, and one
+            // scout cannot keep a 25-territory map current — Yellow's single
+            // scout famously never left the base while its army marched at
+            // a Hall nobody had seen. Two at the floor, one more per three
+            // held territories, capped at six.
+            int scoutTarget = math.clamp(
+                2 + TheWaningBorder.World.Regions.TerritoryOwnership.CountOf(faction) / 3,
+                2, 6);
+            if (CountScouts(em, faction) < scoutTarget)
                 TryTrainUnit(em, faction, "Scout");
 
             // (Steady-state research moved to TickEconomy's always-on ladder
@@ -169,12 +217,30 @@ namespace TheWaningBorder.AI
             int armyCap = math.max(1,
                 (int)math.round(profile.SustainArmyCap * PlanProfileOf(faction).ArmyScale));
 
+            // AGE 0 IS THE RACE (Combat_Pacing.md). The goal list already
+            // clamps its floor to a garrison of 8 pre-era-2, but THIS
+            // escalator kept raising DesiredMilitary toward the full cap
+            // behind its back: measured on Veilmarch, 86.6% of every unit
+            // alive was a Spearman, DesiredMilitary hit 99 against ~85
+            // alive, and — because Pressure posture needs alive >=
+            // DesiredMilitary — the desire perpetually outran the army, so
+            // no faction EVER left Develop posture. Six 30-minute matches
+            // recorded zero unit deaths. The cap follows the same rule as
+            // the goals: garrison until era 2, then the plan's ceiling.
+            if (FactionEra(em, faction) < 2)
+                armyCap = math.min(armyCap, 8);
+
             if (aiState.DesiredMilitary < armyCap
                 && CountAliveMilitary(em, faction) >= aiState.DesiredMilitary
                 // Pivotal savings hold: army GROWTH (beyond the floor) is
                 // discretionary — it was eating every supply the instant it
-                // arrived, so 500-supply lump sums never formed.
-                && !AIPivotalReserve.ShouldHold(em, faction))
+                // arrived, so 500-supply lump sums never formed. BELOW the
+                // claim gate the army outranks the pot (batch 18): the
+                // thermostat note in Expansion.TickClaims — rebuilding to
+                // MinArmyForNextClaim proceeds THROUGH holds, or the two
+                // engines deadlock at gate-1 forever.
+                && (CountAliveMilitary(em, faction) < MinArmyForNextClaim
+                    || !AIPivotalReserve.ShouldHold(em, faction)))
             {
                 int trainers = CountFactionBuildings<BarracksTag>(em, faction)
                              + CountFactionBuildings<ArcheryRangeTag>(em, faction);
@@ -193,6 +259,112 @@ namespace TheWaningBorder.AI
             // think loop) — the old every-tick threshold launch here made
             // pacing an accident of the economy: one big army at ~20 min,
             // then whenever production happened to outrun the threshold.
+
+            TickSiegeProgram(em, faction, now);
+            if (aiState.Posture == AIPosture.Defend)
+                TickEmergencyDefense(em, brainEntity, faction, now);
+        }
+
+        /// <summary>
+        /// EMERGENCY DEFENSE (2026-08-31 balance investigation). The greedy
+        /// identities died RICH and NAKED — banks of 2,300-2,700 at the
+        /// moment of elimination, five towers, no walls — because nothing
+        /// converted money into defence while the base burned. Under Defend
+        /// with a fat bank: a tower goes up (bank-direct, an emergency is
+        /// exactly when wallet accounting must not matter) and the garrison
+        /// trains past the floor. Capped and throttled so a long siege
+        /// builds a real defence, not a money furnace.
+        /// </summary>
+        private const int EmergencyBankFloor = 800;
+        private const int EmergencyTowerCap = 12;
+        private const float EmergencyRetrySeconds = 25f;
+        private readonly System.Collections.Generic.Dictionary<int, float> _nextEmergency
+            = new System.Collections.Generic.Dictionary<int, float>();
+
+        private void TickEmergencyDefense(EntityManager em, Entity brainEntity,
+            Faction faction, float now)
+        {
+            int key = (int)faction;
+            if (_nextEmergency.TryGetValue(key, out float next) && now < next) return;
+            _nextEmergency[key] = now + EmergencyRetrySeconds;
+
+            if (!FactionEconomy.TryGetBank(em, faction, out var bank)
+                || !em.HasComponent<FactionResources>(bank)) return;
+            var res = em.GetComponentData<FactionResources>(bank);
+            if (res.Supplies + res.Iron < EmergencyBankFloor) return;
+
+            if (CountFactionBuildings<WatchTowerTag>(em, faction) < EmergencyTowerCap
+                && TryBuildBuilding(em, faction, "Alanthor_Tower"))
+                AILogger.Log(faction, "MILITARY",
+                    "emergency defence: tower started (rich and under attack)");
+
+            string unit = PickCompositionUnit(em, brainEntity, faction, now, false);
+            if (!string.IsNullOrEmpty(unit))
+                TryTrainUnitBudgeted(em, faction, unit, AIBudgetCategory.Military);
+        }
+
+        /// <summary>
+        /// SIEGE IS THE LATE GAME (2026-08-31 directive). Every duel in the
+        /// finisher batch ended the same way: a wall the attacker could not
+        /// break, and a "deficit 116 x Alanthor_Catapult" log line — infantry
+        /// waves grinding on stone while the siege line went unfunded behind
+        /// them. From era 2 the Siege Yard is a PIVOTAL purchase (reserved
+        /// like the age-up, so discretionary spending cannot eat its price)
+        /// and the army keeps a standing siege train. Catapults are combat
+        /// class, so the wave draft takes them along automatically.
+        /// </summary>
+        private const int SiegeTrainFloor = 6;
+        private const float SiegeTrainRetrySeconds = 20f;
+        private const string SiegeUnitId = "Alanthor_Catapult";
+        private readonly System.Collections.Generic.Dictionary<int, float> _nextSiegeTrain
+            = new System.Collections.Generic.Dictionary<int, float>();
+
+        private void TickSiegeProgram(EntityManager em, Faction faction, float now)
+        {
+            if (FactionEra(em, faction) < 2) return;
+            if (CultureConfig.GetCompletedCulture(em, faction) != Cultures.Alanthor) return;
+
+            if (CountFactionBuildings<SiegeYardTag>(em, faction) == 0)
+            {
+                if (TryBuildBuilding(em, faction, "Alanthor_SiegeYard"))
+                {
+                    AIPivotalReserve.Clear(faction, "SiegeYard");
+                    AILogger.Log(faction, "MILITARY", "siege program: Siege Yard started");
+                }
+                else if (TechCatalog.TryGetBuilding("Alanthor_SiegeYard", out var yard)
+                         && yard != null)
+                {
+                    AIPivotalReserve.Set(faction, "SiegeYard", ToCost(yard.cost));
+                }
+                return;
+            }
+            AIPivotalReserve.Clear(faction, "SiegeYard");
+
+            // Throttled to one train order per retry window: the alive count
+            // lags the queue, and an unthrottled floor check would stack six
+            // catapults into the queue in one think burst.
+            int key = (int)faction;
+            if (_nextSiegeTrain.TryGetValue(key, out float next) && now < next) return;
+            _nextSiegeTrain[key] = now + SiegeTrainRetrySeconds;
+
+            if (CountAliveByUnitId(em, faction, SiegeUnitId) >= SiegeTrainFloor) return;
+            if (TryTrainUnitBudgeted(em, faction, SiegeUnitId, AIBudgetCategory.Military))
+                AILogger.Log(faction, "MILITARY", "siege program: catapult queued");
+        }
+
+        /// <summary>Living units of one exact id, this faction.</summary>
+        private static int CountAliveByUnitId(EntityManager em, Faction faction, string unitId)
+        {
+            var q = em.CreateEntityQuery(
+                ComponentType.ReadOnly<UnitTypeId>(),
+                ComponentType.ReadOnly<FactionTag>());
+            int n = 0;
+            using (var uids = q.ToComponentDataArray<UnitTypeId>(Allocator.Temp))
+            using (var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp))
+                for (int i = 0; i < uids.Length; i++)
+                    if (facs[i].Value == faction && uids[i].Value.ToString() == unitId)
+                        n++;
+            return n;
         }
         /// <summary>Always-on economy layer (2026-08-04 rev.2). Not a budget
         /// system — a PRIORITY ladder the build order cannot override:
@@ -352,6 +524,20 @@ namespace TheWaningBorder.AI
                 // the floor, so the economy keeps growing while the age-up
                 // money is untouchable.
                 if (ghTotal >= hutCap) { /* at the difficulty's target */ }
+                // THE HALL OUTRANKS THE NEXT HUT (2026-08-31, equal-win-rate
+                // directive). The pipeline is exempt from the pivotal hold by
+                // design — but the ECONOMY identity's own pipeline ate its
+                // Hall fund forever: Green logged 73x "saving for region
+                // (bank short)" and ZERO claims in a full batch, because a
+                // hut costs 120 and fired the moment 120 existed while the
+                // claim needed 600 in one lump. Past the bootstrap count the
+                // next hut waits while a claim reservation is armed — a
+                // territory is worth more than any single hut (base tick +
+                // nodes + ground to build MORE huts on).
+                else if (ghTotal >= HutPipelineFreeCount
+                         && AIPivotalReserve.Has(faction,
+                             TheWaningBorder.AI.SimpleAISystem.ClaimReserveKey))
+                { /* saving for a Hall — the claim comes first */ }
                 else if (CountFactionBuildingsUnderConstruction<GathererHutTag>(em, faction) == 0)
                 {
                     started = ghTotal < HutPipelineFreeCount
@@ -366,11 +552,16 @@ namespace TheWaningBorder.AI
             }
 
             // (3) MILITARY INFRASTRUCTURE + FLOOR (Military wallet).
-            if (now > 240f
-                && FindFactionBuilding<BarracksTag>(em, faction) == Entity.Null
-                && CountFactionBuildingsUnderConstruction<BarracksTag>(em, faction) == 0
+            // The safety net fires EARLY and is no longer capped at one: it used
+            // to require that no Barracks existed at all and to wait four
+            // minutes, which is most of why two thirds of factions finished a
+            // 30-minute match with no military production building whatsoever.
+            if (now > 90f
+                && CountFactionBuildings<BarracksTag>(em, faction)
+                   + CountFactionBuildingsUnderConstruction<BarracksTag>(em, faction) < 2
                 && TryBuildBuildingBudgeted(em, faction, "Barracks", AIBudgetCategory.Military))
-                AILogger.Log(faction, "ECONOMY", "floor Barracks started");
+                AILogger.Log(faction, "ECONOMY",
+                    $"floor Barracks started (now {CountFactionBuildings<BarracksTag>(em, faction)})");
 
             if (FindFactionBuilding<BarracksTag>(em, faction) != Entity.Null)
             {
@@ -540,6 +731,13 @@ namespace TheWaningBorder.AI
                     var cost = ToCost(tech.cost);
                     if (!FactionEconomy.CanAfford(em, faction, cost)) continue;
 
+                    // PIVOTAL HOLD (2026-08-31): the research sweep is the
+                    // third bank drain — it waits its <=MaxHoldSeconds turn.
+                    // Research_Era2 is exempt: the age-up outranks a land
+                    // grab (see the batch-11 note in Production.TryResearch).
+                    if (techId != "Research_Era2"
+                        && TheWaningBorder.AI.AIPivotalReserve.ShouldHold(em, faction)) continue;
+
                     TheWaningBorder.Core.Commands.CommandRouter.IssueResearch(
                         em, building, techId,
                         TheWaningBorder.Core.Commands.CommandSource.AI);
@@ -636,6 +834,57 @@ namespace TheWaningBorder.AI
         private bool TryBuildBuildingFromBuildOrder(EntityManager em, Faction faction, string buildingId)
             => TryBuildBuildingBudgeted(em, faction, buildingId, CategoryForBuilding(buildingId));
 
+        /// <summary>
+        /// WHY a build-order step will not go through, in words.
+        ///
+        /// Every refusal on this path was a bare `return false`, so a step that
+        /// could not proceed simply burned its 92-second timeout and was
+        /// skipped with no record of the cause. Five separate blockers have now
+        /// been found in this one chain by inference from side effects — a
+        /// crash, an unsatisfiable hut step, a starved worker step, a
+        /// reservation holding the whole bank, and a Barracks that never got
+        /// built while the faction sat on thousands of every resource. Each
+        /// cost a batch to find. This makes the sixth one say its own name.
+        /// </summary>
+        private string DescribeStepBlock(EntityManager em, Faction faction, BuildOrderStep step)
+        {
+            if (step.Kind == BuildStepKind.TrainUnit)
+            {
+                if (!TechCatalog.TryGetUnit(step.Id, out var udef) || udef == null)
+                    return "no unit def";
+                var ucost = ToCost(udef.cost);
+                if (!FactionEconomy.CanAfford(em, faction, ucost)) return "bank short";
+                if (!AIBudget.TryAfford(faction, AIBudgetCategory.EconomyExpansion, ucost))
+                    return "wallet short";
+                TryTrainUnitWithReason(em, faction, step.Id, out string ureason);
+                return string.IsNullOrEmpty(ureason) ? "train refused" : ureason;
+            }
+
+            if (step.Kind == BuildStepKind.BuildBuilding)
+            {
+                if (!TechCatalog.TryGetBuilding(step.Id, out var bdef) || bdef == null)
+                    return "no building def";
+                if (bdef.minEra > 1)
+                {
+                    int era = 1;
+                    if (FactionEconomy.TryGetBank(em, faction, out var eb)
+                        && em.HasComponent<FactionEra>(eb))
+                        era = em.GetComponentData<FactionEra>(eb).Value;
+                    if (era < bdef.minEra) return $"era {era} < {bdef.minEra}";
+                }
+                var bcost = ToCost(bdef.cost);
+                if (!FactionEconomy.CanAfford(em, faction, bcost)) return "bank short";
+                if (!AIBudget.TryAfford(faction, CategoryForBuilding(step.Id), bcost))
+                    return "wallet short";
+                if (CountIdleBuilders(em, faction) == 0) return "no idle builder";
+                if (TheWaningBorder.World.Regions.TerritoryOwnership.IsExtractor(step.Id))
+                    return "no free node";
+                return "no valid site";
+            }
+
+            return "unknown";
+        }
+
         private static bool TryTrainUnitBudgeted(EntityManager em, Faction faction,
             string unitId, AIBudgetCategory cat)
         {
@@ -688,11 +937,12 @@ namespace TheWaningBorder.AI
         }
 
         private bool TryBuildBuildingBudgeted(EntityManager em, Faction faction,
-            string buildingId, AIBudgetCategory cat)
+            string buildingId, AIBudgetCategory cat, bool honourReservation = true)
         {
             if (!TechCatalog.TryGetBuilding(buildingId, out var def) || def == null) return false;
             var cost = ToCost(def.cost);
-            if (!AIBudget.TryAfford(faction, cat, cost)) return false;
+            if (!AIBudget.TryAfford(faction, cat, cost,
+                    (float)SystemAPI.Time.ElapsedTime, honourReservation)) return false;
             if (!TryBuildBuilding(em, faction, buildingId)) return false;
             AIBudget.RecordSpend(faction, cat, cost);
             return true;

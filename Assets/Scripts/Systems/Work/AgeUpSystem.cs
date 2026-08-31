@@ -93,6 +93,7 @@ namespace TheWaningBorder.Systems.Work
 
                     FactionReligionPointsHelper.AwardAgeUp(em, faction, newAge: 2);
                 }
+                UnityEngine.Debug.Log($"[AgeUp] COMPLETE — {faction} era 2, culture {culture}.");
 
                 // 4. Per-culture hut transform (design §1.4 "transform, don't replace").
                 //    Phase 1 of task-066 removes the old self-destruct paths; Phases 2-3

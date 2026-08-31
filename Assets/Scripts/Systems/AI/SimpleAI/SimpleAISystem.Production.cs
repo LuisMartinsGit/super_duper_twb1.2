@@ -2,6 +2,7 @@
 // Training, research, age-up and unit-replacement decisions.
 // Partial of SimpleAISystem.cs -- split 2026-08-12 for readability.
 
+using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -158,6 +159,40 @@ namespace TheWaningBorder.AI
             // headroom loop (EnsurePopulationHeadroom) frees this gate.
             if (!PopulationHelper.HasPopulationCapacity(faction, UnitFactory.GetPopulationCost(unitId)))
             { blockReason = "population capped"; return false; }
+
+            // PIVOTAL HOLD (2026-08-31): while the faction is saving a lump
+            // sum (the expansion Hall), ARMY training pauses so the bank can
+            // actually reach it. The fortress batch showed every faction
+            // stuck at "saving for <territory> ... bank short" for entire
+            // matches — military production out-earned the 90 s hold every
+            // time, and not one Hall was claimed in 12 matches.
+            //
+            // Workers/Scouts are exempt ONLY UP TO THEIR FLOORS (batch 10).
+            // The unconditional exemption backfired: during every hold the
+            // only trainable units were Workers and Scouts, so they FILLED
+            // THE POPULATION CAP — and once pop-capped, soldiers could never
+            // spawn again. Armies froze at ~5 all match ("army first (5/8)"
+            // for twenty straight minutes), which locked the army-first
+            // claim gate and pinned every faction at exactly 3 territories
+            // through three tuning rounds. The floor keeps the claim's
+            // builder and the intel corps alive; it no longer eats the
+            // army's population.
+            if (TheWaningBorder.AI.AIPivotalReserve.ShouldHold(em, faction))
+            {
+                bool essential =
+                    (unitId == "Worker"
+                        && CountAliveMiners(em, faction) < WorkerFloorFor(em, faction))
+                    || (unitId == "Scout"
+                        && CountAliveByUnitId(em, faction, "Scout") < 6)
+                    // Army units below the claim gate are essential too
+                    // (batch 18): rebuilding to MinArmyForNextClaim runs
+                    // through holds — see the thermostat note in
+                    // Expansion.TickClaims.
+                    || (unitId != "Worker" && unitId != "Scout"
+                        && CountAliveMilitary(em, faction) < MinArmyForNextClaim);
+                if (!essential)
+                { blockReason = "pivotal hold (saving)"; return false; }
+            }
 
             // Affordability CHECK only — TrainCommandDirect spends on every
             // peer (docs/Multiplayer_LAN_Readiness.md); an AI-side Spend
@@ -358,6 +393,18 @@ namespace TheWaningBorder.AI
             if (bldg == Entity.Null)
             { blockReason = $"no ready {researchAt} host"; return false; }
 
+            // PIVOTAL HOLD (2026-08-31): research spending waits out the
+            // savings window like army training and building placement do.
+            // THE AGE-UP IS EXEMPT (batch 11): Research_Era2 is the OTHER
+            // pivotal purchase, and deferring it behind the perpetual claim
+            // savings meant no faction ever left era 0 — which caps the army
+            // at 8 (Economy armyCap), which locked the army-first claim gate,
+            // which was the 3-territory ceiling's final layer. The game's
+            // defining purchase never queues behind a land grab.
+            if (techId != "Research_Era2"
+                && TheWaningBorder.AI.AIPivotalReserve.ShouldHold(em, faction))
+            { blockReason = "pivotal hold (saving)"; return false; }
+
             // Affordability CHECK only — ResearchCommandDirect spends on
             // every peer (docs/Multiplayer_LAN_Readiness.md).
             var cost = ToCost(def.cost);
@@ -374,9 +421,62 @@ namespace TheWaningBorder.AI
         // AGE UP
         // ─────────────────────────────────────────────────────────────────
 
+        /// <summary>Sim-time before which a faction must not re-issue its
+        /// age-up. See the latch-on-outcome note below.</summary>
+        private static readonly System.Collections.Generic.Dictionary<Faction, float>
+            _ageUpRetryAt = new();
+
+        /// <summary>True while any of this faction's halls carries a ticking
+        /// AgeUpState — the age-up is in flight and must not be re-bought.</summary>
+        private static bool FactionHasAgeingHall(EntityManager em, Faction faction)
+        {
+            var q = em.CreateEntityQuery(
+                ComponentType.ReadOnly<HallTag>(),
+                ComponentType.ReadOnly<AgeUpState>(),
+                ComponentType.ReadOnly<FactionTag>());
+            using var facs = q.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
+            q.Dispose();
+            for (int i = 0; i < facs.Length; i++)
+                if (facs[i].Value == faction) return true;
+            return false;
+        }
+
         private bool TryAgeUp(EntityManager em, Faction faction, ref SimpleAIState aiState)
         {
-            if (aiState.AgeUpIssued != 0) return true; // already triggered, advance
+            // LATCH ON OUTCOME, NOT ON ISSUE (2026-08-31, batch 13). The
+            // command's SPEND happens at lockstep playback two ticks after
+            // the affordability check here — and in the savings-hold meta
+            // another spender routinely drained the bank in that window, so
+            // AgeUpCommandDirect dropped silently while AgeUpIssued stayed
+            // latched. Every faction "aged up" at ~5 minutes on paper and
+            // stayed era 0 all match (the era-0 army cap of 8 then froze the
+            // whole expansion flywheel). The flag now means THE ERA ACTUALLY
+            // ADVANCED; until it does, the issue retries on a cool-down.
+            if (aiState.AgeUpIssued != 0) return true; // era advance observed
+            if (FactionEra(em, faction) >= 2)
+            {
+                aiState.AgeUpIssued = 1;
+                return true;
+            }
+            float simNow = TheWaningBorder.Core.SimClock.Now;
+            if (_ageUpRetryAt.TryGetValue(faction, out float at))
+            {
+                // The dictionary is static and the sim clock restarts at 0
+                // each match — a timestamp further out than any legal
+                // cool-down is last match's leftovers, not a wait.
+                if (at > simNow + 60f) _ageUpRetryAt.Remove(faction);
+                else if (simNow < at) return false;
+            }
+
+            // AGEING ALREADY IN FLIGHT = WAIT, DON'T PAY AGAIN (batch 16).
+            // The executor's re-entry guard is PER-HALL, and each retry
+            // resolved FindFactionBuilding to a different Hall — so a
+            // faction mid-ageing re-issued onto its expansion hall and was
+            // charged the full age-up cost a second time (84 completions
+            // for 48 factions, and the burned banks froze the claim pots).
+            // While any owned hall carries AgeUpState the era is coming;
+            // the retry only exists for the DROPPED-spend case.
+            if (FactionHasAgeingHall(em, faction)) return false;
 
             Entity hall = FindFactionBuilding<HallTag>(em, faction);
             if (hall == Entity.Null) return false;
@@ -416,8 +516,20 @@ namespace TheWaningBorder.AI
             // AI faction frozen in Age 1 on every client.
             CommandRouter.IssueAgeUp(em, hall, culture, CommandSource.AI);
 
-            aiState.AgeUpIssued = 1;
-            return true;
+            // NOT latched — the next TryAgeUp observes whether the era
+            // actually advanced and re-issues after the cool-down if the
+            // executor dropped the command (see the header note).
+            //
+            // RETURN FALSE (batch 14): returning true here ADVANCED THE
+            // BUILD-ORDER STEP, so TryAgeUp was never called again and the
+            // "retry" fired at most once — 96 issues across a batch, all in
+            // the opening's claim-saving poverty, zero eras advanced. The
+            // step is not done until the era is: it stays current, and the
+            // 30 s cool-down paces the re-issues for as long as it takes.
+            _ageUpRetryAt[faction] = simNow + 30f;
+            AILogger.Log(faction, "CULTURE",
+                $"age-up issued (era {FactionEra(em, faction)}) — will verify and retry in 30s if dropped");
+            return false;
         }
 
         // ─────────────────────────────────────────────────────────────────
@@ -655,6 +767,24 @@ namespace TheWaningBorder.AI
             if (siege != null && totalArmy >= 4 && ownSiege < totalArmy * siegeFrac)
                 return siege;
 
+            // ── TRAIN EVERY UNIT THE CULTURE OWNS. ──
+            //
+            // The ladder above resolves the BEST unit per line, and the shares
+            // decide which line. That still only ever produced the four lines
+            // named here: across 26 measured matches Workers were 45% of all
+            // units, Spearmen 26%, Archers 13%, and the entire Age-1 roster —
+            // Swordsman, Crossbowman, Nobleman, Sentinel, Cataphract, Outrider,
+            // Catapult, Trebuchet — came to under 1% combined. A roster that is
+            // never built may as well not exist, for the player watching and
+            // for balance.
+            //
+            // So after the line is chosen, look across EVERY trainable unit and
+            // take whichever is furthest below an even share. The line logic
+            // still leads (it carries the counter-composition read); this stops
+            // the roster collapsing to two ids.
+            string spread = LeastRepresentedTrainable(em, faction);
+            if (spread != null) return spread;
+
             // Ranged is an Age-1 unlock (2026-08-11): with no Archery Range
             // standing (era 1 cannot build one, or it was razed), the ranged
             // pick has no trainer — train the melee line instead of feeding
@@ -665,6 +795,84 @@ namespace TheWaningBorder.AI
             int total = ownMelee + ownRanged;
             if (total == 0) return melee;
             return ownRanged < total * desiredRangedFrac ? ranged : melee;
+        }
+
+        /// <summary>
+        /// Every combat unit this faction can actually train right now, and
+        /// which of them it owns fewest of relative to an even spread.
+        ///
+        /// Returns null when nothing is under-represented, so the caller's
+        /// composition logic still decides the ordinary case. Deliberately
+        /// skips heroes and uniques — HeroTrainLimit owns those, and a
+        /// one-per-player unit can never reach an even share.
+        /// </summary>
+        private static string LeastRepresentedTrainable(EntityManager em, Faction faction)
+        {
+            var ids = TrainableCombatIds(em, faction);
+            if (ids.Count < 2) return null;
+
+            var owned = new Dictionary<string, int>();
+            foreach (var id in ids) owned[id] = 0;
+            int total = 0;
+
+            var q = em.CreateEntityQuery(
+                ComponentType.ReadOnly<UnitTypeId>(),
+                ComponentType.ReadOnly<FactionTag>());
+            using (var uids = q.ToComponentDataArray<UnitTypeId>(Allocator.Temp))
+            using (var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp))
+                for (int i = 0; i < uids.Length; i++)
+                {
+                    if (facs[i].Value != faction) continue;
+                    string id = uids[i].Value.ToString();
+                    if (!owned.ContainsKey(id)) continue;
+                    owned[id]++; total++;
+                }
+
+            // Even share across the roster, with a floor so the check still
+            // bites while the army is small.
+            float share = math.max(2f, total / (float)ids.Count);
+            string worst = null; float worstGap = 0f;
+            foreach (var id in ids)
+            {
+                float gap = share - owned[id];
+                if (gap > worstGap) { worstGap = gap; worst = id; }
+            }
+            return worst;
+        }
+
+        /// <summary>Combat units with a standing, buildable trainer.</summary>
+        private static List<string> TrainableCombatIds(EntityManager em, Faction faction)
+        {
+            var outIds = new List<string>();
+            if (!TechCatalog.IsReady) return outIds;
+
+            // CULTURE GATE. Without it this list carries every culture's roster
+            // at once, because an Age 0 Barracks legitimately trains
+            // Alanthor_* and Feraldis_* ids from the same def. The spreader
+            // below then picks whatever is furthest below an even share -- and
+            // a unit the faction can never legitimately own is permanently the
+            // most under-represented thing there is. Measured over 13 matches
+            // with no Feraldis player in any of them, Feraldis_Spearman was
+            // 28.7% of every unit alive.
+            byte culture = FactionCultureOf(em, faction);
+
+            foreach (var def in TechCatalog.GetAllUnits())
+            {
+                if (def == null || string.IsNullOrEmpty(def.id)) continue;
+                if (!TheWaningBorder.Data.CultureGate.CanFactionTrain(def.id, culture)) continue;
+                if (TheWaningBorder.Data.CultureGate.IsSupersededByCulture(def.id, culture)) continue;
+                if (!IsCombatClass(UnitFactory.GetUnitClass(def.id))) continue;
+                // Uniques are rationed by HeroTrainLimit, not by composition.
+                if (TheWaningBorder.Abilities.HeroTrainLimit.IsKingLexorId(def.id)
+                    || TheWaningBorder.Abilities.HeroTrainLimit.IsLedgerId(def.id)) continue;
+
+                var trainer = FindTrainerForUnit(em, faction, def.id);
+                if (trainer == Entity.Null) continue;
+                if (em.HasComponent<UnderConstruction>(trainer)) continue;
+                if (!CommandRouter.CanTrainAtBuilding(em, trainer, def.id, out _, out _)) continue;
+                outIds.Add(def.id);
+            }
+            return outIds;
         }
 
         /// <summary>

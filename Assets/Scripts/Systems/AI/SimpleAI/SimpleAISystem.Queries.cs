@@ -79,6 +79,23 @@ namespace TheWaningBorder.AI
             return n;
         }
 
+        /// <summary>Every open construction site this faction has, of any
+        /// kind. The build gate caps concurrent sites against the crew size:
+        /// workers only build, so the number of them IS how many foundations
+        /// can be worked at once.</summary>
+        private static int CountFactionBuildingsUnderConstruction(EntityManager em, Faction faction)
+        {
+            var q = em.CreateEntityQuery(
+                ComponentType.ReadOnly<BuildingTag>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<UnderConstruction>());
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            int n = 0;
+            for (int i = 0; i < facs.Length; i++)
+                if (facs[i].Value == faction) n++;
+            return n;
+        }
+
         /// <summary>Faction buildings of a tag, INCLUDING under-construction
         /// foundations — growth targets must count them or the maintenance
         /// loop re-places the same building every tick until one finishes.</summary>

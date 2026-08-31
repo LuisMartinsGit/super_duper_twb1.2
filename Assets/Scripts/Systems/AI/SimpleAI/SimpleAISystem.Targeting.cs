@@ -226,7 +226,65 @@ namespace TheWaningBorder.AI
             //  dispatched by the per-culture endgame system. Sending raw
             //  waves at a well just fed armies to the crystal spread.)
             // 3. Enemy Halls — finisher.
-            return FindClosestEnemyOf<HallTag>(em, myFaction, originPos, requireCurrentVisibility: false);
+            t = FindClosestEnemyOf<HallTag>(em, myFaction, originPos, requireCurrentVisibility: false);
+            if (t != Entity.Null) return t;
+
+            // 4. MARCH TO CONTACT. Every rung above needs the enemy at least
+            // fog-REVEALED, and on a 1024 m map nobody ever scouts 700 m to
+            // an enemy corner — so the ladder returned null forever, waves
+            // never launched, and no contact meant no intel to break the
+            // loop: six 30-minute Veilmarch matches ended with zero unit
+            // deaths. Start positions are PUBLIC map knowledge (the lobby
+            // shows every start), so the Hall standing on an enemy START is
+            // targetable unrevealed. Only start Halls: expansion Halls out
+            // in the fog stay fog-honest.
+            return FindEnemyStartHall(em, myFaction, originPos);
+        }
+
+        /// <summary>Metres a Hall may stand from a baked start marker and
+        /// still count as "the Hall everyone knows is there".</summary>
+        private const float StartHallKnownRadius = 60f;
+
+        private static Entity FindEnemyStartHall(
+            EntityManager em, Faction myFaction, float3 originPos)
+        {
+            var starts = TheWaningBorder.World.MapMarkers.MapMarkerRegistry.PlayerStarts;
+            if (starts == null || starts.Count == 0) return Entity.Null;
+
+            var q = em.CreateEntityQuery(
+                ComponentType.ReadOnly<HallTag>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<LocalTransform>());
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+
+            Entity best = Entity.Null;
+            float bestDist = float.MaxValue;
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (!Alliances.AreHostile(myFaction, facs[i].Value)) continue;
+                if (em.HasComponent<UnderConstruction>(ents[i])) continue;
+
+                bool atStart = false;
+                for (int sIdx = 0; sIdx < starts.Count && !atStart; sIdx++)
+                {
+                    var sm = starts[sIdx];
+                    if (sm == null) continue;
+                    var sp = sm.WorldPosition;
+                    float ddx = xfs[i].Position.x - sp.x;
+                    float ddz = xfs[i].Position.z - sp.z;
+                    atStart = ddx * ddx + ddz * ddz
+                              <= StartHallKnownRadius * StartHallKnownRadius;
+                }
+                if (!atStart) continue;
+
+                float dx = xfs[i].Position.x - originPos.x;
+                float dz = xfs[i].Position.z - originPos.z;
+                float d = dx * dx + dz * dz;
+                if (d < bestDist) { bestDist = d; best = ents[i]; }
+            }
+            return best;
         }
 
         private static Entity FindClosestEnemyOf<TTag>(

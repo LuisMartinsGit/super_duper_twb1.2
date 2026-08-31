@@ -67,11 +67,22 @@ namespace TheWaningBorder.AI
             _nextExtractorTime[key] = now + ExtractorAttemptInterval;
 
             if (!TechCatalog.IsReady) return;
-            if (CountIdleBuilders(em, faction) == 0) return;
+            if (CountIdleBuilders(em, faction) == 0)
+            {
+                LogExtractBlocked(faction, now, "no idle builder");
+                return;
+            }
 
             var mine = TerritoryOwnership.TerritoriesOf(faction);
             if (mine.Count == 0) return;
             var owned = new HashSet<int>(mine);
+
+            // Diagnostic trail: six 30-minute batch matches produced 80 huts
+            // and not one ore extractor, and this walk failed SILENTLY at
+            // every gate — the exact diagnostic hole LogClaimBlocked exists
+            // to close for claims. Reasons collect per plan entry and log
+            // throttled when the whole walk buys nothing.
+            string blocked = null;
 
             for (int i = 0; i < ExtractorPlan.Length; i++)
             {
@@ -81,32 +92,68 @@ namespace TheWaningBorder.AI
                 // re-checks, but asking first avoids scanning nodes for a
                 // building we could not raise anyway.
                 if (!TechCatalog.TryGetBuilding(buildingId, out var def) || def == null) continue;
-                if (!FactionEconomy.CanAfford(em, faction, ToCost(def.cost))) continue;
-
-                if (!TryFindFreeNode(em, faction, buildingId, owned, out float3 nodePos)) continue;
-
-                if (TryBuildBuilding(em, faction, buildingId, nodePos))
+                if (!FactionEconomy.CanAfford(em, faction, ToCost(def.cost)))
                 {
+                    blocked += $" | {buildingId}: bank short";
+                    continue;
+                }
+
+                // EVERY free node is a candidate, not just the first found.
+                // One node can be legitimately unplaceable (a foundation
+                // already over it, cursed ground, a terrain lip) — anchoring
+                // on it alone made the 15 s retry pick the same dead node
+                // forever while free ones sat a territory over.
+                _freeNodes.Clear();
+                CollectFreeNodes(em, buildingId, owned, _freeNodes);
+                if (_freeNodes.Count == 0)
+                {
+                    blocked += $" | {buildingId}: no free owned node";
+                    continue;
+                }
+                string reason = null;
+                for (int n = 0; n < _freeNodes.Count; n++)
+                {
+                    if (!TryBuildBuildingWithReason(em, faction, buildingId,
+                            out reason, _freeNodes[n])) continue;
                     AILogger.Log(faction, "EXTRACT",
-                        $"{buildingId} on a free node at ({nodePos.x:F0},{nodePos.z:F0})");
+                        $"{buildingId} on a free node at " +
+                        $"({_freeNodes[n].x:F0},{_freeNodes[n].z:F0})");
                     return;   // one per attempt
                 }
+                blocked += $" | {buildingId}: {_freeNodes.Count} node(s), last refusal: {reason}";
             }
+
+            if (blocked != null) LogExtractBlocked(faction, now, blocked.Substring(3));
         }
 
+        /// <summary>Throttle for the "why didn't it extract" line — same
+        /// contract as LogClaimBlocked.</summary>
+        private const float ExtractLogInterval = 60f;
+        private readonly Dictionary<int, float> _nextExtractLog = new Dictionary<int, float>();
+
+        private void LogExtractBlocked(Faction faction, float now, string why)
+        {
+            int key = (int)faction;
+            if (_nextExtractLog.TryGetValue(key, out float next) && now < next) return;
+            _nextExtractLog[key] = now + ExtractLogInterval;
+            AILogger.Log(faction, "EXTRACT", $"blocked: {why}");
+        }
+
+        // Host-only managed scratch, cleared per use.
+        private readonly List<float3> _freeNodes = new List<float3>();
+
         /// <summary>
-        /// A node of the kind <paramref name="buildingId"/> needs, inside our
-        /// own territory, with no extractor of that kind already on it.
+        /// Every node of the kind <paramref name="buildingId"/> needs, inside
+        /// our own territory, with no extractor of that kind already on it.
         ///
         /// Territory-gated on purpose: a node on somebody else's ground pays
         /// THEM, and the build gate would refuse the site anyway.
         /// </summary>
-        private static bool TryFindFreeNode(EntityManager em, Faction faction, string buildingId,
-            HashSet<int> owned, out float3 nodePos)
+        private static void CollectFreeNodes(EntityManager em, string buildingId,
+            HashSet<int> owned, List<float3> into)
         {
-            nodePos = default;
             var required = TerritoryOwnership.RequiredNodeFor(buildingId);
-            if (required == null) return false;
+            if (required == null) return;
 
             var q = em.CreateEntityQuery(
                 required.Value,
@@ -119,10 +166,8 @@ namespace TheWaningBorder.AI
                 int region = RegionMap.RegionAt(p.x, p.z);
                 if (region == RegionMap.None || !owned.Contains(region)) continue;
                 if (!TerritoryOwnership.OnFreeNodeFor(em, buildingId, p.x, p.z)) continue;
-                nodePos = p;
-                return true;
+                into.Add(p);
             }
-            return false;
         }
     }
 }

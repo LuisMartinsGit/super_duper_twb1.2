@@ -156,14 +156,28 @@ namespace TheWaningBorder.AI
                         ComponentType.ReadOnly<FactionTag>(),
                         ComponentType.ReadOnly<FactionProgress>(),
                         ComponentType.ReadOnly<LocalTransform>());
+                    // THE HOME HALL, not the first Hall the query returns.
+                    // With expansion claims live a faction holds 4-7 Halls,
+                    // and chunk order is arbitrary — batch-proven: every
+                    // walled Red base was an EXPANSION (wall centroid 270-320
+                    // m from home, 3-14 m from an expansion Hall) while the
+                    // home stood bare, because this anchor drives the wall
+                    // doctrine, houses, smelters and sect buildings. The
+                    // starting Hall has the lowest NetworkId its faction
+                    // owns — ids are handed out sequentially from spawn.
+                    long bestNid = long.MaxValue;
                     using var hallEnts = hallQuery.ToEntityArray(Allocator.Temp);
                     for (int i = 0; i < hallEnts.Length; i++)
                     {
                         if (em.GetComponentData<FactionTag>(hallEnts[i]).Value != faction) continue;
+                        long nid = em.HasComponent<TheWaningBorder.Core.Multiplayer.NetworkedEntity>(hallEnts[i])
+                            ? em.GetComponentData<TheWaningBorder.Core.Multiplayer.NetworkedEntity>(hallEnts[i]).NetworkId
+                            : long.MaxValue - 1;
+                        if (hasHall && nid >= bestNid) continue;
+                        bestNid  = nid;
                         culture  = em.GetComponentData<FactionProgress>(hallEnts[i]).Culture;
                         hallPos  = em.GetComponentData<LocalTransform>(hallEnts[i]).Position;
                         hasHall  = true;
-                        break;
                     }
                 }
                 if (!hasHall) continue;
