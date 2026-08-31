@@ -115,7 +115,7 @@ namespace TheWaningBorder.Bootstrap
                 float3 pos = new float3(xz.x, TerrainUtility.GetHeight(xz.x, xz.y), xz.y);
                 BorderMainNode.Create(em, pos);
                 spawned++;
-                TWBLog.Log($"[BorderNodeBootstrap] authored well {spawned} at " +
+                Debug.Log($"[BorderNodeBootstrap] authored well {spawned} at " +
                           $"({pos.x:F0},{pos.z:F0}) from marker '{m.name}'");
             }
 
@@ -124,7 +124,7 @@ namespace TheWaningBorder.Bootstrap
                                  "AuthoredPosition were IGNORED — this map authors its wells, so " +
                                  "every well marker must tick AuthoredPosition.");
 
-            TWBLog.Log($"[BorderNodeBootstrap] DONE (map-authored) — nodesSpawned={spawned}");
+            Debug.Log($"[BorderNodeBootstrap] DONE (map-authored) — nodesSpawned={spawned}");
             return spawned;
         }
 
@@ -156,10 +156,10 @@ namespace TheWaningBorder.Bootstrap
                 float3 pos = new float3(xz.x, TerrainUtility.GetHeight(xz.x, xz.y), xz.y);
                 BorderMainNode.Create(em, pos);
                 spawned++;
-                TWBLog.Log($"[BorderNodeBootstrap] corner well {spawned}/4 at " +
+                Debug.Log($"[BorderNodeBootstrap] corner well {spawned}/4 at " +
                           $"({pos.x:F0},{pos.z:F0})");
             }
-            TWBLog.Log($"[BorderNodeBootstrap] DONE (corner-driven) — nodesSpawned={spawned}");
+            Debug.Log($"[BorderNodeBootstrap] DONE (corner-driven) — nodesSpawned={spawned}");
             return spawned;
         }
 

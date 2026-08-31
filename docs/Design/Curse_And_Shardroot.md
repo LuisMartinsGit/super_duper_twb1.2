@@ -14,6 +14,31 @@ layer is removed and the crust becomes an **absolute wall**. See
 **§2.5**, which supersedes the "spawns/guards/waves", "crust never blocks
 pathing", and "dangerous, not lethal" behaviour described below.
 
+**2026-08-31 revision — the curse is TERRITORIAL
+([Regions.md §3](Regions.md) is the truth source for this layer):**
+
+- **Wells are the PURE NODES.** They are indestructible-by-raze (verbs
+  only), they are the verb-victory objectives and the Shardroot host —
+  unchanged — and the territory a well stands in is **curse-owned from
+  the first tick**. Maps may author any N; **Veilmarch authors exactly
+  ONE pure node, in its centre territory.**
+- **The curse expands like a player**: every conquest interval it takes
+  one random ADJACENT territory that has **no Hall** and **at least one
+  veilstone node** — instantly, whole territories at a time. A conquered
+  territory gets a **destroyable anchor** (the small node); killing the
+  anchor reverts the ground to Natural at once. Only pure nodes are
+  beyond destruction.
+- **Curse-held veilstone territories field WAVES** on the
+  BorderSettings schedule, marching on the nearest player holdings. The
+  curse has NO other player system — no economy, no tech, no brain: it
+  takes ground and it spawns armies, nothing else.
+- **There are no influence maps** (Regions.md §3b). §2.6 below ("how
+  each culture engages the curse" via influence suppression) is
+  superseded at the mechanic level: suppression now reads TERRITORY
+  ownership, not a simulated field, and all territory visuals are
+  event-driven. Implementation: `CurseTerritorySystem` at
+  `TechTree/Border/`.
+
 ## 1. Vision
 
 The Curse is the map's **third player, its veilstone economy, and its

@@ -67,6 +67,23 @@ Age 0 projects **no influence**, so it gets its own curse layer:
 
 ## Buildings
 
+### Fortress — the capital (2026-08-31, NEW)
+
+**Every player STARTS with a Fortress, not a Hall.** It is the capital: a
+bit larger than a Hall (10x10 build cells vs 8x8) and much more formidable
+(~3x the hp, stronger defenses, a real garrison attack). It hosts
+everything the Hall hosts — trains Workers and Scouts, banks resources,
+researches the Hall bench including the age-up — and claims its home
+territory exactly as a Hall claims ground (mechanically it IS a Hall plus
+more, so every Hall rule — territory claim, one-per-territory, victory,
+AI targeting — applies to it unchanged).
+
+**It is NOT buildable.** The Fortress exists once per player, placed at
+match start. Expansion stays the Hall's job: Halls are what you raise to
+claim new territories (Regions.md §2); losing the Fortress is losing the
+capital, and rebuilding on a new territory gives you Halls, never a second
+Fortress.
+
 ### Hall â€” lvl 0 (pre-culture)
 
 The starting building. Provides economic units and core economy research.
@@ -97,7 +114,7 @@ pre-culture lvl 0 form exists.
 |------|------|------|--------|---------|
 | **Stone tools** | 80 S + 40 I | 30 s | +15 % gathering speed (gatherSpeedMult 1.15) | `ImprovedTools` (rename pending) |
 | **Armed scouts** | 90 S + 30 I | 30 s | Arms Scouts with their melee attack. Until researched, Scouts are vision-only: they never auto-engage and deal no damage. Applies to existing and future Scouts. | `ArmedScouts` **(new 2026-08-02)** |
-| **Advance to Era II** | 700 S + 140 I + 105 C | â€” | Triggers age-up, opens culture choice. Requires 1 of `Shrine of Ridan` / `Vault of AlmiÃ©rra` / `Fiendstone Keep` built. | `Research_Era2` |
+| **Advance to Era II** | 250 S + 100 I **(2026-08-29: was 700 S + 140 I + 105 veilstone; veilstone removed — the age-up is early tech, and early tech is supplies + iron per the resource-domain rule. Median age-up time target: 3-6 minutes by difficulty — Expert ~3, Hard ~4, Normal ~5, Easy ~6)** | â€” | Triggers age-up, opens culture choice. Requires 1 of `Shrine of Ridan` / `Vault of AlmiÃ©rra` / `Fiendstone Keep` built. | `Research_Era2` |
 
 > **Removed (2026-07-20):** the *Wheel cart* carry-capacity tech. Mined
 > resources are credited straight to the player's stockpile on each gather

@@ -39,6 +39,37 @@ namespace TheWaningBorder.World.Regions
 
         private static int[] _owner = System.Array.Empty<int>();
 
+        /// <summary>
+        /// Territories the curse holds (Regions.md §3, 2026-08-31). Fed by
+        /// CurseTerritorySystem — a territory is here while a live well or a
+        /// live curse anchor stands in it, and leaves the moment the anchor
+        /// dies. Stamped into <see cref="_owner"/> on every Recompute, AFTER
+        /// the Halls: the curse never conquers Hall ground, so a conflict
+        /// here is a state the rules already exclude and the Hall wins it.
+        /// </summary>
+        private static readonly HashSet<int> _curseHeld = new HashSet<int>();
+
+        public static void MarkCurseHeld(int territory, bool held)
+        {
+            if (held) _curseHeld.Add(territory);
+            else _curseHeld.Remove(territory);
+        }
+
+        public static bool IsCurseHeld(int territory) => _curseHeld.Contains(territory);
+
+        public static int CurseHeldCount => _curseHeld.Count;
+
+        /// <summary>
+        /// Bumped whenever a Recompute actually CHANGES who owns something
+        /// (and on Reset). Ownership is the only variable territory state
+        /// (Regions.md §3b — no influence maps), so everything that draws or
+        /// derives from territory gates its rebuild on this number instead
+        /// of recomputing per frame.
+        /// </summary>
+        public static int Version { get; private set; }
+
+        private static int[] _prevOwner = System.Array.Empty<int>();
+
         public static bool Ready => _owner.Length > 0;
 
         /// <summary>
@@ -74,7 +105,13 @@ namespace TheWaningBorder.World.Regions
             return n;
         }
 
-        public static void Reset() => _owner = System.Array.Empty<int>();
+        public static void Reset()
+        {
+            _owner = System.Array.Empty<int>();
+            _prevOwner = System.Array.Empty<int>();
+            _curseHeld.Clear();
+            Version++;
+        }
 
         /// <summary>
         /// Can <paramref name="f"/> plant a claim structure at this position?
@@ -220,23 +257,36 @@ namespace TheWaningBorder.World.Regions
         /// one place is what makes the placement rule, the income tick and the
         /// AI's site picker agree about it.
         /// </summary>
+        //
+        // EVERY ARM IS CAST. ComponentType defines an implicit conversion FROM
+        // System.Type, so a bare `_ => null` does not make the switch nullable
+        // — the compiler picks ComponentType as the common type and compiles
+        // the null arm into op_Implicit((Type)null), which reaches
+        // TypeManager.GetTypeIndex(null) and throws
+        // "Unknown Type:`null`" at RUNTIME.
+        //
+        // It threw for every building that is NOT an extractor, inside the
+        // placement candidate loop, so the AI could not site anything at all.
+        // The cast on each arm forces ComponentType? and cannot be undone by
+        // an implicit conversion.
         public static ComponentType? RequiredNodeFor(string buildingId) => buildingId switch
         {
-            "GatherersHut"    => ComponentType.ReadOnly<SupplyNodeTag>(),
-            "Mine"            => ComponentType.ReadOnly<IronMineTag>(),
-            "VeilstoneMine"   => ComponentType.ReadOnly<VeilstoneOutcroppingTag>(),
-            "Alanthor_Smelter" => ComponentType.ReadOnly<VeilsteelDepositTag>(),
+            "GatherersHut"     => (ComponentType?)ComponentType.ReadOnly<SupplyNodeTag>(),
+            "Mine"             => (ComponentType?)ComponentType.ReadOnly<IronMineTag>(),
+            "VeilstoneMine"    => (ComponentType?)ComponentType.ReadOnly<VeilstoneOutcroppingTag>(),
+            "Alanthor_Smelter" => (ComponentType?)ComponentType.ReadOnly<VeilsteelDepositTag>(),
             _ => null,
         };
 
         /// <summary>The tag that identifies an already-built extractor of this
         /// kind. Buildings carry tags, not ids, so occupancy is tested by tag.</summary>
+        /// Cast on every arm — same implicit-conversion trap as RequiredNodeFor.
         private static ComponentType? ExtractorTagFor(string buildingId) => buildingId switch
         {
-            "GatherersHut"     => ComponentType.ReadOnly<GathererHutTag>(),
-            "Mine"             => ComponentType.ReadOnly<MineTag>(),
-            "VeilstoneMine"    => ComponentType.ReadOnly<VeilstoneMineTag>(),
-            "Alanthor_Smelter" => ComponentType.ReadOnly<SmelterTag>(),
+            "GatherersHut"     => (ComponentType?)ComponentType.ReadOnly<GathererHutTag>(),
+            "Mine"             => (ComponentType?)ComponentType.ReadOnly<MineTag>(),
+            "VeilstoneMine"    => (ComponentType?)ComponentType.ReadOnly<VeilstoneMineTag>(),
+            "Alanthor_Smelter" => (ComponentType?)ComponentType.ReadOnly<SmelterTag>(),
             _ => null,
         };
 
@@ -391,6 +441,29 @@ namespace TheWaningBorder.World.Regions
             // building — which is what lets the claim game start in the opening
             // instead of waiting on an age-up.
             Claim<HallTag>(em);
+
+            // The curse's holdings (Regions.md §3, 2026-08-31). Stamped after
+            // the Halls so a Hall on contested ground always wins — the curse
+            // never conquers Hall ground in the first place, so this is a
+            // tie-break for an excluded state, same as the Hall-vs-Hall one.
+            foreach (int t in _curseHeld)
+                if (t >= 0 && t < _owner.Length && _owner[t] == Natural)
+                    _owner[t] = Curse;
+
+            // Version bump only on a REAL change, so everything gated on it
+            // (the border ribbon, the ground mask, the rasterized ownership
+            // grid) stays untouched across the no-op recomputes that run on
+            // the income tick.
+            bool changed = _prevOwner.Length != _owner.Length;
+            if (!changed)
+                for (int i = 0; i < _owner.Length; i++)
+                    if (_prevOwner[i] != _owner[i]) { changed = true; break; }
+            if (changed)
+            {
+                if (_prevOwner.Length != _owner.Length) _prevOwner = new int[_owner.Length];
+                System.Array.Copy(_owner, _prevOwner, _owner.Length);
+                Version++;
+            }
         }
 
         /// <summary>

@@ -98,9 +98,23 @@ namespace TheWaningBorder.Bootstrap
             VeilstoneOutcroppingBootstrap.SpawnVeilstoneOutcroppings();
             VeilsteelDepositBootstrap.SpawnVeilsteelDeposits();
 
-            // Supply nodes last of the resources: their fallback is laid out
-            // per TERRITORY, so it needs the partition (built above) rather
-            // than the marker list alone. docs/Design/Regions.md §4.
+            // Veilstone coverage (Regions.md §3, 2026-08-31): every starter
+            // territory carries veilstone, and half of ALL territories do —
+            // veilstone is the army economy AND the ground the curse can
+            // conquer. BEFORE the iron pass, so a region that just gained
+            // veilstone no longer needs the iron fallback.
+            ResourceNodeCoverage.GuaranteeVeilstoneCoverage();
+
+            // Node-quota guarantee (Regions.md §4): every territory gets at
+            // least one ore node. AFTER all three ore bootstraps, so authored
+            // markers, fallbacks and the veilsteel coverage are on the ground
+            // and only a genuine shortfall is filled.
+            ResourceNodeCoverage.GuaranteeTerritoryOre();
+
+            // Supply nodes last of the resources: their per-territory top-up
+            // (2 per territory, 4 per home) is laid out per TERRITORY, so it
+            // needs the partition (built above) rather than the marker list
+            // alone. docs/Design/Regions.md §4.
             SupplyNodeBootstrap.SpawnSupplyNodes();
 
             if (GameSettings.BorderEnabled)

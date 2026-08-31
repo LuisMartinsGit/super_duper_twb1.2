@@ -96,31 +96,77 @@ front line is a row of structures somebody has to keep alive.
 
 ---
 
-## 3. The curse takes territory by force
+## 3. The curse is a PLAYER (2026-08-31 — THIRD MODEL, supersedes the wave-claim model below)
 
-The curse does not claim with influence and does not build. It **attacks**.
+**The curse expands exactly the way a player does: it takes whole territories,
+instantly, by the same ownership rules.** No influence, no gradient, no
+creep-front — a territory is curse-held or it is not.
 
-- **A Node sits at the CENTRE of some territories.** Node placement is authored,
-  not derived — the map decides which ground is cursed at the start.
-- **A Node sends waves at neighbouring territories.**
-- **If only curse units are left alive in an attacked territory, the curse
-  claims it** — and the wave moves on to the next.
+**The curse is NOT a full player.** It has no economy, no tech, no build
+orders, no AI brain. It does exactly two things: it takes territory (the
+expansion rule below) and it spawns armies that attack players. Do not give
+it any other player system.
 
-This is the mechanic that makes the map an active opponent rather than a
-backdrop. It also means the curse's spread is *legible*: you can see the wave
-coming, you know which territory is next, and holding a border territory is a
-military commitment rather than a bookkeeping one.
+**The FORTRESS (2026-08-31, see Age_0.md):** every player's STARTING
+building is now a Fortress — the capital, larger and far tougher than a
+Hall. It claims its home territory under the same rule as the Hall
+(mechanically it carries the Hall's claim), while the buildable Hall
+remains the one and only expansion claim structure of §2.
 
-### (INCOMPLETE) — needs direction
+**Hall cost rebalanced 600s/200i → 450s/450i (2026-08-31, batch 8):**
+supplies were both the army's fuel and the claim's price, so the two
+engines fought over one resource while iron sat idle past 1,500. Splitting
+the price across both lets a faction save a claim pot and rebuild its army
+at the same time — expansion pace and army size stop trading off
+one-for-one.
 
-- **Wave cadence and strength.** How often, how many, and does it escalate with
-  match time or with the number of territories the curse holds?
-- **"Only curse units survive"** — does a surviving BUILDING (a fortification,
-  a hut) prevent the claim, or is it strictly units on the ground?
-- **Can a player take a cursed territory back**, and does that require killing
-  the Node or only clearing the units and building a claim structure?
-- **Does a claimed territory keep spawning waves**, or does the Node's own
-  territory have to be cursed for it to be active?
+- **The curse starts from PURE NODES.** A pure node is authored map data,
+  INDESTRUCTIBLE, and is the curse's version of a Hall: the territory holding
+  it is curse-owned from the first tick. Pure nodes are the verb-victory
+  objectives (purify / pacify / destroy per culture) and the Shardroot host —
+  they are interacted with, never razed. **Veilmarch carries exactly ONE pure
+  node, in the centre territory.**
+- **Expansion rule: the curse conquers a RANDOM ADJACENT territory when that
+  territory (a) contains no Hall and (b) contains at least one veilstone
+  node.** Adjacent means region-graph adjacent (Voronoi neighbours). The
+  conquest is instant, like a player's claim. Ground without veilstone does
+  not interest it; ground a player holds (a live Hall) is safe from
+  conquest — the curse fights players with waves, not paperwork.
+- **A conquered territory gets a destroyable curse anchor** (a well). Killing
+  the anchor reverts the territory to Natural instantly — the same
+  claim-decays-on-structure-death rule players live by. Only pure nodes are
+  beyond destruction.
+- **Curse-held veilstone territories PRODUCE WAVES that attack players** —
+  the more ground it holds, the more fronts it opens. Waves target the
+  nearest player holdings; killing a wave does not free ground, killing the
+  anchor does.
+
+This keeps the map an active opponent with completely legible rules: you can
+read on the territory map exactly what the curse holds, what it can take next
+(hall-less veilstone ground adjacent to it), and what to kill to push it back.
+
+### Veilstone placement rules (2026-08-31)
+
+- **Every starter territory MUST have a veilstone outcropping.** Supersedes
+  Veilmarch's centre-ring exclusivity and the older "homes have no veilstone"
+  authoring.
+- **50% of ALL territories carry veilstone.** Veilstone is both the army
+  economy and the curse's food: the same ground that makes a territory worth
+  taking makes it conquerable by the curse if left hall-less. Authored
+  markers are honoured first; the runtime coverage pass fills the shortfall
+  deterministically (same contract as veilsteel's).
+
+## 3b. Territory visuals (2026-08-31 — INFLUENCE MAPS ARE REMOVED)
+
+**There are no influence maps.** Territories have fixed shapes; ownership is
+the only variable. Border colours and ground textures follow OWNERSHIP, and
+they change when ownership changes — an event, not a per-frame computation.
+**NO per-frame territory/influence compute anywhere**: the border ribbon, the
+minimap tint, and the culture ground mask are all rebuilt once per ownership
+change and then static. (Measured motivation, 2026-08-31 session: the
+per-frame influence border tracer alone logged 325 frame spikes in ten
+minutes.) The per-frame influence simulation (PlayerInfluenceMap growth,
+coverage sampling, hut "covered ground" preference) is retired with it.
 
 ---
 
@@ -128,50 +174,83 @@ military commitment rather than a bookkeeping one.
 
 Territory, not workers, is the engine.
 
-### What each resource is for (2026-08-28)
+### Resource domains (2026-08-28, rev. 2)
 
-Measured across every cost in the tree, the economy was inverted: **Supplies
-were 62.6% of everything the game sells, Iron 24.2%, Veilstone 11.0% and
-Veilsteel 2.2% — and Veilsteel appeared in 0% of buildings.** Supplies were
-also the one resource that arrived *unconditionally*, on every territory,
-whether it held anything or not.
+**Each resource owns a domain, not a tier.** Iron spans two of them, so the
+domains are connected rather than separate games.
 
-So the resources that could drive conflict (iron, veilstone, veilsteel — they
-only exist where a node is) were the ones nothing asked for, and the resource
-everything asked for was the one you got just for owning any ground. Territory
-COUNT mattered; territory CONTENTS did not.
-
-| Resource | Role | Where it comes from |
+| Domain | Pays with | Covers |
 |---|---|---|
-| **Supplies** | The bread and butter — basic infantry, workers, opening buildings | Every territory, unconditionally (lowered to **52/min**) |
-| **Iron** | Weapons and armour: military units, military buildings, weapon techs | Iron deposits only |
-| **Veilstone** | The heavy line — **cavalry, siege and the religious tier cannot be built without it** — plus Age-1 buildings and techs | Veilstone outcroppings only |
-| **Veilsteel** | The apex: elite units and the top rung of each tech ladder | Veilsteel deposits, ~1 territory in 3 |
+| **Infrastructure** | Supplies + Iron | Buildings, building upgrades, early tech, the entry units |
+| **The army** | Veilstone + Iron | Every soldier above the entry line, mid tech |
+| **The end of the tree** | Veilsteel + Veilstone | Late tech only |
 
-**Requirements, not contributions.** A resource that is 5% of a price is a
-rounding error; one that *gates* a unit is a reason to take ground. Veilstone
-and veilsteel are floors on the heavy and elite lines — 59% of units now need
-veilstone and **38% need veilsteel**, up from 55% and 9%.
+**Why.** Measured over a 29-minute four-AI match: supplies were consumed to
+zero by every faction (banks of 2, 72, 140, 347) while veilstone climbed to
+1,129-10,076 and veilsteel to 357-2,097. Soldiers were priced in supplies, so
+armies died around minute 8 and never rebuilt, and 7,000 units of ore per
+faction bought nothing. Three of four AIs finished with no army; the winner had
+two soldiers and won by outliving the others rather than by fighting.
 
-**Line infantry is deliberately exempt.** The Spearman, Swordsman, Sentinel and
-Nobleman are tagged `Heavy` but they are the backbone of every army; gating
-them on veilstone locks a faction out of the game rather than giving it
-something to fight for. The same reasoning keeps veilsteel out of *base*
-building costs — it reaches buildings through the upgrade ladders instead.
+The domains match demand to supply: the resource that is always spent buys the
+thing you always build, and the resource that piles up buys the thing you
+continuously lose.
 
-**Income was rebalanced with it**: the unconditional supply base dropped
-72 → 52/min and node yield rose 75 → 95/min. Ore is now **65% of a faction's
-income** (was 51%), and a territory with a node is worth **2.83x** a bare one
-(was 2.04x). That difference is the whole reason to contest a particular
-region.
+**Tiers come from the prerequisite graph, not from names.** Depth 0 is early
+(49 techs), depth 1 mid (21), depth 2+ late (20). The weapon ladder falls out
+of it exactly: Stone -> Iron -> Veilstone -> ShardInfused.
+
+**Entry units stay on supplies.** Spearman, Archer, Scout, Worker and Litharch
+keep their supply price. Veilstone in the first two minutes ranges 55-165
+across factions - a 3x spread on map draw alone - so gating every soldier on it
+from minute zero would decide the opening by luck and make the early game
+quieter, which is the opposite of the intent. From the second tier up, the army
+runs on veilstone.
+
+**Exchange rates come from observed abundance**: veilstone is plentiful so it
+costs MORE per unit of value (1.5x supplies); veilsteel is scarce so it costs
+LESS (a quarter). Resulting demand share: Supplies 36%, Veilstone 41%, Iron
+20%, Veilsteel 3% - against 61/12/25/3 before.
+
+**Army prices are sized to the 200-population ceiling** (2026-08-29). The cap
+should be something every player reaches inside twenty minutes, which is
+roughly 35 workers and 160 soldiers. Against measured income over 1,200 s
+(~12,000 supplies, ~9,600 iron, ~8,400 veilstone), and after paying for workers
+and ~18 Huts of housing, that leaves about 55 veilstone and 25 iron per
+soldier — so military costs were cut to hit it (soldiers: veilstone x0.35,
+iron x0.55; entry units x0.55).
+
+Three things had to move together, because each alone is a hard ceiling:
+the PRICE (above), the AI's `SustainArmyCap` (10/20/24/32 across the ladder was
+an order of magnitude below 200 pop, so the AI stopped wanting soldiers long
+before it ran out of money), and `PopulationHeadroomFloor` (at 2, housing
+trailed production and stalled every trainer while a hut went up; at 16 it
+leads).
+
+**Watch**: supplies are now a pure infrastructure currency. Buildings are
+bought once where soldiers are lost continuously, so if supplies start piling
+up unspent, the answer is more continuous building demand (depletion already
+pushes that way), not moving soldiers back onto them.
 
 Everything below is authored **per minute**, because that is the unit the player
 is shown (see *Reading a territory* at the end of this section).
 
-- **A territory produces a supply tick** on its own.
+- **A territory produces a supply tick that scales with its supply nodes**
+  (2026-08-29): 20/min for the bare ground plus **26/min per supply node**. A
+  standard 2-node territory therefore pays the same 72/min the old flat base
+  did; a 4-node home pays 124. The base yield now CORRELATES with what stands
+  in the territory instead of being one number for every region — an empty
+  territory is still never pointless to hold, but a stocked one is visibly
+  richer before anything is built on it.
 - **A territory containing a resource node produces a trickle of that
-  resource — 95/min per node**, whether or not anything is built on it. Holding
-  the ground is what pays; the node is the reason the ground is worth holding.
+  resource — iron and veilstone 190/min per node, veilsteel 95/min**
+  (2026-08-30: iron/veilstone doubled from the flat 95 — armies were being
+  trained but not replaced fast enough to fight with, and the ore economy
+  was the bottleneck), whether or not anything is built on it. Holding the
+  ground is what pays; the node is the reason the ground is worth holding.
+  Doubled yield drains the node's reserve twice as fast — a fresh 4,000-unit
+  seam now runs to its 25% floor in roughly 21 undisturbed minutes, which
+  sharpens the expand-or-decline pressure rather than blunting it.
 - **Every resource has its OWN extraction building, and it stands ON the node.**
   One per node — the node count is what limits how many a territory supports,
   which is the whole reason nodes replaced area-based caps.
@@ -191,6 +270,16 @@ is shown (see *Reading a territory* at the end of this section).
   and the ladders for the two mines are priced in **veilstone and veilsteel** —
   the currencies a territory-holding faction accumulates and previously could
   not spend.
+
+- **Ore extractors are priced in IRON first** (2026-08-30): Mine 90 supplies +
+  140 iron, Veilstone Mine 90 + 160 iron, Smelter 240 + 320 iron. They were
+  supply-priced, and the measured result — the moment on-node placement
+  actually worked — was a straight duel with the Hall for the one currency
+  everything needs: six of eight batch matches ended with ZERO expansions,
+  every 600-supply claim starving behind a queue of 198-supply mines. Iron is
+  the currency a territory-holding faction banks and barely spends, so paying
+  iron to dig ore is the resource-domain rule (Infrastructure = Supplies +
+  Iron) applied *inside* the domain. The Gatherer's Hut stays supply-priced.
 
 - **NODES DEPLETE.** A fresh node holds ~4,000 units; yield scales with what is
   left, down to a **25% floor** so a spent node still trickles rather than
@@ -224,9 +313,10 @@ mining-era shape — many small things so many workers had somewhere to stand �
 and nothing stands on them any more. One node is also something a player can
 point at, contest, and build a mine on top of.
 
-**Supply nodes are new, and they exist to be a placement rule.** They pay
-nothing themselves. What they do is decide WHERE a Gatherer's Hut can go, and
-that single rule replaces the two crutches the hut needed before it:
+**Supply nodes are a placement rule first** — they decide WHERE a Gatherer's
+Hut can go (and since 2026-08-29 they also scale the territory's base supply
+tick, above). The placement rule replaces the two crutches the hut needed
+before it:
 
 - the **per-territory hut cap** — the count is now however many supply nodes the
   territory has, which is map data rather than a magic number, and it can differ
@@ -234,6 +324,33 @@ that single rule replaces the two crutches the hut needed before it:
 - the **gather-area rule** — there is nothing to overlap, so no coverage
   percentage, no first-come-first-served split, and no reason to inspect the
   ground before placing.
+
+### Node quotas (2026-08-29)
+
+Every territory is guaranteed a working economy, and a home is guaranteed a
+bigger one:
+
+- **Every territory carries 2 supply nodes. A home territory — one holding a
+  player start — carries 4.** The count is the hut cap AND the base-tick
+  multiplier, so this is the "small territory vs large start territory"
+  difference made concrete: a home supports twice the huts and twice the
+  base supply trickle of the ground around it.
+- **Every territory carries at least one ore node** (iron, veilstone or
+  veilsteel) **and never more than four.** No region is dead ground: whatever
+  you take, something in it trickles. Veilsteel keeps its own scarcity rule
+  (about one territory in three, never two in one).
+- **Enforced twice.** The map generators author these counts and their
+  validators fail the build when a region misses quota; at match load the
+  node bootstraps then top up any shortfall the same way the veilsteel
+  coverage pass always has — authored markers honoured first, only the
+  shortfall seeded, walked deterministically so lockstep peers agree. The
+  generic min-ore top-up is IRON; **veilstone has its own coverage pass**
+  (§3, 2026-08-31: every home + 50% of all territories), which superseded
+  Veilmarch's old "veilstone exists only in the centre ring" rule.
+  Veilsteel exclusivity still survives the guarantee.
+- **The AI values ground by the same numbers**: its claim scorer counts every
+  node kind (supply included) when picking which region to take next, and its
+  extractor pass then builds the matching building on each node it holds.
 
 ### Reading a territory
 
@@ -262,9 +379,12 @@ a map position, not a worker count.
 | Curse escalation, re-triggered on territory tenure | `TechTree/Border/SmallNode/TerritoryCorruptionSystem.cs` |
 | Worker gathering | **deleted** — 4 systems, 2 commands, the AI allocator, the input paths |
 
-Rates are placeholders, all `const` at the top of `TerritoryIncomeSystem`:
-6 supplies per territory per 5 s, +4 per hut (max 3), +5 per forest, 2 iron and
-1 veilstone for a deposit-bearing territory.
+Rates are all `const` at the top of `TerritoryIncomeSystem`, authored per
+minute: 20 supplies base + 26 per supply node, +50 per hut, +60 per forest
+(Sawyer x2), 95 per ore node + 25 per extractor level, survey ladders x1.5 a
+tier. Node quotas are enforced by the generator validators and by the runtime
+top-up passes (`SupplyNodeBootstrap`, `ResourceNodeCoverage`,
+`VeilsteelDepositBootstrap`).
 
 **The hut limit is a HARD placement cap, not an income ceiling** (2026-08-28).
 `TerritoryOwnership.MaxGathererHutsPerTerritory` is the single number, read by

@@ -36,7 +36,7 @@ MonoBehaviour:
   cost:
     Supplies: 0
     Iron: 0
-    Veilstone: 50
+    Veilstone: 18
     Veilsteel: 0
   minBuildingLevel: 0
   buildSpeed: 0
