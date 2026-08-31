@@ -15,6 +15,17 @@ Nothing yet.
 
 ---
 
+## [0.0.19] — 2026-09-01
+
+### Fixed
+
+- **Hitch forensics.** The Veilmarch stutter that survived 0.0.18 stalls the
+  game in bursts that none of the existing instruments could see. Every long
+  frame now records which engine phase ate the time, so the very next play
+  session tells us exactly what to fix. No gameplay changes.
+
+---
+
 ## [0.0.18] — 2026-08-31
 
 ### Fixed

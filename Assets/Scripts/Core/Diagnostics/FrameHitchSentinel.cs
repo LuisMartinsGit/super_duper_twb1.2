@@ -53,7 +53,7 @@ namespace TheWaningBorder.Core.Diagnostics
 
                 PerfSpikeLog.Report("FRAME", ms,
                     $"gc0+{g0 - _gc0} gc1+{g1 - _gc1} gc2+{g2 - _gc2} " +
-                    $"cpu{cpu:F0} gpu{gpu:F0}", 0.0);
+                    $"cpu{cpu:F0} gpu{gpu:F0} | {PlayerLoopPhaseProfiler.Describe()}", 0.0);
             }
 
             _gc0 = g0; _gc1 = g1; _gc2 = g2;
