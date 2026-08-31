@@ -21,6 +21,9 @@ namespace TheWaningBorder.Entities
         /// carries no known building tag.</summary>
         public static string Of(Entity entity, EntityManager em)
         {
+            // BEFORE HallTag: the Fortress carries BOTH (the capital IS a
+            // Hall mechanically), and its own name must win.
+            if (em.HasComponent<FortressTag>(entity)) return "Fortress";
             if (em.HasComponent<HallTag>(entity)) return "Hall";
             if (em.HasComponent<BarracksTag>(entity)) return "Barracks";
             if (em.HasComponent<ArcheryRangeTag>(entity)) return "ArcheryRange";
@@ -57,6 +60,19 @@ namespace TheWaningBorder.Entities
             if (em.HasComponent<MineTag>(entity)) return "Mine";
             if (em.HasComponent<VeilstoneMineTag>(entity)) return "VeilstoneMine";
             if (em.HasComponent<SawyerTag>(entity)) return "Alanthor_Sawyer";
+            // Wall pieces — same mapping BuildCosts.IdOf uses for refunds.
+            // These were MISSING here, and a to-completion batch made every
+            // building ledger read "unknown 165" per faction: the endgame
+            // wall doctrine raises a base wall segment by segment from ~23
+            // minutes, and this switch was written before matches ran that
+            // long. A hub-and-segment ring dwarfs every other count, so the
+            // hole topped the buildings chart.
+            if (em.HasComponent<WallTowerTag>(entity)) return "Alanthor_WallTower";
+            if (em.HasComponent<WallGateTag>(entity)) return "Alanthor_WallGate";
+            if (em.HasComponent<WallInstanceTag>(entity)
+                || em.HasComponent<WallTag>(entity)
+                || em.HasComponent<WallHubTag>(entity)
+                || em.HasComponent<WallSegmentTag>(entity)) return "Alanthor_Wall";
             // Sect chapels — dynamic building ID based on sect
             if (em.HasComponent<ChapelTag>(entity))
             {

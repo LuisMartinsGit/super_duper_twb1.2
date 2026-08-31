@@ -29,7 +29,7 @@ MonoBehaviour:
   radius: 1.6
   lineOfSight: 24
   buildTime: 50
-  populationProvided: 20
+  populationProvided: 30
   suppliesPerTick: 50
   suppliesInterval: 15
   maxIron: 0
@@ -45,8 +45,8 @@ MonoBehaviour:
   - ArmedScouts
   minEra: 0
   cost:
-    Supplies: 600
-    Iron: 200
+    Supplies: 450
+    Iron: 450
     Veilstone: 0
     Veilsteel: 0
   tags:

@@ -1,0 +1,58 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b98b52f4032a91549814ef127e8e0bff, type: 3}
+  m_Name: Fortress
+  m_EditorClassIdentifier:
+  id: Fortress
+  displayName: Fortress
+  role: Capital / HQ / Research Era / Research Economy / Worker upgrades / resource
+    drop-off / Supply generation / Objective
+  description: The capital. Every player starts the match with one Fortress - larger
+    and far tougher than a Hall, with a real garrison attack. Hosts everything the
+    Hall hosts (Workers, Scouts, the Hall research bench and the age-up) and claims
+    its home territory. Not buildable - expansion is the Hall's job.
+  hp: 3600
+  armorType: structure_human
+  defense:
+    melee: 12
+    ranged: 18
+    siege: 2
+    magic: 8
+  radius: 2
+  lineOfSight: 30
+  buildTime: 120
+  populationProvided: 40
+  suppliesPerTick: 50
+  suppliesInterval: 15
+  maxIron: 0
+  maxVeilstone: 0
+  segmentHp: 0
+  segmentLineOfSight: 0
+  trains:
+  - Worker
+  - Scout
+  research: []
+  minEra: 0
+  cost:
+    Supplies: 1200
+    Iron: 400
+    Veilstone: 0
+    Veilsteel: 0
+  tags:
+  - Building
+  attack:
+    enabled: 1
+    damage: 45
+    damageType: ranged
+    range: 34
+    cooldown: 2
+    maxTargets: 2

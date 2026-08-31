@@ -40,6 +40,10 @@ public static class BuildingSizeConfig
             "Hut"               => new int2(4, 4),
             "GatherersHut"      => new int2(4, 4),
 
+            // ── 5 x 5 cells (10 x 10 m) ─────────────────────────────────
+            // The capital (Age_0.md 2026-08-31): a bit larger than the Hall.
+            "Fortress"          => new int2(10, 10),
+
             // ── 4 x 4 cells (8 x 8 m) ───────────────────────────────────
             "Hall"              => new int2(8, 8),
             "ArcheryRange"      => new int2(8, 8),

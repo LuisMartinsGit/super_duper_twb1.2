@@ -128,8 +128,9 @@ public static class TechCatalog
             }
             if (missing > 0)
                 Debug.LogWarning($"[TechCatalog] {missing} technolog{(missing == 1 ? "y" : "ies")} " +
-                    "had no SO asset and fell back to TechTree.json. Re-run " +
-                    "Waning Border > Tech Tree > Generate Tech SOs.");
+                    "had no SO asset and fell back to TechTree.json. Author the missing " +
+                    "TechDefSO under its building's Research/ folder and add it to " +
+                    "TechTreeCatalog.asset (there is no generator tool).");
         }
         else
         {
@@ -225,6 +226,24 @@ public static class TechCatalog
 
             def.research = merged.Count > 0 ? merged.ToArray() : System.Array.Empty<string>();
             _derivedResearch[kv.Key] = def.research;
+        }
+
+        // THE CAPITAL HOSTS THE HALL'S BENCH (Age_0.md 2026-08-31). The
+        // Fortress is the starting building and must offer everything the
+        // Hall researches — the age-up included — or a player who never
+        // builds a spare Hall could not advance at all. researchAt stays
+        // "Hall" as the single truth (moving the techs would orphan the
+        // buildable Hall); the capital inherits the derived list here, in
+        // the one place research lists are built.
+        if (_buildingsById.TryGetValue("Fortress", out var fortress)
+            && _buildingsById.TryGetValue("Hall", out var hall)
+            && fortress != null && hall != null && hall.research != null)
+        {
+            var inherited = new List<string>(fortress.research ?? System.Array.Empty<string>());
+            foreach (var id in hall.research)
+                if (!inherited.Contains(id)) inherited.Add(id);
+            fortress.research = inherited.ToArray();
+            _derivedResearch["Fortress"] = fortress.research;
         }
 
         // A researchAt pointing at a building that does not exist would otherwise

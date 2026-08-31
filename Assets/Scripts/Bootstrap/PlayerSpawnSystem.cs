@@ -252,8 +252,11 @@ namespace TheWaningBorder.Bootstrap
                 spawnPos = EnsureValidSpawnPosition(position);
             }
 
-            // Spawn Hall (main base) — use BuildingFactory for NetworkedEntity assignment
-            BuildingFactory.Create(em, "Hall", spawnPos, faction);
+            // Spawn the FORTRESS — the capital (Age_0.md 2026-08-31). It
+            // carries HallTag so every Hall rule (home claim, victory, AI
+            // anchoring) applies unchanged; Halls proper are what players
+            // BUILD to expand. BuildingFactory for NetworkedEntity assignment.
+            BuildingFactory.Create(em, "Fortress", spawnPos, faction);
 
             // Record the FINAL position (post-clamp, post-height-snap) — this
             // is the one that decides which region the player is standing in.

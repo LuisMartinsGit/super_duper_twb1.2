@@ -56,6 +56,9 @@ namespace TheWaningBorder.Entities
             return new Dictionary<string, BuildingRecipe>
             {
                 ["Hall"]            = new BuildingRecipe(Hall.Create, Hall.Create, 100),
+                // The capital — start-of-match only (PlayerSpawnSystem); no
+                // build menu lists it. Shares the Hall's presentation id.
+                ["Fortress"]        = new BuildingRecipe(Fortress.Create, Fortress.Create, 100),
                 ["Hut"]             = new BuildingRecipe(Hut.Create, Hut.Create, 102),
                 ["GatherersHut"]    = new BuildingRecipe(GatherersHut.Create, GatherersHut.Create, 101),
                 ["Barracks"]        = new BuildingRecipe(Barracks.Create, Barracks.Create, 510),
