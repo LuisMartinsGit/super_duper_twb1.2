@@ -15,6 +15,20 @@ Nothing yet.
 
 ---
 
+## [0.0.18] — 2026-08-31
+
+### Fixed
+
+- **A big chunk of the remaining Veilmarch stutter.** The territory-border
+  decals were forcing the renderer to draw the whole scene an extra time each
+  frame for data they barely used; they now use a cheaper technique that looks
+  identical on the ground. Long frames also record how much of the time was
+  CPU versus GPU, so the next report can point at the exact culprit.
+- **This is the first small update.** If the launcher fetched only a few
+  megabytes for this one, incremental updates are officially working.
+
+---
+
 ## [0.0.17] — 2026-08-31
 
 ### Added
