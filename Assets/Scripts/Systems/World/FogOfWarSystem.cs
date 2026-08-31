@@ -26,15 +26,27 @@ namespace TheWaningBorder.Systems.Visibility
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial class FogOfWarSystem : SystemBase
     {
+        /// <summary>Reveal cadence (2026-08-31 live-profile pass). The full
+        /// pass — an 8-faction grid clear plus a stamp disc per sighted
+        /// entity — ran EVERY FRAME, and at the fine 1 m fog grid that
+        /// measured 5-14 ms per frame, the single largest steady drag in
+        /// the live Perf.log (911 spikes, 6.4 s total in five minutes).
+        /// Nothing that reads visibility needs frame-rate freshness: intel
+        /// scans, the minimap and the overlay all work on second-scale
+        /// cadences, and between ticks the grids simply keep the last
+        /// tick's truth. 4 Hz cuts the cost by an order of magnitude with
+        /// no visible change at the fog edge.</summary>
+        private const float RevealInterval = 0.25f;
+        private float _nextReveal;
 
         protected override void OnUpdate()
         {
             var mgr = FogOfWarManager.Instance;
             if (mgr == null) return;
 
-            // Instrumented (2026-08-16 perf sweep): BeginFrame clears an
-            // 8-faction byte grid and every LoS entity stamps its circle,
-            // per frame, unthrottled.
+            if (UnityEngine.Time.unscaledTime < _nextReveal) return;
+            _nextReveal = UnityEngine.Time.unscaledTime + RevealInterval;
+
             double t0 = UnityEngine.Time.realtimeSinceStartupAsDouble;
 
             // Begin new frame - clears current visibility

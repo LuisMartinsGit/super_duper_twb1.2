@@ -416,6 +416,22 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         }
     }
 
+    /// <summary>In-match cap on view creations per frame. A training wave
+    /// completing across four factions used to Instantiate a dozen-plus
+    /// animated rigs in ONE frame — prefab instantiate + Animator init all
+    /// landing together, the periodic Animation-category frame spike of the
+    /// 2026-08-31 profile. Spread over frames the same work is invisible; a
+    /// unit appearing two frames late does not exist at RTS zoom. The budget
+    /// is lifted while the loading overlay is up so the initial map
+    /// population (hundreds of nodes/forests/buildings) still lands before
+    /// the player sees the world.</summary>
+    private const int MaxViewSpawnsPerFrame = 8;
+
+    // Reused across frames — burst frames are the norm for this list's
+    // lifetime, and per-frame allocation was the GC drip this system already
+    // fixed once in CleanupDestroyedEntities.
+    private readonly System.Collections.Generic.List<int> _missingScratch = new();
+
     private void SpawnMissingVisuals()
     {
         if (_presentationQuery == null) return;
@@ -424,35 +440,59 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         var presentations = _presentationQuery.ToComponentDataArray<PresentationId>(Unity.Collections.Allocator.Temp);
         var transforms = _presentationQuery.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
 
+        // Pass 1: what is missing. Cheap set lookups only.
+        _missingScratch.Clear();
         for (int i = 0; i < entities.Length; i++)
         {
             var entity = entities[i];
-
-            // Skip if already spawned
             if (_spawnedEntities.Contains(entity)) continue;
-
-            // Skip if EntityViewManager already has it
             if (EntityViewManager.Instance != null &&
                 EntityViewManager.Instance.TryGetView(entity, out _))
             {
                 _spawnedEntities.Add(entity);
                 continue;
             }
+            _missingScratch.Add(i);
+        }
 
-            var presentationId = presentations[i].Id;
-            var transform = transforms[i];
+        // Pass 2: spawn under the budget, nearest to the camera first, so a
+        // burst that must be split always materialises the views the player
+        // is actually looking at.
+        int budget = TheWaningBorder.Core.PresentationState.LoadingOverlayVisible
+            ? int.MaxValue : MaxViewSpawnsPerFrame;
 
-            // Spawn the visual
-            var go = SpawnVisual(entity, presentationId, transform);
+        if (_missingScratch.Count > budget)
+        {
+            var cam = TheWaningBorder.Core.PresentationState.MainCamera;
+            if (cam != null)
+            {
+                Vector3 cp = cam.transform.position;
+                _missingScratch.Sort((a, b) =>
+                {
+                    Vector3 pa = transforms[a].Position, pb = transforms[b].Position;
+                    float da = (pa.x - cp.x) * (pa.x - cp.x) + (pa.z - cp.z) * (pa.z - cp.z);
+                    float db = (pb.x - cp.x) * (pb.x - cp.x) + (pb.z - cp.z) * (pb.z - cp.z);
+                    return da.CompareTo(db);
+                });
+            }
+        }
+
+        int spawned = 0;
+        for (int m = 0; m < _missingScratch.Count && spawned < budget; m++)
+        {
+            int i = _missingScratch[m];
+            var entity = entities[i];
+
+            var go = SpawnVisual(entity, presentations[i].Id, transforms[i]);
             if (go != null)
             {
-                // Register with EntityViewManager
                 if (EntityViewManager.Instance != null)
                     EntityViewManager.Instance.RegisterView(entity, go);
-
                 _spawnedEntities.Add(entity);
-
+                spawned++;
             }
+            // A null view retries next frame, exactly as before the budget —
+            // it costs no budget, so it cannot starve the queue behind it.
         }
 
         entities.Dispose();
@@ -929,6 +969,16 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             var animator = goInst.GetComponentInChildren<Animator>();
             if (animator != null)
             {
+                // OFF-SCREEN RIGS COST NOTHING (2026-08-31 profile): the
+                // prefabs ship with the Unity default (AlwaysAnimate), so
+                // every off-screen army was evaluating its full skeleton
+                // every frame. CullUpdateTransforms keeps the state machine
+                // advancing (no pose pop or timing desync when a unit
+                // scrolls into view) but skips the bone writes while no
+                // renderer is visible — which is most of the map, most of
+                // the time.
+                animator.cullingMode = AnimatorCullingMode.CullUpdateTransforms;
+
                 var animSync = goInst.AddComponent<UnitAnimationSync>();
                 animSync.LinkedEntity = entity;
 

@@ -69,7 +69,15 @@ namespace TheWaningBorder.World.FogOfWar
 
             _tex = new Texture2D(_w, _h, TextureFormat.Alpha8, false, true)
             {
-                filterMode = FilterMode.Trilinear,
+                // SHARP explored/unexplored boundary (2026-08-31 directive).
+                // This was TRILINEAR — maximum smear on a fog mask: the
+                // frontier of knowledge blurred across metres of ground and
+                // read as haze, which is exactly "no clear boundary between
+                // explored and revealed". Point keeps every fog cell a crisp
+                // step — the classic RTS look — and the map-scaled grid
+                // keeps the steps small on any map size.
+                filterMode = FilterMode.Bilinear, // smooth sub-texel frontier; the
+                                                  // shader re-sharpens the bands
                 wrapMode = TextureWrapMode.Clamp
             };
 
@@ -91,6 +99,10 @@ namespace TheWaningBorder.World.FogOfWar
 
             FogMaterial.SetVector("_WorldMin", new Vector4(WorldMin.x, 0, WorldMin.y, 0));
             FogMaterial.SetVector("_WorldMax", new Vector4(WorldMax.x, 0, WorldMax.y, 0));
+            // The shader sharpens the bilinear gradient back into crisp
+            // bands, so it needs to know where the plateaus sit.
+            FogMaterial.SetFloat("_ExploredA", ExploredAlpha);
+            FogMaterial.SetFloat("_HiddenA", HiddenAlpha);
 
             if (FogRenderer != null && FogRenderer.sharedMaterial != FogMaterial)
                 FogRenderer.sharedMaterial = FogMaterial;
@@ -266,7 +278,7 @@ namespace TheWaningBorder.World.FogOfWar
             if (_tex.width != _w || _tex.height != _h)
             {
                 _tex.Reinitialize(_w, _h);
-                _tex.filterMode = FilterMode.Point;
+                _tex.filterMode = FilterMode.Bilinear;
                 _tex.wrapMode = TextureWrapMode.Clamp;
                 EnsureMaterialBound();
             }
@@ -369,6 +381,7 @@ namespace TheWaningBorder.World.FogOfWar
                 _tex.Reinitialize(_w, _h);
 
             _tex.wrapMode = TextureWrapMode.Clamp;
+            _tex.filterMode = FilterMode.Bilinear;   // smooth frontier (see ctor site)
 
             EnsureMaterialBound();
             PushHumanTexture();
@@ -382,6 +395,13 @@ namespace TheWaningBorder.World.FogOfWar
 
             EnsureMaterialBound();
             ForceRebuildGrid(clearRevealed);
+
+            // Repaint pacing scales with the grid: the overlay rebuild walks
+            // every cell, so a big map repaints a little less often instead of
+            // costing proportionally more. 0.2 s on a million-cell grid is
+            // invisible at the fog edge and halves the largest area-scaled
+            // cost the fine (half-build-cell) fog grid carries.
+            TextureUpdateInterval = (_w * _h) > 600_000 ? 0.2f : 0.1f;
 
             // Keep the enabled flag across surface rebuilds — observers run
             // with the overlay renderer hidden.
@@ -502,12 +522,28 @@ namespace TheWaningBorder.World.FogOfWar
                 max = new Vector2(half, half);
             }
 
+            // FOG IS FINER THAN THE GAME GRID (2026-08-31 directive, rev.2).
+            // Fog of war is a knowledge layer, not the sim grid — they are
+            // different things, and the fog boundary must never be as chunky
+            // as a build cell. So the cell is DERIVED from the build grid at
+            // half its size (1 m today), on every map: the texel count grows
+            // with map area, which is what keeps the explored/unexplored
+            // boundary equally crisp on a big map instead of equally coarse.
+            // (An earlier span/512 rule capped the texel count instead; on
+            // Veilmarch that made fog cells EQUAL to the 2 m build grid.
+            // Measured note: the 1 m grid never appeared in the Perf.log
+            // spike ledger — the fog was not one of the lag offenders.)
+            // The conforming mesh still densifies on big maps so the overlay
+            // hugs the terrain instead of floating over slopes.
+            float span = Mathf.Max(max.x - min.x, max.y - min.y);
+            float cell = BuildGrid.CellSize * 0.5f;
+            int fogGrid = span > 700f ? 256 : 128;
             mgr.ApplyBounds(
                 min,
                 max,
-                newCellSize: 1f,
+                newCellSize: cell,
                 clearRevealed: true,
-                surfaceGrid: 128);
+                surfaceGrid: fogGrid);
 
             // ApplyBounds creates the fog surface itself; parent it under our root
             // so the hierarchy stays tidy.
@@ -517,7 +553,7 @@ namespace TheWaningBorder.World.FogOfWar
             var active = UnityEngine.Terrain.activeTerrain;
             if (active == null || active.terrainData == null)
             {
-                root.AddComponent<OneShotFoWRebuilder>().Init(mgr, 128);
+                root.AddComponent<OneShotFoWRebuilder>().Init(mgr, fogGrid);
             }
         }
 
@@ -541,11 +577,16 @@ namespace TheWaningBorder.World.FogOfWar
                 // playable rect (ApplyBounds keeps exploration progress).
                 var tpos = t.transform.position;
                 var tsize = t.terrainData.size;
+                // Same rule as the bootstrap: fog cell derives from the build
+                // grid (half a build cell), never from the span — only the
+                // conforming-mesh density scales with the map.
+                float lateSpan = Mathf.Max(tsize.x, tsize.z);
                 _mgr.ApplyBounds(
                     new Vector2(tpos.x, tpos.z),
                     new Vector2(tpos.x + tsize.x, tpos.z + tsize.z),
+                    newCellSize: BuildGrid.CellSize * 0.5f,
                     clearRevealed: false,
-                    surfaceGrid: _grid);
+                    surfaceGrid: lateSpan > 700f ? 256 : _grid);
                 if (_mgr.FogRenderer != null)
                     _mgr.FogRenderer.transform.SetParent(transform, true);
 

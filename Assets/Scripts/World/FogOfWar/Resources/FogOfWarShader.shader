@@ -7,6 +7,8 @@ Shader "Unlit/FogOfWar"
         _WorldMin("World Min (x,z)", Vector) = (-125, 0, -125, 0)
         _WorldMax("World Max (x,z)", Vector) = ( 125, 0,  125, 0)
         _Softness("Edge Softness (texels)", Range(0,2)) = 1
+        _ExploredA("Explored Alpha", Range(0,1)) = 0.65
+        _HiddenA  ("Hidden Alpha",   Range(0,1)) = 1
     }
     SubShader
     {
@@ -30,6 +32,8 @@ Shader "Unlit/FogOfWar"
             float4 _WorldMin;
             float4 _WorldMax;
             float  _Softness;
+            float  _ExploredA;
+            float  _HiddenA;
 
             struct v2f {
                 float4 pos  : SV_POSITION;
@@ -51,29 +55,26 @@ Shader "Unlit/FogOfWar"
                 float2 uv = (worldXZ - _WorldMin.xz) / (_WorldMax.xz - _WorldMin.xz);
                 uv = saturate(uv);
 
-                // 3x3 kernel in texture space (small and cheap)
-                float2 texel = _MainTex_TexelSize.xy * max(_Softness, 0.0);
-                float a = 0.0;
+                // BILINEAR sample + band re-sharpen (2026-08-31). The old
+                // path point-sampled the grid and blurred it with a 3x3
+                // kernel, which softened the corners but left every 1 m fog
+                // texel readable as a square. Bilinear filtering gives a
+                // smooth sub-texel gradient between the three plateaus
+                // (visible 0, explored, hidden); the smoothsteps below
+                // steepen each transition back to a crisp band boundary
+                // without ever exposing the texel grid — higher apparent
+                // resolution from the same grid, at ONE tap instead of nine.
+                float a = tex2D(_MainTex, uv).a;
 
-                // simple Gaussian-ish weights
-                const float wC = 4.0;
-                const float wA = 2.0; // axis neighbors
-                const float wD = 1.0; // diagonal neighbors
-                float wSum = wC + 4.0*wA + 4.0*wD;
+                float e = _ExploredA;
+                float h = max(_HiddenA, e + 0.001);
 
-                a += tex2D(_MainTex, uv                 ).a * wC;
-
-                a += tex2D(_MainTex, uv + float2( texel.x, 0) ).a * wA;
-                a += tex2D(_MainTex, uv + float2(-texel.x, 0) ).a * wA;
-                a += tex2D(_MainTex, uv + float2(0,  texel.y) ).a * wA;
-                a += tex2D(_MainTex, uv + float2(0, -texel.y) ).a * wA;
-
-                a += tex2D(_MainTex, uv +  texel               ).a * wD;
-                a += tex2D(_MainTex, uv + float2(-texel.x, texel.y)).a * wD;
-                a += tex2D(_MainTex, uv + float2( texel.x,-texel.y)).a * wD;
-                a += tex2D(_MainTex, uv -  texel               ).a * wD;
-
-                a /= wSum;
+                // visible -> explored transition, then explored -> hidden.
+                // Windows sit at the middle half of each band, so plateau
+                // values map exactly to themselves.
+                float b1 = smoothstep(0.25 * e, 0.75 * e, a);
+                float b2 = smoothstep(e + 0.25 * (h - e), e + 0.75 * (h - e), a);
+                a = b1 * e + b2 * (h - e);
 
                 return fixed4(_Tint.rgb, a);
             }

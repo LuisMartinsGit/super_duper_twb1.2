@@ -72,6 +72,16 @@ namespace TheWaningBorder.Presentation
         // Natural attack clip length (seconds); 0 = no attack clip found.
         private float _attackClipLength;
 
+        /// <summary>State-boolean poll cadence (2026-08-31 profile pass).
+        /// The booleans feed animator TRANSITIONS, which blend over longer
+        /// than this anyway, so 10 Hz is visually identical to per-frame —
+        /// while cutting this component's managed ECS reads (~10 per unit
+        /// per frame, hundreds of units) by an order of magnitude. The bow
+        /// draw cue is exempt: it is phase-locked to the arrow spawn and
+        /// runs per-frame in <see cref="UpdateDrawCue"/>.</summary>
+        private const float PollInterval = 0.1f;
+        private float _nextPoll;
+
         void Start()
         {
             _animator = GetComponentInChildren<Animator>();
@@ -114,6 +124,12 @@ namespace TheWaningBorder.Presentation
             }
 
             _valid = true;
+
+            // Stagger the 10 Hz polls across units so a whole army does not
+            // pay its poll on the same frame — that synchronization would
+            // just rebuild the spike this throttle removes.
+            _nextPoll = Time.unscaledTime
+                + ((GetInstanceID() & 15) / 16f) * PollInterval;
         }
 
         void LateUpdate()
@@ -127,6 +143,15 @@ namespace TheWaningBorder.Presentation
             if (_em != world.EntityManager) _em = world.EntityManager;
             if (LinkedEntity == Entity.Null || !_em.Exists(LinkedEntity)) return;
             if (_deathTriggered) return;
+
+            // Phase-locked bow cue stays PER-FRAME — its whole purpose is to
+            // land the visible release on the exact arrow-spawn tick, and a
+            // 10 Hz poll would jitter it by up to 100 ms.
+            UpdateDrawCue();
+
+            // Everything below is transition booleans — 10 Hz, staggered.
+            if (Time.unscaledTime < _nextPoll) return;
+            _nextPoll = Time.unscaledTime + PollInterval;
 
             // ── Death check ──
             if (_em.HasComponent<Health>(LinkedEntity))
@@ -273,13 +298,19 @@ namespace TheWaningBorder.Presentation
                 _animator.SetFloat(AttackSpeedHash, speed);
             }
 
-            // ── Draw cue (phase-locked to the reload) ──
-            // Fire the draw→shoot ONCE per shot, cued AttackCycleSeconds before
-            // the reload completes, so the bow's release lands on the actual
-            // arrow spawn instead of a free-running loop drifting out of sync.
-            // CooldownTimer counts down to the next shot (interval =
-            // max(aim, cooldown); see RangedCombatSystem); it jumps back to the
-            // full cooldown right after firing, which re-arms the cue.
+        }
+
+        // ── Draw cue (phase-locked to the reload) ──
+        // Fire the draw→shoot ONCE per shot, cued AttackCycleSeconds before
+        // the reload completes, so the bow's release lands on the actual
+        // arrow spawn instead of a free-running loop drifting out of sync.
+        // CooldownTimer counts down to the next shot (interval =
+        // max(aim, cooldown); see RangedCombatSystem); it jumps back to the
+        // full cooldown right after firing, which re-arms the cue.
+        // Called per-frame from LateUpdate, deliberately outside the 10 Hz
+        // throttle — see PollInterval.
+        private void UpdateDrawCue()
+        {
             if (_hasDrawBow && AttackCycleSeconds > 0f
                 && _em.HasComponent<ArcherState>(LinkedEntity))
             {

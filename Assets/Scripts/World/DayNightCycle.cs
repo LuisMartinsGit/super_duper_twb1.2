@@ -60,7 +60,10 @@ namespace TheWaningBorder.World
 
         [Header("Post-Processing (Step 1: URP global volume)")]
         [Tooltip("Vignette intensity. Recipe: 0.25 — dropped to 0.18 here so corners don't read as darkness on this scene.")]
-        [Range(0f, 1f)] public float vignetteIntensity = 0.18f;
+        // 0.18 -> 0 (2026-08-31 GPU pass): the vignette costs a share of the
+        // full-screen uber pass on a moderate GPU and reads as darkened
+        // corners on an RTS map. Off by default; the knob stays for taste.
+        [Range(0f, 1f)] public float vignetteIntensity = 0f;
         [Tooltip("Vignette colour. Recipe: near-black.")]
         public Color vignetteColor = new(0f, 0f, 0f);
         [Tooltip("Vignette smoothness. Recipe: 0.4.")]
@@ -84,13 +87,20 @@ namespace TheWaningBorder.World
 
         [Header("Film Grain (Step 1)")]
         [Tooltip("Film grain intensity. Recipe: 0.15 — subtle texture, hides aliasing.")]
-        [Range(0f, 1f)] public float filmGrainIntensity = 0.15f;
+        // 0.15 -> 0 (2026-08-31 GPU pass): grain is a per-pixel noise layer on
+        // the uber pass; off by default on the same grounds as the vignette.
+        [Range(0f, 1f)] public float filmGrainIntensity = 0f;
         [Tooltip("Film grain response curve. Recipe: 0.8.")]
         [Range(0f, 1f)] public float filmGrainResponse = 0.8f;
 
         [Header("Shadows")]
         [Tooltip("Shadow draw distance in world units")]
-        public float shadowDistance = 300f;
+        // 300 -> 120 (2026-08-31 GPU pass): the RTS camera looks at ~120 m of
+        // ground; at 300 m every tree, wall and unit re-rendered into shadow
+        // maps far beyond the view for nothing. This value is the AUTHORITY —
+        // ApplyShadowSettings pushes it over the pipeline asset via
+        // reflection, so tuning the asset alone does not stick.
+        public float shadowDistance = 120f;
 
         [Header("Cloud Shadows")]
         [Tooltip("Enable static cloud shadow projector for depth")]
@@ -205,8 +215,12 @@ namespace TheWaningBorder.World
 
                 var cascadeField = rpAsset.GetType().GetProperty("shadowCascadeCount",
                     System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                // 4 -> 2 (2026-08-31 GPU pass): four cascades re-render the
+                // scene's shadow casters up to four times for a camera that
+                // never sees past ~120 m. Two splits cover that range with no
+                // visible seam at RTS height.
                 if (cascadeField != null && cascadeField.CanWrite)
-                    cascadeField.SetValue(rpAsset, 4);
+                    cascadeField.SetValue(rpAsset, 2);
             }
         }
 
