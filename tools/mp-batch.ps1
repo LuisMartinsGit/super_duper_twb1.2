@@ -65,9 +65,12 @@ for ($m = 0; $m -lt $Matches; $m++) {
             "-twbMpPort", $BasePort,
             "-twbPlayers", $Factions,
             "-twbSeed", $runSeed, "-twbLimit", $LimitSec,
-            $(if ($Monkey) { "-twbMpMonkey" }),
             "-twbMap", $Map
         )
+        # PS 5.1: a conditional inline element evaluates to $null when the
+        # switch is off, and Start-Process refuses null ArgumentList items.
+        # Append instead.
+        if ($Monkey) { $argList += "-twbMpMonkey" }
         $p = Start-Process -FilePath $exePath -PassThru -ArgumentList $argList
         $procs += $p
         Write-Host ("  peer {0} pid {1}{2}" -f $i, $p.Id, $(if ($i -eq 0) { " (host)" } else { "" }))

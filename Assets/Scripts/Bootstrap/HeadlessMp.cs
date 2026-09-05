@@ -389,7 +389,7 @@ namespace TheWaningBorder.Bootstrap
                 (u0p.x + (haveEnemyHall ? enemyHallPos.x : 0f)) * 0.5f, 0f,
                 (u0p.z + (haveEnemyHall ? enemyHallPos.z : 0f)) * 0.5f);
 
-            switch (beat % 17)
+            switch (beat % 19)
             {
                 case 0:
                     TheWaningBorder.Core.Commands.CommandRouter.IssueMove(em, u0, mid, src);
@@ -449,7 +449,7 @@ namespace TheWaningBorder.Bootstrap
                     for (int i = 0; i < ownUnits.Count && squad.Count < 8; i++) squad.Add(ownUnits[i].e);
                     if (squad.Count >= 2)
                     {
-                        if (beat % 17 == 11)
+                        if (beat % 19 == 11)
                             TheWaningBorder.Core.Commands.CommandRouter.IssueFormationMove(
                                 em, squad, mid, FormationShape.Line, src);
                         else if (haveEnemyHall)
@@ -477,6 +477,47 @@ namespace TheWaningBorder.Bootstrap
                         TheWaningBorder.Core.Commands.CommandRouter.IssueAgeUp(
                             em, ownHall, Cultures.Alanthor, src);
                     break;
+                case 17:
+                    // WALLS (2026-09-05): the replicated wall path had never
+                    // run in a lockstep harness match (wall stamp counts were
+                    // zero in every run) — the AI wall doctrine's gate never
+                    // opens here. Place hubs as the player would; rejected
+                    // pre-age-up or when unaffordable, which is fine.
+                    if (ownHall != Unity.Entities.Entity.Null)
+                    {
+                        var wp = ownHallPos + new Unity.Mathematics.float3(
+                            -14f - (beat % 3) * 8f, 0f, 10f);
+                        TheWaningBorder.Core.Commands.CommandRouter.IssuePlaceWallHub(
+                            em, wp, my, autoBuild: true, src);
+                    }
+                    break;
+                case 18:
+                {
+                    // Extend a curtain from our lowest-id standing hub — the
+                    // segment-creation half of the wall pipeline.
+                    var hubQ = em.CreateEntityQuery(
+                        Unity.Entities.ComponentType.ReadOnly<WallHubTag>(),
+                        Unity.Entities.ComponentType.ReadOnly<FactionTag>(),
+                        Unity.Entities.ComponentType.ReadOnly<TheWaningBorder.Core.Multiplayer.NetworkedEntity>(),
+                        Unity.Entities.ComponentType.ReadOnly<Unity.Transforms.LocalTransform>());
+                    using (var hents = hubQ.ToEntityArray(Unity.Collections.Allocator.Temp))
+                    using (var hfacs = hubQ.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp))
+                    using (var hnets = hubQ.ToComponentDataArray<TheWaningBorder.Core.Multiplayer.NetworkedEntity>(Unity.Collections.Allocator.Temp))
+                    using (var hxfs = hubQ.ToComponentDataArray<Unity.Transforms.LocalTransform>(Unity.Collections.Allocator.Temp))
+                    {
+                        Unity.Entities.Entity hub = Unity.Entities.Entity.Null;
+                        Unity.Mathematics.float3 hp = default; long best = long.MaxValue;
+                        for (int i = 0; i < hents.Length; i++)
+                            if (hfacs[i].Value == my && hnets[i].NetworkId < best)
+                            { best = hnets[i].NetworkId; hub = hents[i]; hp = hxfs[i].Position; }
+                        if (hub != Unity.Entities.Entity.Null)
+                            TheWaningBorder.Core.Commands.CommandRouter.IssueWallExtend(
+                                em, hub, Unity.Entities.Entity.Null,
+                                hp + new Unity.Mathematics.float3(12f, 0f, 0f), my, src);
+                    }
+                    hubQ.Dispose();
+                    break;
+                }
             }
         }
 

@@ -564,64 +564,13 @@ namespace TheWaningBorder.AI
             }
         }
 
-        /// <summary>Place a self-building wall hub (30 s AutoConstruct, no
-        /// builder) — mirrors BuilderCommandPanel.SpawnExtendedWallHub.
-        /// Every hub SEALS to adjacent impassable terrain (curtain modules
-        /// across the hub-to-rock gap) so chokepoint lines cannot be
-        /// squeezed around at their ends.</summary>
-        private static Entity PlaceAutoBuildWallHub(EntityManager em, float3 pos, Faction faction)
-        {
-            Entity hub = AlanthorWall.CreateHub(em, pos, faction);
-            em.AddComponentData(hub, new UnderConstruction
-            {
-                Progress = 0f,
-                Total = Cfg.wallHubBuildSeconds,
-            });
-            em.AddComponent<AutoConstructTag>(hub);
-            if (em.HasComponent<Health>(hub))
-            {
-                var hp = em.GetComponentData<Health>(hub);
-                em.SetComponentData(hub, new Health { Value = 1, Max = hp.Max });
-            }
-            AlanthorWall.SealToTerrain(em, hub, autoConstruct: true);
-            return hub;
-        }
-
-        /// <summary>Create the segment between two hubs and tag every spawned
-        /// wall instance for auto-construction. The instance buffer is
-        /// snapshotted first — the AddComponentData calls below are
-        /// structural and would invalidate a live buffer handle (same
-        /// pattern as the player's chain-placement code).</summary>
-        private static void ConnectWallHubs(EntityManager em, Entity hubA, Entity hubB,
-            Faction faction)
-        {
-            Entity segment = AlanthorWall.CreateSegment(em, hubA, hubB, faction);
-            if (!em.HasBuffer<WallInstanceRef>(segment)) return;
-
-            var instances = em.GetBuffer<WallInstanceRef>(segment);
-            int count = instances.Length;
-            var snapshot = new NativeArray<Entity>(count, Allocator.Temp);
-            for (int i = 0; i < count; i++) snapshot[i] = instances[i].Instance;
-
-            for (int i = 0; i < count; i++)
-            {
-                var inst = snapshot[i];
-                if (!em.Exists(inst)) continue;
-                if (!em.HasComponent<UnderConstruction>(inst))
-                    em.AddComponentData(inst, new UnderConstruction
-                    {
-                        Progress = 0f,
-                        Total = Cfg.wallHubBuildSeconds,
-                    });
-                if (!em.HasComponent<AutoConstructTag>(inst))
-                    em.AddComponent<AutoConstructTag>(inst);
-                if (em.HasComponent<Health>(inst))
-                {
-                    var hp = em.GetComponentData<Health>(inst);
-                    em.SetComponentData(inst, new Health { Value = 1, Max = hp.Max });
-                }
-            }
-            snapshot.Dispose();
-        }
+        // DEAD CODE REMOVED (2026-09-05): PlaceAutoBuildWallHub and
+        // ConnectWallHubs — bare AlanthorWall.CreateHub/CreateSegment with
+        // direct Health writes, HOST-ONLY and un-networked. Orphaned by the
+        // 2026-08-16 desync sweep, which routed every live call site through
+        // IssuePlaceWallHub / IssueWallExtend / PlaceWallHubDirect (spend and
+        // creation execute on every peer). Deleted so nothing can call them
+        // back into existence: any wall entity born outside the replicated
+        // path is invisible to lockstep commands and forks the match.
     }
 }
