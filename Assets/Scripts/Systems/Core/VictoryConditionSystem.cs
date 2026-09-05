@@ -41,6 +41,10 @@ namespace TheWaningBorder.Systems.Core
 
         private Unity.Entities.World _world;
         private EntityManager _em;
+        private static readonly ComponentType[] QT_MatchVerdict =
+            { ComponentType.ReadOnly<MatchVerdictState>() };
+        private static TheWaningBorder.Core.CachedEntityQuery QC_MatchVerdict;
+
         private EntityQuery _buildingsQuery;
         private EntityQuery _buildersQuery;
         private float _lastCheckAt;
@@ -139,8 +143,56 @@ namespace TheWaningBorder.Systems.Core
             if (simNow - _lastCheckAt >= CheckInterval)
             {
                 _lastCheckAt = simNow;
-                CheckVictoryConditions();
+                // DETERMINISM SPLIT (2026-09-06, MP harness catch #15).
+                // This MonoBehaviour used to COMPUTE eliminations here — from
+                // frame-timed polls, so under lockstep catch-up each peer
+                // sampled the world at a different tick and their sticky
+                // elimination ledgers diverged: the first decided MP match
+                // ended with ONE peer seeing "Green wins" while three others
+                // stalled to the disconnect timeout. EliminationSystem (sim
+                // group, SimCadence-phased) owns the decision and the asset
+                // self-destruct now; this poll only OBSERVES its verdict
+                // buffer and presents it from the local player's view.
+                ObserveEliminationVerdict();
             }
+        }
+
+        private int _announcedEliminations;
+
+        private void ObserveEliminationVerdict()
+        {
+            var q = QC_MatchVerdict.Get(_em, QT_MatchVerdict);
+            if (q.IsEmptyIgnoreFilter) return;
+            using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
+            var verdictEntity = ents[0];
+
+            bool localEliminated = false;
+            if (_em.HasBuffer<EliminatedFactionRecord>(verdictEntity))
+            {
+                var buf = _em.GetBuffer<EliminatedFactionRecord>(verdictEntity);
+                for (int i = _announcedEliminations; i < buf.Length; i++)
+                {
+                    var faction = buf[i].Value;
+                    _aliveFactions.Remove(faction);
+                    _eliminatedFactions.Add(faction);
+                    SimSignals.Notify(string.Format(
+                        Loc.T("{0} has been DEFEATED"), Loc.T(faction.ToString())));
+                    if (GameStatsTracker.Instance != null)
+                        GameStatsTracker.Instance.RecordElimination(faction, buf[i].AtSimSeconds);
+                    if (!GameSettings.IsObserver && faction == GameSettings.LocalPlayerFaction)
+                        localEliminated = true;
+                }
+                _announcedEliminations = buf.Length;
+            }
+
+            var verdict = _em.GetComponentData<MatchVerdictState>(verdictEntity);
+            if (localEliminated && verdict.Decided == 0)
+            {
+                TriggerGameEnd(GameSettings.LocalPlayerFaction, true);
+                return;
+            }
+            if (verdict.Decided != 0)
+                TriggerGameEnd(verdict.Winner, localEliminated);
         }
 
         private void CheckVictoryConditions()
