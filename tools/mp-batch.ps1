@@ -38,7 +38,8 @@ param(
     [int]$LimitSec = 900,
     [int]$Seed = 20260910,
     [int]$BasePort = 17980,
-    [string]$Map = "Veilmarch"
+    [string]$Map = "Veilmarch",
+    [switch]$Monkey            # command-coverage monkey: clients rotate every command type
 )
 
 if (-not (Test-Path $Exe)) { Write-Error "Player not found: $Exe"; exit 1 }
@@ -64,6 +65,7 @@ for ($m = 0; $m -lt $Matches; $m++) {
             "-twbMpPort", $BasePort,
             "-twbPlayers", $Factions,
             "-twbSeed", $runSeed, "-twbLimit", $LimitSec,
+            $(if ($Monkey) { "-twbMpMonkey" }),
             "-twbMap", $Map
         )
         $p = Start-Process -FilePath $exePath -PassThru -ArgumentList $argList

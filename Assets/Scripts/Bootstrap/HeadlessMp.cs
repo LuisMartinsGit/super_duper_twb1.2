@@ -62,6 +62,21 @@ namespace TheWaningBorder.Bootstrap
         private static readonly bool s_noChaos =
             System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-twbMpNoChaos") >= 0;
 
+        // -twbMpMonkey: the COMMAND-COVERAGE MONKEY. Each client rotates
+        // through every player-facing command type (move / attack / attack-
+        // move / stop / hold / train / cancel / place / repair / research /
+        // upgrade / formation move + attack-move / patrol / waypoint /
+        // layered move / age-up) on a 6 s beat, as the local player of its
+        // own faction. Every command type is a distinct serialize -> relay ->
+        // execute path, and each is a fresh chance for the CommandSource /
+        // signed-zero / un-networked-target desync classes the plain chaos
+        // mover (Move only) can never reach. Rejected casts are fine — the
+        // routers validate; coverage of the PATH is the point.
+        private static readonly bool s_monkey =
+            System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-twbMpMonkey") >= 0;
+
+        private int _monkeyBeat;
+
         private int _peer;
         private int _peers;
         private float _limit = 900f;
@@ -208,10 +223,14 @@ namespace TheWaningBorder.Bootstrap
                 ? lockstep.CurrentTick * LockstepManager.TICK_DURATION : 0f;
             if (!s_noChaos && _peer != 0 && simNow >= _nextChaosAt && simNow > 30f)
             {
-                _nextChaosAt = simNow + 12f;
-                try { IssueChaosMove(); }
+                _nextChaosAt = simNow + (s_monkey ? 6f : 12f);
+                try
+                {
+                    if (s_monkey) IssueMonkeyBeat();
+                    else IssueChaosMove();
+                }
                 catch (Exception e)
-                { Debug.LogWarning($"[HeadlessMp] chaos move: {e.Message}"); }
+                { Debug.LogWarning($"[HeadlessMp] chaos/monkey: {e.Message}"); }
             }
 
             // ── Normal end conditions. ──
@@ -281,6 +300,184 @@ namespace TheWaningBorder.Bootstrap
             TheWaningBorder.Core.Commands.CommandRouter.IssueMove(
                 em, pick, target,
                 TheWaningBorder.Core.Commands.CommandSource.LocalPlayer);
+        }
+
+        // ── The command-coverage monkey ─────────────────────────────────────
+        // All picks are lowest-NetworkId (peer-identical); targets are either
+        // fixed points or entities addressed by their networked identity, so
+        // whatever this peer decides replicates absolutely. Commands the game
+        // rejects (can't afford, wrong building, no queue) cost nothing —
+        // the router validates on every peer identically.
+
+        private Unity.Entities.EntityQuery _mkUnits, _mkBuildings;
+        private bool _mkReady;
+
+        private void IssueMonkeyBeat()
+        {
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (world == null || !world.IsCreated) return;
+            var em = world.EntityManager;
+            var my = GameSettings.LocalPlayerFaction;
+            var src = TheWaningBorder.Core.Commands.CommandSource.LocalPlayer;
+            var C = typeof(TheWaningBorder.Core.Commands.CommandRouter);
+
+            if (!_mkReady)
+            {
+                _mkUnits = em.CreateEntityQuery(
+                    Unity.Entities.ComponentType.ReadOnly<UnitTag>(),
+                    Unity.Entities.ComponentType.ReadOnly<FactionTag>(),
+                    Unity.Entities.ComponentType.ReadOnly<TheWaningBorder.Core.Multiplayer.NetworkedEntity>(),
+                    Unity.Entities.ComponentType.ReadOnly<Unity.Transforms.LocalTransform>());
+                _mkBuildings = em.CreateEntityQuery(
+                    Unity.Entities.ComponentType.ReadOnly<BuildingTag>(),
+                    Unity.Entities.ComponentType.ReadOnly<FactionTag>(),
+                    Unity.Entities.ComponentType.ReadOnly<TheWaningBorder.Core.Multiplayer.NetworkedEntity>(),
+                    Unity.Entities.ComponentType.ReadOnly<Unity.Transforms.LocalTransform>());
+                _mkReady = true;
+            }
+
+            // Snapshot own units (by ascending NetworkId), own buildings, one
+            // enemy unit, and hall positions.
+            var ownUnits = new System.Collections.Generic.List<(long id, Unity.Entities.Entity e, Unity.Mathematics.float3 p)>();
+            Unity.Entities.Entity enemyUnit = Unity.Entities.Entity.Null; long enemyBest = long.MaxValue;
+            {
+                using var ents = _mkUnits.ToEntityArray(Unity.Collections.Allocator.Temp);
+                using var facs = _mkUnits.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
+                using var nets = _mkUnits.ToComponentDataArray<TheWaningBorder.Core.Multiplayer.NetworkedEntity>(Unity.Collections.Allocator.Temp);
+                using var xfs = _mkUnits.ToComponentDataArray<Unity.Transforms.LocalTransform>(Unity.Collections.Allocator.Temp);
+                for (int i = 0; i < ents.Length; i++)
+                {
+                    if (facs[i].Value == my) ownUnits.Add((nets[i].NetworkId, ents[i], xfs[i].Position));
+                    else if (nets[i].NetworkId < enemyBest) { enemyBest = nets[i].NetworkId; enemyUnit = ents[i]; }
+                }
+            }
+            ownUnits.Sort((a, b) => a.id.CompareTo(b.id));
+            if (ownUnits.Count == 0) return;
+
+            Unity.Entities.Entity ownHall = Unity.Entities.Entity.Null, ownLowHp = Unity.Entities.Entity.Null;
+            Unity.Mathematics.float3 ownHallPos = default, enemyHallPos = default;
+            bool haveEnemyHall = false;
+            {
+                long bestHall = long.MaxValue, bestEnemyHall = long.MaxValue; float lowFrac = 2f;
+                using var ents = _mkBuildings.ToEntityArray(Unity.Collections.Allocator.Temp);
+                using var facs = _mkBuildings.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
+                using var nets = _mkBuildings.ToComponentDataArray<TheWaningBorder.Core.Multiplayer.NetworkedEntity>(Unity.Collections.Allocator.Temp);
+                using var xfs = _mkBuildings.ToComponentDataArray<Unity.Transforms.LocalTransform>(Unity.Collections.Allocator.Temp);
+                for (int i = 0; i < ents.Length; i++)
+                {
+                    bool hall = em.HasComponent<HallTag>(ents[i]);
+                    if (facs[i].Value == my)
+                    {
+                        if (hall && nets[i].NetworkId < bestHall)
+                        { bestHall = nets[i].NetworkId; ownHall = ents[i]; ownHallPos = xfs[i].Position; }
+                        if (em.HasComponent<Health>(ents[i]))
+                        {
+                            var hp = em.GetComponentData<Health>(ents[i]);
+                            float frac = hp.Max > 0 ? hp.Value / (float)hp.Max : 1f;
+                            if (frac < lowFrac && frac < 1f) { lowFrac = frac; ownLowHp = ents[i]; }
+                        }
+                    }
+                    else if (hall && facs[i].Value != Faction.Border && nets[i].NetworkId < bestEnemyHall)
+                    { bestEnemyHall = nets[i].NetworkId; enemyHallPos = xfs[i].Position; haveEnemyHall = true; }
+                }
+            }
+
+            var u0 = ownUnits[0].e;
+            var u0p = ownUnits[0].p;
+            int beat = _monkeyBeat++;
+            var mid = new Unity.Mathematics.float3(
+                (u0p.x + (haveEnemyHall ? enemyHallPos.x : 0f)) * 0.5f, 0f,
+                (u0p.z + (haveEnemyHall ? enemyHallPos.z : 0f)) * 0.5f);
+
+            switch (beat % 17)
+            {
+                case 0:
+                    TheWaningBorder.Core.Commands.CommandRouter.IssueMove(em, u0, mid, src);
+                    break;
+                case 1:
+                    if (haveEnemyHall)
+                        TheWaningBorder.Core.Commands.CommandRouter.IssueAttackMove(em, u0, enemyHallPos, src);
+                    break;
+                case 2:
+                    if (enemyUnit != Unity.Entities.Entity.Null)
+                        TheWaningBorder.Core.Commands.CommandRouter.IssueAttack(em, u0, enemyUnit, src);
+                    break;
+                case 3:
+                    TheWaningBorder.Core.Commands.CommandRouter.IssueStop(em, u0, src);
+                    break;
+                case 4:
+                    TheWaningBorder.Core.Commands.CommandRouter.IssueHoldPosition(em, u0, src);
+                    break;
+                case 5:
+                    if (ownHall != Unity.Entities.Entity.Null)
+                        TheWaningBorder.Core.Commands.CommandRouter.IssueTrain(em, ownHall, "Worker", src);
+                    break;
+                case 6:
+                    if (ownHall != Unity.Entities.Entity.Null)
+                        TheWaningBorder.Core.Commands.CommandRouter.IssueCancelTrain(em, ownHall, 0, src);
+                    break;
+                case 7:
+                    if (ownHall != Unity.Entities.Entity.Null)
+                    {
+                        var at = ownHallPos + new Unity.Mathematics.float3(
+                            10f + (beat % 3) * 6f, 0f, -12f - (beat % 5) * 6f);
+                        TheWaningBorder.Core.Commands.CommandRouter.IssuePlaceBuilding(em, "Hut", at, my, src);
+                    }
+                    break;
+                case 8:
+                    if (ownLowHp != Unity.Entities.Entity.Null)
+                        TheWaningBorder.Core.Commands.CommandRouter.IssueRepair(em, u0, ownLowHp, src);
+                    break;
+                case 9:
+                    if (ownHall != Unity.Entities.Entity.Null)
+                    {
+                        var id = TheWaningBorder.Entities.BuildingIds.Of(ownHall, em);
+                        var def = TechCatalog.Building(id);
+                        if (def.research != null && def.research.Length > 0)
+                            TheWaningBorder.Core.Commands.CommandRouter.IssueResearch(
+                                em, ownHall, def.research[beat % def.research.Length], src);
+                    }
+                    break;
+                case 10:
+                    if (ownHall != Unity.Entities.Entity.Null)
+                        TheWaningBorder.Core.Commands.CommandRouter.IssueBuildingUpgrade(em, ownHall, src);
+                    break;
+                case 11:
+                case 12:
+                {
+                    var squad = new System.Collections.Generic.List<Unity.Entities.Entity>();
+                    for (int i = 0; i < ownUnits.Count && squad.Count < 8; i++) squad.Add(ownUnits[i].e);
+                    if (squad.Count >= 2)
+                    {
+                        if (beat % 17 == 11)
+                            TheWaningBorder.Core.Commands.CommandRouter.IssueFormationMove(
+                                em, squad, mid, FormationShape.Line, src);
+                        else if (haveEnemyHall)
+                            TheWaningBorder.Core.Commands.CommandRouter.IssueFormationAttackMove(
+                                em, squad, enemyHallPos, FormationShape.Box, src);
+                    }
+                    break;
+                }
+                case 13:
+                    TheWaningBorder.Core.Commands.CommandRouter.IssuePatrol(em, u0, mid, src);
+                    break;
+                case 14:
+                    TheWaningBorder.Core.Commands.CommandRouter.IssueQueuedWaypoint(
+                        em, u0, QueuedCommandType.Move, mid, Unity.Entities.Entity.Null, src);
+                    break;
+                case 15:
+                    TheWaningBorder.Core.Commands.CommandRouter.IssueLayeredMove(em, u0, mid, 0, src);
+                    break;
+                case 16:
+                    // Once the beat count says mid-game, try the age-up — the
+                    // biggest single coverage win (culture transform + the
+                    // whole Age-1 command surface behind it). Rejected while
+                    // unaffordable, which is fine.
+                    if (ownHall != Unity.Entities.Entity.Null && beat >= 34)
+                        TheWaningBorder.Core.Commands.CommandRouter.IssueAgeUp(
+                            em, ownHall, Cultures.Alanthor, src);
+                    break;
+            }
         }
 
         private void Finish(int exitCode, string why)
