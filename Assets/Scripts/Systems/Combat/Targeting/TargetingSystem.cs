@@ -136,13 +136,46 @@ namespace TheWaningBorder.Systems.Combat
             // between AutoAcquireTargets and ProcessReturnToGuard.
             using var spatialMap = new NativeParallelMultiHashMap<int2, int>(
                 math.max(16, allEnemies.Length * 2), Allocator.Temp);
-            for (int i = 0; i < allEnemies.Length; i++)
+
+            // PEER-STABLE INSERT ORDER (2026-09-05, MP harness catch #14 —
+            // the same disease and cure as the nav spatial hash, catch #4).
+            // ToEntityArray arrives in CHUNK-WALK order, which legitimately
+            // differs between lockstep peers (host-only AI structural changes
+            // reshuffle the host's chunks), and a multimap's per-cell chain
+            // order IS the insert order — the order the acquire scan visits
+            // candidates in. Against a grid-snapped base two buildings sit at
+            // EXACTLY equal surface distance, the strict '<' keeps the
+            // first-seen one, and twelve besiegers picked different targets
+            // per peer (tick 43790 fork, the first finisher-driven deep base
+            // assault). Insert by NetworkId — the one identity every peer
+            // agrees on — with position bits as the tiebreak for anything
+            // unnetworked.
             {
-                var pos = allEnemyTransforms[i].Position;
-                var cell = new int2(
-                    (int)math.floor(pos.x / TargetingCellSize),
-                    (int)math.floor(pos.z / TargetingCellSize));
-                spatialMap.Add(cell, i);
+                var order = new NativeArray<TargetMapKey>(allEnemies.Length,
+                    Allocator.Temp, NativeArrayOptions.UninitializedMemory);
+                for (int i = 0; i < allEnemies.Length; i++)
+                {
+                    var pos = allEnemyTransforms[i].Position;
+                    order[i] = new TargetMapKey
+                    {
+                        NetId = em.HasComponent<TheWaningBorder.Core.Multiplayer.NetworkedEntity>(allEnemies[i])
+                            ? em.GetComponentData<TheWaningBorder.Core.Multiplayer.NetworkedEntity>(allEnemies[i]).NetworkId
+                            : long.MaxValue,
+                        PosKey = ((ulong)math.asuint(pos.x) << 32) | math.asuint(pos.z),
+                        Index = i,
+                    };
+                }
+                order.Sort(new TargetMapKey.Order());
+                for (int o = 0; o < order.Length; o++)
+                {
+                    int i = order[o].Index;
+                    var pos = allEnemyTransforms[i].Position;
+                    var cell = new int2(
+                        (int)math.floor(pos.x / TargetingCellSize),
+                        (int)math.floor(pos.z / TargetingCellSize));
+                    spatialMap.Add(cell, i);
+                }
+                order.Dispose();
             }
 
             // Per-target attacker count — spreads attackers across multiple
@@ -246,4 +279,23 @@ namespace TheWaningBorder.Systems.Combat
 
 
     }
+    /// <summary>Sort key for the targeting spatial map's peer-stable insert
+    /// order (catch #14) — see the build site in OnUpdate.</summary>
+    internal struct TargetMapKey
+    {
+        public long NetId;
+        public ulong PosKey;
+        public int Index;
+
+        public struct Order : System.Collections.Generic.IComparer<TargetMapKey>
+        {
+            public int Compare(TargetMapKey a, TargetMapKey b)
+            {
+                if (a.NetId != b.NetId) return a.NetId < b.NetId ? -1 : 1;
+                if (a.PosKey != b.PosKey) return a.PosKey < b.PosKey ? -1 : 1;
+                return 0;
+            }
+        }
+    }
+
 }
