@@ -2,13 +2,13 @@
 // The Shardroot — the One-Ring-style power artifact of the Curse &
 // Shardroot design (docs/Design/Curse_And_Shardroot.md §3). One well per
 // match secretly hosts it; the FIRST player to apply their culture's verb
-// to that well receives it. It then rides the existing Glow pickup /
+// to that well receives it. It then rides the existing Shardroot pickup /
 // carrier / Temple-storage machinery as a single, persistent, tagged
 // quantum:
 //
 //   pickup (attunement claim) → carrier unit (minimap-visible, drops on
 //   death) → Hall (awaken the Shardbound Hero) OR Temple (enshrine: god
-//   powers + sect cooldowns amplified via the existing GlowStored paths,
+//   powers + sect cooldowns amplified via the existing ShardrootStored paths,
 //   and the Temple detonates its stockpile on death — volatility for free).
 //
 // Global namespace per project ECS-component convention.
@@ -44,7 +44,7 @@ public struct ShardrootState : IComponentData
     /// Faction.Border = unheld (on the ground or undiscovered).</summary>
     public Faction HolderFaction;
 
-    /// <summary>Glow quanta the artifact embodies — drives god-power
+    /// <summary>Shardroot quanta the artifact embodies — drives god-power
     /// scaling and the Temple detonation magnitude via existing paths.</summary>
     public const int ShardrootPower = 12;
     /// <summary>Carrier-to-own-Hall distance that awakens the hero.</summary>

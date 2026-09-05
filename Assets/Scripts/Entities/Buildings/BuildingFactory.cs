@@ -1,4 +1,5 @@
 using System;
+using TheWaningBorder.Core;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
@@ -25,6 +26,35 @@ namespace TheWaningBorder.Entities
     /// </summary>
     public static class BuildingFactory
     {
+
+        #region Cached queries
+
+        /// <summary>One cached "buildings of tag T owned by a faction" query
+        /// per T — statics in a generic class are per constructed type, which
+        /// is exactly the lifetime a generic helper needs.</summary>
+        static class FactionBuildings<T> where T : unmanaged, IComponentData
+        {
+            public static readonly ComponentType[] Types =
+            {
+                ComponentType.ReadOnly<T>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<BuildingTag>(),
+            };
+            public static CachedEntityQuery Query;
+        }
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and this one was never disposed. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_ChoiceBuildingTagFactionTagBuildingTag =
+        {
+            ComponentType.ReadOnly<ChoiceBuildingTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<BuildingTag>(),
+        };
+        static CachedEntityQuery QC_ChoiceBuildingTagFactionTagBuildingTag;
+
+        #endregion
         private readonly struct BuildingRecipe
         {
             public readonly Func<EntityManager, float3, Faction, Entity> CreateEm;
@@ -282,8 +312,7 @@ namespace TheWaningBorder.Entities
         /// </summary>
         public static string GetFactionChoiceBuilding(EntityManager em, Faction faction)
         {
-            var query = em.CreateEntityQuery(
-                typeof(ChoiceBuildingTag), typeof(FactionTag), typeof(BuildingTag));
+            var query = QC_ChoiceBuildingTagFactionTagBuildingTag.Get(em, QT_ChoiceBuildingTagFactionTagBuildingTag);
             var entities = query.ToEntityArray(Unity.Collections.Allocator.Temp);
 
             string result = null;
@@ -309,8 +338,7 @@ namespace TheWaningBorder.Entities
         /// </summary>
         public static string GetCompletedFactionChoiceBuilding(EntityManager em, Faction faction)
         {
-            var query = em.CreateEntityQuery(
-                typeof(ChoiceBuildingTag), typeof(FactionTag), typeof(BuildingTag));
+            var query = QC_ChoiceBuildingTagFactionTagBuildingTag.Get(em, QT_ChoiceBuildingTagFactionTagBuildingTag);
             var entities = query.ToEntityArray(Unity.Collections.Allocator.Temp);
 
             string result = null;
@@ -331,7 +359,7 @@ namespace TheWaningBorder.Entities
         /// </summary>
         public static int GetFactionBuildingCount<T>(EntityManager em, Faction faction) where T : unmanaged, IComponentData
         {
-            var query = em.CreateEntityQuery(typeof(T), typeof(FactionTag), typeof(BuildingTag));
+            var query = FactionBuildings<T>.Query.Get(em, FactionBuildings<T>.Types);
             using var entities = query.ToEntityArray(Unity.Collections.Allocator.Temp);
             using var factions = query.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
 

@@ -11,7 +11,7 @@ using UnityEngine;
 using Unity.Entities;
 using TheWaningBorder.Core;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     public static class NoblemanVisual
     {
@@ -238,16 +238,12 @@ namespace TheWaningBorder.Presentation
     /// </summary>
     public class NoblemanAnimator : MonoBehaviour
     {
-        [Tooltip("Leg swing amplitude in degrees at full stride.")]
         public float LegSwing = 26f;
 
-        [Tooltip("Arm swing amplitude in degrees at full stride.")]
         public float ArmSwing = 16f;
 
-        [Tooltip("Stride length in meters per full walk cycle.")]
         public float StrideLength = 1.15f;
 
-        [Tooltip("Idle torso sway in degrees.")]
         public float IdleSway = 1.6f;
 
         private Transform _legL, _legR, _armL, _armR, _torso, _head;

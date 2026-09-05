@@ -31,9 +31,6 @@ namespace TheWaningBorder.World.MapMarkers
     [DisallowMultipleComponent]
     public sealed class BorderNodeMarker : MapMarker
     {
-        [Tooltip("Spawn a well AT THIS MARKER instead of using the four " +
-                 "map-corner defaults. Ticking any marker in the scene makes " +
-                 "the ticked markers the map's complete well list.")]
         public bool AuthoredPosition = false;
 
         // A wild well spreads BorderConstants.MainNodeSpreadRadius (22 m) of

@@ -10,6 +10,7 @@
 // caster pays for it by being silenced along with the enemy.
 
 using Unity.Collections;
+using TheWaningBorder.Core;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -19,6 +20,28 @@ namespace TheWaningBorder.Systems.Sect
 {
     public static partial class SectActivePowerHelper
     {
+        static readonly ComponentType[] QT_BuildingTagTrainingStateLocalTransformFactionTag =
+        {
+            ComponentType.ReadOnly<BuildingTag>(),
+            ComponentType.ReadOnly<TrainingState>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_BuildingTagTrainingStateLocalTransformFactionTag;
+
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and this one was never disposed. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_UnitTagFactionTag =
+        {
+            ComponentType.ReadOnly<UnitTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_UnitTagFactionTag;
+
+        #endregion
         // -- War --------------------------------------------------------------
 
         // Blood Rain's silence is polled from UI and per-cast code paths, so the
@@ -53,9 +76,7 @@ namespace TheWaningBorder.Systems.Sect
             //    unit that can swing a weapon swings faster.
             if (haste > 1f)
             {
-                var query = em.CreateEntityQuery(
-                    ComponentType.ReadOnly<UnitTag>(),
-                    ComponentType.ReadOnly<FactionTag>());
+                var query = QC_UnitTagFactionTag.Get(em, QT_UnitTagFactionTag);
                 using var entities = query.ToEntityArray(Allocator.Temp);
                 var ecb = new EntityCommandBuffer(Allocator.Temp);
                 for (int i = 0; i < entities.Length; i++)
@@ -141,11 +162,7 @@ namespace TheWaningBorder.Systems.Sect
             float r2 = radius * radius;
             float speed = level >= 3 ? SectLeverEffects.CallToArmsSpeedLv3 : 1f;
 
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<BuildingTag>(),
-                ComponentType.ReadOnly<TrainingState>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<FactionTag>());
+            var query = QC_BuildingTagTrainingStateLocalTransformFactionTag.Get(em, QT_BuildingTagTrainingStateLocalTransformFactionTag);
             using var entities = query.ToEntityArray(Allocator.Temp);
             var ecb = new EntityCommandBuffer(Allocator.Temp);
 

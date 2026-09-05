@@ -145,7 +145,10 @@ namespace TheWaningBorder.Systems.Combat
                 em.SetComponentData(e, hp);
 
                 if (em.HasComponent<LastDamagedByFaction>(e))
+                {
                     em.SetComponentData(e, new LastDamagedByFaction { Value = owner });
+                    em.SetComponentEnabled<LastDamagedByFaction>(e, true);
+                }
             }
 
             // --- The pool. One AddBlood splat is only ~2.5 m across, so the

@@ -4,6 +4,7 @@
 // six wing types, each at most once. See docs/Design/Age_0.md.
 
 using Unity.Entities;
+using TheWaningBorder.Core;
 
 /// <summary>The six Keep wing types. None = empty slot.</summary>
 public enum KeepWingType : byte
@@ -25,19 +26,51 @@ public enum KeepWingType : byte
 /// </summary>
 public static class ChoiceUpgradeQuery
 {
+    #region Cached queries
+
+    // CreateEntityQuery registers a NEW query with the world on every call and
+    // none of these were disposed. See Core/CachedEntityQuery.cs.
+
+    static readonly ComponentType[] QT_ShrineTagFactionTagBuildingUpgradeState =
+    {
+        ComponentType.ReadOnly<ShrineTag>(),
+        ComponentType.ReadOnly<FactionTag>(),
+        ComponentType.ReadOnly<BuildingUpgradeState>(),
+    };
+    static CachedEntityQuery QC_ShrineTagFactionTagBuildingUpgradeState;
+
+    static readonly ComponentType[] QT_TempleOfRidanTagFactionTagBuildingUpgradeState =
+    {
+        ComponentType.ReadOnly<TempleOfRidanTag>(),
+        ComponentType.ReadOnly<FactionTag>(),
+        ComponentType.ReadOnly<BuildingUpgradeState>(),
+    };
+    static CachedEntityQuery QC_TempleOfRidanTagFactionTagBuildingUpgradeState;
+
+    static readonly ComponentType[] QT_VaultTagFactionTagBuildingUpgradeState =
+    {
+        ComponentType.ReadOnly<VaultTag>(),
+        ComponentType.ReadOnly<FactionTag>(),
+        ComponentType.ReadOnly<BuildingUpgradeState>(),
+    };
+    static CachedEntityQuery QC_VaultTagFactionTagBuildingUpgradeState;
+
+    static readonly ComponentType[] QT_KeepWingsFactionTag =
+    {
+        ComponentType.ReadOnly<KeepWings>(),
+        ComponentType.ReadOnly<FactionTag>(),
+    };
+    static CachedEntityQuery QC_KeepWingsFactionTag;
+
+    #endregion
+
     /// <summary>Highest BuildingUpgradeState.Level across the faction's Shrines/Temples (0 when none).</summary>
     public static int MaxShrineLevel(EntityManager em, Faction faction)
     {
         int best = 0;
-        var q = em.CreateEntityQuery(
-            ComponentType.ReadOnly<ShrineTag>(),
-            ComponentType.ReadOnly<FactionTag>(),
-            ComponentType.ReadOnly<BuildingUpgradeState>());
+        var q = QC_ShrineTagFactionTagBuildingUpgradeState.Get(em, QT_ShrineTagFactionTagBuildingUpgradeState);
         Best(em, q, faction, ref best);
-        var qt = em.CreateEntityQuery(
-            ComponentType.ReadOnly<TempleOfRidanTag>(),
-            ComponentType.ReadOnly<FactionTag>(),
-            ComponentType.ReadOnly<BuildingUpgradeState>());
+        var qt = QC_TempleOfRidanTagFactionTagBuildingUpgradeState.Get(em, QT_TempleOfRidanTagFactionTagBuildingUpgradeState);
         Best(em, qt, faction, ref best);
         return best;
     }
@@ -46,10 +79,7 @@ public static class ChoiceUpgradeQuery
     public static int MaxVaultLevel(EntityManager em, Faction faction)
     {
         int best = 0;
-        var q = em.CreateEntityQuery(
-            ComponentType.ReadOnly<VaultTag>(),
-            ComponentType.ReadOnly<FactionTag>(),
-            ComponentType.ReadOnly<BuildingUpgradeState>());
+        var q = QC_VaultTagFactionTagBuildingUpgradeState.Get(em, QT_VaultTagFactionTagBuildingUpgradeState);
         Best(em, q, faction, ref best);
         return best;
     }
@@ -57,9 +87,7 @@ public static class ChoiceUpgradeQuery
     /// <summary>Does the faction own a Keep with the given completed wing?</summary>
     public static bool FactionHasWing(EntityManager em, Faction faction, KeepWingType wing)
     {
-        var q = em.CreateEntityQuery(
-            ComponentType.ReadOnly<KeepWings>(),
-            ComponentType.ReadOnly<FactionTag>());
+        var q = QC_KeepWingsFactionTag.Get(em, QT_KeepWingsFactionTag);
         using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
         for (int i = 0; i < ents.Length; i++)
         {

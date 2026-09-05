@@ -1,5 +1,5 @@
 // RitualComponents.cs
-// Ritual + Glow components shared by Alanthor's Purification, Feraldis's
+// Ritual + Shardroot components shared by Alanthor's Purification, Feraldis's
 // Violent Extraction, and Runai's Conversion rituals (spec §5). The state
 // machine for the node itself lives in NodeStateComponents.cs.
 //
@@ -123,26 +123,26 @@ public struct ConvertNodeCommand : IComponentData
     public Entity TargetNode;
 }
 
-// ==================== Glow ====================
+// ==================== Shardroot ====================
 
 /// <summary>
-/// Marker for a free-floating Glow pickup spawned at the end of a ritual.
+/// Marker for a free-floating Shardroot pickup spawned at the end of a ritual.
 /// Carry / deposit / intercept mechanics are a follow-up slice.
 /// </summary>
-public struct GlowPickupTag : IComponentData { }
+public struct ShardrootPickupTag : IComponentData { }
 
 /// <summary>
 /// Per-pickup state. Pickup window counts down — if no one claims within
-/// the window, the Glow despawns (spec §4.5: 30-60s pickup window).
+/// the window, the Shardroot despawns (spec §4.5: 30-60s pickup window).
 ///
 /// Spec refinement #4: claim is a 20-second attunement, not an instant
-/// transfer. A unit must stand within GlowAutoPickupRadius for
-/// GlowPickupAttunementTime uninterrupted; if they move out of range or
+/// transfer. A unit must stand within ShardrootPickupRadius for
+/// ShardrootAttunementTime uninterrupted; if they move out of range or
 /// die, progress resets and another unit in range can take over.
 /// </summary>
-public struct GlowPickupState : IComponentData
+public struct ShardrootPickupState : IComponentData
 {
-    /// <summary>How much Glow is in this pickup (delivered to the carrier's faction on deposit).</summary>
+    /// <summary>How much Shardroot is in this pickup (delivered to the carrier's faction on deposit).</summary>
     public int Amount;
 
     /// <summary>Seconds remaining before the pickup despawns if uncarried.</summary>
@@ -159,32 +159,32 @@ public struct GlowPickupState : IComponentData
 }
 
 /// <summary>
-/// On a unit that picked up a Glow pickup. Amount accumulates across
+/// On a unit that picked up a Shardroot pickup. Amount accumulates across
 /// multiple pickups. Drops on death (carrier-death system respawns a
-/// GlowPickup at the death position) — spec §5.1: "Glow pickup can be
+/// ShardrootPickup at the death position) — spec §5.1: "Shardroot pickup can be
 /// intercepted in transit by any faction."
 /// </summary>
-public struct GlowCarrier : IComponentData
+public struct ShardrootBearer : IComponentData
 {
-    /// <summary>Glow currently being carried (deposited into faction bank on reaching a reliquary).</summary>
+    /// <summary>Shardroot currently being carried (deposited into faction bank on reaching a reliquary).</summary>
     public int Amount;
 
     /// <summary>RitualKind that originally produced the carried glow (preserved through hand-offs).</summary>
     public RitualKind Source;
 }
 
-// ==================== Glow Storage (spec refinement #2) ====================
+// ==================== Shardroot Storage (spec refinement #2) ====================
 
 /// <summary>
-/// Glow currently stored on a building (always TempleOfRidan per spec
-/// refinement #2 — the standalone GlowReliquary was removed). Drives
+/// Shardroot currently stored on a building (always TempleOfRidan per spec
+/// refinement #2 — the standalone ShardrootReliquary was removed). Drives
 /// both the god-power cooldown reduction (spec refinement #6) and the
 /// explode-on-death magnitude (§6.3 transferred onto the Temple).
 ///
 /// Buildings with Amount == 0 do not explode — only the stockpile is
 /// volatile.
 /// </summary>
-public struct GlowStored : IComponentData
+public struct ShardrootStored : IComponentData
 {
     public int Amount;
 }

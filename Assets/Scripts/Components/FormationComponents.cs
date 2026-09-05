@@ -233,7 +233,7 @@ public struct FormationMemberState : IComponentData
 /// Survives Detach on purpose. It is cleared by the commands that genuinely
 /// take a unit out of formation (plain move, attack-move, CommandRouter).
 /// </summary>
-public struct FormationSlotMemory : IComponentData
+public struct FormationSlotMemory : IComponentData, IEnableableComponent
 {
     /// <summary>Index into the layout's slot list.</summary>
     public int Slot;

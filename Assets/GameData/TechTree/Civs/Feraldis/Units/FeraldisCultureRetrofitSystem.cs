@@ -17,6 +17,7 @@
 //            EAGLE that circles it carrying its own vision.
 
 using Unity.Collections;
+using TheWaningBorder.Core;
 using Unity.Entities;
 using Unity.Transforms;
 using TheWaningBorder.Abilities;
@@ -28,6 +29,21 @@ namespace TheWaningBorder.Systems.Combat
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial class FeraldisCultureRetrofitSystem : SystemBase
     {
+
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and this one was never disposed. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_FeraldisUnitTagUnitTagFactionTag =
+        {
+            ComponentType.ReadOnly<FeraldisUnitTag>(),
+            ComponentType.ReadOnly<UnitTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_FeraldisUnitTagUnitTagFactionTag;
+
+        #endregion
         private EntityQuery _workerQuery;
         private EntityQuery _scoutQuery;
         /// <summary>SimCadence, not a bare countdown — see SimCadence.cs. The
@@ -75,10 +91,7 @@ namespace TheWaningBorder.Systems.Combat
         /// </summary>
         private void StampPlunderPurses(EntityManager em)
         {
-            var q = em.CreateEntityQuery(
-                ComponentType.ReadOnly<FeraldisUnitTag>(),
-                ComponentType.ReadOnly<UnitTag>(),
-                ComponentType.ReadOnly<FactionTag>());
+            var q = QC_FeraldisUnitTagUnitTagFactionTag.Get(em, QT_FeraldisUnitTagUnitTagFactionTag);
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var tags = q.ToComponentDataArray<UnitTag>(Allocator.Temp);
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
@@ -199,6 +212,7 @@ namespace TheWaningBorder.Systems.Combat
                     var pos = spots[i];
                     pos.y += EagleHeight;
                     var bird = Eagle.Create(em, pos, owners[i], e);
+                    TransientState.PreAddUnitSet(em, bird);
                     em.AddComponentData(e, new HasEagle { Eagle = bird });
                 }
             }

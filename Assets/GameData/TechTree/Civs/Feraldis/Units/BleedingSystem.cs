@@ -68,10 +68,13 @@ namespace TheWaningBorder.Systems.Combat
                     // Credit the bleed's owner so pillage / last-damager
                     // bookkeeping attributes a bleed-out correctly.
                     if (em.HasComponent<LastDamagedByFaction>(entity))
+                    {
                         em.SetComponentData(entity, new LastDamagedByFaction
                         {
                             Value = b.Source
                         });
+                        em.SetComponentEnabled<LastDamagedByFaction>(entity, true);
+                    }
                 }
 
                 // The blood half of the rule: drip under the victim wherever

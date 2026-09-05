@@ -9,6 +9,7 @@
 // combat passives come from, so unit factories and the research grants agree.
 
 using System.Collections.Generic;
+using TheWaningBorder.Core;
 using Unity.Collections;
 using Unity.Entities;
 using TheWaningBorder.Economy;
@@ -17,6 +18,21 @@ namespace TheWaningBorder.Abilities
 {
     public static class AlanthorActiveHelper
     {
+
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and this one was never disposed. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_UnitTagUnitTypeIdFactionTag =
+        {
+            ComponentType.ReadOnly<UnitTag>(),
+            ComponentType.ReadOnly<UnitTypeId>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_UnitTagUnitTypeIdFactionTag;
+
+        #endregion
         public const float VolleysDuration = 5f;
         public const float VolleysCooldown = 40f;
         public const float VolleysMult = 2f;      // double fire rate
@@ -66,10 +82,7 @@ namespace TheWaningBorder.Abilities
                 || !FactionResearchState.Instance.HasResearched(faction, "ChoreographedVolleys")) return false;
             if (VolleysCooldownRemaining(faction) > 0f) return false;
 
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<UnitTag>(),
-                ComponentType.ReadOnly<UnitTypeId>(),
-                ComponentType.ReadOnly<FactionTag>());
+            var query = QC_UnitTagUnitTypeIdFactionTag.Get(em, QT_UnitTagUnitTypeIdFactionTag);
             using var entities = query.ToEntityArray(Allocator.Temp);
             using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
 
@@ -96,10 +109,7 @@ namespace TheWaningBorder.Abilities
                 || !FactionResearchState.Instance.HasResearched(faction, "RangingShot")) return false;
             if (RangingShotCooldownRemaining(faction) > 0f) return false;
 
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<UnitTag>(),
-                ComponentType.ReadOnly<UnitTypeId>(),
-                ComponentType.ReadOnly<FactionTag>());
+            var query = QC_UnitTagUnitTypeIdFactionTag.Get(em, QT_UnitTagUnitTypeIdFactionTag);
             using var entities = query.ToEntityArray(Allocator.Temp);
             using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
 

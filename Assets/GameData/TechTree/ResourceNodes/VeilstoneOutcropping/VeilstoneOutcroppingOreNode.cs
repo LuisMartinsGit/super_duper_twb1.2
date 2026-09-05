@@ -9,7 +9,7 @@ using System.Collections;
 using UnityEngine;
 using ShatterStone;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     public sealed class VeilstoneOutcroppingOreNode : OreNode
     {

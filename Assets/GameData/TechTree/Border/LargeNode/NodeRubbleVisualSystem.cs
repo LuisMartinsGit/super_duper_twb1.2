@@ -20,7 +20,7 @@ using Unity.Entities;
 using UnityEngine;
 using static TheWaningBorder.Core.Config.BorderConstants;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     public class NodeRubbleVisualSystem : MonoBehaviour
     {

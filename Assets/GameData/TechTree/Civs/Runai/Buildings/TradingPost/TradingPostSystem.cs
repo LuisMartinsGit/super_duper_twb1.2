@@ -1,5 +1,6 @@
 // Renamed internally to RunaiTradeHubSystem — manages the Runai trade network.
 using Unity.Collections;
+using TheWaningBorder.Core;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -22,6 +23,44 @@ namespace TheWaningBorder.Systems.Economy
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct TradingPostSystem : ISystem
     {
+
+        /// <summary>One cached query per constructed T — statics in a generic
+        /// class are per-type, which is the lifetime a generic helper needs.
+        /// See Core/CachedEntityQuery.cs.</summary>
+        static class StandingOf<T> where T : unmanaged, IComponentData
+        {
+            public static readonly ComponentType[] Types =
+            {
+                ComponentType.ReadOnly<T>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.Exclude<UnderConstruction>(),
+            };
+            public static CachedEntityQuery Query;
+        }
+
+        static readonly ComponentType[] QT_TradeNodeTagFactionTagLocalTransformExclUnderConstruction =
+        {
+            ComponentType.ReadOnly<TradeNodeTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.Exclude<UnderConstruction>(),
+        };
+        static CachedEntityQuery QC_TradeNodeTagFactionTagLocalTransformExclUnderConstruction;
+
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and this one was never disposed. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_HallTagFactionTagExclUnderConstruction =
+        {
+            ComponentType.ReadOnly<HallTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.Exclude<UnderConstruction>(),
+        };
+        static CachedEntityQuery QC_HallTagFactionTagExclUnderConstruction;
+
+        #endregion
         private const float NodeDiscoveryInterval = 2f;
         private const float TraderSpawnInterval = 30f;
         private const float PatrolSpawnInterval = 10f;
@@ -95,11 +134,7 @@ namespace TheWaningBorder.Systems.Economy
 
         private void DiscoverBuildingType<T>(EntityManager em, bool addHubSpawner) where T : unmanaged, IComponentData
         {
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<T>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.Exclude<UnderConstruction>()
-            );
+            var query = StandingOf<T>.Query.Get(em, StandingOf<T>.Types);
 
             using var entities = query.ToEntityArray(Allocator.Temp);
             using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
@@ -138,11 +173,7 @@ namespace TheWaningBorder.Systems.Economy
 
         private void DiscoverHalls(EntityManager em)
         {
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<HallTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.Exclude<UnderConstruction>()
-            );
+            var query = QC_HallTagFactionTagExclUnderConstruction.Get(em, QT_HallTagFactionTagExclUnderConstruction);
 
             using var entities = query.ToEntityArray(Allocator.Temp);
             using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
@@ -281,12 +312,7 @@ namespace TheWaningBorder.Systems.Economy
             node = Entity.Null;
             position = float3.zero;
 
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<TradeNodeTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.Exclude<UnderConstruction>()
-            );
+            var query = QC_TradeNodeTagFactionTagLocalTransformExclUnderConstruction.Get(em, QT_TradeNodeTagFactionTagLocalTransformExclUnderConstruction);
 
             using var entities = query.ToEntityArray(Allocator.Temp);
             using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);

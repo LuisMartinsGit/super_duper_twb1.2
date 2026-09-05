@@ -11,7 +11,7 @@ using UnityEngine;
 using Unity.Entities;
 using TheWaningBorder.Core;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     public static class KingLexorVisual
     {
@@ -239,10 +239,8 @@ namespace TheWaningBorder.Presentation
     /// </summary>
     public class KingLexorAnimator : MonoBehaviour
     {
-        [Tooltip("Leg swing amplitude in degrees at full gait.")]
         public float LegSwingDegrees = 32f;
 
-        [Tooltip("Movement speed (m/s) above which the gait engages.")]
         public float MoveThreshold = 0.25f;
 
         private Transform _horse;

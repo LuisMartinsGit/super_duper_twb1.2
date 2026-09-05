@@ -61,6 +61,23 @@ public struct PresentationId : IComponentData
 }
 
 /// <summary>
+/// "This entity already has a GameObject view." Added by
+/// PresentationSpawnSystem the moment it spawns one.
+///
+/// It exists to make the spawn pass REACTIVE instead of a poll. The pass used
+/// to sweep every PresentationId entity every frame to discover that nothing
+/// was missing — true for almost the whole match. Its query now excludes this
+/// tag, so in the steady state the query is EMPTY and the pass costs an
+/// IsEmpty check.
+///
+/// It mirrors PresentationSpawnSystem's _spawnedEntities set exactly; that set
+/// is still the authority, this is the ECS-side filter. A view unregistered
+/// mid-life (the culture respawn) re-registers in the same frame, so the tag
+/// tracks it without a gap.
+/// </summary>
+public struct PresentationViewSpawned : IComponentData, IEnableableComponent { }
+
+/// <summary>
 /// The entity's human-readable name, as shown in the selection header.
 ///
 /// Stamped once at creation by <c>UnitFactory.Create</c> / <c>BuildingFactory.Create</c>
@@ -129,13 +146,13 @@ public struct DesiredDestination : IComponentData
 /// Marker tag indicating the unit has an active user-issued move order.
 /// Prevents auto-targeting systems from overriding player commands.
 /// </summary>
-public struct UserMoveOrder : IComponentData { }
+public struct UserMoveOrder : IComponentData, IEnableableComponent { }
 
 /// <summary>
 /// Marker tag for units executing an attack-move command.
 /// Units with this tag auto-acquire targets while moving.
 /// </summary>
-public struct AttackMoveTag : IComponentData { }
+public struct AttackMoveTag : IComponentData, IEnableableComponent { }
 
 /// <summary>
 /// Temporary speed override for formation movement.
@@ -204,7 +221,7 @@ public struct RallyPoint : IComponentData
 /// writing — it is to write the same STABLE point until the target actually
 /// moves.
 /// </summary>
-public struct ChaseAnchor : IComponentData
+public struct ChaseAnchor : IComponentData, IEnableableComponent
 {
     /// <summary>Target this anchor was computed for.</summary>
     public Entity Target;

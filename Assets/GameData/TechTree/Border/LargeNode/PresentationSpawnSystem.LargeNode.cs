@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Unity.Entities;
 using Unity.Transforms;
-using TheWaningBorder.Presentation;
+using TheWaningBorder.Rendering;
 using TheWaningBorder.World.Terrain;
 using TheWaningBorder.Entities;
 

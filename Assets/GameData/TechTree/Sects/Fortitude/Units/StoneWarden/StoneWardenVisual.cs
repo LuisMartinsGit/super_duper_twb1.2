@@ -17,7 +17,7 @@ using UnityEngine;
 using Unity.Entities;
 using TheWaningBorder.Core;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     public static class StoneWardenVisual
     {
@@ -297,22 +297,16 @@ namespace TheWaningBorder.Presentation
     /// </summary>
     public class StoneWardenAnimator : MonoBehaviour
     {
-        [Tooltip("Leg swing amplitude in degrees at full stride.")]
         public float LegSwing = 17f;
 
-        [Tooltip("Free (right) arm swing amplitude in degrees at full stride.")]
         public float ArmSwing = 9f;
 
-        [Tooltip("Shield arm swing in degrees — kept near zero on purpose.")]
         public float ShieldArmSwing = 2.5f;
 
-        [Tooltip("Stride length in meters per full walk cycle.")]
         public float StrideLength = 1.30f;
 
-        [Tooltip("Walking side-to-side weight transfer in degrees.")]
         public float WeightRoll = 3.4f;
 
-        [Tooltip("Seconds between idle shield plants.")]
         public float PlantInterval = 5.2f;
 
         private Transform _legL, _legR, _armL, _armR, _torso, _head, _shield;

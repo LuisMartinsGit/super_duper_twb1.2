@@ -15,7 +15,7 @@ namespace TheWaningBorder.Abilities
 {
     /// <summary>Garrison "Charge" tech. The unit's first strike deals +Pct% damage;
     /// rearms after StillRequired seconds without dealing damage.</summary>
-    public struct FirstStrike : IComponentData
+    public struct FirstStrike : IComponentData, IEnableableComponent
     {
         public float Pct;              // 30 = +30% on the opening blow
         public byte Ready;             // 1 = the next hit is the first strike

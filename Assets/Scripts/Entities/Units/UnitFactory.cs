@@ -209,6 +209,11 @@ namespace TheWaningBorder.Entities
                 em.AddComponentData(entity, new UnitTypeId { Value = unitId });
 
                 StampCounterTags(em, entity, unitId);
+
+                // Pre-add the transient combat/movement set DISABLED, so the
+                // unit keeps one archetype for life — see TransientState.cs
+                // (the 7,782-archetype BlockAllocator crash).
+                TransientState.PreAddUnitSet(em, entity);
             }
 
             return entity;
@@ -290,6 +295,9 @@ namespace TheWaningBorder.Entities
                 if (!bonus.IsEmpty)
                     ecb.AddComponent(entity, bonus);
             }
+
+            // Same transient pre-add as the EM path — see TransientState.cs.
+            TransientState.PreAddUnitSet(ecb, entity);
 
             return entity;
         }

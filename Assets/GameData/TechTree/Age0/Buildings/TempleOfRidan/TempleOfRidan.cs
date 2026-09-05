@@ -59,8 +59,8 @@ namespace TheWaningBorder.Entities
             em.AddComponentData(entity, new TempleLevel { Level = 1 });
 
             // Glow storage lives on the Temple per spec refinement #2
-            // (the standalone GlowReliquary was deleted).
-            em.AddComponentData(entity, new GlowStored { Amount = 0 });
+            // (the standalone ShardrootReliquary was deleted).
+            em.AddComponentData(entity, new ShardrootStored { Amount = 0 });
             em.AddBuffer<TrainQueueItem>(entity);
             em.AddComponentData(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
 
@@ -115,7 +115,7 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new TempleLevel { Level = 1 });
 
             // Glow storage lives on the Temple per spec refinement #2.
-            ecb.AddComponent(entity, new GlowStored { Amount = 0 });
+            ecb.AddComponent(entity, new ShardrootStored { Amount = 0 });
             ecb.AddBuffer<TrainQueueItem>(entity);
             ecb.AddComponent(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
 

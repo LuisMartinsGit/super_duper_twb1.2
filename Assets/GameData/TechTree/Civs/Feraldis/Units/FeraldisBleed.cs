@@ -27,7 +27,7 @@ namespace TheWaningBorder.Systems.Combat
             if (victim == Entity.Null || !em.Exists(victim)) return;
             if (dps <= 0f || duration <= 0f) return;
             if (!em.HasComponent<Health>(victim)) return;
-            if (em.HasComponent<DeathAnimationState>(victim)) return;
+            if (TransientState.Active<DeathAnimationState>(em, victim)) return;
             // Buildings don't bleed.
             if (!em.HasComponent<UnitTag>(victim)) return;
 

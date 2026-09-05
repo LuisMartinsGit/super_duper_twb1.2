@@ -13,18 +13,20 @@ namespace TheWaningBorder.Systems.Buildings
     public partial struct WallSegmentCleanupSystem : ISystem
     {
         private const float PollInterval = 0.5f;
-        private float _timer;
+        // SimCadence-phased, NOT a raw float accumulator (2026-09-04, MP
+        // harness catch #7 class): a raw `_timer -= dt` carries a
+        // machine-dependent phase in from the pre-match frame-driven updates,
+        // so periodic work lands on different ticks per lockstep peer.
+        private SimCadence.Periodic _acc;
 
         public void OnCreate(ref SystemState state)
         {
-            _timer = 0f;
+
         }
 
         public void OnUpdate(ref SystemState state)
         {
-            _timer -= SystemAPI.Time.DeltaTime;
-            if (_timer > 0f) return;
-            _timer = PollInterval;
+            if (!_acc.Due(SystemAPI.Time.DeltaTime, PollInterval)) return;
 
             var em = state.EntityManager;
             var toDestroy = new NativeList<Entity>(16, Allocator.Temp);
@@ -104,7 +106,7 @@ namespace TheWaningBorder.Systems.Buildings
         private static bool IsDying(EntityManager em, Entity e)
         {
             if (em.HasComponent<BuildingCollapseState>(e)) return true;
-            if (em.HasComponent<DeathAnimationState>(e)) return true;
+            if (TransientState.Active<DeathAnimationState>(em, e)) return true;
             return em.HasComponent<Health>(e) && em.GetComponentData<Health>(e).Value <= 0;
         }
 

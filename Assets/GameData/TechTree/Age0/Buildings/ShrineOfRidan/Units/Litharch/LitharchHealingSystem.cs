@@ -62,7 +62,7 @@ namespace TheWaningBorder.Systems.Combat
                          .WithEntityAccess())
             {
                 // UserMoveOrder = player/AI issued a manual command — cancel healing, obey command
-                if (em.HasComponent<UserMoveOrder>(entity))
+                if (TransientState.Active<UserMoveOrder>(em, entity))
                 {
                     if (lithState.ValueRO.IsHealing != 0)
                     {

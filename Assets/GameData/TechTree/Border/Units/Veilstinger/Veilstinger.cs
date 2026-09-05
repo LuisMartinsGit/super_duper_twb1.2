@@ -19,13 +19,45 @@ namespace TheWaningBorder.Entities
         /// Create Veilstinger using EntityManager.
         /// </summary>
         public static Entity Create(EntityManager em, float3 position, Faction faction)
-            => CreateInternal(new EmCreator(em), position, faction);
+        {
+            // Direct spawns (curse waves, blood curse, ritual backlash...)
+            // bypass UnitFactory's dispatcher, so the transient pre-add has
+            // to happen here or the enable-bit machinery hard-crashes the
+            // player on the first order this unit receives (TransientState).
+            var e = CreateInternal(new EmCreator(em), position, faction);
+            TransientState.PreAddUnitSet(em, e);
+            // NETWORKED (2026-09-04, MP harness catch #12): curse wave units
+            // carried no NetworkedEntity, so the whole curse army was
+            // invisible to the desync checksum AND the diagnostic traces — a
+            // hidden population whose divergence only surfaced when one of
+            // them damaged a networked unit, thousands of ticks later
+            // (tick-15859 fork: a lone worker took Crystalling melee on one
+            // peer only, with every scan blind to the attacker). Spawned
+            // in-sim on every peer at the same tick, so the deterministic id
+            // generator agrees across peers.
+            em.AddComponentData(e, new TheWaningBorder.Core.Multiplayer.NetworkedEntity
+            {
+                NetworkId = TheWaningBorder.Core.Multiplayer.NetworkIdGenerator.GetNextId(),
+                SpawnTick = TheWaningBorder.Core.Multiplayer.NetworkIdGenerator.CurrentTick,
+            });
+            return e;
+        }
 
         /// <summary>
         /// Create Veilstinger using EntityCommandBuffer for deferred creation.
         /// </summary>
         public static Entity Create(EntityCommandBuffer ecb, float3 position, Faction faction)
-            => CreateInternal(new EcbCreator(ecb), position, faction);
+        {
+            var e = CreateInternal(new EcbCreator(ecb), position, faction);
+            TransientState.PreAddUnitSet(ecb, e);
+            // Same networking as the EntityManager overload above.
+            ecb.AddComponent(e, new TheWaningBorder.Core.Multiplayer.NetworkedEntity
+            {
+                NetworkId = TheWaningBorder.Core.Multiplayer.NetworkIdGenerator.GetNextId(),
+                SpawnTick = TheWaningBorder.Core.Multiplayer.NetworkIdGenerator.CurrentTick,
+            });
+            return e;
+        }
 
         private static Entity CreateInternal<TCreator>(TCreator creator, float3 position, Faction faction)
             where TCreator : struct, IEntityCreator

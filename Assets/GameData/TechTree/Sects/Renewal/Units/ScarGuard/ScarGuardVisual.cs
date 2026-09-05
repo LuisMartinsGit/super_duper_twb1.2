@@ -16,7 +16,7 @@ using UnityEngine;
 using Unity.Entities;
 using TheWaningBorder.Core;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     public static class ScarGuardVisual
     {
@@ -342,22 +342,16 @@ namespace TheWaningBorder.Presentation
     /// </summary>
     public class ScarGuardAnimator : MonoBehaviour
     {
-        [Tooltip("Leg swing amplitude in degrees at full stride.")]
         public float LegSwing = 24f;
 
-        [Tooltip("Fraction of the swing the injured right leg takes (the limp).")]
         public float LimpFactor = 0.68f;
 
-        [Tooltip("Arm swing amplitude in degrees at full stride (free arm).")]
         public float ArmSwing = 13f;
 
-        [Tooltip("Stride length in meters per full walk cycle.")]
         public float StrideLength = 0.98f;
 
-        [Tooltip("Idle labored-breath amplitude in degrees.")]
         public float BreathAmount = 2.6f;
 
-        [Tooltip("Seconds between idle cleaver shoulder-rests.")]
         public float RestInterval = 4.6f;
 
         private Transform _legL, _legR, _armL, _armR, _torso, _head, _cleaver;

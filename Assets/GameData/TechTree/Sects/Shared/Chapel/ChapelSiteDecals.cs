@@ -19,7 +19,7 @@ using TheWaningBorder.Economy;
 using TheWaningBorder.World.Terrain;
 using EntityWorld = Unity.Entities.World;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     /// <summary>
     /// Manages the six ground decals around the player's Temple of Ridan.

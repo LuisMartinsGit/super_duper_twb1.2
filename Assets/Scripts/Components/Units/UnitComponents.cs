@@ -11,7 +11,10 @@ using Unity.Mathematics;
 /// DeathSystem adds this instead of immediately destroying the entity.
 /// After Timer expires, entity is destroyed.
 /// </summary>
-public struct DeathAnimationState : IComponentData
+// Enableable, pre-added disabled at spawn — see the archetype-churn note on
+// Target. WithNone<DeathAnimationState> queries treat disabled as absent, so
+// every "skip corpses" query keeps its meaning unchanged.
+public struct DeathAnimationState : IComponentData, IEnableableComponent
 {
     public float Timer; // Seconds remaining before entity destruction
 }
@@ -58,7 +61,7 @@ public struct UnitTypeId : IComponentData
 ///   Lv 2: 1.10× attack/defense
 ///   Lv 3: 1.15× attack/defense, 1.20× LOS
 ///   Lv 4: 1.20× attack/defense/LOS + Lv4 HP regen + small AOE on death
-///   Lv 5: 1.25× attack/defense/LOS + Lv5 push-back AOE on death + GlowAbility
+///   Lv 5: 1.25× attack/defense/LOS + Lv5 push-back AOE on death + ShardrootAbility
 ///
 /// Stamp-and-apply pattern: UnitRankSystem reads UnitRankApplied to compute
 /// the diff factor (stats[new]/stats[applied]) and updates the stamp.
@@ -78,11 +81,11 @@ public struct UnitRankApplied : IComponentData
 }
 
 /// <summary>
-/// Lv 5 GlowAbility — when Active is non-zero, the unit is in the 6-second
+/// Lv 5 ShardrootAbility — when Active is non-zero, the unit is in the 6-second
 /// burst window (fast HP regen mirrored into SpellBuff). Cooldown counts
 /// down between casts. Stamped lazily on first activation.
 /// </summary>
-public struct GlowAbilityState : IComponentData
+public struct ShardrootAbilityState : IComponentData
 {
     public float ActiveRemaining;   // Seconds left in the burst (0 = not active)
     public float CooldownRemaining; // Seconds until castable again (0 = ready)
@@ -95,12 +98,6 @@ public struct GlowAbilityState : IComponentData
 /// the pile to its faction and destroys the pile. Self-despawns after
 /// <see cref="Lifetime"/> seconds if not collected.
 /// </summary>
-public struct UpgradePile : IComponentData
-{
-    public TheWaningBorder.Core.Cost Drop;
-    public float Lifetime;
-    public float PickupRadius;
-}
 
 /// <summary>Marker tag for Cavalry units (mounted). Used for anti-cavalry bonus detection.</summary>
 public struct CavalryTag : IComponentData { }

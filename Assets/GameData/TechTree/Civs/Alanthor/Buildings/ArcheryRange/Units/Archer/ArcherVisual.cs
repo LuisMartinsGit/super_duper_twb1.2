@@ -13,7 +13,7 @@ using UnityEngine;
 using Unity.Entities;
 using TheWaningBorder.Core;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     public static class ArcherVisual
     {
@@ -255,16 +255,12 @@ namespace TheWaningBorder.Presentation
     /// </summary>
     public class ArcherAnimator : MonoBehaviour
     {
-        [Tooltip("Leg swing amplitude in degrees at full stride.")]
         public float LegSwing = 27f;
 
-        [Tooltip("Arm swing amplitude in degrees at full stride (free arm).")]
         public float ArmSwing = 16f;
 
-        [Tooltip("Stride length in meters per full walk cycle.")]
         public float StrideLength = 1.0f;
 
-        [Tooltip("Idle bow lower/raise amplitude in degrees.")]
         public float BowIdle = 5f;
 
         private Transform _legL, _legR, _armL, _armR, _torso, _head;

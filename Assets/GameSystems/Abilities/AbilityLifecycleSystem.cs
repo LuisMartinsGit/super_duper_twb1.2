@@ -10,6 +10,7 @@
 // [UpdateInGroup]; ordered before combat so buffs apply the same frame.
 
 using Unity.Collections;
+using TheWaningBorder.Core;
 using Unity.Entities;
 using Unity.Mathematics;
 
@@ -19,6 +20,22 @@ namespace TheWaningBorder.Abilities
     [UpdateBefore(typeof(TheWaningBorder.Systems.Combat.MeleeCombatSystem))]
     public partial class AbilityLifecycleSystem : SystemBase
     {
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and these were never disposed, so this hot path leaked one
+        // per invocation. A bloated registry slows every later query AND
+        // every structural change. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_AbilityActivatedUnitAbilities =
+        {
+            ComponentType.ReadOnly<AbilityActivated>(),
+            ComponentType.ReadOnly<UnitAbilities>(),
+        };
+        static CachedEntityQuery QC_AbilityActivatedUnitAbilities;
+
+        #endregion
+
         protected override void OnUpdate()
         {
             float dt = SystemAPI.Time.DeltaTime;
@@ -35,8 +52,7 @@ namespace TheWaningBorder.Abilities
             }
 
             // ---- 2. Consume AbilityActivated -> begin the unit's active ability ----
-            var actQ = em.CreateEntityQuery(ComponentType.ReadOnly<AbilityActivated>(),
-                                            ComponentType.ReadOnly<UnitAbilities>());
+            var actQ = QC_AbilityActivatedUnitAbilities.Get(em, QT_AbilityActivatedUnitAbilities);
             using (var acts = actQ.ToEntityArray(Allocator.Temp))
             {
                 // Blood Rain (War) silences every caster on the map, both

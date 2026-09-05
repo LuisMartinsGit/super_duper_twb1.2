@@ -20,29 +20,21 @@ namespace TheWaningBorder.Economy
     [CreateAssetMenu(menuName = "TheWaningBorder/Sect Definition", fileName = "Sect_New")]
     public sealed class SectDefinition : ScriptableObject
     {
-        [Header("Identity")]
-        [Tooltip("String ID — must match one of SectConfig.AllSectIds.")]
         public string SectId;
 
-        [Tooltip("Cluster grouping for adoption-cost rules and UI grouping.")]
         public SectCluster Cluster;
 
-        [Tooltip("Display name (shown to the player). e.g. \"Sect of Antiquity\".")]
         public string DisplayName;
 
-        [Tooltip("One-line tagline. e.g. \"the holy librarians\".")]
         public string Tagline;
 
-        [Tooltip("Identity sentence — what this sect is for. e.g. \"Intel & enemy shutdown\".")]
         [TextArea(1, 3)]
         public string Identity;
 
-        [Header("Lore")]
         [TextArea(2, 6)]
         public string LoreNote;
 
         // The four levers. Each is a 3-level array of SectLevelData.
-        [Header("Levers")]
         public SectLeverData Passive     = new SectLeverData(SectLeverKind.Passive);
         public SectLeverData Building    = new SectLeverData(SectLeverKind.Building);
         public SectLeverData Unit        = new SectLeverData(SectLeverKind.Unit);
@@ -70,13 +62,10 @@ namespace TheWaningBorder.Economy
     [Serializable]
     public sealed class SectLeverData
     {
-        [Tooltip("Which channel this lever occupies. Set by the SectDefinition constructor — leave alone in inspector.")]
         public SectLeverKind Kind;
 
-        [Tooltip("Display name. e.g. \"Cataloged Memory\" for Antiquity's Passive.")]
         public string LeverName;
 
-        [Tooltip("Per-level data. Always 3 entries (Lv I / II / III).")]
         public SectLevelData[] Levels = new SectLevelData[3];
 
         public SectLeverData() { }
@@ -105,21 +94,17 @@ namespace TheWaningBorder.Economy
     [Serializable]
     public sealed class SectLevelData
     {
-        [Tooltip("Player-facing description. Spec text reads roughly like the bullet under each level in the design doc.")]
         [TextArea(2, 6)]
         public string Description;
 
-        [Tooltip("Cooldown in seconds (Active Power levers only — ignored otherwise).")]
         public float CooldownSeconds;
 
-        [Tooltip("Effect duration in seconds (where applicable — e.g. Active Power durations, debuff durations).")]
         public float DurationSeconds;
 
         // Phase 2 will add typed parameter fields here as each lever is wired
         // (e.g. AurasBuilding/AuraRadius, PassiveBonusPercent, etc). Keeping the
         // shape minimal in Phase 1 keeps the SOs readable while we figure out
         // the right schema lever-by-lever.
-        [Tooltip("Free-form key→float parameters. Phase 2 dispatchers know the keys per sect/lever.")]
         public SectParam[] Parameters = System.Array.Empty<SectParam>();
 
         /// <summary>Read a parameter by key, defaulting to <paramref name="fallback"/> if missing.</summary>

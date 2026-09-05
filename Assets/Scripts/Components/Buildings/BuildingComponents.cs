@@ -273,9 +273,9 @@ public struct TempleChapelSlot : IBufferElementData
     /// sect's god-power cooldown is halved on each fire (refinement: opt-in
     /// religion, glow allocated to shrines halves recharge time of that
     /// sect's god power, no stacking). Glow units come from the Temple's
-    /// GlowStored at allocation time and stay locked until deallocated.
+    /// ShardrootStored at allocation time and stay locked until deallocated.
     /// </summary>
-    public byte GlowAllocated;
+    public byte ShardrootAllocated;
 }
 
 /// <summary>

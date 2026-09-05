@@ -10,6 +10,7 @@
 // Runs UpdateBefore(DeathSystem) so the intercept happens before destruction.
 
 using Unity.Collections;
+using TheWaningBorder.Core;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -28,6 +29,21 @@ namespace TheWaningBorder.Systems.Border
     [UpdateBefore(typeof(DeathSystem))]
     public partial class NodeStateDeathInterceptSystem : SystemBase
     {
+
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and this one was never disposed. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_HallTagFactionTagLocalTransform =
+        {
+            ComponentType.ReadOnly<HallTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery QC_HallTagFactionTagLocalTransform;
+
+        #endregion
         private EntityQuery _victoryQuery;
         private EntityQuery _factionProgressQuery;
 
@@ -200,10 +216,7 @@ namespace TheWaningBorder.Systems.Border
 
             // Find a target — prefer the killer's hall.
             float3 target = nodePos; // fallback: charge outward from the corpse
-            var hallQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<HallTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<LocalTransform>());
+            var hallQuery = QC_HallTagFactionTagLocalTransform.Get(em, QT_HallTagFactionTagLocalTransform);
             using var hallEnts = hallQuery.ToEntityArray(Allocator.Temp);
             using var hallTags = hallQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var hallTransforms = hallQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);

@@ -1,4 +1,5 @@
 using UnityEngine;
+using TheWaningBorder.Core;
 using Unity.Entities;
 using Unity.Mathematics;
 using TheWaningBorder.Entities;
@@ -32,6 +33,24 @@ namespace TheWaningBorder.Bootstrap
     /// </summary>
     public static class BorderNodeBootstrap
     {
+        static readonly ComponentType[] QT_NodeVictoryState =
+        {
+            ComponentType.ReadOnly<NodeVictoryState>(),
+        };
+        static CachedEntityQuery QC_NodeVictoryState;
+
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and this one was never disposed. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_BorderExtinctionState =
+        {
+            ComponentType.ReadOnly<BorderExtinctionState>(),
+        };
+        static CachedEntityQuery QC_BorderExtinctionState;
+
+        #endregion
         /// <summary>Corner inset as a fraction of each map axis — nodes sit
         /// 12% in from the playable-bounds corner before terrain fitting.</summary>
         private const float CornerInsetFraction = 0.12f;
@@ -205,7 +224,7 @@ namespace TheWaningBorder.Bootstrap
             // gets to run. Without this, RequireForUpdate<BorderExtinctionState>
             // permanently parks the system and the border can't recover after
             // the player wipes its initial nodes.
-            var extQuery = em.CreateEntityQuery(ComponentType.ReadOnly<BorderExtinctionState>());
+            var extQuery = QC_BorderExtinctionState.Get(em, QT_BorderExtinctionState);
             if (extQuery.IsEmpty)
             {
                 var extEntity = em.CreateEntity(typeof(BorderExtinctionState));
@@ -220,7 +239,7 @@ namespace TheWaningBorder.Bootstrap
             // Initialize node victory singleton so NodeVictorySystem can run.
             // Tracks per-culture hold timers and Feraldis last-destroyer
             // attribution for the dual node-victory paths (spec §8).
-            var victoryQuery = em.CreateEntityQuery(ComponentType.ReadOnly<NodeVictoryState>());
+            var victoryQuery = QC_NodeVictoryState.Get(em, QT_NodeVictoryState);
             if (victoryQuery.IsEmpty)
             {
                 var victoryEntity = em.CreateEntity(typeof(NodeVictoryState));

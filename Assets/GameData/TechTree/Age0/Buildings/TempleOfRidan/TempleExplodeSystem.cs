@@ -2,9 +2,9 @@
 // Glow stored at a Temple of Ridan detonates when the Temple is destroyed
 // (spec §6.3, refinement #2 moved storage from a standalone Reliquary onto
 // the Temple itself). The explosion damages every non-owner entity inside
-// GlowReliquaryExplodeRadius, scaled by the stored Glow amount.
+// ShardrootReliquaryExplodeRadius, scaled by the stored Glow amount.
 //
-// Runs UpdateBefore(DeathSystem) so we can read GlowStored before the
+// Runs UpdateBefore(DeathSystem) so we can read ShardrootStored before the
 // entity is queued for destruction. Stored is zeroed out immediately so
 // the explode fires exactly once even if the Temple lingers a frame at
 // Health <= 0.
@@ -49,7 +49,7 @@ namespace TheWaningBorder.Systems.Economy
             var consumedEntities = new NativeList<Entity>(2, Allocator.Temp);
 
             foreach (var (stored, health, transform, faction, entity) in SystemAPI
-                .Query<RefRW<GlowStored>, RefRO<Health>, RefRO<LocalTransform>, RefRO<FactionTag>>()
+                .Query<RefRW<ShardrootStored>, RefRO<Health>, RefRO<LocalTransform>, RefRO<FactionTag>>()
                 .WithAll<TempleOfRidanTag>()
                 .WithEntityAccess())
             {
@@ -89,9 +89,9 @@ namespace TheWaningBorder.Systems.Economy
                 float3 center = explodes[e];
                 Faction owner = explodeFactions[e];
                 int stored = explodeAmounts[e];
-                int damage = (int)math.ceil(stored * GlowReliquaryExplodeDamagePerGlow);
+                int damage = (int)math.ceil(stored * ShardrootReliquaryExplodeDamagePer);
 
-                TWBLog.Log($"[TempleExplode] {owner}'s Temple detonates with {stored} stored Glow ({damage} damage in {GlowReliquaryExplodeRadius:F0}u)");
+                TWBLog.Log($"[TempleExplode] {owner}'s Temple detonates with {stored} stored Glow ({damage} damage in {ShardrootReliquaryExplodeRadius:F0}u)");
 
                 for (int v = 0; v < victimEnts.Length; v++)
                 {
@@ -103,9 +103,9 @@ namespace TheWaningBorder.Systems.Economy
                     float dxz = math.distance(
                         new float2(pos.x, pos.z),
                         new float2(center.x, center.z));
-                    if (dxz > GlowReliquaryExplodeRadius) continue;
+                    if (dxz > ShardrootReliquaryExplodeRadius) continue;
 
-                    float falloff = 1f - (dxz / GlowReliquaryExplodeRadius);
+                    float falloff = 1f - (dxz / ShardrootReliquaryExplodeRadius);
                     int dealt = (int)math.max(1, damage * falloff);
 
                     var h = em.GetComponentData<Health>(victimEnts[v]);
@@ -123,7 +123,7 @@ namespace TheWaningBorder.Systems.Economy
                 if (!em.HasComponent<ShardrootTag>(temple)) continue;
                 em.RemoveComponent<ShardrootTag>(temple);
 
-                var dropped = TheWaningBorder.Entities.GlowPickup.Create(
+                var dropped = TheWaningBorder.Entities.ShardrootPickup.Create(
                     em, explodes[e], RitualKind.Purification,
                     ShardrootState.ShardrootPower);
                 em.AddComponent<ShardrootTag>(dropped);

@@ -12,21 +12,13 @@ namespace TheWaningBorder.World.MapMarkers
     [DisallowMultipleComponent]
     public sealed class VeilstoneOutcroppingMarker : MapMarker
     {
-        [Tooltip("Number of veilstone outcropping nodes in this patch. Default 30 " +
-                 "matches the procedural NEAR-patch size.")]
         [Min(1)] public int NodeCount = 30;
 
-        [Tooltip("Veilstone carried by each outcropping. Default 30 → patch total " +
-                 "= NodeCount × VeilstonePerNode (e.g. 30×30 = 900 starter veilstone).")]
         [FormerlySerializedAs("CrystalPerNode")]
         [Min(1)] public int VeilstonePerNode = 30;
 
-        [Tooltip("Radius (m) the nodes scatter across. Default 7 matches " +
-                 "the procedural NEAR patch spread.")]
         [Min(0.5f)] public float Spread = 7f;
 
-        [Tooltip("Hex-grid layout (dense, even field) vs random tight cluster. " +
-                 "Hex-grid suits large patches; random suits small outcrops.")]
         public PatchLayout Layout = PatchLayout.HexGrid;
 
         protected override float GizmoRadius => Spread;

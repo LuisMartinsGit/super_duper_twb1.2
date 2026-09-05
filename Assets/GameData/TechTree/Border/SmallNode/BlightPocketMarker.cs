@@ -12,8 +12,6 @@ namespace TheWaningBorder.World.MapMarkers
     [DisallowMultipleComponent]
     public sealed class BlightPocketMarker : MapMarker
     {
-        [Tooltip("Radius (m) of the established haze patch seeded around the " +
-                 "SmallNode at match start. Default matches VeilCrustConstants.PocketRadius.")]
         [Min(4f)] public float Radius = 12f;
 
         protected override float GizmoRadius => Radius;

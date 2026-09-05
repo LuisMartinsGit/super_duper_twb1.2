@@ -33,7 +33,7 @@ using Unity.Entities;
 using Unity.Transforms;
 using UnityEngine;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     public class HutEvolutionDriver : MonoBehaviour
     {

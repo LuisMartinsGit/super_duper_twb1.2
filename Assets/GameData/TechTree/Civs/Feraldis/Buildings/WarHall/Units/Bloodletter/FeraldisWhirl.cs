@@ -60,7 +60,7 @@ namespace TheWaningBorder.Systems.Combat
                 if (!Alliances.AreHostile(attackerFaction,
                         em.GetComponentData<FactionTag>(e).Value)) continue;
                 if (em.HasComponent<Invulnerable>(e)) continue;
-                if (em.HasComponent<DeathAnimationState>(e)) continue;
+                if (TransientState.Active<DeathAnimationState>(em, e)) continue;
 
                 float3 p = em.GetComponentData<LocalTransform>(e).Position;
                 float dx = p.x - center.x, dz = p.z - center.z;
@@ -72,7 +72,10 @@ namespace TheWaningBorder.Systems.Combat
                 em.SetComponentData(e, hp);
 
                 if (em.HasComponent<LastDamagedByFaction>(e))
+                {
                     em.SetComponentData(e, new LastDamagedByFaction { Value = attackerFaction });
+                    em.SetComponentEnabled<LastDamagedByFaction>(e, true);
+                }
 
                 ApplyBleed(em, ecb, e, whirl, attackerFaction);
             }

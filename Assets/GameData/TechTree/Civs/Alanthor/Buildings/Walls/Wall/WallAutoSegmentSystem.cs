@@ -48,12 +48,16 @@ namespace TheWaningBorder.Systems.Buildings
         /// <summary>Poll cadence. Matches WallSegmentCleanupSystem.PollInterval.</summary>
         private const float PollInterval = 0.5f;
 
-        private float _timer;
+        // SimCadence-phased, NOT a raw float accumulator (2026-09-04, MP
+        // harness catch #7 class): a raw `_timer -= dt` carries a
+        // machine-dependent phase in from the pre-match frame-driven updates,
+        // so periodic work lands on different ticks per lockstep peer.
+        private SimCadence.Periodic _acc;
         private EntityQuery _hubQuery;
 
         public void OnCreate(ref SystemState state)
         {
-            _timer = 0f;
+
             _hubQuery = state.GetEntityQuery(new EntityQueryDesc
             {
                 All = new[]
@@ -73,9 +77,7 @@ namespace TheWaningBorder.Systems.Buildings
 
         public void OnUpdate(ref SystemState state)
         {
-            _timer -= SystemAPI.Time.DeltaTime;
-            if (_timer > 0f) return;
-            _timer = PollInterval;
+            if (!_acc.Due(SystemAPI.Time.DeltaTime, PollInterval)) return;
 
             var em = state.EntityManager;
 

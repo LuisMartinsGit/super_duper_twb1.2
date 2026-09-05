@@ -1,6 +1,6 @@
-// Free-floating Glow pickup spawned at the end of a ritual. Carry / deposit /
+// Free-floating Shardroot pickup spawned at the end of a ritual. Carry / deposit /
 // intercept mechanics are a follow-up slice — for now the pickup just sits
-// at the spawn position and despawns after GlowPickupTimeout (spec §4.5).
+// at the spawn position and despawns after ShardrootPickupTimeout (spec §4.5).
 
 using Unity.Entities;
 using Unity.Mathematics;
@@ -10,15 +10,15 @@ using static TheWaningBorder.Core.Config.BorderConstants;
 namespace TheWaningBorder.Entities
 {
     /// <summary>
-    /// Glow pickup entity. Spec §5.1: "Drop a physical Glow pickup on
-    /// completion that must be carried back to a deposit building. Glow
+    /// Shardroot pickup entity. Spec §5.1: "Drop a physical Shardroot pickup on
+    /// completion that must be carried back to a deposit building. Shardroot
     /// pickup can be intercepted in transit by any faction."
     ///
     /// FactionTag is left unset (Faction.Border as a neutral default) so
     /// any unit can attempt to claim it. The pickup is owned by no one
     /// until carried.
     /// </summary>
-    public static class GlowPickup
+    public static class ShardrootPickup
     {
         public static Entity Create(EntityManager em, float3 position, RitualKind source, int amount = -1)
         {
@@ -26,26 +26,26 @@ namespace TheWaningBorder.Entities
                 ? amount
                 : source switch
                 {
-                    RitualKind.Purification => PurificationGlowYield,
-                    _ => PurificationGlowYield,  // Conversion / Violent Extraction yields TBD by follow-up
+                    RitualKind.Purification => PurificationShardrootYield,
+                    _ => PurificationShardrootYield,  // Conversion / Violent Extraction yields TBD by follow-up
                 };
 
             var entity = em.CreateEntity(
                 typeof(PresentationId),
                 typeof(LocalTransform),
                 typeof(FactionTag),
-                typeof(GlowPickupTag),
-                typeof(GlowPickupState),
+                typeof(ShardrootPickupTag),
+                typeof(ShardrootPickupState),
                 typeof(Radius)
             );
 
-            em.SetComponentData(entity, new PresentationId { Id = GlowPickupPresentationID });
+            em.SetComponentData(entity, new PresentationId { Id = ShardrootPresentationID });
             em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
             em.SetComponentData(entity, new FactionTag { Value = Faction.Border }); // neutral; reassigned on pickup
-            em.SetComponentData(entity, new GlowPickupState
+            em.SetComponentData(entity, new ShardrootPickupState
             {
                 Amount = yield,
-                TimeRemaining = GlowPickupTimeout,
+                TimeRemaining = ShardrootPickupTimeout,
                 Source = source,
                 Attuner = Entity.Null,
                 AttunementProgress = 0f,
@@ -61,19 +61,19 @@ namespace TheWaningBorder.Entities
                 ? amount
                 : source switch
                 {
-                    RitualKind.Purification => PurificationGlowYield,
-                    _ => PurificationGlowYield,
+                    RitualKind.Purification => PurificationShardrootYield,
+                    _ => PurificationShardrootYield,
                 };
 
             var entity = ecb.CreateEntity();
-            ecb.AddComponent(entity, new PresentationId { Id = GlowPickupPresentationID });
+            ecb.AddComponent(entity, new PresentationId { Id = ShardrootPresentationID });
             ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
             ecb.AddComponent(entity, new FactionTag { Value = Faction.Border });
-            ecb.AddComponent<GlowPickupTag>(entity);
-            ecb.AddComponent(entity, new GlowPickupState
+            ecb.AddComponent<ShardrootPickupTag>(entity);
+            ecb.AddComponent(entity, new ShardrootPickupState
             {
                 Amount = yield,
-                TimeRemaining = GlowPickupTimeout,
+                TimeRemaining = ShardrootPickupTimeout,
                 Source = source,
                 Attuner = Entity.Null,
                 AttunementProgress = 0f,

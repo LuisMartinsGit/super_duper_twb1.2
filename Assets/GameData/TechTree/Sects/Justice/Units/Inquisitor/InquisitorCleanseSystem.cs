@@ -9,6 +9,7 @@
 // changes mid-query) — same pattern as LorekeeperDetectionSystem.
 
 using System.Collections.Generic;
+using TheWaningBorder.Core;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -18,6 +19,23 @@ namespace TheWaningBorder.Systems.Sect
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial class InquisitorCleanseSystem : SystemBase
     {
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and these were never disposed, so this hot path leaked one
+        // per invocation. A bloated registry slows every later query AND
+        // every structural change. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_CodexFrozenLocalTransformFactionTag =
+        {
+            ComponentType.ReadOnly<CodexFrozen>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_CodexFrozenLocalTransformFactionTag;
+
+        #endregion
+
         private const float TickInterval = 0.5f;
         private const float CleanseRange = 10f;
         private const float CleansePeriod = 10f;
@@ -37,10 +55,7 @@ namespace TheWaningBorder.Systems.Sect
             var em = EntityManager;
 
             // Snapshot afflicted units (currently: CodexFrozen carriers).
-            var frozenQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<CodexFrozen>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<FactionTag>());
+            var frozenQuery = QC_CodexFrozenLocalTransformFactionTag.Get(em, QT_CodexFrozenLocalTransformFactionTag);
             using var frozenEnts = frozenQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
             using var frozenPos = frozenQuery.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
             using var frozenFac = frozenQuery.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);

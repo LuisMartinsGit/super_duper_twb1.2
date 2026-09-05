@@ -14,6 +14,7 @@
 // Empty / max-HP buildings just resync the snapshot.
 
 using Unity.Collections;
+using TheWaningBorder.Core;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
@@ -26,6 +27,23 @@ namespace TheWaningBorder.Systems.Economy
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial class FeraldisLowHpRewardSystem : SystemBase
     {
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and these were never disposed, so this hot path leaked one
+        // per invocation. A bloated registry slows every later query AND
+        // every structural change. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_HallTagFactionTagFactionProgress =
+        {
+            ComponentType.ReadOnly<HallTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<FactionProgress>(),
+        };
+        static CachedEntityQuery QC_HallTagFactionTagFactionProgress;
+
+        #endregion
+
         /// <summary>Building HP fraction below which the reward fires (spec §3.1).</summary>
         private const float LowHpFraction = 0.25f;
 
@@ -51,10 +69,7 @@ namespace TheWaningBorder.Systems.Economy
 
             // ── Phase 2: diff + reward. ──
             // Build a Faction → culture lookup once (Halls carry FactionProgress).
-            var hallQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<HallTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<FactionProgress>());
+            var hallQuery = QC_HallTagFactionTagFactionProgress.Get(em, QT_HallTagFactionTagFactionProgress);
             using var hallTags = hallQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var hallProgress = hallQuery.ToComponentDataArray<FactionProgress>(Allocator.Temp);
             var cultureOf = new NativeHashMap<byte, byte>(8, Allocator.Temp);

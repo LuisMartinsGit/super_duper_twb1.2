@@ -1,4 +1,5 @@
 using Unity.Collections;
+using TheWaningBorder.Core;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -20,6 +21,21 @@ namespace TheWaningBorder.Entities
     /// </summary>
     public static class VeilstoneOutcropping
     {
+
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and this one was never disposed. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_VeilstoneOutcroppingTagLocalTransformVeilstoneOutcroppingState =
+        {
+            ComponentType.ReadOnly<VeilstoneOutcroppingTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<VeilstoneOutcroppingState>(),
+        };
+        static CachedEntityQuery QC_VeilstoneOutcroppingTagLocalTransformVeilstoneOutcroppingState;
+
+        #endregion
         public const int DefaultVeilstone = 300;
         public const float MergeRadius = 4f;
 
@@ -103,10 +119,7 @@ namespace TheWaningBorder.Entities
         {
             if (veilstoneAmount <= 0) return Entity.Null;
 
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<VeilstoneOutcroppingTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<VeilstoneOutcroppingState>());
+            var query = QC_VeilstoneOutcroppingTagLocalTransformVeilstoneOutcroppingState.Get(em, QT_VeilstoneOutcroppingTagLocalTransformVeilstoneOutcroppingState);
             using var entities = query.ToEntityArray(Allocator.Temp);
             using var transforms = query.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             using var states = query.ToComponentDataArray<VeilstoneOutcroppingState>(Allocator.Temp);

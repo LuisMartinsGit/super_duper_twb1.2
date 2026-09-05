@@ -14,6 +14,7 @@
 // the aura (SpellBuffSystem expires them).
 
 using Unity.Collections;
+using TheWaningBorder.Core;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -24,6 +25,47 @@ namespace TheWaningBorder.Abilities
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial class AbilityAuraSystem : SystemBase
     {
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and these were never disposed, so this hot path leaked one
+        // per invocation. A bloated registry slows every later query AND
+        // every structural change. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_UnitTagFactionTagLocalTransform =
+        {
+            ComponentType.ReadOnly<UnitTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery QC_UnitTagFactionTagLocalTransform;
+
+        static readonly ComponentType[] QT_UnitAbilitiesFactionTagLocalTransform =
+        {
+            ComponentType.ReadOnly<UnitAbilities>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery QC_UnitAbilitiesFactionTagLocalTransform;
+
+        static readonly ComponentType[] QT_LedgerTagFactionTagLocalTransform =
+        {
+            ComponentType.ReadOnly<LedgerTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery QC_LedgerTagFactionTagLocalTransform;
+
+        static readonly ComponentType[] QT_BuildingTagFactionTagLocalTransform =
+        {
+            ComponentType.ReadOnly<BuildingTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery QC_BuildingTagFactionTagLocalTransform;
+
+        #endregion
+
         private const float Interval = 0.4f;
         private const float BuffRefresh = Interval + 0.6f; // buff outlives one tick so it only fades when truly out of range
         // Scout Sight: three vision levels.
@@ -66,16 +108,12 @@ namespace TheWaningBorder.Abilities
         private void ApplyPassiveAuras(EntityManager em)
         {
             // Snapshot all units (potential aura targets) once.
-            var unitQ = em.CreateEntityQuery(ComponentType.ReadOnly<UnitTag>(),
-                                             ComponentType.ReadOnly<FactionTag>(),
-                                             ComponentType.ReadOnly<LocalTransform>());
+            var unitQ = QC_UnitTagFactionTagLocalTransform.Get(em, QT_UnitTagFactionTagLocalTransform);
             using var units = unitQ.ToEntityArray(Allocator.Temp);
             using var unitFac = unitQ.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var unitXf = unitQ.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
-            var auraQ = em.CreateEntityQuery(ComponentType.ReadOnly<UnitAbilities>(),
-                                             ComponentType.ReadOnly<FactionTag>(),
-                                             ComponentType.ReadOnly<LocalTransform>());
+            var auraQ = QC_UnitAbilitiesFactionTagLocalTransform.Get(em, QT_UnitAbilitiesFactionTagLocalTransform);
             using var auras = auraQ.ToEntityArray(Allocator.Temp);
 
             foreach (var src in auras)
@@ -109,11 +147,11 @@ namespace TheWaningBorder.Abilities
                     float2 d = new float2(unitXf[i].Position.x - srcPos.x, unitXf[i].Position.z - srcPos.z);
                     if (math.dot(d, d) > radSq) continue;
 
-                    var buff = em.HasComponent<SpellBuff>(units[i]) ? em.GetComponentData<SpellBuff>(units[i]) : default;
+                    var buff = TransientState.Active<SpellBuff>(em, units[i]) ? em.GetComponentData<SpellBuff>(units[i]) : default;
                     buff.DamageMultiplier = math.max(buff.DamageMultiplier, atkMult);
                     buff.ArmorBonus = math.max(buff.ArmorBonus, armor);
                     buff.TimeRemaining = math.max(buff.TimeRemaining, BuffRefresh);
-                    AddOrSet(em, units[i], buff);
+                    TransientState.Set(em, units[i], buff);
 
                     // Charge bonus to allied cavalry only.
                     if (chargeBonus > 0 && em.HasComponent<ArmorTypeData>(units[i]) &&
@@ -175,9 +213,7 @@ namespace TheWaningBorder.Abilities
         // ---- Ledger: fire Automate Facility on a nearby eligible eco building ----
         private void TickLedgerAutoCast(EntityManager em)
         {
-            var ledgerQ = em.CreateEntityQuery(ComponentType.ReadOnly<LedgerTag>(),
-                                               ComponentType.ReadOnly<FactionTag>(),
-                                               ComponentType.ReadOnly<LocalTransform>());
+            var ledgerQ = QC_LedgerTagFactionTagLocalTransform.Get(em, QT_LedgerTagFactionTagLocalTransform);
             using var ledgers = ledgerQ.ToEntityArray(Allocator.Temp);
             if (ledgers.Length == 0) return;
 
@@ -185,9 +221,7 @@ namespace TheWaningBorder.Abilities
             var card = AbilityCatalog.Get(automateIdx);
             if (card == null) return;
 
-            var bldgQ = em.CreateEntityQuery(ComponentType.ReadOnly<BuildingTag>(),
-                                             ComponentType.ReadOnly<FactionTag>(),
-                                             ComponentType.ReadOnly<LocalTransform>());
+            var bldgQ = QC_BuildingTagFactionTagLocalTransform.Get(em, QT_BuildingTagFactionTagLocalTransform);
             using var bldgs = bldgQ.ToEntityArray(Allocator.Temp);
             using var bldgFac = bldgQ.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var bldgXf = bldgQ.ToComponentDataArray<LocalTransform>(Allocator.Temp);

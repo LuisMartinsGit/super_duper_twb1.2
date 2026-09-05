@@ -9,6 +9,7 @@
 // singleton so all clients agree — flagged for the netcode pass.
 
 using System.Collections.Generic;
+using TheWaningBorder.Core;
 using Unity.Collections;
 using Unity.Entities;
 
@@ -16,6 +17,32 @@ namespace TheWaningBorder.Abilities
 {
     public static class HeroTrainLimit
     {
+        static readonly ComponentType[] QT_UniqueUnitTagFactionTag =
+        {
+            ComponentType.ReadOnly<UniqueUnitTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_UniqueUnitTagFactionTag;
+        static readonly ComponentType[] QT_TrainQueueItemFactionTag =
+        {
+            ComponentType.ReadOnly<TrainQueueItem>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_TrainQueueItemFactionTag;
+
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and this one was never disposed. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_LedgerTagFactionTag =
+        {
+            ComponentType.ReadOnly<LedgerTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_LedgerTagFactionTag;
+
+        #endregion
         private const float RespawnTaxPerDeath = 0.15f; // +15% training time per respawn
         private static readonly Dictionary<int, int> _kingLexorRespawns = new Dictionary<int, int>();
 
@@ -40,14 +67,14 @@ namespace TheWaningBorder.Abilities
         /// (design 2026-08-02).</summary>
         public static bool HasLiveOrQueuedLedger(EntityManager em, Faction faction)
         {
-            var q = em.CreateEntityQuery(ComponentType.ReadOnly<LedgerTag>(), ComponentType.ReadOnly<FactionTag>());
+            var q = QC_LedgerTagFactionTag.Get(em, QT_LedgerTagFactionTag);
             using (var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp))
             {
                 for (int i = 0; i < facs.Length; i++)
                     if (facs[i].Value == faction) return true;
             }
 
-            var bq = em.CreateEntityQuery(ComponentType.ReadOnly<TrainQueueItem>(), ComponentType.ReadOnly<FactionTag>());
+            var bq = QC_TrainQueueItemFactionTag.Get(em, QT_TrainQueueItemFactionTag);
             using (var bents = bq.ToEntityArray(Allocator.Temp))
             using (var bfacs = bq.ToComponentDataArray<FactionTag>(Allocator.Temp))
             {
@@ -66,7 +93,7 @@ namespace TheWaningBorder.Abilities
         /// for training anywhere.</summary>
         public static bool HasLiveOrQueuedKingLexor(EntityManager em, Faction faction)
         {
-            var q = em.CreateEntityQuery(ComponentType.ReadOnly<UniqueUnitTag>(), ComponentType.ReadOnly<FactionTag>());
+            var q = QC_UniqueUnitTagFactionTag.Get(em, QT_UniqueUnitTagFactionTag);
             using (var tags = q.ToComponentDataArray<UniqueUnitTag>(Allocator.Temp))
             using (var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp))
             {
@@ -74,7 +101,7 @@ namespace TheWaningBorder.Abilities
                     if (tags[i].Kind == UniqueUnitKind.KingLexor && facs[i].Value == faction) return true;
             }
 
-            var bq = em.CreateEntityQuery(ComponentType.ReadOnly<TrainQueueItem>(), ComponentType.ReadOnly<FactionTag>());
+            var bq = QC_TrainQueueItemFactionTag.Get(em, QT_TrainQueueItemFactionTag);
             using (var bents = bq.ToEntityArray(Allocator.Temp))
             using (var bfacs = bq.ToComponentDataArray<FactionTag>(Allocator.Temp))
             {

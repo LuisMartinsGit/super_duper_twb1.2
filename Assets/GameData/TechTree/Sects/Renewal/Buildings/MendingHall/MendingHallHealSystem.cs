@@ -11,6 +11,7 @@
 // be live at once; they never touch the same entity.
 
 using Unity.Collections;
+using TheWaningBorder.Core;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -21,6 +22,32 @@ namespace TheWaningBorder.Systems.Sect
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct MendingHallHealSystem : ISystem
     {
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and these were never disposed, so this hot path leaked one
+        // per invocation. A bloated registry slows every later query AND
+        // every structural change. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_MendingHallTagLocalTransformFactionTag =
+        {
+            ComponentType.ReadOnly<MendingHallTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_MendingHallTagLocalTransformFactionTag;
+
+        static readonly ComponentType[] QT_UnitTagLocalTransformFactionTagHealth =
+        {
+            ComponentType.ReadOnly<UnitTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<Health>(),
+        };
+        static CachedEntityQuery QC_UnitTagLocalTransformFactionTagHealth;
+
+        #endregion
+
         /// <summary>Fraction of max HP restored per second to a unit inside.</summary>
         private const float HealFractionPerSecond = 0.04f;
 
@@ -42,10 +69,7 @@ namespace TheWaningBorder.Systems.Sect
 
             var em = state.EntityManager;
 
-            var hallQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<MendingHallTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<FactionTag>());
+            var hallQuery = QC_MendingHallTagLocalTransformFactionTag.Get(em, QT_MendingHallTagLocalTransformFactionTag);
             using var halls = hallQuery.ToEntityArray(Allocator.Temp);
             if (halls.Length == 0) return;
 
@@ -63,11 +87,7 @@ namespace TheWaningBorder.Systems.Sect
             }
             if (live.Length == 0) { live.Dispose(); return; }
 
-            var unitQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<UnitTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadWrite<Health>());
+            var unitQuery = QC_UnitTagLocalTransformFactionTagHealth.Get(em, QT_UnitTagLocalTransformFactionTagHealth);
             using var units = unitQuery.ToEntityArray(Allocator.Temp);
 
             for (int u = 0; u < units.Length; u++)

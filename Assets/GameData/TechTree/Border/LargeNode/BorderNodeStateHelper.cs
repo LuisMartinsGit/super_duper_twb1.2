@@ -6,6 +6,7 @@
 // state snapshot) in one place.
 
 using Unity.Entities;
+using TheWaningBorder.Core;
 
 namespace TheWaningBorder.Entities
 {
@@ -16,6 +17,20 @@ namespace TheWaningBorder.Entities
     /// </summary>
     public static class BorderNodeStateHelper
     {
+
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and this one was never disposed. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_BorderNodeStateBorderMainNodeTag =
+        {
+            ComponentType.ReadOnly<BorderNodeState>(),
+            ComponentType.ReadOnly<BorderMainNodeTag>(),
+        };
+        static CachedEntityQuery QC_BorderNodeStateBorderMainNodeTag;
+
+        #endregion
         /// <summary>
         /// Transition <paramref name="node"/> to <paramref name="newState"/>.
         /// Resets state timer, toggles border spread, manages NodeDormant tag.
@@ -57,9 +72,7 @@ namespace TheWaningBorder.Entities
             // Only player verbs refresh (reversions pass Faction.Border).
             if (newState != NodeState.Active && ownerFaction != Faction.Border)
             {
-                var holdQuery = em.CreateEntityQuery(
-                    ComponentType.ReadWrite<BorderNodeState>(),
-                    ComponentType.ReadOnly<BorderMainNodeTag>());
+                var holdQuery = QC_BorderNodeStateBorderMainNodeTag.Get(em, QT_BorderNodeStateBorderMainNodeTag);
                 using var holdNodes = holdQuery.ToEntityArray(
                     Unity.Collections.Allocator.Temp);
                 for (int i = 0; i < holdNodes.Length; i++)

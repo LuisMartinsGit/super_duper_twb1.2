@@ -164,8 +164,7 @@ namespace TheWaningBorder.Systems.Sect
                         DamageMultiplier = 1f + veil.ValueRO.DamageOnExpiry,
                         TimeRemaining    = 10f,
                     };
-                    if (em.HasComponent<SpellBuff>(e)) ecb.SetComponent(e, buff);
-                    else                               ecb.AddComponent(e, buff);
+                    TransientState.Set(ecb, e, buff);
                 }
 
                 ecb.RemoveComponent<SectVeiled>(e);

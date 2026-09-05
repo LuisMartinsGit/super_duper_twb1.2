@@ -6,7 +6,7 @@
 using System;
 using UnityEngine;
 using Unity.Entities;
-using TheWaningBorder.Presentation;
+using TheWaningBorder.Rendering;
 using TheWaningBorder.World.Terrain;
 
 using TheWaningBorder.Core;

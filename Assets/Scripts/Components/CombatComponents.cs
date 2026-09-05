@@ -28,6 +28,11 @@ public struct AttackCooldown : IComponentData
 /// <summary>
 /// Current combat target.
 /// </summary>
+// ALWAYS PRESENT on combat units (factories add it with Null) — "no target"
+// is Value == Entity.Null, never component absence. Do NOT RemoveComponent
+// it: add/remove churn on transient components built 7,782 archetypes in one
+// 76-minute match and crashed the EntityQueryManager's BlockAllocator (see
+// TransientState.cs). Null the value instead, as CommandCleanup does.
 public struct Target : IComponentData
 {
     public Entity Value; // Entity.Null if no target

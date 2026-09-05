@@ -50,7 +50,11 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new RallyPoint { Position = position + new float3(5f, 0, 5f), Has = 1 });
             creator.AddComponent(entity, new BuildingRangedAttack
             {
-                Range = 20f, Damage = 12, Cooldown = 2.5f, Timer = 0f, MaxTargets = 1
+                Range = def.attack.range,
+                Damage = (int)def.attack.damage,
+                Cooldown = def.attack.cooldown,
+                Timer = 0f,
+                MaxTargets = def.attack.maxTargets,
             });
 
             // Combat type tags

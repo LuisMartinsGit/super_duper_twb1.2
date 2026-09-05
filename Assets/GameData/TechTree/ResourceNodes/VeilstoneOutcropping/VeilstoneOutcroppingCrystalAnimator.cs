@@ -13,7 +13,7 @@
 using System.Collections;
 using UnityEngine;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     [DisallowMultipleComponent]
     public sealed class VeilstoneOutcroppingCrystalAnimator : MonoBehaviour

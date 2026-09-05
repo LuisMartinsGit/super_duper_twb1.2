@@ -34,6 +34,17 @@ namespace TheWaningBorder.Entities
             // docs/Design/Build_Grid.md
             position = BuildGrid.SnapToCellCentre(position);
 
+            // MP DESYNC INSTRUMENTATION (2026-09-04, temporary): every rise,
+            // with tick + position, so peers' logs can be diffed — the fork
+            // class is one peer spawning a pocket on a tick the other didn't,
+            // and the position names the producer (region seat = conquest
+            // anchor, veilstone node = mining/tenure corruption).
+            if (TheWaningBorder.Multiplayer.LockstepManager.Instance != null
+                && TheWaningBorder.Multiplayer.LockstepManager.Instance.IsSimulationRunning)
+                UnityEngine.Debug.Log(
+                    $"[SmallNodeRise] tick={TheWaningBorder.Multiplayer.LockstepManager.Instance.CurrentTick} " +
+                    $"pos=({position.x:F1},{position.z:F1})");
+
             var e = em.CreateEntity(
                 typeof(PresentationId),
                 typeof(LocalTransform),

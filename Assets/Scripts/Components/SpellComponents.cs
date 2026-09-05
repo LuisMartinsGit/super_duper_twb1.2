@@ -9,7 +9,7 @@ using Unity.Entities;
 /// Temporary buff applied by a spell. Ticked down by SpellBuffSystem.
 /// Removed automatically when TimeRemaining reaches 0.
 /// </summary>
-public struct SpellBuff : IComponentData
+public struct SpellBuff : IComponentData, IEnableableComponent
 {
     /// <summary>Flat armor bonus added to all defense types</summary>
     public float ArmorBonus;

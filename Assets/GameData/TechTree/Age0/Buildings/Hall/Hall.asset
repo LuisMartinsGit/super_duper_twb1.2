@@ -52,11 +52,11 @@ MonoBehaviour:
   tags:
   - Building
   attack:
-    enabled: 1
+    enabled: 0
     damage: 25
     damageType: ranged
     range: 30
-    cooldown: 2
+    cooldown: 1
     maxTargets: 1
   levels: []
   unitUpgrades: []

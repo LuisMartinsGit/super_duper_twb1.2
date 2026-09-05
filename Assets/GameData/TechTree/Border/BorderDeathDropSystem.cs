@@ -48,7 +48,7 @@ namespace TheWaningBorder.Systems.Border
                 if (health.ValueRO.Value > 0) continue;
 
                 // Secondary border node — 1 RP to the killer, no veilstone yield.
-                Faction killer = em.HasComponent<LastDamagedByFaction>(entity)
+                Faction killer = TransientState.Active<LastDamagedByFaction>(em, entity)
                     ? em.GetComponentData<LastDamagedByFaction>(entity).Value
                     : Faction.Border;
                 secondaryKillers.Add(killer);

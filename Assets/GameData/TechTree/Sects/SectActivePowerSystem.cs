@@ -88,7 +88,7 @@ namespace TheWaningBorder.Systems.Sect
                 SectActivePowerHelper.DispatchEffect(em, s.Caster,
                     (SectActivePowerKind)s.Kind, s.Position, s.Radius,
                     s.Magnitude, s.Duration, s.Level);
-                TheWaningBorder.Presentation.SectPowerVfx.SpawnForSect(
+                TheWaningBorder.Rendering.SectPowerVfx.SpawnForSect(
                     SectConfig.IdAt(s.SectIndex), s.Position, s.Radius);
             }
             landed.Dispose();
@@ -102,19 +102,62 @@ namespace TheWaningBorder.Systems.Sect
     /// </summary>
     public static partial class SectActivePowerHelper
     {
+        static readonly ComponentType[] QT_UnitTagLocalTransformFactionTag =
+        {
+            ComponentType.ReadOnly<UnitTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_UnitTagLocalTransformFactionTag;
+        static readonly ComponentType[] QT_UnitTagLocalTransformFactionTagHealth =
+        {
+            ComponentType.ReadOnly<UnitTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<Health>(),
+        };
+        static CachedEntityQuery QC_UnitTagLocalTransformFactionTagHealth;
+        static readonly ComponentType[] QT_BuildingTagLocalTransformFactionTagHealth =
+        {
+            ComponentType.ReadOnly<BuildingTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<Health>(),
+        };
+        static CachedEntityQuery QC_BuildingTagLocalTransformFactionTagHealth;
+        static readonly ComponentType[] QT_BorderMainNodeTagLocalTransform =
+        {
+            ComponentType.ReadOnly<BorderMainNodeTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery QC_BorderMainNodeTagLocalTransform;
+
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and this one was never disposed. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_TempleOfRidanTagFactionTag =
+        {
+            ComponentType.ReadOnly<TempleOfRidanTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_TempleOfRidanTagFactionTag;
+
+        #endregion
         /// <summary>
         /// Returns the remaining cooldown for the faction's sect Active
         /// Power, or 0 if ready (or if the lever isn't bought).
         /// </summary>
-        /// <summary>True if the faction's Temple has GlowAllocated == 1 on the slot whose SectId matches.</summary>
-        public static bool HasGlowAllocated(EntityManager em, Faction faction, string sectId)
+        /// <summary>True if the faction's Temple has ShardrootAllocated == 1 on the slot whose SectId matches.</summary>
+        public static bool HasShardrootAllocated(EntityManager em, Faction faction, string sectId)
         {
             if (!TryGetFactionTemple(em, faction, out var temple)) return false;
             if (!em.HasBuffer<TempleChapelSlot>(temple)) return false;
             var buf = em.GetBuffer<TempleChapelSlot>(temple);
             for (int i = 0; i < buf.Length; i++)
             {
-                if (buf[i].SectId.ToString() == sectId) return buf[i].GlowAllocated == 1;
+                if (buf[i].SectId.ToString() == sectId) return buf[i].ShardrootAllocated == 1;
             }
             return false;
         }
@@ -129,27 +172,27 @@ namespace TheWaningBorder.Systems.Sect
         }
 
         /// <summary>
-        /// Allocate 1 Glow from the Temple's GlowStored to the matching sect's
-        /// shrine slot. No-op if Glow is already allocated, the sect isn't
-        /// adopted, or the Temple has no Glow to spend.
+        /// Allocate 1 Shardroot from the Temple's ShardrootStored to the matching sect's
+        /// shrine slot. No-op if Shardroot is already allocated, the sect isn't
+        /// adopted, or the Temple has no Shardroot to spend.
         /// </summary>
-        public static bool AllocateGlow(EntityManager em, Faction faction, string sectId)
+        public static bool AllocateShardroot(EntityManager em, Faction faction, string sectId)
         {
             if (!IsAdopted(em, faction, sectId)) return false;
             if (!TryGetFactionTemple(em, faction, out var temple)) return false;
-            if (!em.HasComponent<GlowStored>(temple)) return false;
+            if (!em.HasComponent<ShardrootStored>(temple)) return false;
             if (!em.HasBuffer<TempleChapelSlot>(temple)) return false;
 
-            var stored = em.GetComponentData<GlowStored>(temple);
+            var stored = em.GetComponentData<ShardrootStored>(temple);
             if (stored.Amount <= 0) return false;
 
             var buf = em.GetBuffer<TempleChapelSlot>(temple);
             for (int i = 0; i < buf.Length; i++)
             {
                 if (buf[i].SectId.ToString() != sectId) continue;
-                if (buf[i].GlowAllocated == 1) return false;  // no stacking
+                if (buf[i].ShardrootAllocated == 1) return false;  // no stacking
                 var slot = buf[i];
-                slot.GlowAllocated = 1;
+                slot.ShardrootAllocated = 1;
                 buf[i] = slot;
                 stored.Amount -= 1;
                 em.SetComponentData(temple, stored);
@@ -158,22 +201,22 @@ namespace TheWaningBorder.Systems.Sect
             return false;
         }
 
-        /// <summary>Deallocate 1 Glow from this sect's shrine (refunded to the Temple's GlowStored).</summary>
-        public static bool DeallocateGlow(EntityManager em, Faction faction, string sectId)
+        /// <summary>Deallocate 1 Shardroot from this sect's shrine (refunded to the Temple's ShardrootStored).</summary>
+        public static bool DeallocateShardroot(EntityManager em, Faction faction, string sectId)
         {
             if (!TryGetFactionTemple(em, faction, out var temple)) return false;
-            if (!em.HasComponent<GlowStored>(temple)) return false;
+            if (!em.HasComponent<ShardrootStored>(temple)) return false;
             if (!em.HasBuffer<TempleChapelSlot>(temple)) return false;
 
             var buf = em.GetBuffer<TempleChapelSlot>(temple);
             for (int i = 0; i < buf.Length; i++)
             {
                 if (buf[i].SectId.ToString() != sectId) continue;
-                if (buf[i].GlowAllocated == 0) return false;
+                if (buf[i].ShardrootAllocated == 0) return false;
                 var slot = buf[i];
-                slot.GlowAllocated = 0;
+                slot.ShardrootAllocated = 0;
                 buf[i] = slot;
-                var stored = em.GetComponentData<GlowStored>(temple);
+                var stored = em.GetComponentData<ShardrootStored>(temple);
                 stored.Amount += 1;
                 em.SetComponentData(temple, stored);
                 return true;
@@ -185,9 +228,7 @@ namespace TheWaningBorder.Systems.Sect
         private static bool TryGetFactionTemple(EntityManager em, Faction faction, out Entity temple)
         {
             temple = Entity.Null;
-            var q = em.CreateEntityQuery(
-                ComponentType.ReadOnly<TempleOfRidanTag>(),
-                ComponentType.ReadOnly<FactionTag>());
+            var q = QC_TempleOfRidanTagFactionTag.Get(em, QT_TempleOfRidanTagFactionTag);
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var tags = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
             for (int i = 0; i < ents.Length; i++)
@@ -291,7 +332,7 @@ namespace TheWaningBorder.Systems.Sect
             // landing, so cooldowns halve to keep powers present in play —
             // telegraphed-but-frequent beats instant-but-rare.
             cooldown *= 0.5f;
-            if (HasGlowAllocated(em, faction, sectId)) cooldown *= 0.5f;
+            if (HasShardrootAllocated(em, faction, sectId)) cooldown *= 0.5f;
 
             // Shrine of Ridan simple upgrade (design 2026-07-04): reduces
             // sect power cooldowns — -10% at L2, -20% at L3.
@@ -321,7 +362,7 @@ namespace TheWaningBorder.Systems.Sect
                 Duration  = duration,
                 Windup    = windup,
             });
-            TheWaningBorder.Presentation.SectPowerVfx.SpawnTelegraph(
+            TheWaningBorder.Rendering.SectPowerVfx.SpawnTelegraph(
                 targetPos, radius, windup);
 
             // Presentation: golden minimap ping at the cast site.
@@ -375,9 +416,7 @@ namespace TheWaningBorder.Systems.Sect
         /// </summary>
         private static bool IsOnCurseWell(EntityManager em, float3 pos)
         {
-            var q = em.CreateEntityQuery(
-                ComponentType.ReadOnly<BorderMainNodeTag>(),
-                ComponentType.ReadOnly<LocalTransform>());
+            var q = QC_BorderMainNodeTagLocalTransform.Get(em, QT_BorderMainNodeTagLocalTransform);
             using var xf = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             for (int i = 0; i < xf.Length; i++)
             {
@@ -515,11 +554,7 @@ namespace TheWaningBorder.Systems.Sect
             const float SplashFraction = 0.25f;
 
             float r2 = radius * radius;
-            var bq = em.CreateEntityQuery(
-                ComponentType.ReadOnly<BuildingTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadWrite<Health>());
+            var bq = QC_BuildingTagLocalTransformFactionTagHealth.Get(em, QT_BuildingTagLocalTransformFactionTagHealth);
             using var buildings = bq.ToEntityArray(Allocator.Temp);
 
             // Nearest hostile building wins. Same two exemptions as the smite:
@@ -586,11 +621,7 @@ namespace TheWaningBorder.Systems.Sect
             float3 center, float radius)
         {
             float r2 = radius * radius;
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<UnitTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadWrite<Health>());
+            var query = QC_UnitTagLocalTransformFactionTagHealth.Get(em, QT_UnitTagLocalTransformFactionTagHealth);
             using var entities = query.ToEntityArray(Allocator.Temp);
 
             var caught = new NativeList<Entity>(Allocator.Temp);
@@ -604,7 +635,7 @@ namespace TheWaningBorder.Systems.Sect
                 if (dx * dx + dz * dz > r2) continue;
 
                 caught.Add(e);
-                if (em.HasComponent<DamageDealtTotal>(e))
+                if (TransientState.Active<DamageDealtTotal>(em, e))
                     pool += em.GetComponentData<DamageDealtTotal>(e).Value;
             }
 
@@ -631,11 +662,7 @@ namespace TheWaningBorder.Systems.Sect
             float3 center, float radius, int dmg)
         {
             float r2 = radius * radius;
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<UnitTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadWrite<Health>());
+            var query = QC_UnitTagLocalTransformFactionTagHealth.Get(em, QT_UnitTagLocalTransformFactionTagHealth);
             using var entities = query.ToEntityArray(Allocator.Temp);
             for (int i = 0; i < entities.Length; i++)
             {
@@ -656,11 +683,7 @@ namespace TheWaningBorder.Systems.Sect
             // siege touches the fortification line — Combat_Pacing.md) and
             // Border-owned structures (wells are verb objectives, never
             // splash targets).
-            var bq = em.CreateEntityQuery(
-                ComponentType.ReadOnly<BuildingTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadWrite<Health>());
+            var bq = QC_BuildingTagLocalTransformFactionTagHealth.Get(em, QT_BuildingTagLocalTransformFactionTagHealth);
             using var buildings = bq.ToEntityArray(Allocator.Temp);
             for (int i = 0; i < buildings.Length; i++)
             {
@@ -681,11 +704,7 @@ namespace TheWaningBorder.Systems.Sect
             float3 center, float radius, int amount)
         {
             float r2 = radius * radius;
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<UnitTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadWrite<Health>());
+            var query = QC_UnitTagLocalTransformFactionTagHealth.Get(em, QT_UnitTagLocalTransformFactionTagHealth);
             using var entities = query.ToEntityArray(Allocator.Temp);
             for (int i = 0; i < entities.Length; i++)
             {
@@ -706,10 +725,7 @@ namespace TheWaningBorder.Systems.Sect
             float3 center, float radius, SpellBuff buff)
         {
             float r2 = radius * radius;
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<UnitTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<FactionTag>());
+            var query = QC_UnitTagLocalTransformFactionTag.Get(em, QT_UnitTagLocalTransformFactionTag);
             using var entities = query.ToEntityArray(Allocator.Temp);
             var ecb = new EntityCommandBuffer(Allocator.Temp);
             for (int i = 0; i < entities.Length; i++)
@@ -773,10 +789,7 @@ namespace TheWaningBorder.Systems.Sect
             float3 center, float radius, float duration, bool surge)
         {
             float r2 = radius * radius;
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<UnitTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<FactionTag>());
+            var query = QC_UnitTagLocalTransformFactionTag.Get(em, QT_UnitTagLocalTransformFactionTag);
             using var entities = query.ToEntityArray(Allocator.Temp);
 
             var toFreeze = new NativeList<Entity>(Allocator.Temp);

@@ -16,7 +16,7 @@ using UnityEngine;
 using Unity.Entities;
 using TheWaningBorder.Core;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     public static class SwordsmanVisual
     {
@@ -267,19 +267,14 @@ namespace TheWaningBorder.Presentation
     /// </summary>
     public class SwordsmanAnimator : MonoBehaviour
     {
-        [Tooltip("Leg swing amplitude in degrees at full stride.")]
         public float LegSwing = 28f;
 
-        [Tooltip("Arm swing amplitude in degrees at full stride (shield arm).")]
         public float ArmSwing = 15f;
 
-        [Tooltip("Stride length in meters per full walk cycle.")]
         public float StrideLength = 1.05f;
 
-        [Tooltip("Idle shoulder-roll amplitude in degrees.")]
         public float IdleRoll = 2.2f;
 
-        [Tooltip("Seconds between idle sword-tip ground taps.")]
         public float TapInterval = 3.8f;
 
         private Transform _legL, _legR, _armL, _armR, _torso, _head, _sword;

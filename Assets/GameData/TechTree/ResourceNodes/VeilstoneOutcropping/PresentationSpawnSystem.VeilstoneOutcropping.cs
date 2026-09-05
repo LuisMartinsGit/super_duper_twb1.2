@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Unity.Entities;
 using Unity.Transforms;
-using TheWaningBorder.Presentation;
+using TheWaningBorder.Rendering;
 using TheWaningBorder.World.Terrain;
 using TheWaningBorder.Entities;
 
@@ -108,8 +108,8 @@ public partial class PresentationSpawnSystem
         if (entityRef == null) entityRef = root.AddComponent<EntityReference>();
         entityRef.Entity = entity;
 
-        var anim = root.GetComponent<TheWaningBorder.Presentation.VeilstoneOutcroppingCrystalAnimator>();
-        if (anim == null) anim = root.AddComponent<TheWaningBorder.Presentation.VeilstoneOutcroppingCrystalAnimator>();
+        var anim = root.GetComponent<TheWaningBorder.Rendering.VeilstoneOutcroppingCrystalAnimator>();
+        if (anim == null) anim = root.AddComponent<TheWaningBorder.Rendering.VeilstoneOutcroppingCrystalAnimator>();
     }
 
 }

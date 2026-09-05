@@ -43,7 +43,7 @@ namespace TheWaningBorder.Systems.Border
             var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
             var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
             float dt = SystemAPI.Time.DeltaTime;
-            float time = (float)SystemAPI.Time.ElapsedTime;
+            float time = (float)SimCadence.MatchTimeOr(SystemAPI.Time.ElapsedTime);
             var em = state.EntityManager;
 
             foreach (var (transform, target, godState, damage, faction, entity) in SystemAPI
@@ -159,9 +159,12 @@ namespace TheWaningBorder.Systems.Border
                             Value = em.GetComponentData<FactionTag>(entity).Value
                         };
                         if (em.HasComponent<LastDamagedByFaction>(tgt.Value))
+                        {
                             em.SetComponentData(tgt.Value, lastDamaged);
-                            else
-                                ecb.AddComponent(tgt.Value, lastDamaged);
+                            em.SetComponentEnabled<LastDamagedByFaction>(tgt.Value, true);
+                        }
+                        else
+                            TransientState.Set(ecb, tgt.Value, lastDamaged);
                     }
 
                     // Reset siege cooldown. Per-unit cadence comes from the

@@ -8,23 +8,18 @@ using UnityEngine;
 using Unity.Entities;
 using TheWaningBorder.Core;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     public class LedgerVisual : MonoBehaviour
     {
-        [Tooltip("Hover bob amplitude in meters.")]
         public float BobAmplitude = 0.12f;
 
-        [Tooltip("Hover bob frequency in Hz.")]
         public float BobFrequency = 0.7f;
 
-        [Tooltip("Base cogwheel spin speed in degrees per second (each cog varies around this, alternating direction).")]
         public float CogSpinSpeed = 60f;
 
-        [Tooltip("Forcefield yaw spin in degrees per second.")]
         public float ForcefieldSpin = 25f;
 
-        [Tooltip("Forcefield hum volume.")]
         public float HumVolume = 0.35f;
 
         private Transform _body;

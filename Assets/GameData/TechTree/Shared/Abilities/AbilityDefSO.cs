@@ -24,26 +24,18 @@ namespace TheWaningBorder.Abilities
             public float value;
         }
 
-        [Tooltip("Stable ability name — IndexOf lookups and Aftermath chains key off this.")]
         public string abilityName;
         public AbilityActivation activation;
         public AbilityTargeting targeting;
         public AbilityAffects affects;
-        [Tooltip("Seconds before effects apply (0 = instant).")]
         public float castTime;
-        [Tooltip("Seconds the effect lasts (-1 = permanent / always-on passive).")]
         public float duration;
-        [Tooltip("Seconds before recast (0 = auto: castTime + duration + 1).")]
         public float cooldown;
-        [Tooltip("World units (Aura/Area).")]
         public float radius;
-        [Tooltip("Cast range (SingleTarget/Area; 0 = centred on self / unlimited).")]
         public float range;
         public EffectEntry[] effects;
-        [Tooltip("Ability names auto-cast when this one ends.")]
         public string[] aftermath;
 
-        [Header("Presentation (authoring slots)")]
         public Sprite icon;
         public GameObject vfxPrefab;
 

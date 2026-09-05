@@ -14,6 +14,7 @@
 // cluster of buildings cannot be caught by a "single target" cast.
 
 using Unity.Collections;
+using TheWaningBorder.Core;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -25,6 +26,42 @@ namespace TheWaningBorder.Systems.Sect
 {
     public static partial class SectActivePowerHelper
     {
+        static readonly ComponentType[] QT_IronDepositStateLocalTransform =
+        {
+            ComponentType.ReadOnly<IronDepositState>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery QC_IronDepositStateLocalTransform;
+        static readonly ComponentType[] QT_BuildingTagHealthLocalTransformFactionTag =
+        {
+            ComponentType.ReadOnly<BuildingTag>(),
+            ComponentType.ReadOnly<Health>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_BuildingTagHealthLocalTransformFactionTag;
+        static readonly ComponentType[] QT_HealthLocalTransformFactionTag =
+        {
+            ComponentType.ReadOnly<Health>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_HealthLocalTransformFactionTag;
+
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and this one was never disposed. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_BuildingTagLocalTransformFactionTag =
+        {
+            ComponentType.ReadOnly<BuildingTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_BuildingTagLocalTransformFactionTag;
+
+        #endregion
         /// <summary>A cast at this radius or tighter hits one entity only.</summary>
         private static bool IsSingleTarget(float radius) => radius <= SectRadii.Single + 0.01f;
 
@@ -40,10 +77,7 @@ namespace TheWaningBorder.Systems.Sect
             bool single = IsSingleTarget(radius);
             float r2 = radius * radius;
 
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<BuildingTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<FactionTag>());
+            var query = QC_BuildingTagLocalTransformFactionTag.Get(em, QT_BuildingTagLocalTransformFactionTag);
             using var entities = query.ToEntityArray(Allocator.Temp);
             var ecb = new EntityCommandBuffer(Allocator.Temp);
 
@@ -79,10 +113,7 @@ namespace TheWaningBorder.Systems.Sect
             float r2 = radius * radius;
             float stored = duration > 0f ? duration : SectEffectDuration.Permanent;
 
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<UnitTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<FactionTag>());
+            var query = QC_UnitTagLocalTransformFactionTag.Get(em, QT_UnitTagLocalTransformFactionTag);
             using var entities = query.ToEntityArray(Allocator.Temp);
             var ecb = new EntityCommandBuffer(Allocator.Temp);
 
@@ -134,10 +165,7 @@ namespace TheWaningBorder.Systems.Sect
         {
             float r2 = radius * radius;
 
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadWrite<Health>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<FactionTag>());
+            var query = QC_HealthLocalTransformFactionTag.Get(em, QT_HealthLocalTransformFactionTag);
             using var entities = query.ToEntityArray(Allocator.Temp);
             var ecb = new EntityCommandBuffer(Allocator.Temp);
 
@@ -204,7 +232,19 @@ namespace TheWaningBorder.Systems.Sect
         private static void RaiseOneTower(EntityManager em, Faction faction,
             float3 position, byte towerLevel, float life)
         {
-            var tower = WatchTower.Create(em, position, faction);
+            // THROUGH THE DISPATCHER, NOT WatchTower.Create DIRECT
+            // (2026-09-04, MP harness catch #9). The bare per-building factory
+            // attaches no NetworkedEntity, so a conjured tower existed
+            // identically on every peer yet was UNADDRESSABLE by lockstep
+            // commands — the AI's later "upgrade tower to L3" queued with an
+            // invalid target id, applied on the host and rejected on clients,
+            // forking the bank (host spent 133 supplies + 60 iron nobody else
+            // did, tick 9540). BuildingFactory.Create assigns the
+            // deterministic NetworkIdGenerator id; this method runs inside
+            // SectPower command playback on every peer at the same tick, so
+            // all peers agree on it.
+            var tower = TheWaningBorder.Entities.BuildingFactory.Create(
+                em, "Alanthor_Tower", position, faction);
 
             if (towerLevel > 1)
             {
@@ -301,11 +341,7 @@ namespace TheWaningBorder.Systems.Sect
             float reflect = level >= 3 ? 0.20f : 0f;
             float r2 = radius * radius;
 
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<BuildingTag>(),
-                ComponentType.ReadWrite<Health>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<FactionTag>());
+            var query = QC_BuildingTagHealthLocalTransformFactionTag.Get(em, QT_BuildingTagHealthLocalTransformFactionTag);
             using var entities = query.ToEntityArray(Allocator.Temp);
             var ecb = new EntityCommandBuffer(Allocator.Temp);
 
@@ -377,9 +413,7 @@ namespace TheWaningBorder.Systems.Sect
             const float PickRadius = 6f;
             float r2 = PickRadius * PickRadius;
 
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<IronDepositState>(),
-                ComponentType.ReadOnly<LocalTransform>());
+            var query = QC_IronDepositStateLocalTransform.Get(em, QT_IronDepositStateLocalTransform);
             using var entities = query.ToEntityArray(Allocator.Temp);
 
             Entity best = Entity.Null;
@@ -464,10 +498,7 @@ namespace TheWaningBorder.Systems.Sect
         {
             float r2 = radius * radius;
 
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<UnitTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<FactionTag>());
+            var query = QC_UnitTagLocalTransformFactionTag.Get(em, QT_UnitTagLocalTransformFactionTag);
             using var entities = query.ToEntityArray(Allocator.Temp);
             var ecb = new EntityCommandBuffer(Allocator.Temp);
 

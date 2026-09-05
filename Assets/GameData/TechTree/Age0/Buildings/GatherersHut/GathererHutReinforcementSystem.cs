@@ -171,7 +171,7 @@ namespace TheWaningBorder.Economy
                         // Slow ward only: stick the slowdown aura on each newly
                         // slowed enemy for the debuff duration (follows the unit).
                         if (castSlow)
-                            TheWaningBorder.Presentation.GuildWardVfx.AttachSlowAura(
+                            TheWaningBorder.Rendering.GuildWardVfx.AttachSlowAura(
                                 em, unitEntities[u], unitTransforms[u].Position, SlowDuration);
                     }
                 }
@@ -189,9 +189,9 @@ namespace TheWaningBorder.Economy
                 var castPos = hutTransforms[h].Position;
                 if (castStop)
                 {
-                    TheWaningBorder.Presentation.SectPowerVfx.SpawnStopField(
+                    TheWaningBorder.Rendering.SectPowerVfx.SpawnStopField(
                         castPos, AuraRadius, StopDuration);
-                    TheWaningBorder.Presentation.SectPowerVfx.Spawn(
+                    TheWaningBorder.Rendering.SectPowerVfx.Spawn(
                         "Prefabs/Effects/Sect/NovaStorm", castPos, AuraRadius, StopDuration);
                 }
                 else
@@ -199,7 +199,7 @@ namespace TheWaningBorder.Economy
                     // Slow ward: AuraCirclingArcane power-up + looping AuraSimpleArcane
                     // power, both scaled to the gather radius. Per-enemy AuraSlowdown
                     // auras are attached in the enemy loop above.
-                    TheWaningBorder.Presentation.GuildWardVfx.SpawnGuildSlow(
+                    TheWaningBorder.Rendering.GuildWardVfx.SpawnGuildSlow(
                         castPos, AuraRadius, SlowDuration);
                 }
             }

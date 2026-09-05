@@ -33,9 +33,7 @@ namespace TheWaningBorder.Data.Border
             [Min(0)] public int crystallings;
             [Min(0)] public int veilstingers;
             [Min(0)] public int godsplinters;
-            [Tooltip("Veilstone to field this army from empty.")]
             [Min(0)] public int trainCost;
-            [Tooltip("Veilstone to switch a slot UP to this tier. Must exceed trainCost.")]
             [Min(0)] public int upgradeCost;
 
             public int TotalUnits => crystallings + veilstingers + godsplinters;
@@ -49,33 +47,20 @@ namespace TheWaningBorder.Data.Border
         [Serializable]
         public class WaveEntry
         {
-            [Tooltip("Game time (minutes) from which this entry governs the waves.")]
             [Min(0f)] public float fromMinute;
-            [Tooltip("Army tier fielded during this window (index into tiers, 0 = smallest).")]
             [Min(0)] public int tier;
-            [Tooltip("Seconds a node waits after its attack army dies before fielding the next wave.")]
             [Min(0f)] public float breatherSeconds = 120f;
         }
 
-        [Header("Army tiers (index 0 = smallest)")]
         public List<ArmyTier> tiers = new List<ArmyTier>();
 
-        [Header("Wave schedule")]
-        [Tooltip("Author the wave ladder over game time. When off (or the list is empty) "
-            + "nodes field the biggest tier they can afford — the old lumpy behaviour.")]
         public bool useWaveSchedule = true;
-        [Tooltip("The entry with the largest fromMinute <= elapsed governs tier + breather. "
-            + "Cost still gates: a node fields AT MOST the scheduled tier, less if its bank "
-            + "can't afford it yet.")]
         public List<WaveEntry> waves = BuildDefaultWaves();
-        [Tooltip("Seconds before any node fields its FIRST attack wave — the early-game grace period.")]
         [Min(0f)] public float firstWaveDelaySeconds = 150f;
 
-        [Header("AI cadence (seconds)")]
         [Min(0.5f)] public float decisionInterval = 5f;
         [Min(0.5f)] public float replenishInterval = 4f;
 
-        [Header("Train times (seconds per unit)")]
         [Min(0.1f)] public float crystallingTrainTime = 8f;
         [Min(0.1f)] public float veilstingerTrainTime = 15f;
         [Min(0.1f)] public float godsplinterTrainTime = 30f;
@@ -100,39 +85,21 @@ namespace TheWaningBorder.Data.Border
             };
         }
 
-        [Header("Per-node economy (each node is its own faction)")]
-        [Tooltip("Veilstone/sec a living main node earns from its own territory.")]
         public float baseIncomePerSecond = 6f;
-        [Tooltip("Extra veilstone/sec per green-veilstone (Resource) sub-node the node owns.")]
         public float incomePerResourceNode = 4f;
-        [Tooltip("Veilstone a brand-new node starts its private bank with.")]
         [Min(0)] public int startingCrystal = 250;
 
-        [Header("Defend slot")]
-        [Tooltip("Defenders hold within this distance of their node.")]
         public float defendHoldRadius = 18f;
-        [Tooltip("Free replenishment needs at least one green-veilstone (Resource) sub-node.")]
         public bool replenishNeedsResourceNode = true;
 
-        [Header("Attack slot")]
-        [Tooltip("Wait until the attack army is fully mustered before it marches.")]
         public bool requireFullMusterBeforeAttack = true;
-        [Tooltip("How close (m) a recalled attack army must get to its node to disband.")]
         public float recallArriveRadius = 16f;
 
-        [Header("Escalation + targeting (AI plan M5)")]
-        [Tooltip("Per-node income multiplier per escalation phase: income *= 1 + phase * this.")]
         public float phaseIncomeBonus = 0.5f;
-        [Tooltip("Training speed bonus per phase: trainTime /= 1 + phase * this.")]
         public float phaseTrainSpeedBonus = 0.25f;
-        [Tooltip("Minute the continuous escalation ramp starts (phase stays 0 before this).")]
         [Min(0f)] public float escalationStartMinute = 5f;
-        [Tooltip("Minute the ramp reaches maxEscalation. Between start and full the phase "
-            + "interpolates linearly — no more discrete 0 -> 1 -> 2 power jumps.")]
         [Min(0f)] public float escalationFullMinute = 20f;
-        [Tooltip("Phase value at/after escalationFullMinute (2 matches the old discrete cap).")]
         [Min(0f)] public float maxEscalation = 2f;
-        [Tooltip("Fallback breather when the wave schedule is off/empty: seconds a node waits after its attack army dies before fielding the next one (muster/training time comes on top).")]
         [Min(0f)] public float waveBreatherSeconds = 120f;
 
         // ── lookups ─────────────────────────────────────────────────────────

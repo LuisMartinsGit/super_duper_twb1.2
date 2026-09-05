@@ -1,12 +1,13 @@
 // EquipmentComponents.cs
 // Per-faction equipment tier system. Faction researches equipment tiers
-// (Base → Iron → Veilstone → Veilsteel → Glow per spec §4) and the upgrade
+// (Base → Iron → Veilstone → Veilsteel — there is no tier above Veilsteel)
+// and the upgrade
 // applies to every unit of the relevant class. Stacks multiplicatively
 // with UnitRank (the per-unit veterancy system) — a Lv3 unit with Veilstone
 // equipment gets BOTH multipliers.
 //
 // Spec §4.1: tier progression. Per-tier magical effects (shield bar at
-// Veilstone, duplicate squad at Veilsteel, revive at Glow) are wired by
+// Veilstone, duplicate squad at Veilsteel) are wired by
 // separate ability systems and tag-checked off the tier value.
 //
 // Place in: Assets/Scripts/Core/Components/
@@ -17,8 +18,7 @@ using Unity.Entities;
 
 /// <summary>
 /// Equipment tier (spec §4.1). Each upgrade is a faction-wide research
-/// applied per unit class. The Glow tier triggers the unique drop-on-death
-/// behavior (only Glow-tier equipment drops, spec §4.5).
+/// applied per unit class.
 /// </summary>
 public enum EquipmentTier : byte
 {
@@ -26,7 +26,6 @@ public enum EquipmentTier : byte
     Iron = 1,
     Veilstone = 2,
     Veilsteel = 3,
-    Glow = 4,
 }
 
 /// <summary>
@@ -115,18 +114,6 @@ public struct ShieldBar : IComponentData
     public float RegenDelayTimer;
 }
 
-/// <summary>
-/// Per-unit cooldown for the Glow-tier on-death revive (spec §4.2 Glow
-/// tier: "Revive lost battalion members on cooldown"). When TimeRemaining
-/// is 0, the next time the unit's Health drops to 0 it pops back at half
-/// max HP and the cooldown resets to GlowReviveCooldownSec. While
-/// TimeRemaining > 0, lethal damage falls through to DeathSystem +
-/// GlowWeaponDropSystem normally.
-/// </summary>
-public struct GlowReviveCooldown : IComponentData
-{
-    public float TimeRemaining;
-}
 
 /// <summary>
 /// Spec §4.3 Veilstone-tier siege: "Aura granting shields to nearby allies."
@@ -165,32 +152,3 @@ public struct HeroPhaseShield : IComponentData
     public int LastObservedHealth;    // for damage detection
 }
 
-// ==================== Glow Weapon Drop (spec §4.5) ====================
-
-/// <summary>
-/// Marker for a free-floating Glow weapon dropped when a Glow-tier unit
-/// dies. Only Glow-tier equipment drops on death (earlier tiers do not).
-/// </summary>
-public struct GlowWeaponTag : IComponentData { }
-
-/// <summary>
-/// Per-weapon state. Pickup window counts down; attunement requires a
-/// qualifying unit (Veilsteel-tier or higher) to stand within
-/// GlowWeaponClaimRadius for GlowWeaponAttunementTime uninterrupted.
-/// If the current attuner moves out of range or dies, the progress
-/// resets and another in-range qualifier can take over.
-/// </summary>
-public struct GlowWeaponState : IComponentData
-{
-    /// <summary>Unit class this weapon is for (e.g. Melee, Ranged, Siege, Magic).</summary>
-    public UnitClass Class;
-
-    /// <summary>Seconds remaining before despawn if uncarried.</summary>
-    public float TimeRemaining;
-
-    /// <summary>Entity currently attuning to this weapon (Entity.Null when no attuner).</summary>
-    public Unity.Entities.Entity Attuner;
-
-    /// <summary>Seconds the current attuner has spent within radius.</summary>
-    public float AttunementProgress;
-}

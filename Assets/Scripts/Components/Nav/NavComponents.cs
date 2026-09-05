@@ -166,8 +166,17 @@ public struct NavCostField : IComponentData
 /// </summary>
 public static class NavFlowConstants
 {
-    /// <summary>Sentinel direction-byte meaning "no flow vector at this cell".</summary>
+    /// <summary>Sentinel direction-byte meaning "no flow vector at this cell".
+    /// In a FULLY swept goal field this is a proof of unreachability (the
+    /// unit holds); samplers must treat it per-variant.</summary>
     public const byte NoDirection = 255;
+    /// <summary>Sentinel direction-byte meaning "the goal-field sweep stopped
+    /// before reaching this cell" (seeker-bounded early-out). NOT a proof of
+    /// anything — samplers fall back to the direct bearing, and the producer
+    /// re-integrates the field with the uncovered unit as a seeker. Angle
+    /// bytes that would quantize to 254/255 are remapped at bake so the two
+    /// sentinels are unambiguous.</summary>
+    public const byte NotCovered = 254;
     /// <summary>Integration sentinel for unreachable cells.</summary>
     public const uint UnreachableIntegration = uint.MaxValue;
     /// <summary>Cardinal step cost in integration units.</summary>

@@ -18,6 +18,7 @@
 // reads PerSectState to decide whether to apply each sect's bonuses.
 
 using System;
+using TheWaningBorder.Core;
 using Unity.Entities;
 
 namespace TheWaningBorder.Economy
@@ -47,6 +48,28 @@ namespace TheWaningBorder.Economy
     /// </summary>
     public static class SectAdoption
     {
+        static readonly ComponentType[] QT_TempleOfRidanTagFactionTagTempleLevel =
+        {
+            ComponentType.ReadOnly<TempleOfRidanTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<TempleLevel>(),
+        };
+        static CachedEntityQuery QC_TempleOfRidanTagFactionTagTempleLevel;
+
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and this one was never disposed. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_HallTagFactionTagFactionProgress =
+        {
+            ComponentType.ReadOnly<HallTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<FactionProgress>(),
+        };
+        static CachedEntityQuery QC_HallTagFactionTagFactionProgress;
+
+        #endregion
         // ═══════════════════════════════════════════════════════════════════
         // EVENTS
         // ═══════════════════════════════════════════════════════════════════
@@ -351,10 +374,7 @@ namespace TheWaningBorder.Economy
         /// temple's current level, clamped 1..3.</summary>
         private static byte LeverLevelForTemple(EntityManager em, Faction faction)
         {
-            var q = em.CreateEntityQuery(
-                Unity.Entities.ComponentType.ReadOnly<TempleOfRidanTag>(),
-                Unity.Entities.ComponentType.ReadOnly<FactionTag>(),
-                Unity.Entities.ComponentType.ReadOnly<TempleLevel>());
+            var q = QC_TempleOfRidanTagFactionTagTempleLevel.Get(em, QT_TempleOfRidanTagFactionTagTempleLevel);
             using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
             for (int i = 0; i < ents.Length; i++)
             {
@@ -412,10 +432,7 @@ namespace TheWaningBorder.Economy
             // Pre-age-up the culture is None; SectConfig.AdoptionCost handles
             // that as a same-cluster default — irrelevant in practice since
             // Temple isn't buildable until Age 2 and culture is chosen at age-up.
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<HallTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<FactionProgress>());
+            var query = QC_HallTagFactionTagFactionProgress.Get(em, QT_HallTagFactionTagFactionProgress);
             using var entities = query.ToEntityArray(Unity.Collections.Allocator.Temp);
             using var factions = query.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
             using var progress = query.ToComponentDataArray<FactionProgress>(Unity.Collections.Allocator.Temp);

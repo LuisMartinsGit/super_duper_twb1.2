@@ -5,7 +5,7 @@ using UnityEngine;
 using Unity.Entities;
 using Unity.Transforms;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     /// <summary>
     /// Attached to Veilstinger visual GameObjects by PresentationSpawnSystem.

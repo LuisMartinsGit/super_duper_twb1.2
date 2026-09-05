@@ -19,27 +19,17 @@ namespace TheWaningBorder.Abilities.Vfx
     [AddComponentMenu("Waning Border/Spell Showcase Driver")]
     public sealed class SpellShowcaseDriver : MonoBehaviour
     {
-        [Header("Data")]
-        [Tooltip("Spell prefabs to display. Leave empty to auto-load every Spell under Resources/Spells.")]
         public List<Spell> spellPrefabs = new List<Spell>();
-        [Tooltip("Resources sub-folder scanned when the list above is empty.")]
         public string spellsResourceFolder = "Spells";
 
-        [Header("Layout")]
-        [Tooltip("World-space spacing between spell cells.")]
         public float cellSpacing = 16f;
-        [Tooltip("Seconds between re-casts of the whole set.")]
         public float recastInterval = 4f;
 
-        [Header("Scene build")]
         public bool buildGround = true;
         public bool buildCamera = true;
         public bool buildLight = true;
-        [Tooltip("Disable the loaded map's Unity Terrain + water so only the flat plane shows.")]
         public bool hideSceneTerrain = false;
-        [Tooltip("World-space center the flat plane + spell grid are built around.")]
         public Vector3 center = Vector3.zero;
-        [Tooltip("Flat plane colour (textureless).")]
         public Color groundColor = new Color(0.32f, 0.33f, 0.35f);
 
         private readonly List<Spell> _prefabs = new List<Spell>();

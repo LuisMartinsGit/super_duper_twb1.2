@@ -20,7 +20,7 @@ using UnityEngine;
 using Unity.Entities;
 using TheWaningBorder.Core;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     public static class GolemAutarkVisual
     {
@@ -303,22 +303,16 @@ namespace TheWaningBorder.Presentation
     /// </summary>
     public class GolemAutarkAnimator : MonoBehaviour
     {
-        [Tooltip("Leg swing amplitude in degrees at full stride.")]
         public float LegSwing = 19f;
 
-        [Tooltip("Arm swing amplitude in degrees at full stride.")]
         public float ArmSwing = 12f;
 
-        [Tooltip("Stride length in meters per full walk cycle.")]
         public float StrideLength = 1.35f;
 
-        [Tooltip("Walking side-to-side weight transfer in degrees.")]
         public float WeightRoll = 2.8f;
 
-        [Tooltip("Core pulses per second.")]
         public float PulseRate = 0.55f;
 
-        [Tooltip("How far the core emission swings around its base level.")]
         public float PulseDepth = 0.45f;
 
         private Transform _legL, _legR, _armL, _armR, _torso, _head;

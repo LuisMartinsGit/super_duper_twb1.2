@@ -96,7 +96,10 @@ namespace TheWaningBorder.Systems.Combat
                     health.ValueRW = h;
 
                     if (em.HasComponent<LastDamagedByFaction>(entity))
+                    {
                         em.SetComponentData(entity, new LastDamagedByFaction { Value = b.Source });
+                        em.SetComponentEnabled<LastDamagedByFaction>(entity, true);
+                    }
                 }
 
                 if (b.Remaining <= 0f) expired.Add(entity);

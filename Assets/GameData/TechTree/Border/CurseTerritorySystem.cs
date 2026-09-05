@@ -67,6 +67,21 @@ namespace TheWaningBorder.Systems.Border
         private float _timer;
         private double _nextConquerAt = -1.0;
         private int _rngEpoch = -1;
+
+        /// <summary>Sim seconds since THIS match's tick 0 — the clock every
+        /// deadline in this system lives on. NOT SystemAPI.Time.ElapsedTime:
+        /// that accumulates the pre-match frames too (scene load, and in
+        /// multiplayer the world keeps spinning frames between
+        /// SimCadence.BeginMatch and tick 0 while peers wait for each other),
+        /// a machine-dependent amount that differs per peer. Deadlines armed
+        /// from ElapsedTime therefore fired at DIFFERENT TICKS on different
+        /// peers — the host conquered a region and spawned its anchor 76
+        /// ticks before client2 did (tick 8600 vs 8676), forking the nav
+        /// cost field and then the sim (MP harness catch #7). This clock
+        /// accumulates DeltaTime only while the lockstep simulation is
+        /// actually running (always, in single-player), so it is tick-exact
+        /// and identical on every peer.</summary>
+        private double _matchElapsed;
         private Unity.Mathematics.Random _rng;
 
         /// <summary>Territory -> the destroyable anchor claiming it. Wells are
@@ -105,14 +120,32 @@ namespace TheWaningBorder.Systems.Border
                 _held.Clear();
                 _nextConquerAt = -1.0;
                 _timer = 0f;
+                _matchElapsed = 0.0;
             }
+
+            // Advance the match clock only while the simulation is ticking —
+            // in multiplayer the frames between world-ready and tick 0 (and
+            // any stall) must not count, or each peer's clock skews by its
+            // own wait time. In MP the clock is DERIVED from the lockstep
+            // tick (exact by construction, immune to any missed/extra group
+            // update); single-player accumulates DeltaTime.
+            var lockstep = TheWaningBorder.Multiplayer.LockstepManager.Instance;
+            if (lockstep != null)
+            {
+                if (!lockstep.IsSimulationRunning)
+                    return; // pre-tick-0: arm nothing, burn nothing
+                _matchElapsed = lockstep.CurrentTick
+                    * (double)TheWaningBorder.Multiplayer.LockstepManager.TICK_DURATION;
+            }
+            else
+                _matchElapsed += SystemAPI.Time.DeltaTime;
 
             _timer -= SystemAPI.Time.DeltaTime;
             if (_timer > 0f) return;
             _timer = CheckInterval;
 
             var em = EntityManager;
-            double now = SystemAPI.Time.ElapsedTime;
+            double now = _matchElapsed;
             if (_nextConquerAt < 0.0)
                 _nextConquerAt = now + FirstConquerDelaySeconds;
 

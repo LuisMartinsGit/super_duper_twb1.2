@@ -11,7 +11,7 @@ using UnityEngine;
 using Unity.Entities;
 using TheWaningBorder.Core;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     public static class BatteringRamVisual
     {
@@ -179,13 +179,10 @@ namespace TheWaningBorder.Presentation
     /// </summary>
     public class BatteringRamAnimator : MonoBehaviour
     {
-        [Tooltip("Wheel radius in meters (matches the built rim).")]
         public float WheelRadius = 0.42f;
 
-        [Tooltip("Ram swing amplitude in degrees while battering.")]
         public float SwingAmplitude = 14f;
 
-        [Tooltip("Ram swing frequency in Hz while battering.")]
         public float SwingFrequency = 0.55f;
 
         private Transform[] _wheels = System.Array.Empty<Transform>();

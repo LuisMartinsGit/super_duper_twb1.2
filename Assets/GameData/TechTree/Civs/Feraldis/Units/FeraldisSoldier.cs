@@ -30,7 +30,7 @@ namespace TheWaningBorder.Systems.Border
         public static bool Is(EntityManager em, Entity e, Faction owner)
         {
             if (CultureConfig.GetCompletedCulture(em, owner) != Cultures.Feraldis) return false;
-            if (em.HasComponent<DeathAnimationState>(e)) return false;
+            if (TransientState.Active<DeathAnimationState>(em, e)) return false;
 
             // Builders on build duty claim and clear nothing.
             if (em.HasComponent<FeraldisWorkerTag>(e)

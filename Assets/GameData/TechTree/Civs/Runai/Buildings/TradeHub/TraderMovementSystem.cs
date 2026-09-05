@@ -1,4 +1,5 @@
 using Unity.Collections;
+using TheWaningBorder.Core;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -24,6 +25,22 @@ namespace TheWaningBorder.Systems.Economy
     [UpdateAfter(typeof(UnitIntegratorSystem))]
     public partial struct TraderMovementSystem : ISystem
     {
+
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and this one was never disposed. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_TradeNodeTagFactionTagLocalTransformExclUnderConstruction =
+        {
+            ComponentType.ReadOnly<TradeNodeTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.Exclude<UnderConstruction>(),
+        };
+        static CachedEntityQuery QC_TradeNodeTagFactionTagLocalTransformExclUnderConstruction;
+
+        #endregion
         private const float SuppliesPerDistance = 0.5f;   // 1 supply per 2 distance
         private const float VeilstonePerDistance = 1f / 15f; // 1 veilstone per 15 distance
 
@@ -124,12 +141,7 @@ namespace TheWaningBorder.Systems.Economy
             node = Entity.Null;
             position = float3.zero;
 
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<TradeNodeTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.Exclude<UnderConstruction>()
-            );
+            var query = QC_TradeNodeTagFactionTagLocalTransformExclUnderConstruction.Get(em, QT_TradeNodeTagFactionTagLocalTransformExclUnderConstruction);
 
             using var entities = query.ToEntityArray(Allocator.Temp);
             using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);

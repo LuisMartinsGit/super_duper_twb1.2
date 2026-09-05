@@ -8,6 +8,7 @@
 // task-063 phase 2b.
 
 using Unity.Collections;
+using TheWaningBorder.Core;
 using Unity.Entities;
 
 namespace TheWaningBorder.Economy
@@ -18,6 +19,23 @@ namespace TheWaningBorder.Economy
     /// </summary>
     public static class SectQuery
     {
+
+        #region Cached queries
+
+        // Was a fresh CreateEntityQuery per call, never disposed. The old
+        // EntityQueryDesc (All + None) is exactly what Exclude<> expresses in
+        // the array form, so the shared cache handles it.
+        // See Core/CachedEntityQuery.cs.
+        static readonly ComponentType[] QT_StandingTemple =
+        {
+            ComponentType.ReadOnly<TempleOfRidanTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.Exclude<UnderConstruction>(),
+        };
+        static CachedEntityQuery QC_StandingTemple;
+
+        #endregion
+
         /// <summary>
         /// Does this faction have a STANDING (completed) Temple of Ridan?
         ///
@@ -29,15 +47,7 @@ namespace TheWaningBorder.Economy
         /// </summary>
         public static bool HasStandingTemple(EntityManager em, Faction faction)
         {
-            var q = em.CreateEntityQuery(new EntityQueryDesc
-            {
-                All = new[]
-                {
-                    ComponentType.ReadOnly<TempleOfRidanTag>(),
-                    ComponentType.ReadOnly<FactionTag>(),
-                },
-                None = new[] { ComponentType.ReadOnly<UnderConstruction>() },
-            });
+            var q = QC_StandingTemple.Get(em, QT_StandingTemple);
             using var ents = q.ToEntityArray(Allocator.Temp);
             for (int i = 0; i < ents.Length; i++)
             {

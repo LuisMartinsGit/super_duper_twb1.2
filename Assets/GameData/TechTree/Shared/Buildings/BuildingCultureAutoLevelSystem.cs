@@ -26,6 +26,7 @@
 // the level check.
 
 using Unity.Collections;
+using TheWaningBorder.Core;
 using Unity.Entities;
 using TheWaningBorder.Economy;
 
@@ -35,6 +36,30 @@ namespace TheWaningBorder.Systems.Buildings
     [UpdateBefore(typeof(BuildingUpgradeSystem))]
     public partial struct BuildingCultureAutoLevelSystem : ISystem
     {
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and these were never disposed, so this hot path leaked one
+        // per invocation. A bloated registry slows every later query AND
+        // every structural change. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_BuildingUpgradeableFactionTag =
+        {
+            ComponentType.ReadOnly<BuildingUpgradeable>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_BuildingUpgradeableFactionTag;
+
+        static readonly ComponentType[] QT_HallTagFactionTagFactionProgress =
+        {
+            ComponentType.ReadOnly<HallTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<FactionProgress>(),
+        };
+        static CachedEntityQuery QC_HallTagFactionTagFactionProgress;
+
+        #endregion
+
         private const float ScanInterval = 0.5f;
         private SimCadence.Periodic _scanTimer;
 
@@ -49,9 +74,7 @@ namespace TheWaningBorder.Systems.Buildings
 
             var em = state.EntityManager;
 
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<BuildingUpgradeable>(),
-                ComponentType.ReadOnly<FactionTag>());
+            var query = QC_BuildingUpgradeableFactionTag.Get(em, QT_BuildingUpgradeableFactionTag);
             using var ents = query.ToEntityArray(Allocator.Temp);
 
             for (int i = 0; i < ents.Length; i++)
@@ -115,10 +138,7 @@ namespace TheWaningBorder.Systems.Buildings
         private static bool TryGetCompletedCulture(EntityManager em, Faction faction, out byte culture)
         {
             culture = Cultures.None;
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<HallTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<FactionProgress>());
+            var query = QC_HallTagFactionTagFactionProgress.Get(em, QT_HallTagFactionTagFactionProgress);
             using var ents = query.ToEntityArray(Allocator.Temp);
             for (int i = 0; i < ents.Length; i++)
             {

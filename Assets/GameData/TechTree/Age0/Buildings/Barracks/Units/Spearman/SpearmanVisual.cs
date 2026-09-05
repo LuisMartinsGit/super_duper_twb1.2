@@ -13,7 +13,7 @@ using UnityEngine;
 using Unity.Entities;
 using TheWaningBorder.Core;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     public static class SpearmanVisual
     {
@@ -252,19 +252,14 @@ namespace TheWaningBorder.Presentation
     /// </summary>
     public class SpearmanAnimator : MonoBehaviour
     {
-        [Tooltip("Leg swing amplitude in degrees at full stride.")]
         public float LegSwing = 28f;
 
-        [Tooltip("Arm swing amplitude in degrees at full stride (shield arm).")]
         public float ArmSwing = 15f;
 
-        [Tooltip("Stride length in meters per full walk cycle.")]
         public float StrideLength = 1.05f;
 
-        [Tooltip("Idle torso weight-shift sway in degrees.")]
         public float IdleSway = 1.8f;
 
-        [Tooltip("Seconds between idle spear-butt taps.")]
         public float TapInterval = 3.4f;
 
         private Transform _legL, _legR, _armL, _armR, _torso, _head, _spear;

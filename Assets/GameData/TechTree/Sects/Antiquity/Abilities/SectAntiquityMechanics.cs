@@ -9,6 +9,7 @@
 //                                 building level and Lorekeeper garrison.
 
 using Unity.Collections;
+using TheWaningBorder.Core;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -92,6 +93,22 @@ namespace TheWaningBorder.Systems.Sect
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial class LorekeeperDetectionSystem : SystemBase
     {
+
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every call
+        // and these were never disposed, so this per-frame detection pass
+        // leaked one per invocation. See Core/CachedEntityQuery.cs.
+        static readonly ComponentType[] QT_StealthTagLocalTransformFactionTag =
+        {
+            ComponentType.ReadOnly<StealthTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_StealthTagLocalTransformFactionTag;
+
+        #endregion
+
         private const float TickInterval = 0.5f;
         private const float RevealHold = 1.0f;   // seconds a stamp outlives the tick
         private const float Lv3LineOfSight = 24f;
@@ -131,10 +148,7 @@ namespace TheWaningBorder.Systems.Sect
             if (!_cadence.Due(dt, TickInterval)) return;
 
             // Snapshot stealthed units once.
-            var stealthQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<StealthTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<FactionTag>());
+            var stealthQuery = QC_StealthTagLocalTransformFactionTag.Get(em, QT_StealthTagLocalTransformFactionTag);
             using var stealthed = stealthQuery.ToEntityArray(Allocator.Temp);
             using var stealthedXf = stealthQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             using var stealthedFac = stealthQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
@@ -192,6 +206,21 @@ namespace TheWaningBorder.Systems.Sect
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial class ReliquarySystem : SystemBase
     {
+
+        #region Cached queries
+
+        // Leaked one query per frame before being cached.
+        // See Core/CachedEntityQuery.cs.
+        static readonly ComponentType[] QT_LorekeeperTagLocalTransformFactionTag =
+        {
+            ComponentType.ReadOnly<LorekeeperTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_LorekeeperTagLocalTransformFactionTag;
+
+        #endregion
+
         public const float GarrisonRange = 6f;
 
         protected override void OnCreate()
@@ -205,10 +234,7 @@ namespace TheWaningBorder.Systems.Sect
             float dt = SystemAPI.Time.DeltaTime;
 
             // Snapshot Lorekeepers once for the garrison scan.
-            var loreQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<LorekeeperTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<FactionTag>());
+            var loreQuery = QC_LorekeeperTagLocalTransformFactionTag.Get(em, QT_LorekeeperTagLocalTransformFactionTag);
             using var lores = loreQuery.ToEntityArray(Allocator.Temp);
             using var loreXf = loreQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             using var loreFac = loreQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);

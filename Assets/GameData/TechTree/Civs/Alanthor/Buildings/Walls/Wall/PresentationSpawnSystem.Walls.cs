@@ -12,7 +12,7 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using Unity.Collections;
 using TheWaningBorder.Core;
-using TheWaningBorder.Presentation;   // EntityViewManager
+using TheWaningBorder.Rendering;   // EntityViewManager
 
 public partial class PresentationSpawnSystem
 {

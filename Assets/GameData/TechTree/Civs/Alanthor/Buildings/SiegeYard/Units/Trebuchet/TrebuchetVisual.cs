@@ -13,7 +13,7 @@ using UnityEngine;
 using Unity.Entities;
 using TheWaningBorder.Core;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     public static class TrebuchetVisual
     {
@@ -209,16 +209,12 @@ namespace TheWaningBorder.Presentation
     /// </summary>
     public class TrebuchetAnimator : MonoBehaviour
     {
-        [Tooltip("Wheel radius in meters (matches the built rim).")]
         public float WheelRadius = 0.38f;
 
-        [Tooltip("Arm pivot X angle in degrees when fully cocked (deployed). Negative pulls the long rear arm down.")]
         public float CockedAngle = -52f;
 
-        [Tooltip("Seconds the sim needs to deploy (TrebuchetState.Timer full scale).")]
         public float DeploySeconds = 3f;
 
-        [Tooltip("Degrees per second the visual arm may move (keeps pose changes smooth).")]
         public float ArmDegreesPerSecond = 45f;
 
         private Transform[] _wheels = System.Array.Empty<Transform>();

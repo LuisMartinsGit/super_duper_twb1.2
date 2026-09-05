@@ -73,8 +73,7 @@ namespace TheWaningBorder.Systems.Sect
                     supplies:  (int)(cost.Supplies  * frac),
                     iron:      (int)(cost.Iron      * frac),
                     veilstone:   (int)(cost.Veilstone   * frac),
-                    veilsteel: (int)(cost.Veilsteel * frac),
-                    glow:      (int)(cost.Glow      * frac)
+                    veilsteel: (int)(cost.Veilsteel * frac)
                 );
 
                 FactionEconomy.Add(em, killerFaction, refund);

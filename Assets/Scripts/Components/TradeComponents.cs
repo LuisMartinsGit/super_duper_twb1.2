@@ -34,7 +34,10 @@ public struct NotControllableTag : IComponentData { }
 /// Tracks which faction last dealt damage to this entity.
 /// Used by CaravanDeathSystem to credit the killer's faction with loot.
 /// </summary>
-public struct LastDamagedByFaction : IComponentData
+// Enableable — pre-added disabled on units. Faction has no None value, so a
+// zeroed component would read as "damaged by Blue"; the enabled bit IS the
+// validity flag ("was ever damaged").
+public struct LastDamagedByFaction : IComponentData, IEnableableComponent
 {
     public Faction Value;
 }
@@ -47,7 +50,7 @@ public struct LastDamagedByFaction : IComponentData
 /// TargetingSystem when the attacker no longer exists.
 /// (Relocated here when the battalion system was removed.)
 /// </summary>
-public struct LastAttackerEntity : IComponentData
+public struct LastAttackerEntity : IComponentData, IEnableableComponent
 {
     public Entity Value;
 }
@@ -62,7 +65,7 @@ public struct LastAttackerEntity : IComponentData
 /// (docs/Design/Sects.md). Stored as an int and only ever incremented by
 /// integer amounts, so two lockstep peers accumulate bit-identical ledgers.
 /// </summary>
-public struct DamageDealtTotal : IComponentData
+public struct DamageDealtTotal : IComponentData, IEnableableComponent
 {
     public int Value;
 }

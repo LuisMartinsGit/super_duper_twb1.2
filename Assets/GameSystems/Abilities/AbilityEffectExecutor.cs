@@ -7,6 +7,7 @@
 // movement) plus the ability-specific components in AbilityRuntimeComponents.
 
 using Unity.Entities;
+using TheWaningBorder.Core;
 using Unity.Mathematics;
 using Unity.Transforms;
 
@@ -14,6 +15,24 @@ namespace TheWaningBorder.Abilities
 {
     public static class AbilityEffectExecutor
     {
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and these were never disposed, so this hot path leaked one
+        // per invocation. A bloated registry slows every later query AND
+        // every structural change. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_UnitTagFactionTagArmorTypeDataLocalTransform =
+        {
+            ComponentType.ReadOnly<UnitTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<ArmorTypeData>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery QC_UnitTagFactionTagArmorTypeDataLocalTransform;
+
+        #endregion
+
         /// <summary>
         /// Apply <paramref name="card"/>'s effects. Self-targeted effects land on
         /// <paramref name="caster"/>; building/target effects land on
@@ -28,7 +47,7 @@ namespace TheWaningBorder.Abilities
 
             // Accumulate the SpellBuff/SpellDebuff so multiple stat effects on one
             // ability produce a single component.
-            var buff = em.HasComponent<SpellBuff>(caster) ? em.GetComponentData<SpellBuff>(caster) : default;
+            var buff = TransientState.Active<SpellBuff>(em, caster) ? em.GetComponentData<SpellBuff>(caster) : default;
             var debuff = em.HasComponent<SpellDebuff>(caster) ? em.GetComponentData<SpellDebuff>(caster) : default;
             bool touchBuff = false, touchDebuff = false;
 
@@ -125,10 +144,10 @@ namespace TheWaningBorder.Abilities
                             {
                                 if (spd > 0f)
                                 {
-                                    var b = em.HasComponent<SpellBuff>(u) ? em.GetComponentData<SpellBuff>(u) : default;
+                                    var b = TransientState.Active<SpellBuff>(em, u) ? em.GetComponentData<SpellBuff>(u) : default;
                                     b.SpeedMultiplier = math.max(b.SpeedMultiplier, 1f + spd / 100f);
                                     b.TimeRemaining = math.max(b.TimeRemaining, dur);
-                                    AddOrSet(em, u, b);
+                                    TransientState.Set(em, u, b);
                                 }
                                 AddOrSet(em, u, new TempDisarm { TimeRemaining = dur });
                             });
@@ -155,7 +174,7 @@ namespace TheWaningBorder.Abilities
                 }
             }
 
-            if (touchBuff) AddOrSet(em, caster, buff);
+            if (touchBuff) TransientState.Set(em, caster, buff);
             if (touchDebuff) AddOrSet(em, caster, debuff);
 
             // Schedule the aftermath chain (fires after this ability's full duration).
@@ -180,11 +199,7 @@ namespace TheWaningBorder.Abilities
             Faction srcFac = em.GetComponentData<FactionTag>(caster).Value;
             float radSq = radius * radius;
 
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<UnitTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<ArmorTypeData>(),
-                ComponentType.ReadOnly<LocalTransform>());
+            var query = QC_UnitTagFactionTagArmorTypeDataLocalTransform.Get(em, QT_UnitTagFactionTagArmorTypeDataLocalTransform);
             using var units = query.ToEntityArray(Unity.Collections.Allocator.Temp);
 
             for (int i = 0; i < units.Length; i++)

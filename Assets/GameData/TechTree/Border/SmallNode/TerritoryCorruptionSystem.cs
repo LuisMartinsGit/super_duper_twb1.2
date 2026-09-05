@@ -53,7 +53,17 @@ namespace TheWaningBorder.Systems.Border
 
         private const float CheckInterval = 5f;
 
-        private float _timer;
+        /// <summary>SimCadence-phased cadence, NOT a raw float accumulator
+        /// (2026-09-04, MP harness catch #7). A raw `_timer -= dt` carries a
+        /// machine-dependent PHASE in from the pre-match frame-driven
+        /// updates, so the 5 s checks landed on different ticks per peer —
+        /// and tenure accrues CheckInterval per PASS, so the 24th pass
+        /// (120 s tenure) QUEUED the corruption ~76 ticks apart on host vs
+        /// client. The telegraphed pocket then ROSE ticks apart, stamping
+        /// its footprint into the nav cost field asymmetrically (tick 8600
+        /// vs 8676) and forking flow, then the whole sim. SimCadence.Periodic
+        /// re-phases at BeginMatch, aligning every peer's cadence to tick 0.</summary>
+        private SimCadence.Periodic _acc;
 
         /// <summary>Territory -> (owner, seconds held). Reset when the owner
         /// changes, so losing and retaking ground restarts the clock.</summary>
@@ -63,13 +73,22 @@ namespace TheWaningBorder.Systems.Border
         /// territory per match, like the old once-per-patch rule.</summary>
         private readonly System.Collections.Generic.HashSet<int> _fired = new();
 
+        private int _epoch = -1;
+
         protected override void OnUpdate()
         {
             if (!RegionMap.Ready) return;
 
-            _timer -= SystemAPI.Time.DeltaTime;
-            if (_timer > 0f) return;
-            _timer = CheckInterval;
+            // Per-match reset — the system object survives across matches
+            // (same contract as BlightPocketSystem).
+            if (_epoch != TheWaningBorder.Core.MatchLifecycle.MatchEpoch)
+            {
+                _epoch = TheWaningBorder.Core.MatchLifecycle.MatchEpoch;
+                _tenure.Clear();
+                _fired.Clear();
+            }
+
+            if (!_acc.Due(SystemAPI.Time.DeltaTime, CheckInterval)) return;
 
             var em = EntityManager;
 

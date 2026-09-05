@@ -99,6 +99,9 @@ namespace TheWaningBorder.Systems.Economy
             for (int i = 0; i < spawnAt.Length; i++)
             {
                 var e = Plunderer.Create(em, spawnAt[i], spawnFor[i]);
+                // Bypasses UnitFactory's dispatcher — pre-add the transient
+                // set or every plunderer death/damage churns archetypes.
+                TransientState.PreAddUnitSet(em, e);
                 em.AddComponentData(e, new PlundererOrigin { Camp = spawnCamp[i] });
             }
 

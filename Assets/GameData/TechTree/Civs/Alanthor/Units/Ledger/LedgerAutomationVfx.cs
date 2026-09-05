@@ -12,7 +12,7 @@ using Unity.Entities;
 using Unity.Transforms;
 using TheWaningBorder.Abilities;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     public class LedgerAutomationVfx : MonoBehaviour
     {

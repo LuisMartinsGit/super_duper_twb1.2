@@ -18,7 +18,7 @@ namespace TheWaningBorder.Abilities
         public static int ScaleIncoming(EntityManager em, Entity target, int damage)
         {
             if (damage <= 0 || target == Entity.Null || !em.Exists(target)) return damage;
-            if (!em.HasComponent<SpellBuff>(target)) return damage;
+            if (!TransientState.Active<SpellBuff>(em, target)) return damage;
             float m = em.GetComponentData<SpellBuff>(target).DamageTakenMultiplier;
             if (m > 0f && m < 1f) return (int)(damage * m);
             return damage;

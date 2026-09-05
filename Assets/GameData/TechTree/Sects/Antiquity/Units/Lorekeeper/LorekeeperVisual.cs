@@ -16,7 +16,7 @@ using UnityEngine;
 using Unity.Entities;
 using TheWaningBorder.Core;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     public static class LorekeeperVisual
     {
@@ -302,19 +302,14 @@ namespace TheWaningBorder.Presentation
     /// </summary>
     public class LorekeeperAnimator : MonoBehaviour
     {
-        [Tooltip("Leg swing amplitude in degrees at full stride.")]
         public float LegSwing = 20f;
 
-        [Tooltip("Arm swing amplitude in degrees at full stride (free arm).")]
         public float ArmSwing = 11f;
 
-        [Tooltip("Stride length in meters per full walk cycle.")]
         public float StrideLength = 0.92f;
 
-        [Tooltip("Idle torso weight-shift sway in degrees.")]
         public float IdleSway = 1.4f;
 
-        [Tooltip("Seconds between idle note-taking beats.")]
         public float NoteInterval = 4.2f;
 
         private Transform _legL, _legR, _armL, _armR, _torso, _head, _quill;

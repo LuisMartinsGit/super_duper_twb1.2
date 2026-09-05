@@ -3,6 +3,7 @@
 // starting veilstone source without having to fight Crystallings first.
 
 using UnityEngine;
+using TheWaningBorder.Core;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -21,6 +22,38 @@ namespace TheWaningBorder.Bootstrap
     /// </summary>
     public static class VeilstoneOutcroppingBootstrap
     {
+
+        #region Cached queries
+
+        // Was a fresh CreateEntityQuery per call, never disposed. The old
+        // EntityQueryDesc's None clause is what Exclude<> expresses in the
+        // array form. See Core/CachedEntityQuery.cs.
+        static readonly ComponentType[] QT_ClearableObstacle =
+        {
+            ComponentType.ReadOnly<ObstacleTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<Radius>(),
+            ComponentType.Exclude<VeilstoneOutcroppingTag>(),
+            ComponentType.Exclude<IronMineTag>(),
+        };
+        static CachedEntityQuery QC_ClearableObstacle;
+
+        #endregion
+
+
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and this one was never disposed. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_HallTagLocalTransform =
+        {
+            ComponentType.ReadOnly<HallTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery QC_HallTagLocalTransform;
+
+        #endregion
         // Clear radius (+ margin) used to free forest / rock obstacles around a
         // spawned patch so units can reach every node.
         private const float PatchClearRadius = 7f;
@@ -131,9 +164,7 @@ namespace TheWaningBorder.Bootstrap
             var centers = new Unity.Collections.NativeList<float3>(16, Unity.Collections.Allocator.Temp);
 
             // Near-base patches: one per Hall, 22-30m out at a random bearing.
-            var hallQuery = em.CreateEntityQuery(
-                Unity.Entities.ComponentType.ReadOnly<HallTag>(),
-                Unity.Entities.ComponentType.ReadOnly<LocalTransform>());
+            var hallQuery = QC_HallTagLocalTransform.Get(em, QT_HallTagLocalTransform);
             using (var halls = hallQuery.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp))
             {
                 for (int i = 0; i < halls.Length; i++)
@@ -202,21 +233,7 @@ namespace TheWaningBorder.Bootstrap
             Unity.Collections.NativeList<float3> points,
             float clearRadius)
         {
-            var query = em.CreateEntityQuery(
-                new Unity.Entities.EntityQueryDesc
-                {
-                    All = new[]
-                    {
-                        Unity.Entities.ComponentType.ReadOnly<ObstacleTag>(),
-                        Unity.Entities.ComponentType.ReadOnly<LocalTransform>(),
-                        Unity.Entities.ComponentType.ReadOnly<Radius>(),
-                    },
-                    None = new[]
-                    {
-                        Unity.Entities.ComponentType.ReadOnly<VeilstoneOutcroppingTag>(),
-                        Unity.Entities.ComponentType.ReadOnly<IronMineTag>(),
-                    },
-                });
+            var query = QC_ClearableObstacle.Get(em, QT_ClearableObstacle);
             using var ents = query.ToEntityArray(Unity.Collections.Allocator.Temp);
             using var trs  = query.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
             using var rds  = query.ToComponentDataArray<Radius>(Unity.Collections.Allocator.Temp);

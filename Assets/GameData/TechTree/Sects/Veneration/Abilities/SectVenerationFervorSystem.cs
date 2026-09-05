@@ -117,7 +117,7 @@ namespace TheWaningBorder.Systems.Sect
                 // speed and Lv III +move halves remain Phase 5 work since
                 // those read points aren't wired through SpellBuff.
                 float dmgMult = 1f + p.PerStack * newStacks;
-                if (em.HasComponent<SpellBuff>(p.Killer))
+                if (TransientState.Active<SpellBuff>(em, p.Killer))
                 {
                     var buff = em.GetComponentData<SpellBuff>(p.Killer);
                     if (dmgMult > buff.DamageMultiplier) buff.DamageMultiplier = dmgMult;
@@ -126,7 +126,7 @@ namespace TheWaningBorder.Systems.Sect
                 }
                 else
                 {
-                    em.AddComponentData(p.Killer, new SpellBuff
+                    TransientState.Set(em, p.Killer, new SpellBuff
                     {
                         DamageMultiplier = dmgMult,
                         TimeRemaining    = p.Duration,

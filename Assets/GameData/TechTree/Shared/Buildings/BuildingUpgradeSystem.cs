@@ -14,6 +14,7 @@
 // building goes briefly inert during the upgrade.
 
 using Unity.Entities;
+using TheWaningBorder.Core;
 using Unity.Transforms;
 using TheWaningBorder.Core.Settings;
 using TheWaningBorder.Economy;
@@ -23,6 +24,21 @@ namespace TheWaningBorder.Systems.Buildings
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct BuildingUpgradeSystem : ISystem
     {
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and these were never disposed, so this hot path leaked one
+        // per invocation. A bloated registry slows every later query AND
+        // every structural change. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_BuildingUpgrading =
+        {
+            ComponentType.ReadOnly<BuildingUpgrading>(),
+        };
+        static CachedEntityQuery QC_BuildingUpgrading;
+
+        #endregion
+
         // Barracks — when it gains its first attack at level 3, use these.
         // Mirrors Hall's stats from Hall.cs (Range 20, Damage 12, Cooldown 2.5s).
         // Barracks is closer to a watchtower than a keep — same range/cooldown,
@@ -44,7 +60,7 @@ namespace TheWaningBorder.Systems.Buildings
             // Snapshot — applying the level is a structural change for
             // Barracks (adds BuildingRangedAttack), so we mustn't iterate
             // SystemAPI.Query while doing it.
-            var query = em.CreateEntityQuery(ComponentType.ReadWrite<BuildingUpgrading>());
+            var query = QC_BuildingUpgrading.Get(em, QT_BuildingUpgrading);
             using var ents = query.ToEntityArray(Unity.Collections.Allocator.Temp);
 
             for (int i = 0; i < ents.Length; i++)

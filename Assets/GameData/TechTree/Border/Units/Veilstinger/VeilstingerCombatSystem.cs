@@ -70,7 +70,7 @@ namespace TheWaningBorder.Systems.Border
             var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
             var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
             float dt = SystemAPI.Time.DeltaTime;
-            float time = (float)SystemAPI.Time.ElapsedTime;
+            float time = (float)SimCadence.MatchTimeOr(SystemAPI.Time.ElapsedTime);
             var em = state.EntityManager;
 
             var tgtEntities = _targetQuery.ToEntityArray(Allocator.Temp);

@@ -10,13 +10,8 @@ namespace TheWaningBorder.World.MapMarkers
     [DisallowMultipleComponent]
     public sealed class VeilsteelDepositMarker : MapMarker
     {
-        [Tooltip("Veilsteel units in this node. Design default: 1500.")]
         [Min(1)] public int Amount = 1500;
 
-        [Tooltip("This map's authored veilsteel list is COMPLETE - suppress " +
-                 "the 1-in-3-territories coverage top-up. Set on maps where " +
-                 "veilsteel placement is a design statement (e.g. exclusive " +
-                 "to the centre); one ticked marker suppresses for the map.")]
         public bool MapExclusive = false;
 
         protected override float GizmoRadius => 2.5f;

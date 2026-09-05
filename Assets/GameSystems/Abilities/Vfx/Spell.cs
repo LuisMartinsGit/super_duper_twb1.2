@@ -77,7 +77,6 @@ namespace TheWaningBorder.Abilities.Vfx
     {
         public SpellEffectKind kind;
         public float value;
-        [Tooltip("Seconds (0 = instant, -1 = permanent / passive).")]
         public float duration;
     }
 
@@ -86,67 +85,49 @@ namespace TheWaningBorder.Abilities.Vfx
     [ExecuteAlways]
     public sealed class Spell : MonoBehaviour
     {
-        [Header("Identity")]
         public string spellId;
         public string displayName;
 
         // ── TRIGGERS — what triggers this spell ─────────────────────────────
-        [Header("TRIGGERS  —  what triggers this spell")]
         public SpellActivation activation = SpellActivation.Active;
-        [Tooltip("Seconds before it can fire again (0 = none).")]
         public float cooldown;
-        [Tooltip("Wind-up seconds before the effect lands (0 = instant).")]
         public float castTime;
-        [Tooltip("For OnLowHealth: fraction of max HP (0..1) that arms the trigger.")]
         [Range(0f, 1f)] public float hpThreshold;
 
         // ── TARGET — how the spell is applied ───────────────────────────────
-        [Header("TARGET  —  how the spell is applied")]
         public SpellTargetShape shape = SpellTargetShape.Area;
         public SpellAffects affects = SpellAffects.Enemies;
-        [Tooltip("Cast / aim range in world units (0 = self / unlimited).")]
         public float range;
-        [Tooltip("Area radius in world units — also SIZES the ground circle.")]
         public float radius = 8f;
-        [Tooltip("Seconds the applied effect lasts (0 = instant, -1 = permanent).")]
         public float duration;
 
         // ── EFFECTS — what this spell does ──────────────────────────────────
-        [Header("EFFECTS  —  what this spell does")]
         public SpellEffect[] effects = new SpellEffect[0];
 
         // Playback speed applied to every VFX slot below: 1 = normal,
         // <1 = slow, >1 = fast, 0 = frozen (a fully-drawn snapshot held still).
         // Always applies — no mode to set first.
-        private const string SpeedTip =
-            "Playback speed: 1 = normal, 0.1 = 10% (slow), 0 = frozen snapshot, >1 = faster.";
 
         // ── POWER-UP VFX (wind-up / channel on the caster) ──────────────────
-        [Header("POWER-UP VFX  (wind-up / channel)")]
         public GameObject powerUpPrefab;
         public bool powerUpTint = false;
         [ColorUsage(true, true)] public Color powerUpColor = Color.white;
-        [Tooltip(SpeedTip)] [Range(0f, 3f)] public float powerUpSpeed = 1f;
+        [Range(0f, 3f)] public float powerUpSpeed = 1f;
 
         // ── CAST VFX (impact / nova) ────────────────────────────────────────
-        [Header("CAST VFX  (impact / nova)")]
         public GameObject castPrefab;
         public bool castTint = false;
         [ColorUsage(true, true)] public Color castColor = Color.white;
-        [Tooltip(SpeedTip)] [Range(0f, 3f)] public float castSpeed = 1f;
+        [Range(0f, 3f)] public float castSpeed = 1f;
 
         // ── GROUND CIRCLE VFX ───────────────────────────────────────────────
-        [Header("GROUND CIRCLE VFX")]
         public GameObject circlePrefab;
         public bool circleTint = true;
         [ColorUsage(true, true)] public Color circleColor = Color.white;
-        [Tooltip(SpeedTip)] [Range(0f, 3f)] public float circleSpeed = 1f;
+        [Range(0f, 3f)] public float circleSpeed = 1f;
 
         // ── EDITOR PREVIEW ──────────────────────────────────────────────────
-        [Header("EDITOR PREVIEW")]
-        [Tooltip("Continuously loop this spell's VFX in the editor while editing it.")]
         public bool previewInEditor = true;
-        [Tooltip("Seconds between preview re-casts (one-shot effects repeat on this beat).")]
         public float previewInterval = 4f;
 
         /// <summary>On-screen lifetime for a showcase cast.</summary>

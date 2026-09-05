@@ -59,8 +59,7 @@ namespace TheWaningBorder.Economy
                 supplies:  (int)(baseCost.Supplies  * CostMultiplier),
                 iron:      (int)(baseCost.Iron      * CostMultiplier),
                 veilstone: (int)(baseCost.Veilstone * CostMultiplier),
-                veilsteel: (int)(baseCost.Veilsteel * CostMultiplier),
-                glow:      (int)(baseCost.Glow      * CostMultiplier));
+                veilsteel: (int)(baseCost.Veilsteel * CostMultiplier));
         }
     }
 }
