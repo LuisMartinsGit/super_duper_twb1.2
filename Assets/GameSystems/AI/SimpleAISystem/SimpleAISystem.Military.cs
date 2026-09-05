@@ -1020,6 +1020,20 @@ namespace TheWaningBorder.AI
                     // ...and an EMPTY site sends the army to the next
                     // scouted threat instead of home: march (formation
                     // move), and strike on contact via the staging commit.
+                    // THE FINISHER (2026-09-05). The hour-long elimination
+                    // probe razed 146 and 180 buildings off the two victims
+                    // and still ended 4-alive: the chain only follows Halls
+                    // and military buildings, while VictoryConditionSystem
+                    // keeps a faction alive on ANY hall OR military building
+                    // OR builder — so the rebuild loop (territory income ->
+                    // new Hall -> razed -> repeat) never terminated. In the
+                    // closeout, the chain therefore also accepts the WEAKEST
+                    // victim's ECO BUILDINGS and MINERS from the sighting
+                    // buffer — deny the rebuild, then take the last lifeline.
+                    // Sightings only: no omniscient worker hunt.
+                    bool chainCloseout = now > Cfg.closeoutAfterSeconds;
+                    Faction chainVictim = chainCloseout
+                        ? WeakestHostileFaction(em, faction) : faction;
                     if (nextT == Entity.Null && em.HasBuffer<EnemySightingRecord>(brainEntity))
                     {
                         var buf = em.GetBuffer<EnemySightingRecord>(brainEntity);
@@ -1028,8 +1042,13 @@ namespace TheWaningBorder.AI
                         {
                             var sg = buf[i];
                             if (!Alliances.AreHostile(faction, sg.OwnerFaction)) continue;
-                            if (sg.Category != IntelCategory.Hall
-                                && sg.Category != IntelCategory.MilitaryBuilding) continue;
+                            bool lifeline = sg.Category == IntelCategory.Hall
+                                || sg.Category == IntelCategory.MilitaryBuilding;
+                            bool finisher = chainCloseout
+                                && sg.OwnerFaction == chainVictim
+                                && (sg.Category == IntelCategory.EcoBuilding
+                                    || sg.Category == IntelCategory.Miner);
+                            if (!lifeline && !finisher) continue;
                             float sdx = sg.Position.x - mission.TargetPos.x;
                             float sdz = sg.Position.z - mission.TargetPos.z;
                             float sd2 = sdx * sdx + sdz * sdz;
