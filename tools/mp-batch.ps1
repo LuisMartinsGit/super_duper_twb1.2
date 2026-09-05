@@ -91,6 +91,26 @@ for ($m = 0; $m -lt $Matches; $m++) {
     $codes = $procs | ForEach-Object { $_.ExitCode }
     Write-Host ("  exit codes: {0}" -f ($codes -join ", "))
 
+    # PREFER THE VERDICT FILES over raw process exit codes: a peer that logs
+    # its verdict ("exit=0 ... no desync") and then crashes in Unity's own
+    # teardown (query-registry access violation during Application.Quit)
+    # otherwise fails a match every checksum agreed on. The verdict is
+    # written BEFORE quit, so it is the truth about the MATCH; the exit code
+    # only about the shutdown.
+    for ($i = 0; $i -lt $Peers; $i++) {
+        $vf = Join-Path $logRoot ("MpVerdict_p{0}.txt" -f $i)
+        if (Test-Path $vf) {
+            $m = Select-String -Path $vf -Pattern '^exit=(\d+)' | Select-Object -First 1
+            if ($m) {
+                $v = [int]$m.Matches[0].Groups[1].Value
+                if ($codes[$i] -ne $v) {
+                    Write-Host ("  peer {0}: exit code {1} but verdict says {2} - trusting the verdict (teardown crash)" -f $i, $codes[$i], $v) -ForegroundColor Yellow
+                    $codes[$i] = $v
+                }
+            }
+        }
+    }
+
     if ($codes -contains 42) {
         $desyncs++
         Write-Host "  DESYNC - evidence in the newest match folders:" -ForegroundColor Red
