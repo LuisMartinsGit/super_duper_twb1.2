@@ -1,0 +1,78 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a2b3c4d5e6f708192a3b4c5d6e7f200c, type: 3}
+  m_Name: SimpleAISystem
+  m_EditorClassIdentifier:
+  buildRingDistanceMin: 16
+  buildRingDistanceMax: 48
+  minBuildingSpacing: 20
+  minResourceNodeClearance: 14
+  minGHutToGHutSpacing: 30
+  populationHeadroomFloor: 16
+  hutCostSupplies: 80
+  economyWorkingFloor: 240
+  feraldisWorkerFloor: 2
+  feraldisRaiderCampCap: 5
+  hutCapDoublingSeconds: 1200
+  emergencyBankFloor: 800
+  emergencyTowerCap: 12
+  emergencyRetrySeconds: 25
+  siegeTrainFloor: 6
+  siegeTrainRetrySeconds: 20
+  economyWorkerFloor: 6
+  hutPipelineFreeCount: 4
+  researchSweepInterval: 20
+  claimAttemptInterval: 12
+  claimSaveSeconds: 120
+  claimSuccessCooldown: 30
+  minArmyForNextClaim: 6
+  claimLogInterval: 60
+  maxClaimReach: 220
+  claimNodeBonus: 60
+  extractorAttemptInterval: 15
+  extractLogInterval: 60
+  ageUpSaveSeconds: 90
+  ageUpReservePriority: 1
+  missionTimeoutSeconds: 480
+  razeChainRadius: 90
+  closeoutAfterSeconds: 900
+  strayDefenseMax: 120
+  opportunityMaxAgeSeconds: 240
+  leadMargin: 1.35
+  stagingDistance: 45
+  waveOverdueSeconds: 300
+  stagingGatherRadius: 12
+  stagingTimeoutSeconds: 240
+  raidPartySize: 3
+  raidSurplus: 2
+  reinforceInterval: 15
+  reinforceMinGroup: 10
+  reinforceMaxHold: 45
+  waveArrivedRadius: 30
+  waveMaxLifetime: 360
+  waveRetrySeconds: 20
+  reclaimEarliestSeconds: 240
+  reclaimVeilstonePoorBelow: 150
+  reclaimRadius: 110
+  reclaimHallThreatRadius: 65
+  reclaimSquadSize: 6
+  ageUpReserveSupplies: 0
+  ageUpReserveIron: 0
+  ageUpReserveVeilstone: 0
+  tacticsInterval: 1
+  contactRadius: 34
+  focusRadius: 22
+  armyCohesionRadius: 28
+  curseCorridorHeavyFraction: 0.35
+  curseCorridorSampleStep: 8
+  startHallKnownRadius: 60
+  stepTimeoutSeconds: 90
