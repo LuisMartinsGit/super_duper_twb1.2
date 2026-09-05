@@ -196,9 +196,9 @@ namespace TheWaningBorder.Data
         /// Register a custom building cost at runtime with individual values.
         /// </summary>
         public static void Register(string id, int supplies = 0, int iron = 0,
-                                    int veilstone = 0, int veilsteel = 0, int glow = 0)
+                                    int veilstone = 0, int veilsteel = 0)
         {
-            _byId[id] = Cost.Of(supplies, iron, veilstone, veilsteel, glow);
+            _byId[id] = Cost.Of(supplies, iron, veilstone, veilsteel);
         }
 
         /// <summary>

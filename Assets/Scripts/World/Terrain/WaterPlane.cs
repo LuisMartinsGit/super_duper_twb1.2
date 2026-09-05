@@ -11,27 +11,22 @@ namespace TheWaningBorder.World.Terrain
     /// </summary>
     public class WaterPlane : MonoBehaviour
     {
-        [Header("Water Colors (AoE4 Style)")]
         public Color shallowColor = new Color(0.30f, 0.60f, 0.70f, 0.6f);
         public Color deepColor = new Color(0.08f, 0.22f, 0.35f, 0.95f);
         public Color foamColor = new Color(0.95f, 0.98f, 1f, 0.9f);
         public float waterLevel = 20f;
 
-        [Header("Flow Animation")]
         public float flowSpeed = 0.06f;
         public float flowStrength = 0.25f;
 
-        [Header("Surface Detail")]
         public float rippleScale = 0.05f;
         public float rippleSpeed = 0.4f;
         public float bumpiness = 0.35f;
 
-        [Header("Foam")]
         public float foamScale = 0.07f;
         public float foamThreshold = 0.55f;
         public float foamIntensity = 1.2f;
 
-        [Header("Specular")]
         public float specularPower = 64f;
         public float specularIntensity = 0.35f;
 

@@ -18,15 +18,10 @@ namespace TheWaningBorder.Data
     [CreateAssetMenu(fileName = "TechTreeCatalog", menuName = "Waning Border/Tech Tree Catalog", order = 2)]
     public class TechTreeCatalog : ScriptableObject
     {
-        [Tooltip("Every unit stat asset. Edit a unit's HP/damage/etc. on its asset to tune on the fly.")]
         public List<UnitDefSO> units = new List<UnitDefSO>();
 
-        [Tooltip("Every building stat asset.")]
         public List<BuildingDefSO> buildings = new List<BuildingDefSO>();
 
-        [Tooltip("Every technology asset. These live beside the building that " +
-                 "researches them, not in one folder -- the generator collects them here " +
-                 "so the runtime can load them without a Resources/ folder.")]
         public List<TechDefSO> technologies = new List<TechDefSO>();
 
         /// <summary>True if this catalog actually carries data (used to decide SO-vs-JSON mode).</summary>

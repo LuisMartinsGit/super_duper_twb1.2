@@ -6,7 +6,7 @@ using UnityEngine;
 using Unity.Mathematics;
 using TheWaningBorder.World.Terrain;
 
-namespace TheWaningBorder.UI.HUD
+namespace TheWaningBorder.UI.World
 {
     /// <summary>
     /// Footprint outline for building placement — the border of the occupied

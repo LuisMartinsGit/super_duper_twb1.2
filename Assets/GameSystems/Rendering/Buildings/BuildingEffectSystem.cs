@@ -9,7 +9,7 @@ using Unity.Transforms;
 using TheWaningBorder.World.Terrain;
 using EntityWorld = Unity.Entities.World;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     /// <summary>
     /// MonoBehaviour system that drives:

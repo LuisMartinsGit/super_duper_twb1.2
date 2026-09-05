@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Unity.Entities;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     /// <summary>
     /// Attached to every building visual by PresentationSpawnSystem. Each frame it

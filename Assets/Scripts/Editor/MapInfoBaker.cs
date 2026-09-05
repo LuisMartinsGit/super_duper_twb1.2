@@ -112,10 +112,9 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                 int x = pa.x.CompareTo(pb.x);
                 return x != 0 ? x : pa.z.CompareTo(pb.z);
             });
-            info.RegionSeeds = Normalize(regions, min, size);
-            info.RegionNames = new string[regions.Length];
-            for (int i = 0; i < regions.Length; i++)
-                info.RegionNames[i] = regions[i] != null ? regions[i].RegionName : "";
+            // RegionSeeds/RegionNames are NOT baked: nothing ever read them.
+            // They existed so the lobby could draw the partition live, but the
+            // lobby shows a baked thumbnail with the border already painted in.
             if (regions.Length == 0)
                 Debug.LogWarning($"[MapInfoBaker] \"{mapName}\" has NO RegionSeedMarkers. Under " +
                                  "docs/Design/Regions.md a map with no regions grants no build " +
@@ -198,15 +197,20 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             if (regions == null || regions.Length < 2) return;
 
             // The baker runs with no match world, so install the partition here.
+            // The AUTHORED shapes come along: without them the thumbnail would
+            // draw the Voronoi cells while the match draws the hand-drawn
+            // borders, and the lobby would advertise the wrong map.
             var seeds = new Vector2[regions.Length];
             var names = new string[regions.Length];
+            var shapes = new Vector2[regions.Length][];
             for (int i = 0; i < regions.Length; i++)
             {
                 var p = regions[i].transform.position;
                 seeds[i] = new Vector2(p.x, p.z);
                 names[i] = regions[i].RegionName;
+                shapes[i] = regions[i].Shape;
             }
-            TheWaningBorder.World.Regions.RegionMap.Configure(seeds, names);
+            TheWaningBorder.World.Regions.RegionMap.Configure(seeds, names, shapes);
 
             // ~1.5 px wide, in metres so it does not thin out on a large map.
             float width = Mathf.Max(1f, size.x / ThumbnailSize * 1.5f);

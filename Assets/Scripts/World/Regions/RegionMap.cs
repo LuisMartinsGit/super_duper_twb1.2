@@ -27,6 +27,15 @@ namespace TheWaningBorder.World.Regions
 
         private static Vector2[] _seeds = System.Array.Empty<Vector2>();
         private static string[] _names = System.Array.Empty<string>();
+        // Authored outlines, parallel to _seeds. A null entry means that
+        // region is still a Voronoi cell.
+        private static Vector2[][] _shapes = System.Array.Empty<Vector2[]>();
+        private static bool _anyShape;
+        // Parallel to _seeds. Null when the map predates region kinds, in
+        // which case claimability falls back to terrain height.
+        private static MapMarkers.RegionSeedMarker.RegionKind[] _kinds
+            = System.Array.Empty<MapMarkers.RegionSeedMarker.RegionKind>();
+        private static bool _anyKind;
 
         public static bool Ready => _seeds.Length > 0;
         public static int Count => _seeds.Length;
@@ -41,6 +50,28 @@ namespace TheWaningBorder.World.Regions
                 ? _names[region]
                 : region >= 0 ? $"Region {region}" : "";
 
+        /// <summary>The authored outline for a region, or null if it has none.</summary>
+        /// <summary>What a region IS. Normal when the map authored nothing.</summary>
+        public static MapMarkers.RegionSeedMarker.RegionKind KindOf(int region) =>
+            region >= 0 && region < _kinds.Length
+                ? _kinds[region]
+                : MapMarkers.RegionSeedMarker.RegionKind.Normal;
+
+        /// <summary>True when at least one region states its kind.</summary>
+        public static bool HasAuthoredKinds => _anyKind;
+
+        /// <summary>Water, mountain and obstacle regions hold nothing and block.</summary>
+        public static bool KindBlocks(MapMarkers.RegionSeedMarker.RegionKind kind) =>
+            kind == MapMarkers.RegionSeedMarker.RegionKind.Water
+            || kind == MapMarkers.RegionSeedMarker.RegionKind.Mountain
+            || kind == MapMarkers.RegionSeedMarker.RegionKind.Obstacle;
+
+        public static Vector2[] ShapeOf(int region) =>
+            region >= 0 && region < _shapes.Length ? _shapes[region] : null;
+
+        /// <summary>True when at least one region is authored rather than Voronoi.</summary>
+        public static bool HasAuthoredShapes => _anyShape;
+
         public static Vector2 SeedOf(int region) =>
             region >= 0 && region < _seeds.Length ? _seeds[region] : Vector2.zero;
 
@@ -50,23 +81,56 @@ namespace TheWaningBorder.World.Regions
         /// this differently would disagree about which region is which while
         /// agreeing on every position.
         /// </summary>
-        public static void Configure(IReadOnlyList<Vector2> seeds, IReadOnlyList<string> names)
+        public static void Configure(IReadOnlyList<Vector2> seeds, IReadOnlyList<string> names,
+                                     IReadOnlyList<Vector2[]> shapes = null,
+                                     IReadOnlyList<MapMarkers.RegionSeedMarker.RegionKind> kinds = null)
         {
             if (seeds == null || seeds.Count == 0) { Reset(); return; }
 
             _seeds = new Vector2[seeds.Count];
             _names = new string[seeds.Count];
+            _shapes = new Vector2[seeds.Count][];
+            _anyShape = false;
+            _kinds = new MapMarkers.RegionSeedMarker.RegionKind[seeds.Count];
+            _anyKind = kinds != null && kinds.Count > 0;
             for (int i = 0; i < seeds.Count; i++)
             {
                 _seeds[i] = seeds[i];
                 _names[i] = names != null && i < names.Count ? names[i] : null;
+
+                var s = shapes != null && i < shapes.Count ? shapes[i] : null;
+                // Fewer than three points is not a polygon; treat it as unauthored
+                // rather than as a degenerate shape nothing can be inside of.
+                _shapes[i] = s != null && s.Length >= 3 ? s : null;
+                if (_shapes[i] != null) _anyShape = true;
+
+                _kinds[i] = kinds != null && i < kinds.Count
+                    ? kinds[i]
+                    : MapMarkers.RegionSeedMarker.RegionKind.Normal;
             }
+        }
+
+        /// <summary>Winding-agnostic point-in-polygon (ray crossing).</summary>
+        private static bool Inside(Vector2[] poly, float x, float z)
+        {
+            bool inside = false;
+            for (int i = 0, j = poly.Length - 1; i < poly.Length; j = i++)
+            {
+                if ((poly[i].y > z) == (poly[j].y > z)) continue;
+                float t = (z - poly[i].y) / (poly[j].y - poly[i].y);
+                if (x < poly[i].x + t * (poly[j].x - poly[i].x)) inside = !inside;
+            }
+            return inside;
         }
 
         public static void Reset()
         {
             _seeds = System.Array.Empty<Vector2>();
             _names = System.Array.Empty<string>();
+            _shapes = System.Array.Empty<Vector2[]>();
+            _anyShape = false;
+            _kinds = System.Array.Empty<MapMarkers.RegionSeedMarker.RegionKind>();
+            _anyKind = false;
         }
 
         // ── organic boundaries ──────────────────────────────────────────
@@ -148,8 +212,23 @@ namespace TheWaningBorder.World.Regions
         /// they are nature that takes on its owner's look
         /// (Territory_And_Nature.md), so they belong to whoever holds them.
         /// </summary>
+        /// <summary>
+        /// Whether ground can be held and built on.
+        ///
+        /// THE REGION'S KIND DECIDES. Water, mountain and obstacle regions hold
+        /// nothing, and the terrain under them is GENERATED from that fact
+        /// rather than the other way round. Height is only the fallback for a
+        /// map authored before region kinds, where the heightmap is still the
+        /// only statement about what is lake and what is peak.
+        /// </summary>
         public static bool IsClaimable(float worldX, float worldZ)
         {
+            if (_anyKind)
+            {
+                int r = RawRegionAt(worldX, worldZ);
+                return r != None && !KindBlocks(KindOf(r));
+            }
+
             float y = Terrain.TerrainUtility.GetHeight(worldX, worldZ);
             return y > WaterHeight && y < MountainHeight;
         }
@@ -186,7 +265,33 @@ namespace TheWaningBorder.World.Regions
         public static int RegionAt(float worldX, float worldZ)
         {
             if (_seeds.Length == 0) return None;
-            if (!IsClaimable(worldX, worldZ)) return None;
+            return IsClaimable(worldX, worldZ) ? RawRegionAt(worldX, worldZ) : None;
+        }
+
+        /// <summary>
+        /// The region a point falls in, WITHOUT the claimability filter.
+        ///
+        /// Split out because claimability now reads the region's KIND, and
+        /// RegionAt filtering on claimability would then call back into itself.
+        /// This is also the honest answer for anything that wants the region a
+        /// point is in even though nothing can stand there — a lake still
+        /// belongs to the lake region.
+        /// </summary>
+        public static int RawRegionAt(float worldX, float worldZ)
+        {
+            if (_seeds.Length == 0) return None;
+
+            // An authored outline IS the territory. Checked before the warp:
+            // the noise displacement exists to make Voronoi edges organic,
+            // and applying it to a hand-drawn border would move the border
+            // off the line the author drew.
+            if (_anyShape)
+            {
+                for (int i = 0; i < _shapes.Length; i++)
+                    if (_shapes[i] != null && Inside(_shapes[i], worldX, worldZ))
+                        return i;
+            }
+
             Warp(ref worldX, ref worldZ);
 
             int best = 0;
@@ -218,6 +323,30 @@ namespace TheWaningBorder.World.Regions
             // No border is drawn across ground that belongs to nobody, so the
             // lattice stops at the shoreline and the foot of the cliffs.
             if (!IsClaimable(worldX, worldZ)) return 0f;
+
+            // An AUTHORED outline is a real line, so its edge signal is the
+            // distance to that line — not the Voronoi bisector, which no longer
+            // describes where the border is. Unauthored regions still answer
+            // with the bisector below, so a half-authored map draws both.
+            float authored = 0f;
+            if (_anyShape)
+            {
+                float best = float.MaxValue;
+                for (int i = 0; i < _shapes.Length; i++)
+                {
+                    var poly = _shapes[i];
+                    if (poly == null) continue;
+                    for (int a = 0, bIdx = poly.Length - 1; a < poly.Length; bIdx = a++)
+                    {
+                        float d = DistanceToSegment(worldX, worldZ, poly[bIdx], poly[a]);
+                        if (d < best) best = d;
+                    }
+                }
+                if (best < float.MaxValue)
+                    authored = Mathf.Clamp01(1f - best / widthMetres);
+                if (authored >= 1f) return 1f;
+            }
+
             Warp(ref worldX, ref worldZ);   // same displacement as RegionAt
 
             float d0 = float.MaxValue, d1 = float.MaxValue;
@@ -234,7 +363,19 @@ namespace TheWaningBorder.World.Regions
             // sqrt only twice, and only here: the gap between the two nearest
             // distances is ~2x the perpendicular distance to the bisector.
             float gap = (Mathf.Sqrt(d1) - Mathf.Sqrt(d0)) * 0.5f;
-            return Mathf.Clamp01(1f - gap / widthMetres);
+            return Mathf.Max(authored, Mathf.Clamp01(1f - gap / widthMetres));
+        }
+
+        /// <summary>Perpendicular distance from a point to a segment, in metres.</summary>
+        private static float DistanceToSegment(float px, float pz, Vector2 a, Vector2 b)
+        {
+            float abx = b.x - a.x, abz = b.y - a.y;
+            float len2 = abx * abx + abz * abz;
+            if (len2 <= 1e-6f) return Mathf.Sqrt((px - a.x) * (px - a.x) + (pz - a.y) * (pz - a.y));
+
+            float t = Mathf.Clamp01(((px - a.x) * abx + (pz - a.y) * abz) / len2);
+            float cx = a.x + abx * t, cz = a.y + abz * t;
+            return Mathf.Sqrt((px - cx) * (px - cx) + (pz - cz) * (pz - cz));
         }
 
         /// <summary>
@@ -256,6 +397,8 @@ namespace TheWaningBorder.World.Regions
 
             var seeds = new List<Vector2>(markers.Count);
             var names = new List<string>(markers.Count);
+            var shapes = new List<Vector2[]>(markers.Count);
+            var kinds = new List<MapMarkers.RegionSeedMarker.RegionKind>(markers.Count);
             for (int i = 0; i < markers.Count; i++)
             {
                 var m = markers[i];
@@ -263,9 +406,11 @@ namespace TheWaningBorder.World.Regions
                 var p = m.WorldPosition;
                 seeds.Add(new Vector2(p.x, p.z));
                 names.Add(m.RegionName);
+                shapes.Add(m.Shape);
+                kinds.Add(m.Kind);
             }
 
-            Configure(seeds, names);
+            Configure(seeds, names, shapes, kinds);
             TWBLog.Log($"[RegionMap] {seeds.Count} region(s) built from markers.");
         }
     }

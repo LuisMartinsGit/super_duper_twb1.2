@@ -27,10 +27,11 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using TheWaningBorder.Core.Localization;
-using TheWaningBorder.UI.HUD;
-using TheWaningBorder.UI.Panels;
+using TheWaningBorder.UI.Ingame;
+using TheWaningBorder.UI.World;
+using TheWaningBorder.UI.Data;
 
-namespace TheWaningBorder.UI.GameUI
+namespace TheWaningBorder.UI.Ingame
 {
     public sealed class PauseMenuPanel : MonoBehaviour
     {

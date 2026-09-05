@@ -3,7 +3,7 @@
 
 using UnityEngine;
 
-namespace TheWaningBorder.UI.HUD
+namespace TheWaningBorder.UI.World
 {
     /// <summary>
     /// Switches a URP Lit/Unlit material to the Transparent surface so colour

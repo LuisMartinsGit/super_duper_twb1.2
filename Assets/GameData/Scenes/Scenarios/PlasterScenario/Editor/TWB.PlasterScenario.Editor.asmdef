@@ -1,0 +1,19 @@
+{
+    "name": "TWB.PlasterScenario.Editor",
+    "rootNamespace": "TheWaningBorder.Scenarios.EditorTools",
+    "references": [
+        "TWB.PlasterScenario",
+        "TheWaningBorder.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

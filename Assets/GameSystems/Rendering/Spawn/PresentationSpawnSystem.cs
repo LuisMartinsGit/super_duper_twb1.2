@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Unity.Entities;
 using Unity.Transforms;
-using TheWaningBorder.Presentation;
+using TheWaningBorder.Rendering;
 using TheWaningBorder.World.Terrain;
 using TheWaningBorder.Bootstrap;
 using TheWaningBorder.Entities;
@@ -244,6 +244,9 @@ public partial class PresentationSpawnSystem : MonoBehaviour
     // Track which entities already have visuals
     private HashSet<Entity> _spawnedEntities = new();
 
+    // Entities that gained a view this frame, tagged in one batch at the end.
+    private readonly List<Entity> _tagScratch = new();
+
     /// <summary>
     /// Per-view sync state. SyncTransforms runs over EVERY presentation entity
     /// every frame, and most of them are buildings, wall modules, obstacles and
@@ -316,6 +319,14 @@ public partial class PresentationSpawnSystem : MonoBehaviour
     private EntityManager _em;
     private EntityQuery _presentationQuery;
 
+    /// <summary>
+    /// The same set MINUS anything that already has a view. This is what makes
+    /// spawning reactive: in the steady state it matches nothing, so the spawn
+    /// pass ends at an IsEmpty check instead of sweeping every entity in the
+    /// world to conclude there is nothing to do.
+    /// </summary>
+    private EntityQuery _missingViewQuery;
+
     // Throttle SyncTransforms to ~15fps to reduce per-frame cost
     private float _syncTimer;
 
@@ -342,6 +353,11 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             _presentationQuery = _em.CreateEntityQuery(
                 ComponentType.ReadOnly<PresentationId>(),
                 ComponentType.ReadOnly<LocalTransform>()
+            );
+            _missingViewQuery = _em.CreateEntityQuery(
+                ComponentType.ReadOnly<PresentationId>(),
+                ComponentType.ReadOnly<LocalTransform>(),
+                ComponentType.Exclude<PresentationViewSpawned>()
             );
         }
     }
@@ -391,7 +407,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                 EntityViewManager.Instance.UnregisterView(entity);
                 if (go != null)
                 {
-                    var outcroppingAnim = go.GetComponent<TheWaningBorder.Presentation.VeilstoneOutcroppingCrystalAnimator>();
+                    var outcroppingAnim = go.GetComponent<TheWaningBorder.Rendering.VeilstoneOutcroppingCrystalAnimator>();
                     var corpse = go.GetComponent<CorpseDissolver>();
                     if (outcroppingAnim != null)
                     {
@@ -436,9 +452,18 @@ public partial class PresentationSpawnSystem : MonoBehaviour
     {
         if (_presentationQuery == null) return;
 
-        var entities = _presentationQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
-        var presentations = _presentationQuery.ToComponentDataArray<PresentationId>(Unity.Collections.Allocator.Temp);
-        var transforms = _presentationQuery.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
+        // THE WHOLE POINT: nothing new exists, so there is nothing to do and
+        // we never touch the world. This is true for the overwhelming majority
+        // of frames in a match — the pass used to copy three arrays covering
+        // every entity in the world to discover exactly that.
+        // IsEmptyIgnoreFilter: no chunk filter is ever set on this query, and
+        // the Exclude is part of the archetype match rather than a filter, so
+        // this is the same answer without the job sync IsEmpty would force.
+        if (_missingViewQuery.IsEmptyIgnoreFilter) return;
+
+        var entities = _missingViewQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
+        var presentations = _missingViewQuery.ToComponentDataArray<PresentationId>(Unity.Collections.Allocator.Temp);
+        var transforms = _missingViewQuery.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
 
         // Pass 1: what is missing. Cheap set lookups only.
         _missingScratch.Clear();
@@ -450,6 +475,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                 EntityViewManager.Instance.TryGetView(entity, out _))
             {
                 _spawnedEntities.Add(entity);
+                _tagScratch.Add(entity);
                 continue;
             }
             _missingScratch.Add(i);
@@ -489,15 +515,40 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                 if (EntityViewManager.Instance != null)
                     EntityViewManager.Instance.RegisterView(entity, go);
                 _spawnedEntities.Add(entity);
+                _tagScratch.Add(entity);
                 spawned++;
             }
             // A null view retries next frame, exactly as before the budget —
-            // it costs no budget, so it cannot starve the queue behind it.
+            // it costs no budget, so it cannot starve the queue behind it. It
+            // is deliberately NOT tagged, so it stays in _missingViewQuery.
         }
 
         entities.Dispose();
         presentations.Dispose();
         transforms.Dispose();
+
+        FlushViewTags();
+    }
+
+    /// <summary>
+    /// Stamp PresentationViewSpawned on everything that got a view this frame,
+    /// in ONE structural change rather than one per entity.
+    /// </summary>
+    private void FlushViewTags()
+    {
+        if (_tagScratch.Count == 0) return;
+        // Units carry PresentationViewSpawned pre-added DISABLED (see
+        // TransientState.cs) — a batch AddComponent is a no-op on them and
+        // would leave the bit off, so each entity is enabled explicitly.
+        // Buildings/nodes without the component still get the one-time add.
+        for (int i = 0; i < _tagScratch.Count; i++)
+        {
+            var e = _tagScratch[i];
+            if (!_em.HasComponent<PresentationViewSpawned>(e))
+                _em.AddComponent<PresentationViewSpawned>(e);
+            _em.SetComponentEnabled<PresentationViewSpawned>(e, true);
+        }
+        _tagScratch.Clear();
     }
 
     private GameObject SpawnVisual(Entity entity, int presentationId, LocalTransform transform)
@@ -597,25 +648,25 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                 _em.HasComponent<BuildingTag>(entity)
                 && TechCatalog.TryGetPrefab(presentationId, out var supersedingPrefab)
                 && supersedingPrefab != null
-                && TheWaningBorder.Presentation.BuildingVariantVisual.HasVariantLayout(supersedingPrefab);
+                && TheWaningBorder.Rendering.BuildingVariantVisual.HasVariantLayout(supersedingPrefab);
 
             switch (authoredPrefabWins ? -1 : presentationId)
             {
-                case 368: authored = TheWaningBorder.Presentation.SpearmanVisual.Build(entity.Index + 368); break;
+                case 368: authored = TheWaningBorder.Rendering.SpearmanVisual.Build(entity.Index + 368); break;
                 // 201: the Swordsman prefab is a Synty variant whose skinned-mesh
                 // guid resolves to nothing on disk (invisible). Authored rig wins.
-                case 201: authored = TheWaningBorder.Presentation.SwordsmanVisual.Build(entity.Index + 201); break;
-                case 202: authored = TheWaningBorder.Presentation.ArcherVisual.Build(entity.Index + 202); break;
-                case 349: authored = TheWaningBorder.Presentation.OutriderVisual.Build(entity.Index + 349); break;
-                case 336: authored = TheWaningBorder.Presentation.CataphractVisual.Build(entity.Index + 336); break;
-                case 251: authored = TheWaningBorder.Presentation.KingLexorVisual.Build(entity.Index + 251); break;
-                case 346: authored = TheWaningBorder.Presentation.NoblemanVisual.Build(entity.Index + 346); break;
-                case 347: authored = TheWaningBorder.Presentation.BatteringRamVisual.Build(entity.Index + 347); break;
-                case 348: authored = TheWaningBorder.Presentation.TrebuchetVisual.Build(entity.Index + 348); break;
-                case 356: authored = TheWaningBorder.Presentation.RoyalStableVisual.Build(entity.Index + 356); authoredIsBuilding = true; break;
-                case 357: authored = TheWaningBorder.Presentation.SiegeYardVisual.Build(entity.Index + 357); authoredIsBuilding = true; break;
-                case 354: authored = TheWaningBorder.Presentation.WatchTowerVisual.Build(entity.Index + 354); authoredIsBuilding = true; break;
-                case 358: authored = TheWaningBorder.Presentation.FieldHospitalVisual.Build(entity.Index + 358); authoredIsBuilding = true; spawnsFinished = true; break;
+                case 201: authored = TheWaningBorder.Rendering.SwordsmanVisual.Build(entity.Index + 201); break;
+                case 202: authored = TheWaningBorder.Rendering.ArcherVisual.Build(entity.Index + 202); break;
+                case 349: authored = TheWaningBorder.Rendering.OutriderVisual.Build(entity.Index + 349); break;
+                case 336: authored = TheWaningBorder.Rendering.CataphractVisual.Build(entity.Index + 336); break;
+                case 251: authored = TheWaningBorder.Rendering.KingLexorVisual.Build(entity.Index + 251); break;
+                case 346: authored = TheWaningBorder.Rendering.NoblemanVisual.Build(entity.Index + 346); break;
+                case 347: authored = TheWaningBorder.Rendering.BatteringRamVisual.Build(entity.Index + 347); break;
+                case 348: authored = TheWaningBorder.Rendering.TrebuchetVisual.Build(entity.Index + 348); break;
+                case 356: authored = TheWaningBorder.Rendering.RoyalStableVisual.Build(entity.Index + 356); authoredIsBuilding = true; break;
+                case 357: authored = TheWaningBorder.Rendering.SiegeYardVisual.Build(entity.Index + 357); authoredIsBuilding = true; break;
+                case 354: authored = TheWaningBorder.Rendering.WatchTowerVisual.Build(entity.Index + 354); authoredIsBuilding = true; break;
+                case 358: authored = TheWaningBorder.Rendering.FieldHospitalVisual.Build(entity.Index + 358); authoredIsBuilding = true; spawnsFinished = true; break;
                 // Age 0 choice buildings (culture-neutral):
                 // 530: the Vault generator predates this switch and already fits
                 //      its own collider + EntityReference at its tail; both are
@@ -624,23 +675,23 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                 //      which adds the rotation / sink-rise construction animation /
                 //      faction marker the generator lacks. No double-finishing.
                 case 530: authored = CreateProceduralVault(pos, entity); authoredIsBuilding = true; break;
-                case 540: authored = TheWaningBorder.Presentation.FiendstoneKeepVisual.Build(entity.Index + 540); authoredIsBuilding = true; break;
+                case 540: authored = TheWaningBorder.Rendering.FiendstoneKeepVisual.Build(entity.Index + 540); authoredIsBuilding = true; break;
                 // Sect buildings (561-564) — one per sect, capped at 5 per
                 // faction. Alanthor cluster; the other eight land with their
                 // pass. docs/Design/Sects.md section 1.
                 // Sect units. These pids already had PrefabPaths rows pointing
                 // at borrowed Synty/Litharch stand-ins; this switch runs first,
                 // so the authored rigs win without touching that dictionary.
-                case 370: authored = TheWaningBorder.Presentation.ScarGuardVisual.Build(entity.Index + 370); break;
-                case 371: authored = TheWaningBorder.Presentation.GolemAutarkVisual.Build(entity.Index + 371); break;
-                case 372: authored = TheWaningBorder.Presentation.StoneWardenVisual.Build(entity.Index + 372); break;
-                case 387: authored = TheWaningBorder.Presentation.LorekeeperVisual.Build(entity.Index + 387); break;
+                case 370: authored = TheWaningBorder.Rendering.ScarGuardVisual.Build(entity.Index + 370); break;
+                case 371: authored = TheWaningBorder.Rendering.GolemAutarkVisual.Build(entity.Index + 371); break;
+                case 372: authored = TheWaningBorder.Rendering.StoneWardenVisual.Build(entity.Index + 372); break;
+                case 387: authored = TheWaningBorder.Rendering.LorekeeperVisual.Build(entity.Index + 387); break;
 
-                case 561: authored = TheWaningBorder.Presentation.ReliquaryVisual.Build(entity.Index + 561); authoredIsBuilding = true; break;
-                case 562: authored = TheWaningBorder.Presentation.MendingHallVisual.Build(entity.Index + 562); authoredIsBuilding = true; break;
-                case 563: authored = TheWaningBorder.Presentation.StoneholdVisual.Build(entity.Index + 563); authoredIsBuilding = true; break;
-                case 564: authored = TheWaningBorder.Presentation.VeilworksVisual.Build(entity.Index + 564); authoredIsBuilding = true; break;
-                case 565: authored = TheWaningBorder.Presentation.MusterYardVisual.Build(entity.Index + 565); authoredIsBuilding = true; break;
+                case 561: authored = TheWaningBorder.Rendering.ReliquaryVisual.Build(entity.Index + 561); authoredIsBuilding = true; break;
+                case 562: authored = TheWaningBorder.Rendering.MendingHallVisual.Build(entity.Index + 562); authoredIsBuilding = true; break;
+                case 563: authored = TheWaningBorder.Rendering.StoneholdVisual.Build(entity.Index + 563); authoredIsBuilding = true; break;
+                case 564: authored = TheWaningBorder.Rendering.VeilworksVisual.Build(entity.Index + 564); authoredIsBuilding = true; break;
+                case 565: authored = TheWaningBorder.Rendering.MusterYardVisual.Build(entity.Index + 565); authoredIsBuilding = true; break;
             }
 
             if (authored != null)
@@ -655,7 +706,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                     {
                         // No construction phase: neutralize the sink/rise state the
                         // builder tail added so the tent stands complete at once.
-                        var rise = finished.GetComponent<TheWaningBorder.Presentation.BuildingRiseData>();
+                        var rise = finished.GetComponent<TheWaningBorder.Rendering.BuildingRiseData>();
                         if (rise != null) rise.ApplyRise(1f, 0f);
                     }
                     return finished;
@@ -763,7 +814,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             if (_em.HasComponent<BuildingTag>(entity)
                 && TechCatalog.TryGetPrefab(presentationId, out var soVariantPrefab)
                 && soVariantPrefab != null
-                && TheWaningBorder.Presentation.BuildingVariantVisual.HasVariantLayout(soVariantPrefab))
+                && TheWaningBorder.Rendering.BuildingVariantVisual.HasVariantLayout(soVariantPrefab))
             {
                 buildingPrefab = soVariantPrefab;
                 if (_em.HasComponent<FactionTag>(entity))
@@ -1019,8 +1070,8 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         // generic prefab path (those that don't go through FinishProceduralBuilding).
         if (_em.HasComponent<BuildingTag>(entity))
         {
-            var dmgVis = goInst.GetComponent<TheWaningBorder.Presentation.BuildingDamageVisual>()
-                      ?? goInst.AddComponent<TheWaningBorder.Presentation.BuildingDamageVisual>();
+            var dmgVis = goInst.GetComponent<TheWaningBorder.Rendering.BuildingDamageVisual>()
+                      ?? goInst.AddComponent<TheWaningBorder.Rendering.BuildingDamageVisual>();
             dmgVis.Entity = entity;
 
             // Team-color the atlas: blue-painted regions -> faction color.
@@ -1109,8 +1160,8 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                     Mathf.Max(0f, bounds.max.y - go.transform.position.y);
                 if (visualHeight > 0f)
                 {
-                    var sink = go.GetComponent<TheWaningBorder.Presentation.BuildingVisualSinkDepth>()
-                            ?? go.AddComponent<TheWaningBorder.Presentation.BuildingVisualSinkDepth>();
+                    var sink = go.GetComponent<TheWaningBorder.Rendering.BuildingVisualSinkDepth>()
+                            ?? go.AddComponent<TheWaningBorder.Rendering.BuildingVisualSinkDepth>();
                     sink.Value = visualHeight + 0.5f; // small pad keeps the tip below
                 }
             }
@@ -1134,12 +1185,12 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         // Multi-variant authored prefabs (Lv0 + per-culture Lv1-Lv3 inside
         // one prefab): hide the culture branches so construction always
         // shows the numbered Lv0 model. Must run BEFORE the rise snapshot.
-        var variant = TheWaningBorder.Presentation.BuildingVariantVisual.TrySetup(go);
+        var variant = TheWaningBorder.Rendering.BuildingVariantVisual.TrySetup(go);
 
         // Snapshot the visual hierarchy for the staggered construction rise.
         // Done last so any runtime-attached helpers are included in the pieces.
-        var rise = go.GetComponent<TheWaningBorder.Presentation.BuildingRiseData>()
-                ?? go.AddComponent<TheWaningBorder.Presentation.BuildingRiseData>();
+        var rise = go.GetComponent<TheWaningBorder.Rendering.BuildingRiseData>()
+                ?? go.AddComponent<TheWaningBorder.Rendering.BuildingRiseData>();
         rise.Init();
 
         // Spawned already complete (starting buildings, mid-game joins):
@@ -1165,8 +1216,8 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         // also route through here keep their own shaders.
         if (_em.HasComponent<BuildingTag>(entity))
         {
-            var dmgVis = go.GetComponent<TheWaningBorder.Presentation.BuildingDamageVisual>()
-                      ?? go.AddComponent<TheWaningBorder.Presentation.BuildingDamageVisual>();
+            var dmgVis = go.GetComponent<TheWaningBorder.Rendering.BuildingDamageVisual>()
+                      ?? go.AddComponent<TheWaningBorder.Rendering.BuildingDamageVisual>();
             dmgVis.Entity = entity;
         }
 
@@ -1193,14 +1244,14 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                 Mathf.Max(0f, bounds.max.y - go.transform.position.y);
             if (visualHeight > 0f)
             {
-                var sink = go.GetComponent<TheWaningBorder.Presentation.BuildingVisualSinkDepth>()
-                        ?? go.AddComponent<TheWaningBorder.Presentation.BuildingVisualSinkDepth>();
+                var sink = go.GetComponent<TheWaningBorder.Rendering.BuildingVisualSinkDepth>()
+                        ?? go.AddComponent<TheWaningBorder.Rendering.BuildingVisualSinkDepth>();
                 sink.Value = visualHeight + 0.5f;
             }
         }
 
-        var rise = go.GetComponent<TheWaningBorder.Presentation.BuildingRiseData>()
-                ?? go.AddComponent<TheWaningBorder.Presentation.BuildingRiseData>();
+        var rise = go.GetComponent<TheWaningBorder.Rendering.BuildingRiseData>()
+                ?? go.AddComponent<TheWaningBorder.Rendering.BuildingRiseData>();
         rise.Init();
     }
 
@@ -1373,6 +1424,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             {
                 EntityViewManager.Instance.RegisterView(entity, newGo);
                 _spawnedEntities.Add(entity);
+                _tagScratch.Add(entity);
 
                 // Wave dissolve from old culture-neutral visual to the new
                 // culture-specific one. Faction-tinted edge glow.
@@ -1385,6 +1437,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                 // leaving the entity invisible.
                 EntityViewManager.Instance.RegisterView(entity, oldGo);
                 _spawnedEntities.Add(entity);
+                _tagScratch.Add(entity);
             }
         }
 
@@ -1392,6 +1445,11 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         presentations.Dispose();
         transforms.Dispose();
 
+        // This path can hand a view to an entity the spawn pass never saw
+        // (a culture swap on something that had none), so it stamps the tag
+        // too — otherwise that entity would sit in _missingViewQuery until the
+        // next frame reconciled it.
+        FlushViewTags();
     }
 
     private void SyncTransforms()
@@ -1424,7 +1482,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                 {
                     sync.View = go;
                     sync.ScaleTag = go.GetComponent<ProceduralScaleTag>();
-                    sync.Rise = go.GetComponent<TheWaningBorder.Presentation.BuildingRiseData>();
+                    sync.Rise = go.GetComponent<TheWaningBorder.Rendering.BuildingRiseData>();
                     sync.Primed = false;   // new view: force a full write
                 }
 
@@ -1495,7 +1553,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                 {
                     var uc = em.Value.GetComponentData<UnderConstruction>(entities[i]);
                     float ratio = uc.Total > 0 ? Mathf.Clamp01(uc.Progress / uc.Total) : 1f;
-                    var sinkTag = go.GetComponent<TheWaningBorder.Presentation.BuildingVisualSinkDepth>();
+                    var sinkTag = go.GetComponent<TheWaningBorder.Rendering.BuildingVisualSinkDepth>();
                     float sinkDepth = (sinkTag != null && sinkTag.Value > 0f)
                         ? sinkTag.Value
                         : (em.Value.HasComponent<Radius>(entities[i])
@@ -1529,7 +1587,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                             // transitions to its culture Lv1 model right away
                             // (multi-variant prefabs only) using the same
                             // dissolve wave as the Hall's level-up swaps.
-                            var cVariant = go.GetComponent<TheWaningBorder.Presentation.BuildingVariantVisual>();
+                            var cVariant = go.GetComponent<TheWaningBorder.Rendering.BuildingVariantVisual>();
                             if (cVariant != null)
                             {
                                 byte cCulture = CultureConfig.GetCompletedCulture(_em, cFac);
@@ -1542,7 +1600,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                                 RefitVariantView(go, entities[i], em.Value);
                             }
                         }
-                        TheWaningBorder.Presentation.BuildingLevelUpEffect.Spawn(go, accent);
+                        TheWaningBorder.Rendering.BuildingLevelUpEffect.Spawn(go, accent);
                     }
                 }
 

@@ -722,7 +722,10 @@ Shardroot is guaranteed to surface; backstop: if the host well reaches
     **Alanthor — Shardbound Hierarch** *(name TBD)*, defensive caster,
     sanctification aura, sect synergy. The hero wields it on their body.
   - **Temple** → **enshrine**: all adopted sect powers amplified while
-    enshrined.
+    enshrined — **all sect power cooldowns reduced by 30%** (2026-09-01).
+    The amplification is a COOLDOWN cut, not a power increase: it raises
+    how often a sect answers, which is what an artifact of tempo should
+    buy, and it cannot make an already-strong power stronger.
 - **Volatile**: the holder — hero or Temple — **detonates on death /
   destruction**: a massive veilstone explosion damaging *everyone* in
   range (attacker included); the Shardroot drops intact from the crater.
@@ -764,7 +767,7 @@ emergent.
 | Old Glow role | New owner |
 |---|---|
 | High-tier victory/power fantasy | **The Shardroot** artifact |
-| T4 weapon/arrow upgrade fuel ("Glow-infused / Glow-tipped") | Renamed **Shard-infused / Shard-tipped**, consuming **Veilsteel** |
+| T4 weapon/arrow upgrade fuel ("Glow-infused / Glow-tipped") | **REMOVED — there is no tier above Veilsteel** (2026-09-01). The ladder is Base → Iron → Veilstone → **Veilsteel**, full stop. An earlier revision of this row renamed the T4 tier to Shard-infused/Shard-tipped on Veilsteel; that was wrong — the tier does not exist, so the revive-on-death effect and the equipment DROP that only Glow-tier gear triggered go with it. |
 | Religious units as "Glow-generators" | Religious units are the **verb carriers** (Acolyte pacifies, Scholar purifies; the Iconoclast enables/leads Feraldis well-assaults) |
 | "Drop Glow" UI / drop rules | Deleted; the Shardroot's carry/drop rules replace them |
 

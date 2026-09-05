@@ -8,7 +8,7 @@
 
 using UnityEngine;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     /// <summary>
     /// Attached to a spawned visual GameObject to store its base scale.

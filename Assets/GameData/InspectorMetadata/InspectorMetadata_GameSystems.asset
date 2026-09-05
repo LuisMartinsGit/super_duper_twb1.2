@@ -1,0 +1,375 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1c4e97b52f0426d8b3e1f7c04d9a6b2, type: 3}
+  m_Name: InspectorMetadata_GameSystems
+  m_EditorClassIdentifier: 
+  types:
+  - typeName: "TheWaningBorder.Abilities.Vfx.SpellEffect"
+    fields:
+    - field: "duration"
+      header: 
+      tooltip: "Seconds (0 = instant, -1 = permanent / passive)."
+  - typeName: "TheWaningBorder.Abilities.Vfx.Spell"
+    fields:
+    - field: "spellId"
+      header: "Identity"
+      tooltip: 
+    - field: "activation"
+      header: "TRIGGERS  \u2014  what triggers this spell"
+      tooltip: 
+    - field: "cooldown"
+      header: 
+      tooltip: "Seconds before it can fire again (0 = none)."
+    - field: "castTime"
+      header: 
+      tooltip: "Wind-up seconds before the effect lands (0 = instant)."
+    - field: "hpThreshold"
+      header: 
+      tooltip: "For OnLowHealth: fraction of max HP (0..1) that arms the trigger."
+    - field: "shape"
+      header: "TARGET  \u2014  how the spell is applied"
+      tooltip: 
+    - field: "range"
+      header: 
+      tooltip: "Cast / aim range in world units (0 = self / unlimited)."
+    - field: "radius"
+      header: 
+      tooltip: "Area radius in world units \u2014 also SIZES the ground circle."
+    - field: "duration"
+      header: 
+      tooltip: "Seconds the applied effect lasts (0 = instant, -1 = permanent)."
+    - field: "effects"
+      header: "EFFECTS  \u2014  what this spell does"
+      tooltip: 
+    - field: "powerUpPrefab"
+      header: "POWER-UP VFX  (wind-up / channel)"
+      tooltip: 
+    - field: "powerUpSpeed"
+      header: 
+      tooltip: "Playback speed: 1 = normal, 0.1 = 10% (slow), 0 = frozen snapshot, >1 = faster."
+    - field: "castPrefab"
+      header: "CAST VFX  (impact / nova)"
+      tooltip: 
+    - field: "castSpeed"
+      header: 
+      tooltip: "Playback speed: 1 = normal, 0.1 = 10% (slow), 0 = frozen snapshot, >1 = faster."
+    - field: "circlePrefab"
+      header: "GROUND CIRCLE VFX"
+      tooltip: 
+    - field: "circleSpeed"
+      header: 
+      tooltip: "Playback speed: 1 = normal, 0.1 = 10% (slow), 0 = frozen snapshot, >1 = faster."
+    - field: "previewInEditor"
+      header: "EDITOR PREVIEW"
+      tooltip: "Continuously loop this spell's VFX in the editor while editing it."
+    - field: "previewInterval"
+      header: 
+      tooltip: "Seconds between preview re-casts (one-shot effects repeat on this beat)."
+  - typeName: "TheWaningBorder.Abilities.Vfx.SpellShowcaseDriver"
+    fields:
+    - field: "spellPrefabs"
+      header: "Data"
+      tooltip: "Spell prefabs to display. Leave empty to auto-load every Spell under Resources/Spells."
+    - field: "spellsResourceFolder"
+      header: 
+      tooltip: "Resources sub-folder scanned when the list above is empty."
+    - field: "cellSpacing"
+      header: "Layout"
+      tooltip: "World-space spacing between spell cells."
+    - field: "recastInterval"
+      header: 
+      tooltip: "Seconds between re-casts of the whole set."
+    - field: "buildGround"
+      header: "Scene build"
+      tooltip: 
+    - field: "hideSceneTerrain"
+      header: 
+      tooltip: "Disable the loaded map's Unity Terrain + water so only the flat plane shows."
+    - field: "center"
+      header: 
+      tooltip: "World-space center the flat plane + spell grid are built around."
+    - field: "groundColor"
+      header: 
+      tooltip: "Flat plane colour (textureless)."
+  - typeName: "TheWaningBorder.Input.CameraController"
+    fields:
+    - field: "mainCamera"
+      header: "References"
+      tooltip: "Created by the rig at startup. Scenes must ship no camera of their own."
+  - typeName: "TheWaningBorder.Input.CameraControllerConfig"
+    fields:
+    - field: "panSpeed"
+      header: "Pan (middle-mouse drag + screen edge)"
+      tooltip: 
+    - field: "edgeScrollBorder"
+      header: 
+      tooltip: "Screen pixels from the edge that trigger edge panning."
+    - field: "zoomSpeed"
+      header: "Zoom (wheel)"
+      tooltip: 
+    - field: "rotationPerNotch"
+      header: "Rotate (Ctrl + wheel)"
+      tooltip: "Degrees per wheel notch."
+    - field: "tiltZoomedIn"
+      header: "Tilt (automatic, from zoom)"
+      tooltip: "Arm pitch fully zoomed IN. Lower = more horizontal, eye-level."
+    - field: "tiltZoomedOut"
+      header: 
+      tooltip: "Arm pitch fully zoomed OUT. Higher = more top-down, map-like."
+    - field: "followTerrain"
+      header: "Terrain Following"
+      tooltip: 
+    - field: "shakeMaxOffset"
+      header: "Shake"
+      tooltip: "Metres of camera offset at full trauma."
+    - field: "shakeMaxRoll"
+      header: 
+      tooltip: "Degrees of camera roll at full trauma."
+    - field: "traumaDecay"
+      header: 
+      tooltip: "Trauma lost per second. 1 = a full-strength shake lasts ~1 s."
+    - field: "shakeFrequency"
+      header: 
+      tooltip: "Wobbles per second."
+  - typeName: "TheWaningBorder.Input.RTSInputManager"
+    fields:
+    - field: "clickMask"
+      header: "Raycasting"
+      tooltip: 
+    - field: "formationSpacing"
+      header: "Formation"
+      tooltip: 
+  - typeName: "TheWaningBorder.Input.SelectionSystem"
+    fields:
+    - field: "clickMask"
+      header: "Selection"
+      tooltip: 
+    - field: "boxColor"
+      header: "Visual"
+      tooltip: 
+  - typeName: "TheWaningBorder.UI.Ingame.DamageNumbersUI"
+    fields:
+    - field: "accumulateWindow"
+      header: "Timing"
+      tooltip: "Deltas accumulate per entity for this long, then emit one popup."
+    - field: "fontSize"
+      header: "Appearance"
+      tooltip: 
+  - typeName: "TheWaningBorder.UI.Ingame.FloatingHealthBars"
+    fields:
+    - field: "barWidth"
+      header: "Bar Dimensions"
+      tooltip: 
+    - field: "canvasSortingOrder"
+      header: "Canvas"
+      tooltip: 
+  - typeName: "TheWaningBorder.UI.Ingame.FloatingIncomeDisplay"
+    fields:
+    - field: "floatHeight"
+      header: "Config"
+      tooltip: 
+  - typeName: "TheWaningBorder.UI.Ingame.GameUICatalog"
+    fields:
+    - field: "resourcePanel"
+      header: 
+      tooltip: "Resource indicator (Supplies / Iron / Veilstone / Veilsteel / Housing)."
+    - field: "selectionHeader"
+      header: 
+      tooltip: "Selection header: portrait symbol + name label for the current selection."
+    - field: "unitDetailsPanel"
+      header: 
+      tooltip: "Unit details: stat chips (Health / Attack / Armor / Speed) for the selection."
+    - field: "unitStatsPanel"
+      header: 
+      tooltip: "Unit stats: HP slider/label + attack cooldown slider/label for the selected unit."
+    - field: "unitRosterPanel"
+      header: 
+      tooltip: "Unit roster: one clickable entry per distinct unit type in a mixed selection; clicking an entry focuses the stats panel on that type."
+    - field: "minimapPanel"
+      header: 
+      tooltip: "Minimap frame; its \"Map\" Image is filled at runtime with an elevation image generated from the loaded map's terrain (MinimapPanelBinder)."
+    - field: "actionsPanel"
+      header: 
+      tooltip: "Actions panel: 3x5 authored button grid (\"Actions\" node). Builder = build palette; building = top row units, lower rows research (ActionsPanelPrefabBinder). When assigned it replaces the code-built builder palette and train/research grids."
+    - field: "specialBuildingMenu"
+      header: 
+      tooltip: "Special-building choice menu (Shrine / Vault / Keep radial buttons). Shown top-center until a choice building is started; driven by TopChoiceBar, which hides its code-built buttons when this is assigned."
+    - field: "cultureSelectionMenu"
+      header: 
+      tooltip: "Culture selection menu (Panel_Alanthor / Panel_Feraldis / Panel_Runai). Opened by the culture selection button; driven by TopChoiceBar."
+    - field: "cultureSelectionButton"
+      header: 
+      tooltip: "Culture selection opener: the authored \"SELECT CULTURE\" pill (CultureSelection folder). Pinned top-center once a special building is started; opens the culture selection menu (TopChoiceBar)."
+    - field: "objectivesPanel"
+      header: 
+      tooltip: "Objectives panel (top-left): step rows Step_Special / Step_Culture / Step_Temple / Step_Military, driven by ObjectivesPanelBinder."
+    - field: "religionPanel"
+      header: 
+      tooltip: "Religion panel (mid-right): RP + TempleInfo labels, chapel Slot1-6 buttons and the hidden sect Picker, driven by ReligionPanelBinder. Shown once the faction owns a completed Temple of Ridan."
+    - field: "entitySymbols"
+      header: 
+      tooltip: "Symbol sprite per entity display name (\"Archer\", \"Hall\", ...). Key \"Mixed\" is used for mixed multi-selections; keys \"Unit\" and \"Building\" are the fallbacks."
+  - typeName: "TheWaningBorder.UI.Ingame.BuilderCommandPanel"
+    fields:
+    - field: "placementMask"
+      header: "Placement"
+      tooltip: 
+  - typeName: "TheWaningBorder.UI.Menus"
+    fields:
+    - field: "Seconds"
+      header: 
+      tooltip: "Seconds to reach the target scale. 0 snaps."
+  - typeName: "TheWaningBorder.UI.Menus.MenuSceneLink"
+    fields:
+    - field: "SceneName"
+      header: 
+      tooltip: "Scene name as listed in Build Settings, e.g. \"SkirmishMenu\"."
+  - typeName: "TheWaningBorder.UI.Menus.MenuToggleSwitch"
+    fields:
+    - field: "Fill"
+      header: "Parts"
+      tooltip: 
+    - field: "TrackSprite"
+      header: "Art (borrowed when a switch is built at runtime)"
+      tooltip: 
+    - field: "KnobWidth"
+      header: "Shape"
+      tooltip: "Knob width in canvas pixels; its height follows the track."
+    - field: "KnobInset"
+      header: 
+      tooltip: "Gap between the knob and the end of the track."
+    - field: "KnobPadding"
+      header: 
+      tooltip: "Gap above and below the knob."
+  - typeName: "TheWaningBorder.UI.Menus.Panels.MapPreviewWidget"
+    fields:
+    - field: "MapName"
+      header: "Header"
+      tooltip: 
+    - field: "Diamond"
+      header: "Preview"
+      tooltip: 
+    - field: "Description"
+      header: "Text"
+      tooltip: 
+  - typeName: "TheWaningBorder.UI.Menus.Panels.MultiplayerPanel"
+    fields:
+    - field: "PaneChoice"
+      header: "Panes"
+      tooltip: 
+    - field: "HostButton"
+      header: "Choice"
+      tooltip: 
+    - field: "GameNameField"
+      header: "Host setup"
+      tooltip: 
+    - field: "GamesContent"
+      header: "Browse"
+      tooltip: 
+    - field: "LobbyTitle"
+      header: "Lobby"
+      tooltip: 
+    - field: "ConnectingLabel"
+      header: "Connecting"
+      tooltip: 
+    - field: "BackButton"
+      header: "Footer"
+      tooltip: 
+  - typeName: "TheWaningBorder.UI.Menus.Panels.ScenariosPanel"
+    fields:
+    - field: "ListContent"
+      header: "List"
+      tooltip: 
+    - field: "ThumbImage"
+      header: "Preview"
+      tooltip: 
+    - field: "BackButton"
+      header: "Footer"
+      tooltip: 
+  - typeName: "TheWaningBorder.UI.Menus.Panels.SkirmishPanel"
+    fields:
+    - field: "MapPreview"
+      header: "Map"
+      tooltip: 
+    - field: "ResourcesDropdown"
+      header: "Map options"
+      tooltip: 
+    - field: "RosterContent"
+      header: "Roster"
+      tooltip: 
+    - field: "BackButton"
+      header: "Footer"
+      tooltip: 
+  - typeName: "TheWaningBorder.UI.World.MovementLineDisplay"
+    fields:
+    - field: "attackLineColor"
+      header: "Display"
+      tooltip: 
+  - typeName: "TheWaningBorder.UI.World.RallyPointDisplay"
+    fields:
+    - field: "markerColor"
+      header: "Rally Marker"
+      tooltip: 
+    - field: "resourceMarkerColor"
+      header: "Resource Rally"
+      tooltip: "Marker/line colour when the rally targets a resource node \u2014 trainees gather it on spawn instead of just walking there."
+    - field: "ResourceRallyLift"
+      header: 
+      tooltip: "Height the marker floats above a resource node, so it clears the node mesh it is centred on. A node fills one 2 m build cell."
+  - typeName: "TheWaningBorder.UI.World.UnitIndicatorSystem"
+    fields:
+    - field: "ringWidth"
+      header: "Selection Ring"
+      tooltip: 
+    - field: "circleRadius"
+      header: "Ownership Disc"
+      tooltip: 
+  - typeName: "TheWaningBorder.Rendering.CatapultVisual"
+    fields:
+    - field: "ArmChildName"
+      header: 
+      tooltip: "Arm child name inside the Synty catapult prefab."
+    - field: "ReleasedAngle"
+      header: 
+      tooltip: "Local X rotation added to the arm's authored pose when fully released (thrown forward)."
+    - field: "SnapSeconds"
+      header: 
+      tooltip: "Seconds for the release snap (arm flying forward)."
+    - field: "HoldSeconds"
+      header: 
+      tooltip: "Seconds the arm rests released before the crew winds it back."
+    - field: "RewindSeconds"
+      header: 
+      tooltip: "Seconds to wind the arm back to the armed pose."
+    - field: "TemplateElevation"
+      header: "Shot effect (Synty FX_CatapultShot, used as-is)"
+      tooltip: "Elevation in degrees above horizontal at which the authored template launches its stone (the template's up-tilt). The per-shot pitch is solved ballistically from this, the stone's start speed, and the target distance."
+    - field: "PitchTrim"
+      header: 
+      tooltip: "Extra degrees added to every solved pitch (positive tilts down/shorter). Use to trim if drag or spawn height make shots land consistently long or short."
+    - field: "MuzzleHeight"
+      header: 
+      tooltip: "Launch height above the catapult's position. Must clear the engine's own collider \u2014 the FX stone has world collision and would otherwise burst on the catapult that fired it."
+    - field: "MuzzleForward"
+      header: 
+      tooltip: "Launch offset forward along the aim, also clearing the engine's collider (matches the arm's release point)."
+    - field: "ShotFxTemplate"
+      header: 
+      tooltip: "Shot effect template \u2014 nested inside the prefab (inactive) so its particle settings can be tweaked/overridden per-catapult. Kept at localScale 1 so spawned shots come out at world scale 1 despite the 0.7 root. Falls back to Resources Prefabs/Effects/FX_CatapultShot when unassigned."
+  - typeName: "TheWaningBorder.Rendering.CorpseDissolver"
+    fields:
+    - field: "LingerSeconds"
+      header: 
+      tooltip: "Seconds the corpse holds its final death pose before dissolving."
+    - field: "DissolveSeconds"
+      header: 
+      tooltip: "Seconds the dissolve fade takes."

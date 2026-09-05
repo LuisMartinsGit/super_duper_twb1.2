@@ -10,12 +10,11 @@ using TheWaningBorder.World.Terrain;
 using TheWaningBorder.Core.Commands.Types;
 using EntityWorld = Unity.Entities.World;
 
-namespace TheWaningBorder.UI.HUD
+namespace TheWaningBorder.UI.World
 {
     [DefaultExecutionOrder(910)]
     public class MovementLineDisplay : MonoBehaviour
     {
-        [Header("Display")]
         // Command-specific colors
         [SerializeField] private Color attackLineColor = new Color(1f, 0.2f, 0.2f, 0.35f);
         [SerializeField] private Color attackMarkerColor = new Color(1f, 0.2f, 0.2f, 0.6f);
@@ -100,7 +99,8 @@ namespace TheWaningBorder.UI.HUD
 
                 // Determine command type for color
                 Color lColor, mColor;
-                if (_em.HasComponent<AttackCommand>(entity))
+                if (_em.HasComponent<AttackCommand>(entity)
+                    && _em.IsComponentEnabled<AttackCommand>(entity))
                 {
                     lColor = attackLineColor;
                     mColor = attackMarkerColor;

@@ -22,19 +22,14 @@ namespace TheWaningBorder.Scenarios
             Destroyed
         }
 
-        [Tooltip("Building under test. Left empty, the first ScenarioBuilding in the scene is used.")]
         public ScenarioBuilding building;
-        [Tooltip("Builder proxy that walks in to repair the building.")]
         public Transform builder;
 
-        [Header("Pacing")]
         [Min(1f)] public float damagePerSecond = 80f;
         [Min(1f)] public float repairPerSecond = 140f;
-        [Tooltip("HP fraction where the first damage phase stops (0.10 = 90% damage).")]
         [Range(0.01f, 0.99f)] public float firstPhaseHealthFloor = 0.10f;
         [Min(0f)] public float pauseBetweenPhases = 1.5f;
 
-        [Header("Worker")]
         [Min(0.1f)] public float builderSpeed = 3.5f;
         [Min(0.5f)] public float repairDistance = 2.5f;
 

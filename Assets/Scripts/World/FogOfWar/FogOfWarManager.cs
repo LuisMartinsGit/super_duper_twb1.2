@@ -1,4 +1,7 @@
 using System;
+using Unity.Burst;
+using Unity.Collections;
+using Unity.Jobs;
 using UnityEngine;
 
 namespace TheWaningBorder.World.FogOfWar
@@ -6,22 +9,19 @@ namespace TheWaningBorder.World.FogOfWar
     /// <summary>
     /// Core fog of war manager handling per-faction visibility grids.
     /// Maintains visible (current frame) and revealed (persistent) state for each cell.
-    /// Updates an Alpha8 texture for the human player's FoW overlay.
+    /// Updates a two-channel (visible, revealed) coverage texture for the
+    /// human player's FoW overlay; the shader derives the alpha from both.
     /// </summary>
     public class FogOfWarManager : MonoBehaviour
     {
         public static FogOfWarManager Instance { get; private set; }
 
-        [Header("Grid")]
         public Vector2 WorldMin = new Vector2(-12.5f, -12.5f);
         public Vector2 WorldMax = new Vector2(12.5f, 12.5f);
         public float CellSize = 0.1f;
 
-        [Header("Visuals (Human Player)")]
         public Faction HumanFaction = GameSettings.LocalPlayerFaction;
-        [Tooltip("Material that uses the Unlit/FogOfWar shader.")]
         public Material FogMaterial;
-        [Tooltip("Quad or plane that covers the playable area; its material will be set to FogMaterial.")]
         public MeshRenderer FogRenderer;
         [Range(0, 1)] public float ExploredAlpha = 0.65f; // explored-but-not-currently-visible
         /// <summary>
@@ -32,16 +32,17 @@ namespace TheWaningBorder.World.FogOfWar
         /// is already black, so 1.0 is pure black.
         /// </summary>
         [Range(0, 1)] public float HiddenAlpha = 1f;      // never seen
-        [Tooltip("Seconds between overlay texture rebuilds. The visibility GRID still " +
-                 "updates every frame (gameplay queries stay exact); this only paces the " +
-                 "per-cell repaint + GPU upload of the human player's fog texture.")]
         public float TextureUpdateInterval = 0.1f;
 
-        // Internal
+        // Internal. NativeArrays, not managed arrays (2026-09-03): the
+        // stamp/push work runs in Burst jobs — as managed loops the 4 Hz
+        // fog pass cost ~29 ms per tick after the AA + crossfade upgrades
+        // (304 FogStamp spikes in a 90 s match), a visible quarter-second
+        // blip cadence. Indexer syntax is unchanged for the managed paths.
         float _nextTextureTime;
         int _w, _h;
-        byte[] _visible;   // [faction][cell], 0/1 current frame
-        byte[] _revealed;  // [faction][cell], 0/1 persistent
+        NativeArray<byte> _visible;   // [faction][cell] coverage, current frame
+        NativeArray<byte> _revealed;  // [faction][cell] coverage, persistent
         Texture2D _tex;    // human overlay
 
         const int MaxFactions = 8;
@@ -64,10 +65,22 @@ namespace TheWaningBorder.World.FogOfWar
 
             _w = Mathf.CeilToInt((WorldMax.x - WorldMin.x) / CellSize);
             _h = Mathf.CeilToInt((WorldMax.y - WorldMin.y) / CellSize);
-            _visible = new byte[MaxFactions * _w * _h];
-            _revealed = new byte[MaxFactions * _w * _h];
+            _visible = new NativeArray<byte>(MaxFactions * _w * _h, Allocator.Persistent);
+            _revealed = new NativeArray<byte>(MaxFactions * _w * _h, Allocator.Persistent);
 
-            _tex = new Texture2D(_w, _h, TextureFormat.Alpha8, false, true)
+            // FOUR channels (2026-09-03): RG = current (visible, revealed)
+            // coverage, BA = the PREVIOUS push's coverage. Two channels per
+            // state because a single alpha forced the shader to infer
+            // "explored" from mid-ramp values, which synthesized an explored
+            // SLIVER around every visible circle that borders unexplored
+            // ground. Previous-state channels because the stamp pass runs at
+            // 4 Hz (per-frame stamping measured 5-14 ms) and the overlay
+            // stepped visibly as units moved — the shader now crossfades
+            // previous -> current across the push interval, and since
+            // coverage is a distance-like field the sharpened contour SLIDES
+            // between positions instead of jumping. Data stays 4 Hz; the
+            // motion reads continuous.
+            _tex = new Texture2D(_w, _h, TextureFormat.RGBA32, false, true)
             {
                 // SHARP explored/unexplored boundary (2026-08-31 directive).
                 // This was TRILINEAR — maximum smear on a fog mask: the
@@ -84,6 +97,19 @@ namespace TheWaningBorder.World.FogOfWar
             EnsureMaterialBound();
             ClearAll();
             PushHumanTexture();
+        }
+
+        void OnDestroy()
+        {
+            if (Instance == this) Instance = null;
+            if (_visible.IsCreated) _visible.Dispose();
+            if (_revealed.IsCreated) _revealed.Dispose();
+            if (_teamVisible.IsCreated) _teamVisible.Dispose();
+            if (_teamRevealed.IsCreated) _teamRevealed.Dispose();
+            if (_pushedVis.IsCreated) _pushedVis.Dispose();
+            if (_pushedRev.IsCreated) _pushedRev.Dispose();
+            if (_prevVis.IsCreated) _prevVis.Dispose();
+            if (_prevRev.IsCreated) _prevRev.Dispose();
         }
 
         /// <summary>Ensures FogMaterial, FogRenderer and shader params are bound to _tex.</summary>
@@ -110,14 +136,30 @@ namespace TheWaningBorder.World.FogOfWar
 
         public void ClearAll()
         {
-            Array.Clear(_visible, 0, _visible.Length);
+            ClearVisible();
             // NOTE: revealed persists across frames; do NOT clear here
         }
 
         /// <summary>Call once per frame before stamping to zero current visibility only.</summary>
         public void BeginFrame()
         {
-            Array.Clear(_visible, 0, _visible.Length);
+            ClearVisible();
+        }
+
+        void ClearVisible()
+        {
+            if (!_visible.IsCreated) return;
+            new ClearJob { Data = _visible }.Run();
+        }
+
+        [BurstCompile]
+        struct ClearJob : IJob
+        {
+            public NativeArray<byte> Data;
+            public void Execute()
+            {
+                for (int i = 0; i < Data.Length; i++) Data[i] = 0;
+            }
         }
 
         /// <summary>
@@ -133,7 +175,7 @@ namespace TheWaningBorder.World.FogOfWar
         /// </summary>
         public void RevealWhere(Faction f, Func<Vector2, bool> accept)
         {
-            if (accept == null || _revealed == null) return;
+            if (accept == null || !_revealed.IsCreated) return;
             int fx = FOfs(f);
 
             for (int y = 0; y < _h; y++)
@@ -143,12 +185,24 @@ namespace TheWaningBorder.World.FogOfWar
                 {
                     float wx = WorldMin.x + (x + 0.5f) * CellSize;
                     if (accept(new Vector2(wx, wz)))
-                        _revealed[fx + Idx(x, y)] = 1;
+                        _revealed[fx + Idx(x, y)] = 255;
                 }
             }
         }
 
-        /// <summary>Stamp a circular LoS for a faction.</summary>
+        /// <summary>
+        /// Stamp a circular LoS for a faction — ANTI-ALIASED (2026-09-03).
+        ///
+        /// Cells used to be binary 0/1, and the bilinear + re-sharpen shader
+        /// then traced the 50% contour of a BINARY grid: the staircase of the
+        /// cells themselves, one jag per texel ("fog of war is still jagged").
+        /// The rim cell now stores fractional coverage (distance-based, one
+        /// cell of falloff), so the 50% contour of the filtered field IS the
+        /// circle and straight frontiers between stamps are straight lines.
+        ///
+        /// Gameplay parity: a cell reads as visible at coverage >= 128, which
+        /// is d &lt;= radius — the exact cell set the old binary test stamped.
+        /// </summary>
         public void Stamp(Faction f, Vector3 worldPos, float radius)
         {
             int fx = FOfs(f);
@@ -156,11 +210,18 @@ namespace TheWaningBorder.World.FogOfWar
             float gx = (worldPos.x - WorldMin.x) / CellSize;
             float gy = (worldPos.z - WorldMin.y) / CellSize;
             float r = Mathf.Max(0.01f, radius / CellSize);
-            int minx = Mathf.Clamp(Mathf.FloorToInt(gx - r), 0, _w - 1);
-            int maxx = Mathf.Clamp(Mathf.CeilToInt(gx + r), 0, _w - 1);
-            int miny = Mathf.Clamp(Mathf.FloorToInt(gy - r), 0, _h - 1);
-            int maxy = Mathf.Clamp(Mathf.CeilToInt(gy + r), 0, _h - 1);
-            float r2 = r * r;
+            // 1.5 cells of falloff (0.5 -> 0.75 each way, 2026-09-03): at a
+            // single cell the sharpened contour still scalloped between texel
+            // centres. Half coverage stays exactly at d == r, so the gameplay
+            // threshold is unmoved.
+            float rOut = r + 0.75f;                   // coverage fades to 0 here
+            float rIn = Mathf.Max(0f, r - 0.75f);     // fully covered inside
+            int minx = Mathf.Clamp(Mathf.FloorToInt(gx - rOut), 0, _w - 1);
+            int maxx = Mathf.Clamp(Mathf.CeilToInt(gx + rOut), 0, _w - 1);
+            int miny = Mathf.Clamp(Mathf.FloorToInt(gy - rOut), 0, _h - 1);
+            int maxy = Mathf.Clamp(Mathf.CeilToInt(gy + rOut), 0, _h - 1);
+            float r2Out = rOut * rOut;
+            float r2In = rIn * rIn;
 
             for (int y = miny; y <= maxy; y++)
             {
@@ -168,11 +229,113 @@ namespace TheWaningBorder.World.FogOfWar
                 {
                     float dx = (x + 0.5f) - gx;
                     float dy = (y + 0.5f) - gy;
-                    if (dx * dx + dy * dy <= r2)
+                    float d2 = dx * dx + dy * dy;
+                    if (d2 > r2Out) continue;
+
+                    byte cov = 255;
+                    if (d2 > r2In)
                     {
-                        int i = fx + Idx(x, y);
-                        _visible[i] = 1;
-                        _revealed[i] = 1;
+                        // Rim ring only — the sqrt never runs on the interior.
+                        cov = (byte)(Mathf.Clamp01((rOut - Mathf.Sqrt(d2)) / 1.5f) * 255f);
+                        if (cov == 0) continue;
+                    }
+
+                    int i = fx + Idx(x, y);
+                    if (cov > _visible[i]) _visible[i] = cov;
+                    if (cov > _revealed[i]) _revealed[i] = cov;
+                }
+            }
+        }
+
+        /// <summary>One LoS circle for the Burst stamp batch.</summary>
+        public struct StampCommand
+        {
+            public Vector3 Position;
+            public float Radius;
+            public Faction Faction;
+        }
+
+        /// <summary>
+        /// Stamp every circle of a frame in ONE Burst job — the per-unit
+        /// managed Stamp loop was the bulk of the 4 Hz fog pass cost at
+        /// scale (hundreds of sighted entities x thousands of rim cells).
+        /// Identical maths to <see cref="Stamp"/>.
+        /// </summary>
+        public void StampBatch(NativeArray<StampCommand> commands, int count)
+        {
+            if (!_visible.IsCreated || count <= 0) return;
+
+            var jobCmds = new NativeArray<StampJob.Cmd>(count, Allocator.TempJob);
+            for (int i = 0; i < count; i++)
+            {
+                var c = commands[i];
+                jobCmds[i] = new StampJob.Cmd
+                {
+                    GX = (c.Position.x - WorldMin.x) / CellSize,
+                    GY = (c.Position.z - WorldMin.y) / CellSize,
+                    R = Mathf.Max(0.01f, c.Radius / CellSize),
+                    Ofs = FOfs(c.Faction),
+                };
+            }
+
+            new StampJob
+            {
+                Cmds = jobCmds,
+                Visible = _visible,
+                Revealed = _revealed,
+                W = _w,
+                H = _h,
+            }.Run();
+            jobCmds.Dispose();
+        }
+
+        [BurstCompile]
+        struct StampJob : IJob
+        {
+            public struct Cmd { public float GX, GY, R; public int Ofs; }
+
+            [ReadOnly] public NativeArray<Cmd> Cmds;
+            public NativeArray<byte> Visible;
+            public NativeArray<byte> Revealed;
+            public int W, H;
+
+            public void Execute()
+            {
+                for (int ci = 0; ci < Cmds.Length; ci++)
+                {
+                    var c = Cmds[ci];
+                    float rOut = c.R + 0.75f;
+                    float rIn = rOut - 1.5f; if (rIn < 0f) rIn = 0f;
+                    int minx = (int)(c.GX - rOut); if (minx < 0) minx = 0;
+                    int maxx = (int)(c.GX + rOut) + 1; if (maxx > W - 1) maxx = W - 1;
+                    int miny = (int)(c.GY - rOut); if (miny < 0) miny = 0;
+                    int maxy = (int)(c.GY + rOut) + 1; if (maxy > H - 1) maxy = H - 1;
+                    float r2Out = rOut * rOut;
+                    float r2In = rIn * rIn;
+
+                    for (int y = miny; y <= maxy; y++)
+                    {
+                        int row = c.Ofs + y * W;
+                        for (int x = minx; x <= maxx; x++)
+                        {
+                            float dx = (x + 0.5f) - c.GX;
+                            float dy = (y + 0.5f) - c.GY;
+                            float d2 = dx * dx + dy * dy;
+                            if (d2 > r2Out) continue;
+
+                            byte cov = 255;
+                            if (d2 > r2In)
+                            {
+                                float v = (rOut - Unity.Mathematics.math.sqrt(d2)) / 1.5f;
+                                if (v <= 0f) continue;
+                                if (v > 1f) v = 1f;
+                                cov = (byte)(v * 255f);
+                            }
+
+                            int i = row + x;
+                            if (cov > Visible[i]) Visible[i] = cov;
+                            if (cov > Revealed[i]) Revealed[i] = cov;
+                        }
                     }
                 }
             }
@@ -210,10 +373,10 @@ namespace TheWaningBorder.World.FogOfWar
             PushHumanTexture();
         }
 
-        // Scratch buffer for the team OR, kept alive between frames so the
+        // Scratch buffer for the team merge, kept alive between frames so the
         // merge does not allocate per frame.
-        byte[] _teamVisible;
-        byte[] _teamRevealed;
+        NativeArray<byte> _teamVisible;
+        NativeArray<byte> _teamRevealed;
 
         /// <summary>
         /// OR every team member's visibility into a shared result and write it
@@ -223,7 +386,7 @@ namespace TheWaningBorder.World.FogOfWar
         /// </summary>
         void MergeTeamVision()
         {
-            if (_visible == null || _revealed == null) return;
+            if (!_visible.IsCreated || !_revealed.IsCreated) return;
 
             int cells = _w * _h;
             if (cells <= 0) return;
@@ -242,31 +405,36 @@ namespace TheWaningBorder.World.FogOfWar
                 }
                 if (memberCount < 2) continue;   // solo team == no sharing to do
 
-                if (_teamVisible == null || _teamVisible.Length < cells)
+                if (!_teamVisible.IsCreated || _teamVisible.Length < cells)
                 {
-                    _teamVisible = new byte[cells];
-                    _teamRevealed = new byte[cells];
+                    if (_teamVisible.IsCreated) _teamVisible.Dispose();
+                    if (_teamRevealed.IsCreated) _teamRevealed.Dispose();
+                    _teamVisible = new NativeArray<byte>(cells, Allocator.Persistent);
+                    _teamRevealed = new NativeArray<byte>(cells, Allocator.Persistent);
                 }
 
-                // Seed from the first member, then OR the rest in.
-                Array.Copy(_visible, firstOfs, _teamVisible, 0, cells);
-                Array.Copy(_revealed, firstOfs, _teamRevealed, 0, cells);
+                // Seed from the first member, then merge the rest in.
+                NativeArray<byte>.Copy(_visible, firstOfs, _teamVisible, 0, cells);
+                NativeArray<byte>.Copy(_revealed, firstOfs, _teamRevealed, 0, cells);
 
                 for (int m = 1; m < memberCount; m++)
                 {
                     int ofs = offsets[m];
                     for (int i = 0; i < cells; i++)
                     {
-                        if (_visible[ofs + i] != 0) _teamVisible[i] = 1;
-                        if (_revealed[ofs + i] != 0) _teamRevealed[i] = 1;
+                        // Max, not OR: cells carry fractional AA coverage now.
+                        byte v = _visible[ofs + i];
+                        if (v > _teamVisible[i]) _teamVisible[i] = v;
+                        byte rv = _revealed[ofs + i];
+                        if (rv > _teamRevealed[i]) _teamRevealed[i] = rv;
                     }
                 }
 
                 // Write the union back to every member.
                 for (int m = 0; m < memberCount; m++)
                 {
-                    Array.Copy(_teamVisible, 0, _visible, offsets[m], cells);
-                    Array.Copy(_teamRevealed, 0, _revealed, offsets[m], cells);
+                    NativeArray<byte>.Copy(_teamVisible, 0, _visible, offsets[m], cells);
+                    NativeArray<byte>.Copy(_teamRevealed, 0, _revealed, offsets[m], cells);
                 }
             }
         }
@@ -284,7 +452,8 @@ namespace TheWaningBorder.World.FogOfWar
             }
 
             var data = _tex.GetRawTextureData<byte>();
-            int required = _w * _h;
+            int cells = _w * _h;
+            int required = cells * 4;   // RGBA32: four bytes per pixel
             if (data.Length != required)
             {
                 _tex.Reinitialize(_w, _h);
@@ -292,32 +461,149 @@ namespace TheWaningBorder.World.FogOfWar
                 EnsureMaterialBound();
             }
 
-            for (int i = 0; i < required; i++)
+            // The crossfade SOURCE rides in BA. It is NOT simply the last
+            // push: if a push lands while the previous fade is still
+            // running, resetting the source to the last full field snaps
+            // the displayed edge backwards for a frame — the "jitter while
+            // a unit moves". The source written here is the field the
+            // shader is DISPLAYING at this instant (prev blended toward
+            // current by the in-flight blend factor), which makes every
+            // swap seamless regardless of push-timing jitter.
+            bool freshPrev = !_pushedVis.IsCreated || _pushedVis.Length != cells;
+            if (freshPrev)
             {
-                byte vis = _visible[ofs + i];
-                byte rev = _revealed[ofs + i];
-
-                byte a = 255;
-                if (vis == 1) a = 0;
-                else if (rev == 1) a = (byte)Mathf.RoundToInt(ExploredAlpha * 255f);
-                else a = (byte)Mathf.RoundToInt(HiddenAlpha * 255f);
-
-                data[i] = a;
+                if (_pushedVis.IsCreated) _pushedVis.Dispose();
+                if (_pushedRev.IsCreated) _pushedRev.Dispose();
+                if (_prevVis.IsCreated) _prevVis.Dispose();
+                if (_prevRev.IsCreated) _prevRev.Dispose();
+                _pushedVis = new NativeArray<byte>(cells, Allocator.Persistent);
+                _pushedRev = new NativeArray<byte>(cells, Allocator.Persistent);
+                _prevVis = new NativeArray<byte>(cells, Allocator.Persistent);
+                _prevRev = new NativeArray<byte>(cells, Allocator.Persistent);
             }
 
+            // In-flight blend at the moment of this push, in 0..256 fixed point.
+            int tq = 256;
+            if (!freshPrev && _blendDuration > 0f)
+                tq = Mathf.Clamp(Mathf.RoundToInt(
+                    (Time.unscaledTime - _lastPushTime) / _blendDuration * 256f), 0, 256);
+
+            new PushJob
+            {
+                Visible = _visible,
+                Revealed = _revealed,
+                Ofs = ofs,
+                Cells = cells,
+                PrevVis = _prevVis,
+                PrevRev = _prevRev,
+                PushedVis = _pushedVis,
+                PushedRev = _pushedRev,
+                Data = data,
+                Tq = tq,
+                Fresh = freshPrev ? (byte)1 : (byte)0,
+            }.Run();
+
             _tex.Apply(false, false);
+
+            // The crossfade spans the ACTUAL gap between pushes, so cadence
+            // jitter never causes a fade to finish early and pop.
+            float now = Time.unscaledTime;
+            _blendDuration = Mathf.Clamp(now - _lastPushTime, 0.05f, 0.6f);
+            _lastPushTime = now;
+
+            // Reset the shader blend IN THE SAME FRAME as the texture swap.
+            // Update() may already have run this frame with the OLD push
+            // time, leaving _Blend near 1 — the swap frame then rendered the
+            // new field fully and the next frame snapped BACK to the fade
+            // start ("the scout's vision goes back for a frame").
+            if (FogMaterial != null) FogMaterial.SetFloat("_Blend", 0f);
+        }
+
+        // Snapshot of the last pushed coverage (human faction) plus the
+        // crossfade-source channels as last written — needed to compute the
+        // DISPLAYED field when a push lands mid-fade.
+        NativeArray<byte> _pushedVis;
+        NativeArray<byte> _pushedRev;
+        NativeArray<byte> _prevVis;
+        NativeArray<byte> _prevRev;
+
+        [BurstCompile]
+        struct PushJob : IJob
+        {
+            [ReadOnly] public NativeArray<byte> Visible;
+            [ReadOnly] public NativeArray<byte> Revealed;
+            public int Ofs;
+            public int Cells;
+            public NativeArray<byte> PrevVis;
+            public NativeArray<byte> PrevRev;
+            public NativeArray<byte> PushedVis;
+            public NativeArray<byte> PushedRev;
+            public NativeArray<byte> Data;   // RGBA32 raw texture data
+            public int Tq;
+            public byte Fresh;
+
+            public void Execute()
+            {
+                for (int i = 0; i < Cells; i++)
+                {
+                    byte vis = Visible[Ofs + i];
+                    byte rev = Revealed[Ofs + i];
+
+                    byte dispV, dispR;
+                    if (Fresh != 0)
+                    {
+                        dispV = vis;
+                        dispR = rev;
+                    }
+                    else
+                    {
+                        byte pv = PrevVis[i];
+                        dispV = (byte)(pv + (((PushedVis[i] - pv) * Tq) >> 8));
+                        byte pr = PrevRev[i];
+                        dispR = (byte)(pr + (((PushedRev[i] - pr) * Tq) >> 8));
+                    }
+
+                    int d = i * 4;
+                    Data[d] = vis;
+                    Data[d + 1] = rev;
+                    Data[d + 2] = dispV;
+                    Data[d + 3] = dispR;
+
+                    PrevVis[i] = dispV;
+                    PrevRev[i] = dispR;
+                    PushedVis[i] = vis;
+                    PushedRev[i] = rev;
+                }
+            }
+        }
+        float _lastPushTime;
+        float _blendDuration = 0.25f;
+
+        void Update()
+        {
+            // One material float per frame drives the crossfade — the whole
+            // per-frame cost of continuous fog motion.
+            if (FogMaterial == null) return;
+            float t = _blendDuration > 0f
+                ? Mathf.Clamp01((Time.unscaledTime - _lastPushTime) / _blendDuration)
+                : 1f;
+            FogMaterial.SetFloat("_Blend", t);
         }
 
         public bool IsVisible(Faction f, Vector3 worldPos)
         {
             if (!WorldToCell(worldPos, out int x, out int y)) return false;
-            return _visible[FOfs(f) + Idx(x, y)] != 0;
+            // >= 128 = the cell centre is inside the stamped radius — the
+            // same cell set the old binary stamp answered true for. The AA
+            // rim below half coverage is visual only.
+            return _visible[FOfs(f) + Idx(x, y)] >= 128;
         }
 
         public bool IsRevealed(Faction f, Vector3 worldPos)
         {
             if (!WorldToCell(worldPos, out int x, out int y)) return false;
-            return _revealed[FOfs(f) + Idx(x, y)] != 0;
+            // Same half-coverage threshold as IsVisible.
+            return _revealed[FOfs(f) + Idx(x, y)] >= 128;
         }
 
         bool WorldToCell(Vector3 pos, out int x, out int y)
@@ -339,17 +625,19 @@ namespace TheWaningBorder.World.FogOfWar
 
             int oldW = _w;
             int oldH = _h;
-            byte[] oldRevealed = _revealed;
+            NativeArray<byte> oldRevealed = _revealed;
 
             _w = newW;
             _h = newH;
 
             int slice = _w * _h;
-            _visible = new byte[MaxFactions * slice];
+            if (_visible.IsCreated) _visible.Dispose();
+            _visible = new NativeArray<byte>(MaxFactions * slice, Allocator.Persistent);
 
-            if (clearRevealed || oldRevealed == null || oldW <= 0 || oldH <= 0)
+            if (clearRevealed || !oldRevealed.IsCreated || oldW <= 0 || oldH <= 0)
             {
-                _revealed = new byte[MaxFactions * slice];
+                if (oldRevealed.IsCreated) oldRevealed.Dispose();
+                _revealed = new NativeArray<byte>(MaxFactions * slice, Allocator.Persistent);
             }
             else
             {
@@ -358,7 +646,7 @@ namespace TheWaningBorder.World.FogOfWar
                 // exploration progress. Now we copy the old revealed data into
                 // the new grid, clipping to the overlap rectangle when the
                 // dimensions change.
-                _revealed = new byte[MaxFactions * slice];
+                _revealed = new NativeArray<byte>(MaxFactions * slice, Allocator.Persistent);
                 int copyW = Mathf.Min(oldW, _w);
                 int copyH = Mathf.Min(oldH, _h);
                 for (int f = 0; f < MaxFactions; f++)
@@ -367,16 +655,17 @@ namespace TheWaningBorder.World.FogOfWar
                     int newBase = f * _w * _h;
                     for (int y = 0; y < copyH; y++)
                     {
-                        System.Array.Copy(
+                        NativeArray<byte>.Copy(
                             oldRevealed, oldBase + y * oldW,
                             _revealed,   newBase + y * _w,
                             copyW);
                     }
                 }
+                oldRevealed.Dispose();
             }
 
             if (_tex == null)
-                _tex = new Texture2D(_w, _h, TextureFormat.Alpha8, false, true);
+                _tex = new Texture2D(_w, _h, TextureFormat.RGBA32, false, true);
             else
                 _tex.Reinitialize(_w, _h);
 
@@ -440,6 +729,13 @@ namespace TheWaningBorder.World.FogOfWar
             EnsureMaterialBound();
             PushHumanTexture();
         }
+
+        /// <summary>How far the fog grid and surface extend BEYOND the map
+        /// rect, in metres. Trees and rocks planted at the very edge lean past
+        /// the terrain bounds; without the skirt they rendered fully lit
+        /// against the void next to unexplored black. Skirt cells are never
+        /// stamped (nothing can stand there), so they stay hidden forever.</summary>
+        public const float EdgePad = 15f;
 
         /// <summary>Shader file under a Resources/ folder, loaded by name.</summary>
         private const string FogShaderResource = "FogOfWarShader";
@@ -521,6 +817,8 @@ namespace TheWaningBorder.World.FogOfWar
                 min = new Vector2(-half, -half);
                 max = new Vector2(half, half);
             }
+            min -= new Vector2(EdgePad, EdgePad);
+            max += new Vector2(EdgePad, EdgePad);
 
             // FOG IS FINER THAN THE GAME GRID (2026-08-31 directive, rev.2).
             // Fog of war is a knowledge layer, not the sim grid — they are
@@ -582,8 +880,8 @@ namespace TheWaningBorder.World.FogOfWar
                 // conforming-mesh density scales with the map.
                 float lateSpan = Mathf.Max(tsize.x, tsize.z);
                 _mgr.ApplyBounds(
-                    new Vector2(tpos.x, tpos.z),
-                    new Vector2(tpos.x + tsize.x, tpos.z + tsize.z),
+                    new Vector2(tpos.x - EdgePad, tpos.z - EdgePad),
+                    new Vector2(tpos.x + tsize.x + EdgePad, tpos.z + tsize.z + EdgePad),
                     newCellSize: BuildGrid.CellSize * 0.5f,
                     clearRevealed: false,
                     surfaceGrid: lateSpan > 700f ? 256 : _grid);

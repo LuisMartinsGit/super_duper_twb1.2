@@ -13,7 +13,7 @@
 
 using UnityEngine;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     /// <summary>
     /// Marker holding the faction color last applied to this building visual.

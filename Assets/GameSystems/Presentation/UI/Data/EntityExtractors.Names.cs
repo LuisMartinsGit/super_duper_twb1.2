@@ -6,7 +6,7 @@ using Unity.Entities;
 using TheWaningBorder.Core.Localization;
 using TheWaningBorder.Data;
 
-namespace TheWaningBorder.UI
+namespace TheWaningBorder.UI.Data
 {
     public static partial class EntityInfoExtractor
     {

@@ -29,7 +29,7 @@ using Unity.Transforms;
 using TheWaningBorder.World.Terrain;
 using EntityWorld = Unity.Entities.World;
 
-namespace TheWaningBorder.UI.HUD
+namespace TheWaningBorder.UI.World
 {
     [DefaultExecutionOrder(911)] // just after MovementLineDisplay (910)
     public class FormationDebugOverlay : MonoBehaviour

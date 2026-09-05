@@ -33,16 +33,19 @@ namespace TheWaningBorder.Economy
         public const float Lv5DeathAoeRadius = 6f;
         public const float Lv5PushDistance   = 4f;
 
-        public const float GlowAbilityActiveDuration = 6f;
-        public const float GlowAbilityCooldown       = 60f;
-        public const int   GlowAbilityRegenPerSec    = 5;
+        public const float ShardrootAbilityActiveDuration = 6f;
+        public const float ShardrootAbilityCooldown       = 60f;
+        public const int   ShardrootAbilityRegenPerSec    = 5;
 
         public static Cost CostFor(byte targetRank) => targetRank switch
         {
             2 => Cost.Of(supplies: 50),
             3 => Cost.Of(veilstone: 25),
             4 => Cost.Of(veilsteel: 15),
-            5 => Cost.Of(glow: 5),
+            // Was 5 Glow; Glow does not exist. Veilsteel is the apex resource
+            // now, so rank 5 is priced there. BALANCE: 25 is a placeholder
+            // scaled off rank 4's 15.
+            5 => Cost.Of(veilsteel: 25),
             _ => default,
         };
 

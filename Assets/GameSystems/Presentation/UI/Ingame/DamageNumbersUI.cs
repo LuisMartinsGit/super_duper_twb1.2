@@ -21,17 +21,14 @@ using Unity.Transforms;
 using TheWaningBorder.Systems.Visibility;
 using EntityWorld = Unity.Entities.World;
 
-namespace TheWaningBorder.UI.HUD
+namespace TheWaningBorder.UI.Ingame
 {
     [DefaultExecutionOrder(911)]
     public class DamageNumbersUI : MonoBehaviour
     {
-        [Header("Timing")]
-        [Tooltip("Deltas accumulate per entity for this long, then emit one popup.")]
         [SerializeField] private float accumulateWindow = 0.1f;
         [SerializeField] private float popupLifetime = 0.9f;
 
-        [Header("Appearance")]
         [SerializeField] private int fontSize = 14;
         [SerializeField] private float riseWorldUnits = 1.4f;
         [SerializeField] private float yOffsetAboveEntity = 2.1f;
@@ -223,8 +220,8 @@ namespace TheWaningBorder.UI.HUD
                     // damage (2026-08-04). Near-duplicates merge in the
                     // registry, so a battle reads as one hot spot.
                     if (p.IsOwn)
-                        TheWaningBorder.UI.GameUI.MinimapPings.Post(
-                            p.LastPos, TheWaningBorder.UI.GameUI.MinimapPings.Damage, 2.5f);
+                        TheWaningBorder.UI.Ingame.MinimapPings.Post(
+                            p.LastPos, TheWaningBorder.UI.Ingame.MinimapPings.Damage, 2.5f);
                 }
                 if (p.Heal > 0)
                 {

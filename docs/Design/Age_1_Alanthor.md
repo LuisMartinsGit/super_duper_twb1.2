@@ -568,7 +568,7 @@ This is the player-facing trade triangle:
 | Concern | File |
 |---------|------|
 | Instance/hub/gate footprint + module length | [`AlanthorWall.cs`](../../Assets/Scripts/Entities/Buildings/AlanthorWall.cs) (`InstanceSpacing`, `BuildingSize`, hub footprint) |
-| Deck + symmetrical parapets + door geometry | [`PresentationSpawnSystem.Walls.cs`](../../Assets/Scripts/Presentation/PresentationSpawnSystem.Walls.cs) |
+| Deck + symmetrical parapets + door geometry | [`PresentationSpawnSystem.Walls.cs`](../../Assets/GameSystems/Presentation/PresentationSpawnSystem.Walls.cs) |
 | Deck baked **walkable** as its own island (no ramp sources) | [`NavMeshManager.cs`](../../Assets/Scripts/Systems/Movement/NavMeshManager.cs) |
 | Door routing + ground↔deck teleport | [`WallDoorAccessSystem.cs`](../../Assets/Scripts/Systems/Movement/WallDoorAccessSystem.cs) |
 | On-deck path-Y following | [`MovementSystem.cs`](../../Assets/Scripts/Systems/Movement/MovementSystem.cs) |

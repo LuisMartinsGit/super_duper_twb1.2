@@ -26,7 +26,7 @@ using EntityWorld = Unity.Entities.World;
 // over a using-alias in this scope), so UnityEngine.Input is fully qualified
 // at every call site below — same reason BorderDebugPanel does it.
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     public class VeilFieldDebugOverlay : MonoBehaviour
     {

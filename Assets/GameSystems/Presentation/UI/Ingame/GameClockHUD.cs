@@ -10,7 +10,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using EntityWorld = Unity.Entities.World;
 
-namespace TheWaningBorder.UI.HUD
+namespace TheWaningBorder.UI.Ingame
 {
     public class GameClockHUD : MonoBehaviour
     {

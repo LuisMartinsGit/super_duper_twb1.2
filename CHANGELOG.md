@@ -15,6 +15,40 @@ Nothing yet.
 
 ---
 
+## [0.0.20] — 2026-09-05
+
+### Fixed
+
+- **Multiplayer holds together now.** Thirteen distinct desync causes were
+  found and fixed — mis-phased timers that fired on different ticks per
+  machine, commands and conjured buildings that existed on the host only,
+  combat clocks running on wall time instead of match time, and a curse army
+  the sync checksum could not see at all. Verified by a new headless
+  multiplayer test harness (four real game processes over real UDP lockstep):
+  seven consecutive matches across six seeds and 2/3/4-player setups ran
+  bit-identical end to end, the longest at 25 minutes.
+- **The endgame crash is gone.** Long matches used to die with a
+  `BlockAllocator` exception once thousands of unit-state combinations
+  accumulated; unit state now flips flags in place instead of reshaping
+  entities, which also removes the structural-change churn behind late-game
+  slowdowns.
+- **The AI builds again.** A budgeting deadlock left AI players spamming
+  scouts and upgrades while never affording a Barracks or Gatherer's Hut;
+  essential buildings now carve through the expansion savings hold. AI
+  armies also attack as one wave instead of a trickle, hold formation until
+  20 m from their target, and nearby idle military units form up on their
+  own.
+
+### Added
+
+- **Headless multiplayer test harness** (`tools/mp-batch.ps1`): spins up N
+  game processes as real lockstep peers with per-tick sync checksums,
+  desync state dumps, and per-entity traces — the instrument every fix
+  above was found with. Diagnostic stamp/spawn logging remains enabled in
+  multiplayer matches to keep field desync reports actionable.
+
+---
+
 ## [0.0.19] — 2026-09-01
 
 ### Fixed

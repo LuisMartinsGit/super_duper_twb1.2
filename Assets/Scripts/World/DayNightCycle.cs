@@ -29,72 +29,47 @@ namespace TheWaningBorder.World
         // stay vibrant because no global hue rotation is applied — only the
         // ShadowsMidtonesHighlights split-tone shapes colour.
 
-        [Header("Sun (Step 2: magic-hour rake)")]
-        [Tooltip("Sun pitch — angle from horizon. Recipe: 50° for long shadows + dramatic contour.")]
         public float sunPitch = 50f;
-        [Tooltip("Sun heading (compass) in degrees. Recipe: -30° matches the post-process article.")]
         public float sunHeading = -30f;
-        [Tooltip("Sun colour. Recipe: warm off-white #FFF4E0.")]
         public Color sunColor = new(1.0f, 0.957f, 0.878f);
-        [Tooltip("Sun intensity. Recipe: 1.2-1.5. Pushed to top of range because this scene has no baked GI to fill shadows.")]
         [Range(0f, 3f)] public float sunIntensity = 1.5f;
 
-        [Header("Ambient (Trilight gradient — no bake needed)")]
         // Why Trilight not Skybox: AmbientMode.Skybox samples the skybox into
         // SH coefficients AT BAKE TIME. Game.unity has m_LightingDataAsset set
         // to the empty default → no baked SH → ambient probe is near-zero →
         // every surface that isn't directly sun-lit renders pure black. Trilight
         // uses the three explicit colours below at runtime with no bake.
-        [Tooltip("Sky colour — fills upward-facing surfaces. Bright warm-neutral.")]
         public Color ambientSkyColor = new(0.70f, 0.75f, 0.80f);
-        [Tooltip("Equator colour — fills horizontal/side-facing surfaces.")]
         public Color ambientEquatorColor = new(0.50f, 0.50f, 0.50f);
-        [Tooltip("Ground colour — fills downward-facing surfaces. Warm earth tone.")]
         public Color ambientGroundColor = new(0.30f, 0.28f, 0.22f);
 
-        [Header("Fog (Step 3: atmospheric depth)")]
-        [Tooltip("Fog colour. Recipe Alanthor cool grey-blue #B8C5D6, or warm sandy #E8D8B8 for sunlit.")]
         public Color fogColor = new(0.722f, 0.773f, 0.839f);
-        [Tooltip("Exponential-squared fog density. Recipe: start at 0.005, tune until distant terrain fades.")]
-        [Range(0f, 0.05f)] public float fogDensity = 0.005f;
+        // 0.005 -> 0 (2026-09-03): ExponentialSquared at 0.005 is 89% fog at
+        // 300 m — a zoomed-out RTS camera saw the map disappear into it. Off
+        // by default; the knob stays for taste, same treatment as the
+        // vignette below.
+        [Range(0f, 0.05f)] public float fogDensity = 0f;
 
-        [Header("Post-Processing (Step 1: URP global volume)")]
-        [Tooltip("Vignette intensity. Recipe: 0.25 — dropped to 0.18 here so corners don't read as darkness on this scene.")]
         // 0.18 -> 0 (2026-08-31 GPU pass): the vignette costs a share of the
         // full-screen uber pass on a moderate GPU and reads as darkened
         // corners on an RTS map. Off by default; the knob stays for taste.
         [Range(0f, 1f)] public float vignetteIntensity = 0f;
-        [Tooltip("Vignette colour. Recipe: near-black.")]
         public Color vignetteColor = new(0f, 0f, 0f);
-        [Tooltip("Vignette smoothness. Recipe: 0.4.")]
         [Range(0.01f, 1f)] public float vignetteSmoothness = 0.4f;
-        [Tooltip("Bloom intensity. Recipe: 0.4-0.8 — makes veilstone + lit windows glow.")]
         [Range(0f, 5f)] public float bloomIntensity = 0.6f;
-        [Tooltip("Bloom threshold. Recipe: 1.1 — only true HDR-bright pixels bloom (not faction colours).")]
         [Range(0f, 2f)] public float bloomThreshold = 1.1f;
-        [Tooltip("Post-exposure. Recipe: 0 (no global darkening).")]
         [Range(-3f, 3f)] public float postExposure = 0f;
-        [Tooltip("Saturation. Recipe: +10. Keeps faction colours vibrant.")]
         [Range(-100f, 100f)] public float saturation = 10f;
-        [Tooltip("Contrast. Recipe: +15.")]
         [Range(-100f, 100f)] public float contrast = 15f;
 
-        [Header("Shadows / Midtones / Highlights (Step 1: cinematic split-tone)")]
-        [Tooltip("Cool tint applied to shadow luminance. Recipe: slightly blue-ish.")]
         public Color smhShadowsTint = new(0.92f, 0.96f, 1.05f);
-        [Tooltip("Warm tint applied to highlight luminance. Recipe: slightly orange-ish.")]
         public Color smhHighlightsTint = new(1.05f, 1.00f, 0.92f);
 
-        [Header("Film Grain (Step 1)")]
-        [Tooltip("Film grain intensity. Recipe: 0.15 — subtle texture, hides aliasing.")]
         // 0.15 -> 0 (2026-08-31 GPU pass): grain is a per-pixel noise layer on
         // the uber pass; off by default on the same grounds as the vignette.
         [Range(0f, 1f)] public float filmGrainIntensity = 0f;
-        [Tooltip("Film grain response curve. Recipe: 0.8.")]
         [Range(0f, 1f)] public float filmGrainResponse = 0.8f;
 
-        [Header("Shadows")]
-        [Tooltip("Shadow draw distance in world units")]
         // 300 -> 120 (2026-08-31 GPU pass): the RTS camera looks at ~120 m of
         // ground; at 300 m every tree, wall and unit re-rendered into shadow
         // maps far beyond the view for nothing. This value is the AUTHORITY —
@@ -102,8 +77,6 @@ namespace TheWaningBorder.World
         // reflection, so tuning the asset alone does not stick.
         public float shadowDistance = 120f;
 
-        [Header("Cloud Shadows")]
-        [Tooltip("Enable static cloud shadow projector for depth")]
         public bool cloudShadows = true;
         [Range(0f, 1f)] public float cloudOpacity = 0.30f;
         public float cloudSpeed = 2f;
@@ -242,8 +215,10 @@ namespace TheWaningBorder.World
             // change propagates to renderers that cache it.
             DynamicGI.UpdateEnvironment();
 
-            // Fog Step 3.
-            RenderSettings.fog = true;
+            // Fog Step 3. Enabled only when a density is actually set — this
+            // also OVERRIDES any fog baked into the map scene's
+            // RenderSettings, so a legacy scene bake cannot re-fog a match.
+            RenderSettings.fog = fogDensity > 0f;
             RenderSettings.fogMode = FogMode.ExponentialSquared;
             RenderSettings.fogColor = fogColor;
             RenderSettings.fogDensity = fogDensity;

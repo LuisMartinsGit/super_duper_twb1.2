@@ -301,11 +301,16 @@ Region extent is still authored, because passability (§3) needs an area:
 | `Radius` | Region extent — drives the impassable disc |
 | `AnalogueSet` | Which table this region uses (optional; falls back to the map default) |
 
-Place a `NatureRegionMarker`, set the radius, bake — same `MapMarker` +
-`MapInfoBaker` contract as `PlayerStartMarker`, and the same failure mode if a
-re-bake is skipped after moving one. Non-circular regions are **out of scope for
-the first pass (call)**; overlapping circles cover most shapes, and a disc is
-what `PassabilityGrid.BlockObstacle(center, radius)` already takes.
+**SUPERSEDED 2026-09-01.** Nature is no longer a marker placed *inside* a region
+— it **is** a region. A `RegionSeedMarker` carries a kind (`Forest` / `Water` /
+`Mountain` / `Obstacle` / `Normal` / `PlayerStart`) and its authored polygon is
+the shape of the feature. See [Regions.md § Region kinds](Regions.md).
+
+The call recorded here — "non-circular regions are out of scope for the first
+pass; overlapping circles cover most shapes" — is **reversed**. The disc was
+chosen because `PassabilityGrid.BlockObstacle(center, radius)` already took one.
+With authored polygons a forest can be the shape of the forest, and the blocking
+pass follows that polygon instead of a pile of overlapping circles.
 
 ---
 

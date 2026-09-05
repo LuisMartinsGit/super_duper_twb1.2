@@ -107,16 +107,28 @@ military units over economy units when both are inside the box.
 
 | Action | Control |
 |---|---|
-| Pan | Arrow keys, edge-scroll, or hold Middle Mouse + drag |
-| Zoom | Mouse wheel (range ~15–80 units) |
-| Center on group | Double-tap a control group key |
-| Click-pan via minimap | Left-click on the minimap |
+| Pan | Hold **Middle Mouse** + drag, or push the cursor to a **screen edge** |
+| Zoom | **Mouse wheel** (range ~15–80 units) |
+| Rotate | **Ctrl + Mouse wheel** |
+| Centre here | **Left-click the minimap** |
+| Centre on group | Double-tap a control group key |
 
-> **The camera is deliberately locked to a fixed angle and tilt** — it only
-> pans and zooms. Rotation (Q / E), tilt (R / F) and WASD panning are
-> intentionally disabled (`CameraController.Update`), so **A is unambiguously
-> attack-move and F is unambiguously Default stance**. Panning is on the arrow
-> keys, not WASD.
+> **Tilt is not a control.** The camera pitches automatically with zoom: close
+> in it sits low and near-horizontal, zoomed out it rises toward top-down. There
+> is no key for it.
+>
+> **The minimap turns with you.** Its "up" is always the direction you are
+> facing, so a blip's position on the minimap matches where it is on screen
+> without any mental rotation.
+>
+> **There is no keyboard pan.** Arrow-key panning was removed (2026-08-28) so
+> **A** stays unambiguously attack-move and **F** unambiguously Default stance.
+> Pan with the middle mouse button, the screen edge, or the minimap.
+>
+> Edge panning does **not** fire while the cursor is over the interface — the
+> minimap sits in the bottom-left corner, which is inside the edge band, so
+> reaching for it would otherwise scroll the view away from what you were about
+> to click.
 
 ### Keyboard Hotkeys
 

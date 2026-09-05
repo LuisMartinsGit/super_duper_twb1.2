@@ -13,11 +13,13 @@ using EntityWorld = Unity.Entities.World;
 using TheWaningBorder.Input;
 using TheWaningBorder.Data;
 using TheWaningBorder.World.Terrain;
-using TheWaningBorder.UI.HUD;
-using TheWaningBorder.Presentation;
+using TheWaningBorder.UI.Ingame;
+using TheWaningBorder.UI.World;
+using TheWaningBorder.UI.Data;
+using TheWaningBorder.Rendering;
 using TheWaningBorder.Core.Localization;
 
-namespace TheWaningBorder.UI.Panels
+namespace TheWaningBorder.UI.Ingame
 {
     /// <summary>
     /// Handles building placement preview and spawning.
@@ -52,7 +54,6 @@ namespace TheWaningBorder.UI.Panels
         };
         private TheWaningBorder.Core.CachedEntityQuery _hubSnapQuery;
 
-        [Header("Placement")]
         [SerializeField] private LayerMask placementMask = ~0;
         [SerializeField] private float yOffset = 0f;
 
@@ -449,7 +450,7 @@ namespace TheWaningBorder.UI.Panels
                 // Multi-variant prefabs author every culture branch active; the
                 // real spawn hides them via BuildingVariantVisual. Without the
                 // same setup the ghost shows Lv0 AND every level stacked.
-                var variant = TheWaningBorder.Presentation.BuildingVariantVisual
+                var variant = TheWaningBorder.Rendering.BuildingVariantVisual
                     .TrySetup(_placingInstance);
                 if (variant != null && playerCulture != Cultures.None)
                     variant.ShowVariant(playerCulture, 1);

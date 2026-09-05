@@ -11,7 +11,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-namespace TheWaningBorder.UI.GameUI
+namespace TheWaningBorder.UI.Ingame
 {
     /// <summary>
     /// Pointer relay used by every code-built widget: left/right click

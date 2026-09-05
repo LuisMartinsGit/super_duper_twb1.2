@@ -28,7 +28,7 @@
 using Unity.Entities;
 using UnityEngine;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     /// <summary>
     /// Static factory for the per-veilstone-node ambient particle drift.

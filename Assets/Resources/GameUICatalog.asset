@@ -24,6 +24,7 @@ MonoBehaviour:
   cultureSelectionButton: {fileID: 6277049818944615522, guid: dd8232a55b4be2743aa9ff5565cf7dd7, type: 3}
   objectivesPanel: {fileID: 5301000000000001, guid: 4f21c60e9a3b46d1a8b2d05c7e91aa02, type: 3}
   religionPanel: {fileID: 5302000000000001, guid: 4f21c60e9a3b46d1a8b2d05c7e91aa04, type: 3}
+  selectionBox: {fileID: 5303000000000001, guid: 122d02ec6c6043028c8d80fa9b594d3a, type: 3}
   entitySymbols:
   - key: Mixed
     sprite: {fileID: 21300000, guid: ee6f478863ab54b42b8437f2b606f20b, type: 3}

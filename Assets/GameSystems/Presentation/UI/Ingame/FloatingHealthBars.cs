@@ -16,7 +16,7 @@ using TheWaningBorder.Systems.Visibility;
 using TheWaningBorder.UI.Common;
 using EntityWorld = Unity.Entities.World;
 
-namespace TheWaningBorder.UI.HUD
+namespace TheWaningBorder.UI.Ingame
 {
     /// <summary>
     /// Draws floating health bars above entities that are hovered or selected.
@@ -24,14 +24,12 @@ namespace TheWaningBorder.UI.HUD
     [DefaultExecutionOrder(910)]
     public class FloatingHealthBars : MonoBehaviour
     {
-        [Header("Bar Dimensions")]
         [SerializeField] private float barWidth = 60f;
         [SerializeField] private float barHeight = 6f;
         [SerializeField] private float barBorder = 1f;
         [SerializeField] private float yOffsetAboveEntity = 1.8f;
         [SerializeField] private float buildingYOffset = 3.2f;
 
-        [Header("Canvas")]
         // CEF canvas is at sortingOrder 100. 50 puts bars under it but well
         // above the world (3D scene) and most other canvases.
         [SerializeField] private int canvasSortingOrder = 50;
@@ -112,7 +110,7 @@ namespace TheWaningBorder.UI.HUD
             _activeCount = 0;
             _drawn.Clear();
 
-            var hovered = RTSInput.HoveredEntity;
+            var hovered = TheWaningBorder.Input.RTSInputManager.HoveredEntity;
             if (hovered != Entity.Null && _em.Exists(hovered) && HasDrawableBar(hovered))
             {
                 if (ShouldShowBar(hovered))
@@ -122,7 +120,7 @@ namespace TheWaningBorder.UI.HUD
                 }
             }
 
-            var selection = RTSInput.CurrentSelection;
+            var selection = TheWaningBorder.Input.SelectionSystem.CurrentSelection;
             if (selection != null)
             {
                 for (int i = 0; i < selection.Count; i++)

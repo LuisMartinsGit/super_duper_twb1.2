@@ -80,9 +80,11 @@ using TheWaningBorder.Core.Localization;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Entities;
 using TheWaningBorder.Systems.Sect;
-using TheWaningBorder.UI.HUD;
+using TheWaningBorder.UI.Ingame;
+using TheWaningBorder.UI.World;
+using TheWaningBorder.UI.Data;
 
-namespace TheWaningBorder.UI.GameUI
+namespace TheWaningBorder.UI.Ingame
 {
     public sealed class TutorialDirector : MonoBehaviour
     {
@@ -938,7 +940,7 @@ namespace TheWaningBorder.UI.GameUI
 
         private float ZoomChanged()
         {
-            float now = TheWaningBorder.Input.CameraController.ZoomNormalized;
+            float now = TheWaningBorder.CameraRig.CameraController.ZoomNormalized;
             if (_zoomStart < 0f) { _zoomStart = now; return 0f; }
             return Mathf.Abs(now - _zoomStart);
         }

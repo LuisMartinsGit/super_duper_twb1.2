@@ -9,7 +9,7 @@ using UnityEngine;
 using Unity.Entities;
 using Unity.Transforms;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     public class ProjectileVisualSystem : MonoBehaviour
     {
@@ -211,6 +211,11 @@ namespace TheWaningBorder.Presentation
                 go.transform.position = (Vector3)transforms[i].Position;
                 go.transform.rotation = transforms[i].Rotation;
 
+                // A trail sampled before the reposition would streak from the
+                // template's origin to the spawn point on the first frame.
+                var spawnTrail = go.GetComponentInChildren<TrailRenderer>();
+                if (spawnTrail != null) spawnTrail.Clear();
+
                 // Scale up siege projectiles (ballista bolts) for visual distinction —
                 // only applies to plain arrows, not to the specialised tags above.
                 bool isPlainArrow = template == _arrowTemplate;
@@ -317,6 +322,32 @@ namespace TheWaningBorder.Presentation
                 tipRenderer.material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
                 tipRenderer.material.color = new Color(0.3f, 0.3f, 0.32f); // iron
             }
+
+            // White flight trail. Same stripping-safe shader chain as the
+            // other procedural particle visuals (CurseBeaconVfx) — a bare
+            // unreferenced shader would be stripped from player builds.
+            var trail = root.AddComponent<TrailRenderer>();
+            var trailShader = Shader.Find("Universal Render Pipeline/Particles/Unlit")
+                           ?? Shader.Find("Particles/Standard Unlit")
+                           ?? Shader.Find("Sprites/Default");
+            trail.material = new Material(trailShader);
+            trail.time = 0.25f;
+            trail.startWidth = 0.06f;
+            trail.endWidth = 0f;
+            trail.minVertexDistance = 0.2f;
+            trail.autodestruct = false;
+            trail.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            trail.receiveShadows = false;
+            var gradient = new Gradient();
+            gradient.SetKeys(
+                new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                new[]
+                {
+                    new GradientAlphaKey(0.85f, 0f),
+                    new GradientAlphaKey(0.35f, 0.5f),
+                    new GradientAlphaKey(0f, 1f),
+                });
+            trail.colorGradient = gradient;
 
             return root;
         }

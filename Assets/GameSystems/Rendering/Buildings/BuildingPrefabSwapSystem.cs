@@ -23,7 +23,7 @@ using Unity.Entities;
 using Unity.Transforms;
 using TheWaningBorder.Core.Settings;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     public class BuildingPrefabSwapSystem : MonoBehaviour
     {

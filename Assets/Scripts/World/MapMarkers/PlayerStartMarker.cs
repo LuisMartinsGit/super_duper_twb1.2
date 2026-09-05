@@ -13,8 +13,6 @@ namespace TheWaningBorder.World.MapMarkers
     [DisallowMultipleComponent]
     public sealed class PlayerStartMarker : MapMarker
     {
-        [Tooltip("Which faction spawns here. Must match a Faction selected " +
-                 "in the lobby slot for it to take effect.")]
         public Faction Faction = Faction.Blue;
 
         // Hall footprint is ~4×4 cells (≈8 m square); a 6 m ring gives a

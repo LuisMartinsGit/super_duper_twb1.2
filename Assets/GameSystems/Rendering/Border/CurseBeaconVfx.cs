@@ -10,16 +10,44 @@
 // never writes to the ECS world. Mounted by GameBootstrap.
 
 using System.Collections.Generic;
+using TheWaningBorder.Core;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Transforms;
 using UnityEngine;
 using EntityWorld = Unity.Entities.World;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     public sealed class CurseBeaconVfx : MonoBehaviour
     {
+
+        /// <summary>One cached query per constructed T — statics in a generic
+        /// class are per-type, which is the lifetime a generic helper needs.
+        /// See Core/CachedEntityQuery.cs.</summary>
+        static class TaggedAt<T> where T : unmanaged, IComponentData
+        {
+            public static readonly ComponentType[] Types =
+            {
+                ComponentType.ReadOnly<T>(),
+                ComponentType.ReadOnly<LocalTransform>(),
+            };
+            public static CachedEntityQuery Query;
+        }
+
+
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and this one was never disposed. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_PendingCorruption =
+        {
+            ComponentType.ReadOnly<PendingCorruption>(),
+        };
+        static CachedEntityQuery QC_PendingCorruption;
+
+        #endregion
         private const float PollInterval = 1f;
         private const float BeaconHeight = 26f;
         private const float BeaconRadiusNode = 0.5f;
@@ -107,7 +135,7 @@ namespace TheWaningBorder.Presentation
             PlaceBeacons<BorderMainNodeTag>(em, BeaconRadiusWell);
 
             // ── Emergence pulses: telegraphed corruptions ──
-            var regQuery = em.CreateEntityQuery(ComponentType.ReadOnly<PendingCorruption>());
+            var regQuery = QC_PendingCorruption.Get(em, QT_PendingCorruption);
             using (var regs = regQuery.ToEntityArray(Allocator.Temp))
             {
                 for (int r = 0; r < regs.Length; r++)
@@ -131,9 +159,7 @@ namespace TheWaningBorder.Presentation
 
         private void PlaceBeacons<T>(EntityManager em, float radius) where T : unmanaged, IComponentData
         {
-            var q = em.CreateEntityQuery(
-                ComponentType.ReadOnly<T>(),
-                ComponentType.ReadOnly<LocalTransform>());
+            var q = TaggedAt<T>.Query.Get(em, TaggedAt<T>.Types);
             using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             for (int i = 0; i < xfs.Length; i++)
             {

@@ -15,7 +15,7 @@ using TheWaningBorder.Data;
 using TheWaningBorder.Economy;
 using TheWaningBorder.UI.Common;
 
-namespace TheWaningBorder.UI
+namespace TheWaningBorder.UI.Data
 {
     /// <summary>
     /// Extracts display information from entities for EntityInfoPanel.
@@ -47,7 +47,7 @@ namespace TheWaningBorder.UI
                 IronPerMinute = 0,
                 VeilstonePerMinute = 0,
                 VeilsteelPerMinute = 0,
-                GlowPerMinute = 0,
+                ShardrootPerMinute = 0,
                 EntityKind = "unit",
                 YieldPerMinute = null,
                 QueueCapacity = null,
@@ -284,11 +284,6 @@ namespace TheWaningBorder.UI
             {
                 info.HasResourceGeneration = true;
                 info.VeilsteelPerMinute = em.GetComponentData<VeilsteelIncome>(entity).PerMinute;
-            }
-            if (em.HasComponent<GlowIncome>(entity))
-            {
-                info.HasResourceGeneration = true;
-                info.GlowPerMinute = em.GetComponentData<GlowIncome>(entity).PerMinute;
             }
 
             // Type and name
@@ -538,7 +533,6 @@ namespace TheWaningBorder.UI
                 arr[i].RefundIron = cost.Iron;
                 arr[i].RefundVeilstone = cost.Veilstone;
                 arr[i].RefundVeilsteel = cost.Veilsteel;
-                arr[i].RefundGlow = cost.Glow;
                 arr[i].IsInProduction = (i == 0 && ts.Busy != 0);
                 if (arr[i].IsInProduction && slot0Total > 0f)
                 {
@@ -834,8 +828,7 @@ namespace TheWaningBorder.UI
                 Supplies = res.Supplies,
                 Iron = res.Iron,
                 Veilstone = res.Veilstone,
-                Veilsteel = res.Veilsteel,
-                Glow = res.Glow
+                Veilsteel = res.Veilsteel
             };
         }
 

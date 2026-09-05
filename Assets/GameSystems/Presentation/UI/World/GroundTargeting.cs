@@ -1,17 +1,21 @@
-// BFME2-style ability targeting mode: a glowing ring decal follows the
-// mouse across the terrain previewing exactly the area an ability will
-// affect; left-click casts, right-click / Escape cancels. Shared by the
-// sect god powers (ReligionHUD Fire) and the Reliquary's targeted
-// abilities. The ring shader (TWB/GroundTargetRing) renders in the
-// Overlay queue with ZTest Always, so it stays visible on top of the
-// fog-of-war overlay.
+// BFME2-style ability targeting mode: a ring follows the mouse across the
+// terrain previewing exactly the area an ability will affect; left-click
+// casts, right-click / Escape cancels. Shared by the sect god powers
+// (ReligionHUD Fire) and the Reliquary's targeted abilities.
+//
+// The ring is a real ground DECAL (GroundDecals), so it bends over slopes
+// instead of hovering as a flat disc at one height. It was a Quad with the
+// TWB/GroundTargetRing shader, which drew in the Overlay queue with
+// ZTest Always and therefore floated above uneven ground.
 
 using System;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 using TheWaningBorder.World.Terrain;
+using TheWaningBorder.Rendering;
 
-namespace TheWaningBorder.UI.HUD
+namespace TheWaningBorder.UI.World
 {
     public class GroundTargeting : MonoBehaviour
     {
@@ -22,8 +26,7 @@ namespace TheWaningBorder.UI.HUD
         public static bool IsActive { get; private set; }
 
         private Action<float3> _onConfirm;
-        private GameObject _ring;
-        private Material _ringMat;
+        private DecalProjector _ring;
         private float _radius;
         // Swallow the click that pressed the ability button itself.
         private bool _armedThisFrame;
@@ -39,14 +42,8 @@ namespace TheWaningBorder.UI.HUD
             _instance._onConfirm = onConfirm;
             _instance._radius = math.max(0.5f, radius);
             _instance.EnsureRing();
-            _instance._ringMat.SetColor("_Color", color);
-            // The quad's geometry spans its LOCAL X/Y plane (the 90° X
-            // rotation is applied after scaling), so the diameter goes on
-            // X and Y — scaling Z stretches nothing and leaving Y at 1
-            // squashed the ring into a strip.
-            _instance._ring.transform.localScale =
-                new Vector3(_instance._radius * 2f, _instance._radius * 2f, 1f);
-            _instance._ring.SetActive(true);
+            GroundDecals.SetShape(_instance._ring, GroundDecals.Ring(), color);
+            _instance._ring.gameObject.SetActive(true);
             _instance._armedThisFrame = true;
             IsActive = true;
         }
@@ -55,7 +52,7 @@ namespace TheWaningBorder.UI.HUD
         {
             if (_instance == null) return;
             _instance._onConfirm = null;
-            if (_instance._ring != null) _instance._ring.SetActive(false);
+            if (_instance._ring != null) _instance._ring.gameObject.SetActive(false);
             IsActive = false;
         }
 
@@ -67,26 +64,17 @@ namespace TheWaningBorder.UI.HUD
             _instance = go.AddComponent<GroundTargeting>();
         }
 
+        /// <summary>
+        /// One pooled projector for the life of the singleton — it is shown and
+        /// hidden rather than rented and returned, since only one ability can
+        /// be aimed at a time.
+        /// </summary>
         private void EnsureRing()
         {
             if (_ring != null) return;
 
-            _ring = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            _ring.name = "GroundTargetRing";
-            UnityEngine.Object.Destroy(_ring.GetComponent<Collider>());
-            _ring.transform.SetParent(transform, false);
-            // Quad faces +Z; lay it flat on the ground.
-            _ring.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-
-            var shader = Shader.Find("TWB/GroundTargetRing");
-            _ringMat = shader != null
-                ? new Material(shader)
-                : new Material(Shader.Find("Sprites/Default"));
-            var mr = _ring.GetComponent<MeshRenderer>();
-            mr.sharedMaterial = _ringMat;
-            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            mr.receiveShadows = false;
-            _ring.SetActive(false);
+            _ring = GroundDecals.Rent(GroundDecals.Ring(), Color.white);
+            _ring.gameObject.SetActive(false);
         }
 
         private void Update()
@@ -104,7 +92,10 @@ namespace TheWaningBorder.UI.HUD
             // Follow the mouse across the terrain.
             if (TryGetMouseGround(out float3 ground))
             {
-                _ring.transform.position = new Vector3(ground.x, ground.y + 0.25f, ground.z);
+                // Centred ON the ground, not lifted above it: the decal
+                // projects downward onto whatever slope is there.
+                GroundDecals.Place(_ring, new Vector3(ground.x, ground.y, ground.z),
+                                   _radius * 2f);
 
                 if (UnityEngine.Input.GetMouseButtonDown(0))
                 {

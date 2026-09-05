@@ -120,7 +120,6 @@ namespace TheWaningBorder.UI.Common
             Add("Fe", cost.Iron);
             Add("Cr", cost.Veilstone);
             Add("Vs", cost.Veilsteel);
-            Add("Gl", cost.Glow);
 
             return sb.Length == 0 ? "Free" : sb.ToString();
         }
@@ -147,7 +146,6 @@ namespace TheWaningBorder.UI.Common
             Add("Fe", cost.Iron, available.Iron);
             Add("Cr", cost.Veilstone, available.Veilstone);
             Add("Vs", cost.Veilsteel, available.Veilsteel);
-            Add("Gl", cost.Glow, available.Glow);
 
             return sb.ToString();
         }

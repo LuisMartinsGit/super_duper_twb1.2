@@ -99,8 +99,7 @@ namespace TheWaningBorder.Economy
             return r.Supplies >= c.Supplies
                 && r.Iron >= c.Iron
                 && r.Veilstone >= c.Veilstone
-                && r.Veilsteel >= c.Veilsteel
-                && r.Glow >= c.Glow;
+                && r.Veilsteel >= c.Veilsteel;
         }
 
         /// <summary>
@@ -119,7 +118,7 @@ namespace TheWaningBorder.Economy
             
             // Check affordability first
             if (r.Supplies < c.Supplies || r.Iron < c.Iron || r.Veilstone < c.Veilstone ||
-                r.Veilsteel < c.Veilsteel || r.Glow < c.Glow)
+                r.Veilsteel < c.Veilsteel)
                 return false;
 
             // Deduct resources
@@ -127,7 +126,6 @@ namespace TheWaningBorder.Economy
             r.Iron -= c.Iron;
             r.Veilstone -= c.Veilstone;
             r.Veilsteel -= c.Veilsteel;
-            r.Glow -= c.Glow;
 
             em.SetComponentData(bank, r);
             return true;
@@ -151,7 +149,6 @@ namespace TheWaningBorder.Economy
             r.Iron += c.Iron;
             r.Veilstone += c.Veilstone;
             r.Veilsteel += c.Veilsteel;
-            r.Glow += c.Glow;
             r.Clamp();
 
             em.SetComponentData(bank, r);

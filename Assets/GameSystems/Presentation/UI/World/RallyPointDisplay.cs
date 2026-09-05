@@ -8,23 +8,17 @@ using TheWaningBorder.Input;
 using TheWaningBorder.World.Terrain;
 using EntityWorld = Unity.Entities.World;
 
-namespace TheWaningBorder.UI.HUD
+namespace TheWaningBorder.UI.World
 {
     [DefaultExecutionOrder(910)]
     public class RallyPointDisplay : MonoBehaviour
     {
-        [Header("Rally Marker")]
         [SerializeField] private Color markerColor = new Color(0.2f, 0.6f, 1f, 0.8f);
         [SerializeField] private Color lineColor = new Color(0.2f, 0.6f, 1f, 0.4f);
 
-        [Header("Resource Rally")]
-        [Tooltip("Marker/line colour when the rally targets a resource node — " +
-                 "trainees gather it on spawn instead of just walking there.")]
         [SerializeField] private Color resourceMarkerColor = new Color(0.25f, 0.9f, 0.3f, 0.85f);
         [SerializeField] private Color resourceLineColor = new Color(0.25f, 0.9f, 0.3f, 0.45f);
 
-        [Tooltip("Height the marker floats above a resource node, so it clears " +
-                 "the node mesh it is centred on. A node fills one 2 m build cell.")]
         [SerializeField] private float ResourceRallyLift = 2.2f;
 
         [SerializeField] private float markerSize = 0.6f;

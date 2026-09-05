@@ -11,7 +11,7 @@ using TheWaningBorder.Economy;
 using TheWaningBorder.UI.Common;
 using EntityWorld = Unity.Entities.World;
 
-namespace TheWaningBorder.UI.HUD
+namespace TheWaningBorder.UI.Ingame
 {
     /// <summary>
     /// Spawns floating "+N" text above income-generating buildings when they tick.
@@ -19,7 +19,6 @@ namespace TheWaningBorder.UI.HUD
     /// </summary>
     public class FloatingIncomeDisplay : MonoBehaviour
     {
-        [Header("Config")]
         [SerializeField] private float floatHeight = 1.5f;
         [SerializeField] private float floatDuration = 1.5f;
         [SerializeField] private int poolSize = 20;

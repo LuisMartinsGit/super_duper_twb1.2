@@ -56,7 +56,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
     /// <summary>
     /// As above, and also reports the art's pivot-to-bounds-centre offset in
     /// root-local units (XZ, measured at scale 1 / yaw 0). Stored on
-    /// <see cref="TheWaningBorder.Presentation.ProceduralScaleTag.BaseOffset"/>
+    /// <see cref="TheWaningBorder.Rendering.ProceduralScaleTag.BaseOffset"/>
     /// so the view can be re-centred on the entity: the fit SCALES the root,
     /// and any pivot offset scales with it — which is how the footprint
     /// doubling turned slight pivot leans into visibly off-centre buildings.
@@ -78,13 +78,13 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         if (!em.HasComponent<BuildingTag>(entity)) return;
         if (!em.HasComponent<BuildingSize>(entity)) return;
 
-        var tag = viewRoot.GetComponent<TheWaningBorder.Presentation.ProceduralScaleTag>();
+        var tag = viewRoot.GetComponent<TheWaningBorder.Rendering.ProceduralScaleTag>();
         if (tag == null)
-            tag = viewRoot.AddComponent<TheWaningBorder.Presentation.ProceduralScaleTag>();
+            tag = viewRoot.AddComponent<TheWaningBorder.Rendering.ProceduralScaleTag>();
         if (tag.AuthoredScale <= 0.001f) tag.AuthoredScale = 1f;
 
         GameObject scope = null;
-        var variant = viewRoot.GetComponent<TheWaningBorder.Presentation.BuildingVariantVisual>();
+        var variant = viewRoot.GetComponent<TheWaningBorder.Rendering.BuildingVariantVisual>();
         if (variant != null && variant.ShownBranch != null)
             scope = variant.ShownBranch.gameObject;
 

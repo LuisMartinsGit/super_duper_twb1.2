@@ -9,6 +9,7 @@ Shader "Unlit/FogOfWar"
         _Softness("Edge Softness (texels)", Range(0,2)) = 1
         _ExploredA("Explored Alpha", Range(0,1)) = 0.65
         _HiddenA  ("Hidden Alpha",   Range(0,1)) = 1
+        _Blend    ("Prev->Current Blend", Range(0,1)) = 1
     }
     SubShader
     {
@@ -34,6 +35,7 @@ Shader "Unlit/FogOfWar"
             float  _Softness;
             float  _ExploredA;
             float  _HiddenA;
+            float  _Blend;
 
             struct v2f {
                 float4 pos  : SV_POSITION;
@@ -55,26 +57,30 @@ Shader "Unlit/FogOfWar"
                 float2 uv = (worldXZ - _WorldMin.xz) / (_WorldMax.xz - _WorldMin.xz);
                 uv = saturate(uv);
 
-                // BILINEAR sample + band re-sharpen (2026-08-31). The old
-                // path point-sampled the grid and blurred it with a 3x3
-                // kernel, which softened the corners but left every 1 m fog
-                // texel readable as a square. Bilinear filtering gives a
-                // smooth sub-texel gradient between the three plateaus
-                // (visible 0, explored, hidden); the smoothsteps below
-                // steepen each transition back to a crisp band boundary
-                // without ever exposing the texel grid — higher apparent
-                // resolution from the same grid, at ONE tap instead of nine.
-                float a = tex2D(_MainTex, uv).a;
+                // Coverage channels (2026-09-03): RG = current (visible,
+                // revealed) coverage, BA = the previous push's — both
+                // anti-aliased at the stamp so the half-coverage contour
+                // follows the true circle rather than the cell staircase.
+                // Each edge is sharpened on its OWN channel; deriving both
+                // bands from one alpha ramp made the ramp pass through the
+                // explored plateau on its way from clear to black — a
+                // synthesized "explored" sliver ringing every visible circle
+                // that borders unexplored ground.
+                //
+                // The prev->current crossfade BEFORE sharpening is what makes
+                // 4 Hz stamp data read as continuous motion: coverage is a
+                // distance-like field, so lerping two circle fields slides
+                // the sharpened contour smoothly between the two positions
+                // instead of popping.
+                float4 covs = tex2D(_MainTex, uv);
+                float2 cov = lerp(covs.ba, covs.rg, _Blend);
 
-                float e = _ExploredA;
-                float h = max(_HiddenA, e + 0.001);
+                // Moderate sharpen: tight enough to read as a crisp RTS
+                // edge, wide enough not to re-expose texel scallops.
+                float visS = smoothstep(0.35, 0.65, cov.r);
+                float revS = smoothstep(0.35, 0.65, cov.g);
 
-                // visible -> explored transition, then explored -> hidden.
-                // Windows sit at the middle half of each band, so plateau
-                // values map exactly to themselves.
-                float b1 = smoothstep(0.25 * e, 0.75 * e, a);
-                float b2 = smoothstep(e + 0.25 * (h - e), e + 0.75 * (h - e), a);
-                a = b1 * e + b2 * (h - e);
+                float a = lerp(lerp(_HiddenA, _ExploredA, revS), 0.0, visS);
 
                 return fixed4(_Tint.rgb, a);
             }

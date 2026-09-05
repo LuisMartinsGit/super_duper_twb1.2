@@ -27,46 +27,25 @@ namespace TheWaningBorder.Data
     [CreateAssetMenu(fileName = "Tech_", menuName = "Waning Border/Tech Def", order = 3)]
     public class TechDefSO : ScriptableObject
     {
-        [Header("Identity")]
         public string id;
         public string displayName;
-        [Tooltip("upgrade | unlock | passive")]
         public string role;
 
-        [Header("Description")]
-        [Tooltip("What this technology does (shown on the research button).")]
         [TextArea(2, 4)]
         public string effect;
-        [Tooltip("Flavour / lore text.")]
         [TextArea(2, 4)]
         public string desc;
 
-        [Header("Research Host")]
-        [Tooltip("Building id that researches this. THE source of truth for the " +
-                 "host -- the building's research list is derived from it. Keep it " +
-                 "matching the folder this asset sits in.")]
         public string researchAt;
-        [Tooltip("Minimum level of the HOST building. 0 or 1 = no level gate.")]
         public int minBuildingLevel;
-        [Tooltip("Seconds to research.")]
         public float researchTime;
-        [Tooltip("Technology ids that must be researched first.")]
         public string[] prerequisites;
-        [Tooltip("Culture this tech is restricted to (Alanthor / Runai / Feraldis). " +
-                 "Empty = available to every culture.")]
         public string culture;
 
-        [Header("Economy")]
         public CostBlock cost = new CostBlock();
 
-        [Header("Effects -- fixed stat block")]
-        [Tooltip("The original six-stat model. Leave zeroed if this tech uses the " +
-                 "generic effect list below, or has no stat effect at all.")]
         public TechEffects effects = new TechEffects();
 
-        [Header("Effects -- generic list (target / stat / op / value)")]
-        [Tooltip("The calculator model. Both models coexist; a tech may use either, " +
-                 "both, or neither (ability-unlock and age-up techs carry none).")]
         public List<TechEffectEntry> effectsList = new List<TechEffectEntry>();
 
         /// <summary>Project this asset into the runtime <see cref="TechnologyDef"/>.</summary>

@@ -38,7 +38,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-namespace TheWaningBorder.UI.GameUI
+namespace TheWaningBorder.UI.Ingame
 {
     /// <summary>
     /// Marks a GameObject as having a tooltip. The text is pulled through a

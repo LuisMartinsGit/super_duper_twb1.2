@@ -20,7 +20,7 @@ using UnityEngine.UI;
 using TheWaningBorder.Economy;
 using EntityWorld = Unity.Entities.World;
 
-namespace TheWaningBorder.UI.HUD
+namespace TheWaningBorder.UI.Ingame
 {
     public class StatsBoardHUD : MonoBehaviour
     {

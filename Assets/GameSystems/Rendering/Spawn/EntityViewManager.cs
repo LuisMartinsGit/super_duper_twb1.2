@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Unity.Entities;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     /// <summary>
     /// Manages the mapping between ECS entities and their visual GameObject representations.
@@ -15,6 +15,11 @@ namespace TheWaningBorder.Presentation
         public static EntityViewManager Instance { get; private set; }
 
         private readonly Dictionary<Entity, GameObject> _entityToView = new();
+
+        /// <summary>How many entities currently hold a view. Read by
+        /// WorldCensus to catch views that are registered and never released
+        /// — the managed half of a match that gets heavier as it runs.</summary>
+        public int ViewCount => _entityToView.Count;
 
         void Awake()
         {

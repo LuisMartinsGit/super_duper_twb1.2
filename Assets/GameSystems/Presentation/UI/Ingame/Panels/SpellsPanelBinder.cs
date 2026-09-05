@@ -14,7 +14,7 @@ using UnityEngine.UI;
 using TheWaningBorder.Abilities;
 using TheWaningBorder.Core.Localization;
 
-namespace TheWaningBorder.UI.GameUI
+namespace TheWaningBorder.UI.Ingame
 {
     public class SpellsPanelBinder : MonoBehaviour
     {
@@ -190,7 +190,7 @@ namespace TheWaningBorder.UI.GameUI
             {
                 Entity caster = _primary;
                 float radius = card.Radius;
-                TheWaningBorder.UI.HUD.GroundTargeting.Begin(radius, AimRingColor, point =>
+                TheWaningBorder.UI.World.GroundTargeting.Begin(radius, AimRingColor, point =>
                 {
                     var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
                     if (world == null || !world.IsCreated) return;

@@ -11,7 +11,7 @@ using TheWaningBorder.Data;
 using TheWaningBorder.Economy;
 using TheWaningBorder.UI.Common;
 
-namespace TheWaningBorder.UI
+namespace TheWaningBorder.UI.Data
 {
     public static partial class EntityActionExtractor
     {

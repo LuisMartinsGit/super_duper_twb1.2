@@ -4,7 +4,7 @@
 // the new prefab pops in. Self-destructs after ~2 seconds.
 using UnityEngine;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     public class BuildingLevelUpEffect : MonoBehaviour
     {

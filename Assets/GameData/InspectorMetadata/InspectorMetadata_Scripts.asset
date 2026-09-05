@@ -1,0 +1,581 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1c4e97b52f0426d8b3e1f7c04d9a6b2, type: 3}
+  m_Name: InspectorMetadata_Scripts
+  m_EditorClassIdentifier: 
+  types:
+  - typeName: "TheWaningBorder.Bootstrap.FormationOctagonDriver"
+    fields:
+    - field: "Centre"
+      header: 
+      tooltip: "Centre of the octagon in world XZ."
+    - field: "Radius"
+      header: 
+      tooltip: "Distance from the centre to each corner. Long enough that a leg is a real march rather than a shuffle."
+    - field: "Shape"
+      header: 
+      tooltip: "Formation to hold. Box gives a 3x3 for nine units."
+    - field: "LegArrivalRadius"
+      header: 
+      tooltip: "How close the squad's centroid must get before the next leg is ordered."
+    - field: "LegTimeout"
+      header: 
+      tooltip: "Safety valve: order the next leg anyway after this long, so one wedged unit cannot park the test forever."
+    - field: "PickupRadius"
+      header: 
+      tooltip: "How close the army centroid must come before an idle reinforcement falls in."
+    - field: "LogTelemetry"
+      header: 
+      tooltip: "Write logs/<session>/Formation.csv: per-frame position, spot, commanded speed and ACHIEVED speed for every member."
+  - typeName: "TheWaningBorder.Core.Diagnostics.GameStatsTracker"
+    fields:
+    - field: "sampleInterval"
+      header: "Config"
+      tooltip: 
+  - typeName: "TheWaningBorder.Core.Maps.MapInfo"
+    fields:
+    - field: "SceneName"
+      header: "Identity"
+      tooltip: "Scene name as in Build Settings (no path, no .unity)."
+    - field: "PlayerCount"
+      header: "Lobby facts"
+      tooltip: 
+    - field: "SizeTag"
+      header: 
+      tooltip: "Short size tag shown next to the player count, e.g. SMALL / OPEN."
+    - field: "Thumbnail"
+      header: "Preview"
+      tooltip: 
+  - typeName: "ScenarioDefinition"
+    fields:
+    - field: "DisplayName"
+      header: 
+      tooltip: "Name shown in the selection list and preview header."
+    - field: "Description"
+      header: 
+      tooltip: "Shown in the preview pane."
+    - field: "Thumbnail"
+      header: 
+      tooltip: "Preview image \u2014 the <Name>.jpg beside this asset."
+    - field: "SceneName"
+      header: 
+      tooltip: "Scene loaded when the scenario starts. Must be in Build Settings (no path, no extension), e.g. \"ScenarioA\"."
+    - field: "LegacySpawnType"
+      header: 
+      tooltip: "Optional: legacy spawn set used by ScenarioSetup when the scene relies on code-driven spawning rather than baked-in content."
+    - field: "UseLegacySpawns"
+      header: 
+      tooltip: "If true, Start sets GameMode.Scenario + LegacySpawnType so ScenarioSetup spawns. If false, the scene is loaded as-is."
+  - typeName: "ScenarioLibrary"
+    fields:
+    - field: "Scenarios"
+      header: 
+      tooltip: "All scenarios, in list order. Rebuilt from Assets/GameData/Scenarios/ by the editor tool."
+  - typeName: "TheWaningBorder.Data.AI.AISettingsSO"
+    fields:
+    - field: "weightMiner"
+      header: "Target scoring (M2) \u2014 base value per target category"
+      tooltip: 
+    - field: "riskPerDefenseStrength"
+      header: 
+      tooltip: "Score subtracted per point of defender strength near the target."
+    - field: "defenseProbeRadius"
+      header: 
+      tooltip: "Radius around a candidate target in which defenders count as risk."
+    - field: "travelCostPerMeter"
+      header: 
+      tooltip: "Score subtracted per meter of march distance."
+    - field: "intelAgePenaltyPerSecond"
+      header: 
+      tooltip: "Score subtracted per second of sighting age."
+    - field: "reconMaxIntelAge"
+      header: "Scout-then-strike (M3)"
+      tooltip: "Assault targets (halls / military buildings) with intel older than this trigger a recon pass instead of an attack."
+    - field: "scoutFleeHealthFraction"
+      header: 
+      tooltip: "A scout below this health fraction flees to the Hall."
+    - field: "defendThreatThreshold"
+      header: "Posture (M4)"
+      tooltip: "ThreatMap level near the Hall that flips the AI into Defend posture."
+    - field: "retreatStrengthRatio"
+      header: "Retreat (M6)"
+      tooltip: "Retreat the fielded army when local enemy strength exceeds own strength times this ratio."
+  - typeName: "TheWaningBorder.Data.AI.AISettingsSO+PersonalityBlock"
+    fields:
+    - field: "attackThreshold"
+      header: 
+      tooltip: "Min idle units before a maintenance attack launches."
+    - field: "riskMultiplier"
+      header: 
+      tooltip: "Multiplier on the risk term of the target scorer. >1 = cautious."
+  - typeName: "TheWaningBorder.Data.TechTreeCatalog"
+    fields:
+    - field: "units"
+      header: 
+      tooltip: "Every unit stat asset. Edit a unit's HP/damage/etc. on its asset to tune on the fly."
+    - field: "buildings"
+      header: 
+      tooltip: "Every building stat asset."
+    - field: "technologies"
+      header: 
+      tooltip: "Every technology asset. These live beside the building that researches them, not in one folder -- the generator collects them here so the runtime can load them without a Resources/ folder."
+  - typeName: "TheWaningBorder.Data.BuildingDefSO"
+    fields:
+    - field: "id"
+      header: "Identity"
+      tooltip: 
+    - field: "role"
+      header: 
+      tooltip: "production | military | economic | defensive"
+    - field: "description"
+      header: 
+      tooltip: "Human-readable description (UI tooltips / design reference)."
+    - field: "hp"
+      header: "Core Stats"
+      tooltip: 
+    - field: "armorType"
+      header: 
+      tooltip: "structure_human | structure_feraldis | ..."
+    - field: "radius"
+      header: "Spatial"
+      tooltip: "Building footprint radius"
+    - field: "lineOfSight"
+      header: 
+      tooltip: "Vision range"
+    - field: "buildTime"
+      header: "Construction"
+      tooltip: "Seconds to construct. 0 = the construction system's own default."
+    - field: "populationProvided"
+      header: "Population & Income"
+      tooltip: "Population headroom this building grants its owner (Hall 20, Hut 10)."
+    - field: "suppliesPerTick"
+      header: 
+      tooltip: "Supplies credited to the owner every Supplies Interval seconds."
+    - field: "suppliesInterval"
+      header: 
+      tooltip: "Seconds between supply ticks. 0 = generates no supplies."
+    - field: "maxIron"
+      header: "Storage (Smelter)"
+      tooltip: 
+    - field: "segmentHp"
+      header: "Curtain Segments (Alanthor wall only)"
+      tooltip: "HP of one curtain segment between two hubs. The hub itself uses HP above."
+    - field: "segmentLineOfSight"
+      header: 
+      tooltip: "Line of sight of one curtain segment."
+    - field: "trains"
+      header: "Capabilities"
+      tooltip: "Unit IDs this building can train"
+    - field: "research"
+      header: 
+      tooltip: "Technology IDs this building can research"
+    - field: "minEra"
+      header: "Era Gating"
+      tooltip: "Minimum era required to build (0 = no restriction)"
+    - field: "cost"
+      header: "Economy"
+      tooltip: 
+    - field: "tags"
+      header: "Tags (AoE4-style \u2014 targets for bonus damage)"
+      tooltip: "Tags this building HAS \u2014 e.g. Building. Siege units' 'bonus vs Building' matches these."
+    - field: "attack"
+      header: "Building Attack (ranged auto-fire)"
+      tooltip: "The building's own attack. For a leveled building the per-level attack overrides this."
+    - field: "levels"
+      header: "Level Ladder"
+      tooltip: "Per-level trains / available upgrades / attack. Empty = single-level building."
+    - field: "unitUpgrades"
+      header: "Unit Upgrade Pool"
+      tooltip: "Upgrade defs (stat deltas) referenced by level.availableUpgrades."
+    - field: "prefab"
+      header: "Authoring / Presentation"
+      tooltip: "Visual prefab for this building (kept in this entity's GameData folder). Null = cube placeholder at runtime."
+    - field: "presentationId"
+      header: 
+      tooltip: "The ECS PresentationId this building spawns with \u2014 links the runtime entity to this SO/prefab (see BuildingFactory.GetPresentationId)."
+    - field: "prefabPath"
+      header: 
+      tooltip: "(Legacy) string path to the prefab; superseded by the prefab ref above."
+    - field: "canUpgradeTo"
+      header: 
+      tooltip: "Buildings this can upgrade / transform into (e.g. the three cultured forms at age-up: Alanthor / Runai / Feraldis). Empty = none."
+  - typeName: "TheWaningBorder.Data.BuildingAttack"
+    fields:
+    - field: "damageType"
+      header: 
+      tooltip: "ranged | siege | magic"
+    - field: "cooldown"
+      header: 
+      tooltip: "Seconds between volleys."
+    - field: "maxTargets"
+      header: 
+      tooltip: "Enemies hit per volley. 1 = single target, 2 = double-targeting (lvl 3)."
+  - typeName: "TheWaningBorder.Data.DamageBonus"
+    fields:
+    - field: "vsTag"
+      header: 
+      tooltip: "Target tag this applies against (e.g. Building, Cavalry, Heavy, Ranged)."
+    - field: "amount"
+      header: 
+      tooltip: "Flat bonus damage added after armor (ignores armor)."
+  - typeName: "TheWaningBorder.Data.UpgradeEffect"
+    fields:
+    - field: "kind"
+      header: 
+      tooltip: "Buff a stat, or enable an ability."
+    - field: "unit"
+      header: 
+      tooltip: "Unit id this effect targets."
+    - field: "stat"
+      header: "Buff Stat (kind = BuffStat)"
+      tooltip: 
+    - field: "amount"
+      header: 
+      tooltip: "Amount added to the stat (RateOfFirePercent is a percent, e.g. 30 = +30%)."
+    - field: "ability"
+      header: "Enable Ability (kind = EnableAbility)"
+      tooltip: "Ability id to enable on the unit."
+  - typeName: "TheWaningBorder.Data.UnitUpgrade"
+    fields:
+    - field: "requires"
+      header: 
+      tooltip: "Upgrade id that must be researched first (chain). Empty = no prerequisite."
+    - field: "effects"
+      header: 
+      tooltip: "Effects applied when researched. Add Buff and/or Enable-Ability entries."
+    - field: "cost"
+      header: "Research"
+      tooltip: 
+  - typeName: "TheWaningBorder.Data.BuildingLevel"
+    fields:
+    - field: "level"
+      header: 
+      tooltip: "0 = base / pre-culture, 1..3 = upgraded forms."
+    - field: "variantName"
+      header: 
+      tooltip: "Display/variant name at this level (e.g. 'Practice Range')."
+    - field: "culture"
+      header: 
+      tooltip: "Culture this level belongs to (e.g. 'Alanthor'). Empty = pre-culture."
+    - field: "trainSpeedBonusPct"
+      header: 
+      tooltip: "Passive: units train this percent faster at this level (10 = +10%)."
+    - field: "trains"
+      header: 
+      tooltip: "Unit ids trainable at this level."
+    - field: "availableUpgrades"
+      header: 
+      tooltip: "UnitUpgrade ids available to research at this level (ids into BuildingDefSO.unitUpgrades)."
+    - field: "attack"
+      header: 
+      tooltip: "This level's building ranged attack (enabled=false = none)."
+  - typeName: "TheWaningBorder.Data.TechDefSO"
+    fields:
+    - field: "id"
+      header: "Identity"
+      tooltip: 
+    - field: "role"
+      header: 
+      tooltip: "upgrade | unlock | passive"
+    - field: "effect"
+      header: "Description"
+      tooltip: "What this technology does (shown on the research button)."
+    - field: "desc"
+      header: 
+      tooltip: "Flavour / lore text."
+    - field: "researchAt"
+      header: "Research Host"
+      tooltip: "Building id that researches this. THE source of truth for the host -- the building's research list is derived from it. Keep it matching the folder this asset sits in."
+    - field: "minBuildingLevel"
+      header: 
+      tooltip: "Minimum level of the HOST building. 0 or 1 = no level gate."
+    - field: "researchTime"
+      header: 
+      tooltip: "Seconds to research."
+    - field: "prerequisites"
+      header: 
+      tooltip: "Technology ids that must be researched first."
+    - field: "culture"
+      header: 
+      tooltip: "Culture this tech is restricted to (Alanthor / Runai / Feraldis). Empty = available to every culture."
+    - field: "cost"
+      header: "Economy"
+      tooltip: 
+    - field: "effects"
+      header: "Effects -- fixed stat block"
+      tooltip: "The original six-stat model. Leave zeroed if this tech uses the generic effect list below, or has no stat effect at all."
+    - field: "effectsList"
+      header: "Effects -- generic list (target / stat / op / value)"
+      tooltip: "The calculator model. Both models coexist; a tech may use either, both, or neither (ability-unlock and age-up techs carry none)."
+  - typeName: "TheWaningBorder.Data.UnitDefSO"
+    fields:
+    - field: "id"
+      header: "Identity"
+      tooltip: 
+    - field: "unitClass"
+      header: 
+      tooltip: "melee | ranged | support | siege | magic"
+    - field: "hp"
+      header: "Core Stats"
+      tooltip: 
+    - field: "trainingTime"
+      header: 
+      tooltip: "Seconds to train"
+    - field: "damage"
+      header: "Combat"
+      tooltip: 
+    - field: "damageType"
+      header: 
+      tooltip: "melee | ranged | siege | magic | true"
+    - field: "armorType"
+      header: 
+      tooltip: "infantry | infantry_heavy | ranged | cavalry | structure | structure_human"
+    - field: "attackRange"
+      header: "Range & Vision"
+      tooltip: 
+    - field: "aimTime"
+      header: 
+      tooltip: "Wind-up seconds between acquiring a target and releasing the shot."
+    - field: "radius"
+      header: "Spatial"
+      tooltip: "Collision / selection radius in metres."
+    - field: "trajectory"
+      header: "Projectile Profile (ranged units)"
+      tooltip: "low = default shortbow arc | flat = crossbow straight line | high = longbow parabola"
+    - field: "projectileSpeed"
+      header: 
+      tooltip: "Projectile speed override (m/s). 0 = combat system default."
+    - field: "cost"
+      header: "Economy"
+      tooltip: 
+    - field: "minBuildingLevel"
+      header: "Progression Gating"
+      tooltip: "Minimum trainer-building level required (0/1 = available immediately)"
+    - field: "buildSpeed"
+      header: "Support Roles"
+      tooltip: 
+    - field: "healRange"
+      header: 
+      tooltip: "Reach of the heal, in metres (Litharch)."
+    - field: "siegeRange"
+      header: "Siege Specials (0 = unit keeps its built-in constants)"
+      tooltip: "Close-range direct siege attack range (Godsplinter siege mode)."
+    - field: "siegeCooldown"
+      header: 
+      tooltip: "Seconds between close-range siege attacks."
+    - field: "aoeRadius"
+      header: 
+      tooltip: "Splash radius of the unit's AoE shots."
+    - field: "tags"
+      header: "Tags & Bonus Damage (AoE4-style)"
+      tooltip: "Tags this unit HAS \u2014 others' bonus damage targets these (Infantry, Cavalry, Ranged, Siege, Heavy, Light, Building, ...)."
+    - field: "bonusVsTags"
+      header: 
+      tooltip: "Flat bonus damage vs target tags (added after armor; ignores armor)."
+    - field: "abilities"
+      header: "Abilities"
+      tooltip: "Ability card names attached to this unit (data-driven ability system; see AbilityCatalog). e.g. King's Call, Liquid Courage, Scout Sight. Do NOT overload the trainer's Trains list for this."
+    - field: "prefab"
+      header: "Presentation"
+      tooltip: "Visual prefab for this unit (kept in this entity's GameData folder). Null = capsule placeholder at runtime."
+    - field: "presentationId"
+      header: 
+      tooltip: "The ECS PresentationId this unit spawns with \u2014 links the runtime entity to this SO/prefab (see UnitFactory.GetPresentationId)."
+    - field: "animatorController"
+      header: 
+      tooltip: "Optional Animator controller. Assigned to the spawned visual's Animator when its prefab doesn't already carry one \u2014 e.g. a prefab that is a variant of a character FBX whose inherited Animator has no controller. Null = leave whatever the prefab already has. Applied by PresentationSpawnSystem via TechCatalog.TryGetController."
+  - typeName: "TheWaningBorder.Systems.Navigation.NavPassabilityGizmo"
+    fields:
+    - field: "radius"
+      header: "Area"
+      tooltip: "Draw cells within this XZ radius (metres) of the focus point."
+    - field: "followSceneCamera"
+      header: 
+      tooltip: "Centre the window on the Scene-view camera pivot instead of this object's position (so you don't have to move the object)."
+    - field: "onlyBlocked"
+      header: "Filter"
+      tooltip: "Hide walkable cells; show only impassable / conditional ones."
+    - field: "followTerrain"
+      header: "Appearance"
+      tooltip: "Place each cell marker on the terrain surface."
+    - field: "yOffset"
+      header: 
+      tooltip: "Height offset above the surface for the markers."
+    - field: "fillAlpha"
+      header: 
+      tooltip: "Fill transparency of the cell quads."
+    - field: "drawWire"
+      header: 
+      tooltip: "Also draw a wire outline per cell (sharper but busier)."
+    - field: "onlyWhenSelected"
+      header: 
+      tooltip: "Only draw when this object is selected (less Scene clutter)."
+    - field: "maxCells"
+      header: "Safety"
+      tooltip: "Hard cap on cells drawn per frame."
+  - typeName: "TheWaningBorder.Systems.Navigation.NavPassabilityOverlay"
+    fields:
+    - field: "radius"
+      header: "Area"
+      tooltip: "Half-size (m) of the square window of cells to draw around the focus."
+    - field: "followSceneCamera"
+      header: 
+      tooltip: "Centre the window on the Scene-view camera pivot instead of this object."
+    - field: "yOffset"
+      header: "Appearance"
+      tooltip: "Lift above the terrain surface to avoid z-fighting."
+    - field: "alpha"
+      header: 
+      tooltip: "Opacity of impassable cells (passable cells draw at half this)."
+    - field: "showPassable"
+      header: 
+      tooltip: "Also draw walkable cells (green). Off = only show blockers."
+    - field: "refreshInterval"
+      header: "Refresh / safety"
+      tooltip: "Seconds between change checks."
+    - field: "moveRebuildDistance"
+      header: 
+      tooltip: "Rebuild when the focus has moved this far (m)."
+    - field: "maxCells"
+      header: 
+      tooltip: "Hard cap on cells meshed (each cell = 4 verts)."
+  - typeName: "TheWaningBorder.World.DayNightCycle"
+    fields:
+    - field: "sunPitch"
+      header: "Sun (Step 2: magic-hour rake)"
+      tooltip: "Sun pitch \u2014 angle from horizon. Recipe: 50\u00b0 for long shadows + dramatic contour."
+    - field: "sunHeading"
+      header: 
+      tooltip: "Sun heading (compass) in degrees. Recipe: -30\u00b0 matches the post-process article."
+    - field: "sunColor"
+      header: 
+      tooltip: "Sun colour. Recipe: warm off-white #FFF4E0."
+    - field: "sunIntensity"
+      header: 
+      tooltip: "Sun intensity. Recipe: 1.2-1.5. Pushed to top of range because this scene has no baked GI to fill shadows."
+    - field: "ambientSkyColor"
+      header: "Ambient (Trilight gradient \u2014 no bake needed)"
+      tooltip: "Sky colour \u2014 fills upward-facing surfaces. Bright warm-neutral."
+    - field: "ambientEquatorColor"
+      header: 
+      tooltip: "Equator colour \u2014 fills horizontal/side-facing surfaces."
+    - field: "ambientGroundColor"
+      header: 
+      tooltip: "Ground colour \u2014 fills downward-facing surfaces. Warm earth tone."
+    - field: "fogColor"
+      header: "Fog (Step 3: atmospheric depth)"
+      tooltip: "Fog colour. Recipe Alanthor cool grey-blue #B8C5D6, or warm sandy #E8D8B8 for sunlit."
+    - field: "fogDensity"
+      header: 
+      tooltip: "Exponential-squared fog density. Recipe: start at 0.005, tune until distant terrain fades."
+    - field: "vignetteIntensity"
+      header: "Post-Processing (Step 1: URP global volume)"
+      tooltip: "Vignette intensity. Recipe: 0.25 \u2014 dropped to 0.18 here so corners don't read as darkness on this scene."
+    - field: "vignetteColor"
+      header: 
+      tooltip: "Vignette colour. Recipe: near-black."
+    - field: "vignetteSmoothness"
+      header: 
+      tooltip: "Vignette smoothness. Recipe: 0.4."
+    - field: "bloomIntensity"
+      header: 
+      tooltip: "Bloom intensity. Recipe: 0.4-0.8 \u2014 makes veilstone + lit windows glow."
+    - field: "bloomThreshold"
+      header: 
+      tooltip: "Bloom threshold. Recipe: 1.1 \u2014 only true HDR-bright pixels bloom (not faction colours)."
+    - field: "postExposure"
+      header: 
+      tooltip: "Post-exposure. Recipe: 0 (no global darkening)."
+    - field: "saturation"
+      header: 
+      tooltip: "Saturation. Recipe: +10. Keeps faction colours vibrant."
+    - field: "contrast"
+      header: 
+      tooltip: "Contrast. Recipe: +15."
+    - field: "smhShadowsTint"
+      header: "Shadows / Midtones / Highlights (Step 1: cinematic split-tone)"
+      tooltip: "Cool tint applied to shadow luminance. Recipe: slightly blue-ish."
+    - field: "smhHighlightsTint"
+      header: 
+      tooltip: "Warm tint applied to highlight luminance. Recipe: slightly orange-ish."
+    - field: "filmGrainIntensity"
+      header: "Film Grain (Step 1)"
+      tooltip: "Film grain intensity. Recipe: 0.15 \u2014 subtle texture, hides aliasing."
+    - field: "filmGrainResponse"
+      header: 
+      tooltip: "Film grain response curve. Recipe: 0.8."
+    - field: "shadowDistance"
+      header: "Shadows"
+      tooltip: "Shadow draw distance in world units"
+    - field: "cloudShadows"
+      header: "Cloud Shadows"
+      tooltip: "Enable static cloud shadow projector for depth"
+  - typeName: "TheWaningBorder.World.FogOfWar.FogOfWarManager"
+    fields:
+    - field: "WorldMin"
+      header: "Grid"
+      tooltip: 
+    - field: "HumanFaction"
+      header: "Visuals (Human Player)"
+      tooltip: 
+    - field: "FogMaterial"
+      header: 
+      tooltip: "Material that uses the Unlit/FogOfWar shader."
+    - field: "FogRenderer"
+      header: 
+      tooltip: "Quad or plane that covers the playable area; its material will be set to FogMaterial."
+    - field: "TextureUpdateInterval"
+      header: 
+      tooltip: "Seconds between overlay texture rebuilds. The visibility GRID still updates every frame (gameplay queries stay exact); this only paces the per-cell repaint + GPU upload of the human player's fog texture."
+  - typeName: "TheWaningBorder.World.MapMarkers.MapMarker"
+    fields:
+    - field: "SnapToTerrain"
+      header: 
+      tooltip: "Snap the marker's Y to terrain height in the Scene view. Keeps the gizmo on the surface as you drag the marker around."
+  - typeName: "TheWaningBorder.World.MapMarkers.NatureRegionMarker"
+    fields:
+    - field: "Kind"
+      header: 
+      tooltip: "Descriptive only \u2014 all kinds block identically. Drives which vegetation set the visual pass draws from."
+    - field: "Radius"
+      header: 
+      tooltip: "World-space radius of the impassable disc. Overlap several markers to build a non-circular stand \u2014 discs are what PassabilityGrid.BlockObstacle takes."
+  - typeName: "TheWaningBorder.World.MapMarkers.PlayerStartMarker"
+    fields:
+    - field: "Faction"
+      header: 
+      tooltip: "Which faction spawns here. Must match a Faction selected in the lobby slot for it to take effect."
+  - typeName: "TheWaningBorder.World.MapMarkers.RegionSeedMarker"
+    fields:
+    - field: "RegionName"
+      header: 
+      tooltip: "Display name for this region \u2014 shown in the UI when it flips. Blank falls back to \"Region <n>\"."
+    - field: "ValueMultiplier"
+      header: 
+      tooltip: "Build space this region grants its owner, as a share of the region's passable area. Design default 1 \u2014 raise only for a region that should be worth fighting for out of proportion to its size."
+  - typeName: "TheWaningBorder.World.Terrain.WaterPlane"
+    fields:
+    - field: "shallowColor"
+      header: "Water Colors (AoE4 Style)"
+      tooltip: 
+    - field: "flowSpeed"
+      header: "Flow Animation"
+      tooltip: 
+    - field: "rippleScale"
+      header: "Surface Detail"
+      tooltip: 
+    - field: "foamScale"
+      header: "Foam"
+      tooltip: 
+    - field: "specularPower"
+      header: "Specular"
+      tooltip: 

@@ -3,15 +3,17 @@
 
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
+using TheWaningBorder.Rendering;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Input;
-using TheWaningBorder.Presentation;
+using TheWaningBorder.Rendering;
 using TheWaningBorder.World.Terrain;
 using EntityWorld = Unity.Entities.World;
 
-namespace TheWaningBorder.UI.HUD
+namespace TheWaningBorder.UI.World
 {
     /// <summary>
     /// Per-unit world indicators.
@@ -35,9 +37,6 @@ namespace TheWaningBorder.UI.HUD
     [DefaultExecutionOrder(920)] // After PresentationSpawnSystem (default)
     public class UnitIndicatorSystem : MonoBehaviour
     {
-        [Header("Selection Ring")]
-        [SerializeField] private float ringWidth = 0.07f;
-        [SerializeField] private float ringYOffset = 0.08f;
         /// <summary>Ring radius when the unit carries no Radius component.</summary>
         [SerializeField] private float defaultRingRadius = 0.7f;
         /// <summary>Ring radius as a multiple of the unit's sim Radius, so the
@@ -47,7 +46,6 @@ namespace TheWaningBorder.UI.HUD
 
         private const int RingSegments = 24;
 
-        [Header("Ownership Disc")]
         [SerializeField] private float circleRadius = 0.15f;
         [SerializeField] private float circleYAboveUnit = 1.6f;
         [SerializeField] private float circleThickness = 0.02f;
@@ -76,8 +74,7 @@ namespace TheWaningBorder.UI.HUD
 
         private struct Indicators
         {
-            public GameObject Ring;
-            public LineRenderer RingRenderer;
+            public DecalProjector Ring;
             public GameObject Circle;
             public MeshRenderer CircleRenderer;
             public GameObject CrossH;       // Horizontal bar of the cross
@@ -122,7 +119,7 @@ namespace TheWaningBorder.UI.HUD
         {
             foreach (var kv in _indicators)
             {
-                if (kv.Value.Ring != null) Destroy(kv.Value.Ring);
+                GroundDecals.Return(kv.Value.Ring);
                 if (kv.Value.Circle != null) Destroy(kv.Value.Circle);
                 if (kv.Value.CrossH != null) Destroy(kv.Value.CrossH);
                 if (kv.Value.CrossV != null) Destroy(kv.Value.CrossV);
@@ -147,7 +144,7 @@ namespace TheWaningBorder.UI.HUD
             {
                 if (_indicators.TryGetValue(e, out var ind))
                 {
-                    if (ind.Ring != null) Destroy(ind.Ring);
+                    GroundDecals.Return(ind.Ring);
                     if (ind.Circle != null) Destroy(ind.Circle);
                     if (ind.CrossH != null) Destroy(ind.CrossH);
                     if (ind.CrossV != null) Destroy(ind.CrossV);
@@ -180,8 +177,7 @@ namespace TheWaningBorder.UI.HUD
 
                 var ind = new Indicators
                 {
-                    Ring = CreateSelectionRing(out var ringRenderer),
-                    RingRenderer = ringRenderer,
+                    Ring = CreateSelectionRing(),
                     Circle = CreateCircle(out var circleRenderer),
                     CircleRenderer = circleRenderer,
                     CrossH = CreateCrossBar(out var crossHR),
@@ -229,7 +225,7 @@ namespace TheWaningBorder.UI.HUD
 
                 if (!viewVisible)
                 {
-                    if (ind.Ring != null) ind.Ring.SetActive(false);
+                    if (ind.Ring != null) ind.Ring.gameObject.SetActive(false);
                     if (ind.Circle != null) ind.Circle.SetActive(false);
                     if (ind.CrossH != null) ind.CrossH.SetActive(false);
                     if (ind.CrossV != null) ind.CrossV.SetActive(false);
@@ -244,9 +240,9 @@ namespace TheWaningBorder.UI.HUD
                 if (ind.Ring != null)
                 {
                     bool selected = selection != null && selection.Contains(entity);
-                    ind.Ring.SetActive(selected);
+                    ind.Ring.gameObject.SetActive(selected);
                     if (selected)
-                        UpdateSelectionRing(ind.RingRenderer, entity, pos, terrainY);
+                        UpdateSelectionRing(ind.Ring, entity, pos);
                 }
 
                 // ── Ownership disc ──
@@ -318,44 +314,32 @@ namespace TheWaningBorder.UI.HUD
         // ═══════════════════════════════════════════════════════════════
 
         /// <summary>
-        /// Ground ring under a selected unit — the same LineRenderer treatment
-        /// the Gatherer's Hut gather circle uses, so the two read as one visual
-        /// language.
+        /// Ground ring under a selected unit, as a projected DECAL.
+        ///
+        /// It was a LineRenderer laid out at one height, which meant the ring
+        /// cut into rising ground and floated over falling ground. A decal is
+        /// projected onto the terrain, so it follows the slope exactly and
+        /// costs no height sampling at all.
         /// </summary>
-        private GameObject CreateSelectionRing(out LineRenderer renderer)
+        private DecalProjector CreateSelectionRing()
         {
-            var go = new GameObject("SelectionRing");
-            go.transform.SetParent(transform);
-
-            renderer = go.AddComponent<LineRenderer>();
-            renderer.material = new Material(_baseMat);
-            renderer.startWidth = ringWidth;
-            renderer.endWidth = ringWidth;
-            renderer.useWorldSpace = true;
-            renderer.loop = true;
-            renderer.positionCount = RingSegments;
-            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            renderer.receiveShadows = false;
-            // Default (View) alignment, matching GathererHutAreaDisplay's circle
-            // — a camera-facing ribbon reads correctly under the RTS camera and
-            // keeps the two rings looking like the same thing.
-
-            go.SetActive(false);
-            return go;
+            var ring = GroundDecals.Rent(GroundDecals.Ring(), Color.white);
+            ring.gameObject.SetActive(false);
+            return ring;
         }
 
         /// <summary>
-        /// Lay the ring out around a unit at a single terrain height.
+        /// Size and colour the ring under a unit.
         ///
-        /// Deliberately NOT terrain-hugging per segment, unlike the hut's 19.5 m
-        /// circle: a selection ring is about a metre across, terrain barely
-        /// moves over that, and per-segment TerrainUtility.GetHeight would be
-        /// RingSegments samples per selected unit per frame — terrain sampling
-        /// is one of this project's known hot costs.
+        /// No terrain sampling and no per-segment layout: the projector paints
+        /// whatever ground is beneath it. The old LineRenderer needed a height
+        /// and deliberately used ONE for the whole ring, because sampling per
+        /// segment per selected unit per frame is one of this project's known
+        /// hot costs. That trade-off is simply gone.
         /// </summary>
-        private void UpdateSelectionRing(LineRenderer lr, Entity entity, float3 pos, float terrainY)
+        private void UpdateSelectionRing(DecalProjector ring, Entity entity, float3 pos)
         {
-            if (lr == null) return;
+            if (ring == null) return;
 
             float radius = defaultRingRadius;
             if (_em.HasComponent<Radius>(entity))
@@ -366,22 +350,9 @@ namespace TheWaningBorder.UI.HUD
 
             var color = OwnerColor(entity);
             color.a = ringAlpha;
-            // sharedMaterial, not material: the `.material` getter clones on
-            // access, which per selected unit per frame is a steady allocation
-            // leak. The instance was already created in CreateSelectionRing.
-            SetMaterialColor(lr.sharedMaterial, color);
-            lr.startColor = color;
-            lr.endColor = color;
 
-            float y = terrainY + ringYOffset;
-            for (int i = 0; i < RingSegments; i++)
-            {
-                float a = (i / (float)RingSegments) * Mathf.PI * 2f;
-                lr.SetPosition(i, new Vector3(
-                    pos.x + Mathf.Cos(a) * radius,
-                    y,
-                    pos.z + Mathf.Sin(a) * radius));
-            }
+            GroundDecals.SetShape(ring, GroundDecals.Ring(), color);
+            GroundDecals.Place(ring, new Vector3(pos.x, pos.y, pos.z), radius * 2f);
         }
 
         private GameObject CreateCircle(out MeshRenderer renderer)

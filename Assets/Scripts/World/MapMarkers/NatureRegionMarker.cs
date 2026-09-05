@@ -26,13 +26,8 @@ namespace TheWaningBorder.World.MapMarkers
         /// can pick a species set without re-authoring the map.</summary>
         public enum NatureKind { Forest, Rocks, Thicket }
 
-        [Tooltip("Descriptive only — all kinds block identically. Drives which " +
-                 "vegetation set the visual pass draws from.")]
         public NatureKind Kind = NatureKind.Forest;
 
-        [Tooltip("World-space radius of the impassable disc. Overlap several " +
-                 "markers to build a non-circular stand — discs are what " +
-                 "PassabilityGrid.BlockObstacle takes.")]
         [Min(1f)] public float Radius = 20f;
 
         protected override float GizmoRadius => Radius;

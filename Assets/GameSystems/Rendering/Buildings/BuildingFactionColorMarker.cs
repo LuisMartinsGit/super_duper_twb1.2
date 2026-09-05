@@ -19,7 +19,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     public static class BuildingFactionColorMarker
     {

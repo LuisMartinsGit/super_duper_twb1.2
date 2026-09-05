@@ -7,7 +7,7 @@
 
 using UnityEngine;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     public class BuildingVisualSinkDepth : MonoBehaviour
     {

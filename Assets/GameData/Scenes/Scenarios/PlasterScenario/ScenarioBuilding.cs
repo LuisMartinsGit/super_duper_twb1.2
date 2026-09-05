@@ -13,9 +13,7 @@ namespace TheWaningBorder.Scenarios
     public class ScenarioBuilding : MonoBehaviour
     {
         [Min(1)] public int maxHealth = 1000;
-        [Tooltip("Seconds the collapse (sink + shrink) takes once HP hits zero.")]
         [Min(0.1f)] public float collapseSeconds = 2.5f;
-        [Tooltip("How far the building sinks into the ground while collapsing.")]
         [Min(0f)] public float collapseSinkDepth = 3f;
 
         public float CurrentHealth { get; private set; }

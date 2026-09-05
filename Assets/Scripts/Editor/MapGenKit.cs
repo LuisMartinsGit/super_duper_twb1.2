@@ -889,7 +889,10 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             RenderSettings.ambientSkyColor = new Color(0.53f, 0.60f, 0.72f);
             RenderSettings.ambientEquatorColor = new Color(0.42f, 0.44f, 0.44f);
             RenderSettings.ambientGroundColor = new Color(0.24f, 0.22f, 0.20f);
-            RenderSettings.fog = true;
+            // Fog off (2026-09-03): distance fog washed out the map at RTS
+            // zoom-out, in the editor preview and in-match alike. The
+            // DayNightCycle fogDensity knob remains for taste.
+            RenderSettings.fog = false;
             RenderSettings.fogMode = FogMode.ExponentialSquared;
             RenderSettings.fogDensity = 0.0016f;
             RenderSettings.fogColor = new Color(0.62f, 0.66f, 0.72f);

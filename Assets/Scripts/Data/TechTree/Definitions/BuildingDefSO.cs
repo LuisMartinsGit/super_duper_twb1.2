@@ -17,89 +17,49 @@ namespace TheWaningBorder.Data
     [CreateAssetMenu(fileName = "Building_", menuName = "Waning Border/Building Def", order = 1)]
     public class BuildingDefSO : ScriptableObject
     {
-        [Header("Identity")]
         public string id;
         public string displayName;
-        [Tooltip("production | military | economic | defensive")]
         public string role;
-        [Tooltip("Human-readable description (UI tooltips / design reference).")]
         [TextArea(2, 5)]
         public string description;
 
-        [Header("Core Stats")]
         public float hp = 1000f;
-        [Tooltip("structure_human | structure_feraldis | ...")]
         public string armorType = "structure_human";
         public DefenseBlock defense = new DefenseBlock();
 
-        [Header("Spatial")]
-        [Tooltip("Building footprint radius")]
         public float radius = 1.6f;
-        [Tooltip("Vision range")]
         public float lineOfSight = 20f;
 
-        [Header("Construction")]
-        [Tooltip("Seconds to construct. 0 = the construction system's own default.")]
         public float buildTime;
 
-        [Header("Population & Income")]
-        [Tooltip("Population headroom this building grants its owner (Hall 20, Hut 10).")]
         public int populationProvided;
-        [Tooltip("Supplies credited to the owner every Supplies Interval seconds.")]
         public float suppliesPerTick;
-        [Tooltip("Seconds between supply ticks. 0 = generates no supplies.")]
         public float suppliesInterval;
 
-        [Header("Storage (Smelter)")]
         public int maxIron;
         public int maxVeilstone;
 
-        [Header("Curtain Segments (Alanthor wall only)")]
-        [Tooltip("HP of one curtain segment between two hubs. The hub itself uses HP above.")]
         public float segmentHp;
-        [Tooltip("Line of sight of one curtain segment.")]
         public float segmentLineOfSight;
 
-        [Header("Capabilities")]
-        [Tooltip("Unit IDs this building can train")]
         public string[] trains;
-        [Tooltip("Technology IDs this building can research")]
         public string[] research;
 
-        [Header("Era Gating")]
-        [Tooltip("Minimum era required to build (0 = no restriction)")]
         public int minEra;
 
-        [Header("Economy")]
         public CostBlock cost = new CostBlock();
 
-        [Header("Tags (AoE4-style — targets for bonus damage)")]
-        [Tooltip("Tags this building HAS — e.g. Building. Siege units' 'bonus vs Building' matches these.")]
         public string[] tags = new[] { "Building" };
 
-        [Header("Building Attack (ranged auto-fire)")]
-        [Tooltip("The building's own attack. For a leveled building the per-level attack overrides this.")]
         public BuildingAttack attack = new BuildingAttack();
 
-        [Header("Level Ladder")]
-        [Tooltip("Per-level trains / available upgrades / attack. Empty = single-level building.")]
         public List<BuildingLevel> levels = new List<BuildingLevel>();
 
-        [Header("Unit Upgrade Pool")]
-        [Tooltip("Upgrade defs (stat deltas) referenced by level.availableUpgrades.")]
         public List<UnitUpgrade> unitUpgrades = new List<UnitUpgrade>();
 
-        [Header("Authoring / Presentation")]
-        [Tooltip("Visual prefab for this building (kept in this entity's GameData folder). " +
-                 "Null = cube placeholder at runtime.")]
         public GameObject prefab;
-        [Tooltip("The ECS PresentationId this building spawns with — links the runtime entity " +
-                 "to this SO/prefab (see BuildingFactory.GetPresentationId).")]
         public int presentationId;
-        [Tooltip("(Legacy) string path to the prefab; superseded by the prefab ref above.")]
         public string prefabPath;
-        [Tooltip("Buildings this can upgrade / transform into (e.g. the three cultured forms at " +
-                 "age-up: Alanthor / Runai / Feraldis). Empty = none.")]
         public string[] canUpgradeTo;
 
         /// <summary>Build a fresh runtime BuildingDef from this asset.</summary>

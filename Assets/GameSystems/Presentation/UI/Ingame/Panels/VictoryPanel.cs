@@ -16,7 +16,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using TheWaningBorder.Core.Localization;
 
-namespace TheWaningBorder.UI.GameUI
+namespace TheWaningBorder.UI.Ingame
 {
     public sealed class VictoryPanel : MonoBehaviour
     {

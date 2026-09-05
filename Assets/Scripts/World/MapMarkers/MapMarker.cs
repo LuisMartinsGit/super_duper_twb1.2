@@ -16,8 +16,6 @@ namespace TheWaningBorder.World.MapMarkers
 {
     public abstract class MapMarker : MonoBehaviour
     {
-        [Tooltip("Snap the marker's Y to terrain height in the Scene view. " +
-                 "Keeps the gizmo on the surface as you drag the marker around.")]
         public bool SnapToTerrain = true;
 
         protected abstract Color GizmoColor { get; }

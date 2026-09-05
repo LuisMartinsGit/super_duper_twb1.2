@@ -33,10 +33,11 @@ using TheWaningBorder.Core.Localization;
 using TheWaningBorder.Data;
 using TheWaningBorder.Economy;
 using TheWaningBorder.UI.Common;
-using TheWaningBorder.UI.HUD;
-using TheWaningBorder.UI.Panels;
+using TheWaningBorder.UI.Ingame;
+using TheWaningBorder.UI.World;
+using TheWaningBorder.UI.Data;
 
-namespace TheWaningBorder.UI.GameUI
+namespace TheWaningBorder.UI.Ingame
 {
     public sealed class ActionsPanelBinder : MonoBehaviour
     {
@@ -830,7 +831,6 @@ namespace TheWaningBorder.UI.GameUI
             2 => Cost.Of(iron: amount),
             3 => Cost.Of(veilstone: amount),
             4 => Cost.Of(veilsteel: amount),
-            5 => Cost.Of(glow: amount),
             _ => default,
         };
 

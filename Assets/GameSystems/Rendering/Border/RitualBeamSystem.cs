@@ -22,7 +22,7 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     /// <summary>
     /// MonoBehaviour singleton that mirrors ECS ActiveRitualOnNode entities
@@ -50,8 +50,8 @@ namespace TheWaningBorder.Presentation
             ComponentType.ReadOnly<ActiveRitualOnNode>(),
             ComponentType.ReadOnly<LocalTransform>() };
         private static readonly ComponentType[] PickupAttuningQueryTypes = {
-            ComponentType.ReadOnly<GlowPickupTag>(),
-            ComponentType.ReadOnly<GlowPickupState>(),
+            ComponentType.ReadOnly<ShardrootPickupTag>(),
+            ComponentType.ReadOnly<ShardrootPickupState>(),
             ComponentType.ReadOnly<LocalTransform>() };
         private TheWaningBorder.Core.CachedEntityQuery _ritualQuery;
         private TheWaningBorder.Core.CachedEntityQuery _pickupAttuningQuery;
@@ -106,7 +106,7 @@ namespace TheWaningBorder.Presentation
             // assigned (someone is actively claiming) — idle pickups stay
             // unmarked so the beam reads as "claim in progress" specifically.
             using var pickupEnts = pickupAttuningQuery.ToEntityArray(Allocator.Temp);
-            using var pickupStates = pickupAttuningQuery.ToComponentDataArray<GlowPickupState>(Allocator.Temp);
+            using var pickupStates = pickupAttuningQuery.ToComponentDataArray<ShardrootPickupState>(Allocator.Temp);
             using var pickupTransforms = pickupAttuningQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
             for (int i = 0; i < pickupEnts.Length; i++)

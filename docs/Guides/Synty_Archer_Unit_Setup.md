@@ -44,7 +44,7 @@ do each step by hand, read on.
 ## 0. How the pipeline works (why these exact steps)
 
 Units are **ECS entities** (pure data). The MonoBehaviour
-[`PresentationSpawnSystem`](../../Assets/Scripts/Presentation/PresentationSpawnSystem.cs)
+[`PresentationSpawnSystem`](../../Assets/GameSystems/Presentation/PresentationSpawnSystem.cs)
 spawns a **visual GameObject** for each entity, choosing the prefab by the
 entity's **`PresentationID`**.
 
@@ -57,10 +57,10 @@ entity's **`PresentationID`**.
   Resources-path fallback, so the SO route is the only one for this unit — which
   is why it currently spawns as a placeholder capsule.)
 
-Once spawned, [`UnitAnimationSync`](../../Assets/Scripts/Presentation/UnitAnimationSync.cs)
+Once spawned, [`UnitAnimationSync`](../../Assets/GameSystems/Presentation/UnitAnimationSync.cs)
 is **auto-attached** (any unit prefab with an `Animator`) and drives these
 parameters from ECS state — **names are matched by hash, so spelling is exact**
-([`UnitAnimationSync.cs:37-42`](../../Assets/Scripts/Presentation/UnitAnimationSync.cs#L37-L42)):
+([`UnitAnimationSync.cs:37-42`](../../Assets/GameSystems/Presentation/UnitAnimationSync.cs#L37-L42)):
 
 | Parameter | Type | Driven by (archer-relevant) |
 |-----------|------|------------------------------|
@@ -183,19 +183,19 @@ The tool produces `Longbowman.prefab`. To build/inspect it manually:
    wrong size, fix it on the **FBX import → Scale Factor**, not the prefab root,
    so the runtime collider stays correct.
 5. **Orientation:** units get **no rotation offset** (only buildings get a 180°
-   flip — [`PresentationSpawnSystem.cs:146-151`](../../Assets/Scripts/Presentation/PresentationSpawnSystem.cs#L146-L151)).
+   flip — [`PresentationSpawnSystem.cs:146-151`](../../Assets/GameSystems/Presentation/PresentationSpawnSystem.cs#L146-L151)).
    Synty characters face **+Z**, which is correct. If it faces backward, rotate
    the **child mesh**, never the root.
 6. **Do NOT add** `UnitAnimationSync`, a `Collider`, or `EntityReference` — the
    spawn system adds those at runtime
-   ([`PresentationSpawnSystem.cs:533-568`](../../Assets/Scripts/Presentation/PresentationSpawnSystem.cs#L533-L568)).
+   ([`PresentationSpawnSystem.cs:533-568`](../../Assets/GameSystems/Presentation/PresentationSpawnSystem.cs#L533-L568)).
 7. **Drag the configured root into the Project** at
    `Assets/GameData/TechTree/Units/Alanthor/Longbowman/Longbowman.prefab`, then
    delete the scene instance.
 
 ### Faction colour — important for an RTS
 
-`ApplyFactionColor` ([`PresentationSpawnSystem.cs:627-660`](../../Assets/Scripts/Presentation/PresentationSpawnSystem.cs#L627-L660))
+`ApplyFactionColor` ([`PresentationSpawnSystem.cs:627-660`](../../Assets/GameSystems/Presentation/PresentationSpawnSystem.cs#L627-L660))
 tints the unit by ownership:
 
 - If a child renderer's GameObject name contains **`faction`**, only **those**
@@ -260,7 +260,7 @@ PresentationId = 202   // Archer.cs PresentationID
 ```
 
 The Archer (`202`) *also* has a Resources-path fallback
-(`"Prefabs/Units/Archer"` in [`PresentationSpawnSystem.cs:44`](../../Assets/Scripts/Presentation/PresentationSpawnSystem.cs#L44)),
+(`"Prefabs/Units/Archer"` in [`PresentationSpawnSystem.cs:44`](../../Assets/GameSystems/Presentation/PresentationSpawnSystem.cs#L44)),
 so for that unit you can alternatively drop the prefab at
 `Assets/Resources/Prefabs/Units/Archer.prefab` and skip the SO wiring.
 

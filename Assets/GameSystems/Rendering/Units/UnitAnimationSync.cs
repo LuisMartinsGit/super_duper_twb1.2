@@ -5,7 +5,7 @@
 using UnityEngine;
 using Unity.Entities;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     /// <summary>
     /// MonoBehaviour that reads ECS state components each frame and drives
@@ -169,7 +169,8 @@ namespace TheWaningBorder.Presentation
             }
 
             // ── Death animation state (delay before entity destruction) ──
-            if (_em.HasComponent<DeathAnimationState>(LinkedEntity))
+            if (_em.HasComponent<DeathAnimationState>(LinkedEntity)
+                && _em.IsComponentEnabled<DeathAnimationState>(LinkedEntity))
             {
                 if (_hasIsDead && !_deathTriggered)
                 {

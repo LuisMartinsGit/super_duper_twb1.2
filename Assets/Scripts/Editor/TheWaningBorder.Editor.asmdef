@@ -3,6 +3,7 @@
     "rootNamespace": "TheWaningBorder.EditorTools",
     "references": [
         "TheWaningBorder.Runtime",
+        "TheWaningBorder.Presentation",
         "Unity.Entities",
         "Unity.Mathematics",
         "Unity.Collections",

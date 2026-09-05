@@ -1,0 +1,470 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1c4e97b52f0426d8b3e1f7c04d9a6b2, type: 3}
+  m_Name: InspectorMetadata_GameData
+  m_EditorClassIdentifier: 
+  types:
+  - typeName: "TheWaningBorder.Scenarios.PlasterDamageSubstance+Channel"
+    fields:
+    - field: "input"
+      header: 
+      tooltip: "Substance input identifier in the SBSAR."
+    - field: "intactValue"
+      header: 
+      tooltip: "Input value at full health."
+    - field: "ruinedValue"
+      header: 
+      tooltip: "Input value at zero health."
+    - field: "damageStart"
+      header: 
+      tooltip: "Damage fraction at which this channel starts changing."
+    - field: "damageEnd"
+      header: 
+      tooltip: "Damage fraction at which this channel reaches its ruined value."
+  - typeName: "TheWaningBorder.Scenarios.PlasterDamageSubstance"
+    fields:
+    - field: "channels"
+      header: 
+      tooltip: "Damage-to-input mappings. Defaults are tuned for PaintedPlasterSubstance002."
+    - field: "minRenderInterval"
+      header: 
+      tooltip: "Minimum seconds between substance re-renders while the value keeps changing."
+  - typeName: "TheWaningBorder.Scenarios.PlasterScenarioDirector"
+    fields:
+    - field: "building"
+      header: 
+      tooltip: "Building under test. Left empty, the first ScenarioBuilding in the scene is used."
+    - field: "builder"
+      header: 
+      tooltip: "Builder proxy that walks in to repair the building."
+    - field: "damagePerSecond"
+      header: "Pacing"
+      tooltip: 
+    - field: "firstPhaseHealthFloor"
+      header: 
+      tooltip: "HP fraction where the first damage phase stops (0.10 = 90% damage)."
+    - field: "builderSpeed"
+      header: "Worker"
+      tooltip: 
+  - typeName: "TheWaningBorder.Scenarios.ScenarioBuilding"
+    fields:
+    - field: "collapseSeconds"
+      header: 
+      tooltip: "Seconds the collapse (sink + shrink) takes once HP hits zero."
+    - field: "collapseSinkDepth"
+      header: 
+      tooltip: "How far the building sinks into the ground while collapsing."
+  - typeName: "TheWaningBorder.Rendering.SpearmanAnimator"
+    fields:
+    - field: "LegSwing"
+      header: 
+      tooltip: "Leg swing amplitude in degrees at full stride."
+    - field: "ArmSwing"
+      header: 
+      tooltip: "Arm swing amplitude in degrees at full stride (shield arm)."
+    - field: "StrideLength"
+      header: 
+      tooltip: "Stride length in meters per full walk cycle."
+    - field: "IdleSway"
+      header: 
+      tooltip: "Idle torso weight-shift sway in degrees."
+    - field: "TapInterval"
+      header: 
+      tooltip: "Seconds between idle spear-butt taps."
+  - typeName: "TheWaningBorder.Data.Border.BorderSettingsSO+ArmyTier"
+    fields:
+    - field: "trainCost"
+      header: 
+      tooltip: "Veilstone to field this army from empty."
+    - field: "upgradeCost"
+      header: 
+      tooltip: "Veilstone to switch a slot UP to this tier. Must exceed trainCost."
+  - typeName: "TheWaningBorder.Data.Border.BorderSettingsSO+WaveEntry"
+    fields:
+    - field: "fromMinute"
+      header: 
+      tooltip: "Game time (minutes) from which this entry governs the waves."
+    - field: "tier"
+      header: 
+      tooltip: "Army tier fielded during this window (index into tiers, 0 = smallest)."
+    - field: "breatherSeconds"
+      header: 
+      tooltip: "Seconds a node waits after its attack army dies before fielding the next wave."
+  - typeName: "TheWaningBorder.Data.Border.BorderSettingsSO"
+    fields:
+    - field: "tiers"
+      header: "Army tiers (index 0 = smallest)"
+      tooltip: 
+    - field: "useWaveSchedule"
+      header: "Wave schedule"
+      tooltip: "Author the wave ladder over game time. When off (or the list is empty) nodes field the biggest tier they can afford \u2014 the old lumpy behaviour."
+    - field: "waves"
+      header: 
+      tooltip: "The entry with the largest fromMinute <= elapsed governs tier + breather. Cost still gates: a node fields AT MOST the scheduled tier, less if its bank can't afford it yet."
+    - field: "firstWaveDelaySeconds"
+      header: 
+      tooltip: "Seconds before any node fields its FIRST attack wave \u2014 the early-game grace period."
+    - field: "decisionInterval"
+      header: "AI cadence (seconds)"
+      tooltip: 
+    - field: "crystallingTrainTime"
+      header: "Train times (seconds per unit)"
+      tooltip: 
+    - field: "baseIncomePerSecond"
+      header: "Per-node economy (each node is its own faction)"
+      tooltip: "Veilstone/sec a living main node earns from its own territory."
+    - field: "incomePerResourceNode"
+      header: 
+      tooltip: "Extra veilstone/sec per green-veilstone (Resource) sub-node the node owns."
+    - field: "startingCrystal"
+      header: 
+      tooltip: "Veilstone a brand-new node starts its private bank with."
+    - field: "defendHoldRadius"
+      header: "Defend slot"
+      tooltip: "Defenders hold within this distance of their node."
+    - field: "replenishNeedsResourceNode"
+      header: 
+      tooltip: "Free replenishment needs at least one green-veilstone (Resource) sub-node."
+    - field: "requireFullMusterBeforeAttack"
+      header: "Attack slot"
+      tooltip: "Wait until the attack army is fully mustered before it marches."
+    - field: "recallArriveRadius"
+      header: 
+      tooltip: "How close (m) a recalled attack army must get to its node to disband."
+    - field: "phaseIncomeBonus"
+      header: "Escalation + targeting (AI plan M5)"
+      tooltip: "Per-node income multiplier per escalation phase: income *= 1 + phase * this."
+    - field: "phaseTrainSpeedBonus"
+      header: 
+      tooltip: "Training speed bonus per phase: trainTime /= 1 + phase * this."
+    - field: "escalationStartMinute"
+      header: 
+      tooltip: "Minute the continuous escalation ramp starts (phase stays 0 before this)."
+    - field: "escalationFullMinute"
+      header: 
+      tooltip: "Minute the ramp reaches maxEscalation. Between start and full the phase interpolates linearly \u2014 no more discrete 0 -> 1 -> 2 power jumps."
+    - field: "maxEscalation"
+      header: 
+      tooltip: "Phase value at/after escalationFullMinute (2 matches the old discrete cap)."
+    - field: "waveBreatherSeconds"
+      header: 
+      tooltip: "Fallback breather when the wave schedule is off/empty: seconds a node waits after its attack army dies before fielding the next one (muster/training time comes on top)."
+  - typeName: "TheWaningBorder.World.MapMarkers.BorderNodeMarker"
+    fields:
+    - field: "AuthoredPosition"
+      header: 
+      tooltip: "Spawn a well AT THIS MARKER instead of using the four map-corner defaults. Ticking any marker in the scene makes the ticked markers the map's complete well list."
+  - typeName: "TheWaningBorder.World.MapMarkers.BlightPocketMarker"
+    fields:
+    - field: "Radius"
+      header: 
+      tooltip: "Radius (m) of the established haze patch seeded around the SmallNode at match start. Default matches VeilCrustConstants.PocketRadius."
+  - typeName: "TheWaningBorder.Rendering.ArcherAnimator"
+    fields:
+    - field: "LegSwing"
+      header: 
+      tooltip: "Leg swing amplitude in degrees at full stride."
+    - field: "ArmSwing"
+      header: 
+      tooltip: "Arm swing amplitude in degrees at full stride (free arm)."
+    - field: "StrideLength"
+      header: 
+      tooltip: "Stride length in meters per full walk cycle."
+    - field: "BowIdle"
+      header: 
+      tooltip: "Idle bow lower/raise amplitude in degrees."
+  - typeName: "TheWaningBorder.Rendering.NoblemanAnimator"
+    fields:
+    - field: "LegSwing"
+      header: 
+      tooltip: "Leg swing amplitude in degrees at full stride."
+    - field: "ArmSwing"
+      header: 
+      tooltip: "Arm swing amplitude in degrees at full stride."
+    - field: "StrideLength"
+      header: 
+      tooltip: "Stride length in meters per full walk cycle."
+    - field: "IdleSway"
+      header: 
+      tooltip: "Idle torso sway in degrees."
+  - typeName: "TheWaningBorder.Rendering.SwordsmanAnimator"
+    fields:
+    - field: "LegSwing"
+      header: 
+      tooltip: "Leg swing amplitude in degrees at full stride."
+    - field: "ArmSwing"
+      header: 
+      tooltip: "Arm swing amplitude in degrees at full stride (shield arm)."
+    - field: "StrideLength"
+      header: 
+      tooltip: "Stride length in meters per full walk cycle."
+    - field: "IdleRoll"
+      header: 
+      tooltip: "Idle shoulder-roll amplitude in degrees."
+    - field: "TapInterval"
+      header: 
+      tooltip: "Seconds between idle sword-tip ground taps."
+  - typeName: "TheWaningBorder.Rendering.CataphractAnimator"
+    fields:
+    - field: "LegSwingDegrees"
+      header: 
+      tooltip: "Leg swing amplitude in degrees at full gait."
+    - field: "MoveThreshold"
+      header: 
+      tooltip: "Movement speed (m/s) above which the gait engages."
+  - typeName: "TheWaningBorder.Rendering.OutriderAnimator"
+    fields:
+    - field: "LegSwingDegrees"
+      header: 
+      tooltip: "Leg swing amplitude in degrees at full gait."
+    - field: "MoveThreshold"
+      header: 
+      tooltip: "Movement speed (m/s) above which the gait engages."
+  - typeName: "TheWaningBorder.Rendering.BatteringRamAnimator"
+    fields:
+    - field: "WheelRadius"
+      header: 
+      tooltip: "Wheel radius in meters (matches the built rim)."
+    - field: "SwingAmplitude"
+      header: 
+      tooltip: "Ram swing amplitude in degrees while battering."
+    - field: "SwingFrequency"
+      header: 
+      tooltip: "Ram swing frequency in Hz while battering."
+  - typeName: "TheWaningBorder.Rendering.TrebuchetAnimator"
+    fields:
+    - field: "WheelRadius"
+      header: 
+      tooltip: "Wheel radius in meters (matches the built rim)."
+    - field: "CockedAngle"
+      header: 
+      tooltip: "Arm pivot X angle in degrees when fully cocked (deployed). Negative pulls the long rear arm down."
+    - field: "DeploySeconds"
+      header: 
+      tooltip: "Seconds the sim needs to deploy (TrebuchetState.Timer full scale)."
+    - field: "ArmDegreesPerSecond"
+      header: 
+      tooltip: "Degrees per second the visual arm may move (keeps pose changes smooth)."
+  - typeName: "TheWaningBorder.Rendering.KingLexorAnimator"
+    fields:
+    - field: "LegSwingDegrees"
+      header: 
+      tooltip: "Leg swing amplitude in degrees at full gait."
+    - field: "MoveThreshold"
+      header: 
+      tooltip: "Movement speed (m/s) above which the gait engages."
+  - typeName: "TheWaningBorder.Rendering.LedgerVisual"
+    fields:
+    - field: "BobAmplitude"
+      header: 
+      tooltip: "Hover bob amplitude in meters."
+    - field: "BobFrequency"
+      header: 
+      tooltip: "Hover bob frequency in Hz."
+    - field: "CogSpinSpeed"
+      header: 
+      tooltip: "Base cogwheel spin speed in degrees per second (each cog varies around this, alternating direction)."
+    - field: "ForcefieldSpin"
+      header: 
+      tooltip: "Forcefield yaw spin in degrees per second."
+    - field: "HumVolume"
+      header: 
+      tooltip: "Forcefield hum volume."
+  - typeName: "TheWaningBorder.World.MapMarkers.IronPatchMarker"
+    fields:
+    - field: "DepositCount"
+      header: 
+      tooltip: "Number of iron deposits in this patch. Default 30 matches the procedural NEAR-patch size; use ~3 for a small outcrop."
+    - field: "Spread"
+      header: 
+      tooltip: "Radius (m) the deposits scatter across. Default 7 matches the procedural NEAR patch spread."
+    - field: "Layout"
+      header: 
+      tooltip: "Hex-grid layout (dense, even field) vs random tight cluster. Hex-grid suits large patches; random suits small outcrops."
+  - typeName: "TheWaningBorder.World.MapMarkers.VeilsteelDepositMarker"
+    fields:
+    - field: "Amount"
+      header: 
+      tooltip: "Veilsteel units in this node. Design default: 1500."
+    - field: "MapExclusive"
+      header: 
+      tooltip: "This map's authored veilsteel list is COMPLETE - suppress the 1-in-3-territories coverage top-up. Set on maps where veilsteel placement is a design statement (e.g. exclusive to the centre); one ticked marker suppresses for the map."
+  - typeName: "TheWaningBorder.World.MapMarkers.VeilstoneOutcroppingMarker"
+    fields:
+    - field: "NodeCount"
+      header: 
+      tooltip: "Number of veilstone outcropping nodes in this patch. Default 30 matches the procedural NEAR-patch size."
+    - field: "VeilstonePerNode"
+      header: 
+      tooltip: "Veilstone carried by each outcropping. Default 30 \u2192 patch total = NodeCount \u00d7 VeilstonePerNode (e.g. 30\u00d730 = 900 starter veilstone)."
+    - field: "Spread"
+      header: 
+      tooltip: "Radius (m) the nodes scatter across. Default 7 matches the procedural NEAR patch spread."
+    - field: "Layout"
+      header: 
+      tooltip: "Hex-grid layout (dense, even field) vs random tight cluster. Hex-grid suits large patches; random suits small outcrops."
+  - typeName: "TheWaningBorder.Economy.SectDefinition"
+    fields:
+    - field: "SectId"
+      header: "Identity"
+      tooltip: "String ID \u2014 must match one of SectConfig.AllSectIds."
+    - field: "Cluster"
+      header: 
+      tooltip: "Cluster grouping for adoption-cost rules and UI grouping."
+    - field: "DisplayName"
+      header: 
+      tooltip: "Display name (shown to the player). e.g. \"Sect of Antiquity\"."
+    - field: "Tagline"
+      header: 
+      tooltip: "One-line tagline. e.g. \"the holy librarians\"."
+    - field: "Identity"
+      header: 
+      tooltip: "Identity sentence \u2014 what this sect is for. e.g. \"Intel & enemy shutdown\"."
+    - field: "LoreNote"
+      header: "Lore"
+      tooltip: 
+    - field: "Passive"
+      header: "Levers"
+      tooltip: 
+  - typeName: "TheWaningBorder.Economy.SectLeverData"
+    fields:
+    - field: "Kind"
+      header: 
+      tooltip: "Which channel this lever occupies. Set by the SectDefinition constructor \u2014 leave alone in inspector."
+    - field: "LeverName"
+      header: 
+      tooltip: "Display name. e.g. \"Cataloged Memory\" for Antiquity's Passive."
+    - field: "Levels"
+      header: 
+      tooltip: "Per-level data. Always 3 entries (Lv I / II / III)."
+  - typeName: "TheWaningBorder.Economy.SectLevelData"
+    fields:
+    - field: "Description"
+      header: 
+      tooltip: "Player-facing description. Spec text reads roughly like the bullet under each level in the design doc."
+    - field: "CooldownSeconds"
+      header: 
+      tooltip: "Cooldown in seconds (Active Power levers only \u2014 ignored otherwise)."
+    - field: "DurationSeconds"
+      header: 
+      tooltip: "Effect duration in seconds (where applicable \u2014 e.g. Active Power durations, debuff durations)."
+    - field: "Parameters"
+      header: 
+      tooltip: "Free-form key\u2192float parameters. Phase 2 dispatchers know the keys per sect/lever."
+  - typeName: "TheWaningBorder.Rendering.LorekeeperAnimator"
+    fields:
+    - field: "LegSwing"
+      header: 
+      tooltip: "Leg swing amplitude in degrees at full stride."
+    - field: "ArmSwing"
+      header: 
+      tooltip: "Arm swing amplitude in degrees at full stride (free arm)."
+    - field: "StrideLength"
+      header: 
+      tooltip: "Stride length in meters per full walk cycle."
+    - field: "IdleSway"
+      header: 
+      tooltip: "Idle torso weight-shift sway in degrees."
+    - field: "NoteInterval"
+      header: 
+      tooltip: "Seconds between idle note-taking beats."
+  - typeName: "TheWaningBorder.Rendering.StoneWardenAnimator"
+    fields:
+    - field: "LegSwing"
+      header: 
+      tooltip: "Leg swing amplitude in degrees at full stride."
+    - field: "ArmSwing"
+      header: 
+      tooltip: "Free (right) arm swing amplitude in degrees at full stride."
+    - field: "ShieldArmSwing"
+      header: 
+      tooltip: "Shield arm swing in degrees \u2014 kept near zero on purpose."
+    - field: "StrideLength"
+      header: 
+      tooltip: "Stride length in meters per full walk cycle."
+    - field: "WeightRoll"
+      header: 
+      tooltip: "Walking side-to-side weight transfer in degrees."
+    - field: "PlantInterval"
+      header: 
+      tooltip: "Seconds between idle shield plants."
+  - typeName: "TheWaningBorder.Rendering.GolemAutarkAnimator"
+    fields:
+    - field: "LegSwing"
+      header: 
+      tooltip: "Leg swing amplitude in degrees at full stride."
+    - field: "ArmSwing"
+      header: 
+      tooltip: "Arm swing amplitude in degrees at full stride."
+    - field: "StrideLength"
+      header: 
+      tooltip: "Stride length in meters per full walk cycle."
+    - field: "WeightRoll"
+      header: 
+      tooltip: "Walking side-to-side weight transfer in degrees."
+    - field: "PulseRate"
+      header: 
+      tooltip: "Core pulses per second."
+    - field: "PulseDepth"
+      header: 
+      tooltip: "How far the core emission swings around its base level."
+  - typeName: "TheWaningBorder.Rendering.ScarGuardAnimator"
+    fields:
+    - field: "LegSwing"
+      header: 
+      tooltip: "Leg swing amplitude in degrees at full stride."
+    - field: "LimpFactor"
+      header: 
+      tooltip: "Fraction of the swing the injured right leg takes (the limp)."
+    - field: "ArmSwing"
+      header: 
+      tooltip: "Arm swing amplitude in degrees at full stride (free arm)."
+    - field: "StrideLength"
+      header: 
+      tooltip: "Stride length in meters per full walk cycle."
+    - field: "BreathAmount"
+      header: 
+      tooltip: "Idle labored-breath amplitude in degrees."
+    - field: "RestInterval"
+      header: 
+      tooltip: "Seconds between idle cleaver shoulder-rests."
+  - typeName: "TheWaningBorder.Abilities.AbilityCatalogSO"
+    fields:
+    - field: "abilities"
+      header: 
+      tooltip: "Order IS the stable catalog index contract (UnitAbilities references abilities by index). Append only; never reorder."
+  - typeName: "TheWaningBorder.Abilities.AbilityDefSO"
+    fields:
+    - field: "abilityName"
+      header: 
+      tooltip: "Stable ability name \u2014 IndexOf lookups and Aftermath chains key off this."
+    - field: "castTime"
+      header: 
+      tooltip: "Seconds before effects apply (0 = instant)."
+    - field: "duration"
+      header: 
+      tooltip: "Seconds the effect lasts (-1 = permanent / always-on passive)."
+    - field: "cooldown"
+      header: 
+      tooltip: "Seconds before recast (0 = auto: castTime + duration + 1)."
+    - field: "radius"
+      header: 
+      tooltip: "World units (Aura/Area)."
+    - field: "range"
+      header: 
+      tooltip: "Cast range (SingleTarget/Area; 0 = centred on self / unlimited)."
+    - field: "aftermath"
+      header: 
+      tooltip: "Ability names auto-cast when this one ends."
+    - field: "icon"
+      header: "Presentation (authoring slots)"
+      tooltip: 

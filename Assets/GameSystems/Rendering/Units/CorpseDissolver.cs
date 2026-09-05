@@ -5,7 +5,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     /// <summary>
     /// Lets a dead unit's corpse linger and then dissolve away.
@@ -28,10 +28,8 @@ namespace TheWaningBorder.Presentation
     /// </summary>
     public sealed class CorpseDissolver : MonoBehaviour
     {
-        [Tooltip("Seconds the corpse holds its final death pose before dissolving.")]
         public float LingerSeconds = 15f;
 
-        [Tooltip("Seconds the dissolve fade takes.")]
         public float DissolveSeconds = 1.5f;
 
         /// <summary>Resources path of the dissolve material (Assets/Resources/CorpseDissolve.mat).</summary>

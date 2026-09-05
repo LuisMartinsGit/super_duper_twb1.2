@@ -20,91 +20,50 @@ namespace TheWaningBorder.Data
     [CreateAssetMenu(fileName = "Unit_", menuName = "Waning Border/Unit Def", order = 0)]
     public class UnitDefSO : ScriptableObject
     {
-        [Header("Identity")]
         public string id;
         public string displayName;
-        [Tooltip("melee | ranged | support | siege | magic")]
         public string unitClass;
 
-        [Header("Core Stats")]
         public float hp = 100f;
         public float speed = 5f;
-        [Tooltip("Seconds to train")]
         public float trainingTime = 5f;
 
-        [Header("Combat")]
         public float damage = 10f;
-        [Tooltip("melee | ranged | siege | magic | true")]
         public string damageType = "melee";
-        [Tooltip("infantry | infantry_heavy | ranged | cavalry | structure | structure_human")]
         public string armorType = "infantry";
         public DefenseBlock defense = new DefenseBlock();
         public float attackCooldown;
 
-        [Header("Range & Vision")]
         public float attackRange = 1.5f;
         public float minAttackRange;
         public float lineOfSight = 20f;
-        [Tooltip("Wind-up seconds between acquiring a target and releasing the shot.")]
         public float aimTime;
 
-        [Header("Spatial")]
-        [Tooltip("Collision / selection radius in metres.")]
         public float radius = 0.5f;
 
-        [Header("Projectile Profile (ranged units)")]
-        [Tooltip("low = default shortbow arc | flat = crossbow straight line | high = longbow parabola")]
         public string trajectory;
-        [Tooltip("Projectile speed override (m/s). 0 = combat system default.")]
         public float projectileSpeed;
 
-        [Header("Economy")]
         public CostBlock cost = new CostBlock();
 
-        [Header("Progression Gating")]
-        [Tooltip("Minimum trainer-building level required (0/1 = available immediately)")]
         public int minBuildingLevel;
 
-        [Header("Support Roles")]
         public float buildSpeed;
         public float gatheringSpeed;
         public float healsPerSecond;
-        [Tooltip("Reach of the heal, in metres (Litharch).")]
         public float healRange;
 
-        [Header("Siege Specials (0 = unit keeps its built-in constants)")]
-        [Tooltip("Close-range direct siege attack range (Godsplinter siege mode).")]
         public float siegeRange;
-        [Tooltip("Seconds between close-range siege attacks.")]
         public float siegeCooldown;
-        [Tooltip("Splash radius of the unit's AoE shots.")]
         public float aoeRadius;
 
-        [Header("Tags & Bonus Damage (AoE4-style)")]
-        [Tooltip("Tags this unit HAS — others' bonus damage targets these (Infantry, Cavalry, " +
-                 "Ranged, Siege, Heavy, Light, Building, ...).")]
         public string[] tags;
-        [Tooltip("Flat bonus damage vs target tags (added after armor; ignores armor).")]
         public List<DamageBonus> bonusVsTags = new List<DamageBonus>();
 
-        [Header("Abilities")]
-        [Tooltip("Ability card names attached to this unit (data-driven ability system; " +
-                 "see AbilityCatalog). e.g. King's Call, Liquid Courage, Scout Sight. " +
-                 "Do NOT overload the trainer's Trains list for this.")]
         public string[] abilities;
 
-        [Header("Presentation")]
-        [Tooltip("Visual prefab for this unit (kept in this entity's GameData folder). " +
-                 "Null = capsule placeholder at runtime.")]
         public GameObject prefab;
-        [Tooltip("The ECS PresentationId this unit spawns with — links the runtime entity " +
-                 "to this SO/prefab (see UnitFactory.GetPresentationId).")]
         public int presentationId;
-        [Tooltip("Optional Animator controller. Assigned to the spawned visual's Animator " +
-                 "when its prefab doesn't already carry one — e.g. a prefab that is a variant " +
-                 "of a character FBX whose inherited Animator has no controller. Null = leave " +
-                 "whatever the prefab already has. Applied by PresentationSpawnSystem via " +
-                 "TechCatalog.TryGetController.")]
         public RuntimeAnimatorController animatorController;
 
         /// <summary>Build a fresh runtime UnitDef from this asset.</summary>

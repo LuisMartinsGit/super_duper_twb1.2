@@ -1,9 +1,6 @@
 // UnitVisualOverlaySystem.cs
 // Procedural overlays for unit feedback (spec refinement #7):
 //   - Rank pips above the unit (one per UnitRank.Value, capped at 5).
-//   - Glow halo around units whose effective EquipmentTier is Glow
-//     (either UnitEquipmentApplied.Value == Glow or a UnitTierOverride
-//     claim from a dropped Glow weapon).
 //
 // Standalone managed MonoBehaviour mirroring RitualBeamSystem's pattern:
 // each tick, snapshot ECS state, ensure GameObjects exist + are positioned,
@@ -19,25 +16,21 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     public class UnitVisualOverlaySystem : MonoBehaviour
     {
         private const float PipBaseHeight = 2.4f;
         private const float PipSpacing = 0.18f;
         private const float PipSize = 0.14f;
-        private const float HaloRadius = 0.65f;
-        private const float HaloHeight = 0.5f;
 
         private class Overlay
         {
             public GameObject Root;
             public Transform PipParent;
-            public GameObject Halo;
             public Transform ShieldBarRoot;   // empty wrapper for the shield bar widget
             public Transform ShieldBarFill;   // inner quad that gets X-scaled by ratio
             public int LastRank = -1;
-            public bool LastGlow;
         }
 
         private readonly Dictionary<Entity, Overlay> _overlays = new();
@@ -49,14 +42,12 @@ namespace TheWaningBorder.Presentation
             ComponentType.ReadOnly<LocalTransform>() };
         private TheWaningBorder.Core.CachedEntityQuery _unitQuery;
         private Material _pipMat;
-        private Material _haloMat;
         private Material _shieldBgMat;
         private Material _shieldFillMat;
 
         void Awake()
         {
             _pipMat = BuildMat(new Color(1.00f, 0.85f, 0.30f, 1f), emissive: true);
-            _haloMat = BuildMat(new Color(1.00f, 0.80f, 0.20f, 0.45f), emissive: true);
             _shieldBgMat = BuildMat(new Color(0.10f, 0.20f, 0.30f, 0.85f), emissive: false);
             _shieldFillMat = BuildMat(new Color(0.45f, 0.80f, 1.00f, 0.95f), emissive: true);
         }
@@ -84,17 +75,6 @@ namespace TheWaningBorder.Presentation
                 if (_em.HasComponent<UnitRank>(e))
                     rank = math.clamp(_em.GetComponentData<UnitRank>(e).Value, 1, 5);
 
-                bool isGlow = false;
-                if (_em.HasComponent<UnitTierOverride>(e)
-                    && _em.GetComponentData<UnitTierOverride>(e).Value == EquipmentTier.Glow)
-                {
-                    isGlow = true;
-                }
-                else if (_em.HasComponent<UnitEquipmentApplied>(e)
-                    && _em.GetComponentData<UnitEquipmentApplied>(e).Value == EquipmentTier.Glow)
-                {
-                    isGlow = true;
-                }
 
                 if (!_overlays.TryGetValue(e, out var ov) || ov == null || ov.Root == null)
                 {
@@ -102,7 +82,7 @@ namespace TheWaningBorder.Presentation
                     _overlays[e] = ov;
                 }
 
-                // Position root at the unit; rank pips + halo are children offset above.
+                // Position root at the unit; rank pips are children offset above.
                 ov.Root.transform.position = transforms[i].Position;
 
                 if (ov.LastRank != rank)
@@ -111,11 +91,6 @@ namespace TheWaningBorder.Presentation
                     ov.LastRank = rank;
                 }
 
-                if (ov.LastGlow != isGlow)
-                {
-                    if (ov.Halo != null) ov.Halo.SetActive(isGlow);
-                    ov.LastGlow = isGlow;
-                }
 
                 // Shield bar: visible only when the unit has a ShieldBar component AND Current > 0.
                 bool hasShield = _em.HasComponent<ShieldBar>(e);
@@ -168,15 +143,6 @@ namespace TheWaningBorder.Presentation
             pipParent.SetParent(root.transform, false);
             pipParent.localPosition = new Vector3(0, PipBaseHeight, 0);
 
-            // Halo: thin ring approximated as a flat scaled sphere centered on the unit's feet.
-            var halo = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            halo.name = "GlowHalo";
-            halo.transform.SetParent(root.transform, false);
-            halo.transform.localScale = new Vector3(HaloRadius * 2f, HaloHeight, HaloRadius * 2f);
-            halo.transform.localPosition = new Vector3(0, HaloHeight * 0.5f, 0);
-            StripCollider(halo);
-            SetMat(halo, _haloMat);
-            halo.SetActive(false);
 
             // Shield bar: a horizontal bar floating slightly below the rank pips.
             // Wrapper holds the background quad + fill quad. Fill is scaled per
@@ -210,7 +176,6 @@ namespace TheWaningBorder.Presentation
             {
                 Root = root,
                 PipParent = pipParent,
-                Halo = halo,
                 ShieldBarRoot = sbRoot,
                 ShieldBarFill = sbFillParent,
             };

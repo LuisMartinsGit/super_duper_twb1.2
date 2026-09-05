@@ -65,8 +65,9 @@ using Unity.Entities;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using TheWaningBorder.UI.Data;
 
-namespace TheWaningBorder.UI.GameUI
+namespace TheWaningBorder.UI.Ingame
 {
     public sealed class GameUIManager : MonoBehaviour
     {
@@ -319,6 +320,23 @@ namespace TheWaningBorder.UI.GameUI
             // it drives the authored menus (special cluster, culture menu,
             // culture button pill). Menus spawn top-level under the host
             // canvas (SpawnPanel strips their staging canvases).
+            if (catalog.notificationStack != null)
+                SpawnPanel(catalog.notificationStack, "GameUI_Notifications");
+            else
+                TWBLog.Log("[GameUI] GameUICatalog.notificationStack is unassigned - no toasts.");
+
+            if (catalog.planningModeHud != null)
+                SpawnPanel(catalog.planningModeHud, "GameUI_PlanningMode");
+            else
+                TWBLog.Log("[GameUI] GameUICatalog.planningModeHud is unassigned.");
+
+            // The drag-select frame: an authored 9-sliced frame on the host
+            // canvas. SelectionSystem publishes the rect; this only draws it.
+            if (catalog.selectionBox != null)
+                SpawnPanel(catalog.selectionBox, "GameUI_SelectionBox");
+            else
+                TWBLog.Log("[GameUI] GameUICatalog.selectionBox is unassigned - no drag frame.");
+
             var topBar = SpawnCodeBuilt<TopChoiceBar>("GameUI_TopChoiceBar");
             GameObject specialMenu = catalog.specialBuildingMenu != null
                 ? SpawnPanel(catalog.specialBuildingMenu, "GameUI_SpecialBuildingMenu")

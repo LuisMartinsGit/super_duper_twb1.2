@@ -10,7 +10,7 @@ using Unity.Transforms;
 using Unity.Collections;
 using TheWaningBorder.World.Terrain;
 using TheWaningBorder.Core;
-using TheWaningBorder.Presentation;   // EntityViewManager
+using TheWaningBorder.Rendering;   // EntityViewManager
 
 public partial class PresentationSpawnSystem
 {

@@ -50,7 +50,7 @@ public struct EntityDisplayInfo
     public int? IronPerMinute;
     public int? VeilstonePerMinute;
     public int? VeilsteelPerMinute;
-    public int? GlowPerMinute;
+    public int? ShardrootPerMinute;
 
     /// <summary>
     /// Name of the territory a Hall claims, when this entity is one. The Hall
@@ -127,7 +127,7 @@ public struct EntityQueueSlot
     public int RefundIron;
     public int RefundVeilstone;
     public int RefundVeilsteel;
-    public int RefundGlow;
+    public int RefundShardroot;
     public float Progress;
     public bool IsInProduction;
 }

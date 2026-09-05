@@ -38,11 +38,13 @@ using UnityEngine;
 using TheWaningBorder.Data;
 using TheWaningBorder.Entities;
 using TheWaningBorder.Influence;
-using TheWaningBorder.UI.GameUI;
+using TheWaningBorder.UI.Ingame;
+using TheWaningBorder.UI.World;
+using TheWaningBorder.UI.Data;
 using TheWaningBorder.World.Terrain;
 using EntityWorld = Unity.Entities.World;
 
-namespace TheWaningBorder.UI.HUD
+namespace TheWaningBorder.UI.Ingame
 {
     public class SandboxPanel : MonoBehaviour
     {

@@ -33,7 +33,7 @@ using TheWaningBorder.Data;
 using TheWaningBorder.Economy;
 using TheWaningBorder.UI.Common;
 
-namespace TheWaningBorder.UI.Panels
+namespace TheWaningBorder.UI.Data
 {
     public enum ActionSlotKind : byte { Empty, Train, Tech, Chain }
 

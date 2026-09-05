@@ -16,7 +16,40 @@
 A map is **512 x 512 m** and has exactly two kinds of ground.
 The authored reference map is **6 players, ~25 territories** (§5).
 
-### The Nature ring
+### Region kinds (2026-09-01 — SUPERSEDES the Nature ring and round nature stands)
+
+**Every feature of the map is a region.** Forests, water, mountains and blocking
+scenery are not things placed *inside* regions — they ARE regions, seeded the
+same way and drawn the same way, distinguished only by a **kind** tag:
+
+| Kind | Claimable | Passable | The environment is generated to match |
+|---|---|---|---|
+| **Normal** | yes | yes | randomized resource nodes |
+| **PlayerStart** | yes | yes | a richer node set — the opening economy |
+| **Forest** | yes | yes | trees planted to the region SHAPE |
+| **Water** | no | no | terrain excavated to the region shape |
+| **Mountain** | no | no | terrain raised, then a noise / erosion pass |
+| **Obstacle** | no | no | nothing generated; it simply blocks |
+
+**The authoring direction is inverted.** Claimability and passability used to be
+INFERRED from terrain height — `RegionMap.IsClaimable` read the heightmap and
+called anything below `WaterHeight` water and anything above `MountainHeight`
+mountain. Now the author states the intent by tagging a region, and the terrain
+is generated from it. Height stays the fallback for a region with no kind set,
+so existing maps keep working.
+
+This replaces two earlier models:
+
+- the **Nature ring** — a band around the map edge, described below as the way a
+  map got a soft border. A ring is now just regions tagged Water or Mountain
+  along the edge, with no special case in the code.
+- **round nature stands** — `NatureRegionMarker` with a `Radius`, which
+  [Territory_And_Nature.md §8](Territory_And_Nature.md) called the first pass
+  with non-circular regions explicitly out of scope. Region shapes are authored
+  polygons now, so a forest can be the shape of the forest instead of a pile of
+  overlapping discs.
+
+### The Nature ring (superseded — kept for the fog rule)
 
 A band of **Nature** around the whole map edge. It exists to give the map a
 smooth, natural-looking border instead of a hard rectangular cut.

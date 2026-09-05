@@ -12,7 +12,7 @@ namespace TheWaningBorder.Economy
     // ═══════════════════════════════════════════════════════════════════════
     // FACTION RESOURCES COMPONENT
     // ═══════════════════════════════════════════════════════════════════════
-    
+
     /// <summary>
     /// Stores the current resource amounts for a faction.
     /// Attached to a "bank" entity alongside FactionTag.
@@ -35,7 +35,6 @@ namespace TheWaningBorder.Economy
         public int Veilsteel;
 
         /// <summary>Energy resource - used for special abilities and ultimate powers</summary>
-        public int Glow;
 
         // ==================== Helpers ====================
 
@@ -55,56 +54,52 @@ namespace TheWaningBorder.Economy
             if (Iron      > ResourceCap) Iron      = ResourceCap;
             if (Veilstone   > ResourceCap) Veilstone   = ResourceCap;
             if (Veilsteel > ResourceCap) Veilsteel = ResourceCap;
-            if (Glow      > ResourceCap) Glow      = ResourceCap;
 
             if (Supplies  < 0) Supplies  = 0;
             if (Iron      < 0) Iron      = 0;
             if (Veilstone   < 0) Veilstone   = 0;
             if (Veilsteel < 0) Veilsteel = 0;
-            if (Glow      < 0) Glow      = 0;
         }
-        
+
         /// <summary>
         /// Create resources with specified values.
         /// </summary>
         public static FactionResources Of(int supplies = 0, int iron = 0, int veilstone = 0,
-                                          int veilsteel = 0, int glow = 0)
+                                          int veilsteel = 0)
         {
             return new FactionResources
             {
                 Supplies = supplies,
                 Iron = iron,
                 Veilstone = veilstone,
-                Veilsteel = veilsteel,
-                Glow = glow
+                Veilsteel = veilsteel
             };
         }
-        
+
         /// <summary>
         /// Check if faction has at least the specified resources.
         /// </summary>
         public bool HasAtLeast(int supplies = 0, int iron = 0, int veilstone = 0,
-                               int veilsteel = 0, int glow = 0)
+                               int veilsteel = 0)
         {
             return Supplies >= supplies &&
                    Iron >= iron &&
                    Veilstone >= veilstone &&
-                   Veilsteel >= veilsteel &&
-                   Glow >= glow;
+                   Veilsteel >= veilsteel;
         }
-        
+
         /// <summary>
         /// Get total resource value (simple weighted sum).
         /// </summary>
-        public int TotalValue => Supplies + (Iron * 2) + (Veilstone * 3) + 
-                                 (Veilsteel * 5) + (Glow * 4);
-        
+        public int TotalValue => Supplies + (Iron * 2) + (Veilstone * 3) +
+                                 (Veilsteel * 5);
+
         public override string ToString()
         {
-            return $"S:{Supplies} Fe:{Iron} Cr:{Veilstone} Vs:{Veilsteel} Gl:{Glow}";
+            return $"S:{Supplies} Fe:{Iron} Cr:{Veilstone} Vs:{Veilsteel}";
         }
     }
-    
+
     // ═══════════════════════════════════════════════════════════════════════
     // FACTION ERA & RELIGION POINTS
     // ═══════════════════════════════════════════════════════════════════════
@@ -130,7 +125,7 @@ namespace TheWaningBorder.Economy
     // ═══════════════════════════════════════════════════════════════════════
     // RESOURCE TICK STATE
     // ═══════════════════════════════════════════════════════════════════════
-    
+
     /// <summary>
     /// Tracks the last game-time second when resource income was applied.
     /// Used by ApplySuppliesIncomeSystem to prevent duplicate income ticks.
@@ -140,11 +135,11 @@ namespace TheWaningBorder.Economy
         /// <summary>The floor(ElapsedTime) value when income was last applied</summary>
         public int LastWholeSecond;
     }
-    
+
     // ═══════════════════════════════════════════════════════════════════════
     // INCOME PROVIDERS
     // ═══════════════════════════════════════════════════════════════════════
-    
+
     /// <summary>
     /// Attach to any building that provides passive Supplies income.
     /// Uses discrete ticks: delivers PerTick supplies every Interval seconds.
@@ -164,7 +159,7 @@ namespace TheWaningBorder.Economy
         /// <summary>Equivalent per-minute rate (for display purposes)</summary>
         public float PerMinute => Interval > 0 ? (PerTick / Interval * 60f) : 0f;
     }
-    
+
     // Fix #217: Iron/Veilstone/Veilsteel/Glow income used to expose
     // `int PerSecond => PerMinute / 60;` which truncated to zero for any
     // PerMinute below 60. A building producing 30 iron/min reported 0/sec
@@ -211,23 +206,11 @@ namespace TheWaningBorder.Economy
         public float FractionalAccumulator;
     }
 
-    /// <summary>
-    /// Attach to any building that provides passive Glow income.
-    /// Example: Ley line nexus building.
-    /// </summary>
-    public struct GlowIncome : IComponentData
-    {
-        /// <summary>Glow generated per minute</summary>
-        public int PerMinute;
 
-        /// <summary>Fractional accumulator (see Fix #217).</summary>
-        public float FractionalAccumulator;
-    }
-    
     // ═══════════════════════════════════════════════════════════════════════
     // RESOURCE HELPERS
     // ═══════════════════════════════════════════════════════════════════════
-    
+
     /// <summary>
     /// Static helper methods for working with faction resources.
     /// </summary>
@@ -286,6 +269,6 @@ namespace TheWaningBorder.Economy
 
             return false;
         }
-        
+
     }
 }

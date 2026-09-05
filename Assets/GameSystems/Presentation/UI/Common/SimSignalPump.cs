@@ -11,10 +11,12 @@
 // seam exists to remove.
 
 using TheWaningBorder.Core;
-using TheWaningBorder.UI.GameUI;
+using TheWaningBorder.UI.Ingame;
+using TheWaningBorder.UI.World;
+using TheWaningBorder.UI.Data;
 using UnityEngine;
 
-namespace TheWaningBorder.UI.HUD
+namespace TheWaningBorder.UI.Common
 {
     /// <summary>
     /// Pumps queued simulation signals into the HUD. Self-installing, so no
@@ -32,6 +34,13 @@ namespace TheWaningBorder.UI.HUD
             DontDestroyOnLoad(go);
         }
 
+        /// <summary>
+        /// Trauma a single BIG event contributes. Deliberately modest — it is
+        /// additive, so a cluster of events builds into something bigger on its
+        /// own, and a value that reads well alone is far too much in a volley.
+        /// </summary>
+        private const float BigPingTrauma = 0.35f;
+
         private void Update()
         {
             // Bounded per frame. A flood should show up as a slightly delayed
@@ -45,7 +54,22 @@ namespace TheWaningBorder.UI.HUD
             }
 
             for (int i = 0; i < MaxPerFrame && SimSignals.TryDrainPing(out var p); i++)
+            {
                 MinimapPings.Post(p.Position, ColourOf(p.Kind), p.Seconds, p.Big);
+
+                // BIG pings shake the camera. Driven off the flag the sim
+                // already sets rather than a new event channel: "big" is
+                // exactly the sim saying this one matters, and routing shake
+                // through SimSignals keeps the one-way boundary intact — the
+                // simulation never learns a camera exists.
+                //
+                // Faded by distance (ShakeAt), so a well falling on the far
+                // side of the map does not jolt a player watching their own
+                // base. Ordinary pings are silent; a shake on every minimap
+                // blip would be unbearable.
+                if (p.Big)
+                    TheWaningBorder.CameraRig.CameraController.ShakeAt(p.Position, BigPingTrauma);
+            }
 
             if (SimSignals.TryDrainMatchEnd(out var end))
                 ShowMatchEnd(end);

@@ -13,39 +13,28 @@ using UnityEngine;
 using Unity.Entities;
 using TheWaningBorder.Core;
 
-namespace TheWaningBorder.Presentation
+namespace TheWaningBorder.Rendering
 {
     public class CatapultVisual : MonoBehaviour
     {
-        [Tooltip("Arm child name inside the Synty catapult prefab.")]
         public string ArmChildName = "SM_Wep_Catapult_Arm_01";
 
-        [Tooltip("Local X rotation added to the arm's authored pose when fully released (thrown forward).")]
         public float ReleasedAngle = 75f;
 
-        [Tooltip("Seconds for the release snap (arm flying forward).")]
         public float SnapSeconds = 0.12f;
 
-        [Tooltip("Seconds the arm rests released before the crew winds it back.")]
         public float HoldSeconds = 0.6f;
 
-        [Tooltip("Seconds to wind the arm back to the armed pose.")]
         public float RewindSeconds = 2.2f;
 
-        [Header("Shot effect (Synty FX_CatapultShot, used as-is)")]
-        [Tooltip("Elevation in degrees above horizontal at which the authored template launches its stone (the template's up-tilt). The per-shot pitch is solved ballistically from this, the stone's start speed, and the target distance.")]
         public float TemplateElevation = 30f;
 
-        [Tooltip("Extra degrees added to every solved pitch (positive tilts down/shorter). Use to trim if drag or spawn height make shots land consistently long or short.")]
         public float PitchTrim = 0f;
 
-        [Tooltip("Launch height above the catapult's position. Must clear the engine's own collider — the FX stone has world collision and would otherwise burst on the catapult that fired it.")]
         public float MuzzleHeight = 2.4f;
 
-        [Tooltip("Launch offset forward along the aim, also clearing the engine's collider (matches the arm's release point).")]
         public float MuzzleForward = 1.2f;
 
-        [Tooltip("Shot effect template — nested inside the prefab (inactive) so its particle settings can be tweaked/overridden per-catapult. Kept at localScale 1 so spawned shots come out at world scale 1 despite the 0.7 root. Falls back to Resources Prefabs/Effects/FX_CatapultShot when unassigned.")]
         public GameObject ShotFxTemplate;
 
         private GameObject _shotFx;

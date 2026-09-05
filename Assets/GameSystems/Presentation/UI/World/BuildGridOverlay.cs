@@ -6,7 +6,7 @@ using UnityEngine;
 using Unity.Mathematics;
 using TheWaningBorder.World.Terrain;
 
-namespace TheWaningBorder.UI.HUD
+namespace TheWaningBorder.UI.World
 {
     /// <summary>
     /// Shows the build grid itself while a building is being placed, so the

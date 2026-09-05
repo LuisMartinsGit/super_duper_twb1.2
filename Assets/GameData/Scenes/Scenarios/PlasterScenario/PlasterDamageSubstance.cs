@@ -16,15 +16,10 @@ namespace TheWaningBorder.Scenarios
         [System.Serializable]
         public class Channel
         {
-            [Tooltip("Substance input identifier in the SBSAR.")]
             public string input;
-            [Tooltip("Input value at full health.")]
             public float intactValue;
-            [Tooltip("Input value at zero health.")]
             public float ruinedValue;
-            [Tooltip("Damage fraction at which this channel starts changing.")]
             [Range(0f, 1f)] public float damageStart;
-            [Tooltip("Damage fraction at which this channel reaches its ruined value.")]
             [Range(0f, 1f)] public float damageEnd = 1f;
 
             public Channel() { }
@@ -39,7 +34,6 @@ namespace TheWaningBorder.Scenarios
             }
         }
 
-        [Tooltip("Damage-to-input mappings. Defaults are tuned for PaintedPlasterSubstance002.")]
         public Channel[] channels =
         {
             new Channel("paint_blending",         1f,    -1f,   0.00f, 0.45f),
@@ -49,7 +43,6 @@ namespace TheWaningBorder.Scenarios
             new Channel("bricks_degradation",     0f,     1f,   0.55f, 1.00f),
         };
 
-        [Tooltip("Minimum seconds between substance re-renders while the value keeps changing.")]
         [Min(0f)] public float minRenderInterval = 0.15f;
 
         private SubstanceRuntimeGraph _graph;
