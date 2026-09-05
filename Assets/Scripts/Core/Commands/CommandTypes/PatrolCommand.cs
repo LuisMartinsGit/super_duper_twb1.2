@@ -74,13 +74,11 @@ namespace TheWaningBorder.Core.Commands.Types
                 else
                     em.AddComponentData(unit, new GuardPoint { Position = startPos, Has = 1 });
 
-            // Do NOT add UserMoveOrder - patrolling units should auto-acquire targets
-            if (em.HasComponent<UserMoveOrder>(unit))
-                em.RemoveComponent<UserMoveOrder>(unit);
+            // Do NOT activate UserMoveOrder - patrolling units should auto-acquire targets
+            TransientState.Clear<UserMoveOrder>(em, unit);
 
-            // Remove AttackMoveTag if present (patrol replaces attack-move)
-            if (em.HasComponent<AttackMoveTag>(unit))
-                em.RemoveComponent<AttackMoveTag>(unit);
+            // Deactivate AttackMoveTag (patrol replaces attack-move)
+            TransientState.Clear<AttackMoveTag>(em, unit);
         }
 
         /// <summary>Cancel whatever this unit was doing before the new order.

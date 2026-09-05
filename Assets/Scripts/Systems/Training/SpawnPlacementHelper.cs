@@ -2,6 +2,7 @@
 // Helper class for finding empty spawn positions
 
 using Unity.Entities;
+using TheWaningBorder.Core;
 using Unity.Mathematics;
 using Unity.Transforms;
 using Unity.Collections;
@@ -15,6 +16,22 @@ namespace TheWaningBorder.Systems.Training
     /// </summary>
     public static class SpawnPlacementHelper
     {
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and these were never disposed, so this hot path leaked one
+        // per invocation. A bloated registry slows every later query AND
+        // every structural change. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_LocalTransformRadius =
+        {
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<Radius>(),
+        };
+        static CachedEntityQuery QC_LocalTransformRadius;
+
+        #endregion
+
         /// <summary>
         /// Find an empty position near the desired spawn point.
         /// Searches in a spiral pattern to find a position without overlapping entities.
@@ -82,7 +99,7 @@ namespace TheWaningBorder.Systems.Training
                 return false;
 
             // Query all entities with positions
-            var query = em.CreateEntityQuery(typeof(LocalTransform), typeof(Radius));
+            var query = QC_LocalTransformRadius.Get(em, QT_LocalTransformRadius);
             var entities = query.ToEntityArray(Allocator.Temp);
             var transforms = query.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             var radii = query.ToComponentDataArray<Radius>(Allocator.Temp);

@@ -35,6 +35,21 @@ namespace TheWaningBorder.Bootstrap
 {
     public static class StartAgePromoter
     {
+
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and this one was never disposed. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_HallTagFactionTagLocalTransform =
+        {
+            ComponentType.ReadOnly<HallTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery QC_HallTagFactionTagLocalTransform;
+
+        #endregion
         // Three Alanthor-cluster choice buildings. Random pick at start.
         private static readonly string[] ChoiceBuildings =
         {
@@ -81,10 +96,7 @@ namespace TheWaningBorder.Bootstrap
             // Snapshot every spawned Hall before mutating — promotion does
             // structural changes (BuildingFactory.Create for Temple/choice)
             // that would invalidate a live SystemAPI query iterator.
-            var hallQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<HallTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<LocalTransform>());
+            var hallQuery = QC_HallTagFactionTagLocalTransform.Get(em, QT_HallTagFactionTagLocalTransform);
             using var hallEntities = hallQuery.ToEntityArray(Allocator.Temp);
             using var hallFactions = hallQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var hallTransforms = hallQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);

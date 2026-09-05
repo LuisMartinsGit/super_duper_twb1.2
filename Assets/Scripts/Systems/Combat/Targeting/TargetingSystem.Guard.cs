@@ -75,8 +75,8 @@ namespace TheWaningBorder.Systems.Combat
                     // once the fight ends — otherwise one crowded arrival would
                     // exempt the unit from return-to-guard for the rest of the
                     // match and it would simply stand wherever combat left it.
-                    if (em.HasComponent<GuardSuppressed>(entity))
-                        ecb.RemoveComponent<GuardSuppressed>(entity);
+                    if (TransientState.Active<GuardSuppressed>(em, entity))
+                        TransientState.Clear<GuardSuppressed>(em, ecb, entity);
                     continue;
                 }
                 if (guardPoint.ValueRO.Has == 0) continue;
@@ -89,7 +89,7 @@ namespace TheWaningBorder.Systems.Combat
                 // UserMoveOrder / AttackMoveTag, which is precisely the state
                 // this pass matches on. Any genuinely new order moves the guard
                 // point and re-arms the leash. See GuardSuppressed.
-                if (em.HasComponent<GuardSuppressed>(entity)
+                if (TransientState.Active<GuardSuppressed>(em, entity)
                     && DistXZ(em.GetComponentData<GuardSuppressed>(entity).Point,
                               guardPoint.ValueRO.Position) < GuardSuppressed.Epsilon)
                     continue;
@@ -139,7 +139,7 @@ namespace TheWaningBorder.Systems.Combat
 
                 // Attack-move units: resume advancing toward destination after combat
                 // instead of returning to guard point (guard point IS the destination)
-                if (em.HasComponent<AttackMoveTag>(entity))
+                if (TransientState.Active<AttackMoveTag>(em, entity))
                 {
                     if (!hasLiveDest && distToGuard > GuardReturnThreshold)
                     {
@@ -257,14 +257,7 @@ namespace TheWaningBorder.Systems.Combat
                     {
                         ecb.SetComponent(entity, new Target { Value = nearestEnemy });
 
-                        if (!em.HasComponent<AttackCommand>(entity))
-                        {
-                            ecb.AddComponent(entity, new AttackCommand { Target = nearestEnemy });
-                        }
-                        else
-                        {
-                            ecb.SetComponent(entity, new AttackCommand { Target = nearestEnemy });
-                        }
+                        TransientState.Set(ecb, entity, new AttackCommand { Target = nearestEnemy });
 
                         continue; // Don't return to guard point
                     }

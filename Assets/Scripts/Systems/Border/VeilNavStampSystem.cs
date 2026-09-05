@@ -33,8 +33,10 @@
 // Determinism: reads the lockstep-identical VeilField saturation + the nav
 // cost field; integer cell math; no wall-clock. Every client stamps identically.
 
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Mathematics;
 using TheWaningBorder.Systems.Navigation;
 
@@ -53,11 +55,6 @@ namespace TheWaningBorder.Systems.Border
         private int _lastNavGen = int.MinValue;
         private byte _stampedOnce;
 
-        // Structural impassability we must never overwrite with crust nor revert
-        // to walkable — a building/wall/gate owns those cells.
-        private const byte Structural = (byte)(NavCostField.FlagBuildingFootprint
-            | NavCostField.FlagStaticWall | NavCostField.FlagGate);
-
         protected override void OnCreate()
         {
             // Pure influence-only veil (both modes off): never stamp the nav
@@ -74,7 +71,7 @@ namespace TheWaningBorder.Systems.Border
         /// between TravelCostMin (at CrustThreshold) and TravelCostMax (at
         /// 255), never cheaper than the terrain baseline under it, and never
         /// downgrading genuinely impassable terrain.</summary>
-        private static byte TravelCost(byte sat, byte terrain)
+        internal static byte TravelCost(byte sat, byte terrain)
         {
             if (terrain == NavCostField.CostImpassable) return terrain;
             float t = (sat - VeilField.CrustThreshold)
@@ -119,70 +116,52 @@ namespace TheWaningBorder.Systems.Border
             bool veilChanged = field.Generation != _lastVeilGen;
             if (_stampedOnce != 0 && !navWiped && !veilChanged) return;
 
+            // MP DESYNC INSTRUMENTATION (2026-09-04, temporary): one line per
+            // crust pass so two peers' logs can be diffed — the tick-8600-class
+            // fork was one peer stamping a pass the other skipped.
+            if (TheWaningBorder.Multiplayer.LockstepManager.Instance != null
+                && TheWaningBorder.Multiplayer.LockstepManager.Instance.IsSimulationRunning)
+                UnityEngine.Debug.Log(
+                    $"[VeilNavStamp] tick={TheWaningBorder.Multiplayer.LockstepManager.Instance.CurrentTick} " +
+                    $"navWiped={navWiped}({nav.Generation}/{_lastNavGen}) " +
+                    $"veilChanged={veilChanged}({field.Generation}/{_lastVeilGen}) once={_stampedOnce}");
+
             float veilCell = field.CellSize;
             float2 veilOrigin = field.Origin;
-            bool changed = false;
 
-            for (int nz = 0; nz < nav.Height; nz++)
+            // The full-grid stamp/heal pass is Burst-compiled via Run() —
+            // as a managed SystemBase loop over 1M+ cells it cost 17-32 ms
+            // and landed in the SAME frame as a building's cost restamp and
+            // portal rebuild, stacking the hitch. Same-tick synchronous, so
+            // lockstep timing is unchanged.
+            bool emptyTerrain = !nav.TerrainCost.IsCreated;
+            var terrainCost = emptyTerrain
+                ? new NativeArray<byte>(0, Allocator.TempJob)
+                : nav.TerrainCost;
+            var changedRef = new NativeReference<byte>(Allocator.TempJob);
+            new StampCrustJob
             {
-                float cz = navOrigin.z + (nz + 0.5f) * navCell;
-                int vz = (int)math.floor((cz - veilOrigin.y) / veilCell);
-                bool zIn = vz >= 0 && vz < field.Height;
-                int navRow = nz * nav.Width;
-                for (int nx = 0; nx < nav.Width; nx++)
-                {
-                    int idx = navRow + nx;
-                    byte sat = 0;
-                    if (zIn)
-                    {
-                        float cx = navOrigin.x + (nx + 0.5f) * navCell;
-                        int vx = (int)math.floor((cx - veilOrigin.x) / veilCell);
-                        if (vx >= 0 && vx < field.Width)
-                            sat = field.Saturation[vz * field.Width + vx];
-                    }
-                    bool crust = sat >= VeilField.CrustThreshold;
-
-                    bool was = _stampedCrust[idx] != 0;
-                    bool structural = (nav.Flags[idx] & Structural) != 0;
-
-                    if (crust && !structural)
-                    {
-                        // Wall mode: impassable. Travel-cost mode: finite,
-                        // saturation-scaled (deepening crust re-stamps via the
-                        // want-compare below). Re-apply on navWiped even if we
-                        // think we already own it — the restamp may have
-                        // cleared our flag.
-                        byte want = TheWaningBorder.Core.Config.VeilCrustConstants
-                            .CrustPhysical
-                            ? NavCostField.CostImpassable
-                            : TravelCost(sat, nav.TerrainCost.IsCreated
-                                ? nav.TerrainCost[idx] : (byte)0);
-                        if (!was || navWiped
-                            || nav.Cost[idx] != want
-                            || (nav.Flags[idx] & NavCostField.FlagCrust) == 0)
-                        {
-                            nav.Cost[idx] = want;
-                            nav.Flags[idx] = (byte)(nav.Flags[idx] | NavCostField.FlagCrust);
-                            changed = true;
-                        }
-                        _stampedCrust[idx] = 1;
-                    }
-                    else if (was)
-                    {
-                        // Crust receded here (or a building claimed the cell).
-                        // Only touch Cost if WE own it via FlagCrust — never
-                        // re-open a structural cell.
-                        if ((nav.Flags[idx] & NavCostField.FlagCrust) != 0)
-                        {
-                            nav.Cost[idx] = nav.TerrainCost.IsCreated
-                                ? nav.TerrainCost[idx] : (byte)0;
-                            nav.Flags[idx] = (byte)(nav.Flags[idx] & ~NavCostField.FlagCrust);
-                            changed = true;
-                        }
-                        _stampedCrust[idx] = 0;
-                    }
-                }
-            }
+                Saturation = field.Saturation,
+                VeilWidth = field.Width,
+                VeilHeight = field.Height,
+                VeilCell = veilCell,
+                VeilOrigin = veilOrigin,
+                NavCost = nav.Cost,
+                NavFlags = nav.Flags,
+                TerrainCost = terrainCost,
+                HasTerrainCost = !emptyTerrain,
+                NavWidth = nav.Width,
+                NavHeight = nav.Height,
+                NavCellSize = navCell,
+                NavOrigin = navOrigin,
+                StampedCrust = _stampedCrust,
+                NavWiped = navWiped,
+                CrustPhysical = TheWaningBorder.Core.Config.VeilCrustConstants.CrustPhysical,
+                Changed = changedRef,
+            }.Run();
+            bool changed = changedRef.Value != 0;
+            changedRef.Dispose();
+            if (emptyTerrain) terrainCost.Dispose();
 
             if (changed)
             {
@@ -192,6 +171,107 @@ namespace TheWaningBorder.Systems.Border
             _lastNavGen = nav.Generation; // post-bump: our own bump is not a "wipe"
             _lastVeilGen = field.Generation;
             _stampedOnce = 1;
+        }
+    }
+
+    /// <summary>
+    /// The crust stamp/heal pass over the whole nav grid, Burst-compiled
+    /// and invoked synchronously with Run(). Behaviour is identical to the
+    /// managed loop it replaces (see the class header for the ownership
+    /// rules); Changed reports whether any cell was written so the caller
+    /// knows to bump NavCostField.Generation.
+    /// </summary>
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
+    internal struct StampCrustJob : IJob
+    {
+        // Structural impassability we must never overwrite with crust nor
+        // revert to walkable — a building/wall/gate owns those cells.
+        private const byte Structural = (byte)(NavCostField.FlagBuildingFootprint
+            | NavCostField.FlagStaticWall | NavCostField.FlagGate);
+
+        [ReadOnly] public NativeArray<byte> Saturation;
+        public int VeilWidth;
+        public int VeilHeight;
+        public float VeilCell;
+        public float2 VeilOrigin;
+        public NativeArray<byte> NavCost;
+        public NativeArray<byte> NavFlags;
+        [ReadOnly] public NativeArray<byte> TerrainCost;
+        public bool HasTerrainCost;
+        public int NavWidth;
+        public int NavHeight;
+        public float NavCellSize;
+        public float3 NavOrigin;
+        public NativeArray<byte> StampedCrust;
+        public bool NavWiped;
+        public bool CrustPhysical;
+        public NativeReference<byte> Changed;
+
+        public void Execute()
+        {
+            bool changed = false;
+
+            for (int nz = 0; nz < NavHeight; nz++)
+            {
+                float cz = NavOrigin.z + (nz + 0.5f) * NavCellSize;
+                int vz = (int)math.floor((cz - VeilOrigin.y) / VeilCell);
+                bool zIn = vz >= 0 && vz < VeilHeight;
+                int navRow = nz * NavWidth;
+                for (int nx = 0; nx < NavWidth; nx++)
+                {
+                    int idx = navRow + nx;
+                    byte sat = 0;
+                    if (zIn)
+                    {
+                        float cx = NavOrigin.x + (nx + 0.5f) * NavCellSize;
+                        int vx = (int)math.floor((cx - VeilOrigin.x) / VeilCell);
+                        if (vx >= 0 && vx < VeilWidth)
+                            sat = Saturation[vz * VeilWidth + vx];
+                    }
+                    bool crust = sat >= VeilField.CrustThreshold;
+
+                    bool was = StampedCrust[idx] != 0;
+                    bool structural = (NavFlags[idx] & Structural) != 0;
+
+                    if (crust && !structural)
+                    {
+                        // Wall mode: impassable. Travel-cost mode: finite,
+                        // saturation-scaled (deepening crust re-stamps via the
+                        // want-compare below). Re-apply on NavWiped even if we
+                        // think we already own it — the restamp may have
+                        // cleared our flag.
+                        byte want = CrustPhysical
+                            ? NavCostField.CostImpassable
+                            : VeilNavStampSystem.TravelCost(sat, HasTerrainCost
+                                ? TerrainCost[idx] : (byte)0);
+                        if (!was || NavWiped
+                            || NavCost[idx] != want
+                            || (NavFlags[idx] & NavCostField.FlagCrust) == 0)
+                        {
+                            NavCost[idx] = want;
+                            NavFlags[idx] = (byte)(NavFlags[idx] | NavCostField.FlagCrust);
+                            changed = true;
+                        }
+                        StampedCrust[idx] = 1;
+                    }
+                    else if (was)
+                    {
+                        // Crust receded here (or a building claimed the cell).
+                        // Only touch Cost if WE own it via FlagCrust — never
+                        // re-open a structural cell.
+                        if ((NavFlags[idx] & NavCostField.FlagCrust) != 0)
+                        {
+                            NavCost[idx] = HasTerrainCost
+                                ? TerrainCost[idx] : (byte)0;
+                            NavFlags[idx] = (byte)(NavFlags[idx] & ~NavCostField.FlagCrust);
+                            changed = true;
+                        }
+                        StampedCrust[idx] = 0;
+                    }
+                }
+            }
+
+            Changed.Value = changed ? (byte)1 : (byte)0;
         }
     }
 }

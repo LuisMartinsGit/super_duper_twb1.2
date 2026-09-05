@@ -4,7 +4,7 @@ using Unity.Transforms;
 using Unity.Mathematics;
 using UnityEngine;
 using TheWaningBorder.World.FogOfWar;
-using TheWaningBorder.Presentation;
+using TheWaningBorder.Rendering;
 using TheWaningBorder.Economy;
 
 namespace TheWaningBorder.Systems.Visibility
@@ -66,18 +66,25 @@ namespace TheWaningBorder.Systems.Visibility
             var transforms = query.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
 
+            // task-063 phase 1: sect FogVisionBonus removed with the
+            // FactionSectState bridge. Phase 2 reintroduces vision-related sect
+            // levers (e.g. Witness — All-Seeing).
+
+            // ONE Burst batch for every sighted entity — the per-entity
+            // managed Stamp loop was the bulk of the 4 Hz fog cost.
+            var commands = new NativeArray<FogOfWarManager.StampCommand>(
+                lineOfSights.Length, Allocator.Temp);
             for (int i = 0; i < lineOfSights.Length; i++)
             {
-                // Ensure valid radius
-                float radius = Mathf.Max(0.01f, lineOfSights[i].Radius);
-
-                // task-063 phase 1: sect FogVisionBonus removed with the
-                // FactionSectState bridge. Phase 2 reintroduces vision-related sect
-                // levers (e.g. Witness — All-Seeing).
-
-                // Stamp visibility circle for this unit's faction
-                mgr.Stamp(factions[i].Value, (Vector3)transforms[i].Position, radius);
+                commands[i] = new FogOfWarManager.StampCommand
+                {
+                    Position = (Vector3)transforms[i].Position,
+                    Radius = Mathf.Max(0.01f, lineOfSights[i].Radius),
+                    Faction = factions[i].Value,
+                };
             }
+            mgr.StampBatch(commands, commands.Length);
+            commands.Dispose();
 
             lineOfSights.Dispose();
             transforms.Dispose();

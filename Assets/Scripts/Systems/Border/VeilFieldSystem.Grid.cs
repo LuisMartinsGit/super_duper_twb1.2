@@ -3,6 +3,7 @@
 // Partial of VeilFieldSystem.cs -- split 2026-08-12 for readability.
 
 using Unity.Collections;
+using TheWaningBorder.Core;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
@@ -18,6 +19,20 @@ namespace TheWaningBorder.Systems.Border
 {
     public partial class VeilFieldSystem : SystemBase
     {
+
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and this one was never disposed. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_BorderMainNodeTagLocalTransform =
+        {
+            ComponentType.ReadOnly<BorderMainNodeTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery QC_BorderMainNodeTagLocalTransform;
+
+        #endregion
         // ─────────────────────────────────────────────────────────────
         // INITIALISATION + SEEDING
         // ─────────────────────────────────────────────────────────────
@@ -37,9 +52,7 @@ namespace TheWaningBorder.Systems.Border
             if (!TheWaningBorder.Multiplayer.LockstepFixedStep.Active
                 && !TerrainUtility.IsReady()) return false;
 
-            var wellQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<BorderMainNodeTag>(),
-                ComponentType.ReadOnly<LocalTransform>());
+            var wellQuery = QC_BorderMainNodeTagLocalTransform.Get(em, QT_BorderMainNodeTagLocalTransform);
             if (wellQuery.CalculateEntityCount() == 0) return false;
 
             // A re-initialise after the end-of-match entity wipe would

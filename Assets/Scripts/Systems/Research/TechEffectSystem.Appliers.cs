@@ -3,6 +3,7 @@
 // Partial of TechEffectSystem.cs -- split 2026-08-12 for readability.
 
 using UnityEngine;
+using TheWaningBorder.Core;
 using Unity.Collections;
 using Unity.Entities;
 using TheWaningBorder.Data;
@@ -12,6 +13,101 @@ namespace TheWaningBorder.Systems.Research
 {
     public partial class TechEffectSystem : MonoBehaviour
     {
+        static readonly ComponentType[] QT_HutTagFactionTag =
+        {
+            ComponentType.ReadOnly<HutTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_HutTagFactionTag;
+        static readonly ComponentType[] QT_ScoutSightStateFactionTag =
+        {
+            ComponentType.ReadOnly<TheWaningBorder.Abilities.ScoutSightState>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_ScoutSightStateFactionTag;
+        static readonly ComponentType[] QT_UnitTagArmorTypeDataFactionTag =
+        {
+            ComponentType.ReadOnly<UnitTag>(),
+            ComponentType.ReadOnly<ArmorTypeData>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_UnitTagArmorTypeDataFactionTag;
+        static readonly ComponentType[] QT_UnitTagUnitTypeIdFactionTag =
+        {
+            ComponentType.ReadOnly<UnitTag>(),
+            ComponentType.ReadOnly<UnitTypeId>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_UnitTagUnitTypeIdFactionTag;
+        static readonly ComponentType[] QT_LitharchTagFactionTag =
+        {
+            ComponentType.ReadOnly<LitharchTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_LitharchTagFactionTag;
+        static readonly ComponentType[] QT_BuildingTagFactionTagHealth =
+        {
+            ComponentType.ReadOnly<BuildingTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<Health>(),
+        };
+        static CachedEntityQuery QC_BuildingTagFactionTagHealth;
+        static readonly ComponentType[] QT_FiendstoneKeepTagFactionTagHealth =
+        {
+            ComponentType.ReadOnly<FiendstoneKeepTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<Health>(),
+        };
+        static CachedEntityQuery QC_FiendstoneKeepTagFactionTagHealth;
+        static readonly ComponentType[] QT_LitharchTagFactionTagDamage =
+        {
+            ComponentType.ReadOnly<LitharchTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<Damage>(),
+        };
+        static CachedEntityQuery QC_LitharchTagFactionTagDamage;
+        static readonly ComponentType[] QT_FactionTagArcherState =
+        {
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<ArcherState>(),
+        };
+        static CachedEntityQuery QC_FactionTagArcherState;
+        static readonly ComponentType[] QT_UnitTagFactionTagDamageTypeDataDamage =
+        {
+            ComponentType.ReadOnly<UnitTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<DamageTypeData>(),
+            ComponentType.ReadOnly<Damage>(),
+        };
+        static CachedEntityQuery QC_UnitTagFactionTagDamageTypeDataDamage;
+        static readonly ComponentType[] QT_FactionTagDefense =
+        {
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<Defense>(),
+        };
+        static CachedEntityQuery QC_FactionTagDefense;
+        static readonly ComponentType[] QT_FactionTagDamageTypeDataAttackCooldown =
+        {
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<DamageTypeData>(),
+            ComponentType.ReadOnly<AttackCooldown>(),
+        };
+        static CachedEntityQuery QC_FactionTagDamageTypeDataAttackCooldown;
+
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and this one was never disposed. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_MinerTagFactionTagMinerState =
+        {
+            ComponentType.ReadOnly<MinerTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<MinerState>(),
+        };
+        static CachedEntityQuery QC_MinerTagFactionTagMinerState;
+
+        #endregion
         // ═══════════════════════════════════════════════════════════════
         // EFFECT APPLICATION
         // ═══════════════════════════════════════════════════════════════
@@ -21,11 +117,7 @@ namespace TheWaningBorder.Systems.Research
         /// </summary>
         private static void ApplyMinerEffects(EntityManager em, Faction faction, TechEffects effects)
         {
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<MinerTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadWrite<MinerState>()
-            );
+            var query = QC_MinerTagFactionTagMinerState.Get(em, QT_MinerTagFactionTagMinerState);
 
             using var entities = query.ToEntityArray(Allocator.Temp);
             using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
@@ -53,11 +145,7 @@ namespace TheWaningBorder.Systems.Research
         /// </summary>
         private static void ApplyMeleeAttackSpeedEffect(EntityManager em, Faction faction, float multiplier)
         {
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<DamageTypeData>(),
-                ComponentType.ReadWrite<AttackCooldown>()
-            );
+            var query = QC_FactionTagDamageTypeDataAttackCooldown.Get(em, QT_FactionTagDamageTypeDataAttackCooldown);
 
             using var entities = query.ToEntityArray(Allocator.Temp);
             using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
@@ -83,10 +171,7 @@ namespace TheWaningBorder.Systems.Research
         /// </summary>
         private static void ApplyMeleeDefenseEffect(EntityManager em, Faction faction, int bonus)
         {
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadWrite<Defense>()
-            );
+            var query = QC_FactionTagDefense.Get(em, QT_FactionTagDefense);
 
             using var entities = query.ToEntityArray(Allocator.Temp);
             using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
@@ -116,12 +201,7 @@ namespace TheWaningBorder.Systems.Research
         /// </summary>
         private static void ApplyDamageAddEffect(EntityManager em, Faction faction, DamageType dmgType, int bonus)
         {
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<UnitTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<DamageTypeData>(),
-                ComponentType.ReadWrite<Damage>()
-            );
+            var query = QC_UnitTagFactionTagDamageTypeDataDamage.Get(em, QT_UnitTagFactionTagDamageTypeDataDamage);
 
             using var entities = query.ToEntityArray(Allocator.Temp);
             using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
@@ -144,10 +224,7 @@ namespace TheWaningBorder.Systems.Research
         /// <summary>Fletching: multiply every faction Archer's max range.</summary>
         private static void ApplyArcherRangeEffect(EntityManager em, Faction faction, float mult)
         {
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadWrite<ArcherState>()
-            );
+            var query = QC_FactionTagArcherState.Get(em, QT_FactionTagArcherState);
 
             using var entities = query.ToEntityArray(Allocator.Temp);
             using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
@@ -171,11 +248,7 @@ namespace TheWaningBorder.Systems.Research
         /// </summary>
         private static void ApplyWarriorPriests(EntityManager em, Faction faction)
         {
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<LitharchTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadWrite<Damage>()
-            );
+            var query = QC_LitharchTagFactionTagDamage.Get(em, QT_LitharchTagFactionTagDamage);
 
             using var entities = query.ToEntityArray(Allocator.Temp);
             using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
@@ -216,11 +289,7 @@ namespace TheWaningBorder.Systems.Research
         /// </summary>
         private static void ApplyReinforcedWalls(EntityManager em, Faction faction)
         {
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<FiendstoneKeepTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadWrite<Health>()
-            );
+            var query = QC_FiendstoneKeepTagFactionTagHealth.Get(em, QT_FiendstoneKeepTagFactionTagHealth);
 
             using var entities = query.ToEntityArray(Allocator.Temp);
             using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
@@ -240,10 +309,7 @@ namespace TheWaningBorder.Systems.Research
         /// buildings (design 2026-07: tree value wins over the old +15%).</summary>
         private static void ApplyMasonGuild(EntityManager em, Faction faction)
         {
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<BuildingTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadWrite<Health>());
+            var query = QC_BuildingTagFactionTagHealth.Get(em, QT_BuildingTagFactionTagHealth);
             using var entities = query.ToEntityArray(Allocator.Temp);
             using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var healths = query.ToComponentDataArray<Health>(Allocator.Temp);
@@ -264,9 +330,7 @@ namespace TheWaningBorder.Systems.Research
         {
             int idx = TheWaningBorder.Abilities.AbilityCatalog.IndexOf("Deploy Field Hospital");
             if (idx < 0) return;
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<LitharchTag>(),
-                ComponentType.ReadOnly<FactionTag>());
+            var query = QC_LitharchTagFactionTag.Get(em, QT_LitharchTagFactionTag);
             using var entities = query.ToEntityArray(Allocator.Temp);
             using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
             for (int i = 0; i < entities.Length; i++)
@@ -288,10 +352,7 @@ namespace TheWaningBorder.Systems.Research
         private static void GrantPassiveToUnits(EntityManager em, Faction faction,
             AlanthorPassiveTarget roster, System.Action<Entity> stamp)
         {
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<UnitTag>(),
-                ComponentType.ReadOnly<UnitTypeId>(),
-                ComponentType.ReadOnly<FactionTag>());
+            var query = QC_UnitTagUnitTypeIdFactionTag.Get(em, QT_UnitTagUnitTypeIdFactionTag);
             using var entities = query.ToEntityArray(Allocator.Temp);
             using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
             for (int i = 0; i < entities.Length; i++)
@@ -339,10 +400,7 @@ namespace TheWaningBorder.Systems.Research
         {
             int idx = TheWaningBorder.Abilities.AbilityCatalog.IndexOf(abilityName);
             if (idx < 0) return;
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<UnitTag>(),
-                ComponentType.ReadOnly<ArmorTypeData>(),
-                ComponentType.ReadOnly<FactionTag>());
+            var query = QC_UnitTagArmorTypeDataFactionTag.Get(em, QT_UnitTagArmorTypeDataFactionTag);
             using var entities = query.ToEntityArray(Allocator.Temp);
             using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
             for (int i = 0; i < entities.Length; i++)
@@ -360,9 +418,7 @@ namespace TheWaningBorder.Systems.Research
         {
             int idx = TheWaningBorder.Abilities.AbilityCatalog.IndexOf("Use Celestar");
             if (idx < 0) return;
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<TheWaningBorder.Abilities.ScoutSightState>(),
-                ComponentType.ReadOnly<FactionTag>());
+            var query = QC_ScoutSightStateFactionTag.Get(em, QT_ScoutSightStateFactionTag);
             using var entities = query.ToEntityArray(Allocator.Temp);
             using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
             for (int i = 0; i < entities.Length; i++)
@@ -382,9 +438,7 @@ namespace TheWaningBorder.Systems.Research
             if (TechCatalog.TryGetUnit("Scout", out var def) && def.damage > 0)
                 damage = (int)def.damage;
 
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<TheWaningBorder.Abilities.ScoutSightState>(),
-                ComponentType.ReadOnly<FactionTag>());
+            var query = QC_ScoutSightStateFactionTag.Get(em, QT_ScoutSightStateFactionTag);
             using var entities = query.ToEntityArray(Allocator.Temp);
             using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
             for (int i = 0; i < entities.Length; i++)
@@ -404,9 +458,7 @@ namespace TheWaningBorder.Systems.Research
 
         private static void ApplyRetaliatoryMeasures(EntityManager em, Faction faction)
         {
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<HutTag>(),
-                ComponentType.ReadOnly<FactionTag>());
+            var query = QC_HutTagFactionTag.Get(em, QT_HutTagFactionTag);
             using var entities = query.ToEntityArray(Allocator.Temp);
             using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
             for (int i = 0; i < entities.Length; i++)

@@ -13,36 +13,34 @@ namespace TheWaningBorder.Core
         public int Iron;
         public int Veilstone;
         public int Veilsteel;
-        public int Glow;
 
         /// <summary>
         /// Create a Cost with specified values. Unspecified values default to 0.
         /// </summary>
-        public static Cost Of(int supplies = 0, int iron = 0, int veilstone = 0, 
-                              int veilsteel = 0, int glow = 0)
+        public static Cost Of(int supplies = 0, int iron = 0, int veilstone = 0,
+                              int veilsteel = 0)
         {
             return new Cost
             {
                 Supplies = supplies,
                 Iron = iron,
                 Veilstone = veilstone,
-                Veilsteel = veilsteel,
-                Glow = glow
+                Veilsteel = veilsteel
             };
         }
 
         /// <summary>
         /// Returns true if all resource costs are zero.
         /// </summary>
-        public bool IsZero => Supplies == 0 && Iron == 0 && Veilstone == 0 && 
-                              Veilsteel == 0 && Glow == 0;
-        
+        public bool IsZero => Supplies == 0 && Iron == 0 && Veilstone == 0 &&
+                              Veilsteel == 0;
+
         /// <summary>
         /// Get total "value" of resources (simple weighted sum for AI evaluation).
         /// </summary>
-        public int TotalValue => Supplies + (Iron * 2) + (Veilstone * 3) + 
-                                 (Veilsteel * 5) + (Glow * 4);
-        
+        public int TotalValue => Supplies + (Iron * 2) + (Veilstone * 3) +
+                                 (Veilsteel * 5);
+
         /// <summary>
         /// Add two costs together.
         /// </summary>
@@ -53,11 +51,10 @@ namespace TheWaningBorder.Core
                 Supplies = a.Supplies + b.Supplies,
                 Iron = a.Iron + b.Iron,
                 Veilstone = a.Veilstone + b.Veilstone,
-                Veilsteel = a.Veilsteel + b.Veilsteel,
-                Glow = a.Glow + b.Glow
+                Veilsteel = a.Veilsteel + b.Veilsteel
             };
         }
-        
+
         /// <summary>
         /// Multiply cost by a scalar (for batch costs).
         /// </summary>
@@ -68,8 +65,7 @@ namespace TheWaningBorder.Core
                 Supplies = c.Supplies * multiplier,
                 Iron = c.Iron * multiplier,
                 Veilstone = c.Veilstone * multiplier,
-                Veilsteel = c.Veilsteel * multiplier,
-                Glow = c.Glow * multiplier
+                Veilsteel = c.Veilsteel * multiplier
             };
         }
 
@@ -83,7 +79,6 @@ namespace TheWaningBorder.Core
             if (Iron > 0) parts.Add($"{Iron} Iron");
             if (Veilstone > 0) parts.Add($"{Veilstone} Veilstone");
             if (Veilsteel > 0) parts.Add($"{Veilsteel} Veilsteel");
-            if (Glow > 0) parts.Add($"{Glow} Glow");
             return parts.Count > 0 ? string.Join(", ", parts) : "Free";
         }
     }

@@ -39,6 +39,7 @@
 //     considered current (M3 fall-through).
 
 using Unity.Collections;
+using TheWaningBorder.Core;
 using Unity.Entities;
 using Unity.Mathematics;
 using EntityWorld = Unity.Entities.World;
@@ -56,6 +57,32 @@ namespace TheWaningBorder.Systems.Navigation
     [UpdateBefore(typeof(AbstractPathfinderSystem))]
     public partial struct NavRequestSchedulerSystem : ISystem
     {
+
+        #region Cached queries
+
+        // EnqueueRequest runs once PER UNIT of every move order, and built a
+        // fresh query each time just to reach a singleton. Creating a query
+        // matches every archetype in the world. See Core/CachedEntityQuery.cs.
+        static readonly ComponentType[] QueueTypes = { typeof(NavRequestQueueSingleton) };
+        static CachedEntityQuery _queueQuery;
+
+        #endregion
+
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and these were never disposed, so this hot path leaked one
+        // per invocation. A bloated registry slows every later query AND
+        // every structural change. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_NavRequestQueueSingleton =
+        {
+            ComponentType.ReadOnly<NavRequestQueueSingleton>(),
+        };
+        static CachedEntityQuery QC_NavRequestQueueSingleton;
+
+        #endregion
+
         private Entity _queueEntity;
         private byte _initialised;
         /// <summary>System-side mirror of the singleton's pending list, so a
@@ -286,10 +313,9 @@ namespace TheWaningBorder.Systems.Navigation
         {
             if (!em.Exists(requester)) return;
 
-            var queueQuery = em.CreateEntityQuery(typeof(NavRequestQueueSingleton));
+            var queueQuery = _queueQuery.Get(em, QueueTypes);
             if (queueQuery.IsEmptyIgnoreFilter)
             {
-                queueQuery.Dispose();
                 // Fall-back: attach the request directly so the unit
                 // still gets a path on the next AbstractPathfinder tick.
                 // The scheduler will pick up the slack as soon as it
@@ -309,8 +335,9 @@ namespace TheWaningBorder.Systems.Navigation
                 return;
             }
 
+            // NOT disposed: the query is cached and reused. Disposing it here
+            // would kill it for every later path request.
             var queue = queueQuery.GetSingleton<NavRequestQueueSingleton>();
-            queueQuery.Dispose();
             if (!queue.Pending.IsCreated) return;
 
             queue.Pending.Add(new PendingNavRequest
@@ -327,7 +354,7 @@ namespace TheWaningBorder.Systems.Navigation
             // Write the queue back so the new entry sticks even though
             // NativeList is a reference type internally -- SetSingleton
             // is required for the singleton bookkeeping (no auto-write).
-            var entity = em.CreateEntityQuery(typeof(NavRequestQueueSingleton)).GetSingletonEntity();
+            var entity = QC_NavRequestQueueSingleton.Get(em, QT_NavRequestQueueSingleton).GetSingletonEntity();
             em.SetComponentData(entity, queue);
         }
     }

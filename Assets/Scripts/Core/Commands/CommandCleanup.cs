@@ -56,8 +56,7 @@ namespace TheWaningBorder.Core.Commands
         /// </summary>
         public static void ClearCombat(EntityManager em, Entity unit)
         {
-            if (em.HasComponent<Types.AttackCommand>(unit))
-                em.RemoveComponent<Types.AttackCommand>(unit);
+            TransientState.Clear<Types.AttackCommand>(em, unit);
 
             if (em.HasComponent<Target>(unit))
                 em.SetComponentData(unit, new Target { Value = Entity.Null });
@@ -70,15 +69,10 @@ namespace TheWaningBorder.Core.Commands
         /// </summary>
         public static void ClearMovement(EntityManager em, Entity unit)
         {
-            if (em.HasComponent<Types.AttackMoveCommand>(unit))
-                em.RemoveComponent<Types.AttackMoveCommand>(unit);
-            if (em.HasComponent<AttackMoveTag>(unit))
-                em.RemoveComponent<AttackMoveTag>(unit);
-
-            if (em.HasComponent<Types.MoveCommand>(unit))
-                em.RemoveComponent<Types.MoveCommand>(unit);
-            if (em.HasComponent<UserMoveOrder>(unit))
-                em.RemoveComponent<UserMoveOrder>(unit);
+            TransientState.Clear<Types.AttackMoveCommand>(em, unit);
+            TransientState.Clear<AttackMoveTag>(em, unit);
+            TransientState.Clear<Types.MoveCommand>(em, unit);
+            TransientState.Clear<UserMoveOrder>(em, unit);
         }
     }
 }

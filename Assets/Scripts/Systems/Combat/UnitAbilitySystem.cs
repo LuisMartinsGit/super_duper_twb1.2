@@ -2,6 +2,7 @@
 // Processes sect unit abilities: cooldowns, activation, and effect timers
 
 using Unity.Collections;
+using TheWaningBorder.Core;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -21,6 +22,32 @@ namespace TheWaningBorder.Systems.Combat
     [UpdateBefore(typeof(MeleeCombatSystem))]
     public partial struct UnitAbilitySystem : ISystem
     {
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and these were never disposed, so this hot path leaked one
+        // per invocation. A bloated registry slows every later query AND
+        // every structural change. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_UnitTagFactionTagLocalTransformHealth =
+        {
+            ComponentType.ReadOnly<UnitTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<Health>(),
+        };
+        static CachedEntityQuery QC_UnitTagFactionTagLocalTransformHealth;
+
+        static readonly ComponentType[] QT_UnitTagFactionTagLocalTransform =
+        {
+            ComponentType.ReadOnly<UnitTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery QC_UnitTagFactionTagLocalTransform;
+
+        #endregion
+
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
@@ -93,8 +120,7 @@ namespace TheWaningBorder.Systems.Combat
                     case AbilityId.Dispel:
                         if (target != Entity.Null && em.Exists(target))
                         {
-                            if (em.HasComponent<SpellBuff>(target))
-                                ecb.RemoveComponent<SpellBuff>(target);
+                            TransientState.Clear<SpellBuff>(em, target);
                             if (em.HasComponent<SpellDebuff>(target))
                                 ecb.RemoveComponent<SpellDebuff>(target);
                             if (em.HasComponent<Condemned>(target))
@@ -271,12 +297,7 @@ namespace TheWaningBorder.Systems.Combat
         private static void ApplyAoeDamage(EntityManager em, float3 center, Faction casterFaction,
             float radius, int damage, Entity caster)
         {
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<UnitTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadWrite<Health>()
-            );
+            var query = QC_UnitTagFactionTagLocalTransformHealth.Get(em, QT_UnitTagFactionTagLocalTransformHealth);
 
             var entities = query.ToEntityArray(Allocator.Temp);
             var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
@@ -319,11 +340,7 @@ namespace TheWaningBorder.Systems.Combat
         private static void ApplyAoeBuff(EntityManager em, EntityCommandBuffer ecb,
             float3 center, Faction casterFaction, float radius, Entity caster)
         {
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<UnitTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<LocalTransform>()
-            );
+            var query = QC_UnitTagFactionTagLocalTransform.Get(em, QT_UnitTagFactionTagLocalTransform);
 
             var entities = query.ToEntityArray(Allocator.Temp);
             var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
@@ -369,11 +386,7 @@ namespace TheWaningBorder.Systems.Combat
         private static void ApplyAoeSlow(EntityManager em, EntityCommandBuffer ecb,
             float3 center, Faction casterFaction, float radius, Entity caster)
         {
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<UnitTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<LocalTransform>()
-            );
+            var query = QC_UnitTagFactionTagLocalTransform.Get(em, QT_UnitTagFactionTagLocalTransform);
 
             var entities = query.ToEntityArray(Allocator.Temp);
             var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);

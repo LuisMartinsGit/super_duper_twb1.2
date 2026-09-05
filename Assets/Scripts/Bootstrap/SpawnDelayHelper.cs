@@ -2,6 +2,7 @@
 // Waits for terrain before spawning players
 
 using System.Collections;
+using TheWaningBorder.Core;
 using UnityEngine;
 using Unity.Entities;
 using Unity.Transforms;
@@ -11,11 +12,33 @@ using TheWaningBorder.World.MapMarkers;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Input;
 using TheWaningBorder.UI.Menus;
+using TheWaningBorder.CameraRig;
 
 namespace TheWaningBorder.Bootstrap
 {
     public class SpawnDelayHelper : MonoBehaviour
     {
+        static readonly ComponentType[] QT_HallTagFactionTagLocalTransform =
+        {
+            ComponentType.ReadOnly<HallTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery QC_HallTagFactionTagLocalTransform;
+
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and this one was never disposed. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_HallTagLocalTransform =
+        {
+            ComponentType.ReadOnly<HallTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery QC_HallTagLocalTransform;
+
+        #endregion
 
         public IEnumerator WaitForTerrainAndSpawn()
         {
@@ -166,9 +189,7 @@ namespace TheWaningBorder.Bootstrap
             if (world == null || !world.IsCreated) return;
             var em = world.EntityManager;
 
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<HallTag>(),
-                ComponentType.ReadOnly<LocalTransform>());
+            var query = QC_HallTagLocalTransform.Get(em, QT_HallTagLocalTransform);
             using var transforms = query.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             if (transforms.Length == 0) return;
 
@@ -190,11 +211,7 @@ namespace TheWaningBorder.Bootstrap
             var em = world.EntityManager;
             var faction = GameSettings.LocalPlayerFaction;
 
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<HallTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<LocalTransform>()
-            );
+            var query = QC_HallTagFactionTagLocalTransform.Get(em, QT_HallTagFactionTagLocalTransform);
 
             using var entities = query.ToEntityArray(Allocator.Temp);
             using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
@@ -205,7 +222,7 @@ namespace TheWaningBorder.Bootstrap
                 if (factions[i].Value == faction)
                 {
                     var pos = transforms[i].Position;
-                    GameCamera.FocusOn(new Vector3(pos.x, pos.y, pos.z), instant: true);
+                    CameraController.FocusOn(new Vector3(pos.x, pos.y, pos.z), instant: true);
                     return;
                 }
             }

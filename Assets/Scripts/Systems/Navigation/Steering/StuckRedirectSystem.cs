@@ -73,7 +73,7 @@ public struct StuckTracker : IComponentData
 /// point, which re-arms the leash automatically with no expiry to tune and no
 /// slow oscillation once the timer lapses.
 /// </summary>
-public struct GuardSuppressed : IComponentData
+public struct GuardSuppressed : IComponentData, IEnableableComponent
 {
     public float3 Point;
 
@@ -289,8 +289,8 @@ namespace TheWaningBorder.Systems.Navigation
                 }
 
                 // Crowded arrival: close enough + provably can't get closer.
-                if (em.HasComponent<UserMoveOrder>(e)) em.RemoveComponent<UserMoveOrder>(e);
-                if (em.HasComponent<AttackMoveTag>(e)) em.RemoveComponent<AttackMoveTag>(e);
+                TransientState.Clear<UserMoveOrder>(em, e);
+                TransientState.Clear<AttackMoveTag>(em, e);
                 ClearDest(em, e);
                 // ...and tell the leash so, or return-to-guard reads the state
                 // we just produced as "idle unit off its post" and marches the
@@ -324,8 +324,7 @@ namespace TheWaningBorder.Systems.Navigation
                 && em.GetComponentData<Target>(entity).Value != Entity.Null)
             {
                 em.SetComponentData(entity, new Target { Value = Entity.Null });
-                if (em.HasComponent<AttackCommand>(entity))
-                    em.RemoveComponent<AttackCommand>(entity);
+                TransientState.Clear<AttackCommand>(em, entity);
                 ClearDest(em, entity);
                 return;
             }
@@ -366,8 +365,8 @@ namespace TheWaningBorder.Systems.Navigation
             if (em.HasComponent<BuildCommand>(entity)) em.RemoveComponent<BuildCommand>(entity);
             if (em.HasComponent<BuildOrder>(entity)) em.RemoveComponent<BuildOrder>(entity);
             if (em.HasComponent<RepairOrder>(entity)) em.RemoveComponent<RepairOrder>(entity);
-            if (em.HasComponent<UserMoveOrder>(entity)) em.RemoveComponent<UserMoveOrder>(entity);
-            if (em.HasComponent<AttackMoveTag>(entity)) em.RemoveComponent<AttackMoveTag>(entity);
+            TransientState.Clear<UserMoveOrder>(em, entity);
+            TransientState.Clear<AttackMoveTag>(em, entity);
             ClearDest(em, entity);
             // The order is abandoned for good — the leash must not resurrect
             // it on the next tick (that is what made the cancel pointless even
@@ -390,11 +389,7 @@ namespace TheWaningBorder.Systems.Navigation
             var gp = em.GetComponentData<GuardPoint>(entity);
             if (gp.Has == 0) return;
 
-            var mark = new GuardSuppressed { Point = gp.Position };
-            if (em.HasComponent<GuardSuppressed>(entity))
-                em.SetComponentData(entity, mark);
-            else
-                em.AddComponentData(entity, mark);
+            TransientState.Set(em, entity, new GuardSuppressed { Point = gp.Position });
         }
 
         private static void ClearMiner(EntityManager em, Entity entity)

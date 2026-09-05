@@ -36,6 +36,40 @@ namespace TheWaningBorder.Core.Commands
     // public Issue* API, routing decisions, and direct helpers.
     public static partial class CommandRouter
     {
+
+        #region Cached queries
+
+        // CreateEntityQuery registers a new query with the world on every call.
+        // None of these three were disposed, so every equipment upgrade, god
+        // power and building-cap check leaked one into the registry — and a
+        // bloated registry slows every later query AND every structural
+        // change. See Core/CachedEntityQuery.cs.
+        static readonly ComponentType[] EquipTierTypes =
+        {
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadWrite<FactionEquipmentTier>(),
+        };
+        static CachedEntityQuery _equipTierQuery;
+
+        static readonly ComponentType[] GodPowerTypes =
+        {
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadWrite<GodPowerState>(),
+        };
+        static CachedEntityQuery _godPowerQuery;
+
+        /// <summary>One cached "tagged T owned by a faction" query per T —
+        /// statics in a generic class are per constructed type, which is
+        /// exactly the lifetime a generic helper needs.</summary>
+        static class TaggedFaction<T> where T : unmanaged, IComponentData
+        {
+            public static readonly ComponentType[] Types =
+                { ComponentType.ReadOnly<T>(), ComponentType.ReadOnly<FactionTag>() };
+            public static CachedEntityQuery Query;
+        }
+
+        #endregion
+
         // ═══════════════════════════════════════════════════════════════
         // CONFIGURATION
         // ═══════════════════════════════════════════════════════════════
@@ -474,9 +508,7 @@ namespace TheWaningBorder.Core.Commands
             UnitClass unitClass, EquipmentTier targetTier)
         {
             // Find the faction's tier entity (created in EconomyBootstrap).
-            var q = em.CreateEntityQuery(
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadWrite<FactionEquipmentTier>());
+            var q = _equipTierQuery.Get(em, EquipTierTypes);
             using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
             using var tags = q.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
             Entity tierEntity = Entity.Null;
@@ -547,9 +579,7 @@ namespace TheWaningBorder.Core.Commands
             Unity.Mathematics.float3 targetPosition)
         {
             // Find the faction's bank entity.
-            var q = em.CreateEntityQuery(
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadWrite<GodPowerState>());
+            var q = _godPowerQuery.Get(em, GodPowerTypes);
             using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
             using var tags = q.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
             Entity bank = Entity.Null;
@@ -1538,9 +1568,7 @@ namespace TheWaningBorder.Core.Commands
         private static int CountFactionBuildings<T>(EntityManager em, Faction faction)
             where T : unmanaged, IComponentData
         {
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<T>(),
-                ComponentType.ReadOnly<FactionTag>());
+            var query = TaggedFaction<T>.Query.Get(em, TaggedFaction<T>.Types);
             using var facs = query.ToComponentDataArray<FactionTag>(
                 Unity.Collections.Allocator.Temp);
             int count = 0;
@@ -1721,8 +1749,7 @@ namespace TheWaningBorder.Core.Commands
                     supplies:  (int)(cost.Supplies  * buildMult),
                     iron:      (int)(cost.Iron      * buildMult),
                     veilstone: (int)(cost.Veilstone * buildMult),
-                    veilsteel: (int)(cost.Veilsteel * buildMult),
-                    glow:      (int)(cost.Glow      * buildMult));
+                    veilsteel: (int)(cost.Veilsteel * buildMult));
             if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost))
                 return Entity.Null;
 
@@ -1905,10 +1932,8 @@ namespace TheWaningBorder.Core.Commands
         /// </summary>
         public static void ClearAllCommands(EntityManager em, Entity unit)
         {
-            if (em.HasComponent<Types.MoveCommand>(unit))
-                em.RemoveComponent<Types.MoveCommand>(unit);
-            if (em.HasComponent<Types.AttackCommand>(unit))
-                em.RemoveComponent<Types.AttackCommand>(unit);
+            TransientState.Clear<Types.MoveCommand>(em, unit);
+            TransientState.Clear<Types.AttackCommand>(em, unit);
             if (em.HasComponent<Types.BuildCommand>(unit))
                 em.RemoveComponent<Types.BuildCommand>(unit);
             if (em.HasComponent<BuildOrder>(unit))
@@ -1932,12 +1957,9 @@ namespace TheWaningBorder.Core.Commands
                 em.RemoveComponent<Types.ConvertCommand>(unit);
             if (em.HasComponent<DesiredDestination>(unit))
                 em.SetComponentData(unit, new DesiredDestination { Has = 0 });
-            if (em.HasComponent<UserMoveOrder>(unit))
-                em.RemoveComponent<UserMoveOrder>(unit);
-            if (em.HasComponent<AttackMoveTag>(unit))
-                em.RemoveComponent<AttackMoveTag>(unit);
-            if (em.HasComponent<Types.AttackMoveCommand>(unit))
-                em.RemoveComponent<Types.AttackMoveCommand>(unit);
+            TransientState.Clear<UserMoveOrder>(em, unit);
+            TransientState.Clear<AttackMoveTag>(em, unit);
+            TransientState.Clear<Types.AttackMoveCommand>(em, unit);
             if (em.HasComponent<PatrolTag>(unit))
                 em.RemoveComponent<PatrolTag>(unit);
             if (em.HasComponent<PatrolAgent>(unit))
@@ -1974,8 +1996,7 @@ namespace TheWaningBorder.Core.Commands
             // Out of the formation for good, so forget the slot too —
             // otherwise a later formation order would put this unit back
             // into a rank it has long since left.
-            if (em.HasComponent<FormationSlotMemory>(unit))
-                em.RemoveComponent<FormationSlotMemory>(unit);
+            TransientState.Clear<FormationSlotMemory>(em, unit);
         }
     }
 }

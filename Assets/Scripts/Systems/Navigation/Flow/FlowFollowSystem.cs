@@ -7,15 +7,19 @@
 //
 //   1. LOS-to-goal — straight bearing when the goal is directly visible
 //      over the cost grid (smooth, unquantized motion on open ground).
-//   2. The whole-map GOAL FLOW FIELD for (goalCell, faction), produced by
-//      GoalFlowFieldSystem. Correct by construction — it is a global
-//      integration from the goal, so concave obstacles ("U" shapes), long
-//      walls, and multi-gap routes are all handled with one array read.
-//      A NoDirection cell means the goal is PROVABLY unreachable from
-//      here: the unit holds position instead of grinding into the blocker.
-//   3. Direct-to-goal — only while the field is still integrating (the
-//      producer budgets integrations per tick, so this covers a tick or
-//      two after a fresh order).
+//   2. The GOAL FLOW FIELD for (goalCell, faction), produced by
+//      GoalFlowFieldSystem. Correct by construction inside its covered
+//      region — it is an integration from the goal, so concave obstacles
+//      ("U" shapes), long walls, and multi-gap routes are all handled
+//      with one array read. A NoDirection cell means the goal is PROVABLY
+//      unreachable from here (only a fully swept field writes it): the
+//      unit holds position instead of grinding into the blocker. A
+//      NotCovered cell means the seeker-bounded sweep stopped short —
+//      treated exactly like a pending field (source 3), and the producer
+//      re-integrates with this unit as a seeker.
+//   3. Direct-to-goal — while the field is still integrating or does not
+//      cover the unit's cell (the producer budgets integrations per tick,
+//      so this covers a tick or two after a fresh order).
 //
 // Formations need nothing special here: each unit's formation slot is its
 // own DesiredDestination, hence its own field key; slots sharing a cell
@@ -200,6 +204,7 @@ namespace TheWaningBorder.Systems.Navigation
 
             bool goalOnDeck = Cost[gz * GridWidth + gx] == NavCostField.CostBridgeDeckOnly;
             bool anyFieldSeen = false;
+            bool anyNotCovered = false;
 
             for (byte variant = 0; variant <= 1 && unitCellValid; variant++)
             {
@@ -224,6 +229,15 @@ namespace TheWaningBorder.Systems.Navigation
                 anyFieldSeen = true;
 
                 byte d = GoalDirPool[meta.DirOffset + ucz * GridWidth + ucx];
+                if (d == NavFlowConstants.NotCovered)
+                {
+                    // The seeker-bounded sweep stopped short of this cell —
+                    // no verdict here. Fall back to the direct bearing this
+                    // tick; the producer re-integrates the field with this
+                    // unit as a seeker as soon as it sees the gap.
+                    anyNotCovered = true;
+                    continue;
+                }
                 if (d != NavFlowConstants.NoDirection)
                 {
                     ref var dirs = ref Table.Value.Dirs;
@@ -236,7 +250,9 @@ namespace TheWaningBorder.Systems.Navigation
                 // the goal) — try the next variant.
             }
 
-            if (anyFieldSeen)
+            // The hold verdict below is only sound when every variant gave
+            // an explicit answer — an uncovered field is not an answer.
+            if (anyFieldSeen && !anyNotCovered)
             {
                 // Every available variant gave an explicit NoDirection. That
                 // legitimately means "at the goal / provably unreachable" —

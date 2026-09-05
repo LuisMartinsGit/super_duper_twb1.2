@@ -45,6 +45,16 @@ namespace TheWaningBorder.Systems.Combat
         /// </summary>
         private const float MaxPursuitDistance = 30f;
 
+        /// <summary>
+        /// How close a FORMATION attack-move must get to its destination
+        /// before its members may start auto-acquiring targets. Beyond it
+        /// they hold rank and march; inside it the assault opens normally
+        /// (2026-09-03 directive: "armies must stay in formation until they
+        /// are 20 units away from their target"). Retaliation while under
+        /// fire is exempt — see the gate in the acquire pass.
+        /// </summary>
+        private const float FormationHoldRadius = 20f;
+
         // How far off its guard point an idle unit must be before the leash
         // walks it home.
         //

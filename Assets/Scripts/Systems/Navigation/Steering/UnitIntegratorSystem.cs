@@ -131,7 +131,7 @@ namespace TheWaningBorder.Systems.Navigation
             {
                 if (SystemAPI.HasComponent<BuildingTag>(entity))
                 {
-                    ecb.RemoveComponent<MoveCommand>(entity);
+                    TransientState.Clear<MoveCommand>(em, ecb, entity);
                     if (em.HasComponent<DesiredDestination>(entity))
                     {
                         var dd = em.GetComponentData<DesiredDestination>(entity);
@@ -152,15 +152,14 @@ namespace TheWaningBorder.Systems.Navigation
                 if (em.HasComponent<Target>(entity))
                     ecb.SetComponent(entity, new Target { Value = Entity.Null });
 
-                if (!em.HasComponent<UserMoveOrder>(entity))
-                    ecb.AddComponent<UserMoveOrder>(entity);
+                TransientState.SetFlag<UserMoveOrder>(ecb, entity);
 
                 if (em.HasComponent<SmoothedDirection>(entity))
                     ecb.SetComponent(entity, new SmoothedDirection { Value = float3.zero });
                 if (em.HasComponent<StuckState>(entity))
                     ecb.SetComponent(entity, new StuckState { Counter = 0, LastAttempt = 0 });
 
-                ecb.RemoveComponent<MoveCommand>(entity);
+                TransientState.Clear<MoveCommand>(em, ecb, entity);
             }
 
             // ── PHASE 1b: AttackMoveCommand -> DesiredDestination ───────
@@ -168,7 +167,7 @@ namespace TheWaningBorder.Systems.Navigation
             {
                 if (SystemAPI.HasComponent<BuildingTag>(entity))
                 {
-                    ecb.RemoveComponent<AttackMoveCommand>(entity);
+                    TransientState.Clear<AttackMoveCommand>(em, ecb, entity);
                     continue;
                 }
 
@@ -183,18 +182,16 @@ namespace TheWaningBorder.Systems.Navigation
                 if (em.HasComponent<Target>(entity))
                     ecb.SetComponent(entity, new Target { Value = Entity.Null });
 
-                if (!em.HasComponent<AttackMoveTag>(entity))
-                    ecb.AddComponent<AttackMoveTag>(entity);
+                TransientState.SetFlag<AttackMoveTag>(ecb, entity);
 
-                if (em.HasComponent<UserMoveOrder>(entity))
-                    ecb.RemoveComponent<UserMoveOrder>(entity);
+                TransientState.Clear<UserMoveOrder>(em, ecb, entity);
 
                 if (em.HasComponent<SmoothedDirection>(entity))
                     ecb.SetComponent(entity, new SmoothedDirection { Value = float3.zero });
                 if (em.HasComponent<StuckState>(entity))
                     ecb.SetComponent(entity, new StuckState { Counter = 0, LastAttempt = 0 });
 
-                ecb.RemoveComponent<AttackMoveCommand>(entity);
+                TransientState.Clear<AttackMoveCommand>(em, ecb, entity);
             }
 
             // ── PHASE 2: integrate units toward DesiredDestination ──────
@@ -256,7 +253,7 @@ namespace TheWaningBorder.Systems.Navigation
                         speed *= (1f - math.min(0.9f, bd.SpeedPenalty));
                 }
                 if (em.HasComponent<Fortified>(entity)) speed = 0f;
-                if (em.HasComponent<SpellBuff>(entity))
+                if (TransientState.Active<SpellBuff>(em, entity))
                 {
                     var buff = em.GetComponentData<SpellBuff>(entity);
                     if (buff.SpeedMultiplier > 0f && buff.SpeedMultiplier != 1f)
@@ -286,7 +283,7 @@ namespace TheWaningBorder.Systems.Navigation
                 // has to live here.
                 if (em.HasComponent<ArcherTag>(entity)
                     && em.HasComponent<Target>(entity)
-                    && !em.HasComponent<UserMoveOrder>(entity))
+                    && !TransientState.Active<UserMoveOrder>(em, entity))
                 {
                     var tgt = em.GetComponentData<Target>(entity);
                     if (tgt.Value != Entity.Null && em.Exists(tgt.Value)
@@ -384,8 +381,8 @@ namespace TheWaningBorder.Systems.Navigation
                 if (arrived)
                 {
                     dd.ValueRW.Has = 0;
-                    if (em.HasComponent<UserMoveOrder>(entity)) ecb.RemoveComponent<UserMoveOrder>(entity);
-                    if (em.HasComponent<AttackMoveTag>(entity)) ecb.RemoveComponent<AttackMoveTag>(entity);
+                    TransientState.Clear<UserMoveOrder>(em, ecb, entity);
+                    TransientState.Clear<AttackMoveTag>(em, ecb, entity);
                     // Only for a unit travelling ALONE. While it is still a
                     // formation member the group owns this component's
                     // lifecycle and removes it on Detach; stripping it here
@@ -582,8 +579,8 @@ namespace TheWaningBorder.Systems.Navigation
                             if (!escaped)
                             {
                                 dd.ValueRW.Has = 0;
-                                if (em.HasComponent<UserMoveOrder>(entity)) ecb.RemoveComponent<UserMoveOrder>(entity);
-                                if (em.HasComponent<AttackMoveTag>(entity)) ecb.RemoveComponent<AttackMoveTag>(entity);
+                                TransientState.Clear<UserMoveOrder>(em, ecb, entity);
+                                TransientState.Clear<AttackMoveTag>(em, ecb, entity);
                                 if (!em.HasComponent<FormationMemberState>(entity)
                                     && em.HasComponent<FormationSpeedOverride>(entity))
                                     ecb.RemoveComponent<FormationSpeedOverride>(entity);
@@ -598,11 +595,7 @@ namespace TheWaningBorder.Systems.Navigation
                                     var gp = em.GetComponentData<GuardPoint>(entity);
                                     if (gp.Has != 0)
                                     {
-                                        var mark = new GuardSuppressed { Point = gp.Position };
-                                        if (em.HasComponent<GuardSuppressed>(entity))
-                                            ecb.SetComponent(entity, mark);
-                                        else
-                                            ecb.AddComponent(entity, mark);
+                                        TransientState.Set(ecb, entity, new GuardSuppressed { Point = gp.Position });
                                     }
                                 }
                             }
@@ -704,7 +697,7 @@ namespace TheWaningBorder.Systems.Navigation
                         if (!em.HasComponent<LocalTransform>(other)) continue;
                         // A corpse mid-death-animation is about to stop
                         // occupying the point; don't settle behind it.
-                        if (em.HasComponent<DeathAnimationState>(other)) continue;
+                        if (TransientState.Active<DeathAnimationState>(em, other)) continue;
 
                         float3 op = em.GetComponentData<LocalTransform>(other).Position;
 

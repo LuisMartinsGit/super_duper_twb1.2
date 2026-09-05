@@ -40,7 +40,7 @@ namespace TheWaningBorder.Systems.Combat
                 buff.ValueRW.TimeRemaining -= dt;
                 if (buff.ValueRO.TimeRemaining <= 0f)
                 {
-                    ecb.RemoveComponent<SpellBuff>(entity);
+                    TransientState.Clear<SpellBuff>(state.EntityManager, ecb, entity);
                 }
             }
 

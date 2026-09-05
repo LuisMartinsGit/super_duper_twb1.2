@@ -62,7 +62,7 @@ namespace TheWaningBorder.Core
         /// input while it is set.
         ///
         /// A REQUEST, not a handle. The Hut cinematic used to fetch
-        /// GameCamera.Controller and flip .enabled on it directly, which meant
+        /// CameraController.Controller and flip .enabled on it directly, which meant
         /// a building's visual held the input layer's MonoBehaviour and had to
         /// remember to switch it back on. Now it states what it wants and the
         /// camera layer decides how to honour it.

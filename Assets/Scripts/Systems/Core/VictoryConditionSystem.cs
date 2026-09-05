@@ -20,6 +20,20 @@ namespace TheWaningBorder.Systems.Core
     /// </summary>
     public class VictoryConditionSystem : MonoBehaviour
     {
+
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and this one was never disposed. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_FactionTagHealth =
+        {
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<Health>(),
+        };
+        static CachedEntityQuery QC_FactionTagHealth;
+
+        #endregion
         public static VictoryConditionSystem Instance { get; private set; }
 
         private const float CheckInterval = 2f;
@@ -402,9 +416,7 @@ namespace TheWaningBorder.Systems.Core
         /// unit-death contract).</summary>
         private void SelfDestructFactionAssets(Faction faction)
         {
-            var q = _em.CreateEntityQuery(
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadWrite<Health>());
+            var q = QC_FactionTagHealth.Get(_em, QT_FactionTagHealth);
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
             int killed = 0;

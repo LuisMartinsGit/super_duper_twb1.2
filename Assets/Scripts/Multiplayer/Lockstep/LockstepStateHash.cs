@@ -115,8 +115,10 @@ namespace TheWaningBorder.Multiplayer
         // from managed code is a documented leak in this codebase.
         private static readonly ComponentType[] VeilTypes = { typeof(VeilField) };
         private static readonly ComponentType[] CostTypes = { typeof(NavCostField) };
+        private static readonly ComponentType[] FormationTypes = { typeof(FormationGroup) };
         private static TheWaningBorder.Core.CachedEntityQuery _veilQuery;
         private static TheWaningBorder.Core.CachedEntityQuery _costQuery;
+        private static TheWaningBorder.Core.CachedEntityQuery _formationQuery;
 
         /// <summary>
         /// Hash the world. When <paramref name="detailed"/> is false only
@@ -285,6 +287,17 @@ namespace TheWaningBorder.Multiplayer
 
                 result.Total = total;
                 result.Pos = hPos; result.Rot = hRot; result.Health = hHealth;
+                // FORMATION GROUP STATE (2026-09-04). The virtual-leader
+                // position drives every member's slot destination, but the
+                // group entity is not networked, so LeaderPos was NEVER
+                // checksummed — a divergence in it stayed invisible until it
+                // pushed a real (checksummed) unit to a different slot, ticks
+                // later, presenting as an unexplained Nav fork with no onset.
+                // Hashed into Nav, order-independently (groups have no stable
+                // cross-peer id), so a leader-state divergence now shows on
+                // the SAME tick it happens.
+                hNav ^= HashFormations(em);
+
                 result.Nav = hNav; result.Combat = hCombat; result.Work = hWork;
                 result.Bank = hBank;
                 result.Tech = hTech;
@@ -508,6 +521,32 @@ namespace TheWaningBorder.Multiplayer
         /// surfaced only once it pushed a unit somewhere different, ticks or
         /// minutes later and looking like a movement bug.
         /// </summary>
+        /// <summary>Order-independent sum of each formation group's leader
+        /// state — the sim-affecting float fields that were never in the
+        /// checksum. Summed (not chained) so the peer-varying group iteration
+        /// order does not itself fork the hash.</summary>
+        private static uint HashFormations(EntityManager em)
+        {
+            var q = _formationQuery.Get(em, FormationTypes);
+            using var groups = q.ToComponentDataArray<FormationGroup>(Allocator.Temp);
+            uint sum = 0u;
+            for (int i = 0; i < groups.Length; i++)
+            {
+                var g = groups[i];
+                uint h = 2166136261u;
+                Mix(ref h, math.asuint(g.LeaderPos.x));
+                Mix(ref h, math.asuint(g.LeaderPos.z));
+                Mix(ref h, math.asuint(g.Destination.x));
+                Mix(ref h, math.asuint(g.Destination.z));
+                Mix(ref h, math.asuint(g.Facing.x));
+                Mix(ref h, math.asuint(g.Facing.z));
+                Mix(ref h, math.asuint(g.GroupSpeed));
+                Mix(ref h, g.State);
+                sum += h;
+            }
+            return sum;
+        }
+
         private static uint HashVeil(EntityManager em)
         {
             var q = _veilQuery.Get(em, VeilTypes);

@@ -104,7 +104,6 @@ namespace TheWaningBorder.Economy
             CollectIronIncome(ref state, ref perFactionIncome);
             CollectVeilstoneIncome(ref state, ref perFactionIncome);
             CollectVeilsteelIncome(ref state, ref perFactionIncome);
-            CollectGlowIncome(ref state, ref perFactionIncome);
 
             if (!perFactionIncome.IsEmpty)
             {
@@ -123,7 +122,6 @@ namespace TheWaningBorder.Economy
                         resources.Iron += income.Iron * missed;
                         resources.Veilstone += income.Veilstone * missed;
                         resources.Veilsteel += income.Veilsteel * missed;
-                        resources.Glow += income.Glow * missed;
                         resources.Clamp();
                         bank.ValueRW = resources;
                     }
@@ -232,39 +230,12 @@ namespace TheWaningBorder.Economy
             }
         }
 
-        private void CollectGlowIncome(ref SystemState state,
-            ref NativeParallelHashMap<byte, OtherIncomeAccumulator> perFactionIncome)
-        {
-            foreach (var (tag, income) in
-                SystemAPI.Query<RefRO<FactionTag>, RefRW<GlowIncome>>()
-                    .WithNone<UnderConstruction>())
-            {
-                if (income.ValueRO.PerMinute <= 0) continue;
-
-                income.ValueRW.FractionalAccumulator += income.ValueRO.PerMinute / 60f;
-                int whole = (int)income.ValueRO.FractionalAccumulator;
-                if (whole <= 0) continue;
-                income.ValueRW.FractionalAccumulator -= whole;
-
-                var key = (byte)tag.ValueRO.Value;
-                if (perFactionIncome.TryGetValue(key, out var existing))
-                {
-                    existing.Glow += whole;
-                    perFactionIncome[key] = existing;
-                }
-                else
-                {
-                    perFactionIncome.TryAdd(key, new OtherIncomeAccumulator { Glow = whole });
-                }
-            }
-        }
 
         private struct OtherIncomeAccumulator
         {
             public int Iron;
             public int Veilstone;
             public int Veilsteel;
-            public int Glow;
         }
     }
 }

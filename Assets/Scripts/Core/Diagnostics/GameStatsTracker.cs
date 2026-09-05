@@ -65,7 +65,6 @@ namespace TheWaningBorder.Core.Diagnostics
     {
         public static GameStatsTracker Instance { get; private set; }
 
-        [Header("Config")]
         [SerializeField] private float sampleInterval = 5f;
 
         /// <summary>
@@ -194,7 +193,6 @@ namespace TheWaningBorder.Core.Diagnostics
                     Iron = res.Iron,
                     Veilstone = res.Veilstone,
                     Veilsteel = res.Veilsteel,
-                    Glow = res.Glow,
                     Population = pop.current,
                     PopulationMax = pop.max
                 });

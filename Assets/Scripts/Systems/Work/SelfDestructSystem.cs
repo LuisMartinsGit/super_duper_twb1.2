@@ -60,17 +60,16 @@ namespace TheWaningBorder.Systems.Work
                     string buildingId = GetBuildingId(em, entity);
                     if (buildingId != null && BuildCosts.TryGet(buildingId, out var cost))
                     {
-                        // Refund 80% of construction cost. Salvage bonus: any
-                        // Veilsteel consumed yields 10% of that as Glow on top
-                        // of the standard refund — the spec's "salvaging" lane
-                        // for Glow income. (audit follow-up)
-                        int glowSalvage = (int)(cost.Veilsteel * 0.10f);
+                        // Refund 80% of construction cost, plus a salvage bonus
+                        // of 10% of the Veilsteel that went into it. The salvage
+                        // used to be paid out as Glow; with no Glow it is paid
+                        // in the Veilsteel it came from, so the lane survives.
+                        int veilsteelSalvage = (int)(cost.Veilsteel * 0.10f);
                         var refund = Cost.Of(
                             supplies: (int)(cost.Supplies * RefundMultiplier),
                             iron: (int)(cost.Iron * RefundMultiplier),
                             veilstone: (int)(cost.Veilstone * RefundMultiplier),
-                            veilsteel: (int)(cost.Veilsteel * RefundMultiplier),
-                            glow: (int)(cost.Glow * RefundMultiplier) + glowSalvage
+                            veilsteel: (int)(cost.Veilsteel * RefundMultiplier) + veilsteelSalvage
                         );
 
                         FactionEconomy.Add(em, faction, refund);

@@ -51,7 +51,7 @@ namespace TheWaningBorder.Systems.Combat
         {
             var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
             var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
-            var time = SystemAPI.Time.ElapsedTime;
+            var time = SimCadence.MatchTimeOr(SystemAPI.Time.ElapsedTime);
             var em = state.EntityManager;
 
             // Fix #213: snapshot the piercing-target arrays ONCE per frame
@@ -421,17 +421,23 @@ namespace TheWaningBorder.Systems.Combat
             // Track last damager faction for kill credit (used by PillageSystem, CaravanDeathSystem)
             // Use ECB for AddComponent to avoid structural changes during iteration
             if (em.HasComponent<LastDamagedByFaction>(targetEntity))
+            {
                 em.SetComponentData(targetEntity, new LastDamagedByFaction { Value = proj.Faction });
-                else
-                    ecb.AddComponent(targetEntity, new LastDamagedByFaction { Value = proj.Faction });
+                em.SetComponentEnabled<LastDamagedByFaction>(targetEntity, true);
+            }
+            else
+                TransientState.Set(ecb, targetEntity, new LastDamagedByFaction { Value = proj.Faction });
 
             // Track attacker entity for defensive stance return-fire
             if (shooter != Entity.Null && em.Exists(shooter))
             {
                 if (em.HasComponent<LastAttackerEntity>(targetEntity))
+                {
                     em.SetComponentData(targetEntity, new LastAttackerEntity { Value = shooter });
-                    else
-                        ecb.AddComponent(targetEntity, new LastAttackerEntity { Value = shooter });
+                    em.SetComponentEnabled<LastAttackerEntity>(targetEntity, true);
+                }
+                else
+                    TransientState.Set(ecb, targetEntity, new LastAttackerEntity { Value = shooter });
             }
 
             // Stamp BuildingDamageState for the out-of-combat repair window
@@ -523,16 +529,22 @@ namespace TheWaningBorder.Systems.Combat
 
                 // Track last damager for kill credit
                 if (em.HasComponent<LastDamagedByFaction>(entities[i]))
+                {
                     em.SetComponentData(entities[i], new LastDamagedByFaction { Value = proj.Faction });
-                    else
-                        ecb.AddComponent(entities[i], new LastDamagedByFaction { Value = proj.Faction });
+                    em.SetComponentEnabled<LastDamagedByFaction>(entities[i], true);
+                }
+                else
+                    TransientState.Set(ecb, entities[i], new LastDamagedByFaction { Value = proj.Faction });
 
                 if (shooter != Entity.Null && em.Exists(shooter))
                 {
                     if (em.HasComponent<LastAttackerEntity>(entities[i]))
+                    {
                         em.SetComponentData(entities[i], new LastAttackerEntity { Value = shooter });
-                        else
-                            ecb.AddComponent(entities[i], new LastAttackerEntity { Value = shooter });
+                        em.SetComponentEnabled<LastAttackerEntity>(entities[i], true);
+                    }
+                    else
+                        TransientState.Set(ecb, entities[i], new LastAttackerEntity { Value = shooter });
                 }
             }
         }

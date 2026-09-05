@@ -192,13 +192,13 @@ namespace TheWaningBorder.Core.Config
 
         // ==================== Glow Pickup (Spec §4.5) ====================
         /// <summary>Glow amount a successful Purification deposits into the pickup.</summary>
-        public const int PurificationGlowYield = 10;
+        public const int PurificationShardrootYield = 10;
 
         /// <summary>Glow amount yielded by Feraldis Violent Extraction (slightly higher — destruction is permanent).</summary>
-        public const int ViolentExtractionGlowYield = 12;
+        public const int ViolentExtractionShardrootYield = 12;
 
         /// <summary>Glow amount yielded by Runai Conversion (highest — node fights enslavement hardest).</summary>
-        public const int ConversionGlowYield = 14;
+        public const int ConversionShardrootYield = 14;
 
         /// <summary>Border units in the final wave that erupts when Feraldis destroys a node (spec §5.3).</summary>
         public const int ViolentExtractionFinalWaveSize = 8;
@@ -207,27 +207,14 @@ namespace TheWaningBorder.Core.Config
         public const float ViolentExtractionFinalWaveRadius = 5f;
 
         /// <summary>Pickup window before despawn (spec §4.5: 30-60s).</summary>
-        public const float GlowPickupTimeout = 45f;
+        public const float ShardrootPickupTimeout = 45f;
 
         /// <summary>Presentation ID for free-floating Glow pickups.</summary>
-        public const int GlowPickupPresentationID = 383;
+        public const int ShardrootPresentationID = 383;
 
-        // ==================== Glow Weapon Drop (spec §4.5) ====================
-
-        /// <summary>Presentation ID for dropped Glow weapons.</summary>
-        public const int GlowWeaponPresentationID = 385;
-
-        /// <summary>Seconds before a dropped Glow weapon despawns if no one attunes.</summary>
-        public const float GlowWeaponPickupTimeout = 45f;
-
-        /// <summary>Distance within which a qualifying unit can attune to a dropped Glow weapon.</summary>
-        public const float GlowWeaponClaimRadius = 1.5f;
-
-        /// <summary>Seconds a qualifying unit must stand within radius (uninterrupted) to claim.</summary>
-        public const float GlowWeaponAttunementTime = 5f;
 
         // ==================== God Powers (spec §6.2 + refinement #6) ====================
-        // Cooldown-only (no Glow cost). cooldown = base × 0.8^stored_glow.
+        // Cooldown-only (no Glow cost). cooldown = base × 0.8^stored_shardroot.
         // The base value is the cooldown with ZERO stored Glow; storing
         // Glow in the Temple compresses it asymptotically toward 0.
 
@@ -235,7 +222,7 @@ namespace TheWaningBorder.Core.Config
         public const float GodPowerBaseCooldown = 90f;
 
         /// <summary>Per-Glow cooldown multiplier — each stored Glow multiplies remaining cooldown by this.</summary>
-        public const float GodPowerCooldownPerGlow = 0.8f;
+        public const float GodPowerCooldownPerShardroot = 0.8f;
 
         /// <summary>AOE radius of the generic god power cast.</summary>
         public const float GodPowerRadius = 14f;
@@ -275,27 +262,27 @@ namespace TheWaningBorder.Core.Config
         // ==================== Glow Flow (spec §5.1, §6.3) ====================
 
         /// <summary>Distance (XZ) at which a unit can attune to a free Glow pickup.</summary>
-        public const float GlowAutoPickupRadius = 1.5f;
+        public const float ShardrootPickupRadius = 1.5f;
 
         /// <summary>
-        /// Seconds a unit must stand within GlowAutoPickupRadius (uninterrupted)
+        /// Seconds a unit must stand within ShardrootPickupRadius (uninterrupted)
         /// to claim a Glow pickup (spec refinement #4 — was instant on touch).
         /// </summary>
-        public const float GlowPickupAttunementTime = 20f;
+        public const float ShardrootAttunementTime = 20f;
 
         /// <summary>Distance (XZ) at which a Glow carrier auto-deposits at an owned reliquary.</summary>
-        public const float GlowAutoDepositRadius = 3.0f;
+        public const float ShardrootDepositRadius = 3.0f;
 
         // ==================== Glow Reliquary ====================
-        public const int    GlowReliquaryHP = 600;
-        public const float  GlowReliquaryRadius = 1.6f;
-        public const float  GlowReliquaryLoS = 14f;
-        public const int    GlowReliquaryPresentationID = 522;
+        public const int    ShardrootReliquaryHP = 600;
+        public const float  ShardrootReliquaryRadius = 1.6f;
+        public const float  ShardrootReliquaryLoS = 14f;
+        public const int    ShardrootReliquaryPresentationID = 522;
 
         /// <summary>Explosion radius when a reliquary holding glow is destroyed.</summary>
-        public const float  GlowReliquaryExplodeRadius = 12f;
+        public const float  ShardrootReliquaryExplodeRadius = 12f;
 
         /// <summary>Damage per stored Glow point dealt to non-owner units inside the blast radius.</summary>
-        public const float  GlowReliquaryExplodeDamagePerGlow = 8f;
+        public const float  ShardrootReliquaryExplodeDamagePer = 8f;
     }
 }

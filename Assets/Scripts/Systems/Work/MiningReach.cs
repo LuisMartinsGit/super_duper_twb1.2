@@ -204,7 +204,7 @@ namespace TheWaningBorder.Systems.Work
                     {
                         if (other == worker) continue;
                         if (!em.HasComponent<Unity.Transforms.LocalTransform>(other)) continue;
-                        if (em.HasComponent<DeathAnimationState>(other)) continue;
+                        if (TransientState.Active<DeathAnimationState>(em, other)) continue;
 
                         float3 p = em.GetComponentData<Unity.Transforms.LocalTransform>(other).Position;
                         float ox = p.x - slot.x, oz = p.z - slot.z;

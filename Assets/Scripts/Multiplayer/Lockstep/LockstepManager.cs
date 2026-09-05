@@ -2,6 +2,7 @@
 // Lockstep multiplayer manager for deterministic simulation
 
 using System;
+using TheWaningBorder.Core;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
@@ -37,6 +38,19 @@ namespace TheWaningBorder.Multiplayer
     /// </summary>
     public class LockstepManager : MonoBehaviour, ILockstepService
     {
+
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and this one was never disposed. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_NavCostField =
+        {
+            ComponentType.ReadOnly<NavCostField>(),
+        };
+        static CachedEntityQuery QC_NavCostField;
+
+        #endregion
         // ═══════════════════════════════════════════════════════════════════════
         // SINGLETON
         // ═══════════════════════════════════════════════════════════════════════
@@ -215,6 +229,14 @@ namespace TheWaningBorder.Multiplayer
         
         private Dictionary<int, uint> _checksums = new Dictionary<int, uint>();
 
+        /// <summary>The full subsystem breakdown behind each entry in
+        /// <see cref="_checksums"/>. Local-only bookkeeping: on a mismatch it
+        /// is compared word-by-word against the breakdown the SYNC datagram
+        /// now carries, so the desync report names the forked SUBSYSTEM and
+        /// FACTION immediately instead of after a manual two-file diff.</summary>
+        private readonly Dictionary<int, SimStateHash> _checksumDetails
+            = new Dictionary<int, SimStateHash>();
+
         /// <summary>
         /// Sync every ~1 second of simulated time. Expressed in ticks, so it
         /// follows the tick rate instead of drifting when the rate changes.
@@ -367,6 +389,25 @@ namespace TheWaningBorder.Multiplayer
             cmd.Tick = _currentTick + INPUT_DELAY_TICKS;
             cmd.CommandIndex = _localCommandBuffer.Count;
 
+            // CANONICALIZE BY CONSTRUCTION (2026-09-04): the issuer used to
+            // execute its ORIGINAL command object while every remote parsed
+            // the serialized text — and text does not round-trip float bits
+            // exactly. The MP harness caught the first case at tick 660: a
+            // building placed at z = -0.0 on the host and +0.0 on the peers
+            // (the sign of zero died in ToString), bit-forking the position
+            // hash while every comparison and arithmetic op agreed. Round-
+            // tripping our own command through the SAME serializer every
+            // remote uses makes all peers execute bit-identical data, for
+            // every float field of every command type, forever.
+            var canonical = LockstepCommand.Deserialize(cmd.Serialize());
+            if (canonical != null)
+            {
+                canonical.PlayerIndex = cmd.PlayerIndex;
+                canonical.Tick = cmd.Tick;
+                canonical.CommandIndex = cmd.CommandIndex;
+                cmd = canonical;
+            }
+
             _localCommandBuffer.Add(cmd);
 
             // Always log commands during debugging
@@ -503,7 +544,13 @@ namespace TheWaningBorder.Multiplayer
             if (world == null || !world.IsCreated) return NotYet();
 
             var em = world.EntityManager;
-            using var q = em.CreateEntityQuery(typeof(NavCostField));
+            // NO `using` — this is the SHARED cached query. Disposing it here
+            // (a leftover from the CreateEntityQuery sweep) killed it for
+            // every later call: IsWorldReady then threw an NRE on EVERY
+            // Update, tick 0 never started in any multiplayer match, and the
+            // corrupted query registry eventually took the process down with
+            // an access violation. Cached queries are never disposed.
+            var q = QC_NavCostField.Get(em, QT_NavCostField);
             if (q.CalculateEntityCount() == 0) return NotYet();
             if (q.GetSingleton<NavCostField>().TerrainBaked == 0) return NotYet();
 
@@ -551,6 +598,13 @@ namespace TheWaningBorder.Multiplayer
             // disconnect timer would fire on the first frame of the match.
             BlockedOnPlayer = -1;
             BlockedSeconds = 0f;
+
+            // Same reasoning for the SILENCE timers: a peer that loaded slower
+            // than us was mute for the whole build (its Update never pumped
+            // through the long bootstrap frames). The clock on "gone quiet"
+            // starts at OUR readiness, not at StartSimulation.
+            float readyNow = Time.realtimeSinceStartup;
+            foreach (int p in _expectedPlayers) _lastHeardFrom[p] = readyNow;
 
             if (_worldWaitStarted > 0f)
             {
@@ -709,7 +763,12 @@ namespace TheWaningBorder.Multiplayer
                         return;
                     }
 
-                    if (now - last > StallDropSeconds)
+                    // _worldReady-gated like the disconnect branch above: a
+                    // peer still baking its map cannot pump the network at
+                    // all, and four concurrent headless boots exceed 15 s of
+                    // load skew routinely. IsWorldReady's own 120 s backstop
+                    // covers a peer that never comes up.
+                    if (_worldReady && now - last > StallDropSeconds)
                     {
                         PeerLost = true;
                         UnityEngine.Debug.LogError(
@@ -870,7 +929,9 @@ namespace TheWaningBorder.Multiplayer
             _remoteCommands.Clear();
             _confirmedTicks.Clear();
             _checksums.Clear();
+            _checksumDetails.Clear();
             _pendingRemoteChecksums.Clear();
+            _pendingRemoteDetails.Clear();
 
             _lastHeardFrom.Clear();
             _latencyMs.Clear();
@@ -1070,7 +1131,8 @@ namespace TheWaningBorder.Multiplayer
                 if (syncTick)
                 {
                     _checksums[tick] = hash.Total;
-                    BroadcastSync(tick, hash.Total);
+                    _checksumDetails[tick] = hash;
+                    BroadcastSync(tick, in hash);
 
                     // A peer ahead of us may have sent this tick's SYNC before
                     // we computed ours — compare against the stash now, so the
@@ -1078,15 +1140,21 @@ namespace TheWaningBorder.Multiplayer
                     if (_pendingRemoteChecksums.TryGetValue(tick, out uint earlyRemote))
                     {
                         _pendingRemoteChecksums.Remove(tick);
+                        _pendingRemoteDetails.TryGetValue(tick, out string earlyDetail);
+                        _pendingRemoteDetails.Remove(tick);
                         if (earlyRemote != hash.Total)
-                            OnChecksumMismatch(tick, hash.Total, earlyRemote, "stashed early SYNC");
+                            OnChecksumMismatch(tick, hash.Total, earlyRemote,
+                                "stashed early SYNC", earlyDetail);
                     }
 
                     // The checksum history was never pruned — one entry every
                     // sync tick, kept for the life of the match. Only recent
                     // ones can still be compared against an arriving SYNC.
-                    _checksums.Remove(tick - SYNC_CHECK_INTERVAL * ChecksumHistoryTicks);
-                    _pendingRemoteChecksums.Remove(tick - SYNC_CHECK_INTERVAL * ChecksumHistoryTicks);
+                    int prune = tick - SYNC_CHECK_INTERVAL * ChecksumHistoryTicks;
+                    _checksums.Remove(prune);
+                    _checksumDetails.Remove(prune);
+                    _pendingRemoteChecksums.Remove(prune);
+                    _pendingRemoteDetails.Remove(prune);
                 }
             }
         }
@@ -1114,8 +1182,8 @@ namespace TheWaningBorder.Multiplayer
                             // PlaceWallHub packs the FACTION too (there is no
                             // entity yet — the executor creates it).
                             && cmd.Type != LockstepCommandType.PlaceWallHub
-                            // SectGlowAlloc packs the FACTION as well.
-                            && cmd.Type != LockstepCommandType.SectGlowAlloc;
+                            // SectShardrootAlloc packs the FACTION as well.
+                            && cmd.Type != LockstepCommandType.SectShardrootAlloc;
 
             if (needsEntity)
             {
@@ -1391,10 +1459,10 @@ namespace TheWaningBorder.Multiplayer
                     }
                     break;
 
-                case LockstepCommandType.SectGlowAlloc:
-                    CommandRouter.SectGlowAllocDirect(em, (Faction)cmd.EntityNetworkId,
+                case LockstepCommandType.SectShardrootAlloc:
+                    CommandRouter.SectShardrootAllocDirect(em, (Faction)cmd.EntityNetworkId,
                         cmd.BuildingId, cmd.TargetEntityId != 0);
-                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed SectGlowAlloc from player {cmd.PlayerIndex}");
+                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed SectShardrootAlloc from player {cmd.PlayerIndex}");
                     break;
 
                 case LockstepCommandType.Corrupt:
@@ -1642,9 +1710,16 @@ namespace TheWaningBorder.Multiplayer
             }
         }
 
-        private void BroadcastSync(int tick, uint checksum)
+        private void BroadcastSync(int tick, in SimStateHash hash)
         {
-            string message = $"SYNC|{tick}|{checksum}";
+            // v2 wire format (2026-09-03): the sender's player index rides
+            // along so the host can relay a client's SYNC to the OTHER
+            // clients without echoing it back — before this, client<->client
+            // checksums were never compared at all in a 3+ peer match — and
+            // the full subsystem/faction breakdown rides along so a mismatch
+            // names the forked subsystem in the report itself instead of
+            // after a manual two-file diff. ~80 extra bytes once a second.
+            string message = $"SYNC|{tick}|{hash.Total}|{_localPlayerIndex}|{HashDetail(in hash)}";
             byte[] data = Encoding.UTF8.GetBytes(message);
 
             foreach (var player in _remotePlayers)
@@ -1655,6 +1730,51 @@ namespace TheWaningBorder.Multiplayer
                 }
                 catch { }
             }
+        }
+
+        /// <summary>The 11 subsystem words + 8 faction words, comma-joined
+        /// (comma, because the outer protocol splits on '|').</summary>
+        private static string HashDetail(in SimStateHash h)
+            => $"{h.Pos},{h.Rot},{h.Health},{h.Nav},{h.Combat},{h.Work},{h.Bank},{h.Tech}," +
+               $"{h.Rng},{h.Veil},{h.Cost}," +
+               $"{h.Faction0},{h.Faction1},{h.Faction2},{h.Faction3}," +
+               $"{h.Faction4},{h.Faction5},{h.Faction6},{h.Faction7}";
+
+        private static readonly string[] DetailNames =
+        {
+            "Pos", "Rot", "Health", "Nav", "Combat", "Work", "Bank", "Tech",
+            "Rng", "Veil", "Cost",
+            "Faction0", "Faction1", "Faction2", "Faction3",
+            "Faction4", "Faction5", "Faction6", "Faction7",
+        };
+
+        /// <summary>Which named words differ between our breakdown and the
+        /// remote's CSV. Empty string when the detail cannot be compared.</summary>
+        private string DescribeDetailDiff(int tick, string remoteDetail)
+        {
+            if (string.IsNullOrEmpty(remoteDetail)) return "";
+            if (!_checksumDetails.TryGetValue(tick, out var local)) return "";
+
+            string[] r = remoteDetail.Split(',');
+            if (r.Length < DetailNames.Length) return "";
+
+            uint[] l =
+            {
+                local.Pos, local.Rot, local.Health, local.Nav, local.Combat,
+                local.Work, local.Bank, local.Tech, local.Rng, local.Veil, local.Cost,
+                local.Faction0, local.Faction1, local.Faction2, local.Faction3,
+                local.Faction4, local.Faction5, local.Faction6, local.Faction7,
+            };
+
+            var sb = new StringBuilder(96);
+            for (int i = 0; i < DetailNames.Length; i++)
+            {
+                if (!uint.TryParse(r[i], out uint rv)) return "";
+                if (rv == l[i]) continue;
+                if (sb.Length > 0) sb.Append(", ");
+                sb.Append(DetailNames[i]);
+            }
+            return sb.Length > 0 ? sb.ToString() : "(total differs, all words equal?)";
         }
 
         private void RelayTickMessage(string message, int originalSender)
@@ -1890,6 +2010,7 @@ namespace TheWaningBorder.Multiplayer
         /// forked entity against (2026-08-16, tick-0 desync investigation).
         /// </summary>
         private readonly Dictionary<int, uint> _pendingRemoteChecksums = new Dictionary<int, uint>();
+        private readonly Dictionary<int, string> _pendingRemoteDetails = new Dictionary<int, string>();
 
         private void ProcessSyncMessage(string[] parts, IPEndPoint sender)
         {
@@ -1898,16 +2019,30 @@ namespace TheWaningBorder.Multiplayer
             if (!int.TryParse(parts[1], out int tick)) return;
             if (!uint.TryParse(parts[2], out uint remoteChecksum)) return;
 
+            // v2 fields (optional for wire compatibility): sender index + detail.
+            int senderIndex = -1;
+            if (parts.Length > 3) int.TryParse(parts[3], out senderIndex);
+            string remoteDetail = parts.Length > 4 ? parts[4] : null;
+
+            // The host relays every client's SYNC to the other clients, the
+            // same way TICKs are relayed — without this, client<->client
+            // checksums were never compared in a 3+ peer match: two clients
+            // could fork together and only ever be reported against the host.
+            if (_isHost && senderIndex > 0)
+                RelayTickMessage(string.Join("|", parts), senderIndex);
+
             if (!_checksums.TryGetValue(tick, out uint localChecksum))
             {
                 // Ours is not computed yet — keep theirs and compare in
                 // ProcessTick the moment ours lands.
                 _pendingRemoteChecksums[tick] = remoteChecksum;
+                if (remoteDetail != null) _pendingRemoteDetails[tick] = remoteDetail;
                 return;
             }
             if (localChecksum == remoteChecksum) return;
 
-            OnChecksumMismatch(tick, localChecksum, remoteChecksum, sender.ToString());
+            string who = senderIndex >= 0 ? $"player {senderIndex} ({sender})" : sender.ToString();
+            OnChecksumMismatch(tick, localChecksum, remoteChecksum, who, remoteDetail);
         }
 
         /// <summary>
@@ -1916,7 +2051,8 @@ namespace TheWaningBorder.Multiplayer
         /// landing after a stashed early SYNC (ProcessTick). Either way both
         /// peers must end up here, each writing its own Desync dump.
         /// </summary>
-        private void OnChecksumMismatch(int tick, uint localChecksum, uint remoteChecksum, string senderDesc)
+        private void OnChecksumMismatch(int tick, uint localChecksum, uint remoteChecksum,
+            string senderDesc, string remoteDetail = null)
         {
             // Only the FIRST mismatch is worth anything: after a fork the two
             // worlds diverge further every tick, so tick 900's mismatch tells you
@@ -1937,15 +2073,20 @@ namespace TheWaningBorder.Multiplayer
                 return;
             }
 
+            // Name the guilty subsystem(s) right in the report — the SYNC
+            // datagram carries the remote's full breakdown since v2.
+            string diff = DescribeDetailDiff(tick, remoteDetail);
+            string diffLine = string.IsNullOrEmpty(diff) ? "" : $" Forked subsystems: {diff}.";
+
             UnityEngine.Debug.LogError(
                 $"[Lockstep] DESYNC at tick {tick}: local checksum 0x{localChecksum:X8} " +
-                $"!= remote 0x{remoteChecksum:X8} (from {senderDesc}).");
+                $"!= remote 0x{remoteChecksum:X8} (from {senderDesc}).{diffLine}");
 
             // Both peers record it, so whichever log you open says the same
             // tick — and the checksum lines above it show how far back they
             // still agreed.
             LockstepLog.Event(tick,
-                $"DESYNC local=0x{localChecksum:X8} remote=0x{remoteChecksum:X8} " +
+                $"DESYNC local=0x{localChecksum:X8} remote=0x{remoteChecksum:X8}{diffLine} " +
                 "— diff this file against the other peer's from the top");
 
             // A desync is a bug that has already happened; freezing tells the
@@ -2014,6 +2155,30 @@ namespace TheWaningBorder.Multiplayer
                     if (fh == 2166136261u) continue;
                     sb.AppendLine($"faction {(Faction)f,-7} = 0x{fh:X8}");
                 }
+                sb.AppendLine();
+
+                // Formation group leader state — not networked, so it has no
+                // id to sort by; emit sorted by the line text so two peers'
+                // dumps line up in a diff. This is the state that forks a
+                // member's slot destination a tick before the member itself
+                // shows in the checksum.
+                var fq = em.CreateEntityQuery(ComponentType.ReadOnly<FormationGroup>());
+                using (var fgroups = fq.ToComponentDataArray<FormationGroup>(
+                           Unity.Collections.Allocator.Temp))
+                {
+                    var flines = new List<string>(fgroups.Length);
+                    for (int i = 0; i < fgroups.Length; i++)
+                    {
+                        var g = fgroups[i];
+                        flines.Add($"formation fac={g.FactionIdx} state={g.State} " +
+                            $"leader=({g.LeaderPos.x:F3},{g.LeaderPos.z:F3}) " +
+                            $"dest=({g.Destination.x:F3},{g.Destination.z:F3}) " +
+                            $"facing=({g.Facing.x:F4},{g.Facing.z:F4}) spd={g.GroupSpeed:F3}");
+                    }
+                    flines.Sort(System.StringComparer.Ordinal);
+                    foreach (var l in flines) sb.AppendLine(l);
+                }
+                fq.Dispose();
                 sb.AppendLine();
 
                 for (int i = 0; i < snapshots.Count; i++)
@@ -2098,6 +2263,11 @@ namespace TheWaningBorder.Multiplayer
         /// ONE place: the total goes over the wire, so a second copy that could
         /// drift from this one would take the whole match down with it.
         /// </summary>
+        /// <summary>Crash-bisection kill switch (-twbMpNoDetail): drop the
+        /// detailed per-tick hash + snapshot capture. Diagnostic only.</summary>
+        private static readonly bool s_noDetail =
+            System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-twbMpNoDetail") >= 0;
+
         private SimStateHash ComputeSimStateHash()
         {
             var world = EntityWorld.DefaultGameObjectInjectionWorld;
@@ -2106,8 +2276,8 @@ namespace TheWaningBorder.Multiplayer
             var em = world.EntityManager;
             var hash = LockstepStateHash.Compute(
                 em, GetNetworkedQuery(em),
-                detailed: GameSettings.DeterministicLockstep,
-                snapshots: LockstepTrace.CaptureBuffer);
+                detailed: GameSettings.DeterministicLockstep && !s_noDetail,
+                snapshots: s_noDetail ? null : LockstepTrace.CaptureBuffer);
 
             _lastChecksumEntityCount = hash.Entities;
             return hash;

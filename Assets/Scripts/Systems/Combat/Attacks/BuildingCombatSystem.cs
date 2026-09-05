@@ -12,7 +12,8 @@ namespace TheWaningBorder.Systems.Combat
     [UpdateAfter(typeof(TargetingSystem))]
     public partial struct BuildingCombatSystem : ISystem
     {
-        private const float ArrowSpeed = 25f;
+        // 25 -> 32.5 (2026-09-03): arrow flight sped up 30 percent.
+        private const float ArrowSpeed = 32.5f;
         private const float LaserSpeed = 55f;
 
         // Border emplacements only fire on worker-class units inside this
@@ -29,7 +30,7 @@ namespace TheWaningBorder.Systems.Combat
         public void OnUpdate(ref SystemState state)
         {
             float dt = SystemAPI.Time.DeltaTime;
-            float time = (float)SystemAPI.Time.ElapsedTime;
+            float time = (float)SimCadence.MatchTimeOr(SystemAPI.Time.ElapsedTime);
             var em = state.EntityManager;
             var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
             var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);

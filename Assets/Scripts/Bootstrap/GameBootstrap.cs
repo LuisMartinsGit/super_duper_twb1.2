@@ -3,6 +3,7 @@
 // NOTE: This file should be in Assets/Scripts/Bootstrap/, NOT in Core/Bootstrap/
 
 using UnityEngine;
+using TheWaningBorder.Core;
 using UnityEngine.SceneManagement;
 using Unity.Entities;
 using TheWaningBorder.Input;  // Contains GameCamera
@@ -11,18 +12,20 @@ using TheWaningBorder.World.Terrain;
 using TheWaningBorder.World.FogOfWar;
 // TheWaningBorder.World.Minimap using removed with MinimapRenderer (2026-07-17 UI removal)
 using TheWaningBorder.Economy;
-using TheWaningBorder.Presentation;
+using TheWaningBorder.Rendering;
 using TheWaningBorder.AI;
 using TheWaningBorder.UI;
 using TheWaningBorder.UI.Common;
-using TheWaningBorder.UI.Panels;
-using TheWaningBorder.UI.HUD;
+using TheWaningBorder.UI.Ingame;
+using TheWaningBorder.UI.World;
+using TheWaningBorder.UI.Data;
 using TheWaningBorder.Systems.Research;
 using TheWaningBorder.Multiplayer;
 
 using TheWaningBorder.Core.Diagnostics;
 using TheWaningBorder.Entities;
 using TheWaningBorder.Systems.Core;
+using TheWaningBorder.CameraRig;
 namespace TheWaningBorder.Bootstrap
 {
     /// <summary>
@@ -31,6 +34,19 @@ namespace TheWaningBorder.Bootstrap
     /// </summary>
     public static class GameBootstrap
     {
+
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and this one was never disposed. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_PortalGraphSingleton =
+        {
+            ComponentType.ReadWrite<PortalGraphSingleton>(),
+        };
+        static CachedEntityQuery QC_PortalGraphSingleton;
+
+        #endregion
         /// <summary>True between a gameplay scene's bootstrap and its
         /// teardown — i.e. "a match's managers and entities are live".</summary>
         private static bool _matchLive;
@@ -128,8 +144,8 @@ namespace TheWaningBorder.Bootstrap
             GameSpeedControl.Apply();
 
             TheWaningBorder.Input.SelectionSystem.ClearSelection();
-            TheWaningBorder.UI.HUD.GroundTargeting.Cancel();
-            GameCamera.Cleanup();
+            TheWaningBorder.UI.World.GroundTargeting.Cancel();
+            CameraController.Cleanup();
 
             DestroyPersistent<RuntimeManagers>();   // HUD + presentation stack
             DestroyPersistent<BootstrapDriver>();
@@ -218,8 +234,7 @@ namespace TheWaningBorder.Bootstrap
         /// </summary>
         private static void DisposePortalGraphBlob(Unity.Entities.EntityManager em)
         {
-            var q = em.CreateEntityQuery(
-                Unity.Entities.ComponentType.ReadWrite<PortalGraphSingleton>());
+            var q = QC_PortalGraphSingleton.Get(em, QT_PortalGraphSingleton);
             if (q.IsEmptyIgnoreFilter) return;
 
             var s = q.GetSingleton<PortalGraphSingleton>();
@@ -313,8 +328,8 @@ namespace TheWaningBorder.Bootstrap
             TheWaningBorder.UI.Menus.LoadingScreen.SetStatus("Setting up camera…");
             TheWaningBorder.UI.Menus.LoadingScreen.SetProgress(0.40f);
             yield return null;
-            GameCamera.Ensure();
-            Trace("after GameCamera.Ensure");
+            CameraController.Ensure();
+            Trace("after CameraController.Ensure");
 
             TheWaningBorder.UI.Menus.LoadingScreen.SetStatus("Spawning managers…");
             TheWaningBorder.UI.Menus.LoadingScreen.SetProgress(0.42f);
@@ -553,9 +568,9 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<RuntimeManagers>();
             managersGO.AddComponent<EntityViewManager>();
             managersGO.AddComponent<PresentationSpawnSystem>();
-            managersGO.AddComponent<TheWaningBorder.Presentation.BuildingPrefabSwapSystem>();
-            managersGO.AddComponent<TheWaningBorder.Presentation.NodeRubbleVisualSystem>(); // node rubble / rebuild visual
-            managersGO.AddComponent<TheWaningBorder.Presentation.LedgerAutomationVfx>();   // Ledger ability: building aura + cast burst
+            managersGO.AddComponent<TheWaningBorder.Rendering.BuildingPrefabSwapSystem>();
+            managersGO.AddComponent<TheWaningBorder.Rendering.NodeRubbleVisualSystem>(); // node rubble / rebuild visual
+            managersGO.AddComponent<TheWaningBorder.Rendering.LedgerAutomationVfx>();   // Ledger ability: building aura + cast burst
             managersGO.AddComponent<SelectionSystem>();          // Click + box select
             managersGO.AddComponent<RTSInputManager>();          // Right-click command routing
 
@@ -569,18 +584,17 @@ namespace TheWaningBorder.Bootstrap
             // building placement), FloatingHealthBars (worldspace HP bars),
             // PlayerNotificationSystem (transient feedback toasts until the
             // final UI covers messaging).
-            managersGO.AddComponent<TheWaningBorder.UI.GameUI.GameUIManager>();
+            managersGO.AddComponent<TheWaningBorder.UI.Ingame.GameUIManager>();
             managersGO.AddComponent<BuilderCommandPanel>();      // Building placement runtime (no painting)
             managersGO.AddComponent<FloatingHealthBars>();       // Worldspace HP bars
             // Floating damage/heal numbers. Lost its mount in the old-UI
             // teardown (nothing referenced it) — restored 2026-08-03; same
             // pool-on-private-canvas pattern as FloatingHealthBars.
-            managersGO.AddComponent<TheWaningBorder.UI.HUD.DamageNumbersUI>();
-            managersGO.AddComponent<TheWaningBorder.UI.HUD.GameClockHUD>(); // match-time readout (sim time)
-            managersGO.AddComponent<TheWaningBorder.UI.HUD.StatsBoardHUD>(); // live AoE-style charts on Display 2
-            managersGO.AddComponent<TheWaningBorder.Presentation.CurseBeaconVfx>(); // curse-node beacons + emergence pulses
-            managersGO.AddComponent<PlayerNotificationSystem>(); // Feedback toasts
-            managersGO.AddComponent<TheWaningBorder.Presentation.ChapelSiteDecals>();
+            managersGO.AddComponent<TheWaningBorder.UI.Ingame.DamageNumbersUI>();
+            managersGO.AddComponent<TheWaningBorder.UI.Ingame.GameClockHUD>(); // match-time readout (sim time)
+            managersGO.AddComponent<TheWaningBorder.UI.Ingame.StatsBoardHUD>(); // live AoE-style charts on Display 2
+            managersGO.AddComponent<TheWaningBorder.Rendering.CurseBeaconVfx>(); // curse-node beacons + emergence pulses
+            managersGO.AddComponent<TheWaningBorder.Rendering.ChapelSiteDecals>();
 
             managersGO.AddComponent<FloatingIncomeDisplay>();   // BFME2-style floating income text
             managersGO.AddComponent<ProjectileVisualSystem>();   // Arrow projectile visuals
@@ -593,8 +607,8 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<RallyPointDisplay>();        // Rally point marker display
             managersGO.AddComponent<MovementLineDisplay>();      // Unit movement destination lines
             managersGO.AddComponent<FormationDebugOverlay>();   // F2: leader gimbal + member spots
-            managersGO.AddComponent<UnitIndicatorSystem>();     // Direction arrows + state circles
-            managersGO.AddComponent<PlanningModeOverlay>();     // Planning mode overlay (Z key)
+            managersGO.AddComponent<UnitIndicatorSystem>();
+            managersGO.AddComponent<TheWaningBorder.UI.World.BuildingSelectionContour>(); // footprint contour under selected buildings     // Direction arrows + state circles
             managersGO.AddComponent<GameStatsTracker>();          // Resource/population timeline tracker (data only)
             // InGameMenuPanel / EndGameButton / PostGameStatsUI removed with
             // the old UI (2026-07-17). VictoryConditionSystem null-guards

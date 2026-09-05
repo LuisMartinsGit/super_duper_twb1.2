@@ -74,7 +74,7 @@ namespace TheWaningBorder.Core.Multiplayer
         PlaceWallHub = 36,       // CommandRouter.IssuePlaceWallHub (faction in EntityNetworkId, autoBuild flag in TargetEntityId, position in TargetPosition)
         WallExtend = 37,         // CommandRouter.IssueWallExtend (source hub; snap hub network id in TargetEntityId or 0 for a new hub at TargetPosition; faction in SecondaryTargetId)
         Corrupt = 38,            // CommandRouter.IssueCorrupt (corruptor + node in TargetEntityId — the Feraldis verb; mirrors Purify)
-        SectGlowAlloc = 39,      // CommandRouter.IssueSectGlowAlloc (faction in EntityNetworkId, sect id in BuildingId, allocate flag in TargetEntityId — halves that sect's power cooldown, so peers must agree)
+        SectShardrootAlloc = 39,      // CommandRouter.IssueSectShardrootAlloc (faction in EntityNetworkId, sect id in BuildingId, allocate flag in TargetEntityId — halves that sect's power cooldown, so peers must agree)
         BazaarPack = 40,         // CommandRouter.IssueBazaarPack (bazaar + pack flag in TargetEntityId; BazaarPackSystem destroys the building and spawns the wagon, so it must run on every peer)
         VaultTransfer = 41,      // CommandRouter.IssueVaultTransfer (vault; resource type + deposit flag packed in TargetEntityId, amount in SecondaryTargetId — bank + VaultStorage move on every peer)
     }

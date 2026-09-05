@@ -150,7 +150,7 @@ namespace TheWaningBorder.Systems.Combat
                 {
                     if (deadSet.Contains(attackCmd.ValueRO.Target))
                     {
-                        ecb.RemoveComponent<AttackCommand>(entity);
+                        TransientState.Clear<AttackCommand>(state.EntityManager, ecb, entity);
                     }
                 }
 
@@ -179,8 +179,11 @@ namespace TheWaningBorder.Systems.Combat
                     if (!isBuilding && state.EntityManager.HasComponent<FactionTag>(dead))
                     {
                         var victim = state.EntityManager.GetComponentData<FactionTag>(dead).Value;
-                        bool attributed = state.EntityManager
-                            .HasComponent<LastDamagedByFaction>(dead);
+                        // Enabled-aware: the component is pre-added disabled on
+                        // units, and a disabled ledger would read as "killed by
+                        // Blue" (Faction has no None value).
+                        bool attributed = TransientState
+                            .Active<LastDamagedByFaction>(state.EntityManager, dead);
                         var killer = attributed
                             ? state.EntityManager.GetComponentData<LastDamagedByFaction>(dead).Value
                             : victim;
@@ -221,7 +224,7 @@ namespace TheWaningBorder.Systems.Combat
 
                     if (!isBuilding)
                     {
-                        ecb.AddComponent(dead, new DeathAnimationState { Timer = DeathAnimationDuration });
+                        TransientState.Set(ecb, dead, new DeathAnimationState { Timer = DeathAnimationDuration });
 
                         // Cancel movement immediately on death so the corpse
                         // doesn't slide while the death animation plays. The

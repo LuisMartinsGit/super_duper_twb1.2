@@ -47,6 +47,7 @@ namespace TheWaningBorder.Systems.Border
             new BorderDebuff { DefPenalty = 0.3f, AttPenalty = 0.3f, SpeedPenalty = 0.35f };
 
         private SimCadence.Periodic _acc;
+        private int _passCount; // temp MP instrumentation
         private EntityQuery _unitQuery;
         private EntityQuery _buildingQuery;
         private EntityQuery _hallQuery; // flee targets for exposed workers
@@ -74,6 +75,19 @@ namespace TheWaningBorder.Systems.Border
 
         protected override void OnUpdate()
         {
+            // NO PRE-MATCH PASSES (2026-09-04, MP harness catch #10). Before
+            // LockstepFixedStep takes over, this group runs frame-driven for
+            // a machine-dependent number of frames — and a unit standing on
+            // veil at spawn accrued a per-peer head start in its (unhashed)
+            // ExposureState.Seconds. The flee/damage grace thresholds then
+            // crossed at DIFFERENT TICKS on different peers, ticks apart:
+            // one peer's worker fled and took DOT while the other's stood
+            // unharmed (tick 15859/15870 fork). Gate every pass on the
+            // lockstep sim actually running; single-player (no lockstep) is
+            // unaffected.
+            var lockstep = TheWaningBorder.Multiplayer.LockstepManager.Instance;
+            if (lockstep != null && !lockstep.IsSimulationRunning) return;
+
             if (!_acc.Due(SystemAPI.Time.DeltaTime, TickInterval)) return;
 
             var field = SystemAPI.GetSingleton<VeilField>();
@@ -99,6 +113,27 @@ namespace TheWaningBorder.Systems.Border
             using var facs = _unitQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var xfs = _unitQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             using var hps = _unitQuery.ToComponentDataArray<Health>(Allocator.Temp);
+
+            // MP DESYNC INSTRUMENTATION (2026-09-04, temporary): one line per
+            // pass — the tick, the pass ordinal, unit count, and the bit-sum
+            // of every unit's ExposureState.Seconds. Two peers' logs diff to
+            // the first pass where accrual diverges.
+            var _lk = TheWaningBorder.Multiplayer.LockstepManager.Instance;
+            if (_lk != null && _lk.IsSimulationRunning)
+            {
+                _passCount++;
+                ulong secSum = 0;
+                int exposed = 0;
+                for (int i = 0; i < ents.Length; i++)
+                {
+                    if (!em.HasComponent<ExposureState>(ents[i])) continue;
+                    float s = em.GetComponentData<ExposureState>(ents[i]).Seconds;
+                    if (s > 0f) exposed++;
+                    secSum += math.asuint(s);
+                }
+                UnityEngine.Debug.Log($"[VeilExpo] tick={_lk.CurrentTick} pass={_passCount} " +
+                    $"units={ents.Length} exposed={exposed} secSum={secSum:X}");
+            }
 
             for (int i = 0; i < ents.Length; i++)
             {

@@ -45,12 +45,32 @@ namespace TheWaningBorder.Core.Commands
             LockstepServiceLocator.Instance.QueueCommand(cmd);
         }
 
+
+        /// <summary>Un-networked target inside an ACTIVE lockstep match:
+        /// executing locally is a GUARANTEED desync (the issuing peer mutates
+        /// state no other peer will), so refuse loudly instead (2026-09-04,
+        /// MP harness catch #9 — a sect-conjured Watch Tower without
+        /// NetworkedEntity took the ApplyDirect fallback on the host alone
+        /// and forked the banks). The fallback below each guard is the
+        /// SINGLE-PLAYER path, where direct execution is the correct and
+        /// only behavior.</summary>
+        private static bool RefuseUnnetworkedInLockstep(string what)
+        {
+            if (!LockstepServiceLocator.IsActive) return false;
+            UnityEngine.Debug.LogError(
+                "[CommandRouter] " + what + ": target has no NetworkId - refusing " +
+                "local-only execution in a lockstep match (would desync). The entity " +
+                "was created outside the networked factory dispatch; fix that creation path.");
+            return true;
+        }
+
         private static void QueueLayeredMoveForLockstep(EntityManager em, Entity unit,
             float3 destination, byte targetLayer)
         {
             int networkId = GetNetworkId(em, unit);
             if (networkId <= 0)
             {
+                if (RefuseUnnetworkedInLockstep("LayeredMove")) return;
                 ExecuteLayeredMoveDirect(em, unit, destination, targetLayer);
                 return;
             }
@@ -71,6 +91,7 @@ namespace TheWaningBorder.Core.Commands
             int networkId = GetNetworkId(em, hall);
             if (networkId <= 0)
             {
+                if (RefuseUnnetworkedInLockstep("AgeUp")) return;
                 AgeUpCommandDirect(em, hall, culture);
                 return;
             }
@@ -89,6 +110,7 @@ namespace TheWaningBorder.Core.Commands
             int networkId = GetNetworkId(em, temple);
             if (networkId <= 0)
             {
+                if (RefuseUnnetworkedInLockstep("TempleUpgrade")) return;
                 TempleUpgradeCommandDirect(em, temple);
                 return;
             }
@@ -107,6 +129,7 @@ namespace TheWaningBorder.Core.Commands
             int networkId = GetNetworkId(em, temple);
             if (networkId <= 0)
             {
+                if (RefuseUnnetworkedInLockstep("SectAdoption")) return;
                 SectAdoptionCommandDirect(em, temple, sectId, preferredSlot, buildTime);
                 return;
             }
@@ -128,6 +151,7 @@ namespace TheWaningBorder.Core.Commands
             int networkId = GetNetworkId(em, building);
             if (networkId <= 0)
             {
+                if (RefuseUnnetworkedInLockstep("BuildingUpgrade")) return;
                 Types.UpgradeBuildingCommandHelper.ApplyDirect(em, building);
                 return;
             }
@@ -145,6 +169,7 @@ namespace TheWaningBorder.Core.Commands
             int networkId = GetNetworkId(em, building);
             if (networkId <= 0)
             {
+                if (RefuseUnnetworkedInLockstep("Research")) return;
                 ResearchCommandDirect(em, building, techId);
                 return;
             }

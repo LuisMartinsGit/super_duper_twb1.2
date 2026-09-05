@@ -175,7 +175,7 @@ namespace TheWaningBorder.Systems.Navigation
                     var u = m.Unit;
 
                     if (u == Entity.Null || !em.Exists(u)) continue;
-                    if (em.HasComponent<DeathAnimationState>(u)) { toDetach.Add(u); continue; }
+                    if (TransientState.Active<DeathAnimationState>(em, u)) { toDetach.Add(u); continue; }
 
                     // Re-ordered into another group / individually: the
                     // member state no longer points here — just drop it.
@@ -697,7 +697,11 @@ namespace TheWaningBorder.Systems.Navigation
                         var meta = cache.Slots[slot];
                         if (meta.Valid == 0) continue;
                         byte d = cache.DirPool[meta.DirOffset + lz * grid.Width + lx];
-                        if (d == NavFlowConstants.NoDirection) continue;
+                        // NoDirection AND NotCovered (the seeker-bounded
+                        // sweep stopped short of the leader's cell) both
+                        // mean "no field answer here" — the direct bearing
+                        // below covers the gap.
+                        if (d >= NavFlowConstants.NotCovered) continue;
                         ref var dirs = ref table.Table.Value.Dirs;
                         float2 v = dirs[d];
                         return new float3(v.x, 0f, v.y);

@@ -48,7 +48,8 @@ namespace TheWaningBorder.Systems.Combat
         // fight spent walking backwards, and it made the bow lines feel like
         // they were refusing to fight.
         private const float DefaultMaxRange = 25f;
-        private const float ArrowSpeed = 30f;
+        // 30 -> 39 (2026-09-03): arrow flight sped up 30 percent.
+        private const float ArrowSpeed = 39f;
         private const float BoltSpeed = 55f; // Siege projectiles (ballista bolts) fly faster
 
         public void OnCreate(ref SystemState state)
@@ -61,7 +62,7 @@ namespace TheWaningBorder.Systems.Combat
             var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
             var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
             var dt = SystemAPI.Time.DeltaTime;
-            var time = SystemAPI.Time.ElapsedTime;
+            var time = SimCadence.MatchTimeOr(SystemAPI.Time.ElapsedTime);
             var em = state.EntityManager;
 
             foreach (var (transform, target, archerState, damage, faction, entity) in SystemAPI
@@ -98,9 +99,9 @@ namespace TheWaningBorder.Systems.Combat
                 if (tgt.Value == Entity.Null || !em.Exists(tgt.Value))
                 {
                     tgt.Value = Entity.Null;
-                    if (em.HasComponent<AttackCommand>(entity))
+                    if (TransientState.Active<AttackCommand>(em, entity))
                     {
-                        ecb.RemoveComponent<AttackCommand>(entity);
+                        TransientState.Clear<AttackCommand>(em, ecb, entity);
                     }
                     continue;
                 }
@@ -111,9 +112,9 @@ namespace TheWaningBorder.Systems.Combat
                 if (!em.HasComponent<Health>(tgt.Value))
                 {
                     tgt.Value = Entity.Null;
-                    if (em.HasComponent<AttackCommand>(entity))
+                    if (TransientState.Active<AttackCommand>(em, entity))
                     {
-                        ecb.RemoveComponent<AttackCommand>(entity);
+                        TransientState.Clear<AttackCommand>(em, ecb, entity);
                     }
                     continue;
                 }
@@ -123,9 +124,9 @@ namespace TheWaningBorder.Systems.Combat
                 if (targetHealth.Value <= 0)
                 {
                     tgt.Value = Entity.Null;
-                    if (em.HasComponent<AttackCommand>(entity))
+                    if (TransientState.Active<AttackCommand>(em, entity))
                     {
-                        ecb.RemoveComponent<AttackCommand>(entity);
+                        TransientState.Clear<AttackCommand>(em, ecb, entity);
                     }
                     continue;
                 }
@@ -140,9 +141,9 @@ namespace TheWaningBorder.Systems.Combat
                         || em.GetComponentData<DamageTypeData>(entity).Value != DamageType.Siege))
                 {
                     tgt.Value = Entity.Null;
-                    if (em.HasComponent<AttackCommand>(entity))
+                    if (TransientState.Active<AttackCommand>(em, entity))
                     {
-                        ecb.RemoveComponent<AttackCommand>(entity);
+                        TransientState.Clear<AttackCommand>(em, ecb, entity);
                     }
                     continue;
                 }
@@ -422,8 +423,8 @@ namespace TheWaningBorder.Systems.Combat
                         float cooldownValue = 1.5f;
                         if (em.HasComponent<AttackCooldown>(entity))
                             cooldownValue = em.GetComponentData<AttackCooldown>(entity).Cooldown;
-                        if (em.HasComponent<GlowAbilityState>(entity)
-                            && em.GetComponentData<GlowAbilityState>(entity).ActiveRemaining > 0f)
+                        if (em.HasComponent<ShardrootAbilityState>(entity)
+                            && em.GetComponentData<ShardrootAbilityState>(entity).ActiveRemaining > 0f)
                             cooldownValue *= (1f / 1.30f);
                         cooldownValue *= CombatDamageHelper.GetFrenzyCooldownMult(em, entity);
                         // Timed haste (Blood Rain and any future SpellBuff
@@ -451,8 +452,8 @@ namespace TheWaningBorder.Systems.Combat
                     {
                         tgt.Value = Entity.Null;
                         archer.AimTimer = 0;
-                        if (em.HasComponent<AttackCommand>(entity))
-                            ecb.RemoveComponent<AttackCommand>(entity);
+                        if (TransientState.Active<AttackCommand>(em, entity))
+                            TransientState.Clear<AttackCommand>(em, ecb, entity);
                         continue;
                     }
 

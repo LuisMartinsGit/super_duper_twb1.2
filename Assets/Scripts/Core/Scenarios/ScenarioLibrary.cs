@@ -13,8 +13,6 @@ using UnityEngine;
 [CreateAssetMenu(fileName = "ScenarioLibrary", menuName = "TWB/Scenario Library", order = 1)]
 public class ScenarioLibrary : ScriptableObject
 {
-    [Tooltip("All scenarios, in list order. Rebuilt from Assets/GameData/Scenarios/ " +
-             "by the editor tool.")]
     public List<ScenarioDefinition> Scenarios = new List<ScenarioDefinition>();
 
     /// <summary>Resources path (without extension) the browser loads.</summary>

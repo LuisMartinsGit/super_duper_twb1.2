@@ -29,6 +29,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 using System.Collections.Generic;
+using TheWaningBorder.Core;
 using System.Text;
 using Unity.Collections;
 using Unity.Entities;
@@ -42,6 +43,40 @@ namespace TheWaningBorder.Core.Diagnostics
 {
     public class MatchMetrics : MonoBehaviour
     {
+        static readonly ComponentType[] QT_BuildingTagFactionTag =
+        {
+            ComponentType.ReadOnly<BuildingTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_BuildingTagFactionTag;
+        static readonly ComponentType[] QT_UnitTypeIdFactionTag =
+        {
+            ComponentType.ReadOnly<UnitTypeId>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_UnitTypeIdFactionTag;
+        static readonly ComponentType[] QT_UnitTypeIdFactionTagLocalTransform =
+        {
+            ComponentType.ReadOnly<UnitTypeId>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery QC_UnitTypeIdFactionTagLocalTransform;
+
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and this one was never disposed. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_BuildingTagFactionTagLocalTransform =
+        {
+            ComponentType.ReadOnly<BuildingTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery QC_BuildingTagFactionTagLocalTransform;
+
+        #endregion
         /// <summary>Master switch. Off costs nothing.</summary>
         public static bool Enabled;
 
@@ -139,10 +174,7 @@ namespace TheWaningBorder.Core.Diagnostics
 
         private void SampleBuildingEvents(EntityManager em, float t)
         {
-            var q = em.CreateEntityQuery(
-                ComponentType.ReadOnly<BuildingTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<LocalTransform>());
+            var q = QC_BuildingTagFactionTagLocalTransform.Get(em, QT_BuildingTagFactionTagLocalTransform);
             var live = new System.Collections.Generic.HashSet<Entity>();
             var sb = new StringBuilder();
             int ti = (int)t;
@@ -204,10 +236,7 @@ namespace TheWaningBorder.Core.Diagnostics
 
             _posToggle = !_posToggle;
             if (!_posToggle) return;
-            var q = em.CreateEntityQuery(
-                ComponentType.ReadOnly<UnitTypeId>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<LocalTransform>());
+            var q = QC_UnitTypeIdFactionTagLocalTransform.Get(em, QT_UnitTypeIdFactionTagLocalTransform);
             var pos = new StringBuilder();
             int ti = (int)t;
             using (var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp))
@@ -232,9 +261,7 @@ namespace TheWaningBorder.Core.Diagnostics
             // ── units by exact id, per faction ──
             var unitCounts = new Dictionary<(int, string), int>();
             var unitTotal = new int[8];
-            var uq = em.CreateEntityQuery(
-                ComponentType.ReadOnly<UnitTypeId>(),
-                ComponentType.ReadOnly<FactionTag>());
+            var uq = QC_UnitTypeIdFactionTag.Get(em, QT_UnitTypeIdFactionTag);
             using (var ids = uq.ToComponentDataArray<UnitTypeId>(Allocator.Temp))
             using (var facs = uq.ToComponentDataArray<FactionTag>(Allocator.Temp))
                 for (int i = 0; i < ids.Length; i++)
@@ -249,9 +276,7 @@ namespace TheWaningBorder.Core.Diagnostics
             // ── buildings by id, per faction ──
             var bldCounts = new Dictionary<(int, string), int>();
             var bldTotal = new int[8];
-            var bq = em.CreateEntityQuery(
-                ComponentType.ReadOnly<BuildingTag>(),
-                ComponentType.ReadOnly<FactionTag>());
+            var bq = QC_BuildingTagFactionTag.Get(em, QT_BuildingTagFactionTag);
             using (var ents = bq.ToEntityArray(Allocator.Temp))
                 for (int i = 0; i < ents.Length; i++)
                 {
@@ -319,10 +344,7 @@ namespace TheWaningBorder.Core.Diagnostics
             var em = world.EntityManager;
 
             var place = new StringBuilder("faction,buildingId,x,z,region\n");
-            var bq = em.CreateEntityQuery(
-                ComponentType.ReadOnly<BuildingTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<LocalTransform>());
+            var bq = QC_BuildingTagFactionTagLocalTransform.Get(em, QT_BuildingTagFactionTagLocalTransform);
             using (var ents = bq.ToEntityArray(Allocator.Temp))
                 for (int i = 0; i < ents.Length; i++)
                 {

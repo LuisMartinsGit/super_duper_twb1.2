@@ -3,7 +3,7 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace TheWaningBorder.Audio
+namespace TheWaningBorder.Systems.Audio
 {
     /// <summary>
     /// Plays looping background music, crossfading between menu and game tracks.

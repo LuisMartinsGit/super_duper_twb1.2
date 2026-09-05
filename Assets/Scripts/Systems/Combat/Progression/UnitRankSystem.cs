@@ -78,7 +78,7 @@ namespace TheWaningBorder.Systems.Combat
 
             // ── Glow Ability tick ─────────────────────────────────────────
             foreach (var (glow, health, entity) in SystemAPI
-                .Query<RefRW<GlowAbilityState>, RefRW<Health>>()
+                .Query<RefRW<ShardrootAbilityState>, RefRW<Health>>()
                 .WithAll<UnitTag>()
                 .WithEntityAccess())
             {
@@ -88,7 +88,7 @@ namespace TheWaningBorder.Systems.Combat
                     // Burst HP regen while active.
                     if (health.ValueRO.Value > 0 && health.ValueRO.Value < health.ValueRO.Max)
                     {
-                        int bonus = (int)math.ceil(UnitRankConfig.GlowAbilityRegenPerSec * dt);
+                        int bonus = (int)math.ceil(UnitRankConfig.ShardrootAbilityRegenPerSec * dt);
                         if (bonus > 0)
                             health.ValueRW.Value = math.min(health.ValueRO.Max, health.ValueRO.Value + bonus);
                     }

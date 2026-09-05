@@ -18,16 +18,20 @@
 //   * NavDirtyTiles.DirtyTileIndices is iterated by snapshotting to
 //     a NativeList<int> and sorting ASC (DR-6 / the dirty-set is a
 //     NativeHashSet whose iteration order is non-deterministic).
-//   * The new blob is built on the main thread; the swap uses the
-//     CCD-5 protocol (drain dependency, publish new handle, dispose
-//     old AFTER publish). Single sync point per tick, only when
-//     dirty.
+//   * The new blob is built synchronously on the main thread — inside
+//     RebuildPortalGraphJob via Run(), so the whole build is
+//     Burst-compiled (2026-09-03: the managed build was a 70-85 ms
+//     hitch per building placement at 1026x1026 grid scale) — and the
+//     swap uses the CCD-5 protocol (drain dependency, publish new
+//     handle, dispose old AFTER publish). Single sync point per tick,
+//     only when dirty.
 //   * Cache invalidation walks the slot keys in slot-index order so
 //     evictions happen in a stable order across machines.
 
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Mathematics;
 
 namespace TheWaningBorder.Systems.Navigation
@@ -104,138 +108,45 @@ namespace TheWaningBorder.Systems.Navigation
             int tilesX = (grid.Width + tileSize - 1) / tileSize;
             int tilesZ = (grid.Height + tileSize - 1) / tileSize;
 
-            var portals = new NativeList<PortalSpec>(4096, Allocator.TempJob);
-
-            var detect = new PortalDetectionJob
-            {
-                Cost = cost.Cost,
-                Width = grid.Width,
-                Height = grid.Height,
-                TileSize = tileSize,
-                TilesX = tilesX,
-                TilesZ = tilesZ,
-                Portals = portals,
-            };
-            detect.Execute();
-
-            int specCount = portals.Length;
-            int interTileNodeCount = specCount * 2;
-
-            // task-112 M5 -- build into NativeList so the wall-portal
-            // appender can grow them by climb / gate node pairs.
-            var nodes = new NativeList<PortalNode>(interTileNodeCount + 64, Allocator.Temp);
-            var edges = new NativeList<PortalEdge>(interTileNodeCount + 64, Allocator.Temp);
-
-            for (int i = 0; i < specCount; i++)
-            {
-                var spec = portals[i];
-                int nodeAId = i * 2;
-                int nodeBId = i * 2 + 1;
-
-                nodes.Add(new PortalNode
-                {
-                    Id = nodeAId,
-                    CellIndex = spec.CellIndex,
-                    TileIndex = spec.TileIndex,
-                    PortalKind = PortalNode.KindInterTile,
-                    OwnerId = 0,
-                    Layer = 0,
-                });
-                nodes.Add(new PortalNode
-                {
-                    Id = nodeBId,
-                    CellIndex = spec.NeighbourCellIndex,
-                    TileIndex = spec.NeighbourTileIndex,
-                    PortalKind = PortalNode.KindInterTile,
-                    OwnerId = 0,
-                    Layer = 0,
-                });
-
-                edges.Add(new PortalEdge
-                {
-                    FromPortalId = nodeAId,
-                    ToPortalId = nodeBId,
-                    Cost = (ushort)NavFlowConstants.StepCardinal,
-                    ProfileMask = 0xFF,
-                });
-                edges.Add(new PortalEdge
-                {
-                    FromPortalId = nodeBId,
-                    ToPortalId = nodeAId,
-                    Cost = (ushort)NavFlowConstants.StepCardinal,
-                    ProfileMask = 0xFF,
-                });
-            }
-
-            // task-112 M5: append wall-derived portals (climb + gate kinds).
+            // Wall spec snapshot for the Burst job. job.Run() is synchronous,
+            // so the AsArray view over the live spec list is safe.
+            NativeArray<WallPortalSpec> wallSpecs = default;
+            bool ownWallSpecs = false;
             if (SystemAPI.HasSingleton<WallPortalSpecList>())
             {
                 var specList = SystemAPI.GetSingleton<WallPortalSpecList>();
                 if (specList.Specs.IsCreated && specList.Specs.Length > 0)
-                {
-                    WallPortalGraphAppender.Append(grid, cost, specList.Specs,
-                        nodes, edges, tileSize, tilesX);
-                }
+                    wallSpecs = specList.Specs.AsArray();
+            }
+            if (!wallSpecs.IsCreated)
+            {
+                wallSpecs = new NativeArray<WallPortalSpec>(0, Allocator.TempJob);
+                ownWallSpecs = true;
             }
 
-            int nodeCount = nodes.Length;
-
-            // Intra-tile Manhattan edges (matches PortalGraphBuildSystem).
-            // M5: include the new wall portal nodes in the per-tile pairing
-            // so the A* search can hop through them within a tile too.
-            var intraEdges = new NativeList<PortalEdge>(nodeCount, Allocator.Temp);
-            PortalIntraTileEdges.Build(grid, nodes.AsArray(), intraEdges, cost.Cost);
-
-            int totalEdgeCount = edges.Length + intraEdges.Length;
-            var allEdges = new NativeArray<PortalEdge>(totalEdgeCount, Allocator.Temp,
-                NativeArrayOptions.UninitializedMemory);
-            for (int i = 0; i < edges.Length; i++) allEdges[i] = edges[i];
-            for (int i = 0; i < intraEdges.Length; i++) allEdges[edges.Length + i] = intraEdges[i];
-            intraEdges.Dispose();
-
-            var managedEdges = new PortalEdge[totalEdgeCount];
-            for (int i = 0; i < totalEdgeCount; i++) managedEdges[i] = allEdges[i];
-            System.Array.Sort(managedEdges, (a, b) =>
+            // The whole build (detection scan, node/edge assembly, edge sort,
+            // CSR, blob) runs Burst-compiled via Run(). It used to execute as
+            // plain managed IL on the main thread — PortalDetectionJob was
+            // invoked through .Execute() (which bypasses Burst) and the edge
+            // sort was a managed Array.Sort with a delegate — which at
+            // 1026x1026 grid scale was a 70-85 ms hitch on every building
+            // placement. Same-tick synchronous on every path, so nothing
+            // about availability timing changes for lockstep.
+            var outBlob = new NativeReference<BlobAssetReference<PortalGraphBlob>>(
+                Allocator.TempJob);
+            new RebuildPortalGraphJob
             {
-                if (a.FromPortalId != b.FromPortalId) return a.FromPortalId - b.FromPortalId;
-                if (a.ToPortalId != b.ToPortalId) return a.ToPortalId - b.ToPortalId;
-                // Cost as final key makes the comparison TOTAL — same
-                // rationale as PortalGraphBuildSystem's full build.
-                return a.Cost.CompareTo(b.Cost);
-            });
-
-            var nodeFirstEdge = new NativeArray<int>(nodeCount + 1, Allocator.Temp,
-                NativeArrayOptions.ClearMemory);
-            for (int i = 0; i < totalEdgeCount; i++)
-                nodeFirstEdge[managedEdges[i].FromPortalId + 1]++;
-            for (int i = 1; i <= nodeCount; i++)
-                nodeFirstEdge[i] += nodeFirstEdge[i - 1];
-
-            BlobAssetReference<PortalGraphBlob> newBlob;
-            using (var builder = new BlobBuilder(Allocator.Temp))
-            {
-                ref var root = ref builder.ConstructRoot<PortalGraphBlob>();
-                root.TileSize = tileSize;
-                root.TilesX = tilesX;
-                root.TilesZ = tilesZ;
-
-                var nodesArr = builder.Allocate(ref root.Nodes, nodeCount);
-                for (int i = 0; i < nodeCount; i++) nodesArr[i] = nodes[i];
-
-                var edgesArr = builder.Allocate(ref root.Edges, totalEdgeCount);
-                for (int i = 0; i < totalEdgeCount; i++) edgesArr[i] = managedEdges[i];
-
-                var firstArr = builder.Allocate(ref root.NodeFirstEdge, nodeCount + 1);
-                for (int i = 0; i <= nodeCount; i++) firstArr[i] = nodeFirstEdge[i];
-
-                newBlob = builder.CreateBlobAssetReference<PortalGraphBlob>(Allocator.Persistent);
-            }
-
-            portals.Dispose();
-            nodes.Dispose();
-            edges.Dispose();
-            allEdges.Dispose();
-            nodeFirstEdge.Dispose();
+                Cost = cost.Cost,
+                Grid = grid,
+                TileSize = tileSize,
+                TilesX = tilesX,
+                TilesZ = tilesZ,
+                WallSpecs = wallSpecs,
+                OutBlob = outBlob,
+            }.Run();
+            BlobAssetReference<PortalGraphBlob> newBlob = outBlob.Value;
+            outBlob.Dispose();
+            if (ownWallSpecs) wallSpecs.Dispose();
 
             // ── CCD-5 publish: drain in-flight, swap, dispose old AFTER ──
             // state.Dependency.Complete() already called above; safe to swap.
@@ -389,5 +300,160 @@ namespace TheWaningBorder.Systems.Navigation
             return evicted;
         }
 
+    }
+
+    /// <summary>
+    /// The full portal-graph build as one Burst-compiled synchronous job
+    /// (invoked with Run()): detection scan, inter-tile node/edge assembly,
+    /// wall-portal append, intra-tile edges, edge sort, CSR prefix sums and
+    /// the blob itself. Output is the finished blob (Persistent) via
+    /// <see cref="OutBlob"/>; the caller publishes it under CCD-5.
+    /// Same shapes and orderings as the managed build it replaces — DR-4
+    /// node order, DR-5 edge order (total comparator), so graph bytes are
+    /// identical across machines.
+    /// </summary>
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
+    internal struct RebuildPortalGraphJob : IJob
+    {
+        [ReadOnly] public NativeArray<byte> Cost;
+        public NavGridSingleton Grid;
+        public int TileSize;
+        public int TilesX;
+        public int TilesZ;
+        [ReadOnly] public NativeArray<WallPortalSpec> WallSpecs;
+        public NativeReference<BlobAssetReference<PortalGraphBlob>> OutBlob;
+
+        /// <summary>Total order over edges: (From, To, Cost). ProfileMask is
+        /// constant (0xFF) across every emitter, so equal keys are equal
+        /// structs and the unstable sort cannot introduce nondeterminism.</summary>
+        internal struct EdgeOrder : System.Collections.Generic.IComparer<PortalEdge>
+        {
+            public int Compare(PortalEdge a, PortalEdge b)
+            {
+                if (a.FromPortalId != b.FromPortalId) return a.FromPortalId - b.FromPortalId;
+                if (a.ToPortalId != b.ToPortalId) return a.ToPortalId - b.ToPortalId;
+                return a.Cost.CompareTo(b.Cost);
+            }
+        }
+
+        public void Execute()
+        {
+            var portals = new NativeList<PortalSpec>(4096, Allocator.Temp);
+            var detect = new PortalDetectionJob
+            {
+                Cost = Cost,
+                Width = Grid.Width,
+                Height = Grid.Height,
+                TileSize = TileSize,
+                TilesX = TilesX,
+                TilesZ = TilesZ,
+                Portals = portals,
+            };
+            detect.Execute(); // inlined into THIS job's Burst compilation
+
+            int specCount = portals.Length;
+            int interTileNodeCount = specCount * 2;
+
+            // task-112 M5 -- build into NativeList so the wall-portal
+            // appender can grow them by climb / gate node pairs.
+            var nodes = new NativeList<PortalNode>(interTileNodeCount + 64, Allocator.Temp);
+            var edges = new NativeList<PortalEdge>(interTileNodeCount + 64, Allocator.Temp);
+
+            for (int i = 0; i < specCount; i++)
+            {
+                var spec = portals[i];
+                int nodeAId = i * 2;
+                int nodeBId = i * 2 + 1;
+
+                nodes.Add(new PortalNode
+                {
+                    Id = nodeAId,
+                    CellIndex = spec.CellIndex,
+                    TileIndex = spec.TileIndex,
+                    PortalKind = PortalNode.KindInterTile,
+                    OwnerId = 0,
+                    Layer = 0,
+                });
+                nodes.Add(new PortalNode
+                {
+                    Id = nodeBId,
+                    CellIndex = spec.NeighbourCellIndex,
+                    TileIndex = spec.NeighbourTileIndex,
+                    PortalKind = PortalNode.KindInterTile,
+                    OwnerId = 0,
+                    Layer = 0,
+                });
+
+                edges.Add(new PortalEdge
+                {
+                    FromPortalId = nodeAId,
+                    ToPortalId = nodeBId,
+                    Cost = (ushort)NavFlowConstants.StepCardinal,
+                    ProfileMask = 0xFF,
+                });
+                edges.Add(new PortalEdge
+                {
+                    FromPortalId = nodeBId,
+                    ToPortalId = nodeAId,
+                    Cost = (ushort)NavFlowConstants.StepCardinal,
+                    ProfileMask = 0xFF,
+                });
+            }
+
+            // task-112 M5: append wall-derived portals (climb + gate kinds).
+            if (WallSpecs.Length > 0)
+            {
+                WallPortalGraphAppender.Append(in Grid, WallSpecs,
+                    nodes, edges, TileSize, TilesX);
+            }
+
+            int nodeCount = nodes.Length;
+
+            // Intra-tile Manhattan edges (matches PortalGraphBuildSystem).
+            // M5: include the new wall portal nodes in the per-tile pairing
+            // so the A* search can hop through them within a tile too.
+            var intraEdges = new NativeList<PortalEdge>(nodeCount, Allocator.Temp);
+            PortalIntraTileEdges.Build(Grid, nodes.AsArray(), intraEdges, Cost);
+
+            int totalEdgeCount = edges.Length + intraEdges.Length;
+            var allEdges = new NativeArray<PortalEdge>(totalEdgeCount, Allocator.Temp,
+                NativeArrayOptions.UninitializedMemory);
+            for (int i = 0; i < edges.Length; i++) allEdges[i] = edges[i];
+            for (int i = 0; i < intraEdges.Length; i++) allEdges[edges.Length + i] = intraEdges[i];
+            intraEdges.Dispose();
+
+            NativeSortExtension.Sort(allEdges, new EdgeOrder());
+
+            var nodeFirstEdge = new NativeArray<int>(nodeCount + 1, Allocator.Temp,
+                NativeArrayOptions.ClearMemory);
+            for (int i = 0; i < totalEdgeCount; i++)
+                nodeFirstEdge[allEdges[i].FromPortalId + 1]++;
+            for (int i = 1; i <= nodeCount; i++)
+                nodeFirstEdge[i] += nodeFirstEdge[i - 1];
+
+            var builder = new BlobBuilder(Allocator.Temp);
+            ref var root = ref builder.ConstructRoot<PortalGraphBlob>();
+            root.TileSize = TileSize;
+            root.TilesX = TilesX;
+            root.TilesZ = TilesZ;
+
+            var nodesArr = builder.Allocate(ref root.Nodes, nodeCount);
+            for (int i = 0; i < nodeCount; i++) nodesArr[i] = nodes[i];
+
+            var edgesArr = builder.Allocate(ref root.Edges, totalEdgeCount);
+            for (int i = 0; i < totalEdgeCount; i++) edgesArr[i] = allEdges[i];
+
+            var firstArr = builder.Allocate(ref root.NodeFirstEdge, nodeCount + 1);
+            for (int i = 0; i <= nodeCount; i++) firstArr[i] = nodeFirstEdge[i];
+
+            OutBlob.Value = builder.CreateBlobAssetReference<PortalGraphBlob>(Allocator.Persistent);
+            builder.Dispose();
+
+            portals.Dispose();
+            nodes.Dispose();
+            edges.Dispose();
+            allEdges.Dispose();
+            nodeFirstEdge.Dispose();
+        }
     }
 }

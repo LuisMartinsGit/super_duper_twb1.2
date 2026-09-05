@@ -79,6 +79,23 @@ public static class SimCadence
     /// </summary>
     public static void BeginMatch() => EpochRef.Data++;
 
+    /// <summary>Match-relative seconds for SIM TIMING MATH (2026-09-04, MP
+    /// harness catch #11). In a lockstep match this is CurrentTick *
+    /// TICK_DURATION — bit-identical on every peer by construction. NEVER use
+    /// (float)SystemAPI.Time.ElapsedTime in combat/projectile timing: the
+    /// absolute value differs per peer (pre-match accumulation), and the
+    /// double->float cast at t>500s quantizes DIFFERENTLY on each peer's
+    /// offset clock, so even same-clock "now - start" subtractions inherit
+    /// different rounding and threshold comparisons flip a tick apart.
+    /// Single-player (no lockstep) falls back to the caller's ElapsedTime.</summary>
+    public static double MatchTimeOr(double fallbackElapsed)
+    {
+        var lk = TheWaningBorder.Multiplayer.LockstepManager.Instance;
+        return lk != null && lk.IsSimulationRunning
+            ? lk.CurrentTick * (double)TheWaningBorder.Multiplayer.LockstepManager.TICK_DURATION
+            : fallbackElapsed;
+    }
+
     /// <summary>
     /// A periodic timer that cannot carry a phase across matches.
     ///

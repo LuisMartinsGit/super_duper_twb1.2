@@ -2,6 +2,7 @@
 // Initializes AI players and creates AI brain entities
 
 using Unity.Entities;
+using TheWaningBorder.Core;
 using Unity.Mathematics;
 using Unity.Collections;
 using UnityEngine;
@@ -17,6 +18,25 @@ namespace TheWaningBorder.AI
     /// </summary>
     public static class AIBootstrap
     {
+        static readonly ComponentType[] QT_AIBrain =
+        {
+            ComponentType.ReadOnly<AIBrain>(),
+        };
+        static CachedEntityQuery QC_AIBrain;
+
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and this one was never disposed. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_AIBrainFactionTag =
+        {
+            ComponentType.ReadOnly<AIBrain>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_AIBrainFactionTag;
+
+        #endregion
         // ═══════════════════════════════════════════════════════════════
         // CONFIGURATION
         // ═══════════════════════════════════════════════════════════════
@@ -45,6 +65,8 @@ namespace TheWaningBorder.AI
             AILogger.Initialize();
             AIBudget.Initialize();     // M-A budget wallets (fresh per match)
             AIRequestBus.Initialize();
+            AIPivotalReserve.Initialize();   // savings goals (fresh per match)
+            AIEndgameCommon.Initialize();    // temple back-off counters
 
             var world = EntityWorld.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated)
@@ -96,7 +118,7 @@ namespace TheWaningBorder.AI
             if (world == null) return;
 
             var em = world.EntityManager;
-            var query = em.CreateEntityQuery(typeof(AIBrain), typeof(FactionTag));
+            var query = QC_AIBrainFactionTag.Get(em, QT_AIBrainFactionTag);
             
             using var entities = query.ToEntityArray(Allocator.Temp);
             using var brains = query.ToComponentDataArray<AIBrain>(Allocator.Temp);
@@ -123,7 +145,7 @@ namespace TheWaningBorder.AI
             if (world == null) return;
 
             var em = world.EntityManager;
-            var query = em.CreateEntityQuery(typeof(AIBrain), typeof(FactionTag));
+            var query = QC_AIBrainFactionTag.Get(em, QT_AIBrainFactionTag);
             
             using var entities = query.ToEntityArray(Allocator.Temp);
             using var brains = query.ToComponentDataArray<AIBrain>(Allocator.Temp);
@@ -150,7 +172,7 @@ namespace TheWaningBorder.AI
             if (world == null) return;
 
             var em = world.EntityManager;
-            var query = em.CreateEntityQuery(typeof(AIBrain), typeof(FactionTag));
+            var query = QC_AIBrainFactionTag.Get(em, QT_AIBrainFactionTag);
             
             using var entities = query.ToEntityArray(Allocator.Temp);
             using var brains = query.ToComponentDataArray<AIBrain>(Allocator.Temp);
@@ -180,7 +202,7 @@ namespace TheWaningBorder.AI
             if (world == null) return;
 
             var em = world.EntityManager;
-            var query = em.CreateEntityQuery(typeof(AIBrain));
+            var query = QC_AIBrain.Get(em, QT_AIBrain);
             em.DestroyEntity(query);
 
         }

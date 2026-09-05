@@ -3,6 +3,7 @@
 // when the timer expires.
 
 using Unity.Collections;
+using TheWaningBorder.Core;
 using Unity.Entities;
 using Unity.Transforms;
 using TheWaningBorder.Economy;
@@ -25,6 +26,27 @@ namespace TheWaningBorder.Systems.Work
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct AgeUpSystem : ISystem
     {
+        static readonly ComponentType[] QT_HutTagFactionTagLocalTransform =
+        {
+            ComponentType.ReadOnly<HutTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery QC_HutTagFactionTagLocalTransform;
+
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and this one was never disposed. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_GathererHutTagFactionTag =
+        {
+            ComponentType.ReadOnly<GathererHutTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_GathererHutTagFactionTag;
+
+        #endregion
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<AgeUpState>();
@@ -164,10 +186,7 @@ namespace TheWaningBorder.Systems.Work
                 // choice. Idempotent — already-tagged huts and huts already
                 // mid-conversion are skipped (this method also fires from
                 // save-load paths in future tasks).
-                var query = em.CreateEntityQuery(
-                    ComponentType.ReadOnly<GathererHutTag>(),
-                    ComponentType.ReadOnly<FactionTag>()
-                );
+                var query = QC_GathererHutTagFactionTag.Get(em, QT_GathererHutTagFactionTag);
                 using var entities = query.ToEntityArray(Allocator.Temp);
                 using var tags = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
 
@@ -189,10 +208,7 @@ namespace TheWaningBorder.Systems.Work
                 // huts; without that a Feraldis player would draw the hut boost
                 // as well. Feraldis income is what its raiders steal.
                 // (docs/Design/Age_1_Feraldis.md § Raider Camp)
-                var query = em.CreateEntityQuery(
-                    ComponentType.ReadOnly<GathererHutTag>(),
-                    ComponentType.ReadOnly<FactionTag>()
-                );
+                var query = QC_GathererHutTagFactionTag.Get(em, QT_GathererHutTagFactionTag);
                 using var entities = query.ToEntityArray(Allocator.Temp);
                 using var tags = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
 
@@ -234,10 +250,7 @@ namespace TheWaningBorder.Systems.Work
             // because age-up completes once.
             if (culture != Cultures.Feraldis) return;
 
-            var q = em.CreateEntityQuery(
-                ComponentType.ReadOnly<HutTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<LocalTransform>());
+            var q = QC_HutTagFactionTagLocalTransform.Get(em, QT_HutTagFactionTagLocalTransform);
             using var huts = q.ToEntityArray(Unity.Collections.Allocator.Temp);
 
             int spawned = 0;

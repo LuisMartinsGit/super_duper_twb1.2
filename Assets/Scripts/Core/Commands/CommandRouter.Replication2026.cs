@@ -350,7 +350,6 @@ namespace TheWaningBorder.Core.Commands
             2 => Cost.Of(iron: amount),
             3 => Cost.Of(veilstone: amount),
             4 => Cost.Of(veilsteel: amount),
-            5 => Cost.Of(glow: amount),
             _ => default,
         };
 
@@ -417,7 +416,7 @@ namespace TheWaningBorder.Core.Commands
         // other. docs/Multiplayer_Desync_Sweep_2026-08-16.md
         // ═══════════════════════════════════════════════════════════════
 
-        public static void IssueSectGlowAlloc(EntityManager em, Faction faction, string sectId,
+        public static void IssueSectShardrootAlloc(EntityManager em, Faction faction, string sectId,
             bool allocate, CommandSource source = CommandSource.LocalPlayer)
         {
             if (ShouldDropCommand(source)) return;
@@ -427,7 +426,7 @@ namespace TheWaningBorder.Core.Commands
             {
                 LockstepServiceLocator.Instance.QueueCommand(new LockstepCommand
                 {
-                    Type = LockstepCommandType.SectGlowAlloc,
+                    Type = LockstepCommandType.SectShardrootAlloc,
                     EntityNetworkId = (int)faction,
                     BuildingId = sectId,
                     TargetEntityId = allocate ? 1 : 0,
@@ -435,19 +434,19 @@ namespace TheWaningBorder.Core.Commands
             }
             else
             {
-                SectGlowAllocDirect(em, faction, sectId, allocate);
+                SectShardrootAllocDirect(em, faction, sectId, allocate);
             }
         }
 
         /// <summary>Executor — every peer. The helper is a no-op when the
         /// state already matches, so replays cannot double-apply.</summary>
-        public static void SectGlowAllocDirect(EntityManager em, Faction faction, string sectId,
+        public static void SectShardrootAllocDirect(EntityManager em, Faction faction, string sectId,
             bool allocate)
         {
             if (allocate)
-                SectActivePowerHelper.AllocateGlow(em, faction, sectId);
+                SectActivePowerHelper.AllocateShardroot(em, faction, sectId);
             else
-                SectActivePowerHelper.DeallocateGlow(em, faction, sectId);
+                SectActivePowerHelper.DeallocateShardroot(em, faction, sectId);
         }
 
         // ═══════════════════════════════════════════════════════════════

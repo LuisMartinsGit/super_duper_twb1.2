@@ -161,7 +161,11 @@ namespace TheWaningBorder.Multiplayer
             // (see LockstepFixedRateManager). This is what makes two peers agree
             // on anything beyond the commands themselves; the flag exists to
             // turn it OFF for diagnosis, not as a normal mode.
-            if (GameSettings.DeterministicLockstep)
+            // Crash-bisection kill switch (-twbMpNoFixed): keep deterministic
+            // hashing but leave the sim frame-driven. Diagnostic only.
+            bool noFixed = System.Array.IndexOf(
+                System.Environment.GetCommandLineArgs(), "-twbMpNoFixed") >= 0;
+            if (GameSettings.DeterministicLockstep && !noFixed)
             {
                 LockstepFixedStep.Install(
                     Unity.Entities.World.DefaultGameObjectInjectionWorld,

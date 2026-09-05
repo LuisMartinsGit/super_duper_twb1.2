@@ -12,7 +12,7 @@ namespace TheWaningBorder.Core.Commands.Types
     /// ECS Component representing an attack command for a unit.
     /// When attached to an entity, combat systems will process it.
     /// </summary>
-    public struct AttackCommand : IComponentData
+    public struct AttackCommand : IComponentData, IEnableableComponent
     {
         /// <summary>The entity to attack</summary>
         public Entity Target;
@@ -72,17 +72,13 @@ namespace TheWaningBorder.Core.Commands.Types
             // clear combat here — only the work orders, plus the player-move
             // shield so the combat system can take the unit over.
             CommandCleanup.ClearWorkOrders(em, unit);
-            if (em.HasComponent<UserMoveOrder>(unit))
-                em.RemoveComponent<UserMoveOrder>(unit);
+            TransientState.Clear<UserMoveOrder>(em, unit);
         }
 
         private static void SetupAttack(EntityManager em, Entity unit, Entity target)
         {
-            // Add or update AttackCommand component
-            if (!em.HasComponent<AttackCommand>(unit))
-                em.AddComponentData(unit, new AttackCommand { Target = target });
-                else
-                    em.SetComponentData(unit, new AttackCommand { Target = target });
+            // Activate AttackCommand
+            TransientState.Set(em, unit, new AttackCommand { Target = target });
 
             // Also set Target component for combat system
             if (em.HasComponent<Target>(unit))

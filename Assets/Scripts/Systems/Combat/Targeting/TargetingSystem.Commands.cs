@@ -83,7 +83,7 @@ namespace TheWaningBorder.Systems.Combat
                             if (currentTarget.Value == Entity.Null
                                 && attackCmd.ValueRO.Target == Entity.Null)
                             {
-                                ecb.RemoveComponent<AttackCommand>(entity);
+                                TransientState.Clear<AttackCommand>(em, ecb, entity);
                                 continue;
                             }
                         }
@@ -95,7 +95,7 @@ namespace TheWaningBorder.Systems.Combat
                 // Validate target exists
                 if (target == Entity.Null || !em.Exists(target))
                 {
-                    ecb.RemoveComponent<AttackCommand>(entity);
+                    TransientState.Clear<AttackCommand>(em, ecb, entity);
                     continue;
                 }
 
@@ -105,7 +105,7 @@ namespace TheWaningBorder.Systems.Combat
                     var targetHealth = em.GetComponentData<Health>(target);
                     if (targetHealth.Value <= 0)
                     {
-                        ecb.RemoveComponent<AttackCommand>(entity);
+                        TransientState.Clear<AttackCommand>(em, ecb, entity);
                         continue;
                     }
                 }
@@ -157,9 +157,9 @@ namespace TheWaningBorder.Systems.Combat
                 // Only clean up if unit has no active target
                 if (staleTarget.ValueRO.Value != Entity.Null) continue;
 
-                if (dd.ValueRO.Has == 0 && em.HasComponent<AttackCommand>(entity))
+                if (dd.ValueRO.Has == 0 && TransientState.Active<AttackCommand>(em, entity))
                 {
-                    ecb.RemoveComponent<AttackCommand>(entity);
+                    TransientState.Clear<AttackCommand>(em, ecb, entity);
                 }
             }
         }
@@ -179,7 +179,7 @@ namespace TheWaningBorder.Systems.Combat
                 .WithEntityAccess())
             {
                 if (!em.Exists(lastAttacker.ValueRO.Value))
-                    ecb.RemoveComponent<LastAttackerEntity>(entity);
+                    TransientState.Clear<LastAttackerEntity>(em, ecb, entity);
             }
         }
     }

@@ -3,6 +3,7 @@
 // Partial of TechEffectSystem.cs -- split 2026-08-12 for readability.
 
 using UnityEngine;
+using TheWaningBorder.Core;
 using Unity.Collections;
 using Unity.Entities;
 using TheWaningBorder.Data;
@@ -12,6 +13,20 @@ namespace TheWaningBorder.Systems.Research
 {
     public partial class TechEffectSystem : MonoBehaviour
     {
+
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and this one was never disposed. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_UnitTagFactionTag =
+        {
+            ComponentType.ReadOnly<UnitTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_UnitTagFactionTag;
+
+        #endregion
         // ═══════════════════════════════════════════════════════════════
         // GENERIC EFFECTS ENGINE (target/op/stat model, Wave 2)
         // ═══════════════════════════════════════════════════════════════
@@ -31,9 +46,7 @@ namespace TheWaningBorder.Systems.Research
         {
             if (def?.effectsList == null || def.effectsList.Count == 0) return;
 
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<UnitTag>(),
-                ComponentType.ReadOnly<FactionTag>());
+            var query = QC_UnitTagFactionTag.Get(em, QT_UnitTagFactionTag);
 
             using var entities = query.ToEntityArray(Allocator.Temp);
             using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);

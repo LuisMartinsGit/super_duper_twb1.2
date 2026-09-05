@@ -49,6 +49,18 @@ namespace TheWaningBorder.Systems.Navigation
             NativeList<PortalEdge> edges,
             int tileSize,
             int tilesX)
+            => Append(in grid, specs.AsArray(), nodes, edges, tileSize, tilesX);
+
+        /// <summary>NativeArray overload — the incremental rebuild runs this
+        /// inside a Burst job, where the spec list arrives as a snapshot
+        /// array slice rather than the live NativeList.</summary>
+        public static int Append(
+            in NavGridSingleton grid,
+            NativeArray<WallPortalSpec> specs,
+            NativeList<PortalNode> nodes,
+            NativeList<PortalEdge> edges,
+            int tileSize,
+            int tilesX)
         {
             int added = 0;
             for (int i = 0; i < specs.Length; i++)

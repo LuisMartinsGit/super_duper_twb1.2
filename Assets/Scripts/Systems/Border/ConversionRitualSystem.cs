@@ -13,6 +13,7 @@
 //   - Higher Glow yield (14 vs 10) compensates the difficulty
 
 using Unity.Collections;
+using TheWaningBorder.Core;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -27,6 +28,22 @@ namespace TheWaningBorder.Systems.Border
     [UpdateBefore(typeof(NodeStateReversionSystem))]
     public partial class ConversionRitualSystem : SystemBase
     {
+
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and this one was never disposed. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_BorderUnitTagLocalTransformFactionTagHealth =
+        {
+            ComponentType.ReadOnly<BorderUnitTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<Health>(),
+        };
+        static CachedEntityQuery QC_BorderUnitTagLocalTransformFactionTagHealth;
+
+        #endregion
         private void CancelRitual(EntityManager em, Entity acolyte, Entity node, string reason)
         {
             // Only a broken CHANNEL earns the Backlash, not an approach that
@@ -324,11 +341,7 @@ namespace TheWaningBorder.Systems.Border
         /// </summary>
         private static int FlipNearbyBorderDefenders(EntityManager em, float3 center, Faction newOwner)
         {
-            var q = em.CreateEntityQuery(
-                ComponentType.ReadOnly<BorderUnitTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<Health>());
+            var q = QC_BorderUnitTagLocalTransformFactionTagHealth.Get(em, QT_BorderUnitTagLocalTransformFactionTagHealth);
             using var entities = q.ToEntityArray(Allocator.Temp);
             using var transforms = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             using var factions = q.ToComponentDataArray<FactionTag>(Allocator.Temp);

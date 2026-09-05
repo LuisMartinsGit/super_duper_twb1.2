@@ -6,6 +6,7 @@
 // Partial of VeilFieldSystem.cs -- split 2026-08-12 for readability.
 
 using Unity.Collections;
+using TheWaningBorder.Core;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
@@ -21,17 +22,47 @@ namespace TheWaningBorder.Systems.Border
 {
     public partial class VeilFieldSystem : SystemBase
     {
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and these were never disposed, so this hot path leaked one
+        // per invocation. A bloated registry slows every later query AND
+        // every structural change. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_UnitTagFactionTagLocalTransformHealth =
+        {
+            ComponentType.ReadOnly<UnitTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<Health>(),
+        };
+        static CachedEntityQuery QC_UnitTagFactionTagLocalTransformHealth;
+
+        static readonly ComponentType[] QT_MinerTagLocalTransform =
+        {
+            ComponentType.ReadOnly<MinerTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery QC_MinerTagLocalTransform;
+
+        static readonly ComponentType[] QT_MinerTagFactionTagLocalTransformHealth =
+        {
+            ComponentType.ReadOnly<MinerTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<Health>(),
+        };
+        static CachedEntityQuery QC_MinerTagFactionTagLocalTransformHealth;
+
+        #endregion
+
         // ─────────────────────────────────────────────────────────────
         // CRUST DEBUFFS (speed + stats; NO damage over time)
         // ─────────────────────────────────────────────────────────────
 
         private void ApplyCrustDebuffs(EntityManager em, in VeilField field, double matchTime)
         {
-            var uq = em.CreateEntityQuery(
-                ComponentType.ReadOnly<UnitTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<Health>());
+            var uq = QC_UnitTagFactionTagLocalTransformHealth.Get(em, QT_UnitTagFactionTagLocalTransformHealth);
             using var ents = uq.ToEntityArray(Allocator.Temp);
             using var tags = uq.ToComponentDataArray<UnitTag>(Allocator.Temp);
             using var facs = uq.ToComponentDataArray<FactionTag>(Allocator.Temp);
@@ -98,9 +129,7 @@ namespace TheWaningBorder.Systems.Border
         {
             for (int i = 0; i < _workerWard.Length; i++) _workerWard[i] = 0;
 
-            var wq = em.CreateEntityQuery(
-                ComponentType.ReadOnly<MinerTag>(),
-                ComponentType.ReadOnly<LocalTransform>());
+            var wq = QC_MinerTagLocalTransform.Get(em, QT_MinerTagLocalTransform);
             using var xfs = wq.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
             int r = (int)math.ceil(WorkerWardRadius / field.CellSize);
@@ -132,11 +161,7 @@ namespace TheWaningBorder.Systems.Border
         /// so it is NOT gated by BorderConstants.CurseFieldsArmies.</summary>
         private void ProcessInfection(EntityManager em, in VeilField field, double matchTime)
         {
-            var mq = em.CreateEntityQuery(
-                ComponentType.ReadOnly<MinerTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<Health>());
+            var mq = QC_MinerTagFactionTagLocalTransformHealth.Get(em, QT_MinerTagFactionTagLocalTransformHealth);
             using var ents = mq.ToEntityArray(Allocator.Temp);
             using var facs = mq.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var xfs = mq.ToComponentDataArray<LocalTransform>(Allocator.Temp);

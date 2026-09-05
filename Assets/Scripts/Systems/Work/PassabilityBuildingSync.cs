@@ -32,7 +32,11 @@ namespace TheWaningBorder.Systems.Work
         // force in CombatSeparationSystem instead of inflating the obstacle grid.
         private const int FootprintPaddingCells = 0;
 
-        private float _timer;
+        // SimCadence-phased, NOT a raw float accumulator (2026-09-04, MP
+        // harness catch #7 class): a raw `_timer -= dt` carries a
+        // machine-dependent phase in from the pre-match frame-driven updates,
+        // so periodic work lands on different ticks per lockstep peer.
+        private SimCadence.Periodic _acc;
         private NativeHashMap<Entity, BuildingRecord> _knownBuildings;
         private NativeHashMap<Entity, BuildingRecord> _knownObstacles;
 
@@ -50,7 +54,7 @@ namespace TheWaningBorder.Systems.Work
 
         public void OnCreate(ref SystemState state)
         {
-            _timer = 0f;
+
             _knownBuildings = new NativeHashMap<Entity, BuildingRecord>(128, Allocator.Persistent);
             _knownObstacles = new NativeHashMap<Entity, BuildingRecord>(512, Allocator.Persistent);
         }
@@ -68,9 +72,7 @@ namespace TheWaningBorder.Systems.Work
             var grid = PassabilityGrid.Instance;
             if (grid == null) return;
 
-            _timer -= SystemAPI.Time.DeltaTime;
-            if (_timer > 0f) return;
-            _timer = PollInterval;
+            if (!_acc.Due(SystemAPI.Time.DeltaTime, PollInterval)) return;
 
             var em = state.EntityManager;
 

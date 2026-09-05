@@ -20,12 +20,13 @@
 //   Spearman Glow:      revive battalion members on cooldown
 //   Siege Veilsteel:    temporal echo shots
 //   Siege Glow:         self-repair from destruction (on-death revive subsumed
-//                       by GlowReviveSystem)
+//                       with the removed Glow tier)
 //   Hero Veilsteel:     summon a temporal echo of the hero
 //   Hero Glow:          revive nearby fallen units (one-shot revive subsumed
-//                       by GlowReviveSystem; nearby radius extension is future)
+//                       with the removed Glow tier)
 
 using Unity.Collections;
+using TheWaningBorder.Core;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -38,6 +39,24 @@ namespace TheWaningBorder.Systems.Combat
     [UpdateBefore(typeof(ShieldBarSystem))]
     public partial class PerClassTierAbilitySystem : SystemBase
     {
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and these were never disposed, so this hot path leaked one
+        // per invocation. A bloated registry slows every later query AND
+        // every structural change. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_UnitTagFactionTagLocalTransformHealth =
+        {
+            ComponentType.ReadOnly<UnitTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<Health>(),
+        };
+        static CachedEntityQuery QC_UnitTagFactionTagLocalTransformHealth;
+
+        #endregion
+
         protected override void OnUpdate()
         {
             var em = EntityManager;
@@ -61,7 +80,6 @@ namespace TheWaningBorder.Systems.Combat
                         int bonus = tier switch
                         {
                             EquipmentTier.Veilsteel => EquipmentTierConfig.SiegeShieldAuraVeilsteelBonus,
-                            EquipmentTier.Glow      => EquipmentTierConfig.SiegeShieldAuraGlowBonus,
                             _                       => EquipmentTierConfig.SiegeShieldAuraVeilstoneBonus,
                         };
                         var aura = new SiegeShieldAura
@@ -88,7 +106,6 @@ namespace TheWaningBorder.Systems.Combat
                         float reduction = tier switch
                         {
                             EquipmentTier.Veilsteel => EquipmentTierConfig.HeroPhaseShieldReductionVeilsteel,
-                            EquipmentTier.Glow      => EquipmentTierConfig.HeroPhaseShieldReductionGlow,
                             _                       => EquipmentTierConfig.HeroPhaseShieldReductionVeilstone,
                         };
 
@@ -125,11 +142,7 @@ namespace TheWaningBorder.Systems.Combat
 
             // ── Phase 2: resolve siege auras ──
             // Snapshot allied targets (units) once.
-            var allyQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<UnitTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<Health>());
+            var allyQuery = QC_UnitTagFactionTagLocalTransformHealth.Get(em, QT_UnitTagFactionTagLocalTransformHealth);
             using var allyEnts = allyQuery.ToEntityArray(Allocator.Temp);
             using var allyFactions = allyQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var allyTransforms = allyQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);

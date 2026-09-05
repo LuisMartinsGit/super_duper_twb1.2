@@ -5,8 +5,8 @@
 // Simulation code wants to tell the player things: a curse pool has
 // quickened, the Shardroot has surfaced, a ritual backfired. Before this, it
 // said so by calling straight into the UI --
-// TheWaningBorder.UI.HUD.PlayerNotificationSystem.Notify(...) and
-// TheWaningBorder.UI.GameUI.MinimapPings.Post(...) -- from inside systems that
+// TheWaningBorder.UI.Ingame.PlayerNotificationSystem.Notify(...) and
+// TheWaningBorder.UI.Ingame.MinimapPings.Post(...) -- from inside systems that
 // run on the lockstep tick.
 //
 // That is the one dependency a deterministic simulation must not have. It

@@ -24,31 +24,20 @@ namespace TheWaningBorder.Systems.Navigation
     [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
     public class NavPassabilityOverlay : MonoBehaviour
     {
-        [Header("Area")]
-        [Tooltip("Half-size (m) of the square window of cells to draw around the focus.")]
         public float radius = 150f;
-        [Tooltip("Centre the window on the Scene-view camera pivot instead of this object.")]
         public bool followSceneCamera = false;
 
-        [Header("Appearance")]
-        [Tooltip("Lift above the terrain surface to avoid z-fighting.")]
         public float yOffset = 0.4f;
         [Range(0f, 1f)]
-        [Tooltip("Opacity of impassable cells (passable cells draw at half this).")]
         public float alpha = 0.5f;
-        [Tooltip("Also draw walkable cells (green). Off = only show blockers.")]
         public bool showPassable = true;
 
         public Color passableColor = new Color(0.15f, 0.85f, 0.2f);
         public Color conditionalColor = new Color(1f, 0.55f, 0f);
         public Color impassableColor = new Color(0.9f, 0.1f, 0.1f);
 
-        [Header("Refresh / safety")]
-        [Tooltip("Seconds between change checks.")]
         public float refreshInterval = 0.5f;
-        [Tooltip("Rebuild when the focus has moved this far (m).")]
         public float moveRebuildDistance = 8f;
-        [Tooltip("Hard cap on cells meshed (each cell = 4 verts).")]
         public int maxCells = 120000;
 
         private Mesh _mesh;

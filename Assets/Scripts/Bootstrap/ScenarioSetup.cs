@@ -2,16 +2,18 @@
 // Bootstrap for predefined combat scenarios
 
 using UnityEngine;
+using TheWaningBorder.Core;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Entities;
-using TheWaningBorder.Presentation;
+using TheWaningBorder.Rendering;
 using TheWaningBorder.Input;
-using TheWaningBorder.UI.HUD;
+using TheWaningBorder.UI.Ingame;
+using TheWaningBorder.UI.World;
+using TheWaningBorder.UI.Data;
 using TheWaningBorder.UI.Common;
-using TheWaningBorder.UI.Panels;
 using TheWaningBorder.Systems.Movement;
 using TheWaningBorder.World.Terrain;
 using TheWaningBorder.World.MapMarkers;
@@ -19,6 +21,7 @@ using TheWaningBorder.UI.Menus;
 using TheWaningBorder.Core.Commands.Types;
 using TheWaningBorder.Economy;
 using EntityWorld = Unity.Entities.World;
+using TheWaningBorder.CameraRig;
 
 namespace TheWaningBorder.Bootstrap
 {
@@ -29,6 +32,47 @@ namespace TheWaningBorder.Bootstrap
     /// </summary>
     public static class ScenarioSetup
     {
+        static readonly ComponentType[] QT_GuardPoint =
+        {
+            ComponentType.ReadOnly<GuardPoint>(),
+        };
+        static CachedEntityQuery QC_GuardPoint;
+        static readonly ComponentType[] QT_AttackMoveCommand =
+        {
+            ComponentType.ReadOnly<AttackMoveCommand>(),
+        };
+        static CachedEntityQuery QC_AttackMoveCommand;
+        static readonly ComponentType[] QT_DesiredDestination =
+        {
+            ComponentType.ReadOnly<DesiredDestination>(),
+        };
+        static CachedEntityQuery QC_DesiredDestination;
+        static readonly ComponentType[] QT_LocalTransform =
+        {
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery QC_LocalTransform;
+        static readonly ComponentType[] QT_WallInstanceTagFactionTagLocalTransform =
+        {
+            ComponentType.ReadOnly<WallInstanceTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<Unity.Transforms.LocalTransform>(),
+        };
+        static CachedEntityQuery QC_WallInstanceTagFactionTagLocalTransform;
+
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and this one was never disposed. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_UnitTagFactionTag =
+        {
+            ComponentType.ReadOnly<UnitTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_UnitTagFactionTag;
+
+        #endregion
         private const float ArmySpacing = 12f;   // space between battalions in a row
         private const float RowSpacing = 10f;     // space between rows
         private const float ArmySeparation = 60f; // distance between the two armies
@@ -166,7 +210,7 @@ namespace TheWaningBorder.Bootstrap
                 _scenarioFocus = origin;
             }
 
-            GameCamera.FocusOn(
+            CameraController.FocusOn(
                 new Vector3(_scenarioFocus.x, _scenarioFocus.y, _scenarioFocus.z),
                 instant: true);
             LoadingScreen.NotifyReady();
@@ -306,7 +350,7 @@ namespace TheWaningBorder.Bootstrap
             }
 
             var driverGo = new GameObject("HutEvolutionDriver");
-            var driver = driverGo.AddComponent<TheWaningBorder.Presentation.HutEvolutionDriver>();
+            var driver = driverGo.AddComponent<TheWaningBorder.Rendering.HutEvolutionDriver>();
             driver.Configure(hut, Cultures.Alanthor, upgradeInterval: 5f);
 
             _scenarioFocus = hutPos;
@@ -468,10 +512,7 @@ namespace TheWaningBorder.Bootstrap
         /// </summary>
         private static void AttackMoveAllBattalions(EntityManager em, Faction faction, float3 destination)
         {
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<UnitTag>(),
-                ComponentType.ReadOnly<FactionTag>()
-            );
+            var query = QC_UnitTagFactionTag.Get(em, QT_UnitTagFactionTag);
 
             using var entities = query.ToEntityArray(Allocator.Temp);
             using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
@@ -645,11 +686,7 @@ namespace TheWaningBorder.Bootstrap
         private static void UpgradeWallInstancesNear(EntityManager em, Faction faction,
             float3 searchPos, float radius, byte upgradeType)
         {
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<WallInstanceTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<Unity.Transforms.LocalTransform>()
-            );
+            var query = QC_WallInstanceTagFactionTagLocalTransform.Get(em, QT_WallInstanceTagFactionTagLocalTransform);
 
             using var entities = query.ToEntityArray(Allocator.Temp);
             using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
@@ -851,7 +888,7 @@ namespace TheWaningBorder.Bootstrap
             }
 
             // Focus camera on center of grid
-            GameCamera.FocusOn(new UnityEngine.Vector3(0, 0, 0), instant: true);
+            CameraController.FocusOn(new UnityEngine.Vector3(0, 0, 0), instant: true);
 
         }
 
@@ -1766,7 +1803,7 @@ namespace TheWaningBorder.Bootstrap
         {
             // 1. Every entity transform.
             {
-                var q = em.CreateEntityQuery(ComponentType.ReadWrite<LocalTransform>());
+                var q = QC_LocalTransform.Get(em, QT_LocalTransform);
                 using var ents = q.ToEntityArray(Allocator.Temp);
                 foreach (var e in ents)
                 {
@@ -1779,7 +1816,7 @@ namespace TheWaningBorder.Bootstrap
             // 2. Pre-set move / attack / guard targets, so commanded armies head
             //    to the re-centered battle instead of marching back to origin.
             {
-                var q = em.CreateEntityQuery(ComponentType.ReadWrite<DesiredDestination>());
+                var q = QC_DesiredDestination.Get(em, QT_DesiredDestination);
                 using var ents = q.ToEntityArray(Allocator.Temp);
                 foreach (var e in ents)
                 {
@@ -1790,7 +1827,7 @@ namespace TheWaningBorder.Bootstrap
                 }
             }
             {
-                var q = em.CreateEntityQuery(ComponentType.ReadWrite<AttackMoveCommand>());
+                var q = QC_AttackMoveCommand.Get(em, QT_AttackMoveCommand);
                 using var ents = q.ToEntityArray(Allocator.Temp);
                 foreach (var e in ents)
                 {
@@ -1800,7 +1837,7 @@ namespace TheWaningBorder.Bootstrap
                 }
             }
             {
-                var q = em.CreateEntityQuery(ComponentType.ReadWrite<GuardPoint>());
+                var q = QC_GuardPoint.Get(em, QT_GuardPoint);
                 using var ents = q.ToEntityArray(Allocator.Temp);
                 foreach (var e in ents)
                 {
@@ -1977,7 +2014,7 @@ namespace TheWaningBorder.Bootstrap
             // the camera at the player-1 start, and with an empty board its
             // RecenterScenario pass has nothing to shift.
             var go = new UnityEngine.GameObject("SandboxPanel");
-            go.AddComponent<TheWaningBorder.UI.HUD.SandboxPanel>();
+            go.AddComponent<TheWaningBorder.UI.Ingame.SandboxPanel>();
         }
 
         /// <summary>Offset an XZ position and re-snap its Y to terrain height.</summary>

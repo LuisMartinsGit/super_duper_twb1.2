@@ -13,7 +13,7 @@ namespace TheWaningBorder.Core.Commands.Types
     /// Units move toward the destination while auto-acquiring enemies along the way.
     /// Processed by MovementSystem (for movement) and TargetingSystem (for auto-targeting).
     /// </summary>
-    public struct AttackMoveCommand : IComponentData
+    public struct AttackMoveCommand : IComponentData, IEnableableComponent
     {
         /// <summary>The world position to move toward while engaging enemies</summary>
         public float3 Destination;
@@ -29,7 +29,8 @@ namespace TheWaningBorder.Core.Commands.Types
         /// Clears conflicting commands and sets up attack-move state.
         /// Unlike regular move, does NOT add UserMoveOrder so TargetingSystem can auto-acquire.
         /// </summary>
-        public static void Execute(EntityManager em, Entity unit, float3 destination)
+        public static void Execute(EntityManager em, Entity unit, float3 destination,
+            bool keepFormation = false)
         {
             if (!em.Exists(unit)) return;
 
@@ -68,22 +69,23 @@ namespace TheWaningBorder.Core.Commands.Types
             ClearConflictingCommands(em, unit);
 
             // An individual attack-move detaches the unit from any formation
-            // group (FormationMoveCommandHelper re-attaches AFTER calling
-            // Execute when this order IS part of a formation attack-move).
-            if (em.HasComponent<FormationMemberState>(unit))
-                em.RemoveComponent<FormationMemberState>(unit);
-            if (em.HasComponent<FormationSpeedOverride>(unit))
-                em.RemoveComponent<FormationSpeedOverride>(unit);
-            // Out of the formation for good, so forget the slot too —
-            // otherwise a later formation order would put this unit back
-            // into a rank it has long since left.
-            if (em.HasComponent<FormationSlotMemory>(unit))
-                em.RemoveComponent<FormationSlotMemory>(unit);
+            // group. keepFormation skips it when the caller is a formation
+            // order about to re-attach the same three components — see the
+            // note on MoveCommandHelper.Execute.
+            if (!keepFormation)
+            {
+                if (em.HasComponent<FormationMemberState>(unit))
+                    em.RemoveComponent<FormationMemberState>(unit);
+                if (em.HasComponent<FormationSpeedOverride>(unit))
+                    em.RemoveComponent<FormationSpeedOverride>(unit);
+                // Out of the formation for good, so forget the slot too —
+                // otherwise a later formation order would put this unit back
+                // into a rank it has long since left.
+                TransientState.Clear<FormationSlotMemory>(em, unit);
+            }
 
-            // Add AttackMoveCommand for MovementSystem to process
-            if (!em.HasComponent<AttackMoveCommand>(unit))
-                em.AddComponent<AttackMoveCommand>(unit);
-            em.SetComponentData(unit, new AttackMoveCommand { Destination = destination });
+            // Activate AttackMoveCommand for MovementSystem to process
+            TransientState.Set(em, unit, new AttackMoveCommand { Destination = destination });
 
             // Set DesiredDestination directly for immediate response
             if (!em.HasComponent<DesiredDestination>(unit))
@@ -99,15 +101,13 @@ namespace TheWaningBorder.Core.Commands.Types
                 else
                     em.AddComponentData(unit, new GuardPoint { Position = destination, Has = 1 });
 
-            // Add AttackMoveTag marker
-            if (!em.HasComponent<AttackMoveTag>(unit))
-                em.AddComponent<AttackMoveTag>(unit);
+            // Activate the AttackMoveTag marker
+            TransientState.SetFlag<AttackMoveTag>(em, unit);
 
-            // Do NOT add UserMoveOrder - this is the key difference from regular move.
-            // Without UserMoveOrder, TargetingSystem will auto-acquire targets while moving.
-            // Remove it if present from a previous command.
-            if (em.HasComponent<UserMoveOrder>(unit))
-                em.RemoveComponent<UserMoveOrder>(unit);
+            // Do NOT activate UserMoveOrder - this is the key difference from
+            // regular move. Without UserMoveOrder, TargetingSystem will
+            // auto-acquire targets while moving. Clear any previous one.
+            TransientState.Clear<UserMoveOrder>(em, unit);
         }
 
         /// <summary>Cancel whatever this unit was doing before the new order.

@@ -254,12 +254,14 @@ namespace TheWaningBorder.Core.Commands.Types
         {
             if (!BuildPlan(em, units, destination, shape, out var plan)) return;
 
-            IssuePlanOrders(em, plan, attackMove);
-
-            // Count formation members; a group of one is just a plain move.
+            // Count members BEFORE issuing: a group of one gets no group, so
+            // its membership really is ending and must still be stripped.
             int memberCount = 0;
             for (int i = 0; i < plan.Units.Count; i++)
                 if (plan.Member[i]) memberCount++;
+
+            IssuePlanOrders(em, plan, attackMove, reattaches: memberCount >= 2);
+
             if (memberCount < 2) return;
 
             // Create the group entity with its virtual leader at the
@@ -315,10 +317,7 @@ namespace TheWaningBorder.Core.Commands.Types
                     Slot = plan.SlotIndex[i],
                     LayoutKey = plan.LayoutKey,
                 };
-                if (em.HasComponent<FormationSlotMemory>(unit))
-                    em.SetComponentData(unit, mem);
-                else
-                    em.AddComponentData(unit, mem);
+                TransientState.Set(em, unit, mem);
             }
         }
 
@@ -327,7 +326,16 @@ namespace TheWaningBorder.Core.Commands.Types
         /// Used directly by the lockstep fallback (slot moves serialize as
         /// ordinary per-unit move commands).
         /// </summary>
-        public static void IssuePlanOrders(EntityManager em, in FormationPlan plan, bool attackMove)
+        /// <param name="reattaches">
+        /// True when the caller will re-attach formation membership right
+        /// after this (the group path). Members then keep their three
+        /// formation components instead of having them stripped and
+        /// immediately re-added — six structural changes per unit per order.
+        /// The lockstep path passes false: there is no group, and membership
+        /// really does end.
+        /// </param>
+        public static void IssuePlanOrders(EntityManager em, in FormationPlan plan, bool attackMove,
+            bool reattaches = false)
         {
             for (int i = 0; i < plan.Units.Count; i++)
             {
@@ -339,10 +347,11 @@ namespace TheWaningBorder.Core.Commands.Types
                         CommandSource.System);
                     continue;
                 }
+                bool keep = reattaches && plan.Member[i];
                 if (attackMove)
-                    AttackMoveCommandHelper.Execute(em, unit, plan.SlotWorld[i]);
+                    AttackMoveCommandHelper.Execute(em, unit, plan.SlotWorld[i], keep);
                 else
-                    MoveCommandHelper.Execute(em, unit, plan.SlotWorld[i]);
+                    MoveCommandHelper.Execute(em, unit, plan.SlotWorld[i], keep);
             }
         }
 
@@ -515,7 +524,7 @@ namespace TheWaningBorder.Core.Commands.Types
             // rebuild below.
             for (int i = 0; i < count; i++)
             {
-                if (!em.HasComponent<FormationSlotMemory>(units[i])) continue;
+                if (!TransientState.Active<FormationSlotMemory>(em, units[i])) continue;
                 var mem = em.GetComponentData<FormationSlotMemory>(units[i]);
                 if (mem.LayoutKey != layoutKey) continue;
                 if (mem.Slot < 0 || mem.Slot >= slotLocal.Count) continue;

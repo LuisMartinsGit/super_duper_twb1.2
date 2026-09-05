@@ -5,6 +5,7 @@
 // UnderConstruction → BuildingConstructionSystem.
 
 using Unity.Entities;
+using TheWaningBorder.Core;
 using TheWaningBorder.Core.Settings;
 using TheWaningBorder.Economy;
 
@@ -12,6 +13,21 @@ namespace TheWaningBorder.Core.Commands.Types
 {
     public static class UpgradeBuildingCommandHelper
     {
+
+        #region Cached queries
+
+        // CreateEntityQuery registers a new query with the world on every call
+        // and this one was never disposed. See Core/CachedEntityQuery.cs.
+        static readonly ComponentType[] HallProgressTypes =
+        {
+            ComponentType.ReadOnly<HallTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<FactionProgress>(),
+        };
+        static CachedEntityQuery _hallProgressQuery;
+
+        #endregion
+
         /// <summary>
         /// Try to start an upgrade on <paramref name="building"/>. Returns a
         /// result code so callers (UI, AI) can show the appropriate
@@ -163,10 +179,7 @@ namespace TheWaningBorder.Core.Commands.Types
         /// </summary>
         private static bool FactionHasCulture(EntityManager em, Faction faction)
         {
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<HallTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<FactionProgress>());
+            var query = _hallProgressQuery.Get(em, HallProgressTypes);
             using var ents = query.ToEntityArray(Unity.Collections.Allocator.Temp);
             for (int i = 0; i < ents.Length; i++)
             {

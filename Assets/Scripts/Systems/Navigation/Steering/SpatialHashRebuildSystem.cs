@@ -141,6 +141,7 @@ namespace TheWaningBorder.Systems.Navigation
             {
                 Entities = entities,
                 Transforms = transforms,
+                NetLookup = SystemAPI.GetComponentLookup<TheWaningBorder.Core.Multiplayer.NetworkedEntity>(isReadOnly: true),
                 Map = hash.Map,
                 CellSize = hash.CellSize,
             };
@@ -194,18 +195,64 @@ namespace TheWaningBorder.Systems.Navigation
     {
         [ReadOnly] public NativeArray<Entity> Entities;
         [ReadOnly] public NativeArray<LocalTransform> Transforms;
+        [ReadOnly] public ComponentLookup<TheWaningBorder.Core.Multiplayer.NetworkedEntity> NetLookup;
         public NativeParallelMultiHashMap<int, Entity> Map;
         public float CellSize;
 
+        // PEER-STABLE INSERT ORDER (2026-09-04, MP harness catch #4).
+        // `Entities` arrives in chunk-walk order, which legitimately differs
+        // between lockstep peers — and the multimap's per-key chain order IS
+        // the insert order, which is the order SteeringSystem's neighbour
+        // loop ACCUMULATES separation/avoidance/cohesion forces in. Float
+        // addition is not associative, so different chain orders forked the
+        // steering sums in their low bits the first time a wave staged a
+        // clump of units (tick 9257, every seed). Entities are therefore
+        // sorted by NetworkId — the one identity that is identical on every
+        // peer — with the position bits as a tiebreak for anything
+        // unnetworked, before a single insertion happens.
+        private struct Entry
+        {
+            public long NetId;
+            public ulong PosKey;
+            public int Index;
+        }
+
+        private struct EntryOrder : System.Collections.Generic.IComparer<Entry>
+        {
+            public int Compare(Entry a, Entry b)
+            {
+                if (a.NetId != b.NetId) return a.NetId < b.NetId ? -1 : 1;
+                if (a.PosKey != b.PosKey) return a.PosKey < b.PosKey ? -1 : 1;
+                return 0;
+            }
+        }
+
         public void Execute()
         {
+            var entries = new NativeArray<Entry>(Entities.Length, Allocator.Temp,
+                NativeArrayOptions.UninitializedMemory);
             for (int i = 0; i < Entities.Length; i++)
             {
+                var pos = Transforms[i].Position;
+                entries[i] = new Entry
+                {
+                    NetId = NetLookup.HasComponent(Entities[i])
+                        ? NetLookup[Entities[i]].NetworkId : long.MaxValue,
+                    PosKey = ((ulong)math.asuint(pos.x) << 32) | math.asuint(pos.z),
+                    Index = i,
+                };
+            }
+            entries.Sort(new EntryOrder());
+
+            for (int e = 0; e < entries.Length; e++)
+            {
+                int i = entries[e].Index;
                 var pos = Transforms[i].Position;
                 NavSpatialHash.WorldToCell(in pos, CellSize, out int cx, out int cz);
                 int key = NavSpatialHash.PackKey(cx, cz);
                 Map.Add(key, Entities[i]);
             }
+            entries.Dispose();
         }
     }
 }

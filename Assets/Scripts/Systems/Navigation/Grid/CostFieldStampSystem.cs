@@ -128,6 +128,45 @@ namespace TheWaningBorder.Systems.Navigation
             _lastSignature = sig;
             _stampedOnce = 1;
 
+            // MP DESYNC INSTRUMENTATION (2026-09-04, temporary): one line per
+            // restamp so two peers' logs can be diffed against each other.
+            if (TheWaningBorder.Multiplayer.LockstepManager.Instance != null
+                && TheWaningBorder.Multiplayer.LockstepManager.Instance.IsSimulationRunning)
+            {
+                UnityEngine.Debug.Log(
+                    $"[CostStamp] tick={TheWaningBorder.Multiplayer.LockstepManager.Instance.CurrentTick} " +
+                    $"sig={sig:X16} gen={field.Generation} " +
+                    $"b={_buildingQuery.CalculateEntityCount()} " +
+                    $"s={_buildingSizedQuery.CalculateEntityCount()} " +
+                    $"o={_obstacleQuery.CalculateEntityCount()} " +
+                    $"w={_wallQuery.CalculateEntityCount()} " +
+                    $"g={_wallGateQuery.CalculateEntityCount()} " +
+                    $"c={_wallClimbQuery.CalculateEntityCount()} " +
+                    $"p={_overpassQuery.CalculateEntityCount()}");
+                // Sorted position list of every sized building, so two peers'
+                // stamp logs diff to the exact entity that exists on one and
+                // not the other.
+                using var sxf = _buildingSizedQuery.ToComponentDataArray<LocalTransform>(
+                    Unity.Collections.Allocator.Temp);
+                using var sbs = _buildingSizedQuery.ToComponentDataArray<BuildingSize>(
+                    Unity.Collections.Allocator.Temp);
+                using var sents = _buildingSizedQuery.ToEntityArray(
+                    Unity.Collections.Allocator.Temp);
+                var em2 = state.EntityManager;
+                var sizedRows = new System.Collections.Generic.List<string>(sxf.Length);
+                for (int i = 0; i < sxf.Length; i++)
+                {
+                    long nid = em2.HasComponent<TheWaningBorder.Core.Multiplayer.NetworkedEntity>(sents[i])
+                        ? em2.GetComponentData<TheWaningBorder.Core.Multiplayer.NetworkedEntity>(sents[i]).NetworkId
+                        : -1;
+                    byte uc = em2.HasComponent<UnderConstruction>(sents[i]) ? (byte)1 : (byte)0;
+                    string bid = TheWaningBorder.Entities.BuildingIds.Of(sents[i], em2);
+                    sizedRows.Add($"({sxf[i].Position.x:F1},{sxf[i].Position.z:F1},{sbs[i].Width}x{sbs[i].Height},n{nid},u{uc},{bid})");
+                }
+                sizedRows.Sort(System.StringComparer.Ordinal);
+                UnityEngine.Debug.Log("[CostStampSized] " + string.Join(" ", sizedRows));
+            }
+
             int rows = field.Height;
             int layerArea = field.Width * field.Height;
 
@@ -353,12 +392,32 @@ namespace TheWaningBorder.Systems.Navigation
                 h = (h ^ terrainBaked) * P;
                 if (sized > 0)
                 {
+                    // ORDER-INDEPENDENT over the size set (2026-09-04, MP
+                    // harness catch #6). ToComponentDataArray returns
+                    // CHUNK-WALK order, and chunk order legitimately differs
+                    // between lockstep peers: the HOST runs the AI systems
+                    // (host-gated by design), and any host-only structural
+                    // change reshuffles chunks on the host alone. The main
+                    // checksum survives that because it SUMS per-entity
+                    // hashes; this signature CHAINED them, so a host-only
+                    // reshuffle flipped the signature with the entity set
+                    // unchanged -> spurious restamp -> Generation++ on the
+                    // host only -> every cached goal-flow field went stale a
+                    // tick apart on the two peers and re-integrated from
+                    // different seeker positions -> units sampled divergent
+                    // flow -> fork (tick 8600/9344 class). Per-entity hashes
+                    // summed makes the signature invariant to entity order
+                    // while still catching any size change.
                     using var sizes = _buildingSizedQuery.ToComponentDataArray<BuildingSize>(Allocator.Temp);
+                    ulong sizeSum = 0;
                     for (int i = 0; i < sizes.Length; i++)
                     {
-                        h = (h ^ (uint)sizes[i].Width) * P;
-                        h = (h ^ (uint)sizes[i].Height) * P;
+                        ulong eh = 1469598103934665603UL;
+                        eh = (eh ^ (uint)sizes[i].Width) * P;
+                        eh = (eh ^ (uint)sizes[i].Height) * P;
+                        sizeSum += eh;
                     }
+                    h = (h ^ sizeSum) * P;
                 }
                 return h;
             }

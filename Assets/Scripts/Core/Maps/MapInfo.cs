@@ -21,18 +21,13 @@ namespace TheWaningBorder.Core.Maps
     [CreateAssetMenu(fileName = "MapInfo", menuName = "Waning Border/Map Info")]
     public sealed class MapInfo : ScriptableObject
     {
-        [Header("Identity")]
-        [Tooltip("Scene name as in Build Settings (no path, no .unity).")]
         public string SceneName;
         public string DisplayName;
 
-        [Header("Lobby facts")]
         [Range(2, 8)] public int PlayerCount = 8;
-        [Tooltip("Short size tag shown next to the player count, e.g. SMALL / OPEN.")]
         public string SizeTag = "OPEN";
         [TextArea(3, 6)] public string Description;
 
-        [Header("Preview")]
         public Texture2D Thumbnail;
 
         // Normalized map coordinates (0..1 across the terrain;
@@ -110,18 +105,5 @@ namespace TheWaningBorder.Core.Maps
         /// actually hold, which is now a real difference between maps
         /// rather than a constant.</summary>
         public Vector2[] SupplyNodes = new Vector2[0];
-
-        /// <summary>
-        /// Region seed positions, normalized 0..1 like every other marker array
-        /// and in the same lockstep-stable order (the index IS the region id).
-        ///
-        /// Baked so the LOBBY can draw the partition before any world exists —
-        /// RegionMap is built from scene markers at match start, which the menu
-        /// scene has none of. docs/Design/Regions.md §1.
-        /// </summary>
-        public Vector2[] RegionSeeds = new Vector2[0];
-
-        /// <summary>Display names parallel to <see cref="RegionSeeds"/>.</summary>
-        public string[] RegionNames = new string[0];
     }
 }

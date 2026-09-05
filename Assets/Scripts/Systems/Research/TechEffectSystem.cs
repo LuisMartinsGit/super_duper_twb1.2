@@ -103,7 +103,7 @@ namespace TheWaningBorder.Systems.Research
                     break;
                 case "Charge":
                     GrantPassiveToUnits(em, faction, AlanthorPassiveTarget.GarrisonInfantry,
-                        (e) => AddOrSet(em, e, new TheWaningBorder.Abilities.FirstStrike
+                        (e) => TransientState.Set(em, e, new TheWaningBorder.Abilities.FirstStrike
                         { Pct = 30f, Ready = 1 }));
                     break;
                 case "ShieldWall":

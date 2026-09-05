@@ -5,7 +5,7 @@
 //
 // Multipliers apply to Damage and Defense on each unit. Tier-specific
 // magical effects (shield bar at Veilstone, duplicate squad at Veilsteel,
-// revive at Glow) are gated by reading EquipmentTier elsewhere — they're
+// ) are gated by reading EquipmentTier elsewhere — they're
 // not stat multipliers.
 
 using TheWaningBorder.Core;
@@ -27,7 +27,6 @@ namespace TheWaningBorder.Core.Settings
             EquipmentTier.Iron      => 1.15f,
             EquipmentTier.Veilstone   => 1.30f,
             EquipmentTier.Veilsteel => 1.50f,
-            EquipmentTier.Glow      => 1.75f,
             _ => 1.00f,
         };
 
@@ -38,14 +37,13 @@ namespace TheWaningBorder.Core.Settings
         /// </summary>
         public static Cost UpgradeCost(EquipmentTier from, EquipmentTier to)
         {
-            // Only adjacent upgrades are valid (Base→Iron→Veilstone→Veilsteel→Glow).
+            // Only adjacent upgrades are valid (Base→Iron→Veilstone→Veilsteel).
             // The router rejects non-adjacent calls; this helper assumes valid input.
             return to switch
             {
                 EquipmentTier.Iron      => new Cost { Iron = 200, Supplies = 150 },
                 EquipmentTier.Veilstone   => new Cost { Veilstone = 150, Iron = 200 },
                 EquipmentTier.Veilsteel => new Cost { Veilsteel = 80, Veilstone = 200 },
-                EquipmentTier.Glow      => new Cost { Glow = 20, Veilsteel = 150 },
                 _ => default,
             };
         }
@@ -61,7 +59,6 @@ namespace TheWaningBorder.Core.Settings
         {
             EquipmentTier.Veilstone   => 50,
             EquipmentTier.Veilsteel => 80,
-            EquipmentTier.Glow      => 120,
             _ => 0,
         };
 
@@ -71,13 +68,6 @@ namespace TheWaningBorder.Core.Settings
         /// <summary>Seconds of "no damage" required before shield regen kicks in.</summary>
         public const float ShieldBarRegenDelay = 3f;
 
-        // ==================== Glow revive (spec §4.2 Glow tier) ====================
-
-        /// <summary>Fraction of Max HP the on-death Glow revive restores.</summary>
-        public const float GlowReviveHealthPercent = 0.5f;
-
-        /// <summary>Seconds between Glow revives on the same unit (spec §4.2 "on cooldown").</summary>
-        public const float GlowReviveCooldownSec = 45f;
 
         // ==================== Siege shield aura (spec §4.3 Veilstone+) ====================
 
@@ -90,8 +80,6 @@ namespace TheWaningBorder.Core.Settings
         /// <summary>Bonus at Veilsteel (stacking up from Veilstone).</summary>
         public const int SiegeShieldAuraVeilsteelBonus = 50;
 
-        /// <summary>Bonus at Glow.</summary>
-        public const int SiegeShieldAuraGlowBonus = 75;
 
         // ==================== Hero phase shield (spec §4.4 Veilstone+) ====================
 
@@ -101,6 +89,5 @@ namespace TheWaningBorder.Core.Settings
         /// <summary>Fraction of damage absorbed by a charged phase shield (per tier).</summary>
         public const float HeroPhaseShieldReductionVeilstone = 0.50f;
         public const float HeroPhaseShieldReductionVeilsteel = 0.65f;
-        public const float HeroPhaseShieldReductionGlow = 0.80f;
     }
 }

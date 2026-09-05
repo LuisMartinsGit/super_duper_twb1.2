@@ -2,16 +2,17 @@
 // Resolves god-power casts (spec §6.2 + refinement #6).
 //   - Tick: counts down CooldownRemaining for every faction bank.
 //   - Cast: when a bank carries PendingGodPowerCast, read the caster's
-//           Temple-of-Ridan GlowStored to compute the post-cast cooldown:
-//             new_cooldown = BaseCooldown × 0.8^stored_glow
+//           Temple-of-Ridan ShardrootStored to compute the post-cast cooldown:
+//             new_cooldown = BaseCooldown × 0.8^stored_shardroot
 //           Apply AOE damage at TargetPosition, set CooldownRemaining,
 //           increment CastCount, remove the pending component.
 //
-// Glow stays in the Temple (refinement #6): the cast does NOT deduct
-// stored Glow. Storing more compresses cooldown asymptotically, but
+// Shardroot stays in the Temple (refinement #6): the cast does NOT deduct
+// stored Shardroot. Storing more compresses cooldown asymptotically, but
 // losing the Temple wipes the discount.
 
 using Unity.Collections;
+using TheWaningBorder.Core;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -23,21 +24,46 @@ namespace TheWaningBorder.Systems.Economy
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial class GodPowerSystem : SystemBase
     {
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and these were never disposed, so this hot path leaked one
+        // per invocation. A bloated registry slows every later query AND
+        // every structural change. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_LocalTransformHealthFactionTag =
+        {
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<Health>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_LocalTransformHealthFactionTag;
+
+        static readonly ComponentType[] QT_TempleOfRidanTagFactionTagShardrootStored =
+        {
+            ComponentType.ReadOnly<TempleOfRidanTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<ShardrootStored>(),
+        };
+        static CachedEntityQuery QC_TempleOfRidanTagFactionTagShardrootStored;
+
+        static readonly ComponentType[] QT_HallTagFactionTagFactionProgress =
+        {
+            ComponentType.ReadOnly<HallTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<FactionProgress>(),
+        };
+        static CachedEntityQuery QC_HallTagFactionTagFactionProgress;
+
+        #endregion
+
         private EntityQuery _victimQuery;
         private EntityQuery _templeQuery;
 
         protected override void OnCreate()
         {
-            _victimQuery = EntityManager.CreateEntityQuery(
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<Health>(),
-                ComponentType.ReadOnly<FactionTag>()
-            );
-            _templeQuery = EntityManager.CreateEntityQuery(
-                ComponentType.ReadOnly<TempleOfRidanTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<GlowStored>()
-            );
+            _victimQuery = QC_LocalTransformHealthFactionTag.Get(EntityManager, QT_LocalTransformHealthFactionTag);
+            _templeQuery = QC_TempleOfRidanTagFactionTagShardrootStored.Get(EntityManager, QT_TempleOfRidanTagFactionTagShardrootStored);
         }
 
         protected override void OnUpdate()
@@ -54,16 +80,16 @@ namespace TheWaningBorder.Systems.Economy
             }
 
             // ── Phase 2: resolve pending casts ──────────────────────────
-            // Build a Faction → stored-Glow lookup so the per-cast read
+            // Build a Faction → stored-Shardroot lookup so the per-cast read
             // doesn't iterate temples for every bank.
             using var templeFactions = _templeQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var templeStored = _templeQuery.ToComponentDataArray<GlowStored>(Allocator.Temp);
-            var glowByFaction = new NativeHashMap<byte, int>(8, Allocator.Temp);
+            using var templeStored = _templeQuery.ToComponentDataArray<ShardrootStored>(Allocator.Temp);
+            var shardrootByFaction = new NativeHashMap<byte, int>(8, Allocator.Temp);
             for (int i = 0; i < templeFactions.Length; i++)
             {
                 byte k = (byte)templeFactions[i].Value;
-                int prior = glowByFaction.ContainsKey(k) ? glowByFaction[k] : 0;
-                glowByFaction[k] = prior + templeStored[i].Amount;
+                int prior = shardrootByFaction.ContainsKey(k) ? shardrootByFaction[k] : 0;
+                shardrootByFaction[k] = prior + templeStored[i].Amount;
             }
 
             var pendingEnts = new NativeList<Entity>(2, Allocator.Temp);
@@ -76,17 +102,17 @@ namespace TheWaningBorder.Systems.Economy
             {
                 if (gpsRW.ValueRO.CooldownRemaining > 0f) continue;
 
-                int storedGlow = glowByFaction.ContainsKey((byte)pending.ValueRO.Caster)
-                    ? glowByFaction[(byte)pending.ValueRO.Caster]
+                int storedShardroot = shardrootByFaction.ContainsKey((byte)pending.ValueRO.Caster)
+                    ? shardrootByFaction[(byte)pending.ValueRO.Caster]
                     : 0;
 
-                float multiplier = math.pow(GodPowerCooldownPerGlow, storedGlow);
+                float multiplier = math.pow(GodPowerCooldownPerShardroot, storedShardroot);
                 float newCooldown = gpsRW.ValueRO.BaseCooldown * multiplier;
 
                 gpsRW.ValueRW.CooldownRemaining = newCooldown;
                 gpsRW.ValueRW.CastCount += 1;
 
-                TWBLog.Log($"[GodPower] {pending.ValueRO.Caster} cast — {storedGlow} stored Glow → " +
+                TWBLog.Log($"[GodPower] {pending.ValueRO.Caster} cast — {storedShardroot} stored Shardroot → " +
                           $"cooldown {newCooldown:F1}s (×{multiplier:F2} of {gpsRW.ValueRO.BaseCooldown:F0}s)");
 
                 pendingEnts.Add(entity);
@@ -107,25 +133,25 @@ namespace TheWaningBorder.Systems.Economy
                     // Spec §6.4: faction-bias variants. Branch on the caster's
                     // culture rather than hardcoding a single effect.
                     byte casterCulture = CultureOf(em, pendingCasters[p]);
-                    int storedGlow = glowByFaction.ContainsKey((byte)pendingCasters[p])
-                        ? glowByFaction[(byte)pendingCasters[p]] : 0;
+                    int storedShardroot = shardrootByFaction.ContainsKey((byte)pendingCasters[p])
+                        ? shardrootByFaction[(byte)pendingCasters[p]] : 0;
 
                     switch (casterCulture)
                     {
                         case Cultures.Alanthor:
                             ApplyAlanthorSanctify(em, victimEnts, victimTransforms,
                                 victimHealth, victimFactions, pendingTargets[p],
-                                pendingCasters[p], storedGlow);
+                                pendingCasters[p], storedShardroot);
                             break;
                         case Cultures.Feraldis:
                             ApplyFeraldisPyre(em, victimEnts, victimTransforms,
                                 victimHealth, victimFactions, pendingTargets[p],
-                                pendingCasters[p], storedGlow);
+                                pendingCasters[p], storedShardroot);
                             break;
                         case Cultures.Runai:
                             ApplyRunaiVeilWard(em, victimEnts, victimTransforms,
                                 victimHealth, victimFactions, pendingTargets[p],
-                                pendingCasters[p], storedGlow);
+                                pendingCasters[p], storedShardroot);
                             break;
                         default:
                             // Pre-culture-commit: generic AOE damage (Timeless Age fallback).
@@ -141,16 +167,13 @@ namespace TheWaningBorder.Systems.Economy
             pendingEnts.Dispose();
             pendingCasters.Dispose();
             pendingTargets.Dispose();
-            glowByFaction.Dispose();
+            shardrootByFaction.Dispose();
         }
 
         /// <summary>Look up a faction's culture via its Hall. Cultures.None pre-age-up.</summary>
         private byte CultureOf(EntityManager em, Faction faction)
         {
-            var q = em.CreateEntityQuery(
-                ComponentType.ReadOnly<HallTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<FactionProgress>());
+            var q = QC_HallTagFactionTagFactionProgress.Get(em, QT_HallTagFactionTagFactionProgress);
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var tags = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var prog = q.ToComponentDataArray<FactionProgress>(Allocator.Temp);
@@ -161,16 +184,16 @@ namespace TheWaningBorder.Systems.Economy
 
         /// <summary>
         /// Alanthor "Sanctify Ground" (spec §6.4 cleansing-themed): heals all
-        /// allied units in radius. Heal scales with stored Glow (each Glow
+        /// allied units in radius. Heal scales with stored Shardroot (each Shardroot
         /// adds +10% heal).
         /// </summary>
         private static void ApplyAlanthorSanctify(EntityManager em,
             NativeArray<Entity> ents, NativeArray<LocalTransform> transforms,
             NativeArray<Health> healths, NativeArray<FactionTag> factions,
-            float3 center, Faction caster, int storedGlow)
+            float3 center, Faction caster, int storedShardroot)
         {
             int healed = 0;
-            int healPerUnit = (int)(GodPowerDamage * 0.6f * (1f + 0.1f * storedGlow));
+            int healPerUnit = (int)(GodPowerDamage * 0.6f * (1f + 0.1f * storedShardroot));
             for (int v = 0; v < ents.Length; v++)
             {
                 if (factions[v].Value != caster) continue;     // allies only
@@ -193,15 +216,15 @@ namespace TheWaningBorder.Systems.Economy
 
         /// <summary>
         /// Feraldis "Pyre of the Forsaken" (spec §6.4 destructive): big AOE
-        /// damage to enemies. Damage scales sharply with stored Glow (+15% per).
+        /// damage to enemies. Damage scales sharply with stored Shardroot (+15% per).
         /// </summary>
         private static void ApplyFeraldisPyre(EntityManager em,
             NativeArray<Entity> ents, NativeArray<LocalTransform> transforms,
             NativeArray<Health> healths, NativeArray<FactionTag> factions,
-            float3 center, Faction caster, int storedGlow)
+            float3 center, Faction caster, int storedShardroot)
         {
             int hit = 0;
-            int damage = (int)(GodPowerDamage * (1f + 0.15f * storedGlow));
+            int damage = (int)(GodPowerDamage * (1f + 0.15f * storedShardroot));
             for (int v = 0; v < ents.Length; v++)
             {
                 if (factions[v].Value == caster) continue;     // friendly fire off
@@ -227,15 +250,15 @@ namespace TheWaningBorder.Systems.Economy
         /// <summary>
         /// Runai "Veil Ward" (spec §6.4 map enhancement/passive aura): grants
         /// a temporary SpellBuff (speed + armor) to all allied units in radius.
-        /// Buff duration scales with stored Glow (+1.5s per).
+        /// Buff duration scales with stored Shardroot (+1.5s per).
         /// </summary>
         private static void ApplyRunaiVeilWard(EntityManager em,
             NativeArray<Entity> ents, NativeArray<LocalTransform> transforms,
             NativeArray<Health> healths, NativeArray<FactionTag> factions,
-            float3 center, Faction caster, int storedGlow)
+            float3 center, Faction caster, int storedShardroot)
         {
             int buffed = 0;
-            float duration = 12f + 1.5f * storedGlow;
+            float duration = 12f + 1.5f * storedShardroot;
             var buff = new SpellBuff
             {
                 ArmorBonus = 3f,
@@ -255,7 +278,7 @@ namespace TheWaningBorder.Systems.Economy
                     new float2(center.x, center.z));
                 if (dxz > GodPowerRadius) continue;
 
-                if (em.HasComponent<SpellBuff>(ents[v]))
+                if (TransientState.Active<SpellBuff>(em, ents[v]))
                 {
                     var existing = em.GetComponentData<SpellBuff>(ents[v]);
                     existing.ArmorBonus = math.max(existing.ArmorBonus, buff.ArmorBonus);

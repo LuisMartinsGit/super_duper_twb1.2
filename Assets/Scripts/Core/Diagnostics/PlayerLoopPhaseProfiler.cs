@@ -119,6 +119,10 @@ namespace TheWaningBorder.Core.Diagnostics
                     _lastMs[7] = _entry[7] != 0
                         ? (now - _entry[7]) * 1000.0 / Stopwatch.Frequency : 0;
                 }
+                // Freeze the ECS group timings against the same frame these
+                // phase numbers describe.
+                EcsGroupProfiler.EndFrame();
+
                 System.Array.Clear(_entry, 0, _entry.Length);
                 _entry[0] = now;
                 _cursor = 0;

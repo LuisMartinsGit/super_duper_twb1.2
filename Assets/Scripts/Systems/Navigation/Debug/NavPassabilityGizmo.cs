@@ -34,32 +34,18 @@ namespace TheWaningBorder.Systems.Navigation
     [DisallowMultipleComponent]
     public class NavPassabilityGizmo : MonoBehaviour
     {
-        [Header("Area")]
-        [Tooltip("Draw cells within this XZ radius (metres) of the focus point.")]
         public float radius = 40f;
-        [Tooltip("Centre the window on the Scene-view camera pivot instead of " +
-                 "this object's position (so you don't have to move the object).")]
         public bool followSceneCamera = false;
 
-        [Header("Filter")]
-        [Tooltip("Hide walkable cells; show only impassable / conditional ones.")]
         public bool onlyBlocked = false;
 
-        [Header("Appearance")]
-        [Tooltip("Place each cell marker on the terrain surface.")]
         public bool followTerrain = true;
-        [Tooltip("Height offset above the surface for the markers.")]
         public float yOffset = 0.25f;
         [Range(0f, 1f)]
-        [Tooltip("Fill transparency of the cell quads.")]
         public float fillAlpha = 0.35f;
-        [Tooltip("Also draw a wire outline per cell (sharper but busier).")]
         public bool drawWire = false;
-        [Tooltip("Only draw when this object is selected (less Scene clutter).")]
         public bool onlyWhenSelected = false;
 
-        [Header("Safety")]
-        [Tooltip("Hard cap on cells drawn per frame.")]
         public int maxCells = 30000;
 
 #if UNITY_EDITOR

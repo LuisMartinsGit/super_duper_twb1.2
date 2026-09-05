@@ -13,7 +13,7 @@
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
-using TheWaningBorder.Presentation;
+using TheWaningBorder.Rendering;
 using static TheWaningBorder.Core.Config.VeilCrustConstants;
 
 namespace TheWaningBorder.Systems.Border

@@ -175,9 +175,13 @@ namespace TheWaningBorder.Core.Diagnostics
             string role = "";
             if (GameSettings.IsMultiplayer)
             {
+                // Prefer the LOCKSTEP PLAYER INDEX over the process log slot:
+                // N processes sharing one install get arbitrary slots, and a
+                // 4-peer desync triage needs "_client2" to mean player 2.
+                var lb = TheWaningBorder.Multiplayer.LockstepBootstrap.Instance;
                 role = GameSettings.IsHost()
                     ? "_host"
-                    : $"_client{LogPaths.InstanceSlot}";
+                    : $"_client{(lb != null ? lb.LocalPlayerIndex : LogPaths.InstanceSlot)}";
             }
             else if (LogPaths.InstanceSlot > 0)
             {
@@ -263,6 +267,12 @@ namespace TheWaningBorder.Core.Diagnostics
             catch { }
 
             WriteConsoleLine($"=== Match ended ({outcome ?? "unfinished"}) ===");
+
+            // Perf.log is buffered now (it used to reopen the file per line and
+            // cost a frame doing it), so it has to be flushed and released
+            // BEFORE the uploader reads the folder.
+            PerfSpikeLog.Close();
+            TheWaningBorder.AI.AILogger.Flush();   // same reason: buffered now
 
             // Fire-and-forget, after Summary.txt exists so the upload can
             // describe the match. Only reaches the network if this install came

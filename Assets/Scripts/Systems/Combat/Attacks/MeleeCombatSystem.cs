@@ -47,7 +47,7 @@ namespace TheWaningBorder.Systems.Combat
             var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
             var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
             var dt = SystemAPI.Time.DeltaTime;
-            var elapsed = SystemAPI.Time.ElapsedTime; // for BuildingDamageState stamps
+            var elapsed = SimCadence.MatchTimeOr(SystemAPI.Time.ElapsedTime); // for BuildingDamageState stamps
             var em = state.EntityManager;
 
             foreach (var (transform, target, cooldown, damage, entity) in SystemAPI
@@ -85,9 +85,9 @@ namespace TheWaningBorder.Systems.Combat
                 if (tgt.Value == Entity.Null || !em.Exists(tgt.Value))
                 {
                     tgt.Value = Entity.Null;
-                    if (em.HasComponent<AttackCommand>(entity))
+                    if (TransientState.Active<AttackCommand>(em, entity))
                     {
-                        ecb.RemoveComponent<AttackCommand>(entity);
+                        TransientState.Clear<AttackCommand>(em, ecb, entity);
                     }
                     continue;
                 }
@@ -98,9 +98,9 @@ namespace TheWaningBorder.Systems.Combat
                 if (!em.HasComponent<Health>(tgt.Value))
                 {
                     tgt.Value = Entity.Null;
-                    if (em.HasComponent<AttackCommand>(entity))
+                    if (TransientState.Active<AttackCommand>(em, entity))
                     {
-                        ecb.RemoveComponent<AttackCommand>(entity);
+                        TransientState.Clear<AttackCommand>(em, ecb, entity);
                     }
                     continue;
                 }
@@ -110,9 +110,9 @@ namespace TheWaningBorder.Systems.Combat
                 if (targetHealth.Value <= 0)
                 {
                     tgt.Value = Entity.Null;
-                    if (em.HasComponent<AttackCommand>(entity))
+                    if (TransientState.Active<AttackCommand>(em, entity))
                     {
-                        ecb.RemoveComponent<AttackCommand>(entity);
+                        TransientState.Clear<AttackCommand>(em, ecb, entity);
                     }
                     continue;
                 }
@@ -127,9 +127,9 @@ namespace TheWaningBorder.Systems.Combat
                     && !em.HasComponent<BuildingTag>(tgt.Value))
                 {
                     tgt.Value = Entity.Null;
-                    if (em.HasComponent<AttackCommand>(entity))
+                    if (TransientState.Active<AttackCommand>(em, entity))
                     {
-                        ecb.RemoveComponent<AttackCommand>(entity);
+                        TransientState.Clear<AttackCommand>(em, ecb, entity);
                     }
                     continue;
                 }
@@ -144,9 +144,9 @@ namespace TheWaningBorder.Systems.Combat
                         || em.GetComponentData<DamageTypeData>(entity).Value != DamageType.Siege))
                 {
                     tgt.Value = Entity.Null;
-                    if (em.HasComponent<AttackCommand>(entity))
+                    if (TransientState.Active<AttackCommand>(em, entity))
                     {
-                        ecb.RemoveComponent<AttackCommand>(entity);
+                        TransientState.Clear<AttackCommand>(em, ecb, entity);
                     }
                     continue;
                 }
@@ -160,9 +160,9 @@ namespace TheWaningBorder.Systems.Combat
                 if (!CombatDamageHelper.CanDamage(em, entity, tgt.Value))
                 {
                     tgt.Value = Entity.Null;
-                    if (em.HasComponent<AttackCommand>(entity))
+                    if (TransientState.Active<AttackCommand>(em, entity))
                     {
-                        ecb.RemoveComponent<AttackCommand>(entity);
+                        TransientState.Clear<AttackCommand>(em, ecb, entity);
                     }
                     continue;
                 }
@@ -195,8 +195,8 @@ namespace TheWaningBorder.Systems.Combat
                     && surfaceDist <= MeleeRange)
                 {
                     tgt.Value = Entity.Null;
-                    if (em.HasComponent<AttackCommand>(entity))
-                        ecb.RemoveComponent<AttackCommand>(entity);
+                    if (TransientState.Active<AttackCommand>(em, entity))
+                        TransientState.Clear<AttackCommand>(em, ecb, entity);
                     continue;
                 }
 
@@ -261,6 +261,8 @@ namespace TheWaningBorder.Systems.Combat
 
                         bool targetHasLastDamaged = em.HasComponent<LastDamagedByFaction>(tgt.Value);
                         bool targetHasLastAttacker = em.HasComponent<LastAttackerEntity>(tgt.Value);
+                        // (presence only feeds the add-vs-set below; the enable
+                        // bit is raised by the helper either way)
 
                         // Calculate height-based damage modifier
                         float heightMod = CalculateHeightDamageModifier(myPos.y, targetPos.y);
@@ -338,8 +340,8 @@ namespace TheWaningBorder.Systems.Combat
                         // shortens the cooldown by 30% per the design spec.
                         // (audit follow-up — was deferred in PR #258.)
                         float cdMult = 1f;
-                        if (em.HasComponent<GlowAbilityState>(entity)
-                            && em.GetComponentData<GlowAbilityState>(entity).ActiveRemaining > 0f)
+                        if (em.HasComponent<ShardrootAbilityState>(entity)
+                            && em.GetComponentData<ShardrootAbilityState>(entity).ActiveRemaining > 0f)
                             cdMult = 1f / 1.30f;
                         // Feraldis blood frenzy also swings faster.
                         cdMult *= CombatDamageHelper.GetFrenzyCooldownMult(em, entity);
@@ -364,8 +366,8 @@ namespace TheWaningBorder.Systems.Combat
                     {
                         // Clear target so unit stays put
                         tgt.Value = Entity.Null;
-                        if (em.HasComponent<AttackCommand>(entity))
-                            ecb.RemoveComponent<AttackCommand>(entity);
+                        if (TransientState.Active<AttackCommand>(em, entity))
+                            TransientState.Clear<AttackCommand>(em, ecb, entity);
                         continue;
                     }
 
@@ -441,7 +443,7 @@ namespace TheWaningBorder.Systems.Combat
             Entity self, Entity target, float3 targetPos, float3 myPos,
             in TargetExtent extent)
         {
-            bool hasAnchor = em.HasComponent<ChaseAnchor>(self);
+            bool hasAnchor = TransientState.Active<ChaseAnchor>(em, self);
             if (hasAnchor)
             {
                 var a = em.GetComponentData<ChaseAnchor>(self);
@@ -482,8 +484,7 @@ namespace TheWaningBorder.Systems.Combat
             }
 
             var anchor = new ChaseAnchor { Target = target, TargetPos = targetPos, Point = point };
-            if (hasAnchor) ecb.SetComponent(self, anchor);
-            else ecb.AddComponent(self, anchor);
+            TransientState.Set(ecb, self, anchor);
             return point;
         }
 

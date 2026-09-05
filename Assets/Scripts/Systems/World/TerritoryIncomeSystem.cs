@@ -151,7 +151,11 @@ namespace TheWaningBorder.Systems.World
         /// </summary>
         private const float DepletionFloor = 0.25f;
 
-        private float _timer;
+        // SimCadence-phased, NOT a raw float accumulator (2026-09-04, MP
+        // harness catch #7 class): a raw `_timer -= dt` carries a
+        // machine-dependent phase in from the pre-match frame-driven updates,
+        // so periodic work lands on different ticks per lockstep peer.
+        private SimCadence.Periodic _acc;
 
         /// <summary>
         /// Fractional carry per faction. The rates are per MINUTE and the tick
@@ -168,16 +172,14 @@ namespace TheWaningBorder.Systems.World
 
         protected override void OnCreate()
         {
-            _timer = TickInterval;
+
         }
 
         protected override void OnUpdate()
         {
             if (!RegionMap.Ready) return;
 
-            _timer -= SystemAPI.Time.DeltaTime;
-            if (_timer > 0f) return;
-            _timer = TickInterval;
+            if (!_acc.Due(SystemAPI.Time.DeltaTime, TickInterval)) return;
 
             var em = EntityManager;
             TerritoryOwnership.Recompute(em);

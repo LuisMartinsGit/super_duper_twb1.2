@@ -2,6 +2,7 @@
 // Build command component and execution logic
 
 using Unity.Collections;
+using TheWaningBorder.Core;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -30,6 +31,36 @@ namespace TheWaningBorder.Core.Commands.Types
     /// </summary>
     public static class BuildCommandHelper
     {
+
+        #region Cached queries
+
+        // IsValidBuildPosition is called EVERY FRAME while the player drags a
+        // building ghost (BuildCommandPannel.Update). Each of these used to be
+        // a fresh CreateEntityQuery that was never disposed, so placing a few
+        // buildings left thousands of dead queries registered with the world —
+        // and a bloated registry slows every later query AND every structural
+        // change, which is most of what issuing an order does.
+        // See Core/CachedEntityQuery.cs.
+        static readonly ComponentType[] BuildingTypes =
+        {
+            ComponentType.ReadOnly<BuildingTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery _buildingQuery;
+
+        static readonly ComponentType[] VeilTypes = { ComponentType.ReadOnly<VeilField>() };
+        static CachedEntityQuery _veilQuery;
+
+        static readonly ComponentType[] ObstacleTypes =
+        {
+            ComponentType.ReadOnly<ObstacleTag>(),
+            ComponentType.ReadOnly<Radius>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery _obstacleQuery;
+
+        #endregion
+
         /// <summary>
         /// Execute a build command on a builder unit.
         /// Clears conflicting commands and sets up construction state.
@@ -153,9 +184,7 @@ namespace TheWaningBorder.Core.Commands.Types
             float2 newMin = new float2(position.x - halfW, position.z - halfH);
             float2 newMax = new float2(position.x + halfW, position.z + halfH);
 
-            var buildingQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<BuildingTag>(),
-                ComponentType.ReadOnly<LocalTransform>());
+            var buildingQuery = _buildingQuery.Get(em, BuildingTypes);
             using var xfs = buildingQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             using var ents = buildingQuery.ToEntityArray(Allocator.Temp);
 
@@ -197,7 +226,7 @@ namespace TheWaningBorder.Core.Commands.Types
             // unbuildable ground — humanity is being pushed back. Reclaim it
             // (mine the frontier crystals, starve the wells, sanctify with a
             // Font) before building on it.
-            var veilQuery = em.CreateEntityQuery(ComponentType.ReadOnly<VeilField>());
+            var veilQuery = _veilQuery.Get(em, VeilTypes);
             if (!veilQuery.IsEmptyIgnoreFilter)
             {
                 // Veilworks (Sect of Reclamation) is the ONE exception: a
@@ -253,10 +282,7 @@ namespace TheWaningBorder.Core.Commands.Types
             }
 
             // 1. Building overlap check (AABB-vs-AABB on XZ plane)
-            var buildingQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<BuildingTag>(),
-                ComponentType.ReadOnly<LocalTransform>()
-            );
+            var buildingQuery = _buildingQuery.Get(em, BuildingTypes);
             using var buildingTransforms = buildingQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             using var buildingEntities = buildingQuery.ToEntityArray(Allocator.Temp);
 
@@ -307,11 +333,7 @@ namespace TheWaningBorder.Core.Commands.Types
                 : null;
 
             // 2. Obstacle overlap check (AABB-vs-circle for natural obstacles)
-            var obstacleQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<ObstacleTag>(),
-                ComponentType.ReadOnly<Radius>(),
-                ComponentType.ReadOnly<LocalTransform>()
-            );
+            var obstacleQuery = _obstacleQuery.Get(em, ObstacleTypes);
             using var obstacleRadii = obstacleQuery.ToComponentDataArray<Radius>(Allocator.Temp);
             using var obstacleTransforms = obstacleQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             using var obstacleEntities = obstacleQuery.ToEntityArray(Allocator.Temp);

@@ -2,6 +2,7 @@
 // Move command component and execution logic
 
 using Unity.Collections;
+using TheWaningBorder.Core;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -13,7 +14,7 @@ namespace TheWaningBorder.Core.Commands.Types
     /// ECS Component representing a move command for a unit.
     /// When attached to an entity, MovementSystem will process it.
     /// </summary>
-    public struct MoveCommand : IComponentData
+    public struct MoveCommand : IComponentData, IEnableableComponent
     {
         /// <summary>The world position to move to</summary>
         public float3 Destination;
@@ -24,6 +25,22 @@ namespace TheWaningBorder.Core.Commands.Types
     /// </summary>
     public static class MoveCommandHelper
     {
+
+        #region Cached queries
+
+        // These two singletons were looked up with a fresh CreateEntityQuery
+        // PER UNIT, and a formation order calls Execute once per unit — so a
+        // 50-unit move built and tore down 100 queries. Creating a query
+        // matches every archetype in the world; it is not a cheap lookup.
+        // See Core/CachedEntityQuery.cs.
+        static readonly ComponentType[] PortalTypes = { typeof(PortalGraphSingleton) };
+        static CachedEntityQuery _portalQuery;
+
+        static readonly ComponentType[] CostFieldTypes = { typeof(NavCostField) };
+        static CachedEntityQuery _costFieldQuery;
+
+        #endregion
+
         // How far an off-navmesh move target may be from the navmesh and still
         // be pulled onto it. Beyond this the click is left as-is (the navmesh
         // confinement / fallback gate keep the unit on the surface anyway).
@@ -33,7 +50,8 @@ namespace TheWaningBorder.Core.Commands.Types
         /// Execute a move command on a unit.
         /// Clears conflicting commands and sets up movement state.
         /// </summary>
-        public static void Execute(EntityManager em, Entity unit, float3 destination)
+        public static void Execute(EntityManager em, Entity unit, float3 destination,
+            bool keepFormation = false)
         {
             if (!em.Exists(unit)) return;
 
@@ -112,23 +130,29 @@ namespace TheWaningBorder.Core.Commands.Types
             ClearConflictingCommands(em, unit);
 
             // An individual move order detaches the unit from any formation
-            // group it was travelling with (FormationMoveCommandHelper
-            // re-attaches AFTER calling Execute when this move IS part of a
-            // formation order). Stale group-speed overrides go with it.
-            if (em.HasComponent<FormationMemberState>(unit))
-                em.RemoveComponent<FormationMemberState>(unit);
-            if (em.HasComponent<FormationSpeedOverride>(unit))
-                em.RemoveComponent<FormationSpeedOverride>(unit);
-            // Out of the formation for good, so forget the slot too —
-            // otherwise a later formation order would put this unit back
-            // into a rank it has long since left.
-            if (em.HasComponent<FormationSlotMemory>(unit))
-                em.RemoveComponent<FormationSlotMemory>(unit);
+            // group it was travelling with. Stale group-speed overrides go
+            // with it.
+            //
+            // keepFormation SKIPS that when the caller is a formation order
+            // that is about to re-attach the very same three components. That
+            // round trip cost six structural changes per unit PER ORDER — and
+            // unlike the adds below (which only fire the first time, then
+            // become plain SetComponentData), it fired every single time,
+            // which is what made every group move order hitch.
+            if (!keepFormation)
+            {
+                if (em.HasComponent<FormationMemberState>(unit))
+                    em.RemoveComponent<FormationMemberState>(unit);
+                if (em.HasComponent<FormationSpeedOverride>(unit))
+                    em.RemoveComponent<FormationSpeedOverride>(unit);
+                // Out of the formation for good, so forget the slot too —
+                // otherwise a later formation order would put this unit back
+                // into a rank it has long since left.
+                TransientState.Clear<FormationSlotMemory>(em, unit);
+            }
 
-            // Add MoveCommand for MovementSystem to process
-            if (!em.HasComponent<MoveCommand>(unit))
-                em.AddComponent<MoveCommand>(unit);
-            em.SetComponentData(unit, new MoveCommand { Destination = destination });
+            // Activate MoveCommand for MovementSystem to process
+            TransientState.Set(em, unit, new MoveCommand { Destination = destination });
 
             // Also set DesiredDestination directly for immediate response
             if (!em.HasComponent<DesiredDestination>(unit))
@@ -147,9 +171,8 @@ namespace TheWaningBorder.Core.Commands.Types
             // The legacy MovementCache + flow-field/A* pre-warm shims are
             // gone with the navmesh migration (PR3).
 
-            // Add UserMoveOrder to prevent auto-targeting from overriding
-            if (!em.HasComponent<UserMoveOrder>(unit))
-                em.AddComponent<UserMoveOrder>(unit);
+            // Activate UserMoveOrder to prevent auto-targeting from overriding
+            TransientState.SetFlag<UserMoveOrder>(em, unit);
 
             // Update guard point to new destination
             if (em.HasComponent<GuardPoint>(unit))
@@ -207,12 +230,11 @@ namespace TheWaningBorder.Core.Commands.Types
             // Pull the current graph generation so the pathfinder can
             // reject stale requests after a graph swap (CCD-5).
             int generation = 0;
-            var portalQuery = em.CreateEntityQuery(typeof(PortalGraphSingleton));
+            var portalQuery = _portalQuery.Get(em, PortalTypes);
             if (!portalQuery.IsEmptyIgnoreFilter)
             {
                 generation = portalQuery.GetSingleton<PortalGraphSingleton>().Generation;
             }
-            portalQuery.Dispose();
 
             // task-112 M6 -- enqueue via the scheduler's
             // NavRequestQueueSingleton. The helper falls back to
@@ -242,14 +264,9 @@ namespace TheWaningBorder.Core.Commands.Types
             var goalCell = NavGridQuery.WorldToCellInt2(destination);
             if (goalCell.x == int.MinValue) return false;
 
-            var fieldQuery = em.CreateEntityQuery(typeof(NavCostField));
-            if (fieldQuery.IsEmptyIgnoreFilter)
-            {
-                fieldQuery.Dispose();
-                return false;
-            }
+            var fieldQuery = _costFieldQuery.Get(em, CostFieldTypes);
+            if (fieldQuery.IsEmptyIgnoreFilter) return false;
             var field = fieldQuery.GetSingleton<NavCostField>();
-            fieldQuery.Dispose();
 
             if (field.LayerCount < 2 || !field.Cost.IsCreated) return false;
 

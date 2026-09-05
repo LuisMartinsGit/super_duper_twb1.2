@@ -33,7 +33,7 @@ namespace TheWaningBorder.Core.Localization
             t["Your court already employs a Ledger"] = "A tua corte já emprega um Escrivão";
             t["Production queue full"] = "Fila de produção cheia";
 
-            // ---- Shardroot (ShardrootSystem / GlowFlowSystem / TempleExplodeSystem) ----
+            // ---- Shardroot (ShardrootSystem / ShardrootCarrySystem / TempleExplodeSystem) ----
             t["The SHARDROOT has been unearthed!"] = "O SHARDROOT foi desenterrado!";
             t["{0} has awakened the SHARDBOUND HERO!"] = "{0} despertou o HERÓI SHARDBOUND!";
             t["{0} carries the SHARDROOT!"] = "{0} transporta o SHARDROOT!";

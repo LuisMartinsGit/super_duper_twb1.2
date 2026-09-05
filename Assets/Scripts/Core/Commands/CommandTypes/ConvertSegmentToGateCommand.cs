@@ -49,7 +49,6 @@ namespace TheWaningBorder.Core.Commands.Types
             Iron = 0,
             Veilstone = 0,
             Veilsteel = 0,
-            Glow = 0,
         };
 
         /// <summary>

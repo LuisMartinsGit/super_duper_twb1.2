@@ -109,11 +109,36 @@ namespace TheWaningBorder.Systems.Combat
                 if (!em.HasComponent<Damage>(entity)) continue;
                 if (em.GetComponentData<Damage>(entity).Value <= 0) continue;
 
-                // Cache HasComponent results to avoid repeated lookups
-                bool hasAttackMove = em.HasComponent<AttackMoveTag>(entity);
+                // Cache the lookups; enableable transients read as active only
+                // while their enabled bit is set (TransientState).
+                bool hasAttackMove = TransientState.Active<AttackMoveTag>(em, entity);
                 bool hasPatrol = em.HasComponent<PatrolTag>(entity);
-                bool hasUserMoveOrder = em.HasComponent<UserMoveOrder>(entity);
+                bool hasUserMoveOrder = TransientState.Active<UserMoveOrder>(em, entity);
                 bool isActiveScanner = hasAttackMove || hasPatrol;
+
+                // ── MARCH IN FORMATION, FIGHT AT THE GATES (2026-09-03). ──
+                // A formation attack-move used to auto-acquire the whole way,
+                // so the army peeled off unit by unit at every farm and stray
+                // scout it marched past and arrived as a strung-out queue —
+                // the "armies attack as a trickle" report. While a formation
+                // member is still farther than FormationHoldRadius from its
+                // attack-move destination (the guard point IS that
+                // destination), it holds rank and keeps walking. Retaliation
+                // is exempt: a unit whose attacker is alive fights back —
+                // marching silently through an ambush would be worse.
+                if (hasAttackMove
+                    && em.HasComponent<FormationMemberState>(entity)
+                    && em.HasComponent<GuardPoint>(entity))
+                {
+                    var fgp = em.GetComponentData<GuardPoint>(entity);
+                    if (fgp.Has != 0
+                        && DistXZ(transform.ValueRO.Position, fgp.Position) > FormationHoldRadius)
+                    {
+                        bool underFire = TransientState.Active<LastAttackerEntity>(em, entity)
+                            && em.Exists(em.GetComponentData<LastAttackerEntity>(entity).Value);
+                        if (!underFire) continue;
+                    }
+                }
 
                 // Idle units (no AttackMove/Patrol) with UserMoveOrder skip targeting
                 if (!isActiveScanner && hasUserMoveOrder) continue;
@@ -364,12 +389,7 @@ namespace TheWaningBorder.Systems.Combat
                     // Attack-move and patrol units also issue an AttackCommand so combat systems chase
                     // Do NOT clear DesiredDestination - unit resumes movement after combat
                     if (isActiveScanner)
-                    {
-                        if (!em.HasComponent<AttackCommand>(entity))
-                            ecb.AddComponent(entity, new AttackCommand { Target = bestTarget });
-                            else
-                                ecb.SetComponent(entity, new AttackCommand { Target = bestTarget });
-                    }
+                        TransientState.Set(ecb, entity, new AttackCommand { Target = bestTarget });
                 }
             }
         }

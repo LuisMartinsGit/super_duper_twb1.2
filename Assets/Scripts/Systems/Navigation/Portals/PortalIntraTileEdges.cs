@@ -39,39 +39,38 @@ namespace TheWaningBorder.Systems.Navigation
             // region of that tile — a blocker that cuts the tile in two
             // (painted NoWalk terrain, a wall line) must not be bridged by
             // an abstract edge the flow layer can't actually walk.
-            var regionOf = new int[n];
+            var regionOf = new NativeArray<int>(n, Allocator.Temp);
             for (int i = 0; i < n; i++) regionOf[i] = -1;
             bool haveCost = cost.IsCreated;
             var mask = haveCost
                 ? new NativeArray<byte>(tileSize * tileSize, Allocator.Temp)
                 : default;
 
-            // Order node-array indices by TileIndex so same-tile portals are
-            // contiguous. Managed arrays + Array.Sort are fine here — these
-            // callers are not Burst-compiled (they use BlobBuilder/Array.Sort
-            // already).
-            var order = new int[n];
-            var tileOf = new int[n];
+            // Order node-array indices by (TileIndex, CellIndex) so same-tile
+            // portals are contiguous — a TOTAL order (the trailing index
+            // uniquifies the key, so the unstable sort cannot reorder equal
+            // entries). Packed ulong keys instead of a managed comparator:
+            // this helper must be Burst-callable (the incremental rebuild
+            // runs it inside a Burst job) and a managed Array.Sort with a
+            // lambda was both a Burst blocker and the slow path.
+            // Bit budget: TileIndex < 2^22, CellIndex < 2^21 (grids to
+            // 1448x1448), i < 2^21 — see the assemble job's node counts.
+            var order = new NativeArray<ulong>(n, Allocator.Temp,
+                NativeArrayOptions.UninitializedMemory);
             for (int i = 0; i < n; i++)
             {
-                order[i] = i;
-                tileOf[i] = nodes[i].TileIndex;
+                order[i] = ((ulong)(uint)nodes[i].TileIndex << 42)
+                    | ((ulong)(uint)nodes[i].CellIndex << 21)
+                    | (uint)i;
             }
-            // TOTAL order — the comment below PROMISES (TileIndex, CellIndex)
-            // ordering, but a tile-only comparer leaves same-tile portals in
-            // introsort-arbitrary order (Array.Sort is unstable). The
-            // partition survives it today; the promised invariant should not
-            // rest on luck.
-            System.Array.Sort(order, (a, b) =>
-                tileOf[a] != tileOf[b] ? tileOf[a] - tileOf[b]
-                                       : nodes[a].CellIndex - nodes[b].CellIndex);
+            NativeSortExtension.Sort(order);
 
             int start = 0;
             while (start < n)
             {
-                int tile = tileOf[order[start]];
+                int tile = (int)(order[start] >> 42);
                 int end = start + 1;
-                while (end < n && tileOf[order[end]] == tile) end++;
+                while (end < n && (int)(order[end] >> 42) == tile) end++;
 
                 // ── Label walkable regions inside this tile ────────────────
                 // Flood from each still-unlabelled portal cell; every portal
@@ -83,7 +82,7 @@ namespace TheWaningBorder.Systems.Navigation
                     int nextRegion = 0;
                     for (int i = start; i < end; i++)
                     {
-                        int oi = order[i];
+                        int oi = (int)(order[i] & 0x1FFFFF);
                         if (regionOf[oi] >= 0) continue;
 
                         var ni = nodes[oi];
@@ -102,7 +101,7 @@ namespace TheWaningBorder.Systems.Navigation
                         int r = nextRegion++;
                         for (int j = i; j < end; j++)
                         {
-                            int oj = order[j];
+                            int oj = (int)(order[j] & 0x1FFFFF);
                             if (regionOf[oj] >= 0) continue;
                             var njNode = nodes[oj];
                             int2 cj = new int2(njNode.CellIndex % width, njNode.CellIndex / width);
@@ -115,16 +114,18 @@ namespace TheWaningBorder.Systems.Navigation
                 // Portals [start, end) all live on `tile` — O(k²) pairs.
                 for (int i = start; i < end; i++)
                 {
-                    var ni = nodes[order[i]];
+                    int oi = (int)(order[i] & 0x1FFFFF);
+                    var ni = nodes[oi];
                     int aX = ni.CellIndex % width;
                     int aZ = ni.CellIndex / width;
                     for (int j = i + 1; j < end; j++)
                     {
+                        int oj = (int)(order[j] & 0x1FFFFF);
                         // Different walkable regions of the tile — no edge.
-                        if (haveCost && regionOf[order[i]] != regionOf[order[j]])
+                        if (haveCost && regionOf[oi] != regionOf[oj])
                             continue;
 
-                        var nj = nodes[order[j]];
+                        var nj = nodes[oj];
                         int bX = nj.CellIndex % width;
                         int bZ = nj.CellIndex / width;
                         int manhattan = math.abs(aX - bX) + math.abs(aZ - bZ);
@@ -151,6 +152,8 @@ namespace TheWaningBorder.Systems.Navigation
             }
 
             if (mask.IsCreated) mask.Dispose();
+            regionOf.Dispose();
+            order.Dispose();
         }
     }
 }

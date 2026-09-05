@@ -41,22 +41,14 @@ namespace TheWaningBorder.Bootstrap
         /// slots from live positions.</summary>
         public readonly List<Entity> Units = new();
 
-        [Tooltip("Centre of the octagon in world XZ.")]
         public Vector3 Centre = Vector3.zero;
 
-        [Tooltip("Distance from the centre to each corner. Long enough that a " +
-                 "leg is a real march rather than a shuffle.")]
         public float Radius = 40f;
 
-        [Tooltip("Formation to hold. Box gives a 3x3 for nine units.")]
         public FormationShape Shape = FormationShape.Box;
 
-        [Tooltip("How close the squad's centroid must get before the next leg " +
-                 "is ordered.")]
         public float LegArrivalRadius = 3f;
 
-        [Tooltip("Safety valve: order the next leg anyway after this long, so " +
-                 "one wedged unit cannot park the test forever.")]
         public float LegTimeout = 30f;
 
         /// <summary>
@@ -72,14 +64,10 @@ namespace TheWaningBorder.Bootstrap
         /// </summary>
         public readonly List<Entity> Reinforcements = new();
 
-        [Tooltip("How close the army centroid must come before an idle " +
-                 "reinforcement falls in.")]
         public float PickupRadius = 12f;
 
         private const int Corners = 8;
 
-        [Tooltip("Write logs/<session>/Formation.csv: per-frame position, spot, " +
-                 "commanded speed and ACHIEVED speed for every member.")]
         public bool LogTelemetry = true;
 
         private int _leg = -1;

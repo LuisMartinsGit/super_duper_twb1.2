@@ -2,6 +2,7 @@
 // Initializes faction economy entities (resource banks, population tracking)
 
 using Unity.Entities;
+using TheWaningBorder.Core;
 using Unity.Mathematics;
 using Unity.Collections;
 using UnityEngine;
@@ -13,12 +14,26 @@ namespace TheWaningBorder.Economy
     /// <summary>
     /// Creates and initializes faction economy entities.
     /// Each faction gets a resource bank entity with:
-    /// - FactionResources (Supplies, Iron, Veilstone, Veilsteel, Glow)
+    /// - FactionResources (Supplies, Iron, Veilstone, Veilsteel)
     /// - FactionPopulation (Current, Max population)
     /// - ResourceTickState (for passive income calculations)
     /// </summary>
     public static class EconomyBootstrap
     {
+
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and this one was never disposed. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_FactionTagFactionResources =
+        {
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<FactionResources>(),
+        };
+        static CachedEntityQuery QC_FactionTagFactionResources;
+
+        #endregion
         // ═══════════════════════════════════════════════════════════════
         // CONFIGURATION
         // ═══════════════════════════════════════════════════════════════
@@ -36,7 +51,6 @@ namespace TheWaningBorder.Economy
         public const int StartingVeilsteel = 0;
 
         /// <summary>Starting glow (advanced resource)</summary>
-        public const int StartingGlow = 0;
 
         // ═══════════════════════════════════════════════════════════════
         // PUBLIC API
@@ -76,7 +90,7 @@ namespace TheWaningBorder.Economy
         /// Use for special game modes or testing.
         /// </summary>
         public static Entity CreateFactionBank(EntityManager em, Faction faction,
-            int supplies, int iron, int veilstone = 0, int veilsteel = 0, int glow = 0)
+            int supplies, int iron, int veilstone = 0, int veilsteel = 0)
         {
             // In ResetAllFactionBanks and the public CreateFactionBank overload:
             var world = EntityWorld.DefaultGameObjectInjectionWorld;  // Not World.DefaultGameObjectInjectionWorld
@@ -90,7 +104,7 @@ namespace TheWaningBorder.Economy
                 typeof(FactionReligionPoints),  // task-063: RP balance + Shrine-bonus latch + CurrentAge
                 typeof(SectAdoptionState),      // task-063: per-sect adoption + lever-level state
                 typeof(FactionEquipmentTier),   // spec §4 — faction-wide equipment research
-                typeof(GodPowerState)           // spec §6.2 + refinement #6 — CDR scales with stored Glow
+                typeof(GodPowerState)           // spec §6.2 + refinement #6
             );
 
             em.SetComponentData(bank, new FactionTag { Value = faction });
@@ -100,8 +114,7 @@ namespace TheWaningBorder.Economy
                 Supplies = supplies,
                 Iron = iron,
                 Veilstone = veilstone,
-                Veilsteel = veilsteel,
-                Glow = glow
+                Veilsteel = veilsteel
             });
 
             em.SetComponentData(bank, new FactionPopulation
@@ -138,10 +151,7 @@ namespace TheWaningBorder.Economy
         {
             bank = Entity.Null;
 
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<FactionResources>()
-            );
+            var query = QC_FactionTagFactionResources.Get(em, QT_FactionTagFactionResources);
 
             using var entities = query.ToEntityArray(Allocator.Temp);
             using var tags = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
@@ -184,8 +194,7 @@ namespace TheWaningBorder.Economy
                         Supplies  = max ? cap : StartingSupplies,
                         Iron      = max ? cap : StartingIron,
                         Veilstone   = max ? cap : StartingVeilstone,
-                        Veilsteel = max ? cap : StartingVeilsteel,
-                        Glow      = max ? cap : StartingGlow
+                        Veilsteel = max ? cap : StartingVeilsteel
                     });
 
                     em.SetComponentData(bank, new FactionPopulation
@@ -221,10 +230,7 @@ namespace TheWaningBorder.Economy
 
         private static bool FactionBankExists(EntityManager em, Faction faction)
         {
-            var query = em.CreateEntityQuery(
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<FactionResources>()
-            );
+            var query = QC_FactionTagFactionResources.Get(em, QT_FactionTagFactionResources);
 
             using var banks = query.ToEntityArray(Allocator.Temp);
 
@@ -261,8 +267,7 @@ namespace TheWaningBorder.Economy
                 Supplies  = max ? cap : StartingSupplies,
                 Iron      = max ? cap : StartingIron,
                 Veilstone   = max ? cap : StartingVeilstone,
-                Veilsteel = max ? cap : StartingVeilsteel,
-                Glow      = max ? cap : StartingGlow
+                Veilsteel = max ? cap : StartingVeilsteel
             });
 
             em.SetComponentData(bank, new FactionPopulation

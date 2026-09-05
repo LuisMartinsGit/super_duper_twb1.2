@@ -5,13 +5,13 @@
 //     well is claimed: the FIRST verb on the host well drops the artifact.
 //   * Hall delivery — a carrier reaching its own Hall awakens the
 //     culture's Shardbound Hero (locked choice; Temple enshrinement is
-//     the alternative, handled by GlowFlowSystem's deposit path).
+//     the alternative, handled by ShardrootCarrySystem's deposit path).
 //   * Holder tracking for the minimap beacon and the Border's
 //     hunt-the-holder aggression bias.
 //
-// The artifact itself is a persistent GlowPickup carrying ShardrootTag —
+// The artifact itself is a persistent ShardrootPickup carrying ShardrootTag —
 // attunement/carry/interception/drop-on-death/temple-storage/detonation
-// all reuse the existing Glow machinery (GlowFlowSystem,
+// all reuse the existing Shardroot machinery (ShardrootCarrySystem,
 // TempleExplodeSystem) with small Shardroot-aware patches.
 using Unity.Collections;
 using Unity.Entities;
@@ -26,6 +26,36 @@ namespace TheWaningBorder.Systems.Border
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial class ShardrootSystem : SystemBase
     {
+        #region Cached queries
+
+        // CreateEntityQuery registers a NEW query with the world on every
+        // call and these were never disposed, so this hot path leaked one
+        // per invocation. A bloated registry slows every later query AND
+        // every structural change. See Core/CachedEntityQuery.cs.
+
+        static readonly ComponentType[] QT_ShardrootState =
+        {
+            ComponentType.ReadOnly<ShardrootState>(),
+        };
+        static CachedEntityQuery QC_ShardrootState;
+
+        static readonly ComponentType[] QT_BorderMainNodeTagLocalTransform =
+        {
+            ComponentType.ReadOnly<BorderMainNodeTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery QC_BorderMainNodeTagLocalTransform;
+
+        static readonly ComponentType[] QT_HallTagFactionTagLocalTransform =
+        {
+            ComponentType.ReadOnly<HallTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery QC_HallTagFactionTagLocalTransform;
+
+        #endregion
+
         protected override void OnCreate()
         {
             RequireForUpdate<BorderNodeState>();
@@ -36,7 +66,7 @@ namespace TheWaningBorder.Systems.Border
             var em = EntityManager;
 
             // ── Singleton bootstrap ─────────────────────────────────────
-            var stateQuery = em.CreateEntityQuery(ComponentType.ReadWrite<ShardrootState>());
+            var stateQuery = QC_ShardrootState.Get(em, QT_ShardrootState);
             Entity stateEntity;
             if (stateQuery.IsEmptyIgnoreFilter)
             {
@@ -59,9 +89,7 @@ namespace TheWaningBorder.Systems.Border
             // ── Host-well selection (once, deterministic) ───────────────
             if (state.HostChosen == 0)
             {
-                var nodeQuery = em.CreateEntityQuery(
-                    ComponentType.ReadOnly<BorderMainNodeTag>(),
-                    ComponentType.ReadOnly<LocalTransform>());
+                var nodeQuery = QC_BorderMainNodeTagLocalTransform.Get(em, QT_BorderMainNodeTagLocalTransform);
                 int count = nodeQuery.CalculateEntityCount();
                 if (count > 0)
                 {
@@ -150,7 +178,7 @@ namespace TheWaningBorder.Systems.Border
                             ? em.GetComponentData<LocalTransform>(state.HostNode).Position
                             : claimedPos;
                         state.Found = 1;
-                        var pickup = GlowPickup.Create(em,
+                        var pickup = ShardrootPickup.Create(em,
                             dropPos + new float3(3f, 0f, 3f),
                             RitualKind.Purification, ShardrootState.ShardrootPower);
                         em.AddComponent<ShardrootTag>(pickup);
@@ -169,7 +197,7 @@ namespace TheWaningBorder.Systems.Border
                 float3 courierPos = default;
                 Faction courierFaction = Faction.Border;
                 foreach (var (carrier, xf, fac, entity) in SystemAPI
-                    .Query<RefRO<GlowCarrier>, RefRO<LocalTransform>, RefRO<FactionTag>>()
+                    .Query<RefRO<ShardrootBearer>, RefRO<LocalTransform>, RefRO<FactionTag>>()
                     .WithAll<ShardrootTag>()
                     .WithNone<ShardboundHeroTag>()
                     .WithEntityAccess())
@@ -236,7 +264,7 @@ namespace TheWaningBorder.Systems.Border
         /// </summary>
         public static void TryAward(EntityManager em, Entity node, float3 pos, RitualKind kind)
         {
-            var q = em.CreateEntityQuery(ComponentType.ReadWrite<ShardrootState>());
+            var q = QC_ShardrootState.Get(em, QT_ShardrootState);
             if (q.IsEmptyIgnoreFilter) return;
             using var ents = q.ToEntityArray(Allocator.Temp);
             var state = em.GetComponentData<ShardrootState>(ents[0]);
@@ -246,7 +274,7 @@ namespace TheWaningBorder.Systems.Border
             state.Found = 1;
             em.SetComponentData(ents[0], state);
 
-            var pickup = GlowPickup.Create(em, pos + new float3(3f, 0f, 3f),
+            var pickup = ShardrootPickup.Create(em, pos + new float3(3f, 0f, 3f),
                 kind, ShardrootState.ShardrootPower);
             em.AddComponent<ShardrootTag>(pickup);
             MakePersistent(em, pickup);
@@ -259,8 +287,8 @@ namespace TheWaningBorder.Systems.Border
         /// persistent by canon).</summary>
         public static void MakePersistent(EntityManager em, Entity pickup)
         {
-            if (!em.HasComponent<GlowPickupState>(pickup)) return;
-            var ps = em.GetComponentData<GlowPickupState>(pickup);
+            if (!em.HasComponent<ShardrootPickupState>(pickup)) return;
+            var ps = em.GetComponentData<ShardrootPickupState>(pickup);
             ps.TimeRemaining = float.MaxValue;
             em.SetComponentData(pickup, ps);
         }
@@ -269,10 +297,7 @@ namespace TheWaningBorder.Systems.Border
             float3 pos, float radius, out Entity hall)
         {
             hall = Entity.Null;
-            var q = em.CreateEntityQuery(
-                ComponentType.ReadOnly<HallTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<LocalTransform>());
+            var q = QC_HallTagFactionTagLocalTransform.Get(em, QT_HallTagFactionTagLocalTransform);
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
@@ -318,7 +343,7 @@ namespace TheWaningBorder.Systems.Border
 
             em.AddComponent<ShardrootTag>(hero);
             em.AddComponent<ShardboundHeroTag>(hero);
-            em.AddComponentData(hero, new GlowCarrier
+            em.AddComponentData(hero, new ShardrootBearer
             {
                 Amount = ShardrootState.ShardrootPower,
                 Source = RitualKind.Purification,
@@ -326,7 +351,7 @@ namespace TheWaningBorder.Systems.Border
 
             // The courier hands the artifact over.
             if (em.HasComponent<ShardrootTag>(courier)) em.RemoveComponent<ShardrootTag>(courier);
-            if (em.HasComponent<GlowCarrier>(courier)) em.RemoveComponent<GlowCarrier>(courier);
+            if (em.HasComponent<ShardrootBearer>(courier)) em.RemoveComponent<ShardrootBearer>(courier);
 
             SimSignals.Notify(string.Format(Loc.T("{0} has awakened the SHARDBOUND HERO!"), faction));
             TWBLog.Log($"[Shardroot] {faction} hero awakened ({heroId} body)");

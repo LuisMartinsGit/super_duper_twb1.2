@@ -41,7 +41,7 @@ namespace TheWaningBorder.Systems.Combat
         public static int GetSpellBuffArmorBonus(EntityManager em, Entity target)
         {
             int bonus = 0;
-            if (em.HasComponent<SpellBuff>(target))
+            if (TransientState.Active<SpellBuff>(em, target))
                 bonus += (int)em.GetComponentData<SpellBuff>(target).ArmorBonus;
             if (em.HasComponent<SilenceVigilArmor>(target))
                 bonus += em.GetComponentData<SilenceVigilArmor>(target).Bonus;
@@ -110,7 +110,10 @@ namespace TheWaningBorder.Systems.Combat
         public static void MergeSpellBuff(EntityManager em, EntityCommandBuffer ecb,
             Entity target, SpellBuff incoming)
         {
-            if (em.HasComponent<SpellBuff>(target))
+            // Merge only against an ACTIVE buff — a disabled SpellBuff is a
+            // stale husk from an expired buff, and max()ing against it would
+            // resurrect old values.
+            if (TransientState.Active<SpellBuff>(em, target))
             {
                 var existing = em.GetComponentData<SpellBuff>(target);
                 existing.ArmorBonus       = Unity.Mathematics.math.max(existing.ArmorBonus, incoming.ArmorBonus);
@@ -122,7 +125,7 @@ namespace TheWaningBorder.Systems.Combat
             }
             else
             {
-                ecb.AddComponent(target, incoming);
+                TransientState.Set(ecb, target, incoming);
             }
         }
 
@@ -183,7 +186,7 @@ namespace TheWaningBorder.Systems.Combat
             int final = baseDamage;
 
             // SpellBuff.DamageMultiplier on attacker (Empower-style timed buff)
-            if (em.HasComponent<SpellBuff>(attacker))
+            if (TransientState.Active<SpellBuff>(em, attacker))
             {
                 float dmgMult = em.GetComponentData<SpellBuff>(attacker).DamageMultiplier;
                 if (dmgMult > 0f && !Unity.Mathematics.math.abs(dmgMult - 1f).Equals(0f))
@@ -374,7 +377,7 @@ namespace TheWaningBorder.Systems.Combat
             // ---- Alanthor tech passives -------------------------------------
             // Attacker side: the Garrison "Charge" opening blow and the Siege Yard
             // "Ranging Shot" aimed shot. Both are one-shot windows spent here.
-            if (em.HasComponent<TheWaningBorder.Abilities.FirstStrike>(attacker))
+            if (TransientState.Active<TheWaningBorder.Abilities.FirstStrike>(em, attacker))
             {
                 var fs = em.GetComponentData<TheWaningBorder.Abilities.FirstStrike>(attacker);
                 if (fs.Ready != 0)
@@ -460,7 +463,7 @@ namespace TheWaningBorder.Systems.Combat
         public static void ApplyDamageReflect(EntityManager em,
             Entity attacker, Entity target, int finalDamage)
         {
-            if (!em.HasComponent<SpellBuff>(target)) return;
+            if (!TransientState.Active<SpellBuff>(em, target)) return;
 
             var tgtBuff = em.GetComponentData<SpellBuff>(target);
             if (tgtBuff.DamageReflect <= 0f) return;
@@ -502,15 +505,19 @@ namespace TheWaningBorder.Systems.Combat
 
             if (em.HasComponent<DamageDealtTotal>(attacker))
             {
+                // Pre-added disabled with Value 0 on units: enabling and
+                // accumulating is exact. Enable-bit writes are not structural,
+                // so no ECB detour is needed.
                 var led = em.GetComponentData<DamageDealtTotal>(attacker);
                 led.Value += damage;
                 em.SetComponentData(attacker, led);
+                em.SetComponentEnabled<DamageDealtTotal>(attacker, true);
             }
             else
             {
                 // Structural add during query iteration — must go through the
                 // command buffer.
-                ecb.AddComponent(attacker, new DamageDealtTotal { Value = damage });
+                TransientState.Set(ecb, attacker, new DamageDealtTotal { Value = damage });
             }
         }
 
@@ -524,17 +531,23 @@ namespace TheWaningBorder.Systems.Combat
                     Value = em.GetComponentData<FactionTag>(attacker).Value
                 };
                 if (em.HasComponent<LastDamagedByFaction>(target))
+                {
                     em.SetComponentData(target, lastDamaged);
-                    else
-                        ecb.AddComponent(target, lastDamaged);
+                    em.SetComponentEnabled<LastDamagedByFaction>(target, true);
+                }
+                else
+                    TransientState.Set(ecb, target, lastDamaged);
             }
 
             // Use ECB for structural add (required during query iteration),
             // but immediate write for existing component to ensure latest attacker wins.
             if (em.HasComponent<LastAttackerEntity>(target))
+            {
                 em.SetComponentData(target, new LastAttackerEntity { Value = attacker });
-                else
-                    ecb.AddComponent(target, new LastAttackerEntity { Value = attacker });
+                em.SetComponentEnabled<LastAttackerEntity>(target, true);
+            }
+            else
+                TransientState.Set(ecb, target, new LastAttackerEntity { Value = attacker });
 
             // Building-only damage timestamp for the out-of-combat repair window.
             if (elapsedTime > 0 && em.HasComponent<BuildingTag>(target))
