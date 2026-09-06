@@ -84,6 +84,7 @@ namespace TheWaningBorder.Bootstrap
         private bool _done;
         private bool _brainsCreated;
         private float _nextChaosAt;
+        private float _decidedAtWall;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Install()
@@ -236,7 +237,25 @@ namespace TheWaningBorder.Bootstrap
             // ── Normal end conditions. ──
             if (MatchLifecycle.MatchDecided)
             {
-                Finish(0, $"match decided at {simNow:F0}s — {MatchLifecycle.MatchWinner} wins, no desync");
+                // LINGER BEFORE EXIT (2026-09-06). The verdict lands on every
+                // peer at the same SIM tick, but under late-game stalling the
+                // peers reach that tick at different WALL moments — and the
+                // first quitter (usually the host) kills the relay the others
+                // still need to get there. Probe 4: host decided at sim 2744s
+                // and quit; three clients a few ticks short of the verdict
+                // tick starved and timed out "peer lost". Keep ticking and
+                // relaying for a grace window so everyone crosses the line.
+                if (_decidedAtWall <= 0f)
+                {
+                    _decidedAtWall = Time.realtimeSinceStartup;
+                    Debug.Log($"[HeadlessMp] peer {_peer}: verdict reached " +
+                        $"({MatchLifecycle.MatchWinner} wins at {simNow:F0}s) — " +
+                        "lingering 12s so every peer crosses the verdict tick");
+                }
+                else if (Time.realtimeSinceStartup - _decidedAtWall > 12f)
+                {
+                    Finish(0, $"match decided at {simNow:F0}s — {MatchLifecycle.MatchWinner} wins, no desync");
+                }
                 return;
             }
             if (simNow >= _limit)
