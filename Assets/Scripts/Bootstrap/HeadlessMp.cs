@@ -86,6 +86,10 @@ namespace TheWaningBorder.Bootstrap
         private float _nextChaosAt;
         private float _decidedAtWall;
 
+        private static readonly Unity.Entities.ComponentType[] QT_Verdict =
+            { Unity.Entities.ComponentType.ReadOnly<MatchVerdictState>() };
+        private static TheWaningBorder.Core.CachedEntityQuery QC_Verdict;
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Install()
         {
@@ -235,7 +239,30 @@ namespace TheWaningBorder.Bootstrap
             }
 
             // ── Normal end conditions. ──
-            if (MatchLifecycle.MatchDecided)
+            // The GLOBAL sim verdict, not MatchLifecycle: the lifecycle flag
+            // also fires on a LOCAL defeat (that peer's match is over, the
+            // battle is not) and its MatchWinner then names the LOSER. Probe
+            // 4's "Blue wins at 2744s" was the host's own elimination; the
+            // harness must only end on the match-wide decision every peer's
+            // EliminationSystem stamps at the same tick.
+            bool globallyDecided = false;
+            string verdictWinner = "";
+            {
+                var w = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+                if (w != null && w.IsCreated)
+                {
+                    // Cached — a CreateEntityQuery per frame is the
+                    // documented registry leak.
+                    var q = QC_Verdict.Get(w.EntityManager, QT_Verdict);
+                    if (!q.IsEmptyIgnoreFilter)
+                    {
+                        var v = q.GetSingleton<MatchVerdictState>();
+                        globallyDecided = v.Decided != 0;
+                        verdictWinner = v.Winner.ToString();
+                    }
+                }
+            }
+            if (globallyDecided)
             {
                 // LINGER BEFORE EXIT (2026-09-06). The verdict lands on every
                 // peer at the same SIM tick, but under late-game stalling the
@@ -249,12 +276,12 @@ namespace TheWaningBorder.Bootstrap
                 {
                     _decidedAtWall = Time.realtimeSinceStartup;
                     Debug.Log($"[HeadlessMp] peer {_peer}: verdict reached " +
-                        $"({MatchLifecycle.MatchWinner} wins at {simNow:F0}s) — " +
+                        $"({verdictWinner} wins at {simNow:F0}s) — " +
                         "lingering 12s so every peer crosses the verdict tick");
                 }
                 else if (Time.realtimeSinceStartup - _decidedAtWall > 12f)
                 {
-                    Finish(0, $"match decided at {simNow:F0}s — {MatchLifecycle.MatchWinner} wins, no desync");
+                    Finish(0, $"match decided at {simNow:F0}s — {verdictWinner} wins, no desync");
                 }
                 return;
             }
