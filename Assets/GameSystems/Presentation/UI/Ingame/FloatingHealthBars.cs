@@ -1,4 +1,4 @@
-// Renders floating health bars above hovered and selected entities.
+﻿// Renders floating health bars above hovered and selected entities.
 //
 // Was IMGUI (OnGUI) — Unity draws IMGUI on top of every ScreenSpaceOverlay
 // canvas, which put bars in front of the CEF web HUD. Now drives a pool of
@@ -236,11 +236,13 @@ namespace TheWaningBorder.UI.Ingame
             bar.SetFill(ratio);
             bar.SetActive(true);
 
-            // Action progress bar — buildings that are actively training a
-            // unit OR upgrading. White bar directly under the HP bar so the
-            // player reads "this building is producing something" from
-            // across the map. Upgrade takes precedence over training (they
-            // can't run simultaneously; BuildingUpgrading freezes training).
+            // Action progress bar — buildings that are producing anything:
+            // a unit, a technology or a level-up, which are one queue. White
+            // bar directly under the HP bar so the player reads "this
+            // building is producing something" from across the map.
+            // BuildingUpgrading mirrors the same timer, so either read is the
+            // same number; it is checked first only because it also exists
+            // on buildings promoted from outside the queue.
             if (isBuilding)
             {
                 float progress = -1f;
@@ -250,11 +252,11 @@ namespace TheWaningBorder.UI.Ingame
                     if (up.Total > 0f)
                         progress = Mathf.Clamp01(up.Progress / up.Total);
                 }
-                else if (_em.HasComponent<TrainingState>(e))
+                else if (_em.HasComponent<ProductionState>(e))
                 {
-                    var ts = _em.GetComponentData<TrainingState>(e);
-                    if (ts.Busy == 1 && ts.Total > 0f)
-                        progress = Mathf.Clamp01((ts.Total - ts.Remaining) / ts.Total);
+                    var ps = _em.GetComponentData<ProductionState>(e);
+                    if (ps.Busy == 1 && ps.Total > 0f)
+                        progress = Mathf.Clamp01((ps.Total - ps.Remaining) / ps.Total);
                 }
 
                 if (progress >= 0f)

@@ -1,4 +1,4 @@
-// PlayerBuild.cs
+﻿// PlayerBuild.cs
 // Command-line entry point for producing a Windows player.
 //
 // Lives in the TheWaningBorder.Editor assembly (Editor platform only), so
@@ -54,14 +54,27 @@ namespace TheWaningBorder.EditorTools
                 return;
             }
 
+            string error = BuildTo(outDir);
+            if (error != null) { Fail(error); return; }
+            EditorApplication.Exit(0);
+        }
+
+        /// <summary>
+        /// The build itself, callable from a RUNNING editor (the bridge's
+        /// `build` command uses it) as well as from batch mode. Returns null
+        /// on success, else the reason. Same scene gate, same options, same
+        /// output layout as the batch path — it IS the batch path minus the
+        /// process exit.
+        /// </summary>
+        public static string BuildTo(string outDir)
+        {
             try
             {
                 Directory.CreateDirectory(outDir);
             }
             catch (Exception e)
             {
-                Fail($"Cannot create or write {outDir}: {e.Message}");
-                return;
+                return $"Cannot create or write {outDir}: {e.Message}";
             }
 
             // Enabled scenes only, then through the ship gate — see the header.
@@ -69,10 +82,7 @@ namespace TheWaningBorder.EditorTools
                 EditorBuildSettings.scenes.Where(s => s.enabled).Select(s => s.path).ToArray());
 
             if (scenes == null || scenes.Length == 0)
-            {
-                Fail("Build Settings has no enabled scenes.");
-                return;
-            }
+                return "Build Settings has no enabled scenes.";
 
             // Scene 0 is the boot scene. Saying so in the log has caught a
             // reordered list more than once.
@@ -98,8 +108,7 @@ namespace TheWaningBorder.EditorTools
             }
             catch (Exception e)
             {
-                Fail($"BuildPipeline threw: {e}");
-                return;
+                return $"BuildPipeline threw: {e}";
             }
 
             var summary = report.summary;
@@ -113,16 +122,15 @@ namespace TheWaningBorder.EditorTools
                     .Select(m => m.content)
                     .FirstOrDefault();
 
-                Fail($"Build {summary.result}. {summary.totalErrors} error(s)." +
-                     (first == null ? "" : $" First: {first}"));
-                return;
+                return $"Build {summary.result}. {summary.totalErrors} error(s)." +
+                       (first == null ? "" : $" First: {first}");
             }
 
             Debug.Log($"[PlayerBuild] SUCCESS — {summary.outputPath}, " +
                       $"{summary.totalSize / 1048576} MB, " +
                       $"{summary.totalTime.TotalMinutes:F1} min, " +
                       $"{summary.totalWarnings} warning(s).");
-            EditorApplication.Exit(0);
+            return null;
         }
 
         /// <summary>Value of a `-flag value` pair on Unity's command line.</summary>

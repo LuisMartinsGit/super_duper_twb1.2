@@ -1,13 +1,15 @@
-// Shared siege arm-driver — used by both the Alanthor Ballista and the
-// Runai Catapult prefabs, so it lives in cross-unit Presentation, not in
-// either unit's folder.
-// Procedural throwing-arm animation for the Ballista's placeholder visual
-// prefab (Synty SM_Wep_Catapult_01). No Animator/clips: the Synty model is a
-// rigid-part hierarchy, so the arm child is driven directly from ECS combat
-// state — snap release when a shot fires, then a slow wind-back over the
-// reload. Class name stays CatapultVisual (referenced by the editor-side
-// GameDataMaintenanceTool and the authored prefab) until dedicated ballista
-// art replaces the Synty catapult model.
+﻿// Shared siege-engine driver — used by the catapult prefab (both cultures'
+// Catapults) and the Ballista prefab, so it lives in cross-unit Rendering,
+// not in either unit's folder.
+// No Animator/clips: the Synty models are rigid-part hierarchies, so parts are
+// driven directly from ECS combat state. Two modes, either or both:
+//   ArmChildName  — a throwing arm that snaps forward when a shot fires and
+//                   winds back over the reload (the catapult).
+//   BoltChildName — a loaded bolt that vanishes when the shot fires and
+//                   reappears once the reload completes (the ballista, whose
+//                   projectile is rendered in flight by ProjectileVisualSystem).
+// Class name stays CatapultVisual (referenced by the editor-side
+// GameDataMaintenanceTool and the authored prefabs).
 
 using UnityEngine;
 using Unity.Entities;
@@ -18,6 +20,8 @@ namespace TheWaningBorder.Rendering
     public class CatapultVisual : MonoBehaviour
     {
         public string ArmChildName = "SM_Wep_Catapult_Arm_01";
+
+        public string BoltChildName = "";
 
         public float ReleasedAngle = 75f;
 
@@ -42,6 +46,7 @@ namespace TheWaningBorder.Rendering
         private float _stoneGravity = 9.81f;
 
         private Transform _arm;
+        private Transform _bolt;
         private Quaternion _armedPose;
         private EntityReference _entityRef;
         private EntityManager _em;
@@ -82,10 +87,10 @@ namespace TheWaningBorder.Rendering
                 }
             }
 
-            _arm = FindDeep(transform, ArmChildName);
-            if (_arm == null) return;
-            _armedPose = _arm.localRotation;
-            _valid = true;
+            if (!string.IsNullOrEmpty(ArmChildName)) _arm = FindDeep(transform, ArmChildName);
+            if (!string.IsNullOrEmpty(BoltChildName)) _bolt = FindDeep(transform, BoltChildName);
+            if (_arm != null) _armedPose = _arm.localRotation;
+            _valid = _arm != null || _bolt != null;
         }
 
         void LateUpdate()
@@ -119,7 +124,16 @@ namespace TheWaningBorder.Rendering
             else
                 blend = 1f - Mathf.Clamp01((t - SnapSeconds - HoldSeconds) / RewindSeconds); // winding back
 
-            _arm.localRotation = _armedPose * Quaternion.Euler(ReleasedAngle * blend, 0f, 0f);
+            if (_arm != null)
+                _arm.localRotation = _armedPose * Quaternion.Euler(ReleasedAngle * blend, 0f, 0f);
+
+            // The bolt is gone from the moment of release until the reload
+            // has wound back; before the first shot it is simply loaded.
+            if (_bolt != null)
+            {
+                bool loaded = t >= SnapSeconds + HoldSeconds + RewindSeconds;
+                if (_bolt.gameObject.activeSelf != loaded) _bolt.gameObject.SetActive(loaded);
+            }
         }
 
         /// <summary>

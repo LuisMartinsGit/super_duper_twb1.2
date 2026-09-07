@@ -1,4 +1,4 @@
-using Unity.Entities;
+﻿using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Economy;
@@ -23,7 +23,9 @@ namespace TheWaningBorder.Entities
         // Default stats (calculator: tools/calculator/techtree.json,
         // id "Alanthor_Ballista" — 220 HP / 40 dmg / 4.0 cd / range 6-22 /
         // LoS 26 / speed 3.2 / 38 s train / pop 2 / 180 S + 80 I + 40 V).
-        private const int PresentationID = 337;
+        // 338: its own Synty ballista model (Ballista.prefab beside this
+        // file). It shared 337 — the catapult model — until 2026-09-07.
+        private const int PresentationID = 338;
 
         /// <summary>
         /// Create Ballista using EntityManager.

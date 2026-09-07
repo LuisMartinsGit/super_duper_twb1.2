@@ -126,7 +126,9 @@ public static class BuildingSizeConfig
 
     /// <summary>
     /// The authored footprint in 2 m BUILD CELLS. This is the number the
-    /// design table and the player-facing outline speak in — a Hut is 1 x 1.
+    /// design table speaks in — a Hut is 2 x 2 cells (it was 1 x 1 before the
+    /// 2026-08-13 doubling; the old figure survived here in prose long after
+    /// the table moved).
     /// </summary>
     public static int2 GetCells(string buildingId) => ToCells(GetSize(buildingId));
 

@@ -1,4 +1,4 @@
-// SimpleAISystem.Production.cs
+﻿// SimpleAISystem.Production.cs
 // Training, research, age-up and unit-replacement decisions.
 // Partial of SimpleAISystem.cs -- split 2026-08-12 for readability.
 
@@ -122,10 +122,11 @@ namespace TheWaningBorder.AI
             // Don't queue into a building still under construction.
             if (em.HasComponent<UnderConstruction>(trainer))
             { blockReason = "trainer under construction"; return false; }
-            if (!em.HasBuffer<TrainQueueItem>(trainer))
+            if (!em.HasBuffer<ProductionQueueItem>(trainer))
             { blockReason = "trainer has no queue"; return false; }
 
-            // Combined train + research cap — see CommandRouter.MaxProductionQueue.
+            // One queue for units, research and level-ups — see
+            // CommandRouter.MaxProductionQueue.
             if (TheWaningBorder.Core.Commands.CommandRouter.IsProductionQueueFull(em, trainer))
             { blockReason = "trainer queue full"; return false; }
 
@@ -140,9 +141,8 @@ namespace TheWaningBorder.AI
                 && (!TheWaningBorder.Abilities.HeroTrainLimit.HasLiveOrQueuedKingLexor(em, faction)
                     || !TheWaningBorder.Abilities.HeroTrainLimit.HasLiveOrQueuedLedger(em, faction)))
             {
-                int queued = em.GetBuffer<TrainQueueItem>(trainer).Length;
-                if (em.HasBuffer<ResearchQueueItem>(trainer))
-                    queued += em.GetBuffer<ResearchQueueItem>(trainer).Length;
+                int queued = TheWaningBorder.Core.Commands.CommandRouter
+                    .GetProductionQueueLength(em, trainer);
                 if (queued >= TheWaningBorder.Core.Commands.CommandRouter.MaxProductionQueue - 1)
                 { blockReason = "hall seat reserved"; return false; }
             }

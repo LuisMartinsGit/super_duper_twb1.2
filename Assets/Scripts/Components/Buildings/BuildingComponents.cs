@@ -1,4 +1,4 @@
-// BuildingComponents.cs
+﻿// BuildingComponents.cs
 // Auto-organized by tools/split_components.py. All types are in the
 // global namespace (single assembly), so location is organizational only.
 
@@ -111,36 +111,8 @@ public struct Defense : IComponentData
     public int Magic;
 }
 
-/// <summary>
-/// Current training state of a building.
-/// </summary>
-public struct TrainingState : IComponentData
-{
-    public byte Busy;       // 0 = idle, 1 = training
-    public float Remaining; // Seconds until current unit completes
-    public float Total;     // Seconds the current training started with — UI uses
-                            // (Total - Remaining) / Total to render the progress
-                            // bar below the building's health bar.
-}
-
-/// <summary>
-/// Queue item for unit training.
-/// </summary>
-public struct TrainQueueItem : IBufferElementData
-{
-    public FixedString64Bytes UnitId;
-
-    /// <summary>
-    /// The Call to Arms cost multiplier this item was CHARGED at (0 = the item
-    /// predates the field, or no boon was up; both mean "full price").
-    ///
-    /// Recorded rather than recomputed because the boon is a 15-30 s window:
-    /// queue a unit at half price, let the boon lapse, then cancel, and a
-    /// refund computed live would hand back the full cost and mint the
-    /// difference. The refund reads this field instead.
-    /// </summary>
-    public float PaidCostMultiplier;
-}
+// TrainingState and TrainQueueItem lived here until 2026-09-07. Training is
+// a ProductionKind now — see ProductionQueueComponents.cs.
 
 /// <summary>
 /// Ranged attack capability for buildings (towers, halls, keeps).
@@ -156,17 +128,29 @@ public struct BuildingRangedAttack : IComponentData
 }
 
 /// <summary>
-/// Grid-aligned rectangular size for buildings.
-/// Width (X-axis) and Height (Z-axis) in whole grid cells (1m each).
-/// Max dimension: 5. Minimum: 1.
-/// Buildings with this component use AABB collision instead of circle collision.
-/// The Radius component is kept for backward compatibility (set to max(Width,Height)/2).
+/// Grid-aligned rectangular footprint for buildings.
+///
+/// UNITS: METRES — which are also 1 m nav / passability cells. Filled from
+/// <see cref="BuildingSizeConfig.GetSize"/>, and read as metres by the
+/// placement validator, the cost-field stamps, the terrain flatten, the AI
+/// clearance checks and the visual footprint fit.
+///
+/// NOT build cells. The BUILD grid is 2 m (<see cref="BuildGrid"/>), so a
+/// footprint here is always EVEN and is twice the authored cell count — a Hut
+/// is 2 x 2 cells and stores 4 x 4. This comment used to say "grid cells
+/// (1m each)", which predates the 2 m grid; the selection contour believed it
+/// and drew every outline at double size.
+/// <see cref="BuildingSizeConfig.GetCells"/> is the cell count.
+///
+/// Buildings with this component use AABB collision instead of circle
+/// collision. The Radius component is kept for backward compatibility
+/// (set to max(Width,Height)/2).
 /// </summary>
 public struct BuildingSize : IComponentData
 {
-    /// <summary>Width in grid cells along the X axis (1-5).</summary>
+    /// <summary>Width in METRES along the X axis. Always even.</summary>
     public int Width;
-    /// <summary>Height in grid cells along the Z axis (1-5).</summary>
+    /// <summary>Depth in METRES along the Z axis. Always even.</summary>
     public int Height;
 }
 

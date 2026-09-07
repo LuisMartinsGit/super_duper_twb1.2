@@ -1,4 +1,4 @@
-// EntityExtractors.Buildings.cs
+﻿// EntityExtractors.Buildings.cs
 // Building-placement actions (builder palette, icons, culture/era/cap gating)
 // plus hut age-up and wall-segment conversion action cells.
 
@@ -218,7 +218,12 @@ namespace TheWaningBorder.UI.Data
             // FiendstoneKeep) are NOT builder-placeable: they are placed from
             // the top-bar special-building buttons and self-construct
             // (design: Age_0.md § Special buildings).
-            "Hut", "GatherersHut", "Barracks", "ArcheryRange", "Mine",
+            "Hut", "GatherersHut", "Barracks", "ArcheryRange",
+            // BOTH extractors. The Veilstone Mine was absent from this set
+            // and so was never offered, despite having an asset, a factory
+            // recipe, a footprint, an upgrade ladder and its own placement
+            // refusal message — every part except the one that shows it.
+            "Mine", "VeilstoneMine",
             "TempleOfRidan",
             // Additional Halls — culture-gated (post-age-up only) and capped at
             // 6 per faction. The 6-cap and culture gate are enforced inside

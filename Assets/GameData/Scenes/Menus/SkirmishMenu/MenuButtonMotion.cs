@@ -84,8 +84,9 @@ namespace TheWaningBorder.UI.Menus
     }
 
     /// <summary>
-    /// Attaches <see cref="MenuButtonMotion"/> to the skirmish screen's buttons
-    /// when that scene loads.
+    /// Attaches <see cref="MenuButtonMotion"/> to the buttons of the menu
+    /// screens built in the Skirmish look — Skirmish, Scenarios and Settings —
+    /// when one of those scenes loads.
     ///
     /// Same static scene-hook shape as MenuQuitButton / MenuSettingsButton /
     /// SkirmishMenuButton: no editor pass to run, no scene edit, so re-running
@@ -93,18 +94,27 @@ namespace TheWaningBorder.UI.Menus
     /// it is free to share this file.
     ///
     /// Named buttons rather than every Selectable on the screen, on purpose:
-    /// the roster rows are Buttons too, and eight of them growing under the
-    /// pointer is noise rather than feedback. Add a name here to cover another
-    /// button.
+    /// the roster rows and the scenario list rows are Buttons too, and eight
+    /// of them growing under the pointer is noise rather than feedback. Add a
+    /// name here to cover another button.
     /// </summary>
-    internal static class SkirmishMenuMotion
+    internal static class MenuMotion
     {
+        private static readonly string[] Scenes =
+        {
+            TheWaningBorder.Core.SceneNames.Skirmish,
+            TheWaningBorder.Core.SceneNames.Scenarios,
+            TheWaningBorder.Core.SceneNames.Settings,
+        };
+
         private static readonly string[] Animated =
         {
-            "BackButton",      // CANCEL
-            "PrimaryButton",   // START
+            "BackButton",      // CANCEL / < MAIN MENU
+            "PrimaryButton",   // START / START SCENARIO / APPLY
             "PrevMapButton",
             "NextMapButton",
+            "EnglishButton",   // Settings: language pair
+            "PortugueseButton",
         };
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -117,7 +127,7 @@ namespace TheWaningBorder.UI.Menus
 
         private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
-            if (scene.name != TheWaningBorder.Core.SceneNames.Skirmish) return;
+            if (System.Array.IndexOf(Scenes, scene.name) < 0) return;
 
             int wired = 0;
             foreach (var root in scene.GetRootGameObjects())
@@ -133,10 +143,10 @@ namespace TheWaningBorder.UI.Menus
             }
 
             if (wired > 0)
-                Debug.Log($"[SkirmishMenuMotion] Added hover motion to {wired} button(s).");
+                Debug.Log($"[MenuMotion] {scene.name}: added hover motion to {wired} button(s).");
             else
-                Debug.LogWarning("[SkirmishMenuMotion] No matching buttons on the skirmish " +
-                                 "screen — the names in Animated may have changed.");
+                Debug.LogWarning($"[MenuMotion] {scene.name}: no matching buttons — " +
+                                 "the names in Animated may have changed.");
         }
     }
 }

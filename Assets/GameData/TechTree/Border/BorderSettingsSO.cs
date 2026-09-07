@@ -1,4 +1,4 @@
-// BorderSettingsSO.cs
+﻿// BorderSettingsSO.cs
 // Authoring asset for the Border ARMY logic (per-node defend/attack
 // armies). Mirrors the UnitDefSO / TechTreeCatalog pattern: one .asset under
 // Assets/Resources/BorderSettings.asset, read at runtime through the static
@@ -64,6 +64,14 @@ namespace TheWaningBorder.Data.Border
         [Min(0.1f)] public float crystallingTrainTime = 8f;
         [Min(0.1f)] public float veilstingerTrainTime = 15f;
         [Min(0.1f)] public float godsplinterTrainTime = 30f;
+
+        // Crystalling packs (2026-09-07). Each other Crystalling within the
+        // radius adds crystallingPackBonusPerMember to the unit's damage,
+        // up to crystallingPackMaxBonus. Radius 0 or bonus 0 turns it off.
+        // At the defaults a pack of 11 hits for double.
+        [Min(0f)] public float crystallingPackRadius = 7f;
+        [Min(0f)] public float crystallingPackBonusPerMember = 0.10f;
+        [Min(0f)] public float crystallingPackMaxBonus = 1.0f;
 
         /// <summary>
         /// Seconds to train one unit of the given type (1=C,2=V,3=G).
@@ -170,6 +178,9 @@ namespace TheWaningBorder.Data.Border
             crystallingTrainTime = 8f;
             veilstingerTrainTime = 15f;
             godsplinterTrainTime = 30f;
+            crystallingPackRadius = 7f;
+            crystallingPackBonusPerMember = 0.10f;
+            crystallingPackMaxBonus = 1.0f;
             baseIncomePerSecond = 6f;
             incomePerResourceNode = 4f;
             startingCrystal = 250;

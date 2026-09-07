@@ -1,4 +1,4 @@
-// ActionsPanelPrefabBinder.Execute.cs
+﻿// ActionsPanelPrefabBinder.Execute.cs
 // Acting on a click. These issue commands through CommandRouter; the
 // grid decides WHICH button was pressed, not what pressing it means.
 
@@ -23,12 +23,65 @@ namespace TheWaningBorder.UI.Ingame
 {
     public sealed partial class ActionsPanelPrefabBinder
     {
+        /// <summary>
+        /// Shift on a train button queues this many instead of one.
+        /// </summary>
+        private const int ShiftBatchCount = 5;
+
+        private static bool ShiftHeld =>
+            UnityEngine.Input.GetKey(KeyCode.LeftShift) || UnityEngine.Input.GetKey(KeyCode.RightShift);
+
         private void UpgradeClicked(Entity entity)
         {
             var em = EM(out bool ok);
             if (!ok) return;
-            BuildingUpgradeAction.Execute(em, entity);
+
+            // Every selected building that can take the order, not just the
+            // one the panel is describing. Selecting five Barracks and
+            // clicking Upgrade upgraded ONE of them, which made the
+            // double-click-select-all gesture next to useless.
+            var targets = OrderTargets(em, entity);
+            for (int i = 0; i < targets.Count; i++)
+                BuildingUpgradeAction.Execute(em, targets[i]);
+
             _timer = RefreshInterval;   // repaint on the next tick
+        }
+
+        /// <summary>
+        /// The buildings an order should reach: every SELECTED building of the
+        /// same type as the one the panel is describing, or just that one when
+        /// the selection does not include it.
+        ///
+        /// Same type, not "every selected building": the panel's buttons are
+        /// derived from one building's roster, so handing a Barracks order to
+        /// a selected Archery Range would issue something it cannot do. Type
+        /// is DisplayName, which BuildingFactory stamps from the building id —
+        /// the same key the double-click select-all gesture uses.
+        /// </summary>
+        private List<Entity> OrderTargets(EntityManager em, Entity primary)
+        {
+            var targets = new List<Entity> { primary };
+
+            var selection = TheWaningBorder.Input.SelectionSystem.CurrentSelection;
+            if (selection == null || selection.Count <= 1) return targets;
+            if (!em.Exists(primary) || !em.HasComponent<DisplayName>(primary)) return targets;
+
+            var type = em.GetComponentData<DisplayName>(primary).Value;
+            var faction = OwnFaction(em);
+
+            for (int i = 0; i < selection.Count; i++)
+            {
+                var e = selection[i];
+                if (e == primary) continue;
+                if (!em.Exists(e) || !em.HasComponent<BuildingTag>(e)) continue;
+                if (!em.HasComponent<DisplayName>(e)) continue;
+                if (!em.GetComponentData<DisplayName>(e).Value.Equals(type)) continue;
+                if (!em.HasComponent<FactionTag>(e)) continue;
+                if (em.GetComponentData<FactionTag>(e).Value != faction) continue;
+                if (em.HasComponent<UnderConstruction>(e)) continue;
+                targets.Add(e);
+            }
+            return targets;
         }
 
         private void Execute(Entity entity, ActionButton b, bool isTrain)
@@ -108,7 +161,18 @@ namespace TheWaningBorder.UI.Ingame
                 return;
             }
 
-            if (isTrain) ExecuteTrain(em, entity, b);
+            if (isTrain)
+            {
+                // Fan out across the selection, and queue five per building
+                // when shift is held. Research is deliberately NOT fanned out:
+                // a technology is one-shot per faction, so issuing it to five
+                // buildings would charge five times for one effect.
+                int count = ShiftHeld ? ShiftBatchCount : 1;
+                var targets = OrderTargets(em, entity);
+                for (int t = 0; t < targets.Count; t++)
+                    for (int i = 0; i < count; i++)
+                        if (!ExecuteTrain(em, targets[t], b)) break;
+            }
             else ExecuteResearch(em, entity, b);
         }
 
@@ -151,20 +215,25 @@ namespace TheWaningBorder.UI.Ingame
                 em, entity, (byte)wing, duration);
         }
 
-        private void ExecuteTrain(EntityManager em, Entity entity, in ActionButton b)
+        /// <summary>
+        /// Queue one unit. Returns FALSE when it was refused, so a batch
+        /// (shift-click, or a fan-out across several buildings) stops on the
+        /// first refusal instead of firing the same notification five times.
+        /// </summary>
+        private bool ExecuteTrain(EntityManager em, Entity entity, in ActionButton b)
         {
             var faction = OwnFaction(em);
 
             if (CommandRouter.IsProductionQueueFull(em, entity))
             {
                 PlayerNotificationSystem.Notify(Loc.T("Training queue full"));
-                return;
+                return false;
             }
             int popCost = PopulationHelper.GetUnitPopulationCost(b.Id);
             if (!PopulationHelper.HasPopulationCapacity(faction, popCost))
             {
                 PlayerNotificationSystem.Notify(Loc.T("Population cap reached"));
-                return;
+                return false;
             }
             // Affordability CHECK only — TrainCommandDirect spends on every
             // peer with this same formula (docs/Multiplayer_LAN_Readiness.md).
@@ -172,9 +241,10 @@ namespace TheWaningBorder.UI.Ingame
             if (!FactionEconomy.CanAfford(em, faction, cost))
             {
                 PlayerNotificationSystem.NotifyError(Loc.T("Not enough resources"));
-                return;
+                return false;
             }
             CommandRouter.IssueTrain(em, entity, b.Id);
+            return true;
         }
 
         private void ExecuteResearch(EntityManager em, Entity entity, in ActionButton b)

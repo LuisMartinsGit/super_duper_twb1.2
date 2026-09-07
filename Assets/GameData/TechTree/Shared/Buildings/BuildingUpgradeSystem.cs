@@ -1,17 +1,28 @@
-// Ticks BuildingUpgrading on every upgradeable building. When Progress
-// >= Total, bump BuildingUpgradeState.Level and recompute scaled stats
-// from BASE values (NOT current — that way any reapply is idempotent).
+// Applies a building level: bump BuildingUpgradeState.Level and recompute
+// scaled stats from BASE values (NOT current — that way any reapply is
+// idempotent).
+//
+// NO LONGER AN ECS SYSTEM. It used to tick BuildingUpgrading itself, which
+// made level-ups a second, private timer alongside research. Both are queued
+// items on one buffer now and ProductionQueueSystem owns the single clock —
+// it stamps BuildingUpgrading when the item starts, drives its Progress, and
+// calls CompleteUpgrade below when the timer runs out. The name is kept
+// because five callers outside this file reach for
+// BuildingUpgradeSystem.ApplyLevel, and because "System" in this codebase
+// means a domain's behaviour rather than an ECS base class (see CLAUDE.md,
+// Systems/Core/VictoryConditionSystem).
 //
 // Per-building specials:
 //   - Hall: BuildingRangedAttack.MaxTargets follows BuildingUpgradeConfig.HallMaxTargets[level].
 //   - Barracks: gains BuildingRangedAttack at level 3 (component is added
-//       fresh — base cooldown captured here, not in command helper, since
+//       fresh — base cooldown captured here, not in the command helper, since
 //       Barracks has no attack at level 0).
 //   - Hut: PopulationProvider.Amount = base + HutBonusPop[level].
 //
-// BuildingUpgrading is removed at completion. Training systems +
-// BuildingCombatSystem are gated WithNone<BuildingUpgrading> so the
-// building goes briefly inert during the upgrade.
+// The instant paths (BuildingCultureAutoLevelSystem, BuildingLevelOneSeedSystem,
+// StartAgePromoter, ScenarioSetup) call ApplyLevel DIRECTLY and deliberately
+// skip CompleteUpgrade: an age-up auto-level is not a Feraldis House finishing
+// an upgrade, and must not spawn its raiders.
 
 using Unity.Entities;
 using TheWaningBorder.Core;
@@ -21,24 +32,8 @@ using TheWaningBorder.Economy;
 
 namespace TheWaningBorder.Systems.Buildings
 {
-    [UpdateInGroup(typeof(SimulationSystemGroup))]
-    public partial struct BuildingUpgradeSystem : ISystem
+    public static class BuildingUpgradeSystem
     {
-        #region Cached queries
-
-        // CreateEntityQuery registers a NEW query with the world on every
-        // call and these were never disposed, so this hot path leaked one
-        // per invocation. A bloated registry slows every later query AND
-        // every structural change. See Core/CachedEntityQuery.cs.
-
-        static readonly ComponentType[] QT_BuildingUpgrading =
-        {
-            ComponentType.ReadOnly<BuildingUpgrading>(),
-        };
-        static CachedEntityQuery QC_BuildingUpgrading;
-
-        #endregion
-
         // Barracks — when it gains its first attack at level 3, use these.
         // Mirrors Hall's stats from Hall.cs (Range 20, Damage 12, Cooldown 2.5s).
         // Barracks is closer to a watchtower than a keep — same range/cooldown,
@@ -47,72 +42,37 @@ namespace TheWaningBorder.Systems.Buildings
         private const int   BarracksAttackDamage   = 8;
         private const float BarracksAttackCooldown = 2.5f;
 
-        public void OnCreate(ref SystemState state)
+        /// <summary>
+        /// A queued level-up finished: apply the level and fire the effects
+        /// that belong to FINISHING one. Called only by ProductionQueueSystem.
+        /// </summary>
+        public static void CompleteUpgrade(EntityManager em, Entity building, byte level)
         {
-            state.RequireForUpdate<BuildingUpgrading>();
-        }
+            if (!em.Exists(building)) return;
 
-        public void OnUpdate(ref SystemState state)
-        {
-            float dt = SystemAPI.Time.DeltaTime;
-            var em = state.EntityManager;
+            ApplyLevel(em, building, level);
 
-            // Snapshot — applying the level is a structural change for
-            // Barracks (adds BuildingRangedAttack), so we mustn't iterate
-            // SystemAPI.Query while doing it.
-            var query = QC_BuildingUpgrading.Get(em, QT_BuildingUpgrading);
-            using var ents = query.ToEntityArray(Unity.Collections.Allocator.Temp);
-
-            for (int i = 0; i < ents.Length; i++)
+            // task-066 Phase 3: Feraldis House upgrade ticks spawn raiders
+            // (2 at L2, 3 at L3). The initial L1 build is handled in
+            // BuildingConstructionSystem.CompleteConstruction.
+            if (em.HasComponent<HutTag>(building) && em.HasComponent<FactionTag>(building))
             {
-                var e = ents[i];
-                if (!em.Exists(e)) continue;
+                var fac = em.GetComponentData<FactionTag>(building).Value;
+                if (FactionColors.GetFactionCulture(fac) == Cultures.Feraldis && level >= 2)
+                    SpawnFeraldisRaiders(em, building, fac, count: level);
+            }
 
-                var up = em.GetComponentData<BuildingUpgrading>(e);
-                bool firstTick = up.Progress < dt + 0.001f;
-                up.Progress += dt;
-
-                if (firstTick)
-                {
-                    TWBLog.Log(
-                        $"[Upgrade] tick — entity {e.Index}, progress {up.Progress:F1}/{up.Total:F1}, target L{up.TargetLevel}");
-                }
-
-                if (up.Progress < up.Total)
-                {
-                    em.SetComponentData(e, up);
-                    continue;
-                }
-
-                // ── Apply level ────────────────────────────────────────
-                ApplyLevel(em, e, up.TargetLevel);
-                em.RemoveComponent<BuildingUpgrading>(e);
-
-                // task-066 Phase 3: Feraldis House upgrade ticks spawn raiders
-                // (2 at L2, 3 at L3). Initial L1 build is handled in
-                // BuildingConstructionSystem.CompleteConstruction.
-                if (em.HasComponent<HutTag>(e) && em.HasComponent<FactionTag>(e))
-                {
-                    var fac = em.GetComponentData<FactionTag>(e).Value;
-                    if (FactionColors.GetFactionCulture(fac) == Cultures.Feraldis && up.TargetLevel >= 2)
-                    {
-                        SpawnFeraldisRaiders(em, e, fac, count: up.TargetLevel);
-                    }
-                }
-
-                // Debug log so the upgrade pipeline is visible during
-                // playtesting. Identifies the building type by tag — same
-                // resolution the command helper uses.
-                if (em.HasComponent<FactionTag>(e))
-                {
-                    string id = em.HasComponent<HallTag>(e)     ? "Hall"
-                             :  em.HasComponent<BarracksTag>(e) ? "Barracks"
-                             :  em.HasComponent<HutTag>(e)      ? "Hut"
-                             :                                    "Building";
-                    var fac = em.GetComponentData<FactionTag>(e).Value;
-                    TWBLog.Log(
-                        $"[Upgrade] {fac} {id} → L{up.TargetLevel}");
-                }
+            // Debug log so the upgrade pipeline is visible during playtesting.
+            // Identifies the building type by tag — same resolution the command
+            // helper uses.
+            if (em.HasComponent<FactionTag>(building))
+            {
+                string id = em.HasComponent<HallTag>(building)     ? "Hall"
+                         :  em.HasComponent<BarracksTag>(building) ? "Barracks"
+                         :  em.HasComponent<HutTag>(building)      ? "Hut"
+                         :                                           "Building";
+                var fac = em.GetComponentData<FactionTag>(building).Value;
+                TWBLog.Log($"[Upgrade] {fac} {id} → L{level}");
             }
         }
 

@@ -1,4 +1,4 @@
-// AIAlanthorEndgameSystem.Economy.cs
+﻿// AIAlanthorEndgameSystem.Economy.cs
 // Age-2 ladder, well purification (the Alanthor verb), temple/smelter levelling, expansion.
 // Partial of AIAlanthorEndgameSystem.cs -- split 2026-08-12 for readability.
 
@@ -238,7 +238,8 @@ namespace TheWaningBorder.AI
             {
                 if (em.GetComponentData<FactionTag>(ents[i]).Value != faction) continue;
                 if (em.HasComponent<UnderConstruction>(ents[i])) continue;
-                if (em.HasComponent<BuildingUpgrading>(ents[i])) continue;
+                // Queued counts as busy — see AIBuildingUpgradeSystem.
+                if (UpgradeBuildingCommandHelper.IsUpgradeQueued(em, ents[i])) continue;
                 int lvl = em.HasComponent<BuildingUpgradeState>(ents[i])
                     ? em.GetComponentData<BuildingUpgradeState>(ents[i]).Level : 0;
                 if (lvl < bestLevel) { bestLevel = lvl; best = ents[i]; }

@@ -1,4 +1,4 @@
-// CommandRouter.LockstepQueue.cs
+﻿// CommandRouter.LockstepQueue.cs
 // Partial class extension holding the Queue*ForLockstep boilerplate.
 //
 // Fix #224: CommandRouter.cs used to be 943 lines. The LOCKSTEP QUEUE METHODS
@@ -446,22 +446,22 @@ namespace TheWaningBorder.Core.Commands
             });
         }
 
-        // The slot index rides in the existing int TargetEntityId field —
-        // there is no float-format risk in the Serialize/Deserialize path
-        // (ints round-trip exactly) and no schema bump is needed.
-        private static void QueueCancelTrainForLockstep(EntityManager em, Entity building, int slotIndex)
+        /// <summary>The slot index rides in the existing int TargetEntityId
+        /// field — there is no float-format risk in the Serialize/Deserialize
+        /// path (ints round-trip exactly) and no schema bump is needed.</summary>
+        private static void QueueCancelProductionForLockstep(EntityManager em, Entity building, int slotIndex)
         {
             int buildingId = GetNetworkId(em, building);
 
             if (buildingId <= 0)
             {
-                CancelTrainCommandHelper.Execute(em, building, slotIndex);
+                CancelProductionCommandHelper.Execute(em, building, slotIndex);
                 return;
             }
 
             LockstepServiceLocator.Instance.QueueCommand(new LockstepCommand
             {
-                Type = LockstepCommandType.CancelTrain,
+                Type = LockstepCommandType.CancelProduction,
                 EntityNetworkId = buildingId,
                 TargetEntityId = slotIndex,
             });

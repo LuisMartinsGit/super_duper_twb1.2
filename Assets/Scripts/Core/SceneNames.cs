@@ -22,5 +22,12 @@ namespace TheWaningBorder.Core
 
         /// <summary>Multiplayer lobby.</summary>
         public const string Multiplayer = "MultiplayerMenu";
+
+        /// <summary>Scenarios browser (the dev harness; hidden in the shipped
+        /// menu by ShipGateMenuTrim, but its scene still ships).</summary>
+        public const string Scenarios = "ScenariosMenu";
+
+        /// <summary>Settings screen.</summary>
+        public const string Settings = "SettingsMenu";
     }
 }

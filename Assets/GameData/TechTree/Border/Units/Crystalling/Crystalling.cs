@@ -1,4 +1,4 @@
-using Unity.Entities;
+﻿using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using static TheWaningBorder.Core.Config.BorderConstants;
@@ -98,6 +98,7 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new UnitTag { Class = UnitClass.Melee });
             creator.AddComponent<BorderTag>(entity);
             creator.AddComponent<BorderUnitTag>(entity);
+            creator.AddComponent<CrystallingTag>(entity);   // pack damage — CrystallingPackSystem
             creator.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
             creator.AddComponent(entity, new MoveSpeed { Value = speed });
             creator.AddComponent(entity, new Damage { Value = (int)damage });

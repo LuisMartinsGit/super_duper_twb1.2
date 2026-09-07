@@ -28,7 +28,7 @@ MonoBehaviour:
   lineOfSight: 12
   trains: []
   research: []
-  minEra: 2
+  minEra: 1
   cost:
     Supplies: 90
     Iron: 140

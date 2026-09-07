@@ -1,4 +1,4 @@
-// ActionsPanelPrefabBinder.Render.cs
+﻿// ActionsPanelPrefabBinder.Render.cs
 // What the 3x5 grid shows for the current selection: builder palette,
 // unit formations, building actions, the upgrade slot and research rows.
 
@@ -87,7 +87,6 @@ namespace TheWaningBorder.UI.Ingame
             }
             for (int i = count; i < _slots.Length; i++) ClearSlot(_slots[i]);
 
-            _queue.Hide();   // units have no production queue
             return count;
         }
 
@@ -146,7 +145,6 @@ namespace TheWaningBorder.UI.Ingame
 
             used += RenderUpgradeSlot(em);
             RenderProgress(em, info);
-            _queue.Render(em, _entity, info);
             return used;
         }
 
@@ -287,22 +285,30 @@ namespace TheWaningBorder.UI.Ingame
         /// tier's chain occupies, i.e. under the successor tier).</summary>
         private void RenderProgress(EntityManager em, in EntityActionInfo info)
         {
-            if (info.TrainingState.HasValue && info.TrainingState.Value.IsTraining)
+            // The head item sweeps the button that queued it: a unit its
+            // roster button, a tech its research button. A running LEVEL-UP
+            // sweeps its own slot, which RenderUpgradeSlot already does from
+            // BuildingUpgrading.
+            if (info.ProductionState.HasValue
+                && info.ProductionState.Value.IsBusy
+                && info.ProductionState.Value.CurrentKind == ProductionKind.Train)
             {
-                var t = info.TrainingState.Value;
+                var t = info.ProductionState.Value;
                 for (int i = 0; i < _slots.Length && i < TrainSlots; i++)
-                    if (_slots[i].ActionId == t.CurrentUnitId && _slots[i].CooldownFill != null)
+                    if (_slots[i].ActionId == t.CurrentId && _slots[i].CooldownFill != null)
                         _slots[i].CooldownFill.fillAmount = 1f - Mathf.Clamp01(t.Progress);
             }
-            if (info.ResearchState.HasValue && info.ResearchState.Value.IsResearching)
+            if (info.ProductionState.HasValue
+                && info.ProductionState.Value.IsBusy
+                && info.ProductionState.Value.CurrentKind == ProductionKind.Research)
             {
-                var r = info.ResearchState.Value;
+                var r = info.ProductionState.Value;
                 for (int i = 0; i < _slots.Length; i++)
                 {
                     var s = _slots[i];
                     if (s.CooldownFill == null || s.ChainIds == null) continue;
                     foreach (var id in s.ChainIds)
-                        if (id == r.CurrentTechId)
+                        if (id == r.CurrentId)
                         { s.CooldownFill.fillAmount = 1f - Mathf.Clamp01(r.Progress); break; }
                 }
             }

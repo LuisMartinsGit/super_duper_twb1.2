@@ -19,6 +19,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TheWaningBorder.Economy;
 using EntityWorld = Unity.Entities.World;
+using TheWaningBorder.UI.Common;
 
 namespace TheWaningBorder.UI.Ingame
 {
@@ -83,9 +84,11 @@ namespace TheWaningBorder.UI.Ingame
             var canvas = canvasGo.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.targetDisplay = TargetDisplay;
-            var scaler = canvasGo.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1280f, 720f);
+            // Authored against 720p. Expand rather than Unity's default
+            // match-width, or a 32:9 screen keeps the 1280 units of width and
+            // loses half the 720 units of height the board is laid out in.
+            HudCanvas.Configure(
+                canvasGo.AddComponent<CanvasScaler>(), new Vector2(1280f, 720f));
 
             // Dark backdrop.
             var bg = new GameObject("Backdrop").AddComponent<Image>();

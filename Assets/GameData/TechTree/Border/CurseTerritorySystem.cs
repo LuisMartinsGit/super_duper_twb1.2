@@ -1,4 +1,4 @@
-// CurseTerritorySystem.cs
+﻿// CurseTerritorySystem.cs
 // The curse as a territorial power (docs/Design/Regions.md §3, 2026-08-31).
 //
 // The curse is NOT a full player — no economy, no tech, no build orders, no
@@ -35,9 +35,13 @@ using TheWaningBorder.Data.Border;
 using TheWaningBorder.World.Regions;
 using TheWaningBorder.World.Terrain;
 
-/// <summary>Marks a unit fielded by a curse territory wave. Carries no data —
-/// membership is what lets the wave shepherd re-march idle units.</summary>
-public struct CurseWaveMember : IComponentData { }
+/// <summary>Marks a unit fielded by a curse territory wave. The wave id is
+/// what lets the shepherd re-form the SAME wave as one formation rather than
+/// re-marching its units one by one.</summary>
+public struct CurseWaveMember : IComponentData
+{
+    public int WaveId;
+}
 
 namespace TheWaningBorder.Systems.Border
 {
@@ -98,6 +102,26 @@ namespace TheWaningBorder.Systems.Border
 
         private EntityQuery _waveUnitQuery;
 
+        /// <summary>Per-wave shepherd state, keyed by CurseWaveMember.WaveId.</summary>
+        private sealed class WaveState
+        {
+            /// <summary>0 = marching in formation to the stage point,
+            /// 1 = striking the objective.</summary>
+            public byte Phase;
+            public float3 Objective;
+            public float3 StagePos;
+            public double NextThinkAt;
+            /// <summary>When the current march began; a march that has not
+            /// formed up by <see cref="WaveStageTimeoutSeconds"/> strikes
+            /// anyway, so one wedged straggler cannot hold the wave.</summary>
+            public double MarchStartedAt;
+        }
+        private const byte WaveMarching = 0;
+        private const byte WaveStriking = 1;
+        private readonly Dictionary<int, WaveState> _waves = new();
+        private int _nextWaveId;
+        private readonly List<Entity> _scratchWave = new();
+
         protected override void OnCreate()
         {
             _waveUnitQuery = GetEntityQuery(ComponentType.ReadOnly<CurseWaveMember>());
@@ -117,6 +141,8 @@ namespace TheWaningBorder.Systems.Border
                 _rng = new Unity.Mathematics.Random((uint)(GameSettings.SpawnSeed ^ 0xC0C0A) | 1u);
                 _anchors.Clear();
                 _nextWaveAt.Clear();
+                _waves.Clear();
+                _nextWaveId = 0;
                 _held.Clear();
                 _nextConquerAt = -1.0;
                 _timer = 0f;
@@ -158,7 +184,7 @@ namespace TheWaningBorder.Systems.Border
             }
 
             TickWaves(em, now);
-            ShepherdWaveUnits(em);
+            ShepherdWaves(em, now);
         }
 
         // ── holdings ────────────────────────────────────────────────────────
@@ -453,7 +479,8 @@ namespace TheWaningBorder.Systems.Border
                               float3 origin, float3 target, int budget)
         {
             int total = math.min(tier.TotalUnits, budget);
-            int spawned = 0;
+            int waveId = _nextWaveId++;
+            _scratchWave.Clear();
             for (int u = 0; u < total; u++)
             {
                 float angle = _rng.NextFloat(0f, math.PI * 2f);
@@ -468,44 +495,248 @@ namespace TheWaningBorder.Systems.Border
                         ? TheWaningBorder.Entities.Veilstinger.Create(em, pos, Faction.Border)
                         : TheWaningBorder.Entities.Crystalling.Create(em, pos, Faction.Border);
 
-                em.AddComponent<CurseWaveMember>(e);
-                em.SetComponentData(e, new DesiredDestination { Position = target, Has = 1 });
-                spawned++;
+                em.AddComponentData(e, new CurseWaveMember { WaveId = waveId });
+                _scratchWave.Add(e);
             }
-            return spawned;
+
+            // ONE order for the wave, as a formation. It used to hand every
+            // unit the same destination, which is a spill: the fast
+            // Crystallings arrived first and alone, got picked off, and the
+            // Veilstingers walked in behind them with nothing in front. The
+            // standard rank layering puts the melee in front and the ranged
+            // behind, exactly the shape a wave should reach the wall in.
+            // Direct helper, not the router: this runs in-sim on every peer.
+            if (_scratchWave.Count > 0)
+            {
+                var wave = new WaveState { Objective = target, NextThinkAt = 0.0 };
+                OrderWave(em, wave, origin);
+                _waves[waveId] = wave;
+            }
+            return _scratchWave.Count;
         }
 
         /// <summary>
-        /// Re-march idle wave units. TargetingSystem owns them while an enemy
-        /// is in reach (it re-issues the chase every frame); this only touches
-        /// units whose destination was consumed and who have nothing to fight
-        /// — a razed site, a dead target — and points them at the nearest
-        /// hostile building so the wave rolls on.
+        /// Distance short of the objective at which a wave forms up before it
+        /// strikes. Past the Veilstinger's 15 m reach, so the ranged rank is
+        /// not already under fire while the body is still forming.
         /// </summary>
-        private void ShepherdWaveUnits(EntityManager em)
+        private const float WaveStageDistance = 22f;
+
+        /// <summary>A wave this close to its stage point has arrived.</summary>
+        private const float WaveStageArriveRadius = 8f;
+
+        /// <summary>Longest a wave marches before it strikes regardless.</summary>
+        private const double WaveStageTimeoutSeconds = 30.0;
+
+        /// <summary>
+        /// Order the members in <see cref="_scratchWave"/> at the wave's
+        /// objective: a plain formation MARCH to a stage point when the
+        /// objective is still far, else a formation attack-move onto it.
+        ///
+        /// The approach is a MOVE, not an attack-move, on purpose. An
+        /// attack-moving formation loses every member the instant it
+        /// acquires a target, and a Crystalling acquires the first thing it
+        /// sees — so the wave broke into a sprint the moment a scout or an
+        /// outlying hut came into view, which is the spill this was meant
+        /// to fix. A move order suppresses acquisition (UserMoveOrder), so
+        /// the body arrives whole and strikes together, melee in front.
+        /// </summary>
+        private void OrderWave(EntityManager em, WaveState wave, float3 from)
+        {
+            wave.MarchStartedAt = _matchElapsed;
+            float3 away = from - wave.Objective;
+            away.y = 0f;
+            float dist = math.length(away);
+
+            if (dist > WaveStageDistance * 1.5f)
+            {
+                wave.Phase = WaveMarching;
+                wave.StagePos = wave.Objective + away / dist * WaveStageDistance;
+                wave.StagePos.y = TerrainUtility.GetHeight(wave.StagePos.x, wave.StagePos.z);
+                TheWaningBorder.Core.Commands.Types.FormationMoveCommandHelper.Execute(
+                    em, _scratchWave, wave.StagePos, FormationShape.Box, attackMove: false);
+            }
+            else
+            {
+                wave.Phase = WaveStriking;
+                TheWaningBorder.Core.Commands.Types.FormationMoveCommandHelper.Execute(
+                    em, _scratchWave, wave.Objective, FormationShape.Box, attackMove: true);
+            }
+        }
+
+        /// <summary>
+        /// How close a defender has to be to the wave's centre for the wave
+        /// to break off its march and go for it instead. Comfortably outside
+        /// weapon range so the switch happens on approach rather than after
+        /// the wave has already walked into a volley.
+        /// </summary>
+        private const float DefenderRedirectRange = 45f;
+
+        /// <summary>Seconds between a wave's thinks. Long enough that a
+        /// group is not re-laid every tick, short enough to track an army
+        /// that moves.</summary>
+        private const float WaveThinkSeconds = 3f;
+
+        /// <summary>A new objective closer than this to the current one is the
+        /// same objective; no re-form for it.</summary>
+        private const float WaveRetargetDistance = 8f;
+
+        /// <summary>
+        /// Keep each wave together and pointed at the closest thing worth
+        /// attacking, in two phases.
+        ///
+        /// MARCHING: the wave travels as a formation MOVE to a stage point
+        /// <see cref="WaveStageDistance"/> short of its objective. A defender
+        /// within <see cref="DefenderRedirectRange"/> of the wave's centre
+        /// becomes the objective (the stage point follows it), else the
+        /// nearest hostile building. On arrival — or when every member has
+        /// stopped — it STRIKES: one formation attack-move onto the
+        /// objective, so the melee rank goes in first and the ranged rank
+        /// opens up from behind it. Members detach to fight, as attack-move
+        /// members do; when nothing is left fighting, the wave forms up again
+        /// and marches on the next objective.
+        ///
+        /// Three earlier shapes of this failed three ways. Re-marching IDLE
+        /// units at BUILDINGS let a wave walk through the army defending its
+        /// target. Redirecting each unit at the nearest defender fixed that
+        /// and broke the formation instead. Issuing the whole approach as a
+        /// formation ATTACK-move kept the body together for exactly as long
+        /// as it took the first Crystalling to see something, then it
+        /// sprinted — a formation move is the only order under which the
+        /// members do not acquire on their own.
+        /// </summary>
+        private void ShepherdWaves(EntityManager em, double now)
         {
             var q = em.CreateEntityQuery(
                 ComponentType.ReadOnly<CurseWaveMember>(),
-                ComponentType.ReadWrite<DesiredDestination>(),
                 ComponentType.ReadOnly<LocalTransform>());
             using var ents = q.ToEntityArray(Allocator.Temp);
+            using var members = q.ToComponentDataArray<CurseWaveMember>(Allocator.Temp);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             q.Dispose();
 
-            for (int i = 0; i < ents.Length; i++)
+            // Waves with no one left alive drop their state.
+            _scratchHeld.Clear();
+            foreach (var kv in _waves) _scratchHeld.Add(kv.Key);
+            for (int k = 0; k < _scratchHeld.Count; k++)
             {
-                var dd = em.GetComponentData<DesiredDestination>(ents[i]);
-                if (dd.Has != 0) continue;
+                int waveId = _scratchHeld[k];
+                bool alive = false;
+                for (int i = 0; i < members.Length; i++)
+                    if (members[i].WaveId == waveId) { alive = true; break; }
+                if (!alive) _waves.Remove(waveId);
+            }
 
-                var pos = em.GetComponentData<LocalTransform>(ents[i]).Position;
-                if (!TryNearestHostileBuilding(em, pos, out float3 next)) continue;
+            foreach (var kv in _waves)
+            {
+                int waveId = kv.Key;
+                var wave = kv.Value;
+                if (now < wave.NextThinkAt) continue;
+                wave.NextThinkAt = now + WaveThinkSeconds;
 
-                // Standing on the objective already — leave it to targeting.
-                float dx = next.x - pos.x, dz = next.z - pos.z;
-                if (dx * dx + dz * dz < 20f * 20f) continue;
+                // Centre and roster of this wave.
+                float3 centre = float3.zero;
+                int n = 0;
+                _scratchWave.Clear();
+                for (int i = 0; i < ents.Length; i++)
+                {
+                    if (members[i].WaveId != waveId) continue;
+                    centre += xfs[i].Position;
+                    n++;
+                    _scratchWave.Add(ents[i]);
+                }
+                if (n == 0) continue;
+                centre /= n;
 
-                em.SetComponentData(ents[i], new DesiredDestination { Position = next, Has = 1 });
+                // Objective: the defenders if they are in reach, else the
+                // buildings.
+                float3 objective;
+                bool haveObjective = false;
+                if (TryNearestHostileUnit(em, centre, out float3 defender)
+                    && Distance2(defender, centre) <= DefenderRedirectRange * DefenderRedirectRange)
+                {
+                    objective = defender;
+                    haveObjective = true;
+                }
+                else if (TryNearestHostileBuilding(em, centre, out objective))
+                {
+                    haveObjective = true;
+                }
+                if (!haveObjective) continue;
+
+                bool objectiveMoved = Distance2(objective, wave.Objective)
+                    > WaveRetargetDistance * WaveRetargetDistance;
+
+                // Roster state.
+                int fighting = 0, moving = 0;
+                for (int i = 0; i < _scratchWave.Count; i++)
+                {
+                    var e = _scratchWave[i];
+                    if (em.HasComponent<Target>(e) && em.GetComponentData<Target>(e).Value != Entity.Null) fighting++;
+                    if (em.HasComponent<DesiredDestination>(e) && em.GetComponentData<DesiredDestination>(e).Has != 0) moving++;
+                }
+
+                if (wave.Phase == WaveMarching)
+                {
+                    if (objectiveMoved)
+                    {
+                        // The threat moved: stage against where it is now.
+                        wave.Objective = objective;
+                        OrderWave(em, wave, centre);
+                        continue;
+                    }
+
+                    bool arrived = Distance2(centre, wave.StagePos)
+                        <= WaveStageArriveRadius * WaveStageArriveRadius;
+                    bool timedOut = now - wave.MarchStartedAt > WaveStageTimeoutSeconds;
+                    if (arrived || moving == 0 || timedOut)
+                    {
+                        // Formed up: strike as one body.
+                        wave.Phase = WaveStriking;
+                        TheWaningBorder.Core.Commands.Types.FormationMoveCommandHelper.Execute(
+                            em, _scratchWave, wave.Objective, FormationShape.Box, attackMove: true);
+                    }
+                    continue;
+                }
+
+                // Striking. A member mid-swing is left to it; only the ones
+                // with nothing to fight are reconsidered.
+                if (fighting > 0 && !objectiveMoved) continue;
+
+                for (int i = _scratchWave.Count - 1; i >= 0; i--)
+                {
+                    var e = _scratchWave[i];
+                    if (em.HasComponent<Target>(e) && em.GetComponentData<Target>(e).Value != Entity.Null)
+                        _scratchWave.RemoveAt(i);
+                }
+                if (_scratchWave.Count == 0) continue;
+
+                if (fighting == 0)
+                {
+                    // Nothing left to fight here: form up again and march on
+                    // the next objective.
+                    wave.Objective = objective;
+                    OrderWave(em, wave, centre);
+                }
+                else
+                {
+                    // The fight moved; the idle members go where it is.
+                    wave.Objective = objective;
+                    TheWaningBorder.Core.Commands.Types.FormationMoveCommandHelper.Execute(
+                        em, _scratchWave, wave.Objective, FormationShape.Box, attackMove: true);
+                }
             }
         }
+
+        private static float Distance2(float3 a, float3 b)
+        {
+            float dx = a.x - b.x, dz = a.z - b.z;
+            return dx * dx + dz * dz;
+        }
+
+        /// <summary>Nearest live hostile UNIT — the defending army.</summary>
+        private static bool TryNearestHostileUnit(EntityManager em, float3 from, out float3 pos)
+            => TryNearestHostile<UnitTag>(em, from, out pos);
 
         private static bool TryNearestHostileHall(EntityManager em, float3 from, out float3 pos)
             => TryNearestHostile<HallTag>(em, from, out pos);

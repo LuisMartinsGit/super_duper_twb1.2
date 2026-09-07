@@ -1,4 +1,4 @@
-// AIQueryCache.cs
+﻿// AIQueryCache.cs
 // Cached EntityQuery shapes for the AI helpers that cannot hold their own.
 //
 // EntityManager.CreateEntityQuery permanently registers a NEW query with the
@@ -47,7 +47,7 @@ namespace TheWaningBorder.AI
             public static readonly ComponentType[] TagFactionResearchQueue =
             {
                 ComponentType.ReadOnly<T>(), ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<ResearchQueueItem>(),
+                ComponentType.ReadOnly<ProductionQueueItem>(),
             };
 
             public static CachedEntityQuery QTagFaction;

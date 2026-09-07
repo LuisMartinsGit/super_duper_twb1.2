@@ -1,51 +1,63 @@
-// OptionsPanelBinder.cs
-// The Options screen, bound to an AUTHORED prefab (OptionsPanel.prefab, beside
-// this file). Replaces OptionsMenuUI, which drew the whole screen in IMGUI with
-// a hand-rolled navy-and-gold GUIStyle set — the last themed immediate-mode
-// panel in the game.
+// SettingsPanel.cs
+// uGUI controller for the Settings screen (scene GameObjects under UI_Canvas,
+// built by MenuSceneBuilder from the Skirmish scene's own parts and then
+// hand-editable). Layout: profile + display options on the left, audio +
+// language on the right, < MAIN MENU / APPLY in the footer.
 //
-// Nothing here draws. It reads the authored nodes by name, pushes the saved
-// profile into them, and writes it back on Apply.
+// Lives in its own scene (SettingsMenu.unity) since 2026-09-07. Before that it
+// was OptionsPanelBinder driving an OptionsPanel prefab instance parked
+// inactive inside MainMenu.unity, drawn in a look of its own — sized for a
+// 1080p frame on a 2160p canvas, with a solid slider fill and button art
+// overlapping its labels. The screen is now assembled from the same widgets
+// the skirmish lobby uses (its option cells, dropdowns, pill and footer
+// buttons), so it cannot drift from that look, and the blue menu's Settings
+// entry loads it the way it loads the skirmish screen.
+//
+// Nothing here draws. It reads the authored nodes BY NAME, pushes the saved
+// profile into them, and writes it back on APPLY. Node names are the contract
+// with MenuSceneBuilder: renaming one there without renaming it here silently
+// disables that control (Find logs which node it could not find).
 
 using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using TheWaningBorder.Core.Config;
 using TheWaningBorder.Core.Localization;
 using TheWaningBorder.Systems.Audio;
 
-namespace TheWaningBorder.UI.Menus
+namespace TheWaningBorder.UI.Menus.Panels
 {
-    /// <summary>
-    /// Drives the authored Options panel. Node names are the contract between
-    /// this and the prefab; <see cref="OptionsPanelPrefabBuilder"/> creates them.
-    /// </summary>
-    public sealed class OptionsPanelBinder : MonoBehaviour
+    public sealed class SettingsPanel : MonoBehaviour
     {
-        /// <summary>Raised when the player closes the panel.</summary>
-        public event Action OnBackPressed;
-
         /// <summary>Seconds the "settings applied" line stays up.</summary>
         const float StatusSeconds = 2f;
+
+        // Same pill palette as SkirmishPanel: the menu's gold when on, cold
+        // steel when off.
+        private static readonly Color PillOn  = new Color(0.690f, 0.525f, 0.173f);
+        private static readonly Color PillOff = new Color(0.086f, 0.118f, 0.141f);
 
         TMP_InputField _playerName;
         TMP_Dropdown _quality;
         TMP_Dropdown _resolution;
-        Toggle _fullscreen;
+        Button _fullscreenToggle;
+        TMP_Text _fullscreenState;
         Slider _master, _music;
         TMP_Text _masterValue, _musicValue, _status;
 
+        bool _fullscreen;
         Resolution[] _resolutions = Array.Empty<Resolution>();
         float _statusTimer;
 
         #region Boot
 
         /// <summary>
-        /// Apply the saved profile before the player ever opens this panel.
-        /// Static and independent of the prefab, so it runs at boot whether or
-        /// not the Options screen is ever shown.
+        /// Apply the saved profile before the player ever opens this screen.
+        /// Static and independent of the scene, so it runs at boot whether or
+        /// not Settings is ever shown.
         /// </summary>
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         static void ApplySavedSettingsOnBoot() => LoadAndApplySettings();
@@ -83,20 +95,33 @@ namespace TheWaningBorder.UI.Menus
 
         void Awake()
         {
-            _playerName  = Find<TMP_InputField>("PlayerNameInput");
-            _quality     = Find<TMP_Dropdown>("QualityDropdown");
-            _resolution  = Find<TMP_Dropdown>("ResolutionDropdown");
-            _fullscreen  = Find<Toggle>("FullscreenToggle");
-            _master      = Find<Slider>("MasterSlider");
-            _music       = Find<Slider>("MusicSlider");
-            _masterValue = Find<TMP_Text>("MasterValue");
-            _musicValue  = Find<TMP_Text>("MusicValue");
-            _status      = Find<TMP_Text>("Status");
+            _playerName       = Find<TMP_InputField>("PlayerNameInput");
+            _quality          = Find<TMP_Dropdown>("QualityDropdown");
+            _resolution       = Find<TMP_Dropdown>("ResolutionDropdown");
+            _fullscreenToggle = Find<Button>("FullscreenToggle");
+            _fullscreenState  = Find<TMP_Text>("FullscreenState");
+            _master           = Find<Slider>("MasterSlider");
+            _music            = Find<Slider>("MusicSlider");
+            _masterValue      = Find<TMP_Text>("MasterValue");
+            _musicValue       = Find<TMP_Text>("MusicValue");
+            _status           = Find<TMP_Text>("Status");
 
-            Bind("ApplyButton", Apply);
-            Bind("BackButton", () => OnBackPressed?.Invoke());
+            // The footer keeps the skirmish footer's node names, so the same
+            // hover-motion hook (MenuMotion) picks its buttons up unchanged.
+            Bind("PrimaryButton", Apply);
+            Bind("BackButton", () => SceneManager.LoadScene(TheWaningBorder.Core.SceneNames.Menu));
             Bind("EnglishButton", () => SetLanguage(false));
             Bind("PortugueseButton", () => SetLanguage(true));
+
+            // A Button with a state label, not a uGUI Toggle: the skirmish
+            // screen's pills work this way (the binder owns the bool, the pill
+            // only paints it), and reusing its cell means reusing its click.
+            if (_fullscreenToggle != null)
+                _fullscreenToggle.onClick.AddListener(() =>
+                {
+                    _fullscreen = !_fullscreen;
+                    SyncPill(_fullscreenToggle, _fullscreenState, _fullscreen);
+                });
 
             if (_master != null) _master.onValueChanged.AddListener(v => Show(_masterValue, v));
             if (_music != null) _music.onValueChanged.AddListener(v => Show(_musicValue, v));
@@ -128,7 +153,7 @@ namespace TheWaningBorder.UI.Menus
             foreach (var c in GetComponentsInChildren<T>(true))
                 if (c.gameObject.name == node) return c;
 
-            Debug.LogWarning($"[Options] prefab has no '{node}' — that control will not work.");
+            Debug.LogWarning($"[Settings] scene has no '{node}' — that control will not work.");
             return null;
         }
 
@@ -143,6 +168,20 @@ namespace TheWaningBorder.UI.Menus
             if (label != null) label.text = $"{Mathf.RoundToInt(percent)}%";
         }
 
+        /// <summary>Same paint rule as SkirmishPanel.SyncPill, so a pill on
+        /// this screen and one on the lobby read identically.</summary>
+        static void SyncPill(Button toggle, TMP_Text state, bool on)
+        {
+            if (state != null) state.text = Loc.T(on ? "ON" : "OFF");
+            if (toggle == null) return;
+
+            var sw = toggle.GetComponent<MenuToggleSwitch>();
+            if (sw != null) { sw.SetOn(on); return; }
+
+            if (toggle.targetGraphic is Image img)
+                img.color = on ? PillOn : PillOff;
+        }
+
         #endregion
 
         #region Load / apply
@@ -154,7 +193,9 @@ namespace TheWaningBorder.UI.Menus
             if (_quality != null)
             {
                 _quality.ClearOptions();
-                _quality.AddOptions(new List<string>(QualitySettings.names));
+                var names = new List<string>(QualitySettings.names.Length);
+                foreach (var n in QualitySettings.names) names.Add(Loc.T(n));
+                _quality.AddOptions(names);
                 int level = PlayerProfile.GraphicsQuality >= 0
                     ? PlayerProfile.GraphicsQuality : QualitySettings.GetQualityLevel();
                 _quality.SetValueWithoutNotify(
@@ -163,9 +204,9 @@ namespace TheWaningBorder.UI.Menus
 
             BuildResolutionList();
 
-            if (_fullscreen != null)
-                _fullscreen.SetIsOnWithoutNotify(PlayerProfile.Fullscreen >= 0
-                    ? PlayerProfile.Fullscreen == 1 : Screen.fullScreen);
+            _fullscreen = PlayerProfile.Fullscreen >= 0
+                ? PlayerProfile.Fullscreen == 1 : Screen.fullScreen;
+            SyncPill(_fullscreenToggle, _fullscreenState, _fullscreen);
 
             if (_master != null) _master.SetValueWithoutNotify(PlayerProfile.MasterVolume);
             if (_music != null) _music.SetValueWithoutNotify(PlayerProfile.MusicVolume);
@@ -198,7 +239,7 @@ namespace TheWaningBorder.UI.Menus
             if (_resolution == null) return;
 
             var labels = new List<string>(_resolutions.Length);
-            foreach (var r in _resolutions) labels.Add($"{r.width} x {r.height}");
+            foreach (var r in _resolutions) labels.Add($"{r.width} x {r.height}  ({Aspect(r)})");
 
             _resolution.ClearOptions();
             _resolution.AddOptions(labels);
@@ -206,6 +247,36 @@ namespace TheWaningBorder.UI.Menus
             int curW = PlayerProfile.ResolutionWidth > 0 ? PlayerProfile.ResolutionWidth : Screen.width;
             int curH = PlayerProfile.ResolutionHeight > 0 ? PlayerProfile.ResolutionHeight : Screen.height;
             _resolution.SetValueWithoutNotify(IndexOf(curW, curH));
+        }
+
+        /// <summary>
+        /// The marketing name for a mode's shape — "16:9", "32:9" — so a
+        /// player on an ultrawide can find the one that fills their monitor
+        /// instead of guessing from four-digit numbers.
+        ///
+        /// Nearest known ratio within a few percent, because the real
+        /// fractions are unhelpful: 2560x1080 and 3440x1440 are both sold as
+        /// 21:9 but reduce to 64:27 and 43:18. Anything unrecognised falls
+        /// back to the reduced fraction, which is at least honest.
+        /// </summary>
+        static string Aspect(Resolution r)
+        {
+            if (r.height <= 0) return "?";
+
+            float ratio = (float)r.width / r.height;
+            (string name, float value)[] known =
+            {
+                ("5:4",   1.250f), ("4:3",   1.333f), ("3:2",  1.500f),
+                ("16:10", 1.600f), ("16:9",  1.778f), ("21:9", 2.370f),
+                ("32:9",  3.556f), ("48:9",  5.333f),
+            };
+
+            foreach (var (name, value) in known)
+                if (Mathf.Abs(ratio - value) / value < 0.035f) return name;
+
+            int a = r.width, b = r.height;
+            while (b != 0) { int t = b; b = a % b; a = t; }
+            return a > 0 ? $"{r.width / a}:{r.height / a}" : "?";
         }
 
         int IndexOf(int width, int height)
@@ -225,7 +296,7 @@ namespace TheWaningBorder.UI.Menus
                 PlayerProfile.GraphicsQuality = level;
             }
 
-            bool fullscreen = _fullscreen != null ? _fullscreen.isOn : Screen.fullScreen;
+            bool fullscreen = _fullscreenToggle != null ? _fullscreen : Screen.fullScreen;
 
             if (_resolution != null && _resolution.value >= 0 && _resolution.value < _resolutions.Length)
             {
@@ -233,6 +304,14 @@ namespace TheWaningBorder.UI.Menus
                 Screen.SetResolution(res.width, res.height, fullscreen);
                 PlayerProfile.ResolutionWidth = res.width;
                 PlayerProfile.ResolutionHeight = res.height;
+            }
+            else
+            {
+                // No resolution picker in this scene: the fullscreen switch
+                // still has to take effect NOW, not only on the next launch.
+                // Mirrors LoadAndApplySettings, which has always had this
+                // branch.
+                Screen.fullScreen = fullscreen;
             }
             PlayerProfile.Fullscreen = fullscreen ? 1 : 0;
 
@@ -257,7 +336,7 @@ namespace TheWaningBorder.UI.Menus
 
         void SetLanguage(bool portuguese)
         {
-            // Language names are shown in THEIR OWN language in the prefab on
+            // Language names are shown in THEIR OWN language on the buttons on
             // purpose — a player stuck in the wrong one must be able to find
             // their way back without reading it.
             Loc.Language = portuguese ? Loc.Portuguese : Loc.English;

@@ -1,4 +1,4 @@
-// Alanthor Smelter (Forge) — passively generates veilsteel (limit 5 per faction).
+﻿// Alanthor Smelter (Forge) — passively generates veilsteel (limit 5 per faction).
 
 using Unity.Entities;
 using Unity.Mathematics;
@@ -16,7 +16,7 @@ namespace TheWaningBorder.Entities
     /// output grows through both the Lv1-3 upgrade ladder
     /// (BuildingUpgradeConfig "Alanthor_Smelter") and additional
     /// Smelters. Hosts research (the armour
-    /// tech ladders land here) via ResearchState + ResearchQueueItem, same
+    /// tech ladders land here) via ProductionState + ProductionQueueItem, same
     /// pattern as the Barracks. ForgeStorage is kept only for its
     /// ConversionTimer field; the iron/veilstone storage is unused since the
     /// supply-chain conversion was removed (directive 2026-07-04).
@@ -72,8 +72,8 @@ namespace TheWaningBorder.Entities
 
             // Research capability (armour tech ladders research here) —
             // Barracks pattern.
-            creator.AddComponent(entity, new ResearchState { Busy = 0, Remaining = 0 });
-            creator.AddBuffer<ResearchQueueItem>(entity);
+            creator.AddComponent(entity, new ProductionState { Busy = 0, Remaining = 0 });
+            creator.AddBuffer<ProductionQueueItem>(entity);
 
             // Lv1-3 ladder (BuildingUpgradeConfig "Alanthor_Smelter") —
             // scales the veilsteel output 1/2/3 per 10 s.
@@ -121,8 +121,8 @@ namespace TheWaningBorder.Entities
 
             // Research capability (armour tech ladders research here) —
             // Barracks pattern.
-            ecb.AddComponent(entity, new ResearchState { Busy = 0, Remaining = 0 });
-            ecb.AddBuffer<ResearchQueueItem>(entity);
+            ecb.AddComponent(entity, new ProductionState { Busy = 0, Remaining = 0 });
+            ecb.AddBuffer<ProductionQueueItem>(entity);
 
             // Lv1-3 ladder (BuildingUpgradeConfig "Alanthor_Smelter") —
             // scales the veilsteel output 1/2/3 per 10 s.

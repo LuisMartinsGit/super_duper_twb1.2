@@ -4,7 +4,7 @@
 //
 // It spans the WHOLE game, first camera pan to first purified well:
 //   1  Controls
-//   2  Workers and resources
+//   2  Territory and economy
 //   3  Combat
 //   4  Culture — special building, age-up, Temple
 //   5  Religion — sects and powers
@@ -19,7 +19,9 @@
 //     boxes as you go.
 //   * Conditions are ABSOLUTE, measured against the state of the match rather
 //     than "since this instruction appeared". Work you did before being asked
-//     counts; nothing has to be repeated to satisfy the coach.
+//     counts; nothing has to be repeated to satisfy the coach. A NOTE (a step
+//     that only explains something) is the one exception and has to be — see
+//     Step.NoteSeconds.
 //   * Completion LATCHES. Transient conditions (a unit selected, a power
 //     recharging) stay ticked once seen, so a box never un-ticks.
 //   * The panel shows the first UNFINISHED step as a suggestion. That is all
@@ -33,10 +35,23 @@
 // GameUIManager mount this one component on an otherwise ordinary Age 0 match
 // against a single relaxed AI, on whatever map ships. That is the point — a
 // tutorial built on a mock-up teaches a mock-up, and it rots the moment the
-// real opening changes. Every step reads the same components the game itself
-// reads (MinerState.GatheringResource, Target, TempleLevel,
-// TempleChapelSlot, SmallNodeTag, BorderNodeState), so the only way to fail is
-// to change the game, which is exactly when the tutorial SHOULD break.
+// real opening changes. Every step reads the same state the game itself reads
+// (TerritoryOwnership, Target, TempleLevel, TempleChapelSlot, SmallNodeTag,
+// BorderNodeState), so the only way to fail is to change the game, which is
+// exactly when the tutorial SHOULD break.
+//
+// IT DID BREAK, and this is what that looked like (corrected 2026-09-07).
+// Chapter 2 taught worker gathering — send a worker to an outcropping, then
+// put three on veilstone and three on iron. Worker gathering was DELETED with
+// the territory economy (Regions.md §4: four systems, two commands, the AI
+// allocator and the input paths), leaving `MinerState` behind as a component
+// nothing writes. So the chapter still COMPILED and still read real state; it
+// just read state that had stopped moving. "Split your economy" could never
+// tick — a permanent wall a first-time player could only Skip past — while
+// "Mine veilstone" ticked INSTANTLY off passive territory income, teaching a
+// verb that no longer exists. A dead component is the one failure mode
+// "read what the game reads" does not catch on its own, so when a mechanic is
+// deleted, grep this file for what fed it.
 //
 // Four scripted helps, all tutorial-only and all deliberate:
 //   * GRANTS — a chapter that teaches sects cannot wait out the twenty minutes
@@ -49,14 +64,17 @@
 //     the top tier. Not tied to its step: do it whenever you like. The upgrade
 //     still runs through TempleUpgradeSystem, so the era bump, the Religion
 //     Point award and the sect lever sync happen exactly as in a real match.
-//   * The SCRIPTED CORRUPTION — the curse chapter cannot wait for the player
-//     to mine a distant patch dry, and the home patch is corruption-immune
-//     under the Hall's hearth by design (Curse_And_Shardroot.md §2.7
-//     amendment). So the chapter queues a real PendingCorruption — the exact
-//     path VeilstoneMiningSystem uses — 45-55 m out, beyond the hearth so
-//     BlightPocketSystem cannot starve it before the player fights it. In
+//   * The SCRIPTED CORRUPTION — the curse chapter cannot wait out the two
+//     minutes of TENURE on contested veilstone ground that wakes a pocket for
+//     real (TerritoryCorruptionSystem), and home ground is corruption-immune
+//     under the Fortress's hearth by design (Curse_And_Shardroot.md §2.7
+//     amendment). So the chapter queues a real PendingCorruption — the same
+//     buffer TerritoryCorruptionSystem writes — 45-55 m out, beyond the hearth
+//     so BlightPocketSystem cannot starve it before the player fights it. In
 //     fiction it is a ritual that failed somewhere on the map, which is the
 //     honest explanation: a broken channel is what wakes the curse.
+//     (The trigger it used to name, depletion inside VeilstoneMiningSystem,
+//     went with worker gathering — tenure is what wakes pockets now.)
 //   * CREEP SPEED-UP — VeilFieldSystem.TutorialCreepMultiplier, raised while
 //     the curse chapter is live so the crust visibly advances inside the step
 //     rather than after a 190-320 s dormant window. Restored afterwards.
@@ -80,6 +98,7 @@ using TheWaningBorder.Core.Localization;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Entities;
 using TheWaningBorder.Systems.Sect;
+using TheWaningBorder.World.Regions;
 using TheWaningBorder.UI.Ingame;
 using TheWaningBorder.UI.World;
 using TheWaningBorder.UI.Data;
@@ -98,10 +117,19 @@ namespace TheWaningBorder.UI.Ingame
         /// curse chapter. 4x turns a 190-320 s dormant window into 48-80 s.</summary>
         private const float CurseChapterCreepSpeed = 4f;
 
-        /// <summary>Where the scripted corruption lands, relative to the Hall.
+        /// <summary>Closest the scripted corruption may land to the Fortress.
         /// Must clear HallHearthRadius (34 m) or the hearth starves the pocket
-        /// at 20 dps before the player can bring an army to it.</summary>
+        /// at 20 dps before the player can bring an army to it. It must ALSO
+        /// land off this player's territory — see ScriptedCorruptionSeat.</summary>
         private const float ScriptedCorruptionDistance = 50f;
+
+        /// <summary>How far out ScriptedCorruptionSeat will look for unowned
+        /// ground, and in what steps. Territories average ~90 m across
+        /// (Regions.md §5), so a couple of territory-widths is plenty; beyond
+        /// that the node is too far to march an army to inside the chapter.</summary>
+        private const float ScriptedCorruptionSearchMax = 170f;
+        private const float ScriptedCorruptionSearchStep = 15f;
+        private const int ScriptedCorruptionBearings = 8;
 
         private delegate bool Check(TutorialDirector t, EntityManager em, Faction f);
         private delegate void Setup(TutorialDirector t, EntityManager em, Faction f);
@@ -121,12 +149,33 @@ namespace TheWaningBorder.UI.Ingame
             /// <summary>Reads sim state. ABSOLUTE — "is this true of the match
             /// now", not "did it happen since the instruction appeared" — so
             /// work done ahead of the coach still counts. Latched by the
-            /// caller, so a transient truth is enough.</summary>
+            /// caller, so a transient truth is enough.
+            ///
+            /// Null on a NOTE — see <see cref="NoteSeconds"/>.</summary>
             public Check Done;
+
+            /// <summary>
+            /// Marks this step a NOTE: there is nothing to do, and it ticks
+            /// itself off after this many seconds ON SCREEN.
+            ///
+            /// This is the one deliberate exception to the ABSOLUTE rule
+            /// above, and it exists because that rule has a hole for steps
+            /// that only explain. A note's condition would have to be
+            /// something already true of the match — "you hold a territory",
+            /// "the curse holds ground" — and ScanAll ticks every true step
+            /// BEFORE the panel picks what to show, so such a step is marked
+            /// done and skipped without ever being displayed. The player would
+            /// never read the one thing it exists to say.
+            ///
+            /// Dwelling is safe here precisely because a note asks for no
+            /// work: there is nothing a player could have done ahead of the
+            /// coach for it to fail to credit.
+            /// </summary>
+            public float NoteSeconds;
         }
 
         private const string Ch1 = "1. Controls";
-        private const string Ch2 = "2. Workers & resources";
+        private const string Ch2 = "2. Territory & economy";
         private const string Ch3 = "3. Combat";
         private const string Ch4 = "4. Culture";
         private const string Ch5 = "5. Religion";
@@ -143,7 +192,9 @@ namespace TheWaningBorder.UI.Ingame
                 Body = "Push the mouse to any <b>screen edge</b> to pan, or use the "
                      + "<b>arrow keys</b>. Hold the <b>middle mouse button</b> to drag the "
                      + "view, or click the minimap to jump.\n"
-                     + "Find your <b>Hall</b> — the big building your warband starts around.",
+                     + "Find your <b>Fortress</b> — the capital your warband starts around. "
+                     + "It holds the ground it stands on, and that ground is your first "
+                     + "<b>territory</b>.",
                 Done = (t, em, f) => t.CameraTravelled() > 40f,
             },
             new Step
@@ -172,15 +223,34 @@ namespace TheWaningBorder.UI.Ingame
             },
             new Step
             {
+                // A NOTE, not a task. This asked the player to raise a
+                // Veilstone Mine, which they cannot do here or anywhere:
+                // "VeilstoneMine" is absent from
+                // EntityExtractors.BuildableBuildings, so it never appears in
+                // the builder palette at all. (Its minEra of 1 is NOT the
+                // blocker — factions start at era 1.) Of the extractors that
+                // ARE in the palette, the iron Mine and the Smelter are era 2,
+                // so in Age 0 the Gatherer's Hut is the only one a player can
+                // raise. The lesson needs no building anyway: the node pays on
+                // its own, which is the point.
+                //
+                // Deliberately does NOT promise the Veilstone Mine later —
+                // until it is in the palette that would be a promise the game
+                // does not keep. Add it back to the text when it ships.
                 Chapter = Ch2,
-                Title = "Mine veilstone",
-                Body = "Right-click a <b>veilstone outcropping</b> with a worker selected.\n"
-                     + "Mined resources go straight to your bank — no hauling, no drop-off "
-                     + "building.\n<b>Veilstone is the one resource the curse controls.</b> "
-                     + "The patch by your base is what the world had spare; everything after "
-                     + "it has to be taken.",
-                Done = (t, em, f) => t.Bank(em, f, out var bank)
-                                     && bank.Veilstone > t._veilstoneAtMatchStart,
+                Title = "Your ground is already paying",
+                NoteSeconds = 9f,
+                Body = "<b>Nobody gathers anything.</b> Income comes from the ground you "
+                     + "hold: every territory pays you per minute, and every resource "
+                     + "<b>node</b> standing in it pays more — with nothing built on it "
+                     + "and nobody working it.\n"
+                     + "Your home territory holds a <b>veilstone outcropping</b>, so that "
+                     + "veilstone is arriving in your bank right now, just for holding the "
+                     + "ground. Watch the counter.\n"
+                     + "<b>An extractor multiplies a node, it does not unlock one.</b> In "
+                     + "this age the <b>Gatherer's Hut</b> is the only one you can raise — "
+                     + "the rest arrive with your culture. So for now the way to earn more "
+                     + "is to hold more ground.",
             },
             new Step
             {
@@ -198,7 +268,8 @@ namespace TheWaningBorder.UI.Ingame
             {
                 Chapter = Ch2,
                 Title = "Train more workers",
-                Body = "Select your <b>Hall</b> and click <b>Worker</b> in the actions panel.\n"
+                Body = "Select your <b>Fortress</b> and click <b>Worker</b> in the actions "
+                     + "panel.\n"
                      + "The queue strip above the panel shows what is in production — "
                      + "<b>right-click a queued chip</b> to cancel it and get the cost back.",
                 Done = (t, em, f) => t.CountOwned(em, f, UnitQueryTypes, ref t._unitQuery)
@@ -207,22 +278,29 @@ namespace TheWaningBorder.UI.Ingame
             new Step
             {
                 Chapter = Ch2,
-                Title = "Split your economy",
-                Body = "Put <b>three workers on veilstone and three on iron</b>.\n"
-                     + "They feed different things: iron buys soldiers and buildings, "
-                     + "veilstone buys everything the Temple and the sects need.",
-                Done = (t, em, f) => t.MinersOn(em, f, ResourceVeilstone) >= 3
-                                     && t.MinersOn(em, f, ResourceIron) >= 3,
+                Title = "Claim a second territory",
+                Body = "You may only build inside ground you already hold — with one "
+                     + "exception, and it is the whole game: the <b>Hall</b>.\n"
+                     + "A Hall is the only building you can raise on unclaimed ground, and "
+                     + "raising it <b>claims that territory</b>. Pick Hall, place it in a "
+                     + "neighbouring region, and the ground becomes yours.\n"
+                     + "It costs <b>450 supplies and 450 iron</b> — the largest purchase in "
+                     + "the game, because it is the only one that makes your economy bigger. "
+                     + "<b>One Hall per territory</b>, and a claim <b>dies with its Hall</b>: "
+                     + "kill the building, the ground goes back to unclaimed.",
+                Grant = Cost.Of(supplies: 500, iron: 500), GrantLabel = "a claim pot",
+                Done = (t, em, f) => t.TerritoriesHeld(f) >= 2,
             },
             new Step
             {
                 Chapter = Ch2,
-                Title = "Fill a territory with Gatherer's Huts",
-                Body = "A Gatherer's Hut adds a fixed amount to whatever territory it "
-                     + "stands in. Where you put it inside that ground does not matter, "
-                     + "only which ground it is.\n"
-                     + "A territory holds <b>three</b>. Build all three.",
-                Grant = Cost.Of(supplies: 400), GrantLabel = "a survey fund",
+                Title = "Work your supply nodes",
+                Body = "A <b>Gatherer's Hut</b> must stand <b>on a supply node</b>, and each "
+                     + "node takes one. So a territory's supply-node count IS its hut cap — "
+                     + "an ordinary territory has <b>two</b>, and a home like yours has "
+                     + "<b>four</b>.\n"
+                     + "Build <b>three</b>. Each one roughly triples what its node pays.",
+                Grant = Cost.Of(supplies: 400, iron: 60), GrantLabel = "a survey fund",
                 Done = (t, em, f) => t.HutsBuilt(em, f) >= 3,
             },
 
@@ -254,7 +332,11 @@ namespace TheWaningBorder.UI.Ingame
             {
                 Chapter = Ch4,
                 Title = "Choose your special building",
-                Body = "Pick one of <b>Shrine of Ahridan</b>, <b>Vault of Almiérra</b> or "
+                // "Shrine of Ridan", not "Ahridan": the SO's displayName and the
+                // god the Temple is named for. The typo made this the one body
+                // whose PT key never matched, so the Portuguese build silently
+                // showed it in English.
+                Body = "Pick one of <b>Shrine of Ridan</b>, <b>Vault of Almiérra</b> or "
                      + "<b>Fiendstone Keep</b> from the top of the screen and place it. "
                      + "Hover each for what it does.\n"
                      + "This choice is final for the match, and it is what unlocks your "
@@ -337,11 +419,11 @@ namespace TheWaningBorder.UI.Ingame
                      + "A veilstone node near you is <b>corrupting</b>. In a few seconds a "
                      + "<b>Curse Node</b> rises there and hazes the whole patch. Watch the "
                      + "purple spread.\n"
-                     + "This is also what happens when a patch runs dry: <b>the last node of "
-                     + "any patch always corrupts.</b> Your home patch is safe — your Hall "
-                     + "projects a suppression ring, and the curse can never wake inside "
-                     + "your influence. It is the patches you have to leave home for that "
-                     + "bite.",
+                     + "This is also what <b>holding ground</b> costs. Keep a veilstone "
+                     + "territory that is not your home for <b>two minutes</b> and its "
+                     + "pocket wakes. Your home is exempt — your Fortress projects a "
+                     + "suppression ring, and the curse can never wake inside your "
+                     + "influence. It is the ground you had to leave home for that bites.",
                 OnSuggest = (t, em, f) => t.BeginCurseChapter(em, f),
                 Done = (t, em, f) => t.ScriptedCurseNodeRisen(em),
             },
@@ -353,13 +435,40 @@ namespace TheWaningBorder.UI.Ingame
                      + "starting force — this is a real commitment.\n"
                      + "Kill it and the pocket <b>shatters</b>: the ground clears and it pays "
                      + "out <b>five veilstone nodes</b>. You get the patch back and a bonus.\n"
-                     + "Leave it and it keeps feeding — the haze taxes anyone mining there, "
-                     + "and crusted ground costs you: a few seconds' grace, then damage that "
-                     + "scales with depth, plus slower movement and worse stats.\n"
-                     + "The other way is to <b>starve</b> it. Push influence over it — a "
-                     + "tower, or an upgraded building, since every level widens a "
-                     + "building's influence — and it dies on its own.",
+                     + "Leave it and it keeps feeding, and the crust it lays down denies you "
+                     + "the ground: a few seconds' grace, then damage that scales with "
+                     + "depth, plus slower movement and worse stats.\n"
+                     + "The other way is to <b>starve</b> it. A pocket cannot live on ground "
+                     + "somebody holds — <b>claim the territory</b> and it dies on its own. "
+                     + "That is the same rule twice: taking ground is how you grow, and it "
+                     + "is also how you clean.",
                 Done = (t, em, f) => t.ScriptedCurseNodeBroken(em),
+            },
+            // A NOTE: the curse's expansion happens TO the player on a timer,
+            // so there is no action that completes it. Do not "fix" this into
+            // a condition that waits for a conquest — the first lands at 240 s
+            // and the next every 150 s, so on a fast run it would be a wall of
+            // exactly the kind chapter 2 used to be. Nor into a state test
+            // like "the curse holds ground": that is true at match start, and
+            // ScanAll would retire the step before the panel ever showed it.
+            new Step
+            {
+                Chapter = Ch6,
+                Title = "The curse takes ground",
+                NoteSeconds = 12f,
+                Body = "The pocket you just broke was the curse being <b>provoked</b>. It is "
+                     + "also a <b>territorial power</b>, and it expands the way you do.\n"
+                     + "It holds every well territory from the first minute. Every couple of "
+                     + "minutes it takes <b>one more</b> — always a territory that is next to "
+                     + "ground it already holds, <b>carries veilstone</b>, and has <b>no "
+                     + "Hall</b>. Look at the territory map: what it can take next is "
+                     + "readable, exactly like your own expansion.\n"
+                     + "Each territory it takes gets a <b>curse anchor</b>. Kill the anchor "
+                     + "and the ground reverts at once — anchors die, wells do not. And "
+                     + "every cursed veilstone territory <b>sends waves at you</b>, so "
+                     + "ground you leave hall-less becomes a front line.\n"
+                     + "<b>A Hall is a wall.</b> Claiming veilstone ground is how you stop "
+                     + "the map being eaten — expansion is defence.",
             },
 
             // ── 7. The wells ───────────────────────────────────────────────
@@ -370,8 +479,10 @@ namespace TheWaningBorder.UI.Ingame
                 Body = "The giant veilstone formations are the <b>wells</b> — selecting one "
                      + "reads <i>Veilstone Hive</i>. They are the largest income on the map "
                      + "and the only way the match is won.\n"
-                     + "Every well is <b>dormant</b> until a player reaches for it. That is "
-                     + "why the map was quiet.\n"
+                     + "Every well is <b>dormant</b> until a player reaches for it. The curse "
+                     + "has held the ground around them since the first minute — but the "
+                     + "wells themselves are asleep, and a sleeping well does not fight "
+                     + "you.\n"
                      + "Claiming one needs a ritualist. Alanthor's is the <b>Holy Scholar</b>, "
                      + "trained at the <b>Temple of Ridan at level 3 or higher</b> — yours is "
                      + "at 4. It has 90 HP and no answer to anything: a key, not a soldier.",
@@ -407,6 +518,10 @@ namespace TheWaningBorder.UI.Ingame
         private int _index;
         private float _timer;
         private float _completedAt = -1f;
+
+        /// <summary>When the current step became the suggestion. Only a NOTE
+        /// reads it — see <see cref="Step.NoteSeconds"/>.</summary>
+        private float _suggestedAt = -1f;
         private bool _finished;
 
         /// <summary>Latched completion, one per step. Once a box is ticked it
@@ -429,10 +544,14 @@ namespace TheWaningBorder.UI.Ingame
 
         // Baselines taken ONCE, at the first tick with a live bank. "Did this
         // number go up" is measured against the start of the MATCH, not the
-        // start of the instruction, so a player who mined before being asked
+        // start of the instruction, so a player who trained before being asked
         // to has already satisfied the step.
+        //
+        // The veilstone baseline that used to live here is GONE with the
+        // gathering step it served. Territory income pays veilstone passively
+        // now, so "the bank went up" is true within seconds of the match
+        // starting and measures nothing the player did.
         private bool _baselined;
-        private int _veilstoneAtMatchStart;
         private int _unitsAtMatchStart;
 
         // Curse chapter bookkeeping.
@@ -443,9 +562,6 @@ namespace TheWaningBorder.UI.Ingame
 
         private GameObject _root;
         private TMP_Text _eyebrow, _title, _body;
-
-        private const byte ResourceIron = 0;
-        private const byte ResourceVeilstone = 1;
 
         private static readonly ComponentType[] BankQueryTypes =
         {
@@ -460,11 +576,6 @@ namespace TheWaningBorder.UI.Ingame
         private static readonly ComponentType[] UnitQueryTypes =
         {
             ComponentType.ReadOnly<UnitTag>(),
-            ComponentType.ReadOnly<FactionTag>(),
-        };
-        private static readonly ComponentType[] MinerQueryTypes =
-        {
-            ComponentType.ReadOnly<MinerState>(),
             ComponentType.ReadOnly<FactionTag>(),
         };
         private static readonly ComponentType[] GathererHutQueryTypes =
@@ -522,7 +633,7 @@ namespace TheWaningBorder.UI.Ingame
             ComponentType.ReadOnly<BorderNodeState>(),
         };
 
-        private CachedEntityQuery _bankQuery, _hutQuery, _unitQuery, _minerQuery,
+        private CachedEntityQuery _bankQuery, _hutQuery, _unitQuery,
                                   _gathererQuery, _barracksQuery, _spearmanQuery,
                                   _scholarQuery, _militaryQuery, _hallQuery, _templeQuery,
                                   _smallNodeQuery, _pocketRegistryQuery, _wellQuery;
@@ -632,7 +743,6 @@ namespace TheWaningBorder.UI.Ingame
             {
                 if (!Bank(em, faction, out var start)) return;
                 _baselined = true;
-                _veilstoneAtMatchStart = start.Veilstone;
                 _unitsAtMatchStart = CountOwned(em, faction, UnitQueryTypes, ref _unitQuery);
                 Suggest(FirstUnfinished(), em, faction);
             }
@@ -674,7 +784,19 @@ namespace TheWaningBorder.UI.Ingame
             for (int i = 0; i < Steps.Length; i++)
             {
                 if (_done[i]) continue;
-                if (!Steps[i].Done(this, em, faction)) continue;
+
+                var step = Steps[i];
+                if (step.NoteSeconds > 0f)
+                {
+                    // A note ticks only while it is the one on screen, and
+                    // only once it has been there long enough to read. Any
+                    // state-based condition would be true at match start and
+                    // this loop would retire it before it was ever shown.
+                    if (i != _index || _suggestedAt < 0f
+                        || Time.unscaledTime - _suggestedAt < step.NoteSeconds)
+                        continue;
+                }
+                else if (!step.Done(this, em, faction)) continue;
 
                 _done[i] = true;
                 Pay(i, em, faction);   // finished early? still paid
@@ -698,6 +820,7 @@ namespace TheWaningBorder.UI.Ingame
         {
             _index = index;
             _completedAt = -1f;
+            _suggestedAt = Time.unscaledTime;   // a NOTE dwells from here
             if (_index >= Steps.Length) { Finish(); return; }
 
             Pay(_index, em, faction);
@@ -778,7 +901,8 @@ namespace TheWaningBorder.UI.Ingame
         /// from the Hall.
         ///
         /// The corruption goes through PendingCorruption — the same buffer
-        /// VeilstoneMiningSystem writes — so the player gets the ordinary
+        /// TerritoryCorruptionSystem writes when contested veilstone ground has
+        /// been held for its two minutes — so the player gets the ordinary
         /// telegraph, ping and rise, and BlightPocketSystem owns the node
         /// exactly as it would any other. Placed beyond the Hall's 34 m hearth
         /// on purpose: inside it, suppression starves the pocket at 20 dps and
@@ -810,7 +934,7 @@ namespace TheWaningBorder.UI.Ingame
                 return;
             }
 
-            float3 at = origin + new float3(ScriptedCorruptionDistance, 0f, 0f);
+            float3 at = ScriptedCorruptionSeat(origin, faction);
             at.y = TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(at.x, at.z);
             _scriptedCorruptionAt = new float2(at.x, at.z);
 
@@ -830,7 +954,55 @@ namespace TheWaningBorder.UI.Ingame
             });
             MinimapPings.Post(at, MinimapPings.Curse, 20f);
             PlayerNotificationSystem.NotifyError(
-                Loc.T("A ritual has failed — the curse is waking east of your Hall!"));
+                Loc.T("A ritual has failed — the curse is waking east of your Fortress!"));
+        }
+
+        /// <summary>
+        /// Where to seat the scripted corruption: the nearest point that is
+        /// NOT on territory this player owns.
+        ///
+        /// It used to be a flat 50 m due east, chosen to clear the Fortress's
+        /// 34 m hearth. That was the right rule when suppression came from
+        /// BUILDINGS depositing influence. It is not any more: influence is a
+        /// straight rasterize of territory OWNERSHIP now (Regions.md §3b), so
+        /// every cell of ground you hold reads full strength and
+        /// BlightPocketSystem starves anything standing on it at 20 dps — a
+        /// pocket inside your own territory dies in 90 s. With territories
+        /// averaging ~90 m across, a fixed 50 m offset lands on or just inside
+        /// the home border, so the node the chapter is about could quietly
+        /// dissolve before the player finished reading about it.
+        ///
+        /// Walks bearings at increasing range and takes the first seat whose
+        /// territory is not this faction's. Deterministic order, and it falls
+        /// back to the old fixed offset rather than refusing to place at all —
+        /// a map with no partition (RegionMap not ready) must still get its
+        /// curse chapter.
+        /// </summary>
+        private static float3 ScriptedCorruptionSeat(float3 origin, Faction faction)
+        {
+            float3 fallback = origin + new float3(ScriptedCorruptionDistance, 0f, 0f);
+            if (!RegionMap.Ready || !TerritoryOwnership.Ready) return fallback;
+
+            // East first, so the "east of your Fortress" reading stays true on
+            // the common map; then around the compass.
+            for (float range = ScriptedCorruptionDistance;
+                 range <= ScriptedCorruptionSearchMax;
+                 range += ScriptedCorruptionSearchStep)
+            {
+                for (int b = 0; b < ScriptedCorruptionBearings; b++)
+                {
+                    float angle = b * (2f * math.PI / ScriptedCorruptionBearings);
+                    float x = origin.x + math.cos(angle) * range;
+                    float z = origin.z + math.sin(angle) * range;
+
+                    int t = RegionMap.RegionAt(x, z);
+                    if (t == RegionMap.None) continue;              // rim / cliff
+                    if (TerritoryOwnership.OwnerOf(t) == (int)faction) continue;
+
+                    return new float3(x, 0f, z);
+                }
+            }
+            return fallback;
         }
 
         /// <summary>
@@ -964,29 +1136,22 @@ namespace TheWaningBorder.UI.Ingame
             return false;
         }
 
-        /// <summary>Owned workers currently assigned to a resource — moving to
-        /// a deposit counts, so the step ticks as soon as they are sent rather
-        /// than when the first swing lands.</summary>
-        private int MinersOn(EntityManager em, Faction faction, byte resource)
-        {
-            var q = _minerQuery.Get(em, MinerQueryTypes);
-            using var tags = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var miners = q.ToComponentDataArray<MinerState>(Allocator.Temp);
-            int count = 0;
-            for (int i = 0; i < tags.Length; i++)
-            {
-                if (tags[i].Value != faction) continue;
-                if (miners[i].State == MinerWorkState.Idle) continue;
-                if (miners[i].GatheringResource != resource) continue;
-                count++;
-            }
-            return count;
-        }
+        /// <summary>
+        /// Territories this faction holds. The Fortress claims its home ground,
+        /// so this is 1 from the first tick and 2 the moment a Hall finishes on
+        /// unclaimed ground — which is exactly the lesson the step is checking.
+        ///
+        /// Read from TerritoryOwnership rather than counted from Halls: a
+        /// second Hall in the same territory claims nothing, so counting
+        /// buildings would tick the step for a purchase that took no ground.
+        /// </summary>
+        private int TerritoriesHeld(Faction faction)
+            => TerritoryOwnership.Ready ? TerritoryOwnership.CountOf(faction) : 0;
 
         /// <summary>Completed Gatherer's Huts this faction owns. Replaces the
-        /// old best-coverage check: a hut has no coverage any more, so "place a
-        /// GOOD one" stopped being something the player could get right or
-        /// wrong — "hold enough ground for three" is what the rule is now.</summary>
+        /// old best-coverage check: a hut has no coverage any more, and no
+        /// per-territory cap either — it stands on a supply node, one hut per
+        /// node, so "work the nodes you hold" is what the rule is now.</summary>
         private int HutsBuilt(EntityManager em, Faction faction)
         {
             var q = _gathererQuery.Get(em, GathererHutQueryTypes);

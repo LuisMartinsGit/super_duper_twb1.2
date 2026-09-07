@@ -1,8 +1,16 @@
-// Issues a building upgrade. Validates the request, captures base stats
-// the first time the building is upgraded, deducts cost, and stamps
-// BuildingUpgrading. The actual stat application happens later, when
-// BuildingUpgradeSystem ticks the timer down to zero — same pattern as
-// UnderConstruction → BuildingConstructionSystem.
+﻿// Issues a building upgrade. Validates the request, captures base stats the
+// first time the building is upgraded, deducts cost, and ENQUEUES the level-up
+// on the building's production queue — the same queue its research sits in
+// (ProductionQueueComponents).
+//
+// It used to stamp BuildingUpgrading directly, which is why an upgrade could
+// not be lined up behind a research and why the two were displayed apart. The
+// component still exists and still gates training and shooting, but
+// ProductionQueueSystem adds it when the item reaches the head, not this file.
+//
+// One level-up in the queue at a time. Two would have to be priced before the
+// first had applied, so the second's cost would be guesswork; refusing the
+// click keeps AlreadyUpgrading meaning exactly what it always meant.
 
 using Unity.Entities;
 using TheWaningBorder.Core;
@@ -40,7 +48,11 @@ namespace TheWaningBorder.Core.Commands.Types
             if (!em.Exists(building)) return UpgradeBuildingResult.NotUpgradeable;
             if (!em.HasComponent<BuildingUpgradeable>(building)) return UpgradeBuildingResult.NotUpgradeable;
             if (em.HasComponent<UnderConstruction>(building)) return UpgradeBuildingResult.UnderConstruction;
-            if (em.HasComponent<BuildingUpgrading>(building)) return UpgradeBuildingResult.AlreadyUpgrading;
+            // Queued OR running: both are "already upgrading" to the player.
+            if (IsUpgradeQueued(em, building)) return UpgradeBuildingResult.AlreadyUpgrading;
+            // Research and level-ups share the 16-slot production cap.
+            if (CommandRouter.IsProductionQueueFull(em, building))
+                return UpgradeBuildingResult.QueueFull;
 
             // Identify the building type via PresentationId — same lookup the
             // factory uses, so we don't need a parallel string registry.
@@ -95,7 +107,23 @@ namespace TheWaningBorder.Core.Commands.Types
         public static void ApplyDirect(EntityManager em, Entity building)
         {
             if (!em.Exists(building)) return;
-            if (em.HasComponent<BuildingUpgrading>(building)) return;
+
+            // UPGRADEABLE DOES NOT IMPLY RESEARCH-CAPABLE. The Royal Stable,
+            // the Watch Tower and the Siege Yard have no research list, so
+            // their factories never gave them a queue — refusing the upgrade
+            // for want of a buffer would have killed level-ups on exactly
+            // those three. Give them one on demand instead: "upgradeable
+            // implies queueable" is then true by construction, and a future
+            // upgradeable building cannot regress it the same way. Every peer
+            // runs this executor, so the structural change is identical
+            // everywhere.
+            if (!em.HasBuffer<ProductionQueueItem>(building))
+                em.AddBuffer<ProductionQueueItem>(building);
+            if (!em.HasComponent<ProductionState>(building))
+                em.AddComponentData(building, default(ProductionState));
+
+            if (IsUpgradeQueued(em, building)) return;
+            if (CommandRouter.IsProductionQueueFull(em, building)) return;
 
             byte currentLevel = 0;
             if (em.HasComponent<BuildingUpgradeState>(building))
@@ -133,15 +161,47 @@ namespace TheWaningBorder.Core.Commands.Types
                 });
             }
 
-            // Stamp the in-progress timer. Duration is per-building where
-            // the calculator specifies one (falls back to the global curve).
-            em.AddComponentData(building, new BuildingUpgrading
+            // Enqueue. The DURATION is worked out when the item reaches the
+            // head (ProductionQueueSystem), not here — an item that waits
+            // behind a research should still take whatever an upgrade takes at
+            // the moment it starts. Level is recorded so the refund matches
+            // this charge exactly.
+            em.GetBuffer<ProductionQueueItem>(building).Add(new ProductionQueueItem
             {
-                Progress    = 0f,
-                Total       = BuildingUpgradeConfig.GetUpgradeDuration(
-                    ResolveBuildingId(em, building), targetLevel),
-                TargetLevel = targetLevel,
+                Kind  = ProductionKind.BuildingUpgrade,
+                Id    = default,
+                Level = targetLevel,
             });
+        }
+
+        /// <summary>
+        /// Is a level-up already queued or running on this building? One at a
+        /// time — see the file header.
+        /// </summary>
+        public static bool IsUpgradeQueued(EntityManager em, Entity building)
+        {
+            if (em.HasComponent<BuildingUpgrading>(building)) return true;
+            if (!em.HasBuffer<ProductionQueueItem>(building)) return false;
+            var q = em.GetBuffer<ProductionQueueItem>(building);
+            for (int i = 0; i < q.Length; i++)
+                if (q[i].Kind == ProductionKind.BuildingUpgrade) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// Hand back what a queued level-up was charged. Used when the item is
+        /// cancelled, and when it reaches the head to find the level already
+        /// applied from elsewhere (an age-up auto-level, a scenario
+        /// promotion) — <paramref name="pricedLevel"/> is the level the item
+        /// recorded, so the refund is the exact figure that was taken.
+        /// </summary>
+        public static void RefundQueued(EntityManager em, Entity building, byte pricedLevel)
+        {
+            if (!em.Exists(building) || !em.HasComponent<FactionTag>(building)) return;
+            string id = ResolveBuildingId(em, building);
+            if (string.IsNullOrEmpty(id)) return;
+            if (!BuildingUpgradeConfig.TryGetCost(id, pricedLevel, out var cost)) return;
+            FactionEconomy.Add(em, em.GetComponentData<FactionTag>(building).Value, cost);
         }
 
         // ──────────────────────────────────────────────────────────────────
@@ -153,7 +213,7 @@ namespace TheWaningBorder.Core.Commands.Types
         /// / "Hut"). Uses the marker tag components rather than presentation
         /// id so the lookup keeps working through any future re-skinning.
         /// </summary>
-        private static string ResolveBuildingId(EntityManager em, Entity e)
+        public static string ResolveBuildingId(EntityManager em, Entity e)
         {
             if (em.HasComponent<HallTag>(e))         return "Hall";
             if (em.HasComponent<BarracksTag>(e))     return "Barracks";

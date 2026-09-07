@@ -1,39 +1,37 @@
 // MenuSettingsButton.cs
-// Makes the main menu's Settings entry actually open the options panel.
+// Makes the main menu's Settings entry open the Settings scene.
 
 using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
-using TheWaningBorder.Bootstrap;
 
 namespace TheWaningBorder.UI.Menus
 {
     /// <summary>
-    /// Wires the main menu's Settings entry to the authored Options panel.
+    /// Points the blue menu's Settings entry at SettingsMenu.unity.
     ///
-    /// The authored menu never had a settings panel: the Synty scene contains
-    /// no such pane, and the entry — like Quit before MenuQuitButton — carries
-    /// no onClick, so clicking it showed nothing. OptionsMenuUI itself has
-    /// been orphaned since the IMGUI MainMenuUI was deleted (2026-07-16); it
-    /// still works, nothing created it. This hook spawns it on demand and
-    /// toggles it from the menu entry.
+    /// The Settings screen was, until 2026-09-07, an OptionsPanel prefab
+    /// instance sitting inactive inside MainMenu.unity that this hook toggled
+    /// with SetActive — the last screen still living inside the main menu
+    /// scene, and the only one drawn in a look of its own rather than the
+    /// Skirmish scene's. It is its own scene now, built from the Skirmish
+    /// scene's parts by MenuSceneBuilder, and this hook loads it exactly as
+    /// <see cref="SkirmishMenuButton"/> loads the skirmish screen.
     ///
-    /// Matched primarily by GameObject NAME ("Menu_Item_Settings" — unlike
-    /// Quit, this entry is canonically named), with the visible label as a
-    /// fallback. Label matching accepts the Portuguese renders too, because
-    /// LocAuthoredLabel may have translated the authored text before this
-    /// hook runs.
-    ///
-    /// Same static scene-hook shape as MenuQuitButton / ShipGateMenuTrim: no
-    /// injected controller, no scene edit.
+    /// Matched primarily by GameObject NAME ("Menu_Item_Settings"), with the
+    /// visible label as a fallback; label matching accepts the Portuguese
+    /// renders too, because LocAuthoredLabel may have translated the authored
+    /// text before this hook runs. The destination is read from the
+    /// MenuNav_Settings object's MenuSceneLink so it stays visible in the
+    /// Inspector, falling back to
+    /// <see cref="TheWaningBorder.Core.SceneNames.Settings"/>.
     /// </summary>
     public static class MenuSettingsButton
     {
         private const string ItemName = "Menu_Item_Settings";
-
-        private static GameObject _options;
+        private const string NavName = "MenuNav_Settings";
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Init()
@@ -47,14 +45,14 @@ namespace TheWaningBorder.UI.Menus
         {
             if (scene.name != TheWaningBorder.Core.SceneNames.Menu) return;
 
+            string target = ResolveTargetScene(scene);
             int wired = 0;
 
             foreach (var root in scene.GetRootGameObjects())
             {
                 foreach (var button in root.GetComponentsInChildren<Button>(true))
                 {
-                    if (button == null) continue;
-                    if (!IsSettingsEntry(button)) continue;
+                    if (button == null || !IsSettingsEntry(button)) continue;
 
                     // Same trap MenuQuitButton documents: a duplicated entry
                     // can carry another item's persistent call, and
@@ -62,16 +60,29 @@ namespace TheWaningBorder.UI.Menus
                     for (int i = 0; i < button.onClick.GetPersistentEventCount(); i++)
                         button.onClick.SetPersistentListenerState(i, UnityEventCallState.Off);
                     button.onClick.RemoveAllListeners();
-                    button.onClick.AddListener(Toggle);
+                    button.onClick.AddListener(() => SceneManager.LoadScene(target));
                     wired++;
                 }
             }
 
             if (wired > 0)
-                Debug.Log($"[MenuSettingsButton] Wired {wired} Settings button(s) to the options panel.");
+                Debug.Log($"[MenuSettingsButton] Wired {wired} Settings button(s) to load '{target}'.");
             else
                 Debug.LogWarning("[MenuSettingsButton] No Settings button found in the main menu — "
                                  + "the entry's name and label may both have changed.");
+        }
+
+        private static string ResolveTargetScene(Scene scene)
+        {
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                foreach (var link in root.GetComponentsInChildren<MenuSceneLink>(true))
+                {
+                    if (link == null || link.gameObject.name != NavName) continue;
+                    if (!string.IsNullOrWhiteSpace(link.SceneName)) return link.SceneName;
+                }
+            }
+            return TheWaningBorder.Core.SceneNames.Settings;
         }
 
         private static bool IsSettingsEntry(Button button)
@@ -88,35 +99,6 @@ namespace TheWaningBorder.UI.Menus
                     return true;
             }
             return false;
-        }
-
-        private static void Toggle()
-        {
-            // Scene-local on purpose: the object dies with the menu scene and
-            // is rebuilt on the next click, so no stale state survives into a
-            // match. Unity's overloaded == treats the destroyed case as null.
-            // The panel is an AUTHORED prefab instance sitting inactive in the
-            // menu scene (Waning Border > UI > Add Options Panel To Open Scene).
-            // It is found, not built: nothing here draws anything.
-            if (_options == null)
-            {
-                foreach (var binder in Object.FindObjectsByType<OptionsPanelBinder>(
-                             FindObjectsInactive.Include, FindObjectsSortMode.None))
-                {
-                    _options = binder.gameObject;
-                    binder.OnBackPressed += () => { if (_options != null) _options.SetActive(false); };
-                    break;
-                }
-
-                if (_options == null)
-                {
-                    Debug.LogError("[Menu] no OptionsPanel in this scene. Run "
-                                 + "Waning Border > UI > Add Options Panel To Open Scene.");
-                    return;
-                }
-            }
-
-            _options.SetActive(!_options.activeSelf);
         }
     }
 }

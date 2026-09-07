@@ -1,4 +1,4 @@
-// Fortress.cs
+﻿// Fortress.cs
 // THE CAPITAL (docs/Design/Age_0.md, 2026-08-31): every player's starting
 // building. Larger and far more formidable than a Hall, and NOT buildable —
 // PlayerSpawnSystem places exactly one per player at match start; expansion
@@ -59,11 +59,9 @@ namespace TheWaningBorder.Entities
             var gridSize = BuildingSizeConfig.GetSize("Fortress");
             creator.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             creator.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            creator.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
             creator.AddComponent(entity, new PopulationProvider { Amount = def.populationProvided });
             creator.AddComponent(entity, new FactionProgress { Culture = Cultures.None });
 
-            creator.AddBuffer<TrainQueueItem>(entity);
             creator.AddComponent<HallTag>(entity);      // the capital IS a Hall — see header
             creator.AddComponent<FortressTag>(entity);
             creator.AddComponent<BuildingUpgradeable>(entity);
@@ -82,8 +80,8 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             creator.AddComponent(entity, new DamageTypeData { Value = DamageType.Ranged });
 
-            creator.AddComponent(entity, new ResearchState { Busy = 0, Remaining = 0 });
-            creator.AddBuffer<ResearchQueueItem>(entity);
+            creator.AddComponent(entity, new ProductionState { Busy = 0, Remaining = 0 });
+            creator.AddBuffer<ProductionQueueItem>(entity);
 
             return entity;
         }

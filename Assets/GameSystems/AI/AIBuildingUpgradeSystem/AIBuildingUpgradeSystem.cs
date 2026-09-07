@@ -1,4 +1,4 @@
-// AIBuildingUpgradeSystem.cs
+﻿// AIBuildingUpgradeSystem.cs
 // Culture-agnostic AI driver for the building upgrade system.
 //
 // Each AI brain that's Era >= 2 with a non-None culture picks ONE
@@ -428,7 +428,11 @@ namespace TheWaningBorder.AI
             {
                 if (em.GetComponentData<FactionTag>(ents[i]).Value != faction) continue;
                 if (em.HasComponent<UnderConstruction>(ents[i])) continue;
-                if (em.HasComponent<BuildingUpgrading>(ents[i])) continue;
+                // Queued counts as busy: BuildingUpgrading only appears once
+                // the item reaches the head of the production queue, so
+                // testing it alone would keep re-picking a building whose
+                // upgrade is already paid for and waiting.
+                if (UpgradeBuildingCommandHelper.IsUpgradeQueued(em, ents[i])) continue;
 
                 byte lvl = em.HasComponent<BuildingUpgradeState>(ents[i])
                     ? em.GetComponentData<BuildingUpgradeState>(ents[i]).Level : (byte)0;

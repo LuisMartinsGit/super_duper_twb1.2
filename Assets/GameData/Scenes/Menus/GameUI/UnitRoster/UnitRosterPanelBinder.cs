@@ -1,4 +1,4 @@
-// UnitRosterPanelBinder.cs
+﻿// UnitRosterPanelBinder.cs
 // Live binding for the authored UnitRoster panel (Assets/GameData/Scenes/
 // Menus/GameUI/SelectionUI/UnitRoster.prefab). GameUIManager spawns the
 // panel and adds this component to its root.
@@ -279,10 +279,22 @@ namespace TheWaningBorder.UI.Ingame
         }
 
         /// <summary>
-        /// Render the selected building's training queue into the roster
-        /// slots. Buffer order IS display order: index 0 is the unit in
-        /// production (TrainingSystem trains queue[0] in place), so it gets
-        /// the progress bar; the rest are pending and right-click cancels.
+        /// Render the selected building's whole production queue into the
+        /// roster slots: units being trained, then the technologies and
+        /// level-ups queued on it.
+        ///
+        /// It used to show TRAINING ONLY, and research lived in a code-built
+        /// strip floating over the actions grid while a level-up had no queue
+        /// display at all. Three orders on one building, in three places. They
+        /// are one queue now (ProductionQueueComponents) and this is where it
+        /// is read — the area CommandRouter.MaxProductionQueue has always
+        /// described as "all 16 slots".
+        ///
+        /// The two buffers stay separate BEHIND this because a building trains
+        /// and researches simultaneously, so each needs its own head: the
+        /// training section gets its progress bar and the production section
+        /// gets its own.
+        ///
         /// Returns the number of slots used (0 = not a queue selection).
         /// </summary>
         private int RefreshBuildingQueue(EntityManager em)
@@ -295,7 +307,8 @@ namespace TheWaningBorder.UI.Ingame
             for (int i = 0; i < selection.Count; i++)
             {
                 var e = selection[i];
-                if (!em.Exists(e) || !em.HasBuffer<TrainQueueItem>(e)) continue;
+                if (!em.Exists(e)) continue;
+                if (!em.HasBuffer<ProductionQueueItem>(e)) continue;
                 if (!em.HasComponent<FactionTag>(e)) continue;
                 if (!GameSettings.IsObserver
                     && em.GetComponentData<FactionTag>(e).Value != GameSettings.LocalPlayerFaction)
@@ -305,27 +318,48 @@ namespace TheWaningBorder.UI.Ingame
             }
             if (_queueBuilding == Entity.Null) return 0;
 
-            var queue = em.GetBuffer<TrainQueueItem>(_queueBuilding);
+            return RenderQueue(em);
+        }
+
+        /// <summary>
+        /// The building's production queue, head first: units, research and
+        /// level-ups in the order they were queued, because that is the order
+        /// they will happen in. Slot 0 carries the progress bar.
+        /// </summary>
+        private int RenderQueue(EntityManager em)
+        {
+            var queue = em.GetBuffer<ProductionQueueItem>(_queueBuilding);
+            if (queue.Length == 0) return 0;
+
             float progress = -1f;
-            if (em.HasComponent<TrainingState>(_queueBuilding))
+            if (em.HasComponent<ProductionState>(_queueBuilding))
             {
-                var ts = em.GetComponentData<TrainingState>(_queueBuilding);
-                if (ts.Busy != 0 && ts.Total > 0f)
-                    progress = Mathf.Clamp01((ts.Total - ts.Remaining) / ts.Total);
+                var ps = em.GetComponentData<ProductionState>(_queueBuilding);
+                if (ps.Busy != 0 && ps.Total > 0f)
+                    progress = Mathf.Clamp01((ps.Total - ps.Remaining) / ps.Total);
             }
 
             int shown = 0;
             for (int i = 0; i < queue.Length && shown < _slots.Count; i++)
             {
-                string id = queue[i].UnitId.ToString();
-                string name = EntityInfoExtractor.GetUnitDisplayName(id);
-                if (string.IsNullOrEmpty(name)) name = id;
+                var item = queue[i];
+                string name = EntityActionExtractor.DescribeProductionItem(item);
 
+                // A unit shows its portrait. Research and level-ups have none;
+                // the building's own symbol reads correctly for both, since
+                // both are the building improving itself.
                 Sprite sprite = null;
-                if (_symbols != null
-                    && !_symbols.TryGetValue(name, out sprite)
-                    && !_symbols.TryGetValue(id, out sprite))
-                    _symbols.TryGetValue("Unit", out sprite);
+                if (_symbols != null)
+                {
+                    if (item.Kind == ProductionKind.Train)
+                    {
+                        string id = item.Id.ToString();
+                        if (!_symbols.TryGetValue(name, out sprite)
+                            && !_symbols.TryGetValue(id, out sprite))
+                            _symbols.TryGetValue("Unit", out sprite);
+                    }
+                    else _symbols.TryGetValue("Building", out sprite);
+                }
 
                 var slot = _slots[shown];
                 if (!slot.gameObject.activeSelf) slot.gameObject.SetActive(true);
@@ -336,8 +370,8 @@ namespace TheWaningBorder.UI.Ingame
         }
 
         /// <summary>Right-click on a pending queue slot: cancel + refund.
-        /// Slot 0 (in production) is not cancellable, matching the previous
-        /// queue strip's behaviour.</summary>
+        /// Slot 0 is in production and is not cancellable here, which is the
+        /// rule training has always had.</summary>
         internal void OnQueueCancelClicked(int index)
         {
             if (index <= 0 || _queueBuilding == Entity.Null) return;
@@ -345,11 +379,11 @@ namespace TheWaningBorder.UI.Ingame
             if (world == null || !world.IsCreated) return;
             var em = world.EntityManager;
             if (!em.Exists(_queueBuilding)) return;
-            if (index >= CommandRouter.GetTrainQueueLength(em, _queueBuilding)) return;
+            if (index >= CommandRouter.GetProductionQueueLength(em, _queueBuilding)) return;
 
             // Route through CommandRouter (never the helper directly) so the
             // refund + lockstep replication stay deterministic.
-            CommandRouter.IssueCancelTrain(em, _queueBuilding, index,
+            CommandRouter.IssueCancelProduction(em, _queueBuilding, index,
                 Core.Commands.CommandSource.LocalPlayer);
             _timer = RefreshInterval; // repaint next frame
         }
@@ -385,8 +419,8 @@ namespace TheWaningBorder.UI.Ingame
         private GameObject _selected, _highlighted;
         private string _typeName;
 
-        // Queue mode (building selected): slot shows a queued unit instead of
-        // a selected one. -1 = unit mode.
+        // Queue mode (building selected): slot shows a queued item instead of
+        // a selected unit. -1 = unit mode.
         private int _queueIndex = -1;
         private GameObject _progressRoot;
         private RectTransform _progressFill;
@@ -458,7 +492,7 @@ namespace TheWaningBorder.UI.Ingame
                 _selected.SetActive(focused);
         }
 
-        /// <summary>Queue mode: slot i of the selected building's training
+        /// <summary>Queue mode: slot i of the selected building's production
         /// queue. progress01 &gt;= 0 draws the fill bar (slot 0 only).</summary>
         public void BindQueue(string typeName, Sprite sprite, int queueIndex, float progress01)
         {

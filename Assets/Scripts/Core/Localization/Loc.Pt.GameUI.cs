@@ -1,4 +1,4 @@
-// Loc.Pt.GameUI.cs
+﻿// Loc.Pt.GameUI.cs
 // Portuguese (European) for the in-game UI binders: actions panels, spells
 // bar, top choice bar, objectives, formations, builder palette, unit roster,
 // production queue, building upgrade action, religion panel, plus the
@@ -52,9 +52,9 @@ namespace TheWaningBorder.Core.Localization
             t["Temple upgrade"] = "Melhoria do Templo";
             t["Grants +{0} Religion Points"] = "Concede +{0} Pontos de Religião";
             t["Temple upgrade started ({0}s)"] = "Melhoria do Templo iniciada ({0}s)";
-            t["Training {0}  {1:F1}s"] = "A treinar {0}  {1:F1}s";
-            t["Researching {0}  {1:F1}s"] = "A investigar {0}  {1:F1}s";
-            t["Research queue: "] = "Fila de investigação: ";
+            // The bar names whatever the head item is — a tech or a level-up.
+            t["{0}  {1:F1}s"] = "{0}  {1:F1}s";
+            t["Queued: "] = "Em fila: ";
 
             // Vault (VaultResourceNames stays English; translated at render).
             t["Supplies"] = "Mantimentos";
@@ -231,13 +231,15 @@ namespace TheWaningBorder.Core.Localization
             t["Click to pin the stats panel to this unit type for the rest of the selection."] =
                 "Clique para fixar o painel de estatísticas neste tipo de unidade durante o resto da seleção.";
 
-            // ── ProductionQueueStrip ───────────────────────────────────────
-            t["In production"] = "Em produção";
-            t["Researching {0}   {1:F1}s"] = "A investigar {0}   {1:F1}s";
-
             // ── BuildingUpgradeAction ──────────────────────────────────────
             t["Upgrading\n{0}%"] = "A melhorar\n{0}%";
             t["Upgrade in progress"] = "Melhoria em curso";
+            t["Upgrade\nqueued"] = "Melhoria\nem fila";
+            t["Upgrade queued"] = "Melhoria em fila";
+            t["It starts when this building finishes what it is working on. "
+              + "Right-click its slot in the queue to cancel and refund."] =
+                "Começa quando este edifício terminar o que está a fazer. Clique direito "
+              + "no seu lugar na fila para cancelar e reembolsar.";
             t["{0}% complete"] = "{0}% concluído";
             t["Upgrade\nLv {0}"] = "Melhorar\nNv {0}";
             t["Upgrade to Level {0}"] = "Melhorar para o Nível {0}";

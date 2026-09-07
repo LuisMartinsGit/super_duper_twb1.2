@@ -1,4 +1,4 @@
-// The four Alanthor sects, authored against docs/Design/Sects.md (canon).
+﻿// The four Alanthor sects, authored against docs/Design/Sects.md (canon).
 //
 // This file is the first cut-over to the canon shape. Two things change from
 // the legacy table in SectLeverEffects.cs:
@@ -103,21 +103,32 @@ namespace TheWaningBorder.Economy
                                   magnitude: 0.80f, duration: 10f, cooldown: 80f),
                     };
 
-                case 2: // Raise Anew — Magnitude is the tower LEVEL, Duration its lifetime.
+                // Raise Anew — Magnitude is the tower LEVEL, Duration its lifetime.
+                //
+                // ONE tower per cast at every level (2026-09-07). Level II used
+                // to ring three of them out of a single cast, which read as a
+                // fortress appearing from nothing and made the level-II step
+                // worth more than the level-III one it is supposed to build
+                // toward. II is now the same shape as I and III — a better
+                // tower, not more of them — so the ladder reads as quality.
+                //
+                // Cooldowns are 30% longer to match: a tower that survives
+                // until something kills it is a permanent board change, and it
+                // was recharging fast enough to fence a base in for free.
+                case 2:
                     return level switch
                     {
                         1 => Spec(SectActivePowerKind.RaiseTower, SectRadius.Single, "Raise Anew",
                                   "Raise one free Lv 1 Watch Tower. It crumbles after 30s.",
-                                  magnitude: 1f, duration: 30f, cooldown: 120f),
-                        2 => Spec(SectActivePowerKind.RaiseTower, SectRadius.Small, "Raise Anew",
-                                  "Raise Lv 2 Watch Towers across a small area. They crumble after 60s.",
-                                  magnitude: 2f, duration: 60f, cooldown: 150f),
-                        // III returns to Single Target on purpose: a permanent free
-                        // Lv 3 tower is the payoff, and several of them at once would
-                        // out-value every other level-III power in the game.
+                                  magnitude: 1f, duration: 30f, cooldown: 156f),
+                        2 => Spec(SectActivePowerKind.RaiseTower, SectRadius.Single, "Raise Anew",
+                                  "Raise one free Lv 2 Watch Tower. It crumbles after 60s.",
+                                  magnitude: 2f, duration: 60f, cooldown: 195f),
+                        // III's payoff is that the tower is PERMANENT, which is
+                        // why it costs the longest recharge in the set.
                         _ => Spec(SectActivePowerKind.RaiseTower, SectRadius.Single, "Raise Anew",
                                   "Raise a permanent Lv 3 Watch Tower. It stays until destroyed.",
-                                  magnitude: 3f, duration: Permanent, cooldown: 180f),
+                                  magnitude: 3f, duration: Permanent, cooldown: 234f),
                     };
 
                 default: // Second Wind — Magnitude is the heal-on-expiry fraction.

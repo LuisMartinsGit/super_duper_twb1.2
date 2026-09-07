@@ -1,4 +1,4 @@
-// SelectionSystem.cs
+﻿// SelectionSystem.cs
 // Handles entity selection (click, double-click, and box select)
 // Part of: Input/
 
@@ -102,6 +102,15 @@ namespace TheWaningBorder.Input
             ComponentType.ReadOnly<FactionTag>(),
         };
         private TheWaningBorder.Core.CachedEntityQuery _unitSelectQuery;
+
+        private static readonly ComponentType[] BuildingSelectQueryTypes =
+        {
+            ComponentType.ReadOnly<BuildingTag>(),
+            ComponentType.ReadOnly<DisplayName>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        private TheWaningBorder.Core.CachedEntityQuery _buildingSelectQuery;
         private TheWaningBorder.Core.CachedEntityQuery _anySelectQuery;
         private readonly List<Entity> _selection = new();
 
@@ -127,6 +136,12 @@ namespace TheWaningBorder.Input
         private float _lastClickTime = -1f;
         private UnitClass _lastClickedClass;
         private bool _lastClickWasUnit;
+        // Buildings double-click by TYPE NAME, not by UnitClass — they have no
+        // class, and DisplayName is stamped from the building id by
+        // BuildingFactory.MakeDisplayName, so it is the same string for every
+        // instance of a type and different for every type.
+        private Unity.Collections.FixedString64Bytes _lastClickedBuilding;
+        private bool _lastClickWasBuilding;
 
         #endregion
 
@@ -270,6 +285,7 @@ namespace TheWaningBorder.Input
 
                     // Reset so a third click doesn't re-trigger
                     _lastClickWasUnit = false;
+                    _lastClickWasBuilding = false;
                     _lastClickTime = -1f;
                     return;
                 }
@@ -278,11 +294,40 @@ namespace TheWaningBorder.Input
                 _lastClickTime = now;
                 _lastClickedClass = clickedClass;
                 _lastClickWasUnit = true;
+                _lastClickWasBuilding = false;
+            }
+            // Buildings get the same gesture (2026-09-07): double-clicking one
+            // selects every building of that type, which is what makes a
+            // train or upgrade order reach the whole set at once.
+            else if (dblClickSelectable && _em.HasComponent<BuildingTag>(e)
+                     && _em.HasComponent<DisplayName>(e) && IsOwnedByPlayer(e))
+            {
+                var clickedName = _em.GetComponentData<DisplayName>(e).Value;
+
+                if (_lastClickWasBuilding
+                    && clickedName.Equals(_lastClickedBuilding)
+                    && (now - _lastClickTime) < Cfg.doubleClickThreshold)
+                {
+                    bool mapWide = UnityEngine.Input.GetKey(KeyCode.LeftControl)
+                                || UnityEngine.Input.GetKey(KeyCode.RightControl);
+                    SelectAllBuildingsOfType(clickedName, mapWide);
+
+                    _lastClickWasBuilding = false;
+                    _lastClickTime = -1f;
+                    return;
+                }
+
+                _lastClickTime = now;
+                _lastClickedBuilding = clickedName;
+                _lastClickWasBuilding = true;
+                _lastClickWasUnit = false;
             }
             else
             {
-                // Clicked something that isn't an owned unit — reset tracking
+                // Clicked something that isn't an owned unit or building —
+                // reset tracking
                 _lastClickWasUnit = false;
+                _lastClickWasBuilding = false;
                 _lastClickTime = -1f;
             }
 
@@ -297,6 +342,44 @@ namespace TheWaningBorder.Input
         #endregion
 
         #region Double-click Select All of Type
+
+        /// <summary>
+        /// Selects every player-owned building whose DisplayName matches —
+        /// i.e. every building of the double-clicked TYPE. On-screen only
+        /// unless <paramref name="mapWide"/> (Ctrl), matching the unit gesture.
+        /// </summary>
+        private void SelectAllBuildingsOfType(Unity.Collections.FixedString64Bytes typeName, bool mapWide)
+        {
+            var cam = Camera.main;
+            if (!cam && !mapWide) return;
+
+            _selection.Clear();
+
+            var query = _buildingSelectQuery.Get(_em, BuildingSelectQueryTypes);
+            using var ents = query.ToEntityArray(Allocator.Temp);
+
+            float screenW = Screen.width;
+            float screenH = Screen.height;
+
+            for (int i = 0; i < ents.Length; i++)
+            {
+                var e = ents[i];
+                if (!_em.Exists(e)) continue;
+                if (!IsOwnedByPlayer(e)) continue;
+                if (!_em.GetComponentData<DisplayName>(e).Value.Equals(typeName)) continue;
+
+                if (!mapWide)
+                {
+                    var pos = _em.GetComponentData<LocalTransform>(e).Position;
+                    Vector3 screenPos = cam.WorldToScreenPoint(new Vector3(pos.x, pos.y, pos.z));
+                    if (screenPos.z < 0f) continue;
+                    if (screenPos.x < 0f || screenPos.x > screenW) continue;
+                    if (screenPos.y < 0f || screenPos.y > screenH) continue;
+                }
+
+                _selection.Add(e);
+            }
+        }
 
         /// <summary>
         /// Selects all player-owned units of the given UnitClass.

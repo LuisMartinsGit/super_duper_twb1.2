@@ -1,4 +1,4 @@
-// AICommon.cs
+﻿// AICommon.cs
 // Helpers every AI system shares — culture-neutral AND phase-neutral.
 //
 // AIEndgameCommon exists for the same reason one level down: it holds what the
@@ -41,7 +41,7 @@ namespace TheWaningBorder.AI
         static readonly ComponentType[] TrainQueueTypes =
         {
             ComponentType.ReadOnly<FactionTag>(),
-            ComponentType.ReadOnly<TrainQueueItem>(),
+            ComponentType.ReadOnly<ProductionQueueItem>(),
         };
         static CachedEntityQuery _trainQueueQuery;
 
@@ -145,9 +145,10 @@ namespace TheWaningBorder.AI
             for (int i = 0; i < ents.Length; i++)
             {
                 if (facs[i].Value != faction) continue;
-                var buf = em.GetBuffer<TrainQueueItem>(ents[i]);
+                var buf = em.GetBuffer<ProductionQueueItem>(ents[i]);
                 for (int j = 0; j < buf.Length; j++)
-                    if (buf[j].UnitId.ToString() == unitId) return true;
+                    if (buf[j].Kind == ProductionKind.Train
+                        && buf[j].Id.ToString() == unitId) return true;
             }
             return false;
         }
@@ -169,9 +170,10 @@ namespace TheWaningBorder.AI
             for (int i = 0; i < ents.Length; i++)
             {
                 if (facs[i].Value != faction) continue;
-                var buf = em.GetBuffer<TrainQueueItem>(ents[i]);
+                var buf = em.GetBuffer<ProductionQueueItem>(ents[i]);
                 for (int j = 0; j < buf.Length; j++)
-                    if (buf[j].UnitId.ToString() == unitId) n++;
+                    if (buf[j].Kind == ProductionKind.Train
+                        && buf[j].Id.ToString() == unitId) n++;
             }
             return n;
         }

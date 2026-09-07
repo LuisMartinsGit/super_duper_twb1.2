@@ -37,6 +37,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using TheWaningBorder.UI.Common;
 
 namespace TheWaningBorder.UI.Ingame
 {
@@ -123,11 +124,12 @@ namespace TheWaningBorder.UI.Ingame
             // invisible to the EventSystem or it would steal the hover from
             // the widget it is describing.
 
-            var scaler = go.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(3840f, 2160f);
-            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-            scaler.matchWidthOrHeight = 0f;
+            // Same frame and the same Expand rule as the HUD it annotates: on
+            // a 32:9 screen match-width doubled the tooltip's size relative to
+            // the buttons it was describing.
+            HudCanvas.Configure(
+                go.GetComponent<CanvasScaler>(),
+                HudCanvas.StagingReference);
 
             _instance = go.GetComponent<UITooltip>();
             _instance.Build((RectTransform)go.transform);

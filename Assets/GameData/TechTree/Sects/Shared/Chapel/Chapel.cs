@@ -1,4 +1,4 @@
-// Sect chapels — one creator parameterised by sect id (12 building ids).
+﻿// Sect chapels — one creator parameterised by sect id (12 building ids).
 // Building a chapel in a Temple slot IS the sect-adoption mechanism.
 //
 // Extracted from BuildingFactory (2026-08-12): each building's creation
@@ -78,8 +78,8 @@ namespace TheWaningBorder.Entities
             // Lorekeeper / Tinker / etc.), so they carry a training queue
             // from birth. Sects whose unit isn't implemented yet simply
             // show no train button (GetChapelTrainingActions).
-            em.AddComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
-            em.AddBuffer<TrainQueueItem>(entity);
+            em.AddComponentData(entity, new ProductionState { Busy = 0, Remaining = 0 });
+            em.AddBuffer<ProductionQueueItem>(entity);
             em.AddComponentData(entity, new RallyPoint
             {
                 Position = position + new float3(3f, 0, 3f),
@@ -118,8 +118,8 @@ namespace TheWaningBorder.Entities
             });
 
             // Mirror CreateChapel: training queue for the sect's unique unit.
-            ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
-            ecb.AddBuffer<TrainQueueItem>(entity);
+            ecb.AddComponent(entity, new ProductionState { Busy = 0, Remaining = 0 });
+            ecb.AddBuffer<ProductionQueueItem>(entity);
             ecb.AddComponent(entity, new RallyPoint
             {
                 Position = position + new float3(3f, 0, 3f),

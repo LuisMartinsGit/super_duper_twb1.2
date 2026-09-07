@@ -1,4 +1,4 @@
-// AIAlanthorEndgameSystem.cs
+﻿// AIAlanthorEndgameSystem.cs
 // Culture-specific endgame AI for Alanthor factions. Picks up after the
 // SimpleAISystem build order finishes (Age 2+) and drives the late-game
 // behaviour Alanthor should ship with: defensive tower clusters (with a
@@ -349,8 +349,8 @@ namespace TheWaningBorder.AI
             Entity trainer = AIEndgameCommon.FindFactionBuilding<TBuildingTag>(em, faction);
             if (trainer == Entity.Null) return false;
             if (em.HasComponent<UnderConstruction>(trainer)) return false;
-            if (!em.HasBuffer<TrainQueueItem>(trainer)) return false;
-            if (em.GetBuffer<TrainQueueItem>(trainer).Length >= Cfg.maxTrainQueue) return false;
+            if (!em.HasBuffer<ProductionQueueItem>(trainer)) return false;
+            if (CommandRouter.GetTrainQueueLength(em, trainer) >= Cfg.maxTrainQueue) return false;
 
             if (!TechCatalog.IsReady) return false;
             if (!TechCatalog.TryGetUnit(unitId, out var def) || def == null) return false;

@@ -1,4 +1,4 @@
-%YAML 1.1
+﻿%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -53,6 +53,6 @@ MonoBehaviour:
   - vsTag: Building
     amount: 30
   abilities: []
-  prefab: {fileID: 3770438709135643749, guid: ece62a5560e11f74bbe49297d4148d10, type: 3}
-  presentationId: 337
+  prefab: {fileID: 1120605536951438, guid: 7a247cfdd0575f0047ba581ac44c2a4b, type: 3}
+  presentationId: 338
   animatorController: {fileID: 0}

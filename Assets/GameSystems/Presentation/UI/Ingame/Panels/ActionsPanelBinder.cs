@@ -1,4 +1,4 @@
-// ActionsPanelBinder.cs
+﻿// ActionsPanelBinder.cs
 // Selection-driven ACTIONS panel for the final game UI. Code-built (no
 // authored prefab yet — see GameUIKit) and spawned by GameUIManager in the
 // bottom-right, left of the minimap.
@@ -868,54 +868,42 @@ namespace TheWaningBorder.UI.Ingame
 
         private void RenderQueueAndBars(EntityManager em, in EntityActionInfo info)
         {
-            if (info.TrainingState.HasValue)
+            if (!info.ProductionState.HasValue) return;
+            var r = info.ProductionState.Value;
+
+            // One bar for the head item, whatever it is; gold for a unit,
+            // blue for the building working on itself.
+            if (r.IsBusy)
+                _trainBar.Set(true,
+                    string.Format(Loc.T("{0}  {1:F1}s"), r.CurrentName, r.TimeRemaining),
+                    r.Progress,
+                    r.CurrentKind == ProductionKind.Train ? GameUIKit.BarGold : GameUIKit.BarBlue);
+
+            if (r.Entries == null || r.Entries.Length == 0) return;
+
+            var queueRow = _queue[0].Root.transform.parent.gameObject;
+            queueRow.SetActive(true);
+
+            // The slot strip shows the first few; the rest are named below it.
+            for (int i = 0; i < QueueSlots; i++)
             {
-                var t = info.TrainingState.Value;
-                if (t.IsTraining)
-                    _trainBar.Set(true,
-                        string.Format(Loc.T("Training {0}  {1:F1}s"),
-                            t.CurrentUnitId, t.TimeRemaining),
-                        t.Progress, GameUIKit.BarGold);
-
-                var queueRow = _queue[0].Root.transform.parent.gameObject;
-                queueRow.SetActive(true);
-
-                // Rebuild the full slot list: in-production item + pending.
-                int total = t.QueueCapacity;
-                var names = new string[QueueSlots];
-                int idx = 0;
-                if (t.IsTraining && t.CurrentUnitId != null && idx < QueueSlots)
-                    names[idx++] = t.CurrentUnitId;
-                if (t.Queue != null)
-                    for (int i = 0; i < t.Queue.Length && idx < QueueSlots; i++, idx++)
-                        names[idx] = t.Queue[i];
-
-                for (int i = 0; i < QueueSlots; i++)
-                {
-                    var slot = _queue[i];
-                    bool occupied = i < total && names[i] != null;
-                    slot.Root.SetActive(true);
-                    bool producing = i == 0 && t.IsTraining;
-                    slot.Cancellable = occupied && !producing;
-                    slot.Bg.color = !occupied ? GameUIKit.BarBg
-                        : producing ? new Color(0.83f, 0.66f, 0.26f, 0.55f)
-                        : GameUIKit.ButtonBg;
-                    slot.Label.text = occupied
-                        ? (names[i].Length > 3 ? names[i].Substring(0, 3) : names[i])
-                        : "";
-                }
+                var slot = _queue[i];
+                bool occupied = i < r.Entries.Length;
+                slot.Root.SetActive(true);
+                bool producing = i == 0 && r.IsBusy;
+                slot.Cancellable = occupied && !producing;
+                slot.Bg.color = !occupied ? GameUIKit.BarBg
+                    : producing ? new Color(0.83f, 0.66f, 0.26f, 0.55f)
+                    : GameUIKit.ButtonBg;
+                string name = occupied ? r.Entries[i].Name : "";
+                slot.Label.text = name.Length > 3 ? name.Substring(0, 3) : name;
             }
 
-            if (info.ResearchState.HasValue)
+            if (r.Entries.Length > QueueSlots)
             {
-                var r = info.ResearchState.Value;
-                if (r.IsResearching)
-                    _researchBar.Set(true,
-                        string.Format(Loc.T("Researching {0}  {1:F1}s"),
-                            r.CurrentTechName, r.TimeRemaining),
-                        r.Progress, GameUIKit.BarBlue);
-                if (r.Queue != null && r.Queue.Length > 0)
-                    _statusB.text = Loc.T("Research queue: ") + string.Join(", ", r.Queue);
+                var pending = new string[r.Entries.Length - QueueSlots];
+                for (int i = QueueSlots; i < r.Entries.Length; i++) pending[i - QueueSlots] = r.Entries[i].Name;
+                _statusB.text = Loc.T("Queued: ") + string.Join(", ", pending);
             }
         }
 
@@ -925,10 +913,10 @@ namespace TheWaningBorder.UI.Ingame
             var em = EM(out bool ok);
             if (!ok || !em.Exists(_entity)) return;
             // Through the router, not the helper: the refund must land on
-            // every peer via the CancelTrain lockstep opcode, mirroring the
-            // spend that now lives in the train executor
+            // every peer via the CancelProduction lockstep opcode, mirroring
+            // the spend that lives in the executors
             // (docs/Multiplayer_LAN_Readiness.md).
-            CommandRouter.IssueCancelTrain(em, _entity, slot.Index,
+            CommandRouter.IssueCancelProduction(em, _entity, slot.Index,
                 TheWaningBorder.Core.Commands.CommandSource.LocalPlayer);
             _timer = RefreshInterval;
         }

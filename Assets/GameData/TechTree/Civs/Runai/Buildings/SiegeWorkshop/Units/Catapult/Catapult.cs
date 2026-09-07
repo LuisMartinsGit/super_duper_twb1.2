@@ -1,4 +1,4 @@
-using Unity.Entities;
+﻿using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Economy;
@@ -15,7 +15,10 @@ namespace TheWaningBorder.Entities
     /// </summary>
     public static class Catapult
     {
-        private const int PresentationID = 333;  // ProceduralUnitGenerator maps 333=>Catapult, 334=>Sentinel
+        // 337: the Synty catapult model (AlanthorCatapult.prefab), shared with
+        // the Alanthor Catapult. It was 333 with presentationId 0 on the SO —
+        // no prefab registered, so the unit spawned as a capsule (2026-09-07).
+        private const int PresentationID = 337;
 
         /// <summary>Create Catapult using EntityManager.</summary>
         public static Entity Create(EntityManager em, float3 position, Faction faction)

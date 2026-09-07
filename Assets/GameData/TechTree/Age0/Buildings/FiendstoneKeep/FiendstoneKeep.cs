@@ -1,4 +1,4 @@
-// Fiendstone Keep — Age 0 choice building (Feraldis-leaning capital).
+﻿// Fiendstone Keep — Age 0 choice building (Feraldis-leaning capital).
 //
 // Extracted from BuildingFactory (2026-08-12): each building's creation
 // code lives with its data, per the TechTree co-location convention.
@@ -64,8 +64,8 @@ namespace TheWaningBorder.Entities
             });
 
             // Keep tech ladder (emplacements / towers / walls) researches here.
-            em.AddComponentData(entity, new ResearchState { Busy = 0, Remaining = 0 });
-            em.AddBuffer<ResearchQueueItem>(entity);
+            em.AddComponentData(entity, new ProductionState { Busy = 0, Remaining = 0 });
+            em.AddBuffer<ProductionQueueItem>(entity);
 
             // Wing slots (choice-building leveling): the Keep levels by
             // building up to three wings — see KeepWingSystem.
@@ -110,8 +110,8 @@ namespace TheWaningBorder.Entities
             });
 
             // Keep tech ladder (emplacements / towers / walls) researches here.
-            ecb.AddComponent(entity, new ResearchState { Busy = 0, Remaining = 0 });
-            ecb.AddBuffer<ResearchQueueItem>(entity);
+            ecb.AddComponent(entity, new ProductionState { Busy = 0, Remaining = 0 });
+            ecb.AddBuffer<ProductionQueueItem>(entity);
 
             // Wing slots (choice-building leveling): the Keep levels by
             // building up to three wings — see KeepWingSystem.

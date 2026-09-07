@@ -15,6 +15,12 @@ EditorBuildSettings:
     path: Assets/GameData/Scenes/Menus/MultiplayerMenu/MultiplayerMenu.unity
     guid: 8cb2894e6641040428d034c13fafa391
   - enabled: 1
+    path: Assets/GameData/Scenes/Menus/ScenariosMenu/ScenariosMenu.unity
+    guid: d535d352be5478f4282bbae5a478eee0
+  - enabled: 1
+    path: Assets/GameData/Scenes/Menus/SettingsMenu/SettingsMenu.unity
+    guid: 2c6e42ee96da78c40bd74c74da724a39
+  - enabled: 1
     path: Assets/GameData/Scenes/Maps/Sundered Crown/SunderedCrown.unity
     guid: 9189c8bdfd86d40498d3184be23c2851
   - enabled: 1

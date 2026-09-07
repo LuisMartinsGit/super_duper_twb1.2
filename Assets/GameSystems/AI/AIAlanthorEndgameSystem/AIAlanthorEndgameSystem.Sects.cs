@@ -1,4 +1,4 @@
-// AIAlanthorEndgameSystem.Sects.cs
+﻿// AIAlanthorEndgameSystem.Sects.cs
 // Sect adoption, active-power firing and its target pickers, sect-unit training.
 // Partial of AIAlanthorEndgameSystem.cs -- split 2026-08-12 for readability.
 
@@ -62,12 +62,12 @@ namespace TheWaningBorder.AI
         };
         static CachedEntityQuery QC_UnitTypeIdFactionTagHealth;
 
-        static readonly ComponentType[] QT_FactionTagTrainQueueItem =
+        static readonly ComponentType[] QT_FactionTagProductionQueueItem =
         {
             ComponentType.ReadOnly<FactionTag>(),
-            ComponentType.ReadOnly<TrainQueueItem>(),
+            ComponentType.ReadOnly<ProductionQueueItem>(),
         };
-        static CachedEntityQuery QC_FactionTagTrainQueueItem;
+        static CachedEntityQuery QC_FactionTagProductionQueueItem;
 
         #endregion
 
@@ -208,12 +208,18 @@ namespace TheWaningBorder.AI
 
                 // Aim at your own ground. Bulwark wants the base, not the field
                 // army: it buffs buildings, and the buildings worth buffing are
-                // at home. Raise Anew and Cleanse are base-defensive too.
+                // at home. Cleanse is base-defensive too.
                 case SectActivePowerKind.BuildingHpBuff:
-                case SectActivePowerKind.RaiseTower:
                 case SectActivePowerKind.InfluenceBurst:
                     target = hallPos;
                     return true;
+
+                // A tower is a PICKET, so it goes out on the threatened side
+                // rather than on the keep — which is where "aim at your own
+                // ground" was putting it, every single cast, stacking tower on
+                // tower inside the base where nothing could shoot at anything.
+                case SectActivePowerKind.RaiseTower:
+                    return TryPickTowerSite(em, faction, hallPos, out target);
 
                 // Aim at a resource node.
                 case SectActivePowerKind.NodeOverYield:
@@ -351,6 +357,48 @@ namespace TheWaningBorder.AI
             return found;
         }
 
+        /// <summary>
+        /// Where to conjure a Watch Tower: on the line from the Hall toward
+        /// whatever is threatening it, one picket-distance out.
+        ///
+        /// A tower dropped on the keep covers ground the keep already covers,
+        /// and the AI cast it there every time the power came off cooldown.
+        /// Facing the threat gives it something to shoot and puts it where the
+        /// attacker arrives first.
+        ///
+        /// Threat order: a live enemy ARMY near the base, else the nearest
+        /// enemy building (the direction an attack will come from). With
+        /// neither in ~80 m there is nothing to picket against, so the cast is
+        /// refused and the charge is kept — the tower is permanent at level
+        /// III, so spending it on empty ground is worse than waiting.
+        /// </summary>
+        private static bool TryPickTowerSite(
+            EntityManager em, Faction faction, float3 hallPos, out float3 target)
+        {
+            target = default;
+
+            // castRadius 0: this is a direction probe, not an area cast.
+            if (!TryPickEnemyClusterNearBase(em, faction, hallPos, 0f, out var threat)
+                && !TryPickEnemyBuildingNearBase(em, faction, hallPos, out threat))
+                return false;
+
+            float dx = threat.x - hallPos.x;
+            float dz = threat.z - hallPos.z;
+            float dist = math.sqrt(dx * dx + dz * dz);
+            if (dist < 0.01f) return false;   // threat is standing on the Hall
+
+            // Far enough out to be a forward picket and to cover the approach,
+            // close enough that the base's other defences still support it.
+            const float PicketDistance = 24f;
+            float reach = math.min(PicketDistance, dist * 0.6f);
+
+            target = new float3(
+                hallPos.x + dx / dist * reach,
+                hallPos.y,
+                hallPos.z + dz / dist * reach);
+            return true;
+        }
+
         // Pick the centroid of our largest army group within ~120 m of the
         // Hall. Bias toward groups that are currently taking damage so the
         // heal/buff actually matters.
@@ -446,8 +494,8 @@ namespace TheWaningBorder.AI
                 if (facs[i].Value != faction) continue;
                 Entity chapel = ents[i];
                 if (em.HasComponent<UnderConstruction>(chapel)) continue;
-                if (!em.HasBuffer<TrainQueueItem>(chapel)) continue;
-                if (em.GetBuffer<TrainQueueItem>(chapel).Length >= Cfg.maxTrainQueue) continue;
+                if (!em.HasBuffer<ProductionQueueItem>(chapel)) continue;
+                if (CommandRouter.GetTrainQueueLength(em, chapel) >= Cfg.maxTrainQueue) continue;
 
                 string sectId = em.GetComponentData<ChapelTag>(chapel).SectId.ToString();
                 string unitId = SectConfig.UnitIdFor(sectId);
@@ -482,16 +530,17 @@ namespace TheWaningBorder.AI
                     if (em.GetComponentData<UnitTypeId>(uEnts[i]).Value.ToString() == unitId) n++;
                 }
             }
-            var tq = QC_FactionTagTrainQueueItem.Get(em, QT_FactionTagTrainQueueItem);
+            var tq = QC_FactionTagProductionQueueItem.Get(em, QT_FactionTagProductionQueueItem);
             using (var tEnts = tq.ToEntityArray(Allocator.Temp))
             using (var tFacs = tq.ToComponentDataArray<FactionTag>(Allocator.Temp))
             {
                 for (int i = 0; i < tEnts.Length; i++)
                 {
                     if (tFacs[i].Value != faction) continue;
-                    var buf = em.GetBuffer<TrainQueueItem>(tEnts[i]);
+                    var buf = em.GetBuffer<ProductionQueueItem>(tEnts[i]);
                     for (int j = 0; j < buf.Length; j++)
-                        if (buf[j].UnitId.ToString() == unitId) n++;
+                        if (buf[j].Kind == ProductionKind.Train
+                            && buf[j].Id.ToString() == unitId) n++;
                 }
             }
             return n;
@@ -653,8 +702,8 @@ namespace TheWaningBorder.AI
 
                 Entity host = FindCompletedBuilding(em, faction, buildingId);
                 if (host == Entity.Null) continue;
-                if (!em.HasBuffer<TrainQueueItem>(host)) continue;
-                if (em.GetBuffer<TrainQueueItem>(host).Length >= Cfg.maxTrainQueue) continue;
+                if (!em.HasBuffer<ProductionQueueItem>(host)) continue;
+                if (CommandRouter.GetTrainQueueLength(em, host) >= Cfg.maxTrainQueue) continue;
 
                 string unitId = SectConfig.UnitIdFor(sectId);
                 if (unitId == null) continue;

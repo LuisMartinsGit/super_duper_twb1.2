@@ -1,4 +1,4 @@
-// Shared spine for the twelve sect buildings (docs/Design/Sects.md section 1).
+﻿// Shared spine for the twelve sect buildings (docs/Design/Sects.md section 1).
 //
 // Every sect grants exactly one building, capped at 5 per faction, and each is
 // where that sect's unit is trained and its research is bought. That makes the
@@ -81,8 +81,8 @@ namespace TheWaningBorder.Entities
 
             // Every sect building trains its sect's unit, so it carries a
             // training queue from birth.
-            creator.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
-            creator.AddBuffer<TrainQueueItem>(entity);
+            creator.AddComponent(entity, new ProductionState { Busy = 0, Remaining = 0 });
+            creator.AddBuffer<ProductionQueueItem>(entity);
             creator.AddComponent(entity, new RallyPoint
             {
                 Position = position + new float3(3f, 0f, 3f),

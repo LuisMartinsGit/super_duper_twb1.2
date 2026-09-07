@@ -1,4 +1,4 @@
-// LockstepManager.cs
+﻿// LockstepManager.cs
 // Lockstep multiplayer manager for deterministic simulation
 
 using System;
@@ -1344,12 +1344,16 @@ namespace TheWaningBorder.Multiplayer
                     }
                     break;
 
+                // CancelTrain is the pre-merge opcode for the same thing:
+                // training lives in the production queue since 2026-09-07,
+                // so both cancel the same slot of the same buffer.
                 case LockstepCommandType.CancelTrain:
+                case LockstepCommandType.CancelProduction:
                     if (entity != Entity.Null)
                     {
-                        int cancelSlot = cmd.TargetEntityId;
-                        CancelTrainCommandHelper.Execute(em, entity, cancelSlot);
-                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed CancelTrain slot={cancelSlot} from player {cmd.PlayerIndex}");
+                        int cancelProdSlot = cmd.TargetEntityId;
+                        CancelProductionCommandHelper.Execute(em, entity, cancelProdSlot);
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed CancelProduction slot={cancelProdSlot} from player {cmd.PlayerIndex}");
                     }
                     break;
 

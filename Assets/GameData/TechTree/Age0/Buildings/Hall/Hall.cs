@@ -1,4 +1,4 @@
-using Unity.Entities;
+﻿using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Economy;
@@ -39,12 +39,10 @@ namespace TheWaningBorder.Entities
             var gridSize = BuildingSizeConfig.GetSize("Hall");
             creator.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             creator.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            creator.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
             creator.AddComponent(entity, new PopulationProvider { Amount = def.populationProvided });
             creator.AddComponent(entity, new FactionProgress { Culture = Cultures.None });
 
             // Training queue buffer + rally point + ranged attack
-            creator.AddBuffer<TrainQueueItem>(entity);
             creator.AddComponent<HallTag>(entity);
             creator.AddComponent<BuildingUpgradeable>(entity);
             creator.AddComponent(entity, new RallyPoint { Position = position + new float3(5f, 0, 5f), Has = 1 });
@@ -62,8 +60,8 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new DamageTypeData { Value = DamageType.Ranged });
 
             // Research capability (Hall can research economy techs)
-            creator.AddComponent(entity, new ResearchState { Busy = 0, Remaining = 0 });
-            creator.AddBuffer<ResearchQueueItem>(entity);
+            creator.AddComponent(entity, new ProductionState { Busy = 0, Remaining = 0 });
+            creator.AddBuffer<ProductionQueueItem>(entity);
 
             return entity;
         }

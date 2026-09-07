@@ -1,4 +1,4 @@
-// SimpleAISystem.Queries.cs
+﻿// SimpleAISystem.Queries.cs
 // Shared entity-query helpers: counts, lookups, classification predicates.
 // Partial of SimpleAISystem.cs -- split 2026-08-12 for readability.
 
@@ -42,12 +42,12 @@ namespace TheWaningBorder.AI
         };
         static CachedEntityQuery QC_BuildingTagFactionTagUnderConstruction;
 
-        static readonly ComponentType[] QT_FactionTagTrainQueueItem =
+        static readonly ComponentType[] QT_FactionTagProductionQueueItem =
         {
             ComponentType.ReadOnly<FactionTag>(),
-            ComponentType.ReadOnly<TrainQueueItem>(),
+            ComponentType.ReadOnly<ProductionQueueItem>(),
         };
-        static CachedEntityQuery QC_FactionTagTrainQueueItem;
+        static CachedEntityQuery QC_FactionTagProductionQueueItem;
 
         static readonly ComponentType[] QT_AIBrainFactionTag =
         {
@@ -75,8 +75,10 @@ namespace TheWaningBorder.AI
             {
                 if (facs[i].Value != faction) continue;
                 if (em.HasComponent<UnderConstruction>(ents[i])) continue;
-                if (!em.HasBuffer<TrainQueueItem>(ents[i])) continue;
-                int len = em.GetBuffer<TrainQueueItem>(ents[i]).Length;
+                if (!em.HasBuffer<ProductionQueueItem>(ents[i])) continue;
+                // Whole queue, not just the units in it: a research ahead of
+                // the next unit delays it exactly as another unit would.
+                int len = em.GetBuffer<ProductionQueueItem>(ents[i]).Length;
                 if (len < bestQueue) { bestQueue = len; best = ents[i]; }
             }
             return best;
@@ -144,7 +146,7 @@ namespace TheWaningBorder.AI
             return false;
         }
         /// <summary>First faction building of the tag type that can accept a
-        /// research order right now: completed, carries a ResearchQueueItem
+        /// research order right now: completed, carries a ProductionQueueItem
         /// buffer, and its combined production queue has room.</summary>
         private static Entity FindResearchHost<TTag>(EntityManager em, Faction faction)
             where TTag : unmanaged, IComponentData
@@ -255,7 +257,7 @@ namespace TheWaningBorder.AI
         {
             if (!isCombat && !isMiner) return 0;
 
-            var q = QC_FactionTagTrainQueueItem.Get(em, QT_FactionTagTrainQueueItem);
+            var q = QC_FactionTagProductionQueueItem.Get(em, QT_FactionTagProductionQueueItem);
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
 
@@ -263,10 +265,11 @@ namespace TheWaningBorder.AI
             for (int i = 0; i < ents.Length; i++)
             {
                 if (facs[i].Value != faction) continue;
-                var buffer = em.GetBuffer<TrainQueueItem>(ents[i]);
+                var buffer = em.GetBuffer<ProductionQueueItem>(ents[i]);
                 for (int j = 0; j < buffer.Length; j++)
                 {
-                    string id = buffer[j].UnitId.ToString();
+                    if (buffer[j].Kind != ProductionKind.Train) continue;
+                    string id = buffer[j].Id.ToString();
                     UnitClass cls = UnitFactory.GetUnitClass(id);
                     if (isCombat && IsCombatClass(cls)) n++;
                     // Worker (formerly Builder + Miner) is UnitClass.Economy

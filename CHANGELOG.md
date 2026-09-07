@@ -1,4 +1,4 @@
-# Changelog
+﻿# Changelog
 
 All notable changes to The Waning Border.
 
@@ -12,6 +12,53 @@ build always name the same number.
 ## [Unreleased]
 
 Nothing yet.
+
+---
+
+## [0.0.21] — 2026-09-07
+
+### Changed
+
+- **One production queue.** A building's units, its research and its own
+  level-ups are a single queue now, in the order you gave them, one at a
+  time — with one progress bar. Research no longer runs silently beside
+  training in a panel of its own; it shows up in the roster slots with
+  everything else, and every slot can be cancelled for a full refund by
+  right-clicking it.
+- **Orders reach the whole selection.** Double-click a building to select
+  every building of that type on screen (Ctrl for the whole map); a train or
+  upgrade order then goes to all of them. Shift-click a unit button to queue
+  five.
+- **King Lexor and the Cataphract** need a level 3 King's Court and Royal
+  Stable respectively, the same bar the Longbowman and Sentinel already had.
+- **Raise Anew** conjures one Watch Tower per cast at every level (level II
+  used to drop three), its recharge is 30% longer, and the AI now places the
+  tower toward the threat instead of on top of its own keep.
+
+### Curse
+
+- **Crystallings hunt in packs.** Each Crystalling within 7 m adds 10% to a
+  Crystalling's damage, up to double. Stragglers hit like stragglers.
+- **Waves march in formation** — Crystallings in front, Veilstingers behind —
+  and turn on the army defending a base instead of walking through it to
+  reach the buildings.
+
+### Fixed
+
+- Both mines can be built again: the Veilstone Mine was missing from the
+  build menu entirely, and the iron Mine was gated an age too late. Mines
+  and the Gatherer's Hut snap onto their node.
+- The Ballista has its own model; it was wearing the catapult's. The Runai
+  Catapult had no model at all and spawned as a capsule.
+- Building selection outlines match each building's real footprint.
+- The tutorial describes the territory economy, the Fortress and Hall
+  claiming instead of the old worker-gathering loop.
+
+### Menus
+
+- Scenarios and Settings are their own screens, in the Skirmish look.
+- The interface holds together at 32:9; a resolution dropdown joins the
+  settings.
 
 ---
 

@@ -1,4 +1,4 @@
-// Temple of Ridan — Age 2+ religion hub; carries the 6 chapel slots.
+﻿// Temple of Ridan — Age 2+ religion hub; carries the 6 chapel slots.
 //
 // Extracted from BuildingFactory (2026-08-12): each building's creation
 // code lives with its data, per the TechTree co-location convention.
@@ -36,8 +36,7 @@ namespace TheWaningBorder.Entities
                 typeof(Health),
                 typeof(LineOfSight),
                 typeof(Radius),
-                typeof(BuildingSize),
-                typeof(TrainingState)
+                typeof(BuildingSize)
             );
 
             em.SetComponentData(entity, new PresentationId { Id = 521 });
@@ -52,7 +51,6 @@ namespace TheWaningBorder.Entities
             var gridSize = BuildingSizeConfig.GetSize("TempleOfRidan");
             em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             em.SetComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            em.SetComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
 
             em.AddComponent<TempleOfRidanTag>(entity);
             em.AddComponent<TempleTag>(entity); // Keep legacy tag for TempleUpgradeSystem compatibility
@@ -61,12 +59,11 @@ namespace TheWaningBorder.Entities
             // Glow storage lives on the Temple per spec refinement #2
             // (the standalone ShardrootReliquary was deleted).
             em.AddComponentData(entity, new ShardrootStored { Amount = 0 });
-            em.AddBuffer<TrainQueueItem>(entity);
             em.AddComponentData(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
 
             // Research state for sect techs
-            em.AddComponentData(entity, new ResearchState { Busy = 0, Remaining = 0 });
-            em.AddBuffer<ResearchQueueItem>(entity);
+            em.AddComponentData(entity, new ProductionState { Busy = 0, Remaining = 0 });
+            em.AddBuffer<ProductionQueueItem>(entity);
 
             // Initialize 6 empty chapel slots — one per ground decal around the
             // Temple. Six matches SectConfig.MaxAdoptedSects (= the design cap).
@@ -108,7 +105,6 @@ namespace TheWaningBorder.Entities
             var gridSize = BuildingSizeConfig.GetSize("TempleOfRidan");
             ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
 
             ecb.AddComponent<TempleOfRidanTag>(entity);
             ecb.AddComponent<TempleTag>(entity);
@@ -116,11 +112,10 @@ namespace TheWaningBorder.Entities
 
             // Glow storage lives on the Temple per spec refinement #2.
             ecb.AddComponent(entity, new ShardrootStored { Amount = 0 });
-            ecb.AddBuffer<TrainQueueItem>(entity);
             ecb.AddComponent(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
 
-            ecb.AddComponent(entity, new ResearchState { Busy = 0, Remaining = 0 });
-            ecb.AddBuffer<ResearchQueueItem>(entity);
+            ecb.AddComponent(entity, new ProductionState { Busy = 0, Remaining = 0 });
+            ecb.AddBuffer<ProductionQueueItem>(entity);
 
             // Initialize 6 empty chapel slots — matches SectConfig.MaxAdoptedSects.
             var slotBuffer = ecb.AddBuffer<TempleChapelSlot>(entity);

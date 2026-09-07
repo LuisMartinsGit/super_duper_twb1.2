@@ -23,6 +23,30 @@ namespace TheWaningBorder.Core.Localization
             t["Settings applied!"] = "Definições aplicadas!";
             t["Unknown"] = "Desconhecido";
 
+            // ── SettingsMenu.unity authored labels (scene localizer) ────────
+            // Uppercase like every other screen built in the Skirmish look;
+            // the captions are the 24pt hints under each option label.
+            t["PROFILE"] = "PERFIL";
+            t["DISPLAY"] = "ECRÃ";
+            t["AUDIO"] = "ÁUDIO";
+            t["PLAYER NAME"] = "NOME DO JOGADOR";
+            t["GRAPHICS QUALITY"] = "QUALIDADE GRÁFICA";
+            t["RESOLUTION"] = "RESOLUÇÃO";
+            t["FULLSCREEN"] = "ECRÃ INTEIRO";
+            t["MASTER VOLUME"] = "VOLUME GERAL";
+            t["MUSIC VOLUME"] = "VOLUME DA MÚSICA";
+            t["LANGUAGE"] = "IDIOMA";
+            t["APPLY"] = "APLICAR";
+            t["Shown to other players in a lobby."] = "Mostrado aos outros jogadores numa sala.";
+            t["Higher looks better and costs frames."] = "Mais alta fica melhor e custa fotogramas.";
+            t["Pick the mode that fills your monitor."] = "Escolhe o modo que preenche o teu monitor.";
+            t["Borderless full screen, or a window."] = "Ecrã inteiro sem margens, ou uma janela.";
+            t["Everything the game plays."] = "Tudo o que o jogo reproduz.";
+            t["The score only."] = "Apenas a banda sonora.";
+            t["Shown in its own language, so you can always find the way back."] =
+                "Mostrado no seu próprio idioma, para que consigas sempre voltar atrás.";
+            t["Takes effect when you press APPLY."] = "Entra em vigor quando premires APLICAR.";
+
             // Unity quality-level names (QualitySettings.names) — the
             // project's levels plus Unity's default ladder so a template
             // change stays covered.

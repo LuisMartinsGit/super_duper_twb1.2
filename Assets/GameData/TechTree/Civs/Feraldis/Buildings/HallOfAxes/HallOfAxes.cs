@@ -1,4 +1,4 @@
-using Unity.Entities;
+﻿using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 
@@ -22,7 +22,7 @@ namespace TheWaningBorder.Entities
 
             var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform),
                 typeof(FactionTag), typeof(BuildingTag), typeof(Health),
-                typeof(LineOfSight), typeof(Radius), typeof(TrainingState));
+                typeof(LineOfSight), typeof(Radius), typeof(ProductionState));
             em.SetComponentData(entity, new PresentationId { Id = PresentationID });
             em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
             em.SetComponentData(entity, new FactionTag { Value = faction });
@@ -33,8 +33,8 @@ namespace TheWaningBorder.Entities
             var gridSize = BuildingSizeConfig.GetSize("Feraldis_HallOfAxes");
             em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            em.SetComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
-            em.AddBuffer<TrainQueueItem>(entity);
+            em.SetComponentData(entity, new ProductionState { Busy = 0, Remaining = 0 });
+            em.AddBuffer<ProductionQueueItem>(entity);
             em.AddComponentData(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
             em.AddComponent<HallOfAxesTag>(entity);
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
@@ -58,8 +58,8 @@ namespace TheWaningBorder.Entities
             var gridSize = BuildingSizeConfig.GetSize("Feraldis_HallOfAxes");
             ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
-            ecb.AddBuffer<TrainQueueItem>(entity);
+            ecb.AddComponent(entity, new ProductionState { Busy = 0, Remaining = 0 });
+            ecb.AddBuffer<ProductionQueueItem>(entity);
             ecb.AddComponent(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
             ecb.AddComponent<HallOfAxesTag>(entity);
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });

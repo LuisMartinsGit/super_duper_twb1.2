@@ -24,6 +24,7 @@
 
 using System.Collections.Generic;
 using Unity.Entities;
+using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
 
@@ -302,6 +303,12 @@ namespace TheWaningBorder.World.Regions
         /// territory supports, which is the whole reason nodes replaced the old
         /// area-based caps.
         ///
+        /// Defined as "<see cref="TrySnapToNode"/> found one", so the rule that
+        /// decides WHERE a building lands and the rule that decides WHETHER it
+        /// may cannot drift apart. They were separate passes with separate
+        /// radii once and the placement preview and the command router
+        /// disagreed about the same click.
+        ///
         /// Answers TRUE on a map with no nodes of that kind at all, so an
         /// unseeded scene is merely unbalanced rather than unplayable.
         /// </summary>
@@ -311,99 +318,116 @@ namespace TheWaningBorder.World.Regions
             var required = RequiredNodeFor(buildingId);
             if (required == null) return true;   // not an extractor — no node rule
 
+            var nodeQuery = em.CreateEntityQuery(required.Value);
+            bool none = nodeQuery.IsEmpty;
+            nodeQuery.Dispose();
+            if (none) return true;               // unseeded map — stay buildable
+
+            return TrySnapToNode(em, buildingId,
+                                 new float3(worldX, 0f, worldZ), out _);
+        }
+
+        /// <summary>
+        /// An extractor does not stand NEAR its node, it stands ON it: move
+        /// <paramref name="pos"/> onto the free node this building needs, so
+        /// its footprint covers the node's own cells.
+        ///
+        /// Returns false — and leaves <paramref name="snapped"/> at
+        /// <paramref name="pos"/> — for anything that is not an extractor, and
+        /// for an extractor with no free node in reach. This is the single
+        /// implementation behind <see cref="OnFreeNodeFor"/> too, so "it
+        /// snapped" and "it is legal" are the same question asked twice.
+        ///
+        /// The result is then put through the ordinary build-grid snap for the
+        /// BUILDING's own footprint, so an extractor is still grid-aligned like
+        /// everything else. The two parities differ and that is fine: a supply
+        /// spot is 2x2 cells with even parity and the Gatherer's Hut is the
+        /// same, so the hut lands EXACTLY on the spot; the ore nodes are 3x3
+        /// cells with ODD parity against a 4x4-cell Mine, which puts the mine
+        /// one metre off the node centre and still covers all nine of its
+        /// cells (docs/Design/Build_Grid.md §2, §3).
+        ///
+        /// Deterministic: nearest node wins, ties broken on the node's own
+        /// coordinates rather than on entity order, so every lockstep peer
+        /// picks the same one.
+        /// </summary>
+        public static bool TrySnapToNode(EntityManager em, string buildingId,
+                                         float3 pos, out float3 snapped)
+        {
+            snapped = pos;
+
+            var required = RequiredNodeFor(buildingId);
+            if (required == null) return false;
+
             var nodeQuery = em.CreateEntityQuery(
                 required.Value,
                 ComponentType.ReadOnly<LocalTransform>());
-            var nodes = nodeQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
-            if (nodes.Length == 0)
-            {
-                nodes.Dispose();
-                nodeQuery.Dispose();
-                return true;
-            }
+            var nodes = nodeQuery.ToComponentDataArray<LocalTransform>(
+                Unity.Collections.Allocator.Temp);
+
+            // Occupancy is read ONCE, not re-queried per candidate node. The
+            // per-candidate version created and disposed an entity query for
+            // every node in range, on a path the placement ghost runs every
+            // frame, and query matching walks every archetype in the world.
+            var taken = ExtractorPositions(em, buildingId);
 
             float r2 = SupplyNodeSnapRange * SupplyNodeSnapRange;
-            bool ok = false;
-            for (int i = 0; i < nodes.Length && !ok; i++)
+            bool found = false;
+            float bestD2 = float.MaxValue;
+            float3 best = default;
+
+            for (int i = 0; i < nodes.Length; i++)
             {
-                var np = em.GetComponentData<LocalTransform>(nodes[i]).Position;
-                float dx = np.x - worldX, dz = np.z - worldZ;
-                if (dx * dx + dz * dz > r2) continue;
-                ok = !ExtractorOn(em, buildingId, np.x, np.z);
+                var np = nodes[i].Position;
+                float dx = np.x - pos.x, dz = np.z - pos.z;
+                float d2 = dx * dx + dz * dz;
+                if (d2 > r2) continue;
+                if (Occupied(taken, np.x, np.z, r2)) continue;
+
+                // Strictly-better, then a coordinate tie-break: two nodes at
+                // the same distance must resolve identically on every peer.
+                if (!found || d2 < bestD2
+                    || (d2 == bestD2 && (np.x < best.x || (np.x == best.x && np.z < best.z))))
+                {
+                    found = true;
+                    bestD2 = d2;
+                    best = np;
+                }
             }
+
+            if (taken.IsCreated) taken.Dispose();
             nodes.Dispose();
             nodeQuery.Dispose();
-            return ok;
+            if (!found) return false;
+
+            snapped = BuildGrid.Snap(new float3(best.x, pos.y, best.z), buildingId);
+            return true;
         }
 
-        /// <summary>Is an extractor of this kind already standing on the node?</summary>
-        private static bool ExtractorOn(EntityManager em, string buildingId, float x, float z)
+        /// <summary>Where this kind of extractor already stands. Caller disposes.</summary>
+        private static Unity.Collections.NativeArray<LocalTransform> ExtractorPositions(
+            EntityManager em, string buildingId)
         {
             var tag = ExtractorTagFor(buildingId);
-            if (tag == null) return false;
+            if (tag == null) return default;
 
-            var q = em.CreateEntityQuery(
-                tag.Value,
-                ComponentType.ReadOnly<LocalTransform>());
-            var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
-            float r2 = SupplyNodeSnapRange * SupplyNodeSnapRange;
-            bool found = false;
-            for (int i = 0; i < ents.Length && !found; i++)
-            {
-                var p = em.GetComponentData<LocalTransform>(ents[i]).Position;
-                float dx = p.x - x, dz = p.z - z;
-                found = dx * dx + dz * dz <= r2;
-            }
-            ents.Dispose();
+            var q = em.CreateEntityQuery(tag.Value, ComponentType.ReadOnly<LocalTransform>());
+            var xfs = q.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
             q.Dispose();
-            return found;
+            return xfs;
         }
 
-        public static bool OnFreeSupplyNode(EntityManager em, float worldX, float worldZ)
+        private static bool Occupied(
+            Unity.Collections.NativeArray<LocalTransform> taken, float x, float z, float r2)
         {
-            var nodeQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<SupplyNodeTag>(),
-                ComponentType.ReadOnly<LocalTransform>());
-            var nodes = nodeQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
-            if (nodes.Length == 0)
+            if (!taken.IsCreated) return false;
+            for (int i = 0; i < taken.Length; i++)
             {
-                nodes.Dispose();
-                nodeQuery.Dispose();
-                return true;   // unseeded map — do not make the hut unbuildable
-            }
-
-            float r2 = SupplyNodeSnapRange * SupplyNodeSnapRange;
-            bool ok = false;
-            for (int i = 0; i < nodes.Length && !ok; i++)
-            {
-                var np = em.GetComponentData<LocalTransform>(nodes[i]).Position;
-                float dx = np.x - worldX, dz = np.z - worldZ;
-                if (dx * dx + dz * dz > r2) continue;
-                ok = !HutOn(em, np.x, np.z);   // the node has to be free
-            }
-            nodes.Dispose();
-            nodeQuery.Dispose();
-            return ok;
-        }
-
-        /// <summary>Is a Gatherer's Hut already standing on this node?</summary>
-        private static bool HutOn(EntityManager em, float x, float z)
-        {
-            var q = em.CreateEntityQuery(
-                ComponentType.ReadOnly<GathererHutTag>(),
-                ComponentType.ReadOnly<LocalTransform>());
-            var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
-            float r2 = SupplyNodeSnapRange * SupplyNodeSnapRange;
-            bool found = false;
-            for (int i = 0; i < ents.Length && !found; i++)
-            {
-                var p = em.GetComponentData<LocalTransform>(ents[i]).Position;
+                var p = taken[i].Position;
                 float dx = p.x - x, dz = p.z - z;
-                found = dx * dx + dz * dz <= r2;
+                if (dx * dx + dz * dz <= r2) return true;
             }
-            ents.Dispose();
-            q.Dispose();
-            return found;
+            return false;
         }
 
         /// <summary>

@@ -1,4 +1,4 @@
-// EntityExtractors.cs
+﻿// EntityExtractors.cs
 // Helper classes to extract UI display info from ECS entities
 // Core file: GetDisplayInfo / GetActionInfo entry points, queue snapshot,
 // faction-level query helpers, and shared cost/tooltip helpers. Sibling
@@ -478,12 +478,12 @@ namespace TheWaningBorder.UI.Data
                 info.EntityKind = "unit";
             }
 
-            // task-108 phase 1: training queue snapshot — 5-slot strip for any
-            // building with a TrainingState + TrainQueueItem buffer. Slot 0
-            // carries live progress when TrainingState.Busy == 1.
+            // task-108 phase 1: production queue snapshot — a strip for any
+            // building with a ProductionState + ProductionQueueItem buffer.
+            // Slot 0 carries live progress when ProductionState.Busy == 1.
             if (isBuilding
-                && em.HasComponent<TrainingState>(entity)
-                && em.HasBuffer<TrainQueueItem>(entity))
+                && em.HasComponent<ProductionState>(entity)
+                && em.HasBuffer<ProductionQueueItem>(entity))
             {
                 info.QueueCapacity = TheWaningBorder.Core.Commands.CommandRouter.MaxProductionQueue;
                 info.Queue = BuildQueueSnapshot(entity, em, info.QueueCapacity.Value);
@@ -493,29 +493,25 @@ namespace TheWaningBorder.UI.Data
         }
 
         /// <summary>
-        /// Build a fixed-length snapshot of a building's training queue for the
-        /// Web HUD selection topic. Always returns an array of length
+        /// Build a fixed-length snapshot of a building's production queue for
+        /// the Web HUD selection topic. Always returns an array of length
         /// <paramref name="capacity"/> (matches CommandRouter.MaxProductionQueue);
         /// slots beyond the live buffer are marked Populated=false. Slot 0
-        /// carries TrainingState.Busy/Remaining-derived progress so the JSX
-        /// strip can render the in-production fill in lockstep with the
-        /// existing TrainingInfo.Progress field.
+        /// carries ProductionState-derived progress so the JSX strip can render
+        /// the in-production fill. Research and level-ups ride the same slots
+        /// as units now; their refund columns stay zero — the strip's refund
+        /// readout was only ever unit-priced.
         /// </summary>
         private static EntityQueueSlot[] BuildQueueSnapshot(Entity e, EntityManager em, int capacity)
         {
             var arr = new EntityQueueSlot[capacity];
-            var buf = em.GetBuffer<TrainQueueItem>(e);
-            var ts = em.GetComponentData<TrainingState>(e);
+            var buf = em.GetBuffer<ProductionQueueItem>(e);
+            var ts = em.GetComponentData<ProductionState>(e);
 
-            // Total training time from TechTreeDB for slot 0 progress. Mirrors
-            // the existing TrainingInfo.Progress derivation in EntityActionExtractor.
-            float slot0Total = 1f;
-            if (buf.Length > 0)
-            {
-                string slot0Id = buf[0].UnitId.ToString();
-                if (TechCatalog.TryGetUnit(slot0Id, out var udef))
-                    slot0Total = udef.trainingTime > 0 ? udef.trainingTime : 1f;
-            }
+            // Slot 0's total is the one the clock captured at start — the
+            // catalog number it used to recompute ignored every sect and
+            // level multiplier.
+            float slot0Total = ts.Total;
 
             for (int i = 0; i < capacity; i++)
             {
@@ -524,11 +520,14 @@ namespace TheWaningBorder.UI.Data
                     arr[i].Populated = false;
                     continue;
                 }
-                string uid = buf[i].UnitId.ToString();
-                var cost = EntityActionExtractor.GetUnitCost(uid);
+                bool isUnit = buf[i].Kind == ProductionKind.Train;
+                string uid = buf[i].Id.ToString();
+                var cost = isUnit ? EntityActionExtractor.GetUnitCost(uid) : default;
                 arr[i].Populated = true;
                 arr[i].UnitId = uid;
-                arr[i].DisplayName = ResolveUnitDisplayName(uid);
+                arr[i].DisplayName = isUnit
+                    ? ResolveUnitDisplayName(uid)
+                    : EntityActionExtractor.DescribeProductionItem(buf[i]);
                 arr[i].RefundSupplies = cost.Supplies;
                 arr[i].RefundIron = cost.Iron;
                 arr[i].RefundVeilstone = cost.Veilstone;
@@ -741,23 +740,21 @@ namespace TheWaningBorder.UI.Data
             }
 
             // Check if this is a shrine (simple training — litharchs only)
-            if (em.HasComponent<ShrineTag>(entity) && em.HasComponent<TrainingState>(entity))
+            if (em.HasComponent<ShrineTag>(entity) && em.HasComponent<ProductionState>(entity))
             {
                 info.Type = ActionType.UnitTraining;
                 info.Actions = GetTrainingActions(entity, em);
-                info.TrainingState = GetTrainingInfo(entity, em);
+                info.ProductionState = GetProductionInfo(entity, em);
                 return info;
             }
 
             // Check if this is the Temple of Ridan (training + level-up + sect slots)
             if (em.HasComponent<TempleOfRidanTag>(entity) && em.HasComponent<TempleLevel>(entity)
-                && em.HasComponent<TrainingState>(entity))
+                && em.HasComponent<ProductionState>(entity))
             {
                 info.Type = ActionType.TempleUpgrade;
                 info.Actions = GetTempleTrainingActions(entity, em);
-                info.TrainingState = GetTrainingInfo(entity, em);
-                if (em.HasComponent<ResearchState>(entity))
-                    info.ResearchState = GetResearchInfo(entity, em);
+                info.ProductionState = GetProductionInfo(entity, em);
                 return info;
             }
 
@@ -771,11 +768,14 @@ namespace TheWaningBorder.UI.Data
                 return info;
             }
 
-            // Check if this is a training building (any building with a TrainingState)
-            if (em.HasComponent<BuildingTag>(entity) && em.HasComponent<TrainingState>(entity))
+            // A producing building. Training and research share the queue,
+            // so the panel TYPE now turns on whether the building has a
+            // roster to train — a research-only building falls through to
+            // the block below.
+            if (em.HasComponent<BuildingTag>(entity) && em.HasComponent<ProductionState>(entity))
             {
                 var trainingActions = GetTrainingActions(entity, em);
-                bool hasResearch = em.HasComponent<ResearchState>(entity);
+                bool hasResearch = true;
 
                 // Bazaar: add Pack button to training actions
                 if (em.HasComponent<BazaarTag>(entity) && !em.HasComponent<UnderConstruction>(entity))
@@ -795,21 +795,18 @@ namespace TheWaningBorder.UI.Data
                     // Building can train and possibly research
                     info.Type = hasResearch ? ActionType.UnitTrainingAndResearch : ActionType.UnitTraining;
                     info.Actions = trainingActions;
-                    info.TrainingState = GetTrainingInfo(entity, em);
-
-                    if (hasResearch)
-                        info.ResearchState = GetResearchInfo(entity, em);
+                    info.ProductionState = GetProductionInfo(entity, em);
 
                     return info;
                 }
             }
 
             // Check if this is a research-only building
-            if (em.HasComponent<BuildingTag>(entity) && em.HasComponent<ResearchState>(entity))
+            if (em.HasComponent<BuildingTag>(entity) && em.HasComponent<ProductionState>(entity))
             {
                 info.Type = ActionType.UnitTrainingAndResearch;
                 info.Actions = new List<ActionButton>();
-                info.ResearchState = GetResearchInfo(entity, em);
+                info.ProductionState = GetProductionInfo(entity, em);
                 return info;
             }
 

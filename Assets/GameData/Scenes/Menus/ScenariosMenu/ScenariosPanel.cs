@@ -1,25 +1,36 @@
 // ScenariosPanel.cs
-// uGUI controller for the Scenarios browser panel (scene GameObjects under
-// UI_Canvas, scaffolded once by MenuPanelsBuilder and then hand-editable).
-// Layout: scenario list on the left, thumbnail + description preview on the
-// right, BACK / START SCENARIO in the footer.
+// uGUI controller for the Scenarios browser (scene GameObjects under
+// UI_Canvas, built by MenuSceneBuilder from the Skirmish scene's own parts and
+// then hand-editable). Layout: scenario list on the left, thumbnail +
+// briefing on the right, < MAIN MENU / START SCENARIO in the footer.
 //
-// Entries: ScenarioLibrary definitions first (thumbnail + description), then
-// the ScenarioCatalog code-driven test scenarios (generic preview).
+// Lives in its own scene (ScenariosMenu.unity) since 2026-09-07 — it used to
+// be Panel_Scenarios inside MainMenu.unity, drawn in the older eyebrow-and-
+// gradient look, switched on with SetActive. The blue menu's entry now loads
+// this scene (ScenariosMenuButton), and BACK loads MainMenu, the same way the
+// Skirmish and Multiplayer screens work. OnEnable still does all the setup,
+// so the panel behaves the same whether it is switched on or scene-loaded.
+//
+// Entries: the tutorial first, then ScenarioLibrary definitions (thumbnail +
+// description), then the ScenarioCatalog code-driven test scenarios.
 
 using System.Collections.Generic;
 using TheWaningBorder.Core.Config;
 using TheWaningBorder.Core.Localization;
 using TMPro;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace TheWaningBorder.UI.Menus.Panels
 {
     public sealed class ScenariosPanel : MonoBehaviour
     {
-        private static readonly Color RowNormal   = new Color(0f, 0f, 0f, 0f);
-        private static readonly Color RowSelected = new Color(0.25f, 0.41f, 0.53f, 0.45f);
+        // The list rows are clones of the skirmish roster row, so the resting
+        // colour is that row's own dark plate; selection is the menu's gold,
+        // dimmed the way MenuToggleSwitch dims a lit pill.
+        private static readonly Color RowNormal   = new Color(0.035f, 0.055f, 0.067f, 0.90f);
+        private static readonly Color RowSelected = new Color(0.282f, 0.204f, 0.075f, 0.95f);
 
         public RectTransform ListContent;
         public GameObject ListRowTemplate; // inactive Button + TMP label
@@ -55,7 +66,14 @@ namespace TheWaningBorder.UI.Menus.Panels
         {
             if (_wired) return;
             _wired = true;
-            if (BackButton != null) BackButton.onClick.AddListener(() => gameObject.SetActive(false));
+
+            // BACK returns to the blue menu by loading it. This screen used to
+            // be a panel inside MainMenu.unity and closed itself with
+            // SetActive(false); it is its own scene now, so there is nothing
+            // behind it to uncover.
+            if (BackButton != null)
+                BackButton.onClick.AddListener(
+                    () => SceneManager.LoadScene(TheWaningBorder.Core.SceneNames.Menu));
             if (StartButton != null) StartButton.onClick.AddListener(() =>
             {
                 if (_selected >= 0 && _selected < _entries.Count)
@@ -139,7 +157,7 @@ namespace TheWaningBorder.UI.Menus.Panels
                     "A guided match on the standard map against one relaxed opponent, from "
                     + "the opening to the victory condition.\n\n"
                     + "1. Camera controls\n"
-                    + "2. Workers, mining and the Gatherer's Hut\n"
+                    + "2. Territory, the Hall and the Gatherer's Hut\n"
                     + "3. Barracks, Spearmen and taking a fight\n"
                     + "4. The special building, the age-up and the Temple\n"
                     + "5. Religion Points, sects and their powers\n"

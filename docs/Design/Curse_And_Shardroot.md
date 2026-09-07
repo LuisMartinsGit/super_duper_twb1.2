@@ -1,4 +1,4 @@
-# The Curse & the Shardroot — Canonical Design
+﻿# The Curse & the Shardroot — Canonical Design
 
 **This document COMPLETELY REPLACES the previous curse/Border design and
 the Glow economy** (design decisions 2026-07-10/11). Where any other
@@ -552,6 +552,19 @@ the veil edge too long is taken by it.
 - **Behaviour.** Eruptions rely on the standard combat targeting (they lurk and
   strike anything non-`Border` within guard range) — a local menace near the
   wall, not a coordinated army. No curse brain is revived.
+- **Packs (2026-09-07).** A Crystalling's damage scales with how many
+  Crystallings stand within `crystallingPackRadius` (7 m) of it: each other
+  member adds `crystallingPackBonusPerMember` (+10%), capped at
+  `crystallingPackMaxBonus` (+100%, i.e. a pack of eleven hits for double).
+  A lone straggler is the same weak thing it always was; the threat is the
+  swarm staying together — which is why waves now march in formation (below)
+  instead of spilling out one at a time to be picked off.
+- **Waves march in formation (2026-09-07).** A territory wave is issued as one
+  formation attack-move — Crystallings in the front rank, Veilstingers behind,
+  Godsplinters last, the standard rank layering — and is re-formed toward the
+  nearest threat every few seconds: a defending army within reach outranks
+  the building it was sent at, so the curse fights what stands in its way
+  instead of walking past the defenders to gnaw on a Hall.
 
 This makes working the veil a **risk/reward** you manage, and it is the reason
 the Crystalling/Veilstinger/Godsplinter factories survive F2. It is **not**

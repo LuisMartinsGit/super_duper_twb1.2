@@ -15,10 +15,10 @@ MonoBehaviour:
   id: Alanthor_Catapult
   displayName: Catapult
   unitClass: machinery_siege
-  hp: 200
-  speed: 3
+  hp: 220
+  speed: 3.2
   trainingTime: 38
-  damage: 32
+  damage: 40
   damageType: siege
   armorType: ranged
   defense:
@@ -26,9 +26,9 @@ MonoBehaviour:
     ranged: 6
     siege: 0
     magic: 0
-  attackCooldown: 4.5
-  attackRange: 20
-  minAttackRange: 8
+  attackCooldown: 4
+  attackRange: 30
+  minAttackRange: 10
   lineOfSight: 20
   radius: 0.8
   aimTime: 1.2

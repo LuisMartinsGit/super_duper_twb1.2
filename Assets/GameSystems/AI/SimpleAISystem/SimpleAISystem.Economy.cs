@@ -1,4 +1,4 @@
-// SimpleAISystem.Economy.cs
+﻿// SimpleAISystem.Economy.cs
 // Always-on economy layer: worker floor, hut pipeline, research ladders, budget wrappers.
 // Partial of SimpleAISystem.cs -- split 2026-08-12 for readability.
 
@@ -37,14 +37,14 @@ namespace TheWaningBorder.AI
         {
             ComponentType.ReadOnly<BuildingTag>(),
             ComponentType.ReadOnly<FactionTag>(),
-            ComponentType.ReadOnly<ResearchQueueItem>(),
+            ComponentType.ReadOnly<ProductionQueueItem>(),
         };
         static CachedEntityQuery QC_BuildingTagFactionTagResearchQueueItem;
 
         static readonly ComponentType[] QT_FactionTagResearchQueueItem =
         {
             ComponentType.ReadOnly<FactionTag>(),
-            ComponentType.ReadOnly<ResearchQueueItem>(),
+            ComponentType.ReadOnly<ProductionQueueItem>(),
         };
         static CachedEntityQuery QC_FactionTagResearchQueueItem;
 
@@ -662,7 +662,7 @@ namespace TheWaningBorder.AI
             var research = FactionResearchState.Instance;
             byte culture = CultureConfig.GetCompletedCulture(em, faction);
 
-            // Walk every owned research-capable building (a ResearchQueueItem
+            // Walk every owned research-capable building (a ProductionQueueItem
             // buffer is the research-host marker).
             var q = QC_BuildingTagFactionTagResearchQueueItem.Get(em, QT_BuildingTagFactionTagResearchQueueItem);
             using var hosts = q.ToEntityArray(Allocator.Temp);
@@ -893,9 +893,14 @@ namespace TheWaningBorder.AI
             for (int i = 0; i < ents.Length; i++)
             {
                 if (facs[i].Value != faction) continue;
-                var buf = em.GetBuffer<ResearchQueueItem>(ents[i]);
+                var buf = em.GetBuffer<ProductionQueueItem>(ents[i]);
                 for (int j = 0; j < buf.Length; j++)
-                    if (buf[j].TechId.ToString() == techId) return true;
+                {
+                    // The buffer carries level-ups too now; only a research
+                    // item can BE this tech.
+                    if (buf[j].Kind != ProductionKind.Research) continue;
+                    if (buf[j].Id.ToString() == techId) return true;
+                }
             }
             return false;
         }

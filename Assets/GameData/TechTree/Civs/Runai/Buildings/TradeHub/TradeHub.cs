@@ -1,4 +1,4 @@
-// Runai Trade Hub — caravan spawner + trader-warrior spawner.
+﻿// Runai Trade Hub — caravan spawner + trader-warrior spawner.
 //
 // Extracted from BuildingFactory (2026-08-12): each building's creation
 // code lives with its data, per the TechTree co-location convention.
@@ -27,7 +27,7 @@ namespace TheWaningBorder.Entities
             float radius = def.radius;
 
             var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
-                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius), typeof(TrainingState));
+                typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius), typeof(ProductionState));
             em.SetComponentData(entity, new PresentationId { Id = 351 });
             em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
             em.SetComponentData(entity, new FactionTag { Value = faction });
@@ -37,9 +37,9 @@ namespace TheWaningBorder.Entities
             var gridSize = BuildingSizeConfig.GetSize("Runai_TradeHub");
             em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            em.SetComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
+            em.SetComponentData(entity, new ProductionState { Busy = 0, Remaining = 0 });
             em.AddComponent<TradeHubTag>(entity);
-            em.AddBuffer<TrainQueueItem>(entity);
+            em.AddBuffer<ProductionQueueItem>(entity);
             em.AddComponentData(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             return entity;
@@ -62,9 +62,9 @@ namespace TheWaningBorder.Entities
             var gridSize = BuildingSizeConfig.GetSize("Runai_TradeHub");
             ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
+            ecb.AddComponent(entity, new ProductionState { Busy = 0, Remaining = 0 });
             ecb.AddComponent<TradeHubTag>(entity);
-            ecb.AddBuffer<TrainQueueItem>(entity);
+            ecb.AddBuffer<ProductionQueueItem>(entity);
             ecb.AddComponent(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             return entity;

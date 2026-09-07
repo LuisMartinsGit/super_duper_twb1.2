@@ -1,8 +1,8 @@
-// Alanthor Royal Stable — heavy-cavalry trainer (Cataphract, plus any
+﻿// Alanthor Royal Stable — heavy-cavalry trainer (Cataphract, plus any
 // future cavalry units listed in the TechTree's "trains" array).
 //
 // Mirrors Barracks.cs in shape: standard training building with a
-// TrainQueueItem buffer, rally point, ranged-armor structure tag, and
+// ProductionQueueItem buffer, rally point, ranged-armor structure tag, and
 // BuildingUpgradeable so culture level-up bumps apply uniformly.
 // Resolves via "Alanthor_RoyalStable" id end-to-end (BuildingFactory.Create,
 // CommandRouter.ResolveBuildingIdForTrainer, BuildingSizeConfig.GetSize,
@@ -47,9 +47,9 @@ namespace TheWaningBorder.Entities
             var gridSize = BuildingSizeConfig.GetSize("Alanthor_RoyalStable");
             creator.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             creator.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            creator.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
+            creator.AddComponent(entity, new ProductionState { Busy = 0, Remaining = 0 });
 
-            creator.AddBuffer<TrainQueueItem>(entity);
+            creator.AddBuffer<ProductionQueueItem>(entity);
             creator.AddComponent(entity, new RallyPoint
             {
                 Position = position + new float3(3f, 0, 3f),

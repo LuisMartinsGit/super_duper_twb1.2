@@ -1,4 +1,4 @@
-using Unity.Entities;
+﻿using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 
@@ -42,13 +42,11 @@ namespace TheWaningBorder.Entities
             var gridSize = BuildingSizeConfig.GetSize("Barracks");
             creator.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             creator.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            creator.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
 
-            creator.AddBuffer<TrainQueueItem>(entity);
             creator.AddComponent(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
 
-            creator.AddComponent(entity, new ResearchState { Busy = 0, Remaining = 0 });
-            creator.AddBuffer<ResearchQueueItem>(entity);
+            creator.AddComponent(entity, new ProductionState { Busy = 0, Remaining = 0 });
+            creator.AddBuffer<ProductionQueueItem>(entity);
 
             creator.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             creator.AddComponent<BuildingUpgradeable>(entity);

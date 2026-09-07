@@ -1,4 +1,4 @@
-// King's Court — Alanthor HQ. +10 pop, research capable.
+﻿// King's Court — Alanthor HQ. +10 pop, research capable.
 //
 // Extracted from BuildingFactory (2026-08-12): each building's creation
 // code lives with its data, per the TechTree co-location convention.
@@ -38,8 +38,8 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             em.SetComponentData(entity, new PopulationProvider { Amount = 10 });
-            em.AddComponentData(entity, new ResearchState { Busy = 0, Remaining = 0 });
-            em.AddBuffer<ResearchQueueItem>(entity);
+            em.AddComponentData(entity, new ProductionState { Busy = 0, Remaining = 0 });
+            em.AddBuffer<ProductionQueueItem>(entity);
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             em.AddComponentData(entity, new Defense { Melee = 2, Ranged = 2, Siege = 0, Magic = 1 });
             return entity;
@@ -63,8 +63,8 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             ecb.AddComponent(entity, new PopulationProvider { Amount = 10 });
-            ecb.AddComponent(entity, new ResearchState { Busy = 0, Remaining = 0 });
-            ecb.AddBuffer<ResearchQueueItem>(entity);
+            ecb.AddComponent(entity, new ProductionState { Busy = 0, Remaining = 0 });
+            ecb.AddBuffer<ProductionQueueItem>(entity);
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             ecb.AddComponent(entity, new Defense { Melee = 2, Ranged = 2, Siege = 0, Magic = 1 });
             return entity;

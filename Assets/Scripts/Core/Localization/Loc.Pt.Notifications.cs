@@ -20,7 +20,11 @@ namespace TheWaningBorder.Core.Localization
             t["This territory already has a Hall"] = "Este território já tem um Salão";
             t["Cannot claim ground another player holds"] = "Não podes reclamar terreno que outro jogador detém";
             t["War Totems must be planted on blood"] = "Os Totens de Guerra têm de ser erguidos sobre sangue";
-            t["Mines must be built next to iron or veilstone"] = "As minas têm de ser construídas junto a ferro ou veilstone";
+            t["Mines must be built on a free iron deposit"] = "As minas têm de ser construídas sobre um depósito de ferro livre";
+            t["Veilstone Mines must be built on a free veilstone outcropping"] = "As Minas de Veilstone têm de ser construídas sobre um afloramento de veilstone livre";
+            t["Smelters must be built on a free veilsteel deposit"] = "As Fundições têm de ser construídas sobre um depósito de veilsteel livre";
+            t["This building must stand on a free resource node"] = "Este edifício tem de assentar sobre um nó de recurso livre";
+            t["Sawyers must be built against a forest"] = "As Serrações têm de ser construídas junto a uma floresta";
             t["Not enough resources"] = "Recursos insuficientes";
             t["Source hub no longer exists"] = "O bastião de origem já não existe";
             t["Those hubs are already connected"] = "Esses bastiões já estão ligados";

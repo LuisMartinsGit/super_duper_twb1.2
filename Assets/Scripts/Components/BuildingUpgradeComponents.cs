@@ -1,4 +1,4 @@
-// Components for the per-culture building upgrade system.
+﻿// Components for the per-culture building upgrade system.
 //
 // Player flow: pick a culture (age-up), then click an Upgrade button on
 // the building portrait. Each upgrade level costs more, takes longer, and
@@ -79,4 +79,7 @@ public enum UpgradeBuildingResult : byte
     AlreadyUpgrading,
     UnderConstruction,
     CannotAfford,
+    /// <summary>The building's shared research + level-up queue is at
+    /// CommandRouter.MaxProductionQueue.</summary>
+    QueueFull,
 }

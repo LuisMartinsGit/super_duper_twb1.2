@@ -1,4 +1,4 @@
-// Effect bodies for the ten canon power kinds the Alanthor rewrite introduced
+﻿// Effect bodies for the ten canon power kinds the Alanthor rewrite introduced
 // (docs/Design/Sects.md section 4). The dispatch switch lives in
 // SectActivePowerSystem.cs; this file is only the bodies, split out so the
 // original file stays readable.
@@ -201,32 +201,24 @@ namespace TheWaningBorder.Systems.Sect
         }
 
         /// <summary>
-        /// Raise Anew. Conjures Watch Towers outright — it never touches a
-        /// construction queue. Single Target raises one at the aim point; a
-        /// wider cast rings the point so the towers do not overlap.
+        /// Raise Anew. Conjures ONE Watch Tower at the aim point — it never
+        /// touches a construction queue.
+        ///
+        /// It used to ring THREE towers for any non-single-target radius,
+        /// which is what the level-II cast was. One cast producing an
+        /// instant three-tower fort was worth more than the level-III upgrade
+        /// it leads to, and read as a wall appearing out of nowhere; the
+        /// ladder now climbs in tower QUALITY (Lv 1 -> 2 -> 3, the last
+        /// permanent) rather than in count. <paramref name="radius"/> is kept
+        /// in the signature because the spec still carries one and the caller
+        /// passes it; nothing here needs it any more.
         /// </summary>
         private static void RaiseWatchTowers(EntityManager em, Faction faction,
             float3 center, float radius, byte towerLevel, float duration)
         {
             if (towerLevel < 1) towerLevel = 1;
             float life = duration > 0f ? duration : SectEffectDuration.Permanent;
-
-            if (IsSingleTarget(radius))
-            {
-                RaiseOneTower(em, faction, center, towerLevel, life);
-                return;
-            }
-
-            // An 8 m circle fits three towers comfortably without them clipping.
-            const int Count = 3;
-            float ring = radius * 0.55f;
-            for (int i = 0; i < Count; i++)
-            {
-                float a = (math.PI * 2f / Count) * i;
-                var p = new float3(center.x + math.cos(a) * ring, center.y,
-                                   center.z + math.sin(a) * ring);
-                RaiseOneTower(em, faction, p, towerLevel, life);
-            }
+            RaiseOneTower(em, faction, center, towerLevel, life);
         }
 
         private static void RaiseOneTower(EntityManager em, Faction faction,

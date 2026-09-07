@@ -1,4 +1,4 @@
-// Vault of Almierra — Age 0 choice building (interest on banked supplies).
+﻿// Vault of Almierra — Age 0 choice building (interest on banked supplies).
 //
 // Extracted from BuildingFactory (2026-08-12): each building's creation
 // code lives with its data, per the TechTree co-location convention.
@@ -58,8 +58,8 @@ namespace TheWaningBorder.Entities
             });
 
             // Banking tech ladder (interest grades + resource unlocks) researches here.
-            em.AddComponentData(entity, new ResearchState { Busy = 0, Remaining = 0 });
-            em.AddBuffer<ResearchQueueItem>(entity);
+            em.AddComponentData(entity, new ProductionState { Busy = 0, Remaining = 0 });
+            em.AddBuffer<ProductionQueueItem>(entity);
 
             // Simple upgrade ladder (interest yields + wall productivity).
             em.AddComponent<BuildingUpgradeable>(entity);
@@ -104,8 +104,8 @@ namespace TheWaningBorder.Entities
             });
 
             // Banking tech ladder (interest grades + resource unlocks) researches here.
-            ecb.AddComponent(entity, new ResearchState { Busy = 0, Remaining = 0 });
-            ecb.AddBuffer<ResearchQueueItem>(entity);
+            ecb.AddComponent(entity, new ProductionState { Busy = 0, Remaining = 0 });
+            ecb.AddBuffer<ProductionQueueItem>(entity);
 
             // Simple upgrade ladder (interest yields + wall productivity).
             ecb.AddComponent<BuildingUpgradeable>(entity);

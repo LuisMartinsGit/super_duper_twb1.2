@@ -1,4 +1,4 @@
-// BuildingEffectSystem.cs
+﻿// BuildingEffectSystem.cs
 // Handles visual effects for building construction (dust particles)
 // and building destruction (inward collapse + dust cloud).
 
@@ -35,7 +35,8 @@ namespace TheWaningBorder.Rendering
 
         // ── Cached queries — CreateEntityQuery per frame leaks into the world's query registry. ──
         private static readonly ComponentType[] TrainedSparkleQueryTypes = {
-            ComponentType.ReadOnly<TrainingState>(),
+            ComponentType.ReadOnly<ProductionState>(),
+            ComponentType.ReadOnly<ProductionQueueItem>(),
             ComponentType.ReadOnly<LocalTransform>(),
             ComponentType.ReadOnly<BuildingTag>() };
         private static readonly ComponentType[] ConstructionDustQueryTypes = {
@@ -102,15 +103,17 @@ namespace TheWaningBorder.Rendering
         // UNIT-TRAINED SPARKLE
         // ═══════════════════════════════════════════════════════════════
 
-        // TrainingState.Busy goes 1 → 0 the frame TrainingSystem spawns the
-        // unit. We poll all training buildings, detect that edge, and fire a
-        // small sparkle at the building's exit / rally point.
+        // "Busy on a UNIT" goes 1 → 0 the frame the queue spawns it. We poll
+        // all producing buildings, detect that edge, and fire a small sparkle
+        // at the building's exit / rally point. The kind matters: the same
+        // ProductionState goes idle when a research completes, and that gets
+        // no sparkle.
         private void UpdateTrainedSparkles(EntityManager em)
         {
             var query = _trainedSparkleQuery.Get(em, TrainedSparkleQueryTypes);
 
             using var entities = query.ToEntityArray(Unity.Collections.Allocator.Temp);
-            using var states   = query.ToComponentDataArray<TrainingState>(Unity.Collections.Allocator.Temp);
+            using var states   = query.ToComponentDataArray<ProductionState>(Unity.Collections.Allocator.Temp);
             using var transforms = query.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
 
             var alive = new HashSet<Entity>(entities.Length);
@@ -118,7 +121,12 @@ namespace TheWaningBorder.Rendering
             for (int i = 0; i < entities.Length; i++)
             {
                 var entity  = entities[i];
-                byte busy   = states[i].Busy;
+                byte busy = 0;
+                if (states[i].Busy != 0)
+                {
+                    var q = em.GetBuffer<ProductionQueueItem>(entity);
+                    if (q.Length > 0 && q[0].Kind == ProductionKind.Train) busy = 1;
+                }
                 alive.Add(entity);
 
                 _lastBusy.TryGetValue(entity, out byte prev);
@@ -128,7 +136,7 @@ namespace TheWaningBorder.Rendering
 
                 // Spark position: rally point if set, else just outside the
                 // building footprint on the +X/+Z corner — same exit anchor
-                // TrainingSystem uses for the spawn itself.
+                // TrainingSystem.SpawnUnit uses for the spawn itself.
                 Vector3 anchor = transforms[i].Position;
                 if (em.HasComponent<RallyPoint>(entity))
                 {

@@ -1,4 +1,4 @@
-// CommandRouter.cs
+﻿// CommandRouter.cs
 // Unified command routing system for local player, remote player, and AI
 
 using UnityEngine;
@@ -885,7 +885,7 @@ namespace TheWaningBorder.Core.Commands
         {
             if (building == Entity.Null || !em.Exists(building)) return;
             if (string.IsNullOrEmpty(techId)) return;
-            if (!em.HasBuffer<ResearchQueueItem>(building)) return;
+            if (!em.HasBuffer<ProductionQueueItem>(building)) return;
 
             if (source == CommandSource.LocalPlayer && em.HasComponent<FactionTag>(building))
                 TheWaningBorder.AI.AILogger.LogPlayer(
@@ -1122,58 +1122,82 @@ namespace TheWaningBorder.Core.Commands
         /// (no partial effects).</summary>
         public static void ResearchCommandDirect(EntityManager em, Entity building, string techId)
         {
-            if (!em.HasBuffer<ResearchQueueItem>(building)) return;
+            if (!em.HasBuffer<ProductionQueueItem>(building)) return;
 
             // Cost comes from the shared TechCatalog — identical data on all
             // peers, so the debit is deterministic. A tech missing from the
             // catalog enqueues free (same lenient fallback the old UI spend
             // path had for a zero-cost button).
-            if (em.HasComponent<FactionTag>(building)
-                && TechCatalog.TryGetTechnology(techId, out var techDef)
-                && techDef != null && techDef.cost != null)
+            if (em.HasComponent<FactionTag>(building))
             {
                 var faction = em.GetComponentData<FactionTag>(building).Value;
-                // Royal Index (Antiquity): all research costs 10% less.
-                float techMult = TheWaningBorder.Economy.SectResearchEffects
-                    .ResearchCostMultiplier(faction);
-                var cost = TheWaningBorder.Core.Cost.Of(
-                    supplies:  (int)(techDef.cost.Supplies  * techMult),
-                    iron:      (int)(techDef.cost.Iron      * techMult),
-                    veilstone: (int)(techDef.cost.Veilstone * techMult),
-                    veilsteel: (int)(techDef.cost.Veilsteel * techMult));
-                if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost))
+                var cost = ResearchCost(faction, techId);
+                if (!cost.IsZero
+                    && !TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost))
                     return;
             }
 
-            var queue = em.GetBuffer<ResearchQueueItem>(building);
-            queue.Add(new ResearchQueueItem
+            var queue = em.GetBuffer<ProductionQueueItem>(building);
+            queue.Add(new ProductionQueueItem
             {
-                TechId = new Unity.Collections.FixedString64Bytes(techId)
+                Kind = ProductionKind.Research,
+                Id   = new Unity.Collections.FixedString64Bytes(techId),
             });
         }
 
         /// <summary>
-        /// Cancel a training queue slot on a building, refunding the unit's
-        /// base cost to the building's faction. Slot 0 (the in-production
-        /// entry) is cancellable too — the helper clears
-        /// <see cref="TrainingState"/> timers so TrainingSystem promotes the
-        /// new slot 0 cleanly on the next tick.
+        /// What a technology costs this faction right now — catalog price
+        /// through the Royal Index (Antiquity) discount.
+        ///
+        /// ONE formula, because two would drift: the charge in
+        /// <see cref="ResearchCommandDirect"/> and the refund in
+        /// CancelProductionCommandHelper must agree to the last unit,
+        /// including the integer truncation. Zero for an unknown or free tech.
+        /// </summary>
+        public static Cost ResearchCost(Faction faction, string techId)
+        {
+            if (string.IsNullOrEmpty(techId)) return default;
+            if (!TechCatalog.TryGetTechnology(techId, out var techDef)) return default;
+            if (techDef == null || techDef.cost == null) return default;
+
+            float mult = TheWaningBorder.Economy.SectResearchEffects
+                .ResearchCostMultiplier(faction);
+            return Cost.Of(
+                supplies:  (int)(techDef.cost.Supplies  * mult),
+                iron:      (int)(techDef.cost.Iron      * mult),
+                veilstone: (int)(techDef.cost.Veilstone * mult),
+                veilsteel: (int)(techDef.cost.Veilsteel * mult));
+        }
+
+        /// <summary>
+        /// Training is a kind of production now (2026-09-07), so this is
+        /// <see cref="IssueCancelProduction"/> under the name its callers
+        /// (the MP harness) still use.
         /// </summary>
         public static void IssueCancelTrain(EntityManager em, Entity building, int slotIndex,
+            CommandSource source = CommandSource.LocalPlayer)
+            => IssueCancelProduction(em, building, slotIndex, source);
+
+        /// <summary>
+        /// Cancel one entry of a building's production queue — a unit, a
+        /// technology or a level-up — and refund it. Cost is charged at
+        /// enqueue time, so every slot has to be cancellable.
+        /// </summary>
+        public static void IssueCancelProduction(EntityManager em, Entity building, int slotIndex,
             CommandSource source = CommandSource.LocalPlayer)
         {
             if (ShouldDropCommand(source)) return;
             if (building == Entity.Null || !em.Exists(building)) return;
-            if (!em.HasComponent<TrainingState>(building)) return;
+            if (!em.HasBuffer<ProductionQueueItem>(building)) return;
             if (IsBlockedByNotControllable(em, building, source)) return;
 
             if (ShouldQueueForLockstep(source))
             {
-                QueueCancelTrainForLockstep(em, building, slotIndex);
+                QueueCancelProductionForLockstep(em, building, slotIndex);
             }
             else
             {
-                CancelTrainCommandHelper.Execute(em, building, slotIndex);
+                Types.CancelProductionCommandHelper.Execute(em, building, slotIndex);
             }
         }
 
@@ -1420,34 +1444,39 @@ namespace TheWaningBorder.Core.Commands
             return string.Empty;
         }
 
-        // ─── Production-queue cap (combined train + research) ────────────
-        // A single building queues both unit-training and research orders
-        // through separate buffers, but the player perceives them as one
-        // production queue. 16 is the cap (the roster HUD area shows all 16
-        // slots): train and research orders share it.
+        // ─── Production-queue cap ────────────────────────────────────────
+        // ONE buffer per building holds its units, research and level-ups, in
+        // the order they were queued (ProductionQueueComponents). 16 is the
+        // cap, the roster HUD area shows all 16 slots, and every kind of
+        // order shares them.
         public const int MaxProductionQueue = 16;
 
+        /// <summary>UNITS queued on this building. The AI's per-building
+        /// train cap counts these; the hard cap counts everything.</summary>
         public static int GetTrainQueueLength(EntityManager em, Entity building)
         {
-            if (!em.HasBuffer<TrainQueueItem>(building)) return 0;
-            return em.GetBuffer<TrainQueueItem>(building).Length;
+            if (!em.HasBuffer<ProductionQueueItem>(building)) return 0;
+            var q = em.GetBuffer<ProductionQueueItem>(building);
+            int n = 0;
+            for (int i = 0; i < q.Length; i++)
+                if (q[i].Kind == ProductionKind.Train) n++;
+            return n;
         }
 
-        public static int GetResearchQueueLength(EntityManager em, Entity building)
+        /// <summary>Everything queued on this building, whatever its kind.</summary>
+        public static int GetProductionQueueLength(EntityManager em, Entity building)
         {
-            if (!em.HasBuffer<ResearchQueueItem>(building)) return 0;
-            return em.GetBuffer<ResearchQueueItem>(building).Length;
+            if (!em.HasBuffer<ProductionQueueItem>(building)) return 0;
+            return em.GetBuffer<ProductionQueueItem>(building).Length;
         }
 
         /// <summary>
-        /// True when this building's combined train + research queue is at the
-        /// cap. UI / AI / command paths should consult this before adding
-        /// another order.
+        /// True when this building's production queue is at the cap. UI / AI
+        /// / command paths should consult this before adding another order.
         /// </summary>
         public static bool IsProductionQueueFull(EntityManager em, Entity building)
         {
-            return GetTrainQueueLength(em, building) + GetResearchQueueLength(em, building)
-                   >= MaxProductionQueue;
+            return GetProductionQueueLength(em, building) >= MaxProductionQueue;
         }
 
         /// <summary>
@@ -1462,14 +1491,14 @@ namespace TheWaningBorder.Core.Commands
         /// </summary>
         public static void TrainCommandDirect(EntityManager em, Entity building, string unitId)
         {
-            if (!em.HasBuffer<TrainQueueItem>(building))
+            if (!em.HasBuffer<ProductionQueueItem>(building))
             {
                 // Silent-drop instrumentation (2026-08-04, "sect unit button
                 // doesn't work" hunt): a train order landing on a building
                 // with no queue is a wiring bug — say so instead of eating
                 // the click.
                 TWBLog.Log($"[CommandRouter] TRAIN '{unitId}' DROPPED — target " +
-                           $"building has no TrainQueueItem buffer.");
+                           $"building has no ProductionQueueItem buffer.");
                 return;
             }
 
@@ -1516,7 +1545,7 @@ namespace TheWaningBorder.Core.Commands
             // the whole command with no partial effects. The cost formula
             // (base catalog cost through War's military discount, which
             // reads replicated sect state) is deterministic on every peer.
-            // CancelTrainCommandHelper refunds through the same formula.
+            // CancelProductionCommandHelper refunds through the same formula.
             // Call to Arms (War) cuts the price of everything this building
             // trains while it stands. Deterministic on every peer - the boon is
             // replicated sect state like the passive discount - and recorded on
@@ -1538,10 +1567,13 @@ namespace TheWaningBorder.Core.Commands
                 }
             }
 
-            var queue = em.GetBuffer<TrainQueueItem>(building);
-            queue.Add(new TrainQueueItem
+            // Behind whatever the building is already making — a unit
+            // queued after a research waits for the research, which is the
+            // one queue the player asked for.
+            em.GetBuffer<ProductionQueueItem>(building).Add(new ProductionQueueItem
             {
-                UnitId             = new Unity.Collections.FixedString64Bytes(unitId),
+                Kind               = ProductionKind.Train,
+                Id                 = new Unity.Collections.FixedString64Bytes(unitId),
                 PaidCostMultiplier = boonMult,
             });
         }
@@ -1664,6 +1696,18 @@ namespace TheWaningBorder.Core.Commands
             // Mine on iron, Veilstone Mine on a veilstone outcropping, Smelter
             // on a veilsteel deposit. The node count is what limits how many a
             // territory supports, so there is no separate cap.
+            //
+            // SNAP FIRST, then gate. An extractor sits ON its node, not near
+            // it, so the click only has to name the node — the building lands
+            // over its cells. This is the right place for it and not the
+            // factory: the factory's ECB overload has no EntityManager to find
+            // a node with, and everything below queues the SNAPPED position
+            // into the lockstep command, so every peer replays the same cell
+            // instead of re-deriving it from its own node query.
+            if (TheWaningBorder.World.Regions.TerritoryOwnership.TrySnapToNode(
+                    em, buildingId, position, out var onNode))
+                position = onNode;
+
             if (!TheWaningBorder.World.Regions.TerritoryOwnership.OnFreeNodeFor(
                     em, buildingId, position.x, position.z))
                 return false;

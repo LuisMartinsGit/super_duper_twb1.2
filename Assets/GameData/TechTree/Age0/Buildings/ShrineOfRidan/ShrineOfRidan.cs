@@ -1,4 +1,4 @@
-// Shrine of Ridan — Age 0 choice building; +1 religion point on completion.
+﻿// Shrine of Ridan — Age 0 choice building; +1 religion point on completion.
 //
 // Extracted from BuildingFactory (2026-08-12): each building's creation
 // code lives with its data, per the TechTree co-location convention.
@@ -34,8 +34,7 @@ namespace TheWaningBorder.Entities
                 typeof(BuildingTag),
                 typeof(Health),
                 typeof(LineOfSight),
-                typeof(Radius),
-                typeof(TrainingState)
+                typeof(Radius)
             );
 
             em.SetComponentData(entity, new PresentationId { Id = 520 });
@@ -47,17 +46,15 @@ namespace TheWaningBorder.Entities
             var gridSize = BuildingSizeConfig.GetSize("TempleOfRidan");
             em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            em.SetComponentData(entity, new TrainingState { Busy = 0, Remaining = 0 });
 
             em.AddComponent<ShrineTag>(entity);
             em.AddComponent<ChoiceBuildingTag>(entity);
             em.AddComponentData(entity, new ShrineRPGranted { Granted = 0 });
-            em.AddBuffer<TrainQueueItem>(entity);
             em.AddComponentData(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
 
             // Shrine tech ladder (masses / warrior priests) researches here.
-            em.AddComponentData(entity, new ResearchState { Busy = 0, Remaining = 0 });
-            em.AddBuffer<ResearchQueueItem>(entity);
+            em.AddComponentData(entity, new ProductionState { Busy = 0, Remaining = 0 });
+            em.AddBuffer<ProductionQueueItem>(entity);
 
             // Simple upgrade ladder (heal aura + Litharchs + sect power CDR).
             em.AddComponent<BuildingUpgradeable>(entity);
@@ -89,17 +86,15 @@ namespace TheWaningBorder.Entities
             var gridSize = BuildingSizeConfig.GetSize("TempleOfRidan");
             ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            ecb.AddComponent(entity, new TrainingState { Busy = 0, Remaining = 0 });
 
             ecb.AddComponent<ShrineTag>(entity);
             ecb.AddComponent<ChoiceBuildingTag>(entity);
             ecb.AddComponent(entity, new ShrineRPGranted { Granted = 0 });
-            ecb.AddBuffer<TrainQueueItem>(entity);
             ecb.AddComponent(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
 
             // Shrine tech ladder (masses / warrior priests) researches here.
-            ecb.AddComponent(entity, new ResearchState { Busy = 0, Remaining = 0 });
-            ecb.AddBuffer<ResearchQueueItem>(entity);
+            ecb.AddComponent(entity, new ProductionState { Busy = 0, Remaining = 0 });
+            ecb.AddBuffer<ProductionQueueItem>(entity);
 
             // Simple upgrade ladder (heal aura + Litharchs + sect power CDR).
             ecb.AddComponent<BuildingUpgradeable>(entity);

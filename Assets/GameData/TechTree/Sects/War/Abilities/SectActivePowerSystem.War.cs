@@ -1,4 +1,4 @@
-// Effect bodies for the Sect of War's canon kinds (docs/Design/Sects.md
+﻿// Effect bodies for the Sect of War's canon kinds (docs/Design/Sects.md
 // section 6). The dispatch switch lives in SectActivePowerSystem.cs; this file
 // is only the bodies, matching the Alanthor split.
 //
@@ -20,14 +20,14 @@ namespace TheWaningBorder.Systems.Sect
 {
     public static partial class SectActivePowerHelper
     {
-        static readonly ComponentType[] QT_BuildingTagTrainingStateLocalTransformFactionTag =
+        static readonly ComponentType[] QT_BuildingTagProductionStateLocalTransformFactionTag =
         {
             ComponentType.ReadOnly<BuildingTag>(),
-            ComponentType.ReadOnly<TrainingState>(),
+            ComponentType.ReadOnly<ProductionState>(),
             ComponentType.ReadOnly<LocalTransform>(),
             ComponentType.ReadOnly<FactionTag>(),
         };
-        static CachedEntityQuery QC_BuildingTagTrainingStateLocalTransformFactionTag;
+        static CachedEntityQuery QC_BuildingTagProductionStateLocalTransformFactionTag;
 
         #region Cached queries
 
@@ -151,9 +151,10 @@ namespace TheWaningBorder.Systems.Sect
         }
 
         /// <summary>
-        /// Call to Arms. Stamps SectTrainingBoon on the caster's own military
-        /// buildings in the circle - anything with a TrainingState, which is
-        /// exactly "a building that trains units".
+        /// Call to Arms. Stamps SectTrainingBoon on the caster's own
+        /// buildings in the circle - anything with a ProductionState. That
+        /// now includes research-only buildings (the Vault), on which the
+        /// boon is inert: it only ever changes a unit's price and time.
         /// </summary>
         private static void ApplyCallToArms(EntityManager em, Faction faction,
             float3 center, float radius, float costMultiplier, float duration, byte level)
@@ -162,7 +163,7 @@ namespace TheWaningBorder.Systems.Sect
             float r2 = radius * radius;
             float speed = level >= 3 ? SectLeverEffects.CallToArmsSpeedLv3 : 1f;
 
-            var query = QC_BuildingTagTrainingStateLocalTransformFactionTag.Get(em, QT_BuildingTagTrainingStateLocalTransformFactionTag);
+            var query = QC_BuildingTagProductionStateLocalTransformFactionTag.Get(em, QT_BuildingTagProductionStateLocalTransformFactionTag);
             using var entities = query.ToEntityArray(Allocator.Temp);
             var ecb = new EntityCommandBuffer(Allocator.Temp);
 

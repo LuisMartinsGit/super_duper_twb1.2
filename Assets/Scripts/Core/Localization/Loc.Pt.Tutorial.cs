@@ -18,7 +18,7 @@ namespace TheWaningBorder.Core.Localization
         {
             // ── Chapters ───────────────────────────────────────────────────
             t["1. Controls"] = "1. Controlos";
-            t["2. Workers & resources"] = "2. Trabalhadores e recursos";
+            t["2. Territory & economy"] = "2. Território e economia";
             t["3. Combat"] = "3. Combate";
             t["4. Culture"] = "4. Cultura";
             t["5. Religion"] = "5. Religião";
@@ -53,14 +53,15 @@ namespace TheWaningBorder.Core.Localization
                 "Tutorial: nenhum Salão encontrado — salta este passo para continuar.";
             t["Tutorial: the curse is not active on this map — skip this step."] =
                 "Tutorial: a maldição não está ativa neste mapa — salta este passo.";
-            t["A ritual has failed — the curse is waking east of your Hall!"] =
-                "Um ritual falhou — a maldição está a despertar a leste do teu Salão!";
+            t["A ritual has failed — the curse is waking east of your Fortress!"] =
+                "Um ritual falhou — a maldição está a despertar a leste da tua Fortaleza!";
             t["Tutorial: this upgrade will carry the Temple to level {0}."] =
                 "Tutorial: esta melhoria vai levar o Templo ao nível {0}.";
 
             // ── Grant labels ───────────────────────────────────────────────
             t["a building fund"] = "um fundo de construção";
             t["a survey fund"] = "um fundo de prospeção";
+            t["a claim pot"] = "um fundo de reivindicação";
             t["an army budget"] = "um orçamento para o exército";
             t["enough for a special building"] = "o suficiente para um edifício especial";
             t["the age-up cost"] = "o custo do avanço de Idade";
@@ -75,13 +76,16 @@ namespace TheWaningBorder.Core.Localization
             t["Push the mouse to any <b>screen edge</b> to pan, or use the "
               + "<b>arrow keys</b>. Hold the <b>middle mouse button</b> to drag the "
               + "view, or click the minimap to jump.\n"
-              + "Find your <b>Hall</b> — the big building your warband starts around."] =
+              + "Find your <b>Fortress</b> — the capital your warband starts around. "
+              + "It holds the ground it stands on, and that ground is your first "
+              + "<b>territory</b>."] =
                 "Empurra o rato contra qualquer <b>borda do ecrã</b> para deslocar a "
               + "vista, ou usa as <b>setas do teclado</b>. Mantém premido o <b>botão "
               + "do meio do rato</b> para arrastar a vista, ou clica no minimapa para "
               + "saltar.\n"
-              + "Encontra o teu <b>Salão</b> — o grande edifício em redor do qual o "
-              + "teu bando de guerra começa.";
+              + "Encontra a tua <b>Fortaleza</b> — a capital em redor da qual o teu "
+              + "bando de guerra começa. Ela detém o terreno onde assenta, e esse "
+              + "terreno é o teu primeiro <b>território</b>.";
 
             t["Zoom"] = "Zoom";
             t["<b>Scroll wheel</b> zooms in and out.\n"
@@ -101,18 +105,29 @@ namespace TheWaningBorder.Core.Localization
               + "As suas estatísticas aparecem em baixo à esquerda; o que ele pode "
               + "fazer aparece ao lado.";
 
-            t["Mine veilstone"] = "Extrai veilstone";
-            t["Right-click a <b>veilstone outcropping</b> with a worker selected.\n"
-              + "Mined resources go straight to your bank — no hauling, no drop-off "
-              + "building.\n<b>Veilstone is the one resource the curse controls.</b> "
-              + "The patch by your base is what the world had spare; everything after "
-              + "it has to be taken."] =
-                "Clica com o botão direito num <b>afloramento de veilstone</b> com um "
-              + "trabalhador selecionado.\n"
-              + "Os recursos extraídos vão diretamente para o teu banco — sem "
-              + "transporte, sem edifício de depósito.\n<b>O veilstone é o único "
-              + "recurso que a maldição controla.</b> A jazida junto à tua base é o "
-              + "que o mundo tinha de sobra; tudo o que vem depois tem de ser tomado.";
+            t["Your ground is already paying"] = "O teu terreno já está a pagar";
+            t["<b>Nobody gathers anything.</b> Income comes from the ground you "
+              + "hold: every territory pays you per minute, and every resource "
+              + "<b>node</b> standing in it pays more — with nothing built on it "
+              + "and nobody working it.\n"
+              + "Your home territory holds a <b>veilstone outcropping</b>, so that "
+              + "veilstone is arriving in your bank right now, just for holding the "
+              + "ground. Watch the counter.\n"
+              + "<b>An extractor multiplies a node, it does not unlock one.</b> In "
+              + "this age the <b>Gatherer's Hut</b> is the only one you can raise — "
+              + "the rest arrive with your culture. So for now the way to earn more "
+              + "is to hold more ground."] =
+                "<b>Ninguém recolhe nada.</b> O rendimento vem do terreno que "
+              + "possuis: cada território paga-te por minuto, e cada <b>nó</b> de "
+              + "recurso nele paga mais — sem nada construído em cima e sem "
+              + "ninguém a trabalhá-lo.\n"
+              + "O teu território de origem tem um <b>afloramento de veilstone</b>, "
+              + "por isso esse veilstone está a entrar no teu banco neste momento, "
+              + "só por deteres o terreno. Repara no contador.\n"
+              + "<b>Um extrator multiplica um nó, não o desbloqueia.</b> Nesta "
+              + "idade a <b>Cabana do Recoletor</b> é a única que podes erguer — as "
+              + "restantes chegam com a tua cultura. Por isso, para já, a maneira de "
+              + "ganhar mais é deter mais terreno.";
 
             t["Box-select and build"] = "Seleciona em caixa e constrói";
             t["<b>Drag a box</b> over two or more Workers, then pick <b>Hut</b> from "
@@ -126,24 +141,49 @@ namespace TheWaningBorder.Core.Localization
               + "premido enquanto colocas para continuares.";
 
             t["Train more workers"] = "Treina mais trabalhadores";
-            t["Select your <b>Hall</b> and click <b>Worker</b> in the actions panel.\n"
+            t["Select your <b>Fortress</b> and click <b>Worker</b> in the actions "
+              + "panel.\n"
               + "The queue strip above the panel shows what is in production — "
               + "<b>right-click a queued chip</b> to cancel it and get the cost back."] =
-                "Seleciona o teu <b>Salão</b> e clica em <b>Trabalhador</b> no painel "
-              + "de ações.\n"
+                "Seleciona a tua <b>Fortaleza</b> e clica em <b>Trabalhador</b> no "
+              + "painel de ações.\n"
               + "A faixa de fila acima do painel mostra o que está em produção — "
               + "<b>clica com o botão direito num item em fila</b> para o cancelar e "
               + "recuperares o custo.";
 
-            t["Split your economy"] = "Divide a tua economia";
-            t["Put <b>three workers on veilstone and three on iron</b>.\n"
-              + "They feed different things: iron buys soldiers and buildings, "
-              + "veilstone buys everything the Temple and the sects need."] =
-                "Põe <b>três trabalhadores no veilstone e três no ferro</b>.\n"
-              + "Alimentam coisas diferentes: o ferro paga soldados e edifícios, o "
-              + "veilstone paga tudo aquilo de que o Templo e as seitas precisam.";
+            t["Claim a second territory"] = "Reivindica um segundo território";
+            t["You may only build inside ground you already hold — with one "
+              + "exception, and it is the whole game: the <b>Hall</b>.\n"
+              + "A Hall is the only building you can raise on unclaimed ground, and "
+              + "raising it <b>claims that territory</b>. Pick Hall, place it in a "
+              + "neighbouring region, and the ground becomes yours.\n"
+              + "It costs <b>450 supplies and 450 iron</b> — the largest purchase in "
+              + "the game, because it is the only one that makes your economy bigger. "
+              + "<b>One Hall per territory</b>, and a claim <b>dies with its Hall</b>: "
+              + "kill the building, the ground goes back to unclaimed."] =
+                "Só podes construir dentro de terreno que já possuis — com uma "
+              + "exceção, e é ela o jogo inteiro: o <b>Salão</b>.\n"
+              + "O Salão é o único edifício que podes erguer em terreno não "
+              + "reivindicado, e erguê-lo <b>reivindica esse território</b>. Escolhe "
+              + "Salão, coloca-o numa região vizinha, e o terreno passa a ser teu.\n"
+              + "Custa <b>450 mantimentos e 450 ferro</b> — a maior compra do jogo, "
+              + "porque é a única que torna a tua economia maior. <b>Um Salão por "
+              + "território</b>, e uma reivindicação <b>morre com o seu Salão</b>: "
+              + "destrói o edifício e o terreno volta a não estar reivindicado.";
 
-            t["Fill a territory with Gatherer's Huts"] = "Enche um território com Cabanas do Recoletor";
+            t["Work your supply nodes"] = "Trabalha os teus nós de mantimentos";
+            t["A <b>Gatherer's Hut</b> must stand <b>on a supply node</b>, and each "
+              + "node takes one. So a territory's supply-node count IS its hut cap — "
+              + "an ordinary territory has <b>two</b>, and a home like yours has "
+              + "<b>four</b>.\n"
+              + "Build <b>three</b>. Each one roughly triples what its node pays."] =
+                "Uma <b>Cabana do Recoletor</b> tem de assentar <b>sobre um nó de "
+              + "mantimentos</b>, e cada nó aceita uma. Por isso o número de nós de "
+              + "mantimentos de um território É o seu limite de cabanas — um "
+              + "território comum tem <b>dois</b>, e uma origem como a tua tem "
+              + "<b>quatro</b>.\n"
+              + "Constrói <b>três</b>. Cada uma triplica aproximadamente o que o seu "
+              + "nó paga.";
 
             // ── 3. Combat ──────────────────────────────────────────────────
             t["Raise a Barracks"] = "Ergue um Quartel";
@@ -242,66 +282,100 @@ namespace TheWaningBorder.Core.Localization
               + "A veilstone node near you is <b>corrupting</b>. In a few seconds a "
               + "<b>Curse Node</b> rises there and hazes the whole patch. Watch the "
               + "purple spread.\n"
-              + "This is also what happens when a patch runs dry: <b>the last node of "
-              + "any patch always corrupts.</b> Your home patch is safe — your Hall "
-              + "projects a suppression ring, and the curse can never wake inside "
-              + "your influence. It is the patches you have to leave home for that "
-              + "bite."] =
+              + "This is also what <b>holding ground</b> costs. Keep a veilstone "
+              + "territory that is not your home for <b>two minutes</b> and its "
+              + "pocket wakes. Your home is exempt — your Fortress projects a "
+              + "suppression ring, and the curse can never wake inside your "
+              + "influence. It is the ground you had to leave home for that bites."] =
                 "<b>Um ritual falhou algures no mapa.</b> Um canalizador começou o "
               + "seu rito e morreu antes de o terminar, e a maldição despertou em "
               + "consequência.\n"
               + "Um nó de veilstone perto de ti está a <b>corromper-se</b>. Dentro de "
               + "alguns segundos, um <b>Nó da Maldição</b> ergue-se ali e envolve a "
               + "jazida inteira em bruma. Observa o roxo a alastrar.\n"
-              + "É também isto que acontece quando uma jazida se esgota: <b>o último "
-              + "nó de qualquer jazida corrompe-se sempre.</b> A tua jazida de origem "
-              + "está segura — o teu Salão projeta um anel de supressão, e a maldição "
-              + "nunca pode despertar dentro da tua influência. São as jazidas que te "
-              + "obrigam a sair de casa que mordem.";
+              + "É também isto que custa <b>deter terreno</b>. Mantém um território "
+              + "de veilstone que não seja o teu de origem durante <b>dois "
+              + "minutos</b> e a sua bolsa desperta. A tua origem está isenta — a tua "
+              + "Fortaleza projeta um anel de supressão, e a maldição nunca pode "
+              + "despertar dentro da tua influência. É o terreno que te obrigou a "
+              + "sair de casa que morde.";
 
             t["Break the Curse Node"] = "Quebra o Nó da Maldição";
             t["Bring your army. It has <b>1800 HP</b> and is built to resist a "
               + "starting force — this is a real commitment.\n"
               + "Kill it and the pocket <b>shatters</b>: the ground clears and it pays "
               + "out <b>five veilstone nodes</b>. You get the patch back and a bonus.\n"
-              + "Leave it and it keeps feeding — the haze taxes anyone mining there, "
-              + "and crusted ground costs you: a few seconds' grace, then damage that "
-              + "scales with depth, plus slower movement and worse stats.\n"
-              + "The other way is to <b>starve</b> it. Push influence over it — a "
-              + "tower, or an upgraded building, since every level widens a "
-              + "building's influence — and it dies on its own."] =
+              + "Leave it and it keeps feeding, and the crust it lays down denies you "
+              + "the ground: a few seconds' grace, then damage that scales with "
+              + "depth, plus slower movement and worse stats.\n"
+              + "The other way is to <b>starve</b> it. A pocket cannot live on ground "
+              + "somebody holds — <b>claim the territory</b> and it dies on its own. "
+              + "That is the same rule twice: taking ground is how you grow, and it "
+              + "is also how you clean."] =
                 "Traz o teu exército. Tem <b>1800 PV</b> e foi feito para resistir a "
               + "uma força inicial — isto é um compromisso a sério.\n"
-              + "Mata-o e o foco <b>estilhaça-se</b>: o terreno limpa-se e ele paga "
-              + "<b>cinco nós de veilstone</b>. Recuperas a jazida e ainda ganhas um "
+              + "Mata-o e a bolsa <b>estilhaça-se</b>: o terreno limpa-se e paga "
+              + "<b>cinco nós de veilstone</b>. Recuperas a jazida e ainda levas um "
               + "bónus.\n"
-              + "Se o deixares, continua a alimentar-se — a bruma taxa quem ali "
-              + "extrair, e o chão encrostado custa-te caro: alguns segundos de "
-              + "tolerância, depois dano que aumenta com a profundidade, além de "
-              + "movimento mais lento e piores estatísticas.\n"
-              + "A outra forma é <b>esfomeá-lo</b>. Empurra influência sobre ele — "
-              + "uma torre, ou um edifício melhorado, já que cada nível alarga a "
-              + "influência de um edifício — e ele morre sozinho.";
+              + "Deixa-o e continua a alimentar-se, e a crosta que assenta nega-te o "
+              + "terreno: alguns segundos de tolerância, depois dano que aumenta com "
+              + "a profundidade, mais lentidão e piores atributos.\n"
+              + "A outra maneira é <b>fazê-lo passar fome</b>. Uma bolsa não "
+              + "sobrevive em terreno que alguém detém — <b>reivindica o "
+              + "território</b> e ela morre sozinha. É a mesma regra duas vezes: "
+              + "tomar terreno é como cresces, e é também como limpas.";
 
             // ── 7. The wells ───────────────────────────────────────────────
+            t["The curse takes ground"] = "A maldição toma terreno";
+            t["The pocket you just broke was the curse being <b>provoked</b>. It is "
+              + "also a <b>territorial power</b>, and it expands the way you do.\n"
+              + "It holds every well territory from the first minute. Every couple of "
+              + "minutes it takes <b>one more</b> — always a territory that is next to "
+              + "ground it already holds, <b>carries veilstone</b>, and has <b>no "
+              + "Hall</b>. Look at the territory map: what it can take next is "
+              + "readable, exactly like your own expansion.\n"
+              + "Each territory it takes gets a <b>curse anchor</b>. Kill the anchor "
+              + "and the ground reverts at once — anchors die, wells do not. And "
+              + "every cursed veilstone territory <b>sends waves at you</b>, so "
+              + "ground you leave hall-less becomes a front line.\n"
+              + "<b>A Hall is a wall.</b> Claiming veilstone ground is how you stop "
+              + "the map being eaten — expansion is defence."] =
+                "A bolsa que acabaste de quebrar era a maldição <b>provocada</b>. Ela "
+              + "é também uma <b>potência territorial</b>, e expande-se como tu.\n"
+              + "Detém todos os territórios com poço desde o primeiro minuto. A cada "
+              + "poucos minutos toma <b>mais um</b> — sempre um território vizinho de "
+              + "terreno que já detém, que <b>tenha veilstone</b> e <b>nenhum "
+              + "Salão</b>. Olha para o mapa de territórios: o que ela pode tomar a "
+              + "seguir é legível, tal como a tua própria expansão.\n"
+              + "Cada território que toma recebe uma <b>âncora da maldição</b>. Mata "
+              + "a âncora e o terreno reverte de imediato — as âncoras morrem, os "
+              + "poços não. E cada território de veilstone amaldiçoado <b>envia "
+              + "vagas contra ti</b>, por isso o terreno que deixas sem Salão "
+              + "torna-se uma frente de batalha.\n"
+              + "<b>Um Salão é uma muralha.</b> Reivindicar terreno de veilstone é "
+              + "como impedes que o mapa seja devorado — expandir é defender.";
+
             t["Train a Holy Scholar"] = "Treina um Erudito Sagrado";
             t["The giant veilstone formations are the <b>wells</b> — selecting one "
               + "reads <i>Veilstone Hive</i>. They are the largest income on the map "
               + "and the only way the match is won.\n"
-              + "Every well is <b>dormant</b> until a player reaches for it. That is "
-              + "why the map was quiet.\n"
+              + "Every well is <b>dormant</b> until a player reaches for it. The curse "
+              + "has held the ground around them since the first minute — but the "
+              + "wells themselves are asleep, and a sleeping well does not fight "
+              + "you.\n"
               + "Claiming one needs a ritualist. Alanthor's is the <b>Holy Scholar</b>, "
               + "trained at the <b>Temple of Ridan at level 3 or higher</b> — yours is "
               + "at 4. It has 90 HP and no answer to anything: a key, not a soldier."] =
                 "As formações gigantes de veilstone são os <b>poços</b> — ao "
-              + "selecionares uma, lê-se <i>Colmeia de Veilstone</i>. São o maior "
+              + "selecionares um lê-se <i>Colmeia de Veilstone</i>. São o maior "
               + "rendimento do mapa e a única forma de vencer a partida.\n"
-              + "Cada poço está <b>adormecido</b> até um jogador o tentar alcançar. É "
-              + "por isso que o mapa estava calmo.\n"
-              + "Reclamar um exige um ritualista. O de Alanthor é o <b>Erudito "
-              + "Sagrado</b>, treinado no <b>Templo de Ridan de nível 3 ou "
+              + "Cada poço está <b>adormecido</b> até que um jogador lhe estenda a "
+              + "mão. A maldição detém o terreno à sua volta desde o primeiro minuto "
+              + "— mas os poços em si dormem, e um poço adormecido não te ataca.\n"
+              + "Reivindicar um exige um ritualista. O de Alanthor é o <b>Erudito "
+              + "Sagrado</b>, treinado no <b>Templo de Ridan ao nível 3 ou "
               + "superior</b> — o teu está no 4. Tem 90 PV e não tem resposta para "
-              + "nada: uma chave, não um soldado.";
+              + "nada: é uma chave, não um soldado.";
 
             t["Purify a well"] = "Purifica um poço";
             t["Send the Scholar to a well <b>with your army around it</b> and begin "

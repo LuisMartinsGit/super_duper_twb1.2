@@ -1,4 +1,4 @@
-// KeepWingSystem.cs
+﻿// KeepWingSystem.cs
 // Fiendstone Keep wing construction + per-wing running effects (choice
 // building leveling, design 2026-07-04):
 //   * Ticks KeepWingConstruction; on completion fills a KeepWings slot and
@@ -7,7 +7,7 @@
 //   * Ticks the Civic/Economic Supplies trickle into the faction bank.
 //
 // Per-volley Engineers ballistas live in BuildingCombatSystem; the
-// Librarians' research effects live in ResearchSystem (speed) and
+// Librarians' research effects live in ProductionQueueSystem (speed) and
 // EntityExtractors.Research (Hall techs at the Keep); the War/Civic/Temple
 // train roster lives in EntityExtractors.Training.
 //
@@ -127,17 +127,17 @@ namespace TheWaningBorder.Systems.Buildings
 
                 // Economic / Librarians have no one-shot component changes:
                 // their effects are read live (income tick above, research
-                // speed in ResearchSystem, Hall techs in the research UI).
+                // speed in ProductionQueueSystem, Hall techs in the research UI).
             }
         }
 
         /// <summary>Give the Keep a training queue the first time a training wing completes.</summary>
         private static void EnsureTrainingCapability(EntityManager em, Entity keep)
         {
-            if (!em.HasComponent<TrainingState>(keep))
-                em.AddComponentData(keep, new TrainingState { Busy = 0, Remaining = 0 });
-            if (!em.HasBuffer<TrainQueueItem>(keep))
-                em.AddBuffer<TrainQueueItem>(keep);
+            if (!em.HasComponent<ProductionState>(keep))
+                em.AddComponentData(keep, new ProductionState { Busy = 0, Remaining = 0 });
+            if (!em.HasBuffer<ProductionQueueItem>(keep))
+                em.AddBuffer<ProductionQueueItem>(keep);
             if (!em.HasComponent<RallyPoint>(keep) && em.HasComponent<Unity.Transforms.LocalTransform>(keep))
             {
                 var pos = em.GetComponentData<Unity.Transforms.LocalTransform>(keep).Position;

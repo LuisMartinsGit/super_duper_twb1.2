@@ -1,4 +1,4 @@
-using Unity.Entities;
+﻿using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Economy;
@@ -57,9 +57,9 @@ namespace TheWaningBorder.Entities
 
             // Research host: the House offers "Retaliatory measures"
             // (TechTree.json Hut.research). The research UI surfaces only for
-            // entities carrying ResearchState.
-            creator.AddComponent(entity, new ResearchState { Busy = 0, Remaining = 0 });
-            creator.AddBuffer<ResearchQueueItem>(entity);
+            // entities carrying ProductionState.
+            creator.AddComponent(entity, new ProductionState { Busy = 0, Remaining = 0 });
+            creator.AddBuffer<ProductionQueueItem>(entity);
 
             // Houses built after Retaliatory measures is researched fight back
             // from the start; existing Houses are upgraded by TechEffectSystem.

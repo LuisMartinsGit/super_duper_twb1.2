@@ -1,4 +1,4 @@
-// BuildingUpgradeAction.cs
+﻿// BuildingUpgradeAction.cs
 // "Upgrade to Lv N" as a first-class ACTION rather than a floating pill.
 //
 // It used to be a code-built button hung off the right edge of the selection
@@ -71,6 +71,21 @@ namespace TheWaningBorder.UI.Ingame
                 return info;
             }
 
+            // A THIRD state, which did not exist while an upgrade was stamped
+            // straight onto the building: queued behind a research and not
+            // started. Without this the button would offer the level again and
+            // charge for a second one.
+            if (UpgradeBuildingCommandHelper.IsUpgradeQueued(em, building))
+            {
+                info.Show = true;
+                info.Enabled = false;
+                info.Label = Loc.T("Upgrade\nqueued");
+                info.Tooltip = "<b>" + Loc.T("Upgrade queued") + "</b>\n"
+                    + Loc.T("It starts when this building finishes what it is working on. "
+                          + "Right-click its slot in the queue to cancel and refund.");
+                return info;
+            }
+
             if (BuildingActionLayouts.FactionAge(em, faction) < 1)
                 return info;   // pre-culture: nothing to upgrade into yet
             if (!UpgradeBuildingCommandHelper.TryGetNextCost(em, building,
@@ -113,6 +128,9 @@ namespace TheWaningBorder.UI.Ingame
                 case UpgradeBuildingResult.AlreadyMaxLevel:
                     PlayerNotificationSystem.NotifyError(
                         Loc.T("Building is already at max level"));
+                    break;
+                case UpgradeBuildingResult.QueueFull:
+                    PlayerNotificationSystem.NotifyError(Loc.T("Production queue full"));
                     break;
             }
         }

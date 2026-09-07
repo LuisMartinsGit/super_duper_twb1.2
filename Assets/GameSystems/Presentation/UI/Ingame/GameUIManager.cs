@@ -66,6 +66,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using TheWaningBorder.UI.Data;
+using TheWaningBorder.UI.Common;
 
 namespace TheWaningBorder.UI.Ingame
 {
@@ -74,8 +75,11 @@ namespace TheWaningBorder.UI.Ingame
         private const float RefreshInterval = 0.25f;
 
         // Mirror of the staging scene's canvas (GameUI.unity): overlay,
-        // ScaleWithScreenSize, 3840x2160, match width.
-        private static readonly Vector2 StagingReferenceResolution = new Vector2(3840f, 2160f);
+        // ScaleWithScreenSize, 3840x2160. The MATCH MODE deliberately does not
+        // mirror the staging scene — see HudCanvas for why match-width cannot
+        // survive an ultrawide monitor.
+        private static readonly Vector2 StagingReferenceResolution =
+            HudCanvas.StagingReference;
 
         // Mirrors of the staging scene's layout containers (GameUI.unity).
         // Panel prefab root rects are authored RELATIVE to these boxes, so
@@ -99,11 +103,14 @@ namespace TheWaningBorder.UI.Ingame
         /// <see cref="HUD.GameClockHUD.ReservedScreenHeight"/>.
         ///
         /// The conversion is exact rather than approximate: the host canvas is
-        /// ScaleWithScreenSize with matchWidthOrHeight = 0, so its scale factor
-        /// is precisely Screen.width / referenceResolution.x.
+        /// ScaleWithScreenSize in Expand mode, and HudCanvas.ScaleFactor is the
+        /// same rule Unity applies for it. It used to divide by the reference
+        /// WIDTH alone, which on a 32:9 screen overstated the reserved band by
+        /// the full aspect difference — 875 px of a 1440 px screen.
         /// </summary>
         public static float ReservedBottomScreenHeight =>
-            BottomLeftDockSize.y * (Screen.width / StagingReferenceResolution.x);
+            BottomLeftDockSize.y *
+            HudCanvas.ScaleFactor(StagingReferenceResolution);
 
         private RectTransform _hostCanvasRect;
         private RectTransform _bottomLeftDock;
@@ -397,11 +404,8 @@ namespace TheWaningBorder.UI.Ingame
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 100;
 
-            var scaler = go.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = StagingReferenceResolution;
-            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-            scaler.matchWidthOrHeight = 0f;
+            HudCanvas.Configure(
+                go.GetComponent<CanvasScaler>(), StagingReferenceResolution);
 
             _hostCanvasRect = (RectTransform)go.transform;
 
@@ -473,6 +477,17 @@ namespace TheWaningBorder.UI.Ingame
                 DestroyImmediate(stray);
                 if (renderBehind) strayTransform.SetAsFirstSibling();
             }
+
+            // Panels that sit DIRECTLY on the host canvas were placed by eye
+            // against the staging scene's 3840x2160 frame, so a panel nudged
+            // out to a corner may still be anchored to the canvas centre —
+            // fine at 16:9, stranded (or off-screen) on an ultrawide. Restate
+            // that placement as an offset from the edge it was authored
+            // nearest. Panels in the bottom-left dock are exempt: the dock
+            // itself is corner-anchored and they are authored relative to it.
+            if (parent == null)
+                HudCanvas.AnchorToScreenEdges(
+                    (RectTransform)panel.transform, StagingReferenceResolution);
 
             return panel;
         }

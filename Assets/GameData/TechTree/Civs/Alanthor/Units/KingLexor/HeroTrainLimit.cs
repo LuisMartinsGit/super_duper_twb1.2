@@ -1,4 +1,4 @@
-// HeroTrainLimit.cs
+﻿// HeroTrainLimit.cs
 // One-per-player hero gate + escalating respawn cost for King Lexor.
 //   - Only one live/queued King Lexor per faction (checked authoritatively at
 //     the training-command gate).
@@ -23,12 +23,12 @@ namespace TheWaningBorder.Abilities
             ComponentType.ReadOnly<FactionTag>(),
         };
         static CachedEntityQuery QC_UniqueUnitTagFactionTag;
-        static readonly ComponentType[] QT_TrainQueueItemFactionTag =
+        static readonly ComponentType[] QT_ProductionQueueItemFactionTag =
         {
-            ComponentType.ReadOnly<TrainQueueItem>(),
+            ComponentType.ReadOnly<ProductionQueueItem>(),
             ComponentType.ReadOnly<FactionTag>(),
         };
-        static CachedEntityQuery QC_TrainQueueItemFactionTag;
+        static CachedEntityQuery QC_ProductionQueueItemFactionTag;
 
         #region Cached queries
 
@@ -74,16 +74,17 @@ namespace TheWaningBorder.Abilities
                     if (facs[i].Value == faction) return true;
             }
 
-            var bq = QC_TrainQueueItemFactionTag.Get(em, QT_TrainQueueItemFactionTag);
+            var bq = QC_ProductionQueueItemFactionTag.Get(em, QT_ProductionQueueItemFactionTag);
             using (var bents = bq.ToEntityArray(Allocator.Temp))
             using (var bfacs = bq.ToComponentDataArray<FactionTag>(Allocator.Temp))
             {
                 for (int i = 0; i < bents.Length; i++)
                 {
                     if (bfacs[i].Value != faction) continue;
-                    var buf = em.GetBuffer<TrainQueueItem>(bents[i]);
+                    var buf = em.GetBuffer<ProductionQueueItem>(bents[i]);
                     for (int j = 0; j < buf.Length; j++)
-                        if (IsLedgerId(buf[j].UnitId.ToString())) return true;
+                        if (buf[j].Kind == ProductionKind.Train
+                            && IsLedgerId(buf[j].Id.ToString())) return true;
                 }
             }
             return false;
@@ -101,16 +102,17 @@ namespace TheWaningBorder.Abilities
                     if (tags[i].Kind == UniqueUnitKind.KingLexor && facs[i].Value == faction) return true;
             }
 
-            var bq = QC_TrainQueueItemFactionTag.Get(em, QT_TrainQueueItemFactionTag);
+            var bq = QC_ProductionQueueItemFactionTag.Get(em, QT_ProductionQueueItemFactionTag);
             using (var bents = bq.ToEntityArray(Allocator.Temp))
             using (var bfacs = bq.ToComponentDataArray<FactionTag>(Allocator.Temp))
             {
                 for (int i = 0; i < bents.Length; i++)
                 {
                     if (bfacs[i].Value != faction) continue;
-                    var buf = em.GetBuffer<TrainQueueItem>(bents[i]);
+                    var buf = em.GetBuffer<ProductionQueueItem>(bents[i]);
                     for (int j = 0; j < buf.Length; j++)
-                        if (IsKingLexorId(buf[j].UnitId.ToString())) return true;
+                        if (buf[j].Kind == ProductionKind.Train
+                            && IsKingLexorId(buf[j].Id.ToString())) return true;
                 }
             }
             return false;

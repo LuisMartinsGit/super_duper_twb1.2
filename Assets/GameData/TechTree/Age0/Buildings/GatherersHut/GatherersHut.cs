@@ -1,4 +1,4 @@
-using Unity.Entities;
+﻿using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Economy;
@@ -55,9 +55,9 @@ namespace TheWaningBorder.Entities
 
             // Research host: the hut offers the Guild Survey techs
             // (GatherersHut.asset research list) — the research UI only
-            // surfaces for entities carrying ResearchState.
-            creator.AddComponent(entity, new ResearchState { Busy = 0, Remaining = 0 });
-            creator.AddBuffer<ResearchQueueItem>(entity);
+            // surfaces for entities carrying ProductionState.
+            creator.AddComponent(entity, new ProductionState { Busy = 0, Remaining = 0 });
+            creator.AddBuffer<ProductionQueueItem>(entity);
 
             // Combat type tags
             creator.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
@@ -97,8 +97,8 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new Buildable { BuildTimeSeconds = buildTime });
 
             // Research host (Guild Surveys) — see the completed-hut factory.
-            ecb.AddComponent(entity, new ResearchState { Busy = 0, Remaining = 0 });
-            ecb.AddBuffer<ResearchQueueItem>(entity);
+            ecb.AddComponent(entity, new ProductionState { Busy = 0, Remaining = 0 });
+            ecb.AddBuffer<ProductionQueueItem>(entity);
 
             // Combat type tags
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });

@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using TheWaningBorder.Core;
 
@@ -99,14 +99,14 @@ public struct EntityDisplayInfo
 
     /// <summary>
     /// Capacity of the training queue (matches CommandRouter.MaxProductionQueue).
-    /// Null when the entity has no TrainingState.
+    /// Null when the entity has no ProductionState.
     /// </summary>
     public int? QueueCapacity;
 
     /// <summary>
     /// Snapshot of the training queue. Always exactly <see cref="QueueCapacity"/>
     /// long when populated, with empty trailing slots marked Populated=false.
-    /// Null when the entity has no TrainingState.
+    /// Null when the entity has no ProductionState.
     /// </summary>
     public EntityQueueSlot[] Queue;
 }
@@ -116,7 +116,7 @@ public struct EntityDisplayInfo
 /// Carries the unit id, the refund cost (full unit cost, mirroring the
 /// existing IMGUI CancelQueueItem behaviour), and per-slot progress data
 /// — Progress and IsInProduction are only meaningful for slot 0 when the
-/// building's TrainingState.Busy == 1.
+/// building's ProductionState.Busy == 1.
 /// </summary>
 public struct EntityQueueSlot
 {
@@ -139,8 +139,7 @@ public struct EntityQueueSlot
     {
         public ActionType Type;
         public List<ActionButton> Actions;
-        public TrainingInfo? TrainingState;
-        public ResearchInfo? ResearchState;
+        public ProductionInfo? ProductionState;
     }
 
     /// <summary>
@@ -190,33 +189,37 @@ public struct EntityQueueSlot
     /// <summary>
     /// Training queue information.
     /// </summary>
-public struct TrainingInfo
-{
-    public string UnitId;
-    public float Progress;
-    public float Total;
-    public int QueuePosition;
-    public string CurrentUnitId;
-    public float TimeRemaining;
-    public string[] Queue;           // Queue of unit IDs (excludes currently training)
-    public int QueueCapacity;        // Total items in buffer (including currently training)
-
-    // Computed property for convenience
-        public bool IsTraining;       // Set when constructing the struct
-}
-
     /// <summary>
     /// Research queue information for the action panel.
     /// </summary>
-    public struct ResearchInfo
+    /// <summary>One entry of a building's production queue, head first.</summary>
+    public struct ProductionQueueEntry
     {
-        public string CurrentTechId;
-        public string CurrentTechName;
+        public ProductionKind Kind;
+        /// <summary>Tech id for research; empty for a level-up.</summary>
+        public string Id;
+        /// <summary>What the player reads on the slot.</summary>
+        public string Name;
+    }
+
+    /// <summary>
+    /// A building's production queue — technologies AND level-ups, which are
+    /// one queue (ProductionQueueComponents). Was ResearchInfo, when they were
+    /// two things shown in two places.
+    /// </summary>
+    public struct ProductionInfo
+    {
+        /// <summary>True while the head item is running.</summary>
+        public bool IsBusy;
+        public ProductionKind CurrentKind;
+        /// <summary>Tech id of the running item; empty for a level-up.</summary>
+        public string CurrentId;
+        public string CurrentName;
         public float Progress;         // 0..1
         public float Total;
         public float TimeRemaining;
-        public string[] Queue;
-        public bool IsResearching;
+        /// <summary>Every queued item INCLUDING the running head at index 0.</summary>
+        public ProductionQueueEntry[] Entries;
     }
 
 }

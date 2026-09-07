@@ -173,6 +173,12 @@ namespace TheWaningBorder.Core.Localization
             t["Need at least 1 human player!"] = "É necessário pelo menos 1 jogador humano!";
             t["Everyone is on the same team — someone has to be the enemy!"] = "Estão todos na mesma equipa — alguém tem de ser o inimigo!";
 
+            // ── ScenariosMenu.unity authored labels (scene localizer) ───────
+            t["SCENARIO LIST"] = "LISTA DE CENÁRIOS";
+            t["BRIEFING"] = "BRIEFING";
+            t["NO PREVIEW"] = "SEM PRÉ-VISUALIZAÇÃO";
+            t["Pick a scenario to read its briefing."] = "Escolhe um cenário para leres o seu briefing.";
+
             // ── ScenariosPanel ──────────────────────────────────────────
             t["NO SCENARIOS"] = "SEM CENÁRIOS";
             t["No scenario definitions found. Rebuild the scenario library via Tools ▸ TWB ▸ Scenarios."] =
@@ -183,7 +189,7 @@ namespace TheWaningBorder.Core.Localization
             t["A guided match on the standard map against one relaxed opponent, from "
               + "the opening to the victory condition.\n\n"
               + "1. Camera controls\n"
-              + "2. Workers, mining and the Gatherer's Hut\n"
+              + "2. Territory, the Hall and the Gatherer's Hut\n"
               + "3. Barracks, Spearmen and taking a fight\n"
               + "4. The special building, the age-up and the Temple\n"
               + "5. Religion Points, sects and their powers\n"
@@ -197,7 +203,7 @@ namespace TheWaningBorder.Core.Localization
                 "Uma partida guiada no mapa padrão contra um adversário tranquilo, da "
               + "abertura até à condição de vitória.\n\n"
               + "1. Controlos da câmara\n"
-              + "2. Trabalhadores, mineração e a Cabana do Recoletor\n"
+              + "2. Território, o Salão e a Cabana do Recoletor\n"
               + "3. O Quartel, os Lanceiros e travar um combate\n"
               + "4. O edifício especial, a subida de era e o Templo\n"
               + "5. Pontos de Religião, as seitas e os seus poderes\n"

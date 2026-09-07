@@ -1,4 +1,4 @@
-// Building placement UI with preview and cost checking
+﻿// Building placement UI with preview and cost checking
 
 using UnityEngine;
 using Unity.Entities;
@@ -72,7 +72,7 @@ namespace TheWaningBorder.UI.Ingame
             AlanthorWatchTower, AlanthorSiegeYard, AlanthorRoyalStable,
             // Feraldis culture buildings
             FeraldisHuntingLodge, FeraldisLoggingStation, FeraldisLonghouse, FeraldisTotemTower, FeraldisSiegeYard,
-            FeraldisWarTotem, FeraldisPasture, Mine, AlanthorSawyer,
+            FeraldisWarTotem, FeraldisPasture, Mine, VeilstoneMine, AlanthorSawyer,
             // Per-hub "Build Wall" action: anchors a new hub + connecting
             // segment onto an existing wall hub. Placed without a builder;
             // auto-builds in 30 s. Entered via
@@ -163,7 +163,16 @@ namespace TheWaningBorder.UI.Ingame
                     string snapId = BuildId(_currentBuild);
                     if (!string.IsNullOrEmpty(snapId))
                     {
-                        float3 snapped = BuildGrid.Snap((float3)p, snapId);
+                        // An EXTRACTOR snaps to its node first, and to the bare
+                        // grid only when no node is in reach — the ghost has to
+                        // show the cells the building will actually take, and
+                        // CommandRouter applies the identical snap on commit.
+                        var snapEm = (_world ?? EntityWorld.DefaultGameObjectInjectionWorld)
+                            .EntityManager;
+                        if (!TheWaningBorder.World.Regions.TerritoryOwnership.TrySnapToNode(
+                                snapEm, snapId, (float3)p, out float3 snapped))
+                            snapped = BuildGrid.Snap((float3)p, snapId);
+
                         // Re-sample terrain height AT the snapped column — the
                         // raycast height belongs to the unsnapped point and can
                         // be metres off on a slope.
@@ -202,17 +211,26 @@ namespace TheWaningBorder.UI.Ingame
                                 (float3)_placingInstance.transform.position,
                                 BuildId(_currentBuild)))
                             _placementValid = false;
-                        // A hut goes ON a free supply node; a Hall goes in a
-                        // territory that has none. Both show as a red preview
-                        // rather than as a refused click.
+                        // An EXTRACTOR goes on a free node of ITS OWN kind; a
+                        // Hall goes in a territory that has none. Both show as
+                        // a red preview rather than as a refused click.
+                        //
+                        // OnFreeNodeFor is the router's own gate, asked here so
+                        // the two cannot disagree. They used to: this checked
+                        // only the Gatherer's Hut (against supply nodes), while
+                        // MeetsPatchRequirement below let a "Mine" go green
+                        // within 18 m of an iron OR a veilstone node and never
+                        // gated the Veilstone Mine at all — so the preview
+                        // approved an iron mine on veilstone, at four times the
+                        // range the router would accept, and the click was then
+                        // refused with no explanation.
                         if (_placementValid)
                         {
                             string previewId = BuildId(_currentBuild);
                             float pxw = _placingInstance.transform.position.x;
                             float pzw = _placingInstance.transform.position.z;
-                            if (previewId == "GatherersHut"
-                                && !TheWaningBorder.World.Regions.TerritoryOwnership
-                                        .OnFreeSupplyNode(_em, pxw, pzw))
+                            if (!TheWaningBorder.World.Regions.TerritoryOwnership
+                                    .OnFreeNodeFor(_em, previewId, pxw, pzw))
                                 _placementValid = false;
                             else if (previewId == "Hall"
                                 && TheWaningBorder.World.Regions.TerritoryOwnership
@@ -326,6 +344,7 @@ namespace TheWaningBorder.UI.Ingame
                 "FiendstoneKeep" => BuildType.Keep,
                 "Alanthor_Wall" => BuildType.Wall,
                 "Alanthor_Smelter" => BuildType.Smelter,
+                "VeilstoneMine" => BuildType.VeilstoneMine,
                 // Runai culture buildings
                 "Runai_Outpost" => BuildType.RunaiOutpost,
                 "Runai_TradeHub" => BuildType.RunaiTradeHub,
@@ -600,15 +619,21 @@ namespace TheWaningBorder.UI.Ingame
                 return;
             }
 
-            // A Gatherer's Hut stands on a supply node, one hut per node.
+            // EVERY extractor stands on a free node of its own kind, one per
+            // node. Snap onto it first — the same move CommandRouter makes on
+            // commit — so a click that NAMES the node is accepted rather than
+            // refused for being a metre off it, and so this guard and the
+            // router are asking about the same spot.
+            if (TheWaningBorder.World.Regions.TerritoryOwnership.TrySnapToNode(
+                    _em, id, pos, out float3 onNode))
+                pos = onNode;
+
             // Checked here as well as in the preview so a stale click cannot
             // land one on bare ground.
-            if (id == "GatherersHut"
-                && !TheWaningBorder.World.Regions.TerritoryOwnership.OnFreeSupplyNode(
-                        _em, pos.x, pos.z))
+            if (!TheWaningBorder.World.Regions.TerritoryOwnership.OnFreeNodeFor(
+                    _em, id, pos.x, pos.z))
             {
-                PlayerNotificationSystem.NotifyError(
-                    Loc.T("Gatherer's Huts must be built on a free supply node"));
+                PlayerNotificationSystem.NotifyError(Loc.T(ExtractorRefusal(id)));
                 return;
             }
 
@@ -629,10 +654,14 @@ namespace TheWaningBorder.UI.Ingame
                 return;
             }
 
-            // Mine patch rule — runtime guard behind the preview check.
+            // Sawyer forest rule — runtime guard behind the preview check.
+            // (The Mine's old "next to iron OR veilstone" rule left with the
+            // patch check: a mine stands on a node of its own kind now, and
+            // that is gated with the other extractors above.)
             if (!MeetsPatchRequirement(_em, pos, id))
             {
-                PlayerNotificationSystem.NotifyError(Loc.T("Mines must be built next to iron or veilstone"));
+                PlayerNotificationSystem.NotifyError(
+                    Loc.T("Sawyers must be built against a forest"));
                 return;
             }
 
@@ -753,28 +782,31 @@ namespace TheWaningBorder.UI.Ingame
                 >= TheWaningBorder.Core.Config.FeraldisConstants.TotemPlacementBloodThreshold;
         }
 
-        private static readonly ComponentType[] MineIronTypes =
-        {
-            ComponentType.ReadOnly<IronMineTag>(),
-            ComponentType.ReadOnly<Unity.Transforms.LocalTransform>(),
-        };
-        private static readonly ComponentType[] MineVeilTypes =
-        {
-            ComponentType.ReadOnly<VeilstoneOutcroppingTag>(),
-            ComponentType.ReadOnly<Unity.Transforms.LocalTransform>(),
-        };
-        private static TheWaningBorder.Core.CachedEntityQuery _mineIronQuery;
-        private static TheWaningBorder.Core.CachedEntityQuery _mineVeilQuery;
-
         /// <summary>How far from a forest's EDGE a Sawyer may stand.</summary>
         private const float SawyerForestReach = 14f;
 
         /// <summary>
-        /// A Mine may only be placed ON a patch — at least one iron or
-        /// veilstone node within its working radius. Without the gate the
-        /// building would be placeable anywhere and simply earn nothing,
-        /// which reads as broken rather than as a rule.
+        /// Placement rules that are about NEARBY TERRAIN rather than about a
+        /// node — today just the Sawyer, which has to stand against a forest.
+        /// The extractors left here when their rule became "stand on a free
+        /// node of your own kind", which TerritoryOwnership owns.
         /// </summary>
+        /// <summary>
+        /// Why an extractor was refused, named by the node it wanted. One
+        /// message per building rather than one shared "must be on a node":
+        /// the iron Mine and the Veilstone Mine are different buildings
+        /// wanting different ground, and a player told only "on a node" cannot
+        /// tell which one they picked wrong.
+        /// </summary>
+        private static string ExtractorRefusal(string buildingId) => buildingId switch
+        {
+            "GatherersHut"     => "Gatherer's Huts must be built on a free supply node",
+            "Mine"             => "Mines must be built on a free iron deposit",
+            "VeilstoneMine"    => "Veilstone Mines must be built on a free veilstone outcropping",
+            "Alanthor_Smelter" => "Smelters must be built on a free veilsteel deposit",
+            _                  => "This building must stand on a free resource node",
+        };
+
         private static bool MeetsPatchRequirement(EntityManager em, float3 pos, string buildingId)
         {
             // A Sawyer may only be raised beside a FOREST, for the same reason
@@ -801,24 +833,14 @@ namespace TheWaningBorder.UI.Ingame
                 return false;
             }
 
-            if (buildingId != "Mine") return true;
-            float r2 = TheWaningBorder.Systems.Economy.MineConstants.PatchRadius
-                     * TheWaningBorder.Systems.Economy.MineConstants.PatchRadius;
-            return AnyNodeWithin(em, _mineIronQuery.Get(em, MineIronTypes), pos, r2)
-                || AnyNodeWithin(em, _mineVeilQuery.Get(em, MineVeilTypes), pos, r2);
-        }
-
-        private static bool AnyNodeWithin(EntityManager em, EntityQuery q, float3 pos, float r2)
-        {
-            using var xfs = q.ToComponentDataArray<Unity.Transforms.LocalTransform>(
-                Unity.Collections.Allocator.Temp);
-            for (int i = 0; i < xfs.Length; i++)
-            {
-                float dx = xfs[i].Position.x - pos.x;
-                float dz = xfs[i].Position.z - pos.z;
-                if (dx * dx + dz * dz <= r2) return true;
-            }
-            return false;
+            // The Mine's own patch check USED to live here, over an 18 m
+            // radius that accepted an iron node OR a veilstone one. Both halves
+            // were wrong: the iron Mine and the Veilstone Mine are separate
+            // buildings wanting separate nodes, and the router only ever
+            // accepted a node within SupplyNodeSnapRange. Extractors are gated
+            // by TerritoryOwnership.OnFreeNodeFor at the call site now, which
+            // is the same rule the router applies.
+            return true;
         }
 
         private Faction GetSelectedFactionOrDefault()
@@ -846,6 +868,7 @@ namespace TheWaningBorder.UI.Ingame
             BuildType.Wall => "Alanthor_Wall",
             BuildType.WallExtend => "Alanthor_Wall", // per-hub Build Wall — same preview as a base hub
             BuildType.Hall => "Hall",
+            BuildType.VeilstoneMine => "VeilstoneMine",
             BuildType.Smelter => "Alanthor_Smelter",
             // Runai culture buildings
             BuildType.RunaiOutpost => "Runai_Outpost",

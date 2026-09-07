@@ -1,4 +1,4 @@
-// ActionsPanelPrefabBinder.cs
+﻿// ActionsPanelPrefabBinder.cs
 // Binder for the ARTIST-AUTHORED ActionsPanel prefab (GameData/Scenes/Menus/
 // GameUI/SelectionUI/ActionsPanel.prefab): a fixed 3x5 grid of Synty action
 // buttons under the "Actions" node, bound in sibling order (row-major,
@@ -102,7 +102,6 @@ namespace TheWaningBorder.UI.Ingame
 
         private Slot[] _slots;
         private CanvasGroup _group;
-        private ProductionQueueStrip _queue;
 
         private Dictionary<string, Sprite> _symbols;
         private static readonly Dictionary<Texture2D, Sprite> _spriteCache = new();
@@ -143,7 +142,6 @@ namespace TheWaningBorder.UI.Ingame
             // Icons resolve through a callback rather than a captured
             // dictionary: Init() runs AFTER AddComponent has already fired
             // Awake, so _symbols is still null at this point.
-            _queue = new ProductionQueueStrip(transform, ResolveSpriteById);
             SetShown(false);
         }
 
@@ -281,7 +279,6 @@ namespace TheWaningBorder.UI.Ingame
                     || info.Actions == null || info.Actions.Count == 0)
                 { SetShown(false); return; }
                 used = RenderBuilder(em, info.Actions);
-                _queue.Hide();   // builders have no production queue
             }
             else
             {
@@ -302,7 +299,6 @@ namespace TheWaningBorder.UI.Ingame
             _group.blocksRaycasts = shown;
             // No tooltip teardown needed: UITooltip polls the pointer, and a
             // panel with blocksRaycasts off simply stops being hit.
-            if (!shown) _queue?.Hide();
         }
 
         // ── Builder mode ───────────────────────────────────────────────────

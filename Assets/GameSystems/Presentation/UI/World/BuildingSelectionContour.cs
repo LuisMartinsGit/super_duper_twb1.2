@@ -38,8 +38,13 @@ namespace TheWaningBorder.UI.World
 
         const float Alpha = 0.85f;
 
-        /// <summary>Fallback when a building carries no BuildingSize.</summary>
-        const float DefaultSize = 4f;
+        /// <summary>
+        /// Fallback when a building carries neither BuildingSize nor a usable
+        /// Radius. Matches BuildingSizeConfig's own unknown-id default (8 m,
+        /// i.e. 4x4 cells) so an unrecognised building is outlined at the size
+        /// the rest of the game already gives it.
+        /// </summary>
+        const float DefaultSize = 8f;
 
         EntityManager _em;
         readonly Dictionary<Entity, DecalProjector> _contours = new();
@@ -100,16 +105,29 @@ namespace TheWaningBorder.UI.World
         }
 
         /// <summary>
-        /// Footprint in metres. BuildingSize is in grid CELLS, so it goes
-        /// through BuildGrid.CellSize rather than being assumed to be metres.
+        /// Footprint in metres.
+        ///
+        /// BuildingSize IS ALREADY METRES — it is filled straight from
+        /// BuildingSizeConfig.GetSize, and the placement validator, the nav
+        /// stamps, the terrain flatten and the visual footprint fit all read it
+        /// that way. This used to multiply it by BuildGrid.CellSize on the
+        /// belief that it held CELLS, which drew every contour at DOUBLE the
+        /// building: a 4 m Hut got an 8.6 m box, so neighbouring buildings'
+        /// outlines overlapped each other and none of them matched the thing
+        /// they were under.
+        ///
+        /// The belief came from the component's own doc comment, which still
+        /// said "grid cells" from before the 2 m build grid existed. That
+        /// comment is corrected too — a wrong unit in a doc comment is how this
+        /// gets rewritten a third time.
         /// </summary>
         void Footprint(Entity e, out float width, out float depth)
         {
             if (_em.HasComponent<BuildingSize>(e))
             {
                 var s = _em.GetComponentData<BuildingSize>(e);
-                width = s.Width * BuildGrid.CellSize + Margin;
-                depth = s.Height * BuildGrid.CellSize + Margin;
+                width = s.Width + Margin;
+                depth = s.Height + Margin;
                 return;
             }
 

@@ -1,4 +1,4 @@
-// EntityExtractors.Research.cs
+﻿// EntityExtractors.Research.cs
 // Research actions and state: per-building tech buttons (prerequisite and
 // affordability checks), research progress/queue info, and the chapel
 // research stub.
@@ -251,7 +251,7 @@ namespace TheWaningBorder.UI.Data
         // Cached queries — CreateEntityQuery per frame leaks into the world's query registry.
         private static readonly Unity.Entities.ComponentType[] ResearchQueueQueryTypes =
         {
-            Unity.Entities.ComponentType.ReadOnly<ResearchState>(),
+            Unity.Entities.ComponentType.ReadOnly<ProductionState>(),
             Unity.Entities.ComponentType.ReadOnly<FactionTag>(),
         };
         private static TheWaningBorder.Core.CachedEntityQuery _researchQueueQuery;
@@ -266,10 +266,13 @@ namespace TheWaningBorder.UI.Data
             for (int i = 0; i < ents.Length; i++)
             {
                 if (facs[i].Value != faction) continue;
-                if (!em.HasBuffer<ResearchQueueItem>(ents[i])) continue;
-                var buf = em.GetBuffer<ResearchQueueItem>(ents[i]);
+                if (!em.HasBuffer<ProductionQueueItem>(ents[i])) continue;
+                var buf = em.GetBuffer<ProductionQueueItem>(ents[i]);
                 for (int b = 0; b < buf.Length; b++)
-                    if (buf[b].TechId.ToString() == techId) return true;
+                {
+                    if (buf[b].Kind != ProductionKind.Research) continue;
+                    if (buf[b].Id.ToString() == techId) return true;
+                }
             }
             return false;
         }
@@ -294,55 +297,73 @@ namespace TheWaningBorder.UI.Data
         }
 
         /// <summary>
-        /// Extract current research state from a building for the progress bar.
+        /// Describe a building's production queue — research AND level-ups —
+        /// for the HUD.
+        ///
+        /// Progress comes from ProductionState.Total, captured when the item
+        /// started. It used to be recomputed here from the catalog every
+        /// frame, which reported the wrong fraction for anything whose
+        /// duration a sect multiplier had changed after it began, and could
+        /// not describe a level-up at all.
         /// </summary>
-        private static ResearchInfo GetResearchInfo(Entity entity, EntityManager em)
+        private static ProductionInfo GetProductionInfo(Entity entity, EntityManager em)
         {
-            var rInfo = new ResearchInfo();
+            var info = new ProductionInfo { Entries = System.Array.Empty<ProductionQueueEntry>() };
 
-            if (!em.HasComponent<ResearchState>(entity)) return rInfo;
+            if (!em.HasComponent<ProductionState>(entity)) return info;
+            if (!em.HasBuffer<ProductionQueueItem>(entity)) return info;
 
-            var rs = em.GetComponentData<ResearchState>(entity);
-            var queue = em.GetBuffer<ResearchQueueItem>(entity);
+            var ps = em.GetComponentData<ProductionState>(entity);
+            var queue = em.GetBuffer<ProductionQueueItem>(entity);
+            if (queue.Length == 0) return info;
 
-            if (rs.Busy != 0 && queue.Length > 0)
+            var entries = new ProductionQueueEntry[queue.Length];
+            for (int i = 0; i < queue.Length; i++)
             {
-                string techId = queue[0].TechId.ToString();
-                rInfo.IsResearching = true;
-                rInfo.CurrentTechId = techId;
-
-                // Get total research time from TechTreeDB to compute progress
-                float totalTime = 30f;
-                if (TechCatalog.TryGetTechnology(techId, out var techDef))
+                var item = queue[i];
+                entries[i] = new ProductionQueueEntry
                 {
-                    totalTime = techDef.researchTime > 0 ? techDef.researchTime : 30f;
-                    rInfo.CurrentTechName = techDef.name;
-                }
-                else
-                {
-                    rInfo.CurrentTechName = techId;
-                }
-
-                rInfo.Total = totalTime;
-                rInfo.TimeRemaining = rs.Remaining > 0 ? rs.Remaining : 0f;
-                rInfo.Progress = totalTime > 0 ? 1f - (rInfo.TimeRemaining / totalTime) : 1f;
+                    Kind = item.Kind,
+                    // The tech id or the unit id — what the actions grid
+                    // matches its button sweep against. Empty for a level-up.
+                    Id   = item.Kind == ProductionKind.BuildingUpgrade ? string.Empty : item.Id.ToString(),
+                    Name = DescribeProductionItem(item),
+                };
             }
+            info.Entries = entries;
 
-            // Build queue display
-            if (queue.Length > 0)
+            if (ps.Busy != 0)
             {
-                int startIndex = rs.Busy != 0 ? 1 : 0;
-                var queueList = new List<string>();
-                for (int i = startIndex; i < queue.Length; i++)
-                    queueList.Add(queue[i].TechId.ToString());
-                rInfo.Queue = queueList.ToArray();
-            }
-            else
-            {
-                rInfo.Queue = System.Array.Empty<string>();
+                info.IsBusy = true;
+                info.CurrentKind = entries[0].Kind;
+                info.CurrentId = entries[0].Id;
+                info.CurrentName = entries[0].Name;
+                info.Total = ps.Total;
+                info.TimeRemaining = ps.Remaining > 0f ? ps.Remaining : 0f;
+                info.Progress = ps.Total > 0f ? 1f - (info.TimeRemaining / ps.Total) : 1f;
             }
 
-            return rInfo;
+            return info;
+        }
+
+        /// <summary>The label a queued item shows on its slot. Public: the
+        /// roster panel renders the same queue and must name its entries the
+        /// same way this describer does.</summary>
+        public static string DescribeProductionItem(in ProductionQueueItem item)
+        {
+            if (item.Kind == ProductionKind.BuildingUpgrade)
+                return string.Format(Loc.T("Upgrade to Level {0}"), item.Level);
+
+            if (item.Kind == ProductionKind.Train)
+            {
+                string unitId = item.Id.ToString();
+                string unitName = EntityInfoExtractor.GetUnitDisplayName(unitId);
+                return string.IsNullOrEmpty(unitName) ? unitId : unitName;
+            }
+
+            string techId = item.Id.ToString();
+            return TechCatalog.TryGetTechnology(techId, out var def) && def != null
+                ? Loc.T(def.name) : techId;
         }
 
         /// <summary>

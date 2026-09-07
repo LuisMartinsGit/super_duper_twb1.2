@@ -1,4 +1,4 @@
-// LockstepTypes.cs
+﻿// LockstepTypes.cs
 // All lockstep-related types for multiplayer synchronization
 
 using System;
@@ -39,7 +39,7 @@ namespace TheWaningBorder.Core.Multiplayer
         ConvertNode = 17,        // CommandRouter.IssueConvertNode (acolyte + node)
         EquipmentUpgrade = 18,   // CommandRouter.IssueEquipmentUpgrade (faction + class + tier)
         GodPower = 19,           // CommandRouter.IssueGodPower (faction + targetPosition)
-        CancelTrain = 20,        // CommandRouter.IssueCancelTrain (building + slotIndex in TargetEntityId)
+        CancelTrain = 20,        // Pre-merge name for CancelProduction — training joined the production queue 2026-09-07; both execute CancelProductionCommandHelper
         ConvertHut = 21,         // CommandRouter.IssueConvertHut (hut + HutConversionTarget byte in TargetEntityId)
         ConvertSegmentToGate = 22, // CommandRouter.IssueConvertSegmentToGate (segment + focus-instance network id in TargetEntityId)
         // 23 was GatherVeil, retired with worker gathering
@@ -76,7 +76,8 @@ namespace TheWaningBorder.Core.Multiplayer
         Corrupt = 38,            // CommandRouter.IssueCorrupt (corruptor + node in TargetEntityId — the Feraldis verb; mirrors Purify)
         SectShardrootAlloc = 39,      // CommandRouter.IssueSectShardrootAlloc (faction in EntityNetworkId, sect id in BuildingId, allocate flag in TargetEntityId — halves that sect's power cooldown, so peers must agree)
         BazaarPack = 40,         // CommandRouter.IssueBazaarPack (bazaar + pack flag in TargetEntityId; BazaarPackSystem destroys the building and spawns the wagon, so it must run on every peer)
-        VaultTransfer = 41,      // CommandRouter.IssueVaultTransfer (vault; resource type + deposit flag packed in TargetEntityId, amount in SecondaryTargetId — bank + VaultStorage move on every peer)
+        VaultTransfer = 41,
+        CancelProduction = 42,   // CommandRouter.IssueCancelProduction (building + slotIndex in TargetEntityId) — the research/level-up twin of CancelTrain      // CommandRouter.IssueVaultTransfer (vault; resource type + deposit flag packed in TargetEntityId, amount in SecondaryTargetId — bank + VaultStorage move on every peer)
     }
 
     /// <summary>

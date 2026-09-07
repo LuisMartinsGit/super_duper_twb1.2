@@ -1,4 +1,4 @@
-// LockstepStateHash.cs
+﻿// LockstepStateHash.cs
 // The simulation checksum, broken out by SUBSYSTEM and by FACTION.
 //
 // WHY A BREAKDOWN AND NOT ONE NUMBER
@@ -439,16 +439,8 @@ namespace TheWaningBorder.Multiplayer
                 Mix(ref hWork, snap.WorkA); Mix(ref hWork, snap.WorkB);
                 Mix(ref hWork, (uint)uc.LastProgressHp);
             }
-            else if (em.HasComponent<TrainingState>(e))
-            {
-                var ts = em.GetComponentData<TrainingState>(e);
-                snap.WorkKind = 2;
-                snap.WorkA = math.asuint(ts.Remaining);
-                snap.WorkB = math.asuint(ts.Total);
-                Mix(ref hWork, (uint)networkId);
-                Mix(ref hWork, ts.Busy);
-                Mix(ref hWork, snap.WorkA); Mix(ref hWork, snap.WorkB);
-            }
+            // (WorkKind 2 was TrainingState. Training is a production item
+            // now and is hashed by CaptureTech with the rest of the queue.)
             else if (em.HasComponent<MinerState>(e))
             {
                 var ms = em.GetComponentData<MinerState>(e);
@@ -477,40 +469,44 @@ namespace TheWaningBorder.Multiplayer
         }
 
         /// <summary>
-        /// Research and the two QUEUES.
+        /// Research and THE queue.
         ///
-        /// TrainingState and ResearchState say what is in progress; neither
-        /// says what is queued BEHIND it. A queue that diverges is invisible
-        /// until the queue drains, at which point the two peers train or
-        /// research different things and the fork looks like it started
-        /// minutes after it did.
+        /// ProductionState says what is in progress; it does not say what is
+        /// queued BEHIND it. A queue that diverges is invisible until the
+        /// queue drains, at which point the two peers train or research
+        /// different things and the fork looks like it started minutes after
+        /// it did.
         /// </summary>
         private static void CaptureTech(EntityManager em, Entity e, int networkId, ref uint hTech)
         {
-            if (em.HasComponent<ResearchState>(e))
+            if (em.HasComponent<ProductionState>(e))
             {
-                var rs = em.GetComponentData<ResearchState>(e);
+                var rs = em.GetComponentData<ProductionState>(e);
                 Mix(ref hTech, (uint)networkId);
                 Mix(ref hTech, rs.Busy);
                 Mix(ref hTech, math.asuint(rs.Remaining));
+                // Total is derived at start from replicated state (catalog +
+                // sect multipliers), so a fork in it is a real fork.
+                Mix(ref hTech, math.asuint(rs.Total));
             }
 
-            if (em.HasBuffer<ResearchQueueItem>(e))
+            if (em.HasBuffer<ProductionQueueItem>(e))
             {
-                var q = em.GetBuffer<ResearchQueueItem>(e);
+                var q = em.GetBuffer<ProductionQueueItem>(e);
                 Mix(ref hTech, (uint)networkId);
                 Mix(ref hTech, (uint)q.Length);
                 for (int i = 0; i < q.Length; i++)
-                    Mix(ref hTech, (uint)q[i].TechId.GetHashCode());
-            }
-
-            if (em.HasBuffer<TrainQueueItem>(e))
-            {
-                var q = em.GetBuffer<TrainQueueItem>(e);
-                Mix(ref hTech, (uint)networkId);
-                Mix(ref hTech, (uint)q.Length);
-                for (int i = 0; i < q.Length; i++)
-                    Mix(ref hTech, (uint)q[i].UnitId.GetHashCode());
+                {
+                    // Kind and Level as well as the id: two peers holding the
+                    // same-length queue of level-ups (whose Id is empty) would
+                    // otherwise hash identically at different target levels.
+                    Mix(ref hTech, (uint)q[i].Id.GetHashCode());
+                    Mix(ref hTech, (uint)q[i].Kind);
+                    Mix(ref hTech, q[i].Level);
+                    // The recorded Call to Arms multiplier is what the refund
+                    // reads, so a fork in it is a fork in the banks later.
+                    Mix(ref hTech, math.asuint(q[i].PaidCostMultiplier));
+                }
             }
         }
 

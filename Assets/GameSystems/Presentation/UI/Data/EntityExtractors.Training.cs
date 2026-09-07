@@ -1,4 +1,4 @@
-// EntityExtractors.Training.cs
+﻿// EntityExtractors.Training.cs
 // Unit-training actions and state: per-building training buttons (culture and
 // building-level gated), training progress/queue info, unit cost lookup, and
 // the chapel/temple training specializations.
@@ -160,50 +160,6 @@ namespace TheWaningBorder.UI.Data
         /// <summary>
         /// Extract current training state from a building for the progress bar.
         /// </summary>
-        private static TrainingInfo GetTrainingInfo(Entity entity, EntityManager em)
-        {
-            var tInfo = new TrainingInfo();
-
-            if (!em.HasComponent<TrainingState>(entity)) return tInfo;
-
-            var ts = em.GetComponentData<TrainingState>(entity);
-            var queue = em.GetBuffer<TrainQueueItem>(entity);
-
-            // Total items in buffer (including currently training)
-            tInfo.QueueCapacity = queue.Length;
-
-            if (ts.Busy != 0 && queue.Length > 0)
-            {
-                string unitId = queue[0].UnitId.ToString();
-                tInfo.IsTraining = true;
-                tInfo.CurrentUnitId = unitId;
-
-                // Get total training time from TechTreeDB to compute progress
-                float totalTime = 1f;
-                if (TechCatalog.TryGetUnit(unitId, out var udef))
-                    totalTime = udef.trainingTime > 0 ? udef.trainingTime : 1f;
-
-                tInfo.Total = totalTime;
-                tInfo.TimeRemaining = ts.Remaining > 0 ? ts.Remaining : 0f;
-                tInfo.Progress = totalTime > 0 ? 1f - (tInfo.TimeRemaining / totalTime) : 1f;
-            }
-
-            // Build queue display (excludes currently training item)
-            if (queue.Length > 0)
-            {
-                int startIndex = ts.Busy != 0 ? 1 : 0; // skip current if training
-                var queueList = new List<string>();
-                for (int i = startIndex; i < queue.Length; i++)
-                    queueList.Add(queue[i].UnitId.ToString());
-                tInfo.Queue = queueList.ToArray();
-            }
-            else
-            {
-                tInfo.Queue = System.Array.Empty<string>();
-            }
-
-            return tInfo;
-        }
 
         /// <summary>
         /// Look up a unit's training cost from TechTreeDB for refund purposes.

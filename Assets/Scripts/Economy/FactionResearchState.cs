@@ -1,4 +1,4 @@
-// FactionResearchState.cs
+﻿// FactionResearchState.cs
 // Managed singleton tracking completed research per faction
 // Part of: Economy/
 
@@ -12,7 +12,7 @@ namespace TheWaningBorder.Economy
     /// MonoBehaviour singleton - lives on the RuntimeManagers GameObject.
     ///
     /// Used by:
-    /// - ResearchSystem: to mark techs as complete
+    /// - ProductionQueueSystem: to mark techs as complete
     /// - UI: to grey out already-researched techs and check prerequisites
     /// - Future systems: to apply research effects (stat bonuses, unlocks)
     /// </summary>
