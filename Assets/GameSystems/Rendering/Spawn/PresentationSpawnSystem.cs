@@ -1,4 +1,4 @@
-// PresentationSpawnSystem.cs
+﻿// PresentationSpawnSystem.cs
 // Spawns and syncs visual GameObjects for ECS entities
 // Per-entity builders live as partials in their entity folders (Smelter,
 // Vault of Almierra, Border LargeNode, Alanthor Wall set, and the three
@@ -156,6 +156,10 @@ public partial class PresentationSpawnSystem : MonoBehaviour
     // Longbowman (see Entities/Units/Longbowman.cs). Its corpses linger and
     // dissolve via CorpseDissolver instead of vanishing on death.
     private const int LongbowmanPresentationId = 205;
+
+    /// <summary>Ledger (pentapod automaton). Its death is a DISASSEMBLY rather
+    /// than a death clip — see LedgerDisassembly.</summary>
+    private const int LedgerPresentationId = 250;
 
     // Phase-lock "draw lead": seconds before the reload completes that the
     // draw→shoot is cued, so the bow's release lands on the arrow spawn. ≈ draw
@@ -408,8 +412,17 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                 if (go != null)
                 {
                     var outcroppingAnim = go.GetComponent<TheWaningBorder.Rendering.VeilstoneOutcroppingCrystalAnimator>();
+                    var disassembly = go.GetComponent<TheWaningBorder.Rendering.LedgerDisassembly>();
                     var corpse = go.GetComponent<CorpseDissolver>();
-                    if (outcroppingAnim != null)
+                    if (disassembly != null)
+                    {
+                        // Ledger: scatter the parts, let them fall, and only
+                        // then hand the wreckage to CorpseDissolver. Checked
+                        // before the plain corpse branch because the Ledger
+                        // ends up carrying both.
+                        disassembly.BeginDeath();
+                    }
+                    else if (outcroppingAnim != null)
                     {
                         // Hand off to the Shatter Stone animator: it spawns
                         // the asset's debris pieces (which outlive this GO,
@@ -667,6 +680,14 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                 case 357: authored = TheWaningBorder.Rendering.SiegeYardVisual.Build(entity.Index + 357); authoredIsBuilding = true; break;
                 case 354: authored = TheWaningBorder.Rendering.WatchTowerVisual.Build(entity.Index + 354); authoredIsBuilding = true; break;
                 case 358: authored = TheWaningBorder.Rendering.FieldHospitalVisual.Build(entity.Index + 358); authoredIsBuilding = true; spawnsFinished = true; break;
+                // Raise Anew (Renewal) — the three conjured fortifications, one
+                // per power level. Permanent, and raised pre-built like the tent.
+                case TheWaningBorder.Entities.RenewalTower.PresentationID:
+                    authored = TheWaningBorder.Rendering.RenewalTowerVisual.Build(entity.Index + TheWaningBorder.Entities.RenewalTower.PresentationID); authoredIsBuilding = true; spawnsFinished = true; break;
+                case TheWaningBorder.Entities.RenewalFortification.PresentationID:
+                    authored = TheWaningBorder.Rendering.RenewalFortificationVisual.Build(entity.Index + TheWaningBorder.Entities.RenewalFortification.PresentationID); authoredIsBuilding = true; spawnsFinished = true; break;
+                case TheWaningBorder.Entities.RenewalFortress.PresentationID:
+                    authored = TheWaningBorder.Rendering.RenewalFortressVisual.Build(entity.Index + TheWaningBorder.Entities.RenewalFortress.PresentationID); authoredIsBuilding = true; spawnsFinished = true; break;
                 // Age 0 choice buildings (culture-neutral):
                 // 530: the Vault generator predates this switch and already fits
                 //      its own collider + EntityReference at its tail; both are
@@ -1017,6 +1038,15 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         // (units have MoveSpeed, buildings don't)
         if (_em.HasComponent<MoveSpeed>(entity))
         {
+            // Ledger: a clockwork automaton comes APART when it dies. Attached
+            // outside the Animator branch below on purpose — LedgerWalker
+            // disables the Animator (its gait is procedural), so anything gated
+            // on one would never be added to a Ledger at all.
+            if (presentationId == LedgerPresentationId)
+            {
+                goInst.AddComponent<TheWaningBorder.Rendering.LedgerDisassembly>();
+            }
+
             var animator = goInst.GetComponentInChildren<Animator>();
             if (animator != null)
             {

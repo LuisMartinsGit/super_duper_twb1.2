@@ -1,4 +1,4 @@
-// SettingsPanel.cs
+﻿// SettingsPanel.cs
 // uGUI controller for the Settings screen (scene GameObjects under UI_Canvas,
 // built by MenuSceneBuilder from the Skirmish scene's own parts and then
 // hand-editable). Layout: profile + display options on the left, audio +
@@ -43,6 +43,8 @@ namespace TheWaningBorder.UI.Menus.Panels
         TMP_InputField _playerName;
         TMP_Dropdown _quality;
         TMP_Dropdown _resolution;
+        TMP_Dropdown _healthBars;
+        TMP_Dropdown _dragPriority;
         Button _fullscreenToggle;
         TMP_Text _fullscreenState;
         Slider _master, _music;
@@ -82,12 +84,39 @@ namespace TheWaningBorder.UI.Menus.Panels
             if (w > 0 && h > 0) Screen.SetResolution(w, h, fullscreen);
             else Screen.fullScreen = fullscreen;
 
+            // Gameplay preferences are read straight out of GameSettings by
+            // the HUD and the input layer, so they have to be pushed there at
+            // BOOT — not when the Settings screen happens to be visited.
+            GameSettings.HealthBars = ClampHealthBars(PlayerProfile.HealthBars);
+            GameSettings.DragPriority = ClampDragPriority(PlayerProfile.DragPriority);
+
             AudioListener.volume = Mathf.Clamp01(PlayerProfile.MasterVolume / 100f);
 
             // MusicManager reads the profile in Awake; this covers the case
             // where it already exists and no-ops before that.
             MusicManager.SetVolume(Mathf.Clamp01(PlayerProfile.MusicVolume / 100f));
         }
+
+        /// <summary>Stored as an int, so a hand-edited or older settings.json
+        /// cannot put the enum out of range.</summary>
+        static HealthBarMode ClampHealthBars(int v)
+            => (HealthBarMode)Mathf.Clamp(v, (int)HealthBarMode.Always, (int)HealthBarMode.None);
+
+        static DragSelectionPriority ClampDragPriority(int v)
+            => (DragSelectionPriority)Mathf.Clamp(v, (int)DragSelectionPriority.Economy,
+                                                  (int)DragSelectionPriority.Off);
+
+        /// <summary>Option labels, in enum order. Order IS the contract — the
+        /// dropdown's index is cast straight back to the enum.</summary>
+        static readonly string[] HealthBarLabels =
+        {
+            "Always", "Own", "Friendly", "Smart", "None",
+        };
+
+        static readonly string[] DragPriorityLabels =
+        {
+            "Economy", "Military", "Off",
+        };
 
         #endregion
 
@@ -98,6 +127,8 @@ namespace TheWaningBorder.UI.Menus.Panels
             _playerName       = Find<TMP_InputField>("PlayerNameInput");
             _quality          = Find<TMP_Dropdown>("QualityDropdown");
             _resolution       = Find<TMP_Dropdown>("ResolutionDropdown");
+            _healthBars       = Find<TMP_Dropdown>("HealthBarsDropdown");
+            _dragPriority     = Find<TMP_Dropdown>("DragPriorityDropdown");
             _fullscreenToggle = Find<Button>("FullscreenToggle");
             _fullscreenState  = Find<TMP_Text>("FullscreenState");
             _master           = Find<Slider>("MasterSlider");
@@ -204,6 +235,9 @@ namespace TheWaningBorder.UI.Menus.Panels
 
             BuildResolutionList();
 
+            FillEnumDropdown(_healthBars, HealthBarLabels, PlayerProfile.HealthBars);
+            FillEnumDropdown(_dragPriority, DragPriorityLabels, PlayerProfile.DragPriority);
+
             _fullscreen = PlayerProfile.Fullscreen >= 0
                 ? PlayerProfile.Fullscreen == 1 : Screen.fullScreen;
             SyncPill(_fullscreenToggle, _fullscreenState, _fullscreen);
@@ -287,8 +321,29 @@ namespace TheWaningBorder.UI.Menus.Panels
             return 0;
         }
 
+        static void FillEnumDropdown(TMP_Dropdown dd, string[] labels, int current)
+        {
+            if (dd == null) return;
+            dd.ClearOptions();
+            var localized = new List<string>(labels.Length);
+            foreach (var l in labels) localized.Add(Loc.T(l));
+            dd.AddOptions(localized);
+            dd.SetValueWithoutNotify(Mathf.Clamp(current, 0, labels.Length - 1));
+        }
+
         void Apply()
         {
+            if (_healthBars != null)
+            {
+                PlayerProfile.HealthBars = _healthBars.value;
+                GameSettings.HealthBars = ClampHealthBars(_healthBars.value);
+            }
+            if (_dragPriority != null)
+            {
+                PlayerProfile.DragPriority = _dragPriority.value;
+                GameSettings.DragPriority = ClampDragPriority(_dragPriority.value);
+            }
+
             if (_quality != null)
             {
                 int level = Mathf.Clamp(_quality.value, 0, QualitySettings.names.Length - 1);

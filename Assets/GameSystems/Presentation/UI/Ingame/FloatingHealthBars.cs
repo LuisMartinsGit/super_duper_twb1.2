@@ -1,4 +1,10 @@
-﻿// Renders floating health bars above hovered and selected entities.
+﻿// Renders floating health bars.
+//
+// A bar appears for three reasons: the entity is SELECTED (always), it is
+// HOVERED (every mode but None), or GameSettings.HealthBars asks for it
+// unprompted. That last pass is the setting the player controls — before it,
+// the only way to see any unit's health was to point at it, which is fine for
+// inspecting one unit and useless for reading a fight.
 //
 // Was IMGUI (OnGUI) — Unity draws IMGUI on top of every ScreenSpaceOverlay
 // canvas, which put bars in front of the CEF web HUD. Now drives a pool of
@@ -11,6 +17,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using Unity.Entities;
 using Unity.Transforms;
+using TheWaningBorder.Core;
 using TheWaningBorder.Input;
 using TheWaningBorder.Systems.Visibility;
 using TheWaningBorder.UI.Common;
@@ -53,6 +60,22 @@ namespace TheWaningBorder.UI.Ingame
         private readonly List<BarWidget> _pool = new();
         private int _activeCount;
         private readonly HashSet<Entity> _drawn = new();
+
+        /// <summary>Ceiling on unprompted bars in one frame. A late-game map
+        /// can hold many hundreds of units, and Always would otherwise put a
+        /// UGUI widget over every one of them; selection and hover are drawn
+        /// FIRST, so what a cap can cost is only the least interesting bars.</summary>
+        private const int MaxUnpromptedBars = 220;
+
+        // Never CreateEntityQuery on a repeating path — see
+        // Core/CachedEntityQuery.cs and the rule in CLAUDE.md.
+        private static readonly ComponentType[] QT_Healthy =
+        {
+            ComponentType.ReadOnly<Health>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        private static CachedEntityQuery QC_Healthy;
 
         // Resource-depletion bar smoothing (task-108 Phase 5). Persists the
         // last-rendered fill ratio per resource-node entity so the amber bar
@@ -110,7 +133,13 @@ namespace TheWaningBorder.UI.Ingame
             _activeCount = 0;
             _drawn.Clear();
 
-            var hovered = TheWaningBorder.Input.RTSInputManager.HoveredEntity;
+            var mode = GameSettings.HealthBars;
+
+            // None means "only what I have selected", so pointing at something
+            // deliberately is not enough there.
+            var hovered = mode == HealthBarMode.None
+                ? Entity.Null
+                : TheWaningBorder.Input.RTSInputManager.HoveredEntity;
             if (hovered != Entity.Null && _em.Exists(hovered) && HasDrawableBar(hovered))
             {
                 if (ShouldShowBar(hovered))
@@ -135,6 +164,8 @@ namespace TheWaningBorder.UI.Ingame
                 }
             }
 
+            DrawUnpromptedBars(cam, mode);
+
             // Hide pool items that weren't claimed this frame.
             for (int i = _activeCount; i < _pool.Count; i++)
                 _pool[i].SetActive(false);
@@ -147,6 +178,82 @@ namespace TheWaningBorder.UI.Ingame
                 _pruneFrameCounter = 0;
                 PruneStaleFillEntries();
             }
+        }
+
+        /// <summary>
+        /// The bars nobody asked for: whatever GameSettings.HealthBars wants
+        /// on screen at all times.
+        ///
+        /// Buildings are deliberately NOT included in Always / Own / Friendly —
+        /// a bar over every structure on the map is noise, and a building's
+        /// health is something you go and look at. Smart is the exception: a
+        /// building losing HP is exactly the thing a player must not miss.
+        /// </summary>
+        private void DrawUnpromptedBars(Camera cam, HealthBarMode mode)
+        {
+            if (mode == HealthBarMode.None) return;
+
+            // ViewFaction is nullable: an OBSERVER is watching nobody's
+            // side. Own/Friendly then have no meaning, so they fall back to
+            // the nominal local faction rather than drawing nothing at all;
+            // Always and Smart are unaffected and are the sane observer modes.
+            var local = GameSettings.ViewFaction ?? GameSettings.LocalPlayerFaction;
+            var q = QC_Healthy.Get(_em, QT_Healthy);
+            using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
+
+            int budget = MaxUnpromptedBars;
+            for (int i = 0; i < ents.Length && budget > 0; i++)
+            {
+                var e = ents[i];
+                if (_drawn.Contains(e)) continue;
+
+                var hp = _em.GetComponentData<Health>(e);
+                if (hp.Max <= 0 || hp.Value <= 0) continue;
+
+                bool isBuilding = _em.HasComponent<BuildingTag>(e);
+                bool damaged = hp.Value < hp.Max;
+
+                if (mode != HealthBarMode.Smart && isBuilding) continue;
+                if (!isBuilding && !_em.HasComponent<UnitTag>(e)) continue;
+
+                var faction = _em.GetComponentData<FactionTag>(e).Value;
+                bool mine = faction == local;
+                bool friendly = mine || !Alliances.AreHostile(local, faction);
+
+                bool want = mode switch
+                {
+                    HealthBarMode.Always   => true,
+                    HealthBarMode.Own      => mine,
+                    HealthBarMode.Friendly => friendly,
+                    // "Visible" is already guaranteed by IsVisible below, so
+                    // what Smart adds is the hurt test: a full-strength army
+                    // stays clean and the eye goes to whatever is taking fire.
+                    HealthBarMode.Smart    => damaged,
+                    _ => false,
+                };
+                if (!want) continue;
+                if (!IsVisible(e)) continue;
+
+                DrawBarForEntity(cam, e);
+                _drawn.Add(e);
+                budget--;
+            }
+        }
+
+        /// <summary>
+        /// Can the player actually see this entity right now?
+        ///
+        /// FogVisibilitySyncSystem deactivates the view GameObject of anything
+        /// out of vision, so asking the view is the same question the renderer
+        /// already answered — and it costs nothing to ask. An entity with no
+        /// view yet (spawned this frame) is treated as not visible rather than
+        /// drawing a bar over empty ground.
+        /// </summary>
+        private bool IsVisible(Entity e)
+        {
+            var mgr = TheWaningBorder.Rendering.EntityViewManager.Instance;
+            if (mgr == null) return false;
+            return mgr.TryGetView(e, out var go) && go != null && go.activeInHierarchy;
         }
 
         private void PruneStaleFillEntries()

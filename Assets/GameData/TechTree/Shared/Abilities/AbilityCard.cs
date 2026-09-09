@@ -1,4 +1,4 @@
-// AbilityCard.cs
+﻿// AbilityCard.cs
 // Data-driven ability system — authoring/runtime data model.
 //
 // Mirrors the "ability cards" authored in the tech-tree calculator
@@ -78,6 +78,7 @@ namespace TheWaningBorder.Abilities
         ChargeDamagePct = 13,   // +Value% damage on the NEXT charge hit, for allied cavalry in radius (War Horn)
         DisarmWhileBuffed = 14, // the affected units cannot attack for the duration (Full Gallop's sprint)
         DeployFieldHospital = 15, // spawn a temporary healing building at the caster (Litharch)
+        SummonPledgeArmy = 16,  // spawn a temporary army around the caster, scaled by hero level (Honour thy Pledge)
     }
 
     /// <summary>
@@ -98,6 +99,17 @@ namespace TheWaningBorder.Abilities
         public float Range;          // units (SingleTarget/Area cast range; 0 = centred on self / unlimited)
         public AbilityEffect[] Effects;
         public string[] Aftermath;   // ability names auto-cast when this ends
+
+        /// <summary>
+        /// Hero level at which this ability becomes available. 1 = always, and
+        /// that is every ability shipped before 2026-09-08, so nothing already
+        /// authored changes behaviour.
+        ///
+        /// Below this level the ability is NOT CASTABLE AND NOT SHOWN, rather
+        /// than shown greyed out: a button the player cannot explain is worse
+        /// than no button. See docs/Design/Heroes.md §2.
+        /// </summary>
+        public int UnlocksAtLevel = 1;
 
         public bool IsPassive => Activation == AbilityActivation.Passive;
         public bool IsPermanent => Duration < 0f;

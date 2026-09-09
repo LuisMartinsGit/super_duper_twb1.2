@@ -1,4 +1,4 @@
-// AbilityComponents.cs
+﻿// AbilityComponents.cs
 // ECS components for sect unit abilities
 
 using Unity.Entities;
@@ -54,6 +54,18 @@ public struct AbilityActivated : IComponentData
 {
     /// <summary>Target entity (Entity.Null for self-cast abilities)</summary>
     public Entity Target;
+
+    /// <summary>
+    /// Which UnitAbilities slot to fire, or -1 for "the first ready active".
+    ///
+    /// -1 was the only behaviour until 2026-09-08 and is still correct for
+    /// every non-hero unit, which carries at most one active. HEROES may carry
+    /// several (docs/Design/Heroes.md §2) — King Lexor holds both Liquid
+    /// Courage and Honour thy Pledge — and for them "the first ready one" is
+    /// not a choice the player made, it is a coin toss between two different
+    /// abilities. The panel names the slot it drew.
+    /// </summary>
+    public int Slot;
 }
 
 // ==================== Ability Effect Components ====================

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -20,7 +20,34 @@ namespace TheWaningBorder.World.FogOfWar
         public Vector2 WorldMax = new Vector2(12.5f, 12.5f);
         public float CellSize = 0.1f;
 
-        public Faction HumanFaction = GameSettings.LocalPlayerFaction;
+        /// <summary>
+        /// Whose fog this is. RESOLVED IN Awake, NEVER IN A FIELD INITIALIZER
+        /// (2026-09-08).
+        ///
+        /// This read `= GameSettings.LocalPlayerFaction` here, which is a
+        /// MonoBehaviour INSTANCE field initializer — it runs inside the
+        /// object's constructor, on Unity's deserialization thread, while the
+        /// scene is loading. Touching GameSettings there ran that class's
+        /// static constructor there too, and its own initializer called
+        /// MapRegistry.Default -> SceneManager.sceneCountInBuildSettings,
+        /// which Unity forbids from a constructor:
+        ///
+        ///   UnityException: GetNumScenesInBuildSettings is not allowed to be
+        ///   called from a MonoBehaviour constructor ... Called from
+        ///   MonoBehaviour 'FogOfWarManager' on game object 'FogOfWar'.
+        ///   Rethrow as TypeInitializationException: GameSettings
+        ///
+        /// A TypeInitializationException is CACHED FOR THE LIFE OF THE DOMAIN.
+        /// GameSettings was therefore dead for the whole session after this
+        /// one throw, and every later reader of it threw too — the selection
+        /// system and control groups went down with it. One field initializer
+        /// took the entire game out.
+        ///
+        /// The value was never needed this early: the field is serialized (so
+        /// a scene-authored manager carries its own), Ensure() assigns it, and
+        /// the render path reads GameSettings.ViewFaction live.
+        /// </summary>
+        public Faction HumanFaction;
         public Material FogMaterial;
         public MeshRenderer FogRenderer;
         [Range(0, 1)] public float ExploredAlpha = 0.65f; // explored-but-not-currently-visible
@@ -62,6 +89,10 @@ namespace TheWaningBorder.World.FogOfWar
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
+
+            // Awake is the earliest point GameSettings may legally be touched
+            // from a MonoBehaviour — see the HumanFaction docs above.
+            HumanFaction = GameSettings.LocalPlayerFaction;
 
             _w = Mathf.CeilToInt((WorldMax.x - WorldMin.x) / CellSize);
             _h = Mathf.CeilToInt((WorldMax.y - WorldMin.y) / CellSize);

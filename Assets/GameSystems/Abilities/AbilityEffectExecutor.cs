@@ -1,4 +1,4 @@
-// AbilityEffectExecutor.cs
+﻿// AbilityEffectExecutor.cs
 // Translates an AbilityCard's structured effects into concrete ECS buff
 // components on a target. Shared by the active-cast path and the aftermath
 // chain so a "cast" is one call.
@@ -162,6 +162,13 @@ namespace TheWaningBorder.Abilities
                                 ? em.GetComponentData<FactionTag>(caster).Value : default;
                             TheWaningBorder.Entities.FieldHospital.Create(em, hpPos, hpFac);
                         }
+                        break;
+
+                    case AbilityEffectKind.SummonPledgeArmy:
+                        // Everything about the summon is read off the caster's
+                        // hero level, so the card carries no numbers for it —
+                        // see PledgeArmy and docs/Design/Heroes.md §3.
+                        TheWaningBorder.Entities.PledgeArmy.Summon(em, caster);
                         break;
 
                     // ChargeBonusFlat and LosRampWhileStill are continuous passives

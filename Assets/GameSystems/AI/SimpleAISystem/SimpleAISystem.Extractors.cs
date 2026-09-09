@@ -1,4 +1,4 @@
-// SimpleAISystem.Extractors.cs
+﻿// SimpleAISystem.Extractors.cs
 // Building the extraction buildings on the resource nodes the faction holds.
 // Partial of SimpleAISystem.cs.
 //
@@ -79,6 +79,8 @@ namespace TheWaningBorder.AI
             // to close for claims. Reasons collect per plan entry and log
             // throttled when the whole walk buys nothing.
             string blocked = null;
+            _nodesOffTerritory = 0;
+            _nodesUnreachable = 0;
 
             for (int i = 0; i < ExtractorPlan.Length; i++)
             {
@@ -119,7 +121,13 @@ namespace TheWaningBorder.AI
                 blocked += $" | {buildingId}: {_freeNodes.Count} node(s), last refusal: {reason}";
             }
 
-            if (blocked != null) LogExtractBlocked(faction, now, blocked.Substring(3));
+            if (blocked != null)
+            {
+                // Bad map data reads as an AI that will not build, so name it.
+                if (_nodesUnreachable > 0)
+                    blocked += $" | {_nodesUnreachable} node(s) skipped: nothing can reach them";
+                LogExtractBlocked(faction, now, blocked.Substring(3));
+            }
         }
 
         private readonly Dictionary<int, float> _nextExtractLog = new Dictionary<int, float>();
@@ -136,13 +144,62 @@ namespace TheWaningBorder.AI
         private readonly List<float3> _freeNodes = new List<float3>();
 
         /// <summary>
+        /// How far out to look for ground a builder could stand on. Past the
+        /// node's own impassable cells and the extractor's footprint.
+        /// </summary>
+        private const float NodeApproachRange = 6f;
+
+        /// <summary>
+        /// Can anything actually GET to this site? A node sealed inside a
+        /// cliff pocket or off the walkable island is map data the AI cannot
+        /// fix, and proposing it costs a real builder a real timeout — so it
+        /// is skipped rather than retried every 15 s forever.
+        ///
+        /// The node's own cell is impassable BY DESIGN (docs/Design/Build_Grid.md
+        /// — resource nodes stamp their cell), so the test is on the APPROACH:
+        /// at least one cardinal sample outside the node must be in the region
+        /// every player can reach. Reachability is baked once by
+        /// PassabilityGrid; before it is ready the check passes, so bootstrap
+        /// order never turns into a silent no-build.
+        /// </summary>
+        private static bool HasReachableApproach(float3 site)
+        {
+            var grid = TheWaningBorder.World.Terrain.PassabilityGrid.Instance;
+            if (grid == null || !grid.IsReachabilityReady) return true;
+
+            const float r = NodeApproachRange;
+            return grid.IsReachableByAllPlayers(site + new float3(r, 0f, 0f))
+                || grid.IsReachableByAllPlayers(site + new float3(-r, 0f, 0f))
+                || grid.IsReachableByAllPlayers(site + new float3(0f, 0f, r))
+                || grid.IsReachableByAllPlayers(site + new float3(0f, 0f, -r));
+        }
+
+        /// <summary>Nodes skipped by the last walk because the map put them
+        /// somewhere unusable — surfaced in the EXTRACT log so bad map data is
+        /// visible instead of silent.</summary>
+        private int _nodesOffTerritory, _nodesUnreachable;
+
+        /// <summary>
         /// Every node of the kind <paramref name="buildingId"/> needs, inside
-        /// our own territory, with no extractor of that kind already on it.
+        /// our own territory, with no extractor of that kind already on it —
+        /// returned as the SITE the extractor would occupy, not as the node
+        /// centre.
+        ///
+        /// THE SITE IS THE QUESTION, NOT THE NODE (2026-09-08). Ownership used
+        /// to be read at the node's centre while the build gate read it at the
+        /// snapped building position, and those are different points: an
+        /// extractor's footprint is grid-snapped onto the node, so a node lying
+        /// on a Voronoi border resolves to one region as a point and to the
+        /// NEIGHBOUR as a building. The walk then offered a node it owned, the
+        /// router refused a site it did not, and the pair repeated every 15 s
+        /// for the whole match. Snapping first makes both sides ask about the
+        /// same square metre — which is also why no map needs re-baking to fix
+        /// a border node: ownership is derived from where the building lands.
         ///
         /// Territory-gated on purpose: a node on somebody else's ground pays
         /// THEM, and the build gate would refuse the site anyway.
         /// </summary>
-        private static void CollectFreeNodes(EntityManager em, string buildingId,
+        private void CollectFreeNodes(EntityManager em, string buildingId,
             HashSet<int> owned, List<float3> into)
         {
             var required = TerritoryOwnership.RequiredNodeFor(buildingId);
@@ -153,11 +210,18 @@ namespace TheWaningBorder.AI
 
             for (int i = 0; i < xfs.Length; i++)
             {
-                var p = xfs[i].Position;
-                int region = RegionMap.RegionAt(p.x, p.z);
-                if (region == RegionMap.None || !owned.Contains(region)) continue;
-                if (!TerritoryOwnership.OnFreeNodeFor(em, buildingId, p.x, p.z)) continue;
-                into.Add(p);
+                // Where the building would stand, and — the same call — whether
+                // this node is free at all.
+                if (!TerritoryOwnership.TrySnapToNode(em, buildingId, xfs[i].Position,
+                        out float3 site)) continue;
+
+                int region = RegionMap.RegionAt(site.x, site.z);
+                if (region == RegionMap.None || !owned.Contains(region))
+                { _nodesOffTerritory++; continue; }
+
+                if (!HasReachableApproach(site)) { _nodesUnreachable++; continue; }
+
+                into.Add(site);
             }
         }
     }

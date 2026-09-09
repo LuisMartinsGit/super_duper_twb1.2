@@ -13,11 +13,25 @@
 //      the next sync — the same claim-dies-with-its-structure rule players
 //      live by.
 //
-//   2. SPAWN ARMIES. Every curse-held territory that carries veilstone
-//      fields waves on the BorderSettings schedule (tier ladder + breathers),
-//      marching on the nearest hostile Hall. Idle wave units re-march at the
-//      nearest hostile building, so a wave that razes its target rolls on to
-//      the next rather than standing in the ashes.
+//   2. SPAWN ARMIES. Curse-held veilstone territories field waves, marching
+//      on whoever provoked the curse.
+//
+// BOTH ARE GATED ON PROVOCATION (2026-09-08, design §2.10). Neither used to
+// be: conquest ran on a 150 s timer from match start and the wave tier came
+// straight off the wall clock, so the curse ground forward at the same rate
+// whether or not a single well had ever been touched. §2.8 had already
+// established that wells start DORMANT and wake only when somebody reaches
+// for one, but that rule reached only the veil field — this territorial layer
+// was written later and never honoured it. Three logged four-AI matches
+// ended the same way: the curse fought everyone, and the players never
+// reached each other.
+//
+// Now a dormant map is a still map. Nothing conquers and nothing spawns until
+// a faction reaches in, the wave tier is that faction's CurseWrath level, and
+// the waves march on the angriest faction rather than the nearest one. Stop
+// reaching in and wrath cools, so the armies stand down — while the wells
+// themselves stay awake forever, exactly as §2.8 requires. Terrain is
+// permanent; the war is not.
 //
 // Holdings are pushed into TerritoryOwnership (MarkCurseHeld), which stamps
 // them into the ownership array on its normal Recompute — so the build gate,
@@ -52,7 +66,9 @@ namespace TheWaningBorder.Systems.Border
 
         /// <summary>Seconds between conquest attempts. One territory per
         /// attempt, so the curse's footprint grows at a legible, counterable
-        /// pace — comparable to a player expanding.</summary>
+        /// pace — comparable to a player expanding. The clock only runs once
+        /// somebody has provoked the curse (§2.10); an unprovoked curse never
+        /// takes a single territory.</summary>
         private const float ConquerIntervalSeconds = 150f;
 
         /// <summary>Opening grace before the first conquest — players get to
@@ -95,6 +111,25 @@ namespace TheWaningBorder.Systems.Border
 
         /// <summary>Territory -> sim time its next wave may field.</summary>
         private readonly Dictionary<int, double> _nextWaveAt = new();
+
+        /// <summary>Well entity -> the HP we last saw on it. A drop means it
+        /// took damage, and LastAttackerEntity says from whom — the second
+        /// provocation act (§2.10). Polling beats a damage callback here
+        /// because it needs no hook in the combat path and catches every
+        /// source, splash and DOT included.</summary>
+        private readonly Dictionary<Entity, int> _wellHp = new();
+
+        /// <summary>Territory -> the faction that last hit its anchor. Read
+        /// when the anchor dies, which is the third provocation act: the
+        /// killer is gone from the entity by then, so it has to be remembered
+        /// while the anchor still stands.</summary>
+        private readonly Dictionary<int, Faction> _anchorLastHitBy = new();
+
+        /// <summary>Territories holding at least one AWAKE well, rebuilt once
+        /// per wave tick. A set rather than a per-territory test because the
+        /// test needs the whole well table either way, and asking for it once
+        /// per held territory walked it N times a tick for one answer.</summary>
+        private readonly HashSet<int> _awakeWellTerritories = new();
 
         private readonly HashSet<int> _held = new();
         private readonly List<int> _scratchHeld = new();
@@ -144,10 +179,14 @@ namespace TheWaningBorder.Systems.Border
                 _waves.Clear();
                 _nextWaveId = 0;
                 _held.Clear();
+                _awakeWellTerritories.Clear();
+                _wellHp.Clear();
+                _anchorLastHitBy.Clear();
                 _nextConquerAt = -1.0;
                 _timer = 0f;
                 _matchElapsed = 0.0;
             }
+            CurseWrath.ResetIfNewMatch(SimCadence.Epoch);
 
             // Advance the match clock only while the simulation is ticking —
             // in multiplayer the frames between world-ready and tick 0 (and
@@ -175,16 +214,104 @@ namespace TheWaningBorder.Systems.Border
             if (_nextConquerAt < 0.0)
                 _nextConquerAt = now + FirstConquerDelaySeconds;
 
+            // Order matters: register what happened since the last check
+            // BEFORE anything reads wrath, and cool only after registering, so
+            // a provocation and its cooling can never land on the same tick.
+            PollProvocations(em, now);
+            var borderSettings = BorderSettings.Get();
+            CurseWrath.Cool(now, borderSettings != null ? borderSettings.wrathCoolSeconds : 0f);
+
             SyncHoldings(em);
 
-            if (now >= _nextConquerAt)
+            // An unprovoked curse does not expand. This is the whole of "take
+            // what is free while it sits still": until a faction reaches in,
+            // the curse holds exactly the ground it started on and the
+            // conquest clock does not even arm.
+            if (CurseWrath.AnyProvoked)
             {
-                TryConquer(em);
+                if (now >= _nextConquerAt)
+                {
+                    TryConquer(em);
+                    _nextConquerAt = now + ConquerIntervalSeconds;
+                }
+            }
+            else
+            {
+                // Keep the deadline rolling forward while dormant, or the
+                // first provocation would be met by an instantly-due conquest
+                // banked from the whole quiet opening.
                 _nextConquerAt = now + ConquerIntervalSeconds;
             }
 
             TickWaves(em, now);
             ShepherdWaves(em, now);
+        }
+
+        // ── provocation ─────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Register the two provocation acts that have no natural callback
+        /// (§2.10). The third and main one — starting a verb channel — is
+        /// hooked at its own single entry point, CurseAwakeningHelper.Wake.
+        ///
+        /// Polling rather than a combat hook: it needs no edit to the damage
+        /// path, catches every damage source including splash and DOT, and
+        /// runs over a handful of entities on the existing 5 s tick.
+        /// </summary>
+        private void PollProvocations(EntityManager em, double now)
+        {
+            var settings = BorderSettings.Get();
+            int cap = settings != null ? settings.TierCount : 0;
+
+            // (a) A WELL LOSING HP. Edge-triggered on the drop, because
+            //     LastDamagedByFaction stays set long after the blow and would
+            //     otherwise re-provoke on every tick forever.
+            var wellQ = em.CreateEntityQuery(
+                ComponentType.ReadOnly<BorderMainNodeTag>(),
+                ComponentType.ReadOnly<Health>());
+            using (var ents = wellQ.ToEntityArray(Allocator.Temp))
+            {
+                for (int i = 0; i < ents.Length; i++)
+                {
+                    var e = ents[i];
+                    int hp = em.GetComponentData<Health>(e).Value;
+
+                    // A node in its destroyed/rubble state has its HP driven
+                    // by the state machine (purification restores a 0 to full,
+                    // reversion resets it). Those writes are not damage, and
+                    // reading them as damage would credit whoever last hit the
+                    // well minutes ago.
+                    bool stateDriven = em.HasComponent<NodeDormant>(e);
+
+                    if (!stateDriven && _wellHp.TryGetValue(e, out int prev) && hp < prev
+                        && TryLastDamager(em, e, out var who))
+                        CurseWrath.Provoke(who, now, cap, "struck a well");
+
+                    _wellHp[e] = hp;
+                }
+            }
+            wellQ.Dispose();
+
+            // (b) WHO IS HITTING EACH ANCHOR. Remembered while it still
+            //     stands: by the time SyncHoldings notices the anchor is gone
+            //     the entity is destroyed and the attribution with it.
+            foreach (var kv in _anchors)
+            {
+                if (!em.Exists(kv.Value)) continue;
+                if (TryLastDamager(em, kv.Value, out var who))
+                    _anchorLastHitBy[kv.Key] = who;
+            }
+        }
+
+        /// <summary>The player faction that last damaged this entity, if any.
+        /// Faction.Border is filtered out — the curse cannot provoke
+        /// itself.</summary>
+        private static bool TryLastDamager(EntityManager em, Entity target, out Faction faction)
+        {
+            faction = Faction.Blue;
+            if (!em.HasComponent<LastDamagedByFaction>(target)) return false;
+            faction = em.GetComponentData<LastDamagedByFaction>(target).Value;
+            return (byte)faction < CurseWrath.PlayerFactions;
         }
 
         // ── holdings ────────────────────────────────────────────────────────
@@ -217,10 +344,23 @@ namespace TheWaningBorder.Systems.Border
                 if (!em.Exists(kv.Value)) deadAnchors.Add(kv.Key);
             for (int i = 0; i < deadAnchors.Count; i++)
             {
-                _anchors.Remove(deadAnchors[i]);
-                _nextWaveAt.Remove(deadAnchors[i]);
-                UnityEngine.Debug.Log($"[CurseTerritory] anchor in territory {deadAnchors[i]} " +
-                           $"({RegionMap.NameOf(deadAnchors[i])}) destroyed — ground reverts to Natural.");
+                int t = deadAnchors[i];
+                _anchors.Remove(t);
+                _nextWaveAt.Remove(t);
+
+                // Taking conquered ground back is the third provocation act
+                // (§2.10) — a deliberate reach into the curse, unlike killing
+                // the wave that came to your gate.
+                if (_anchorLastHitBy.TryGetValue(t, out var killer))
+                {
+                    var bs = BorderSettings.Get();
+                    CurseWrath.Provoke(killer, _matchElapsed,
+                        bs != null ? bs.TierCount : 0, "razed a curse anchor");
+                    _anchorLastHitBy.Remove(t);
+                }
+
+                UnityEngine.Debug.Log($"[CurseTerritory] anchor in territory {t} " +
+                           $"({RegionMap.NameOf(t)}) destroyed — ground reverts to Natural.");
             }
             foreach (var kv in _anchors)
                 if (!_scratchHeld.Contains(kv.Key)) _scratchHeld.Add(kv.Key);
@@ -394,24 +534,39 @@ namespace TheWaningBorder.Systems.Border
         // ── waves ───────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Field waves from curse-held veilstone territories on the
-        /// BorderSettings schedule. Each territory runs its own breather
-        /// clock, staggered by territory id so the map does not fire all its
-        /// fronts in one frame.
+        /// Field waves from curse-held veilstone territories whose well is
+        /// AWAKE, at the tier the angriest faction has earned, marching on
+        /// that faction. Each territory runs its own breather clock, staggered
+        /// by territory id so the map does not fire all its fronts in one
+        /// frame.
+        ///
+        /// Two things used to come off the wall clock and no longer do
+        /// (§2.10): the tier, which is now the provoking faction's wrath, and
+        /// the opening grace, which is now measured from the moment a
+        /// territory first becomes ABLE to field rather than from match start.
+        /// Measuring the grace from match start would have burned it during
+        /// the quiet opening, so the first well anyone woke would have been
+        /// answered instantly.
         /// </summary>
         private void TickWaves(EntityManager em, double now)
         {
             var settings = BorderSettings.Get();
             if (settings == null || settings.TierCount == 0) return;
-            if (now < settings.firstWaveDelaySeconds) return;
 
-            settings.TryGetWave(now, out int tierIndex, out float breather);
-            var tier = settings.Tier(math.min(tierIndex, settings.TierCount - 1));
+            // Nobody has reached in: the curse fields nothing at all. This is
+            // the single check that turns the curse from weather into an
+            // answer.
+            if (!CurseWrath.TryHighest(out Faction wrathTarget, out int wrathLevel)) return;
+
+            int tierIndex = math.clamp(wrathLevel - 1, 0, settings.TierCount - 1);
+            float breather = settings.BreatherForTier(tierIndex);
+            var tier = settings.Tier(tierIndex);
             if (tier == null || tier.TotalUnits == 0) return;
 
             int liveWaveUnits = _waveUnitQuery.CalculateEntityCount();
 
             var veilstoneCounts = CountPerRegion<VeilstoneOutcroppingTag>(em);
+            RebuildAwakeWellTerritories(em);
 
             _scratchHeld.Clear();
             foreach (int t in _held) _scratchHeld.Add(t);
@@ -423,18 +578,29 @@ namespace TheWaningBorder.Systems.Border
                 if (t < 0 || t >= veilstoneCounts.Length || veilstoneCounts[t] <= 0)
                     continue;   // waves come from veilstone ground only
 
+                // A dormant well's territory fields nothing (§2.8 applied to
+                // this layer at last). Checked BEFORE the wave clock is
+                // seeded, so a sleeping territory does not quietly burn its
+                // opening grace while the map is still.
+                if (!CanField(em, t)) continue;
+
                 if (!_nextWaveAt.TryGetValue(t, out double at))
                 {
-                    // First wave staggers by territory id so fronts open one
-                    // after another, not all at once.
-                    _nextWaveAt[t] = now + (t % 5) * 20.0;
+                    // First wave waits out the opening grace, then staggers by
+                    // territory id so fronts open one after another.
+                    _nextWaveAt[t] = now + settings.firstWaveDelaySeconds + (t % 5) * 20.0;
                     continue;
                 }
                 if (now < at) continue;
                 if (liveWaveUnits >= MaxLiveWaveUnits) break;
 
                 float3 origin = WaveOrigin(em, t);
-                if (!TryNearestHostileHall(em, origin, out float3 target)) return;
+
+                // The answer goes to whoever earned it, falling back to the
+                // nearest hostile only when the provoker has nothing standing
+                // that this wave can reach.
+                if (!TryNearestOf(em, origin, wrathTarget, out float3 target)
+                    && !TryNearestHostileHall(em, origin, out target)) return;
 
                 int spawned = SpawnWave(em, tier, origin, target,
                                         MaxLiveWaveUnits - liveWaveUnits);
@@ -443,9 +609,79 @@ namespace TheWaningBorder.Systems.Border
 
                 SimSignals.Ping(origin, SimPingKind.Curse, 10f);
                 UnityEngine.Debug.Log($"[CurseTerritory] WAVE — territory {t} ({RegionMap.NameOf(t)}) " +
-                           $"fields {spawned} units (tier {tierIndex}) marching on " +
-                           $"({target.x:F0},{target.z:F0}); next in {breather:F0}s.");
+                           $"fields {spawned} units (tier {tierIndex}, {wrathTarget} wrath " +
+                           $"{wrathLevel}) marching on ({target.x:F0},{target.z:F0}); " +
+                           $"next in {breather:F0}s.");
             }
+        }
+
+        /// <summary>Collect the territories holding an awake well. One pass
+        /// over the wells per wave tick.</summary>
+        private void RebuildAwakeWellTerritories(EntityManager em)
+        {
+            _awakeWellTerritories.Clear();
+
+            var q = em.CreateEntityQuery(
+                ComponentType.ReadOnly<BorderMainNodeTag>(),
+                ComponentType.ReadOnly<LocalTransform>());
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            q.Dispose();
+
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (em.HasComponent<WellDormant>(ents[i])) continue;
+                var p = xfs[i].Position;
+                int t = RegionMap.NearestRegion(p.x, p.z);
+                if (t != RegionMap.None) _awakeWellTerritories.Add(t);
+            }
+        }
+
+        /// <summary>
+        /// May this territory field a wave? An ANCHOR territory always may —
+        /// it only exists because a conquest happened, which already required
+        /// a provocation. A WELL territory may only once its well is awake,
+        /// which is §2.8's Waking finally reaching the territorial layer.
+        /// </summary>
+        private bool CanField(EntityManager em, int territory)
+        {
+            if (_anchors.TryGetValue(territory, out var anchor) && em.Exists(anchor))
+                return true;
+            return _awakeWellTerritories.Contains(territory);
+        }
+
+        /// <summary>Nearest building of one specific faction — its Hall for
+        /// preference, any structure otherwise. Used to point a wave at the
+        /// faction that provoked it rather than the one that happens to be
+        /// closest.</summary>
+        private static bool TryNearestOf(EntityManager em, float3 from, Faction faction,
+                                         out float3 pos)
+            => TryNearestOfTagged<HallTag>(em, from, faction, out pos)
+               || TryNearestOfTagged<BuildingTag>(em, from, faction, out pos);
+
+        private static bool TryNearestOfTagged<T>(EntityManager em, float3 from,
+                                                  Faction faction, out float3 pos)
+            where T : unmanaged, IComponentData
+        {
+            pos = default;
+            var q = em.CreateEntityQuery(
+                ComponentType.ReadOnly<T>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<LocalTransform>());
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            q.Dispose();
+
+            float bestD = float.MaxValue;
+            for (int i = 0; i < xfs.Length; i++)
+            {
+                if (facs[i].Value != faction) continue;
+                var p = xfs[i].Position;
+                float dx = p.x - from.x, dz = p.z - from.z;
+                float d = dx * dx + dz * dz;
+                if (d < bestD) { bestD = d; pos = p; }
+            }
+            return bestD < float.MaxValue;
         }
 
         /// <summary>Waves rise from the territory's anchor, or its well.</summary>

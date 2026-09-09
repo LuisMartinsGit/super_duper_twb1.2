@@ -1,4 +1,4 @@
-// AbilityAuraSystem.cs
+﻿// AbilityAuraSystem.cs
 // Continuous passives for the data-driven ability system:
 //   - Passive AURA abilities (King's Call): refresh a SpellBuff on same-faction
 //     units in radius; grant ChargeDamageBonus to allied cavalry.
@@ -261,7 +261,10 @@ namespace TheWaningBorder.Abilities
                     // In range: hold position and fire (unless already casting / cooling).
                     StopLedger(em, led, pos);
                     if (!casting && cds.C0 <= 0f)
-                        AddOrSet(em, led, new AbilityActivated { Target = best });
+                        // Slot -1 = "first ready active", the behaviour this
+                        // had before slots became selectable. The Ledger has
+                        // exactly one active, so naming it would be noise.
+                        AddOrSet(em, led, new AbilityActivated { Target = best, Slot = -1 });
                 }
                 else if (!casting)
                 {

@@ -1,4 +1,4 @@
-// SandboxPanel.cs
+﻿// SandboxPanel.cs
 // The unit/building sandbox: pick an entity, click the ground to place it,
 // watch it behave, and tune its SO in the Inspector WITHOUT leaving play mode.
 //
@@ -81,7 +81,7 @@ namespace TheWaningBorder.UI.Ingame
         /// </summary>
         public static bool IsPlacing { get; private set; }
 
-        private enum PaletteMode { Units, Buildings, Terrain }
+        private enum PaletteMode { Units, Buildings, Terrain, Abilities }
 
         /// <summary>
         /// The three paintable map layers. Each is a DIFFERENT live grid with
@@ -160,6 +160,18 @@ namespace TheWaningBorder.UI.Ingame
         private string _lastFilter = null;
         private PaletteMode _lastMode = PaletteMode.Buildings;   // force first refilter
         private string _armedId;
+
+        // ── Abilities tab ───────────────────────────────────────────────
+        // Index into AbilityShowcase.Entries, or -1. Armed and clicked exactly
+        // like a unit brush: the sandbox already teaches "pick a thing, click
+        // the ground", so casting should not invent a second idiom.
+        private int _armedAbility = -1;
+        private Vector2 _abilityScroll;
+        private string _abilityFilter = "";
+        private string _lastAbilityFilter = null;
+        private string _castNote = "";
+        private float _castNoteAt = -99f;
+        private readonly List<int> _abilityHits = new List<int>();
         private bool _armedIsBuilding;
         private Faction _brushFaction = Faction.Blue;
         private int _brushCount = 1;
@@ -302,11 +314,42 @@ namespace TheWaningBorder.UI.Ingame
 
         private List<string>[] CurrentGroups => _grouped[(int)_mode];
 
+        /// <summary>
+        /// Rebuild the visible ability rows when the filter changes — from the
+        /// poll, NEVER from OnGUI.
+        ///
+        /// IMGUI lays a panel out on the Layout event and draws it on Repaint,
+        /// and the two must emit the SAME number of controls. Filtering inside
+        /// OnGUI let a keystroke change the row count between those passes,
+        /// which is the other half of the exception this tab threw. The roster
+        /// list has always been built out here for the same reason.
+        /// </summary>
+        private void RefreshAbilityFilter()
+        {
+            if (_abilityFilter == _lastAbilityFilter && _abilityHits.Count > 0) return;
+            _lastAbilityFilter = _abilityFilter;
+
+            _abilityHits.Clear();
+            var entries = TheWaningBorder.Abilities.Vfx.AbilityShowcase.Entries;
+            string f = (_abilityFilter ?? "").Trim();
+            for (int i = 0; i < entries.Count; i++)
+            {
+                if (f.Length > 0 &&
+                    entries[i].Label.IndexOf(f, System.StringComparison.OrdinalIgnoreCase) < 0 &&
+                    entries[i].Group.IndexOf(f, System.StringComparison.OrdinalIgnoreCase) < 0)
+                    continue;
+                _abilityHits.Add(i);
+            }
+        }
+
         private void RefreshFilter()
         {
-            // Terrain has no roster. It is also mode index 2, and _grouped is
-            // sized for the two ENTITY modes only, so falling through here
-            // would index past the end the moment the tab is opened.
+            // Terrain and Abilities have no roster. They are also mode
+            // indices 2 and 3, and _grouped is sized for the two ENTITY modes
+            // only, so falling through here indexes past the end the moment
+            // either tab is opened — which is exactly how the Abilities tab
+            // threw IndexOutOfRange on its first frame.
+            if (_mode == PaletteMode.Abilities) { RefreshAbilityFilter(); return; }
             if (_mode == PaletteMode.Terrain) return;
 
             if (_filter == _lastFilter && _mode == _lastMode) return;
@@ -364,6 +407,12 @@ namespace TheWaningBorder.UI.Ingame
                 return;
             }
 
+            if (_mode == PaletteMode.Abilities)
+            {
+                HandleAbilityCastInput(overPanel);
+                return;
+            }
+
             IsPlacing = _armedId != null || overPanel;
 
             if (_armedId == null) return;
@@ -391,6 +440,43 @@ namespace TheWaningBorder.UI.Ingame
             // shift-to-repeat, which defaults to placing one).
             if (UnityEngine.Input.GetKey(KeyCode.LeftControl) || UnityEngine.Input.GetKey(KeyCode.RightControl))
                 _armedId = null;
+        }
+
+        /// <summary>
+        /// Click the ground to cast the armed ability there. Stays armed so the
+        /// same power can be fired repeatedly at different points — the same
+        /// "keep the brush" default the unit palette uses, with Ctrl to
+        /// disarm after one.
+        /// </summary>
+        private void HandleAbilityCastInput(bool overPanel)
+        {
+            IsPlacing = _armedAbility >= 0 || overPanel;
+            if (_armedAbility < 0) return;
+
+            if (UnityEngine.Input.GetMouseButtonDown(1) || UnityEngine.Input.GetKeyDown(KeyCode.Escape))
+            {
+                _armedAbility = -1;
+                IsPlacing = overPanel;
+                return;
+            }
+
+            if (!UnityEngine.Input.GetMouseButtonDown(0)) return;
+            if (overPanel) return;
+            if (!TryGetGroundPoint(out var point)) return;
+
+            var entries = TheWaningBorder.Abilities.Vfx.AbilityShowcase.Entries;
+            if (_armedAbility < entries.Count)
+            {
+                // Casts AS the brush faction, so a power lands on the units
+                // around the click the way it would in a match: the strike
+                // pipeline is what decides friend from foe.
+                TheWaningBorder.Abilities.Vfx.AbilityShowcase.CastLive(
+                    _em, _brushFaction, entries[_armedAbility], point, out _castNote);
+                _castNoteAt = Time.unscaledTime;
+            }
+
+            if (UnityEngine.Input.GetKey(KeyCode.LeftControl) || UnityEngine.Input.GetKey(KeyCode.RightControl))
+                _armedAbility = -1;
         }
 
         /// <summary>
@@ -1106,7 +1192,17 @@ namespace TheWaningBorder.UI.Ingame
             DrawModeTab(PaletteMode.Units, "Units");
             DrawModeTab(PaletteMode.Buildings, "Buildings");
             DrawModeTab(PaletteMode.Terrain, "Terrain");
+            DrawModeTab(PaletteMode.Abilities, "Abilities");
             GUILayout.EndHorizontal();
+
+            // Abilities share only the tab strip: no roster, no faction brush,
+            // no board controls — the same carve-out Terrain gets.
+            if (_mode == PaletteMode.Abilities)
+            {
+                DrawAbilityPalette();
+                GUILayout.EndArea();
+                return;
+            }
 
             // The terrain brush shares only the tab strip; it has no roster,
             // no faction brush count and no board controls.
@@ -1206,6 +1302,86 @@ namespace TheWaningBorder.UI.Ingame
             GUILayout.EndArea();
         }
 
+        /// <summary>
+        /// Every ability in the game at every level it has, filtered and
+        /// grouped, click to arm. The list comes from AbilityShowcase, which
+        /// derives it from AbilityCatalog and the sect tables — so this panel
+        /// never needs updating when an ability is added.
+        /// </summary>
+        /// <summary>Open the Abilities tab from code. Exists so the panel can
+        /// be exercised without a mouse — an IMGUI tab is otherwise unreachable
+        /// from an automated check.</summary>
+        public void OpenAbilitiesTab()
+        {
+            _mode = PaletteMode.Abilities;
+            _armedId = null;
+        }
+
+        private void DrawAbilityPalette()
+        {
+            var entries = TheWaningBorder.Abilities.Vfx.AbilityShowcase.Entries;
+            bool hasArmed = _armedAbility >= 0 && _armedAbility < entries.Count;
+
+            // Header carries the armed entry's numbers, so the ROWS can stay a
+            // fixed shape — a detail line that appeared only under the selected
+            // row changed the control count between Layout and Repaint.
+            GUILayout.Label(hasArmed
+                ? $"Casting {entries[_armedAbility].Label} — click ground\n" +
+                  $"{entries[_armedAbility].Detail}\n" +
+                  "RMB/Esc cancel • Ctrl+click = cast one"
+                : $"{entries.Count} abilities — every sect power at every level.\n" +
+                  "Pick one, then click the ground.\n ", _small);
+
+            // WHO is casting. Shares _brushFaction with the unit palette on
+            // purpose: "the colour I am placing as" and "the colour I am
+            // casting as" are the same idea, and two separate pickers would be
+            // two things to keep in sync by hand.
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Caster", _row, GUILayout.Width(50));
+            var prevCol = GUI.color;
+            GUI.color = FactionColors.Get(_brushFaction);
+            if (GUILayout.Button(FactionColors.GetColorName(_brushFaction), GUILayout.Height(20)))
+                _brushFaction = (Faction)(((int)_brushFaction + 1) % 8);
+            GUI.color = prevCol;
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Find", _row, GUILayout.Width(50));
+            _abilityFilter = GUILayout.TextField(_abilityFilter ?? "");
+            if (GUILayout.Button("x", GUILayout.Width(22))) _abilityFilter = "";
+            GUILayout.EndHorizontal();
+
+            // Fixed-height result line: a label that appeared only after a cast
+            // would change the control count between Layout and Repaint.
+            GUILayout.Label(Time.unscaledTime - _castNoteAt < 4f ? _castNote : " ", _small);
+
+            _abilityScroll = GUILayout.BeginScrollView(_abilityScroll);
+            string group = null;
+            for (int h = 0; h < _abilityHits.Count; h++)
+            {
+                int i = _abilityHits[h];
+                var e = entries[i];
+
+                // A header whenever the group changes: the list is already in
+                // table order, so this costs nothing and makes 120 rows
+                // navigable.
+                if (e.Group != group)
+                {
+                    group = e.Group;
+                    GUILayout.Label(group, _grp);
+                }
+
+                bool armed = i == _armedAbility;
+                if (GUILayout.Button(armed ? "  ▸ " + e.Label : "     " + e.Label,
+                                     armed ? _rowSel : _row))
+                    _armedAbility = armed ? -1 : i;
+            }
+            GUILayout.EndScrollView();
+
+            if (_abilityHits.Count == 0)
+                GUILayout.Label("Nothing matches that filter.", _small);
+        }
+
         private void DrawTerrainBrush()
         {
             GUILayout.Label("Hold LMB on the map to paint.", _small);
@@ -1295,7 +1471,8 @@ namespace TheWaningBorder.UI.Ingame
             if (GUILayout.Button(label, GUILayout.Height(22)) && !on)
             {
                 _mode = m;
-                _armedId = null;   // an armed unit must not survive into Buildings mode
+                _armedId = null;        // an armed unit must not survive into Buildings mode
+            _armedAbility = -1;     // nor an armed ability into a placement tab
             }
             GUI.color = c;
         }

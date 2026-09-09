@@ -243,7 +243,10 @@ namespace TheWaningBorder.UI.Ingame
                 PlayerNotificationSystem.NotifyError(Loc.T("Not enough resources"));
                 return false;
             }
-            CommandRouter.IssueTrain(em, entity, b.Id);
+            // b.Revival is None for every ordinary train; a fallen hero's
+            // two buttons carry the mode the player picked, and it sets both
+            // the price charged and the level he comes back at.
+            CommandRouter.IssueTrain(em, entity, b.Id, CommandSource.LocalPlayer, b.Revival);
             return true;
         }
 

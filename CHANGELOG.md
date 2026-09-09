@@ -11,7 +11,121 @@ build always name the same number.
 
 ## [Unreleased]
 
-Nothing yet.
+---
+
+## [0.0.22] — 2026-09-09
+
+### Added
+
+- **The Alanthor sects can bite back.** A Feraldis player was overrunning an
+  Alanthor one uncontested, because the Alanthor kits were built almost
+  entirely out of buffs and utility — defensive is not the same as passive, and
+  a sect that can only make its own units slightly better cannot punish an
+  attack that has already begun. Three powers changed, and
+  `docs/Design/Sects.md` gained the rule they were rewritten against: every
+  sect takes ONE of damage/heal, ONE of buff/debuff, and a third that is a
+  genuine pivot rather than a bigger version of the first two.
+- **Renewal's Raise Anew raises three permanent buildings**, one per level: the
+  Renewal Tower, the Renewal Fortification and the Renewal Fortress. It used to
+  raise a Watch Tower on the ordinary Lv 1-3 ladder and let it crumble after
+  30-60 s, so the sect's wildcard slot produced something that did very little
+  and then vanished — and a structure that vanishes cannot change where a
+  battle is fought. The escalation is now the STRUCTURE, not a timer, and each
+  one is its own asset with its own stats.
+- **Antiquity's Writ of Attainder** replaces Scour the Registry. Every enemy in
+  the area is billed for the units of yours it has personally killed — 40/60/80
+  damage per kill, with a floor at Lv III so it never whiffs on fresh
+  reinforcements. Reveal was the Sect of Witness's identity, and two intel
+  sects competing for it left Antiquity with three powers that never touched
+  the enemy at all.
+- **Witness's Spy Network** replaces its second reveal. One enemy unit becomes
+  an unwitting eye — you see what it sees, it does not know, and it keeps
+  fighting for its own side — and the network then spreads on its own: an enemy
+  that spends 3 s near a spy becomes a spy too. Seeded into a marching army it
+  can quietly become total vision; seeded into a lone scout it dies with the
+  scout.
+- **Witness's Nowhere to Hide** is now the sect's wildcard, and the reason to
+  plant that network: it damages every enemy you can currently SEE, anywhere on
+  the map. Its reach is not a radius — it is however much of the enemy army you
+  managed to reveal, which makes it a multiplier on preparation rather than a
+  damage spell. Visibility is computed from the simulation, never from the fog
+  texture, so it is identical on every lockstep peer.
+- **Witness's Blinding Glare** is implemented: enemies in the area lose all
+  vision, and at Lv III cannot start an ability either.
+
+- **Heroes have levels, 1 to 10, and they are earned by fighting.** A kill is
+  worth the victim's resource cost in experience; the killer takes it in full
+  and any allied hero within 15 m takes half. Everything else in this game
+  progresses by paying for it, and a hero is deliberately the exception — one
+  left standing in your base stays level 1 however rich you are. New canon:
+  `docs/Design/Heroes.md`.
+- **King Lexor: Honour thy Pledge**, an active that unlocks at hero level 4
+  and calls in a temporary army around him. Three things scale with his level,
+  not one: how many men answer (one per level), how good they are (they arrive
+  at veteran rank 1 to 4), and how long they stay (30 s to 60 s). The pledged
+  cost no population, earn nobody experience and grant none when they fall, so
+  the ability can neither feed itself nor be farmed by the opponent.
+- **A dead hero is a choice, not a tax.** Rally the Oath brings him back three
+  levels down at his ordinary price and time; Full Honours brings back the man
+  he was for x(1 + 0.15 per level), up to x2.35 at level 10. Rallying a level-6
+  king returns him at 3 — below Honour thy Pledge's unlock — which is what
+  makes the cheap option a real decision. Replaces the flat +15 %-per-death
+  respawn tax, which punished dying without ever offering one.
+- **Heroes may carry more than one active ability.** The one-active rule was
+  always written as a non-hero rule; the cast path now fires the slot the
+  player named instead of "the first ready active", which between two
+  abilities was a coin toss. The spells bar draws one button per unlocked
+  active and grows to fit.
+
+### Changed
+
+- **The curse answers provocation, not the clock.** It used to conquer one
+  territory every 150 s and pick its wave tier straight off elapsed match
+  time, from match start, whether or not anyone had ever touched a well —
+  three logged four-AI matches ended as the curse versus players who never
+  reached each other. A dormant map is now a still map: nothing spreads and
+  nothing spawns until a faction reaches in. Reaching in raises that
+  faction's **wrath**, which picks the wave tier and aims the waves at them
+  rather than at whoever happens to be nearest. Waking a well, striking one,
+  and razing a curse anchor all provoke; killing the wave at your own gate
+  does not, so defending yourself can never escalate. Stop reaching in and
+  wrath cools, and the armies stand down — the well itself stays awake
+  forever, so the ground you spoiled stays spoiled. Design
+  §2.10 of `Curse_And_Shardroot.md`, which extends the Waking rule (§2.8)
+  that the territorial layer never honoured.
+- **AI armies march like the curse waves now.** An army musters outside its
+  gate before it leaves, re-forms any straggler on the march, marches as a
+  formation to a stage point and strikes as one body. Reinforcements go out
+  as a column that does the same and merges into the army when it arrives,
+  instead of a packet attack-moved from home that dragged the front line's
+  cohesion recall back toward the middle of the map.
+
+### Fixed
+
+- **The game starts again.** A single MonoBehaviour field initializer took the
+  whole game down. `FogOfWarManager.HumanFaction` read `GameSettings` from an
+  instance field initializer, which Unity runs inside the object's constructor
+  while the scene is deserializing; that ran `GameSettings`' static
+  constructor there too, and its own initializer called
+  `MapRegistry.Default`, which asks Unity for the scene count — illegal from a
+  constructor. .NET caches a failed type initializer for the life of the
+  domain, so `GameSettings` stayed dead for the rest of the session and every
+  later reader threw with it, taking selection and control groups down. The
+  field is resolved in `Awake` now, and the map default resolves lazily on
+  first read so nothing in that static initializer can touch a Unity API
+  again.
+- **The AI builds its mines again.** Two gates excluded extractors by name
+  rather than by class: the savings hold (which let a Gatherer's Hut through
+  but not a Mine, so an AI saving for a Hall refused to build the very income
+  that funds it) and the 14 m ore keep-out (which required a Gatherer's Hut to
+  stand clear of every ore node). Same map and seed, the AI went from 0 ore
+  extractors and 3 huts to 8 and 5.
+- **Resource nodes on a territory border are usable.** Ownership was read at
+  the node's centre but enforced at the building's snapped position, so a node
+  on a border was offered and then refused forever. Both sides ask about the
+  building's position now — no map re-bake needed.
+- **Nodes nothing can reach are skipped** instead of retried every 15 seconds,
+  and counted in the match log so bad map data is visible.
 
 ---
 

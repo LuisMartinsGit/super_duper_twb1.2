@@ -375,13 +375,20 @@ namespace TheWaningBorder.Core.Commands
             LockstepServiceLocator.Instance.QueueCommand(cmd);
         }
 
-        private static void QueueTrainForLockstep(EntityManager em, Entity building, string unitId)
+        /// <param name="revival">Hero revival mode, riding in TargetEntityId
+        /// — free on a Train command (EntityNetworkId holds the building,
+        /// BuildingId the unit type) and already serialized. It MUST cross the
+        /// wire: the two modes charge different prices and hand back different
+        /// levels, so a peer that assumed None would fork the bank.</param>
+        private static void QueueTrainForLockstep(EntityManager em, Entity building, string unitId,
+            TheWaningBorder.Abilities.HeroRevivalMode revival
+                = TheWaningBorder.Abilities.HeroRevivalMode.None)
         {
             int buildingId = GetNetworkId(em, building);
 
             if (buildingId <= 0)
             {
-                TrainCommandDirect(em, building, unitId);
+                TrainCommandDirect(em, building, unitId, revival);
                 return;
             }
 
@@ -389,7 +396,8 @@ namespace TheWaningBorder.Core.Commands
             {
                 Type = LockstepCommandType.Train,
                 EntityNetworkId = buildingId,
-                BuildingId = unitId // Reuse BuildingId field to carry the unit type
+                BuildingId = unitId, // Reuse BuildingId field to carry the unit type
+                TargetEntityId = (int)revival
             };
             LockstepServiceLocator.Instance.QueueCommand(cmd);
         }
@@ -467,14 +475,25 @@ namespace TheWaningBorder.Core.Commands
             });
         }
 
-        private static void QueueAbilityForLockstep(EntityManager em, Entity unit, Entity target)
+        /// <param name="slot">The ability slot the player named, or -1 for
+        /// "first ready active".
+        ///
+        /// THIS HAS TO CROSS THE WIRE. A hero carries several actives
+        /// (docs/Design/Heroes.md §2), so "first ready" resolves against each
+        /// peer's own cooldown state — two peers can pick DIFFERENT abilities
+        /// for the same click and fork the simulation. It rides in
+        /// SecondaryTargetId, which is already serialized and is unused by
+        /// ability commands (it carries the deposit on gather commands),
+        /// encoded as slot+1 so the field's natural 0 still decodes to -1.</param>
+        private static void QueueAbilityForLockstep(EntityManager em, Entity unit, Entity target,
+            int slot = -1)
         {
             int unitId = GetNetworkId(em, unit);
             int targetId = target != Entity.Null ? GetNetworkId(em, target) : 0;
 
             if (unitId <= 0)
             {
-                IssueAbilityDirect(em, unit, target);
+                IssueAbilityDirect(em, unit, target, slot);
                 return;
             }
 
@@ -482,7 +501,8 @@ namespace TheWaningBorder.Core.Commands
             {
                 Type = LockstepCommandType.Ability,
                 EntityNetworkId = unitId,
-                TargetEntityId = targetId
+                TargetEntityId = targetId,
+                SecondaryTargetId = slot + 1
             };
             LockstepServiceLocator.Instance.QueueCommand(cmd);
         }

@@ -1,4 +1,4 @@
-// ProductionQueueSystem.cs
+﻿// ProductionQueueSystem.cs
 // ONE clock per building. A unit, a technology or a level-up: whatever is at
 // the head of the building's production queue runs, and nothing behind it
 // starts until it is done (ProductionQueueComponents).
@@ -59,6 +59,11 @@ namespace TheWaningBorder.Systems.Production
             public Entity Building;
             public FixedString64Bytes UnitId;
             public int Count;
+
+            /// <summary>Hero revival level (0 = not a revival). Carried from
+            /// the queue item, which recorded what the player paid for —
+            /// docs/Design/Heroes.md §4.</summary>
+            public byte HeroLevel;
         }
 
         public void OnCreate(ref SystemState state)
@@ -110,7 +115,7 @@ namespace TheWaningBorder.Systems.Production
                     if (!em.Exists(s.Building)) continue;
                     string unitId = s.UnitId.ToString();
                     for (int c = 0; c < s.Count; c++)
-                        TrainingSystem.SpawnUnit(em, s.Building, unitId);
+                        TrainingSystem.SpawnUnit(em, s.Building, unitId, s.HeroLevel);
                 }
 
             if (completed != null)
@@ -199,7 +204,8 @@ namespace TheWaningBorder.Systems.Production
                         queue.RemoveAt(0);
                         return;
                     }
-                    Begin(em, e, ref ps, TrainingSystem.TrainDuration(em, e, unitId, faction));
+                    Begin(em, e, ref ps, TrainingSystem.TrainDuration(
+                        em, e, unitId, faction, item.Level));
                     return;
                 }
 
@@ -346,6 +352,8 @@ namespace TheWaningBorder.Systems.Production
             var queue = em.GetBuffer<ProductionQueueItem>(e);
 
             string unitId = queue[0].Id.ToString();
+            byte headLevel = queue[0].Level;   // hero revival level, 0 otherwise
+            byte secondLevel = 0;
             int count = TrainingSystem.SpawnCount(em, e, faction, unitId);
             int requiredPop = PopulationHelper.GetUnitPopulationCost(unitId) * count;
 
@@ -356,6 +364,7 @@ namespace TheWaningBorder.Systems.Production
                 && queue.Length > 1 && queue[1].Kind == ProductionKind.Train)
             {
                 secondId = queue[1].Id.ToString();
+                secondLevel = queue[1].Level;
                 secondCount = TrainingSystem.SpawnCount(em, e, faction, secondId);
                 requiredPop += PopulationHelper.GetUnitPopulationCost(secondId) * secondCount;
                 released = 2;
@@ -370,9 +379,17 @@ namespace TheWaningBorder.Systems.Production
             if (released > 1) queue.RemoveAt(0);
 
             spawns ??= new List<PendingSpawn>();
-            spawns.Add(new PendingSpawn { Building = e, UnitId = new FixedString64Bytes(unitId), Count = count });
+            spawns.Add(new PendingSpawn
+            {
+                Building = e, UnitId = new FixedString64Bytes(unitId), Count = count,
+                HeroLevel = headLevel,
+            });
             if (released > 1)
-                spawns.Add(new PendingSpawn { Building = e, UnitId = new FixedString64Bytes(secondId), Count = secondCount });
+                spawns.Add(new PendingSpawn
+                {
+                    Building = e, UnitId = new FixedString64Bytes(secondId), Count = secondCount,
+                    HeroLevel = secondLevel,
+                });
 
             (popThisTick ??= new Dictionary<Faction, int>())[faction] = extra + requiredPop;
             return true;

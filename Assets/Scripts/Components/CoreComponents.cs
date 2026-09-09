@@ -1,4 +1,4 @@
-// CoreComponents.cs
+﻿// CoreComponents.cs
 // Fundamental components shared across all entity types
 // Place in: Assets/Scripts/Core/Components/Core/
 
@@ -6,6 +6,38 @@ using Unity.Entities;
 using Unity.Mathematics;
 
 // ==================== Enums ====================
+
+/// <summary>
+/// Whose floating health bars are drawn unprompted (docs: the Settings screen).
+/// A selected unit always shows one; hovering shows one in every mode but None.
+/// </summary>
+public enum HealthBarMode : byte
+{
+    /// <summary>Every unit the player can see.</summary>
+    Always = 0,
+    /// <summary>Only the player's own units.</summary>
+    Own = 1,
+    /// <summary>The player's own units and their allies'.</summary>
+    Friendly = 2,
+    /// <summary>Anything visible that is HURT, friend or enemy — so a full-HP
+    /// army is clean and the eye is drawn to what is taking damage.</summary>
+    Smart = 3,
+    /// <summary>Nothing but the current selection.</summary>
+    None = 4,
+}
+
+/// <summary>What a drag-rectangle keeps when it covers both kinds of unit.
+/// Ctrl or Alt overrides it and takes everything.</summary>
+public enum DragSelectionPriority : byte
+{
+    /// <summary>Keep the workers, drop the soldiers.</summary>
+    Economy = 0,
+    /// <summary>Keep the soldiers, drop the workers. The genre default: you
+    /// drag over your base to grab the army, not the miners.</summary>
+    Military = 1,
+    /// <summary>Keep everything the rectangle covered.</summary>
+    Off = 2,
+}
 
 public enum Faction : byte
 {

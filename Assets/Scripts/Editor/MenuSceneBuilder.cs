@@ -1,4 +1,4 @@
-// MenuSceneBuilder.cs
+﻿// MenuSceneBuilder.cs
 // Builds the Scenarios and Settings menu SCENES, and strips the legacy
 // in-scene panels out of MainMenu.unity.
 //
@@ -235,6 +235,23 @@ namespace TheWaningBorder.EditorTools
             // neither is a translation key, so the scene localizer leaves them.
             SmallButton(kit, languageCell, "EnglishButton", "English");
             SmallButton(kit, languageCell, "PortugueseButton", "Português");
+
+            // ── Left, below display: how the game reads and selects ──────
+            //
+            // GAMEPLAY rather than DISPLAY: neither of these changes what the
+            // renderer does, they change what the game tells you and what a
+            // drag means. Node names are the contract with SettingsPanel.
+            Header(kit, display, "GameplayHeader", "GAMEPLAY");
+
+            var healthBarsCell = Cell(kit, Row(kit, display, "HealthBarsRow"), "OptHealthBars",
+                "SHOW HEALTH BARS", "Whose health you see without pointing at them.",
+                keepPill: false);
+            Dropdown(kit, healthBarsCell, "HealthBarsDropdown");
+
+            var dragCell = Cell(kit, Row(kit, display, "DragPriorityRow"), "OptDragPriority",
+                "DRAG SELECTION", "What a box-select keeps when it catches both kinds. " +
+                "Hold Ctrl or Alt to take everything.", keepPill: false);
+            Dropdown(kit, dragCell, "DragPriorityDropdown");
 
             // ── Footer + binder ──────────────────────────────────────────
             var footer = Footer(kit, panel, "< MAIN MENU", "APPLY");

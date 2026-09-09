@@ -196,6 +196,36 @@ Runai / Feraldis counter data follows the same pattern when those trees
 are unlocked; the triangle roles (anti-cavalry spear, armor-piercing
 crossbow, line-running cavalry) are cross-culture.
 
+### Arrow tips are visible in flight
+
+The arrow-tip research ladder — the same four techs in all three cultures —
+is read off the **trail an arrow leaves**, and a faction that has bought
+nothing leaves none at all:
+
+| Research | Trail |
+|---|---|
+| *(none)* | **no trail** |
+| Stone-tipped arrows | faint grey, short |
+| Iron-tipped arrows | grey |
+| Veilstone-tipped arrows | **blue, emissive** |
+| Shard-tipped arrows *(the Veilsteel tier)* | **golden, emissive** |
+
+Length and width climb with the tier alongside the colour, because the camera
+is never close enough to see an arrowhead and colour alone is a weak read at
+distance.
+
+**The base arrow leaving nothing is the point.** Every arrow used to leave the
+same white streak, so a fully-upgraded army looked exactly like a starting one
+on the field — the one place the ladder matters. Giving tier 0 no trail is what
+gives the first upgrade something to be.
+
+Ballista bolts share the look. They are shot by the same army from the same
+racks, and the design has no separate bolt ladder to read them against.
+
+Implementation: `GameSystems/Rendering/Vfx/ArrowTrailTiers.cs`. The tech id for
+tier 4 is `ShardTippedArrows`, not "VeilsteelTipped" — older name, same tier,
+and Veilsteel is what it costs.
+
 ---
 
 ## The Wall Rule

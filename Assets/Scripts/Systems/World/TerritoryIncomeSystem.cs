@@ -1,4 +1,4 @@
-// TerritoryIncomeSystem.cs
+﻿// TerritoryIncomeSystem.cs
 // Territory is the economy.
 //
 // docs/Design/Regions.md §4: income comes from the ground you hold, not from
@@ -56,7 +56,8 @@ namespace TheWaningBorder.Systems.World
         /// decides how lumpy the bank looks, not how much is paid.</summary>
         private const float TickInterval = 5f;
 
-        /// <summary>Supplies a held territory pays for its bare ground alone.</summary>
+        /// <summary>Supplies a held territory pays for its bare ground, before
+        /// its least-developed slot multiplies it (see ComputeYield).</summary>
         // TERRITORY CONTENTS HAVE TO MATTER MORE THAN TERRITORY COUNT.
         //
         // The base used to be a flat 72/min on every territory, whether it
@@ -76,17 +77,29 @@ namespace TheWaningBorder.Systems.World
         // stocked ground got visibly richer.
         private const float BareSuppliesPerMinute = 20f;
 
-        /// <summary>Supplies each supply NODE adds to its territory's base
-        /// tick, built on or not — the supply-side twin of the ore trickle
-        /// below. The node then also caps the huts (one each), so a rich
-        /// territory is richer twice over.</summary>
-        private const float SuppliesPerSupplyNodePerMinute = 26f;
-
-        /// <summary>Supplies per Gatherer's Hut. There is no per-territory hut
-        /// cap any more: a hut must stand on a supply node, so the territory's
-        /// node count IS the cap, and it can differ from territory to
-        /// territory instead of being one magic number for the whole map.</summary>
+        /// <summary>
+        /// Supplies a supply slot pays at Gatherer's Hut LEVEL 1. An EMPTY
+        /// slot pays nothing at all.
+        ///
+        /// AREA USED TO BE THE ECONOMY (superseded 2026-09-08). A supply node
+        /// paid 26/min for merely being inside your border, built on or not,
+        /// so the optimal play was to claim as much ground as possible and
+        /// develop none of it — and a match ended with everyone holding wide,
+        /// shallow empires and no reason to invest in any one of them.
+        /// Ground is now worth what you have BUILT on it.
+        /// </summary>
         private const float SuppliesPerHutPerMinute = 50f;
+
+        /// <summary>
+        /// Every level doubles what a slot, the base, and the whole territory
+        /// pay — so a slot runs 0 / 50 / 100 / 200 and a Hall multiplies the
+        /// territory by 1 / 2 / 4.
+        ///
+        /// Doubling rather than a gentler curve is the point: two levels of
+        /// investment must beat a second territory, or "go wide" stays the
+        /// only strategy and the choice is not a choice.
+        /// </summary>
+        private const int LevelDoubling = 2;
 
         /// <summary>Supplies per forest inside a held territory.</summary>
         private const float SuppliesPerForestPerMinute = 60f;
@@ -239,19 +252,39 @@ namespace TheWaningBorder.Systems.World
             var y = new TerritoryYield();
             if (territory < 0 || !RegionMap.Ready) return y;
 
-            // Base scales with the supply nodes standing in the territory
-            // (built on or not) — the guaranteed 2-node territory pays what
-            // the old flat base paid, a 4-node home pays more.
-            y.Supplies = BareSuppliesPerMinute
-                       + CountIn<SupplyNodeTag>(em, territory)
-                         * SuppliesPerSupplyNodePerMinute;
-
-            // Gatherer's Huts. Feraldis Raider Camps are converted huts that
-            // KEEP GathererHutTag (AgeUpSystem adds RaiderCampTag to the same
-            // entity), so they are excluded by hand — otherwise a Feraldis
-            // player draws the hut supplies on top of what its raiders steal.
-            y.Supplies += CountIn<GathererHutTag, RaiderCampTag>(em, territory)
-                          * SuppliesPerHutPerMinute;
+            // ── The slots, and what the WEAKEST one says about the base ──
+            //
+            // Each supply node is a slot: empty it pays nothing, and with a
+            // Gatherer's Hut on it it pays 50 doubled per hut level (50 /
+            // 100 / 200). The base then scales with the LEAST developed slot,
+            // so a territory pays its bare-ground floor until every slot has
+            // been raised — finishing a territory is what lifts it, and one
+            // neglected slot holds the whole base back.
+            //
+            // Level 0 (any slot still empty, or a territory with no slots at
+            // all) leaves the base exactly where it was, so freshly claimed
+            // ground is never worth literally nothing.
+            int minSlotLevel = int.MaxValue;
+            int slotsSeen = 0;
+            {
+                var q = em.CreateEntityQuery(
+                    ComponentType.ReadOnly<SupplyNodeTag>(),
+                    ComponentType.ReadOnly<LocalTransform>());
+                using var xfs = q.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
+                q.Dispose();
+                for (int i = 0; i < xfs.Length; i++)
+                {
+                    var np = xfs[i].Position;
+                    if (RegionMap.RegionAt(np.x, np.z) != territory) continue;
+                    slotsSeen++;
+                    int lvl = HutLevelOn(em, np.x, np.z);
+                    if (lvl < minSlotLevel) minSlotLevel = lvl;
+                    if (lvl > 0)
+                        y.Supplies += SuppliesPerHutPerMinute * Pow2(lvl - 1);
+                }
+            }
+            if (slotsSeen == 0 || minSlotLevel == int.MaxValue) minSlotLevel = 0;
+            y.Supplies += BareSuppliesPerMinute * Pow2(minSlotLevel);
 
             // Forests are scene markers, not entities.
             int forests = 0;
@@ -286,7 +319,89 @@ namespace TheWaningBorder.Systems.World
                               VeilsteelYieldPerMinute)
                           * SurveyMultiplier(owner, VeilstoneSurveyLadder);
 
+            // ── The Hall doubles everything the territory earns ──────────
+            //
+            // A territory's income is its Hall's income, so the Hall standing
+            // in it is the single biggest lever on the whole economy: L1 x1,
+            // L2 x2, L3 x4, applied to supplies AND ore. Deepening one
+            // holding is meant to beat spreading into another, and this is
+            // the multiplier that makes that true.
+            //
+            // The Fortress carries HallTag too, so a capital scales its home
+            // territory exactly as an expansion Hall scales its own.
+            int hallLevel = BestHallLevelIn(em, territory);
+            if (hallLevel > 1)
+            {
+                float m = Pow2(hallLevel - 1);
+                y.Supplies  *= m;
+                y.Iron      *= m;
+                y.Veilstone *= m;
+                y.Veilsteel *= m;
+            }
+
             return y;
+        }
+
+        /// <summary>2^n for the small n this model uses (level 0-3).</summary>
+        private static float Pow2(int n) => n <= 0 ? 1f : (1 << Mathf.Min(n, 16));
+
+        /// <summary>
+        /// The Gatherer's Hut level standing on this supply node, or 0 for an
+        /// empty slot.
+        ///
+        /// Feraldis Raider Camps are converted huts that KEEP GathererHutTag
+        /// (AgeUpSystem adds RaiderCampTag to the same entity), so they are
+        /// excluded by hand — otherwise a Feraldis player would draw the slot's
+        /// supplies on top of what its raiders steal.
+        /// </summary>
+        private static int HutLevelOn(EntityManager em, float x, float z)
+        {
+            var q = em.CreateEntityQuery(
+                ComponentType.ReadOnly<GathererHutTag>(),
+                ComponentType.ReadOnly<LocalTransform>());
+            var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
+            int best = 0;
+            float r2 = MineToNodeRange * MineToNodeRange;
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (em.HasComponent<UnderConstruction>(ents[i])) continue;
+                if (em.HasComponent<RaiderCampTag>(ents[i])) continue;
+                var p = em.GetComponentData<LocalTransform>(ents[i]).Position;
+                float dx = p.x - x, dz = p.z - z;
+                if (dx * dx + dz * dz > r2) continue;
+                // Built and never upgraded is level 1, not level 0.
+                int lvl = em.HasComponent<BuildingUpgradeState>(ents[i])
+                    ? Mathf.Max(1, em.GetComponentData<BuildingUpgradeState>(ents[i]).Level)
+                    : 1;
+                if (lvl > best) best = lvl;
+            }
+            ents.Dispose();
+            q.Dispose();
+            return best;
+        }
+
+        /// <summary>The best Hall level standing in this territory, or 0 for a
+        /// territory held on influence alone. Fortresses carry HallTag.</summary>
+        private static int BestHallLevelIn(EntityManager em, int territory)
+        {
+            var q = em.CreateEntityQuery(
+                ComponentType.ReadOnly<HallTag>(),
+                ComponentType.ReadOnly<LocalTransform>());
+            var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
+            int best = 0;
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (em.HasComponent<UnderConstruction>(ents[i])) continue;
+                var p = em.GetComponentData<LocalTransform>(ents[i]).Position;
+                if (RegionMap.RegionAt(p.x, p.z) != territory) continue;
+                int lvl = em.HasComponent<BuildingUpgradeState>(ents[i])
+                    ? Mathf.Max(1, em.GetComponentData<BuildingUpgradeState>(ents[i]).Level)
+                    : 1;
+                if (lvl > best) best = lvl;
+            }
+            ents.Dispose();
+            q.Dispose();
+            return best;
         }
 
         // ── Survey ladders ──────────────────────────────────────────────

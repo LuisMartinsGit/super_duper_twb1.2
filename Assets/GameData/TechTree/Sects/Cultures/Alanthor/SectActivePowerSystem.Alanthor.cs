@@ -68,6 +68,50 @@ namespace TheWaningBorder.Systems.Sect
         // ── Antiquity ───────────────────────────────────────────────────────
 
         /// <summary>
+        /// Writ of Attainder. Every enemy in the circle is billed for the units
+        /// of <paramref name="faction"/> it has personally killed:
+        /// <paramref name="perKill"/> damage each, plus a
+        /// <paramref name="floor"/> (Lv III) so the cast is not wasted on
+        /// reinforcements that have not killed anything yet.
+        ///
+        /// A unit with no AttainderLedger has killed nothing of ours — that is
+        /// the component's whole meaning, and the reason it is stamped lazily
+        /// rather than carried by every unit in the game.
+        ///
+        /// Buildings are exempt on purpose: the record is a record of who did
+        /// the killing, and a Watch Tower's kills are not a soldier's guilt.
+        /// </summary>
+        private static void ApplyAttainder(EntityManager em, Faction faction,
+            float3 center, float radius, float perKill, float floor)
+        {
+            float r2 = radius * radius;
+            var query = QC_UnitTagLocalTransformFactionTagHealth.Get(
+                em, QT_UnitTagLocalTransformFactionTagHealth);
+            using var entities = query.ToEntityArray(Allocator.Temp);
+
+            for (int i = 0; i < entities.Length; i++)
+            {
+                var e = entities[i];
+                if (!Alliances.AreHostile(faction, em.GetComponentData<FactionTag>(e).Value)) continue;
+
+                float3 p = em.GetComponentData<LocalTransform>(e).Position;
+                float dx = p.x - center.x, dz = p.z - center.z;
+                if (dx * dx + dz * dz > r2) continue;
+
+                int kills = em.HasComponent<AttainderLedger>(e)
+                    ? em.GetComponentData<AttainderLedger>(e).Against(faction)
+                    : 0;
+
+                int dmg = (int)math.max(floor, kills * perKill);
+                if (dmg <= 0) continue;
+
+                var hp = em.GetComponentData<Health>(e);
+                hp.Value = math.max(0, hp.Value - dmg);
+                em.SetComponentData(e, hp);
+            }
+        }
+
+        /// <summary>
         /// Heavy Bureaucracy. Enemy buildings in the circle produce nothing at
         /// all for the duration. Re-casting refreshes rather than stacking.
         /// </summary>
@@ -213,16 +257,24 @@ namespace TheWaningBorder.Systems.Sect
         /// in the signature because the spec still carries one and the caller
         /// passes it; nothing here needs it any more.
         /// </summary>
+        /// <summary>
+        /// Raise Anew. <paramref name="structureLevel"/> (the spec's Magnitude)
+        /// picks WHICH of the three isolated Renewal structures is conjured —
+        /// it is not a level on one shared tower.
+        ///
+        /// <paramref name="duration"/> is ignored on purpose: every level is
+        /// permanent now (docs/Design/Sects.md §4). The parameter survives
+        /// because DispatchEffect hands every kind the spec's duration.
+        /// </summary>
         private static void RaiseWatchTowers(EntityManager em, Faction faction,
-            float3 center, float radius, byte towerLevel, float duration)
+            float3 center, float radius, byte structureLevel, float duration)
         {
-            if (towerLevel < 1) towerLevel = 1;
-            float life = duration > 0f ? duration : SectEffectDuration.Permanent;
-            RaiseOneTower(em, faction, center, towerLevel, life);
+            if (structureLevel < 1) structureLevel = 1;
+            RaiseOneTower(em, faction, center, structureLevel);
         }
 
         private static void RaiseOneTower(EntityManager em, Faction faction,
-            float3 position, byte towerLevel, float life)
+            float3 position, byte structureLevel)
         {
             // THROUGH THE DISPATCHER, NOT WatchTower.Create DIRECT
             // (2026-09-04, MP harness catch #9). The bare per-building factory
@@ -235,32 +287,26 @@ namespace TheWaningBorder.Systems.Sect
             // deterministic NetworkIdGenerator id; this method runs inside
             // SectPower command playback on every peer at the same tick, so
             // all peers agree on it.
-            var tower = TheWaningBorder.Entities.BuildingFactory.Create(
-                em, "Alanthor_Tower", position, faction);
-
-            if (towerLevel > 1)
+            //
+            // THREE SEPARATE BUILDINGS, not one tower scaled up. Each carries
+            // its own SO, so the ladder's stats are authored data a designer
+            // can find and tune — rather than an HP multiplier applied at cast
+            // time, which is the magic-number pattern the factories were purged
+            // of.
+            string id = structureLevel switch
             {
-                // Ride the normal Lv1-3 ladder rather than inventing conjured-
-                // tower stats, so a raised Lv 3 tower is exactly a Lv 3 tower.
-                var hp = em.GetComponentData<Health>(tower);
-                int baseMax = hp.Max;
-                int scaled = (int)(baseMax * BuildingUpgradeConfig.HpMultiplier[towerLevel]);
-                hp.Max   = scaled;
-                hp.Value = scaled;
-                em.SetComponentData(tower, hp);
+                1 => TheWaningBorder.Entities.RenewalTower.Id,
+                2 => TheWaningBorder.Entities.RenewalFortification.Id,
+                _ => TheWaningBorder.Entities.RenewalFortress.Id,
+            };
 
-                em.AddComponentData(tower, new BuildingUpgradeState
-                {
-                    Level     = towerLevel,
-                    BaseHpMax = baseMax,
-                });
-            }
+            TheWaningBorder.Entities.BuildingFactory.Create(em, id, position, faction);
 
-            em.AddComponentData(tower, new SectConjuredTower
-            {
-                TimeRemaining = life,
-                TowerLevel    = towerLevel,
-            });
+            // No SectConjuredTower and no BuildingUpgradeState. The first was
+            // the expiry timer these structures no longer have; the second
+            // belongs to the Watch Tower's Lv 1-3 ladder, which this power no
+            // longer rides. What is raised is simply a building — it lives or
+            // dies like any other.
         }
 
         /// <summary>Second Wind. Allied units in the circle cannot drop below 1 HP.</summary>

@@ -140,6 +140,18 @@ namespace TheWaningBorder.UI.Data
                     tooltip = string.Format(Loc.T("Requires Lv {0} {1}"),
                         minLv, Loc.T(buildingDef.name ?? buildingId)) + "\n" + tooltip;
 
+                // A FALLEN HERO offers a choice instead of a button
+                // (docs/Design/Heroes.md §4): take him back cheap and
+                // diminished, or pay for the man he was. Two entries, one
+                // unit id — the mode is what differs.
+                if (TheWaningBorder.Abilities.HeroTrainLimit.IsKingLexorId(unit.id)
+                    && TheWaningBorder.Abilities.HeroRevival.HasFallenHero(faction))
+                {
+                    AddRevivalButtons(actions, em, faction, unit, cost, tooltip,
+                                      levelLocked, minLv, buildingDef, buildingId);
+                    continue;
+                }
+
                 actions.Add(new ActionButton
                 {
                     Id = unit.id,
@@ -155,6 +167,61 @@ namespace TheWaningBorder.UI.Data
             }
 
             return actions;
+        }
+
+        /// <summary>
+        /// The two ways back for a hero who has fallen (docs/Design/Heroes.md §4).
+        ///
+        /// Both are the SAME unit id — the cost lookup and the one-per-player
+        /// gate key off it — and differ only in the revival mode they carry,
+        /// which sets the price, the training time and the level he returns at.
+        /// </summary>
+        private static void AddRevivalButtons(
+            List<ActionButton> actions, EntityManager em, Faction faction,
+            TheWaningBorder.Data.UnitDef unit, Cost baseCost, string baseTooltip,
+            bool levelLocked, int minLv, TheWaningBorder.Data.BuildingDef buildingDef,
+            string buildingId)
+        {
+            byte died = TheWaningBorder.Abilities.HeroRevival.DiedAtLevel(faction);
+            byte rallyLevel = TheWaningBorder.Economy.HeroProgressionConfig.RallyLevel(died);
+            float fullMult = TheWaningBorder.Economy.HeroProgressionConfig
+                .FullHonoursMultiplier(died);
+
+            var fullCost = new Cost
+            {
+                Supplies  = UnityEngine.Mathf.RoundToInt(baseCost.Supplies  * fullMult),
+                Iron      = UnityEngine.Mathf.RoundToInt(baseCost.Iron      * fullMult),
+                Veilstone = UnityEngine.Mathf.RoundToInt(baseCost.Veilstone * fullMult),
+                Veilsteel = UnityEngine.Mathf.RoundToInt(baseCost.Veilsteel * fullMult),
+            };
+
+            actions.Add(new ActionButton
+            {
+                Id = unit.id,
+                Label = string.Format(Loc.T("Rally the Oath  (Lv {0})"), rallyLevel),
+                Tooltip = string.Format(
+                    Loc.T("{0} returns at level {1} — three levels down from the {2} he fell at — for his ordinary price and time."),
+                    Loc.T(unit.name), rallyLevel, died) + "\n" + baseTooltip,
+                Cost = baseCost,
+                Enabled = !levelLocked,
+                CanAfford = !levelLocked && FactionEconomy.CanAfford(em, faction, baseCost),
+                Icon = null,
+                Revival = TheWaningBorder.Abilities.HeroRevivalMode.RallyTheOath,
+            });
+
+            actions.Add(new ActionButton
+            {
+                Id = unit.id,
+                Label = string.Format(Loc.T("Full Honours  (Lv {0})"), died),
+                Tooltip = string.Format(
+                    Loc.T("{0} returns at level {1}, everything he was — for x{2} the cost and the time."),
+                    Loc.T(unit.name), died, fullMult.ToString("0.00")) + "\n" + baseTooltip,
+                Cost = fullCost,
+                Enabled = !levelLocked,
+                CanAfford = !levelLocked && FactionEconomy.CanAfford(em, faction, fullCost),
+                Icon = null,
+                Revival = TheWaningBorder.Abilities.HeroRevivalMode.FullHonours,
+            });
         }
 
         /// <summary>

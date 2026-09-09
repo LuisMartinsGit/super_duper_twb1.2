@@ -712,6 +712,82 @@ entirely — curse nodes never attack (2026-08-11)**, and the Backlash is
 what restores the risk: the well no longer stops you from *trying*, it
 makes *failing* expensive.
 
+### 2.10 The Wrath — the curse answers provocation, not the clock (2026-09-08, CURRENT)
+
+**This section governs when the curse SPREADS and when it FIELDS ARMIES, and
+supersedes the wall-clock escalation the territorial layer shipped with.**
+
+§2.8 established the Waking: wells start dormant and the veil sheet has no
+source until somebody reaches for one. The territorial layer added later
+(`CurseTerritorySystem`, Regions.md §3) never honoured it. It conquered one
+adjacent territory every 150 s and fielded waves on a tier chosen purely from
+elapsed match time, from every curse territory, regardless of whether any well
+had ever been touched. Nothing a player did was an input.
+
+The observed result, across three logged four-AI matches, was a map where the
+curse fought everyone and the players never reached each other. Nobody was
+punished for provoking the curse, because provoking it was not a thing anyone
+could do. It was weather with a clock.
+
+**The rule now: the curse is dormant ground until you reach into it.** Take
+what is free, and the map stays still. Reach for a well, and what answers is
+aimed at *you*, and scales with how far you reached.
+
+**1. A dormant well fields nothing.** A curse territory whose well is still
+dormant neither conquers nor spawns waves. This is §2.8 applied to the
+territorial layer, which is where it should always have applied. The curse
+holds its starting ground and sits there.
+
+**2. Provocation is per-faction, and is an act of reaching in.** Three things
+raise the acting faction's **wrath**:
+
+| act | why it counts |
+|---|---|
+| Starting a verb channel on a well | already the Waking trigger (§2.8) — a commitment, not a probe |
+| Damaging a well | the Feraldis crack is a reach, not a defence |
+| Destroying a curse anchor | taking back conquered ground is deliberate |
+
+Two things deliberately do **not** count:
+
+- **Killing curse wave units.** Defending your own walls must never escalate,
+  or the model is a death spiral that punishes the victim of someone else's
+  provocation.
+- **Building near curse ground.** If proximity provoked, expansion would be
+  impossible and we would have rebuilt the problem this section removes.
+
+**3. Wrath sets the tier, and wrath cools.** The wave tier is the provoking
+faction's wrath level, replacing the wall clock. Wrath decays one step per
+cooling period in which that faction commits no fresh provocation.
+
+This is the "back off" valve, and it is deliberately split from §2.8's
+permanence rule so both survive intact:
+
+> **The well stays awake forever. The armies stand down.**
+
+Waking is still a one-way commitment and still poisons the ground around it —
+terrain consequences are permanent, exactly as §2.8 requires, and there are
+still no take-backs on the veil. What cools is the *military* answer. Stop
+reaching in and the waves thin out; the crust you already earned is yours to
+live with.
+
+**4. The waves go for whoever provoked them.** A wave marches on the highest
+wrath faction it can reach, falling back to the nearest hostile building when
+no one has provoked anything. This is the half that makes reaching in a real
+decision rather than a shared tax: the consequence lands on the player who
+took the well, not on their quietest neighbour.
+
+**What this preserves.** The curse does not become optional content, because
+veilstone still comes only from the curse (§2.8). Anyone who wants the top of
+the tech tree has to reach in eventually. The pressure becomes opt-in without
+becoming skippable, and *when* to take that first well becomes the central
+scheduling decision of the match — which is what §2.8 already wanted the
+Waking to be.
+
+**What this does not fix.** A faction that cannot afford its verb unit is
+still in trouble the moment it takes a well; the punishment becomes expensive
+rather than unsurvivable, but the ritualist ladder is a separate balance item
+(§9).
+
 ## 3. The Shardroot
 
 One well per match — chosen **deterministically from the match seed**,

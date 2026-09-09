@@ -268,13 +268,37 @@ pushes that way), not moving soldiers back onto them.
 Everything below is authored **per minute**, because that is the unit the player
 is shown (see *Reading a territory* at the end of this section).
 
-- **A territory produces a supply tick that scales with its supply nodes**
-  (2026-08-29): 20/min for the bare ground plus **26/min per supply node**. A
-  standard 2-node territory therefore pays the same 72/min the old flat base
-  did; a 4-node home pays 124. The base yield now CORRELATES with what stands
-  in the territory instead of being one number for every region — an empty
-  territory is still never pointless to hold, but a stocked one is visibly
-  richer before anything is built on it.
+- **DEVELOPMENT IS THE ECONOMY, NOT AREA (2026-09-08 — supersedes the
+  26/min-per-node base below it).** Ground pays for what you have BUILT on it:
+
+  | | pays |
+  |---|---|
+  | Supply slot, empty | **0** |
+  | Supply slot, Gatherer's Hut L1 / L2 / L3 | **50 / 100 / 200** per minute |
+  | Bare ground | **20/min**, doubled per level of the territory's *least developed* slot (x1 / x2 / x4 / x8) |
+  | The territory's Hall, L1 / L2 / L3 | **x1 / x2 / x4 on everything the territory earns** — supplies and ore alike |
+
+  Three rules, one intent: **one deeply developed territory should beat a wide
+  shallow empire.** A slot pays nothing until something stands on it, so
+  claiming ground you will not build on earns nothing; the base follows the
+  WEAKEST slot, so a territory pays its floor until every slot is raised; and
+  the Hall multiplies the whole territory, so the last thing you should do
+  with a windfall is claim a fifth region instead of levelling the Hall you
+  have.
+
+  The old model paid **26/min per supply node whether or not anything stood on
+  it**, which made the optimal opening "claim everything, develop nothing" and
+  ended matches with everyone holding wide, shallow empires and no reason to
+  invest in any of them.
+
+  Worked example — a home territory (4 slots, 1 iron node, 1 veilstone node),
+  fully developed: slots 4 x 200 = 800, base 20 x 8 = 160, Hall L3 x4 →
+  **3,840 supplies/min and 760/min of each ore**. The same territory
+  undeveloped pays 20 supplies and 190 of each ore. Level 0 leaves the base at
+  its 20 floor, so freshly claimed ground is never worth literally nothing.
+
+  A Fortress carries `HallTag`, so a capital scales its home territory exactly
+  as an expansion Hall scales its own.
 - **A territory containing a resource node produces a trickle of that
   resource — iron and veilstone 190/min per node, veilsteel 95/min**
   (2026-08-30: iron/veilstone doubled from the flat 95 — armies were being
@@ -335,8 +359,10 @@ is shown (see *Reading a territory* at the end of this section).
   is deterministic (regions walked in index order, strided) so lockstep peers
   agree. Scarcity is what makes veilsteel ground worth taking — before this it
   was a single node on the whole map, which is an objective, not an economy.
-- **A Gatherer's Hut adds 50/min of supplies** — and a hut may only be built
-  **on a supply node**.
+- **A Gatherer's Hut pays its slot 50/min at L1 and doubles per level**
+  (50 / 100 / 200) — and a hut may only be built **on a supply node**. An
+  empty slot pays nothing; see the development table at the top of this
+  section.
 
 ### Nodes, not patches (2026-08-28)
 

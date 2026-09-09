@@ -1,4 +1,4 @@
-// PlayerProfile.cs
+﻿// PlayerProfile.cs
 // The player's name and every persisted setting, in one JSON file.
 
 using System;
@@ -46,6 +46,15 @@ namespace TheWaningBorder.Core.Config
             /// <summary>Simulation rate. 0.75 by default — the pace the
             /// game was found to read best at.</summary>
             public float GameSpeed = 0.75f;
+
+            /// <summary>Whose floating health bars are drawn unprompted.
+            /// Stored as the HealthBarMode ordinal; Smart (3) by default.</summary>
+            public int HealthBars = 3;
+
+            /// <summary>What a mixed drag-rectangle keeps. DragSelectionPriority
+            /// ordinal; Military (1) by default, which is what the old
+            /// SmartMilitaryDrag bool did when it was on.</summary>
+            public int DragPriority = 1;
 
             /// <summary>The player has been asked for a name and answered.
             /// Persisted, because "have we asked yet" has to survive the
@@ -99,6 +108,18 @@ namespace TheWaningBorder.Core.Config
         {
             get => Load().Language;
             set { Load().Language = value ?? ""; Save(); }
+        }
+
+        public static int HealthBars
+        {
+            get => Load().HealthBars;
+            set { Load().HealthBars = value; }
+        }
+
+        public static int DragPriority
+        {
+            get => Load().DragPriority;
+            set { Load().DragPriority = value; }
         }
 
         public static int GraphicsQuality

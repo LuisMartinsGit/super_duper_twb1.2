@@ -1,4 +1,4 @@
-// ScenarioSetup.cs
+﻿// ScenarioSetup.cs
 // Bootstrap for predefined combat scenarios
 
 using UnityEngine;
@@ -194,6 +194,9 @@ namespace TheWaningBorder.Bootstrap
                     break;
                 case ScenarioType.Sandbox:
                     SpawnSandbox();
+                    break;
+                case ScenarioType.ArrowTrails:
+                    SpawnArrowTrails(em);
                     break;
             }
 
@@ -1869,6 +1872,112 @@ namespace TheWaningBorder.Bootstrap
                     }
                 }
             }
+            foreach (var lbl in UnityEngine.Object.FindObjectsByType<ArrowTrailShowcaseDriver>(
+                         FindObjectsSortMode.None))
+                lbl.Recenter(ox, oz);
+        }
+
+        /// <summary>
+        /// Arrow trail range — the four arrow-tip tiers firing side by side.
+        ///
+        /// Each lane is a Longbowman of its OWN faction shooting an unkillable
+        /// dummy, because the trail is a property of the FIRING FACTION's
+        /// research (ArrowTrailTiers.Of) and one faction can only be at one
+        /// tier. Four lanes, four factions, four techs granted directly into
+        /// FactionResearchState.
+        ///
+        /// The four shooters share a TEAM so they cannot shoot each other —
+        /// four mutually hostile factions standing 14 m apart would spend the
+        /// scenario killing the exhibit. The dummies are a fifth faction on the
+        /// other team, and each shooter's own dummy is comfortably the nearest
+        /// hostile thing to it (16 m, against 21 m to its neighbour's, which is
+        /// past the Longbowman's 20 m sight).
+        ///
+        /// Note there is deliberately no fifth "no research" lane: an
+        /// un-upgraded arrow leaves NO trail, so the baseline is the absence
+        /// rather than a fifth thing to look at.
+        /// </summary>
+        private static void SpawnArrowTrails(EntityManager em)
+        {
+            // Authored around origin; RecenterScenario moves the whole thing
+            // onto the player-1 start afterwards.
+            // Sized so all four lanes clear the HUD corners at the default
+            // camera height — 42 m of lanes ran the outer two under the
+            // objectives panel and the minimap. Each shooter's own dummy stays
+            // the NEAREST hostile (13 m, against 16.4 m to its neighbour's),
+            // which is what keeps the lanes from crossing; the camera has no
+            // public zoom, so the layout is what has to give.
+            const float LaneGap = 10f;
+            const float Shot = 13f;       // inside attack range (20)
+
+            var lanes = new (Faction Shooter, string Tech, string Title, string Detail, Color Tint)[]
+            {
+                (Faction.Blue,   "StoneTippedArrows",
+                 "Stone-tipped", "faint grey", new Color(0.80f, 0.80f, 0.78f)),
+                (Faction.Red,    "IronTippedArrows",
+                 "Iron-tipped", "grey", new Color(0.86f, 0.88f, 0.92f)),
+                (Faction.Green,  "VeilstoneTippedArrows",
+                 "Veilstone-tipped", "blue, emissive", new Color(0.45f, 0.72f, 1.00f)),
+                (Faction.Yellow, "ShardTippedArrows",
+                 "Shard-tipped (Veilsteel)", "golden, emissive", new Color(1.00f, 0.85f, 0.40f)),
+            };
+
+            // Shooters together, dummies opposite. Alliances.AreHostile is the
+            // only valid hostility test (docs/Design/Teams.md), and it reads
+            // these teams.
+            const byte ShooterTeam = 1;
+            const byte DummyTeam = 2;
+            const Faction DummyFaction = Faction.Purple;
+            for (int i = 0; i < lanes.Length; i++) Alliances.SetTeam(lanes[i].Shooter, ShooterTeam);
+            Alliances.SetTeam(DummyFaction, DummyTeam);
+
+            var research = FactionResearchState.Instance;
+            if (research == null)
+                Debug.LogError("[ArrowTrails] no FactionResearchState — every lane will " +
+                               "fire an un-upgraded arrow and leave no trail at all.");
+
+            var labelGo = new GameObject("ArrowTrailLabels");
+            var labels = labelGo.AddComponent<ArrowTrailShowcaseDriver>();
+
+            float left = -0.5f * LaneGap * (lanes.Length - 1);
+
+            for (int i = 0; i < lanes.Length; i++)
+            {
+                var lane = lanes[i];
+                float x = left + i * LaneGap;
+
+                // The research IS the scenario: without it every lane looks
+                // identical, which is the bug this exists to make visible.
+                research?.CompleteResearch(lane.Shooter, lane.Tech);
+
+                float3 shooter = new float3(x, 0f, -Shot * 0.5f);
+                float3 target = new float3(x, 0f, Shot * 0.5f);
+                shooter.y = TerrainUtility.GetHeight(shooter.x, shooter.z);
+                target.y = TerrainUtility.GetHeight(target.x, target.z);
+
+                var dummy = CreateInvincibleDummy(em, target, DummyFaction);
+                var bow = UnitFactory.Create(em, "Longbowman", shooter, lane.Shooter);
+
+                if (bow != Entity.Null)
+                {
+                    // Plant it and hand it its target outright. Left to
+                    // acquire on its own a Longbowman walks to its preferred
+                    // range first, and four lanes drifting at slightly
+                    // different speeds is exactly what makes trails hard to
+                    // compare.
+                    if (!em.HasComponent<HoldPositionTag>(bow))
+                        em.AddComponent<HoldPositionTag>(bow);
+                    if (em.HasComponent<Target>(bow))
+                        em.SetComponentData(bow, new Target { Value = dummy });
+                }
+
+                labels.AddLane(
+                    new Vector3(x, shooter.y + 3.5f, shooter.z - 3f),
+                    lane.Title, lane.Detail, lane.Tint);
+            }
+
+            Debug.Log("[ArrowTrails] 4 lanes: Stone / Iron / Veilstone / Shard(Veilsteel). " +
+                      "An un-upgraded arrow leaves no trail — that is the baseline, not a bug.");
         }
 
         /// <summary>

@@ -1,4 +1,4 @@
-// Handles ranged attacks for buildings (Hall, Fiendstone Keep, etc.)
+﻿// Handles ranged attacks for buildings (Hall, Fiendstone Keep, etc.)
 // Buildings auto-target and fire at enemies within range.
 
 using Unity.Collections;
@@ -35,9 +35,27 @@ namespace TheWaningBorder.Systems.Combat
             var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
             var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
 
-            // Snapshot all potential targets (anything with Health + FactionTag + Transform)
+            // Snapshot all potential targets (anything with Health + FactionTag
+            // + Transform) — MINUS the three things nothing may auto-acquire.
+            //
+            // THE SAME EXCLUSIONS TargetingSystem APPLIES (2026-09-08). This
+            // query had none at all, so every Hall, tower and Keep in the game
+            // was shooting things units are forbidden to shoot:
+            //
+            //   * NodeNoAutoAcquire — a verb WELL. Reported from a live match:
+            //     Halls were shooting wells down with arrows, which deletes the
+            //     Purify / Pacify / Corrupt objective and the Shardroot with it.
+            //     A well is cracked open by a Feraldis Corruptor's ritual and
+            //     by nothing else (CorruptionRitualSystem removes the tag);
+            //     until then it is not a target for anyone.
+            //   * NodeUntargetable — a rubble / rebuilding / cleansed node.
+            //     An immune husk, so firing at it was pure wasted volleys.
+            //   * SectVeiled — Stoneveil (Fortitude) makes a unit untargetable.
+            //     Towers ignored the veil the player had just paid for.
             var targetQuery = SystemAPI.QueryBuilder()
                 .WithAll<LocalTransform, FactionTag, Health>()
+                .WithNone<NodeUntargetable, NodeNoAutoAcquire>()
+                .WithNone<SectVeiled>()
                 .Build();
 
             var tgtEntities = targetQuery.ToEntityArray(Allocator.Temp);

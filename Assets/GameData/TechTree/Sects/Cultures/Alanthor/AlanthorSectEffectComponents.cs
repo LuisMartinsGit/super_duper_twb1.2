@@ -1,4 +1,4 @@
-// Runtime state for the Alanthor sect actives (docs/Design/Sects.md section 4).
+﻿// Runtime state for the Alanthor sect actives (docs/Design/Sects.md section 4).
 //
 // One component per effect that outlives its cast. Every one of them carries a
 // TimeRemaining that AlanthorSectEffectSystem decrements; a component whose
@@ -17,8 +17,10 @@ using Unity.Entities;
 // namespaces -- Combat, Border, Training, Research.
 /// <summary>
 /// Sentinel for "does not expire on a timer". Sew Disorder III lasts until
-/// the unit is killed; Raise Anew III leaves the tower standing until it is
-/// destroyed. Both store this instead of a duration.
+/// the unit is killed, and a Lv III Spy Network spy reports until it dies.
+/// Both store this instead of a duration. (Raise Anew used to be the third
+/// case; every level of it is permanent now, and a permanent BUILDING needs
+/// no sentinel — it simply has no timer at all.)
 /// </summary>
 public static class SectEffectDuration
 {
@@ -71,16 +73,10 @@ public struct SectDeathWard : IComponentData
     public float HealOnExpiry;
 }
 
-/// <summary>
-/// A Watch Tower conjured by Raise Anew. It crumbles when the timer runs
-/// out; at Lv III <c>TimeRemaining</c> is Permanent and the tower behaves
-/// like any other building.
-/// </summary>
-public struct SectConjuredTower : IComponentData
-{
-    public float TimeRemaining;   // SectEffectDuration.Permanent at Lv III
-    public byte  TowerLevel;      // 1 / 2 / 3
-}
+// SectConjuredTower is GONE (docs/Design/Sects.md §4). Raise Anew now raises
+// three permanent buildings of its own — RenewalTower / RenewalFortification /
+// RenewalFortress — and a permanent building needs no marker to distinguish it
+// from an ordinary one. Nothing in the sect set has a crumble timer any more.
 
 // ── Fortitude ───────────────────────────────────────────────────────────
 

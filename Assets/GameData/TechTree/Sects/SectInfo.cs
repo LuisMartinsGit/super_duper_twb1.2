@@ -1,4 +1,4 @@
-// SectInfo.cs
+﻿// SectInfo.cs
 // Display-time descriptions for the 12 sects. Used by the Religion HUD and the
 // Sect Choice popup to show:
 //   • Lore  — a single sentence of flavour for the picker header.
@@ -159,9 +159,11 @@ namespace TheWaningBorder.Economy
             (SectConfig.Veneration, 1)  => "Litany",
             (SectConfig.Veneration, 2)  => "Crystal Communion",
             (SectConfig.Veneration, 3)  => "Greater Communion",
-            (SectConfig.Witness, 1)     => "All-Seeing Gaze",
-            (SectConfig.Witness, 2)     => "Foresight",
-            (SectConfig.Witness, 3)     => "Unblinking Eye",
+            // Canon since 2026-09-08 — the three actives are named by the
+            // spec itself; these rows only matter to the legacy tier readout.
+            (SectConfig.Witness, 1)     => "Spy Network",
+            (SectConfig.Witness, 2)     => "Blinding Glare",
+            (SectConfig.Witness, 3)     => "Nowhere to Hide",
             (SectConfig.Ash, 1)         => "Burning Ground",
             (SectConfig.Ash, 2)         => "Pyre",
             (SectConfig.Ash, 3)         => "Ashfall",

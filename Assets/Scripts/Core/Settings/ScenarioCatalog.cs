@@ -1,4 +1,4 @@
-// ScenarioCatalog.cs
+﻿// ScenarioCatalog.cs
 // Single source of truth for the list of playable test scenarios and the
 // shared "launch a scenario" entry point.
 //
@@ -40,6 +40,7 @@ public static class ScenarioCatalog
         ("Hut Evolution (5s self-build, 3s upgrades)", ScenarioType.HutEvolution),
         ("Unit Sandbox (place any unit, live SO editing)", ScenarioType.Sandbox),
         ("Formation Octagon (9 units, 8 legs, formation orders)", ScenarioType.FormationOctagon),
+        ("Arrow Trails (4 tiers side by side)", ScenarioType.ArrowTrails),
     };
 
     /// <summary>

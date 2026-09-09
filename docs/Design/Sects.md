@@ -60,25 +60,78 @@ level alone, because that would retroactively reward late adopters.
 
 ---
 
+## 3b. The three actives are not three of anything — counterparts + a wildcard
+
+**Every sect's kit is one power from each counterpart pair, plus a wildcard.**
+
+| | Pair | Take exactly one |
+|---|---|---|
+| **A** | damage ↔ heal | an area that hurts, or an area that mends |
+| **B** | buff ↔ debuff | an area that strengthens yours, or one that weakens theirs |
+| **★** | wildcard | a PIVOT — see below |
+
+No sect gets two heals, or two buffs, or a damage and a heal. The pairs exist so
+that every sect answers a different half of the same question, and so that
+reading one sect's kit tells you what it cannot do.
+
+**The wildcard is the important slot.** It is not "the level III version of the
+other two" and it is not a bigger number — it is the moment a match turns. Sew
+Disorder turning a defence into an attacking mob, a fortress appearing where
+there was open ground, an army that cannot be seen walking through a battle
+line. If the third power could be described as "more of slot 1", it is not a
+wildcard and the sect has effectively two powers.
+
+A wildcard that merely restates a counterpart is the common failure: an
+army-wide invulnerability in a sect whose Pair B is already an armour buff adds
+nothing but magnitude.
+
+### Why this pass exists
+
+**Feraldis overruns Alanthor.** Aggression is Feraldis's whole identity and it
+was winning uncontested, because the four Alanthor sects were built almost
+entirely out of buffs and utility — Fortitude ran three buffs and no answer at
+all. Alanthor is the defensive culture; defensive is not the same as passive,
+and a sect that can only make its own units slightly better cannot punish an
+attack that has already begun. The Alanthor kits below are meant to BITE BACK.
+
 ## 4. Alanthor cluster
 
 ### Sect of Antiquity — *the holy librarians*
 Identity: intel and enemy shutdown.
 
-**[ACTIVE] Scour the Registry**
-- **I** — Reveal a **medium** area for 15 s.
-- **II** — Reveal a **large** area for 15 s.
-- **III** — Reveal a **large** area for 35 s.
+**[ACTIVE · A] Writ of Attainder** — *the record settles its accounts*
+- **I** — Enemies in a **small** area take damage scaled by how many of your
+  units they have killed this match.
+- **II** — **Medium** area, and the multiplier per kill rises.
+- **III** — **Large** area; a unit that has killed nothing takes a floor of
+  damage, so the power never whiffs on fresh reinforcements.
 
-**[ACTIVE] Heavy Bureaucracy**
+> Reads off the same per-type tally the Passive keeps, so the sect's two halves
+> are one idea: Antiquity remembers what you did, then bills you for it. It is
+> also the sect's only direct damage, and it exists because a sect of intel and
+> shutdown had NO way to punish an attack that was already landing.
+
+**[ACTIVE · B] Heavy Bureaucracy**
 - **I** — **Single target** building stops training, research and resource output for 30 s.
 - **II** — Buildings in a **small** area stop for 30 s.
 - **III** — Buildings in a **large** area stop for 30 s.
 
-**[ACTIVE] Sew Disorder**
+**[ACTIVE · ★ WILDCARD] Sew Disorder**
 - **I** — Units in a **small** area turn hostile to all other units for 8 s.
 - **II** — Units in a **medium** area turn hostile for 20 s.
 - **III** — Units in a **large** area turn hostile **until killed**.
+
+> The pivot, and deliberately kept. Turning a defending army into an attacking
+> mob is a match turning over in one cast, which is exactly what the third slot
+> is for. It was briefly considered for replacement by a research-theft power;
+> that was rejected because stealing technology does nothing to an opponent who
+> has already researched everything — it punishes a player for being behind and
+> pays nothing against the player it is aimed at.
+
+> **Scour the Registry is cut.** Reveal is the Sect of Witness's identity, and
+> two intel sects competing for it left Antiquity with three powers that never
+> touched the enemy directly. Antiquity keeps the archive; Witness keeps the
+> eye.
 
 **[PASSIVE] Tally of the Lost** — units gain +damage per unit-type they have
 killed this match, tracked **per unit type**. Alanthor Cataphracts that have
@@ -97,22 +150,32 @@ less time and 10 % fewer resources.
 ### Sect of Renewal — *the menders*
 Identity: repair and sustain.
 
-**[ACTIVE] Hands of Plenty**
+**[ACTIVE · A] Hands of Plenty**
 - **I** — Restore 30 % HP to units and buildings in a **small** area.
 - **II** — Restore 50 % in a **medium** area.
 - **III** — Restore 80 % in a **medium** area, and healing continues for 10 s.
 
-**[ACTIVE] Raise Anew**
-Conjures Watch Towers outright — it does not touch construction queues.
-- **I** — Raise one free **Lv 1** Watch Tower at a **single target** point. It crumbles after 30 s.
-- **II** — Raise **Lv 2** Watch Towers across a **small** area. They crumble after 60 s.
-- **III** — Raise a **Lv 3** Watch Tower at a **single target** point. It is permanent — it stays until destroyed.
+**[ACTIVE · ★ WILDCARD] Raise Anew**
+Conjures a **permanent** fortification outright — it does not touch construction
+queues, and what it raises never crumbles. Each level raises a different, larger
+structure at a **single target** point:
 
-> Note: the escalation here is tower level and permanence, not reach. III returns to
-> Single Target on purpose: a permanent free Lv 3 tower is the payoff, and granting
-> several of them would out-value every other level-III power in the game.
+- **I** — **Renewal Tower**, a watch post.
+- **II** — **Renewal Fortification**, a walled strongpoint.
+- **III** — **Renewal Fortress**, a keep that anchors a position outright.
 
-**[ACTIVE] Second Wind**
+> **These are three separate buildings, not one tower upgraded.** The old power
+> raised a Watch Tower on the ordinary Lv 1-3 ladder and let it crumble after
+> 30-60 s, which meant the sect's most dramatic slot produced something that
+> did very little and then disappeared. A structure that vanishes cannot change
+> where a battle is fought.
+>
+> Permanence is the whole point. Ground you did not hold a moment ago becomes
+> ground you now hold, and it stays held — that is the pivot, and it is
+> Alanthor's most direct answer to being pushed. The escalation is the
+> STRUCTURE, not reach and not a timer.
+
+**[ACTIVE · B] Second Wind**
 - **I** — Units in a **small** area cannot drop below 1 HP for 6 s.
 - **II** — **Small** area, 12 s.
 - **III** — **Medium** area, 12 s; survivors heal 25 % when it ends.
@@ -311,20 +374,49 @@ allies. **Up to 5.**
 ### Sect of Witness — *the open eye*
 Identity: vision.
 
-**[ACTIVE] Foresight**
-- **I** — Reveal a **large** area for 8 s.
-- **II** — Reveal a **large** area for 15 s, including stealth.
-- **III** — Reveal a **large** area for 20 s; revealed enemies take +25 % damage from your units.
+**[ACTIVE] Spy Network** — *the eye opens one lid at a time*
+**Single target.** Turn one enemy unit into an unwitting spy: you see everything
+it sees, and it does not know. The network then **spreads on its own** — an
+enemy that spends **3 s** near a spy becomes a spy too, and can in turn infect
+others.
 
-**[ACTIVE] Watcher's Mark**
-- **I** — **Single target** enemy is revealed until it dies.
-- **II** — Enemies in a **small** area are revealed until they die.
-- **III** — **Medium** area; revealed enemies also lose half their own vision.
+- **I** — Spies last 45 s. Cascade needs 3 s of proximity.
+- **II** — Spies last 90 s, and the cascade reaches further.
+- **III** — Spies last **until they die**, and the cascade is faster.
 
-**[ACTIVE] Blinding Glare**
+> This is the sect's engine, not its payoff. Seeded into a marching army it can
+> quietly become total vision; seeded into a lone scout it dies with the scout.
+> The player chooses where to plant it and then lives with how the enemy moves —
+> the sect's information is EARNED by the opponent's own behaviour rather than
+> bought with a cast.
+>
+> It replaces a flat map-wide reveal, which handed the same total information
+> for one button and made the choice of where to look meaningless.
+
+**[ACTIVE · B] Blinding Glare**
 - **I** — Enemies in a **small** area lose all vision for 8 s.
 - **II** — **Medium** area, 12 s.
 - **III** — **Large** area, 12 s, and they cannot use abilities.
+
+**[ACTIVE · ★ WILDCARD] Nowhere to Hide**
+Every enemy unit **you can currently see** takes damage at once, anywhere on the
+map. Its reach is not a radius — it is however much of the enemy army you have
+managed to reveal.
+
+- **I** — Light damage to every revealed enemy.
+- **II** — Heavier, and it also strikes revealed buildings.
+- **III** — Heavy enough to finish a wounded army outright.
+
+> The pivot, and the reason Spy Network is worth planting. A Witness player who
+> has done nothing gets a weak map-wide tickle; one whose spy network has
+> cascaded through a whole army deletes it from across the map. The power is
+> a MULTIPLIER ON PREPARATION, which is what makes it a wildcard rather than a
+> damage spell — and Witness's Pair A is satisfied by it, the one sect where
+> the wildcard and the damage counterpart are deliberately the same power.
+
+> **Foresight and Watcher's Mark are cut.** Both were plain reveals, and Spy
+> Network is a better version of the same idea: it reveals by spreading rather
+> than by paying.
 
 **[PASSIVE] All-Seeing** — your Scouts gain +50 % vision; every other unit gains
 +2 m.

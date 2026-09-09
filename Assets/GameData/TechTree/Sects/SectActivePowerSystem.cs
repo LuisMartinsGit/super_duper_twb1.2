@@ -1,4 +1,4 @@
-// SectActivePowerSystem.cs
+﻿// SectActivePowerSystem.cs
 // Active-Power lever dispatch (task-063 phase 5). Each adopted sect
 // exposes one triggered ability per the SectLeverEffects.ActiveOf table;
 // players (and AI) request a cast via SectActivePowerHelper.Fire which
@@ -87,7 +87,7 @@ namespace TheWaningBorder.Systems.Sect
 
                 SectActivePowerHelper.DispatchEffect(em, s.Caster,
                     (SectActivePowerKind)s.Kind, s.Position, s.Radius,
-                    s.Magnitude, s.Duration, s.Level);
+                    s.Magnitude, s.Duration, s.Level, s.Secondary);
                 TheWaningBorder.Rendering.SectPowerVfx.SpawnForSect(
                     SectConfig.IdAt(s.SectIndex), s.Position, s.Radius);
             }
@@ -289,6 +289,52 @@ namespace TheWaningBorder.Systems.Sect
         public static bool Fire(EntityManager em, Faction faction, string sectId, float3 targetPos)
             => Fire(em, faction, sectId, 1, targetPos);
 
+        /// <summary>
+        /// Cast one sect power at an EXPLICIT slot and level, for an arbitrary
+        /// faction, with none of the gating a real cast goes through — no
+        /// adoption, no unlocked-tier check, no cooldown, no silence, and no
+        /// cooldown stamped afterwards.
+        ///
+        /// For the sandbox, which has to be able to show any power at any level
+        /// for any colour on demand. Fire() cannot serve that: it refuses a
+        /// sect the faction has not adopted, and it reads the LEVEL out of
+        /// faction state (SectQuery.PowerLevelOf) rather than taking one, so
+        /// there is no way to ask it for "Antiquity III" directly.
+        ///
+        /// It still goes through the REAL pipeline — the same PendingSectStrike
+        /// the live path raises, so the same telegraph, the same windup and the
+        /// same DispatchEffect land the effect. What the sandbox skips is
+        /// permission to cast, not the cast itself.
+        /// </summary>
+        public static bool FireUnchecked(EntityManager em, Faction faction, string sectId,
+            int slot, int level, float3 targetPos)
+        {
+            if (slot < 1) slot = 1; else if (slot > SectLeverEffects.ActiveSlots) slot = SectLeverEffects.ActiveSlots;
+            if (level < 1) level = 1; else if (level > 3) level = 3;
+
+            var spec = SectLeverEffects.ActiveOf(sectId, slot, level);
+            if (spec.Kind == SectActivePowerKind.None) return false;
+
+            float windup = IsOffensive(spec.Kind) ? OffensiveWindupSeconds : UtilityWindupSeconds;
+
+            var strike = em.CreateEntity(typeof(PendingSectStrike));
+            em.SetComponentData(strike, new PendingSectStrike
+            {
+                Kind      = (byte)spec.Kind,
+                SectIndex = (byte)SectConfig.IndexOf(sectId),
+                Level     = (byte)level,
+                Caster    = faction,
+                Position  = targetPos,
+                Radius    = spec.Radius,
+                Magnitude = spec.Magnitude,
+                Duration  = spec.Duration,
+                Secondary = spec.Secondary,
+                Windup    = windup,
+            });
+            TheWaningBorder.Rendering.SectPowerVfx.SpawnTelegraph(targetPos, spec.Radius, windup);
+            return true;
+        }
+
         public static bool Fire(EntityManager em, Faction faction, string sectId, int tier, float3 targetPos)
         {
             // Every ADOPTED sect has its tier-1 power; tiers 2/3 unlock with
@@ -360,6 +406,7 @@ namespace TheWaningBorder.Systems.Sect
                 Radius    = radius,
                 Magnitude = magnitude,
                 Duration  = duration,
+                Secondary = spec.Secondary,
                 Windup    = windup,
             });
             TheWaningBorder.Rendering.SectPowerVfx.SpawnTelegraph(
@@ -440,13 +487,20 @@ namespace TheWaningBorder.Systems.Sect
             SectActivePowerKind.HostileConversion => true,
             SectActivePowerKind.UnmakeBuilding    => true,
             SectActivePowerKind.SpitePool         => true,
+            SectActivePowerKind.AttainderStrike   => true,
+            SectActivePowerKind.SpyNetwork        => true,
+            SectActivePowerKind.Blind             => true,
+            // RevealedStrike is NOT listed: it is map-wide, so there is no
+            // aim point for the curse-well refusal to protect, and gating it
+            // on where the player happened to click would refuse a cast that
+            // never touches a well.
             _                                     => false,
         };
 
         // Internal so SectActivePowerSystem can apply a wound-up strike.
         internal static void DispatchEffect(EntityManager em, Faction faction,
             SectActivePowerKind kind, float3 pos, float radius, float magnitude, float duration,
-            byte level = 1)
+            byte level = 1, float secondary = 0f)
         {
             switch (kind)
             {
@@ -495,6 +549,23 @@ namespace TheWaningBorder.Systems.Sect
                     break;
                 case SectActivePowerKind.HostileConversion:
                     ApplyHostileConversion(em, faction, pos, radius, duration);
+                    break;
+                case SectActivePowerKind.AttainderStrike:
+                    // Magnitude is damage PER KILL the target has taken from
+                    // us; Secondary is Lv III's floor. Both come straight off
+                    // the spec — see SectLeverEffects.Alanthor.cs.
+                    ApplyAttainder(em, faction, pos, radius, magnitude, secondary);
+                    break;
+                case SectActivePowerKind.SpyNetwork:
+                    ApplySpyNetwork(em, faction, pos, radius, duration, level);
+                    break;
+                case SectActivePowerKind.Blind:
+                    ApplyBlind(em, faction, pos, radius, duration, lockAbilities: magnitude >= 1f);
+                    break;
+                case SectActivePowerKind.RevealedStrike:
+                    // Map-wide: pos and radius are meaningless here, which is
+                    // why neither is passed.
+                    ApplyRevealedStrike(em, faction, (int)magnitude, hitBuildings: secondary >= 1f);
                     break;
                 case SectActivePowerKind.HealCirclePercent:
                     ApplyCircleHealPercent(em, faction, pos, radius, magnitude, duration);

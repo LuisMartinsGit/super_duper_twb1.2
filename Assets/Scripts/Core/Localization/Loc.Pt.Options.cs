@@ -1,4 +1,4 @@
-// Loc.Pt.Options.cs
+﻿// Loc.Pt.Options.cs
 // Portuguese for the options menu and Unity quality-level names.
 
 using System.Collections.Generic;
@@ -9,6 +9,25 @@ namespace TheWaningBorder.Core.Localization
     {
         private static void AddOptions(Dictionary<string, string> t)
         {
+            // ── Gameplay settings (2026-09-08) ──────────────────────────
+            t["GAMEPLAY"] = "JOGABILIDADE";
+            t["SHOW HEALTH BARS"] = "MOSTRAR BARRAS DE VIDA";
+            t["Whose health you see without pointing at them."] =
+                "De quem vê a vida sem apontar para eles.";
+            t["DRAG SELECTION"] = "SELEÇÃO POR ARRASTO";
+            t["What a box-select keeps when it catches both kinds. Hold Ctrl or Alt to take everything."] =
+                "O que a seleção por caixa mantém quando apanha os dois tipos. Ctrl ou Alt leva tudo.";
+            // Health-bar modes
+            t["Always"] = "Sempre";
+            t["Own"] = "Suas";
+            t["Friendly"] = "Aliadas";
+            t["Smart"] = "Inteligente";
+            t["None"] = "Nenhuma";
+            // Drag priority
+            t["Economy"] = "Economia";
+            t["Military"] = "Militar";
+            t["Off"] = "Desligado";
+
             t["OPTIONS"] = "OPÇÕES";
             t["Graphics Quality"] = "Qualidade Gráfica";
             t["Resolution"] = "Resolução";

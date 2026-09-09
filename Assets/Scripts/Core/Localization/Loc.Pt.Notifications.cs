@@ -1,4 +1,4 @@
-// Loc.Pt.Notifications.cs
+﻿// Loc.Pt.Notifications.cs
 // Portuguese for player notifications / toasts (PlayerNotificationSystem).
 
 using System.Collections.Generic;
@@ -30,6 +30,8 @@ namespace TheWaningBorder.Core.Localization
             t["Those hubs are already connected"] = "Esses bastiões já estão ligados";
 
             // ---- Command routing (CommandRouter) ----
+            t["The well is sealed — an Iconoclast must crack it open first"] =
+                "O poço está selado — um Iconoclasta tem de o abrir primeiro";
             t["The well resists all arms — only Feraldis may break it"] =
                 "O poço resiste a todas as armas — apenas os Feraldis o podem quebrar";
             t["Requires Lv {0} {1}"] = "Requer {1} de Nv {0}";

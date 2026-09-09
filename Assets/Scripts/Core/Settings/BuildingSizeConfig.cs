@@ -110,6 +110,14 @@ public static class BuildingSizeConfig
             "Sect_Veilworks"          => new int2(8, 8),
             "Sect_MusterYard"         => new int2(8, 8),
 
+            // Raise Anew (Renewal) conjured fortifications — a ladder in
+            // footprint as well as in stats: watch post, walled strongpoint,
+            // keep. The default 8 x 8 would have made the Tower block as much
+            // ground as a Hall.
+            "Renewal_Tower"           => new int2(4, 4),
+            "Renewal_Fortification"   => new int2(6, 6),
+            "Renewal_Fortress"        => new int2(8, 8),
+
             // Chapels (all sects) — generic Chapel_* prefix wildcard. The
             // temple-ring statues: halved with the Temple (2026-08-17) so
             // they keep their docked proportion against the smaller wall.

@@ -1,4 +1,4 @@
-// TrainingSystem.cs
+﻿// TrainingSystem.cs
 // The unit-training half of the production queue: how long a unit takes at
 // THIS building, how many come out, whether the faction has room for them,
 // and the spawn itself. Called by ProductionQueueSystem when a Train item
@@ -52,7 +52,14 @@ namespace TheWaningBorder.Systems.Training
         /// the building's level, Conscription at the Barracks, King Lexor's
         /// respawn tax, and the Longhouse batch rate.
         /// </summary>
-        public static float TrainDuration(EntityManager em, Entity building, string unitId, Faction faction)
+        /// <param name="heroRevivalLevel">The level a revived hero is coming
+        /// back at, from the queue item, or 0 for any ordinary training.
+        /// Only a FULL HONOURS revival — one returning him at the very level he
+        /// died at — pays the time surcharge; Rally the Oath is deliberately
+        /// priced at the hero's ordinary time, which is what makes it the
+        /// cheap-and-quick option rather than merely the weaker one.</param>
+        public static float TrainDuration(EntityManager em, Entity building, string unitId, Faction faction,
+            byte heroRevivalLevel = 0)
         {
             if (!TechCatalog.TryGetUnit(unitId, out var udef)) return 1f;
             float trainingTime = udef.trainingTime > 0 ? udef.trainingTime : 1f;
@@ -100,9 +107,25 @@ namespace TheWaningBorder.Systems.Training
                     trainingTime /= 1.2f;
             }
 
-            // King Lexor respawn tax: +15% training time per prior death.
-            if (TheWaningBorder.Abilities.HeroTrainLimit.IsKingLexorId(unitId))
-                trainingTime *= TheWaningBorder.Abilities.HeroTrainLimit.RespawnTrainMult(faction);
+            // Reviving a hero AT the level he died at takes as much longer as
+            // it costs more (docs/Design/Heroes.md §4).
+            //
+            // This replaced a flat +15 % per prior death that compounded
+            // forever and scaled with nothing: losing a level-1 king and a
+            // level-9 king were priced identically, and a player who had lost
+            // three kings paid that tax on every future king regardless of
+            // which revival they chose.
+            //
+            // The mode is DERIVED from the level on the queue item rather than
+            // passed separately, so the time can never disagree with the price
+            // that was actually charged: only a return at the exact level lost
+            // is a Full Honours.
+            if (heroRevivalLevel > 0
+                && heroRevivalLevel == TheWaningBorder.Abilities.HeroRevival.DiedAtLevel(faction))
+            {
+                trainingTime *= TheWaningBorder.Abilities.HeroRevival.PriceMultiplier(
+                    faction, TheWaningBorder.Abilities.HeroRevivalMode.FullHonours);
+            }
 
             // Longhouse: five units for 90% of one unit's time. The old
             // BatchTrainingSystem applied ONLY this factor and none of the
@@ -154,7 +177,10 @@ namespace TheWaningBorder.Systems.Training
         /// point, and sends it there. Cost was paid when the item was queued.
         /// Structural — call it outside any live query iteration.
         /// </summary>
-        public static void SpawnUnit(EntityManager em, Entity building, string unitId)
+        /// <param name="heroRevivalLevel">The level a revived hero returns
+        /// at, or 0 for an ordinary spawn. docs/Design/Heroes.md §4.</param>
+        public static void SpawnUnit(EntityManager em, Entity building, string unitId,
+            byte heroRevivalLevel = 0)
         {
             var transform = em.GetComponentData<LocalTransform>(building);
             var faction = em.GetComponentData<FactionTag>(building).Value;
@@ -223,6 +249,27 @@ namespace TheWaningBorder.Systems.Training
             // Siege Screens) are stamped here so a freshly trained unit matches
             // the ones the research sweep already touched.
             TheWaningBorder.Abilities.AlanthorActiveHelper.ApplySpawnPassives(em, unit, faction, unitId);
+
+            // A REVIVED hero comes back at the level the player paid for
+            // (docs/Design/Heroes.md §4). The factory always stamps level 1,
+            // because it cannot know which revival was bought.
+            //
+            // The XP is set to that level's FLOOR, not carried over: banked
+            // progress past the level is gone. Otherwise Rally the Oath would
+            // refund itself within one fight — come back three levels down and
+            // climb straight back on experience you had already spent.
+            if (heroRevivalLevel > 0 && em.HasComponent<HeroLevel>(unit))
+            {
+                byte lvl = TheWaningBorder.Economy.HeroProgressionConfig.Clamp(heroRevivalLevel);
+                em.SetComponentData(unit, new HeroLevel { Value = lvl });
+                if (em.HasComponent<HeroExperience>(unit))
+                {
+                    em.SetComponentData(unit, new HeroExperience
+                    {
+                        Xp = TheWaningBorder.Economy.HeroProgressionConfig.XpToReach(lvl)
+                    });
+                }
+            }
 
             if (!hasRally) return;
 

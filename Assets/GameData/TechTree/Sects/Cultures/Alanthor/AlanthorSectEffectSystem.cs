@@ -1,4 +1,4 @@
-// Ticks every timed Alanthor sect effect and pays out its expiry.
+﻿// Ticks every timed Alanthor sect effect and pays out its expiry.
 //
 // One system rather than ten: these effects share exactly one behaviour —
 // count down, then either remove yourself or hand back what you borrowed —
@@ -48,7 +48,6 @@ namespace TheWaningBorder.Systems.Sect
             TickDisorder(em, ecb, dt);
             TickRegenTail(em, ecb, dt);
             TickDeathWard(em, ecb, dt);
-            TickConjuredTowers(em, ecb, dt);
             TickVeil(em, ecb, dt);
             TickBulwark(em, ecb, dt);
             TickOverYield(em, ecb, dt);
@@ -126,24 +125,6 @@ namespace TheWaningBorder.Systems.Sect
                     health.ValueRW.Value = v > health.ValueRO.Max ? health.ValueRO.Max : v;
                 }
                 ecb.RemoveComponent<SectDeathWard>(e);
-            }
-        }
-
-        private void TickConjuredTowers(EntityManager em, EntityCommandBuffer ecb, float dt)
-        {
-            foreach (var (tower, health, e) in SystemAPI
-                .Query<RefRW<SectConjuredTower>, RefRW<Health>>().WithEntityAccess())
-            {
-                // Lv III towers are permanent — they stay until destroyed.
-                if (SectEffectDuration.IsPermanent(tower.ValueRO.TimeRemaining)) continue;
-
-                tower.ValueRW.TimeRemaining -= dt;
-                if (tower.ValueRO.TimeRemaining > 0f) continue;
-
-                // Crumble. Zero the health and let DeathSystem do the destroy —
-                // destroying a building here would race the EndSimulation ECB.
-                health.ValueRW.Value = 0;
-                ecb.RemoveComponent<SectConjuredTower>(e);
             }
         }
 

@@ -1,4 +1,4 @@
-// SimpleAISystem.Building.cs
+﻿// SimpleAISystem.Building.cs
 // Building placement: siting rules, spacing, builder dispatch, pop headroom.
 // Partial of SimpleAISystem.cs -- split 2026-08-12 for readability.
 
@@ -194,6 +194,19 @@ namespace TheWaningBorder.AI
             // too. Housing, the income huts, and the FIRST Barracks (the army
             // floor's trainer) are bounded purchases the save must run above,
             // not instead of.
+            // EVERY EXTRACTOR PASSES, not just the Gatherer's Hut
+            // (2026-09-08). The list above named the hut and missed Mine,
+            // VeilstoneMine and Alanthor_Smelter, so a faction saving for a
+            // Hall claim refused to build the ore income for as long as the
+            // save ran — and the save runs until supplies accumulate, which
+            // is what the ore income is for. Log-proven in the 22:36 Hard-AI
+            // match: six straight minutes of
+            //     "VeilstoneMine: 5 node(s), last refusal: pivotal hold"
+            //     "Mine: 3 node(s), last refusal: pivotal hold"
+            // with the nodes free inside its own territory, ending the match
+            // on 396 supplies and zero ore extractors while the human it was
+            // playing had twelve. IsExtractor is the whole class, so a future
+            // extractor cannot fall through the same hole.
             if (TheWaningBorder.AI.AIPivotalReserve.ShouldHold(em, faction)
                 && buildingId != "Hall"
                 && buildingId != "ShrineOfRidan"
@@ -201,7 +214,7 @@ namespace TheWaningBorder.AI
                 && buildingId != "FiendstoneKeep"
                 && buildingId != "TempleOfRidan"
                 && buildingId != "Hut"
-                && buildingId != "GatherersHut"
+                && !TheWaningBorder.World.Regions.TerritoryOwnership.IsExtractor(buildingId)
                 && !(buildingId == "Barracks"
                      && CountFactionBuildings<BarracksTag>(em, faction) == 0))
             { reason = "pivotal hold (saving)"; return false; }
@@ -340,12 +353,13 @@ namespace TheWaningBorder.AI
             // Real overlap is still refused by IsValidBuildPosition and by the
             // router's own gates, and the clearance still applies to the node
             // kinds the building does NOT stand on.
-            var ownNode = TheWaningBorder.World.Regions.TerritoryOwnership
-                              .RequiredNodeFor(buildingId);
-            bool onIronNode = ownNode.HasValue
-                && ownNode.Value.TypeIndex == ComponentType.ReadOnly<IronMineTag>().TypeIndex;
-            bool onVeilstoneNode = ownNode.HasValue
-                && ownNode.Value.TypeIndex == ComponentType.ReadOnly<VeilstoneOutcroppingTag>().TypeIndex;
+            // The clearance is exempted for the WHOLE extractor class, not
+            // just for the kind of node the building stands on (2026-09-08).
+            // Naming the two ore tags left the Gatherer's Hut — whose own node
+            // is a supply spot — still required to stand 14 m clear of every
+            // veilstone and iron node, so any supply node near ore was
+            // permanently unbuildable. In the 22:36 match that refused 424 of
+            // 1968 candidates and left seven free supply nodes unused.
 
             // Rejection tally, written into the refusal reason when the whole
             // search fails. "No legal spot" with no evidence is the diagnostic
@@ -396,8 +410,9 @@ namespace TheWaningBorder.AI
                                 minSpacingSq, minGHutSpacingSq, placingGHut))
                         { nSpacing++; continue; }
 
-                        if ((!onVeilstoneNode && TooCloseToAny(candidate, veilNodeXfs, nodeClearSq))
-                            || (!onIronNode && TooCloseToAny(candidate, ironNodeXfs, nodeClearSq)))
+                        if (!isExtractor
+                            && (TooCloseToAny(candidate, veilNodeXfs, nodeClearSq)
+                                || TooCloseToAny(candidate, ironNodeXfs, nodeClearSq)))
                         { nNodeClear++; continue; }
 
                         // Never place on crusted ground (2026-08-04): the

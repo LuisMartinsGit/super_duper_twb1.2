@@ -148,19 +148,38 @@ namespace TheWaningBorder.Core.Commands
                         ? $"at ({em.GetComponentData<Unity.Transforms.LocalTransform>(target).Position.x:0},{em.GetComponentData<Unity.Transforms.LocalTransform>(target).Position.z:0})"
                         : ""));
 
-            // Verb wells are FERALDIS-ONLY attack targets (2026-08-04): Age 0
+            // A WELL IS NOT A TARGET UNTIL IT IS CRACKED (2026-09-08).
+            //
+            // Verb wells are Feraldis-only attack targets (2026-08-04): Age 0
             // and Alanthor/Runai factions can never attack a well — their
             // verbs are Purify / Pacify. Only the Feraldis culture breaks
             // wells by force.
+            //
+            // But FERALDIS DOES NOT BREAK ONE WITH ARROWS EITHER. Its verb is
+            // the Iconoclast's corruption ritual, and the ritual is what opens
+            // the well to arms: CorruptionRitualSystem strips NodeNoAutoAcquire
+            // when the channel completes. Until that happens an army ordered
+            // onto a well is ordered at something the ritual has not yet made
+            // breakable, so the order is refused for Feraldis exactly as it is
+            // for everyone else — the difference is that Feraldis has a way to
+            // change the answer. docs/Design/Curse_And_Shardroot.md
             if (em.HasComponent<BorderMainNodeTag>(target))
             {
                 var attackerFaction = em.HasComponent<FactionTag>(unit)
                     ? em.GetComponentData<FactionTag>(unit).Value : Faction.Blue;
-                if (FactionColors.GetFactionCulture(attackerFaction) != Cultures.Feraldis)
+                bool feraldis = FactionColors.GetFactionCulture(attackerFaction) == Cultures.Feraldis;
+                if (!feraldis)
                 {
                     if (source == CommandSource.LocalPlayer)
                         SimSignals.Notify(
                             Loc.T("The well resists all arms — only Feraldis may break it"));
+                    return;
+                }
+                if (em.HasComponent<NodeNoAutoAcquire>(target))
+                {
+                    if (source == CommandSource.LocalPlayer)
+                        SimSignals.Notify(
+                            Loc.T("The well is sealed — an Iconoclast must crack it open first"));
                     return;
                 }
             }
@@ -765,13 +784,20 @@ namespace TheWaningBorder.Core.Commands
         /// public to mirror PlaceBuildingDirect / TrainCommandDirect (post-lockstep
         /// helpers).
         /// </summary>
-        public static void IssueAbilityDirect(EntityManager em, Entity unit, Entity target)
+        /// <param name="slot">UnitAbilities slot to fire, or -1 for the unit's
+        /// first ready Active. Heroes carry several actives and must name one
+        /// (docs/Design/Heroes.md §2); every other unit has one and passes -1.
+        /// Note the -1 is passed EXPLICITLY: AbilityActivated.Slot is an int
+        /// whose default is 0, which would mean "fire slot 0".</param>
+        public static void IssueAbilityDirect(EntityManager em, Entity unit, Entity target,
+            int slot = -1)
         {
             if (unit == Entity.Null || !em.Exists(unit)) return;
+            var act = new AbilityActivated { Target = target, Slot = slot };
             if (em.HasComponent<AbilityActivated>(unit))
-                em.SetComponentData(unit, new AbilityActivated { Target = target });
+                em.SetComponentData(unit, act);
             else
-                em.AddComponentData(unit, new AbilityActivated { Target = target });
+                em.AddComponentData(unit, act);
         }
 
         /// <summary>
@@ -786,6 +812,13 @@ namespace TheWaningBorder.Core.Commands
             CommandSource source = CommandSource.LocalPlayer)
             => IssueUnitAbility(em, unit, target, null, source);
 
+        /// <summary>Cast a NAMED ability slot. See the slot note on
+        /// IssueAbilityDirect.</summary>
+        public static bool IssueUnitAbilitySlot(EntityManager em, Entity unit, int slot,
+            Entity target = default, float3? aimPoint = null,
+            CommandSource source = CommandSource.LocalPlayer)
+            => IssueUnitAbility(em, unit, target, aimPoint, source, slot);
+
         /// <summary>
         /// Cast with an optional AIMED ground point, for Area abilities the
         /// player pointed at with the targeting ring (Use Celestar). The point
@@ -794,7 +827,8 @@ namespace TheWaningBorder.Core.Commands
         /// </summary>
         public static bool IssueUnitAbility(EntityManager em, Entity unit, Entity target,
             float3? aimPoint,
-            CommandSource source = CommandSource.LocalPlayer)
+            CommandSource source = CommandSource.LocalPlayer,
+            int slot = -1)
         {
             if (ShouldDropCommand(source)) return false;
             if (!em.Exists(unit)) return false;
@@ -819,10 +853,10 @@ namespace TheWaningBorder.Core.Commands
 
             if (ShouldQueueForLockstep(source))
             {
-                QueueAbilityForLockstep(em, unit, target);
+                QueueAbilityForLockstep(em, unit, target, slot);
                 return true;
             }
-            IssueAbilityDirect(em, unit, target);
+            IssueAbilityDirect(em, unit, target, slot);
             return true;
         }
 
@@ -833,8 +867,16 @@ namespace TheWaningBorder.Core.Commands
         /// <summary>
         /// Issue a train command to queue a unit at a building.
         /// </summary>
+        /// <param name="revival">Which revival the player is paying for when
+        /// this unit is a fallen hero (docs/Design/Heroes.md §4). None for
+        /// every ordinary train, and for a hero who has never died.
+        /// The MODE has to cross the wire — the two options charge different
+        /// prices and return different levels, so a peer that guessed would
+        /// fork both the bank and the hero.</param>
         public static void IssueTrain(EntityManager em, Entity building, string unitId,
-            CommandSource source = CommandSource.LocalPlayer)
+            CommandSource source = CommandSource.LocalPlayer,
+            TheWaningBorder.Abilities.HeroRevivalMode revival
+                = TheWaningBorder.Abilities.HeroRevivalMode.None)
         {
             if (ShouldDropCommand(source)) return;
             if (building == Entity.Null || !em.Exists(building)) return;
@@ -863,11 +905,11 @@ namespace TheWaningBorder.Core.Commands
 
             if (ShouldQueueForLockstep(source))
             {
-                QueueTrainForLockstep(em, building, unitId);
+                QueueTrainForLockstep(em, building, unitId, revival);
             }
             else
             {
-                TrainCommandDirect(em, building, unitId);
+                TrainCommandDirect(em, building, unitId, revival);
             }
         }
 
@@ -1489,7 +1531,9 @@ namespace TheWaningBorder.Core.Commands
         /// purchase of any multiplayer match desynced it
         /// (docs/Multiplayer_LAN_Readiness.md).
         /// </summary>
-        public static void TrainCommandDirect(EntityManager em, Entity building, string unitId)
+        public static void TrainCommandDirect(EntityManager em, Entity building, string unitId,
+            TheWaningBorder.Abilities.HeroRevivalMode revival
+                = TheWaningBorder.Abilities.HeroRevivalMode.None)
         {
             if (!em.HasBuffer<ProductionQueueItem>(building))
             {
@@ -1555,6 +1599,14 @@ namespace TheWaningBorder.Core.Commands
             if (em.HasComponent<FactionTag>(building))
             {
                 var trainFaction = em.GetComponentData<FactionTag>(building).Value;
+
+                // Full Honours costs more the more he was worth (Heroes.md
+                // §4). Folded into the SAME multiplier the queue item records,
+                // so CancelProductionCommandHelper refunds exactly what was
+                // taken — a separately-applied surcharge would have refunded
+                // the base price and quietly paid the player to cancel.
+                boonMult *= TheWaningBorder.Abilities.HeroRevival
+                    .PriceMultiplier(trainFaction, revival);
                 var cost = TheWaningBorder.Economy.WarSectCostHelper.MilitaryDiscount(
                     em, trainFaction, unitId,
                     TheWaningBorder.Data.UnitCosts.Get(unitId));
@@ -1570,11 +1622,22 @@ namespace TheWaningBorder.Core.Commands
             // Behind whatever the building is already making — a unit
             // queued after a research waits for the research, which is the
             // one queue the player asked for.
+            // Level carries the hero's return level for a revival (0 for
+            // everything else). Read by TrainingSystem when the unit spawns.
+            byte returnLevel = 0;
+            if (revival != TheWaningBorder.Abilities.HeroRevivalMode.None
+                && em.HasComponent<FactionTag>(building))
+            {
+                returnLevel = TheWaningBorder.Abilities.HeroRevival.ReturnLevel(
+                    em.GetComponentData<FactionTag>(building).Value, revival);
+            }
+
             em.GetBuffer<ProductionQueueItem>(building).Add(new ProductionQueueItem
             {
                 Kind               = ProductionKind.Train,
                 Id                 = new Unity.Collections.FixedString64Bytes(unitId),
                 PaidCostMultiplier = boonMult,
+                Level              = returnLevel,
             });
         }
 

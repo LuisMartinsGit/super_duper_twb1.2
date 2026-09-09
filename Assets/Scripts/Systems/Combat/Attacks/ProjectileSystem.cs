@@ -1,4 +1,4 @@
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -39,11 +39,28 @@ namespace TheWaningBorder.Systems.Combat
         {
             state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
 
-            _aoeTargetQuery = state.GetEntityQuery(
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadWrite<Health>()
-            );
+            // Splash obeys the same target exclusions as aiming does
+            // (2026-09-08). Without them a catapult stone landing anywhere
+            // near a sealed verb WELL chipped it down as collateral — the
+            // objective deleted by a shot that was never aimed at it — and
+            // splash also ignored the Stoneveil the player had paid for.
+            // A well CRACKED by an Iconoclast drops NodeNoAutoAcquire and is
+            // splashable from then on, which is the point of cracking it.
+            _aoeTargetQuery = state.GetEntityQuery(new EntityQueryDesc
+            {
+                All = new[]
+                {
+                    ComponentType.ReadOnly<LocalTransform>(),
+                    ComponentType.ReadOnly<FactionTag>(),
+                    ComponentType.ReadWrite<Health>(),
+                },
+                None = new[]
+                {
+                    ComponentType.ReadOnly<NodeUntargetable>(),
+                    ComponentType.ReadOnly<NodeNoAutoAcquire>(),
+                    ComponentType.ReadOnly<SectVeiled>(),
+                },
+            });
         }
 
         // Not Burst-compiled: laser path uses managed TerrainUtility.GetHeight

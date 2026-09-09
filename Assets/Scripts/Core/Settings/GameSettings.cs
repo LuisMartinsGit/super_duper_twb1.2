@@ -1,4 +1,4 @@
-// GameSettings.cs
+﻿// GameSettings.cs
 // Global game configuration and state
 // Place in: Assets/Scripts/Core/Settings/GameSettings.cs
 
@@ -121,6 +121,14 @@ public enum ScenarioType
     // movement test -- every formation bug found so far was direction
     // dependent and invisible in a straight line. Watch with F2.
     FormationOctagon = 28,
+
+    // Arrow trail range: four Longbowmen, each belonging to a faction that has
+    // researched a DIFFERENT arrow-tip tech, shooting four unkillable targets
+    // down four parallel lanes. The four trails run side by side so the ladder
+    // (faint grey -> grey -> blue emissive -> golden emissive) can be compared
+    // in one screenshot. See docs/Design/Combat_Pacing.md, "Arrow tips are
+    // visible in flight".
+    ArrowTrails = 29,
 }
 
 /// <summary>
@@ -337,12 +345,19 @@ public static class GameSettings
     // ==================== Selection Settings ====================
 
     /// <summary>
-    /// Smart military drag-select: when ON, a click-and-drag rectangle that
-    /// contains both military and economic units selects only the military
-    /// units (workers / scouts are excluded). When OFF, the rectangle selects
-    /// every selectable entity it covers.
+    /// What a mixed drag-rectangle keeps.
+    ///
+    /// Replaces the old SmartMilitaryDrag bool, which could only express
+    /// "military wins" or "keep everything" — there was no way to ask for the
+    /// workers, which is the other half of the same problem. Holding Ctrl or
+    /// Alt still overrides whatever is set here and takes the lot.
     /// </summary>
-    public static bool SmartMilitaryDrag = true;
+    public static DragSelectionPriority DragPriority = DragSelectionPriority.Military;
+
+    /// <summary>Whose floating health bars are drawn without being asked for.
+    /// Hovering still shows one in every mode except None, and a SELECTED unit
+    /// always shows one.</summary>
+    public static HealthBarMode HealthBars = HealthBarMode.Smart;
 
     // ==================== Map Settings ====================
 
@@ -352,8 +367,33 @@ public static class GameSettings
     /// AND be present in File → Build Settings → Scenes in Build. Defaults to
     /// the registry's default (only) hand-authored map.
     /// </summary>
-    public static string SelectedMapScene =
-        TheWaningBorder.Core.Maps.MapRegistry.Default.SceneName;
+    /// <remarks>
+    /// LAZY ON PURPOSE (2026-09-08). This was a static field initializer
+    /// reading MapRegistry.Default, which calls
+    /// SceneManager.sceneCountInBuildSettings — a Unity API that THROWS when
+    /// the static constructor happens to be triggered from inside a
+    /// MonoBehaviour constructor or field initializer during scene
+    /// deserialization. Because .NET caches a failed type initializer for the
+    /// life of the domain, that single throw killed GameSettings outright and
+    /// took every reader of it down with it.
+    ///
+    /// Resolving on first GET moves the call to whoever actually asks for a
+    /// map name, which is always ordinary game code on the main thread. Any
+    /// assignment before the first read wins outright and the registry is
+    /// never consulted at all.
+    /// </remarks>
+    public static string SelectedMapScene
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(_selectedMapScene))
+                _selectedMapScene = TheWaningBorder.Core.Maps.MapRegistry.Default.SceneName;
+            return _selectedMapScene;
+        }
+        set => _selectedMapScene = value;
+    }
+
+    private static string _selectedMapScene;
 
     /// <summary>Half the map size (total map = 2 * MapHalfSize).</summary>
     public static int MapHalfSize = 125;

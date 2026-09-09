@@ -184,7 +184,22 @@ namespace TheWaningBorder.AI
                 // is an offensive cast — same cluster targeting.
                 case SectActivePowerKind.FreezeCooldowns:
                 case SectActivePowerKind.HostileConversion:
+                // Writ of Attainder bills the units that have been doing the
+                // killing, so the enemy cluster is exactly where it pays. Spy
+                // Network wants a body in that same cluster — a spy planted in
+                // a marching army is the one that cascades. Blinding Glare is
+                // an ordinary enemy-area debuff.
+                case SectActivePowerKind.AttainderStrike:
+                case SectActivePowerKind.SpyNetwork:
+                case SectActivePowerKind.Blind:
                     return TryPickEnemyClusterNearBase(em, faction, hallPos, spec.Radius, out target);
+
+                // Nowhere to Hide is map-wide: it hits whatever the AI can
+                // already see, so there is nothing to aim and the cast point
+                // only decides where the art plays.
+                case SectActivePowerKind.RevealedStrike:
+                    target = hallPos;
+                    return true;
 
                 // Aim at an enemy BUILDING.
                 case SectActivePowerKind.BuildingShutdown:

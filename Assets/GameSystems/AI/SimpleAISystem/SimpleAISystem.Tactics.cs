@@ -1,4 +1,4 @@
-// SimpleAISystem.Tactics.cs
+﻿// SimpleAISystem.Tactics.cs
 // The TACTICAL layer: what an army does once it is in contact.
 // Partial of SimpleAISystem.cs.
 //
@@ -68,7 +68,8 @@ namespace TheWaningBorder.AI
                 // Staging armies are still forming up. Interrupting that with
                 // target orders is what forward staging exists to prevent —
                 // the army would trickle into the fight instead of arriving.
-                if (mission.Phase == MissionPhase.Staging) continue;
+                if (mission.Phase == MissionPhase.Staging
+                    || mission.Phase == MissionPhase.Mustering) continue;
 
                 if (now < mission.NextTacticsTime) continue;
                 mission.NextTacticsTime = now + Cfg.tacticsInterval;

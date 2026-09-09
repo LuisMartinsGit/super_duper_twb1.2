@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
   m_Name: Ledger
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: 
   id: Ledger
   displayName: Ledger
   unitClass: support
@@ -30,7 +30,10 @@ MonoBehaviour:
   attackRange: 0
   minAttackRange: 0
   lineOfSight: 10
+  aimTime: 0
   radius: 0.5
+  trajectory: 
+  projectileSpeed: 0
   cost:
     Supplies: 0
     Iron: 22
@@ -40,12 +43,16 @@ MonoBehaviour:
   buildSpeed: 0
   gatheringSpeed: 0
   healsPerSecond: 0
+  healRange: 0
+  siegeRange: 0
+  siegeCooldown: 0
+  aoeRadius: 0
   tags:
-  - 'Infantry'
-  - 'Light'
+  - Infantry
+  - Light
   bonusVsTags: []
   abilities:
   - Automate Facility
-  prefab: {fileID: 99420036394458, guid: d09ba3918384bda4827c56c0374d78b9, type: 3}
+  prefab: {fileID: 1436963559484171168, guid: 7d44cd49d975225488171eab9d666c6e, type: 3}
   presentationId: 250
-  animatorController: {fileID: 0}
+  animatorController: {fileID: 9100000, guid: be46edf8602f66c4186a07269cd01e16, type: 2}

@@ -1,4 +1,4 @@
-using Unity.Entities;
+﻿using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Economy;
@@ -61,9 +61,23 @@ namespace TheWaningBorder.Entities
             // fall back to the design default (King's Call aura + Liquid Courage active).
             creator.AddComponent(entity, new UniqueUnitTag { Kind = UniqueUnitKind.KingLexor });
             string[] abilityNames = (def != null && def.abilities != null && def.abilities.Length > 0)
-                ? def.abilities : new[] { "King's Call", "Liquid Courage" };
+                ? def.abilities
+                : new[] { "King's Call", "Liquid Courage", HonourThyPledge.AbilityName };
             creator.AddComponent(entity, AbilityAssignment.Build(abilityNames));
             creator.AddComponent(entity, default(AbilityCooldowns));
+
+            // Hero levels 1..10, earned from kills (docs/Design/Heroes.md §1).
+            // He enters at 1 and climbs by fighting; Honour thy Pledge stays
+            // hidden until he reaches 4.
+            //
+            // A REVIVED king is overwritten by HeroRevival immediately after
+            // this returns — the level he comes back at is the player's choice
+            // (§4), and the factory has no way to know it.
+            creator.AddComponent(entity, new HeroLevel
+            {
+                Value = TheWaningBorder.Economy.HeroProgressionConfig.MinLevel
+            });
+            creator.AddComponent(entity, new HeroExperience { Xp = 0 });
 
             return entity;
         }

@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using TheWaningBorder.Core.Settings;
 
 namespace TheWaningBorder.AI
@@ -282,6 +282,31 @@ namespace TheWaningBorder.AI
         public float waveOverdueSeconds;
 
         public float stagingGatherRadius;
+
+        // ── Muster (2026-09-07). ──
+        // The army forms up BEFORE it leaves. It used to be ordered straight
+        // from wherever its units stood — rally points on five buildings,
+        // survivors of the last fight, a scout at the far gate — and the
+        // formation plan's cohesion gate takes members only from within a
+        // few metres of the centroid, so most of the army was an "outlier"
+        // that walked to the stage point ALONE. That is the trickle the
+        // curse waves stopped showing the moment they spawned compact: the
+        // fix for the AI is the same compactness, made by an order.
+        /// <summary>The muster point sits this far from the Hall toward the
+        /// objective — outside the base, on the way.</summary>
+        public float musterDistance;
+        /// <summary>Share of the army inside the gather radius of the
+        /// muster point before it departs.</summary>
+        public float musterGatherFraction;
+        /// <summary>Longest the army waits at the muster for stragglers.</summary>
+        public float musterTimeoutSeconds;
+        /// <summary>Seconds between straggler sweeps on the march: any member
+        /// travelling outside the formation is folded back in by re-issuing
+        /// the leg's order to the whole army.</summary>
+        public float regroupInterval;
+        /// <summary>A reinforcement column this close to the army it was sent
+        /// to join is merged into it.</summary>
+        public float reinforceMergeRadius;
 
         // 60 -> 240 (2026-08-30). The stage clock starts at LAUNCH, and 60 s
         // is a fraction of the march to the stage point — so the "staged"

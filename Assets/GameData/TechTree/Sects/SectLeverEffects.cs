@@ -1,4 +1,4 @@
-// SectLeverEffects.cs
+﻿// SectLeverEffects.cs
 // Per-sect data tables for the Building / Unit / Active-Power levers
 // (task-063 phase 5). The Passive lever has its own per-sect ECS systems
 // (SectFortitudeHpSystem, SectVenerationFervorSystem, etc.) because each
@@ -69,7 +69,8 @@ namespace TheWaningBorder.Economy
         BuildingShutdown,   // Antiquity "Heavy Bureaucracy": buildings stop training/research/output
         HostileConversion,  // Antiquity "Sew Disorder": units turn hostile to everything
         HealCirclePercent,  // Renewal "Hands of Plenty": heal a FRACTION of max HP, optional regen tail
-        RaiseTower,         // Renewal "Raise Anew": conjure Watch Towers (Magnitude = tower level)
+        RaiseTower,         // Renewal "Raise Anew": raise a permanent Renewal structure
+                            // (Magnitude picks Tower / Fortification / Fortress)
         DeathWard,          // Renewal "Second Wind": cannot drop below 1 HP
         Veil,               // Fortitude "Stoneveil": invisible, untargetable, cannot interact, faster
         BuildingHpBuff,     // Fortitude "Bulwark": +100% building HP, Lv III adds melee reflect
@@ -84,6 +85,19 @@ namespace TheWaningBorder.Economy
         BloodRain,          // War "Blood Rain": blood pool + MAP-WIDE haste + MAP-WIDE spell lockout
         TrainingBoon,       // War "Call to Arms": military buildings train cheaper (and faster at Lv III)
         DamageArmorCircle,  // War "Bloodfury" III: damage buff AND flat armor in one buff
+
+        // ── Antiquity / Witness canon kinds (docs/Design/Sects.md, 2026-09-08)
+        // The pass that gave the two intel sects something that actually
+        // touches the enemy. Both used to be pure reveal.
+        AttainderStrike,    // Antiquity "Writ of Attainder": damage scaled by how many of
+                            // YOUR units each enemy has killed (Magnitude = per kill,
+                            // Secondary = the floor a killer-of-nothing still takes)
+        SpyNetwork,         // Witness "Spy Network": turn ONE enemy unit into an unwitting
+                            // eye; it spreads to enemies that linger near it
+        Blind,              // Witness "Blinding Glare": enemies lose all vision
+                            // (Magnitude >= 1 also locks their abilities)
+        RevealedStrike,     // Witness "Nowhere to Hide": damage every enemy you can
+                            // currently SEE, anywhere on the map — reach is not a radius
     }
 
     public struct SectActivePowerSpec
@@ -93,6 +107,15 @@ namespace TheWaningBorder.Economy
         public float Magnitude;       // damage / heal / armor amount
         public float Duration;        // seconds (where applicable)
         public float Cooldown;        // base cooldown — Phase 4 reduces with level
+
+        /// <summary>
+        /// A SECOND number, for the handful of powers that genuinely need two
+        /// and would otherwise smuggle one through <see cref="Duration"/>.
+        /// Its meaning is the power's own and is documented at the spec that
+        /// sets it — Writ of Attainder's damage floor, Spy Network's cascade
+        /// radius. Zero for every power that needs only one.
+        /// </summary>
+        public float Secondary;
 
         /// <summary>Which of the four canon radii this power uses. Set by the
         /// canon tables; the eight pre-canon sects leave it at Single and are
@@ -139,7 +162,9 @@ namespace TheWaningBorder.Economy
 
             var spec = CanonActiveAlanthor(sectId, slot, level);
             if (spec.Kind != SectActivePowerKind.None) return spec;
-            return CanonActiveFeraldis(sectId, slot, level);
+            spec = CanonActiveFeraldis(sectId, slot, level);
+            if (spec.Kind != SectActivePowerKind.None) return spec;
+            return CanonActiveRunai(sectId, slot, level);
         }
 
         /// <summary>
@@ -155,7 +180,8 @@ namespace TheWaningBorder.Economy
 
         internal static SectActivePowerSpec Spec(
             SectActivePowerKind kind, SectRadius reach, string name, string description,
-            float magnitude = 0f, float duration = 0f, float cooldown = 90f)
+            float magnitude = 0f, float duration = 0f, float cooldown = 90f,
+            float secondary = 0f)
             => new SectActivePowerSpec
             {
                 Kind        = kind,
@@ -164,6 +190,7 @@ namespace TheWaningBorder.Economy
                 Magnitude   = magnitude,
                 Duration    = duration,
                 Cooldown    = cooldown,
+                Secondary   = secondary,
                 Name        = name,
                 Description = description,
             };

@@ -1,4 +1,4 @@
-// Spawns and syncs visual GameObjects for arrow and laser projectile entities.
+﻿// Spawns and syncs visual GameObjects for arrow and laser projectile entities.
 // Separate from PresentationSpawnSystem because projectiles:
 // - Fly through the air (no terrain height snapping)
 // - Are short-lived (~0.8s)
@@ -78,6 +78,11 @@ namespace TheWaningBorder.Rendering
 
         void Start()
         {
+            // A new match brings a new FactionResearchState, so a tier cached
+            // from the last one would have an upgraded army firing on turn
+            // one — and the stale event subscription would never fire again.
+            ArrowTrailTiers.Reset();
+
             _world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             if (_world != null && _world.IsCreated)
             {
@@ -213,12 +218,27 @@ namespace TheWaningBorder.Rendering
 
                 // A trail sampled before the reposition would streak from the
                 // template's origin to the spawn point on the first frame.
+                // ArrowTrailTiers.Apply clears it again for the same reason,
+                // so an authored template that carries its own trail is still
+                // handled here.
                 var spawnTrail = go.GetComponentInChildren<TrailRenderer>();
                 if (spawnTrail != null) spawnTrail.Clear();
 
                 // Scale up siege projectiles (ballista bolts) for visual distinction —
                 // only applies to plain arrows, not to the specialised tags above.
                 bool isPlainArrow = template == _arrowTemplate;
+
+                // The arrow-tip ladder, read off the firing faction. Ballista
+                // bolts share this template and so share the look: they are
+                // shot from the same racks by the same army, and giving them a
+                // separate rule would be inventing one the design does not have.
+                if (isPlainArrow && spawnTrail != null)
+                {
+                    var shooter = _em.HasComponent<Projectile>(entity)
+                        ? _em.GetComponentData<Projectile>(entity).Faction
+                        : Faction.Blue;
+                    ArrowTrailTiers.Apply(spawnTrail, ArrowTrailTiers.Of(shooter));
+                }
                 if (isPlainArrow && _em.HasComponent<Projectile>(entity))
                 {
                     var proj = _em.GetComponentData<Projectile>(entity);
@@ -323,31 +343,17 @@ namespace TheWaningBorder.Rendering
                 tipRenderer.material.color = new Color(0.3f, 0.3f, 0.32f); // iron
             }
 
-            // White flight trail. Same stripping-safe shader chain as the
-            // other procedural particle visuals (CurseBeaconVfx) — a bare
-            // unreferenced shader would be stripped from player builds.
+            // Flight trail — SHAPE only. What it looks like, and whether it
+            // shows at all, is the firing faction's arrow-tip research, and
+            // ArrowTrailTiers.Apply dresses it per instance at spawn. It used
+            // to be one white streak for everybody, which meant a
+            // fully-upgraded army looked exactly like a starting one.
             var trail = root.AddComponent<TrailRenderer>();
-            var trailShader = Shader.Find("Universal Render Pipeline/Particles/Unlit")
-                           ?? Shader.Find("Particles/Standard Unlit")
-                           ?? Shader.Find("Sprites/Default");
-            trail.material = new Material(trailShader);
-            trail.time = 0.25f;
-            trail.startWidth = 0.06f;
-            trail.endWidth = 0f;
             trail.minVertexDistance = 0.2f;
             trail.autodestruct = false;
             trail.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             trail.receiveShadows = false;
-            var gradient = new Gradient();
-            gradient.SetKeys(
-                new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
-                new[]
-                {
-                    new GradientAlphaKey(0.85f, 0f),
-                    new GradientAlphaKey(0.35f, 0.5f),
-                    new GradientAlphaKey(0f, 1f),
-                });
-            trail.colorGradient = gradient;
+            trail.enabled = false;   // Tier None is the default, and it is silent.
 
             return root;
         }

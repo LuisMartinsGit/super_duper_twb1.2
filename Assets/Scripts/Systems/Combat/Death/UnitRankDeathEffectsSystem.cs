@@ -1,4 +1,4 @@
-// UnitRankDeathEffectsSystem.cs
+﻿// UnitRankDeathEffectsSystem.cs
 // On-death AOE for Lv 4+ veteran units AND drop-pile spawn for Lv 2+
 // veterans. Mirrors PillageSystem's death-event hook.
 //
@@ -56,7 +56,13 @@ namespace TheWaningBorder.Systems.Combat
             foreach (var (health, transform, faction, rank) in SystemAPI
                 .Query<RefRO<Health>, RefRO<LocalTransform>, RefRO<FactionTag>, RefRO<UnitRank>>()
                 .WithAll<UnitTag>()
-                .WithNone<DeathAnimationState>())
+                // TemporarySummon: a pledged soldier arrives at rank 1-4
+                // (Heroes.md §3), so without this a level-10 Honour thy Pledge
+                // ended in three rank-4 explosions the moment its timer ran
+                // out. Expiry is meant to be quiet; being CUT DOWN is not, but
+                // that path sets Health to 0 with the unit already dying and is
+                // unaffected here.
+                .WithNone<DeathAnimationState, TemporarySummon>())
             {
                 if (health.ValueRO.Value > 0) continue;
                 if (rank.ValueRO.Value < 2) continue;

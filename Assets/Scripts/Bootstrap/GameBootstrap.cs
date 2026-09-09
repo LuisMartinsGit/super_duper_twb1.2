@@ -1,4 +1,4 @@
-// GameBootstrap.cs
+﻿// GameBootstrap.cs
 // Main game initialization - coordinates all bootstrap systems
 // NOTE: This file should be in Assets/Scripts/Bootstrap/, NOT in Core/Bootstrap/
 
@@ -287,6 +287,13 @@ namespace TheWaningBorder.Bootstrap
             // moment the deterministic clock actually starts. Here it covers
             // single-player and non-deterministic matches.
             SimCadence.BeginMatch();
+
+            // Per-match statics that outlive the scene. A carried-over hero
+            // death ledger would price the next match's FIRST king as a
+            // revival — charging Full Honours for a man who has never fallen.
+            // (HeroTrainLimit.ResetAll had no caller at all; it does now.)
+            TheWaningBorder.Abilities.HeroRevival.ResetAll();
+            TheWaningBorder.Abilities.HeroTrainLimit.ResetAll();
 
             EnsureECSWorld();
             Trace("after EnsureECSWorld");

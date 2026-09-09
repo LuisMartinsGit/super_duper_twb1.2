@@ -148,6 +148,16 @@ namespace TheWaningBorder.Entities
                 ["Sect_Stonehold"]          = new BuildingRecipe(Stonehold.Create, Stonehold.Create, Stonehold.PresentationID),
                 ["Sect_Veilworks"]          = new BuildingRecipe(Veilworks.Create, Veilworks.Create, Veilworks.PresentationID),
                 ["Sect_MusterYard"]         = new BuildingRecipe(MusterYard.Create, MusterYard.Create, MusterYard.PresentationID),
+
+                // Raise Anew (Sect of Renewal active power) — three PERMANENT
+                // conjured fortifications, one per power level. Not placeable
+                // (no BuildCosts / builder row) and never under construction;
+                // they file with the ability, not under Buildings/. Routed
+                // through this dispatcher so every peer agrees on the
+                // NetworkedEntity id (MP harness catch #9).
+                [RenewalTower.Id]           = new BuildingRecipe(RenewalTower.Create, RenewalTower.Create, RenewalTower.PresentationID),
+                [RenewalFortification.Id]   = new BuildingRecipe(RenewalFortification.Create, RenewalFortification.Create, RenewalFortification.PresentationID),
+                [RenewalFortress.Id]        = new BuildingRecipe(RenewalFortress.Create, RenewalFortress.Create, RenewalFortress.PresentationID),
             };
         }
 

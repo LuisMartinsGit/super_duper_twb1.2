@@ -1,4 +1,4 @@
-// Loc.Pt.Extractors.cs
+﻿// Loc.Pt.Extractors.cs
 // Portuguese for the entity extractors: display names resolved by the
 // EntityExtractors name ladder (translated at the render sites — the
 // resolvers themselves stay English because the strings double as
@@ -16,6 +16,15 @@ namespace TheWaningBorder.Core.Localization
             // ── Tooltip scaffolding (BuildTooltip + requirement templates) ──
             // "Cost: " is a CONTRACT key: BuildTooltip emits "\n" + Loc.T("Cost: ")
             // and ActionsPanelPrefabBinder splits on the same expression.
+            // ── Hero levels and revival (docs/Design/Heroes.md) ────────────
+            t["Rally the Oath  (Lv {0})"] = "Convocar o Juramento  (Nv {0})";
+            t["Full Honours  (Lv {0})"] = "Honras Plenas  (Nv {0})";
+            t["{0} returns at level {1} — three levels down from the {2} he fell at — for his ordinary price and time."] =
+                "{0} regressa ao nível {1} — três níveis abaixo do {2} em que tombou — pelo preço e tempo habituais.";
+            t["{0} returns at level {1}, everything he was — for x{2} the cost and the time."] =
+                "{0} regressa ao nível {1}, tudo o que era — por x{2} o custo e o tempo.";
+            t["Honour thy Pledge"] = "Honra o teu Juramento";
+
             t["Cost: "] = "Custo: ";
             t["Time: {0}s"] = "Tempo: {0}s";
             t["{0}  (Lv {1})"] = "{0}  (Nv {1})";

@@ -1,4 +1,4 @@
-// SimpleAISystem.Military.cs
+﻿// SimpleAISystem.Military.cs
 // Army missions, attack waves, reinforcement and corrupted-patch reclaim.
 // Partial of SimpleAISystem.cs -- split 2026-08-12 for readability.
 
@@ -73,7 +73,10 @@ namespace TheWaningBorder.AI
         // march straight at the objective; staged missions (Hard+) first form
         // up at a point near the target on the home side, then commit at full
         // strength — fixing AoE4's documented always-rally-at-homebase habit.
-        private enum MissionPhase : byte { Direct = 0, Staging = 1, Striking = 2 }
+        // Mustering (2026-09-07): forming up near home before the march —
+        // see musterDistance. Every attack now runs Mustering -> Staging ->
+        // Striking; Direct is kept for raids.
+        private enum MissionPhase : byte { Direct = 0, Staging = 1, Striking = 2, Mustering = 3 }
 
         private sealed class Mission
         {
@@ -82,7 +85,12 @@ namespace TheWaningBorder.AI
             public Entity Target;
             public float3 TargetPos;
             public float3 StagePos;
+            public float3 MusterPos;
             public float StartTime;
+            /// <summary>When the current leg began — muster, stage or strike.
+            /// Its own clock, so a long muster does not eat the stage timeout.</summary>
+            public float LegStartTime;
+            public float NextRegroupTime;
 
             // ── Tactical state (SimpleAISystem.Tactics.cs). ──
             /// <summary>What the whole army is killing right now, so the
@@ -732,14 +740,23 @@ namespace TheWaningBorder.AI
             // then strikes as one body (the commit in TickMissions).
             if (approachDist > Cfg.stagingDistance * 2f)
             {
-                attack.Phase = MissionPhase.Staging;
                 attack.StagePos = targetPos + (fromTarget / approachDist) * Cfg.stagingDistance;
+                // MUSTER FIRST (2026-09-07). The army was dispatched from
+                // wherever it stood, and the formation plan makes members
+                // only of units already close to the centroid — so a base
+                // full of rally points sent most of the army to the stage
+                // point one by one. Form up outside the gate, THEN march.
+                // Same shape the curse waves get from spawning compact.
+                attack.Phase = MissionPhase.Mustering;
+                attack.MusterPos = originPos - (fromTarget / approachDist) * Cfg.musterDistance;
+                attack.LegStartTime = now;
                 CommandRouter.IssueFormationMove(
-                    em, attack.Members, attack.StagePos, FormationShape.Box, CommandSource.AI);
+                    em, attack.Members, attack.MusterPos, FormationShape.Box, CommandSource.AI);
             }
             else
             {
                 attack.Phase = MissionPhase.Striking;
+                attack.LegStartTime = now;
                 CommandRouter.IssueFormationAttackMove(
                     em, attack.Members, targetPos, FormationShape.Box, CommandSource.AI);
             }
@@ -750,8 +767,9 @@ namespace TheWaningBorder.AI
             AILogger.Log(faction, "WAVE",
                 $"objective ({targetPos.x:0},{targetPos.z:0}) [{_lastDoctrine}] " +
                 $"army {attack.Members.Count}, " +
-                (attack.Phase == MissionPhase.Staging
-                    ? $"staging at ({attack.StagePos.x:0},{attack.StagePos.z:0})"
+                (attack.Phase == MissionPhase.Mustering
+                    ? $"mustering at ({attack.MusterPos.x:0},{attack.MusterPos.z:0}), " +
+                      $"staging at ({attack.StagePos.x:0},{attack.StagePos.z:0})"
                     : "striking direct"));
 
             // Remember where this wave went so newly-finished units can be
@@ -762,7 +780,7 @@ namespace TheWaningBorder.AI
             // WHILE STAGING, reinforcements rally to the STAGE POINT — sent
             // at the objective they attack-moved straight past the forming
             // army into the enemy alone. The staging commit repoints this.
-            aiState.WaveTarget = attack.Phase == MissionPhase.Staging
+            aiState.WaveTarget = attack.Phase == MissionPhase.Mustering
                 ? attack.StagePos : targetPos;
             aiState.WaveActive = 1;
             aiState.WaveStartTime = now;
@@ -909,25 +927,49 @@ namespace TheWaningBorder.AI
 
             if (reinforcements.Count > 0)
             {
-                CommandRouter.IssueFormationAttackMove(
-                    em, reinforcements, aiState.WaveTarget,
-                    FormationShape.Box, CommandSource.AI);
+                // A COLUMN, NOT A PACKET (2026-09-07). Reinforcements used to
+                // be attack-moved from home and appended to the live
+                // mission's roster. Two things went wrong: the formation plan
+                // only makes members of units near the centroid, so a packet
+                // drafted from five rally points walked out in single file;
+                // and a column at home averaged into the front-line army's
+                // centroid, so the tactical layer's cohesion recall pulled
+                // BOTH halves toward the middle of the map. The column is its
+                // own mission now — it musters, marches and strikes like the
+                // main army — and is merged into the army it was sent to join
+                // once it gets there (UpdateMissions).
+                Entity myHall = FindFactionBuilding<HallTag>(em, faction);
+                float3 from = myHall != Entity.Null && em.HasComponent<LocalTransform>(myHall)
+                    ? em.GetComponentData<LocalTransform>(myHall).Position
+                    : xfs[0].Position;
+                float3 fromTarget = from - aiState.WaveTarget;
+                fromTarget.y = 0f;
+                float approachDist = math.length(fromTarget);
 
-                // ENROLL THE PACKET IN THE LIVE MISSION (2026-09-03). Unrolled
-                // reinforcements got no tactical layer at all — TickArmyTactics
-                // iterates mission.Members only, so packets received no focus
-                // fire, no cohesion recall and no per-mission retreat: two
-                // armies, one managed and one an unmanaged cloud of six-packs.
-                var missions = MissionsFor(faction);
-                for (int m = 0; m < missions.Count; m++)
+                var column = new Mission
                 {
-                    if (missions[m].Type != MissionType.Attack) continue;
-                    var members = missions[m].Members;
-                    for (int r = 0; r < reinforcements.Count; r++)
-                        if (!members.Contains(reinforcements[r]))
-                            members.Add(reinforcements[r]);
-                    break;
+                    Type = MissionType.Attack,
+                    Target = Entity.Null,
+                    TargetPos = aiState.WaveTarget,
+                    StartTime = now,
+                    LegStartTime = now,
+                };
+                column.Members.AddRange(reinforcements);
+                if (approachDist > Cfg.stagingDistance * 2f)
+                {
+                    column.Phase = MissionPhase.Mustering;
+                    column.StagePos = aiState.WaveTarget + (fromTarget / approachDist) * Cfg.stagingDistance;
+                    column.MusterPos = from - (fromTarget / approachDist) * Cfg.musterDistance;
+                    CommandRouter.IssueFormationMove(
+                        em, column.Members, column.MusterPos, FormationShape.Box, CommandSource.AI);
                 }
+                else
+                {
+                    column.Phase = MissionPhase.Striking;
+                    CommandRouter.IssueFormationAttackMove(
+                        em, column.Members, aiState.WaveTarget, FormationShape.Box, CommandSource.AI);
+                }
+                MissionsFor(faction).Add(column);
             }
 
             // Nothing marching and nothing to march: the wave is over — either
@@ -1069,6 +1111,7 @@ namespace TheWaningBorder.AI
                             // never "arrived", and were re-dispatched forever.
                             aiState.WaveTarget = nextPos;
                             mission.StartTime = now;
+                            mission.LegStartTime = now;
                             mission.Phase = MissionPhase.Staging;
                             AILogger.Log(faction, "WAVE",
                                 $"site empty — marching to next scouted threat at ({nextPos.x:0},{nextPos.z:0})");
@@ -1085,6 +1128,7 @@ namespace TheWaningBorder.AI
                         // Same reinforcement repoint as the site-empty chain.
                         aiState.WaveTarget = nextPos;
                         mission.StartTime = now;
+                        mission.LegStartTime = now;
                         mission.Phase = MissionPhase.Striking;
                         CommandRouter.IssueFormationAttackMove(
                             em, mission.Members, nextPos, FormationShape.Box, CommandSource.AI);
@@ -1116,6 +1160,36 @@ namespace TheWaningBorder.AI
                 }
                 float3 centroid = sum / mission.Members.Count;
 
+                // A reinforcement column that has reached the army it was
+                // sent to join becomes part of it: one roster, one centroid,
+                // one set of tactics. (Columns are the later missions in the
+                // list; the army they join is an earlier one.)
+                if (mission.Type == MissionType.Attack && m > 0
+                    && TryMergeIntoArmy(em, missions, m, centroid))
+                    continue;
+
+                // MUSTER GATE (2026-09-07): the army leaves once most of it
+                // stands at the muster point, or the wait runs out — one
+                // straggler must not hold the wave at the gate.
+                if (mission.Phase == MissionPhase.Mustering)
+                {
+                    float fraction = FractionWithin(em, mission, mission.MusterPos, GatherRadius(mission.Members.Count));
+                    bool musterTimedOut = now - mission.LegStartTime > Cfg.musterTimeoutSeconds;
+                    if (fraction >= Cfg.musterGatherFraction || musterTimedOut)
+                    {
+                        mission.Phase = MissionPhase.Staging;
+                        mission.LegStartTime = now;
+                        CommandRouter.IssueFormationMove(
+                            em, mission.Members, mission.StagePos, FormationShape.Box, CommandSource.AI);
+                        AILogger.Log(faction, "WAVE",
+                            $"mustered {(int)(fraction * 100)}% — marching on the stage point " +
+                            $"({mission.StagePos.x:0},{mission.StagePos.z:0})" +
+                            (musterTimedOut ? " (muster timed out)" : ""));
+                    }
+                    else RegroupStragglers(em, faction, mission, now, attackMove: false);
+                    continue;
+                }
+
                 // Forward-staging commit: once the army has gathered at the
                 // staging point (or staging times out — stragglers must not
                 // stall the push), strike the objective as one formation.
@@ -1123,17 +1197,24 @@ namespace TheWaningBorder.AI
                 {
                     float sx = centroid.x - mission.StagePos.x;
                     float sz = centroid.z - mission.StagePos.z;
-                    bool gathered = sx * sx + sz * sz <= Cfg.stagingGatherRadius * Cfg.stagingGatherRadius;
-                    bool stageTimedOut = now - mission.StartTime > Cfg.stagingTimeoutSeconds;
+                    bool gathered = sx * sx + sz * sz <= Cfg.stagingGatherRadius * Cfg.stagingGatherRadius
+                        && FractionWithin(em, mission, centroid, GatherRadius(mission.Members.Count)) >= Cfg.musterGatherFraction;
+                    bool stageTimedOut = now - mission.LegStartTime > Cfg.stagingTimeoutSeconds;
                     if (gathered || stageTimedOut)
                     {
                         mission.Phase = MissionPhase.Striking;
+                        mission.LegStartTime = now;
                         CommandRouter.IssueFormationAttackMove(
                             em, mission.Members, mission.TargetPos, FormationShape.Box, CommandSource.AI);
                         // Reinforcements now flow to the front, not the
                         // (abandoned) form-up ground.
                         aiState.WaveTarget = mission.TargetPos;
                     }
+                    else RegroupStragglers(em, faction, mission, now, attackMove: false);
+                }
+                else if (mission.Phase == MissionPhase.Striking && !mission.Engaged)
+                {
+                    RegroupStragglers(em, faction, mission, now, attackMove: true);
                 }
 
                 // Per-mission retreat: compare local strength at the army's
@@ -1166,6 +1247,109 @@ namespace TheWaningBorder.AI
                 if (mission.Type == MissionType.Attack)
                     aiState.Posture = AIPosture.Rebuild;
             }
+        }
+
+        /// <summary>The gather radius for an army of this size: the configured
+        /// radius plus the formation's own footprint, which grows with the
+        /// square root of the head count (a 40-unit box stands ~10 m across
+        /// by itself, and would never test as "gathered" inside 12 m).</summary>
+        private float GatherRadius(int count)
+            => Cfg.stagingGatherRadius + 1.5f * math.sqrt(math.max(1, count));
+
+        /// <summary>Share of a mission's members within <paramref name="radius"/>
+        /// of a point.</summary>
+        private static float FractionWithin(EntityManager em, Mission mission, float3 point, float radius)
+        {
+            int inside = 0, counted = 0;
+            float r2 = radius * radius;
+            for (int i = 0; i < mission.Members.Count; i++)
+            {
+                var u = mission.Members[i];
+                if (!em.HasComponent<LocalTransform>(u)) continue;
+                var p = em.GetComponentData<LocalTransform>(u).Position;
+                float dx = p.x - point.x, dz = p.z - point.z;
+                counted++;
+                if (dx * dx + dz * dz <= r2) inside++;
+            }
+            return counted == 0 ? 1f : (float)inside / counted;
+        }
+
+        /// <summary>
+        /// Fold stragglers back into the formation. A member travelling on
+        /// its own — no FormationMemberState, an order still in flight — is
+        /// one the plan's cohesion gate left out (too far from the centroid
+        /// when the leg was ordered) or one stuck-recovery dropped. Re-issuing
+        /// the leg's order to everyone not fighting re-plans around the whole
+        /// army: those now close enough become members, the rest keep
+        /// converging and get folded in on a later sweep. This is what the
+        /// curse shepherd does every few seconds, and it is why a wave reads
+        /// as a body.
+        /// </summary>
+        private void RegroupStragglers(EntityManager em, Faction faction, Mission mission,
+            float now, bool attackMove)
+        {
+            if (now < mission.NextRegroupTime) return;
+            mission.NextRegroupTime = now + Cfg.regroupInterval;
+
+            bool anyLoose = false;
+            for (int i = 0; i < mission.Members.Count; i++)
+            {
+                var u = mission.Members[i];
+                if (em.HasComponent<FormationMemberState>(u)) continue;
+                if (em.HasComponent<Target>(u) && em.GetComponentData<Target>(u).Value != Entity.Null) continue;
+                bool travelling = em.HasComponent<DesiredDestination>(u)
+                    && em.GetComponentData<DesiredDestination>(u).Has != 0;
+                if (travelling) { anyLoose = true; break; }
+            }
+            if (!anyLoose) return;
+
+            var body = new System.Collections.Generic.List<Entity>(mission.Members.Count);
+            for (int i = 0; i < mission.Members.Count; i++)
+            {
+                var u = mission.Members[i];
+                if (em.HasComponent<Target>(u) && em.GetComponentData<Target>(u).Value != Entity.Null) continue;
+                body.Add(u);
+            }
+            if (body.Count < 2) return;
+
+            float3 dest = mission.Phase == MissionPhase.Mustering ? mission.MusterPos
+                        : mission.Phase == MissionPhase.Staging ? mission.StagePos
+                        : mission.TargetPos;
+            if (attackMove)
+                CommandRouter.IssueFormationAttackMove(em, body, dest, FormationShape.Box, CommandSource.AI);
+            else
+                CommandRouter.IssueFormationMove(em, body, dest, FormationShape.Box, CommandSource.AI);
+        }
+
+        /// <summary>
+        /// Merge mission <paramref name="index"/> (a reinforcement column)
+        /// into an earlier attack mission whose centroid is within
+        /// reinforceMergeRadius of <paramref name="centroid"/>. Returns true
+        /// when it merged (the caller drops the column).
+        /// </summary>
+        private bool TryMergeIntoArmy(EntityManager em,
+            System.Collections.Generic.List<Mission> missions, int index, float3 centroid)
+        {
+            var column = missions[index];
+            float r2 = Cfg.reinforceMergeRadius * Cfg.reinforceMergeRadius;
+            for (int a = 0; a < index; a++)
+            {
+                var army = missions[a];
+                if (army.Type != MissionType.Attack || army.Members.Count == 0) continue;
+                float3 ac = ArmyCentroid(em, army, out int counted);
+                if (counted == 0) continue;
+                float dx = ac.x - centroid.x, dz = ac.z - centroid.z;
+                if (dx * dx + dz * dz > r2) continue;
+
+                for (int i = 0; i < column.Members.Count; i++)
+                    if (!army.Members.Contains(column.Members[i]))
+                        army.Members.Add(column.Members[i]);
+                // The newcomers take the army's current leg.
+                army.NextRegroupTime = 0f;
+                missions.RemoveAt(index);
+                return true;
+            }
+            return false;
         }
 
         /// <summary>Disband every mission (Defend entry — all hands home).</summary>

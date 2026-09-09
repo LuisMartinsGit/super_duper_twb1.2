@@ -1,0 +1,44 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b98b52f4032a91549814ef127e8e0bff, type: 3}
+  m_Name: RenewalFortress
+  m_EditorClassIdentifier:
+  id: 'Renewal_Fortress'
+  displayName: 'Renewal Fortress'
+  role: 'Raise Anew III - a permanent keep that anchors a position'
+  hp: 2600
+  armorType: 'structure_human'
+  defense:
+    melee: 12
+    ranged: 20
+    siege: 4
+    magic: 7
+  radius: 4
+  lineOfSight: 32
+  trains: []
+  research: []
+  minEra: 0
+  cost:
+    Supplies: 600
+    Iron: 300
+    Crystal: 0
+    Veilsteel: 0
+  tags:
+  - 'Building'
+  attack:
+    enabled: 1
+    damage: 28
+    damageType: ranged
+    range: 30
+    cooldown: 1.5
+    maxTargets: 4
+  presentationId: 416

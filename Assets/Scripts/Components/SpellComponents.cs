@@ -1,4 +1,4 @@
-// SpellComponents.cs
+﻿// SpellComponents.cs
 // ECS components for spell buff/debuff effects
 
 using Unity.Entities;
@@ -261,5 +261,15 @@ public struct PendingSectStrike : IComponentData
     public float Radius;
     public float Magnitude;
     public float Duration;
+
+    /// <summary>
+    /// The spec's second number, for the handful of powers that need two —
+    /// Writ of Attainder's damage floor, Spy Network's cascade radius. It has
+    /// to ride the strike rather than be re-read at landing, because a strike
+    /// resolves from what it was FIRED with: the caster's temple could change
+    /// level during a wind-up.
+    /// </summary>
+    public float Secondary;
+
     public float Windup;
 }

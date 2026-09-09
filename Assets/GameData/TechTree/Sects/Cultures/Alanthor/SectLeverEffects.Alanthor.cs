@@ -42,15 +42,32 @@ namespace TheWaningBorder.Economy
         {
             switch (slot)
             {
-                case 1: // Scour the Registry — reveal.
+                // Writ of Attainder — Magnitude is damage PER KILL the enemy
+                // unit has taken from you, Secondary the floor a unit that has
+                // killed nothing still takes.
+                //
+                // It replaces Scour the Registry, a plain reveal
+                // (docs/Design/Sects.md §4). Reveal is the Sect of Witness's
+                // identity, and two intel sects competing for it left Antiquity
+                // with three powers that never touched the enemy at all — a
+                // sect of intel and shutdown had no way to punish an attack
+                // that was already landing. This is the counterpart-A damage
+                // half of its kit, and it reads off the same tally the Passive
+                // keeps: Antiquity remembers what you did, then bills you.
+                case 1:
                     return level switch
                     {
-                        1 => Spec(SectActivePowerKind.RevealCircle, SectRadius.Medium, "Scour the Registry",
-                                  "Reveal a medium area for 15s.", duration: 15f, cooldown: 75f),
-                        2 => Spec(SectActivePowerKind.RevealCircle, SectRadius.Large, "Scour the Registry",
-                                  "Reveal a large area for 15s.", duration: 15f, cooldown: 70f),
-                        _ => Spec(SectActivePowerKind.RevealCircle, SectRadius.Large, "Scour the Registry",
-                                  "Reveal a large area for 35s.", duration: 35f, cooldown: 60f),
+                        1 => Spec(SectActivePowerKind.AttainderStrike, SectRadius.Small, "Writ of Attainder",
+                                  "Enemies in a small area take 40 damage for every one of your units they have killed.",
+                                  magnitude: 40f, cooldown: 110f),
+                        2 => Spec(SectActivePowerKind.AttainderStrike, SectRadius.Medium, "Writ of Attainder",
+                                  "Enemies in a medium area take 60 damage per kill they have taken from you.",
+                                  magnitude: 60f, cooldown: 100f),
+                        // III's floor is what stops the power whiffing entirely
+                        // on reinforcements that have not killed anything yet.
+                        _ => Spec(SectActivePowerKind.AttainderStrike, SectRadius.Large, "Writ of Attainder",
+                                  "Enemies in a large area take 80 damage per kill, and at least 60 regardless.",
+                                  magnitude: 80f, cooldown: 90f, secondary: 60f),
                     };
 
                 case 2: // Heavy Bureaucracy — building shutdown.
@@ -103,31 +120,32 @@ namespace TheWaningBorder.Economy
                                   magnitude: 0.80f, duration: 10f, cooldown: 80f),
                     };
 
-                // Raise Anew — Magnitude is the tower LEVEL, Duration its lifetime.
+                // Raise Anew — Magnitude selects WHICH STRUCTURE, and every
+                // level is PERMANENT (docs/Design/Sects.md §4).
                 //
-                // ONE tower per cast at every level (2026-09-07). Level II used
-                // to ring three of them out of a single cast, which read as a
-                // fortress appearing from nothing and made the level-II step
-                // worth more than the level-III one it is supposed to build
-                // toward. II is now the same shape as I and III — a better
-                // tower, not more of them — so the ladder reads as quality.
+                // It used to raise a Watch Tower on the ordinary Lv 1-3 ladder
+                // and let it crumble after 30-60 s, so the sect's WILDCARD slot
+                // produced something that did very little and then vanished —
+                // and a structure that vanishes cannot change where a battle is
+                // fought. Alanthor needed a real answer to being pushed, so the
+                // escalation is now the STRUCTURE itself: three separate
+                // buildings, each with its own SO, none of them on a timer.
                 //
-                // Cooldowns are 30% longer to match: a tower that survives
-                // until something kills it is a permanent board change, and it
-                // was recharging fast enough to fence a base in for free.
+                // The long cooldowns are kept, and now earn their keep: what
+                // each cast leaves behind is a permanent board change.
                 case 2:
                     return level switch
                     {
                         1 => Spec(SectActivePowerKind.RaiseTower, SectRadius.Single, "Raise Anew",
-                                  "Raise one free Lv 1 Watch Tower. It crumbles after 30s.",
-                                  magnitude: 1f, duration: 30f, cooldown: 156f),
+                                  "Raise a permanent Renewal Tower — a watch post. It stays until destroyed.",
+                                  magnitude: 1f, duration: Permanent, cooldown: 156f),
                         2 => Spec(SectActivePowerKind.RaiseTower, SectRadius.Single, "Raise Anew",
-                                  "Raise one free Lv 2 Watch Tower. It crumbles after 60s.",
-                                  magnitude: 2f, duration: 60f, cooldown: 195f),
-                        // III's payoff is that the tower is PERMANENT, which is
-                        // why it costs the longest recharge in the set.
+                                  "Raise a permanent Renewal Fortification — a walled strongpoint.",
+                                  magnitude: 2f, duration: Permanent, cooldown: 195f),
+                        // III raises a keep outright, which is why it carries
+                        // the longest recharge in the set.
                         _ => Spec(SectActivePowerKind.RaiseTower, SectRadius.Single, "Raise Anew",
-                                  "Raise a permanent Lv 3 Watch Tower. It stays until destroyed.",
+                                  "Raise a permanent Renewal Fortress — a keep that anchors the ground.",
                                   magnitude: 3f, duration: Permanent, cooldown: 234f),
                     };
 

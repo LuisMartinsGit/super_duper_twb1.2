@@ -1299,7 +1299,11 @@ namespace TheWaningBorder.Multiplayer
                         // faction banks feed the desync checksum, so an
                         // issuer-only debit desynced on the first purchase
                         // (docs/Multiplayer_LAN_Readiness.md).
-                        CommandRouter.TrainCommandDirect(em, entity, cmd.BuildingId);
+                        // TargetEntityId carries the hero revival mode
+                        // (0 = None), which changes both the price and
+                        // the level he returns at.
+                        CommandRouter.TrainCommandDirect(em, entity, cmd.BuildingId,
+                            (TheWaningBorder.Abilities.HeroRevivalMode)cmd.TargetEntityId);
                     }
                     break;
 
@@ -1430,7 +1434,11 @@ namespace TheWaningBorder.Multiplayer
                         Entity abilityTarget = cmd.EntityNetworkId != 0
                             ? FindEntityByNetworkId(cmd.EntityNetworkId)
                             : Entity.Null;
-                        CommandRouter.IssueAbilityDirect(em, entity, abilityTarget);
+                        // SecondaryTargetId carries the named ability slot as
+                        // slot+1, so an unset 0 decodes to -1 ("first ready
+                        // active") and matches every pre-hero command.
+                        int abilitySlot = cmd.SecondaryTargetId - 1;
+                        CommandRouter.IssueAbilityDirect(em, entity, abilityTarget, abilitySlot);
                         if (LogCommands) TWBLog.Log($"[Lockstep] Executed Ability from player {cmd.PlayerIndex}");
                     }
                     break;

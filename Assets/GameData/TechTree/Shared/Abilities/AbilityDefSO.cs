@@ -1,4 +1,4 @@
-// AbilityDefSO.cs
+﻿// AbilityDefSO.cs
 // One ScriptableObject per ability — the Inspector-editable form of an
 // AbilityCard, plus the ability's presentation slots (icon, VFX prefab).
 // Assets live in an Abilities/<Ability>/ folder under whatever OWNS the
@@ -36,6 +36,10 @@ namespace TheWaningBorder.Abilities
         public EffectEntry[] effects;
         public string[] aftermath;
 
+        /// <summary>Hero level this unlocks at; 1 = always available.
+        /// docs/Design/Heroes.md §2.</summary>
+        public int unlocksAtLevel = 1;
+
         public Sprite icon;
         public GameObject vfxPrefab;
 
@@ -57,6 +61,7 @@ namespace TheWaningBorder.Abilities
                 Range = range,
                 Effects = fx,
                 Aftermath = (aftermath != null && aftermath.Length > 0) ? aftermath : null,
+                UnlocksAtLevel = unlocksAtLevel < 1 ? 1 : unlocksAtLevel,
             };
         }
     }

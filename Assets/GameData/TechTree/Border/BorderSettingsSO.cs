@@ -58,6 +58,17 @@ namespace TheWaningBorder.Data.Border
         public List<WaveEntry> waves = BuildDefaultWaves();
         [Min(0f)] public float firstWaveDelaySeconds = 150f;
 
+        /// <summary>
+        /// Seconds a faction must reach no further into the curse before its
+        /// wrath falls one tier (design §2.10). This is the "back off" valve:
+        /// stop taking wells and the waves thin out.
+        ///
+        /// Zero disables cooling entirely, which makes provocation a one-way
+        /// ratchet — the first mistake becomes permanent. Only set it to zero
+        /// deliberately.
+        /// </summary>
+        [Min(0f)] public float wrathCoolSeconds = 180f;
+
         [Min(0.5f)] public float decisionInterval = 5f;
         [Min(0.5f)] public float replenishInterval = 4f;
 
@@ -139,6 +150,18 @@ namespace TheWaningBorder.Data.Border
         /// first row, the earliest row governs). False when the schedule is disabled
         /// or empty — callers fall back to biggest-affordable + waveBreatherSeconds.
         /// </summary>
+        /// <summary>
+        /// RETIRED as the escalation driver (2026-09-08, design §2.10) and
+        /// currently called by nothing. The wave tier comes from the provoking
+        /// faction's CurseWrath now, not from elapsed match time; pacing comes
+        /// from <see cref="BreatherForTier"/>.
+        ///
+        /// Kept because the authored <see cref="waves"/> rows are still the
+        /// data BreatherForTier reads, and because a mode that genuinely wants
+        /// a timed curse (a scenario, a horde mode) would want exactly this.
+        /// Do NOT wire it back into CurseTerritorySystem: doing so restores
+        /// the curse that fights everyone on a clock nobody can influence.
+        /// </summary>
         public bool TryGetWave(double elapsedSeconds, out int tier, out float breatherSeconds)
         {
             tier = 0;
@@ -164,6 +187,36 @@ namespace TheWaningBorder.Data.Border
             tier = Mathf.Clamp(row.tier, 0, TierCount - 1);
             breatherSeconds = Mathf.Max(0f, row.breatherSeconds);
             return true;
+        }
+
+        /// <summary>
+        /// The breather that belongs to a given TIER, rather than to a point
+        /// on the match clock.
+        ///
+        /// Waves used to take both their tier and their pacing from elapsed
+        /// time via <see cref="TryGetWave"/>. Now that wrath picks the tier
+        /// (§2.10), reading the breather off the clock would smuggle the old
+        /// escalation back in through the side door — an unprovoked curse
+        /// would still speed up merely because the match got long. Matching on
+        /// the tier keeps both halves of a schedule row describing the same
+        /// intensity.
+        ///
+        /// Falls back to the row with the nearest lower tier, then to
+        /// <see cref="waveBreatherSeconds"/>.
+        /// </summary>
+        public float BreatherForTier(int tier)
+        {
+            float fallback = Mathf.Max(0f, waveBreatherSeconds);
+            if (!useWaveSchedule || waves == null || waves.Count == 0) return fallback;
+
+            WaveEntry best = null;
+            for (int i = 0; i < waves.Count; i++)
+            {
+                var w = waves[i];
+                if (w == null || w.tier > tier) continue;
+                if (best == null || w.tier > best.tier) best = w;
+            }
+            return best != null ? Mathf.Max(0f, best.breatherSeconds) : fallback;
         }
 
         /// <summary>
@@ -196,6 +249,7 @@ namespace TheWaningBorder.Data.Border
             waveBreatherSeconds = 120f;
             useWaveSchedule = true;
             firstWaveDelaySeconds = 150f;
+            wrathCoolSeconds = 180f;
             tiers = BuildDefaultTiers();
             waves = BuildDefaultWaves();
         }

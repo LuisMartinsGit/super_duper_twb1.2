@@ -508,7 +508,8 @@ namespace TheWaningBorder.Input
                 || UnityEngine.Input.GetKey(KeyCode.LeftAlt)
                 || UnityEngine.Input.GetKey(KeyCode.RightAlt);
 
-            if (units.Count > 1 && GameSettings.SmartMilitaryDrag && !selectEverything)
+            var priority = GameSettings.DragPriority;
+            if (units.Count > 1 && priority != DragSelectionPriority.Off && !selectEverything)
             {
                 var military = new List<Entity>();
                 var economic = new List<Entity>();
@@ -527,10 +528,14 @@ namespace TheWaningBorder.Input
                         military.Add(e);
                 }
 
+                // Only ever filter a MIXED box. If the rectangle caught only
+                // workers, a Military preference must not hand back an empty
+                // selection — the player clearly meant those workers.
                 if (military.Count > 0 && economic.Count > 0)
                 {
+                    var keep = priority == DragSelectionPriority.Economy ? economic : military;
                     _selection.Clear();
-                    _selection.AddRange(military);
+                    _selection.AddRange(keep);
                 }
             }
         }

@@ -1,4 +1,4 @@
-// SectAntiquityTallySystem.cs
+﻿// SectAntiquityTallySystem.cs
 // Implements Antiquity's Lv I "Tally of the Lost" passive: each kill the
 // attacker makes is logged into a per-UnitClass counter on the attacker
 // (the AntiquityKills component). CombatDamageHelper reads those counters
@@ -40,6 +40,15 @@ namespace TheWaningBorder.Systems.Sect
             public Entity Killer;
             public UnitClass VictimClass;
             public byte Cap;
+
+            /// <summary>
+            /// Set when the VICTIM's faction has Antiquity — the killer owes
+            /// that faction one more unit, which is what Writ of Attainder
+            /// bills for. Independent of <see cref="Cap"/>'s side of the
+            /// event: the same kill can feed both books, one book, or neither.
+            /// </summary>
+            public bool Attainder;
+            public Faction Victim;
         }
 
         public void OnUpdate(ref SystemState state)
@@ -64,18 +73,34 @@ namespace TheWaningBorder.Systems.Sect
                 if (!em.HasComponent<UnitTag>(killer)) continue;
 
                 Faction killerFaction = em.GetComponentData<FactionTag>(killer).Value;
-                if (em.HasComponent<FactionTag>(entity)
-                    && em.GetComponentData<FactionTag>(entity).Value == killerFaction) continue;
+                if (!em.HasComponent<FactionTag>(entity)) continue;
+                Faction victimFaction = em.GetComponentData<FactionTag>(entity).Value;
+                if (victimFaction == killerFaction) continue;
 
+                // TWO books, from one pass over the same kill events.
+                //
+                //   The PASSIVE's book belongs to the killer: an Antiquity
+                //   player's units get better at killing what they have killed
+                //   before.
+                //   The WRIT's book belongs to the killer too, but it is kept
+                //   on behalf of the VICTIM's side — Writ of Attainder asks an
+                //   enemy how many of MY units it has killed, so the count has
+                //   to exist on units that belong to no Antiquity player at all.
+                //
+                // Reading both here is what lets the design claim the sect's
+                // two halves are one idea rather than two systems.
                 byte level = SectQuery.LevelOf(em, killerFaction,
                     SectConfig.Antiquity, SectLeverKind.Passive);
-                if (level == 0) continue;
+                bool attainder = SectQuery.IsAdopted(em, victimFaction, SectConfig.Antiquity);
+                if (level == 0 && !attainder) continue;
 
                 pending.Add(new PendingTally
                 {
                     Killer = killer,
                     VictimClass = victimUnit.ValueRO.Class,
-                    Cap = KillCapFor(level),
+                    Cap = level == 0 ? (byte)0 : KillCapFor(level),
+                    Attainder = attainder,
+                    Victim = victimFaction,
                 });
             }
 
@@ -84,14 +109,27 @@ namespace TheWaningBorder.Systems.Sect
                 var p = pending[i];
                 if (!em.Exists(p.Killer)) continue;
 
-                // Stamp lazily on first relevant kill (legal here — the
-                // query iteration is over).
-                if (!em.HasComponent<AntiquityKills>(p.Killer))
-                    em.AddComponentData(p.Killer, new AntiquityKills());
+                if (p.Cap > 0)
+                {
+                    // Stamp lazily on first relevant kill (legal here — the
+                    // query iteration is over).
+                    if (!em.HasComponent<AntiquityKills>(p.Killer))
+                        em.AddComponentData(p.Killer, new AntiquityKills());
 
-                var kills = em.GetComponentData<AntiquityKills>(p.Killer);
-                Increment(ref kills, p.VictimClass, p.Cap);
-                em.SetComponentData(p.Killer, kills);
+                    var kills = em.GetComponentData<AntiquityKills>(p.Killer);
+                    Increment(ref kills, p.VictimClass, p.Cap);
+                    em.SetComponentData(p.Killer, kills);
+                }
+
+                if (p.Attainder)
+                {
+                    if (!em.HasComponent<AttainderLedger>(p.Killer))
+                        em.AddComponentData(p.Killer, new AttainderLedger());
+
+                    var ledger = em.GetComponentData<AttainderLedger>(p.Killer);
+                    ledger.Record(p.Victim);
+                    em.SetComponentData(p.Killer, ledger);
+                }
             }
 
             pending.Dispose();
