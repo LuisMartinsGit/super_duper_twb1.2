@@ -18,6 +18,16 @@
 // itself mid-investigation. The categories are computed alongside, never from,
 // the total.
 //
+// EVERY COLUMN IS ORDER-INDEPENDENT (2026-09-11). The total always was: it
+// SUMS one hash per entity, so two peers whose chunk layouts differ still
+// agree. The columns were CHAINED in iteration order, and iteration order is
+// not replicated -- so on 2026-09-10 Pos/Rot/Health/Nav/Combat/Work and two
+// faction columns all "forked" from the first trace tick onward while every
+// entity row was byte-identical, and the DESYNC line named nine subsystems
+// when the bank was the only real one. A column that can differ without the
+// state differing is worse than no column. Each is now a sum of per-entity
+// sub-hashes, exactly like the total.
+//
 // COST. The detailed pass does roughly a dozen component lookups per entity
 // per tick. That is real work, and it is bought deliberately: these matches
 // die inside thirty seconds, so a few hundred microseconds a tick costs
@@ -173,9 +183,11 @@ namespace TheWaningBorder.Multiplayer
 
                         if (detailed)
                         {
-                            Mix(ref hHealth, (uint)ids[i].NetworkId);
-                            Mix(ref hHealth, (uint)hp.Value);
-                            Mix(ref hHealth, (uint)hp.Max);
+                            uint c = 2166136261u;
+                            Mix(ref c, (uint)ids[i].NetworkId);
+                            Mix(ref c, (uint)hp.Value);
+                            Mix(ref c, (uint)hp.Max);
+                            hHealth += c;
                         }
                     }
 
@@ -215,32 +227,41 @@ namespace TheWaningBorder.Multiplayer
 
                         if (detailed)
                         {
-                            Mix(ref hPos, (uint)ids[i].NetworkId);
-                            Mix(ref hPos, snap.Px); Mix(ref hPos, snap.Py); Mix(ref hPos, snap.Pz);
+                            uint c = 2166136261u;
+                            Mix(ref c, (uint)ids[i].NetworkId);
+                            Mix(ref c, snap.Px); Mix(ref c, snap.Py); Mix(ref c, snap.Pz);
+                            hPos += c;
 
                             // Rotation is separate on purpose: a facing that
                             // forks without a position forking points at
                             // targeting, not at movement.
-                            Mix(ref hRot, (uint)ids[i].NetworkId);
-                            Mix(ref hRot, snap.Rx); Mix(ref hRot, snap.Ry);
-                            Mix(ref hRot, snap.Rz); Mix(ref hRot, snap.Rw);
+                            c = 2166136261u;
+                            Mix(ref c, (uint)ids[i].NetworkId);
+                            Mix(ref c, snap.Rx); Mix(ref c, snap.Ry);
+                            Mix(ref c, snap.Rz); Mix(ref c, snap.Rw);
+                            hRot += c;
                         }
                     }
 
                     if (detailed)
                     {
+                        uint cNav = 2166136261u, cCombat = 2166136261u, cWork = 2166136261u,
+                             cTech = 2166136261u;
                         CaptureNavCombatWork(em, e, ids[i].NetworkId, ref snap,
-                                             ref hNav, ref hCombat, ref hWork);
-                        CaptureTech(em, e, ids[i].NetworkId, ref hTech);
+                                             ref cNav, ref cCombat, ref cWork);
+                        CaptureTech(em, e, ids[i].NetworkId, ref cTech);
+                        // An entity that contributed nothing to a column adds
+                        // 0, not the basis -- so the column stays a function
+                        // of the contributing entities alone.
+                        if (cNav != 2166136261u) hNav += cNav;
+                        if (cCombat != 2166136261u) hCombat += cCombat;
+                        if (cWork != 2166136261u) hWork += cWork;
+                        if (cTech != 2166136261u) hTech += cTech;
                     }
 
                     total += h;
                     if (factionIndex >= 0 && factionIndex < 8)
-                    {
-                        uint pf = perFaction[factionIndex];
-                        Mix(ref pf, h);
-                        perFaction[factionIndex] = pf;
-                    }
+                        perFaction[factionIndex] += h;
 
                     if (snapshots != null) snapshots.Add(snap);
                 }

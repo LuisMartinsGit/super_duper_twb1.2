@@ -46,6 +46,14 @@ namespace TheWaningBorder.Systems.Navigation
         // skip the whole clear+stamp pass and the Generation bump.
         private ulong _lastSignature;
         private byte _stampedOnce;
+        // The latch is MATCH state on a system object that outlives matches.
+        // Left set, a second match on the same map whose first signature
+        // equals the previous match's last one (quit at the start, play
+        // again) would never stamp its buildings into the fresh cost field
+        // on this peer -- and only on this peer.
+        // No initialiser: this is a struct system (zero-initialised), and
+        // SimCadence.Epoch is already >= 1 by the first match tick.
+        private int _epoch;
 
         [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
         public void OnCreate(ref SystemState state)
@@ -106,6 +114,12 @@ namespace TheWaningBorder.Systems.Navigation
 
         public void OnUpdate(ref SystemState state)
         {
+            if (_epoch != SimCadence.Epoch)
+            {
+                _epoch = SimCadence.Epoch;
+                _stampedOnce = 0;
+            }
+
             if (!SystemAPI.HasSingleton<NavCostField>()) return;
 
             var field = SystemAPI.GetSingleton<NavCostField>();
@@ -359,6 +373,12 @@ namespace TheWaningBorder.Systems.Navigation
                 }
             }
 
+            // Under deterministic lockstep the stamps are serial anyway, and
+            // the field's availability to this tick's readers must not
+            // depend on which downstream system happens to Complete() the
+            // chain first (GoalFlowFieldSystem's own synchronous rule). Pay
+            // the (tiny) stall here and hand the readers a finished field.
+            if (serialStamps) prevHandle.Complete();
             state.Dependency = prevHandle;
 
             // Bump generation. Write directly back — the singleton lives in

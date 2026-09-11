@@ -233,11 +233,11 @@ namespace TheWaningBorder.AI
                     // Flip to Defensive if too many armies lost since the last
                     // switch. Cheap signal that doesn't require a full
                     // AIStrategyEvaluator (also [DisableAutoCreation]).
-                    if (ss.Current != AIStrategy.Defensive
+                    if (ss.Current != AIPersonality.Defensive
                         && ss.ArmiesLostSinceSwitch >= Cfg.lossesBeforeDefensiveFlip)
                     {
                         ss.Previous = ss.Current;
-                        ss.Current  = AIStrategy.Defensive;
+                        ss.Current  = AIPersonality.Defensive;
                         ss.ArmiesLostSinceSwitch = 0;
                         ss.StrategyStartTime = time;
                         ssDirty = true;

@@ -1,4 +1,4 @@
-// TechEffectSystem.cs
+﻿// TechEffectSystem.cs
 // Applies stat modifiers from researched technologies to faction entities.
 // MonoBehaviour singleton - subscribes to FactionResearchState.OnTechCompleted.
 
@@ -106,6 +106,13 @@ namespace TheWaningBorder.Systems.Research
                         (e) => TransientState.Set(em, e, new TheWaningBorder.Abilities.FirstStrike
                         { Pct = 30f, Ready = 1 }));
                     break;
+                // The Royal Stable's own charge — the same passive on the
+                // cavalry roster, per the Age 1 Alanthor stable tree.
+                case "CavalryCharge":
+                    GrantPassiveToUnits(em, faction, AlanthorPassiveTarget.Cavalry,
+                        (e) => TransientState.Set(em, e, new TheWaningBorder.Abilities.FirstStrike
+                        { Pct = 30f, Ready = 1 }));
+                    break;
                 case "ShieldWall":
                     GrantPassiveToUnits(em, faction, AlanthorPassiveTarget.GarrisonInfantry,
                         (e) => AddOrSet(em, e, new TheWaningBorder.Abilities.ShieldWallState
@@ -114,7 +121,8 @@ namespace TheWaningBorder.Systems.Research
                 case "DeployStakes":
                     GrantPassiveToUnits(em, faction, AlanthorPassiveTarget.Archers,
                         (e) => AddOrSet(em, e, new TheWaningBorder.Abilities.StakesState
-                        { Pct = 50f }));
+                        { Pct = 50f, Ready = 1,
+                          ReflectPct = TheWaningBorder.Abilities.AlanthorPassiveTuning.StakesReflectPct }));
                     break;
                 case "SiegeScreens":
                     GrantPassiveToUnits(em, faction, AlanthorPassiveTarget.Siege,
@@ -124,10 +132,15 @@ namespace TheWaningBorder.Systems.Research
                 case "FieldHospital":
                     GrantLitharchFieldHospital(em, faction);
                     break;
-                // RangingShot and ChoreographedVolleys are player-triggered actives,
-                // not stamped state: see AlanthorActiveHelper.
+                // RangingShot is a building-fired active, not stamped state:
+                // see AlanthorActiveHelper.
                 case "RangingShot":
+                    break;
+                // Choreographed Volleys is a UNIT active now, so it back-fills
+                // like the cavalry horns do — the archers already on the map
+                // have to end up holding what a newly trained one spawns with.
                 case "ChoreographedVolleys":
+                    GrantRangedAbility(em, faction, "Choreographed Volleys");
                     break;
                 // The Gatherer's Hut Guild "survey" (resource) and
                 // "reinforcement" (auto-repair / slow / stop) techs are read

@@ -54,6 +54,7 @@ namespace TheWaningBorder.Systems.Border
         private int _lastVeilGen = int.MinValue;
         private int _lastNavGen = int.MinValue;
         private byte _stampedOnce;
+        private int _epoch = -1;
 
         protected override void OnCreate()
         {
@@ -102,6 +103,23 @@ namespace TheWaningBorder.Systems.Border
                 ? SystemAPI.GetSingleton<NavGridSingleton>().Origin : float3.zero;
 
             int navCells = nav.Width * nav.Height;
+            // Per-match reset. The bitmap below is only re-allocated when the
+            // grid SIZE changes, so a peer whose previous match was on the
+            // same map walked into the next one with the old crust bitmap
+            // and the latches set — and only that peer. Headless warm-up
+            // runs 2026-09-11: the one peer that had warmed on the MP map
+            // forked its nav on the same tick with the same checksums every
+            // time. Dropping the bitmap forces the full re-evaluation the
+            // size-change branch already does.
+            if (_epoch != SimCadence.Epoch)
+            {
+                _epoch = SimCadence.Epoch;
+                if (_stampedCrust.IsCreated) _stampedCrust.Dispose();
+                _stampedCrust = default;
+                _stampedOnce = 0;
+                _lastVeilGen = int.MinValue;
+                _lastNavGen = int.MinValue;
+            }
             if (!_stampedCrust.IsCreated || _stampedCrust.Length != navCells)
             {
                 if (_stampedCrust.IsCreated) _stampedCrust.Dispose();
@@ -139,6 +157,14 @@ namespace TheWaningBorder.Systems.Border
                 ? new NativeArray<byte>(0, Allocator.TempJob)
                 : nav.TerrainCost;
             var changedRef = new NativeReference<byte>(Allocator.TempJob);
+            // .Run() executes inline and does NOT wait on this system's
+            // Dependency, so without this it raced the building-stamp chain
+            // CostFieldStampSystem had just scheduled on worker threads —
+            // both sides read and write nav.Cost, and which finished first
+            // was wall-clock: a peer running several ticks a frame to catch
+            // up saw a different field than one keeping pace (headless
+            // warm-up runs 2026-09-11 forked on exactly these restamp ticks).
+            Dependency.Complete();
             new StampCrustJob
             {
                 Saturation = field.Saturation,

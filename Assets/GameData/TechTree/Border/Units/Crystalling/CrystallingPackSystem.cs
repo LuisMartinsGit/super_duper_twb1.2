@@ -38,7 +38,8 @@ namespace TheWaningBorder.Systems.Border
         static CachedEntityQuery QC_Crystalling;
 
         private const float PackRefreshSeconds = 0.5f;
-        private float _timer;
+        // Match-phased (SimCadence.cs), not a bare accumulator.
+        private SimCadence.Periodic _timer;
 
         public void OnCreate(ref SystemState state)
         {
@@ -47,9 +48,7 @@ namespace TheWaningBorder.Systems.Border
 
         public void OnUpdate(ref SystemState state)
         {
-            _timer += SystemAPI.Time.DeltaTime;
-            if (_timer < PackRefreshSeconds) return;
-            _timer = 0f;
+            if (!_timer.Due(SystemAPI.Time.DeltaTime, PackRefreshSeconds)) return;
 
             var settings = TheWaningBorder.Data.Border.BorderSettings.Get();
             float radius = settings.crystallingPackRadius;

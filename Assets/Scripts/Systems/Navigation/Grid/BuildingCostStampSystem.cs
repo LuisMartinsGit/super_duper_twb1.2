@@ -95,6 +95,15 @@ namespace TheWaningBorder.Systems.Navigation
                 if (_dirtySet.IsCreated) _dirtySet.Dispose();
                 if (_shadowCost.IsCreated) _shadowCost.Dispose();
                 _shadowCost = default;
+                // The perf gate is MATCH state too. Left alone it carried the
+                // previous match's last generation into this one, and the
+                // tick on which the new field's counter reached that number
+                // skipped the diff — no dirty tiles for that restamp, no
+                // Dependency.Complete before the flow sampler — on this peer
+                // only. Headless warm-up run 2026-09-11: a client that had
+                // played ~200 s of Veilmarch forked its nav at MP generation
+                // 88, the number its earlier match had ended on.
+                _lastDiffedGeneration = -1;
 
                 _initialised = 1;
                 var grid = SystemAPI.GetSingleton<NavGridSingleton>();

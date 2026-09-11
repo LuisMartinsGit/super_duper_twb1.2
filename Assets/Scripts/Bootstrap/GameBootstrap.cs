@@ -150,66 +150,38 @@ namespace TheWaningBorder.Bootstrap
             DestroyPersistent<RuntimeManagers>();   // HUD + presentation stack
             DestroyPersistent<BootstrapDriver>();
 
-            // Entities outlive the scene too. Without this the next match
-            // spawns its bases on top of the previous one's survivors.
+            // THE WORLD DIES WITH THE MATCH (2026-09-11 directive: "All
+            // systems, components, entities MUST be killed when finishing a
+            // match. All games MUST start from a fresh set of systems.").
             //
-            // MUST be UniversalQuery, never DestroyAndResetAllEntities():
-            // that API destroys UniversalQueryWithSystems, i.e. it also kills
-            // every SYSTEM entity. Systems keep updating afterwards but the
-            // components they parked on their own SystemHandle in OnCreate are
-            // gone for good (OnCreate never runs again), so the world is
-            // permanently broken from the first teardown onward:
-            //   - Unity.Physics BuildPhysicsWorldData / SimulationSingleton →
-            //     "The entity does not exist" + "GetSingleton<SimulationSingleton>()
-            //     ... but there are none" thrown from Burst every frame, forever
-            //   - every EntityCommandBufferSystem.Singleton (Begin/EndSimulation,
-            //     BeginPresentation, …) — the ECBs the whole gameplay stack writes
-            //     through (DeathSystem, ProjectileSystem, mining, …)
-            // UniversalQuery is the same set MINUS system and meta-chunk entities:
-            // gameplay is wiped, engine plumbing survives. The world's WorldTime
-            // singleton is re-created lazily by World.TimeSingleton, so losing it
-            // here is harmless.
-            // ...BUT UniversalQuery is not enough on its own. Unity.Physics
-            // does NOT park its singletons on a SystemHandle: BuildPhysicsWorld
-            // .OnCreate calls EntityManager.CreateSingleton(PhysicsWorldSingleton)
-            // and UnityPhysicsSimulationSystems.OnCreate does CreateEntity() +
-            // AddComponentData(SimulationSingleton). Those are ORDINARY
-            // entities, so UniversalQuery destroys them too — and since the
-            // systems survive, their OnCreate never runs again and physics is
-            // dead for the rest of the play session, exactly like the
-            // DestroyAndResetAllEntities case above:
-            //   "GetSingleton<PhysicsWorldSingleton>() ... but there are none"
-            //   from BuildPhysicsWorld / Broadphase / Narrowphase /
-            //   CreateJacobians / SolveAndIntegrate, every frame, forever.
-            // Spare them explicitly. Our OWN singletons self-heal instead (see
-            // NavRequestSchedulerSystem / SpatialHashRebuildSystem), because we
-            // control those systems and third-party ones we do not.
-            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
-            if (world != null && world.IsCreated)
+            // Until now this wiped ENTITIES and kept the World — every system
+            // object survived, and with it every private field that was
+            // really match state: fractional income carry, RNG stream
+            // positions, ElapsedTime anchors, cadence phases, one-shot
+            // latches, crust bitmaps, the static influence grid. Each walked
+            // into the next match holding whatever THIS machine's previous
+            // match left in it, and two peers with different histories
+            // desynced on the first tick that read one (2026-09-10, tick 150:
+            // the income carry; the headless warm-up runs found four more).
+            // Nineteen sites were epoch-reset by hand; the next one would not
+            // have been. Disposing the World makes the fresh start structural:
+            // OnCreate runs again for every system, every singleton is
+            // rebuilt, and the physics / ECB singletons that made
+            // DestroyAndResetAllEntities unusable come back with them.
+            // The lockstep session ends with the match. Nothing stopped it
+            // before: the manager (its own DontDestroyOnLoad object) kept
+            // ticking the dead match's world through the main menu. The
+            // bootstrap object is left alone — the lobby (and HeadlessMp)
+            // create the next one before the map loads.
+            var lockstep = TheWaningBorder.Multiplayer.LockstepManager.Instance;
+            if (lockstep != null)
             {
-                var em = world.EntityManager;
-                em.CompleteAllTrackedJobs();
-
-                // The portal graph blob is owned by the SINGLETON, not by any
-                // one system — PortalGraphBuildSystem and
-                // IncrementalPortalRebuildSystem both publish into it and
-                // dispose the blob they replaced. Neither can safely cache a
-                // handle to free later (that stale handle threw "The
-                // BlobAssetReference is not valid"), so ownership transfers
-                // here: dispose it at the exact moment the entity holding it
-                // is about to be destroyed.
-                DisposePortalGraphBlob(em);
-
-                // Same set as UniversalQuery (all entities incl. disabled and
-                // prefabs, minus system / meta-chunk entities) minus the
-                // engine singletons that can never be rebuilt.
-                var wipe = new Unity.Entities.EntityQueryBuilder(Unity.Collections.Allocator.Temp)
-                    .WithOptions(Unity.Entities.EntityQueryOptions.IncludePrefab
-                               | Unity.Entities.EntityQueryOptions.IncludeDisabledEntities)
-                    .WithNone<Unity.Physics.PhysicsWorldSingleton, Unity.Physics.SimulationSingleton>()
-                    .Build(em);
-                em.DestroyEntity(wipe);
+                try { lockstep.StopSimulation(); }
+                catch (System.Exception e) { Debug.LogWarning($"[GameBootstrap] lockstep stop: {e.Message}"); }
+                Object.Destroy(lockstep.gameObject);
             }
+
+            DisposeMatchWorld();
 
             // Close the per-faction AI / player log writers. They used to stay
             // open until the NEXT match re-initialised them, which left file
@@ -223,7 +195,7 @@ namespace TheWaningBorder.Bootstrap
             TheWaningBorder.Core.Diagnostics.MatchLogSession.End();
 
             TWBLog.Log("[GameBootstrap] Match torn down — managers destroyed, "
-                + "entities reset, ready to bootstrap again.");
+                + "world disposed, ready to bootstrap again.");
         }
 
         /// <summary>
@@ -255,7 +227,12 @@ namespace TheWaningBorder.Bootstrap
             foreach (var found in Object.FindObjectsByType<T>(
                          FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
-                if (found != null) Object.Destroy(found.gameObject);
+                // Immediate, not deferred: Destroy() leaves the HUD's
+                // MonoBehaviours updating for the rest of this frame after
+                // the camera and the world are already gone (MinimapPanel
+                // Binder.Update -> CameraController.Yaw threw once per
+                // transition). The match's managers die with the match, now.
+                if (found != null) Object.DestroyImmediate(found.gameObject);
             }
         }
 
@@ -294,9 +271,18 @@ namespace TheWaningBorder.Bootstrap
             // (HeroTrainLimit.ResetAll had no caller at all; it does now.)
             TheWaningBorder.Abilities.HeroRevival.ResetAll();
             TheWaningBorder.Abilities.HeroTrainLimit.ResetAll();
+            // TerritoryOwnership.Reset had no caller either. Its curse-held
+            // set is fed by CurseTerritorySystem, whose own per-match reset
+            // clears the system's mirror but never un-marks the static — so
+            // territory ids the curse held in the PREVIOUS match came back
+            // as Curse ground in the next one, on that machine only.
+            TheWaningBorder.World.Regions.TerritoryOwnership.Reset();
+            // Per-faction ranging-shot cooldowns, same shape: a static table
+            // that ticked down during the last match and was never cleared.
+            TheWaningBorder.Abilities.AlanthorActiveHelper.ResetAll();
 
-            EnsureECSWorld();
-            Trace("after EnsureECSWorld");
+            RecreateECSWorld();
+            Trace("after RecreateECSWorld");
 
             bool isScenario = GameSettings.Mode == GameMode.Scenario;
             if (isScenario)
@@ -521,19 +507,60 @@ namespace TheWaningBorder.Bootstrap
         // ═══════════════════════════════════════════════════════════════
 
         /// <summary>
-        /// Ensure the ECS DefaultGameObjectInjectionWorld exists.
-        /// After returning to main menu the previous world is disposed,
-        /// so we must recreate it before any ECS operations.
+        /// Every match runs in a BRAND-NEW World. Whatever exists here — the
+        /// startup world Unity created at process launch (it ran through the
+        /// whole main menu), or a leftover — is disposed first, so the first
+        /// match of a session and the tenth start from the same place:
+        /// freshly constructed systems, no entities, a clock at zero.
+        ///
+        /// The single-player gate goes on immediately: SimulationSystemGroup
+        /// does not run until the map is populated and the loading overlay
+        /// is gone, and from then on its clock is match time (MatchSimGate).
+        /// Lockstep replaces the gate with its fixed-step driver.
         /// </summary>
-        private static void EnsureECSWorld()
+        private static void RecreateECSWorld()
+        {
+            DisposeMatchWorld();
+            var world = Unity.Entities.DefaultWorldInitialization.Initialize("Default World");
+            TheWaningBorder.Core.MatchSimGate.Install(world);
+        }
+
+        /// <summary>
+        /// Tear the current default World down completely and take it out of
+        /// the player loop. Safe to call when there is none. Rate managers
+        /// are detached first because both hold a pushed TimeData that must
+        /// be popped while the world is still alive.
+        /// </summary>
+        private static void DisposeMatchWorld()
         {
             var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
-            if (world != null && world.IsCreated)
-            {
-                return;
-            }
+            if (world == null || !world.IsCreated) return;
 
-            Unity.Entities.DefaultWorldInitialization.Initialize("Default World");
+            TheWaningBorder.Multiplayer.LockstepFixedStep.Uninstall();
+            TheWaningBorder.Core.MatchSimGate.Uninstall();
+
+            var em = world.EntityManager;
+            em.CompleteAllTrackedJobs();
+
+            // The portal graph blob is owned by the SINGLETON, not by any
+            // one system — PortalGraphBuildSystem and
+            // IncrementalPortalRebuildSystem both publish into it and
+            // dispose the blob they replaced. Neither can safely cache a
+            // handle to free later (that stale handle threw "The
+            // BlobAssetReference is not valid"), so ownership transfers
+            // here: dispose it at the exact moment the world that holds it
+            // is about to go.
+            DisposePortalGraphBlob(em);
+
+            // Static caches that hold Entity handles into THIS world. A new
+            // world recycles indices from 1, so a stale handle would pass
+            // Exists() and name the wrong entity.
+            FactionEconomy.ClearCache();
+            FactionResourcesHelper.ClearCache();
+            PopulationHelper.ClearCache();
+
+            Unity.Entities.ScriptBehaviourUpdateOrder.RemoveWorldFromCurrentPlayerLoop(world);
+            world.Dispose();
         }
 
         // ═══════════════════════════════════════════════════════════════

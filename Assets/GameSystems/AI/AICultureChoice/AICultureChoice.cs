@@ -1,4 +1,4 @@
-// AICultureChoice.cs
+﻿// AICultureChoice.cs
 // Decides which culture an AI adopts at age-up, from its PERSONALITY, its
 // DIFFICULTY, and the intel it has actually scouted by that moment.
 //
@@ -66,7 +66,7 @@ namespace TheWaningBorder.AI
         /// brain entity — it degrades to the personality prior.
         /// </summary>
         public static byte Pick(EntityManager em, Faction faction, Entity brainEntity,
-            AIStrategy strategy, AIDifficulty difficulty, uint randomSeed)
+            AIPersonality strategy, AIDifficulty difficulty, uint randomSeed)
         {
             // Layer 1 — personality.
             float score = AIBuildOrder.CultureLeanFor(strategy);

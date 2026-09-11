@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Charge
   role: Military
   effect: 
-  desc: "Unlocks the Charge passive for Garrison line infantry: the first strike deals +30% damage; recharges after 2 s out of combat."
+  desc: "Infantry charge: after 5 s out of combat a soldier closes at +50% speed for 2 s and his first blow in that window deals +30%. Miss the window and it resets."
   researchAt: Barracks
   minBuildingLevel: 2
   researchTime: 33

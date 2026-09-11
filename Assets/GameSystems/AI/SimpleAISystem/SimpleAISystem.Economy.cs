@@ -102,7 +102,8 @@ namespace TheWaningBorder.AI
             // observed enemy composition. Every replacement/growth train pulls
             // the army toward the mix instead of stamping one unit type.
             aiState.LastMilitaryUnit = new FixedString64Bytes(
-                PickCompositionUnit(em, brainEntity, faction, now, profile.CounterCompEnabled));
+                PickCompositionUnit(em, brainEntity, faction, now,
+                    RoleBudget.For(personality.personality), profile.IntelFreshnessSeconds));
 
             // Raise the maintenance floors. Military floor comes from the
             // personality; the WORKER target follows the difficulty's per-age
@@ -116,7 +117,7 @@ namespace TheWaningBorder.AI
             if (aiState.DesiredMilitary < floorWanted)
                 aiState.DesiredMilitary = floorWanted;
             int workerTarget = math.max(personality.minerFloor,
-                aiState.AgeUpIssued != 0 ? profile.WorkerTargetAge1 : profile.WorkerTargetAge0);
+                aiState.AgeUpIssued != 0 ? personality.workerTargetAge1 : personality.workerTargetAge0);
             if (aiState.DesiredMiners < workerTarget)
                 aiState.DesiredMiners = workerTarget;
 
@@ -153,7 +154,7 @@ namespace TheWaningBorder.AI
 
                 // Per-kind target: the difficulty's total spread over the kinds
                 // actually unlocked, never less than one each once available.
-                int perKind = math.max(2, profile.ProductionBuildingTarget / (rangedUnlocked ? 4 : 1));
+                int perKind = math.max(2, personality.productionBuildingTarget / (rangedUnlocked ? 4 : 1));
 
                 string want = null;
                 if (barracksCount == 0) want = "Barracks";
@@ -273,7 +274,7 @@ namespace TheWaningBorder.AI
                 for (int t = 0; t < burst && aiState.DesiredMilitary < armyCap; t++)
                 {
                     string unit = PickCompositionUnit(em, brainEntity, faction, now,
-                        profile.CounterCompEnabled);
+                        RoleBudget.For(personality.personality), profile.IntelFreshnessSeconds);
                     if (!TryTrainUnitBudgeted(em, faction, unit, AIBudgetCategory.Military)) break;
                     aiState.DesiredMilitary++;
                     aiState.LastMilitaryUnit = new FixedString64Bytes(unit);
@@ -287,14 +288,16 @@ namespace TheWaningBorder.AI
 
             TickSiegeProgram(em, faction, now);
             if (aiState.Posture == AIPosture.Defend)
-                TickEmergencyDefense(em, brainEntity, faction, now);
+                TickEmergencyDefense(em, brainEntity, faction,
+                    personality.personality, profile, now);
         }
 
         private readonly System.Collections.Generic.Dictionary<int, float> _nextEmergency
             = new System.Collections.Generic.Dictionary<int, float>();
 
         private void TickEmergencyDefense(EntityManager em, Entity brainEntity,
-            Faction faction, float now)
+            Faction faction, AIPersonality personalityKind,
+            AIDifficultyProfile profile, float now)
         {
             int key = (int)faction;
             if (_nextEmergency.TryGetValue(key, out float next) && now < next) return;
@@ -310,7 +313,8 @@ namespace TheWaningBorder.AI
                 AILogger.Log(faction, "MILITARY",
                     "emergency defence: tower started (rich and under attack)");
 
-            string unit = PickCompositionUnit(em, brainEntity, faction, now, false);
+            string unit = PickCompositionUnit(em, brainEntity, faction, now,
+                RoleBudget.For(personalityKind), profile.IntelFreshnessSeconds);
             if (!string.IsNullOrEmpty(unit))
                 TryTrainUnitBudgeted(em, faction, unit, AIBudgetCategory.Military);
         }
@@ -424,7 +428,8 @@ namespace TheWaningBorder.AI
                 : EconomyResearchLadder;
 
         private void TickEconomy(EntityManager em, Faction faction,
-            ref SimpleAIState aiState, AIDifficultyProfile profile, float now)
+            ref SimpleAIState aiState, AISettingsSO.PersonalityBlock personality,
+            AIDifficultyProfile profile, float now)
         {
             // (1) Worker floor (EconomyExpansion wallet).
             //
@@ -456,7 +461,7 @@ namespace TheWaningBorder.AI
                 int ghTotal = CountFactionBuildings<GathererHutTag>(em, faction);
                 bool started = false;
 
-                // DIFFICULTY CAP. profile.GathererHutTarget was defined for
+                // DIFFICULTY CAP. personality.gathererHutTarget was defined for
                 // all four tiers (3/5/8/10) and read by NOTHING — the pipeline
                 // grew on the economy wallet alone, which is how a Normal AI
                 // whose profile says 5 ended a match with FIFTEEN huts.
@@ -479,12 +484,12 @@ namespace TheWaningBorder.AI
                 {
                     // Feraldis huts are Raider Camps, not gatherers — more of
                     // them is more free raiders, so this stays hard-capped.
-                    hutCap = math.min(Cfg.feraldisRaiderCampCap, profile.GathererHutTarget);
+                    hutCap = math.min(Cfg.feraldisRaiderCampCap, personality.gathererHutTarget);
                 }
                 else
                 {
                     float growth = 1f + math.min(now / Cfg.hutCapDoublingSeconds, 1f);
-                    hutCap = (int)math.round(profile.GathererHutTarget * growth);
+                    hutCap = (int)math.round(personality.gathererHutTarget * growth);
                 }
 
                 // AGE-UP PUSH: once it is time to advance, STOP FOUNDING HUTS

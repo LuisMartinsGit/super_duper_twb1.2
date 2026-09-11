@@ -42,6 +42,9 @@ namespace TheWaningBorder.Entities
             em.AddBuffer<ProductionQueueItem>(entity);
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             em.AddComponentData(entity, new Defense { Melee = 2, Ranged = 2, Siege = 0, Magic = 1 });
+            // Identity marker — see KingsCourtComponents. A directly placed
+            // King's Court answers id queries the same way an aged-up Hall does.
+            em.AddComponent<KingsCourtTag>(entity);
             return entity;
         }
 
@@ -67,6 +70,7 @@ namespace TheWaningBorder.Entities
             ecb.AddBuffer<ProductionQueueItem>(entity);
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             ecb.AddComponent(entity, new Defense { Melee = 2, Ranged = 2, Siege = 0, Magic = 1 });
+            ecb.AddComponent<KingsCourtTag>(entity);
             return entity;
         }
     }

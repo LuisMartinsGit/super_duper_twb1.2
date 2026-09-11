@@ -71,6 +71,17 @@ namespace TheWaningBorder.Systems.Combat
                 if (SystemAPI.HasComponent<Health>(entity)
                     && SystemAPI.GetComponent<Health>(entity).Value <= 0) continue;
 
+                // A DISARMED UNIT DOES NOT SWING. TargetingSystem already
+                // refuses to auto-acquire for a Damage<=0 unit (the Scout
+                // before Armed Scouts, the Litharch before Warrior Priests),
+                // but a target set any OTHER way — a player-issued attack
+                // order, an AI order, a formation engage — reached this loop
+                // and the `math.max(1, finalDamage)` floor below turned the
+                // unarmed unit's swing into exactly 1 damage a hit. The floor
+                // exists so an armed attacker never rounds to nothing; it was
+                // never meant to arm someone.
+                if (damage.ValueRO.Value <= 0) continue;
+
                 ref var tgt = ref target.ValueRW;
                 ref var cd = ref cooldown.ValueRW;
 

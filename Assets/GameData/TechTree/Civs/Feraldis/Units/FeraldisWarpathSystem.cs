@@ -48,6 +48,11 @@ namespace TheWaningBorder.Systems.Border
         /// units so a slow clear rate is never rounded away to nothing.</summary>
         private readonly float[] _purse = new float[8];
 
+        // Both are match state on a system object that outlives matches;
+        // the purse is the same fractional-carry fork TerritoryIncomeSystem
+        // had (desync 2026-09-10, tick 150).
+        private int _epoch = -1;
+
         protected override void OnCreate()
         {
             RequireForUpdate<VeilField>();
@@ -55,6 +60,13 @@ namespace TheWaningBorder.Systems.Border
 
         protected override void OnUpdate()
         {
+            if (_epoch != SimCadence.Epoch)
+            {
+                _epoch = SimCadence.Epoch;
+                _tick = 0f;
+                System.Array.Clear(_purse, 0, _purse.Length);
+            }
+
             _tick -= SystemAPI.Time.DeltaTime;
             if (_tick > 0f) return;
             float slice = WarpathInterval;

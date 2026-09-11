@@ -16,9 +16,9 @@ MonoBehaviour:
   displayName: Arrow Volley
   role: Military
   effect: 
-  desc: "-30% attack cooldown for all ranged units."
+  desc: "-30% attack cooldown for all ranged units. Permanent, unconditional."
   researchAt: ArcheryRange
-  minBuildingLevel: 1
+  minBuildingLevel: 0
   researchTime: 35
   prerequisites: []
   culture: Alanthor

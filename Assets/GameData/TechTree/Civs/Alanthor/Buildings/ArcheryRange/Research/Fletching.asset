@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Fletching
   role: Military Offense
   effect: 
-  desc: "Improved arrow flight: +15 percent attack range for Archers."
+  desc: "Improved arrow flight: +5 attack range for every ranged unit."
   researchAt: ArcheryRange
   minBuildingLevel: 0
   researchTime: 30
@@ -33,5 +33,13 @@ MonoBehaviour:
     meleeDefenseAdd: 0
     meleeDamageAdd: 0
     rangedDamageAdd: 0
-    archerRangeMult: 1.15
-  effectsList: []
+    archerRangeMult: 0
+  effectsList:
+  - Target: "type:Ranged"
+    Stat: AttackRange
+    Op: Add
+    Value: 5
+  - Target: "type:Siege"
+    Stat: AttackRange
+    Op: Add
+    Value: 5

@@ -678,7 +678,7 @@ namespace TheWaningBorder.AI
             // (miners / eco buildings) while the main army takes the scored
             // objective. Two simultaneous pressure points instead of one blob.
             var missions = MissionsFor(faction);
-            if (!rerouted && profile.RaidingEnabled
+            if (!rerouted && personality.raidingEnabled
                 && idleMilitary.Count >= minUnits + Cfg.raidPartySize + Cfg.raidSurplus)
             {
                 Entity raidTarget = ChooseAttackTargetScored(
@@ -732,7 +732,7 @@ namespace TheWaningBorder.AI
             fromTarget.y = 0f;
             float approachDist = math.length(fromTarget);
             // STAGING IS FOR EVERYONE (2026-08-30 directive — was Hard+ via
-            // profile.ForwardStaging, and the default headless tier is
+            // personality.forwardStaging, and the default headless tier is
             // Normal, so batch armies attack-moved across the whole map).
             // The approach leg is a plain formation MARCH, not an attack-
             // move: an attack-moving army peels at every skirmish it passes

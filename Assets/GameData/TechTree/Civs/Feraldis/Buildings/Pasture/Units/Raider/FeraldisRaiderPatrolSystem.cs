@@ -21,6 +21,10 @@ namespace TheWaningBorder.Systems.AI
         private const float MaxSearchRadiusSq = 200f * 200f;
 
         private double _lastRetargetTime;
+        // Anchored to a match clock that restarts at 0 under lockstep: a
+        // value left over from an earlier match in this process would keep
+        // `now - _last` negative for that long on this peer alone.
+        private int _epoch = -1;
 
         protected override void OnCreate()
         {
@@ -31,6 +35,11 @@ namespace TheWaningBorder.Systems.AI
         protected override void OnUpdate()
         {
             double now = SystemAPI.Time.ElapsedTime;
+            if (_epoch != SimCadence.Epoch)
+            {
+                _epoch = SimCadence.Epoch;
+                _lastRetargetTime = 0;
+            }
             if (now - _lastRetargetTime < RetargetInterval) return;
             _lastRetargetTime = now;
 

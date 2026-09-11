@@ -244,8 +244,8 @@ namespace TheWaningBorder.Bootstrap
             SpawnArmyGrid(em, unitId, unitId, Faction.Red, 3, 2, new float3(0, 0, ArmySeparation * 0.5f));
 
             // Longbowman support line behind each melee block.
-            SpawnArmyRow(em, "Longbowman", Faction.Blue, 3, new float3(0, 0, -ArmySeparation * 0.5f - RowSpacing * 2f));
-            SpawnArmyRow(em, "Longbowman", Faction.Red, 3, new float3(0, 0, ArmySeparation * 0.5f + RowSpacing * 2f));
+            SpawnArmyRow(em, "Alanthor_Longbowman", Faction.Blue, 3, new float3(0, 0, -ArmySeparation * 0.5f - RowSpacing * 2f));
+            SpawnArmyRow(em, "Alanthor_Longbowman", Faction.Red, 3, new float3(0, 0, ArmySeparation * 0.5f + RowSpacing * 2f));
         }
 
         /// <summary>
@@ -253,13 +253,13 @@ namespace TheWaningBorder.Bootstrap
         /// </summary>
         private static void SpawnLargeRanged(EntityManager em)
         {
-            string unitId = "Archer";
+            string unitId = "Alanthor_Archer";
             SpawnArmyGrid(em, unitId, unitId, Faction.Blue, 3, 2, new float3(0, 0, -ArmySeparation * 0.5f));
             SpawnArmyGrid(em, unitId, unitId, Faction.Red, 3, 2, new float3(0, 0, ArmySeparation * 0.5f));
 
             // Longbowman line behind each archer block (longer range than Archer).
-            SpawnArmyRow(em, "Longbowman", Faction.Blue, 3, new float3(0, 0, -ArmySeparation * 0.5f - RowSpacing * 2f));
-            SpawnArmyRow(em, "Longbowman", Faction.Red, 3, new float3(0, 0, ArmySeparation * 0.5f + RowSpacing * 2f));
+            SpawnArmyRow(em, "Alanthor_Longbowman", Faction.Blue, 3, new float3(0, 0, -ArmySeparation * 0.5f - RowSpacing * 2f));
+            SpawnArmyRow(em, "Alanthor_Longbowman", Faction.Red, 3, new float3(0, 0, ArmySeparation * 0.5f + RowSpacing * 2f));
         }
 
         /// <summary>
@@ -269,13 +269,13 @@ namespace TheWaningBorder.Bootstrap
         {
             // Blue army: front row melee, back row ranged
             SpawnArmyRow(em, "Spearman", Faction.Blue, 3, new float3(0, 0, -ArmySeparation * 0.5f));
-            SpawnArmyRow(em, "Archer", Faction.Blue, 3, new float3(0, 0, -ArmySeparation * 0.5f - RowSpacing));
-            SpawnArmyRow(em, "Longbowman", Faction.Blue, 3, new float3(0, 0, -ArmySeparation * 0.5f - RowSpacing * 2f));
+            SpawnArmyRow(em, "Alanthor_Archer", Faction.Blue, 3, new float3(0, 0, -ArmySeparation * 0.5f - RowSpacing));
+            SpawnArmyRow(em, "Alanthor_Longbowman", Faction.Blue, 3, new float3(0, 0, -ArmySeparation * 0.5f - RowSpacing * 2f));
 
             // Red army: front row melee, mid row archers, back row longbowmen
             SpawnArmyRow(em, "Spearman", Faction.Red, 3, new float3(0, 0, ArmySeparation * 0.5f));
-            SpawnArmyRow(em, "Archer", Faction.Red, 3, new float3(0, 0, ArmySeparation * 0.5f + RowSpacing));
-            SpawnArmyRow(em, "Longbowman", Faction.Red, 3, new float3(0, 0, ArmySeparation * 0.5f + RowSpacing * 2f));
+            SpawnArmyRow(em, "Alanthor_Archer", Faction.Red, 3, new float3(0, 0, ArmySeparation * 0.5f + RowSpacing));
+            SpawnArmyRow(em, "Alanthor_Longbowman", Faction.Red, 3, new float3(0, 0, ArmySeparation * 0.5f + RowSpacing * 2f));
         }
 
         /// <summary>
@@ -426,7 +426,7 @@ namespace TheWaningBorder.Bootstrap
             // 50% HP gradually — a bigger force deletes it inside a single 0.5 s
             // tick before the defensive cast can fire.
             const float ring = 24f;
-            string[] attackers = { "Spearman", "Spearman", "Spearman", "Spearman", "Longbowman", "Longbowman", "Longbowman" };
+            string[] attackers = { "Spearman", "Spearman", "Spearman", "Spearman", "Alanthor_Longbowman", "Alanthor_Longbowman", "Alanthor_Longbowman" };
             for (int i = 0; i < attackers.Length; i++)
             {
                 float t = attackers.Length > 1 ? (float)i / (attackers.Length - 1) : 0.5f;
@@ -479,8 +479,8 @@ namespace TheWaningBorder.Bootstrap
             // Blue (south) — basic: Swordsman front, Archer back
             var blueCenter = new float3(0, 0, -offset);
             SpawnArmyRow(em, "Spearman", Faction.Blue, 4, blueCenter);
-            SpawnArmyRow(em, "Archer", Faction.Blue, 4, blueCenter + new float3(0, 0, -RowSpacing));
-            SpawnArmyRow(em, "Longbowman", Faction.Blue, 4, blueCenter + new float3(0, 0, -RowSpacing * 2f));
+            SpawnArmyRow(em, "Alanthor_Archer", Faction.Blue, 4, blueCenter + new float3(0, 0, -RowSpacing));
+            SpawnArmyRow(em, "Alanthor_Longbowman", Faction.Blue, 4, blueCenter + new float3(0, 0, -RowSpacing * 2f));
             AttackMoveAllBattalions(em, Faction.Blue, center);
 
             // Red (east) — Alanthor: Sentinel front, Crossbowman behind, Cataphract flankers
@@ -489,7 +489,7 @@ namespace TheWaningBorder.Bootstrap
             SpawnArmyRow(em, "Alanthor_Sentinel", Faction.Red, 2, redCenter);
             SpawnArmyRow(em, "Alanthor_Crossbowman", Faction.Red, 2, redCenter + new float3(RowSpacing, 0, 0));
             SpawnArmyRow(em, "Alanthor_Cataphract", Faction.Red, 2, redCenter + new float3(RowSpacing * 0.5f, 0, ArmySpacing));
-            SpawnArmyRow(em, "Longbowman", Faction.Red, 2, redCenter + new float3(RowSpacing * 2f, 0, 0));
+            SpawnArmyRow(em, "Alanthor_Longbowman", Faction.Red, 2, redCenter + new float3(RowSpacing * 2f, 0, 0));
             AttackMoveAllBattalions(em, Faction.Red, center);
 
             // Green (north) — Runai: Spearman front, Skirmisher mid, Raider (mounted archer) flanks
@@ -497,7 +497,7 @@ namespace TheWaningBorder.Bootstrap
             SpawnArmyRow(em, "Runai_Spearman", Faction.Green, 3, greenCenter);
             SpawnArmyRow(em, "Runai_Skirmisher", Faction.Green, 3, greenCenter + new float3(0, 0, RowSpacing));
             SpawnArmyRow(em, "Runai_Raider", Faction.Green, 2, greenCenter + new float3(0, 0, RowSpacing * 2));
-            SpawnArmyRow(em, "Longbowman", Faction.Green, 3, greenCenter + new float3(0, 0, RowSpacing * 3f));
+            SpawnArmyRow(em, "Alanthor_Longbowman", Faction.Green, 3, greenCenter + new float3(0, 0, RowSpacing * 3f));
             AttackMoveAllBattalions(em, Faction.Green, center);
 
             // Yellow (west) — Feraldis: Berserker horde front, Hunter (axe thrower) mid, WarboarRider rear
@@ -505,7 +505,7 @@ namespace TheWaningBorder.Bootstrap
             SpawnArmyRow(em, "Berserker", Faction.Yellow, 4, yellowCenter);
             SpawnArmyRow(em, "Feraldis_Hunter", Faction.Yellow, 3, yellowCenter + new float3(-RowSpacing, 0, 0));
             SpawnArmyRow(em, "Feraldis_WarboarRider", Faction.Yellow, 2, yellowCenter + new float3(-RowSpacing * 2, 0, 0));
-            SpawnArmyRow(em, "Longbowman", Faction.Yellow, 3, yellowCenter + new float3(-RowSpacing * 3f, 0, 0));
+            SpawnArmyRow(em, "Alanthor_Longbowman", Faction.Yellow, 3, yellowCenter + new float3(-RowSpacing * 3f, 0, 0));
             AttackMoveAllBattalions(em, Faction.Yellow, center);
 
         }
@@ -543,10 +543,10 @@ namespace TheWaningBorder.Bootstrap
                 SpawnArmyRow(em, "Spearman", faction, 3, armyCenter);
 
                 // Row 2 (behind front): 3 Archer battalions
-                SpawnArmyRow(em, "Archer", faction, 3, armyCenter + new float3(0, 0, sign * RowSpacing));
+                SpawnArmyRow(em, "Alanthor_Archer", faction, 3, armyCenter + new float3(0, 0, sign * RowSpacing));
 
                 // Row 2.5 (just behind the archers): 3 Longbowman battalions
-                SpawnArmyRow(em, "Longbowman", faction, 3, armyCenter + new float3(0, 0, sign * RowSpacing * 1.5f));
+                SpawnArmyRow(em, "Alanthor_Longbowman", faction, 3, armyCenter + new float3(0, 0, sign * RowSpacing * 1.5f));
 
                 // Row 3 (behind archers): 6 Litharchs spread across the line
                 for (int i = 0; i < 6; i++)
@@ -617,8 +617,8 @@ namespace TheWaningBorder.Bootstrap
 
             // Blue defenders behind the wall
             SpawnArmyRow(em, "Spearman", Faction.Blue, 2, new float3(0, 0, wallZ - 12f));
-            SpawnArmyRow(em, "Archer", Faction.Blue, 2, new float3(0, 0, wallZ - 18f));
-            SpawnArmyRow(em, "Longbowman", Faction.Blue, 2, new float3(0, 0, wallZ - 24f));
+            SpawnArmyRow(em, "Alanthor_Archer", Faction.Blue, 2, new float3(0, 0, wallZ - 18f));
+            SpawnArmyRow(em, "Alanthor_Longbowman", Faction.Blue, 2, new float3(0, 0, wallZ - 24f));
 
             // 2 Ballistas behind the wall on the flanks
             for (int i = 0; i < 2; i++)
@@ -660,7 +660,7 @@ namespace TheWaningBorder.Bootstrap
 
             // Red attackers — siege rams + swordsmen approaching Blue's wall
             SpawnArmyRow(em, "Spearman", Faction.Red, 3, new float3(0, 0, 15f));
-            SpawnArmyRow(em, "Longbowman", Faction.Red, 3, new float3(0, 0, 28f));
+            SpawnArmyRow(em, "Alanthor_Longbowman", Faction.Red, 3, new float3(0, 0, 28f));
 
             // Siege Rams aimed at the wall
             for (int i = 0; i < 3; i++)
@@ -1407,7 +1407,7 @@ namespace TheWaningBorder.Bootstrap
             SpawnArmyRow(em, "Alanthor_Sentinel",    Faction.Red, 2, redCenter);
             SpawnArmyRow(em, "Alanthor_Crossbowman", Faction.Red, 2, redCenter + new float3(0, 0, -RowSpacing));
             SpawnArmyRow(em, "Alanthor_Cataphract",  Faction.Red, 2, redCenter + new float3(0, 0, -RowSpacing * 2f));
-            SpawnArmyRow(em, "Longbowman",           Faction.Red, 2, redCenter + new float3(0, 0, -RowSpacing * 3f));
+            SpawnArmyRow(em, "Alanthor_Longbowman",           Faction.Red, 2, redCenter + new float3(0, 0, -RowSpacing * 3f));
             AttackMoveAllBattalions(em, Faction.Red, center);
 
             // ── Veilstone Horde (Blue, north) ──
@@ -1483,7 +1483,7 @@ namespace TheWaningBorder.Bootstrap
             {
                 float3 pos = o + new float3(-18f, 0f, 0f);
                 pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
-                var idle = UnitFactory.Create(em, "Longbowman", pos, Faction.Blue);
+                var idle = UnitFactory.Create(em, "Alanthor_Longbowman", pos, Faction.Blue);
                 if (idle != Entity.Null && em.HasComponent<Target>(idle))
                     em.RemoveComponent<Target>(idle);
             }
@@ -1497,7 +1497,7 @@ namespace TheWaningBorder.Bootstrap
                 a.y = TerrainUtility.GetHeight(a.x, a.z);
                 b.y = TerrainUtility.GetHeight(b.x, b.z);
 
-                var patrol = UnitFactory.Create(em, "Longbowman",
+                var patrol = UnitFactory.Create(em, "Alanthor_Longbowman",
                     new float3(a.x, a.y, a.z), Faction.Blue);
                 if (patrol != Entity.Null)
                 {
@@ -1540,8 +1540,8 @@ namespace TheWaningBorder.Bootstrap
                 float3 far  = o + new float3(10f, 0f, -20f);
                 near.y = TerrainUtility.GetHeight(near.x, near.z);
                 far.y  = TerrainUtility.GetHeight(far.x, far.z);
-                UnitFactory.Create(em, "Longbowman", near, Faction.Blue);
-                UnitFactory.Create(em, "Longbowman", far,  Faction.Blue);
+                UnitFactory.Create(em, "Alanthor_Longbowman", near, Faction.Blue);
+                UnitFactory.Create(em, "Alanthor_Longbowman", far,  Faction.Blue);
             }
 
             // ── 4) Spawner -> immortal attacking enemy -> death loop ──
@@ -1577,7 +1577,7 @@ namespace TheWaningBorder.Bootstrap
                 spawner.SpawnRadius = 20f;
                 spawner.InnerTargetRadius = 1.5f;
                 spawner.Interval = 5f;
-                spawner.UnitId = "Longbowman";
+                spawner.UnitId = "Alanthor_Longbowman";
                 spawner.SoldierFaction = Faction.Blue;
             }
         }
@@ -1638,7 +1638,7 @@ namespace TheWaningBorder.Bootstrap
                     float3 pos = center + new float3(c * spacing - halfW, 0, r * spacing - halfD);
                     pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
 
-                    var e = UnitFactory.Create(em, "Longbowman", pos, faction);
+                    var e = UnitFactory.Create(em, "Alanthor_Longbowman", pos, faction);
                     if (e == Entity.Null) continue;
 
                     if (em.HasComponent<LocalTransform>(e))
@@ -1674,7 +1674,7 @@ namespace TheWaningBorder.Bootstrap
         /// </summary>
         private static bool IsAlanthorBattalionUnit(string unitId)
         {
-            return unitId == "Longbowman"
+            return unitId == "Alanthor_Longbowman"
                 || (unitId.StartsWith("Alanthor_") && unitId != "Alanthor_Catapult");
         }
 
@@ -1956,7 +1956,7 @@ namespace TheWaningBorder.Bootstrap
                 target.y = TerrainUtility.GetHeight(target.x, target.z);
 
                 var dummy = CreateInvincibleDummy(em, target, DummyFaction);
-                var bow = UnitFactory.Create(em, "Longbowman", shooter, lane.Shooter);
+                var bow = UnitFactory.Create(em, "Alanthor_Longbowman", shooter, lane.Shooter);
 
                 if (bow != Entity.Null)
                 {
@@ -2111,7 +2111,7 @@ namespace TheWaningBorder.Bootstrap
         {
             if (rank == FormationMoveCommandHelper.RankHero)    return "KingLexor";
             if (rank == FormationMoveCommandHelper.RankMelee)   return "Spearman";
-            if (rank == FormationMoveCommandHelper.RankRanged)  return "Archer";
+            if (rank == FormationMoveCommandHelper.RankRanged)  return "Alanthor_Archer";
             if (rank == FormationMoveCommandHelper.RankSupport) return "Litharch";
             if (rank == FormationMoveCommandHelper.RankSiege)   return "Alanthor_Catapult";
             return null;

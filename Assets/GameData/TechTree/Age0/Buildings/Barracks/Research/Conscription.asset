@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Conscription
   role: Military Training
   effect: 
-  desc: Standing levies train 20 percent faster at the Barracks.
+  desc: Standing levies train 15 percent faster at any Barracks.
   researchAt: Barracks
   minBuildingLevel: 0
   researchTime: 35

@@ -172,8 +172,22 @@ namespace TheWaningBorder.Core.Config
         /// </summary>
         public const float PurificationChannelTime = 35f;
 
-        /// <summary>Distance the ritualist must be within to start channeling on a node.</summary>
-        public const float RitualRange = 6f;
+        /// <summary>
+        /// Distance the ritualist must be within to start channeling on a node.
+        ///
+        /// RAISED 6 → 12. A well is a large building and stamps its footprint
+        /// impassable, so a ritualist physically cannot bring its centre within
+        /// 6 m of the node centre: it collides with the footprint (and with
+        /// whatever else is crowded around a contested well) while still
+        /// measuring ~7-8 m out, and then stands there forever — ordered,
+        /// arrived, and never in range. RitualApproach fixed the ritualist that
+        /// could not PATH to a node; this is the one that could not REACH it.
+        ///
+        /// 12 m clears the largest well footprint plus a ring of bodies with
+        /// room to spare. The range is still what it always was — a distance to
+        /// the node CENTRE — so nothing else has to know the footprint size.
+        /// </summary>
+        public const float RitualRange = 12f;
 
         /// <summary>
         /// Distance beyond which an in-progress channel is canceled (the
@@ -187,8 +201,12 @@ namespace TheWaningBorder.Core.Config
         /// exposed for even longer than the Corruptor's 40 s.
         ///
         /// The counterplay is killing the ritualist, not bumping into one.
+        ///
+        /// RAISED 14 → 20 alongside RitualRange's 6 → 12, to keep the same 8 m
+        /// of drift tolerance. Left at 14 it would have been 2 m, which is
+        /// exactly the fragility the paragraph above was written about.
         /// </summary>
-        public const float RitualCancelRange = 14f;
+        public const float RitualCancelRange = 20f;
 
         // ==================== Glow Pickup (Spec §4.5) ====================
         /// <summary>Glow amount a successful Purification deposits into the pickup.</summary>

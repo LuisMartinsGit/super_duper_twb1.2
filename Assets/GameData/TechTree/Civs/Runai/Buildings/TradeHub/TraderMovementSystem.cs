@@ -45,6 +45,10 @@ namespace TheWaningBorder.Systems.Economy
         private const float VeilstonePerDistance = 1f / 15f; // 1 veilstone per 15 distance
 
         private uint _randomSeed;
+        // Re-seeded per match, not per world: see TradingPostSystem.
+        // No initialiser: this is a struct system (zero-initialised), and
+        // SimCadence.Epoch is already >= 1 by the first match tick.
+        private int _epoch;
 
         public void OnCreate(ref SystemState state)
         {
@@ -55,6 +59,12 @@ namespace TheWaningBorder.Systems.Economy
         public void OnUpdate(ref SystemState state)
         {
             var em = state.EntityManager;
+
+            if (_epoch != SimCadence.Epoch)
+            {
+                _epoch = SimCadence.Epoch;
+                _randomSeed = 7919;
+            }
 
             foreach (var (trader, dd, faction, transform, entity) in SystemAPI
                 .Query<RefRW<RunaiTraderState>, RefRW<DesiredDestination>, RefRO<FactionTag>, RefRO<LocalTransform>>()

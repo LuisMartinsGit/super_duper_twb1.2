@@ -89,10 +89,19 @@ namespace TheWaningBorder.Abilities
         // gets spuriously reset (which read as LOS "pulsating").
         private const float ScoutStillSpeed = 1.0f;
         private double _last;
+        // Anchored to a match clock that restarts at 0 under lockstep; a
+        // stale anchor from an earlier match in this process silences the
+        // aura tick on this peer alone until the clock catches up.
+        private int _epoch = -1;
 
         protected override void OnUpdate()
         {
             double now = SystemAPI.Time.ElapsedTime;
+            if (_epoch != SimCadence.Epoch)
+            {
+                _epoch = SimCadence.Epoch;
+                _last = now;
+            }
             if (now - _last < Interval) return;
             float elapsed = (float)(now - _last);
             _last = now;

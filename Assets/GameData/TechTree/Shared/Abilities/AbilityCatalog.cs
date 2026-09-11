@@ -162,6 +162,23 @@ namespace TheWaningBorder.Abilities
                 Aftermath = null,
                 UnlocksAtLevel = 4,
             },
+            // 14 — Choreographed Volleys (Archery Range tech). A ranged unit
+            // calls the cadence and every allied ranged unit around it shoots
+            // at double rate for 5 s, once every two minutes.
+            //
+            // It was a faction-wide button on the Archery Range panel. The
+            // trigger belongs to the line that fires it, so it is a unit active
+            // now — which also gives the ability a PLACE, and makes seeding it
+            // where the archers actually are a decision worth making.
+            new AbilityCard {
+                Name = "Choreographed Volleys", Activation = AbilityActivation.Active,
+                Targeting = AbilityTargeting.Area, Affects = AbilityAffects.AlliedRanged,
+                CastTime = 0f, Duration = 5f, Cooldown = 120f, Radius = 20f, Range = 0f,
+                Effects = new[] {
+                    new AbilityEffect(AbilityEffectKind.FireRatePct, 100f),
+                },
+                Aftermath = null,
+            },
         };
 
         private static AbilityCard[] _resolved;

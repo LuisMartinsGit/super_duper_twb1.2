@@ -103,6 +103,16 @@ namespace TheWaningBorder.Systems.Border
             _rng = (uint)GameSettings.SpawnSeed * 2246822519u + 3266489917u;
             if (_rng == 0) _rng = 0x9E3779B9u;
             _dormantDuration = NextDormantDuration();
+            // The rest of the per-match state, for the same reason. The cycle
+            // seed feeds the tendril-site noise job and counted up across
+            // matches; the precipitation trio only re-seeded when the grid
+            // SIZE changed, so a second match on a same-size map kept the
+            // previous match's crust snapshot and token bucket.
+            _cycleSeed = 0;
+            _escalationT = 0f;
+            _escalation = 1f;
+            _precipSeeded = 0;
+            _precipTokens = 0f;
 
             // Decision #3: the world is ALREADY sick — established crust
             // discs around every well, saturation falling off with distance.

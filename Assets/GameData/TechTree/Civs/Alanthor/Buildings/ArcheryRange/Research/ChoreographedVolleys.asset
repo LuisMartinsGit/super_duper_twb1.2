@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Choreographed Volleys
   role: Military
   effect: 
-  desc: "Active skill: doubles the fire rate of all Archers for 5 s. 40 s cooldown. Faction-wide, triggered from the Archery Range panel."
+  desc: "Active, carried by every ranged unit: call the cadence and allied ranged units within 20 m fire at double rate for 5 s. 120 s cooldown."
   researchAt: ArcheryRange
   minBuildingLevel: 0
   researchTime: 35

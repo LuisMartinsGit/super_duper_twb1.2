@@ -24,7 +24,9 @@ namespace TheWaningBorder.Systems.Buildings
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial class KeepWingSystem : SystemBase
     {
-        private float _incomeAcc;
+        // Match-phased (SimCadence.cs): a bare float accumulator walks into
+        // the next match with whatever it held, and that differs per peer.
+        private SimCadence.Periodic _incomeAcc;
 
         protected override void OnUpdate()
         {
@@ -63,10 +65,8 @@ namespace TheWaningBorder.Systems.Buildings
             }
 
             // ── 2. Civic / Economic Supplies trickle (1 s cadence) ──────────
-            _incomeAcc += dt;
-            if (_incomeAcc < 1f) return;
-            float tick = _incomeAcc;
-            _incomeAcc = 0f;
+            float tick = _incomeAcc.DueStep(dt, 1f);
+            if (tick <= 0f) return;
 
             var incomeQuery = GetEntityQuery(
                 ComponentType.ReadOnly<KeepWings>(),

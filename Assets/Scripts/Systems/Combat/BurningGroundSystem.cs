@@ -21,19 +21,21 @@ public partial struct BurningGroundSystem : ISystem
     /// <summary>Interval between damage ticks in seconds.</summary>
     private const float DamageTickInterval = 1f;
 
-    private float _tickTimer;
+    // Match-phased (SimCadence.cs), not a bare accumulator: the system
+    // object outlives matches, so a bare timer starts the next match at
+    // whatever phase the last one ended on -- different on every peer.
+    private SimCadence.Periodic _tickTimer;
 
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<BurningGround>();
         state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
-        _tickTimer = 0f;
     }
 
     public void OnUpdate(ref SystemState state)
     {
         float dt = SystemAPI.Time.DeltaTime;
-        _tickTimer += dt;
+        bool damageDue = _tickTimer.Due(dt, DamageTickInterval);
 
         // Fix #225: use the frame-scoped Singleton ECB so structural changes
         // (DestroyEntity below) play back at EndSimulation in a predictable
@@ -55,9 +57,8 @@ public partial struct BurningGroundSystem : ISystem
         }
 
         // Only apply damage on tick intervals
-        if (_tickTimer >= DamageTickInterval)
+        if (damageDue)
         {
-            _tickTimer -= DamageTickInterval;
 
             // Collect all active burning ground positions and data
             var groundPositions = new NativeList<float3>(Allocator.Temp);

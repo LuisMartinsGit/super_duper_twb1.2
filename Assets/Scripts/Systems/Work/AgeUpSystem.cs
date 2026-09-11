@@ -1,4 +1,4 @@
-// Timer-based age-up system — ticks AgeUpState.Remaining and runs
+﻿// Timer-based age-up system — ticks AgeUpState.Remaining and runs
 // completion logic (era set, hall scale, culture effects, RP grant)
 // when the timer expires.
 
@@ -103,6 +103,12 @@ namespace TheWaningBorder.Systems.Work
                     lt.Scale = 1.3f;
                     em.SetComponentData(hallEntity, lt);
                 }
+
+                // 2b. THE HALL BECOMES THE CULTURED HQ. The Hall is the
+                //     culture-less form; for Alanthor it IS the King's Court
+                //     from this moment on. Same entity, renamed — the rule
+                //     the House and the Guild already follow.
+                TransformHallForCulture(em, hallEntity, culture);
 
                 // 3. Set FactionEra to 2 and award the Age-2 RP bonus.
                 //    task-063: RP economy is sect-adoption-driven now (6/8/10
@@ -234,6 +240,42 @@ namespace TheWaningBorder.Systems.Work
         /// Feraldis → houses become raider-spawn buildings (Phase 3 — task-066).
         /// Phase 1 (task-066): no destruction; behaviors are stubs.
         /// </summary>
+        /// <summary>
+        /// Rename the Hall into its cultured HQ. Alanthor's is the King's
+        /// Court; the other two cultures keep the Hall until their own HQ
+        /// forms are designed.
+        ///
+        /// This is a RENAME, not a replacement: the entity, its health, its
+        /// level, its position and its HallTag all survive. Only the identity
+        /// changes — which is what makes the King's Court's research findable
+        /// (researchAt: KingsCourt) and what the player sees on the panel.
+        ///
+        /// Idempotent, because StartAgePromoter can drive the same transform
+        /// for a match that begins in Age 1 and the age-up path may then run
+        /// over the same entity.
+        ///
+        /// Public because StartAgePromoter drives it from the Bootstrap
+        /// assembly; `internal` only ever worked while every script compiled
+        /// into one assembly.
+        /// </summary>
+        public static void TransformHallForCulture(EntityManager em, Entity hallEntity, byte culture)
+        {
+            if (culture != Cultures.Alanthor) return;
+            if (!em.Exists(hallEntity)) return;
+            if (em.HasComponent<KingsCourtTag>(hallEntity)) return;   // already renamed
+
+            em.AddComponent<KingsCourtTag>(hallEntity);
+
+            // The name on the selection panel follows the identity.
+            if (em.HasComponent<DisplayName>(hallEntity))
+                em.SetComponentData(hallEntity, new DisplayName
+                {
+                    Value = TheWaningBorder.Core.DisplayNames.ForBuildingFixed("KingsCourt"),
+                });
+
+            UnityEngine.Debug.Log("[AgeUp] Hall renamed to King's Court (Alanthor).");
+        }
+
         /// <summary>Public because StartAgePromoter drives it from the
         /// Bootstrap assembly; `internal` only ever worked while every
         /// script compiled into one assembly.</summary>

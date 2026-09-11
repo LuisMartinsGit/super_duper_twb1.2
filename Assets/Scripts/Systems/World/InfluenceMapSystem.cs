@@ -44,11 +44,30 @@ namespace TheWaningBorder.Systems.World
 
         private double _lastBloodTick;
         private int _lastOwnershipVersion;
+        // No initialiser: this is a struct system (zero-initialised), and
+        // SimCadence.Epoch is already >= 1 by the first match tick.
+        private int _epoch;
 
         public void OnCreate(ref SystemState state)
         {
-            // Fresh match world → fresh maps (the stores are static and would
-            // otherwise leak the previous match's territory / blood).
+            ResetForMatch();
+        }
+
+        /// <summary>
+        /// Fresh match → fresh maps. The stores are static and the WORLD
+        /// outlives matches (TeardownAfterMatch wipes entities, not systems),
+        /// so doing this in OnCreate alone reset them exactly once per
+        /// process: every later match inherited the previous map's grid
+        /// geometry AND its territory / blood content. Observed 2026-09-10 —
+        /// a client that had played SunderedCrown (256 m) went into a
+        /// Veilmarch (1024 m) lockstep match with the 256 m grid still
+        /// configured, while the freshly launched host had the right one.
+        /// The blood-tick anchor is the same story on the clock axis: the
+        /// lockstep clock restarts at 0, a stale anchor keeps `now - last`
+        /// negative for as long as the earlier match ran.
+        /// </summary>
+        private void ResetForMatch()
+        {
             PlayerInfluenceMap.Reset();
             BloodMap.Reset();
             _lastBloodTick = double.MinValue;
@@ -57,6 +76,12 @@ namespace TheWaningBorder.Systems.World
 
         public void OnUpdate(ref SystemState state)
         {
+            if (_epoch != SimCadence.Epoch)
+            {
+                _epoch = SimCadence.Epoch;
+                ResetForMatch();
+            }
+
             if (!PlayerInfluenceMap.Ready && !TryConfigure()) return;
 
             // Ownership rasterize — EVENT-DRIVEN, never per frame.

@@ -1,4 +1,4 @@
-// Difficulty-tier knobs for the SimpleAISystem executor.
+﻿// Difficulty-tier knobs for the SimpleAISystem executor.
 //
 // AoE4 model (docs/Design/Game_AI.md §2, docs/Research/AoE4_AI_Study.md §2):
 // ONE brain, difficulty expressed purely as data — behavior quality only,
@@ -28,37 +28,19 @@ namespace TheWaningBorder.AI
     {
         /// <summary>Seconds between AI think-ticks. Lower = faster reactions.</summary>
         public float ThinkInterval;
-        /// <summary>Worker (miner/builder) count the economy manager grows
-        /// toward before age-up…</summary>
-        public int WorkerTargetAge0;
-        /// <summary>…and after age-up (AoE4: villager targets rise per age).</summary>
-        public int WorkerTargetAge1;
+        /// <summary>How stale an enemy sighting may be and still steer
+        /// production (layer 3 reads this; see the SO field).</summary>
+        public float IntelFreshnessSeconds;
         /// <summary>No attack missions launch before this game time (seconds).</summary>
         public float FirstAttackEarliestSeconds;
-        /// <summary>Peel off fast raid parties at the enemy economy alongside
-        /// the main attack (AoE4: Hard+ raids constantly, Easy never).</summary>
-        public bool RaidingEnabled;
-        /// <summary>Adapt the trained unit mix to the observed enemy
-        /// composition (AoE4: higher tiers counter-pick, lower don't).</summary>
-        public bool CounterCompEnabled;
-        /// <summary>Attack missions form up at a staging point near the
-        /// target before committing.</summary>
-        public bool ForwardStaging;
         /// <summary>How large an army this difficulty keeps standing, before
         /// the plan's ArmyScale multiplies it.</summary>
         public int SustainArmyCap;
-        /// <summary>Game time (seconds) at which this AI stops expanding and
-        /// starts banking for Age 1.</summary>
-        public float AgeUpPushSeconds;
         /// <summary>Seconds between wave launches once the first-attack gate
         /// has passed.</summary>
         public float AttackWaveIntervalSeconds;
         /// <summary>Idle-army minimum for wave 1.</summary>
         public int WaveBaseUnits;
-        /// <summary>Gatherer's Huts the maintenance loop grows toward.</summary>
-        public int GathererHutTarget;
-        /// <summary>Total military production buildings to build toward.</summary>
-        public int ProductionBuildingTarget;
 
         /// <summary>Multiplier on the support systems' fixed think cadence
         /// (endgame directors, building upgrades, scouting).</summary>
@@ -95,18 +77,11 @@ namespace TheWaningBorder.AI
             return new AIDifficultyProfile
             {
                 ThinkInterval = so.thinkInterval,
-                WorkerTargetAge0 = so.workerTargetAge0,
-                WorkerTargetAge1 = so.workerTargetAge1,
+                IntelFreshnessSeconds = so.intelFreshnessSeconds,
                 FirstAttackEarliestSeconds = so.firstAttackEarliestSeconds,
-                RaidingEnabled = so.raidingEnabled,
-                CounterCompEnabled = so.counterCompEnabled,
-                ForwardStaging = so.forwardStaging,
                 SustainArmyCap = so.sustainArmyCap,
-                AgeUpPushSeconds = so.ageUpPushSeconds,
                 AttackWaveIntervalSeconds = so.attackWaveIntervalSeconds,
                 WaveBaseUnits = so.waveBaseUnits,
-                GathererHutTarget = so.gathererHutTarget,
-                ProductionBuildingTarget = so.productionBuildingTarget,
                 SupportThinkScale = so.supportThinkScale,
             };
         }

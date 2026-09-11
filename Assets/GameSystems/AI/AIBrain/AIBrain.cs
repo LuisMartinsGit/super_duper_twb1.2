@@ -1,4 +1,4 @@
-// AIBrain.cs
+﻿// AIBrain.cs
 // Core AI controller component and initialization
 using Unity.Entities;
 using Unity.Mathematics;
@@ -18,22 +18,36 @@ namespace TheWaningBorder.AI
         public float UpdateInterval;
         public float NextUpdateTime;
         public byte IsActive;
+        /// <summary>Layer 2 — what this AI prioritises. Selects the build
+        /// order and the priority floors. Never selects a unit.</summary>
         public AIPersonality Personality;
+        /// <summary>Layer 1 — decision rate, reaction time, army size.</summary>
         public AIDifficulty Difficulty;
-        /// <summary>
-        /// Locked-in strategy this AI follows for Age 1 (read by SimpleAISystem).
-        /// Set at brain creation; the build order is selected from this.
-        /// </summary>
-        public AIStrategy Strategy;
     }
 
+    /// <summary>
+    /// LAYER 2 of the AI stack: WHAT THIS AI PRIORITISES — military, economy,
+    /// tech or defence. It never decides which units get trained; that is
+    /// layer 3 (AIComposition).
+    ///
+    /// This used to be two enums. AIPersonality (Balanced/Aggressive/
+    /// Defensive/Economic/Rush) chose plan affinities and floors, while a
+    /// separate AIStrategy (Rush/EcoBoom/TechRush/Aggressive/Defensive/
+    /// Turtle) chose the build order — set independently, overlapping in
+    /// three names, and free to disagree. GetDefaultPersonality admitted it
+    /// in a comment: Yellow was filed as "Balanced — tech — no tech
+    /// personality; the TechRush opener carries it". There is a tech
+    /// personality now.
+    /// </summary>
     public enum AIPersonality : byte
     {
         Balanced = 0,
         Aggressive = 1,
         Defensive = 2,
-        Economic = 3,
-        Rush = 4
+        Economic = 3,   // the old AIStrategy.EcoBoom
+        Rush = 4,
+        TechBoom = 5,   // the old AIStrategy.TechRush
+        Turtle = 6,
     }
 
     public enum AIDifficulty : byte
@@ -55,18 +69,6 @@ namespace TheWaningBorder.AI
         Pressure = 1,  // army assembled and economy healthy: attack sooner
         Defend = 2,    // threat spike near own base: recall, repair, hold
         Rebuild = 3,   // army gutted: train back up before attacking again
-    }
-
-    // ==================== AI Strategy ====================
-
-    public enum AIStrategy : byte
-    {
-        Rush = 0,       // Fast barracks, early harassment, minimal economy
-        EcoBoom = 1,    // Heavy gatherers, veilstone farming, delayed military
-        TechRush = 2,   // Tech Boom — rush Age 2 with Barracks tech upgrades
-        Aggressive = 3, // Balanced — token military + Shrine + age up
-        Defensive = 4,  // Standing army, Drills+Armor research, Vault
-        Turtle = 5,     // Heavy economy + healers + big stockpile for Alanthor walls
     }
 
     /// <summary>
@@ -160,8 +162,8 @@ namespace TheWaningBorder.AI
     /// </summary>
     public struct AIStrategyState : IComponentData
     {
-        public AIStrategy Current;
-        public AIStrategy Previous;
+        public AIPersonality Current;
+        public AIPersonality Previous;
         public float LastEvalTime;       // When strategy was last evaluated
         public float EvalInterval;       // How often to re-evaluate (difficulty-dependent)
         public float StrategyStartTime;  // When the current strategy was adopted

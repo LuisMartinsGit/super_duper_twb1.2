@@ -1,4 +1,4 @@
-// AIBootstrap.cs
+﻿// AIBootstrap.cs
 // Initializes AI players and creates AI brain entities
 
 using Unity.Entities;
@@ -87,7 +87,7 @@ namespace TheWaningBorder.AI
 
                 // Get difficulty from lobby config if available
                 AIDifficulty difficulty = GetFactionDifficulty(faction);
-                AIPersonality personality = GetDefaultPersonality(faction);
+                AIPersonality personality = ResolvePersonality(faction);
 
                 CreateAIBrain(em, faction, personality, difficulty);
                 aiCount++;
@@ -216,10 +216,6 @@ namespace TheWaningBorder.AI
         {
             var brainEntity = em.CreateEntity();
 
-            // Pick the build-order strategy up-front. The SimpleAISystem reads
-            // AIBrain.Strategy each tick to look up the corresponding build order.
-            AIStrategy initialStrategy = GetRandomStrategy(faction, personality);
-
             // Core AI Brain
             em.AddComponentData(brainEntity, new AIBrain
             {
@@ -229,7 +225,6 @@ namespace TheWaningBorder.AI
                 IsActive = 1,
                 Personality = personality,
                 Difficulty = difficulty,
-                Strategy = initialStrategy,
             });
 
             em.AddComponentData(brainEntity, new FactionTag { Value = faction });
@@ -347,8 +342,8 @@ namespace TheWaningBorder.AI
             };
             em.AddComponentData(brainEntity, new AIStrategyState
             {
-                Current = initialStrategy,
-                Previous = initialStrategy,
+                Current = personality,
+                Previous = personality,
                 LastEvalTime = 0,
                 EvalInterval = evalInterval,
                 StrategyStartTime = 0,
@@ -356,7 +351,7 @@ namespace TheWaningBorder.AI
                 SuccessfulAttacks = 0,
                 HasAgedUp = 0
             });
-            AILogger.Log(faction, "STRATEGY", $"Initial strategy: {initialStrategy} (difficulty: {difficulty})");
+            AILogger.Log(faction, "STRATEGY", $"Personality: {personality} (difficulty: {difficulty})");
 
             // Dynamic Buffers
             em.AddBuffer<MineAssignment>(brainEntity);
@@ -368,27 +363,6 @@ namespace TheWaningBorder.AI
             em.AddBuffer<ExplorationZone>(brainEntity);
 
             return brainEntity;
-        }
-
-        private static AIPersonality GetDefaultPersonality(Faction faction)
-        {
-            // COLOURS ARE PERSONALITIES (2026-08-30, batch-analysis
-            // directive): a batch is only comparable across matches when Red
-            // is always the rusher and Blue always the turtle. The canonical
-            // four: Red = rush, Yellow = tech, Green = economy, Blue =
-            // turtle. GetRandomStrategy pins the matching opener.
-            return faction switch
-            {
-                Faction.Red => AIPersonality.Rush,
-                Faction.Green => AIPersonality.Economic,
-                Faction.Yellow => AIPersonality.Balanced,   // tech — no tech personality; the TechRush opener carries it
-                Faction.Blue => AIPersonality.Defensive,    // turtle
-                Faction.Purple => AIPersonality.Balanced,
-                Faction.Orange => AIPersonality.Rush,
-                Faction.Teal => AIPersonality.Balanced,
-                Faction.White => AIPersonality.Aggressive,
-                _ => AIPersonality.Balanced
-            };
         }
 
         private static AIDifficulty GetFactionDifficulty(Faction faction)
@@ -418,11 +392,22 @@ namespace TheWaningBorder.AI
             return AIDifficulty.Normal;
         }
 
-        private static AIStrategy GetRandomStrategy(Faction faction, AIPersonality personality)
+        /// <summary>
+        /// LAYER 2 — resolve this faction's personality, in priority order:
+        /// the lobby's explicit pick, then the canonical colour, then a
+        /// deterministic roll.
+        ///
+        /// This replaces GetDefaultPersonality + GetRandomStrategy, which had
+        /// become circular once the two enums merged: the second took a
+        /// personality and returned a "strategy" drawn from a pool biased by
+        /// that same personality, so an Economic AI could be handed a Turtle
+        /// opener while still answering "Economic" to every floor query. One
+        /// identity, chosen once.
+        /// </summary>
+        private static AIPersonality ResolvePersonality(Faction faction)
         {
-            // First, honour the lobby's per-slot strategy choice if set.
-            // Observer-typed slots count as AI in observer matches (see
-            // GetFactionDifficulty).
+            // 1. The lobby's per-slot pick wins. Observer-typed slots count as
+            //    AI in observer matches (see GetFactionDifficulty).
             int factionIndex = (int)faction;
             if (factionIndex >= 0 && factionIndex < LobbyConfig.Slots.Length)
             {
@@ -430,60 +415,54 @@ namespace TheWaningBorder.AI
                 if (slot != null && (slot.Type == SlotType.AI
                     || (GameSettings.IsObserver && slot.Type == SlotType.Observer)))
                 {
-                    var picked = LobbyToAIStrategy(slot.AIStrategy);
+                    var picked = LobbyToPersonality(slot.AIStrategy);
                     if (picked.HasValue) return picked.Value;
-                    // else fall through to random roll (LobbyAIStrategy.Random)
+                    // else fall through — the lobby asked for Random.
                 }
             }
 
-            // COLOURS ARE PERSONALITIES: the four canonical colours play
-            // their signature opening every match, so batch results compare
-            // across runs. The lobby's explicit per-slot choice above still
-            // outranks this; only the random roll is replaced.
+            // 2. COLOURS ARE PERSONALITIES (2026-08-30, batch-analysis
+            //    directive): a batch is only comparable across matches when
+            //    Red is always the rusher and Blue always the turtle.
             switch (faction)
             {
-                case Faction.Red: return AIStrategy.Rush;
-                case Faction.Yellow: return AIStrategy.TechRush;
-                case Faction.Green: return AIStrategy.EcoBoom;
-                case Faction.Blue: return AIStrategy.Turtle;
+                case Faction.Red:    return AIPersonality.Rush;
+                case Faction.Yellow: return AIPersonality.TechBoom;
+                case Faction.Green:  return AIPersonality.Economic;
+                case Faction.Blue:   return AIPersonality.Turtle;
+                case Faction.Orange: return AIPersonality.Rush;
+                case Faction.White:  return AIPersonality.Aggressive;
             }
 
-            // Deterministic random based on faction + spawn seed so multiplayer stays synced.
+            // 3. Deterministic roll, seeded so multiplayer peers agree.
             uint hash = (uint)((int)faction * 7919 + GameSettings.SpawnSeed + 31);
             hash ^= hash >> 13;
             hash *= 0x5bd1e995;
             hash ^= hash >> 15;
 
-            // Personality biases the roll into a matching opening pool
-            // (docs/Design/Game_AI.md §3): Aggressive/Rush personalities open
-            // with military-first builds, Economic booms, Defensive turtles,
-            // Balanced can roll anything. (TechRush/Aggressive are legacy
-            // aliases for TechBoom/Balanced — SimpleAISystem maps both.)
-            AIStrategy[] pool = personality switch
+            var all = new[]
             {
-                AIPersonality.Aggressive => new[] { AIStrategy.Rush, AIStrategy.Aggressive, AIStrategy.TechRush },
-                AIPersonality.Rush       => new[] { AIStrategy.Rush, AIStrategy.Rush, AIStrategy.Aggressive },
-                AIPersonality.Defensive  => new[] { AIStrategy.Defensive, AIStrategy.Turtle, AIStrategy.TechRush },
-                AIPersonality.Economic   => new[] { AIStrategy.EcoBoom, AIStrategy.Turtle, AIStrategy.TechRush },
-                _ => new[] { AIStrategy.Rush, AIStrategy.EcoBoom, AIStrategy.TechRush,
-                             AIStrategy.Aggressive, AIStrategy.Defensive, AIStrategy.Turtle },
+                AIPersonality.Balanced, AIPersonality.Aggressive, AIPersonality.Defensive,
+                AIPersonality.Economic, AIPersonality.Rush,
+                AIPersonality.TechBoom, AIPersonality.Turtle,
             };
-            return pool[(int)(hash % (uint)pool.Length)];
+            return all[(int)(hash % (uint)all.Length)];
         }
 
         /// <summary>
-        /// Map the lobby-side strategy choice onto the runtime AIStrategy enum.
-        /// Returns null when the lobby picked Random (caller rolls a random).
+        /// Map the lobby-side choice onto the runtime personality. The lobby
+        /// keeps its own player-facing enum; this is the only place the two
+        /// meet. Returns null when the lobby picked Random.
         /// </summary>
-        private static AIStrategy? LobbyToAIStrategy(LobbyAIStrategy choice) => choice switch
+        private static AIPersonality? LobbyToPersonality(LobbyAIStrategy choice) => choice switch
         {
-            LobbyAIStrategy.EcoBoom   => AIStrategy.EcoBoom,
-            LobbyAIStrategy.Balanced  => AIStrategy.Aggressive, // legacy alias for Balanced
-            LobbyAIStrategy.TechBoom  => AIStrategy.TechRush,   // legacy alias for TechBoom
-            LobbyAIStrategy.Rush      => AIStrategy.Rush,
-            LobbyAIStrategy.Turtle    => AIStrategy.Turtle,
-            LobbyAIStrategy.Defensive => AIStrategy.Defensive,
-            _                         => (AIStrategy?)null,     // Random
+            LobbyAIStrategy.EcoBoom   => AIPersonality.Economic,
+            LobbyAIStrategy.Balanced  => AIPersonality.Balanced,
+            LobbyAIStrategy.TechBoom  => AIPersonality.TechBoom,
+            LobbyAIStrategy.Rush      => AIPersonality.Rush,
+            LobbyAIStrategy.Turtle    => AIPersonality.Turtle,
+            LobbyAIStrategy.Defensive => AIPersonality.Defensive,
+            _                         => (AIPersonality?)null,     // Random
         };
     }
 }

@@ -161,6 +161,12 @@ namespace TheWaningBorder.Systems.Work
                         buildRate *= TheWaningBorder.Economy.SectResearchEffects
                             .ConstructionSpeedMultiplier(siteFaction,
                                 TheWaningBorder.Data.BuildCosts.IdFromEntity(em, site));
+
+                        // The Hall's tools line. It used to speed up gathering,
+                        // which no longer exists; building is what a worker
+                        // still does. See WorkerToolsEffects.
+                        buildRate *= TheWaningBorder.Entities.WorkerToolsEffects
+                            .BuildSpeedMultiplier(siteFaction);
                     }
 
                     uc.Progress += buildRate * dt;

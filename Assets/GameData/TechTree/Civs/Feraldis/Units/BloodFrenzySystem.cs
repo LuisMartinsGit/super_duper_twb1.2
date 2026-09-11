@@ -23,7 +23,8 @@ namespace TheWaningBorder.Systems.Combat
     [UpdateBefore(typeof(MeleeCombatSystem))]
     public partial class BloodFrenzySystem : SystemBase
     {
-        private float _scanAcc;
+        // Match-phased (SimCadence.cs), not a bare accumulator.
+        private SimCadence.Periodic _scanAcc;
 
         protected override void OnUpdate()
         {
@@ -43,9 +44,7 @@ namespace TheWaningBorder.Systems.Combat
             expired.Dispose();
 
             // --- Acquisition: slow pulse over the blood map. ---
-            _scanAcc += dt;
-            if (_scanAcc < FrenzyScanInterval) return;
-            _scanAcc = 0f;
+            if (!_scanAcc.Due(dt, FrenzyScanInterval)) return;
 
             if (!BloodMap.Ready) return;
             if (!BloodMap.HasPresence(FrenzyBloodThreshold)) return;

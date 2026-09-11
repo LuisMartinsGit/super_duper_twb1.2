@@ -289,8 +289,19 @@ namespace TheWaningBorder.Bootstrap
             UnitFactory.Create(em, "Spearman", EnsureValidSpawnPosition(frontRow), faction);
             UnitFactory.Create(em, "Spearman", EnsureValidSpawnPosition(frontRow + new float3(spacing, 0, 0)), faction);
 
-            UnitFactory.Create(em, "Archer", EnsureValidSpawnPosition(backRow + new float3(-spacing * 0.5f, 0, 0)), faction);
-            UnitFactory.Create(em, "Archer", EnsureValidSpawnPosition(backRow + new float3(spacing * 0.5f, 0, 0)), faction);
+            // "Alanthor_Archer", not "Archer". There is no unit authored under
+            // the bare id — the Archery Range trains Alanthor_Archer /
+            // _Crossbowman / _Longbowman, which is the same id-prefix roster
+            // an Age 0 building legitimately carries (see CLAUDE.md).
+            //
+            // TechCatalog.Unit() never returns null: it logged ONCE per session
+            // and handed back a stub of hp 1 / speed 1 / lineOfSight 1 /
+            // damage 0. So both opening archers, for every faction, in every
+            // match ever played, spawned with one hit point, at walking pace
+            // one, blind and unable to attack. Measured across an 11-session
+            // headless batch 2026-09-09: one real error per match, this one.
+            UnitFactory.Create(em, "Alanthor_Archer", EnsureValidSpawnPosition(backRow + new float3(-spacing * 0.5f, 0, 0)), faction);
+            UnitFactory.Create(em, "Alanthor_Archer", EnsureValidSpawnPosition(backRow + new float3(spacing * 0.5f, 0, 0)), faction);
 
             UnitFactory.Create(em, "Scout", EnsureValidSpawnPosition(backRow + new float3(spacing * 2f, 0, 0)), faction);
         }

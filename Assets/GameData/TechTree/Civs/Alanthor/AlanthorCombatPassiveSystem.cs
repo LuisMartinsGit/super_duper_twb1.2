@@ -35,23 +35,55 @@ namespace TheWaningBorder.Systems.Abilities
 
             float eps = AlanthorPassiveTuning.StillEpsilonSq;
 
-            // ---- Charge: rearms once the unit has been out of combat ----
-            // AttackCooldown.Timer counts down after a swing, so a unit that just
-            // attacked has a live timer. We approximate "dealt damage recently" by
-            // the presence of a target: no target means disengaged.
-            foreach (var (fs, tgt) in SystemAPI.Query<RefRW<FirstStrike>, RefRO<Target>>())
+            // ---- Charge: arm out of combat, activate on contact, expire ----
+            // Three transitions, in the order they can happen in one tick:
+            //   armed + engaged        -> activate (speed on, window opens)
+            //   charging, window gone  -> expire  (speed off, must rearm)
+            //   disengaged             -> count toward arming
+            // The blow itself is spent at the damage site (CombatDamageHelper),
+            // which zeroes Ready and the window; the speed it left behind is
+            // taken off here, so every MoveSpeed write lives in one place.
+            foreach (var (fs, tgt, spd) in SystemAPI
+                .Query<RefRW<FirstStrike>, RefRO<Target>, RefRW<MoveSpeed>>())
             {
                 var v = fs.ValueRO;
                 bool engaged = tgt.ValueRO.Value != Entity.Null;
-                if (engaged)
+
+                if (v.WindowRemaining > 0f)
                 {
-                    v.OutOfCombatTimer = 0f;
+                    v.WindowRemaining -= dt;
+                    if (v.WindowRemaining <= 0f)
+                    {
+                        // Closed on nothing: drop the burst and start over.
+                        v.WindowRemaining = 0f;
+                        v.Ready = 0;
+                        v.OutOfCombatTimer = 0f;
+                    }
                 }
-                else
+                else if (v.Ready != 0 && engaged && v.SpeedBonus == 0f)
+                {
+                    // Contact: the charge goes in.
+                    v.WindowRemaining = AlanthorPassiveTuning.ChargeWindowSeconds;
+                    v.SpeedBonus = spd.ValueRO.Value
+                                 * (AlanthorPassiveTuning.ChargeSpeedPct / 100f);
+                    spd.ValueRW = new MoveSpeed { Value = spd.ValueRO.Value + v.SpeedBonus };
+                }
+                else if (!engaged)
                 {
                     v.OutOfCombatTimer += dt;
                     if (v.OutOfCombatTimer >= AlanthorPassiveTuning.ChargeRearmSeconds) v.Ready = 1;
                 }
+
+                // The burst is over the moment the window is — whether it was
+                // spent on a hit or simply ran out. Subtracting the exact
+                // amount added keeps this idempotent against every other
+                // speed layer (rank, tech, Full Gallop).
+                if (v.WindowRemaining <= 0f && v.SpeedBonus != 0f)
+                {
+                    spd.ValueRW = new MoveSpeed { Value = spd.ValueRO.Value - v.SpeedBonus };
+                    v.SpeedBonus = 0f;
+                }
+
                 fs.ValueRW = v;
             }
 
@@ -64,12 +96,21 @@ namespace TheWaningBorder.Systems.Abilities
                 sw.ValueRW = v;
             }
 
-            foreach (var (st, xf) in SystemAPI.Query<RefRW<StakesState>, RefRO<LocalTransform>>())
+            // Deploy Stakes: a plain refresh timer. Spending the stakes at the
+            // damage site sets CooldownRemaining; they re-plant when it runs out.
+            foreach (var st in SystemAPI.Query<RefRW<StakesState>>())
             {
                 var v = st.ValueRO;
-                Tick(ref v.StillTimer, ref v.Ready, xf.ValueRO.Position, dt, eps,
-                    AlanthorPassiveTuning.StakesStillSeconds, ref v.LastX, ref v.LastZ);
-                st.ValueRW = v;
+                if (v.Ready == 0)
+                {
+                    v.CooldownRemaining -= dt;
+                    if (v.CooldownRemaining <= 0f)
+                    {
+                        v.CooldownRemaining = 0f;
+                        v.Ready = 1;
+                    }
+                    st.ValueRW = v;
+                }
             }
 
             foreach (var (ss, xf) in SystemAPI.Query<RefRW<SiegeScreens>, RefRO<LocalTransform>>())

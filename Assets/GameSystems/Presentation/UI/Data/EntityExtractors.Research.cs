@@ -44,10 +44,9 @@ namespace TheWaningBorder.UI.Data
 
             // Alanthor building-fired actives ride the research grid the same way
             // Keep wings do (the panel intercepts the click; nothing is queued).
-            AddAlanthorActiveButton(actions, em, faction, buildingId,
-                "ArcheryRange", "ChoreographedVolleys", "Alanthor_Volleys", "Choreographed Volleys",
-                "All your Archers fire twice as fast for 5 s.",
-                TheWaningBorder.Abilities.AlanthorActiveHelper.VolleysCooldownRemaining(faction));
+            // Choreographed Volleys is NOT here any more: it is cast by a
+            // ranged unit, not fired from the building, so it lives on the
+            // unit's spells bar (AbilityCatalog "Choreographed Volleys").
             AddAlanthorActiveButton(actions, em, faction, buildingId,
                 "Alanthor_SiegeYard", "RangingShot", "Alanthor_RangingShot", "Ranging Shot",
                 "Planted siege engines load an aimed shot: +100% damage on their next shot.",

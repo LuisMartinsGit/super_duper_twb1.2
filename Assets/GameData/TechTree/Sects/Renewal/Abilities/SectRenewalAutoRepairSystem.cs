@@ -36,7 +36,8 @@ namespace TheWaningBorder.Systems.Sect
         };
 
         // Per-system tick accumulator.
-        private float _tickTimer;
+        // Match-phased (SimCadence.cs), not a bare accumulator.
+        private SimCadence.Periodic _tickTimer;
 
         public void OnCreate(ref SystemState state)
         {
@@ -46,10 +47,8 @@ namespace TheWaningBorder.Systems.Sect
         public void OnUpdate(ref SystemState state)
         {
             float dt = SystemAPI.Time.DeltaTime;
-            _tickTimer += dt;
-            if (_tickTimer < TickInterval) return;
-            float effectiveDt = _tickTimer;
-            _tickTimer = 0f;
+            float effectiveDt = _tickTimer.DueStep(dt, TickInterval);
+            if (effectiveDt <= 0f) return;
 
             var em = state.EntityManager;
             double now = SystemAPI.Time.ElapsedTime;

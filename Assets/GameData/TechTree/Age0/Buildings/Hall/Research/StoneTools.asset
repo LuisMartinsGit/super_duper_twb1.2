@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Stone Tools
   role: Economy
   effect: 
-  desc: Upgrades worker tools to improve gathering speed.
+  desc: "Better tools: workers raise structures 15 percent faster."
   researchAt: Hall
   minBuildingLevel: 0
   researchTime: 30
@@ -28,7 +28,7 @@ MonoBehaviour:
     Veilstone: 0
     Veilsteel: 0
   effects:
-    gatherSpeedMult: 1.15
+    gatherSpeedMult: 0
     meleeAttackSpeedMult: 0
     meleeDefenseAdd: 0
     meleeDamageAdd: 0

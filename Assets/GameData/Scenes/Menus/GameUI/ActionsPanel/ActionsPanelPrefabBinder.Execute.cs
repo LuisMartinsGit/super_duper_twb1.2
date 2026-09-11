@@ -141,12 +141,6 @@ namespace TheWaningBorder.UI.Ingame
                 case "Reliquary_Vision":
                     TheWaningBorder.Core.Commands.CommandRouter.IssueReliquaryAbility(em, entity, 2, default);
                     return;
-                case "Alanthor_Volleys":
-                    if (!TheWaningBorder.Abilities.AlanthorActiveHelper
-                            .TriggerChoreographedVolleys(em, OwnFaction(em)))
-                        PlayerNotificationSystem.NotifyError(
-                            Loc.T("Choreographed Volleys is recharging"));
-                    return;
                 case "Alanthor_RangingShot":
                     if (!TheWaningBorder.Abilities.AlanthorActiveHelper
                             .TriggerRangingShot(em, OwnFaction(em)))

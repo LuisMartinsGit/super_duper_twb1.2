@@ -85,6 +85,11 @@ namespace TheWaningBorder.Systems.Combat
                 if (SystemAPI.HasComponent<Health>(entity)
                     && SystemAPI.GetComponent<Health>(entity).Value <= 0) continue;
 
+                // A DISARMED UNIT DOES NOT SHOOT — the same rule and the same
+                // reason as MeleeCombatSystem's guard: the damage floor at the
+                // impact site must never be what arms a Damage<=0 unit.
+                if (damage.ValueRO.Value <= 0) continue;
+
                 ref var tgt = ref target.ValueRW;
                 ref var archer = ref archerState.ValueRW;
 

@@ -35,10 +35,15 @@ namespace TheWaningBorder.Systems.Border
         ///
         /// Must clear the building footprint (3 cells across, so ~1.5 cells
         /// from centre plus grid snapping) and still sit inside every ritual's
-        /// start range — RitualRange and CorruptRange are both 6 m, and the
-        /// cancel ranges are 10 m, so 4 m leaves margin on both sides. Scales
+        /// start range — RitualRange is 12 m and CorruptRange 6 m, with cancel
+        /// ranges of 20 m and 14 m, so 4 m leaves margin on both sides. Scales
         /// with the nav cell size so a coarser grid cannot swallow the
         /// stand-off.
+        ///
+        /// Note this is now rarely REACHED: at RitualRange 12 a ritualist
+        /// starts channelling well before it arrives, which is the point — a
+        /// big well's footprint plus a crowd around it means the last few
+        /// metres were never walkable anyway.
         /// </summary>
         public static float StandOffDistance =>
             math.max(4f, GameSettings.PathfindingCellSize * 3f);

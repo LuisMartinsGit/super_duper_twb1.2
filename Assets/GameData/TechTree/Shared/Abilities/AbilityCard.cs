@@ -42,6 +42,7 @@ namespace TheWaningBorder.Abilities
         AlliedCavalry = 3,     // allied cavalry of the caster's culture
         Enemies = 4,
         EconomicBuildings = 5, // allied economy buildings (Automate Facility)
+        AlliedRanged = 6,      // allied ranged units (Choreographed Volleys)
     }
 
     /// <summary>
@@ -79,6 +80,7 @@ namespace TheWaningBorder.Abilities
         DisarmWhileBuffed = 14, // the affected units cannot attack for the duration (Full Gallop's sprint)
         DeployFieldHospital = 15, // spawn a temporary healing building at the caster (Litharch)
         SummonPledgeArmy = 16,  // spawn a temporary army around the caster, scaled by hero level (Honour thy Pledge)
+        FireRatePct = 17,       // +Value% fire rate for allied RANGED units in radius (Choreographed Volleys: 100 = double)
     }
 
     /// <summary>

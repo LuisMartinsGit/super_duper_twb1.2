@@ -121,12 +121,23 @@ namespace TheWaningBorder.UI.Data
                     Veilsteel = unit.cost.Veilsteel,
                 } : default;
 
+                // The time this building will ACTUALLY take, not the SO's base
+                // number. The tooltip used to quote unit.trainingTime raw, so
+                // a Spearman read "22s" whatever the player had done to earn
+                // otherwise — Conscription, the building's level, the Feraldis
+                // 1.75x, the War sect ladder and Call to Arms were all
+                // invisible, and researching a train-speed tech looked like it
+                // had done nothing. TrainDuration is the same call the
+                // simulation charges.
+                float trainTime = TheWaningBorder.Systems.Training.TrainingSystem
+                    .TrainDuration(em, entity, unitId, faction);
+
                 string tooltip = BuildTooltip(
                     unit.name,
                     unit.unitClass,
                     cost,
                     available,
-                    trainingTime: unit.trainingTime
+                    trainingTime: trainTime
                 );
                 // The Power number belongs HERE above all: the training button
                 // is where a player is actually choosing between units, and

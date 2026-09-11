@@ -1,4 +1,4 @@
-// Hardcoded Age-1 build orders for the SimpleAISystem.
+﻿// Hardcoded Age-1 build orders for the SimpleAISystem.
 // Each strategy is a flat list of steps the AI tries to issue in order.
 // A step ADVANCES on issue (not on completion) â€” the AI doesn't wait for the
 // trained unit/finished building before moving to the next step.
@@ -22,12 +22,25 @@ namespace TheWaningBorder.AI
     public struct BuildOrderStep
     {
         public BuildStepKind Kind;
-        public string Id;        // unitId, buildingId, or techId; ignored for AgeUp/SetVeilstoneTarget
+        public string Id;        // buildingId or techId; EMPTY for TrainUnit — see Role
         public bool Optional;    // Easy difficulty may skip optional steps
         public int IntArg;       // numeric arg (e.g. SetVeilstoneTarget count); 0 otherwise
+        /// <summary>For TrainUnit: WHAT FOR, never which. Layer 3 resolves
+        /// it (AIComposition.cs).</summary>
+        public UnitRole Role;
 
-        public static BuildOrderStep Train(string unitId, bool optional = false) =>
-            new() { Kind = BuildStepKind.TrainUnit, Id = unitId, Optional = optional };
+        /// <summary>
+        /// Queue a unit BY ROLE. A build order is layer 2 — it says how much
+        /// of what kind, and it is deliberately unable to name a unit id.
+        ///
+        /// It used to take a string, and the orders duly named "Spearman"
+        /// four to seven times apiece while the Turtle opener alone asked for
+        /// a "Litharch" — a personality choosing a unit TYPE. Every one of
+        /// those became Train(UnitRole.Military), which is what they all
+        /// actually meant: "another soldier, whatever we need".
+        /// </summary>
+        public static BuildOrderStep Train(UnitRole role, bool optional = false) =>
+            new() { Kind = BuildStepKind.TrainUnit, Id = string.Empty, Role = role, Optional = optional };
 
         public static BuildOrderStep Build(string buildingId, bool optional = false) =>
             new() { Kind = BuildStepKind.BuildBuilding, Id = buildingId, Optional = optional };
@@ -78,25 +91,25 @@ namespace TheWaningBorder.AI
         // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         public static readonly BuildOrderStep[] EcoBoom =
         {
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Scout"),       // map vision so the AI can see what to attack
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Scout),       // map vision so the AI can see what to attack
             BuildOrderStep.Build("GatherersHut"),
             BuildOrderStep.Build("GatherersHut"),
             BuildOrderStep.Build("GatherersHut", optional: true),
             BuildOrderStep.Build("GatherersHut", optional: true),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
             BuildOrderStep.SetVeilstoneTarget(2),  // 6 miners â†’ 2 on veilstone for age-up
             BuildOrderStep.Build("VaultOfAlmierra"),
             BuildOrderStep.AgeUpStep(),
-            BuildOrderStep.Train("Worker"),  // during ageup wait
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Scout", optional: true),  // second scout once economy is stable
+            BuildOrderStep.Train(UnitRole.Worker),  // during ageup wait
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Scout, optional: true),  // second scout once economy is stable
         };
 
         // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -106,35 +119,35 @@ namespace TheWaningBorder.AI
         // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         public static readonly BuildOrderStep[] Balanced =
         {
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Scout"),       // map vision before military commitment
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Scout),       // map vision before military commitment
             BuildOrderStep.Build("GatherersHut"),
             BuildOrderStep.Build("GatherersHut"),
             BuildOrderStep.Build("GatherersHut", optional: true),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
             BuildOrderStep.SetVeilstoneTarget(2),  // 6 miners â†’ 2 on veilstone
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Build("Barracks"),
-            BuildOrderStep.Train("Spearman"),
-            BuildOrderStep.Train("Spearman"),   // was Archer — ranged is an Age-1 unlock (2026-08-11)
+            BuildOrderStep.Train(UnitRole.Military),
+            BuildOrderStep.Train(UnitRole.Military),   // was Archer — ranged is an Age-1 unlock (2026-08-11)
             BuildOrderStep.Build("ShrineOfRidan"),
             BuildOrderStep.AgeUpStep(),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Scout", optional: true),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Scout, optional: true),
             // Commit the standing army at least once after age-up so the AI
             // isn't a passive sandbag in a demo. The maintenance loop in
             // SimpleAISystem takes over from here and keeps pushing waves.
-            BuildOrderStep.Train("Spearman"),
-            BuildOrderStep.Train("Spearman"),   // was Archer — ranged is an Age-1 unlock (2026-08-11)
+            BuildOrderStep.Train(UnitRole.Military),
+            BuildOrderStep.Train(UnitRole.Military),   // was Archer — ranged is an Age-1 unlock (2026-08-11)
             BuildOrderStep.LaunchAttack(2),
         };
 
@@ -146,18 +159,18 @@ namespace TheWaningBorder.AI
         // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         public static readonly BuildOrderStep[] TechBoom =
         {
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Scout"),       // map vision while economy ramps
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Scout),       // map vision while economy ramps
             BuildOrderStep.SetVeilstoneTarget(2),  // start veilstone early â€” techs need it
             BuildOrderStep.Build("GatherersHut"),
             BuildOrderStep.Build("GatherersHut"),
             BuildOrderStep.Build("GatherersHut", optional: true),
             BuildOrderStep.Build("GatherersHut", optional: true),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
             BuildOrderStep.SetVeilstoneTarget(3),  // 6 miners â†’ ramp to 3 on veilstone
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Build("Hut"),
@@ -165,18 +178,18 @@ namespace TheWaningBorder.AI
             BuildOrderStep.Build("Barracks"),
             BuildOrderStep.ResearchTech("Conscription"),
             BuildOrderStep.ResearchTech("StoneWeapons"),
-            BuildOrderStep.Train("Spearman"),
-            BuildOrderStep.Train("Spearman"),
+            BuildOrderStep.Train(UnitRole.Military),
+            BuildOrderStep.Train(UnitRole.Military),
             BuildOrderStep.Build("ShrineOfRidan"),
             BuildOrderStep.AgeUpStep(),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
             // Commit the upgraded army post-age-up so the tech investment
             // actually shows up on the map. Maintenance loop continues
             // pushing waves after this final step.
-            BuildOrderStep.Train("Spearman"),
+            BuildOrderStep.Train(UnitRole.Military),
             BuildOrderStep.LaunchAttack(2),
         };
 
@@ -192,39 +205,39 @@ namespace TheWaningBorder.AI
         // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         public static readonly BuildOrderStep[] Rush =
         {
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Scout"),         // find the enemy before sending the rush
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Scout),         // find the enemy before sending the rush
             BuildOrderStep.Build("Barracks"),
             BuildOrderStep.Build("Hut"),
-            BuildOrderStep.Train("Spearman"),    // Wave #1 (1 battalion)
+            BuildOrderStep.Train(UnitRole.Military),    // Wave #1 (1 battalion)
             BuildOrderStep.LaunchAttack(1),       // â†’ harass enemy miners
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Build("GatherersHut"),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
             BuildOrderStep.Build("Hut"),
-            BuildOrderStep.Train("Spearman"),    // Wave #2 (1st batt)
-            BuildOrderStep.Train("Spearman"),    // Wave #2 (2nd batt)
+            BuildOrderStep.Train(UnitRole.Military),    // Wave #2 (1st batt)
+            BuildOrderStep.Train(UnitRole.Military),    // Wave #2 (2nd batt)
             BuildOrderStep.LaunchAttack(2),       // â†’ push, 2 fresh batts (+ wave-1 survivors)
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Build("GatherersHut"),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Build("Hut"),
-            BuildOrderStep.Train("Spearman"),    // Wave #3 (4 battalions)
-            BuildOrderStep.Train("Spearman"),
-            BuildOrderStep.Train("Spearman"),
-            BuildOrderStep.Train("Spearman"),
+            BuildOrderStep.Train(UnitRole.Military),    // Wave #3 (4 battalions)
+            BuildOrderStep.Train(UnitRole.Military),
+            BuildOrderStep.Train(UnitRole.Military),
+            BuildOrderStep.Train(UnitRole.Military),
             BuildOrderStep.LaunchAttack(4),       // â†’ big push, 4 fresh batts (+ survivors)
             BuildOrderStep.Build("GatherersHut"),
             BuildOrderStep.Build("GatherersHut"),
             BuildOrderStep.SetVeilstoneTarget(1),   // late switch â€” just enough for Shrine + age-up
             BuildOrderStep.Build("ShrineOfRidan"),
             BuildOrderStep.AgeUpStep(),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
         };
 
         // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -235,36 +248,36 @@ namespace TheWaningBorder.AI
         // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         public static readonly BuildOrderStep[] Turtle =
         {
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Scout"),       // warn of incoming pressure
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Scout),       // warn of incoming pressure
             BuildOrderStep.Build("Barracks"),
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Build("GatherersHut"),
-            BuildOrderStep.Train("Spearman"),
+            BuildOrderStep.Train(UnitRole.Military),
             BuildOrderStep.SetVeilstoneTarget(2),  // 4 miners â†’ 2 on veilstone
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Build("GatherersHut"),
-            BuildOrderStep.Train("Spearman"),   // was Archer — ranged is an Age-1 unlock (2026-08-11)
+            BuildOrderStep.Train(UnitRole.Military),   // was Archer — ranged is an Age-1 unlock (2026-08-11)
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Build("GatherersHut"),
-            BuildOrderStep.Train("Spearman"),   // was Archer — ranged is an Age-1 unlock (2026-08-11)
+            BuildOrderStep.Train(UnitRole.Military),   // was Archer — ranged is an Age-1 unlock (2026-08-11)
             BuildOrderStep.Build("GatherersHut", optional: true),
             BuildOrderStep.Build("Hut"),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
             BuildOrderStep.SetVeilstoneTarget(3),  // ramp for Temple + 2 Litharchs
             BuildOrderStep.Build("TempleOfRidan"),
-            BuildOrderStep.Train("Litharch"),
-            BuildOrderStep.Train("Litharch"),
+            BuildOrderStep.Train(UnitRole.Military),
+            BuildOrderStep.Train(UnitRole.Military),
             BuildOrderStep.AgeUpStep(),
             // Turtle is defensive but still has a standing army â€” push it
             // out at least once. Maintenance loop keeps the pressure on.
-            BuildOrderStep.Train("Spearman"),
-            BuildOrderStep.Train("Spearman"),   // was Archer — ranged is an Age-1 unlock (2026-08-11)
+            BuildOrderStep.Train(UnitRole.Military),
+            BuildOrderStep.Train(UnitRole.Military),   // was Archer — ranged is an Age-1 unlock (2026-08-11)
             BuildOrderStep.LaunchAttack(2),
         };
 
@@ -275,53 +288,53 @@ namespace TheWaningBorder.AI
         // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         public static readonly BuildOrderStep[] Defensive =
         {
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Scout"),       // map awareness before turtling
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Scout),       // map awareness before turtling
             BuildOrderStep.Build("GatherersHut"),
             BuildOrderStep.Build("GatherersHut"),
             BuildOrderStep.Build("GatherersHut", optional: true),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
             BuildOrderStep.SetVeilstoneTarget(2),  // 6 miners â†’ 2 on veilstone for techs + Vault
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Build("Barracks"),
-            BuildOrderStep.Train("Spearman"),
+            BuildOrderStep.Train(UnitRole.Military),
             BuildOrderStep.ResearchTech("Conscription"),
             BuildOrderStep.ResearchTech("StoneWeapons"),
-            BuildOrderStep.Train("Spearman"),
-            BuildOrderStep.Train("Spearman"),   // was Archer — ranged is an Age-1 unlock (2026-08-11)
+            BuildOrderStep.Train(UnitRole.Military),
+            BuildOrderStep.Train(UnitRole.Military),   // was Archer — ranged is an Age-1 unlock (2026-08-11)
             BuildOrderStep.Build("VaultOfAlmierra"),
             BuildOrderStep.AgeUpStep(),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
-            BuildOrderStep.Train("Worker"),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
+            BuildOrderStep.Train(UnitRole.Worker),
             // Commit the Drilled+Armoured standing army at least once so the
             // tech upgrades are visible on the map. Maintenance loop keeps
             // sending fresh waves after this.
-            BuildOrderStep.Train("Spearman"),
-            BuildOrderStep.Train("Spearman"),   // was Archer — ranged is an Age-1 unlock (2026-08-11)
+            BuildOrderStep.Train(UnitRole.Military),
+            BuildOrderStep.Train(UnitRole.Military),   // was Archer — ranged is an Age-1 unlock (2026-08-11)
             BuildOrderStep.LaunchAttack(2),
         };
 
         /// <summary>
         /// Returns the build order array for the given strategy.
-        /// AIStrategy.Aggressive maps to Balanced, AIStrategy.TechRush maps to
+        /// AIPersonality.Balanced maps to Balanced, AIPersonality.TechBoom maps to
         /// TechBoom (legacy enum names preserved for compatibility).
         /// </summary>
-        public static BuildOrderStep[] For(AIStrategy strategy) => strategy switch
+        public static BuildOrderStep[] For(AIPersonality strategy) => strategy switch
         {
-            AIStrategy.EcoBoom    => EcoBoom,
-            AIStrategy.Aggressive => Balanced,   // legacy alias
-            AIStrategy.TechRush   => TechBoom,   // legacy alias
-            AIStrategy.Rush       => Rush,
-            AIStrategy.Defensive  => Defensive,
-            AIStrategy.Turtle     => Turtle,
+            AIPersonality.Economic    => EcoBoom,
+            AIPersonality.Balanced => Balanced,   // legacy alias
+            AIPersonality.TechBoom   => TechBoom,   // legacy alias
+            AIPersonality.Rush       => Rush,
+            AIPersonality.Defensive  => Defensive,
+            AIPersonality.Turtle     => Turtle,
             _                     => Balanced,
         };
 
@@ -337,17 +350,17 @@ namespace TheWaningBorder.AI
         ///
         /// Returns a signed lean: negative = Alanthor, positive = Feraldis.
         /// </summary>
-        public static float CultureLeanFor(AIStrategy strategy) => strategy switch
+        public static float CultureLeanFor(AIPersonality strategy) => strategy switch
         {
             // Aggression wants the raiding culture.
-            AIStrategy.Rush       => +2.0f,
-            AIStrategy.Aggressive => +1.5f,
+            AIPersonality.Rush       => +2.0f,
+            AIPersonality.Balanced => +1.5f,
             // Balanced/eco lean slightly to the fortified culture.
-            AIStrategy.EcoBoom    => -0.5f,
-            AIStrategy.TechRush   => -0.5f,
+            AIPersonality.Economic    => -0.5f,
+            AIPersonality.TechBoom   => -0.5f,
             // Defensive play wants walls and towers.
-            AIStrategy.Defensive  => -2.0f,
-            AIStrategy.Turtle     => -2.5f,
+            AIPersonality.Defensive  => -2.0f,
+            AIPersonality.Turtle     => -2.5f,
             _                     => 0f,
         };
 
@@ -356,7 +369,7 @@ namespace TheWaningBorder.AI
         /// Prefer <see cref="AICultureChoice.Pick"/>, which reads the AI's
         /// actual scouting before deciding.
         /// </summary>
-        public static byte CultureFor(AIStrategy strategy, uint randomSeed)
+        public static byte CultureFor(AIPersonality strategy, uint randomSeed)
         {
             float lean = CultureLeanFor(strategy);
             // Break a dead tie deterministically off the seed.

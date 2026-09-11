@@ -380,10 +380,15 @@ namespace TheWaningBorder.Systems.Combat
             if (TransientState.Active<TheWaningBorder.Abilities.FirstStrike>(em, attacker))
             {
                 var fs = em.GetComponentData<TheWaningBorder.Abilities.FirstStrike>(attacker);
-                if (fs.Ready != 0)
+                // Only a blow landed INSIDE the charge window counts. Ready on
+                // its own just means armed — the unit has to have actually
+                // gone in. Zeroing the window here is what tells the passive
+                // system to take the speed burst back off.
+                if (fs.Ready != 0 && fs.WindowRemaining > 0f)
                 {
                     final = (int)(final * (1f + fs.Pct / 100f));
                     fs.Ready = 0;
+                    fs.WindowRemaining = 0f;
                     fs.OutOfCombatTimer = 0f;
                     ecb.SetComponent(attacker, fs);
                 }
@@ -416,8 +421,24 @@ namespace TheWaningBorder.Systems.Combat
                 {
                     final = (int)(final * (1f - st.Pct / 100f));
                     st.Ready = 0;
-                    st.StillTimer = 0f;
+                    st.CooldownRemaining = TheWaningBorder.Abilities
+                        .AlanthorPassiveTuning.StakesRefreshSeconds;
                     ecb.SetComponent(target, st);
+
+                    // The stakes bite back: half of what still landed is paid
+                    // into the horse that ran onto them. Taken from the
+                    // POST-reduction number, so the rider is answering for the
+                    // blow he actually delivered.
+                    if (st.ReflectPct > 0f && em.HasComponent<Health>(attacker))
+                    {
+                        int paid = (int)(final * (st.ReflectPct / 100f));
+                        if (paid > 0)
+                        {
+                            var atkHealth = em.GetComponentData<Health>(attacker);
+                            atkHealth.Value -= paid;
+                            em.SetComponentData(attacker, atkHealth);
+                        }
+                    }
                 }
             }
             if (em.HasComponent<TheWaningBorder.Abilities.SiegeScreens>(target)

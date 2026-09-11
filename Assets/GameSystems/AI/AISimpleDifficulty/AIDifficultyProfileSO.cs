@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace TheWaningBorder.AI
 {
@@ -35,6 +35,19 @@ namespace TheWaningBorder.AI
         public float thinkInterval;
 
         /// <summary>
+        /// LAYER 1's handle on the counter-composition read: how stale an
+        /// enemy sighting may be and still steer production. A weaker AI acts
+        /// on an older picture of the battlefield.
+        ///
+        /// This replaces counterCompEnabled, which was a BOOL — difficulty
+        /// deciding whether the AI countered at all. Countering is layer 3 and
+        /// is now unconditional; difficulty only sets how fresh its
+        /// information is. (Normal shipped with the flag off, which is why an
+        /// all-archer push went unanswered for a whole match.)
+        /// </summary>
+        public float intelFreshnessSeconds;
+
+        /// <summary>
         /// Multiplier on the fixed think cadence of the SUPPORT systems — the
         /// two endgame directors, the building-upgrade pass and the scout
         /// director. Below 1 they think more often.
@@ -49,37 +62,10 @@ namespace TheWaningBorder.AI
 
         // ── Economy ───────────────────────────────────────────────────────
 
-        /// <summary>Worker count the economy manager grows toward before age-up.</summary>
-        public int workerTargetAge0;
 
-        /// <summary>...and after age-up (AoE4: villager targets rise per age).</summary>
-        public int workerTargetAge1;
 
-        /// <summary>
-        /// Gatherer's Huts the maintenance loop grows toward, placed
-        /// progressively farther out — income AND (post-age-up) influence,
-        /// i.e. MAP CONTROL. This is the main economic separator between
-        /// tiers, so the spread is deliberately wide: Easy keeps a modest
-        /// home cluster, Expert aims to blanket the map.
-        /// </summary>
-        public int gathererHutTarget;
 
-        /// <summary>Total military production buildings (Barracks + Archery
-        /// Ranges) to build toward, so armies train in parallel.</summary>
-        public int productionBuildingTarget;
 
-        /// <summary>
-        /// Game time (seconds) at which this AI STOPS expanding and starts
-        /// banking for Age 1: the wallet tilts to Advancement, the age-up
-        /// director buys its choice building, and new Gatherer's Huts pause
-        /// until the age-up is issued.
-        ///
-        /// Budget backwards from the target age-up time: push, then ~60 s to
-        /// raise the 257-supply Shrine, then bank 250 while it builds.
-        /// Targets (median, per Age_0.md): Expert ~3 min, Hard ~4, Normal ~5,
-        /// Easy ~6.
-        /// </summary>
-        public float ageUpPushSeconds;
 
         // ── Aggression ────────────────────────────────────────────────────
 
@@ -104,17 +90,7 @@ namespace TheWaningBorder.AI
 
         // ── Behaviour toggles ─────────────────────────────────────────────
 
-        /// <summary>Peel off fast raid parties at the enemy economy alongside
-        /// the main attack (AoE4: Hard+ raids constantly, Easy never).</summary>
-        public bool raidingEnabled;
 
-        /// <summary>Adapt the trained unit mix to the observed enemy
-        /// composition (AoE4: higher tiers counter-pick, lower don't).</summary>
-        public bool counterCompEnabled;
 
-        /// <summary>Attack missions form up at a staging point near the target
-        /// before committing (deliberately BETTER than AoE4, which always
-        /// rallies at its homebase).</summary>
-        public bool forwardStaging;
     }
 }

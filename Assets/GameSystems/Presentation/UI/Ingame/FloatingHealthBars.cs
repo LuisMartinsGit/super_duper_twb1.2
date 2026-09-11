@@ -377,7 +377,43 @@ namespace TheWaningBorder.UI.Ingame
                     pbar.SetActive(true);
                 }
             }
+            // Channel progress — a ritualist working a well. Same slot as the
+            // building production bar, directly under the HP bar, because it
+            // answers the same question: is this thing making progress on
+            // something, and how far in is it.
+            //
+            // A ritual is a 35-45 s commitment that can be cancelled by
+            // dragging the ritualist off the node, and until now it was
+            // completely invisible: the only feedback was the beam, which says
+            // "channelling" but never "how much longer". Coloured per verb so a
+            // contested well reads at a glance.
+            else if (_em.HasComponent<RitualState>(e))
+            {
+                var ritual = _em.GetComponentData<RitualState>(e);
+                if (ritual.TotalDuration > 0f)
+                {
+                    float gap = 2f;
+                    float py = screenPos.y - barHeight - gap;
+                    var rbar = GetOrAllocate(_activeCount++);
+                    rbar.SetGeometry(screenPos.x, py, barWidth, barHeight, barBorder);
+                    rbar.SetColors(BgColor, BorderColor, RitualFillColor(ritual.Kind));
+                    rbar.SetFill(Mathf.Clamp01(ritual.Progress / ritual.TotalDuration));
+                    rbar.SetActive(true);
+                }
+            }
         }
+
+        /// <summary>
+        /// The channel bar's colour, per verb — the same three-way split the
+        /// curse design uses for destroy / pacify / purify, so the bar says
+        /// WHICH ritual is running as well as how far along it is.
+        /// </summary>
+        private static Color RitualFillColor(RitualKind kind) => kind switch
+        {
+            RitualKind.Purification      => WorldOverlayPalette.HealthFull, // Alanthor
+            RitualKind.ViolentExtraction => WorldOverlayPalette.HealthLow,  // Feraldis
+            _                            => WorldOverlayPalette.HealthMid,  // Runai
+        };
 
         /// <summary>
         /// Renders a single amber bar above a resource node showing

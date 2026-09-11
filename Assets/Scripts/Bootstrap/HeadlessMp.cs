@@ -31,6 +31,36 @@
 //     -twbMpPort P          host lockstep port (default 17980); peer i binds P+i
 //     -twbPlayers TOTAL     total factions (default = peers; extra become AI slots)
 //     -twbSeed / -twbMap / -twbLimit   as in HeadlessBatch
+//     -twbMpWarm S          WARM-UP (see below): play a local skirmish in this
+//                           process until S wall-seconds after launch, tear it
+//                           down like a quit-to-menu, THEN boot the MP match
+//     -twbMpWarmMap / -twbMpWarmPlayers / -twbMpWarmSeed / -twbMpWarmSpeed
+//                           the warm-up skirmish's settings (defaults:
+//                           SunderedCrown, 2 + peer%3 factions, seed+1000*(peer+1), 4x).
+//                           -twbMpWarmMap none = IDLE until the deadline instead
+//                           (a fresh peer that still boots in step with warm ones)
+//
+// WARM-UP: THE SECOND-MATCH-IN-A-PROCESS CLASS (2026-09-11)
+// The 2026-09-10 tester desync (build 0.0.22, tick 150) needed a peer that
+// had ALREADY PLAYED a match in the same process: TeardownAfterMatch wipes
+// entities but keeps every system object, so a system's private state
+// (fractional income carry, RNG stream position, clock anchors, cadence
+// phase, the static influence grid) walks from one match into the next --
+// and it is different on every machine. A batch of fresh processes can
+// never see that class. -twbMpWarm gives each peer a DIFFERENT history first.
+// The deadline is wall-clock from launch, not sim time, so peers that warmed
+// on different maps still reach the MP world-ready within the 15 s
+// StallDropSeconds window of each other -- and a peer meant to stay FRESH
+// idles to the same deadline ("-twbMpWarmMap none"), because a fresh host
+// that boots at once drops the still-warming clients as lost.
+//
+// The teardown between the two matches is NOT GameBootstrap.Reset() but the
+// scene-load handler's own "entering gameplay from gameplay" branch: that is
+// what Restart Match uses, and it wipes only once the NEW scene is live. An
+// explicit Reset() while the old map's Terrain still exists lets the
+// existence-gated NavGridBootstrapSystem rebuild the grid against the OLD
+// terrain in the same frame, and the new map then inherits it (found the
+// hard way: a 258x258 SunderedCrown grid under a 1026x1026 Veilmarch match).
 //
 // EXIT CODES for the runner: 0 = ran to limit or match decided, no desync;
 // 42 = DESYNC detected; 43 = peer lost; 44 = wall-clock hang guard.
@@ -101,6 +131,21 @@ namespace TheWaningBorder.Bootstrap
             go.AddComponent<HeadlessMp>().Begin(args);
         }
 
+        // ── Warm-up phase (see the header) ──
+        private enum Phase { Warm, Mp }
+        private Phase _phase = Phase.Mp;
+        private float _warmUntilWall;       // wall seconds since launch
+        private float _warmSpeed = 4f;
+        private string _warmMap;
+        private bool _warmIdle;
+        private int _warmPlayers, _warmSeed;
+
+        // The MP settings, parsed once and applied when the MP phase boots
+        // (immediately, or after the warm-up).
+        private int _basePort, _totalFactions, _seed;
+        private bool _loose;
+        private string _mpMap;
+
         private void Begin(string[] args)
         {
             Active = true;
@@ -111,26 +156,108 @@ namespace TheWaningBorder.Bootstrap
             // deterministic fixed-step stack with no network waits — it
             // isolates "lockstep sim path crashes" from "peers disagree".
             _peers = Mathf.Clamp(ArgInt(args, "-twbMpPeers", 4), 1, 8);
-            int total = Mathf.Clamp(ArgInt(args, "-twbPlayers", Mathf.Max(_peers, 2)),
+            _totalFactions = Mathf.Clamp(ArgInt(args, "-twbPlayers", Mathf.Max(_peers, 2)),
                 Mathf.Max(_peers, 2), 8);
-            int basePort = ArgInt(args, "-twbMpPort", 17980);
+            _basePort = ArgInt(args, "-twbMpPort", 17980);
             _limit = ArgInt(args, "-twbLimit", 900);
-            int seed = ArgInt(args, "-twbSeed", 12345);
+            _seed = ArgInt(args, "-twbSeed", 12345);
             // -twbMpLoose: DeterministicLockstep OFF (frame-driven sim, only
             // commands synchronised). The second half of the bisection.
-            bool loose = Array.IndexOf(args, "-twbMpLoose") >= 0;
+            _loose = Array.IndexOf(args, "-twbMpLoose") >= 0;
 
             string mapArg = ArgStr(args, "-twbMap");
-            if (!string.IsNullOrEmpty(mapArg))
-                GameSettings.SelectedMapScene = mapArg;
+            _mpMap = !string.IsNullOrEmpty(mapArg) ? mapArg : GameSettings.SelectedMapScene;
+
+            int warm = ArgInt(args, "-twbMpWarm", 0);
+            if (warm > 0)
+            {
+                _phase = Phase.Warm;
+                _warmUntilWall = warm;
+                _warmSpeed = Mathf.Clamp(ArgInt(args, "-twbMpWarmSpeed", 4), 1, 8);
+                string wm = ArgStr(args, "-twbMpWarmMap");
+                _warmMap = !string.IsNullOrEmpty(wm) ? wm : "SunderedCrown";
+                _warmIdle = string.Equals(_warmMap, "none", StringComparison.OrdinalIgnoreCase);
+                // Different residue per peer is the whole point: vary the
+                // faction count and the seed with the peer index by default.
+                _warmPlayers = Mathf.Clamp(ArgInt(args, "-twbMpWarmPlayers", 2 + _peer % 3), 2, 8);
+                _warmSeed = ArgInt(args, "-twbMpWarmSeed", _seed + 1000 * (_peer + 1));
+                BeginWarm();
+                return;
+            }
+
+            ConfigureMp();
+            LoadMp();
+        }
+
+        /// <summary>A local all-AI skirmish, set up the way HeadlessBatch
+        /// does it. Nothing here is multiplayer — that is the point.</summary>
+        private void BeginWarm()
+        {
+            if (_warmIdle)
+            {
+                Debug.Log($"[HeadlessMp] peer {_peer}: FRESH peer idling until " +
+                          $"{_warmUntilWall:0}s after launch so the warm peers boot in step");
+                return;
+            }
+            GameSettings.SelectedMapScene = _warmMap;
+            GameSettings.IsMultiplayer = false;
+            GameSettings.NetworkRole = NetworkRole.None;
+            GameSettings.Mode = GameMode.FreeForAll;
+            GameSettings.TutorialActive = false;
+            GameSettings.TotalPlayers = _warmPlayers;
+            GameSettings.SpawnSeed = _warmSeed;
+            GameSettings.DeterministicLockstep = false;
+            LobbyConfig.SetupSinglePlayer(_warmPlayers);
+            for (int i = 0; i < LobbyConfig.ActiveSlotCount; i++)
+                if (LobbyConfig.Slots[i].Type == SlotType.Human)
+                    LobbyConfig.Slots[i].Type = SlotType.AI;
+            LobbyConfig.ApplyColorSelections();
+            GameSettings.IsObserver = true;
+            Time.timeScale = _warmSpeed;
+
+            Debug.Log($"[HeadlessMp] peer {_peer}: WARM-UP skirmish on {_warmMap}, " +
+                      $"{_warmPlayers} AI, seed {_warmSeed}, {_warmSpeed}x, until " +
+                      $"{_warmUntilWall:0}s after launch — then the MP match on {_mpMap}");
+            SceneManager.LoadScene(_warmMap);
+        }
+
+        /// <summary>Boot the real match in the SAME process, systems and
+        /// statics intact. The warm-up is torn down by GameBootstrap's
+        /// scene-load handler when the MP map comes up — the Restart Match
+        /// path — never by an explicit Reset() here (see the header).</summary>
+        private void EndWarmAndStartMp()
+        {
+            Debug.Log($"[HeadlessMp] peer {_peer}: warm-up over at " +
+                      $"{Time.realtimeSinceStartup - _wallStart:0}s wall — " +
+                      "booting the MP match in this process");
+            _phase = Phase.Mp;
+            Time.timeScale = 1f;
+
+            // Per-match harness state.
+            _brainsCreated = false;
+            _nextChaosAt = 0f;
+            _monkeyBeat = 0;
+            _decidedAtWall = 0f;
+            _chaosQueryReady = false;
+            _wallStart = Time.realtimeSinceStartup;
+
+            ConfigureMp();
+            LoadMp();
+        }
+
+        private void ConfigureMp()
+        {
+            int total = _totalFactions;
+            GameSettings.SelectedMapScene = _mpMap;
 
             // ── Identical on every peer (this replaces the lobby). ──
             GameSettings.IsMultiplayer = true;
+            GameSettings.IsObserver = false;
             GameSettings.Mode = GameMode.FreeForAll;
             GameSettings.TutorialActive = false;
-            GameSettings.SpawnSeed = seed;
+            GameSettings.SpawnSeed = _seed;
             GameSettings.TotalPlayers = total;
-            GameSettings.DeterministicLockstep = !loose;
+            GameSettings.DeterministicLockstep = !_loose;
             LockstepTiming.Reset();
 
             LobbyConfig.ActiveSlotCount = total;
@@ -150,27 +277,31 @@ namespace TheWaningBorder.Bootstrap
             var b = new GameObject("LockstepBootstrap").AddComponent<LockstepBootstrap>();
             if (_peer == 0)
             {
-                b.ConfigureAsHost(basePort, new List<RemotePlayerInfo>());
+                b.ConfigureAsHost(_basePort, new List<RemotePlayerInfo>());
                 for (int i = 1; i < _peers; i++)
-                    b.AddRemotePlayer("127.0.0.1", basePort + i,
+                    b.AddRemotePlayer("127.0.0.1", _basePort + i,
                         LobbyConfig.Slots[i].Faction, i);
             }
             else
             {
                 var others = new List<int>();
                 for (int i = 1; i < _peers; i++) if (i != _peer) others.Add(i);
-                b.ConfigureAsClient("127.0.0.1", basePort, basePort + _peer,
+                b.ConfigureAsClient("127.0.0.1", _basePort, _basePort + _peer,
                     _peer, GameSettings.LocalPlayerFaction, others);
             }
 
             MatchMetrics.Enabled = true;
-            gameObject.AddComponent<MatchMetrics>();
+            if (GetComponent<MatchMetrics>() == null)
+                gameObject.AddComponent<MatchMetrics>();
 
             Debug.Log($"[HeadlessMp] peer {_peer}/{_peers} ({GameSettings.NetworkRole}), " +
-                      $"{total} factions, seed {seed}, limit {_limit}s, " +
-                      $"lockstep port {basePort + (_peer == 0 ? 0 : _peer)}, " +
+                      $"{total} factions, seed {_seed}, limit {_limit}s, " +
+                      $"lockstep port {_basePort + (_peer == 0 ? 0 : _peer)}, " +
                       $"map {GameSettings.SelectedMapScene}");
+        }
 
+        private void LoadMp()
+        {
             // Straight scene load — LoadingScreen pins timeScale to 0 while
             // visible and IsWorldReady refuses tick 0 behind its overlay flag,
             // so the UI path would deadlock a -nographics process.
@@ -180,6 +311,16 @@ namespace TheWaningBorder.Bootstrap
         private void Update()
         {
             if (_done) return;
+
+            if (_phase == Phase.Warm)
+            {
+                // GameSpeedControl.Apply() resets timeScale at match start;
+                // hold the warm-up speed the way HeadlessBatch does.
+                if (!_warmIdle && Time.timeScale != _warmSpeed) Time.timeScale = _warmSpeed;
+                if (Time.realtimeSinceStartup - _wallStart >= _warmUntilWall)
+                    EndWarmAndStartMp();
+                return;
+            }
 
             var lockstep = LockstepManager.Instance;
 

@@ -1,4 +1,4 @@
-// BuildingIds.cs
+﻿// BuildingIds.cs
 // Entity -> building id, the inverse of BuildingFactory's recipe table.
 //
 // This tag switch used to be a private helper inside
@@ -21,8 +21,16 @@ namespace TheWaningBorder.Entities
         /// carries no known building tag.</summary>
         public static string Of(Entity entity, EntityManager em)
         {
-            // BEFORE HallTag: the Fortress carries BOTH (the capital IS a
-            // Hall mechanically), and its own name must win.
+            // KingsCourtTag BEFORE FortressTag, which is before HallTag.
+            //
+            // The ladder is oldest-name-last: a capital is a Hall
+            // mechanically, is NAMED a Fortress, and once its faction ages up
+            // into Alanthor it IS the King's Court. Each tag marks a later
+            // state than the one below it, so the latest present wins.
+            //
+            // KingsCourtTag is only ever stamped by the age-up, so this line
+            // cannot affect a pre-age-up capital.
+            if (em.HasComponent<KingsCourtTag>(entity)) return "KingsCourt";
             if (em.HasComponent<FortressTag>(entity)) return "Fortress";
             if (em.HasComponent<HallTag>(entity)) return "Hall";
             if (em.HasComponent<BarracksTag>(entity)) return "Barracks";

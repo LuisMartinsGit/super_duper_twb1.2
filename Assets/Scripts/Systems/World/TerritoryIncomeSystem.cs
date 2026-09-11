@@ -183,6 +183,23 @@ namespace TheWaningBorder.Systems.World
         private readonly float[] _carryVeilstone = new float[9];
         private readonly float[] _carryVeilsteel = new float[9];
 
+        /// <summary>
+        /// The carry is MATCH state on a system object that outlives matches
+        /// (TeardownAfterMatch wipes entities, not systems). Left alone it
+        /// walks into the next match with whatever fraction the previous one
+        /// ended on — and that fraction is different on every machine.
+        ///
+        /// DESYNC 2026-09-10, build 0.0.22, tick 150 (the FIRST income tick):
+        /// the client had played a 15-minute skirmish earlier in the same
+        /// process, so its Blue/Red carries were non-zero while the freshly
+        /// launched host's were 0. Same yield on both peers, 15.83 iron a
+        /// tick — Draw() floored to 15 on the host and 16 on the client, and
+        /// the Bank checksum forked with every entity line still identical.
+        /// Green/Yellow, absent from the earlier match, agreed. Hashing the
+        /// bank made it visible on the tick; this makes it not happen.
+        /// </summary>
+        private int _epoch = -1;
+
         protected override void OnCreate()
         {
 
@@ -191,6 +208,18 @@ namespace TheWaningBorder.Systems.World
         protected override void OnUpdate()
         {
             if (!RegionMap.Ready) return;
+
+            // Per-match reset, same contract as EliminationSystem: the first
+            // update after SimCadence.BeginMatch() starts every carry at 0 on
+            // every peer.
+            if (_epoch != SimCadence.Epoch)
+            {
+                _epoch = SimCadence.Epoch;
+                System.Array.Clear(_carrySupplies,  0, _carrySupplies.Length);
+                System.Array.Clear(_carryIron,      0, _carryIron.Length);
+                System.Array.Clear(_carryVeilstone, 0, _carryVeilstone.Length);
+                System.Array.Clear(_carryVeilsteel, 0, _carryVeilsteel.Length);
+            }
 
             if (!_acc.Due(SystemAPI.Time.DeltaTime, TickInterval)) return;
 

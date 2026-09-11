@@ -50,7 +50,8 @@ namespace TheWaningBorder.Economy
         private const float SlowTriggerFraction = 0.75f;    // Slow ward arms at 75% HP
         private const float StopTriggerFraction = 0.50f;    // Stop ward arms at 50% HP
 
-        private float _tickTimer;
+        // Match-phased (SimCadence.cs), not a bare accumulator.
+        private SimCadence.Periodic _tickTimer;
 
         public void OnCreate(ref SystemState state)
         {
@@ -60,10 +61,8 @@ namespace TheWaningBorder.Economy
         public void OnUpdate(ref SystemState state)
         {
             float dt = SystemAPI.Time.DeltaTime;
-            _tickTimer += dt;
-            if (_tickTimer < TickInterval) return;
-            float effectiveDt = _tickTimer;
-            _tickTimer = 0f;
+            float effectiveDt = _tickTimer.DueStep(dt, TickInterval);
+            if (effectiveDt <= 0f) return;
 
             var research = FactionResearchState.Instance;
             if (research == null) return;

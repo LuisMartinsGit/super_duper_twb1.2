@@ -1,4 +1,4 @@
-// BuildingActionLayouts.cs
+﻿// BuildingActionLayouts.cs
 // Fixed 3x5 ACTIONS-panel layouts for buildings that want an authored grid
 // (Hall/King's Court, Hut/House, Gatherer's Hut/Guild — Alanthor). Each
 // building gets 15 slots (3 rows x 5 cols, row-major), matching the authored
@@ -185,7 +185,7 @@ namespace TheWaningBorder.UI.Data
 
             resolved = new ResolvedSlot[SlotCount];
             for (int i = 0; i < SlotCount && i < slots.Length; i++)
-                resolved[i] = ResolveSlot(slots[i], em, faction, factionAge, buildingLevel,
+                resolved[i] = ResolveSlot(slots[i], entity, em, faction, factionAge, buildingLevel,
                     research, available);
             return true;
         }
@@ -194,14 +194,15 @@ namespace TheWaningBorder.UI.Data
 
         private static readonly ResolvedSlot Blank = new ResolvedSlot { Empty = true };
 
-        private static ResolvedSlot ResolveSlot(ActionSlot slot, EntityManager em, Faction faction,
+        private static ResolvedSlot ResolveSlot(ActionSlot slot, Entity building, EntityManager em,
+            Faction faction,
             int factionAge, int buildingLevel, FactionResearchState research, Cost available)
         {
             switch (slot.Kind)
             {
                 case ActionSlotKind.Train:
                     if (factionAge < slot.AppearAge) return Blank;
-                    return ResolveTrain(slot, em, faction, buildingLevel, available);
+                    return ResolveTrain(slot, building, em, faction, buildingLevel, available);
 
                 case ActionSlotKind.Tech:
                     if (factionAge < slot.AppearAge) return Blank;
@@ -218,7 +219,8 @@ namespace TheWaningBorder.UI.Data
             }
         }
 
-        private static ResolvedSlot ResolveTrain(ActionSlot slot, EntityManager em, Faction faction,
+        private static ResolvedSlot ResolveTrain(ActionSlot slot, Entity building, EntityManager em,
+            Faction faction,
             int buildingLevel, Cost available)
         {
             string name = slot.Id;
@@ -229,7 +231,13 @@ namespace TheWaningBorder.UI.Data
             {
                 name = unit.name ?? slot.Id;
                 effect = unit.unitClass;
-                trainTime = unit.trainingTime;
+                // The real duration this building will charge, not the SO
+                // base — same fix as the roster tooltip in
+                // EntityExtractors.Training. Conscription, the building's
+                // level, culture and the sect ladders all live in
+                // TrainDuration and none of them were visible here.
+                trainTime = TheWaningBorder.Systems.Training.TrainingSystem
+                    .TrainDuration(em, building, slot.Id, faction);
                 if (unit.cost != null)
                     cost = new Cost
                     {

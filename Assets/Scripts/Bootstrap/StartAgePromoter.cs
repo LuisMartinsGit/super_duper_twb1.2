@@ -181,6 +181,11 @@ namespace TheWaningBorder.Bootstrap
                 .TransformGathererHutsForCulture(em, faction, culture);
             TheWaningBorder.Systems.Work.AgeUpSystem
                 .TransformHutsForCulture(em, faction, culture);
+            // The Hall is the culture-less form; a faction that starts in
+            // Age 1 has already passed the moment it becomes the cultured HQ,
+            // so it must be renamed here too or its own research is hostless.
+            TheWaningBorder.Systems.Work.AgeUpSystem
+                .TransformHallForCulture(em, hall, culture);
 
             if (FactionEconomy.TryGetBank(em, faction, out var cultureBank))
             {

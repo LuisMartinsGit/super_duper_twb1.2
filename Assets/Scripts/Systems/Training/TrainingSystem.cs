@@ -37,6 +37,14 @@ namespace TheWaningBorder.Systems.Training
 
         #endregion
 
+        /// <summary>
+        /// Conscription: a Barracks recruits 15% faster. Named rather than
+        /// inlined because the tooltip has to quote the same number the
+        /// simulation charges — the two disagreeing is exactly the bug this
+        /// pass fixed.
+        /// </summary>
+        public const float ConscriptionSpeedMultiplier = 1.15f;
+
         /// <summary>Units per completed Longhouse item.</summary>
         private const int LonghouseBatchSize = 5;
 
@@ -98,13 +106,13 @@ namespace TheWaningBorder.Systems.Training
                     .TrainTimeMultiplier[upLevel];
             }
 
-            // Conscription (Age 0 Barracks tech): +20% training speed at the
-            // Barracks — time / 1.2.
+            // Conscription (Age 0 Barracks tech): +15% training speed at ANY
+            // Barracks — time / 1.15.
             if (em.HasComponent<BarracksTag>(building))
             {
                 var research = FactionResearchState.Instance;
                 if (research != null && research.HasResearched(faction, "Conscription"))
-                    trainingTime /= 1.2f;
+                    trainingTime /= ConscriptionSpeedMultiplier;
             }
 
             // Reviving a hero AT the level he died at takes as much longer as

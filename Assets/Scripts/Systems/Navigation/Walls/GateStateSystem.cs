@@ -48,6 +48,11 @@ namespace TheWaningBorder.Systems.Navigation
         public const uint PollIntervalTicks = 18;
 
         private uint _tick;
+        // The poll phase (_tick % PollIntervalTicks) must start at 0 on every
+        // peer; the counter lives on a system object that outlives matches.
+        // No initialiser: this is a struct system (zero-initialised), and
+        // SimCadence.Epoch is already >= 1 by the first match tick.
+        private int _epoch;
         private EntityQuery _gateQuery;
         private EntityQuery _unitQuery;
 
@@ -64,6 +69,11 @@ namespace TheWaningBorder.Systems.Navigation
 
         public void OnUpdate(ref SystemState state)
         {
+            if (_epoch != SimCadence.Epoch)
+            {
+                _epoch = SimCadence.Epoch;
+                _tick = 0;
+            }
             _tick++;
             // Poll-cadence gate -- between polls everything stays in the
             // last-tick state. Deterministic because _tick is sim-tick

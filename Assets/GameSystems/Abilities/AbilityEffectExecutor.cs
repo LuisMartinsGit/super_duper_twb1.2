@@ -31,6 +31,15 @@ namespace TheWaningBorder.Abilities
         };
         static CachedEntityQuery QC_UnitTagFactionTagArmorTypeDataLocalTransform;
 
+        static readonly ComponentType[] QT_UnitTagFactionTagDamageTypeDataLocalTransform =
+        {
+            ComponentType.ReadOnly<UnitTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<DamageTypeData>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery QC_UnitTagFactionTagDamageTypeDataLocalTransform;
+
         #endregion
 
         /// <summary>
@@ -134,6 +143,16 @@ namespace TheWaningBorder.Abilities
                             (u) => AddOrSet(em, u, new NextChargePct { Pct = e.Value, TimeRemaining = dur }));
                         break;
 
+                    case AbilityEffectKind.FireRatePct:
+                        // Choreographed Volleys. VolleyBuff is the same component
+                        // RangedCombatSystem already divides its reload by, so the
+                        // ability reuses the shipped mechanic rather than adding a
+                        // second fire-rate path. Value 100 = double rate.
+                        ApplyToAlliedRanged(em, caster, card.Radius,
+                            (u) => AddOrSet(em, u, new VolleyBuff
+                            { Mult = 1f + e.Value / 100f, TimeRemaining = dur }));
+                        break;
+
                     case AbilityEffectKind.DisarmWhileBuffed:
                         // Full Gallop's speed burst rides the same radius scan: the
                         // MoveSpeedPct branch above only buffs the caster, so the
@@ -215,6 +234,40 @@ namespace TheWaningBorder.Abilities
                 // Allied cavalry includes team allies. docs/Design/Teams.md
                 if (!Alliances.AreAllied(srcFac, em.GetComponentData<FactionTag>(u).Value)) continue;
                 if (em.GetComponentData<ArmorTypeData>(u).Value != ArmorType.Cavalry) continue;
+
+                float3 p = em.GetComponentData<LocalTransform>(u).Position;
+                float2 d = new float2(p.x - srcPos.x, p.z - srcPos.z);
+                if (math.dot(d, d) > radSq) continue;
+
+                act(u);
+            }
+        }
+
+        /// <summary>
+        /// Runs <paramref name="act"/> on every allied RANGED unit within
+        /// <paramref name="radius"/> of the caster. The mirror of
+        /// ApplyToAlliedCavalry, selecting on DamageType.Ranged — the same test
+        /// the ranged damage ladder uses, so an ability and a tech can never
+        /// disagree about what counts as a ranged unit.
+        /// </summary>
+        private static void ApplyToAlliedRanged(EntityManager em, Entity caster, float radius, System.Action<Entity> act)
+        {
+            if (radius <= 0f || !em.HasComponent<LocalTransform>(caster) || !em.HasComponent<FactionTag>(caster)) return;
+
+            float3 srcPos = em.GetComponentData<LocalTransform>(caster).Position;
+            Faction srcFac = em.GetComponentData<FactionTag>(caster).Value;
+            float radSq = radius * radius;
+
+            var query = QC_UnitTagFactionTagDamageTypeDataLocalTransform.Get(
+                em, QT_UnitTagFactionTagDamageTypeDataLocalTransform);
+            using var units = query.ToEntityArray(Unity.Collections.Allocator.Temp);
+
+            for (int i = 0; i < units.Length; i++)
+            {
+                var u = units[i];
+                // Team allies included, per docs/Design/Teams.md.
+                if (!Alliances.AreAllied(srcFac, em.GetComponentData<FactionTag>(u).Value)) continue;
+                if (em.GetComponentData<DamageTypeData>(u).Value != DamageType.Ranged) continue;
 
                 float3 p = em.GetComponentData<LocalTransform>(u).Position;
                 float2 d = new float2(p.x - srcPos.x, p.z - srcPos.z);

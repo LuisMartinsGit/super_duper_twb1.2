@@ -1,9 +1,12 @@
-// AlanthorActiveHelper.cs
-// The two Alanthor actives that are fired from a BUILDING rather than carried
-// by a unit: Choreographed Volleys (Archery Range, faction-wide archer fire
-// rate) and Ranging Shot (Siege Yard, the aimed shot). Buildings have no
-// UnitAbilities slots, so these do not go through the unit ability engine —
-// they are one-shot faction sweeps with a shared per-faction cooldown.
+﻿// AlanthorActiveHelper.cs
+// Ranging Shot (Siege Yard, the aimed shot) — an Alanthor active fired from a
+// BUILDING rather than carried by a unit. Buildings have no UnitAbilities
+// slots, so it does not go through the unit ability engine: it is a one-shot
+// faction sweep with a per-faction cooldown.
+//
+// Choreographed Volleys used to live here too. It is a UNIT active now — a
+// ranged unit calls the cadence — so it went to the ability engine where the
+// rest of the unit actives are.
 //
 // Also the single place that decides which units a freshly trained unit's
 // combat passives come from, so unit factories and the research grants agree.
@@ -33,9 +36,6 @@ namespace TheWaningBorder.Abilities
         static CachedEntityQuery QC_UnitTagUnitTypeIdFactionTag;
 
         #endregion
-        public const float VolleysDuration = 5f;
-        public const float VolleysCooldown = 40f;
-        public const float VolleysMult = 2f;      // double fire rate
         public const float RangingShotPct = 100f; // +100% on the next shot
         public const float RangingShotWindow = 10f;
         public const float RangingShotCooldown = 45f;
@@ -43,11 +43,7 @@ namespace TheWaningBorder.Abilities
         // Per-faction cooldown clocks. Managed static state, mirroring how
         // FactionResearchState holds researched techs; ticked by
         // AlanthorActiveCooldownSystem.
-        private static readonly Dictionary<int, float> _volleysCd = new Dictionary<int, float>();
         private static readonly Dictionary<int, float> _rangingCd = new Dictionary<int, float>();
-
-        public static float VolleysCooldownRemaining(Faction f)
-            => _volleysCd.TryGetValue((int)f, out var v) ? v : 0f;
 
         public static float RangingShotCooldownRemaining(Faction f)
             => _rangingCd.TryGetValue((int)f, out var v) ? v : 0f;
@@ -55,7 +51,6 @@ namespace TheWaningBorder.Abilities
         /// <summary>Decrement both clocks. Called once per frame by the cooldown system.</summary>
         public static void Tick(float dt)
         {
-            TickMap(_volleysCd, dt);
             TickMap(_rangingCd, dt);
         }
 
@@ -70,33 +65,11 @@ namespace TheWaningBorder.Abilities
             }
         }
 
-        public static void ResetAll() { _volleysCd.Clear(); _rangingCd.Clear(); }
+        public static void ResetAll() { _rangingCd.Clear(); }
 
-        /// <summary>
-        /// Fire Choreographed Volleys: every archer of the faction doubles its fire
-        /// rate for 5 s. Returns false if not researched or still cooling.
-        /// </summary>
-        public static bool TriggerChoreographedVolleys(EntityManager em, Faction faction)
-        {
-            if (FactionResearchState.Instance == null
-                || !FactionResearchState.Instance.HasResearched(faction, "ChoreographedVolleys")) return false;
-            if (VolleysCooldownRemaining(faction) > 0f) return false;
-
-            var query = QC_UnitTagUnitTypeIdFactionTag.Get(em, QT_UnitTagUnitTypeIdFactionTag);
-            using var entities = query.ToEntityArray(Allocator.Temp);
-            using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
-
-            for (int i = 0; i < entities.Length; i++)
-            {
-                if (factions[i].Value != faction) continue;
-                string id = em.GetComponentData<UnitTypeId>(entities[i]).Value.ToString();
-                if (!IsArcher(id)) continue;
-                AddOrSet(em, entities[i], new VolleyBuff { Mult = VolleysMult, TimeRemaining = VolleysDuration });
-            }
-
-            _volleysCd[(int)faction] = VolleysCooldown;
-            return true;
-        }
+        // Choreographed Volleys no longer has a faction-wide building
+        // trigger: it is a unit active now (AbilityCatalog
+        // "Choreographed Volleys"), cast by the ranged line that fires it.
 
         /// <summary>
         /// Fire Ranging Shot: every PLANTED siege engine of the faction loads an
@@ -145,6 +118,10 @@ namespace TheWaningBorder.Abilities
         public static bool IsSiege(string id)
             => id == "Alanthor_Ballista" || id == "Alanthor_BatteringRam" || id == "Alanthor_Trebuchet";
 
+        public static bool IsCavalry(string id)
+            => id == "Alanthor_Outrider" || id == "Alanthor_Cataphract"
+            || id == "Outrider" || id == "Cataphract";
+
         /// <summary>
         /// Attach the researched combat passives to a unit at spawn. Called by the
         /// unit factories so newly trained units match the ones the research
@@ -165,12 +142,28 @@ namespace TheWaningBorder.Abilities
             else if (IsArcher(unitId))
             {
                 if (rs.HasResearched(faction, "DeployStakes"))
-                    AddOrSet(em, e, new StakesState { Pct = 50f });
+                    AddOrSet(em, e, new StakesState
+                    {
+                        Pct = 50f,
+                        Ready = 1,
+                        ReflectPct = AlanthorPassiveTuning.StakesReflectPct,
+                    });
+                // Choreographed Volleys is cast BY a ranged unit, so a unit
+                // trained after the research has to spawn holding it.
+                if (rs.HasResearched(faction, "ChoreographedVolleys"))
+                    AbilityAssignment.AddAbility(em, e,
+                        AbilityCatalog.IndexOf("Choreographed Volleys"));
             }
             else if (IsSiege(unitId))
             {
                 if (rs.HasResearched(faction, "SiegeScreens"))
                     AddOrSet(em, e, new SiegeScreens { Pct = 50f });
+            }
+            else if (IsCavalry(unitId))
+            {
+                // The Royal Stable's charge — same passive, cavalry roster.
+                if (rs.HasResearched(faction, "CavalryCharge"))
+                    AddOrSet(em, e, new FirstStrike { Pct = 30f, Ready = 1 });
             }
             // Not an Alanthor passive: Field Hospital is the Sect of Renewal's
             // research, so any culture that adopts Renewal arms its Litharchs.

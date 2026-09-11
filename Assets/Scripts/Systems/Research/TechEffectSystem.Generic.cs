@@ -249,6 +249,23 @@ namespace TheWaningBorder.Systems.Research
             var completedTechs = researchState.GetCompletedTechs(faction);
             if (completedTechs.Count == 0) return;
 
+            // THE COMBAT PASSIVES. Charge, Shield Wall, Deploy Stakes and Siege
+            // Screens are stamped by a one-shot sweep when their research
+            // completes, over the units alive at that moment — so every unit
+            // trained afterwards had none of them, and researching before
+            // building (the normal order of play) produced a tech that did
+            // nothing at all.
+            //
+            // AlanthorActiveHelper.ApplySpawnPassives was written for exactly
+            // this and had NO callers. This is the hook it was waiting for:
+            // TrainingSystem already runs ApplyCompletedTechEffects on every
+            // spawned unit, so one call here covers every trainer.
+            if (em.HasComponent<UnitTypeId>(unit))
+            {
+                TheWaningBorder.Abilities.AlanthorActiveHelper.ApplySpawnPassives(
+                    em, unit, faction, em.GetComponentData<UnitTypeId>(unit).Value.ToString());
+            }
+
             bool hasMinerState = em.HasComponent<MinerState>(unit);
             bool hasAttackCooldown = em.HasComponent<AttackCooldown>(unit);
             bool hasDefense = em.HasComponent<Defense>(unit);
@@ -266,6 +283,7 @@ namespace TheWaningBorder.Systems.Research
                     GrantLitharchAttack(em, unit);
                     continue;
                 }
+
 
                 var tech = TechCatalog.GetTechnology(techId);
                 if (tech == null) continue;

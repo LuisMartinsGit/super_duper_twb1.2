@@ -1,4 +1,4 @@
-// AbilityAssignment.cs
+﻿// AbilityAssignment.cs
 // Helpers to attach data-driven abilities to a unit entity: sets the
 // UnitAbilities slots (catalog indices) and ensures AbilityCooldowns exists.
 // Used by unit factories (build the component up front) and by research grants

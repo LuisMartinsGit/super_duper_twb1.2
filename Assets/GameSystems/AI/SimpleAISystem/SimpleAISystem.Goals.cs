@@ -1,4 +1,4 @@
-// SimpleAISystem.Goals.cs
+﻿// SimpleAISystem.Goals.cs
 // The decision layer: a PRIORITY LIST, not a script.
 // Partial of SimpleAISystem.cs.
 //
@@ -101,7 +101,7 @@ namespace TheWaningBorder.AI
 
             int armyWant = math.max(1, (int)math.round(profile.SustainArmyCap * plan.ArmyScale));
             int workerWant = math.clamp(personality.minerFloor, 2, 5);
-            int perKind = math.max(2, profile.ProductionBuildingTarget / (aged ? 4 : 2));
+            int perKind = math.max(2, personality.productionBuildingTarget / (aged ? 4 : 2));
 
             var goals = new List<Goal>(24);
 
@@ -264,10 +264,32 @@ namespace TheWaningBorder.AI
                     // are bounded, self-repaying essentials: they are what
                     // the pot is saved WITH, so they spend past it. Second
                     // Barracks onward waits like everything else.
+                    //
+                    // THE FIRST OF EVERY PRODUCTION LINE IS ESSENTIAL, not
+                    // just the first Barracks (2026-09-09). The exemption was
+                    // written for the Barracks and the argument it was written
+                    // on — bounded, self-repaying, one building opens a whole
+                    // roster — is exactly as true of the other three, which
+                    // cost the same 220 supplies.
+                    //
+                    // Measured, Sundered Crown 2026-09-09: Red held 29,273
+                    // veilstone and 8,480 iron at minute 27 and never built an
+                    // Archery Range, a Royal Stable or a Siege Yard. All three
+                    // were refused "wallet short" for the whole match, because
+                    // the claim reservation leaves ~120 supplies of float and
+                    // they need 220. It fielded no ranged units and no cavalry
+                    // AT ALL, lost its research ladder ("no ready ArcheryRange
+                    // host"), and answered a 106-archer push with spearmen.
+                    // The AI was not poor; it was forbidden to spend.
+                    bool firstOfLine = g.Have == 0 && (
+                           g.Id == "Barracks"
+                        || g.Id == "ArcheryRange"
+                        || g.Id == "Alanthor_RoyalStable"
+                        || g.Id == "Alanthor_SiegeYard");
                     bool essential = g.Id == AgeUpGateBuilding
                         || g.Id == "Hut"
                         || g.Id == "GatherersHut"
-                        || (g.Id == "Barracks" && g.Have == 0);
+                        || firstOfLine;
                     if (TryBuildBuildingBudgeted(em, brain.Owner, g.Id, g.Cat,
                             honourReservation: !essential)) return true;
                     // Record why, so the "nothing affordable" log can name the
@@ -289,7 +311,7 @@ namespace TheWaningBorder.AI
                     if (g.Id == "@military")
                     {
                         string unit = PickCompositionUnit(em, brainEntity, brain.Owner, now,
-                            profile.CounterCompEnabled);
+                            RoleBudget.For(brain.Personality), profile.IntelFreshnessSeconds);
                         if (string.IsNullOrEmpty(unit)) return false;
                         if (!TryTrainUnitBudgeted(em, brain.Owner, unit, g.Cat)) return false;
                         aiState.LastMilitaryUnit = new Unity.Collections.FixedString64Bytes(unit);

@@ -1,4 +1,4 @@
-// TechEffectSystem.Appliers.cs
+﻿// TechEffectSystem.Appliers.cs
 // Per-tech effect appliers -- one method per hand-written technology effect.
 // Partial of TechEffectSystem.cs -- split 2026-08-12 for readability.
 
@@ -341,7 +341,7 @@ namespace TheWaningBorder.Systems.Research
         }
 
         /// <summary>Which roster an Alanthor combat passive applies to.</summary>
-        private enum AlanthorPassiveTarget { GarrisonInfantry, Archers, Siege }
+        private enum AlanthorPassiveTarget { GarrisonInfantry, Archers, Siege, Cavalry }
 
         /// <summary>
         /// Stamp a passive component on every existing unit of the faction that
@@ -372,18 +372,37 @@ namespace TheWaningBorder.Systems.Research
             switch (roster)
             {
                 case AlanthorPassiveTarget.GarrisonInfantry:
-                    return unitId == "Spearman" || unitId == "Alanthor_Swordsman"
-                        || unitId == "Alanthor_Nobleman" || unitId == "Alanthor_Sentinel";
+                    return IdIs(unitId, "Spearman") || IdIs(unitId, "Swordsman")
+                        || IdIs(unitId, "Nobleman") || IdIs(unitId, "Sentinel");
                 case AlanthorPassiveTarget.Archers:
-                    return unitId == "Archer" || unitId == "Alanthor_Crossbowman"
-                        || unitId == "Alanthor_Longbowman";
+                    return IdIs(unitId, "Archer") || IdIs(unitId, "Crossbowman")
+                        || IdIs(unitId, "Longbowman");
                 case AlanthorPassiveTarget.Siege:
-                    return unitId == "Alanthor_Ballista" || unitId == "Alanthor_BatteringRam"
-                        || unitId == "Alanthor_Trebuchet";
+                    return IdIs(unitId, "Ballista") || IdIs(unitId, "BatteringRam")
+                        || IdIs(unitId, "Trebuchet");
+                case AlanthorPassiveTarget.Cavalry:
+                    return IdIs(unitId, "Outrider") || IdIs(unitId, "Cataphract");
                 default:
                     return false;
             }
         }
+
+        /// <summary>
+        /// Unit-id comparison with the SAME `Alanthor_` aliasing tolerance the
+        /// generic effects engine has (MatchesTarget in TechEffectSystem.Generic).
+        ///
+        /// The two matchers disagreeing was a silent bug: the Archer's authored
+        /// id is `Alanthor_Archer`, so the old literal `unitId == "Archer"` test
+        /// never matched and the base Archer was the one unit in the roster that
+        /// never received Deploy Stakes — while the veterancy techs, which route
+        /// through the aliasing matcher, hit it correctly. Every roster entry is
+        /// written unprefixed here and aliased at the comparison, so an id that
+        /// gains or loses the culture prefix cannot break a roster again.
+        /// </summary>
+        private static bool IdIs(string actual, string wanted)
+            => actual == wanted
+            || actual == "Alanthor_" + wanted
+            || wanted == "Alanthor_" + actual;
 
         private static void AddOrSet<T>(EntityManager em, Entity e, T value) where T : unmanaged, IComponentData
         {
@@ -407,6 +426,28 @@ namespace TheWaningBorder.Systems.Research
             {
                 if (factions[i].Value != faction) continue;
                 if (em.GetComponentData<ArmorTypeData>(entities[i]).Value != ArmorType.Cavalry) continue;
+                TheWaningBorder.Abilities.AbilityAssignment.AddAbility(em, entities[i], idx);
+            }
+        }
+
+        /// <summary>
+        /// Archery Range unit actives — grant an ability to every existing
+        /// RANGED unit of the faction (new ones pick it up at spawn via
+        /// AlanthorActiveHelper.ApplySpawnPassives). Selected on
+        /// DamageType.Ranged, the same test the ranged damage ladder uses.
+        /// </summary>
+        private static void GrantRangedAbility(EntityManager em, Faction faction, string abilityName)
+        {
+            int idx = TheWaningBorder.Abilities.AbilityCatalog.IndexOf(abilityName);
+            if (idx < 0) return;
+            var query = QC_UnitTagFactionTagDamageTypeDataDamage.Get(em, QT_UnitTagFactionTagDamageTypeDataDamage);
+            using var entities = query.ToEntityArray(Allocator.Temp);
+            using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var damageTypes = query.ToComponentDataArray<DamageTypeData>(Allocator.Temp);
+            for (int i = 0; i < entities.Length; i++)
+            {
+                if (factions[i].Value != faction) continue;
+                if (damageTypes[i].Value != DamageType.Ranged) continue;
                 TheWaningBorder.Abilities.AbilityAssignment.AddAbility(em, entities[i], idx);
             }
         }

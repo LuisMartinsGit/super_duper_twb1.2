@@ -13,6 +13,50 @@ build always name the same number.
 
 ---
 
+## [0.0.23] — 2026-09-11
+
+### Fixed
+
+- **Every match runs in a brand-new simulation world.** The tick-150 desync of
+  2026-09-10 (Veilmarch and HollowTable, host vs a client that had played a
+  skirmish earlier in the same session) was the first territory-income tick
+  paying one more iron / supply / veilstone on the client: its income system
+  still carried the fractional remainder of the previous match. The world and
+  every simulation system used to survive between matches — only the entities
+  were wiped — so any per-system state (income carry, RNG stream positions,
+  clock anchors, timer phases, the veil crust bitmap, the influence grid)
+  walked from one match into the next, differently on every machine. The
+  world is now disposed when a match ends and created fresh when the next one
+  boots, the startup world included. Nineteen individual leaks were also reset
+  per match as belt and braces.
+- **The simulation does not run until the map is populated and the loading
+  screen is gone, and the match clock starts at zero — in every mode.** In
+  single-player the simulation ran frame-driven through the loading screen on
+  a clock that counted from process launch (the "clock shows how long the game
+  has been open" report). A gate on the simulation group now holds it until
+  the match is actually visible, then feeds it match time from 0, exactly as
+  the lockstep driver already did for multiplayer.
+- **Two nav data races closed.** The veil crust stamp ran inline without
+  waiting on the building-stamp jobs it overlapped; under lockstep the stamp
+  chain now completes in-tick and the crust stamp waits on its dependency.
+- **The lockstep manager stops with the match.** It used to keep ticking the
+  dead match through the main menu after a quit.
+
+### Changed
+
+- **Desync diagnostics tell the truth.** The per-subsystem checksum columns
+  were chained in iteration order and differed between peers with identical
+  state, so a DESYNC line named nine subsystems when one had forked; they are
+  per-entity sums now. The dump header states the tick it actually describes
+  (a late remote checksum meant "tick 150" showed tick 160 state).
+- **Headless multiplayer harness gained a warm-up mode** (`tools/mp-batch.ps1
+  -Warm`, `-WarmPeers`, `-WarmMaps`): each peer plays a local skirmish first,
+  then boots the lockstep match in the same process — the only way a batch can
+  reach the second-match-in-a-session class. `-Matches N` no longer crashes
+  after the first match.
+
+---
+
 ## [0.0.22] — 2026-09-09
 
 ### Added

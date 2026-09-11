@@ -2155,7 +2155,19 @@ namespace TheWaningBorder.Multiplayer
                 var hash = LockstepStateHash.Compute(
                     em, GetNetworkedQuery(em), detailed: true, snapshots: snapshots);
 
-                sb.AppendLine("---- state now (tick " + tick + ") ----");
+                // The tick the rows below describe is THIS peer's current
+                // tick, which is not the desync tick whenever the remote SYNC
+                // arrived late: on 2026-09-10 the client was at tick 160 when
+                // the host's tick-150 SYNC landed, its dump said "tick 150",
+                // and every position in it differed from the host's by ten
+                // ticks of honest simulation. Label it truthfully and point
+                // at the trace, which does hold the desync tick itself.
+                int nowTick = _currentTick;
+                sb.AppendLine("---- state now (tick " + nowTick + ") ----");
+                if (nowTick != tick)
+                    sb.AppendLine($"NOTE         : this peer was already {nowTick - tick} tick(s) past the desync " +
+                                  $"tick when the remote checksum arrived. The rows below are tick {nowTick}, " +
+                                  $"NOT the fork. Diff tick {tick} in the two *_trace.log files instead.");
                 sb.AppendLine($"entities     : {hash.Entities}");
                 sb.AppendLine($"pos=0x{hash.Pos:X8} rot=0x{hash.Rot:X8} hp=0x{hash.Health:X8} " +
                               $"nav=0x{hash.Nav:X8} cbt=0x{hash.Combat:X8} wrk=0x{hash.Work:X8}");
@@ -2196,7 +2208,7 @@ namespace TheWaningBorder.Multiplayer
                 for (int i = 0; i < snapshots.Count; i++)
                 {
                     var snap = snapshots[i];
-                    LockstepTrace.AppendEntityLine(sb, tick, ref snap);
+                    LockstepTrace.AppendEntityLine(sb, nowTick, ref snap);
                 }
 
                 sb.AppendLine();

@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Deploy Stakes
   role: Military
   effect: 
-  desc: "Unlocks the Deploy Stakes passive for Archery Range archers: +50% defense against the first cavalry charge once stationary for 3 s; recharges on move."
+  desc: "Planted stakes: the first cavalry charge against an archer lands at half damage and pays 50% of what it dealt straight back into the horse. Re-plants after 20 s."
   researchAt: ArcheryRange
   minBuildingLevel: 3
   researchTime: 40

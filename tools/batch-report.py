@@ -517,10 +517,26 @@ def build_data(sessions):
             break
     map_nodes = {}
     map_starts = {}
+
+    # THE BAKED ASSETS ARE NAMED WITH SPACES, THE SCENE IS NOT.
+    # "SunderedCrown.unity" sits beside "Sundered Crown Thumbnail.png" and
+    # "Sundered Crown MapInfo.asset", so a glob built from the scene name alone
+    # matched nothing and the map panel — background, resource nodes, player
+    # starts, and the replay drawn on top of them — silently rendered blank on
+    # every Sundered Crown / Sundered Reach / Twin Spans batch ever produced.
+    # Try the scene name first, then the CamelCase-split spelling.
+    def _map_asset(suffix):
+        spaced = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", map_name)
+        for cand in (map_name, spaced):
+            hits = glob.glob(os.path.join(
+                "Assets", "GameData", "Scenes", "Maps", "*", cand + suffix))
+            if hits:
+                return hits
+        return []
+
     if map_name and map_name in MAP_SIZE:
         map_half = MAP_SIZE[map_name] / 2.0
-        for f in glob.glob(os.path.join(
-                "Assets", "GameData", "Scenes", "Maps", "*", map_name + " Thumbnail.png")):
+        for f in _map_asset(" Thumbnail.png"):
             with open(f, "rb") as fh:
                 map_img = "data:image/png;base64," + base64.b64encode(fh.read()).decode()
             break
@@ -534,8 +550,7 @@ def build_data(sessions):
                        "VeilsteelNodes": "Veilsteel", "SupplyNodes": "Supply",
                        "CurseNodes": "Curse well", "PlayerStarts": "__starts"}
         start_factions = ""
-        for f in glob.glob(os.path.join(
-                "Assets", "GameData", "Scenes", "Maps", "*", map_name + " MapInfo.asset")):
+        for f in _map_asset(" MapInfo.asset"):
             cur = None
             for line in open(f, encoding="utf-8", errors="ignore"):
                 m = re.match(r"^  (\w+):\s*$", line)

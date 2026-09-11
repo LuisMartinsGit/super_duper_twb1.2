@@ -171,7 +171,7 @@ namespace TheWaningBorder.AI
                 // the Scholar's own tile shoves it off the node: a channelling
                 // ritualist has DesiredDestination.Has = 0 and SteeringSystem
                 // keeps separation at full strength, so the bodyguard ratchets
-                // its own charge past RitualCancelRange (10 m) and breaks the
+                // its own charge past RitualCancelRange (20 m) and breaks the
                 // 35 s channel. Measured on the Feraldis sibling in the
                 // 2026-08-07 8-player match: mean 18.5 s between re-dispatches
                 // at escort 12+, versus 123 s once the escort thinned out.

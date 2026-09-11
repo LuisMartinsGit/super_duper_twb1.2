@@ -1,4 +1,4 @@
-// SimpleAISystem.cs
+﻿// SimpleAISystem.cs
 // Build-order driven AI for the Age-1 phase.
 //
 // One AIBrain entity per AI faction. Each think tick, the AI looks at the next
@@ -202,7 +202,7 @@ namespace TheWaningBorder.AI
                 // savings-mode hack is now just a policy input — an active
                 // advancement gate (age-up / choice step) tilts the split
                 // to Advancement instead of hard-pausing the economy.
-                var boForPolicy = AIBuildOrder.For(brain.Strategy);
+                var boForPolicy = AIBuildOrder.For(brain.Personality);
                 bool advancementGate = aiState.StepIndex < boForPolicy.Length
                     && (boForPolicy[aiState.StepIndex].Kind == BuildStepKind.AgeUp
                         || (boForPolicy[aiState.StepIndex].Kind == BuildStepKind.BuildBuilding
@@ -212,7 +212,7 @@ namespace TheWaningBorder.AI
                 // wallet tilt the economy spends supplies as fast as they
                 // arrive — the AIs sat on 1500 iron/veilstone for whole
                 // matches while never banking the one resource that gates.
-                if (now > profile.AgeUpPushSeconds && aiState.AgeUpIssued == 0)
+                if (now > personality.ageUpPushSeconds && aiState.AgeUpIssued == 0)
                     advancementGate = true;
                 // ── STRATEGY FIRST: pick (or keep) a committed plan, then let
                 //    that plan set the budget. ──
@@ -258,7 +258,7 @@ namespace TheWaningBorder.AI
                 // Shrine and bank 700 supplies. Now Expert pushes at 90 s and
                 // Easy at 200 s, so the whole ladder lands in its intended
                 // window (see AIDifficultyProfile.AgeUpPushSeconds).
-                if (now > profile.AgeUpPushSeconds && aiState.AgeUpIssued == 0)
+                if (now > personality.ageUpPushSeconds && aiState.AgeUpIssued == 0)
                 {
                     // ARM THE SAVINGS HOLD. Weight-tilting alone does not
                     // work here (2026-08-18): the wallets are accounting over
@@ -311,7 +311,7 @@ namespace TheWaningBorder.AI
                 }
 
                 // Economy spends whatever advancement did not claim.
-                TickEconomy(em, brain.Owner, ref aiState, profile, now);
+                TickEconomy(em, brain.Owner, ref aiState, personality, profile, now);
 
                 // ENDGAME RESEARCH SWEEP (era 2+, ~20 s cadence): once the
                 // authored economy ladder has no affordable next step (or

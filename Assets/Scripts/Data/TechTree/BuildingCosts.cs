@@ -1,4 +1,4 @@
-// BuildingCosts.cs -- holds the BuildCosts table. The file name does not
+﻿// BuildingCosts.cs -- holds the BuildCosts table. The file name does not
 // match the type on purpose: 30+ design-doc and task links point at this
 // path, same reasoning as BuildCommandPannel.cs.
 // Static lookup table for building costs
@@ -214,7 +214,11 @@ namespace TheWaningBorder.Data
         /// </summary>
         public static string IdFromEntity(EntityManager em, Entity entity)
         {
-            // Era 1 core
+            // Era 1 core.
+            // KingsCourtTag BEFORE HallTag: the King's Court is an aged-up
+            // Alanthor Hall and carries both, so the cultured identity has to
+            // be tested first or the rename never shows up in any id query.
+            if (em.HasComponent<KingsCourtTag>(entity)) return "KingsCourt";
             if (em.HasComponent<HallTag>(entity)) return "Hall";
             if (em.HasComponent<HutTag>(entity)) return "Hut";
             if (em.HasComponent<GathererHutTag>(entity)) return "GatherersHut";

@@ -376,6 +376,14 @@ namespace TheWaningBorder.AI
             {
                 "Barracks"             => FindResearchHost<BarracksTag>(em, faction),
                 "Hall"                 => FindResearchHost<HallTag>(em, faction),
+                // The King's Court IS the aged-up Alanthor Hall (same entity,
+                // renamed), so its research is hosted by the tag the age-up
+                // stamps. Without this case the switch fell through to
+                // Entity.Null and the whole Hall tier-2 line — IronTools,
+                // MasonGuild, ScoutingCelestarii, Veilstone/Veilsteel Tools —
+                // reported "no ready KingsCourt host" for the entire match,
+                // stalling every tech queued behind it on the ladder.
+                "KingsCourt"           => FindResearchHost<KingsCourtTag>(em, faction),
                 "ArcheryRange"         => FindResearchHost<ArcheryRangeTag>(em, faction),
                 "GatherersHut"         => FindResearchHost<GathererHutTag>(em, faction),
                 "Hut"                  => FindResearchHost<HutTag>(em, faction),
@@ -510,10 +518,10 @@ namespace TheWaningBorder.AI
             {
                 var brain = em.GetComponentData<AIBrain>(brainEntity);
                 culture = AICultureChoice.Pick(em, faction, brainEntity,
-                    brain.Strategy, brain.Difficulty, NextRandUint());
+                    brain.Personality, brain.Difficulty, NextRandUint());
                 AILogger.Log(faction, "CULTURE",
                     $"age-up culture = {CultureConfig.GetName(culture)} " +
-                    $"(strategy {brain.Strategy}, difficulty {brain.Difficulty})");
+                    $"(personality {brain.Personality}, difficulty {brain.Difficulty})");
             }
 
             // Replicated age-up (audit F3): host-only direct writes left the
@@ -648,18 +656,21 @@ namespace TheWaningBorder.AI
             }
         }
         /// <summary>
-        /// Composition-vector unit pick (AoE4 model): the army maintains a
-        /// desired ranged fraction (default 40%); with counter-composition
-        /// enabled the fraction skews against fresh (&lt; 90 s) enemy intel —
-        /// enemy melee blob → more archers (shoot the approach), enemy
-        /// ranged-heavy or cavalry-heavy → more spears (armored line / brace).
-        /// Each call returns whichever unit the CURRENT army is short of, so
-        /// successive trains converge on the mix. Age-1 vocabulary
-        /// (Spearman/Archer); the Alanthor endgame system layers age-2 units
-        /// on top.
+        /// LAYER 3 — the composition pick. See AIComposition.cs for the layer
+        /// contract; this is its implementation.
+        ///
+        /// <paramref name="budget"/> is the shape layer 2 asked for; enemy
+        /// intel then bends it, because a counter outranks a preference. Each
+        /// call returns whichever unit the CURRENT army is short of, so
+        /// successive trains converge on the mix.
+        ///
+        /// <paramref name="intelFreshness"/> is layer 1's only say in this:
+        /// how stale a sighting may be and still steer production. It replaced
+        /// a bool that let a difficulty tier switch countering off entirely.
         /// </summary>
         private static string PickCompositionUnit(
-            EntityManager em, Entity brainEntity, Faction faction, float now, bool counterComp)
+            EntityManager em, Entity brainEntity, Faction faction, float now,
+            RoleBudget budget, float intelFreshness)
         {
             // Own composition.
             int ownMelee = 0, ownRanged = 0, ownCav = 0, ownSiege = 0;
@@ -683,9 +694,11 @@ namespace TheWaningBorder.AI
                 }
             }
 
-            float desiredRangedFrac = 0.4f;
+            float desiredRangedFrac = budget.RangedFrac;
             bool cavHeavy = false;
-            if (counterComp && em.HasBuffer<EnemySightingRecord>(brainEntity))
+            bool rangedHeavy = false;
+            // Countering is UNCONDITIONAL. Only the freshness window varies.
+            if (em.HasBuffer<EnemySightingRecord>(brainEntity))
             {
                 var buffer = em.GetBuffer<EnemySightingRecord>(brainEntity);
                 int meleeStr = 0, rangedStr = 0, cavStr = 0;
@@ -693,7 +706,7 @@ namespace TheWaningBorder.AI
                 {
                     var rec = buffer[i];
                     if (rec.Category != IntelCategory.MilitaryUnit) continue;
-                    if (now - rec.LastSeenTime > 90f) continue;
+                    if (now - rec.LastSeenTime > intelFreshness) continue;
                     if (!em.Exists(rec.Enemy) || !em.HasComponent<UnitTag>(rec.Enemy)) continue;
                     var cls = em.GetComponentData<UnitTag>(rec.Enemy).Class;
                     if (em.HasComponent<CavalryTag>(rec.Enemy)) cavStr += rec.EstStrength;
@@ -701,9 +714,25 @@ namespace TheWaningBorder.AI
                     else meleeStr += rec.EstStrength;
                 }
                 cavHeavy = cavStr * 2 > meleeStr + rangedStr;
+                rangedHeavy = !cavHeavy && rangedStr > meleeStr * 3 / 2;
+
                 if (cavHeavy) desiredRangedFrac = 0.25f;                               // spear wall vs cavalry
                 else if (meleeStr > rangedStr * 3 / 2) desiredRangedFrac = 0.6f;       // shoot the melee blob
-                else if (rangedStr > meleeStr * 3 / 2) desiredRangedFrac = 0.25f;      // close the gap
+                // MASSED ARCHERS ARE ANSWERED BY HORSES, NOT BY THICKER
+                // INFANTRY. This branch used to read desiredRangedFrac = 0.25
+                // and call it "close the gap" — which bought MELEE, and the
+                // melee ladder then preferred the heaviest, slowest unit it
+                // could train. Walking a Sentinel (speed 5.0) into upgraded
+                // Longbowmen (25 damage a shot) is not closing a gap, it is
+                // feeding one: observed Sundered Crown 2026-09-09, where 106
+                // archers melted Sentinels and the AI kept queueing more.
+                //
+                // The counter is reach, and reach here means SPEED — Outrider
+                // 8.2 and Cataphract 6.6 against a melee ladder that tops out
+                // at 5.7. So a ranged-heavy read does not touch the melee/
+                // ranged split much; it opens the cavalry share below, and
+                // keeps enough of our own ranged to trade at distance.
+                else if (rangedHeavy) desiredRangedFrac = 0.35f;
             }
 
             // Class choice as before; the unit WITHIN the class follows the
@@ -713,14 +742,35 @@ namespace TheWaningBorder.AI
             // Melee: Swordsman > Spearman — EXCEPT under cavalry pressure,
             // where the spear wall is the counter and stays the pick.
             string melee = "Spearman";
-            string ranged = "Archer";
+            // NOT the bare "Archer": no such unit is authored. The only ids the
+            // Archery Range trains are Alanthor_Archer / _Crossbowman /
+            // _Longbowman, and asking for "Archer" logged
+            // "[TechCatalog] No UnitDefSO for 'Archer'" and spawned a unit whose
+            // every stat was a stub (Sundered Crown 2026-09-09, the match's only
+            // error). Same culture-prefix trap as the roster matchers.
+            string ranged = "Alanthor_Archer";
             if (FactionCultureOf(em, faction) == Cultures.Alanthor)
             {
                 ranged = FirstTrainable(em, faction,
-                    "Alanthor_Longbowman", "Alanthor_Crossbowman", "Archer");
-                if (!cavHeavy)
+                    "Alanthor_Longbowman", "Alanthor_Crossbowman", "Alanthor_Archer");
+                if (cavHeavy)
+                {
+                    // spear wall — melee stays Spearman
+                }
+                else if (rangedHeavy)
+                {
+                    // No stable yet and archers on the field: take the FASTEST
+                    // body available, not the toughest. This is the fallback
+                    // for the cavalry branch below being empty; a heavier unit
+                    // only spends longer under fire crossing the same ground.
+                    melee = FirstTrainable(em, faction,
+                        "Alanthor_Nobleman", "Alanthor_Swordsman", "Spearman");
+                }
+                else
+                {
                     melee = FirstTrainable(em, faction,
                         "Alanthor_Swordsman", "Spearman");
+                }
             }
 
             // ── CAVALRY AND SIEGE. ──
@@ -761,8 +811,17 @@ namespace TheWaningBorder.AI
                 veilstoneRich = res.Veilstone > 600 && res.Veilstone > res.Supplies;
             }
 
-            float cavFrac = veilstoneRich ? 0.30f : 0.18f;
-            float siegeFrac = veilstoneRich ? 0.20f : 0.10f;
+            // The personality's shape is the baseline; a fat bank widens it.
+            float cavFrac = veilstoneRich ? budget.CavalryFrac * 1.6f : budget.CavalryFrac;
+            float siegeFrac = veilstoneRich ? budget.SiegeFrac * 2f : budget.SiegeFrac;
+
+            // THE CAVALRY SHARE HAS TO ANSWER THE ENEMY, not just the bank.
+            // It was a flat 0.18/0.30 that never once read what it was
+            // fighting: facing an all-archer army produced the same horse
+            // count as facing nothing. Against a ranged-heavy enemy the horse
+            // IS the counter, so it becomes the bulk of new production until
+            // the army actually holds enough of them.
+            if (rangedHeavy) cavFrac = math.max(cavFrac, 0.45f);
 
             if (cavalry != null && totalArmy > 0 && ownCav < totalArmy * cavFrac)
                 return cavalry;

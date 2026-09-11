@@ -14,16 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   tier: 3
   thinkInterval: 0.25
-  workerTargetAge0: 4
-  workerTargetAge1: 5
-  gathererHutTarget: 30
-  productionBuildingTarget: 30
-  ageUpPushSeconds: 30
+  intelFreshnessSeconds: 20
   firstAttackEarliestSeconds: 180
   attackWaveIntervalSeconds: 120
   waveBaseUnits: 6
   sustainArmyCap: 150
-  raidingEnabled: 1
-  counterCompEnabled: 1
-  forwardStaging: 1
   supportThinkScale: 0.6

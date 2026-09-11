@@ -147,6 +147,11 @@ namespace TheWaningBorder.Multiplayer
                 return;
             }
             _world = world;
+            // The match world comes up with the single-player gate installed
+            // (MatchSimGate — no simulation until the map is populated and
+            // the loading overlay is gone). The lockstep driver subsumes both
+            // jobs; hand over without leaving a pushed TimeData behind.
+            Core.MatchSimGate.Uninstall();
             RateManager = new LockstepFixedRateManager(timestep);
             SimGroup.RateManager = RateManager;
             Active = true;

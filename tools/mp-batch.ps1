@@ -28,6 +28,17 @@
 .EXAMPLE
     .\tools\mp-batch.ps1 -Exe ".\Build\Headless\The Waning Border.exe" -Matches 4 -LimitSec 600
     Four consecutive matches with stepped seeds.
+
+.EXAMPLE
+    .\tools\mp-batch.ps1 -Exe ".\Build\Headless\The Waning Border.exe" -Warm 60 -LimitSec 300
+    WARM peers: every process first plays a local skirmish (a different map /
+    seed / faction count per peer) for 60 wall-seconds, tears it down the way
+    a quit-to-menu does, and only THEN boots the lockstep match - in the same
+    process, system objects and statics intact. This is the only way to
+    reach the "second match in a process" desync class (2026-09-10, tick 150:
+    a client that had played a skirmish carried its income carry, RNG
+    streams and clock anchors into the MP match). -WarmPeers "1,3" limits
+    the warm-up to those peer indices; -WarmMaps rotates maps per peer.
 #>
 [CmdletBinding()]
 param(
@@ -39,7 +50,10 @@ param(
     [int]$Seed = 20260910,
     [int]$BasePort = 17980,
     [string]$Map = "Veilmarch",
-    [switch]$Monkey            # command-coverage monkey: clients rotate every command type
+    [switch]$Monkey,           # command-coverage monkey: clients rotate every command type
+    [int]$Warm = 0,            # >0: warm-up skirmish for this many wall-seconds before the MP match
+    [string]$WarmPeers = "",   # "1,3": only these peer indices warm up (default: all)
+    [string]$WarmMaps = "SunderedCrown,HollowTable,Veilmarch"   # rotated per peer index
 )
 
 if (-not (Test-Path $Exe)) { Write-Error "Player not found: $Exe"; exit 1 }
@@ -51,8 +65,10 @@ $desyncs = 0; $ok = 0; $failed = 0
 
 for ($m = 0; $m -lt $Matches; $m++) {
     $runSeed = $Seed + $m
-    Write-Host ("match {0}/{1}: {2} peers, {3} factions, seed {4}, {5}s on {6}" -f `
-        ($m + 1), $Matches, $Peers, $Factions, $runSeed, $LimitSec, $Map) -ForegroundColor Cyan
+    $warmNote = ""
+    if ($Warm -gt 0) { $warmNote = " (warm-up ${Warm}s first)" }
+    Write-Host ("match {0}/{1}: {2} peers, {3} factions, seed {4}, {5}s on {6}{7}" -f `
+        ($m + 1), $Matches, $Peers, $Factions, $runSeed, $LimitSec, $Map, $warmNote) -ForegroundColor Cyan
 
     # Stale verdicts must not shadow this run's.
     Get-ChildItem $logRoot -Filter "MpVerdict_p*.txt" -ErrorAction SilentlyContinue | Remove-Item -Force
@@ -71,14 +87,34 @@ for ($m = 0; $m -lt $Matches; $m++) {
         # switch is off, and Start-Process refuses null ArgumentList items.
         # Append instead.
         if ($Monkey) { $argList += "-twbMpMonkey" }
+        if ($Warm -gt 0) {
+            $warmThis = $true
+            if ($WarmPeers -ne "") {
+                $warmThis = ($WarmPeers -split ",") -contains ([string]$i)
+            }
+            # EVERY peer gets the deadline. A peer that is meant to stay fresh
+            # idles to it ("none") instead of booting at once - a fresh host
+            # reaches world-ready in ~7 s and drops the still-warming clients
+            # as lost after 15 s of silence.
+            $wm = "none"
+            if ($warmThis) {
+                $maps = $WarmMaps -split ","
+                $wm = $maps[$i % $maps.Count].Trim()
+            }
+            # The warm-up runs at 4x, so 60 wall-seconds is roughly a
+            # 3-minute skirmish minus boot: enough for income ticks, AI
+            # purchases, curse waves and RNG draws to leave residue.
+            $argList += @("-twbMpWarm", $Warm, "-twbMpWarmMap", $wm)
+        }
         $p = Start-Process -FilePath $exePath -PassThru -ArgumentList $argList
         $procs += $p
         Write-Host ("  peer {0} pid {1}{2}" -f $i, $p.Id, $(if ($i -eq 0) { " (host)" } else { "" }))
         Start-Sleep -Milliseconds 800   # stagger instance-slot claims
     }
 
-    # Wall-clock guard mirrors HeadlessMp's own (limit*2 + 300) plus slack.
-    $deadline = (Get-Date).AddSeconds($LimitSec * 2 + 420)
+    # Wall-clock guard mirrors HeadlessMp's own (limit*2 + 300) plus slack,
+    # plus the warm-up window (HeadlessMp restarts its own guard after it).
+    $deadline = (Get-Date).AddSeconds($LimitSec * 2 + 420 + $Warm)
     foreach ($p in $procs) {
         $remaining = [int]($deadline - (Get-Date)).TotalMilliseconds
         if ($remaining -lt 1000) { $remaining = 1000 }
@@ -100,9 +136,11 @@ for ($m = 0; $m -lt $Matches; $m++) {
     for ($i = 0; $i -lt $Peers; $i++) {
         $vf = Join-Path $logRoot ("MpVerdict_p{0}.txt" -f $i)
         if (Test-Path $vf) {
-            $m = Select-String -Path $vf -Pattern '^exit=(\d+)' | Select-Object -First 1
-            if ($m) {
-                $v = [int]$m.Matches[0].Groups[1].Value
+            # NOT $m: that is the match loop counter, and clobbering it with
+            # a MatchInfo broke every -Matches run past the first.
+            $vm = Select-String -Path $vf -Pattern '^exit=(\d+)' | Select-Object -First 1
+            if ($vm) {
+                $v = [int]$vm.Matches[0].Groups[1].Value
                 if ($codes[$i] -ne $v) {
                     Write-Host ("  peer {0}: exit code {1} but verdict says {2} - trusting the verdict (teardown crash)" -f $i, $codes[$i], $v) -ForegroundColor Yellow
                     $codes[$i] = $v

@@ -70,6 +70,13 @@ namespace TheWaningBorder.Systems.Economy
 
         private float _discoveryTimer;
         private uint _randomSeed;
+        // OnCreate runs once per WORLD, and the world outlives matches -- so
+        // a seed set there is only fresh for a process's first match. Every
+        // later match starts wherever the previous one left the stream,
+        // and two peers with different histories draw different picks.
+        // No initialiser: this is a struct system (zero-initialised), and
+        // SimCadence.Epoch is already >= 1 by the first match tick.
+        private int _epoch;
 
         private struct TraderSpawnRequest
         {
@@ -89,6 +96,13 @@ namespace TheWaningBorder.Systems.Economy
         {
             var em = state.EntityManager;
             float dt = SystemAPI.Time.DeltaTime;
+
+            if (_epoch != SimCadence.Epoch)
+            {
+                _epoch = SimCadence.Epoch;
+                _discoveryTimer = 0f;
+                _randomSeed = 42;
+            }
 
             // =============================================================
             // PHASE 1: Node Discovery (every 2 seconds)
