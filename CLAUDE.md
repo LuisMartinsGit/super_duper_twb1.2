@@ -38,6 +38,8 @@ without updating the Design folder first.
 | [docs/Design/Unit_Power.md](docs/Design/Unit_Power.md) | **The Power number** — one derived statistic per unit (combat output per resource invested, ~100 = par) for comparing and balancing them. Purely computed from stats the unit already has, so it can never disagree with the SO; `UnitPower.cs` is the only implementation |
 | [docs/Design/Heroes.md](docs/Design/Heroes.md) | **Heroes** — hero levels 1-10 earned from KILLS ONLY (never bought, unlike every other progression in the game), the XP curve, abilities that unlock at a level, King Lexor's **Honour thy Pledge** temporary army, and the death/revival CHOICE (Rally the Oath at a lower level for base cost vs Full Honours at the same level for a level-scaled price). Supersedes `HeroTrainLimit`'s flat +15%-per-death respawn tax |
 | [docs/Design/Sects.md](docs/Design/Sects.md) | **The 12 sects** — 3 active powers (levels I-III), 1 passive, 1 unit, 1 research each; the four fixed casting radii; the adoption-timing level rule; **no chapel auras**. Supersedes the sect sections of task-063 and the shipped `SectLeverEffects` numbers. Visualization: [docs/SectReference.html](docs/SectReference.html) |
+| [docs/Design/Art_Direction.md](docs/Design/Art_Direction.md) | **The look** — dusk mood, the one-tint lighting recipe (`DayNightCycle` start values), locked palettes, the emissive HDR ladder, **roofs are dark slate and the player colour lives in lantern/window glow + cloth** (supersedes `BuildingFactionColorMarker` rule 1 and the atlas-blue roofs), purple = curse / cyan = veilstone, what every ground decoration MEANS, fog-of-war as navy mist, and the four-pass implementation plan. Shipped 2026-09-18: the grade in `DayNightCycle.asset` (tune it in Play mode, it persists), Hollow Table terrain remap, interim roof darkening, `BuildingLanternLight` on large buildings, and `EmissiveLadder` (the HDR glow table every glowing visual reads) with veilstone cyan / curse purple applied; and (§6.4) the **curse veil** — cursed territories draw no border line, their edge is an aurora arch + wisps built by `CurseBarrierVfx` from `TerritoryBorderCurves.TryGetLoops`; the rest is not implemented |
+| [docs/Design/Roads.md](docs/Design/Roads.md) | **The procedural road network** — sites (outcrops, supply spots, curse nodes, buildings), per-territory relative-neighbourhood graphs that merge only where one faction has built on both sides of a border, A*-routed roads, footprint-sized plazas, and the per-pixel look rule (earthen under curse / Age 0 / construction, culture paving on finished Age 1 ground). **Paving is network-only** — supersedes the blanket culture ground of Territory_And_Nature.md §8. Rebuilt on construction events, never per frame; `Scripts/World/Roads/` + `_TWB_RoadMask`. Shipped 2026-09-18; the Age 0 earthen network is verified on screen, the Age 1 paving path is not yet |
 
 Player-facing UX (controls, hotkeys, AI personalities, multiplayer) lives
 in [GAME_MANUAL.md](GAME_MANUAL.md). Code-level runtime reference (what
@@ -94,12 +96,23 @@ the code currently does, often pre-design-pass) lives in
   the split** under `Scripts/Components/{Buildings,Units}/` — same treatment applies
   when those cultures get their pass. Only genuinely cross-domain components stay in
   `Scripts/Components/` root.
-- **The Alanthor wall set is one folder**: `Civs/Alanthor/Buildings/Walls/` holds
-  `Wall/`, `WallGate/`, `WallTower/` and the two-layer `LayeredMove*` pair. They are
-  one BFME2-style hub-and-segment system — the gate and the wall tower are
-  conversion-only from a wall instance and cannot be placed directly — so they are
-  filed as a set, not as three sibling buildings. `Tower/` is NOT part of it: the
-  watch tower is a stand-alone building from the Age 0 hut conversion.
+- **The wall set is one folder, and it is an AGE 0 folder**:
+  `Age0/Buildings/Wall/` holds the wall itself (SO, FBX, prefab, factory,
+  tiers, curve mesh, systems), its two conversion-only forms in `Gate/` and
+  `Tower/`, and the two-layer `LayeredMove*` pair. They are one BFME2-style
+  hub-and-segment system — the gate and the wall tower are conversion-only
+  from a wall instance and cannot be placed directly — so they are filed as a
+  set, not as sibling buildings.
+  **It moved out of `Civs/Alanthor/Buildings/Walls/` on 2026-09-21**: the
+  wall's first level is a timber palisade every culture builds from Age 0
+  (docs/Design/Age_0.md § Wooden Wall), so it is no longer Alanthor content.
+  What is still Alanthor's is the LEVEL — stone at age-up, reinforced from
+  the Hall — not the building. The id stays `Alanthor_Wall` and the factory
+  class stays `AlanthorWall`: renaming either ripples through the recipe
+  table, BuildingSizeConfig, BuildCosts, build times, the name resolver and
+  the AI, and `Wall` as a type name would shadow far too much.
+  `Civs/Alanthor/Buildings/Tower/` is NOT part of the set: the watch tower is
+  a stand-alone building from the Age 0 hut conversion.
 - **Cross-domain components** (CoreComponents, CombatComponents, etc.) stay in `Scripts/Components/`; **cross-domain systems** (Combat, Navigation, Work, Training, AI, Border) stay in `Scripts/Systems/` by domain.
 - **`Scripts/<Domain>/` vs `Scripts/Systems/<Domain>/`** — **AI no longer
   appears in either** (2026-09-03): both halves were unified into

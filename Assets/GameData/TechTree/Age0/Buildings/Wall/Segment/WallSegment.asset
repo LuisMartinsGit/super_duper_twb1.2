@@ -1,0 +1,58 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b98b52f4032a91549814ef127e8e0bff, type: 3}
+  m_Name: WallSegment
+  m_EditorClassIdentifier: 
+  id: Alanthor_WallSegment
+  displayName: Wall Segment
+  role: One 3 m curtain module. Auto-spawned with its segment, never placed directly
+  description: 
+  hp: 200
+  armorType: structure_human
+  defense:
+    melee: 8
+    ranged: 14
+    siege: 0
+    magic: 4
+  radius: 1.5
+  lineOfSight: 5
+  buildTime: 0
+  populationProvided: 0
+  suppliesPerTick: 0
+  suppliesInterval: 0
+  maxIron: 0
+  maxVeilstone: 0
+  segmentHp: 0
+  segmentLineOfSight: 0
+  trains: []
+  research: []
+  minEra: 0
+  cost:
+    Supplies: 0
+    Iron: 0
+    Veilstone: 0
+    Veilsteel: 0
+  tags:
+  - Building
+  attack:
+    enabled: 0
+    damage: 12
+    damageType: ranged
+    range: 22
+    cooldown: 1.5
+    maxTargets: 1
+  levels: []
+  unitUpgrades: []
+  prefab: {fileID: 1727425111562285257, guid: 534c12ca923191f49b940b83d7e1a0e8, type: 3}
+  presentationId: 552
+  prefabPath: 
+  canUpgradeTo: []

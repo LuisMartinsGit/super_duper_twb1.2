@@ -29,6 +29,8 @@ namespace TheWaningBorder.UI.World
     {
         /// <summary>Contour band width, as a fraction of the footprint.</summary>
         const float Thickness = 0.10f;
+        /// <summary>Ring band width for round buildings, as a fraction of the radius.</summary>
+        const float RingThickness = 0.14f;
 
         /// <summary>
         /// Grown slightly past the footprint so the contour reads as being
@@ -79,22 +81,36 @@ namespace TheWaningBorder.UI.World
                 if (!_em.Exists(e) || !_em.HasComponent<BuildingTag>(e)) continue;
                 if (!_em.HasComponent<LocalTransform>(e)) continue;
 
-                var pos = _em.GetComponentData<LocalTransform>(e).Position;
+                var xf = _em.GetComponentData<LocalTransform>(e);
+                var pos = xf.Position;
                 Footprint(e, out float width, out float depth);
+
+                // Yaw with the entity. Most buildings stand at identity, but a
+                // wall cell is a 1 x 3 m footprint turned to its segment's
+                // bearing — an axis-aligned box under a diagonal wall outlined
+                // a square of ground the wall only crossed.
+                float yaw = ((Quaternion)xf.Rotation).eulerAngles.y;
+
+                // A wall hub is a round tower: ring it, at its Radius, rather
+                // than boxing its bounding square.
+                bool round = _em.HasComponent<WallHubTag>(e);
+                var shape = round ? GroundDecals.Ring(RingThickness) : GroundDecals.RectContour(Thickness);
+                if (round && _em.HasComponent<Radius>(e))
+                    width = depth = _em.GetComponentData<Radius>(e).Value * 2f + Margin;
 
                 if (!_contours.TryGetValue(e, out var decal))
                 {
-                    decal = GroundDecals.Rent(GroundDecals.RectContour(Thickness), OwnerColor(e));
+                    decal = GroundDecals.Rent(shape, OwnerColor(e));
                     _contours[e] = decal;
                 }
                 else
                 {
                     // Retinted every frame: ownership can change under a
                     // standing selection (conversion, capture).
-                    GroundDecals.SetShape(decal, GroundDecals.RectContour(Thickness), OwnerColor(e));
+                    GroundDecals.SetShape(decal, shape, OwnerColor(e));
                 }
 
-                GroundDecals.Place(decal, new Vector3(pos.x, pos.y, pos.z), width, depth);
+                GroundDecals.Place(decal, new Vector3(pos.x, pos.y, pos.z), width, depth, yaw);
             }
         }
 

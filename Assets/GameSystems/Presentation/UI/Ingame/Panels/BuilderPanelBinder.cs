@@ -159,8 +159,7 @@ namespace TheWaningBorder.UI.Ingame
         {
             var w = new BuildWidget();
             var rt = GameUIKit.Rect(_grid, "build" + _widgets.Count);
-            var bg = GameUIKit.Image(rt, "bg", GameUIKit.ButtonBg, raycast: true);
-            GameUIKit.Stretch(bg.rectTransform);
+            var bg = GameUIKit.ButtonChrome(rt, raycast: true);
 
             var iconGo = new GameObject("icon", typeof(RectTransform), typeof(RawImage));
             iconGo.transform.SetParent(rt, false);

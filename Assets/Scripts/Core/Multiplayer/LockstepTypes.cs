@@ -78,6 +78,10 @@ namespace TheWaningBorder.Core.Multiplayer
         BazaarPack = 40,         // CommandRouter.IssueBazaarPack (bazaar + pack flag in TargetEntityId; BazaarPackSystem destroys the building and spawns the wagon, so it must run on every peer)
         VaultTransfer = 41,
         CancelProduction = 42,   // CommandRouter.IssueCancelProduction (building + slotIndex in TargetEntityId) — the research/level-up twin of CancelTrain      // CommandRouter.IssueVaultTransfer (vault; resource type + deposit flag packed in TargetEntityId, amount in SecondaryTargetId — bank + VaultStorage move on every peer)
+        PlaceWallPath = 43,      // CommandRouter.IssuePlaceWallPath (faction in EntityNetworkId; the drawn CURVE in BuildingId as "x|z;Hx|z;…" — H = new hub, E = existing hub — a drawn wall as one order; docs/Design/Age_1_Alanthor.md § Drawing walls)
+        SetGateLock = 44,       // CommandRouter.IssueSetGateLock (gate in EntityNetworkId; 1/0 sealed in TargetEntityId) — a sealed gate is shut to its OWN faction, so it changes where an army can path; docs/Design/Age_1_Alanthor.md § Opening and closing it
+        GarrisonWall = 45,      // CommandRouter.IssueGarrisonWall (unit in EntityNetworkId, reinforced curtain module in TargetEntityId) — the unit is absorbed into the wall on every peer
+        UngarrisonWall = 46,    // CommandRouter.IssueUngarrisonWall (module in EntityNetworkId) — its occupants step back out beside it
     }
 
     /// <summary>

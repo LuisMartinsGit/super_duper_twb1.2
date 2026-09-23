@@ -123,7 +123,8 @@ namespace TheWaningBorder.Input
                     _orders.IssueAttackCommands(target);
                 }
                 else if (targetType == SelectionOrders.TargetType.Ground || targetType == SelectionOrders.TargetType.FriendlyUnit
-                         || targetType == SelectionOrders.TargetType.FriendlyBuilding || targetType == SelectionOrders.TargetType.Resource)
+                         || targetType == SelectionOrders.TargetType.FriendlyBuilding || targetType == SelectionOrders.TargetType.Resource
+                         || targetType == SelectionOrders.TargetType.Pickup)
                 {
                     // Clicking ground (or non-enemy) issues attack-move formation
                     _orders.IssueAttackMoveFormation(clickWorld);
@@ -204,6 +205,13 @@ namespace TheWaningBorder.Input
                     break;
 
                 case SelectionOrders.TargetType.FriendlyBuilding:
+                    // A REINFORCED wall has two slots per module: the men walk
+                    // into it rather than onto it
+                    // (docs/Design/Age_1_Alanthor.md § Garrison slots). Tried
+                    // first, because a level-3 wall is also a WallTag and would
+                    // otherwise take the wall-top order below.
+                    if (_orders.TryGarrisonWall(target)) break;
+
                     // AoE4: right-click your own wall -> foot units garrison it
                     // (route to stairs, climb, spread along the top). Segments
                     // are data-only; skip those and under-construction walls.
@@ -231,6 +239,11 @@ namespace TheWaningBorder.Input
                     // Nothing gathers any more (Regions.md §4), so a resource
                     // is just a thing standing in the world: walk to it.
                     _orders.IssueFormationMove(clickWorld);
+                    break;
+
+                case SelectionOrders.TargetType.Pickup:
+                    // The Shardroot: walk onto it, the attunement does the rest.
+                    _orders.IssuePickupMove(target);
                     break;
 
                 case SelectionOrders.TargetType.Ground:

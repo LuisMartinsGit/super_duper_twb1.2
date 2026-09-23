@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 90a276d4a46e48329c679b8b0c8d58a7, type: 3}
+  m_Name: WallDrawTool
+  m_EditorClassIdentifier:
+  sampleSpacing: 1
+  minBendRadius: 12
+  maxModulesPerSegment: 11
+  commandSampleSpacing: 2
+  backtrackRadius: 1.5
+  maxPoints: 400
+  maxHubs: 24
+  pathWidth: 0.45
+  hubRingRadius: 3
+  groundOffset: 0.25
+  invalidColor: {r: 0.85, g: 0.2, b: 0.15, a: 1}

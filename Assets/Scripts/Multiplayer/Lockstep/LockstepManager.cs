@@ -1203,7 +1203,12 @@ namespace TheWaningBorder.Multiplayer
                             // entity yet — the executor creates it).
                             && cmd.Type != LockstepCommandType.PlaceWallHub
                             // SectShardrootAlloc packs the FACTION as well.
-                            && cmd.Type != LockstepCommandType.SectShardrootAlloc;
+                            && cmd.Type != LockstepCommandType.SectShardrootAlloc
+                            // PlaceWallPath packs the FACTION too (its hubs do
+                            // not exist yet). It was missing from this list,
+                            // so the lookup failed and a DRAWN wall was
+                            // dropped outright on every remote peer.
+                            && cmd.Type != LockstepCommandType.PlaceWallPath;
 
             if (needsEntity)
             {
@@ -1402,6 +1407,47 @@ namespace TheWaningBorder.Multiplayer
                             _networkIdLookup[em.GetComponentData<NetworkedEntity>(hub).NetworkId] = hub;
                         if (LogCommands) TWBLog.Log($"[Lockstep] Executed PlaceWallHub from player {cmd.PlayerIndex}");
                     }
+                    break;
+
+                case LockstepCommandType.PlaceWallPath:
+                    {
+                        // EntityNetworkId: faction. BuildingId: the encoded curve
+                        // with its hub points (H new / E existing).
+                        var path = new System.Collections.Generic.List<Unity.Mathematics.float3>();
+                        var kinds = new System.Collections.Generic.List<CommandRouter.WallPathKind>();
+                        if (CommandRouter.DecodeWallPath(cmd.BuildingId, path, kinds))
+                        {
+                            var made = new System.Collections.Generic.List<Entity>();
+                            CommandRouter.PlaceWallPathDirect(em, path, kinds,
+                                (Faction)cmd.EntityNetworkId, made);
+                            foreach (var hub in made)
+                                if (em.HasComponent<NetworkedEntity>(hub))
+                                    _networkIdLookup[em.GetComponentData<NetworkedEntity>(hub).NetworkId] = hub;
+                        }
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed PlaceWallPath ({path.Count} hubs) from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
+                case LockstepCommandType.SetGateLock:
+                    // EntityNetworkId: the gate. TargetEntityId: 1 = sealed.
+                    CommandRouter.SetGateLockDirect(em, entity, cmd.TargetEntityId != 0);
+                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed SetGateLock({cmd.TargetEntityId}) from player {cmd.PlayerIndex}");
+                    break;
+
+                case LockstepCommandType.GarrisonWall:
+                    {
+                        // EntityNetworkId: the unit. TargetEntityId: the module.
+                        var module = FindEntityByNetworkId(cmd.TargetEntityId);
+                        if (module != Entity.Null)
+                            CommandRouter.GarrisonWallDirect(em, entity, module);
+                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed GarrisonWall from player {cmd.PlayerIndex}");
+                    }
+                    break;
+
+                case LockstepCommandType.UngarrisonWall:
+                    // EntityNetworkId: the module.
+                    CommandRouter.UngarrisonWallDirect(em, entity);
+                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed UngarrisonWall from player {cmd.PlayerIndex}");
                     break;
 
                 case LockstepCommandType.WallExtend:
@@ -2252,6 +2298,15 @@ namespace TheWaningBorder.Multiplayer
                     TheWaningBorder.Core.Diagnostics.MatchLogSession.File(traceName),
                     tick, _localPlayerIndex, _isHost);
 
+                // The component roster (2026-09-13): names the extra component
+                // the archetype count in the trace can only count.
+                var rosterWorld = EntityWorld.DefaultGameObjectInjectionWorld;
+                if (rosterWorld != null && rosterWorld.IsCreated)
+                    LockstepTrace.FlushTypes(
+                        TheWaningBorder.Core.Diagnostics.MatchLogSession.File(
+                            $"Desync_tick{tick}_p{_localPlayerIndex}_types.log"),
+                        rosterWorld.EntityManager);
+
                 UnityEngine.Debug.LogError(
                     $"[Lockstep] Desync state written to the match log folder ({fileName}" +
                     (traceTicks > 0 ? $", plus {traceTicks} ticks of per-entity history in {traceName}" : "") +
@@ -2308,7 +2363,13 @@ namespace TheWaningBorder.Multiplayer
         /// drift from this one would take the whole match down with it.
         /// </summary>
         /// <summary>Crash-bisection kill switch (-twbMpNoDetail): drop the
-        /// detailed per-tick hash + snapshot capture. Diagnostic only.</summary>
+        /// detailed per-tick hash + snapshot capture. Diagnostic only.
+        ///
+        /// PASS IT TO EVERY PEER OR NONE. Since 2026-09-11 the detailed
+        /// columns are folded into the checksum that goes on the wire, so a
+        /// peer running without them computes a different Total for an
+        /// identical world and every SYNC reports a desync that is not one.
+        /// </summary>
         private static readonly bool s_noDetail =
             System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-twbMpNoDetail") >= 0;
 

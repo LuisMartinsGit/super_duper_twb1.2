@@ -1,0 +1,59 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b98b52f4032a91549814ef127e8e0bff, type: 3}
+  m_Name: WallGate
+  m_EditorClassIdentifier: 
+  id: Alanthor_WallGate
+  displayName: Wall Gate
+  role: "Gatehouse \u2014 one structure three modules wide, converted from a wall
+    module"
+  description: 
+  hp: 500
+  armorType: structure_human
+  defense:
+    melee: 7
+    ranged: 13
+    siege: 0
+    magic: 4
+  radius: 1.6
+  lineOfSight: 8
+  buildTime: 0
+  populationProvided: 0
+  suppliesPerTick: 0
+  suppliesInterval: 0
+  maxIron: 0
+  maxVeilstone: 0
+  segmentHp: 0
+  segmentLineOfSight: 0
+  trains: []
+  research: []
+  minEra: 0
+  cost:
+    Supplies: 40
+    Iron: 15
+    Veilstone: 0
+    Veilsteel: 0
+  tags:
+  - Building
+  attack:
+    enabled: 0
+    damage: 12
+    damageType: ranged
+    range: 22
+    cooldown: 1.5
+    maxTargets: 1
+  levels: []
+  unitUpgrades: []
+  prefab: {fileID: 6797734875125160088, guid: 5fc258940b9d72f4c9982c43cad2ae95, type: 3}
+  presentationId: 554
+  prefabPath: 
+  canUpgradeTo: []

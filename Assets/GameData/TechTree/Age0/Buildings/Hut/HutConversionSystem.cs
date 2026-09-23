@@ -5,7 +5,7 @@
 // Phase 2 of task-wall-system-bfme2-rework-109. The 5-second timer is
 // authoritative — when it expires we snapshot the hut's world position +
 // faction, destroy the hut entity, and spawn the target via the existing
-// factories (AlanthorWall.CreateHub for the Wall Hub branch, BuildingFactory
+// factories (BuildingFactory.Create("Alanthor_Wall", ...) for the Wall Hub branch, BuildingFactory
 // .Create("Alanthor_Tower", …) for the Watch Tower branch).
 //
 // The two new entities spawn fully-built (no UnderConstruction) so the
@@ -76,7 +76,10 @@ namespace TheWaningBorder.Systems.Buildings
 
                 if (conv.Target == HutConversionTarget.WallHub)
                 {
-                    AlanthorWall.CreateHub(em, pos, faction);
+                    // Through the dispatcher so the hub gets its
+                    // NetworkedEntity + DisplayName (2026-09-13): a bare
+                    // CreateHub made a hub no lockstep order could target.
+                    BuildingFactory.Create(em, "Alanthor_Wall", pos, faction);
                 }
                 else if (conv.Target == HutConversionTarget.WatchTower)
                 {

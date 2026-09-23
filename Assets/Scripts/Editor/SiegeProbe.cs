@@ -59,6 +59,61 @@ namespace TheWaningBorder.EditorTools
         /// the menu sets before the scene loads, so opening
         /// Scenario_ArrowTrails.unity directly spawns nothing at all.
         /// </summary>
+        [MenuItem("Waning Border/Debug/Launch Wall Drawing Scenario")]
+        public static void LaunchWallDrawing()
+        {
+            if (!EditorApplication.isPlaying)
+            {
+                Debug.LogWarning("[SiegeProbe] enter play mode (any scene) first");
+                return;
+            }
+            string scene = ScenarioCatalog.Prepare(ScenarioType.WallDrawing);
+            Debug.Log("[SiegeProbe] launching Wall Drawing scenario");
+            LoadingScreen.Show(scene);
+        }
+
+        /// <summary>
+        /// Lay a drawn wall without a mouse: a 110° arc of 22 m radius around
+        /// the origin (the Wall Drawing scenario's Hall), through the SAME
+        /// executor a release uses — so what this shows is what a stroke
+        /// shows. Play mode, in a match.
+        /// </summary>
+        [MenuItem("Waning Border/Debug/Wall Drawing: Place Test Arc")]
+        public static void PlaceTestArc()
+        {
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (!EditorApplication.isPlaying || world == null || !world.IsCreated)
+            {
+                Debug.LogWarning("[SiegeProbe] enter play mode in a match first");
+                return;
+            }
+            var pts = new List<float3>();
+            var kinds = new List<TheWaningBorder.Core.Commands.CommandRouter.WallPathKind>();
+            const float R = 22f;
+            int n = 40;
+            for (int i = 0; i <= n; i++)
+            {
+                float a = math.radians(-55f + 110f * i / n);
+                float x = math.sin(a) * R, z = math.cos(a) * R + 4f;
+                pts.Add(new float3(x, TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(x, z), z));
+                kinds.Add(i == 0 || i == n
+                    ? TheWaningBorder.Core.Commands.CommandRouter.WallPathKind.NewHub
+                    : TheWaningBorder.Core.Commands.CommandRouter.WallPathKind.Point);
+            }
+            var made = new List<Entity>();
+            TheWaningBorder.Core.Commands.CommandRouter.PlaceWallPathDirect(
+                world.EntityManager, pts, kinds, Faction.Blue, made);
+            var em = world.EntityManager;
+            int hubs = em.CreateEntityQuery(typeof(WallHubTag)).CalculateEntityCount();
+            int segs = em.CreateEntityQuery(typeof(WallSegmentTag)).CalculateEntityCount();
+            int cells = em.CreateEntityQuery(typeof(WallCurveCellTag)).CalculateEntityCount();
+            int curves = em.CreateEntityQuery(typeof(WallCurvePoint)).CalculateEntityCount();
+            string where = made.Count > 0 && em.HasComponent<LocalTransform>(made[0])
+                ? em.GetComponentData<LocalTransform>(made[0]).Position.ToString() : "-";
+            Debug.Log($"[SiegeProbe] test arc placed: {pts.Count} samples; hubs made={made.Count} (first at {where}); " +
+                      $"world now hubs={hubs} segments={segs} curveCells={cells} curves={curves}");
+        }
+
         [MenuItem("Waning Border/Debug/Launch Arrow Trails Scenario")]
         public static void LaunchArrowTrails()
         {

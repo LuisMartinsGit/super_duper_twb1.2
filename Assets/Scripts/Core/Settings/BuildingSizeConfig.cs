@@ -67,11 +67,19 @@ public static class BuildingSizeConfig
             // ── 6 x 6 cells (12 x 12 m) ─────────────────────────────────
             "FiendstoneKeep"    => new int2(12, 12),
 
-            // Walls — hub anchor only. Hubs snap to the grid at 4 x 4 cells;
-            // the curtain segments between them stay FREEFORM and stamp their
-            // own module footprint in AlanthorWall.CreateInstance. Keep in
-            // step with AlanthorWall.HubWidth.
-            "Alanthor_Wall"     => new int2(8, 8),
+            // Walls — hub anchor only. Hubs are round towers, 0.7 of a wall
+            // section (2.1 m) in radius since 2026-09-21 (30 % smaller),
+            // snapping to the grid at 2 x 2 cells; the curtain segments
+            // between them stay FREEFORM and stamp their own module footprint
+            // in AlanthorWall.CreateInstance. Keep in step with
+            // AlanthorWall.HubWidth ((int)4.2 = 4).
+            "Alanthor_Wall"     => new int2(4, 4),
+
+            // Emplacements (docs/Design/Age_1_Alanthor.md § Ballista and
+            // Trebuchet emplacements). The platform is what is placed; the
+            // engine standing on it is a separate, immobile entity.
+            "Alanthor_BallistaEmplacement"  => new int2(4, 4),
+            "Alanthor_TrebuchetEmplacement" => new int2(6, 6),
 
             // Alanthor culture
             "Alanthor_Smelter"  => new int2(8, 8),

@@ -1,4 +1,4 @@
-// ConvertSegmentToGateCommand.cs
+﻿// ConvertSegmentToGateCommand.cs
 // Segment-level convert command — spends the flat gate-conversion cost and
 // attaches a WallSegmentUpgradeState timer to the SEGMENT entity. When the
 // timer expires WallUpgradeSystem (Loop 2) tags the centre-5 instances of
@@ -11,6 +11,7 @@
 // and by LockstepManager's dispatcher case.
 
 using Unity.Entities;
+using UnityEngine;
 using TheWaningBorder.Core;
 using TheWaningBorder.Economy;
 
@@ -84,10 +85,31 @@ namespace TheWaningBorder.Core.Commands.Types
             if (em.HasComponent<WallSegmentUpgradeState>(segment)) return false;
 
             // Resolve owning faction so we can charge the bank. The segment
-            // inherits its hub's faction at CreateSegment time.
-            Faction faction = GameSettings.LocalPlayerFaction;
-            if (em.HasComponent<FactionTag>(segment))
-                faction = em.GetComponentData<FactionTag>(segment).Value;
+            // inherits its hub's faction at CreateSegment time. NEVER fall back
+            // to GameSettings.LocalPlayerFaction — see ConvertHutCommand: this
+            // executes on every peer, and the local faction is a different
+            // answer on each one.
+            if (!em.HasComponent<FactionTag>(segment))
+            {
+                Debug.LogWarning("[ConvertSegmentToGate] segment has no FactionTag — " +
+                                 "refusing (guessing the owner would desync multiplayer).");
+                return false;
+            }
+            Faction faction = em.GetComponentData<FactionTag>(segment).Value;
+
+            // The placement rule, re-checked on every peer BEFORE the spend:
+            // a gatehouse needs a clear run of FreeRunForGate modules around
+            // the one the player picked, so it cannot be dropped on top of a
+            // tower, an emplacement, another gate or a breach
+            // (docs/Design/Age_1_Alanthor.md § What a module may become).
+            Entity focusForRule = focusInstance;
+            if (focusForRule == Entity.Null || !em.Exists(focusForRule))
+            {
+                var buf = em.GetBuffer<WallInstanceRef>(segment);
+                if (buf.Length > 0) focusForRule = buf[buf.Length / 2].Instance;
+            }
+            if (!TheWaningBorder.Entities.AlanthorWall.CanConvertToGate(em, focusForRule))
+                return false;
 
             if (!FactionEconomy.Spend(em, faction, ConversionCost))
                 return false;

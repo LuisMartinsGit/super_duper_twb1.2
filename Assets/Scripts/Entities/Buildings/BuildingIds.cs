@@ -54,6 +54,10 @@ namespace TheWaningBorder.Entities
             if (em.HasComponent<BazaarTag>(entity)) return "ThessarasBazaar";
             if (em.HasComponent<SiegeWorkshopTag>(entity)) return "Runai_SiegeWorkshop";
             // Alanthor culture buildings
+            if (em.HasComponent<EmplacementTag>(entity))
+                return em.HasComponent<EmplacementCrew>(entity)
+                       && em.GetComponentData<EmplacementCrew>(entity).EngineId == TheWaningBorder.Entities.EmplacedTrebuchet.Id
+                    ? "Alanthor_TrebuchetEmplacement" : "Alanthor_BallistaEmplacement";
             if (em.HasComponent<WatchTowerTag>(entity)) return "Alanthor_Tower";
             if (em.HasComponent<SiegeYardTag>(entity)) return "Alanthor_SiegeYard";
             if (em.HasComponent<RoyalStableTag>(entity)) return "Alanthor_RoyalStable";

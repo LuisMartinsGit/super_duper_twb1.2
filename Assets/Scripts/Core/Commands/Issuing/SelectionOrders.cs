@@ -142,6 +142,49 @@ namespace TheWaningBorder.Core.Commands.Issuing
             }
         }
 
+        /// <summary>
+        /// Put the selection's foot units into a reinforced wall
+        /// (docs/Design/Age_1_Alanthor.md § Garrison slots). Each unit takes
+        /// the nearest module with a free slot, starting from the one the
+        /// player clicked, so a right-click on a manned module spills into
+        /// its neighbours instead of failing. Returns false when the target
+        /// is not a garrisonable wall or nobody in the selection can take a
+        /// slot — the caller then falls through to its usual handling.
+        /// </summary>
+        public bool TryGarrisonWall(Entity target)
+        {
+            if (!_em.Exists(target)) return false;
+            if (!_em.HasBuffer<WallGarrisonSlot>(target)) return false;
+            if (_em.HasComponent<UnderConstruction>(target)) return false;
+            if (!_em.HasComponent<LocalTransform>(target)) return false;
+
+            var faction = GameSettings.LocalPlayerFaction;
+            if (!_em.HasComponent<FactionTag>(target)
+                || _em.GetComponentData<FactionTag>(target).Value != faction) return false;
+
+            float3 at = _em.GetComponentData<LocalTransform>(target).Position;
+            bool any = false;
+            foreach (var e in CurrentSelection)
+            {
+                if (!_em.Exists(e) || !IsOwnedByLocalPlayer(e)) continue;
+                if (!TheWaningBorder.Entities.WallGarrison.IsFootUnit(_em, e)) continue;
+
+                // The clicked module first; then the nearest one with room.
+                Entity module = TheWaningBorder.Entities.WallGarrison.HasFreeSlot(_em, target)
+                    ? target
+                    : CommandRouter.FindGarrisonModuleNear(_em, at, faction, WallGarrisonSpill);
+                if (module == Entity.Null) break;
+
+                CommandRouter.IssueGarrisonWall(_em, e, module, CommandSource.LocalPlayer);
+                any = true;
+            }
+            return any;
+        }
+
+        /// <summary>How far a garrison order spills along the wall when the
+        /// clicked module is full, metres.</summary>
+        private const float WallGarrisonSpill = 24f;
+
         public void IssueStopToSelection()
         {
             var selection = CurrentSelection;
@@ -352,6 +395,23 @@ namespace TheWaningBorder.Core.Commands.Issuing
         // group speed and the persistent virtual-leader group all live in
         // FormationMoveCommandHelper / FormationGroupSystem — the input
         // layer only collects the selection and picks the formation shape.
+        /// <summary>
+        /// Walk the selection onto a Shardroot pickup. Claiming is the
+        /// 20 s attunement in ShardrootCarrySystem, which starts on its own
+        /// once a unit stands within ShardrootPickupRadius; a hero in range
+        /// is preferred as the attuner, so ordering King Lexor onto it makes
+        /// him the carrier even with an escort at his side.
+        /// </summary>
+        public void IssuePickupMove(Entity pickup)
+        {
+            if (pickup == Entity.Null || !_em.Exists(pickup)
+                || !_em.HasComponent<LocalTransform>(pickup)) return;
+            var units = CollectOwnedMovableSelection();
+            if (units.Count == 0) return;
+            float3 at = _em.GetComponentData<LocalTransform>(pickup).Position;
+            CommandRouter.IssueFormationMove(_em, units, at, Shape, CommandSource.LocalPlayer);
+        }
+
         public void IssueFormationMove(float3 clickWorld)
         {
             var units = CollectOwnedMovableSelection();
@@ -457,12 +517,20 @@ namespace TheWaningBorder.Core.Commands.Issuing
 
 
 
-        public enum TargetType { Ground, Enemy, FriendlyUnit, FriendlyBuilding, Resource }
+        public enum TargetType { Ground, Enemy, FriendlyUnit, FriendlyBuilding, Resource, Pickup }
 
         public TargetType DetermineTargetType(Entity target)
         {
             if (target == Entity.Null || !_em.Exists(target))
                 return TargetType.Ground;
+
+            // A Shardroot pickup on the ground. Checked before the faction
+            // test: the pickup carries FactionTag = Border (neutral until
+            // claimed), which the hostility test read as an ENEMY with no
+            // health -- so right-clicking the artifact produced an attack
+            // order that went nowhere (2026-09-15).
+            if (_em.HasComponent<ShardrootPickupTag>(target))
+                return TargetType.Pickup;
 
             // Check if it's a resource node (iron mine, veilstone node, or veilsteel node)
             if (_em.HasComponent<IronMineTag>(target))

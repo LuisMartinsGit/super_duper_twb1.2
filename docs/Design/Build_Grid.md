@@ -66,7 +66,8 @@ Footprints are authored in **cells**, and the table below is the truth source.
 |---|---|---|
 | **1 x 1** | 2 x 2 | every Chapel — the statues docked in the Temple ring |
 | **2 x 2** | 4 x 4 | Hut, Gatherer's Hut, Alanthor Watch Tower, Feraldis Tower, War Totem, Runai Trading Post |
-| **4 x 4** | 8 x 8 | Hall, Archery Range, Shrine of Ridan, Temple of Ridan, Vault of Almierra, King's Court, Wall Hub, Smelter, Siege Yards, Royal Stable, Runai Outpost / Trade Hub / Siege Workshop / Vault / Veilsteel Foundry, Feraldis Hunting Lodge / Logging Station / Longhouse / Foundry / Pasture, Mine, all four sect buildings |
+| **2 x 2** | 4 x 4 | Wall Hub — a round tower whose radius is 0.7 of a wall section (2.1 m, 30 % smaller since 2026-09-21); the curtain starts at its rim |
+| **4 x 4** | 8 x 8 | Hall, Archery Range, Shrine of Ridan, Temple of Ridan, Vault of Almierra, King's Court, Smelter, Siege Yards, Royal Stable, Runai Outpost / Trade Hub / Siege Workshop / Vault / Veilsteel Foundry, Feraldis Hunting Lodge / Logging Station / Longhouse / Foundry / Pasture, Mine, all four sect buildings |
 | **5 x 5** | 10 x 10 | Barracks |
 | **6 x 6** | 12 x 12 | Fiendstone Keep, Thessara's Bazaar, Border Main Node (the well) |
 
@@ -138,7 +139,10 @@ valid/invalid colour.
 Walls are the one deliberate exception, and only half of one.
 
 - **Wall hubs are buildings.** They snap to the grid like everything else,
-  at **4 x 4 cells**.
+  at **2 x 2 cells** — a round tower of radius `AlanthorWall.HubRadius` = 0.7 of a
+  wall section (2.1 m), so the footprint is the tower's bounding square and
+  the curtain meets the drum with no gap (2026-09-21; was 3 x 3, and 4 x 4
+  before that).
 - **Wall segments between hubs are freeform.** The curtain runs on the exact
   straight line between two hub centres at whatever angle that line has, and
   its instances are spaced to seal that line. Segments are not quantised,

@@ -23,6 +23,61 @@ namespace TheWaningBorder.Core.Commands
 {
     public static partial class CommandRouter
     {
+
+        /// <summary>
+        /// THE FALLBACK THAT FORKED THE SIM (2026-09-13). Every Queue*ForLockstep
+        /// helper below used to answer "this entity has no network id yet" by
+        /// executing the order LOCALLY and returning. In single-player that is
+        /// harmless. Under lockstep it is a desync by construction: the host
+        /// applies the order, no command ever reaches the wire, and every
+        /// client stays still. Three forks in two days were exactly this shape
+        /// -- a worker at its guard post, moved on the host alone, with no
+        /// command referencing it -- and the component roster finally named
+        /// it: a <c>RepairOrder</c> on the host only, at tick 61694, on an
+        /// entity whose target building had been placed moments earlier and
+        /// did not yet carry its network id.
+        ///
+        /// In lockstep an un-networked entity cannot be replicated, so the only
+        /// safe answer is to DROP the order and say so; the issuer (usually the
+        /// AI) retries next think, by which time the id is there. Outside
+        /// lockstep the old local execution is still correct.
+        /// </summary>
+        private static bool MayExecuteLocally(EntityManager em, Entity e, string what, Entity other = default)
+        {
+            if (!GameSettings.IsMultiplayer) return true;
+            var ls = LockstepServiceLocator.Instance;
+            if (ls == null || !ls.IsSimulationRunning) return true;
+            // Name BOTH sides of a two-entity order and say which one lacks the
+            // id: the AI repair loop retries a dropped order every think, and
+            // "entity 335:29" says nothing about which factory forgot to
+            // stamp NetworkedEntity.
+            string who = Describe(em, e);
+            if (other != default) who += " -> " + Describe(em, other);
+            UnityEngine.Debug.LogWarning(
+                $"[CommandRouter] DROPPED {what} for {who} -- no network id, " +
+                "cannot replicate under lockstep (executing it locally would fork the sim).");
+            return false;
+        }
+
+        private static string Describe(EntityManager em, Entity e)
+        {
+            if (e == Entity.Null || !em.Exists(e)) return $"{e.Index}:{e.Version}(gone)";
+            string name = em.HasComponent<DisplayName>(e)
+                ? em.GetComponentData<DisplayName>(e).Value.ToString() : "?";
+            int id = GetNetworkId(em, e);
+            if (id > 0) return $"{name} {e.Index}:{e.Version} net={id}";
+            // The un-networked one is the one we are hunting: list its
+            // components so the creator that forgot the stamp can be found
+            // from the log alone.
+            using var types = em.GetComponentTypes(e, Unity.Collections.Allocator.Temp);
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < types.Length; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.Append(types[i].GetManagedType()?.Name ?? "?");
+            }
+            return $"{name} {e.Index}:{e.Version} net={id} [{sb}]";
+        }
         // ═══════════════════════════════════════════════════════════════
         // LOCKSTEP QUEUE METHODS
         // ═══════════════════════════════════════════════════════════════
@@ -32,6 +87,7 @@ namespace TheWaningBorder.Core.Commands
             int networkId = GetNetworkId(em, unit);
             if (networkId <= 0)
             {
+                if (!MayExecuteLocally(em, unit, "Move")) return;
                 MoveCommandHelper.Execute(em, unit, destination);
                 return;
             }
@@ -71,6 +127,7 @@ namespace TheWaningBorder.Core.Commands
             if (networkId <= 0)
             {
                 if (RefuseUnnetworkedInLockstep("LayeredMove")) return;
+                if (!MayExecuteLocally(em, unit, "LayeredMove")) return;
                 ExecuteLayeredMoveDirect(em, unit, destination, targetLayer);
                 return;
             }
@@ -92,6 +149,7 @@ namespace TheWaningBorder.Core.Commands
             if (networkId <= 0)
             {
                 if (RefuseUnnetworkedInLockstep("AgeUp")) return;
+                if (!MayExecuteLocally(em, hall, "AgeUp")) return;
                 AgeUpCommandDirect(em, hall, culture);
                 return;
             }
@@ -111,6 +169,7 @@ namespace TheWaningBorder.Core.Commands
             if (networkId <= 0)
             {
                 if (RefuseUnnetworkedInLockstep("TempleUpgrade")) return;
+                if (!MayExecuteLocally(em, temple, "TempleUpgrade")) return;
                 TempleUpgradeCommandDirect(em, temple);
                 return;
             }
@@ -130,6 +189,7 @@ namespace TheWaningBorder.Core.Commands
             if (networkId <= 0)
             {
                 if (RefuseUnnetworkedInLockstep("SectAdoption")) return;
+                if (!MayExecuteLocally(em, temple, "SectAdoption")) return;
                 SectAdoptionCommandDirect(em, temple, sectId, preferredSlot, buildTime);
                 return;
             }
@@ -152,6 +212,7 @@ namespace TheWaningBorder.Core.Commands
             if (networkId <= 0)
             {
                 if (RefuseUnnetworkedInLockstep("BuildingUpgrade")) return;
+                if (!MayExecuteLocally(em, building, "UpgradeBuilding")) return;
                 Types.UpgradeBuildingCommandHelper.ApplyDirect(em, building);
                 return;
             }
@@ -170,6 +231,7 @@ namespace TheWaningBorder.Core.Commands
             if (networkId <= 0)
             {
                 if (RefuseUnnetworkedInLockstep("Research")) return;
+                if (!MayExecuteLocally(em, building, "Research")) return;
                 ResearchCommandDirect(em, building, techId);
                 return;
             }
@@ -190,6 +252,7 @@ namespace TheWaningBorder.Core.Commands
 
             if (unitId <= 0 || targetId <= 0)
             {
+                if (!MayExecuteLocally(em, unit, "Attack", target)) return;
                 AttackCommandHelper.Execute(em, unit, target);
                 return;
             }
@@ -208,6 +271,7 @@ namespace TheWaningBorder.Core.Commands
             int networkId = GetNetworkId(em, unit);
             if (networkId <= 0)
             {
+                if (!MayExecuteLocally(em, unit, "AttackMove")) return;
                 AttackMoveCommandHelper.Execute(em, unit, destination);
                 return;
             }
@@ -226,6 +290,7 @@ namespace TheWaningBorder.Core.Commands
             int networkId = GetNetworkId(em, unit);
             if (networkId <= 0)
             {
+                if (!MayExecuteLocally(em, unit, "ClearAlls")) return;
                 CommandHelper.ClearAllCommands(em, unit);
                 return;
             }
@@ -243,6 +308,7 @@ namespace TheWaningBorder.Core.Commands
             int networkId = GetNetworkId(em, unit);
             if (networkId <= 0)
             {
+                if (!MayExecuteLocally(em, unit, "HoldPosition")) return;
                 HoldPositionCommandHelper.Execute(em, unit);
                 return;
             }
@@ -263,6 +329,7 @@ namespace TheWaningBorder.Core.Commands
 
             if (builderId <= 0)
             {
+                if (!MayExecuteLocally(em, builder, "Build")) return;
                 BuildCommandHelper.Execute(em, builder, targetBuilding, buildingId, position);
                 return;
             }
@@ -285,6 +352,7 @@ namespace TheWaningBorder.Core.Commands
 
             if (healerId <= 0 || targetId <= 0)
             {
+                if (!MayExecuteLocally(em, healer, "Heal", target)) return;
                 HealCommandHelper.Execute(em, healer, target);
                 return;
             }
@@ -304,6 +372,7 @@ namespace TheWaningBorder.Core.Commands
 
             if (buildingId <= 0)
             {
+                if (!MayExecuteLocally(em, building, "SetRallyPoint")) return;
                 SetRallyPointDirect(em, building, position);
                 return;
             }
@@ -324,6 +393,7 @@ namespace TheWaningBorder.Core.Commands
 
             if (builderId <= 0 || buildingId <= 0)
             {
+                if (!MayExecuteLocally(em, builder, "Repair", building)) return;
                 RepairCommandHelper.Execute(em, builder, building);
                 return;
             }
@@ -342,6 +412,7 @@ namespace TheWaningBorder.Core.Commands
             int networkId = GetNetworkId(em, unit);
             if (networkId <= 0)
             {
+                if (!MayExecuteLocally(em, unit, "Patrol")) return;
                 PatrolCommandHelper.Execute(em, unit, destination);
                 return;
             }
@@ -362,6 +433,7 @@ namespace TheWaningBorder.Core.Commands
 
             if (minerId <= 0 || keepId <= 0)
             {
+                if (!MayExecuteLocally(em, miner, "Convert", keep)) return;
                 ConvertCommandHelper.Execute(em, miner, keep);
                 return;
             }
@@ -388,6 +460,7 @@ namespace TheWaningBorder.Core.Commands
 
             if (buildingId <= 0)
             {
+                if (!MayExecuteLocally(em, building, "Train")) return;
                 TrainCommandDirect(em, building, unitId, revival);
                 return;
             }
@@ -411,6 +484,7 @@ namespace TheWaningBorder.Core.Commands
             int hutId = GetNetworkId(em, hut);
             if (hutId <= 0)
             {
+                if (!MayExecuteLocally(em, hut, "ConvertHut")) return;
                 ConvertHutCommandHelper.Execute(em, hut, target);
                 return;
             }
@@ -434,6 +508,7 @@ namespace TheWaningBorder.Core.Commands
             if (segId <= 0)
             {
                 // No network identity — singleplayer / pre-lockstep path.
+                if (!MayExecuteLocally(em, segment, "ConvertSegmentToGate")) return;
                 ConvertSegmentToGateCommandHelper.Execute(em, segment, focusInstance);
                 return;
             }
@@ -463,6 +538,7 @@ namespace TheWaningBorder.Core.Commands
 
             if (buildingId <= 0)
             {
+                if (!MayExecuteLocally(em, building, "CancelProduction")) return;
                 CancelProductionCommandHelper.Execute(em, building, slotIndex);
                 return;
             }
@@ -493,6 +569,7 @@ namespace TheWaningBorder.Core.Commands
 
             if (unitId <= 0)
             {
+                if (!MayExecuteLocally(em, unit, "IssueAbility")) return;
                 IssueAbilityDirect(em, unit, target, slot);
                 return;
             }
@@ -515,6 +592,7 @@ namespace TheWaningBorder.Core.Commands
             int nodeId = GetNetworkId(em, node);
             if (scholarId <= 0 || nodeId <= 0)
             {
+                if (!MayExecuteLocally(em, scholar, "IssuePurify", node)) return;
                 IssuePurifyDirect(em, scholar, node);
                 return;
             }
@@ -532,6 +610,7 @@ namespace TheWaningBorder.Core.Commands
             int nodeId = GetNetworkId(em, node);
             if (corruptorId <= 0 || nodeId <= 0)
             {
+                if (!MayExecuteLocally(em, corruptor, "IssueCorrupt", node)) return;
                 IssueCorruptDirect(em, corruptor, node);
                 return;
             }
@@ -549,6 +628,7 @@ namespace TheWaningBorder.Core.Commands
             int nodeId = GetNetworkId(em, node);
             if (acolyteId <= 0 || nodeId <= 0)
             {
+                if (!MayExecuteLocally(em, acolyte, "IssueConvertNode", node)) return;
                 IssueConvertNodeDirect(em, acolyte, node);
                 return;
             }

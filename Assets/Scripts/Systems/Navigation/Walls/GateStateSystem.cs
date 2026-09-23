@@ -125,8 +125,14 @@ namespace TheWaningBorder.Systems.Navigation
                 float radius = isRegion ? RegionDetectRadius : FriendlyDetectRadius;
                 float radiusSq = radius * radius;
 
+                // The player's own seal beats proximity: a SEALED gate
+                // stays shut to friendlies too (docs/Design/Age_1_Alanthor.md
+                // § Opening and closing it). Never to hostiles either way.
+                bool sealedShut = em.HasComponent<WallGateLock>(gateEntity)
+                    && em.GetComponentData<WallGateLock>(gateEntity).Sealed != 0;
+
                 bool friendlyNearby = false;
-                for (int u = 0; u < unitFactions.Length; u++)
+                for (int u = 0; u < unitFactions.Length && !sealedShut; u++)
                 {
                     // A gate opens for its TEAM. A wall that shuts your ally
                     // out is worse than no wall — the wall still belongs to

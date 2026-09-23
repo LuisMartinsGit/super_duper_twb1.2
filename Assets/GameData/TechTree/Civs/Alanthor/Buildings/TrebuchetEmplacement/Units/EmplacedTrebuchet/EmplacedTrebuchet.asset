@@ -1,0 +1,58 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
+  m_Name: EmplacedTrebuchet
+  m_EditorClassIdentifier: 
+  id: Alanthor_EmplacedTrebuchet
+  displayName: Emplaced Trebuchet
+  unitClass: machinery_siege
+  hp: 320
+  speed: 0
+  trainingTime: 0
+  damage: 120
+  damageType: siege
+  armorType: ranged
+  defense:
+    melee: 0
+    ranged: 4
+    siege: 2
+    magic: 0
+  attackCooldown: 8.0
+  attackRange: 48
+  minAttackRange: 14
+  lineOfSight: 52
+  radius: 1.4
+  aimTime: 1.5
+  trajectory: high
+  projectileSpeed: 32
+  cost:
+    Supplies: 0
+    Iron: 0
+    Veilstone: 0
+    Veilsteel: 0
+  minBuildingLevel: 1
+  buildSpeed: 0
+  gatheringSpeed: 0
+  healsPerSecond: 0
+  siegeRange: 0
+  siegeCooldown: 0
+  aoeRadius: 4
+  tags:
+  - Ranged
+  - Siege
+  bonusVsTags:
+  - vsTag: Building
+    amount: 45
+  abilities: []
+  prefab: {fileID: 132866903991625, guid: 516d3df3946cc39f2f363f18aa224f48, type: 3}
+  presentationId: 348
+  animatorController: {fileID: 0}

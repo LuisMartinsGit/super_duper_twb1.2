@@ -150,7 +150,9 @@ namespace TheWaningBorder.Core.Commands
             if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost))
                 return Entity.Null;
 
-            Entity hub = TheWaningBorder.Entities.AlanthorWall.CreateHub(em, pos, faction);
+            // Dispatcher, not AlanthorWall.CreateHub direct -- see the same
+            // note in the WallExtend executor below (2026-09-13).
+            Entity hub = TheWaningBorder.Entities.BuildingFactory.Create(em, "Alanthor_Wall", pos, faction);
 
             float total = autoBuild ? 30f : 5f;
             if (!em.HasComponent<UnderConstruction>(hub))
@@ -208,25 +210,30 @@ namespace TheWaningBorder.Core.Commands
         /// <summary>Executor — every peer. Mirrors the old SpawnExtendedWallHub
         /// body: snap-to-hub builds only the segment (free); a new hub pays the
         /// standard hub cost and self-builds, as do the segment instances.</summary>
-        public static void WallExtendDirect(EntityManager em, Entity sourceHub, Entity snapHub,
+        public static Entity WallExtendDirect(EntityManager em, Entity sourceHub, Entity snapHub,
             float3 pos, Faction faction)
         {
             const float BuildSeconds = 30f;
-            if (sourceHub == Entity.Null || !em.Exists(sourceHub)) return;
+            if (sourceHub == Entity.Null || !em.Exists(sourceHub)) return Entity.Null;
 
             Entity hub = snapHub;
             if (hub != Entity.Null && em.Exists(hub))
             {
                 if (TheWaningBorder.Entities.AlanthorWall.AreHubsConnected(em, sourceHub, hub))
-                    return; // identical no-op on every peer
+                    return hub; // identical no-op on every peer
             }
             else
             {
                 if (!BuildCosts.TryGet("Alanthor_Wall", out var cost)) cost = default;
                 if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost))
-                    return;
+                    return Entity.Null;
 
-                hub = TheWaningBorder.Entities.AlanthorWall.CreateHub(em, pos, faction);
+                // Through the dispatcher, never AlanthorWall.CreateHub direct:
+                // the dispatcher is what stamps NetworkedEntity + DisplayName.
+                // A hub made here without them (2026-09-13, Hollow Table)
+                // could never be repaired or extended from under lockstep --
+                // every order aimed at it was dropped by the router guard.
+                hub = TheWaningBorder.Entities.BuildingFactory.Create(em, "Alanthor_Wall", pos, faction);
                 em.AddComponentData(hub,
                     new UnderConstruction { Progress = 0f, Total = BuildSeconds });
                 em.AddComponent<AutoConstructTag>(hub);
@@ -240,36 +247,40 @@ namespace TheWaningBorder.Core.Commands
 
             Entity segment = TheWaningBorder.Entities.AlanthorWall.CreateSegment(
                 em, sourceHub, hub, faction);
-
-            // Tag every spawned wall instance for auto-construction. Snapshot
-            // first — the AddComponentData calls below are structural.
-            if (em.HasBuffer<WallInstanceRef>(segment))
-            {
-                var instances = em.GetBuffer<WallInstanceRef>(segment);
-                int count = instances.Length;
-                var snapshot = new Unity.Collections.NativeArray<Entity>(
-                    count, Unity.Collections.Allocator.Temp);
-                for (int i = 0; i < count; i++)
-                    snapshot[i] = instances[i].Instance;
-
-                for (int i = 0; i < count; i++)
-                {
-                    var inst = snapshot[i];
-                    if (!em.Exists(inst)) continue;
-                    if (!em.HasComponent<UnderConstruction>(inst))
-                        em.AddComponentData(inst,
-                            new UnderConstruction { Progress = 0f, Total = BuildSeconds });
-                    if (!em.HasComponent<AutoConstructTag>(inst))
-                        em.AddComponent<AutoConstructTag>(inst);
-                    if (em.HasComponent<Health>(inst))
-                    {
-                        var hp = em.GetComponentData<Health>(inst);
-                        em.SetComponentData(inst, new Health { Value = 1, Max = hp.Max });
-                    }
-                }
-                snapshot.Dispose();
-            }
+            TagSegmentAutoConstruct(em, segment, BuildSeconds);
+            return hub;
         }
+
+        /// <summary>Tag every instance of a fresh segment for self-construction.
+        /// Snapshot first — the AddComponentData calls are structural.</summary>
+        static void TagSegmentAutoConstruct(EntityManager em, Entity segment, float buildSeconds)
+        {
+            if (segment == Entity.Null || !em.HasBuffer<WallInstanceRef>(segment)) return;
+            var instances = em.GetBuffer<WallInstanceRef>(segment);
+            int count = instances.Length;
+            var snapshot = new Unity.Collections.NativeArray<Entity>(
+                count, Unity.Collections.Allocator.Temp);
+            for (int i = 0; i < count; i++)
+                snapshot[i] = instances[i].Instance;
+
+            for (int i = 0; i < count; i++)
+            {
+                var inst = snapshot[i];
+                if (!em.Exists(inst)) continue;
+                if (!em.HasComponent<UnderConstruction>(inst))
+                    em.AddComponentData(inst,
+                        new UnderConstruction { Progress = 0f, Total = buildSeconds });
+                if (!em.HasComponent<AutoConstructTag>(inst))
+                    em.AddComponent<AutoConstructTag>(inst);
+                if (em.HasComponent<Health>(inst))
+                {
+                    var hp = em.GetComponentData<Health>(inst);
+                    em.SetComponentData(inst, new Health { Value = 1, Max = hp.Max });
+                }
+            }
+            snapshot.Dispose();
+        }
+
 
         // ═══════════════════════════════════════════════════════════════
         // VAULT DEPOSIT / WITHDRAW
@@ -307,6 +318,264 @@ namespace TheWaningBorder.Core.Commands
             else
             {
                 VaultTransferDirect(em, vaultEntity, resourceType, amount, deposit);
+            }
+        }
+
+
+        // ═══════════════════════════════════════════════════════════════
+
+        // ═══════════════════════════════════════════════════════════════
+        // A DRAWN wall (docs/Design/Age_1_Alanthor.md § Drawing walls):
+        // every hub of the path and the segments between them as ONE order,
+        // executed hub -> segment -> hub through the two executors above.
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>Per-point role in a drawn wall path.</summary>
+        public enum WallPathKind : byte
+        {
+            Point = 0,       // a sample of the curve; modules are laid along these
+            NewHub = 1,      // a hub is built here
+            ExistingHub = 2, // the friendly hub nearest this point (within snap range) is used
+            CellHub = 3      // the friendly wall CELL nearest this point becomes a hub
+                             // (its segment splits there) and the path attaches to it —
+                             // how a wall branches off a standing wall (T / X)
+        }
+
+        /// <summary>
+        /// Encode a drawn wall for the command's string field: "x:z" per
+        /// point, prefixed "H" for a new hub, "E" for an existing hub and
+        /// "C" for a wall cell to convert into one, joined by ';' — two
+        /// decimals, invariant culture. Y is re-sampled from the terrain by
+        /// the executor.
+        ///
+        /// NEVER a '|' or a ',' in here: the lockstep datagram is
+        /// "TICK|player|tick|count|cmd|cmd|…" and each cmd is comma-joined
+        /// (LockstepTypes.LockstepCommand.Serialize), with no escaping. The
+        /// first version of this encoder wrote "x|z" and caused the
+        /// 2026-09-22 tester desync — the receiver split the path point into
+        /// two commands, dropped the tail as unparseable, and the LAST real
+        /// command of the tick fell past the count and was lost, so the
+        /// client neither placed the wall nor sent worker 4 to build it.
+        /// The issuer never notices, because its own canonicalisation round
+        /// trip only runs the inner comma split. LockstepManager.QueueCommand
+        /// now refuses any command whose text carries the outer delimiter.
+        /// </summary>
+        public static string EncodeWallPath(System.Collections.Generic.IReadOnlyList<float3> pts,
+            System.Collections.Generic.IReadOnlyList<WallPathKind> kinds)
+        {
+            var sb = new System.Text.StringBuilder(pts.Count * 16);
+            var c = System.Globalization.CultureInfo.InvariantCulture;
+            for (int i = 0; i < pts.Count; i++)
+            {
+                if (i > 0) sb.Append(';');
+                var k = kinds != null && i < kinds.Count ? kinds[i] : WallPathKind.Point;
+                if (k == WallPathKind.NewHub) sb.Append('H');
+                else if (k == WallPathKind.ExistingHub) sb.Append('E');
+                else if (k == WallPathKind.CellHub) sb.Append('C');
+                sb.Append(pts[i].x.ToString("F2", c)).Append(':').Append(pts[i].z.ToString("F2", c));
+            }
+            return sb.ToString();
+        }
+
+        public static bool DecodeWallPath(string encoded,
+            System.Collections.Generic.List<float3> pts, System.Collections.Generic.List<WallPathKind> kinds)
+        {
+            pts.Clear(); kinds.Clear();
+            if (string.IsNullOrEmpty(encoded)) return false;
+            var c = System.Globalization.CultureInfo.InvariantCulture;
+            foreach (var raw in encoded.Split(';'))
+            {
+                string pair = raw;
+                var kind = WallPathKind.Point;
+                if (pair.Length > 0 && pair[0] == 'H') { kind = WallPathKind.NewHub; pair = pair.Substring(1); }
+                else if (pair.Length > 0 && pair[0] == 'E') { kind = WallPathKind.ExistingHub; pair = pair.Substring(1); }
+                else if (pair.Length > 0 && pair[0] == 'C') { kind = WallPathKind.CellHub; pair = pair.Substring(1); }
+                int bar = pair.IndexOf(':');
+                if (bar <= 0) return false;
+                if (!float.TryParse(pair.Substring(0, bar), System.Globalization.NumberStyles.Float, c, out float x)) return false;
+                if (!float.TryParse(pair.Substring(bar + 1), System.Globalization.NumberStyles.Float, c, out float z)) return false;
+                pts.Add(new float3(x, TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(x, z), z));
+                kinds.Add(kind);
+            }
+            return pts.Count > 0;
+        }
+
+        /// <summary>
+        /// Place a drawn wall (docs/Design/Age_1_Alanthor.md § Drawing walls):
+        /// the curve's samples with their kinds. Hubs go up at the NewHub /
+        /// ExistingHub points; between consecutive hubs the modules follow
+        /// the curve. In MP this is one lockstep command; every peer runs
+        /// <see cref="PlaceWallPathDirect"/> on it.
+        /// </summary>
+        public static void IssuePlaceWallPath(EntityManager em,
+            System.Collections.Generic.IReadOnlyList<float3> pts,
+            System.Collections.Generic.IReadOnlyList<WallPathKind> kinds,
+            Faction faction, CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (ShouldDropCommand(source)) return;
+            if (pts == null || pts.Count == 0) return;
+
+            if (ShouldQueueForLockstep(source))
+            {
+                LockstepServiceLocator.Instance.QueueCommand(new LockstepCommand
+                {
+                    Type = LockstepCommandType.PlaceWallPath,
+                    EntityNetworkId = (int)faction,
+                    BuildingId = EncodeWallPath(pts, kinds),
+                });
+            }
+            else
+            {
+                PlaceWallPathDirect(em, pts, kinds, faction, null);
+            }
+        }
+
+        /// <summary>How near a friendly hub must be to an ExistingHub point.
+        /// Mirrors the input side's snap radius (BuildCommandPannel's
+        /// HubSnapRadius) — both derive from the hub's own radius, so neither
+        /// goes stale when the tower is resized.</summary>
+        static float WallPathHubSnap
+            => TheWaningBorder.Entities.AlanthorWall.HubRadius * 2f;
+
+        static readonly ComponentType[] QT_WallHubs =
+        {
+            ComponentType.ReadOnly<WallHubTag>(), ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<Unity.Transforms.LocalTransform>(),
+        };
+        static TheWaningBorder.Core.CachedEntityQuery QC_WallHubs;
+
+        static Entity FindWallHubNear(EntityManager em, float3 pos, Faction faction)
+        {
+            var q = QC_WallHubs.Get(em, QT_WallHubs);
+            using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
+            Entity best = Entity.Null;
+            float bestSq = WallPathHubSnap * WallPathHubSnap;
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (em.GetComponentData<FactionTag>(ents[i]).Value != faction) continue;
+                var hp = em.GetComponentData<Unity.Transforms.LocalTransform>(ents[i]).Position;
+                float dx = pos.x - hp.x, dz = pos.z - hp.z;
+                float d = dx * dx + dz * dz;
+                // Ties broken by index so every peer picks the same hub.
+                if (d < bestSq || (d == bestSq && best != Entity.Null && ents[i].Index < best.Index))
+                { bestSq = d; best = ents[i]; }
+            }
+            return best;
+        }
+
+        /// <summary>How near a friendly wall cell must be to a CellHub point.
+        /// Half a module: the input side snaps the point onto the cell's
+        /// own position, so this is tolerance, not a search radius.</summary>
+        const float WallPathCellSnap = 2f;
+
+        static readonly ComponentType[] QT_WallCells =
+        {
+            ComponentType.ReadOnly<WallInstanceTag>(), ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<Unity.Transforms.LocalTransform>(),
+        };
+        static TheWaningBorder.Core.CachedEntityQuery QC_WallCells;
+
+        /// <summary>Nearest friendly wall cell to <paramref name="pos"/> that
+        /// can become a hub (plain, finished, not a gate or tower). Ties
+        /// broken by index so every peer picks the same cell.</summary>
+        public static Entity FindWallCellNear(EntityManager em, float3 pos, Faction faction,
+            float radius = WallPathCellSnap)
+        {
+            var q = QC_WallCells.Get(em, QT_WallCells);
+            using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
+            Entity best = Entity.Null;
+            float bestSq = radius * radius;
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (em.GetComponentData<FactionTag>(ents[i]).Value != faction) continue;
+                var cp = em.GetComponentData<Unity.Transforms.LocalTransform>(ents[i]).Position;
+                float dx = pos.x - cp.x, dz = pos.z - cp.z;
+                float d = dx * dx + dz * dz;
+                if (d > bestSq) continue;
+                if (d == bestSq && best != Entity.Null && ents[i].Index >= best.Index) continue;
+                if (!TheWaningBorder.Entities.AlanthorWall.CanConvertInstanceToHub(em, ents[i])) continue;
+                bestSq = d; best = ents[i];
+            }
+            return best;
+        }
+
+        /// <summary>
+        /// Executor — every peer. A standing wall cell becomes a hub (its
+        /// segment splits there) for a hub's price. Instant: the wall it
+        /// joins is already built. Entity.Null when there is no such cell
+        /// or the bank is short.
+        /// </summary>
+        public static Entity ConvertWallCellToHubDirect(EntityManager em, float3 pos, Faction faction)
+        {
+            Entity cell = FindWallCellNear(em, pos, faction);
+            if (cell == Entity.Null) return Entity.Null;
+            if (!BuildCosts.TryGet("Alanthor_Wall", out var cost)) cost = default;
+            if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost))
+                return Entity.Null;
+            return TheWaningBorder.Entities.AlanthorWall.ConvertInstanceToHub(em, cell);
+        }
+
+        /// <summary>
+        /// Executor — every peer. Walks the samples; at each hub point it
+        /// raises (or finds, or converts a wall cell into) the hub and, if
+        /// there is a previous hub, lays a curved segment along the samples
+        /// since it. A lone new hub with no path is the old builder-built
+        /// click; everything else self-builds. Stops, identically on every
+        /// peer, when the bank runs dry.
+        /// <paramref name="created"/> receives every hub made; may be null.
+        /// </summary>
+        public static void PlaceWallPathDirect(EntityManager em,
+            System.Collections.Generic.IReadOnlyList<float3> pts,
+            System.Collections.Generic.IReadOnlyList<WallPathKind> kinds,
+            Faction faction, System.Collections.Generic.List<Entity> created)
+        {
+            const float BuildSeconds = 30f;
+            int hubCount = 0;
+            for (int i = 0; i < kinds.Count; i++) if (kinds[i] != WallPathKind.Point) hubCount++;
+
+            Entity prev = Entity.Null;
+            var sub = new System.Collections.Generic.List<float3>();
+            for (int i = 0; i < pts.Count; i++)
+            {
+                var k = i < kinds.Count ? kinds[i] : WallPathKind.Point;
+                if (k == WallPathKind.Point) { sub.Add(pts[i]); continue; }
+
+                Entity hub;
+                if (k == WallPathKind.ExistingHub)
+                {
+                    hub = FindWallHubNear(em, pts[i], faction);
+                    if (hub == Entity.Null) return;      // the hub is gone: the order dies here, everywhere
+                }
+                else if (k == WallPathKind.CellHub)
+                {
+                    hub = ConvertWallCellToHubDirect(em, pts[i], faction);
+                    if (hub == Entity.Null) return;      // the cell is gone (or a hub already stands there)
+                    created?.Add(hub);
+                }
+                else if (prev == Entity.Null && hubCount == 1 && pts.Count == 1)
+                {
+                    hub = PlaceWallHubDirect(em, pts[i], faction, autoBuild: false);   // the old single click
+                }
+                else
+                {
+                    hub = PlaceWallHubDirect(em, pts[i], faction, autoBuild: true);
+                }
+                if (hub == Entity.Null) return;
+                if (k == WallPathKind.NewHub) created?.Add(hub);
+
+                if (prev != Entity.Null && prev != hub
+                    && !TheWaningBorder.Entities.AlanthorWall.AreHubsConnected(em, prev, hub))
+                {
+                    // The sub-path runs hub centre to hub centre.
+                    var curve = new System.Collections.Generic.List<float3>(sub.Count + 2);
+                    curve.Add(em.GetComponentData<Unity.Transforms.LocalTransform>(prev).Position);
+                    curve.AddRange(sub);
+                    curve.Add(em.GetComponentData<Unity.Transforms.LocalTransform>(hub).Position);
+                    var segment = TheWaningBorder.Entities.AlanthorWall.CreateSegmentAlong(em, prev, hub, curve, faction);
+                    TagSegmentAutoConstruct(em, segment, BuildSeconds);
+                }
+                prev = hub;
+                sub.Clear();
             }
         }
 

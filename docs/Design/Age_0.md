@@ -28,7 +28,8 @@ Age 0 projects **no influence**, so it gets its own curse layer:
   that immediately hazes the whole patch, invalidating it. Kill it (a
   real military investment — it is deliberately tough), starve it under
   suppression, or abandon the patch. Killing it collapses the growth and
-  pays a **residue field** of veilstone nodes. Nodes on **suppressed
+  reclaims the patch — **it pays no veilstone** (2026-09-11: killing a blight
+  source never spawns nodes). Nodes on **suppressed
   ground** (hearth ring or any player influence) **never corrupt** —
   secured mining is guaranteed safe. The starting army has **no
   Catapult**.
@@ -369,6 +370,28 @@ three ways (see [Â§ Age-up transitions](#age-up-transitions) for details):
 No trainable units. No tech (population is its product).
 
 ---
+
+### Wooden Wall — the Age 0 wall (2026-09-21, NEW)
+
+The wall is no longer an Alanthor building that appears at age-up. Its
+**first level — a timber palisade — is an Age 0 building every culture can
+place**, from the first minute. The player sees it called a **Wooden Wall**
+everywhere; the internal id is still `Alanthor_Wall`, which nothing
+player-facing ever shows. Everything above level 1 stays Alanthor's: the
+stone cladding (granted by the age-up itself), the shields and the garrison
+slots.
+
+| Stat | Value |
+|------|-------|
+| Cost | 50 S + 20 I per hub; the curtain between hubs is free |
+| HP | hub 600, curtain module 200 |
+| Footprint | hub 2 × 2 cells (4 × 4 m); the curtain is freeform |
+| Look | authored art — `Wall_segment.fbx` in the wall's own folder (`Age0/Buildings/Wall/`), tiled along the drawn curve. See [Age_1_Alanthor.md § The wall's art](Age_1_Alanthor.md#the-walls-art-2026-09-21) |
+| Towers | **none** — timber will not carry one. Gates and mounted engines are fine |
+| Placement | drawn, exactly as [Age_1_Alanthor.md § Drawing walls](Age_1_Alanthor.md#drawing-walls-2026-09-18) describes |
+
+Full tier table, the gate, garrison and the two emplacement buildings:
+[Age_1_Alanthor.md § Wall levels, the gate structure and emplacements](Age_1_Alanthor.md#wall-levels-the-gate-structure-and-emplacements-2026-09-21).
 
 ## Special buildings (starts lvl 1)
 

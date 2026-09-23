@@ -1,4 +1,4 @@
-// ConvertHutCommand.cs
+﻿// ConvertHutCommand.cs
 // Per-hut age-up choice command — converts an Alanthor-owned Gatherer's Hut
 // either into a Wall Hub (the cylinder connection point that anchors wall
 // segments) or into a Watch Tower (the stand-alone Alanthor ranged defense).
@@ -10,6 +10,7 @@
 // runs in HutConversionSystem once the 5-second timer expires.
 
 using Unity.Entities;
+using UnityEngine;
 using TheWaningBorder.Core;
 using TheWaningBorder.Economy;
 
@@ -68,10 +69,20 @@ namespace TheWaningBorder.Core.Commands.Types
             if (target != HutConversionTarget.WallHub && target != HutConversionTarget.WatchTower)
                 return false;
 
-            // Resolve owning faction so we can charge the bank.
-            Faction faction = GameSettings.LocalPlayerFaction;
-            if (em.HasComponent<FactionTag>(hut))
-                faction = em.GetComponentData<FactionTag>(hut).Value;
+            // Resolve owning faction so we can charge the bank. NEVER fall
+            // back to GameSettings.LocalPlayerFaction: this runs on every peer
+            // from the replicated command, and "whoever is executing me" is a
+            // different answer on each of them — the host would charge its own
+            // bank for a client's conversion and the two worlds would part
+            // company on the next income tick. An owner we cannot derive is a
+            // refusal, identically everywhere.
+            if (!em.HasComponent<FactionTag>(hut))
+            {
+                Debug.LogWarning("[ConvertHut] hut has no FactionTag — refusing " +
+                                 "(guessing the owner would desync multiplayer).");
+                return false;
+            }
+            Faction faction = em.GetComponentData<FactionTag>(hut).Value;
 
             if (!FactionEconomy.Spend(em, faction, ConversionCost))
                 return false;

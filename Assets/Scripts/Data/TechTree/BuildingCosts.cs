@@ -94,6 +94,11 @@ namespace TheWaningBorder.Data
             { "Alanthor_WallTower",      Cost.Of(supplies: 60, iron: 30) },
             { "Alanthor_WallGate",       Cost.Of(supplies: 40, iron: 15) },
             { "Alanthor_Tower",     Cost.Of(supplies: 140, iron: 70) },
+            // Emplacements — docs/Design/Age_1_Alanthor.md § Ballista and
+            // Trebuchet emplacements. No population cost: an emplacement is
+            // ground you hold, not an army you can move.
+            { "Alanthor_BallistaEmplacement",  Cost.Of(supplies: 140, iron: 80) },
+            { "Alanthor_TrebuchetEmplacement", Cost.Of(supplies: 260, iron: 140, veilstone: 40) },
             // Alanthor_PracticeRange removed — the Practice Range is the
             // LEVELED Archery Range, not a separate placeable building.
             { "Alanthor_SiegeYard",      Cost.Of(supplies: 260, iron: 100, veilstone: 60) },
@@ -244,6 +249,10 @@ namespace TheWaningBorder.Data
             if (em.HasComponent<StoneholdTag>(entity)) return "Sect_Stonehold";
             if (em.HasComponent<VeilworksTag>(entity)) return "Sect_Veilworks";
             if (em.HasComponent<MusterYardTag>(entity)) return "Sect_MusterYard";
+            if (em.HasComponent<EmplacementTag>(entity))
+                return em.HasComponent<EmplacementCrew>(entity)
+                       && em.GetComponentData<EmplacementCrew>(entity).EngineId == TheWaningBorder.Entities.EmplacedTrebuchet.Id
+                    ? "Alanthor_TrebuchetEmplacement" : "Alanthor_BallistaEmplacement";
             if (em.HasComponent<WatchTowerTag>(entity)) return "Alanthor_Tower";
             if (em.HasComponent<SiegeYardTag>(entity)) return "Alanthor_SiegeYard";
 

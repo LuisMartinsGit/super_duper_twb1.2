@@ -119,6 +119,11 @@ namespace TheWaningBorder.Entities
                 // consolidation 2026-08.
                 ["Alanthor_Tower"]         = new BuildingRecipe(WatchTower.Create, WatchTower.Create, 354),
                 ["Alanthor_SiegeYard"]     = new BuildingRecipe(AlanthorSiegeYard.Create, AlanthorSiegeYard.Create, 357),
+                // The emplacement pair: the platform is the building, the
+                // engine standing on it is a separate immobile entity raised
+                // by EmplacementCrewSystem (docs/Design/Age_1_Alanthor.md).
+                ["Alanthor_BallistaEmplacement"]  = new BuildingRecipe(BallistaEmplacement.Create, BallistaEmplacement.Create, BallistaEmplacement.PresentationID),
+                ["Alanthor_TrebuchetEmplacement"] = new BuildingRecipe(TrebuchetEmplacement.Create, TrebuchetEmplacement.Create, TrebuchetEmplacement.PresentationID),
                 ["KingsCourt"]             = new BuildingRecipe(KingsCourt.Create, KingsCourt.Create, 363),
                 ["Alanthor_RoyalStable"]   = new BuildingRecipe(RoyalStable.Create, RoyalStable.Create, RoyalStable.PresentationID),
 

@@ -7,6 +7,7 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Entities;
+using TheWaningBorder.Core;
 using TheWaningBorder.Core.Commands;
 using TheWaningBorder.Core.Commands.Types;
 using EntityWorld = Unity.Entities.World;
@@ -70,6 +71,8 @@ namespace TheWaningBorder.UI.Ingame
             // Alanthor culture buildings (PracticeRange retired — it is the
             // leveled Archery Range; Crucible deleted — Smelter absorbs it)
             AlanthorWatchTower, AlanthorSiegeYard, AlanthorRoyalStable,
+            // The emplacement pair (docs/Design/Age_1_Alanthor.md).
+            AlanthorBallistaEmplacement, AlanthorTrebuchetEmplacement,
             // Feraldis culture buildings
             FeraldisHuntingLodge, FeraldisLoggingStation, FeraldisLonghouse, FeraldisTotemTower, FeraldisSiegeYard,
             FeraldisWarTotem, FeraldisPasture, Mine, VeilstoneMine, AlanthorSawyer,
@@ -87,6 +90,20 @@ namespace TheWaningBorder.UI.Ingame
         // Set by TriggerHubBuildWall, cleared on placement / cancel.
         private Entity _wallExtendSourceHub;
 
+        // Walls are DRAWN (docs/Design/Age_1_Alanthor.md § Drawing walls):
+        // press starts a path, drag extends it under a curvature limit,
+        // retracing erases, release places every hub as one order. The tool
+        // owns the path and its preview; this panel owns the mouse and the
+        // commit. _drawStartHub is the friendly hub the path began on (the
+        // per-hub Build Wall source, or one under the press), or Null.
+        private WallDrawTool _wallDraw;
+        /// <summary>The friendly wall cell the current stroke began on (it
+        /// becomes a hub when the order lands), or Null.</summary>
+        private Entity _drawStartCell;
+        /// <summary>World XZ the current stroke began at, after snapping.</summary>
+        private Vector2 _drawStartPos;
+        private Entity _drawStartHub;
+
         /// <summary>Self-build timer (seconds) for hubs + instances placed via
         /// the per-hub "Build Wall" action. No builder is dispatched; the
         /// AutoConstructionSystem ticks Progress at 1.0/s.</summary>
@@ -94,8 +111,13 @@ namespace TheWaningBorder.UI.Ingame
 
         /// <summary>Build-Wall click within this distance of an existing friendly hub
         /// snaps onto it: reuse the hub and build only the connecting segment (no new
-        /// hub, no hub cost). ~ the hub's own half-width so clicking on a hub snaps.</summary>
-        private const float HubSnapRadius = 6f;
+        /// hub, no hub cost). Twice the hub's radius, so a press anywhere on or just
+        /// beside the tower snaps to it — DERIVED from the hub, so it shrank with it
+        /// on 2026-09-21 instead of staying a stale 6 m that swallowed clicks a whole
+        /// tower away. Must stay equal to CommandRouter's WallPathHubSnap, which is
+        /// what the executor re-resolves the snap against.</summary>
+        private static float HubSnapRadius
+            => TheWaningBorder.Entities.AlanthorWall.HubRadius * 2f;
 
         // Placement validity
         private bool _placementValid = true;
@@ -270,29 +292,18 @@ namespace TheWaningBorder.UI.Ingame
 
                 // Confirm placement
                 bool isWallBuild = _currentBuild == BuildType.Wall || _currentBuild == BuildType.WallExtend;
-                if (UnityEngine.Input.GetMouseButtonDown(0) && !isWallBuild && !_placementValid)
+                if (isWallBuild)
+                {
+                    UpdateWallDrawing();
+                }
+                else if (UnityEngine.Input.GetMouseButtonDown(0) && !_placementValid)
                 {
                     PlayerNotificationSystem.Notify(Loc.T("Invalid placement"));
                 }
-                if (UnityEngine.Input.GetMouseButtonDown(0) && (isWallBuild || _placementValid))
+                if (UnityEngine.Input.GetMouseButtonDown(0) && !isWallBuild && _placementValid)
                 {
                     var pos = _placingInstance.transform.position;
 
-                    if (_currentBuild == BuildType.Wall)
-                    {
-                        // First hub only — placed by a builder using the normal
-                        // construction path. No chain mode any more: subsequent
-                        // hubs use the per-hub Build Wall action (WallExtend)
-                        // which auto-connects + auto-builds in 30s.
-                        SpawnFirstWallHub((float3)pos);
-                        CancelPlacementPreviewOnly();
-                    }
-                    else if (_currentBuild == BuildType.WallExtend)
-                    {
-                        SpawnExtendedWallHub((float3)pos);
-                        CancelPlacementPreviewOnly();
-                    }
-                    else
                     {
                         SpawnSelectedBuilding((float3)pos, _placementYaw);
 
@@ -354,6 +365,8 @@ namespace TheWaningBorder.UI.Ingame
                 "Alanthor_Tower" => BuildType.AlanthorWatchTower,
                 "Alanthor_SiegeYard" => BuildType.AlanthorSiegeYard,
                 "Alanthor_RoyalStable" => BuildType.AlanthorRoyalStable,
+                "Alanthor_BallistaEmplacement" => BuildType.AlanthorBallistaEmplacement,
+                "Alanthor_TrebuchetEmplacement" => BuildType.AlanthorTrebuchetEmplacement,
                 // Feraldis culture buildings
                 "Feraldis_HuntingLodge" => BuildType.FeraldisHuntingLodge,
                 "Feraldis_LoggingStation" => BuildType.FeraldisLoggingStation,
@@ -524,6 +537,9 @@ namespace TheWaningBorder.UI.Ingame
             TheWaningBorder.Core.PresentationState.PlacingBuilding = false;
             BuildFootprintOutline.Hide();
             BuildGridOverlay.Hide();
+            if (_wallDraw != null) _wallDraw.Clear();
+            _drawStartHub = Entity.Null;
+            _drawStartCell = Entity.Null;
 
             // Reset hub-anchored placement state (per-hub Build Wall action).
             _wallExtendSourceHub = Entity.Null;
@@ -537,6 +553,150 @@ namespace TheWaningBorder.UI.Ingame
             TheWaningBorder.Core.PresentationState.PlacingBuilding = false;
             BuildFootprintOutline.Hide();
             BuildGridOverlay.Hide();
+            if (_wallDraw != null) _wallDraw.Clear();
+            _drawStartHub = Entity.Null;
+        }
+
+        // ── Drawing a wall ────────────────────────────────────────────────
+
+        private WallDrawTool WallDraw
+        {
+            get
+            {
+                if (_wallDraw == null)
+                    _wallDraw = new GameObject("WallDrawTool").AddComponent<WallDrawTool>();
+                return _wallDraw;
+            }
+        }
+
+        /// <summary>
+        /// One frame of the wall interaction. Press: start the path at the
+        /// cursor — or at a friendly hub under it (and the per-hub Build Wall
+        /// source hub always). Hold: extend, recompute hub ghosts, preview.
+        /// Release: commit the whole path as one PlaceWallPath order; a press
+        /// with no drag is the old single hub.
+        /// </summary>
+        private void UpdateWallDrawing()
+        {
+            var tool = WallDraw;
+            _em = (_world ?? EntityWorld.DefaultGameObjectInjectionWorld).EntityManager;
+            var fac = GetSelectedFactionOrDefault();
+
+            if (UnityEngine.Input.GetMouseButtonDown(0) && TryGetMouseWorld(out Vector3 down))
+            {
+                // The path starts on a friendly hub under the cursor (or the
+                // per-hub Build Wall source hub), else on a friendly wall CELL
+                // under it — which becomes a hub when the order lands, so a
+                // wall can branch off a standing wall (T / X) — else on the
+                // ground.
+                _drawStartHub = _currentBuild == BuildType.WallExtend && _wallExtendSourceHub != Entity.Null
+                    && _em.Exists(_wallExtendSourceHub)
+                    ? _wallExtendSourceHub
+                    : FindNearestHubForSnap((float3)down, fac, Entity.Null);
+                _drawStartCell = _drawStartHub == Entity.Null
+                    ? FindNearestCellForSnap((float3)down, fac)
+                    : Entity.Null;
+                Entity anchor = _drawStartHub != Entity.Null ? _drawStartHub : _drawStartCell;
+                Vector2 start = anchor != Entity.Null
+                    ? new Vector2(_em.GetComponentData<Unity.Transforms.LocalTransform>(anchor).Position.x,
+                                  _em.GetComponentData<Unity.Transforms.LocalTransform>(anchor).Position.z)
+                    : new Vector2(down.x, down.z);
+                _drawStartPos = start;
+                tool.Begin(start);
+                if (_placingInstance != null) _placingInstance.SetActive(false);
+                SuppressClicksThisFrame = true;
+            }
+
+            if (!tool.Drawing) return;
+
+            if (UnityEngine.Input.GetMouseButton(0) && TryGetMouseWorld(out Vector3 cur))
+                tool.Extend(new Vector2(cur.x, cur.z));
+
+            bool startsOnHub = _drawStartHub != Entity.Null;
+            var startKind = startsOnHub ? CommandRouter.WallPathKind.ExistingHub
+                          : _drawStartCell != Entity.Null ? CommandRouter.WallPathKind.CellHub
+                          : CommandRouter.WallPathKind.NewHub;
+            // The stroke's end snaps onto a friendly hub (not the one it started
+            // from unless the stroke is long enough to be a loop) — that is how
+            // a wall closes or joins an older one — or onto a friendly wall
+            // cell, which becomes a hub: a T-junction into a standing wall.
+            Entity endHub = Entity.Null, endCell = Entity.Null;
+            float3? endSnap = null;
+            if (tool.PointCount >= 2 && TryGetMouseWorld(out Vector3 endWorld))
+            {
+                endHub = FindNearestHubForSnap((float3)endWorld, fac, Entity.Null);
+                if (endHub == _drawStartHub && tool.PointCount < 24) endHub = Entity.Null;
+                if (endHub == Entity.Null)
+                {
+                    endCell = FindNearestCellForSnap((float3)endWorld, fac);
+                    // Not the cell it started on, and not so close to the
+                    // start that two hubs would overlap.
+                    if (endCell == _drawStartCell) endCell = Entity.Null;
+                    if (endCell != Entity.Null)
+                    {
+                        var cp = _em.GetComponentData<Unity.Transforms.LocalTransform>(endCell).Position;
+                        float dx = cp.x - _drawStartPos.x, dz = cp.z - _drawStartPos.y;
+                        if (dx * dx + dz * dz < AlanthorWall.HubWidth * AlanthorWall.HubWidth) endCell = Entity.Null;
+                    }
+                }
+                Entity endAnchor = endHub != Entity.Null ? endHub : endCell;
+                if (endAnchor != Entity.Null)
+                    endSnap = _em.GetComponentData<Unity.Transforms.LocalTransform>(endAnchor).Position;
+            }
+            var endKind = endHub != Entity.Null ? CommandRouter.WallPathKind.ExistingHub
+                        : endCell != Entity.Null ? CommandRouter.WallPathKind.CellHub
+                        : CommandRouter.WallPathKind.NewHub;
+            tool.ComputeLayout(startKind, endKind, endSnap, p =>
+                BuildCommandHelper.IsValidBuildPosition(_em, p,
+                    BuildCommandHelper.GetBuildingSize("Alanthor_Wall"), "Alanthor_Wall")
+                && MeetsTerritoryRequirement(fac, p, "Alanthor_Wall"));
+            tool.ShowPreview();
+
+            if (!UnityEngine.Input.GetMouseButtonUp(0)) return;
+
+            tool.End();
+            int newHubs = tool.NewHubCount;
+            if (tool.Points.Count == 0 || (newHubs == 0 && tool.PointCount < 2))
+            {
+                // Pressed on a hub and released without drawing: nothing to place.
+                CancelPlacementPreviewOnly();
+                return;
+            }
+            if (!tool.AllHubsValid)
+            {
+                PlayerNotificationSystem.NotifyError(Loc.T("Wall crosses ground you cannot build on"));
+                CancelPlacementPreviewOnly();
+                return;
+            }
+            if (!BuildCosts.TryGet("Alanthor_Wall", out var hubCost)) hubCost = default;
+            var total = new Cost
+            {
+                Supplies = hubCost.Supplies * newHubs, Iron = hubCost.Iron * newHubs,
+                Veilstone = hubCost.Veilstone * newHubs, Veilsteel = hubCost.Veilsteel * newHubs,
+            };
+            if (newHubs > 0 && !FactionEconomy.CanAfford(_em, fac, total))
+            {
+                PlayerNotificationSystem.NotifyError(Loc.T("Not enough resources"));
+                CancelPlacementPreviewOnly();
+                return;
+            }
+
+            var pts = new System.Collections.Generic.List<float3>(tool.Points);
+            var kinds = new System.Collections.Generic.List<CommandRouter.WallPathKind>(tool.Kinds);
+            CommandRouter.IssuePlaceWallPath(_em, pts, kinds, fac);
+
+            // A lone first hub is builder-built (the executor keeps that
+            // behaviour); send the selected builders to it as before.
+            if (!startsOnHub && _drawStartCell == Entity.Null && pts.Count == 1)
+            {
+                var sel = SelectionSystem.CurrentSelection;
+                if (sel != null)
+                    foreach (var b in sel)
+                        if (_em.Exists(b) && _em.HasComponent<CanBuild>(b))
+                            CommandRouter.IssueBuild(_em, b, Entity.Null, "Alanthor_Wall", pts[0]);
+            }
+            SuppressClicksThisFrame = true;
+            CancelPlacementPreviewOnly();
         }
 
         private void UpdatePreviewColor(bool valid)
@@ -879,6 +1039,8 @@ namespace TheWaningBorder.UI.Ingame
             BuildType.AlanthorWatchTower => "Alanthor_Tower",
             BuildType.AlanthorSiegeYard => "Alanthor_SiegeYard",
             BuildType.AlanthorRoyalStable => "Alanthor_RoyalStable",
+            BuildType.AlanthorBallistaEmplacement => "Alanthor_BallistaEmplacement",
+            BuildType.AlanthorTrebuchetEmplacement => "Alanthor_TrebuchetEmplacement",
             // Feraldis culture buildings
             BuildType.FeraldisHuntingLodge => "Feraldis_HuntingLodge",
             BuildType.FeraldisLoggingStation => "Feraldis_LoggingStation",
@@ -969,6 +1131,8 @@ namespace TheWaningBorder.UI.Ingame
             BuildType.AlanthorWatchTower => 354,
             BuildType.AlanthorSiegeYard => 357,
             BuildType.AlanthorRoyalStable => 356,
+            BuildType.AlanthorBallistaEmplacement => TheWaningBorder.Entities.BallistaEmplacement.PresentationID,
+            BuildType.AlanthorTrebuchetEmplacement => TheWaningBorder.Entities.TrebuchetEmplacement.PresentationID,
             BuildType.FeraldisHuntingLodge => 358,
             BuildType.FeraldisLoggingStation => 359,
             BuildType.FeraldisLonghouse => 360,
@@ -1135,6 +1299,19 @@ namespace TheWaningBorder.UI.Ingame
             }
             return best;
         }
+
+        /// <summary>A press within this distance of a friendly wall cell
+        /// starts (or ends) the stroke ON that cell, which becomes a hub.
+        /// One module: the cell's own reach.</summary>
+        private const float CellSnapRadius = AlanthorWall.InstanceSpacing;
+
+        /// <summary>
+        /// Nearest friendly wall cell to <paramref name="pos"/> within
+        /// <see cref="CellSnapRadius"/> that can become a hub (plain,
+        /// finished, not a gate or tower). Null when none.
+        /// </summary>
+        private Entity FindNearestCellForSnap(float3 pos, Faction fac)
+            => CommandRouter.FindWallCellNear(_em, pos, fac, CellSnapRadius);
 
         /// <summary>
         /// Enter hub-anchored placement mode for the per-hub "Build Wall"

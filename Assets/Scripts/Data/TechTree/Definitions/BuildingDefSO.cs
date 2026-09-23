@@ -62,6 +62,7 @@ namespace TheWaningBorder.Data
         public string prefabPath;
         public string[] canUpgradeTo;
 
+
         /// <summary>Build a fresh runtime BuildingDef from this asset.</summary>
         public BuildingDef ToDef()
         {

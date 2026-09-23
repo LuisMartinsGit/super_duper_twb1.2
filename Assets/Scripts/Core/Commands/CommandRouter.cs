@@ -1353,13 +1353,30 @@ namespace TheWaningBorder.Core.Commands
             if (em.HasComponent<WallUpgradeState>(wall)) return false;   // already upgrading
             if (!em.HasComponent<FactionTag>(wall)) return false;
 
-            // Type 1 (tower) is the only wall-instance upgrade sold today;
-            // gates convert through ConvertSegmentToGate, which carries its
-            // own executor-side spend. Unknown types stamp free rather than
-            // guessing a price.
-            var cost = upgradeType == 1
-                ? TheWaningBorder.Data.BuildCosts.Get("Alanthor_WallTower")
-                : default;
+            // Type 1 (tower) costs a wall tower; type 3 (hub — the cell becomes
+            // a hub and the segment splits there) costs a hub; 4 / 5 cost the
+            // matching emplacement; gates convert through
+            // ConvertSegmentToGate, which carries its own executor-side spend.
+            // Unknown types stamp free rather than guessing a price.
+            var cost = upgradeType switch
+            {
+                1 => TheWaningBorder.Data.BuildCosts.Get("Alanthor_WallTower"),
+                3 => TheWaningBorder.Data.BuildCosts.Get("Alanthor_Wall"),
+                4 => TheWaningBorder.Data.BuildCosts.Get("Alanthor_BallistaEmplacement"),
+                5 => TheWaningBorder.Data.BuildCosts.Get("Alanthor_TrebuchetEmplacement"),
+                _ => default,
+            };
+            if (upgradeType == 3 && !TheWaningBorder.Entities.AlanthorWall.CanConvertInstanceToHub(em, wall))
+                return false;
+            // The placement rule is re-checked HERE, not just in the UI: it is
+            // what stops two peers from disagreeing about whether a fitting
+            // was legal, and what stops a stale panel from studding a wall
+            // (docs/Design/Age_1_Alanthor.md § What a module may become).
+            if (upgradeType == 1 && !TheWaningBorder.Entities.AlanthorWall.CanConvertToTower(em, wall))
+                return false;
+            if ((upgradeType == 4 || upgradeType == 5)
+                && !TheWaningBorder.Entities.AlanthorWall.CanConvertToEmplacement(em, wall))
+                return false;
             var faction = em.GetComponentData<FactionTag>(wall).Value;
             if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost))
                 return false;
@@ -1948,6 +1965,9 @@ namespace TheWaningBorder.Core.Commands
                 "Feraldis_Longhouse" or "Runai_TradeHub" => 30f,
                 "Alanthor_SiegeYard" or "Runai_SiegeWorkshop"
                     or "Feraldis_SiegeYard" => 35f,
+                // Emplacements — docs/Design/Age_1_Alanthor.md.
+                "Alanthor_BallistaEmplacement" => 35f,
+                "Alanthor_TrebuchetEmplacement" => 55f,
                 "ThessarasBazaar" => 40f,
                 _ => 30f
             };
