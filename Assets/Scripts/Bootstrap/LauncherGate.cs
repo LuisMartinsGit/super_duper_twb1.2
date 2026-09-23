@@ -3,6 +3,7 @@
 // over to the launcher and exits.
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Threading;
 using UnityEngine;
@@ -32,7 +33,25 @@ namespace TheWaningBorder.Bootstrap
     ///   - no launcher above game\: a raw build folder (D:\Builds\TWB_x.y.z) is
     ///     not an install. Only an install has game\ under a root that holds
     ///     TWBLauncher.exe, which is the layout AppPaths in the launcher lays
-    ///     down and LauncherSelfUpdate already relies on.
+    ///     down and LauncherSelfUpdate already relies on;
+    ///   - a handover happened less than <see cref="LoopGuardSeconds"/> ago
+    ///     (recorded in <see cref="StampName"/> in the root). See below.
+    ///
+    /// THE 0.0.26 LOOP, AND WHY THE ROOT LAUNCHER IS UPGRADED FIRST. Launchers
+    /// older than 0.0.26 start the game WITHOUT the marker. On the first
+    /// start after such a launcher installed 0.0.26, the gate fired, started
+    /// that same old launcher, and exited two seconds later — before
+    /// LauncherSelfUpdate's five-second settle had replaced it. The old
+    /// launcher then started the game again, unmarked, and so on until the
+    /// tester killed it. Two guards, either of which alone would end it:
+    ///   1. before handing over, the gate performs the launcher upgrade
+    ///      itself (LauncherSelfUpdate.TryUpgradeNow, retrying while the
+    ///      exiting launcher still holds its exe), so the launcher it starts
+    ///      is one that will set the marker;
+    ///   2. the stamp: a handover is recorded in the root, and a second one
+    ///      within LoopGuardSeconds is refused — the game just runs. A tester
+    ///      may then play one session on whatever the launcher gave them,
+    ///      which is exactly the pre-0.0.26 behaviour and never a spin.
     ///
     /// THE GAME EXITS ONLY ONCE THE LAUNCHER IS SEEN RUNNING. The one thing
     /// this must never do is leave a tester with nothing: if the launcher
@@ -48,7 +67,10 @@ namespace TheWaningBorder.Bootstrap
         public const string EnvVar = "TWB_LAUNCHER";
         private const string LauncherName = "TWBLauncher.exe";
         private const string NoLauncherFlag = "-twbNoLauncher";
+        private const string StampName = "launcher-handover.txt";
         private const float ConfirmSeconds = 2f;
+        private const int LoopGuardSeconds = 120;
+        private const int UpgradeRetrySeconds = 8;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Init()
@@ -72,13 +94,40 @@ namespace TheWaningBorder.Bootstrap
                 string launcher = Path.Combine(root, LauncherName);
                 if (!File.Exists(launcher)) return;
 
-                UnityEngine.Debug.Log("[LauncherGate] Started without the launcher — starting " + launcher);
+                string stamp = Path.Combine(root, StampName);
+                if (HandedOverRecently(stamp))
+                {
+                    UnityEngine.Debug.Log("[LauncherGate] Started without the launcher, but handed over less than " +
+                                          $"{LoopGuardSeconds}s ago — running this instance rather than looping.");
+                    return;
+                }
+
+                UnityEngine.Debug.Log("[LauncherGate] Started without the launcher — handing over to " + launcher);
+
+                // Guard 1: make sure the launcher we are about to start is one
+                // that marks the game it starts. The launcher that started us
+                // may still be shutting down and holding its exe, hence the
+                // retry window. A failed upgrade is logged and the handover
+                // goes ahead anyway; guard 2 stops any loop.
+                try
+                {
+                    if (LauncherSelfUpdate.TryUpgradeNow(gameDir, root, UpgradeRetrySeconds))
+                        UnityEngine.Debug.Log("[LauncherGate] Upgraded the root launcher from the carried copy before handing over.");
+                }
+                catch (Exception e)
+                {
+                    UnityEngine.Debug.Log("[LauncherGate] Could not upgrade the root launcher first " +
+                                          $"({e.GetType().Name}: {e.Message}); handing over to the one that is there.");
+                }
+
+                // Guard 2: written BEFORE the launcher starts, so even a crash
+                // between here and the exit leaves the record.
+                WriteStamp(stamp);
 
                 // UseShellExecute = false: a direct CreateProcess, no shell
                 // association or verb lookup in between, and a real Process
-                // object to watch. Nothing is inherited that the launcher
-                // needs, and the marker variable is deliberately NOT set on
-                // it — the launcher sets it on the game it starts.
+                // object to watch. The marker variable is deliberately NOT
+                // set on it — the launcher sets it on the game it starts.
                 var started = Process.Start(new ProcessStartInfo(launcher)
                 {
                     WorkingDirectory = root,
@@ -117,6 +166,35 @@ namespace TheWaningBorder.Bootstrap
                                       $"({e.GetType().Name}: {e.Message}); continuing.");
             }
 #endif
+        }
+
+        private static bool HandedOverRecently(string stamp)
+        {
+            try
+            {
+                if (!File.Exists(stamp)) return false;
+                var text = File.ReadAllText(stamp).Trim();
+                if (!long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out long ticks)) return false;
+                var last = new DateTime(ticks, DateTimeKind.Utc);
+                return (DateTime.UtcNow - last).TotalSeconds < LoopGuardSeconds;
+            }
+            catch
+            {
+                return false;   // an unreadable stamp must not block the handover
+            }
+        }
+
+        private static void WriteStamp(string stamp)
+        {
+            try
+            {
+                File.WriteAllText(stamp, DateTime.UtcNow.Ticks.ToString(CultureInfo.InvariantCulture));
+            }
+            catch
+            {
+                // Without the stamp guard 1 is still there; the launcher the
+                // gate starts will set the marker.
+            }
         }
     }
 }

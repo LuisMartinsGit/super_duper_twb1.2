@@ -13,6 +13,24 @@ build always name the same number.
 
 ---
 
+## [0.0.27] — 2026-09-23
+
+### Fixed
+
+- **0.0.26 looped between the launcher and the game when updated through a
+  launcher older than 0.0.26.** Old launchers start the game without the
+  launcher marker, so the new gate fired on the first start, started the old
+  launcher again and exited before the launcher self-update had run — and the
+  old launcher started the game again. Now the gate first replaces the root
+  launcher with the copy the build carries (retrying while the exiting
+  launcher still holds its exe), and refuses to hand over twice within two
+  minutes, so the worst case is one session on the old launcher, never a
+  spin. A tester caught in the 0.0.26 loop gets out on their own: the old
+  launcher's next cycle finds 0.0.27, installs it, and the new gate ends the
+  loop by upgrading the launcher.
+
+---
+
 ## [0.0.26] — 2026-09-23
 
 ### Changed

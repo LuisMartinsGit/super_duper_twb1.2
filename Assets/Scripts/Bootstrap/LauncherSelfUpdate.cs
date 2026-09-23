@@ -36,6 +36,10 @@ namespace TheWaningBorder.Bootstrap
     ///     half-written launcher;
     ///   - swallows everything. A tester whose launcher could not be replaced
     ///     still has a working one, and the next launch tries again.
+    ///
+    /// Two callers: the background thread started here on every launch, and
+    /// <see cref="LauncherGate"/>, which needs the swap done BEFORE it hands
+    /// the tester back to the launcher — see <see cref="TryUpgradeNow"/>.
     /// </summary>
     public static class LauncherSelfUpdate
     {
@@ -71,33 +75,14 @@ namespace TheWaningBorder.Bootstrap
             {
                 string gameDir = Path.GetDirectoryName(Application.dataPath);
                 if (string.IsNullOrEmpty(gameDir)) return;
-
-                string shipped = Path.Combine(gameDir, LauncherName);
-                if (!File.Exists(shipped)) return;   // build predates the carry
-
                 string root = Path.GetDirectoryName(gameDir);
                 if (string.IsNullOrEmpty(root)) return;
 
-                string installed = Path.Combine(root, LauncherName);
-
-                // Only ever an UPGRADE. If there is no launcher up there this
-                // is not a launcher install, and dropping an exe next to the
-                // game folder would be a surprise at best.
-                if (!File.Exists(installed)) return;
-
-                if (SameContents(shipped, installed)) return;
-
                 Thread.Sleep(SettleSeconds * 1000);
 
-                // Write beside the target, then swap. File.Copy straight over
-                // a locked or in-use exe can truncate it, and a truncated
-                // launcher is a tester who cannot start the game at all.
-                string staged = installed + ".new";
-                File.Copy(shipped, staged, overwrite: true);
-                File.Replace(staged, installed, null, ignoreMetadataErrors: true);
-
-                Debug.Log("[LauncherSelfUpdate] Updated the launcher in the install root. " +
-                          "The new one is used from the next launch.");
+                if (TryUpgradeNow(gameDir, root, retrySeconds: 0))
+                    Debug.Log("[LauncherSelfUpdate] Updated the launcher in the install root. " +
+                              "The new one is used from the next launch.");
             }
             catch (Exception e)
             {
@@ -105,7 +90,54 @@ namespace TheWaningBorder.Bootstrap
                 // retries; nothing the player needs to know about.
                 Debug.Log("[LauncherSelfUpdate] Left the launcher alone " +
                           $"({e.GetType().Name}: {e.Message}). Will retry next launch.");
-                TryCleanup();
+            }
+        }
+
+        /// <summary>
+        /// Replace <c>root\TWBLauncher.exe</c> with <c>gameDir\TWBLauncher.exe</c>
+        /// when the two differ. True when a replacement was made; false when
+        /// there was nothing to do (no carried copy, no installed launcher,
+        /// or already identical). Throws when the swap itself failed.
+        ///
+        /// <paramref name="retrySeconds"/> keeps trying for that long while the
+        /// installed exe is locked — the launcher that just started us may
+        /// still be tearing down. The gate passes a few seconds; the
+        /// background thread passes 0 and simply tries again next launch.
+        /// </summary>
+        public static bool TryUpgradeNow(string gameDir, string root, int retrySeconds)
+        {
+            string shipped = Path.Combine(gameDir, LauncherName);
+            if (!File.Exists(shipped)) return false;   // build predates the carry
+
+            string installed = Path.Combine(root, LauncherName);
+
+            // Only ever an UPGRADE. If there is no launcher up there this is
+            // not a launcher install, and dropping an exe next to the game
+            // folder would be a surprise at best.
+            if (!File.Exists(installed)) return false;
+
+            if (SameContents(shipped, installed)) return false;
+
+            var deadline = DateTime.UtcNow.AddSeconds(retrySeconds);
+            while (true)
+            {
+                try
+                {
+                    // Write beside the target, then swap. File.Copy straight
+                    // over a locked or in-use exe can truncate it, and a
+                    // truncated launcher is a tester who cannot start the game
+                    // at all.
+                    string staged = installed + ".new";
+                    File.Copy(shipped, staged, overwrite: true);
+                    File.Replace(staged, installed, null, ignoreMetadataErrors: true);
+                    return true;
+                }
+                catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
+                {
+                    TryCleanup(root);
+                    if (DateTime.UtcNow >= deadline) throw;
+                    Thread.Sleep(250);
+                }
             }
         }
 
@@ -125,14 +157,10 @@ namespace TheWaningBorder.Bootstrap
                 return BitConverter.ToString(sha.ComputeHash(stream));
         }
 
-        private static void TryCleanup()
+        private static void TryCleanup(string root)
         {
             try
             {
-                string gameDir = Path.GetDirectoryName(Application.dataPath);
-                string root = gameDir == null ? null : Path.GetDirectoryName(gameDir);
-                if (root == null) return;
-
                 string staged = Path.Combine(root, LauncherName + ".new");
                 if (File.Exists(staged)) File.Delete(staged);
             }
