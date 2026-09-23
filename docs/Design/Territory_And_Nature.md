@@ -205,6 +205,18 @@ territory look is a **lookup**, not a second pass of authoring.
 
 ### Analogues are shader overlays, not terrain layers
 
+> **Amended 2026-09-18 by [Art_Direction.md](Art_Direction.md) §6.4:** in-world
+> borders stay lines-only for PLAYER and unclaimed territories. The
+> CURSE's border is a standing aurora veil and draws no line.
+>
+> **Amended 2026-09-18 by [Roads.md](Roads.md):** the GROUND analogue is
+> no longer a blanket over the owned area. Culture paving appears only on
+> the procedural road network — plazas around buildings and the roads
+> between sites — and the rest of an owned territory shows its natural
+> layers. Forests (this document) and border lines carry the territory
+> readout; Alanthor's cliff terracing stays territory-wide. The mask model
+> below is unchanged; the road mask is one more texture sampled beside it.
+
 **Correction (2026-08-27): an earlier draft of this section budgeted analogues
 as extra `TerrainLayer`s and concluded six ground types would need 30 layers
 and was "not viable". That analysis was wrong for this project** — it described

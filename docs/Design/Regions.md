@@ -85,6 +85,32 @@ belongs to nobody, ever. Forests are the opposite: impassable, but they are part
 of their territory. Claim the territory and its forests take on your culture's
 decorations and start producing supplies.
 
+### Where a border IS (2026-09-11)
+
+A RegionSeedMarker authors a territory two ways, and the two must not be mixed
+up when reading a map:
+
+- **An authored outline** (the marker's `Shape` polygon, drawn in the scene
+  view and snapped to the 2 m build grid) **is the border.** Nothing displaces
+  it.
+- **A marker with no outline** is a Voronoi cell around its seed, with a Perlin
+  warp so the edge reads as ground rather than as geometry.
+
+**On a map where every region has an outline, the outlines are the whole
+partition.** Ground inside no outline is no region: a sliver a few metres wide
+between two neighbours whose polylines do not quite meet heals to the nearer
+outline, and anything wider — a map corner the author left out on purpose — is
+unclaimable and draws no border. The warped Voronoi is used only on maps that
+are partly or wholly unauthored, and then only for the unauthored regions.
+
+Every view of the borders — the ribbon on the ground, the terrain overlay, the
+minimap lattice and the lobby thumbnail — draws this one partition and nothing
+else. (Before this date the raster views also painted the seeds' Voronoi
+bisectors *over* the outlines, so the three disagreed on Hollow Table; and the
+partition survived from one match into the next, so a second map could show the
+first map's borders.) The thumbnail is a bake; the editor re-bakes it on scene
+save whenever the markers have changed since the last bake.
+
 ---
 
 ## 2. Claiming a territory
@@ -410,6 +436,16 @@ bigger one:
 - **The AI values ground by the same numbers**: its claim scorer counts every
   node kind (supply included) when picking which region to take next, and its
   extractor pass then builds the matching building on each node it holds.
+
+
+**The curse's own ground is exempt (2026-09-11).** A territory that holds an
+authored well is the curse's ground (Curse_And_Shardroot.md §1); the author
+decides what stands there, and the runtime top-up passes add nothing to it —
+no iron, no supply nodes, no veilstone coverage. Hollow Table's single well
+sits on its territory's seed at the map centre, and every quota pass seats
+from the seed, so the passes were putting an iron node on the well and two
+supply nodes in a ring around it. Nothing seats a node on a well's 12 x 12 m
+footprint anywhere, either.
 
 ### Reading a territory
 

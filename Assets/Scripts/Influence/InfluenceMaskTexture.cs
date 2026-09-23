@@ -86,6 +86,11 @@ namespace TheWaningBorder.Influence
         /// <summary>The one-shot region-boundary bake has landed. False until
         /// RegionMap actually has a partition — see the retry in Update.</summary>
         private bool _regionEdgesBaked;
+        // The partition version the current region-edge bake came from.
+        // RegionMap.Ready stays true across matches, so a bool latch drew the
+        // previous map's borders on the next map until something else
+        // happened to re-bake (2026-09-11); the version cannot lie.
+        private int _regionEdgesVersion = -1;
 
         // ── Territory-granular ground (2026-08-28) ───────────────────────
         //
@@ -183,10 +188,13 @@ namespace TheWaningBorder.Influence
             // ran again: the G channel stayed 0 for the whole match and the
             // terrain had no region boundaries at all. Retry until it lands.
             bool regionEdgesJustBaked = false;
-            if (!_regionEdgesBaked && TheWaningBorder.World.Regions.RegionMap.Ready)
+            if (TheWaningBorder.World.Regions.RegionMap.Ready
+                && (!_regionEdgesBaked
+                    || _regionEdgesVersion != TheWaningBorder.World.Regions.RegionMap.Version))
             {
                 BakeRegionEdges();
                 _regionEdgesBaked = true;
+                _regionEdgesVersion = TheWaningBorder.World.Regions.RegionMap.Version;
                 regionEdgesJustBaked = true;
             }
 
@@ -547,6 +555,7 @@ namespace TheWaningBorder.Influence
             _cultureTex.Apply(false, false);
             BakeRegionEdges();
             _regionEdgesBaked = TheWaningBorder.World.Regions.RegionMap.Ready;
+            _regionEdgesVersion = TheWaningBorder.World.Regions.RegionMap.Version;
 
             _bloodTex.SetPixels32(_bloodPixels);
             _bloodTex.Apply(false, false);

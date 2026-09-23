@@ -31,6 +31,31 @@ namespace TheWaningBorder.World.Regions
         // region is still a Voronoi cell.
         private static Vector2[][] _shapes = System.Array.Empty<Vector2[]>();
         private static bool _anyShape;
+        // Every region has an outline: the polygons ARE the partition. Ground
+        // inside none of them is no region at all (see RawRegionAt) — the
+        // Voronoi fallback only serves maps that are partly or wholly
+        // unauthored.
+        private static bool _allShaped;
+
+        /// <summary>
+        /// Bumped whenever the partition is installed or dropped. Everything
+        /// that BAKES the partition into pixels or curves (the terrain mask,
+        /// the border ribbon, the minimap lattice) gates its rebuild on this,
+        /// not on <see cref="Ready"/>: Ready stayed true across matches, so a
+        /// second map in one session drew the first map's borders until
+        /// something else happened to invalidate it (2026-09-11).
+        /// </summary>
+        public static int Version { get; private set; }
+
+        /// <summary>
+        /// Two authored outlines that were meant to share an edge rarely do
+        /// exactly — the editor snaps vertices to the 2 m build grid, but a
+        /// neighbour's polyline is stitched from different vertices, leaving
+        /// slivers a few metres wide between them. Ground inside no polygon
+        /// but within this distance of one belongs to the nearest outline;
+        /// beyond it (a map corner the author left out) it is no region.
+        /// </summary>
+        private const float SliverTolerance = 4f;
         // Parallel to _seeds. Null when the map predates region kinds, in
         // which case claimability falls back to terrain height.
         private static MapMarkers.RegionSeedMarker.RegionKind[] _kinds
@@ -91,6 +116,8 @@ namespace TheWaningBorder.World.Regions
             _names = new string[seeds.Count];
             _shapes = new Vector2[seeds.Count][];
             _anyShape = false;
+            _allShaped = true;
+            Version++;
             _kinds = new MapMarkers.RegionSeedMarker.RegionKind[seeds.Count];
             _anyKind = kinds != null && kinds.Count > 0;
             for (int i = 0; i < seeds.Count; i++)
@@ -103,6 +130,7 @@ namespace TheWaningBorder.World.Regions
                 // rather than as a degenerate shape nothing can be inside of.
                 _shapes[i] = s != null && s.Length >= 3 ? s : null;
                 if (_shapes[i] != null) _anyShape = true;
+                else _allShaped = false;
 
                 _kinds[i] = kinds != null && i < kinds.Count
                     ? kinds[i]
@@ -129,6 +157,8 @@ namespace TheWaningBorder.World.Regions
             _names = System.Array.Empty<string>();
             _shapes = System.Array.Empty<Vector2[]>();
             _anyShape = false;
+            _allShaped = false;
+            Version++;
             _kinds = System.Array.Empty<MapMarkers.RegionSeedMarker.RegionKind>();
             _anyKind = false;
         }
@@ -242,6 +272,14 @@ namespace TheWaningBorder.World.Regions
         public static int NearestRegion(float worldX, float worldZ)
         {
             if (_seeds.Length == 0) return None;
+            // Authored outlines first, exactly as RegionAt: a Hall's claim and
+            // the home reveal must file under the polygon the author drew,
+            // not under the warped Voronoi cell that polygon replaced.
+            if (_anyShape)
+            {
+                int r = RawRegionAt(worldX, worldZ);
+                if (r != None) return r;
+            }
             Warp(ref worldX, ref worldZ);
 
             int best = 0;
@@ -265,6 +303,16 @@ namespace TheWaningBorder.World.Regions
         public static int RegionAt(float worldX, float worldZ)
         {
             if (_seeds.Length == 0) return None;
+            if (_anyKind)
+            {
+                // ONE partition lookup. This used to go through IsClaimable,
+                // which runs RawRegionAt to read the region's kind, and then
+                // run RawRegionAt again for the answer — on an authored map
+                // that is every polygon edge walked twice per call, and the
+                // 128² territory rasterize makes 16k calls (2026-09-16).
+                int r = RawRegionAt(worldX, worldZ);
+                return r != None && !KindBlocks(KindOf(r)) ? r : None;
+            }
             return IsClaimable(worldX, worldZ) ? RawRegionAt(worldX, worldZ) : None;
         }
 
@@ -290,14 +338,24 @@ namespace TheWaningBorder.World.Regions
                 for (int i = 0; i < _shapes.Length; i++)
                     if (_shapes[i] != null && Inside(_shapes[i], worldX, worldZ))
                         return i;
+
+                // Inside no outline. On a fully authored map the outlines ARE
+                // the borders: a sliver between two neighbours heals to the
+                // nearer one, and anything further out is no region — the
+                // warped Voronoi used to partition it, drawing seams nobody
+                // authored across ~40% of Hollow Table (2026-09-11).
+                if (_allShaped) return NearestOutlineWithin(worldX, worldZ, SliverTolerance);
             }
 
             Warp(ref worldX, ref worldZ);
 
-            int best = 0;
+            int best = None;
             float bestD = float.MaxValue;
             for (int i = 0; i < _seeds.Length; i++)
             {
+                // On a half-authored map only the UNAUTHORED regions are still
+                // Voronoi cells; an authored one ends at its outline.
+                if (_anyShape && _shapes[i] != null) continue;
                 float dx = worldX - _seeds[i].x;
                 float dz = worldZ - _seeds[i].y;
                 float d = dx * dx + dz * dz;
@@ -345,6 +403,17 @@ namespace TheWaningBorder.World.Regions
                 if (best < float.MaxValue)
                     authored = Mathf.Clamp01(1f - best / widthMetres);
                 if (authored >= 1f) return 1f;
+                // The bisector is only a border where the partition is still
+                // Voronoi: never on a fully authored map, and never inside an
+                // authored outline on a mixed one. This used to be max()ed in
+                // unconditionally, so every raster of the lattice (terrain
+                // mask, minimap, thumbnail) painted a phantom seed-Voronoi
+                // over the polygons that the border ribbon — which traces the
+                // partition itself — never showed (2026-09-11).
+                if (_allShaped) return authored;
+                for (int i = 0; i < _shapes.Length; i++)
+                    if (_shapes[i] != null && Inside(_shapes[i], worldX, worldZ))
+                        return authored;
             }
 
             Warp(ref worldX, ref worldZ);   // same displacement as RegionAt
@@ -352,6 +421,7 @@ namespace TheWaningBorder.World.Regions
             float d0 = float.MaxValue, d1 = float.MaxValue;
             for (int i = 0; i < _seeds.Length; i++)
             {
+                if (_anyShape && _shapes[i] != null) continue;   // not a Voronoi cell
                 float dx = worldX - _seeds[i].x;
                 float dz = worldZ - _seeds[i].y;
                 float d = dx * dx + dz * dz;
@@ -364,6 +434,26 @@ namespace TheWaningBorder.World.Regions
             // distances is ~2x the perpendicular distance to the bisector.
             float gap = (Mathf.Sqrt(d1) - Mathf.Sqrt(d0)) * 0.5f;
             return Mathf.Max(authored, Mathf.Clamp01(1f - gap / widthMetres));
+        }
+
+        /// <summary>The region whose outline passes within
+        /// <paramref name="tolerance"/> metres of the point, nearest first;
+        /// <see cref="None"/> when no outline is that close.</summary>
+        private static int NearestOutlineWithin(float x, float z, float tolerance)
+        {
+            int best = None;
+            float bestD = tolerance;
+            for (int i = 0; i < _shapes.Length; i++)
+            {
+                var poly = _shapes[i];
+                if (poly == null) continue;
+                for (int a = 0, bIdx = poly.Length - 1; a < poly.Length; bIdx = a++)
+                {
+                    float d = DistanceToSegment(x, z, poly[bIdx], poly[a]);
+                    if (d < bestD) { bestD = d; best = i; }
+                }
+            }
+            return best;
         }
 
         /// <summary>Perpendicular distance from a point to a segment, in metres.</summary>

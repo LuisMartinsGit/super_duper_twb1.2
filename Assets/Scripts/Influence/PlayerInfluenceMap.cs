@@ -94,15 +94,12 @@ namespace TheWaningBorder.Influence
             DataVersion++;
             if (!TheWaningBorder.World.Regions.RegionMap.Ready) return;
 
-            float cw = _worldSize.x / Resolution;
-            float ch = _worldSize.y / Resolution;
+            var regionOf = RegionOfCell();
             for (int y = 0; y < Resolution; y++)
             {
-                float wz = _worldMin.y + (y + 0.5f) * ch;
                 for (int x = 0; x < Resolution; x++)
                 {
-                    float wx = _worldMin.x + (x + 0.5f) * cw;
-                    int region = TheWaningBorder.World.Regions.RegionMap.RegionAt(wx, wz);
+                    int region = regionOf[y * Resolution + x];
                     if (region < 0) continue;
                     int owner = TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(region);
 
@@ -115,6 +112,58 @@ namespace TheWaningBorder.Influence
                     _values[(y * Resolution + x) * ChannelCount + channel] = MaxValue;
                 }
             }
+        }
+
+        // ── Region per cell ───────────────────────────────────────────────
+        //
+        // Which region each grid cell falls in never changes during a match —
+        // only who owns the region does — so it is resolved once per partition
+        // and read by index afterwards. Before this (2026-09-16) every
+        // consumer asked RegionMap.RegionAt for all 16,384 cells live: this
+        // rasterize on every ownership flip, and the minimap's per-territory
+        // curse count on EVERY 0.1 s overlay refresh. On a map with authored
+        // outlines (Hollow Table) RegionAt walks every polygon edge, which
+        // made the minimap a 64 ms stall ten times a second.
+        private static short[] _regionOfCell;
+        private static int _regionOfCellVersion = -1;
+        private static Vector2 _regionOfCellMin, _regionOfCellSize;
+
+        /// <summary>
+        /// Region index per cell, <c>[y * Resolution + x]</c>,
+        /// <see cref="TheWaningBorder.World.Regions.RegionMap.None"/> where
+        /// the ground belongs to nobody. Built on first use and again only when
+        /// the partition (<see cref="TheWaningBorder.World.Regions.RegionMap.Version"/>)
+        /// or the grid's bounds change. Requires <see cref="Ready"/> and a
+        /// ready RegionMap; the array is shared — do not write to it.
+        /// </summary>
+        public static short[] RegionOfCell()
+        {
+            int version = TheWaningBorder.World.Regions.RegionMap.Version;
+            if (_regionOfCell != null
+                && _regionOfCellVersion == version
+                && _regionOfCellMin == _worldMin
+                && _regionOfCellSize == _worldSize)
+                return _regionOfCell;
+
+            _regionOfCell ??= new short[Resolution * Resolution];
+            _regionOfCellVersion = version;
+            _regionOfCellMin = _worldMin;
+            _regionOfCellSize = _worldSize;
+
+            float cw = _worldSize.x / Resolution;
+            float ch = _worldSize.y / Resolution;
+            for (int y = 0; y < Resolution; y++)
+            {
+                float wz = _worldMin.y + (y + 0.5f) * ch;
+                int row = y * Resolution;
+                for (int x = 0; x < Resolution; x++)
+                {
+                    float wx = _worldMin.x + (x + 0.5f) * cw;
+                    _regionOfCell[row + x] =
+                        (short)TheWaningBorder.World.Regions.RegionMap.RegionAt(wx, wz);
+                }
+            }
+            return _regionOfCell;
         }
 
         /// <summary>Uniform decay toward neutral. Proportional
