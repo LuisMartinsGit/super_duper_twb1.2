@@ -35,4 +35,5 @@ if (-not (Test-Path $exe)) { throw "Publish did not produce $exe" }
 $size = [math]::Round((Get-Item $exe).Length / 1MB, 1)
 Write-Host ""
 Write-Host "Launcher published: $exe ($size MB)" -ForegroundColor Green
-Write-Host "Copy this single file into the install root, beside the 'game' folder."
+Write-Host "Testers run it from anywhere: it installs into %LOCALAPPDATA%\Programs\Shardroot Entertainment\The Waning Border."
+Write-Host "Builds carry it (AlphaBuildPostProcess), so the next release also updates every tester's launcher."

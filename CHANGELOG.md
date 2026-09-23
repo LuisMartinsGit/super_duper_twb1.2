@@ -13,6 +13,33 @@ build always name the same number.
 
 ---
 
+## [0.0.26] — 2026-09-23
+
+### Changed
+
+- **The game installs to a fixed place.** The launcher now installs into
+  `%LOCALAPPDATA%\Programs\Shardroot Entertainment\The Waning Border` no
+  matter where it is run from, puts a copy of itself there, and adds a Start
+  Menu entry. It used to install beside whatever copy of itself was run — and
+  every build carries a copy inside `game\`, so running that one produced a
+  second full install at `game\game\`, re-created after every update. An
+  existing install beside the launcher is moved into the new root on first
+  run (same drive), or re-downloaded (different drive).
+- **Starting the game exe directly no longer bypasses the launcher.** A game
+  started from an install without the launcher starts the launcher and
+  quits, so nobody plays a stale build by accident. The Editor, batch mode,
+  raw build folders and `-twbNoLauncher` are exempt.
+
+### Fixed
+
+- **Updates were always the full download.** The launcher's incremental
+  update (fetch only the changed files by HTTP range) was fixed on
+  2026-08-31 but never republished, so every build since carried the broken
+  2026-08-20 launcher. This release carries the current one; a code-only
+  update is now tens of MB, not the whole 570.
+
+---
+
 ## [0.0.25] — 2026-09-23
 
 ### Fixed

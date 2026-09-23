@@ -166,26 +166,57 @@ so a manifest can never claim a version the build does not report. Passing
 Forgetting step 1 is therefore not silent: the release fails with "a release
 for v0.0.8 already exists" rather than shipping a mislabelled build.
 
-**Releasing does not update the launcher.** The launcher cannot replace itself
-any more than the game can, so a change to `TWBLauncher.exe` has to be handed
-to testers by hand. Keep launcher changes rare and batch them.
+**Releasing DOES update the launcher — if it was published first.** The build
+carries `tools/Launcher/publish/TWBLauncher.exe` (AlphaBuildPostProcess), and
+the game replaces the root launcher with it after each update
+(LauncherSelfUpdate). So a launcher change ships by running
+`tools/Launcher/publish.ps1` BEFORE building the player. Skipping that step
+ships the previous launcher again; from 2026-08-20 to 2026-09-23 every release
+carried the 08-20 launcher, whose incremental path had a bug fixed on 08-31
+that no tester ever received.
 
 ---
 
 ## 4. What a tester gets
 
-A folder containing exactly one file, `TWBLauncher.exe`. Everything else the
-launcher creates on first run:
+One file, `TWBLauncher.exe`, which they can run from anywhere — Downloads, the
+desktop, a USB stick. It installs into a **fixed per-user root** and never
+into its own folder:
 
 ```
-The Waning Border\
-  TWBLauncher.exe     the launcher, never touched by an update
+%LOCALAPPDATA%\Programs\Shardroot Entertainment\The Waning Border\
+  TWBLauncher.exe     the launcher; the GAME keeps it current after each update
   version.txt         the installed version
+  launcher.log        one line per decision the updater took (patch declined, ...)
   game\               everything an update replaces
     The Waning Border.exe
+    TWBLauncher.exe   the copy the build carries, for LauncherSelfUpdate
     logs\             match logs, carried across updates
   game.old\           the previous build, kept for rollback
 ```
+
+plus a Start Menu entry, *Shardroot Entertainment > The Waning Border*, that
+points at the root launcher.
+
+**Why the root is fixed (2026-09-23).** It used to be the launcher's own
+folder. Since every build carries a launcher at `game\TWBLauncher.exe`, that
+copy was a second, fully working install root: a tester who pinned it (it is
+in the folder they see the game in) got a second 1.1 GB build at `game\game\`,
+and every real update moved that into `game.old` and left the inner launcher
+to install it again. With one root, every copy of the launcher does the same
+thing. On first run the launcher also **adopts** an install from the old
+layout: `game\` + `version.txt` beside the exe (or one level up, for the
+carried copy) are moved into the root — a rename on the same drive, a fresh
+download otherwise.
+
+**The game will not run without the launcher.** `The Waning Border.exe`
+started directly from an install (a pinned shortcut into `game\`, Explorer,
+search) starts the launcher and quits, so nobody plays a stale build by
+accident and desyncs against a current one. The launcher marks the process it
+starts with the `TWB_LAUNCHER` environment variable; that is what the game
+checks (`Bootstrap/LauncherGate.cs`). It stays out of the way in the Editor,
+in batch mode (the headless harness), with `-twbNoLauncher` on the command
+line, and in a raw build folder, which has no launcher above `game\`.
 
 `game.old` is deliberate. A bad patch is recoverable by deleting `game` and
 renaming `game.old` back — no re-download. It is cleared at the start of the

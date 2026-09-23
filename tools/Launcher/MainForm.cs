@@ -104,6 +104,26 @@ internal sealed class MainForm : Form
 
     private async Task RunAsync()
     {
+        // The fixed root, before anything reads or writes it: creates it,
+        // adopts an install from the old beside-the-exe layout, places a
+        // launcher in it and adds the Start Menu entry. Only an uncreatable
+        // root is fatal.
+        try
+        {
+            var notes = InstallRoot.Prepare();
+
+            // Always one line per start, so a launcher the game started on
+            // its own (Bootstrap/LauncherGate.cs) leaves a trace even when
+            // it then does nothing — the one silent case left otherwise.
+            Log($"Launcher started from {AppPaths.ExePath}");
+            foreach (var note in notes) Log(note);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Fail($"Cannot create the install folder {AppPaths.Root}.", ex.Message);
+            return;
+        }
+
         Installer.Sweep();
 
         if (!EnsureKey()) return;
@@ -365,7 +385,7 @@ internal sealed class MainForm : Form
         try
         {
             File.AppendAllText(
-                Path.Combine(AppPaths.Root, "launcher.log"),
+                AppPaths.LogFile,
                 $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}  {message}{Environment.NewLine}");
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -484,11 +504,17 @@ internal sealed class MainForm : Form
 
         try
         {
-            Process.Start(new ProcessStartInfo(exe)
+            // UseShellExecute = false is what lets the environment be set.
+            // The variable is how the game knows it was started by the
+            // launcher (Bootstrap/LauncherGate.cs); a game started any other
+            // way from an install hands over to the launcher and quits.
+            var start = new ProcessStartInfo(exe)
             {
                 WorkingDirectory = AppPaths.Game,
-                UseShellExecute = true,
-            });
+                UseShellExecute = false,
+            };
+            start.Environment["TWB_LAUNCHER"] = "1";
+            Process.Start(start);
         }
         catch (Exception ex)
         {

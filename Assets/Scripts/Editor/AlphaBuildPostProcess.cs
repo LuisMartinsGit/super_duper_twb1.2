@@ -56,8 +56,17 @@ namespace TheWaningBorder.EditorTools
         ///
         /// The launcher lives outside game\ and an update never touches it, so
         /// there was no way to get a new one to a tester short of asking them
-        /// to download it by hand. Carrying it in the build costs ~150 KB and
-        /// removes that step entirely.
+        /// to download it by hand. Carrying it in the build removes that step
+        /// entirely. It is a self-contained single-file .NET publish, ~66 MB,
+        /// of which the zip keeps ~60 — the price of testers needing no
+        /// runtime installed.
+        ///
+        /// The carried copy is safe to run since 2026-09-23: the launcher's
+        /// install root is fixed (%LOCALAPPDATA%\Programs\Shardroot
+        /// Entertainment\The Waning Border), so running it from inside game\
+        /// no longer makes game\ a second install root. And a game started
+        /// from an install without the launcher hands over to it
+        /// (Bootstrap/LauncherGate.cs).
         /// </summary>
         private static void CarryLauncher(string buildRoot)
         {
