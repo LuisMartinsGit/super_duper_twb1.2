@@ -399,7 +399,27 @@ namespace TheWaningBorder.Multiplayer
             // tripping our own command through the SAME serializer every
             // remote uses makes all peers execute bit-identical data, for
             // every float field of every command type, forever.
-            var canonical = LockstepCommand.Deserialize(cmd.Serialize());
+            string wire = cmd.Serialize();
+
+            // The datagram is "TICK|player|tick|count|cmd|cmd|…" and the
+            // receiver does a bare Split('|') and takes COUNT pieces — there
+            // is no escaping. A '|' inside a string field (2026-09-22: the
+            // wall path was encoded "x|z") splits one command into two
+            // pieces, the tail fails to parse and is skipped, and the last
+            // real command of the tick falls past the count and is lost on
+            // every remote while the issuer runs it — a guaranteed fork that
+            // the round trip below cannot catch, because it only exercises
+            // the inner comma split. Refusing the command here is
+            // deterministic: nobody executes it, and the bug is loud.
+            if (wire.IndexOf('|') >= 0 || (cmd.BuildingId != null && cmd.BuildingId.IndexOf(',') >= 0))
+            {
+                UnityEngine.Debug.LogError(
+                    $"[Lockstep] Refused {cmd.Type} command: its payload contains a wire delimiter ('|' between commands, ',' between " +
+                    $"fields) and would corrupt the tick on every remote. Payload: \"{cmd.BuildingId}\"");
+                return;
+            }
+
+            var canonical = LockstepCommand.Deserialize(wire);
             if (canonical != null)
             {
                 canonical.PlayerIndex = cmd.PlayerIndex;
