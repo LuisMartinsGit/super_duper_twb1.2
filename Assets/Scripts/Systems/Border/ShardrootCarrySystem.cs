@@ -139,9 +139,14 @@ namespace TheWaningBorder.Systems.Economy
                     state.AttunementProgress = 0f;
                 }
 
-                // Find new attuner if none. First valid unit in the snapshot wins.
+                // Find new attuner if none. A HERO in range wins over the
+                // rank and file (2026-09-15): the player who walks King Lexor
+                // onto the artifact means him to carry it, and with an escort
+                // at his side the first unit in chunk order was a Swordsman.
+                // Otherwise the first valid unit in the snapshot.
                 if (state.Attuner == Entity.Null)
                 {
+                    int chosen = -1;
                     for (int i = 0; i < unitEnts.Length; i++)
                     {
                         if (unitHealths[i].Value <= 0) continue;
@@ -153,10 +158,15 @@ namespace TheWaningBorder.Systems.Economy
                             new float2(pickupPos.x, pickupPos.z));
                         if (dxz > ShardrootPickupRadius) continue;
 
-                        state.Attuner = unitEnts[i];
+                        bool hero = em.HasComponent<TheWaningBorder.Abilities.UniqueUnitTag>(unitEnts[i]);
+                        if (chosen < 0 || hero) chosen = i;
+                        if (hero) break;
+                    }
+                    if (chosen >= 0)
+                    {
+                        state.Attuner = unitEnts[chosen];
                         state.AttunementProgress = 0f;
-                        TWBLog.Log($"[Shardroot] {unitFactions[i].Value} unit begins attuning ({ShardrootAttunementTime:F0}s)");
-                        break;
+                        TWBLog.Log($"[Shardroot] {unitFactions[chosen].Value} unit begins attuning ({ShardrootAttunementTime:F0}s)");
                     }
                 }
 
@@ -306,6 +316,12 @@ namespace TheWaningBorder.Systems.Economy
                 .WithEntityAccess())
             {
                 if (health.ValueRO.Value > 0) continue;
+                // Not dead yet: DeathSystem applies Life Cling's HP floor
+                // AFTER this system runs, so a clinging king at 0 HP survives
+                // the tick. Dropping here made him lose the artifact and live
+                // (2026-09-15). The floor is what decides; mirror it.
+                if (em.HasComponent<TheWaningBorder.Abilities.LifeCling>(entity)
+                    && em.GetComponentData<TheWaningBorder.Abilities.LifeCling>(entity).Floor > 0) continue;
                 dropList.Add(entity);
                 dropPositions.Add(transform.ValueRO.Position);
                 dropAmounts.Add(carrier.ValueRO.Amount);
@@ -313,6 +329,17 @@ namespace TheWaningBorder.Systems.Economy
             }
             for (int i = 0; i < dropList.Length; i++)
             {
+                // The Shardbound King detonates first: everything around him
+                // is thrown skyward and killed on landing, buildings shatter
+                // (Curse_And_Shardroot.md 3.1). The artifact then drops as
+                // for any bearer.
+                if (em.HasComponent<TheWaningBorder.Entities.ShardboundKing>(dropList[i]))
+                {
+                    var kf = em.HasComponent<FactionTag>(dropList[i])
+                        ? em.GetComponentData<FactionTag>(dropList[i]).Value : Faction.Border;
+                    TheWaningBorder.Entities.ShardboundFury.Detonate(em, dropList[i], dropPositions[i], kf);
+                }
+
                 // The artifact — persistent, tagged, up for grabs again.
                 var dropped = ShardrootPickup.Create(em, dropPositions[i], dropSources[i], dropAmounts[i]);
                 em.AddComponent<ShardrootTag>(dropped);

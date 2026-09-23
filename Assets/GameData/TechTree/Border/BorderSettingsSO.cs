@@ -69,6 +69,65 @@ namespace TheWaningBorder.Data.Border
         /// </summary>
         [Min(0f)] public float wrathCoolSeconds = 180f;
 
+        // ── The Living Curse (Curse_And_Shardroot.md §2.11, 2026-09-13) ──
+        // Supersedes the Waking (§2.8) and the Wrath army rules (§2.10 1-3).
+        // When `livingCurse` is on: wells pump from tick 0, every curse
+        // territory keeps a garrison, intruders are chased, and the curse
+        // expands on a timer by MERGING units into a neighbour's veilstone
+        // or veilsteel node. Off = the previous provocation-driven model.
+
+        /// <summary>Master switch for §2.11. Off restores §2.8/§2.10 exactly.</summary>
+        public bool livingCurse = true;
+
+        /// <summary>BASE size of a territory's garrison army (2.13 rule 3):
+        /// the n-th spawn brings the garrison up to garrisonCap x
+        /// armyGrowth^n. Survivors count toward the size.</summary>
+        [Min(0)] public int garrisonCap = 8;
+
+        /// <summary>Seconds between whole-army spawns in one territory
+        /// (2.13 rule 1). Between spawns nothing regrows: defeat the army
+        /// and the territory is vulnerable until this timer fires.</summary>
+        [Min(10f)] public float armySpawnSeconds = 180f;
+
+        /// <summary>Compounding growth of the garrison army per spawn
+        /// (2.13 rule 3): 1.12 doubles the army roughly every six spawns.</summary>
+        [Min(1f)] public float armyGrowth = 1.12f;
+
+        /// <summary>Seconds between harassment-army dispatches (2.13 rule 4;
+        /// was "expansion attempts" in 2.11 rule 4 -- same timer).</summary>
+        [Min(10f)] public float expansionSeconds = 150f;
+
+        /// <summary>Chance, per spawn (garrison or harassment party), that
+        /// one unit of that spawn carries the Shardroot (2.13 rule 5).
+        /// Rolled only while the artifact is neither out nor claimed.</summary>
+        [Range(0f, 1f)] public float shardrootChance = 0.01f;
+
+        /// <summary>Seconds of uninterrupted merging for a node to turn.
+        /// Progress PAUSES while the merge party is out defending the node
+        /// and RESETS if the whole party dies.</summary>
+        [Min(5f)] public float mergeSeconds = 90f;
+
+        /// <summary>Units sent to merge with a node. Drawn from the tier
+        /// the match time has reached, so late merges are better guarded.</summary>
+        [Min(1)] public int mergePartySize = 6;
+
+        /// <summary>A hostile inside this radius of a merging node summons
+        /// the party out to defend it (§2.11 rule 4).</summary>
+        [Min(1f)] public float mergeDefendRadius = 30f;
+
+        /// <summary>Seconds a defender may spend outside its home territory
+        /// with nothing to fight before it walks home (§2.11 rule 3).</summary>
+        [Min(1f)] public float leashSeconds = 25f;
+
+        /// <summary>Seconds a raid on a node-less territory lasts before the
+        /// raiders walk home and rejoin the garrison.</summary>
+        [Min(10f)] public float raidSeconds = 60f;
+
+        /// <summary>Which army tier the garrisons and merge parties draw from
+        /// at a given match minute: tier index = minute / this. Clamped to
+        /// the ladder. Replaces wrath as the composition dial.</summary>
+        [Min(1f)] public float minutesPerTier = 8f;
+
         [Min(0.5f)] public float decisionInterval = 5f;
         [Min(0.5f)] public float replenishInterval = 4f;
 
@@ -250,6 +309,18 @@ namespace TheWaningBorder.Data.Border
             useWaveSchedule = true;
             firstWaveDelaySeconds = 150f;
             wrathCoolSeconds = 180f;
+            livingCurse = true;
+            garrisonCap = 8;
+            armySpawnSeconds = 180f;
+            armyGrowth = 1.12f;
+            expansionSeconds = 150f;
+            shardrootChance = 0.01f;
+            mergeSeconds = 90f;
+            mergePartySize = 6;
+            mergeDefendRadius = 30f;
+            leashSeconds = 25f;
+            raidSeconds = 60f;
+            minutesPerTier = 8f;
             tiers = BuildDefaultTiers();
             waves = BuildDefaultWaves();
         }

@@ -138,30 +138,10 @@ namespace TheWaningBorder.Systems.Border
                     killerCulture,
                     killer);
 
-                // VEILSTONE LOOT BURST (2026-08-04): the collapsing crust
-                // precipitates its substance — a ring of mineable residue
-                // around the dead well, claimable by whoever holds the
-                // ground while the crust violently recedes
-                // (DestroyedDecayPerTick). Deterministic scatter from the
-                // node's entity index.
-                {
-                    var lootRng = new Unity.Mathematics.Random(
-                        (uint)(node.Index * 2654435761u + 97) | 1u);
-                    const int LootNodes = 8;
-                    const int LootPerNode = 50;
-                    const float LootRadius = 18f;
-                    float3 wellPos = dyingPositions[i];
-                    for (int n = 0; n < LootNodes; n++)
-                    {
-                        float angle = lootRng.NextFloat(0f, math.PI * 2f);
-                        float dist = lootRng.NextFloat(4f, LootRadius);
-                        float x = wellPos.x + math.cos(angle) * dist;
-                        float z = wellPos.z + math.sin(angle) * dist;
-                        float y = TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(x, z);
-                        TheWaningBorder.Entities.VeilstoneOutcropping.CreateOrMerge(
-                            EntityManager, new float3(x, y, z), LootPerNode);
-                    }
-                }
+                // No veilstone loot ring (design decision 2026-09-11): killing
+                // a blight source spawns no nodes. The 8x50 burst that used to
+                // scatter here is gone, and VeilFieldSystem.Precipitation pays
+                // no residue for crust receding under a Destroyed well either.
 
                 if (hasVictoryState)
                 {

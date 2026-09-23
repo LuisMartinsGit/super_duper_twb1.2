@@ -81,6 +81,7 @@ namespace TheWaningBorder.Abilities
         DeployFieldHospital = 15, // spawn a temporary healing building at the caster (Litharch)
         SummonPledgeArmy = 16,  // spawn a temporary army around the caster, scaled by hero level (Honour thy Pledge)
         FireRatePct = 17,       // +Value% fire rate for allied RANGED units in radius (Choreographed Volleys: 100 = double)
+        ShardboundFury = 18,    // the Shardbound King hurls every enemy in radius skyward, damages buildings (ShardboundFury.Cast)
     }
 
     /// <summary>

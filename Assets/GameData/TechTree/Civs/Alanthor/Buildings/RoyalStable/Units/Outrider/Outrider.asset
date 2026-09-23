@@ -29,7 +29,7 @@ MonoBehaviour:
   attackCooldown: 1.4
   attackRange: 1.6
   minAttackRange: 0
-  lineOfSight: 22
+  lineOfSight: 34
   radius: 0.55
   cost:
     Supplies: 0

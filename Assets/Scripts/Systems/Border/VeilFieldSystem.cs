@@ -1,4 +1,4 @@
-// VeilFieldSystem.cs
+﻿// VeilFieldSystem.cs
 // THE VEIL — simulation + presentation of the curse as a continuous sheet
 // (Curse & Shardroot canon §2.3). Owns the VeilField saturation grid:
 //
@@ -78,6 +78,22 @@ namespace TheWaningBorder.Systems.Border
         // ── Tendril heartbeat state (deterministic: seeded RNG + fixed dt) ──
         private float _cyclePhaseTime;   // seconds elapsed in the current cycle
         private float _dormantDuration;  // this cycle's random "still" time
+
+        /// <summary>
+        /// The four pieces of per-tick state this system carries between
+        /// ticks, for the lockstep checksum. The RNG stream and the three
+        /// accumulators decide WHEN the veil pulses, grows and swallows; a
+        /// peer whose stream or phase has drifted produces an identical world
+        /// for a while and then a different one, with nothing observable at
+        /// the moment it forks. Exactly the shape of the 0.0.15 desync, whose
+        /// cause was a periodic accumulator's phase carried in from before
+        /// the match. Hashed, they fork the checksum on the tick it happens.
+        /// </summary>
+        public uint RngState => _rng;
+        public float CyclePhase => _cyclePhaseTime;
+        public float DormantDuration => _dormantDuration;
+        public float MaintAcc => _maintAcc;
+        public float SwallowAcc => _swallowAcc;
         private float _substepAcc;       // burst-substep accumulator
         private int _cycleSeed;          // reseeds tendril-site noise per cycle
         private EntityQuery _wellQuery;  // cached — was created per CA substep (query leak)

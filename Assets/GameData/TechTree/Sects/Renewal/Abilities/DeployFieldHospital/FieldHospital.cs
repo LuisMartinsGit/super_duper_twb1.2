@@ -9,6 +9,7 @@
 // UnderConstruction phase, because a field hospital that takes 30 s to raise
 // would be useless in the fight it was cast for.
 
+using TheWaningBorder.Core.Multiplayer;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -41,6 +42,22 @@ namespace TheWaningBorder.Entities
             em.AddComponentData(e, new LineOfSight { Radius = Sight });
             em.AddComponentData(e, new ArmorTypeData { Value = ArmorType.StructureHuman });
             em.AddComponentData(e, new Defense { Melee = 0, Ranged = 1, Siege = 0, Magic = 2 });
+
+            // Conjured by an ability, so it never passes BuildingFactory.Create
+            // and used to ship without a NetworkedEntity: under lockstep every
+            // order aimed at it (the AI's repair loop, every ~30 s) was dropped
+            // by the CommandRouter guard (Hollow Table 16-23-16, 2026-09-13).
+            // The cast is a replicated command, so this runs in the same order
+            // on every peer and the id it draws is the same everywhere.
+            em.AddComponentData(e, new NetworkedEntity
+            {
+                NetworkId = NetworkIdGenerator.GetNextId(),
+                SpawnTick = NetworkIdGenerator.CurrentTick
+            });
+            em.AddComponentData(e, new DisplayName
+            {
+                Value = TheWaningBorder.Core.DisplayNames.ForBuildingFixed("FieldHospital")
+            });
 
             return e;
         }

@@ -104,6 +104,13 @@ namespace TheWaningBorder.Systems.Border
         private double _matchElapsed;
         private Unity.Mathematics.Random _rng;
 
+        /// <summary>Wave RNG + the match clock that gates every wave, for the
+        /// lockstep checksum. Same reasoning as BloodCurseSpawnSystem.RngState:
+        /// one extra draw on one peer and every later wave differs, long after
+        /// the fork.</summary>
+        public uint RngState => _rng.state;
+        public double MatchElapsed => _matchElapsed;
+
         /// <summary>Territory -> the destroyable anchor claiming it. Wells are
         /// tracked separately (their territories are held for the well's
         /// lifetime, and wells only fall to the Feraldis verb).</summary>
@@ -185,6 +192,7 @@ namespace TheWaningBorder.Systems.Border
                 _nextConquerAt = -1.0;
                 _timer = 0f;
                 _matchElapsed = 0.0;
+                ResetLiving();
             }
             CurseWrath.ResetIfNewMatch(SimCadence.Epoch);
 
@@ -222,6 +230,23 @@ namespace TheWaningBorder.Systems.Border
             CurseWrath.Cool(now, borderSettings != null ? borderSettings.wrathCoolSeconds : 0f);
 
             SyncHoldings(em);
+
+            // THE LIVING CURSE (§2.11, 2026-09-13): active from tick 0,
+            // garrisoned, expanding by merge. The provocation model below is
+            // kept intact behind the switch.
+            if (borderSettings != null && borderSettings.livingCurse)
+            {
+                if (_nextExpandAt < 0.0)
+                    _nextExpandAt = now + borderSettings.expansionSeconds;
+                TickGarrisons(em, now, borderSettings);
+                if (now >= _nextExpandAt)
+                {
+                    TryExpand(em, now, borderSettings);
+                    _nextExpandAt = now + borderSettings.expansionSeconds;
+                }
+                ShepherdLiving(em, now, borderSettings);
+                return;
+            }
 
             // An unprovoked curse does not expand. This is the whole of "take
             // what is free while it sits still": until a faction reaches in,
@@ -575,8 +600,14 @@ namespace TheWaningBorder.Systems.Border
             for (int i = 0; i < _scratchHeld.Count; i++)
             {
                 int t = _scratchHeld[i];
-                if (t < 0 || t >= veilstoneCounts.Length || veilstoneCounts[t] <= 0)
-                    continue;   // waves come from veilstone ground only
+                if (t < 0 || t >= veilstoneCounts.Length) continue;
+                // Waves come from veilstone ground only — and a well IS the
+                // veilstone ground of its territory whether or not an
+                // outcropping was authored beside it. Hollow Table's single
+                // well stands in a territory with no outcropping at all, so
+                // this test silenced the one front the map has (2026-09-11).
+                if (veilstoneCounts[t] <= 0 && !_awakeWellTerritories.Contains(t))
+                    continue;
 
                 // A dormant well's territory fields nothing (§2.8 applied to
                 // this layer at last). Checked BEFORE the wave clock is
@@ -605,6 +636,8 @@ namespace TheWaningBorder.Systems.Border
                 int spawned = SpawnWave(em, tier, origin, target,
                                         MaxLiveWaveUnits - liveWaveUnits);
                 liveWaveUnits += spawned;
+                // The provocation has been answered; wrath may cool from here.
+                if (spawned > 0) CurseWrath.MarkAnswered(wrathTarget, now);
                 _nextWaveAt[t] = now + breather;
 
                 SimSignals.Ping(origin, SimPingKind.Curse, 10f);

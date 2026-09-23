@@ -24,7 +24,9 @@ MonoBehaviour:
     magic: 5
   radius: 1.6
   lineOfSight: 26
-  trains: []
+  trains:
+  - Worker
+  - Scout
   research:
   - 'IronTools'
   - 'VeilstoneTools'

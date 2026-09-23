@@ -118,7 +118,7 @@ A well is always in exactly one state:
 | State | Applied by | While active | Ends |
 |---|---|---|---|
 | **Wild** | — (default) | Spreads blight, matures (**no spawns/guards** — §2.5) | When a verb lands |
-| **Destroyed** | Feraldis (army kills it) | Well is GONE; its crust **COLLAPSES violently (~25 s, 2026-08-04)** and the death **bursts a veilstone loot ring** around the well (8 nodes) — the loot field made literal, claimable by whoever holds the ground; untouchable by anyone | Respawns Wild after the hold timer — and every regrowth is harder than the last (escalation) |
+| **Destroyed** | Feraldis (army kills it) | Well is GONE; its crust **COLLAPSES violently (~25 s, 2026-08-04)**. **The death pays no veilstone (2026-09-11):** no loot ring, and the collapsing crust precipitates nothing — killing a blight source is never a mining act; untouchable by anyone | Respawns Wild after the hold timer — and every regrowth is harder than the last (escalation) |
 | **Pacified** | Runai (Acolyte ritual + **Tether** structure) | Veilstone trickle to the owner; no spreading | Reverts Wild on expiry, or when the Tether is razed |
 | **Purified** | Alanthor (Scholar ritual → **Sanctified Font**) | Veilstone generation + influence projection (build space) + sect-power discounts nearby | Reverts Wild on expiry, or when the Font is razed |
 
@@ -235,10 +235,10 @@ other.
   point. Pacified wells persist as infrastructure.
 - **Feraldis — devour it.** They do **not** walk the crust (nobody does):
   they **destroy and loot** it. Fastest, most violent diggers — they punch
-  raid-corridors through the wall where enemies expect no threat — and
-  destroying wells leaves the slow-decay loot field that is their burst
-  income. "Negating the curse" = clearing and profiting from it, never
-  traversing it.
+  raid-corridors through the wall where enemies expect no threat. Their
+  profit is the GROUND a destroyed well frees, not a loot field: since
+  2026-09-11 destroying a well pays no veilstone. "Negating the curse" =
+  clearing it and building on what it held, never traversing it.
 
 **Pathfinding & AI.** Crust stamps **impassable** into the nav cost field;
 armies and caravans **path around it for free** (the flow-field stack
@@ -312,8 +312,9 @@ impassable nav stamp.
    deliberately tough — a real military investment to kill, not a
    starting-army snack) that immediately spreads haze over the whole
    patch, **invalidating it** (exposure taxes any further mining there).
-   Your choices: kill it (collapse + residue payout reclaims the patch),
-   starve it under hearth/ward/influence suppression (slower), or abandon
+   Your choices: kill it (collapse reclaims the patch — **no residue
+   payout since 2026-09-11**), starve it under hearth/ward/influence
+   suppression (slower), or abandon
    the patch and find a safer one. **Nodes on suppressed ground never
    corrupt at all** (2026-08-03): the universal curse-immunity rule
    (§2.6 — "the curse can never expand into your influence") applies to
@@ -363,11 +364,17 @@ only exist where the curse touched ground:
 
 | Tier | Source | Risk |
 |---|---|---|
-| **Corruption residue** | Killing a corrupted node's curse growth | Earned — military investment (Age 0 backbone) |
-| **Recede residue** | Any crusted cell reclaimed (suppression, verbs) leaves occasional small nodes on clean ground | Safe — behind your own front |
+| **Recede residue** | A crusted cell reclaimed by suppression or a verb leaves occasional small nodes on clean ground. **Never from a kill (2026-09-11):** crust collapsing under a destroyed well or a broken pocket pays nothing | Safe — behind your own front |
 | **Frontier eruptions** | The advancing front occasionally erupts nodes in the haze, richer with depth | Opt-in exposure tax (greed tier) |
-| **Well loot fields** | A Destroyed well's slow-decay crust = dense residue | Contested, undefended (Feraldis burst income) |
 | **Held wells** | Pacified / Cleansed trickle income | Top of the ladder — verb game |
+
+> **Retired 2026-09-11 — killing a blight source spawns no veilstone.** The
+> *corruption residue* tier (5 x 40 nodes scattered when a pocket's anchor
+> died) and the *well loot field* (8 x 50 nodes burst around a dead well, plus
+> the dense residue its collapsing crust used to precipitate) are gone. A kill
+> reclaims ground; it does not mine it. Veilstone still comes only from the
+> curse — through the ground you reclaim, the front you dare, and the wells you
+> hold.
 
 Throughput is capped by node count and spacing, not worker count —
 miner spam buys nothing. Curse-independent free deposits (the morning's
@@ -736,7 +743,10 @@ aimed at *you*, and scales with how far you reached.
 **1. A dormant well fields nothing.** A curse territory whose well is still
 dormant neither conquers nor spawns waves. This is §2.8 applied to the
 territorial layer, which is where it should always have applied. The curse
-holds its starting ground and sits there.
+holds its starting ground and sits there. **Once awake, the well's own
+territory always fields** (2026-09-11): a well *is* the veilstone ground of
+its territory, whether or not an outcropping was authored beside it — Hollow
+Table's single well stands alone on the Table and must still be able to answer.
 
 **2. Provocation is per-faction, and is an act of reaching in.** Three things
 raise the acting faction's **wrath**:
@@ -758,6 +768,15 @@ Two things deliberately do **not** count:
 **3. Wrath sets the tier, and wrath cools.** The wave tier is the provoking
 faction's wrath level, replacing the wall clock. Wrath decays one step per
 cooling period in which that faction commits no fresh provocation.
+
+**A provocation is not forgotten before it has been answered (2026-09-11).**
+The first wave a territory fields waits out the opening grace
+(`firstWaveDelaySeconds`, 150 s, plus up to 80 s of per-territory stagger),
+which is longer than the cooling period (`wrathCoolSeconds`, 180 s) — so a
+single waking cooled back to nothing before the wave it had earned was ever
+due, and a one-well map produced one conquest and no wave at all. Wrath now
+holds until a wave has marched on the provoking faction, and the cooling
+period is counted from that answer. One reach earns at least one answer.
 
 This is the "back off" valve, and it is deliberately split from §2.8's
 permanence rule so both survive intact:
@@ -787,6 +806,136 @@ Waking to be.
 still in trouble the moment it takes a well; the punishment becomes expensive
 rather than unsurvivable, but the ritualist ladder is a separate balance item
 (§9).
+
+### 2.11 The Living Curse — active from the start, defended ground, node takeover (2026-09-13, CURRENT)
+
+**This section supersedes §2.8 (the Waking) and the army half of §2.10 (the
+Wrath).** Both were written when the AI could not survive an unprovoked curse:
+across three logged matches the curse fought everyone and the players never
+reached each other. The AI now snowballs, wins matches and eliminates rivals
+(Game_AI.md 6c), so the curse can be a live opponent from the first minute.
+Terrain rules (§2.5b), wells as verb objectives, victory by domination and
+the influence interaction (§2.6) are unchanged.
+
+**1. The curse is active from match start.** Wells pump from tick 0. There is
+no dormant phase and no waking trigger; the early game has a curse in it.
+
+**2. Every curse territory garrisons itself.** Each curse-held territory
+fields its garrison as ONE ARMY, spawned all at once on a cadence (2.13
+supersedes the trickle this rule shipped with). These are DEFENDERS, not
+waves: they stay inside the territory they spawned in.
+
+**3. Intrusion is answered, and pursued.** Any hostile unit entering a curse
+territory is attacked by its garrison. Defenders CHASE: they pursue until they
+have no target, and a defender that finds itself outside its home territory
+returns after a leash period with nothing to fight. Retaliation is not a
+warning shot -- an intruder is attacked until it or the defenders are dead.
+
+**4. The curse expands on a timer, and expansion is done by units.** On each
+expansion period the curse picks an adjacent player- or neutral-held
+territory. Wells (verb nodes) and ordinary node territories are both eligible.
+
+   - **A territory with veilstone or veilsteel nodes is taken by MERGING.**
+     Curse units march to a node and merge into it, filling a progress bar
+     over time. While merging, the units are a GARRISON inside the node: a
+     hostile unit approaching the node summons them out to defend it and
+     PAUSES the progress. Kill the garrison and the takeover stops. Let the
+     bar fill and the node turns to the curse -- and with it, the territory.
+   - **A territory with no such node is IMMUNE to takeover** but not to
+     harm: it is subject to attack waves of curse units, which raid it and
+     return.
+
+**5. The counter is military.** Under §2.10 the way to halt spread was to hold
+influence over the ground. Under this section the merge is stopped by killing
+the garrison; influence still governs where crust may grow (§2.6) but does not
+by itself prevent a node from being taken. This is deliberate: the curse is an
+opponent to be fought, not weather to be zoned out.
+
+**Why this is a reversal, and why now.** §2.8 and §2.10 made the curse opt-in
+because an always-on curse used to end matches in a three-way stalemate. That
+was a symptom of an AI that could not raise an army, not of the curse being
+too strong. With armies of 100+ and matches that resolve, the always-on curse
+is the experiment worth re-running -- and if the old stalemate returns, the
+first suspect is the garrison cap and the expansion period, not the model.
+
+**Superseded by this section:** §2.8 (dormancy, per-well waking, "respawns
+wake nothing"), §2.10 rules 1-3 (dormant wells field nothing, wrath tiers,
+wrath cooling). §2.10 rule 4 (waves aim at the highest-wrath faction) is
+replaced by rule 3 above: the target is whoever is standing on curse ground.
+
+### 2.12 What the AI owes the rite (2026-09-13)
+
+**Observed, Hollow Table 1v1, 2026-09-13:** the Alanthor AI dispatched a
+Scholar with three escorts against a well garrisoned by eight curse units
+**51 times** in one match. Every rite broke, every break armed a Backlash
+(§2.9), and the thirteen Backlashes it provoked put roughly 650 extra curse
+creatures on a two-player map. Both bases were razed by waves the AI had
+summoned itself; 776 of the 844 units the curse killed died at the well.
+No node was ever taken. The rules below make a rite the commitment §2.9
+says it is.
+
+1. **A rite starts only at a clear well.** Before the ritualist moves, the
+   AI counts curse units within `wellDefenceRadius` of the well. If there
+   are any, no ritualist goes. Instead the AI **assaults** the well with a
+   force of `assaultOdds` times the defenders (never fewer than
+   `assaultMinUnits`), and only once that many idle soldiers exist —
+   otherwise it holds and logs what it is short. The rite follows on a
+   later think, once the ground is clear.
+2. **Never unescorted, never short.** The ritualist is dispatched only when
+   the full escort is idle and available. The Feraldis fallback that sent a
+   Corruptor alone after a patience timer ("an unescorted try beats never
+   trying") is retired: since the Backlash a failed rite costs 150 curse
+   creatures, so an unescorted try is worse than not trying.
+3. **A failed rite is remembered.** A well carrying `RitualBacklash` is
+   off-limits while it erupts, and a well whose Backlash THIS faction
+   provoked stays off-limits for `riteRetrySeconds` afterwards. The AI
+   never re-arms a Backlash it is still fighting.
+
+The numbers live in `AIEndgameCommon.asset` (`wellDefenceRadius`,
+`assaultOdds`, `assaultMinUnits`, `riteRetrySeconds`) and apply to both
+cultures' verb systems.
+
+### 2.13 The curse army — one spawn, one window, one growing number (2026-09-13, CURRENT)
+
+**Supersedes the garrison cadence of 2.11 rule 2** (one unit every
+`garrisonSpawnSeconds` up to `garrisonCap`, which made a well defended at
+every instant and a rite a coin flip -- see 2.12).
+
+1. **The garrison is spawned whole.** Every `armySpawnSeconds` each
+   curse-held territory brings its garrison up to the army size in ONE
+   spawn at its anchor (the well for the curse's own ground). Survivors
+   count toward the size; nothing regrows between spawns.
+2. **Defeat the army and the territory is vulnerable** until the next
+   spawn. That window is the only time a well can be verbed or a taken
+   territory's anchor broken without fighting the garrison -- it is a
+   state the world reaches, not one you have to hold by force.
+3. **The army grows: size = `garrisonCap` x `armyGrowth`^n**, n = spawns
+   this territory has made, compounding (`armyGrowth` = 1.12: 8 -> 9 ->
+   10 -> 11 -> 13 -> 14 -> 16 -> 18 -> 20 at the ninth spawn, 25 by the
+   eleventh, 56 by the eighteenth). Tier composition (`minutesPerTier`)
+   still decides what it is made of.
+4. **The harassment army is a second, separate force.** Every
+   `expansionSeconds` the curse dispatches a party of `mergePartySize`
+   from a held territory at an adjacent one it does not hold. It is a
+   HINDRANCE, not a conquering force: in a territory it cannot take it
+   goes for the player's RESOURCE buildings first (mines, veilstone
+   mines, gatherer's huts), then any building, and walks home after
+   `raidSeconds`; in a Hall-less territory with a veilstone or veilsteel
+   node it is the merge party of 2.11 rule 5 and converts the territory.
+   The home garrison never leaves.
+5. **The Shardroot rides out with the curse.** On every spawn (garrison or
+   harassment party) there is a `shardrootChance` (1%) roll that ONE unit
+   of that spawn carries the Shardroot. Once it is out, the wells no
+   longer hold it -- the "first verb on the host well claims it" path of
+   section 3 is closed, and the section 3 backstop does not fire. The
+   bearer is an ordinary curse unit under the section 3.1 carry rules:
+   visible to every player on the minimap, drops the artifact in place
+   when killed, never teleports. Exactly one Shardroot exists per match:
+   no roll once it is out or already claimed through a well.
+
+Numbers live in `BorderSettings.asset`: `armySpawnSeconds`, `armyGrowth`,
+`garrisonCap` (the base size), `expansionSeconds`, `mergePartySize`,
+`raidSeconds`, `shardrootChance`.
 
 ## 3. The Shardroot
 
@@ -818,6 +967,26 @@ Shardroot is guaranteed to surface; backstop: if the host well reaches
 - **Volatile**: the holder — hero or Temple — **detonates on death /
   destruction**: a massive veilstone explosion damaging *everyone* in
   range (attacker included); the Shardroot drops intact from the crater.
+- **The Shardbound King (Alanthor, 2026-09-15).** For Alanthor the
+  Shardbound Hero is not a new body: it is **King Lexor carrying the
+  artifact**. The moment he bears it he is empowered, and the moment he
+  loses it (drops it, hands it to the Temple) the power leaves him:
+  - **Cleaving blows** — every strike of his also hits every enemy within
+    `CleaveRadius` of the target for `CleaveFraction` of the damage.
+  - **Shardbound Fury** (active, long cooldown `FuryCooldown`) — every
+    enemy within a **large** radius around him is hurled **4-10 m into
+    the air** (higher the nearer to him) and thrown down, taking
+    `FurySlamDamage` on landing; enemy **buildings** in the radius take
+    `FuryBuildingDamage`. Launched units cannot move, attack or be
+    ordered while airborne.
+  - **Death detonation** — if he is killed while bearing it, everything
+    within `DetonationRadius` is launched skyward and killed on landing,
+    friend and foe alike, and buildings in the radius take
+    `DetonationBuildingDamage`. The artifact drops in the crater.
+  - The **Hall choice** for Alanthor therefore routes the artifact to the
+    king: a courier reaching the Hall hands it to a living King Lexor;
+    only if he is dead does the Hall awaken the placeholder champion.
+  The numbers live in `ShardboundFury.cs` beside the ability.
 - **The curse wants it back**: Border aggression **prioritizes the
   holder** — the anti-snowball valve.
 - The Shardroot **does not win the game by itself** — it is the power

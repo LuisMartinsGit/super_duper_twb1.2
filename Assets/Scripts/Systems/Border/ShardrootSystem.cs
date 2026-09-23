@@ -293,6 +293,28 @@ namespace TheWaningBorder.Systems.Border
             em.SetComponentData(pickup, ps);
         }
 
+        static readonly ComponentType[] QT_UniqueUnitTagFactionTagHealth =
+        {
+            ComponentType.ReadOnly<TheWaningBorder.Abilities.UniqueUnitTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<Health>(),
+        };
+        static CachedEntityQuery QC_UniqueUnitTagFactionTagHealth;
+
+        private static Entity FindLivingKing(EntityManager em, Faction faction)
+        {
+            var q = QC_UniqueUnitTagFactionTagHealth.Get(em, QT_UniqueUnitTagFactionTagHealth);
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var tags = q.ToComponentDataArray<TheWaningBorder.Abilities.UniqueUnitTag>(Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var hps = q.ToComponentDataArray<Health>(Allocator.Temp);
+            for (int i = 0; i < ents.Length; i++)
+                if (facs[i].Value == faction && hps[i].Value > 0
+                    && tags[i].Kind == TheWaningBorder.Abilities.UniqueUnitKind.KingLexor)
+                    return ents[i];
+            return Entity.Null;
+        }
+
         private static bool TryFindOwnHall(EntityManager em, Faction faction,
             float3 pos, float radius, out Entity hall)
         {
@@ -322,6 +344,35 @@ namespace TheWaningBorder.Systems.Border
             float3 pos, Faction faction)
         {
             byte culture = FactionColors.GetFactionCulture(faction);
+
+            // Alanthor's Shardbound Hero IS King Lexor bearing the artifact
+            // (Curse_And_Shardroot.md 3.1, "The Shardbound King"). A courier
+            // reaching the Hall hands it to the living king; if the courier
+            // is the king himself there is nothing to hand over -- he is
+            // marked the hero and keeps walking. Only a faction with no
+            // living king falls through to the placeholder champion.
+            if (culture == Cultures.Alanthor)
+            {
+                Entity king = FindLivingKing(em, faction);
+                if (king != Entity.Null)
+                {
+                    if (king != courier)
+                    {
+                        em.AddComponent<ShardrootTag>(king);
+                        if (em.HasComponent<ShardrootBearer>(courier))
+                            em.AddComponentData(king, em.GetComponentData<ShardrootBearer>(courier));
+                        else
+                            em.AddComponentData(king, new ShardrootBearer
+                                { Amount = ShardrootState.ShardrootPower, Source = RitualKind.Purification });
+                        if (em.HasComponent<ShardrootTag>(courier)) em.RemoveComponent<ShardrootTag>(courier);
+                        if (em.HasComponent<ShardrootBearer>(courier)) em.RemoveComponent<ShardrootBearer>(courier);
+                    }
+                    em.AddComponent<ShardboundHeroTag>(king);
+                    SimSignals.Notify(string.Format(Loc.T("{0}'s King Lexor takes up the SHARDROOT!"), faction));
+                    TWBLog.Log($"[Shardroot] {faction}: the Hall hands the artifact to King Lexor");
+                    return;
+                }
+            }
             // Culture-flavored base body; stats overridden below. Cultures
             // without a bespoke age-2 unit fall back to the Swordsman body.
             string heroId = culture == Cultures.Alanthor ? "Alanthor_Cataphract" : "Swordsman";

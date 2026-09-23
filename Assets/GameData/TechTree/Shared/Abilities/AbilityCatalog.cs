@@ -179,6 +179,21 @@ namespace TheWaningBorder.Abilities
                 },
                 Aftermath = null,
             },
+            // 15 -- Shardbound Fury (King Lexor while he bears the Shardroot;
+            // granted and withdrawn by ShardboundKingSystem, never authored on
+            // the unit). Every enemy in the radius is hurled 4-10 m into the
+            // air and slammed down; enemy buildings in it take heavy damage.
+            // Numbers live in ShardboundFury.cs. Curse_And_Shardroot.md 3.1.
+            new AbilityCard {
+                Name = TheWaningBorder.Entities.ShardboundFury.AbilityName, Activation = AbilityActivation.Active,
+                Targeting = AbilityTargeting.Area, Affects = AbilityAffects.Enemies,
+                CastTime = 0f, Duration = 0f, Cooldown = TheWaningBorder.Entities.ShardboundFury.FuryCooldown,
+                Radius = TheWaningBorder.Entities.ShardboundFury.FuryRadius, Range = 0f,
+                Effects = new[] {
+                    new AbilityEffect(AbilityEffectKind.ShardboundFury, 1f),
+                },
+                Aftermath = null,
+            },
         };
 
         private static AbilityCard[] _resolved;

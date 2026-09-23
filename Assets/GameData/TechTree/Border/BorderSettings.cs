@@ -1,4 +1,4 @@
-// BorderSettings.cs
+﻿// BorderSettings.cs
 // Static runtime accessor for the border ARMY settings — mirrors TechCatalog.
 // Lazily loads Resources/BorderSettings.asset on first use and serves it to the
 // border AI / movement systems. If the asset is missing it falls back to a
@@ -23,6 +23,13 @@ namespace TheWaningBorder.Data.Border
         /// The active border settings. Never null: loads Resources/BorderSettings,
         /// or builds a defaults-seeded fallback instance the first time it can't.
         /// </summary>
+        /// <summary>§2.11 master switch, safe before the asset is loaded
+        /// (a missing asset means the shipped default, which is ON).</summary>
+        public static bool LivingCurse
+        {
+            get { var s = Get(); return s == null || s.livingCurse; }
+        }
+
         public static BorderSettingsSO Get()
         {
             if (_so != null) return _so;

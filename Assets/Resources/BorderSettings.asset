@@ -97,6 +97,18 @@ MonoBehaviour:
     tier: 8
     breatherSeconds: 180
   firstWaveDelaySeconds: 150
+  livingCurse: 1
+  garrisonCap: 8
+  armySpawnSeconds: 180
+  armyGrowth: 1.12
+  expansionSeconds: 150
+  shardrootChance: 0.01
+  mergeSeconds: 90
+  mergePartySize: 6
+  mergeDefendRadius: 30
+  leashSeconds: 25
+  raidSeconds: 60
+  minutesPerTier: 8
   decisionInterval: 5
   replenishInterval: 4
   crystallingTrainTime: 8

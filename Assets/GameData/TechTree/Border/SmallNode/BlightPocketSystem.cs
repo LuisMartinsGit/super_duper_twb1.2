@@ -36,14 +36,12 @@ namespace TheWaningBorder.Systems.Border
         private const float TickInterval = 1f;
 
         private SimCadence.Periodic _acc;
-        private Unity.Mathematics.Random _rng;
         private EntityQuery _hallQuery;
         private int _epoch = -1;
 
         protected override void OnCreate()
         {
             RequireForUpdate<BlightPocket>();
-            _rng = new Unity.Mathematics.Random((uint)(GameSettings.SpawnSeed ^ 0x51073) | 1u);
             _hallQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<HallTag, LocalTransform>()
                 .WithNone<UnderConstruction>()
@@ -65,7 +63,6 @@ namespace TheWaningBorder.Systems.Border
                 // That distinction is the whole bug: this epoch is bumped
                 // BEFORE the sim stops running per-frame, so a reset here is
                 // followed by more machine-dependent accumulation.
-                _rng = new Unity.Mathematics.Random((uint)(GameSettings.SpawnSeed ^ 0x51073) | 1u);
             }
 
             if (!_acc.Due(SystemAPI.Time.DeltaTime, TickInterval)) return;
@@ -205,7 +202,11 @@ namespace TheWaningBorder.Systems.Border
         }
 
         /// <summary>The pocket shatters: break the field over it (instant
-        /// clear + regrow cooldown) and scatter the residue payout.</summary>
+        /// clear + regrow cooldown). Killing a blight source spawns NO
+        /// veilstone (design decision 2026-09-11, Curse_And_Shardroot.md
+        /// §2.5b) — the 5x40 residue scatter that used to follow is gone,
+        /// and the break stamps the cooldown that keeps the receding crust
+        /// from paying precipitation residue either.</summary>
         private void Collapse(EntityManager em, in BlightPocket pocket, bool hasField)
         {
             if (hasField && SystemAPI.HasSingleton<VeilField>())
@@ -217,18 +218,7 @@ namespace TheWaningBorder.Systems.Border
                     Radius = pocket.Radius + 2f, // clear slightly past the rim
                 });
             }
-
-            for (int n = 0; n < PocketResidueNodes; n++)
-            {
-                float angle = _rng.NextFloat(0f, math.PI * 2f);
-                float dist = _rng.NextFloat(1.5f, pocket.Radius * 0.8f);
-                float x = pocket.Center.x + math.cos(angle) * dist;
-                float z = pocket.Center.y + math.sin(angle) * dist;
-                float y = TerrainUtility.GetHeight(x, z);
-                VeilstoneOutcropping.CreateOrMerge(em, new float3(x, y, z), PocketResiduePerNode);
-            }
-            TWBLog.Log($"[BlightPocket] pocket at {pocket.Center} collapsed — " +
-                       $"{PocketResidueNodes}x{PocketResiduePerNode} residue veilstone.");
+            TWBLog.Log($"[BlightPocket] pocket at {pocket.Center} collapsed — field broken.");
         }
     }
 }

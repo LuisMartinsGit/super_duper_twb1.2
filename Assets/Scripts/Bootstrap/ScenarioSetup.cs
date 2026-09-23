@@ -107,7 +107,18 @@ namespace TheWaningBorder.Bootstrap
             GameSettings.LocalPlayerFaction = Faction.Blue;
             GameSettings.FogOfWarEnabled = false;
             GameSettings.IsObserver = fourPlayer;
+
+            // The Shardroot trial needs a field, not the 100 m stage the
+            // template ships: two armies 160 m apart plus the Hall/Temple
+            // behind the king. Grown HERE, before the nav grid bakes on the
+            // first sim update -- growing it at spawn time (as the building
+            // showcase does) would leave units on an unbaked outer ring.
+            if (GameSettings.ActiveScenario == ScenarioType.ShardrootTrial)
+                EnsureShowcaseTerrain(ShardrootTrialFieldSize);
         }
+
+        /// <summary>Side of the Shardroot trial's square field, metres.</summary>
+        private const float ShardrootTrialFieldSize = 360f;
 
         /// <summary>
         /// Place the scenario's predefined entities. Called by GameBootstrap
@@ -126,6 +137,14 @@ namespace TheWaningBorder.Bootstrap
                 return;
             }
             var em = world.EntityManager;
+
+            // Scenarios skip GameBootstrap.InitializeFactions, which is where a
+            // skirmish gets its faction banks — so until 2026-09-18 a scenario
+            // world had NO bank entity and every FactionEconomy.Spend refused:
+            // the Wall Drawing scenario could not raise a single hub while the
+            // HUD read 99999. Idempotent (FactionBankExists), honours
+            // MaxStartingResources, and PreInit has already set TotalPlayers.
+            TheWaningBorder.Economy.EconomyBootstrap.EnsureFactionBanks(GameSettings.TotalPlayers);
 
             switch (GameSettings.ActiveScenario)
             {
@@ -149,6 +168,9 @@ namespace TheWaningBorder.Bootstrap
                     break;
                 case ScenarioType.WallSiege:
                     SpawnWallSiege(em);
+                    break;
+                case ScenarioType.WallDrawing:
+                    SpawnWallDrawing(em);
                     break;
                 case ScenarioType.SectShowcase:
                     SpawnSectShowcase(em);
@@ -197,6 +219,9 @@ namespace TheWaningBorder.Bootstrap
                     break;
                 case ScenarioType.ArrowTrails:
                     SpawnArrowTrails(em);
+                    break;
+                case ScenarioType.ShardrootTrial:
+                    SpawnShardrootTrial(em);
                     break;
             }
 
@@ -575,6 +600,63 @@ namespace TheWaningBorder.Bootstrap
         /// Red has siege rams and swordsmen attacking the walls.
         /// Tests: wall passability, gate auto-open for friendlies, siege destruction of walls.
         /// </summary>
+        /// <summary>
+        /// Wall drawing test (docs/Design/Age_1_Alanthor.md § Drawing walls):
+        /// Blue is an Alanthor Age 1 faction — a Hall stamped with the culture
+        /// so the builder palette offers the Wall Hub — with three Workers
+        /// beside it on flat open ground. The bank is maxed by
+        /// ScenarioCatalog.Prepare. Nothing else: the point is the tool.
+        /// </summary>
+        private static void SpawnWallDrawing(EntityManager em)
+        {
+            EnsureShowcaseTerrain(240f);
+            FactionColors.SetFactionCulture(Faction.Blue, Cultures.Alanthor);
+
+            var hallPos = new float3(0f, 0f, 0f);
+            hallPos.y = TerrainUtility.GetHeight(hallPos.x, hallPos.z);
+            var hall = BuildingFactory.Create(em, "Hall", hallPos, Faction.Blue);
+            if (hall != Entity.Null)
+            {
+                // The completed-culture read (CultureConfig.GetCompletedCulture)
+                // resolves off the Hall's FactionProgress.
+                if (em.HasComponent<FactionProgress>(hall))
+                    em.SetComponentData(hall, new FactionProgress { Culture = Cultures.Alanthor });
+                else
+                    em.AddComponentData(hall, new FactionProgress { Culture = Cultures.Alanthor });
+            }
+
+            for (int i = 0; i < 3; i++)
+            {
+                var p = new float3(-6f + i * 6f, 0f, -14f);
+                p.y = TerrainUtility.GetHeight(p.x, p.z);
+                UnitFactory.Create(em, "Worker", p, Faction.Blue);
+            }
+
+            // Foot units to put INTO a reinforced wall once the two Hall
+            // techs are bought (docs/Design/Age_1_Alanthor.md § Garrison
+            // slots) — four spears and four archers, off to one side.
+            for (int i = 0; i < 4; i++)
+            {
+                var p = new float3(-20f + i * 2.5f, 0f, -20f);
+                p.y = TerrainUtility.GetHeight(p.x, p.z);
+                UnitFactory.Create(em, "Spearman", p, Faction.Blue);
+
+                var q = new float3(-20f + i * 2.5f, 0f, -24f);
+                q.y = TerrainUtility.GetHeight(q.x, q.z);
+                UnitFactory.Create(em, "Archer", q, Faction.Blue);
+            }
+
+            // One of each emplacement, already standing, so the platform +
+            // engine pair can be watched without waiting on a build.
+            var ballista = new float3(20f, 0f, -16f);
+            ballista.y = TerrainUtility.GetHeight(ballista.x, ballista.z);
+            BuildingFactory.Create(em, "Alanthor_BallistaEmplacement", ballista, Faction.Blue);
+
+            var trebuchet = new float3(30f, 0f, -16f);
+            trebuchet.y = TerrainUtility.GetHeight(trebuchet.x, trebuchet.z);
+            BuildingFactory.Create(em, "Alanthor_TrebuchetEmplacement", trebuchet, Faction.Blue);
+        }
+
         private static void SpawnWallSiege(EntityManager em)
         {
             // ── Blue (defender) — south side ──
@@ -1875,6 +1957,10 @@ namespace TheWaningBorder.Bootstrap
             foreach (var lbl in UnityEngine.Object.FindObjectsByType<ArrowTrailShowcaseDriver>(
                          FindObjectsSortMode.None))
                 lbl.Recenter(ox, oz);
+
+            foreach (var trial in UnityEngine.Object.FindObjectsByType<ShardrootTrialDriver>(
+                         FindObjectsSortMode.None))
+                trial.Shift(ox, oz);
         }
 
         /// <summary>
@@ -1897,6 +1983,75 @@ namespace TheWaningBorder.Bootstrap
         /// un-upgraded arrow leaves NO trail, so the baseline is the absence
         /// rather than a fifth thing to look at.
         /// </summary>
+        /// <summary>
+        /// Shardroot trial. Authored around origin (RecenterScenario moves it
+        /// onto the player-1 start): the artifact at the centre, King Lexor
+        /// and two escort battalions a few metres north of it, his Hall and
+        /// Temple of Ridan behind them so BOTH store choices of
+        /// Curse_And_Shardroot.md 3.1 are one walk away, and a Red army to
+        /// the south. ShardrootTrialDriver sends the Red army at the
+        /// artifact after a grace period and feeds fresh Red battalions in
+        /// behind it, so every phase of the loop -- claim, carry, drop on
+        /// death, hero or enshrine, detonation -- can be reached in one sitting.
+        /// </summary>
+        private static void SpawnShardrootTrial(EntityManager em)
+        {
+            // Distances sized for ShardrootTrialFieldSize: the Red army
+            // starts 150 m from the artifact, well out of sight of it, so the
+            // grace period is a real head start and the march is a real
+            // march. The king stands close enough to reach the artifact
+            // before Red is even visible.
+            const float ArtifactToKing = 12f;
+            const float KingToHall = 40f;
+            const float RedDistance = 150f;
+
+            FactionColors.SetFactionCulture(Faction.Blue, Cultures.Alanthor);
+            FactionColors.SetFactionCulture(Faction.Red, Cultures.Alanthor);
+
+            // The artifact: a persistent pickup carrying ShardrootTag, exactly
+            // what TryAward drops at a host well. Found = 1 on the state
+            // singleton closes the well path (there are no wells here anyway)
+            // and marks it "in play" for everything that reads the state.
+            // ShardrootSystem would normally create the singleton, but it
+            // only updates while a BorderNodeState exists -- make it here.
+            float3 artifactPos = new float3(0f, 0f, 0f);
+            artifactPos.y = TerrainUtility.GetHeight(artifactPos.x, artifactPos.z);
+            var pickup = ShardrootPickup.Create(em, artifactPos, RitualKind.Purification,
+                ShardrootState.ShardrootPower);
+            em.AddComponent<ShardrootTag>(pickup);
+            TheWaningBorder.Systems.Border.ShardrootSystem.MakePersistent(em, pickup);
+            var stateEntity = em.CreateEntity(typeof(ShardrootState));
+            em.SetComponentData(stateEntity, new ShardrootState
+            {
+                HostNode = Entity.Null, HostChosen = 1, Found = 1, HolderFaction = Faction.Border,
+            });
+
+            // King Lexor and his escort, facing the artifact.
+            float3 kingPos = new float3(0f, 0f, ArtifactToKing);
+            kingPos.y = TerrainUtility.GetHeight(kingPos.x, kingPos.z);
+            UnitFactory.Create(em, "King Lexor", kingPos, Faction.Blue);
+            SpawnBattalion(em, "Alanthor_Swordsman", new float3(-ArmySpacing * 0.6f, 0f, ArtifactToKing + 6f), Faction.Blue);
+            SpawnBattalion(em, "Alanthor_Longbowman", new float3(ArmySpacing * 0.6f, 0f, ArtifactToKing + 6f), Faction.Blue);
+
+            // The two doors the artifact can go through. Hall delivery awakens
+            // the Shardbound Hero (HallDeliverRadius around any HallTag
+            // building); the Temple enshrines it.
+            float hallZ = ArtifactToKing + KingToHall;
+            BuildingFactory.Create(em, "Hall", new float3(-16f, 0f, hallZ), Faction.Blue);
+            BuildingFactory.Create(em, "TempleOfRidan", new float3(16f, 0f, hallZ), Faction.Blue);
+
+            // The Red army: two lines across the field, holding until the
+            // driver releases them.
+            float3 redCenter = new float3(0f, 0f, -RedDistance);
+            SpawnArmyRow(em, "Alanthor_Swordsman", Faction.Red, 3, redCenter);
+            SpawnArmyRow(em, "Alanthor_Crossbowman", Faction.Red, 2, redCenter + new float3(0f, 0f, -RowSpacing));
+
+            var driverGo = new GameObject("ShardrootTrialDriver");
+            var driver = driverGo.AddComponent<ShardrootTrialDriver>();
+            driver.Configure(artifactPos, redCenter);
+            _scenarioFocus = artifactPos;
+        }
+
         private static void SpawnArrowTrails(EntityManager em)
         {
             // Authored around origin; RecenterScenario moves the whole thing

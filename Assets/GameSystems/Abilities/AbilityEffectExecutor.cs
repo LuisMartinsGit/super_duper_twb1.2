@@ -183,6 +183,10 @@ namespace TheWaningBorder.Abilities
                         }
                         break;
 
+                    case AbilityEffectKind.ShardboundFury:
+                        TheWaningBorder.Entities.ShardboundFury.Cast(em, caster);
+                        break;
+
                     case AbilityEffectKind.SummonPledgeArmy:
                         // Everything about the summon is read off the caster's
                         // hero level, so the card carries no numbers for it —

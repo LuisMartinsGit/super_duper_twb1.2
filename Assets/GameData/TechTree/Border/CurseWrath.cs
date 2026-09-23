@@ -45,6 +45,16 @@ namespace TheWaningBorder.Systems.Border
 
         private static readonly int[] _level = new int[PlayerFactions];
         private static readonly double[] _lastProvokedAt = new double[PlayerFactions];
+        /// <summary>
+        /// A provocation is not forgotten before it has been ANSWERED
+        /// (Curse_And_Shardroot.md §2.10.3). The first wave a territory
+        /// fields waits out firstWaveDelaySeconds plus up to 80 s of stagger,
+        /// which is longer than wrathCoolSeconds — so a single waking cooled
+        /// back to nothing before the wave it earned was ever due, and a
+        /// one-well map produced one conquest and no wave. Cooling waits
+        /// until a wave has marched on the faction, and counts from then.
+        /// </summary>
+        private static readonly bool[] _answered = new bool[PlayerFactions];
 
         /// <summary>SimCadence epoch this state belongs to. The static lives
         /// longer than the match, so a carried-over level would hand the next
@@ -61,6 +71,7 @@ namespace TheWaningBorder.Systems.Border
             {
                 _level[i] = 0;
                 _lastProvokedAt[i] = 0.0;
+                _answered[i] = true;
             }
         }
 
@@ -82,6 +93,7 @@ namespace TheWaningBorder.Systems.Border
             if (!IsPlayer(faction)) return;
             int i = (byte)faction;
             _lastProvokedAt[i] = now;
+            _answered[i] = false;
             if (_level[i] >= cap) return;
             _level[i]++;
             TWBLog.Log($"[CurseWrath] {faction} provoked the curse ({reason}) — " +
@@ -100,12 +112,25 @@ namespace TheWaningBorder.Systems.Border
             for (int i = 0; i < PlayerFactions; i++)
             {
                 if (_level[i] <= 0) continue;
+                if (!_answered[i]) continue;   // owed a wave: hold the grudge
                 if (now - _lastProvokedAt[i] < coolSeconds) continue;
                 _level[i]--;
                 _lastProvokedAt[i] = now;
                 TWBLog.Log($"[CurseWrath] {(Faction)i} has not reached in for " +
                            $"{coolSeconds:0}s — wrath falls to {_level[i]}.");
             }
+        }
+
+        /// <summary>A wave has marched on this faction: the provocation is
+        /// answered, and the cooling clock starts from this moment rather
+        /// than from the provocation itself.</summary>
+        public static void MarkAnswered(Faction faction, double now)
+        {
+            if (!IsPlayer(faction)) return;
+            int i = (byte)faction;
+            if (_answered[i]) return;
+            _answered[i] = true;
+            _lastProvokedAt[i] = now;
         }
 
         public static int LevelOf(Faction faction)

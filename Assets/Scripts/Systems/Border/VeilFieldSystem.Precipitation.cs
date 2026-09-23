@@ -54,6 +54,13 @@ namespace TheWaningBorder.Systems.Border
             _precipTokens = math.min(PrecipitationBudget,
                 _precipTokens + PrecipitationBudget * (PulseInterval / PrecipitationInterval));
 
+            // Wells, for the regime test below: crust receding because its
+            // nearest woken well is DESTROYED is the collapse that follows a
+            // kill, and a kill pays no veilstone (2026-09-11). Same nearest-
+            // well rule VeilSpreadJob uses to pick the decay regime.
+            using var wellXfs = _wellQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var wellStates = _wellQuery.ToComponentDataArray<BorderNodeState>(Allocator.Temp);
+
             for (int z = 0; z < field.Height; z++)
             {
                 int row = z * field.Width;
@@ -67,9 +74,10 @@ namespace TheWaningBorder.Systems.Border
                     if (!now)
                     {
                         // RECEDED. Break-cleared cells (cooldown ticking) never
-                        // pay — pocket collapses and player breaks carry their
-                        // own reward.
+                        // pay, and neither does the collapse under a killed
+                        // well.
                         if (field.Cooldown[idx] != 0) continue;
+                        if (NearestWellDestroyed(in field, x, z, wellXfs, wellStates)) continue;
                         if (NextRand01() >= ResidueChance) continue;
                         if (_precipTokens < 1f) continue; // budget-starved: lost, not deferred
                         SpawnPrecipitate(em, in field, x, z, ResidueVeilstone);
@@ -94,6 +102,28 @@ namespace TheWaningBorder.Systems.Border
                     }
                 }
             }
+        }
+
+        /// <summary>True when the cell's nearest woken well is Destroyed —
+        /// the regime under which its crust is collapsing after a kill. No
+        /// wells at all counts as destroyed too (VeilSpreadJob: "no feeder
+        /// left anywhere → everything collapses").</summary>
+        private static bool NearestWellDestroyed(in VeilField field, int x, int z,
+            NativeArray<LocalTransform> wellXfs, NativeArray<BorderNodeState> wellStates)
+        {
+            if (wellXfs.Length == 0) return true;
+            float wx = field.Origin.x + (x + 0.5f) * field.CellSize;
+            float wz = field.Origin.y + (z + 0.5f) * field.CellSize;
+            int nearest = -1;
+            float nearestD2 = float.MaxValue;
+            for (int i = 0; i < wellXfs.Length; i++)
+            {
+                float dx = wellXfs[i].Position.x - wx;
+                float dz = wellXfs[i].Position.z - wz;
+                float d2 = dx * dx + dz * dz;
+                if (d2 < nearestD2) { nearestD2 = d2; nearest = i; }
+            }
+            return nearest < 0 || wellStates[nearest].State == NodeState.Destroyed;
         }
 
         private void SpawnPrecipitate(EntityManager em, in VeilField field, int x, int z, int amount)

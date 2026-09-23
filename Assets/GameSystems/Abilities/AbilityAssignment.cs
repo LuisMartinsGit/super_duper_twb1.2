@@ -71,5 +71,20 @@ namespace TheWaningBorder.Abilities
             else em.AddComponentData(e, ua);
             if (!em.HasComponent<AbilityCooldowns>(e)) em.AddComponentData(e, default(AbilityCooldowns));
         }
+
+        /// <summary>Take one ability (by catalog index) off a unit. The
+        /// slot is freed, later slots are not shifted, so the other
+        /// abilities keep their slot ids. No-op if absent.</summary>
+        public static void RemoveAbility(EntityManager em, Entity e, int abilityIndex)
+        {
+            if (abilityIndex < 0 || !em.Exists(e) || !em.HasComponent<UnitAbilities>(e)) return;
+            var ua = em.GetComponentData<UnitAbilities>(e);
+            if (ua.S0 == abilityIndex) ua.S0 = -1;
+            else if (ua.S1 == abilityIndex) ua.S1 = -1;
+            else if (ua.S2 == abilityIndex) ua.S2 = -1;
+            else if (ua.S3 == abilityIndex) ua.S3 = -1;
+            else return;
+            em.SetComponentData(e, ua);
+        }
     }
 }

@@ -279,8 +279,12 @@ namespace TheWaningBorder.Core.Config
 
         // ==================== Glow Flow (spec §5.1, §6.3) ====================
 
-        /// <summary>Distance (XZ) at which a unit can attune to a free Glow pickup.</summary>
-        public const float ShardrootPickupRadius = 1.5f;
+        /// <summary>Distance (XZ) at which a unit can attune to a free Shardroot
+        /// pickup. Was 1.5 m: the pickup's own 0.6 m body plus steering
+        /// separation parks a hero-sized unit at 1.5-2 m, so King Lexor stood
+        /// beside the artifact and never began attuning (Shardroot trial,
+        /// 2026-09-15). Wide enough now for a unit that stops AT it.</summary>
+        public const float ShardrootPickupRadius = 4f;
 
         /// <summary>
         /// Seconds a unit must stand within ShardrootPickupRadius (uninterrupted)

@@ -39,6 +39,11 @@ public partial class PresentationSpawnSystem
         StripThirdPartyControllers(root);
         root.name = $"BorderWell_{entity.Index}";
 
+        // The well is the curse's eruption point: the cyan veilstone gem
+        // shifted to purple and the brightest static glow on the map
+        // (Art_Direction.md §3.4 / §6.1).
+        EmissiveLadder.ApplyCrystalGlow(root, EmissiveLadder.Curse, EmissiveLadder.CurseHueShift);
+
         // Landmark size. The well's ECS LocalTransform.Scale is 1, so
         // BaseScale alone sets world size — it still sits far above every
         // deposit so the well reads as the eruption point of the sheet.
@@ -409,11 +414,12 @@ public partial class PresentationSpawnSystem
         if (mat.HasProperty("_EnvironmentReflections"))
             mat.SetFloat("_EnvironmentReflections", 1f);
 
-        // Dim purple emission
+        // Curse rung of the emissive ladder (the procedural fallback glows
+        // exactly as bright as the authored well would).
         if (mat.HasProperty("_EmissionColor"))
         {
             mat.EnableKeyword("_EMISSION");
-            mat.SetColor("_EmissionColor", emissionColor * 0.35f);
+            mat.SetColor("_EmissionColor", EmissiveLadder.Curse);
             mat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
         }
 

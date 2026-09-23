@@ -349,8 +349,8 @@ namespace TheWaningBorder.Core.Config
         /// <summary>Damage/s to a SmallNode whose cell is suppressed (hearth /
         /// ward / influence) — starving one out takes ~90 s of coverage.</summary>
         public const float SmallNodeStarveDps = 20f;
-        public const int PocketResidueNodes = 5;
-        public const int PocketResiduePerNode = 40;
+        // PocketResidueNodes / PocketResiduePerNode retired 2026-09-11: killing
+        // a blight source spawns no veilstone (Curse_And_Shardroot.md §2.5b).
 
         // Blood & the curse (rev.3): blood inside influence fades; outside
         // it is ETERNAL. Where an eternal pool soaks CURSED ground the curse

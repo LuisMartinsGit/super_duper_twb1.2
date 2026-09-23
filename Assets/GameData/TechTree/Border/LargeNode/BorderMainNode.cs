@@ -1,4 +1,4 @@
-using Unity.Entities;
+﻿using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Core.Multiplayer;
@@ -91,6 +91,18 @@ namespace TheWaningBorder.Entities
             // no frame in which a fresh well is a valid auto-target.
             // Removed only while a Feraldis Corruptor has it cracked open.
             em.AddComponent<NodeNoAutoAcquire>(entity);
+            // Wells enter play ASLEEP (canon §2.8) — on THIS path as well.
+            // Only the ecb overload below stamped WellDormant, and every live
+            // caller (BorderNodeBootstrap, BorderExtinctionSystem) uses this
+            // one, so no runtime well was ever dormant: CurseAwakeningHelper
+            // .Wake returned early on "already awake" and never provoked
+            // wrath, which is the only gate on conquest and waves. The curse
+            // therefore never attacked on any map since the wrath model
+            // landed (2026-09-11).
+            // THE LIVING CURSE (§2.11, 2026-09-13): with the switch on, wells
+            // pump from tick 0 and are never dormant. §2.8 is kept behind it.
+            if (!TheWaningBorder.Data.Border.BorderSettings.LivingCurse)
+                em.AddComponent<WellDormant>(entity);
             em.SetComponentData(entity, new LastDamagedByFaction { Value = Faction.Border });
             em.SetComponentData(entity, new LastAttackerEntity { Value = Entity.Null });
 
@@ -171,7 +183,8 @@ namespace TheWaningBorder.Entities
             // map does not creep until a player reaches for a verb on it. This
             // applies to BorderExtinctionSystem respawns too: a fresh well
             // nobody has touched is dormant, same as one at match start.
-            ecb.AddComponent<WellDormant>(entity);
+            if (!TheWaningBorder.Data.Border.BorderSettings.LivingCurse)
+                ecb.AddComponent<WellDormant>(entity);
             ecb.AddComponent<NodeNoAutoAcquire>(entity);
             ecb.AddComponent(entity, new LastDamagedByFaction { Value = Faction.Border });
             ecb.AddComponent(entity, new LastAttackerEntity { Value = Entity.Null });
