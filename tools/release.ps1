@@ -323,6 +323,12 @@ Write-Host "Launchers will pick it up on their next start."
 # the build is already out, so this only warns.
 $srcRepo = Split-Path -Parent $root
 $srcTag = "v$Version"
+# git reports progress on stderr, and under the script's
+# $ErrorActionPreference = 'Stop' PowerShell 5.1 turns any native stderr line
+# into a terminating error - the first run of this block died on the push's
+# "remote: Permission denied" instead of reaching the warning below. Relaxed
+# for this block only; the release is already out, nothing here may throw.
+$ErrorActionPreference = 'Continue'
 $existingTag = git -C $srcRepo tag -l $srcTag
 if ($existingTag) {
     Write-Warning "Source tag $srcTag already exists - not moved. Delete it first if the release was rebuilt."
