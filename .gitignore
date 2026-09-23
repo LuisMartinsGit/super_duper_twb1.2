@@ -236,3 +236,10 @@ Assets/Adobe/Substance3DForUnity/Runtime/Plugins/Temp.meta
 # Lower-case twin of /Obj/ above — git matches case-sensitively on any
 # clone that is not on Windows.
 /obj/
+
+# Written into Resources/ by the Unity Performance Testing package on every
+# batch build; per-run state, never content.
+Assets/Resources/PerformanceTestRunInfo.json
+Assets/Resources/PerformanceTestRunInfo.json.meta
+Assets/Resources/PerformanceTestRunSettings.json
+Assets/Resources/PerformanceTestRunSettings.json.meta
