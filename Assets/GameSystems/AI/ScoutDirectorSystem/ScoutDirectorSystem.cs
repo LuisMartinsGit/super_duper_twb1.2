@@ -1,4 +1,4 @@
-// ScoutDirectorSystem.cs
+﻿// ScoutDirectorSystem.cs
 // Information-driven scouting (AI plan M3). Replaces SimpleAISystem's random
 // scout wandering with zone-based exploration plus a recon channel:
 //
@@ -15,6 +15,7 @@
 // IntelSystem does the actual "remembering" — anything a scout reveals lands
 // in the brain's EnemySightingRecord buffer automatically.
 
+using System;
 using System.Collections.Generic;
 using TheWaningBorder.Core;
 using Unity.Collections;
@@ -104,6 +105,61 @@ namespace TheWaningBorder.AI
         private readonly Dictionary<int, ZoneState> _zones = new Dictionary<int, ZoneState>();
         private readonly Dictionary<Entity, ScoutPlan> _plans = new Dictionary<Entity, ScoutPlan>();
 
+        /// <summary>Units doing a scout's job because no scout is left.
+        /// Rebuilt every pass on purpose: the moment a real Scout exists the
+        /// set empties and the cavalry goes back to the army.</summary>
+        private readonly HashSet<Entity> _standIns = new HashSet<Entity>();
+
+        /// <summary>How many stand-ins one faction may run at once. Two is
+        /// the scout target; more would be an army detachment, not a
+        /// scouting patrol.</summary>
+        private const int MaxStandIns = 2;
+
+        /// <summary>
+        /// Draft light cavalry to scout. Prefers the Outrider by id, then any
+        /// cavalry class, and refuses anything the army cannot spare: no
+        /// workers, no wounded, nothing already marching with a wave.
+        /// </summary>
+        private static void DraftStandIns(EntityManager em, Faction owner,
+            NativeArray<Entity> ents, NativeArray<UnitTag> tags,
+            NativeArray<FactionTag> facs, NativeArray<Health> hps,
+            HashSet<Entity> into)
+        {
+            // Two passes so a named Outrider always beats a generic horseman,
+            // whatever order the chunks happen to be in.
+            for (int pass = 0; pass < 2 && into.Count < MaxStandIns; pass++)
+                for (int i = 0; i < ents.Length && into.Count < MaxStandIns; i++)
+                {
+                    if (facs[i].Value != owner || !em.Exists(ents[i])) continue;
+                    var cls = tags[i].Class;
+                    if (cls == UnitClass.Economy || cls == UnitClass.Miner
+                        || cls == UnitClass.Scout) continue;
+                    if (em.HasComponent<UnderConstruction>(ents[i])) continue;
+                    // Hurt units are no use out alone.
+                    if (hps[i].Max > 0 && hps[i].Value < hps[i].Max * 0.6f) continue;
+                    // Never strip a wave of a body it is counting on.
+                    if (em.HasComponent<FormationMemberState>(ents[i])) continue;
+
+                    bool isOutrider = em.HasComponent<UnitTypeId>(ents[i])
+                        && em.GetComponentData<UnitTypeId>(ents[i]).Value
+                             .ToString().EndsWith("Outrider");
+                    if (pass == 0 && !isOutrider) continue;
+                    if (pass == 1 && !IsCavalry(em, ents[i])) continue;
+                    into.Add(ents[i]);
+                }
+        }
+
+        /// <summary>Cavalry by the SO's own class string, so a culture that
+        /// names its horsemen something else still qualifies.</summary>
+        private static bool IsCavalry(EntityManager em, Entity e)
+        {
+            if (!em.HasComponent<UnitTypeId>(e)) return false;
+            var def = TechCatalog.Unit(
+                em.GetComponentData<UnitTypeId>(e).Value.ToString());
+            return def != null && def.unitClass != null
+                && def.unitClass.IndexOf("cavalry", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
         protected override void OnCreate()
         {
             RequireForUpdate<AIBrain>();
@@ -170,10 +226,38 @@ namespace TheWaningBorder.AI
                 var aiState = em.GetComponentData<SimpleAIState>(brainEntity);
                 bool stateChanged = false;
 
+                // ── THE OUTRIDER STANDS IN (2026-09-12, Game_AI.md §7) ──
+                //
+                // Scouting must not stop because the scouts died. Observed on
+                // Veilmarch: Yellow's last scout died around minute 26 and the
+                // director went silent for the remaining NINETY MINUTES. Its
+                // wave target sat on ground nobody had revealed, so the
+                // no-blind-dispatch gate turned every attack into a recon
+                // request, and nothing was alive to answer one. 137 units
+                // stood still for an hour and a half because one tile was
+                // dark.
+                //
+                // Light cavalry is the stand-in: the Outrider on Alanthor,
+                // the fastest human_cavalry on any culture. It is the only
+                // thing that crosses the map at scouting speed, and a horseman
+                // sent to go and look is ordinary RTS vocabulary.
+                //
+                // A real Scout takes the job back the moment one exists, so
+                // this set is recomputed every pass and never persisted.
+                _standIns.Clear();
+                bool anyScout = false;
+                for (int i = 0; i < sEnts.Length; i++)
+                    if (sFacs[i].Value == owner && sTags[i].Class == UnitClass.Scout
+                        && em.Exists(sEnts[i]))
+                    { anyScout = true; break; }
+                if (!anyScout)
+                    DraftStandIns(em, owner, sEnts, sTags, sFacs, sHps, _standIns);
+
                 for (int i = 0; i < sEnts.Length; i++)
                 {
                     if (sFacs[i].Value != owner) continue;
-                    if (sTags[i].Class != UnitClass.Scout) continue;
+                    if (sTags[i].Class != UnitClass.Scout
+                        && !_standIns.Contains(sEnts[i])) continue;
                     if (!em.Exists(sEnts[i])) continue;
                     if (em.HasComponent<UnderConstruction>(sEnts[i])) continue;
 
@@ -229,7 +313,15 @@ namespace TheWaningBorder.AI
                                 CommandRouter.IssueMove(em, scout, plan.Target, CommandSource.AI);
                             continue;
                         }
-                        if (arrived && !plan.Fleeing)
+                        // A CAVALRY STAND-IN NEVER PERCHES (2026-09-12).
+                        // The perch exists to let the Scout's Oracle vision
+                        // bloom from 18 m to 55 m, and that bloom is a
+                        // Scout-class privilege. An Outrider's 34 m circle is
+                        // the same standing still as it is at 8.2 m/s, so
+                        // holding it in place buys nothing and costs the one
+                        // thing it is better at. It arrives, stamps the zone
+                        // and leaves for the next.
+                        if (arrived && !plan.Fleeing && !_standIns.Contains(scout))
                         {
                             if (plan.DwellUntil <= 0f)
                             {

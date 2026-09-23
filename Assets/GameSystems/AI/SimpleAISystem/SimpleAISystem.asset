@@ -50,6 +50,7 @@ MonoBehaviour:
   leadMargin: 1.35
   stagingDistance: 45
   waveOverdueSeconds: 300
+  fullPopulationAfterSeconds: 1500
   stagingGatherRadius: 12
   musterDistance: 22
   musterGatherFraction: 0.85

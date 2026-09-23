@@ -1,4 +1,4 @@
-// SimpleAISystem.Expansion.cs
+﻿// SimpleAISystem.Expansion.cs
 // Territory claiming: the AI raises Halls on unowned ground to take regions.
 // Partial of SimpleAISystem.cs.
 //
@@ -65,6 +65,32 @@ namespace TheWaningBorder.AI
 
         // Host-only managed state, same as _missions.
         private readonly Dictionary<int, float> _nextClaimTime = new Dictionary<int, float>();
+
+        /// <summary>
+        /// (faction, region) -> the sim time its siting failure expires.
+        ///
+        /// TryPickClaimTarget rescores every region from scratch on each
+        /// attempt and keeps the best one. When the SITE SEARCH inside that
+        /// region fails -- a lake, crust, a rival's foundation -- nothing
+        /// recorded it, so the next attempt scored the same region top and
+        /// failed in exactly the same way. Observed live on 2026-09-12: Red
+        /// logged "no legal site in Northeast Field near (223,223)" once a
+        /// minute for six consecutive minutes with the money in the bank and
+        /// twenty-eight other regions on the map, having spent the previous
+        /// eleven minutes saving up for it.
+        ///
+        /// A short, EXPIRING exclusion, not a permanent one: the ground can
+        /// change. A rival's foundation completes or dies, crust recedes, a
+        /// blocking building falls. Long enough to try the runner-up,
+        /// short enough to come back if it was only temporary.
+        /// </summary>
+        private readonly Dictionary<(int faction, int region), float> _siteBlocked = new();
+
+        /// <summary>How long a region stays skipped after its site search
+        /// found nothing. One claim attempt interval would let it come
+        /// straight back; a couple of minutes lets the runner-up actually be
+        /// tried.</summary>
+        private const float SiteBlockSeconds = 150f;
         private readonly Dictionary<int, float> _nextClaimLog = new Dictionary<int, float>();
 
         /// <summary>
@@ -148,7 +174,7 @@ namespace TheWaningBorder.AI
             var cost = AICommon.ToCost(def.cost);
 
             // Somewhere to go. No target means no reason to hold income back.
-            if (!TryPickClaimTarget(em, faction, out int region, out float3 anchor))
+            if (!TryPickClaimTarget(em, faction, now, out int region, out float3 anchor))
             {
                 // Only release OUR OWN hold (priority 0) — this used to clear
                 // unconditionally and silently destroyed the age-up's
@@ -233,9 +259,19 @@ namespace TheWaningBorder.AI
                 // Nothing legal there — a lake, a cursed crust, a rival's
                 // foundation. Keep saving; the site search is what failed, not
                 // the money.
+                // REMEMBER THE FAILURE, or the next attempt is this one.
+                _siteBlocked[((int)faction, region)] = now + SiteBlockSeconds;
+                // SAY WHY. The site search already tallies its refusal
+                // reasons for the GOALS line; the claim path threw that away
+                // and logged only "no legal site", which is the difference
+                // between a bug report and a shrug. Three regions on
+                // Veilmarch rejected a Hall at their seed point for nineteen
+                // minutes and there was no way to tell whether it was
+                // terrain, the territory gate, spacing or a node.
                 LogClaimBlocked(faction, now,
                     $"no legal site in {RegionMap.NameOf(region)} " +
-                    $"near ({anchor.x:F0},{anchor.z:F0})");
+                    $"near ({anchor.x:F0},{anchor.z:F0}) [{_siteRefusalTally}] " +
+                    $"— trying elsewhere for {SiteBlockSeconds:F0}s");
                 return;
             }
 
@@ -275,7 +311,7 @@ namespace TheWaningBorder.AI
         /// gracefully, where a wrong neighbour list would send builders
         /// somewhere unreachable.
         /// </summary>
-        private bool TryPickClaimTarget(EntityManager em, Faction faction,
+        private bool TryPickClaimTarget(EntityManager em, Faction faction, float now,
             out int region, out float3 anchor)
         {
             region = RegionMap.None;
@@ -318,6 +354,12 @@ namespace TheWaningBorder.AI
                 // by nobody. A pending Hall is a claim in progress, not an
                 // invitation to start another.
                 if (HasOwnHallIn(em, faction, r)) continue;
+
+                // Skip a region whose site search failed recently. See
+                // _siteBlocked: without this the scorer hands back the same
+                // unsitable region every attempt, forever.
+                if (_siteBlocked.TryGetValue(((int)faction, r), out float until)
+                    && now < until) continue;
 
                 var seed2 = RegionMap.SeedOf(r);
                 float3 seed = new float3(seed2.x, 0f, seed2.y);

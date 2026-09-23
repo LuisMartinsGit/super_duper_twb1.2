@@ -142,6 +142,25 @@ namespace TheWaningBorder.AI
             }
             if (best == Entity.Null) return;
 
+            // THE RITE GATE (Curse_And_Shardroot.md 2.12, 2026-09-13). On
+            // Hollow Table this loop sent a Scholar + 3 escorts at a well
+            // garrisoned by eight curse units 51 times; every rite broke and
+            // armed a Backlash, and the AI razed its own base with the waves
+            // it summoned. No rite while the well is defended, erupting, or
+            // on the retry clock, and never with a short escort. A defended
+            // well is ASSAULTED instead, with real odds, and the rite follows
+            // on a later think once the ground is clear.
+            float3 wellPos = em.GetComponentData<LocalTransform>(best).Position;
+            float simNow = TheWaningBorder.Core.SimClock.Now;
+            int idleMil = AIEndgameCommon.CountIdleMilitary(em, faction);
+            if (!AIEndgameCommon.RiteAllowed(em, faction, best, wellPos, simNow, idleMil, Cfg.escortSize,
+                    out int defenders, out string why))
+            {
+                if (defenders > 0) AIEndgameCommon.TryAssaultWell(em, faction, wellPos, defenders);
+                else AILogger.Log(faction, "STRATEGY", $"Alanthor: rite held -- {why}");
+                return;
+            }
+
             CommandRouter.IssuePurify(em, scholar, best, CommandSource.AI);
             AILogger.Log(faction, "STRATEGY", "Alanthor: Scholar dispatched to purify a well");
 
@@ -150,7 +169,6 @@ namespace TheWaningBorder.AI
             // spread. Send up to EscortSize idle military attack-moving to
             // the well so they screen the channel; committed units are never
             // re-drafted (command follow-through).
-            float3 wellPos = em.GetComponentData<LocalTransform>(best).Position;
             var eq = QC_UnitTagFactionTagLocalTransform.Get(em, QT_UnitTagFactionTagLocalTransform);
             using var eEnts = eq.ToEntityArray(Allocator.Temp);
             using var eTags = eq.ToComponentDataArray<UnitTag>(Allocator.Temp);

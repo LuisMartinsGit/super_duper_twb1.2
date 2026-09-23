@@ -1,4 +1,4 @@
-// IntelSystem.cs
+﻿// IntelSystem.cs
 // Perception backbone of the full-scale AI (docs/AI_Assessment_and_Plan.md M1).
 //
 // Every tick (1 s), for each AIBrain faction:
@@ -191,9 +191,46 @@ namespace TheWaningBorder.AI
                     shared.EnemyEstimatedStrength = enemyStr;
                     shared.KnownEnemyBases = bases;
                     em.SetComponentData(brainEntity, shared);
+
+                    // 5. AUDIT TRAIL. Every other AI layer writes a line the
+                    // match log can be read back from — BUDGET, GOALS, CLAIM,
+                    // POSTURE — and perception, the layer all of them read
+                    // FROM, wrote nothing at all. A brain that attacks the
+                    // wrong place is usually a brain that was told the wrong
+                    // thing, and there was no way to see what it had been
+                    // told. Throttled to one line per faction per interval so
+                    // it stays readable next to the rest.
+                    if (now - _lastIntelLog >= IntelLogInterval)
+                    {
+                        int milUnits = 0, structures = 0, miners = 0;
+                        for (int i = 0; i < buffer.Length; i++)
+                            switch (buffer[i].Category)
+                            {
+                                case IntelCategory.MilitaryUnit: milUnits++; break;
+                                case IntelCategory.Miner: miners++; break;
+                                default: structures++; break;
+                            }
+                        // Threat where the enemy was last seen, not where the
+                        // brain is: the brain entity carries no transform, and
+                        // "how hot is the place I last saw them" is the number
+                        // a reader of this line actually wants.
+                        int threat = latest > float.MinValue
+                            ? ThreatMaps.MaxInRadius(owner, latestPos, 60f) : 0;
+                        AILogger.Log(owner, "INTEL",
+                            $"sightings {buffer.Length} (mil {milUnits}, eco {miners}, struct {structures}) " +
+                            $"enemyStrength {enemyStr} knownBases {bases} " +
+                            $"lastSeen {(latest > float.MinValue ? (int)(now - latest) : -1)}s " +
+                            $"threatAtContact {threat}");
+                    }
                 }
             }
+
+            if (now - _lastIntelLog >= IntelLogInterval) _lastIntelLog = now;
         }
+
+        /// <summary>Seconds between INTEL audit lines, per faction.</summary>
+        private const float IntelLogInterval = 20f;
+        private float _lastIntelLog = -999f;
 
         private static void Classify(EntityManager em, Entity e, out IntelCategory cat, out bool isMilitary)
         {

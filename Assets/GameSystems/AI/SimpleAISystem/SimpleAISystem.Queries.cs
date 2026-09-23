@@ -138,6 +138,81 @@ namespace TheWaningBorder.AI
             return n;
         }
 
+        /// <summary>How many finished trainers of this kind the faction has,
+        /// and whether EVERY one of them has a full production queue.
+        ///
+        /// A FULL QUEUE IS A BUILD ORDER (2026-09-12, Game_AI.md 6c). This is
+        /// the signal that a production line, not the wallet, is what caps the
+        /// army: if every Barracks is backed up, the answer is another
+        /// Barracks. Under-construction buildings are deliberately EXCLUDED
+        /// from the saturation test (a foundation has no queue to fill and
+        /// would read as "not saturated" forever) but the caller still counts
+        /// them toward what it has, so the target does not re-order a
+        /// building already on its way up.</summary>
+        private static bool LineSaturated<T>(EntityManager em, Faction faction)
+            where T : unmanaged, IComponentData
+        {
+            var q = AIQueryCache.TagFaction<T>(em);
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            int finished = 0;
+            for (int i = 0; i < facs.Length; i++)
+            {
+                if (facs[i].Value != faction) continue;
+                if (em.HasComponent<UnderConstruction>(ents[i])) continue;
+                finished++;
+                if (!TheWaningBorder.Core.Commands.CommandRouter
+                        .IsProductionQueueFull(em, ents[i]))
+                    return false;      // one idle slot anywhere: not the cap
+            }
+            return finished > 0;
+        }
+
+        /// <summary>Is THIS building id's production line saturated? The id
+        /// form of LineSaturated, for the two gates that see a string rather
+        /// than a tag: the savings hold and the budget reservation. A line
+        /// whose every trainer is backed up is an essential purchase -- the
+        /// army is capped by it, and saving up must never starve the thing
+        /// the saving is for (Game_AI.md 6c).</summary>
+        private static bool ProductionLineSaturated(
+            EntityManager em, Faction faction, string buildingId)
+        {
+            switch (buildingId)
+            {
+                case "Barracks":               return LineSaturated<BarracksTag>(em, faction);
+                case "ArcheryRange":           return LineSaturated<ArcheryRangeTag>(em, faction);
+                case "Alanthor_RoyalStable":   return LineSaturated<RoyalStableTag>(em, faction);
+                case "Alanthor_SiegeYard":     return LineSaturated<SiegeYardTag>(em, faction);
+                default:                       return false;
+            }
+        }
+
+        /// <summary>Finished military trainers the faction owns, across every
+        /// line. Sizes how many training orders may be issued in one think
+        /// tick, so a faction that raised twelve Barracks can actually fill
+        /// twelve queues (Game_AI.md 6c).</summary>
+        private static int CountMilitaryTrainers(EntityManager em, Faction faction)
+        {
+            int n = 0;
+            n += CountFinished<BarracksTag>(em, faction);
+            n += CountFinished<ArcheryRangeTag>(em, faction);
+            n += CountFinished<RoyalStableTag>(em, faction);
+            n += CountFinished<SiegeYardTag>(em, faction);
+            return n;
+        }
+
+        private static int CountFinished<T>(EntityManager em, Faction faction)
+            where T : unmanaged, IComponentData
+        {
+            var q = AIQueryCache.TagFaction<T>(em);
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            int n = 0;
+            for (int i = 0; i < facs.Length; i++)
+                if (facs[i].Value == faction && !em.HasComponent<UnderConstruction>(ents[i])) n++;
+            return n;
+        }
+
         private static bool TrainsUnit(EntityManager em, string buildingId, string unitId)
         {
             if (!TechCatalog.TryGetBuilding(buildingId, out var def) || def?.trains == null) return false;

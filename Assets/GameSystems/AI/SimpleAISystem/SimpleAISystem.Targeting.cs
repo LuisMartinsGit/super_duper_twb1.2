@@ -1,4 +1,4 @@
-// SimpleAISystem.Targeting.cs
+﻿// SimpleAISystem.Targeting.cs
 // Attack-target selection and curse-corridor pathing checks.
 // Partial of SimpleAISystem.cs -- split 2026-08-12 for readability.
 
@@ -154,7 +154,7 @@ namespace TheWaningBorder.AI
         /// statics only need revealed). Returns Entity.Null when the AI has
         /// no usable intel (caller falls back to the legacy ladder).
         /// </summary>
-        private static Entity ChooseAttackTargetScored(
+        private Entity ChooseAttackTargetScored(
             EntityManager em, Entity brainEntity, Faction myFaction, float3 originPos,
             AISettingsSO settings, AISettingsSO.PersonalityBlock personality, float now,
             out float intelAge, out IntelCategory category, bool ecoOnly = false)
@@ -187,6 +187,12 @@ namespace TheWaningBorder.AI
                         : fogMgr.IsRevealed(myFaction, p);
                     if (!seen) continue;
                 }
+
+                // Ground a previous wave marched to and could not resolve
+                // (SimpleAISystem.Military.cs, _waveBlocked). Without this the
+                // scorer hands back the same sighting after every timeout and
+                // the army commutes to it until the match ends.
+                if (WaveTargetBlocked(myFaction, rec.Position, now)) continue;
 
                 float score = TargetScorer.Score(em, settings, personality.riskMultiplier, originPos, rec, now);
                 if (score > bestScore)

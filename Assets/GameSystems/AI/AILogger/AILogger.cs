@@ -1,4 +1,4 @@
-// AILogger.cs
+﻿// AILogger.cs
 // Per-faction AI decision logging to files in /logs folder.
 // Each AI faction gets its own file. Logs are cleared on game start.
 using System.IO;
@@ -63,7 +63,11 @@ namespace TheWaningBorder.AI
             int minutes = (int)(elapsed / 60f);
             float seconds = elapsed % 60f;
 
-            writer.WriteLine($"[{minutes:D2}:{seconds:00.0}] {category}: {message}");
+            // Invariant: this machine is pt-PT, so the default culture writes
+            // "[00:04,9]" and every tool that reads these logs back has to
+            // guess the separator. Same lesson as the desync dumps.
+            writer.WriteLine(string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                "[{0:D2}:{1:00.0}] {2}: {3}", minutes, seconds, category, message));
             FlushDue(writer);
         }
 
@@ -81,7 +85,11 @@ namespace TheWaningBorder.AI
             int minutes = (int)(elapsed / 60f);
             float seconds = elapsed % 60f;
 
-            writer.WriteLine($"[{minutes:D2}:{seconds:00.0}] {category}: {message}");
+            // Invariant: this machine is pt-PT, so the default culture writes
+            // "[00:04,9]" and every tool that reads these logs back has to
+            // guess the separator. Same lesson as the desync dumps.
+            writer.WriteLine(string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                "[{0:D2}:{1:00.0}] {2}: {3}", minutes, seconds, category, message));
             FlushDue(writer);
         }
 

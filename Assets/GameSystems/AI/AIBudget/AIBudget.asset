@@ -15,4 +15,4 @@ MonoBehaviour:
   weightFloor: 0.10
   walletCapSeconds: 120
   walletCapMinimum: 500
-  logInterval: 60
+  logInterval: 15

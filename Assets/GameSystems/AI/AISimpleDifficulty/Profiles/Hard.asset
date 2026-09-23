@@ -18,5 +18,5 @@ MonoBehaviour:
   firstAttackEarliestSeconds: 240
   attackWaveIntervalSeconds: 180
   waveBaseUnits: 6
-  sustainArmyCap: 125
+  sustainArmyCap: 200
   supportThinkScale: 0.75

@@ -293,6 +293,36 @@ namespace TheWaningBorder.AI
         private readonly System.Collections.Generic.Dictionary<int, System.Collections.Generic.List<Mission>> _missions
             = new System.Collections.Generic.Dictionary<int, System.Collections.Generic.List<Mission>>();
 
+        /// <summary>Ground a wave marched to and could not resolve, keyed by
+        /// faction and a 40 m cell, held until the stored match time.
+        ///
+        /// THE SAME HOLE AS `_siteBlocked` IN THE CLAIM PLANNER (2026-09-12):
+        /// a mission times out, its army walks home, nothing anywhere records
+        /// that the trip failed, so the next wave scores the same sighting
+        /// highest and marches to the same place. Yellow spent ninety minutes
+        /// doing exactly this. A timeout is evidence; store it.</summary>
+        private readonly System.Collections.Generic.Dictionary<(int faction, int cx, int cz), float> _waveBlocked
+            = new System.Collections.Generic.Dictionary<(int, int, int), float>();
+
+        /// <summary>Two mission timeouts. Long enough that the army fights
+        /// somewhere else first, short enough that a real base does not become
+        /// permanently invisible to the target scorer.</summary>
+        private const float WaveBlockSeconds = 960f;
+
+        /// <summary>40 m cell — a base is bigger than one building, so
+        /// blocking a single position would just pick its neighbour.</summary>
+        private static (int, int) WaveCell(float3 p)
+            => ((int)math.floor(p.x / 40f), (int)math.floor(p.z / 40f));
+
+        private bool WaveTargetBlocked(Faction f, float3 p, float now)
+        {
+            var (cx, cz) = WaveCell(p);
+            if (!_waveBlocked.TryGetValue(((int)f, cx, cz), out float until)) return false;
+            if (now < until) return true;
+            _waveBlocked.Remove(((int)f, cx, cz));
+            return false;
+        }
+
         private System.Collections.Generic.List<Mission> MissionsFor(Faction f)
         {
             int key = (int)f;
@@ -318,10 +348,18 @@ namespace TheWaningBorder.AI
         /// posture forbids attacking, or while the chosen assault target needs
         /// a recon pass first (scout-then-strike, M3).
         /// </summary>
+        /// <summary><paramref name="launchedSize"/> reports how many bodies
+        /// actually marched. THE LOG USED TO CARRY ONLY THE THRESHOLD, so
+        /// every readout of "wave size" in this project was really a readout
+        /// of the launch bar, and a wave of 40 and a wave of 4 logged the same
+        /// number whenever the bar was 4 (operator question, 2026-09-12:
+        /// "what does wave size 6 mean?" -- it meant nothing about the wave).
+        /// </summary>
         private bool TryLaunchAttack(EntityManager em, Entity brainEntity, Faction faction, int minUnits,
             ref SimpleAIState aiState, AISettingsSO settings, AISettingsSO.PersonalityBlock personality,
-            AIDifficultyProfile profile, float now)
+            AIDifficultyProfile profile, float now, out int launchedSize)
         {
+            launchedSize = 0;
             // TUTORIAL: the AI never takes the offensive. The tutorial is a
             // real match on the shipped map, so without this the coach was
             // walking a first-time player through worker allocation while a
@@ -402,12 +440,24 @@ namespace TheWaningBorder.AI
                 // overrides any order the same frame. Drafting them inflates
                 // the wave's apparent strength with units that never march.
                 if (em.HasComponent<NotControllableTag>(e)) continue;
-                if (enrolled.Contains(e)) continue;
-                // Already on a mission or carrying out another order — leave alone.
-                if (TransientState.Active<AttackMoveTag>(em, e)) continue;
-                if (TransientState.Active<MoveCommand>(em, e)) continue;
-                if (TransientState.Active<AttackCommand>(em, e)) continue;
-                if (TransientState.Active<UserMoveOrder>(em, e)) continue;
+                // THE MISSION ROSTER IS THE AUTHORITY ON WHO IS BUSY
+                // (2026-09-12). This used to exclude anything carrying a move
+                // order of any kind, and that quietly starved every wave:
+                //
+                //   * a mission that times out sends its whole army home with
+                //     a formation ATTACK-MOVE, so the release path re-tagged
+                //     every member and kept them ineligible for the length of
+                //     the walk home -- on Veilmarch, minutes;
+                //   * ordinary AI repositioning sets MoveCommand, so a unit
+                //     walking anywhere at all was unavailable.
+                //
+                // Yellow had 137 units and could not find the EIGHT idle it
+                // needed to launch. Moving is not busy. Fighting is busy, and
+                // a player's own order is untouchable; everything else is a
+                // body this brain already owns and may re-task.
+                if (enrolled.Contains(e)) continue;          // serving already
+                if (TransientState.Active<AttackCommand>(em, e)) continue;  // in a fight
+                if (TransientState.Active<UserMoveOrder>(em, e)) continue;  // player's
                 idleMilitary.Add(e);
             }
 
@@ -727,6 +777,7 @@ namespace TheWaningBorder.AI
             };
             for (int i = 0; i < idleMilitary.Count; i++)
                 attack.Members.Add(idleMilitary[i]);
+            launchedSize = attack.Members.Count;
 
             float3 fromTarget = originPos - targetPos;
             fromTarget.y = 0f;
@@ -862,6 +913,20 @@ namespace TheWaningBorder.AI
             // dispatches a body.
             var reinforcements = new System.Collections.Generic.List<Entity>();
 
+            // ALREADY SERVING (2026-09-12). A column dispatched to muster
+            // moves with IssueFormationMove -- a plain MOVE, which sets no
+            // attack tag -- so on the very next pass those units read as idle,
+            // were drafted AGAIN, counted again in `sent`, and spawned ANOTHER
+            // column to the same place. Green's log is the signature:
+            // "reinforced with 16" six times over with 1 committed. That was
+            // never 98 reinforcements, it was the same sixteen re-drafted, each
+            // draft resetting their march. The mission roster already knows who
+            // is serving; ask it.
+            var serving = new System.Collections.Generic.HashSet<Entity>();
+            foreach (var mission in MissionsFor(faction))
+                for (int mi = 0; mi < mission.Members.Count; mi++)
+                    serving.Add(mission.Members[mi]);
+
             int committed = 0, sent = 0, arrived = 0;
             for (int i = 0; i < ents.Length; i++)
             {
@@ -877,22 +942,38 @@ namespace TheWaningBorder.AI
                 // still counts as "sent", which kept spent waves alive.
                 if (em.HasComponent<NotControllableTag>(e)) continue;
 
-                bool busy = TransientState.Active<AttackMoveTag>(em, e)
-                         || TransientState.Active<AttackCommand>(em, e);
-                if (busy) { committed++; continue; }
+                // ARRIVAL IS A PLACE, NOT A MOOD (2026-09-12). This test used
+                // to sit BELOW the busy check, so a unit that marched in on an
+                // attack-move or was fighting at the objective was counted as
+                // "committed" and never as "arrived" -- `arrived` only ever
+                // counted bodies standing on the target with nothing left to
+                // do. Whole matches reported "0 on the objective" while the
+                // battle was happening there. Count the ground first.
+                float dx = xfs[i].Position.x - aiState.WaveTarget.x;
+                float dz = xfs[i].Position.z - aiState.WaveTarget.z;
+                bool atObjective =
+                    dx * dx + dz * dz <= Cfg.waveArrivedRadius * Cfg.waveArrivedRadius;
+                if (atObjective) arrived++;
+
+                // SAME AVAILABILITY RULE AS THE FRESH-WAVE DRAFT (Game_AI.md
+                // 6a): fighting is busy, a roster is busy, the player's order
+                // is untouchable, and walking is none of those. An
+                // AttackMoveTag with no mission behind it is an orphan -- a
+                // survivor of a timed-out mission walking home -- and those
+                // are precisely the bodies this reinforcement wants.
+                if (TransientState.Active<AttackCommand>(em, e)) { committed++; continue; }
                 if (TransientState.Active<UserMoveOrder>(em, e)) continue;
                 if (em.HasComponent<BuildCommand>(e)) continue;
 
-                // Idle AND already standing on the objective: this unit has
-                // arrived and there is nothing left here to fight. Re-ordering
-                // it is a no-op that would keep the wave alive forever.
-                float dx = xfs[i].Position.x - aiState.WaveTarget.x;
-                float dz = xfs[i].Position.z - aiState.WaveTarget.z;
-                if (dx * dx + dz * dz <= Cfg.waveArrivedRadius * Cfg.waveArrivedRadius)
-                {
-                    arrived++;
-                    continue;
-                }
+                // Serving in a live mission: marching, mustering or fighting
+                // with a body that already has orders. Drafting it again is
+                // what created the duplicate columns.
+                if (serving.Contains(e)) { committed++; continue; }
+
+                // Idle and already standing on the objective: nothing left
+                // here to fight, and re-ordering it would keep the wave alive
+                // forever.
+                if (atObjective) continue;
 
                 reinforcements.Add(e);
                 sent++;
@@ -1141,6 +1222,20 @@ namespace TheWaningBorder.AI
 
                 if (objectiveDown || timedOut)
                 {
+                    // A TIMEOUT IS EVIDENCE, NOT JUST AN EXPIRY. Whatever was
+                    // wrong with this ground -- unreachable, too well held,
+                    // never actually there -- is still wrong in ten seconds,
+                    // and the scorer has no other way to learn it.
+                    if (timedOut && !objectiveDown)
+                    {
+                        var (bcx, bcz) = WaveCell(mission.TargetPos);
+                        _waveBlocked[((int)faction, bcx, bcz)] = now + WaveBlockSeconds;
+                        AILogger.Log(faction, "WAVE",
+                            $"mission timed out at ({mission.TargetPos.x:0},{mission.TargetPos.z:0}) " +
+                            $"after {Cfg.missionTimeoutSeconds:F0}s with {mission.Members.Count} alive — " +
+                            $"that ground is off the target list for {WaveBlockSeconds:F0}s");
+                    }
+
                     // Success (or stale): regroup home and free the units for
                     // the next wave. Formation attack-move so the army marches
                     // back in shape and engages stragglers on the way.
@@ -1472,20 +1567,70 @@ namespace TheWaningBorder.AI
 
             if (now < aiState.NextWaveTime) return;
 
-            // A FLAT FLOOR, not a growing bar (2026-08-30 relentless-waves
-            // directive). The old minimum grew with the wave number and was
-            // clamped by three different ceilings — and it was still the
-            // thing the hour-long "need 8 idle" freeze hung on, because the
-            // draft below already takes EVERYTHING idle: the wave scales
-            // with the army by construction, so the minimum's only real job
-            // is to stop three units marching out alone. The plan still
-            // scales it (Rush goes at half, Mass waits for more).
-            int minUnits = math.max(2,
-                (int)math.round(profile.WaveBaseUnits
-                    * PlanProfileOf(faction).WaveBarScale));
+            // A TARGET, NOT A DOORSTEP (2026-09-12, Game_AI.md 8). WaveBaseUnits
+            // is 4 to 6, so the bar was met the moment a couple of bodies came
+            // free: Red launched waves of TWO into a defended base, wasted
+            // them, and reset its own timer doing it. The bar now scales with
+            // the army the faction is actually trying to keep -- half of
+            // DesiredMilitary -- with the base value as the floor so an early
+            // rush still goes, and the existing `overdue` release still fires
+            // it regardless once a wave is late. Big armies wait to be armies.
+            int bar = (int)math.round(profile.WaveBaseUnits
+                                      * PlanProfileOf(faction).WaveBarScale);
+            int minUnits = math.max(2, math.max(bar, aiState.DesiredMilitary / 2));
+
+            // NEVER ASK FOR MORE THAN THE POPULATION CAP CAN HOLD
+            // (2026-09-12). DesiredMilitary is SustainArmyCap x the plan's
+            // ArmyScale and reaches 320, so half of it is 160 -- and the hard
+            // population ceiling is 200, most of which is workers, support and
+            // units already committed. Green stood at 200/200 population with
+            // an army of 157 and logged "need 160 idle" forever: an army that
+            // large is physically unable to field the bar its own target
+            // implies, so the late game stopped attacking entirely.
+            //
+            // Halving an impossible number gives an impossible number. Clamp
+            // the bar to a fraction of what the faction can ACTUALLY hold, and
+            // the maxed-out army becomes the thing that launches waves instead
+            // of the thing that blocks them.
+            PopulationHelper.TryGetFactionPopulation(faction, out int barPop, out int barCap);
+            int affordable = math.max(4, (barCap > 0 ? barCap : barPop) / 3);
+            minUnits = math.min(minUnits, affordable);
+
+            // PAST MINUTE 25, NOTHING LEAVES HOME BELOW FULL POPULATION
+            // (operator directive 2026-09-12, Game_AI.md 6a). The late game
+            // should be decided by real pushes, not by a stream of
+            // half-armies fed into a defended base one wave at a time. This
+            // outranks the overdue release deliberately: "attack anyway
+            // because a wave is late" is exactly the behaviour the rule
+            // exists to stop.
+            //
+            // The AI raises its own ceiling -- housing whenever it is within
+            // populationHeadroomFloor of the cap, stopping at
+            // FactionPopulation.AbsoluteMax -- so "full" settles at a
+            // 200-population faction committing everything.
+            //
+            // LOGGED EVERY TIME IT BLOCKS, with the numbers. A faction that
+            // cannot fill its cap stops attacking under this rule, and a
+            // silent version of that is indistinguishable from the passivity
+            // bug the rest of this file exists to fix.
+            if (now >= Cfg.fullPopulationAfterSeconds)
+            {
+                PopulationHelper.TryGetFactionPopulation(faction, out int pop, out int popMax);
+                if (pop < popMax)
+                {
+                    aiState.NextWaveTime = now + Cfg.waveRetrySeconds;
+                    if ((int)(now / 120f) != (int)((now - Cfg.waveRetrySeconds) / 120f))
+                        AILogger.Log(faction, "WAVE",
+                            $"wave {aiState.WaveNumber + 1} HELD at {(int)now}s — " +
+                            $"past minute {(int)(Cfg.fullPopulationAfterSeconds / 60f)} " +
+                            $"a wave needs FULL population and this faction is " +
+                            $"{pop}/{popMax} (short {popMax - pop})");
+                    return;
+                }
+            }
 
             if (TryLaunchAttack(em, brainEntity, faction, minUnits,
-                    ref aiState, settings, personality, profile, now))
+                    ref aiState, settings, personality, profile, now, out int waveSize))
             {
                 aiState.WaveNumber++;
                 // PRESS THE ADVANTAGE (2026-08-04 playtest: "the winning
@@ -1498,8 +1643,9 @@ namespace TheWaningBorder.AI
                     * (aiState.Posture == AIPosture.Pressure ? 0.5f : 1f);
                 aiState.NextWaveTime = now + interval;
                 AILogger.Log(faction, "WAVE",
-                    $"wave {aiState.WaveNumber} LAUNCHED at {(int)now}s (min {minUnits}, " +
-                    $"posture {aiState.Posture}); next at {(int)aiState.NextWaveTime}s");
+                    $"wave {aiState.WaveNumber} LAUNCHED at {(int)now}s with {waveSize} unit(s) " +
+                    $"(min {minUnits}, posture {aiState.Posture}); " +
+                    $"next at {(int)aiState.NextWaveTime}s");
             }
             else
             {

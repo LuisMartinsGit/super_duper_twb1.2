@@ -1,4 +1,4 @@
-// AIFeraldisEndgameSystem.Economy.cs
+﻿// AIFeraldisEndgameSystem.Economy.cs
 // Mines, war totems (the Feraldis territory verb), conscription and Age-2 build-out.
 // Partial of AIFeraldisEndgameSystem.cs -- split 2026-08-12 for readability.
 
@@ -95,7 +95,34 @@ namespace TheWaningBorder.AI
                 var w = idle[i];
                 // Never conscript one that is mid-build.
                 if (em.HasComponent<BuildCommand>(w)) continue;
-                em.AddComponent<ConscriptedTag>(w);
+
+                // LATENT MP DESYNC, FIXED 2026-09-13 (found while tracing a
+                // different fork; Feraldis is culture-gated off today, so this
+                // has never actually fired in a lockstep match).
+                //
+                // `em.AddComponent<ConscriptedTag>(w)` used to run right here.
+                // The AI think loop is HOST-ONLY -- a client's AI log carries
+                // no GOALS, BUDGET, INTEL or WAVE lines at all -- so the tag
+                // appeared on the host and on no client. It is not cosmetic:
+                // `FeraldisSoldier.Is` treats a tagged worker as a soldier,
+                // and `FeraldisWarpathSystem` (which runs on EVERY peer) keys
+                // on exactly that test. The host would have marched a unit the
+                // clients left standing, forking pos/rot/nav while every other
+                // checksum column matched -- and with no command on the wire
+                // to explain it, which is a miserable fork to diagnose.
+                //
+                // FIX, deliberately the conservative one: the tag is applied
+                // only where there is no lockstep to fall out of step with.
+                // Carrying it on the wire would mean a new field in the
+                // attack-move command's serialized form, and Feraldis is
+                // culture-gated off, so that change could not be tested by
+                // any match this harness can run -- an untestable protocol
+                // change is a worse bug than a disabled feature. In
+                // multiplayer the workers still march (the attack-move
+                // replicates); they simply are not RE-CLASSED as soldiers
+                // until conscription gets a replicated command of its own.
+                if (!GameSettings.IsMultiplayer)
+                    em.AddComponent<ConscriptedTag>(w);
                 CommandRouter.IssueAttackMove(em, w, rally, CommandSource.AI);
                 sent++;
             }

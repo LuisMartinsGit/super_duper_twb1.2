@@ -281,6 +281,13 @@ namespace TheWaningBorder.AI
         /// every five minutes).</summary>
         public float waveOverdueSeconds;
 
+        /// <summary>Match time after which a wave may only launch at FULL
+        /// POPULATION (pop >= popMax) -- operator directive 2026-09-12,
+        /// Game_AI.md 6a. Before this mark the scaled wave bar decides; after
+        /// it, nothing leaves home until the faction is at its ceiling, and
+        /// the overdue release does not override it.</summary>
+        public float fullPopulationAfterSeconds;
+
         public float stagingGatherRadius;
 
         // ── Muster (2026-09-07). ──

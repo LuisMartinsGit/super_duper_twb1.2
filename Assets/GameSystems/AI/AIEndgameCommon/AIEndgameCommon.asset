@@ -15,3 +15,7 @@ MonoBehaviour:
   chapelReserveSupplies: 100
   chapelReserveVeilstone: 40
   escortStandoffRadius: 14
+  wellDefenceRadius: 45
+  assaultOdds: 2
+  assaultMinUnits: 8
+  riteRetrySeconds: 600

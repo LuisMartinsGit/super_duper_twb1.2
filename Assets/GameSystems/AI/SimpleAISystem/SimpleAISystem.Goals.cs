@@ -99,8 +99,29 @@ namespace TheWaningBorder.AI
             int workers = CountAliveMiners(em, faction);   // Workers; the name predates gathering being removed
             int army = CountAliveMilitary(em, faction);
 
-            int armyWant = math.max(1, (int)math.round(profile.SustainArmyCap * plan.ArmyScale));
-            int workerWant = math.clamp(personality.minerFloor, 2, 5);
+            // THE CAP IS THE CAP (2026-09-12, operator: "army cap should always
+            // be 200"). SustainArmyCap is 200 on every difficulty and the
+            // plan's ArmyScale multiplied straight past it -- a Mass plan
+            // asked for 320, which is above the hard population ceiling of
+            // 200 and therefore unreachable by construction. Everything
+            // downstream then inherited an impossible number: the wave bar is
+            // half of it, so the AI demanded 160 idle soldiers and the
+            // best-developed faction in the match never attacked again.
+            //
+            // The plan still shapes the army it wants, it just cannot ask for
+            // more than the game allows to exist.
+            int armyWant = math.clamp(
+                (int)math.round(profile.SustainArmyCap * plan.ArmyScale),
+                1, math.min(profile.SustainArmyCap, FactionPopulation.AbsoluteMax));
+            // THE CREW GROWS WITH THE WORK (2026-09-12, Game_AI.md 6c). Only
+            // `crew` sites may be open at once, so a flat crew of 3-5 was a
+            // hard ceiling on how fast the base could expand -- logged nine
+            // times in one match as "5 sites open, crew 5" while the faction
+            // held 20,505 iron. Wanting more builders whenever the crew is
+            // fully committed lets the build program actually finish; the cap
+            // of 12 keeps a build crew from becoming an economy again.
+            int openSites = CountFactionBuildingsUnderConstruction(em, faction);
+            int workerWant = math.clamp(personality.minerFloor + openSites, 2, 12);
             int perKind = math.max(2, personality.productionBuildingTarget / (aged ? 4 : 2));
 
             var goals = new List<Goal>(24);
@@ -143,6 +164,11 @@ namespace TheWaningBorder.AI
             // of this when the base is actually under attack.
             int militaryFloor = math.max(4, (int)math.round(
                 personality.militaryFloor * plan.ArmyScale));
+            // NOT DOUBLED WITH THE REST (2026-09-12, Game_AI.md 3a). The
+            // personality floors doubled; this clamp deliberately did not.
+            // Age 0 fields exactly one combat unit, so supplies past a
+            // garrison buy a longer identical spear age instead of the age-up
+            // that ends it. Leaving it at 8 is the point, not an oversight.
             if (!aged) militaryFloor = math.min(militaryFloor, 8);
             goals.Add(new Goal(GoalKind.Train, "@military", militaryFloor, army,
                 AIBudgetCategory.Military, "army floor"));
@@ -166,18 +192,42 @@ namespace TheWaningBorder.AI
             // production while the 257-supply Shrine that opens the entire
             // Age 1 tree goes unbought. The extra halls only pay off once
             // there is a roster worth queueing in parallel.
-            goals.Add(new Goal(GoalKind.Build, "Barracks", aged ? perKind : 2,
+            // A FULL QUEUE IS A BUILD ORDER (2026-09-12, Game_AI.md 6c).
+            // perKind is a BASELINE now, not a ceiling: while every trainer of
+            // a line has a full queue, that line's target ratchets to one more
+            // than it has, for as long as the saturation lasts. That is the
+            // snowball -- more trainers, more soldiers before the wave timer,
+            // bigger waves, more map, more trainers -- and it is why a good
+            // late game is scores of production buildings all busy. The only
+            // thing that should ever stop it is population.
+            //
+            // Measured before this rule, Hollow Table: ONE Barracks, a
+            // five-slot queue, a deficit of twenty Spearmen and 20,505 iron
+            // sitting unspent. The cap said five were allowed; the faction
+            // never got past one because nothing ever asked for a second.
+            int Line<T>(int baseline) where T : unmanaged, IComponentData
+            {
+                int have = CountFactionBuildings<T>(em, faction);
+                return LineSaturated<T>(em, faction)
+                    ? math.max(baseline, have + 1) : baseline;
+            }
+
+            goals.Add(new Goal(GoalKind.Build, "Barracks",
+                Line<BarracksTag>(aged ? perKind : 2),
                 CountFactionBuildings<BarracksTag>(em, faction),
                 AIBudgetCategory.Military, "melee line"));
             if (aged)
             {
-                goals.Add(new Goal(GoalKind.Build, "ArcheryRange", perKind,
+                goals.Add(new Goal(GoalKind.Build, "ArcheryRange",
+                    Line<ArcheryRangeTag>(perKind),
                     CountFactionBuildings<ArcheryRangeTag>(em, faction),
                     AIBudgetCategory.Military, "ranged line"));
-                goals.Add(new Goal(GoalKind.Build, "Alanthor_RoyalStable", perKind,
+                goals.Add(new Goal(GoalKind.Build, "Alanthor_RoyalStable",
+                    Line<RoyalStableTag>(perKind),
                     CountFactionBuildings<RoyalStableTag>(em, faction),
                     AIBudgetCategory.Military, "cavalry line"));
-                goals.Add(new Goal(GoalKind.Build, "Alanthor_SiegeYard", perKind,
+                goals.Add(new Goal(GoalKind.Build, "Alanthor_SiegeYard",
+                    Line<SiegeYardTag>(perKind),
                     CountFactionBuildings<SiegeYardTag>(em, faction),
                     AIBudgetCategory.Military, "siege line"));
             }
@@ -289,7 +339,10 @@ namespace TheWaningBorder.AI
                     bool essential = g.Id == AgeUpGateBuilding
                         || g.Id == "Hut"
                         || g.Id == "GatherersHut"
-                        || firstOfLine;
+                        || firstOfLine
+                        // Every trainer of this line is backed up, so this is
+                        // the building the army is waiting on (Game_AI.md 6c).
+                        || ProductionLineSaturated(em, brain.Owner, g.Id);
                     if (TryBuildBuildingBudgeted(em, brain.Owner, g.Id, g.Cat,
                             honourReservation: !essential)) return true;
                     // Record why, so the "nothing affordable" log can name the

@@ -14,6 +14,7 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
+using TheWaningBorder.Core;
 using TheWaningBorder.Core.Commands;
 using TheWaningBorder.Core.Commands.Types;
 using TheWaningBorder.Data;
@@ -66,7 +67,154 @@ namespace TheWaningBorder.AI
 
         /// <summary>Drop the temple back-off counters. Per match, from
         /// AIBootstrap — same reason as AIPivotalReserve.Initialize.</summary>
-        public static void Initialize() => _templeBlockTicks.Clear();
+        public static void Initialize()
+        {
+            _templeBlockTicks.Clear();
+            _riteBlockedUntil.Clear();
+        }
+
+        #region The rite gate (Curse_And_Shardroot.md 2.12)
+
+        // Per (faction, well): sim time before which this faction must not
+        // start a rite there. Armed when the well erupts with a Backlash this
+        // faction provoked. Sim time only -- read on every peer identically,
+        // and the AI runs host-side under lockstep anyway.
+        private static readonly Dictionary<(Faction, Entity), float> _riteBlockedUntil = new();
+
+        static readonly ComponentType[] QT_BorderUnits =
+        {
+            ComponentType.ReadOnly<UnitTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery QC_BorderUnits;
+
+        /// <summary>Curse units standing within wellDefenceRadius of the well.</summary>
+        public static int CountWellDefenders(EntityManager em, float3 wellPos)
+        {
+            float r2 = Cfg.wellDefenceRadius * Cfg.wellDefenceRadius;
+            var q = QC_BorderUnits.Get(em, QT_BorderUnits);
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            int n = 0;
+            for (int i = 0; i < facs.Length; i++)
+            {
+                if (facs[i].Value != Faction.Border) continue;
+                float dx = xfs[i].Position.x - wellPos.x, dz = xfs[i].Position.z - wellPos.z;
+                if (dx * dx + dz * dz <= r2) n++;
+            }
+            return n;
+        }
+
+        /// <summary>
+        /// May this faction start a rite at this well right now? False with a
+        /// reason when it may not. Rules, in order: the well is erupting (and
+        /// if the eruption is ours, the retry clock is armed); the retry clock
+        /// is running; the well has defenders; the escort is short.
+        /// The caller is expected to ASSAULT when the reason is defenders --
+        /// see <see cref="TryAssaultWell"/>.
+        /// </summary>
+        public static bool RiteAllowed(EntityManager em, Faction faction, Entity well, float3 wellPos,
+            float now, int idleMilitary, int requiredEscort, out int defenders, out string reason)
+        {
+            defenders = 0; reason = null;
+            var key = (faction, well);
+
+            if (em.HasComponent<TheWaningBorder.Systems.Border.RitualBacklash>(well))
+            {
+                var b = em.GetComponentData<TheWaningBorder.Systems.Border.RitualBacklash>(well);
+                if (b.Provoker == faction)
+                {
+                    float until = now + Cfg.riteRetrySeconds;
+                    if (!_riteBlockedUntil.TryGetValue(key, out float cur) || cur < until)
+                        _riteBlockedUntil[key] = until;
+                }
+                reason = $"the well is erupting (Backlash wave {b.WavesDone}/{TheWaningBorder.Systems.Border.RitualBacklashTuning.WaveCount})";
+                return false;
+            }
+            if (_riteBlockedUntil.TryGetValue(key, out float blockedUntil) && now < blockedUntil)
+            {
+                reason = $"our last rite here broke; retry in {blockedUntil - now:0}s";
+                return false;
+            }
+            defenders = CountWellDefenders(em, wellPos);
+            if (defenders > 0)
+            {
+                reason = $"{defenders} curse defender(s) within {Cfg.wellDefenceRadius:0} m -- clear the well first";
+                return false;
+            }
+            if (idleMilitary < requiredEscort)
+            {
+                reason = $"escort short ({idleMilitary}/{requiredEscort} idle)";
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>Idle, controllable, non-ritualist military of the faction.
+        /// Same eligibility both escort loops use.</summary>
+        public static int CountIdleMilitary(EntityManager em, Faction faction)
+        {
+            var q = QC_BorderUnits.Get(em, QT_BorderUnits);
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var tags = q.ToComponentDataArray<UnitTag>(Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            int n = 0;
+            for (int i = 0; i < ents.Length; i++)
+                if (facs[i].Value == faction && IsIdleSoldier(em, ents[i], tags[i].Class)) n++;
+            return n;
+        }
+
+        public static bool IsIdleSoldier(EntityManager em, Entity u, UnitClass cls)
+        {
+            if (cls != UnitClass.Melee && cls != UnitClass.Ranged && cls != UnitClass.Siege) return false;
+            if (em.HasComponent<UnderConstruction>(u)) return false;
+            if (em.HasComponent<NotControllableTag>(u)) return false;
+            if (em.HasComponent<RitualState>(u)) return false;
+            if (TransientState.Active<AttackCommand>(em, u)) return false;
+            if (TransientState.Active<AttackMoveTag>(em, u)) return false;
+            if (TransientState.Active<UserMoveOrder>(em, u)) return false;
+            return true;
+        }
+
+        /// <summary>
+        /// Clear a defended well: attack-move assaultOdds x defenders (never
+        /// fewer than assaultMinUnits) idle soldiers onto a ring around it.
+        /// Marches ONLY when that many are idle -- a smaller force is the
+        /// trickle that fed the garrison on Hollow Table. Returns the number
+        /// sent (0 = held).
+        /// </summary>
+        public static int TryAssaultWell(EntityManager em, Faction faction, float3 wellPos, int defenders)
+        {
+            int need = math.max(Cfg.assaultMinUnits, (int)math.ceil(defenders * Cfg.assaultOdds));
+            var q = QC_BorderUnits.Get(em, QT_BorderUnits);
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var tags = q.ToComponentDataArray<UnitTag>(Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+
+            var idle = new List<Entity>();
+            for (int i = 0; i < ents.Length; i++)
+                if (facs[i].Value == faction && IsIdleSoldier(em, ents[i], tags[i].Class)) idle.Add(ents[i]);
+
+            if (idle.Count < need)
+            {
+                AILogger.Log(faction, "ASSAULT",
+                    $"held: {idle.Count}/{need} idle vs {defenders} defender(s) at the well ({wellPos.x:0},{wellPos.z:0})");
+                return 0;
+            }
+            int sent = 0;
+            for (int i = 0; i < idle.Count && sent < need; i++)
+            {
+                float3 slot = EscortSlot(wellPos, sent, need, Cfg.escortStandoffRadius);
+                CommandRouter.IssueAttackMove(em, idle[i], slot, CommandSource.AI);
+                sent++;
+            }
+            AILogger.Log(faction, "ASSAULT",
+                $"{sent} units march on the well at ({wellPos.x:0},{wellPos.z:0}) vs {defenders} defender(s)");
+            return sent;
+        }
+
+        #endregion
 
         /// <summary>
         /// Climb the Temple of Ridan one level, at most one attempt per tick.

@@ -30,5 +30,20 @@ namespace TheWaningBorder.AI
         /// piled onto the well itself and blocked the ritualist); it lived as
         /// two separate literals until this was extracted.</summary>
         public float escortStandoffRadius;
+
+        /// <summary>Curse units within this many metres of a well count as
+        /// its defenders; a rite never starts while there are any
+        /// (Curse_And_Shardroot.md 2.12).</summary>
+        public float wellDefenceRadius;
+
+        /// <summary>Assault force = this many times the defenders counted.</summary>
+        public float assaultOdds;
+
+        /// <summary>An assault never marches with fewer than this.</summary>
+        public int assaultMinUnits;
+
+        /// <summary>After this faction's rite broke at a well, the well is
+        /// off-limits for this long (on top of the eruption itself).</summary>
+        public float riteRetrySeconds;
     }
 }

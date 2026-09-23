@@ -216,7 +216,14 @@ namespace TheWaningBorder.AI
                 && buildingId != "Hut"
                 && !TheWaningBorder.World.Regions.TerritoryOwnership.IsExtractor(buildingId)
                 && !(buildingId == "Barracks"
-                     && CountFactionBuildings<BarracksTag>(em, faction) == 0))
+                     && CountFactionBuildings<BarracksTag>(em, faction) == 0)
+                // A SATURATED LINE PASSES TOO (2026-09-12, Game_AI.md 6c).
+                // Every trainer of this kind has a full queue, so this
+                // building is the army's actual bottleneck -- exactly the
+                // "bounded, self-repaying essential" the exemptions above
+                // exist for. Holding it starves the army to buy land, and the
+                // land is only worth holding if there is an army.
+                && !ProductionLineSaturated(em, faction, buildingId))
             { reason = "pivotal hold (saving)"; return false; }
 
             int crew = CountAliveMiners(em, faction);
@@ -365,12 +372,39 @@ namespace TheWaningBorder.AI
             // search fails. "No legal spot" with no evidence is the diagnostic
             // hole that hid the extractor contradiction for a full batch.
             int nCand = 0, nCover = 0, nSpacing = 0, nNodeClear = 0, nCurse = 0,
-                nTerritory = 0, nNodeGate = 0, nHallCap = 0, nInvalid = 0;
+                nTerritory = 0, nNodeGate = 0, nHallCap = 0, nInvalid = 0,
+                nOverlap = 0;
 
-            int passes = placingGHut ? 2 : 1;
+            // SPACING IS A PREFERENCE; HAVING A BARRACKS IS NOT (2026-09-12).
+            // The 20 m building spacing is a layout nicety -- it keeps a base
+            // walkable and stops huts strangling each other. It is not a rule
+            // of the game, and nothing downstream depends on it. Yet it was
+            // absolute, so a base that filled its own ground simply stopped
+            // being able to build.
+            //
+            // Measured, Hollow Table 1v1, 2026-09-12 (a legitimate two-faction
+            // run on a two-start map, not the old peer-count artifact): at
+            // minute 16 Red held 24 buildings, 13,166 iron, 11,315 veilstone
+            // -- and ONE UNIT, with no Barracks and no Archery Range. Every
+            // one of the 216 candidates its placement scan tried was refused,
+            // 201 of them on spacing alone. It had packed its single territory
+            // with huts and mines and locked itself out of an army for the
+            // rest of the match. Blue, in the same match, had eight units.
+            // Neither faction attacked, and no amount of wave tuning could
+            // have made them: there was nothing to send.
+            //
+            // So the scan gets a LAST-RESORT pass with spacing dropped. It is
+            // reached only when every normal pass has already failed, and it
+            // relaxes nothing else -- footprint overlap, node clearance,
+            // curse crust, territory ownership, the hall cap and the router's
+            // own validator all still refuse the candidate. A cramped base is
+            // a bad base; a base that cannot train soldiers is not playing.
+            int normalPasses = placingGHut ? 2 : 1;
+            int passes = normalPasses + 1;
             for (int pass = 0; pass < passes; pass++)
             {
                 bool requireCover = placingGHut && pass == 0;
+                bool relaxSpacing = pass == normalPasses;
                 for (float r = ringMin; r <= maxRadius; r += 4f)
                 {
                     int angleStart = (int)(NextRandFloat01() * BuildAngleSamples);
@@ -405,7 +439,7 @@ namespace TheWaningBorder.AI
                         if (requireCover && !IsCoveredGround(faction, candidate, anchor))
                         { nCover++; continue; }
 
-                        if (!isExtractor && TooCloseToExistingBuilding(
+                        if (!isExtractor && !relaxSpacing && TooCloseToExistingBuilding(
                                 candidate, bldgTransforms, bldgIsGHut,
                                 minSpacingSq, minGHutSpacingSq, placingGHut))
                         { nSpacing++; continue; }
@@ -448,6 +482,24 @@ namespace TheWaningBorder.AI
                                    em, candidate.x, candidate.z))
                         { nHallCap++; continue; }
 
+                        // FOOTPRINT OVERLAP, the router's own last-line
+                        // invariant (2026-09-12). The comment above the
+                        // extractor spacing exemption claims "real overlap is
+                        // still refused by IsValidBuildPosition" — it is not.
+                        // Nothing but CommandRouter calls
+                        // OverlapsExistingBuilding, so with spacing exempted
+                        // for the whole extractor class this loop had no
+                        // building-vs-building test left at all. It would
+                        // return the same occupied spot on every think, the
+                        // router would refuse it, and nothing recorded that:
+                        // one headless match logged 204 IDENTICAL refusals for
+                        // Yellow at (10,-46), a Gatherer's Hut that faction
+                        // therefore never built. Same function as the router
+                        // uses, so the two verdicts cannot disagree; it reads
+                        // only replicated state, so every peer agrees too.
+                        if (BuildCommandHelper.OverlapsExistingBuilding(em, candidate, size))
+                        { nOverlap++; continue; }
+
                         // The id goes in so the validator can make the
                         // extractor-on-node exemption (and the Veilworks
                         // crust exception) — the id-less overload is the
@@ -461,9 +513,14 @@ namespace TheWaningBorder.AI
                     }
                 }
             }
-            _siteRefusalTally = $"{nCand} cand: cover {nCover}, spacing {nSpacing}, " +
+            // The relaxed pass ALWAYS runs before this line is reached, so a
+            // spacing count here describes the normal passes only -- say so,
+            // or the next reader concludes spacing is still the blocker.
+            _siteRefusalTally = $"{nCand} cand (incl. relaxed-spacing pass): " +
+                $"cover {nCover}, spacing {nSpacing}, " +
                 $"nodeclear {nNodeClear}, curse {nCurse}, territory {nTerritory}, " +
-                $"nodegate {nNodeGate}, hallcap {nHallCap}, invalid {nInvalid}";
+                $"nodegate {nNodeGate}, hallcap {nHallCap}, overlap {nOverlap}, " +
+                $"invalid {nInvalid}";
             pos = default;
             return false;
         }

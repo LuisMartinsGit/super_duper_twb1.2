@@ -812,11 +812,23 @@ namespace TheWaningBorder.AI
 
         private static bool TryTrainUnitBudgeted(EntityManager em, Faction faction,
             string unitId, AIBudgetCategory cat)
+            => TryTrainUnitBudgeted(em, faction, unitId, cat, out _);
+
+        /// <summary>As above, reporting WHICH gate refused. The budget window
+        /// is a distinct answer from the training pre-flight's -- "the faction
+        /// is rich but this category's share is spent" and "there is no
+        /// trainer" call for opposite fixes, and the army-floor log could not
+        /// tell them apart (2026-09-12).</summary>
+        private static bool TryTrainUnitBudgeted(EntityManager em, Faction faction,
+            string unitId, AIBudgetCategory cat, out string blockReason)
         {
-            if (!TechCatalog.TryGetUnit(unitId, out var def) || def == null) return false;
+            blockReason = null;
+            if (!TechCatalog.TryGetUnit(unitId, out var def) || def == null)
+            { blockReason = "no catalog def for " + unitId; return false; }
             var cost = AICommon.ToCost(def.cost);
-            if (!AIBudget.TryAfford(faction, cat, cost)) return false;
-            if (!TryTrainUnit(em, faction, unitId)) return false;
+            if (!AIBudget.TryAfford(faction, cat, cost))
+            { blockReason = $"{cat} budget short for {unitId}"; return false; }
+            if (!TryTrainUnitWithReason(em, faction, unitId, out blockReason)) return false;
             AIBudget.RecordSpend(faction, cat, cost);
             return true;
         }

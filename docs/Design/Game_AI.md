@@ -36,8 +36,25 @@ labeled with their multiplier (AoE4's hidden-Hardest-cheat backlash).
 | Counter-composition | off | off | on | on |
 | Optional build-step skip chance | 25% | 10% | 0% | 0% |
 | Forward staging before attacks | off | off | on | on |
-| Sustained army cap | 10 | 16 | 24 | 32 |
+| Sustained army cap | 200 | 200 | 200 | 200 |
 | Expansion (extra GathererHuts near untapped deposits) | off | on | on | on |
+
+**The army cap is NOT a difficulty knob (2026-09-12).** Every tier sustains
+up to 200 — the population ceiling — and difficulty is expressed entirely in
+the quality and speed of decisions: how often the brain thinks, how stale its
+intel is allowed to be, how long before it first attacks, how often waves go
+out, whether it counter-composes, raids or stages forward, and how often it
+skips an optional build step.
+
+Capping the army instead was doing the same job by simply giving the weaker
+tier fewer soldiers, which is the least interesting way to lose. It also made
+Easy read as passive rather than as clumsy: a capped AI stops producing and
+then stands still, which looks like a broken opponent rather than a beatable
+one. A slow, badly-aimed full-sized army is a better teacher and a better
+fight than a small well-aimed one.
+
+The shipped assets had drifted far from the old table anyway (55 / 100 / 125 /
+150 against a documented 10 / 16 / 24 / 32), so nothing was reading it.
 
 ## 3. Personalities (weights, not scripts)
 
@@ -48,6 +65,37 @@ attack threshold, military/miner floors, raid cadence, risk tolerance
 (target scoring), defense budget. Strategy (the opening build order) and
 personality remain separate axes, but personality biases the deterministic
 strategy roll (Aggressive → Rush/Balanced openings, Economic → EcoBoom…).
+
+### 3a. The standing army (military floor)
+
+Each personality carries a **military floor**: the standing army the AI keeps
+before it considers anything else military. It is multiplied by the PLAN's
+army scale, not by difficulty -- difficulty sets the army CAP, the wave base
+and how fast the brain thinks, never the floor -- so every tier keeps the same
+standing army and differs in how well it uses it.
+
+| Personality | Floor |
+|-------------|-------|
+| Economic    | 12 |
+| TechBoom    | 14 |
+| Balanced    | 16 |
+| Aggressive  | 20 |
+| Rush        | 20 |
+| Defensive   | 24 |
+| Turtle      | 28 |
+
+**Doubled on 2026-09-12** (operator directive) from 6/7/8/10/10/12/14. The old
+floors were set when the army cap was small; with the cap at 200 they left
+every faction fielding single figures deep into a match, and the whole muster
+chain downstream of them -- wave bar, mission size, reinforcement -- can only
+ever divide up an army that was never raised.
+
+**Age 0 still clamps the floor to 8**, and that clamp is NOT doubled. It exists
+because Age 0 has exactly one combat unit, so supplies past a garrison buy a
+longer identical spear age instead of the age-up that ends it: measured on
+Veilmarch, factions held 87-unit spear armies while 42 of 48 never aged up in
+30 minutes. Doubling the floor therefore changes Age 1 onward, which is where
+an army means something.
 
 ## 4. Economy manager
 
@@ -101,6 +149,124 @@ a float ceiling, take the next affordable request.
   Defend recalls missions and repairs; Rebuild rebuilds the army before
   re-engaging.
 
+### 6a. What counts as available, and how big a wave has to be
+
+Two rules that sound like implementation detail and are not — between them
+they decided whether any wave ever left home at all.
+
+**Only fighting is busy.** A unit is unavailable to a wave in exactly three
+cases: it is already on the mission roster, it is swinging at something
+(`AttackCommand`), or the human player gave it an order of their own. Merely
+*walking* is available. This has to be written down because the natural
+reading — "don't grab a unit that is under a move order" — starves the army:
+a mission that times out sends its survivors home with a formation
+attack-move, so the very act of releasing an army re-marks every one of its
+members as busy for the length of the walk back, and ordinary repositioning
+does the same. Observed on Veilmarch, 2026-09-12: Yellow held 137 units and
+could not assemble the eight it needed to attack.
+
+**The wave bar is a target, not a doorstep.** A wave launches at
+`max(WaveBaseUnits x personality scale, half the faction's desired army)`.
+The base value alone is 4-6, which a couple of fresh recruits satisfy, so
+the AI spent its army two at a time into defended bases and reset its own
+attack timer each time it did. Scaling the bar to the army the faction is
+*trying* to keep means a big army waits until it is an army; the base value
+survives as the floor so an early rush is still legal, and the existing
+overdue-wave release still fires a small wave rather than never attacking.
+
+**And the bar can never exceed what population allows.** It is clamped to a
+third of the faction's population ceiling. `DesiredMilitary` is the sustain
+army cap times the plan's army scale and reaches 320, while the hard ceiling is
+200 -- most of which is workers, support and units already committed. Halving
+an impossible number leaves an impossible one: measured on Veilmarch
+2026-09-12, Green stood at 200/200 population with an army of 157 and logged
+"need 160 idle" indefinitely, so the strongest faction in the match was the one
+that stopped attacking. A target the population cap forbids is not a target.
+
+**Past minute 25, an army only leaves home at FULL POPULATION** (operator
+directive, 2026-09-12). Before that mark the rules above stand and waves go out
+at the scaled bar. After it, a faction must be at its population ceiling --
+`pop >= popMax` -- before any wave launches, and the overdue release does not
+override it. The AI already drives its own ceiling upward: it builds housing
+whenever it is within `populationHeadroomFloor` of the cap and stops at
+`FactionPopulation.AbsoluteMax` (200), so "full" settles at a 200-population
+faction committing everything it has.
+
+The intent is that the late game is decided by real pushes rather than by a
+stream of half-armies feeding a defended base one wave at a time. The cost is
+that a faction which cannot fill its cap stops attacking altogether, so the
+block is logged by name and count every time it fires -- a silent version of
+this rule would be indistinguishable from the passivity bug it replaces.
+
+**A mission that times out poisons its ground.** When an attack mission
+expires without its objective falling, the 40 m cell it was aimed at goes on
+that faction's blocked list for sixteen minutes and the target scorer skips
+every sighting inside it. The alternative is what the AI did before: the
+scorer is deterministic, so the same sighting wins again the moment the army
+is free, and the wave commutes to unreachable ground for the rest of the
+match. This is the third instance of one bug shape in this system -- an
+action fails, nothing records the failure, and the next decision repeats it.
+The claim planner's `_siteBlocked` is the same rule for build sites.
+
+### 6b. Building spacing yields to being able to fight
+
+The AI keeps roughly 20 m between its buildings so a base stays walkable.
+That is a preference, and it now yields: when a placement scan finds no legal
+site in its normal passes, it runs one more with the spacing rule dropped.
+Nothing else relaxes. Footprint overlap, resource-node clearance, curse
+crust, territory ownership, the hall cap and the router's own validator all
+still refuse the candidate, so the relaxed pass can produce a cramped base
+but never an illegal one.
+
+Why this is not optional. Hollow Table 1v1, 2026-09-12: at minute 16 Red held
+24 buildings, 13,166 iron and 11,315 veilstone, and fielded ONE unit. It had
+no Barracks and no Archery Range, because it had filled its only territory
+with huts and mines, and all 216 candidate sites were refused -- 201 of them
+on spacing. Blue, on the other side of the same match, had eight units.
+Neither faction ever attacked. This is upstream of every wave rule in 6a: an
+army that was never trainable cannot be mustered, however good the muster is.
+
+## 6c. The production snowball
+
+**A full queue is a build order.** When every trainer of a kind has a full
+production queue, that line is the bottleneck and the AI must raise another
+building of that kind. There is no fixed ceiling on how many: the target for a
+line is `max(baseline, standing + 1)` and it ratchets upward for as long as the
+queues stay saturated. A faction that can afford to keep twelve Barracks busy
+should have twelve Barracks.
+
+This is what makes the match snowball the way a good player's does. More
+trainers means more soldiers before the next wave timer, which means bigger
+waves, which means more of the map, which pays for more trainers. By the late
+game a strong faction is sending wave after wave from scores of production
+buildings with full queues, and its training rate exceeds its death rate.
+
+**The only limit is population.** Not resources, and not the AI's willingness
+to give orders. Three things previously stood in for a population limit and
+each is now removed:
+
+- **A static per-line cap.** The target was `productionBuildingTarget / 4`,
+  about five to seven, and nothing could exceed it however saturated the
+  queues were.
+- **The build crew.** Only `crew` sites may be open at once, and the crew was
+  a flat three to five, so a faction with five sites in flight could not start
+  a sixth however rich it was. The crew now grows with the work waiting:
+  `minerFloor + open sites`, capped at 12.
+- **The savings hold.** A production line whose queues are all full is an
+  essential purchase and spends past the claim reservation, exactly as housing
+  and the first of each line already do.
+
+Measured before this rule, Hollow Table 2026-09-12: Blue held ONE Barracks
+with a five-slot queue against a deficit of twenty Spearmen, 20,505 iron and
+2,896 supplies in its military budget. Nine times the log recorded five sites
+open against a crew of five. Eighteen buildings stood and exactly one of them
+trained soldiers. Its army was four units at minute 29.
+
+**Strategy still chooses the ORDER.** Which line saturates first, and which
+research is bought before which, remains the military strategy's decision and
+may change over the match. The snowball rule only says that a saturated line
+gets another building; it never says which line to open first.
+
 ## 7. Scouting
 
 Keep the information-driven `ScoutDirectorSystem` (zone staleness scoring,
@@ -115,6 +281,33 @@ while moving (**18 m**) that, after **1.5 s** stationary, blooms at
 blooms (the intel pass records everything it reveals), then hop to the
 next zone. A perched scout is deliberately vulnerable — that is the
 counterplay.
+
+**The Outrider stands in when the scouts are dead (2026-09-12).**
+Scouting must never stop because the scouts died. When a faction has no
+living `UnitClass.Scout`, the director drafts light cavalry instead — the
+**Outrider** on Alanthor, and on any culture the fastest `human_cavalry` it
+owns. Cavalry is the right stand-in for the obvious reason: it is the only
+thing on the field that can cross the map at scouting speed, and a horseman
+sent to look at something is a recognisable piece of RTS vocabulary rather
+than an odd-looking rule.
+
+At most two at a time, never a worker, and never a unit already committed
+to a wave. A real Scout takes the job back the moment one exists again, and
+the drafted Outrider returns to the army.
+
+Stand-ins do NOT get the Oracle vision bloom: that stays a Scout-class
+privilege, so a drafted trooper reveals ground the slow way. It is a worse
+scout, which is the point — losing your scouts should hurt without
+blinding you.
+
+Why this is not optional. Observed on Veilmarch, 2026-09-12: Yellow's last
+scout died around minute 26 and the scout director went silent for the
+remaining ninety minutes. Its wave target sat on ground nobody had ever
+revealed, the `NO BLIND DISPATCH` gate converted every attack into a recon
+request, and nothing was left alive to answer one. An army of 137 units
+with 22 live enemy sightings stood still for an hour and a half because
+one tile was dark. Scouting is a dependency of attacking, so it needs a
+fallback, and the attack gate needs the escape hatch described in §8.
 
 ## 7b. Alanthor age-2 ladder & tower doctrine
 

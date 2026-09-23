@@ -98,6 +98,19 @@ namespace TheWaningBorder.AI
 
             if (!TryPickWell(em, faction, hallPos, out Entity well, out float3 wellPos)) return;
 
+            // THE RITE GATE (Curse_And_Shardroot.md 2.12, 2026-09-13): no
+            // rite while the well is defended, erupting, on the retry clock,
+            // or the escort is short. A defended well is assaulted with real
+            // odds instead; the Corruptor follows once the ground is clear.
+            int idleMil = AIEndgameCommon.CountIdleMilitary(em, faction);
+            if (!AIEndgameCommon.RiteAllowed(em, faction, well, wellPos, now, idleMil,
+                    Cfg.minEscortBeforeDispatch, out int defenders, out string why))
+            {
+                if (defenders > 0) AIEndgameCommon.TryAssaultWell(em, faction, wellPos, defenders);
+                else AILogger.Log(faction, "STRATEGY", $"Feraldis: rite held -- {why}");
+                return;
+            }
+
             // ESCORT FIRST, THEN THE RITUALIST. The 2026-08-06 match trained
             // NINE Corruptors and dispatched them 34 times over 19 minutes
             // without landing a single corruption — they were walking alone
@@ -115,24 +128,21 @@ namespace TheWaningBorder.AI
 
             if (!escortReady)
             {
+                // NEVER UNESCORTED (2026-09-13). This used to dispatch the
+                // Corruptor alone after maxEscortWaitSeconds -- "an unescorted
+                // try beats never trying". Since the Backlash (2.9) a broken
+                // rite costs 150 curse creatures, so an unescorted try is
+                // worse than not trying. The gate above already holds on a
+                // short escort; this is the in-range check after CommitArmy.
                 if (tick.CorruptorHeldSince <= 0f)
                 {
                     tick.CorruptorHeldSince = now;
                     em.SetComponentData(brainEntity, tick);
                 }
-
                 float waited = now - tick.CorruptorHeldSince;
-                if (waited < Cfg.maxEscortWaitSeconds)
-                {
-                    AILogger.Log(faction, "STRATEGY",
-                        $"Corruptor held: escort {escort}/{Cfg.minEscortBeforeDispatch} " +
-                        $"({waited:0}s of {Cfg.maxEscortWaitSeconds:0}s)");
-                    return;
-                }
-
                 AILogger.Log(faction, "STRATEGY",
-                    $"Corruptor dispatched UNESCORTED after {waited:0}s waiting on an escort " +
-                    $"that never came (escort {escort}) — an unescorted try beats never trying");
+                    $"Corruptor held: escort {escort}/{Cfg.minEscortBeforeDispatch} in range ({waited:0}s)");
+                return;
             }
 
             // Reset the patience clock: either we have an escort now, or we

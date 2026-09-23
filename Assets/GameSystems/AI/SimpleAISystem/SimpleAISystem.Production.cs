@@ -64,7 +64,17 @@ namespace TheWaningBorder.AI
             if (IsCombatClass(cls))
             {
                 aiState.DesiredMilitary++;
-                aiState.LastMilitaryUnit = new FixedString64Bytes(unitId);
+                // THE FLOOR'S UNIT MUST BE A LINE UNIT (2026-09-12). Support
+                // and Magic count as combat -- correctly, they fight -- but
+                // they are not what an army is MADE of, and they have one
+                // trainer apiece. Adopting one as `LastMilitaryUnit` pointed
+                // the entire army deficit at a single queue: log-proven on
+                // Hollow Table, "deficit 135 x Alanthor_Scholar -- trainer
+                // queue full", with 17,206 iron unspent in the military budget
+                // and an army of 34. Training a caster is fine; letting the
+                // caster BE the army program is not.
+                if (cls != UnitClass.Support && cls != UnitClass.Magic)
+                    aiState.LastMilitaryUnit = new FixedString64Bytes(unitId);
             }
             else if (cls == UnitClass.Miner || cls == UnitClass.Economy)
             {
@@ -585,12 +595,23 @@ namespace TheWaningBorder.AI
                     // silent — next tick will try again. Up to 3 per tick
                     // (2026-08-04): with parallel production buildings a big
                     // post-battle deficit refills in seconds, not minutes.
-                    int refill = math.min(deficit, 3);
+                    // ORDERS MUST NOT BE THE LIMIT (2026-09-12, Game_AI.md
+                    // 6c). Three queue attempts per think tick was written
+                    // when a faction had one or two trainers. The whole point
+                    // of the snowball is scores of production buildings all
+                    // busy, and a flat three would leave most of them idle no
+                    // matter how many were raised -- the AI would build the
+                    // capacity and then decline to use it. Give it one attempt
+                    // per finished trainer, so every building it paid for can
+                    // take an order on the same tick.
+                    int refill = math.min(deficit, math.max(3, CountMilitaryTrainers(em, faction)));
                     int trained = 0;
+                    string floorBlock = null;
                     for (int t = 0; t < refill; t++)
                     {
                         if (!TryTrainUnitBudgeted(em, faction,
-                                aiState.LastMilitaryUnit.ToString(), AIBudgetCategory.Military))
+                                aiState.LastMilitaryUnit.ToString(), AIBudgetCategory.Military,
+                                out floorBlock))
                             break;
                         trained++;
                     }
@@ -605,7 +626,31 @@ namespace TheWaningBorder.AI
                         // and the floor blocked at deficit 19 forever) →
                         // fall back to the Barracks line so the floor can
                         // refill through ANY surviving production.
-                        if (FindTrainerForUnit(em, faction, aiState.LastMilitaryUnit.ToString()) == Entity.Null
+                        // A BACKED-UP TRAINER IS AS USELESS AS A MISSING ONE
+                        // (2026-09-12). This rescued the floor only when the
+                        // trainer had been DESTROYED. But `LastMilitaryUnit`
+                        // is whatever the composition picker last chose, and
+                        // when that is a support unit with a single trainer --
+                        // Alanthor_Scholar -- the whole army deficit queues
+                        // behind one full queue and stays there. Log-proven,
+                        // Hollow Table 2026-09-12, with the named-reason log
+                        // added the same day:
+                        //     "floor blocked ~1 min: deficit 135 x
+                        //      Alanthor_Scholar -- trainer queue full"
+                        // Blue held 17,206 iron in its MILITARY budget alone
+                        // and an army of 34. One support caster was absorbing
+                        // the entire army program.
+                        //
+                        // So fall back when the trainer is gone OR when it is
+                        // permanently full, and treat a support unit as never
+                        // being the right answer to an army deficit.
+                        Entity floorTrainer =
+                            FindTrainerForUnit(em, faction, aiState.LastMilitaryUnit.ToString());
+                        bool trainerUnusable =
+                            floorTrainer == Entity.Null
+                            || TheWaningBorder.Core.Commands.CommandRouter
+                                   .IsProductionQueueFull(em, floorTrainer);
+                        if (trainerUnusable
                             && !aiState.LastMilitaryUnit.Equals(new FixedString64Bytes("Spearman")))
                         {
                             // Log ONCE per distinct missing trainer. The
@@ -629,9 +674,19 @@ namespace TheWaningBorder.AI
                         if (++ticks >= 30)
                         {
                             ticks = 0;
+                            // NAME THE GATE (2026-09-12). This used to print
+                            // "(trainer missing/queue full/wallet or bank
+                            // short)" -- three guesses and no answer -- while
+                            // Blue sat on 2,896 supplies and 20,505 iron with
+                            // a deficit of 20 Spearmen and two Barracks
+                            // standing. Every one of those causes needs a
+                            // different fix and the log could not tell them
+                            // apart, so the army stayed at four units and the
+                            // evidence to say why did not exist. The pre-flight
+                            // already knows which gate closed; carry it out.
                             AILogger.Log(faction, "MILITARY",
                                 $"floor blocked ~1 min: deficit {deficit} x {aiState.LastMilitaryUnit} " +
-                                "(trainer missing/queue full/wallet or bank short)");
+                                $"— {floorBlock ?? "reason not reported"}");
                         }
                         _floorBlockTicks[faction] = ticks;
                     }
