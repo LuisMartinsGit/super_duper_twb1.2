@@ -530,8 +530,7 @@ namespace TheWaningBorder.UI.Ingame
             cancel.pivot = new Vector2(0.5f, 0f);
             cancel.anchoredPosition = new Vector2(0f, 60f);
             cancel.sizeDelta = new Vector2(300f, 80f);
-            var bg = GameUIKit.Image(cancel, "bg", GameUIKit.ButtonBg, raycast: true);
-            GameUIKit.Stretch(bg.rectTransform);
+            var bg = GameUIKit.ButtonChrome(cancel, raycast: true);
             var label = GameUIKit.Text(cancel, "label", Loc.T("Cancel (Esc)"), 30f,
                 GameUIKit.TextMain, TextAlignmentOptions.Center, wrap: false);
             GameUIKit.Stretch(label.rectTransform);

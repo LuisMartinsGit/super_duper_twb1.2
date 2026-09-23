@@ -324,12 +324,11 @@ namespace TheWaningBorder.UI.Ingame
             var faction = GameSettings.ViewFactionOrLocal;
             RefreshFog(faction);
             ResolveTerritoryState();
-            DrawInfluenceTint(faction);
-            DrawRegionBoundaries(faction);
-            // Over the neutral lattice: a region division is map structure, an
-            // ownership border is a claim, and the claim has to win where they
-            // run along the same line.
-            DrawTerritoryOutlines(faction);
+            // Tint, then the neutral lattice, then the ownership outline over
+            // both: a region division is map structure, an ownership border
+            // is a claim, and the claim has to win where they run along the
+            // same line. One composite pass from cached layers (2026-09-16).
+            DrawTerritory(faction);
             DrawBlips(world.EntityManager, faction);
             DrawPings();
             _overlayTex.SetPixels32(_overlayPixels);

@@ -1,10 +1,13 @@
 // GameUIKit.cs
-// Shared uGUI construction helpers for the CODE-BUILT game panels (actions
-// panel, builder palette, top choice bar). These panels have no authored
-// prefab yet — they are assembled at runtime in the dark-navy + gold theme
-// of the old HUD so they read as one family with the authored panels; when
-// the author ships prefab shells for them, swap the construction here for
-// catalog bindings the way ResourcePanel/SelectionHeader work.
+// Shared uGUI construction helpers for the CODE-BUILT game panels (special
+// actions, spells, top choice bar, builder palette, pause, victory). These
+// panels have no authored prefab yet — they are assembled at runtime, but
+// since 2026-09-18 they wear the AUTHORED Synty frames (GameUICatalog.chrome,
+// bound through Bind) so they read as one family with the prefab panels;
+// the flat navy + gold theme survives only as the fallback when no catalog
+// chrome is assigned. When the author ships prefab shells for them, swap
+// the construction here for catalog bindings the way ResourcePanel /
+// SelectionHeader work.
 
 using TMPro;
 using UnityEngine;
@@ -88,8 +91,51 @@ namespace TheWaningBorder.UI.Ingame
         /// target so hovering any panel reads as pointer-over-UI for the
         /// world-input guards (EventSystem.IsPointerOverGameObject).
         /// </summary>
+        // ── Authored chrome (2026-09-18) ──────────────────────────────────
+        // The Synty frame vocabulary the prefab panels use, bound once from
+        // GameUICatalog.chrome by GameUIManager. With it bound, PanelChrome and
+        // ButtonChrome draw sliced frame + mask sprites; without it (catalog
+        // not yet assigned) they fall back to the flat navy + gold strips.
+        private static GameUICatalog.ChromeSet _chrome;
+
+        public static void Bind(GameUICatalog catalog)
+        {
+            _chrome = catalog != null ? catalog.chrome : null;
+            if (_chrome != null && (_chrome.panelFrame == null || _chrome.buttonFrame == null))
+                _chrome = null;
+        }
+
+        /// <summary>A sliced sprite image, the way the authored prefabs set them up.</summary>
+        private static Image Sliced(Transform parent, string name, Sprite sprite, Color tint,
+                                    float slice, bool raycast)
+        {
+            var img = Image(parent, name, tint, raycast);
+            img.sprite = sprite;
+            img.type = UnityEngine.UI.Image.Type.Sliced;
+            img.fillCenter = true;
+            img.pixelsPerUnitMultiplier = slice;
+            return img;
+        }
+
+        /// <summary>
+        /// Panel background + frame. Returns the FILL image (tintable), which
+        /// also carries the raycast so the panel eats clicks under it.
+        /// </summary>
         public static Image PanelChrome(RectTransform panelRoot)
         {
+            if (_chrome != null)
+            {
+                var fill = Sliced(panelRoot, "bg", _chrome.panelFrameMask, _chrome.panelFill,
+                                  _chrome.panelSlice, raycast: true);
+                Stretch(fill.rectTransform);
+                IgnoreLayout(fill.gameObject);
+                var frame = Sliced(panelRoot, "frame", _chrome.panelFrame, Color.white,
+                                   _chrome.panelSlice, raycast: false);
+                Stretch(frame.rectTransform);
+                IgnoreLayout(frame.gameObject);
+                return fill;
+            }
+
             var bg = Image(panelRoot, "bg", PanelBg, raycast: true);
             Stretch(bg.rectTransform);
             IgnoreLayout(bg.gameObject);
@@ -100,6 +146,35 @@ namespace TheWaningBorder.UI.Ingame
             MakeBorderStrip(panelRoot, "border_left",   new Vector2(0, 0), new Vector2(0, 1), new Vector2(t, 0), new Vector2(0f, 0.5f));
             MakeBorderStrip(panelRoot, "border_right",  new Vector2(1, 0), new Vector2(1, 1), new Vector2(t, 0), new Vector2(1f, 0.5f));
             return bg;
+        }
+
+        /// <summary>
+        /// Button background + frame, stretched over <paramref name="rt"/>.
+        /// Returns the FILL image: callers recolour it for locked / poor /
+        /// hover states exactly as they did the flat "bg" image, and the
+        /// frame on top stays authored-white. Also usable on an existing rect
+        /// that already carries the Image (pass <paramref name="existing"/>).
+        /// </summary>
+        public static Image ButtonChrome(RectTransform rt, bool raycast, Image existing = null)
+        {
+            Image fill = existing;
+            if (fill == null)
+            {
+                fill = Image(rt, "bg", ButtonBg, raycast);
+                Stretch(fill.rectTransform);
+            }
+            if (_chrome == null) return fill;
+
+            fill.sprite = _chrome.buttonFrameMask;
+            fill.type = UnityEngine.UI.Image.Type.Sliced;
+            fill.fillCenter = true;
+            fill.pixelsPerUnitMultiplier = _chrome.buttonSlice;
+            var frame = Sliced(rt, "frame", _chrome.buttonFrame, Color.white, _chrome.buttonSlice, raycast: false);
+            Stretch(frame.rectTransform);
+            // The frame must sit above the fill but below labels / icons that
+            // were added before it: put it right after the fill.
+            frame.transform.SetSiblingIndex(fill.transform.GetSiblingIndex() + 1);
+            return fill;
         }
 
         /// <summary>

@@ -211,11 +211,26 @@ namespace TheWaningBorder.UI.Data
             // ForgeStorage/ForgeConversionSystem pipeline are all unchanged.
             if (em.HasComponent<SmelterTag>(entity)) return "Forge";
             if (em.HasComponent<ReliquaryTag>(entity)) return "The Reliquary";
-            if (em.HasComponent<WallHubTag>(entity)) return "Wall Hub";
-            if (em.HasComponent<WallTowerTag>(entity)) return "Wall Tower";
-            if (em.HasComponent<WallGateTag>(entity)) return "Wall Gate";
-            if (em.HasComponent<WallInstanceTag>(entity)) return "Wall";
-            if (em.HasComponent<WallSegmentTag>(entity)) return "Wall Segment";
+            // Wall pieces are named for their LEVEL: an Age 0 palisade is a
+            // "Wooden Wall", not "the Alanthor Wall"
+            // (docs/Design/Age_1_Alanthor.md § The three wall levels).
+            if (em.HasComponent<WallTag>(entity))
+            {
+                string wallName = TheWaningBorder.Entities.WallTiers.DisplayName(
+                    TheWaningBorder.Entities.WallTiers.Of(em, entity));
+                // A module carrying an engine is named for the engine: that
+                // is what the player built and what they are looking at.
+                if (em.HasComponent<EmplacementTag>(entity))
+                    return em.HasComponent<EmplacementCrew>(entity)
+                           && em.GetComponentData<EmplacementCrew>(entity).EngineId
+                              == TheWaningBorder.Entities.EmplacedTrebuchet.Id
+                        ? "Wall Trebuchet" : "Wall Ballista";
+                if (em.HasComponent<WallHubTag>(entity)) return wallName + " Hub";
+                if (em.HasComponent<WallTowerTag>(entity)) return "Wall Tower";
+                if (em.HasComponent<WallGateTag>(entity)) return wallName + " Gate";
+                if (em.HasComponent<WallSegmentTag>(entity)) return wallName + " Segment";
+                if (em.HasComponent<WallInstanceTag>(entity)) return wallName;
+            }
             // Runai culture buildings
             if (em.HasComponent<OutpostTag>(entity)) return "Runai Outpost";
             if (em.HasComponent<TradeHubTag>(entity)) return "Trade Hub";
@@ -227,6 +242,13 @@ namespace TheWaningBorder.UI.Data
             if (em.HasComponent<WatchTowerTag>(entity)) return "Watch Tower";
             if (em.HasComponent<SiegeYardTag>(entity)) return "Siege Yard";
             if (em.HasComponent<RoyalStableTag>(entity)) return "Royal Stable";
+            // The emplacement pair. One tag, two buildings — which one it is
+            // comes off the engine the crew mounts.
+            if (em.HasComponent<EmplacementTag>(entity))
+                return em.HasComponent<EmplacementCrew>(entity)
+                       && em.GetComponentData<EmplacementCrew>(entity).EngineId
+                          == TheWaningBorder.Entities.EmplacedTrebuchet.Id
+                    ? "Trebuchet Emplacement" : "Ballista Emplacement";
             // Feraldis culture buildings
             if (em.HasComponent<HuntingLodgeTag>(entity)) return "Hunting Lodge";
             if (em.HasComponent<LoggingStationTag>(entity)) return "Logging Station";
@@ -250,6 +272,14 @@ namespace TheWaningBorder.UI.Data
 
         private static string GetUnitName(Entity entity, EntityManager em)
         {
+            // An emplaced engine shares the mobile machine's presentation id,
+            // so it has to be named before the pid ladder or it reads as the
+            // mobile one (docs/Design/Age_1_Alanthor.md § Ballista and
+            // Trebuchet emplacements).
+            if (em.HasComponent<EmplacedEngineTag>(entity))
+                return em.HasComponent<AOEShooterData>(entity)
+                    ? "Emplaced Trebuchet" : "Emplaced Ballista";
+
             // Use PresentationId for precise unit identification
             if (em.HasComponent<PresentationId>(entity))
             {

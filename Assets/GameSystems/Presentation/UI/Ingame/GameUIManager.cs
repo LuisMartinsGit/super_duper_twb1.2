@@ -180,6 +180,8 @@ namespace TheWaningBorder.UI.Ingame
                 TWBLog.Log("[GameUI] Resources/GameUICatalog.asset missing — no game UI will show.");
                 return;
             }
+            // Code-built panels borrow the authored frames from here on.
+            GameUIKit.Bind(catalog);
 
             // uGUI interactivity needs an EventSystem; game scenes are built
             // procedurally and have none of their own.

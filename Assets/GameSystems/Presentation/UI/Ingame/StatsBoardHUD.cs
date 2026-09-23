@@ -60,6 +60,10 @@ namespace TheWaningBorder.UI.Ingame
         private float _nextSample;
 
         private Texture2D[] _chartTex;
+        // One pixel buffer per chart, reused: every redraw overwrites every
+        // pixel, so reading the texture back (nine 36k-element allocations
+        // per sample) bought nothing but garbage.
+        private Color32[][] _chartPx;
         private Text _table;
         private EntityQuery _unitQuery;
         private bool _queriesReady;
@@ -256,39 +260,34 @@ namespace TheWaningBorder.UI.Ingame
             var infCells = new int[MaxFactions];
             int curseCells = 0;
             if (TheWaningBorder.World.Regions.RegionMap.Ready
-                && TheWaningBorder.World.Regions.TerritoryOwnership.Ready)
+                && TheWaningBorder.World.Regions.TerritoryOwnership.Ready
+                && TheWaningBorder.Influence.PlayerInfluenceMap.Ready)
             {
                 const int res = TheWaningBorder.Influence.PlayerInfluenceMap.Resolution;
-                Vector2 wMin = TheWaningBorder.Influence.PlayerInfluenceMap.WorldMin;
-                Vector2 wSize = TheWaningBorder.Influence.PlayerInfluenceMap.WorldSize;
+                // Region per cell comes from the influence map's cache, not
+                // from 16k live RegionAt calls: on a map with authored
+                // outlines that loop was a 58 ms hitch every sample (2026-09-16).
+                var regionOf = TheWaningBorder.Influence.PlayerInfluenceMap.RegionOfCell();
                 int claimable = 0;
-                for (int y = 0; y < res; y++)
+                for (int i = 0; i < res * res; i++)
                 {
-                    float wz = wMin.y + (y + 0.5f) / res * wSize.y;
-                    for (int x = 0; x < res; x++)
-                    {
-                        float wx = wMin.x + (x + 0.5f) / res * wSize.x;
-                        int t = TheWaningBorder.World.Regions.RegionMap.RegionAt(wx, wz);
-                        if (t == TheWaningBorder.World.Regions.RegionMap.None) continue;
-                        claimable++;
-                        int owner = TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(t);
-                        if (owner >= 0 && owner < MaxFactions) infCells[owner]++;
-                    }
+                    int t = regionOf[i];
+                    if (t == TheWaningBorder.World.Regions.RegionMap.None) continue;
+                    claimable++;
+                    int owner = TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(t);
+                    if (owner >= 0 && owner < MaxFactions) infCells[owner]++;
                 }
                 if (claimable > 0)
                 {
                     // The curse holds no territories yet (Regions.md §3 is
                     // unimplemented), so its share still comes from its field —
                     // the one channel for which influence IS the statement.
-                    if (TheWaningBorder.Influence.PlayerInfluenceMap.Ready)
-                    {
-                        for (int y = 0; y < res; y++)
-                            for (int x = 0; x < res; x++)
-                                if (TheWaningBorder.Influence.PlayerInfluenceMap.CellValue(
-                                        x, y, TheWaningBorder.Influence.PlayerInfluenceMap.CurseChannel) >= 0.5f)
-                                    curseCells++;
-                        _curseInf[idx] = curseCells / (float)(res * res) * 100f;
-                    }
+                    for (int y = 0; y < res; y++)
+                        for (int x = 0; x < res; x++)
+                            if (TheWaningBorder.Influence.PlayerInfluenceMap.CellValue(
+                                    x, y, TheWaningBorder.Influence.PlayerInfluenceMap.CurseChannel) >= 0.5f)
+                                curseCells++;
+                    _curseInf[idx] = curseCells / (float)(res * res) * 100f;
                     for (int f = 0; f < MaxFactions; f++)
                         infCells[f] = Mathf.RoundToInt(infCells[f] / (float)claimable * 10000f); // % x100
                 }
@@ -332,7 +331,8 @@ namespace TheWaningBorder.UI.Ingame
 
             for (int c = 0; c < ChartCount; c++)
             {
-                var px = _chartTex[c].GetPixels32();
+                _chartPx ??= new Color32[ChartCount][];
+                var px = _chartPx[c] ??= new Color32[ChartW * ChartH];
                 for (int i = 0; i < px.Length; i++) px[i] = bgCol;
                 for (int gy = 1; gy < 4; gy++) // horizontal quarter grid
                 {

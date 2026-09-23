@@ -107,8 +107,7 @@ namespace TheWaningBorder.UI.Ingame
             var rt = GameUIKit.Rect(parent, name);
             GameUIKit.FixHeight(rt.gameObject, ButtonHeight);
 
-            var bg = GameUIKit.Image(rt, "bg", GameUIKit.ButtonBg, raycast: true);
-            GameUIKit.Stretch(bg.rectTransform);
+            var bg = GameUIKit.ButtonChrome(rt, raycast: true);
             var text = GameUIKit.Text(rt, "label", label, 34f, GameUIKit.TextMain,
                 TextAlignmentOptions.Center, wrap: false);
             GameUIKit.Stretch(text.rectTransform);

@@ -70,15 +70,17 @@ namespace TheWaningBorder.UI.Ingame
             {
                 var cursed = new int[regions];
                 var total = new int[regions];
-                Vector2 wMin = TheWaningBorder.Influence.PlayerInfluenceMap.WorldMin;
-                Vector2 wSize = TheWaningBorder.Influence.PlayerInfluenceMap.WorldSize;
+                // Region per cell is resolved ONCE by the influence map and
+                // read by index here. Resolving it live — 16k RegionAt calls
+                // on every 0.1 s refresh — was a 64 ms stall ten times a
+                // second on any map with authored outlines (2026-09-16).
+                var regionOf = TheWaningBorder.Influence.PlayerInfluenceMap.RegionOfCell();
                 for (int cy = 0; cy < res; cy++)
                 {
-                    float wz = wMin.y + (cy + 0.5f) / res * wSize.y;
+                    int row = cy * res;
                     for (int cx = 0; cx < res; cx++)
                     {
-                        float wx = wMin.x + (cx + 0.5f) / res * wSize.x;
-                        int region = TheWaningBorder.World.Regions.RegionMap.RegionAt(wx, wz);
+                        int region = regionOf[row + cx];
                         if (region < 0 || region >= regions) continue;
                         total[region]++;
                         if (TheWaningBorder.Influence.PlayerInfluenceMap.CellValue(
@@ -102,49 +104,215 @@ namespace TheWaningBorder.UI.Ingame
         }
 
         /// <summary>
-        /// Region boundaries (docs/Design/Regions.md), drawn OVER the territory
-        /// tint and UNDER the blips.
-        ///
-        /// The minimap is where the region map is meant to be READ, so unlike
-        /// the terrain (a quiet darkening) these are a legible lattice you can
-        /// plan against.
-        ///
-        /// Rasterised ONCE and cached. The partition never moves during a
-        /// match, and this runs on every overlay refresh over every overlay
-        /// pixel -- with up to 40 seeds and a linear nearest-seed scan, redoing
-        /// it live would be millions of distance tests per second for an image
-        /// that is identical every time.
-        ///
-        /// Fog: region SHAPE is map structure, not intel -- the same partition
-        /// the lobby preview shows before the match starts -- so it is not
-        /// fog-gated. Who OWNS a region still follows the influence map's rules.
+        /// Everything the territory layer says about a pixel that does NOT
+        /// change between refreshes (2026-09-16): which tint it takes and
+        /// whether it sits on an ownership seam. Rebuilt only when an owner
+        /// or a cursed flag changes, or the partition does — and composited
+        /// onto the fog in ONE pass per refresh by CompositeTerritory. The
+        /// three passes this replaces (tint, lattice, outline) each walked
+        /// all 65k pixels ten times a second, two of them asking
+        /// FogOfWarSystem.IsRevealedToFaction per pixel; that was most of
+        /// the refresh with nothing on the map changing.
         /// </summary>
-        private void DrawRegionBoundaries(Faction faction)
+        private byte[] _tintIdx;            // 0 none, 1..8 owner+1, 9 curse
+        private int[] _layerOwners;         // _ownerOfRegion the layer was built from
+        private bool[] _layerCursed;        // _cursedRegion the layer was built from
+        private int _layerPartition = -1;   // _regionEdgeSeeds the layer was built from
+        private bool _layerAnyOwned;
+        private readonly Color32[] _tintColor = new Color32[10];
+
+        private const byte TintCurse = 9;
+        private static readonly Color32 LatticeLine = new Color32(18, 18, 22, 255);
+
+        /// <summary>
+        /// The territory layer over the fog: tint, region lattice, ownership
+        /// outline — the same pixels the three separate passes produced,
+        /// from the cached layer. Falls back to the raw influence field on a
+        /// map with no partition.
+        /// </summary>
+        private void DrawTerritory(Faction faction)
+        {
+            if (!_territoryStateReady)
+            {
+                DrawInfluenceTintFromField(faction);
+                DrawRegionLatticeOnly();
+                return;
+            }
+            RebuildTerritoryLayerIfNeeded();
+            CompositeTerritory();
+        }
+
+        private void RebuildTerritoryLayerIfNeeded()
+        {
+            int n = _ovW * _ovH;
+            int regions = _ownerOfRegion.Length;
+            bool dirty = _tintIdx == null || _tintIdx.Length != n
+                || _territoryEdge == null || _territoryEdge.Length != n
+                || _layerPartition != _regionEdgeSeeds
+                || _layerOwners == null || _layerOwners.Length != regions;
+            if (!dirty)
+            {
+                for (int r = 0; r < regions; r++)
+                {
+                    if (_layerOwners[r] == _ownerOfRegion[r] && _layerCursed[r] == _cursedRegion[r]) continue;
+                    dirty = true;
+                    break;
+                }
+            }
+            if (!dirty) return;
+
+            if (_tintIdx == null || _tintIdx.Length != n) _tintIdx = new byte[n];
+            if (_territoryEdge == null || _territoryEdge.Length != n) _territoryEdge = new byte[n];
+            if (_layerOwners == null || _layerOwners.Length != regions)
+            {
+                _layerOwners = new int[regions];
+                _layerCursed = new bool[regions];
+            }
+            System.Array.Copy(_ownerOfRegion, _layerOwners, regions);
+            System.Array.Copy(_cursedRegion, _layerCursed, regions);
+            _layerPartition = _regionEdgeSeeds;
+
+            for (int f = 0; f < 8; f++) _tintColor[f + 1] = FactionColors.Get((Faction)f);
+            _tintColor[TintCurse] = TheWaningBorder.Influence.PlayerInfluenceMap.ChannelColor(
+                TheWaningBorder.Influence.PlayerInfluenceMap.CurseChannel);
+
+            _layerAnyOwned = false;
+            for (int r = 0; r < regions && !_layerAnyOwned; r++)
+                _layerAnyOwned = _ownerOfRegion[r] >= 0;
+
+            // Tint: WHOLE TERRITORIES (docs/Design/Regions.md §2) — the fill
+            // stops exactly where the outline does. A cursed territory reads
+            // as cursed whoever nominally holds it: the curse is what is
+            // standing on the ground.
+            for (int i = 0; i < n; i++)
+            {
+                int region = _regionAtPixel[i];
+                if (region < 0 || region >= regions) { _tintIdx[i] = 0; continue; }
+                int owner = _ownerOfRegion[region];
+                if (_cursedRegion[region]) _tintIdx[i] = TintCurse;
+                else if (owner >= 0 && owner <= 7) _tintIdx[i] = (byte)(owner + 1);
+                else _tintIdx[i] = 0;
+            }
+
+            // Outline: mark the OWNED side of every ownership seam. Marking
+            // the owner's own pixel rather than its neighbour's is what keeps
+            // two adjacent players' borders as two lines in two colours
+            // instead of one shared line whose colour depends on iteration
+            // order. One pixel wide and it stays one pixel.
+            System.Array.Clear(_territoryEdge, 0, n);
+            if (!_layerAnyOwned) return;
+            for (int py = 0; py < _ovH; py++)
+            {
+                int row = py * _ovW;
+                for (int px = 0; px < _ovW; px++)
+                {
+                    int i = row + px;
+                    int owner = OwnerAtPixel(i);
+                    if (owner < 0) continue;
+
+                    bool edge =
+                        px == 0 || px == _ovW - 1 || py == 0 || py == _ovH - 1
+                        || OwnerAtPixel(i - 1) != owner
+                        || OwnerAtPixel(i + 1) != owner
+                        || OwnerAtPixel(i - _ovW) != owner
+                        || OwnerAtPixel(i + _ovW) != owner;
+
+                    if (edge) _territoryEdge[i] = (byte)(owner + 1);   // 0 = not an edge
+                }
+            }
+        }
+
+        /// <summary>
+        /// One pass over the overlay, in the order the old passes ran: tint
+        /// over the fog, then the region lattice, then the ownership line.
+        /// Tint and line are gated on the fog's per-pixel "explored" answer —
+        /// territory you have EXPLORED shows like a remembered building,
+        /// territory you have never seen shows nothing, or the map would
+        /// hand you every faction's holdings through unexplored black.
+        /// The lattice is map structure, not intel, and is not gated.
+        /// </summary>
+        private void CompositeTerritory()
+        {
+            int n = _ovW * _ovH;
+            bool haveLattice = _regionEdge != null && _regionEdge.Length == n;
+            bool unfogged = _unfogged;
+            int drawn = 0;
+
+            for (int i = 0; i < n; i++)
+            {
+                bool revealed = unfogged || _pixelRevealed[i] != 0;
+                var p = _overlayPixels[i];
+
+                byte t = _tintIdx[i];
+                if (t != 0 && revealed)
+                {
+                    Color32 tint = _tintColor[t];
+                    float blend = t == TintCurse ? 0.6f : 0.55f;
+                    p.r = (byte)(p.r + (tint.r - p.r) * blend);
+                    p.g = (byte)(p.g + (tint.g - p.g) * blend);
+                    p.b = (byte)(p.b + (tint.b - p.b) * blend);
+                    if (p.a < 165) p.a = 165; // reads solidly over the terrain image
+                }
+
+                if (haveLattice)
+                {
+                    byte e = _regionEdge[i];
+                    if (e != 0)
+                    {
+                        float a = e / 255f;
+                        p = new Color32(
+                            (byte)Mathf.Lerp(p.r, LatticeLine.r, a),
+                            (byte)Mathf.Lerp(p.g, LatticeLine.g, a),
+                            (byte)Mathf.Lerp(p.b, LatticeLine.b, a),
+                            (byte)Mathf.Max(p.a, (byte)(a * 255f)));
+                    }
+                }
+
+                byte tag = _territoryEdge[i];
+                if (tag != 0 && revealed)
+                {
+                    Color32 line = _tintColor[tag];   // owner + 1: same table as the tint
+                    p = new Color32(line.r, line.g, line.b, 255);
+                    drawn++;
+                }
+
+                _overlayPixels[i] = p;
+            }
+
+            if (drawn > 0 && !_territoryLogged)
+            {
+                _territoryLogged = true;
+                Debug.Log($"[Minimap] territory outlines online — {_ownerOfRegion.Length} region(s), " +
+                          $"{drawn} outline pixel(s).");
+            }
+        }
+
+        /// <summary>The region lattice alone, for the no-partition fallback
+        /// (it is still baked when the map has seeds but no ownership).</summary>
+        private void DrawRegionLatticeOnly()
         {
             if (!TheWaningBorder.World.Regions.RegionMap.Ready) return;
-
             BuildRegionEdgeCache();
             if (_regionEdge == null) return;
-
-            var line = new Color32(18, 18, 22, 255);
             for (int i = 0; i < _regionEdge.Length; i++)
             {
                 byte e = _regionEdge[i];
                 if (e == 0) continue;
-
                 var c = _overlayPixels[i];
                 float a = e / 255f;
                 _overlayPixels[i] = new Color32(
-                    (byte)Mathf.Lerp(c.r, line.r, a),
-                    (byte)Mathf.Lerp(c.g, line.g, a),
-                    (byte)Mathf.Lerp(c.b, line.b, a),
+                    (byte)Mathf.Lerp(c.r, LatticeLine.r, a),
+                    (byte)Mathf.Lerp(c.g, LatticeLine.g, a),
+                    (byte)Mathf.Lerp(c.b, LatticeLine.b, a),
                     (byte)Mathf.Max(c.a, (byte)(a * 255f)));
             }
         }
 
         private void BuildRegionEdgeCache()
         {
-            int seeds = TheWaningBorder.World.Regions.RegionMap.Count;
+            // Keyed on the partition VERSION: a second map with the same
+            // number of regions used to keep the first map's lattice.
+            int seeds = TheWaningBorder.World.Regions.RegionMap.Version;
             if (_regionEdge != null && _regionEdge.Length == _ovW * _ovH && _regionEdgeSeeds == seeds)
                 return;
 
@@ -186,111 +354,6 @@ namespace TheWaningBorder.UI.Ingame
             }
         }
 
-        /// <summary>
-        /// TERRITORY OUTLINES — the same statement the in-world ribbon makes
-        /// (InfluenceOverlayRenderer), in the same colours: a line around the
-        /// ground each faction actually HOLDS, in that faction's banner colour.
-        ///
-        /// Ownership, not influence. The tint above is driven by the influence
-        /// map, which InfluenceMapSystem leaves flat zero for the whole of
-        /// Age 0 — so on the minimap too there was nothing to read until a
-        /// culture was adopted. docs/Design/Regions.md §2 says you hold your
-        /// start region from tick 0, and this is what shows it.
-        ///
-        /// The boundary is found by comparing each pixel's owner against its
-        /// four neighbours: one pass over the overlay and no distance tests,
-        /// because the expensive half — which region each pixel is in — is
-        /// baked once by BuildRegionEdgeCache.
-        ///
-        /// Fog follows the tint's rule exactly: ground you have EXPLORED keeps
-        /// showing its owner like a remembered building, ground you have never
-        /// seen shows nothing. Without that the outline would draw straight
-        /// through unexplored black and hand you every faction's holdings.
-        /// </summary>
-        private void DrawTerritoryOutlines(Faction faction)
-        {
-            // Ownership was resolved once for this refresh, before the tint —
-            // the fill and the line have to stop in the same place.
-            if (!_territoryStateReady) return;
-
-            int regions = _ownerOfRegion.Length;
-            bool anyOwned = false;
-            for (int r = 0; r < regions && !anyOwned; r++)
-                anyOwned = _ownerOfRegion[r] >= 0;
-            if (!anyOwned) return;
-
-            int n = _ovW * _ovH;
-            if (_territoryEdge == null || _territoryEdge.Length != n)
-                _territoryEdge = new byte[n];
-            System.Array.Clear(_territoryEdge, 0, n);
-
-            // Pass 1 — mark the OWNED side of every ownership seam. Marking the
-            // owner's own pixel rather than its neighbour's is what keeps two
-            // adjacent players' borders as two lines in two colours instead of
-            // one shared line whose colour depends on iteration order.
-            for (int py = 0; py < _ovH; py++)
-            {
-                int row = py * _ovW;
-                for (int px = 0; px < _ovW; px++)
-                {
-                    int i = row + px;
-                    int owner = OwnerAtPixel(i);
-                    if (owner < 0) continue;
-
-                    bool edge =
-                        px == 0 || px == _ovW - 1 || py == 0 || py == _ovH - 1
-                        || OwnerAtPixel(i - 1) != owner
-                        || OwnerAtPixel(i + 1) != owner
-                        || OwnerAtPixel(i - _ovW) != owner
-                        || OwnerAtPixel(i + _ovW) != owner;
-
-                    if (edge) _territoryEdge[i] = (byte)(owner + 1);   // 0 = not an edge
-                }
-            }
-
-            // No thickening pass: the seam is one pixel and stays one pixel.
-            // It was grown inward by one to make it easier to see, which put a
-            // two-pixel band on a small overlay — far too heavy for a line
-            // whose job is to mark where ground changes hands.
-
-            bool unfogged = !GameSettings.FogOfWarEnabled || GameSettings.ViewFaction == null;
-            float bw = Mathf.Max(0.001f, _boundsMax.x - _boundsMin.x);
-            float bh = Mathf.Max(0.001f, _boundsMax.y - _boundsMin.y);
-            int drawn = 0;
-
-            for (int py = 0; py < _ovH; py++)
-            {
-                int row = py * _ovW;
-                for (int px = 0; px < _ovW; px++)
-                {
-                    int i = row + px;
-                    byte tag = _territoryEdge[i];
-                    if (tag == 0) continue;
-                    int owner = tag - 1;
-                    if (owner < 0 || owner > 7) continue;
-
-                    if (!unfogged)
-                    {
-                        var wp = new float3(
-                            _boundsMin.x + (px + 0.5f) / _ovW * bw, 0f,
-                            _boundsMin.y + (py + 0.5f) / _ovH * bh);
-                        if (!FogOfWarSystem.IsRevealedToFaction(faction, wp)) continue;
-                    }
-
-                    Color32 line = FactionColors.Get((Faction)owner);
-                    _overlayPixels[i] = new Color32(line.r, line.g, line.b, 255);
-                    drawn++;
-                }
-            }
-
-            if (drawn > 0 && !_territoryLogged)
-            {
-                _territoryLogged = true;
-                Debug.Log($"[Minimap] territory outlines online — {regions} region(s), " +
-                          $"{drawn} outline pixel(s).");
-            }
-        }
-
         /// <summary>Owner faction index at an overlay pixel, or -1 for Natural
         /// ground, the curse, and anything off the partition.</summary>
         private int OwnerAtPixel(int index)
@@ -301,72 +364,15 @@ namespace TheWaningBorder.UI.Ingame
             return owner >= 0 && owner <= 7 ? owner : -1;
         }
 
-        /// <summary>Territory tint (2026-08-04): every influence channel's
-        /// OWNED ground — ownership-clipped exactly like the world border
-        /// overlay (the strongest channel at/over 0.5 owns the cell) —
-        /// blended between the fog pass and the blips: players in their
-        /// banner colour, the curse in purple. Influence-grid resolution
-        /// (128²), so the pass is 16k samples at 10 Hz, not per-pixel.</summary>
-        private void DrawInfluenceTint(Faction faction)
+        /// <summary>Influence-field tint for a map with NO partition — the only
+        /// statement about ownership available on a map with no region seeds
+        /// (the strongest channel at/over 0.5 owns the cell). Fog-gated like
+        /// the territory tint.</summary>
+        private void DrawInfluenceTintFromField(Faction faction)
         {
-            // Influence is painted OVER the fog layer (RefreshFog runs first),
-            // so without a visibility test it drew straight through unexplored
-            // black — handing the player the shape of every faction's territory
-            // and the curse's spread across ground nobody had scouted. Territory
-            // you have EXPLORED still shows once revealed, like a remembered
-            // building; territory you have never seen shows nothing.
-            bool unfogged = !GameSettings.FogOfWarEnabled || GameSettings.ViewFaction == null;
+            bool unfogged = _unfogged;
             float bw = Mathf.Max(0.001f, _boundsMax.x - _boundsMin.x);
             float bh = Mathf.Max(0.001f, _boundsMax.y - _boundsMin.y);
-
-            if (_territoryStateReady)
-            {
-                // WHOLE TERRITORIES (docs/Design/Regions.md §2). Ground is held
-                // a territory at a time, so the fill has to stop exactly where
-                // the outline does. Painted straight off the influence field it
-                // did not: it was a soft bubble around whatever was depositing,
-                // spilling past the border and fading out over ground nobody
-                // held — so the minimap disagreed with its own border lines and
-                // with the terrain, and none of the three was the rule.
-                for (int py = 0; py < _ovH; py++)
-                {
-                    int row = py * _ovW;
-                    for (int px = 0; px < _ovW; px++)
-                    {
-                        int i = row + px;
-                        int region = _regionAtPixel[i];
-                        if (region < 0 || region >= _ownerOfRegion.Length) continue;
-
-                        int owner = _ownerOfRegion[region];
-                        bool cursed = _cursedRegion[region];
-                        // A cursed territory reads as cursed whoever nominally
-                        // holds it: the curse is what is standing on the ground.
-                        if (owner < 0 && !cursed) continue;
-
-                        Color32 tint = cursed
-                            ? TheWaningBorder.Influence.PlayerInfluenceMap.ChannelColor(
-                                  TheWaningBorder.Influence.PlayerInfluenceMap.CurseChannel)
-                            : FactionColors.Get((Faction)owner);
-                        float blend = cursed ? 0.6f : 0.55f;
-
-                        if (!unfogged)
-                        {
-                            var wp = new float3(
-                                _boundsMin.x + (px + 0.5f) / _ovW * bw, 0f,
-                                _boundsMin.y + (py + 0.5f) / _ovH * bh);
-                            if (!FogOfWarSystem.IsRevealedToFaction(faction, wp)) continue;
-                        }
-
-                        var p = _overlayPixels[i];
-                        p.r = (byte)(p.r + (tint.r - p.r) * blend);
-                        p.g = (byte)(p.g + (tint.g - p.g) * blend);
-                        p.b = (byte)(p.b + (tint.b - p.b) * blend);
-                        if (p.a < 165) p.a = 165; // reads solidly over the terrain image
-                        _overlayPixels[i] = p;
-                    }
-                }
-                return;
-            }
 
             // No partition to fill by: fall back to the influence field, which
             // is the only statement about ownership available on a map with no

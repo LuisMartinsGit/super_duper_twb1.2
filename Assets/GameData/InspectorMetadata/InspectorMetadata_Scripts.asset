@@ -448,77 +448,101 @@ MonoBehaviour:
     - field: "maxCells"
       header: 
       tooltip: "Hard cap on cells meshed (each cell = 4 verts)."
-  - typeName: "TheWaningBorder.World.DayNightCycle"
+  - typeName: "TheWaningBorder.World.DayNightCycleConfig"
     fields:
     - field: "sunPitch"
-      header: "Sun (Step 2: magic-hour rake)"
-      tooltip: "Sun pitch \u2014 angle from horizon. Recipe: 50\u00b0 for long shadows + dramatic contour."
+      header: "Sun"
+      tooltip: "Angle above the horizon. Lower = longer shadows, more form on buildings. Recipe: 42."
     - field: "sunHeading"
       header: 
-      tooltip: "Sun heading (compass) in degrees. Recipe: -30\u00b0 matches the post-process article."
+      tooltip: "Compass heading in degrees. Recipe: -35."
     - field: "sunColor"
       header: 
-      tooltip: "Sun colour. Recipe: warm off-white #FFF4E0."
+      tooltip: "Slightly cool, NEVER saturated blue. Colour temperature comes from the ambient and the shadow split-tone, not the sun (Art_Direction.md §3.1). Recipe: #8FA6C8."
     - field: "sunIntensity"
       header: 
-      tooltip: "Sun intensity. Recipe: 1.2-1.5. Pushed to top of range because this scene has no baked GI to fill shadows."
+      tooltip: "The sun is fill; the lanterns are key. Recipe: 0.75. If the image is too dark raise the ambient, never this past ~1."
+    - field: "shadowStrength"
+      header: 
+      tooltip: "Directional shadow opacity. Recipe: 0.8."
     - field: "ambientSkyColor"
-      header: "Ambient (Trilight gradient \u2014 no bake needed)"
-      tooltip: "Sky colour \u2014 fills upward-facing surfaces. Bright warm-neutral."
+      header: "Ambient (Trilight gradient — no bake needed)"
+      tooltip: "Upward-facing fill. Navy. Recipe: #2B3A5C."
     - field: "ambientEquatorColor"
       header: 
-      tooltip: "Equator colour \u2014 fills horizontal/side-facing surfaces."
+      tooltip: "Side-facing fill — this is the colour of 'night'. Teal-navy. Recipe: #1E3340."
     - field: "ambientGroundColor"
       header: 
-      tooltip: "Ground colour \u2014 fills downward-facing surfaces. Warm earth tone."
+      tooltip: "Downward-facing fill. Recipe: #0E0F18."
     - field: "fogColor"
-      header: "Fog (Step 3: atmospheric depth)"
-      tooltip: "Fog colour. Recipe Alanthor cool grey-blue #B8C5D6, or warm sandy #E8D8B8 for sunlit."
+      header: "Fog (horizon fade only)"
+      tooltip: "Recipe: #141A2E."
     - field: "fogDensity"
       header: 
-      tooltip: "Exponential-squared fog density. Recipe: start at 0.005, tune until distant terrain fades."
+      tooltip: "Exponential-squared. 0 = off. 0.0015 is 2% at 120 m, 12% at 300 m. 0.005 ate the map at RTS zoom-out — guardrail §3.5 (4): the far edge of the map must stay visible at max zoom-out."
+    - field: "voidColor"
+      header: "The void"
+      tooltip: "Camera clear colour beyond the map. Unexplored fog and the map edge fade into it. Recipe: #05060C."
     - field: "vignetteIntensity"
-      header: "Post-Processing (Step 1: URP global volume)"
-      tooltip: "Vignette intensity. Recipe: 0.25 \u2014 dropped to 0.18 here so corners don't read as darkness on this scene."
+      header: "Post-processing grade"
+      tooltip: "Recipe: 0.2. Was 0 for GPU cost — measure again before keeping it."
     - field: "vignetteColor"
       header: 
-      tooltip: "Vignette colour. Recipe: near-black."
+      tooltip: "Near-black."
     - field: "vignetteSmoothness"
       header: 
-      tooltip: "Vignette smoothness. Recipe: 0.4."
+      tooltip: "Recipe: 0.5."
     - field: "bloomIntensity"
       header: 
-      tooltip: "Bloom intensity. Recipe: 0.4-0.8 \u2014 makes veilstone + lit windows glow."
+      tooltip: "Recipe: 1.0."
     - field: "bloomThreshold"
       header: 
-      tooltip: "Bloom threshold. Recipe: 1.1 \u2014 only true HDR-bright pixels bloom (not faction colours)."
+      tooltip: "Recipe: 0.9 — only HDR (> 1) surfaces cross it, so the emissive ladder (§3.4) is the only thing that glows. Faction colours never bloom."
+    - field: "bloomScatter"
+      header: 
+      tooltip: "Recipe: 0.7."
     - field: "postExposure"
       header: 
-      tooltip: "Post-exposure. Recipe: 0 (no global darkening)."
+      tooltip: "Stays 0. Brightness comes from emissives and ambient, never exposure (§3.1)."
     - field: "saturation"
       header: 
-      tooltip: "Saturation. Recipe: +10. Keeps faction colours vibrant."
+      tooltip: "Taken from the base, given back by the emissives. Recipe: -15."
     - field: "contrast"
       header: 
-      tooltip: "Contrast. Recipe: +15."
+      tooltip: "Recipe: +20."
     - field: "smhShadowsTint"
-      header: "Shadows / Midtones / Highlights (Step 1: cinematic split-tone)"
-      tooltip: "Cool tint applied to shadow luminance. Recipe: slightly blue-ish."
+      header: "Shadows / Highlights split-tone"
+      tooltip: "Blue-violet shadows — one of the only two sources of colour temperature. Recipe: (0.85, 0.90, 1.15)."
     - field: "smhHighlightsTint"
       header: 
-      tooltip: "Warm tint applied to highlight luminance. Recipe: slightly orange-ish."
+      tooltip: "Slightly warm so lantern light stays warm. Recipe: (1.05, 1.02, 0.95)."
     - field: "filmGrainIntensity"
-      header: "Film Grain (Step 1)"
-      tooltip: "Film grain intensity. Recipe: 0.15 \u2014 subtle texture, hides aliasing."
+      header: "Film grain"
+      tooltip: "Stays 0 — per-pixel cost for nothing the reference has."
     - field: "filmGrainResponse"
       header: 
-      tooltip: "Film grain response curve. Recipe: 0.8."
+      tooltip: "Recipe: 0.8."
     - field: "shadowDistance"
       header: "Shadows"
-      tooltip: "Shadow draw distance in world units"
+      tooltip: "The AUTHORITY — pushed over the pipeline asset at startup. Recipe: 120 (the RTS camera looks at ~120 m of ground)."
+    - field: "shadowCascadeCount"
+      header: 
+      tooltip: "Recipe: 2. Four re-rendered every caster up to four times for a camera that never sees past ~120 m."
     - field: "cloudShadows"
-      header: "Cloud Shadows"
-      tooltip: "Enable static cloud shadow projector for depth"
+      header: "Cloud shadows"
+      tooltip: "Static drifting cloud-shadow projector for depth."
+    - field: "cloudOpacity"
+      header: 
+      tooltip: "Recipe: 0.3."
+    - field: "cloudSpeed"
+      header: 
+      tooltip: "World units per second the cloud texture drifts."
+    - field: "cloudScale"
+      header: 
+      tooltip: "Cloud texture tiling."
+    - field: "cloudProjectorSize"
+      header: 
+      tooltip: "Half-size in metres of the projector quad that follows the camera."
   - typeName: "TheWaningBorder.World.FogOfWar.FogOfWarManager"
     fields:
     - field: "WorldMin"

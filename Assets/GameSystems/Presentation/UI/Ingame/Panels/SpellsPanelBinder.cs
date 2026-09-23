@@ -91,6 +91,7 @@ namespace TheWaningBorder.UI.Ingame
 
                 _castBgs[row] = castRect.gameObject.AddComponent<Image>();
                 _castBgs[row].color = GameUIKit.ButtonBg;
+                GameUIKit.ButtonChrome(castRect, raycast: true, existing: _castBgs[row]);
                 _castButtons[row] = castRect.gameObject.AddComponent<Button>();
                 _castButtons[row].targetGraphic = _castBgs[row];
                 _castButtons[row].onClick.AddListener(() => Cast(row));

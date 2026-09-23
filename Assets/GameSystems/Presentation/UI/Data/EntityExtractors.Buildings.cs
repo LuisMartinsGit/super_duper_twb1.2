@@ -139,13 +139,26 @@ namespace TheWaningBorder.UI.Data
             int segmentInstanceCount = 0;
             if (em.Exists(segment) && em.HasBuffer<WallInstanceRef>(segment))
                 segmentInstanceCount = em.GetBuffer<WallInstanceRef>(segment).Length;
-            int gateWidth = segmentInstanceCount > 0 ? System.Math.Min(segmentInstanceCount, 5) : 5;
-            bool shortSegment = segmentInstanceCount > 0 && segmentInstanceCount < 5;
+            int span = AlanthorWall.GateRegionSpan;
+            int gateWidth = segmentInstanceCount > 0 ? System.Math.Min(segmentInstanceCount, span) : span;
+            bool shortSegment = segmentInstanceCount > 0 && segmentInstanceCount < span;
             bool segmentConverting = em.Exists(segment) && em.HasComponent<WallSegmentUpgradeState>(segment);
+
+            // What may be fitted HERE (docs/Design/Age_1_Alanthor.md § What a
+            // module may become): a fitting needs a clear run of untouched
+            // modules around it, and a tower needs masonry to stand on.
+            int freeRun = AlanthorWall.FreeRunAround(em, entity);
+            bool roomForFitting = freeRun >= AlanthorWall.FreeRunForTower;
+            bool roomForGate = freeRun >= AlanthorWall.FreeRunForGate;
+            byte tier = WallTiers.Of(em, entity);
+            bool towersAllowed = WallTiers.AllowsTowers(tier);
+            string crowdedNote = string.Format(
+                Loc.T("Needs {0} clear wall sections in a row — this one has {1}."),
+                AlanthorWall.FreeRunForTower, freeRun);
 
             // Gate cell — segment-level conversion. Drops out while the
             // segment is mid-conversion (no double-charge / double-stack).
-            if (!segmentConverting)
+            if (!segmentConverting && roomForGate)
             {
                 var gateCost = TheWaningBorder.Core.Commands.Types
                     .ConvertSegmentToGateCommandHelper.ConversionCost;
@@ -154,8 +167,8 @@ namespace TheWaningBorder.UI.Data
                     : true;
                 string gateLabel = string.Format(Loc.T("Convert to Gate ({0}x)"), gateWidth);
                 string gateSubtitle = shortSegment
-                    ? string.Format(Loc.T("Short segment — gate will span {0} instances. Groups wider than {0} may not fit."), gateWidth)
-                    : Loc.T("3-instance opening. Units can path through.");
+                    ? string.Format(Loc.T("Short segment — the gatehouse will be built {0} modules wide."), gateWidth)
+                    : Loc.T("One gatehouse, three modules wide. The sections beside this one are replaced by it; units path through the middle.");
 
                 actions.Add(new ActionButton
                 {
@@ -176,9 +189,11 @@ namespace TheWaningBorder.UI.Data
                 });
             }
 
-            // Tower cell — per-instance legacy conversion (unchanged from
-            // the IMGUI reference at EntityActionPanel.cs:1641-1660).
-            if (TheWaningBorder.Data.BuildCosts.TryGet("Alanthor_WallTower", out var towerCost))
+            // Tower cell — per-instance conversion. A timber palisade cannot
+            // carry a tower, and neither can a module boxed in by other
+            // fittings.
+            if (towersAllowed && roomForFitting
+                && TheWaningBorder.Data.BuildCosts.TryGet("Alanthor_WallTower", out var towerCost))
             {
                 bool canAffordTower = !em.Equals(default(EntityManager))
                     ? FactionEconomy.CanAfford(em, faction, towerCost)
@@ -201,7 +216,99 @@ namespace TheWaningBorder.UI.Data
                 });
             }
 
+            // Emplacement cells — mount a war engine on this module's crown.
+            // The platform and the engine standing on it stay two entities
+            // (docs/Design/Age_1_Alanthor.md § Ballista and Trebuchet
+            // emplacements); the module itself is still wall.
+            if (roomForFitting)
+            {
+                AddEmplacementAction(actions, em, faction, available,
+                    "WallToBallista", "Alanthor_BallistaEmplacement",
+                    Loc.T("Mount Ballista"),
+                    Loc.T("A bolt thrower on the wall: single targets, heavy against buildings. The engine is rebuilt free by the crew if it is destroyed."));
+                AddEmplacementAction(actions, em, faction, available,
+                    "WallToTrebuchet", "Alanthor_TrebuchetEmplacement",
+                    Loc.T("Mount Trebuchet"),
+                    Loc.T("A counterweight engine on the wall: long range, splash, slow. The engine is rebuilt free by the crew if it is destroyed."));
+            }
+
+            // Nothing fits here: say WHY rather than showing an empty panel.
+            // Only when the module ITSELF is clear, though — a module that is
+            // already a tower or an emplacement is not "out of room", it is
+            // finished, and should not be told otherwise.
+            if (!roomForFitting && freeRun > 0)
+            {
+                actions.Add(new ActionButton
+                {
+                    Id = "WallNoRoom",
+                    Label = Loc.T("No room"),
+                    Tooltip = BuildTooltip(Loc.T("No room for a fitting"), crowdedNote, default, available),
+                    Enabled = false,
+                    CanAfford = true,
+                });
+            }
+            else if (!towersAllowed && freeRun > 0)
+            {
+                actions.Add(new ActionButton
+                {
+                    Id = "WallNoTower",
+                    Label = Loc.T("No tower"),
+                    Tooltip = BuildTooltip(Loc.T("A palisade carries no tower"),
+                        Loc.T("Timber will not hold one. Age up as Alanthor to re-clad the wall in stone."),
+                        default, available),
+                    Enabled = false,
+                    CanAfford = true,
+                });
+            }
+
+            // Hub cell — the cell becomes a hub and its segment splits there,
+            // so a new wall can be drawn off it (T / X junctions). Costs a hub.
+            if (AlanthorWall.CanConvertInstanceToHub(em, entity)
+                && TheWaningBorder.Data.BuildCosts.TryGet("Alanthor_Wall", out var hubCost))
+            {
+                bool canAffordHub = !em.Equals(default(EntityManager))
+                    ? FactionEconomy.CanAfford(em, faction, hubCost)
+                    : true;
+                actions.Add(new ActionButton
+                {
+                    Id = "WallInstanceToHub",
+                    Label = Loc.T("Convert to Hub"),
+                    Tooltip = BuildTooltip(
+                        "Convert to Hub",
+                        "Raises a wall hub on this section. New walls can be drawn from it, so the wall can branch.",
+                        hubCost,
+                        available,
+                        trainingTime: 10f
+                    ),
+                    Cost = hubCost,
+                    Enabled = true,
+                    CanAfford = canAffordHub,
+                    Icon = null,
+                });
+            }
+
             return actions;
+        }
+
+        /// <summary>One "mount an engine here" cell. Both emplacements are
+        /// the same card with a different id, cost and engine.</summary>
+        private static void AddEmplacementAction(List<ActionButton> actions, EntityManager em,
+            Faction faction, Cost available, string actionId, string buildingId,
+            string label, string subtitle)
+        {
+            if (!TheWaningBorder.Data.BuildCosts.TryGet(buildingId, out var cost)) return;
+            bool canAfford = !em.Equals(default(EntityManager))
+                ? FactionEconomy.CanAfford(em, faction, cost) : true;
+            actions.Add(new ActionButton
+            {
+                Id = actionId,
+                Label = label,
+                Tooltip = BuildTooltip(label, subtitle, cost, available, trainingTime: 12f),
+                Cost = cost,
+                Enabled = true,
+                CanAfford = canAfford,
+                Icon = null,
+            });
         }
 
         // Buildings the player can place via builder (excludes starting buildings and other-faction variants)
@@ -238,6 +345,10 @@ namespace TheWaningBorder.UI.Data
             // Smelter absorbs its veilsteel role) — calculator 2026-08.
             "Alanthor_Tower", "Alanthor_SiegeYard", "Alanthor_RoyalStable",
             "Alanthor_Sawyer",
+            // The emplacement PLATFORMS are what the player places; the
+            // engines standing on them are raised by the crew and are
+            // deliberately absent from every build list.
+            "Alanthor_BallistaEmplacement", "Alanthor_TrebuchetEmplacement",
             // Feraldis culture buildings. Hunting Lodge / Logging Station
             // were CUT (2026-08-05 rev.4) — Feraldis huts became Raider
             // Camps, so the gathering-upgrade pair had nothing left to do.
@@ -418,17 +529,26 @@ namespace TheWaningBorder.UI.Data
                         ? string.Format(Loc.T("Requires: Era {0}"), building.minEra) : null;
 
                     string tooltip = BuildTooltip(
-                        building.name,
+                        building.id == "Alanthor_Wall"
+                            ? WallTiers.DisplayName(WallTiers.LevelFor(em, faction)) : building.name,
                         building.role,
                         cost,
                         available,
                         requirement: requirement
                     );
 
+                    // The wall is named for what this faction would actually
+                    // raise: a timber palisade in Age 0, stone once Alanthor
+                    // ages up. One id, three names
+                    // (docs/Design/Age_1_Alanthor.md § The three wall levels).
+                    string label = building.id == "Alanthor_Wall"
+                        ? WallTiers.DisplayName(WallTiers.LevelFor(em, faction))
+                        : building.name;
+
                     actions.Add(new ActionButton
                     {
                         Id = building.id,
-                        Label = Loc.T(building.name),
+                        Label = Loc.T(label),
                         Tooltip = tooltip,
                         Cost = cost,
                         Enabled = !eraLocked,
@@ -448,6 +568,15 @@ namespace TheWaningBorder.UI.Data
         /// </summary>
         private static byte GetRequiredCulture(string buildingId)
         {
+            // The WALL is the one Alanthor_-prefixed id that is NOT
+            // Alanthor's: its first level is a timber palisade every culture
+            // can raise from Age 0 (docs/Design/Age_0.md § Palisade). What
+            // stays Alanthor's is everything above level 1 — the stone, the
+            // shields and the two Hall techs that grant them. The id keeps
+            // its prefix for the same reason the Mine keeps none: renaming it
+            // ripples through the recipe table, sizes, costs, build times,
+            // the name resolver and the AI.
+            if (buildingId == "Alanthor_Wall") return Cultures.None;
             if (buildingId.StartsWith("Alanthor_")) return Cultures.Alanthor;
             if (buildingId.StartsWith("Feraldis_")) return Cultures.Feraldis;
             if (buildingId.StartsWith("Runai_")) return Cultures.Runai;

@@ -65,6 +65,9 @@ namespace TheWaningBorder.Core.Localization
                 "Abertura de 3 troços. As unidades podem atravessar.";
             t["Reinforces this wall section into a watchtower (ranged defense)."] =
                 "Reforça esta secção de muralha numa torre de vigia (defesa à distância).";
+            t["Convert to Hub"] = "Converter em Nó";
+            t["Raises a wall hub on this section. New walls can be drawn from it, so the wall can branch."] =
+                "Ergue um nó de muralha nesta secção. Podem desenhar-se novas muralhas a partir dele, ramificando a muralha.";
 
             // ── Armor types + bonus-vs text (stat chips) ──
             t["Light Infantry"] = "Infantaria Ligeira";

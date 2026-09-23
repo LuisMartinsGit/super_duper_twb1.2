@@ -669,6 +669,57 @@ namespace TheWaningBorder.UI.Data
                 return info;
             }
 
+            // A GATE: open / close it to friendly units
+            // (docs/Design/Age_1_Alanthor.md § Opening and closing it). The
+            // default is proximity — it opens for friendlies within 6 m — and
+            // SEALED shuts it to its own faction too.
+            if (em.HasComponent<WallGateTag>(entity)
+                && !em.HasComponent<UnderConstruction>(entity)
+                && em.HasComponent<FactionTag>(entity)
+                && em.GetComponentData<FactionTag>(entity).Value == GameSettings.LocalPlayerFaction)
+            {
+                bool sealedShut = TheWaningBorder.Core.Commands.CommandRouter.IsGateSealed(em, entity);
+                info.Type = ActionType.WallInstanceUpgrade;
+                info.Actions = new List<ActionButton>
+                {
+                    new ActionButton
+                    {
+                        Id = sealedShut ? "GateOpen" : "GateClose",
+                        Label = sealedShut ? Loc.T("Open Gate") : Loc.T("Close Gate"),
+                        Tooltip = sealedShut
+                            ? Loc.T("Hand the gate back to its garrison: it opens for friendly units that come near and closes behind them.")
+                            : Loc.T("Bar the gate. It stays shut to your own units too — nothing routes through it while it is sealed."),
+                        Enabled = true,
+                        CanAfford = true,
+                    }
+                };
+                return info;
+            }
+
+            // A REINFORCED curtain module with men inside it: let them out
+            // (docs/Design/Age_1_Alanthor.md § Garrison slots).
+            if (em.HasBuffer<WallGarrisonSlot>(entity)
+                && em.HasComponent<FactionTag>(entity)
+                && em.GetComponentData<FactionTag>(entity).Value == GameSettings.LocalPlayerFaction
+                && TheWaningBorder.Entities.WallGarrison.OccupantCount(em, entity) > 0)
+            {
+                int manned = TheWaningBorder.Entities.WallGarrison.OccupantCount(em, entity);
+                int slots = TheWaningBorder.Entities.WallGarrison.SlotCount(em, entity);
+                info.Type = ActionType.WallInstanceUpgrade;
+                info.Actions = new List<ActionButton>
+                {
+                    new ActionButton
+                    {
+                        Id = "WallUngarrison",
+                        Label = string.Format(Loc.T("Empty ({0}/{1})"), manned, slots),
+                        Tooltip = Loc.T("The men in this wall section step back down on the friendly side."),
+                        Enabled = true,
+                        CanAfford = true,
+                    }
+                };
+                return info;
+            }
+
             // Check if this is an upgradeable wall instance (not already tower or gate).
             // task-109 phase 6: per-segment conversion actions live here.
             // Selection-panel data stays per-instance (clicking a wall shows the

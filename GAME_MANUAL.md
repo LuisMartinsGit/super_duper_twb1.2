@@ -89,6 +89,8 @@ see [docs/Design/Age_0.md](docs/Design/Age_0.md).
 
 ## 3. Controls & Interface
 
+**Walls (Alanthor):** pick the Wall Hub in the builder palette, then **press and drag** on the ground to draw the wall — it follows the cursor as a curve (minimum bend 12 m), places a hub every 12 m, and **retracing over the path erases it** back to that point. Release to build the whole line; a plain click still places a single hub. Right-click / Esc cancels.
+
 ### Selection
 
 | Action | Control |

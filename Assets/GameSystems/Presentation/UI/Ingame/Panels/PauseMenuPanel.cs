@@ -118,8 +118,7 @@ namespace TheWaningBorder.UI.Ingame
             var rt = GameUIKit.Rect(parent, name);
             GameUIKit.FixHeight(rt.gameObject, ButtonHeight);
 
-            var bg = GameUIKit.Image(rt, "bg", GameUIKit.ButtonBg, raycast: true);
-            GameUIKit.Stretch(bg.rectTransform);
+            var bg = GameUIKit.ButtonChrome(rt, raycast: true);
             var text = GameUIKit.Text(rt, "label", Loc.T(label), 32f, GameUIKit.TextMain,
                 TextAlignmentOptions.Center, wrap: false);
             GameUIKit.Stretch(text.rectTransform);
@@ -182,8 +181,7 @@ namespace TheWaningBorder.UI.Ingame
             System.Action click)
         {
             var rt = GameUIKit.Rect(parent, name);
-            var bg = GameUIKit.Image(rt, "bg", GameUIKit.ButtonBg, raycast: true);
-            GameUIKit.Stretch(bg.rectTransform);
+            var bg = GameUIKit.ButtonChrome(rt, raycast: true);
             var text = GameUIKit.Text(rt, "label", Loc.T(label), 28f, color,
                 TextAlignmentOptions.Center, wrap: false);
             GameUIKit.Stretch(text.rectTransform);

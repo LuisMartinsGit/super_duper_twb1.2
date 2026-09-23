@@ -222,8 +222,7 @@ namespace TheWaningBorder.UI.Ingame
             var wide = new WideButton();
             var rt = GameUIKit.Rect(parent, name);
             GameUIKit.FixHeight(rt.gameObject, 64f);
-            var bg = GameUIKit.Image(rt, "bg", GameUIKit.ButtonBg, raycast: true);
-            GameUIKit.Stretch(bg.rectTransform);
+            var bg = GameUIKit.ButtonChrome(rt, raycast: true);
             var label = GameUIKit.Text(rt, "label", "", 26f, GameUIKit.TextMain,
                 TextAlignmentOptions.Center, wrap: false);
             GameUIKit.Stretch(label.rectTransform);
@@ -243,8 +242,7 @@ namespace TheWaningBorder.UI.Ingame
         {
             var w = new ActionWidget();
             var rt = GameUIKit.Rect(_grid, "action" + _widgets.Count);
-            var bg = GameUIKit.Image(rt, "bg", GameUIKit.ButtonBg, raycast: true);
-            GameUIKit.Stretch(bg.rectTransform);
+            var bg = GameUIKit.ButtonChrome(rt, raycast: true);
 
             var iconGo = new GameObject("icon", typeof(RectTransform), typeof(RawImage));
             iconGo.transform.SetParent(rt, false);
@@ -573,8 +571,47 @@ namespace TheWaningBorder.UI.Ingame
                         em, entity, 1, 10f);
                     return;
                 }
+                case "WallToBallista":
+                case "WallToTrebuchet":
+                {
+                    var faction = OwnFaction(em);
+                    if (!FactionEconomy.CanAfford(em, faction, b.Cost))
+                    {
+                        PlayerNotificationSystem.NotifyError(Loc.T("Not enough resources"));
+                        return;
+                    }
+                    // 4 = ballista, 5 = trebuchet; the executor re-checks the
+                    // clear-run rule and does the spend.
+                    TheWaningBorder.Core.Commands.CommandRouter.IssueWallUpgradeCharged(
+                        em, entity, b.Id == "WallToTrebuchet" ? 5 : 4, 12f);
+                    return;
+                }
+                case "WallInstanceToHub":
+                {
+                    // Same shape as the tower: type 3 is charged a hub's price
+                    // in the executor, and on completion the cell becomes a
+                    // hub with its segment split there.
+                    var faction = OwnFaction(em);
+                    if (!FactionEconomy.CanAfford(em, faction, b.Cost))
+                    {
+                        PlayerNotificationSystem.NotifyError(Loc.T("Not enough resources"));
+                        return;
+                    }
+                    TheWaningBorder.Core.Commands.CommandRouter.IssueWallUpgradeCharged(
+                        em, entity, 3, 10f);
+                    return;
+                }
                 case "BuildWall":
                     BuilderCommandPanel.TriggerHubBuildWall(entity);
+                    return;
+                case "GateClose":
+                    TheWaningBorder.Core.Commands.CommandRouter.IssueSetGateLock(em, entity, true);
+                    return;
+                case "GateOpen":
+                    TheWaningBorder.Core.Commands.CommandRouter.IssueSetGateLock(em, entity, false);
+                    return;
+                case "WallUngarrison":
+                    TheWaningBorder.Core.Commands.CommandRouter.IssueUngarrisonWall(em, entity);
                     return;
                 case "Reliquary_Build":
                 {

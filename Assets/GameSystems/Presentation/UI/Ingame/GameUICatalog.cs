@@ -48,6 +48,30 @@ namespace TheWaningBorder.UI.Ingame
 
         public SymbolEntry[] entitySymbols;
 
+        /// <summary>
+        /// The authored frame vocabulary, so the CODE-BUILT panels (special
+        /// actions, spells, top choice bar, builder palette, pause, victory)
+        /// wear the same Synty frames as the prefab panels instead of the old
+        /// flat navy + gold strips. Filled from the same sprites the authored
+        /// prefabs use: Frame_Box_Medium_05 (+ mask) for a panel, the roster's
+        /// Frame_Box_Medium_03 (+ mask) for a button or slot.
+        /// </summary>
+        public ChromeSet chrome;
+
+        [System.Serializable]
+        public sealed class ChromeSet
+        {
+            public Sprite panelFrame;
+            public Sprite panelFrameMask;
+            /// <summary>Tint of the panel mask fill — the authored panels' deep teal.</summary>
+            public Color panelFill;
+            /// <summary>Image.pixelsPerUnitMultiplier for the panel frame (authored: 4).</summary>
+            public float panelSlice;
+            public Sprite buttonFrame;
+            public Sprite buttonFrameMask;
+            public float buttonSlice;
+        }
+
         [System.Serializable]
         public sealed class SymbolEntry
         {

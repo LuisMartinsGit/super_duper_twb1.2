@@ -95,7 +95,8 @@ namespace TheWaningBorder.UI.Data
             // HALL -> King's Court (Alanthor)
             //  base (Age 0): Worker, Scout / Stone-tools chain
             //  King's Court (Age 1+): + Ledger(Lv2), King Lexor(Lv3),
-            //                          Scouting Celestarii, Mason Guild(Lv2)
+            //                          Scouting Celestarii, Mason Guild(Lv2),
+            //                          Shielded Ramparts (the wall upgrade)
             ["Hall"] = new[]
             {
                 ActionSlot.Train("Worker", appearAge: 0),
@@ -112,7 +113,10 @@ namespace TheWaningBorder.UI.Data
                 ActionSlot.Tech("ArmedScouts", appearAge: 0),
                 ActionSlot.Tech("ScoutingCelestarii", appearAge: 1),
                 ActionSlot.Tech("MasonGuild", appearAge: 1, minLevel: 2),
-                ActionSlot.Empty,
+                // The wall upgrade. Level 2 (stone) comes free with the
+                // Alanthor age-up, so the Hall only sells the last step
+                // (docs/Design/Age_1_Alanthor.md § The three wall levels).
+                ActionSlot.Tech("ShieldedRamparts", appearAge: 1),
 
                 ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
             },

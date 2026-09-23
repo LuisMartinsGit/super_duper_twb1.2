@@ -194,3 +194,19 @@ MonoBehaviour:
     sprite: {fileID: 21300000, guid: aff36d813678640f0aa22688551eec58, type: 3}
   - key: AttackType_True
     sprite: {fileID: 21300000, guid: ba76afc9d9d6b44198f7e6da513d60ec, type: 3}
+  - key: Formation_Box
+    sprite: {fileID: 21300000, guid: a93a8779f0fe7194d9fea4d819c95528, type: 3}
+  - key: Formation_Line
+    sprite: {fileID: 21300000, guid: ed92256f779c4e04496fcaf5acd3c163, type: 3}
+  - key: Formation_Wedge
+    sprite: {fileID: 21300000, guid: e15984e5de343944092ab5c2fa78fdf6, type: 3}
+  - key: Formation_Stagger
+    sprite: {fileID: 21300000, guid: d4863f6771b41e24d9a1cefacfae8dad, type: 3}
+  chrome:
+    panelFrame: {fileID: 21300000, guid: 3521608170d7a034ebd94526251b585b, type: 3}
+    panelFrameMask: {fileID: 21300000, guid: 1bf29d8c6e8f8d14daad5f789c9f1015, type: 3}
+    panelFill: {r: 0.0144624505, g: 0.21135095, b: 0.23584908, a: 0.96}
+    panelSlice: 4
+    buttonFrame: {fileID: 21300000, guid: a5076572636704746bd029bd8e062eb0, type: 3}
+    buttonFrameMask: {fileID: 21300000, guid: dd4e8ef9581376949986eefae6366027, type: 3}
+    buttonSlice: 6
