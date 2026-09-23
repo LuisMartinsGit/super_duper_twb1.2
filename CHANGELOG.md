@@ -11,6 +11,10 @@ build always name the same number.
 
 ## [Unreleased]
 
+---
+
+## [0.0.25] — 2026-09-23
+
 ### Fixed
 
 - **Multiplayer desync when a wall was drawn (2026-09-22, HollowTable, tick
