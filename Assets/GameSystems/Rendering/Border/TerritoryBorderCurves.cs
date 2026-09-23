@@ -81,7 +81,8 @@ namespace TheWaningBorder.Rendering
 
         const float Alpha = 0.8f;
 
-        static readonly Color CurseColor = new Color(0.42f, 0.16f, 0.55f, Alpha);
+        // (The curse used to draw a purple line here. It draws none now —
+        // see Retint and CurseBarrierVfx.)
         /// <summary>Unclaimed territory border: dark gray, same opacity.</summary>
         static readonly Color NaturalColor = new Color(0.22f, 0.22f, 0.22f, Alpha);
 
@@ -104,6 +105,35 @@ namespace TheWaningBorder.Rendering
         CurveSet[] _curves;
         int[] _paintedOwner;   // last owner painted; int.MinValue = never
         bool _baked;
+        static TerritoryBorderCurves _instance;
+
+        /// <summary>True once this match's curves are traced — what
+        /// CurseBarrierVfx waits on before building its veils.</summary>
+        public static bool CurvesReady => _instance != null && _instance._baked;
+
+        /// <summary>
+        /// The traced boundary loops of one territory, world XZ, smoothed and
+        /// resampled at PointSpacing — the SAME centreline the decal is
+        /// painted from, so the curse veil stands exactly where the purple
+        /// line used to be. Open chains (loose ends on the map rim) are
+        /// returned as-is. False when the territory has no drawable boundary.
+        /// </summary>
+        public static bool TryGetLoops(int territory, List<List<Vector2>> into)
+        {
+            into.Clear();
+            var self = _instance;
+            if (self == null || !self._baked || self._curves == null) return false;
+            if (territory < 0 || territory >= self._curves.Length) return false;
+            var set = self._curves[territory];
+            if (set.Chains == null) return false;
+            foreach (var chain in set.Chains)
+                if (chain.Pts != null && chain.Pts.Count >= 2) into.Add(chain.Pts);
+            return into.Count > 0;
+        }
+        // Partition version the ribbon was traced from — a bool latch alone
+        // traced whatever RegionMap held first, which on a second map in one
+        // session was the previous map's partition (2026-09-11).
+        int _regionVersion = -1;
         int _ownershipVersion = -1;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -123,11 +153,13 @@ namespace TheWaningBorder.Rendering
 
         void LateUpdate()
         {
-            if (!_baked)
+            _instance = this;
+            if (!_baked || _regionVersion != RegionMap.Version)
             {
                 if (!RegionMap.Ready || !TerritoryOwnership.Ready) return;
                 Bake();
                 _baked = true;
+                _regionVersion = RegionMap.Version;
             }
 
             // The ONLY per-frame work: an int compare.
@@ -138,6 +170,7 @@ namespace TheWaningBorder.Rendering
 
         void OnDestroy()
         {
+            if (_instance == this) _instance = null;
             if (_projectors != null)
                 foreach (var p in _projectors) GroundDecals.Return(p);
             if (_textures != null)
@@ -679,12 +712,18 @@ namespace TheWaningBorder.Rendering
                 {
                     Paint(i, UnclaimedWidth, NaturalColor);
                 }
+                else if (owner == TerritoryOwnership.Curse)
+                {
+                    // Cursed ground draws NO line: its edge is the standing
+                    // veil CurseBarrierVfx builds from these same curves
+                    // (Art_Direction.md §6.4). The projector sleeps until the
+                    // territory changes hands again.
+                    p.gameObject.SetActive(false);
+                    continue;
+                }
                 else
                 {
-                    var colour = owner == TerritoryOwnership.Curse
-                        ? CurseColor
-                        : Tint(FactionColors.Get((Faction)owner));
-                    Paint(i, LineWidth, colour);
+                    Paint(i, LineWidth, Tint(FactionColors.Get((Faction)owner)));
                 }
 
                 GroundDecals.SetPretinted(p, _textures[i]);

@@ -46,6 +46,29 @@ namespace TheWaningBorder.Rendering
         public static float MinSaturation = 0.20f;
 
         /// <summary>
+        /// Roofs are dark slate (docs/Design/Art_Direction.md §4): the player
+        /// colour lives in lantern / window glow and cloth, not on the roof.
+        /// This is what a name-tagged <c>*roof*</c> part is painted. No current
+        /// building model has one (all 43 FBXs scanned 2026-09-18) — the blue
+        /// roofs on screen are atlas pixels through the swap below — so this is
+        /// the guard for authored roofs, not the thing that darkens today's.
+        /// </summary>
+        public static Color RoofSlate = new Color(0x3B / 255f, 0x3E / 255f, 0x46 / 255f, 1f);
+
+        /// <summary>
+        /// INTERIM (Art_Direction.md §4.3), removed when the atlas repaint lands.
+        /// Until roofs leave the marker hue band and lanterns / cloth enter it,
+        /// every swapped pixel IS a roof, so the swap darkens (value ×) what it
+        /// recolours: a dark faction-coloured roof instead of the saturated
+        /// slab. Saturation is NOT reduced: the first cut (0.6) turned Blue's
+        /// roof into a chroma-starved slab that read as brown against the navy
+        /// scene — the player colour has to stay a colour. Set both to 1 to see
+        /// the plain swap.
+        /// </summary>
+        public static float InterimSwapValue = 0.65f;
+        public static float InterimSwapSaturation = 1.0f;
+
+        /// <summary>
         /// Legacy exact-marker color, still used by the flat-color material
         /// fallback path (materials with no base texture whose _BaseColor is
         /// the marker blue).
@@ -115,7 +138,7 @@ namespace TheWaningBorder.Rendering
         /// refreshes a building visual must funnel through here — spawn,
         /// culture/level variant switch, prefab upgrade swap, age-up refresh.
         /// Three sub-rules are applied per renderer, in priority order:
-        ///   1. GameObject named *roof*   → solid faction color (albedo whited out)
+        ///   1. GameObject named *roof*   → solid dark slate (albedo whited out; §4)
         ///   2. GameObject named *stripe* → faction tint over the authored albedo
         ///   3. otherwise                 → atlas pixel swap (marker hue → faction),
         ///      falling back to flat _BaseColor replacement for untextured materials
@@ -173,7 +196,7 @@ namespace TheWaningBorder.Rendering
                     // Texture2D.whiteTexture, which the swap would then try to
                     // read back on every re-apply — a pointless GPU copy of a
                     // 4x4 white texture that can never contain a marker pixel.
-                    if (isRoof)   { PaintSolid(mat, factionColor); continue; }
+                    if (isRoof)   { PaintSolid(mat, RoofSlate);    continue; }
                     if (isStripe) { SetTint(mat, factionColor);    continue; }
 
                     if (TryReplaceAtlasTexture(mat, factionColor, factionKey)) continue;
@@ -207,8 +230,8 @@ namespace TheWaningBorder.Rendering
             return true;
         }
 
-        /// <summary>Roof rule — blank the albedo so the faction color reads solid.</summary>
-        private static void PaintSolid(Material mat, Color factionColor)
+        /// <summary>Roof rule — blank the albedo so the solid colour reads flat.</summary>
+        private static void PaintSolid(Material mat, Color solid)
         {
             if (mat.HasProperty("_BaseMap")) mat.SetTexture("_BaseMap", Texture2D.whiteTexture);
             if (mat.HasProperty("_MainTex")) mat.SetTexture("_MainTex", Texture2D.whiteTexture);
@@ -216,7 +239,7 @@ namespace TheWaningBorder.Rendering
             // roof re-colored after the damage swap would otherwise ignore the
             // white map we just assigned.
             if (mat.HasProperty("_UseBaseMap")) mat.SetFloat("_UseBaseMap", 1f);
-            SetTint(mat, factionColor);
+            SetTint(mat, solid);
         }
 
         /// <summary>Stripe rule — tint only, authored albedo detail survives.</summary>
@@ -374,7 +397,11 @@ namespace TheWaningBorder.Rendering
                 // saturation blended toward the faction's (fully faction-
                 // saturated highlights look plasticky, so weight by the
                 // pixel's own saturation).
-                var outColor = Color.HSVToRGB(facH, facS * Mathf.Clamp01(s / Mathf.Max(0.001f, facS)), v);
+                // INTERIM: see InterimSwapValue. Applied after the blend so the
+                // pixel's own shading survives, just darker and calmer.
+                var outColor = Color.HSVToRGB(facH,
+                    facS * Mathf.Clamp01(s / Mathf.Max(0.001f, facS)) * InterimSwapSaturation,
+                    v * InterimSwapValue);
                 pixels[i].r = (byte)Mathf.Clamp(Mathf.RoundToInt(outColor.r * 255f), 0, 255);
                 pixels[i].g = (byte)Mathf.Clamp(Mathf.RoundToInt(outColor.g * 255f), 0, 255);
                 pixels[i].b = (byte)Mathf.Clamp(Mathf.RoundToInt(outColor.b * 255f), 0, 255);

@@ -1,14 +1,30 @@
 // DayNightCycle.cs
-// (Day/night cycle removed — the game now stays in a single atmospheric
-//  preset: dark-blue volcanic, well-lit. This MonoBehaviour kept its
-//  name so GameBootstrap and any inspector references still resolve.)
+// (Day/night cycle removed — the game stays in ONE static atmospheric
+//  preset. This MonoBehaviour kept its name so GameBootstrap and any
+//  inspector references still resolve.)
 //
-// Responsibilities now:
-//   - Configure a single directional sun light with a cool blueish tone
-//     and enough intensity that the play area reads clearly.
-//   - Set ambient + fog (volumetric fake) for a dark moody backdrop.
-//   - Set up post-processing tint, vignette, and bloom on the global
-//     URP volume so the screen has a deep blue-volcanic mood.
+// The preset is the dusk look in docs/Design/Art_Direction.md: cool weak
+// sun, navy/teal Trilight ambient, blue-violet shadow split-tone, a
+// desaturated base, and bloom that only HDR emissives cross. Every number
+// lives in DayNightCycle.asset beside this file (DayNightCycleConfig) —
+// this class holds no values of its own.
+//
+// Responsibilities:
+//   - Configure the single directional sun and push shadow distance /
+//     cascade count over the pipeline asset.
+//   - Set Trilight ambient, fog and the camera's void colour.
+//   - Build the global URP volume (vignette, bloom, colour adjustments,
+//     shadows/midtones/highlights, film grain, ACES) and re-push the
+//     config into it every frame, so editing the asset in Play mode is
+//     live — and persists, because it is an asset.
+//
+// The one-tint rule (Art_Direction.md §3.1), learned the hard way: an
+// earlier "blue-volcanic" tuning stacked sun tint × bloom tint × colour
+// filter × white balance × negative exposure into a near-black image.
+// Colour temperature therefore comes from exactly two places — the
+// ambient and the SMH shadows tint. Bloom tint and colour filter stay
+// white, WhiteBalance is not registered, and postExposure is a knob that
+// is expected to stay at 0.
 //
 // Cloud-shadow projector retained because it adds depth, but is fixed
 // (no day-fade, no cloud-shadow opacity ramp).
@@ -16,72 +32,15 @@
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using TheWaningBorder.Core.Settings;
 
 namespace TheWaningBorder.World
 {
     public class DayNightCycle : MonoBehaviour
     {
-        // Defaults follow the "Alanthor post-processing + lighting pass" recipe
-        // (magic-hour sun, neutral ambient, cool grey fog, mild post). The old
-        // "blue-volcanic" tuning compounded sun tint × bloom tint × colour
-        // filter × white balance × dark vignette × negative exposure into a
-        // near-black, desaturated image. Reset to recipe; faction colours
-        // stay vibrant because no global hue rotation is applied — only the
-        // ShadowsMidtonesHighlights split-tone shapes colour.
-
-        public float sunPitch = 50f;
-        public float sunHeading = -30f;
-        public Color sunColor = new(1.0f, 0.957f, 0.878f);
-        [Range(0f, 3f)] public float sunIntensity = 1.5f;
-
-        // Why Trilight not Skybox: AmbientMode.Skybox samples the skybox into
-        // SH coefficients AT BAKE TIME. Game.unity has m_LightingDataAsset set
-        // to the empty default → no baked SH → ambient probe is near-zero →
-        // every surface that isn't directly sun-lit renders pure black. Trilight
-        // uses the three explicit colours below at runtime with no bake.
-        public Color ambientSkyColor = new(0.70f, 0.75f, 0.80f);
-        public Color ambientEquatorColor = new(0.50f, 0.50f, 0.50f);
-        public Color ambientGroundColor = new(0.30f, 0.28f, 0.22f);
-
-        public Color fogColor = new(0.722f, 0.773f, 0.839f);
-        // 0.005 -> 0 (2026-09-03): ExponentialSquared at 0.005 is 89% fog at
-        // 300 m — a zoomed-out RTS camera saw the map disappear into it. Off
-        // by default; the knob stays for taste, same treatment as the
-        // vignette below.
-        [Range(0f, 0.05f)] public float fogDensity = 0f;
-
-        // 0.18 -> 0 (2026-08-31 GPU pass): the vignette costs a share of the
-        // full-screen uber pass on a moderate GPU and reads as darkened
-        // corners on an RTS map. Off by default; the knob stays for taste.
-        [Range(0f, 1f)] public float vignetteIntensity = 0f;
-        public Color vignetteColor = new(0f, 0f, 0f);
-        [Range(0.01f, 1f)] public float vignetteSmoothness = 0.4f;
-        [Range(0f, 5f)] public float bloomIntensity = 0.6f;
-        [Range(0f, 2f)] public float bloomThreshold = 1.1f;
-        [Range(-3f, 3f)] public float postExposure = 0f;
-        [Range(-100f, 100f)] public float saturation = 10f;
-        [Range(-100f, 100f)] public float contrast = 15f;
-
-        public Color smhShadowsTint = new(0.92f, 0.96f, 1.05f);
-        public Color smhHighlightsTint = new(1.05f, 1.00f, 0.92f);
-
-        // 0.15 -> 0 (2026-08-31 GPU pass): grain is a per-pixel noise layer on
-        // the uber pass; off by default on the same grounds as the vignette.
-        [Range(0f, 1f)] public float filmGrainIntensity = 0f;
-        [Range(0f, 1f)] public float filmGrainResponse = 0.8f;
-
-        // 300 -> 120 (2026-08-31 GPU pass): the RTS camera looks at ~120 m of
-        // ground; at 300 m every tree, wall and unit re-rendered into shadow
-        // maps far beyond the view for nothing. This value is the AUTHORITY —
-        // ApplyShadowSettings pushes it over the pipeline asset via
-        // reflection, so tuning the asset alone does not stick.
-        public float shadowDistance = 120f;
-
-        public bool cloudShadows = true;
-        [Range(0f, 1f)] public float cloudOpacity = 0.30f;
-        public float cloudSpeed = 2f;
-        public float cloudScale = 0.008f;
-        public float cloudProjectorSize = 300f;
+        private DayNightCycleConfig _cfg;
+        private DayNightCycleConfig Cfg
+            => _cfg != null ? _cfg : (_cfg = ComponentConfig.Require<DayNightCycleConfig>());
 
         // ── Runtime ──
         private Light _sun;
@@ -93,61 +52,59 @@ namespace TheWaningBorder.World
         private float _cloudOffsetX;
         private float _cloudOffsetZ;
         private Camera _mainCamera;
+        // Set when no unlit shader survived the build — a runtime flag, NOT a
+        // write to the shared asset (that would persist in the editor).
+        private bool _cloudShadowsUnavailable;
+
+        // What ApplyStaticAtmosphere last pushed. Sun and RenderSettings
+        // writes are cheap, but DynamicGI.UpdateEnvironment is not, so the
+        // per-frame path only re-applies when a value actually changed.
+        private Color _appliedSky, _appliedEquator, _appliedGround;
 
         // Cached override component refs — populated once in
         // EnsurePostProcessingVolume, then re-pushed every frame by
-        // ApplyPostProcessingValues so inspector knobs are live-tunable
-        // during Play mode instead of being frozen at Awake-time values.
-        // No WhiteBalance / no global colour filter / no bloom tint — the
-        // SMH split-tone is the only thing shaping colour, so faction
-        // colours don't get crushed by stacked hue rotations.
+        // ApplyPostProcessingValues so the asset is live-tunable during Play
+        // mode instead of being frozen at Awake-time values.
         private Vignette _vignetteOverride;
         private Bloom _bloomOverride;
         private ColorAdjustments _colorOverride;
         private ShadowsMidtonesHighlights _smhOverride;
+        private Tonemapping _toneOverride;
+        private ColorLookup _lutOverride;
         private FilmGrain _grainOverride;
 
         void Awake()
         {
             CreateOrFindSun();
             ConfigureShadows();
-            ApplyStaticAtmosphere();
+            ApplyStaticAtmosphere(force: true);
             EnsurePostProcessingVolume();
             ApplyPostProcessingValues();
             _mainCamera = Camera.main;
-            EnableCameraPostProcessing(_mainCamera);
+            ConfigureCamera(_mainCamera);
         }
 
         void Update()
         {
-            // Push current inspector values into the cached overrides so
-            // tuning at Play time takes effect. Cheap — a handful of float
-            // assignments per frame.
+            // Push current asset values into the sun, RenderSettings and the
+            // cached overrides so tuning at Play time takes effect. Cheap — a
+            // handful of float / colour assignments per frame.
+            ApplyStaticAtmosphere(force: false);
             ApplyPostProcessingValues();
 
             // Camera.main can become non-null on a later frame (lobby →
-            // game transitions, scene reloads). Re-acquire and enable PP
+            // game transitions, scene reloads). Re-acquire and configure it
             // when we first see it.
             if (_mainCamera == null)
             {
                 _mainCamera = Camera.main;
-                if (_mainCamera != null) EnableCameraPostProcessing(_mainCamera);
+                if (_mainCamera != null) ConfigureCamera(_mainCamera);
             }
 
             // No cycle — just drift the cloud texture for life.
-            if (cloudShadows)
+            if (Cfg.cloudShadows && !_cloudShadowsUnavailable)
                 UpdateCloudShadows();
         }
-
-#if UNITY_EDITOR
-        void OnValidate()
-        {
-            // When the user types into an inspector field, push values
-            // immediately instead of waiting for the next Update tick.
-            // Null-guarded for edit-mode (volume not built yet).
-            if (_volume != null) ApplyPostProcessingValues();
-        }
-#endif
 
         private void CreateOrFindSun()
         {
@@ -169,67 +126,89 @@ namespace TheWaningBorder.World
             }
 
             _sun.shadows = LightShadows.Soft;
-            _sun.shadowStrength = 0.8f;  // Recipe Step 2
             _sun.shadowNormalBias = 0.4f;
             _sun.shadowBias = 0.05f;
         }
 
         private void ConfigureShadows()
         {
-            QualitySettings.shadowDistance = shadowDistance;
+            QualitySettings.shadowDistance = Cfg.shadowDistance;
 
             var rpAsset = GraphicsSettings.currentRenderPipeline;
             if (rpAsset != null)
             {
+                // The asset value is the AUTHORITY — pushed over the pipeline
+                // asset via reflection, so tuning the pipeline asset alone does
+                // not stick.
                 var sdField = rpAsset.GetType().GetProperty("shadowDistance",
                     System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
                 if (sdField != null && sdField.CanWrite)
-                    sdField.SetValue(rpAsset, shadowDistance);
+                    sdField.SetValue(rpAsset, Cfg.shadowDistance);
 
-                var cascadeField = rpAsset.GetType().GetProperty("shadowCascadeCount",
-                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
                 // 4 -> 2 (2026-08-31 GPU pass): four cascades re-render the
                 // scene's shadow casters up to four times for a camera that
                 // never sees past ~120 m. Two splits cover that range with no
                 // visible seam at RTS height.
+                var cascadeField = rpAsset.GetType().GetProperty("shadowCascadeCount",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
                 if (cascadeField != null && cascadeField.CanWrite)
-                    cascadeField.SetValue(rpAsset, 2);
+                    cascadeField.SetValue(rpAsset, Cfg.shadowCascadeCount);
             }
         }
 
-        /// <summary>Recipe Step 2 + 3: sun, Trilight ambient gradient, fog.</summary>
-        private void ApplyStaticAtmosphere()
+        /// <summary>
+        /// Sun, Trilight ambient gradient, fog. Runs every frame; the ambient
+        /// probe refresh only when an ambient colour changed.
+        /// </summary>
+        private void ApplyStaticAtmosphere(bool force)
         {
-            _sun.transform.rotation = Quaternion.Euler(sunPitch, sunHeading, 0f);
-            _sun.color = sunColor;
-            _sun.intensity = sunIntensity;
+            _sun.transform.rotation = Quaternion.Euler(Cfg.sunPitch, Cfg.sunHeading, 0f);
+            _sun.color = Cfg.sunColor;
+            _sun.intensity = Cfg.sunIntensity;
+            _sun.shadowStrength = Cfg.shadowStrength;
 
             // Trilight ambient — explicit sky / equator / ground colours.
-            // Recipe-suggested alternative to Skybox source; chosen here because
-            // Game.unity has no baked lighting data, so Skybox SH would be ~0.
-            RenderSettings.ambientMode = AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor = ambientSkyColor;
-            RenderSettings.ambientEquatorColor = ambientEquatorColor;
-            RenderSettings.ambientGroundColor = ambientGroundColor;
-            // Belt-and-suspenders: refresh the runtime ambient probe so the
-            // change propagates to renderers that cache it.
-            DynamicGI.UpdateEnvironment();
+            // Why not Skybox: AmbientMode.Skybox samples the skybox into SH
+            // coefficients AT BAKE TIME. The map scenes have no baked lighting
+            // data → no baked SH → ambient probe near-zero → every surface
+            // that isn't directly sun-lit renders pure black. Trilight uses
+            // the three explicit colours at runtime with no bake.
+            bool ambientChanged = force
+                || _appliedSky != Cfg.ambientSkyColor
+                || _appliedEquator != Cfg.ambientEquatorColor
+                || _appliedGround != Cfg.ambientGroundColor;
+            if (ambientChanged)
+            {
+                RenderSettings.ambientMode = AmbientMode.Trilight;
+                RenderSettings.ambientSkyColor = Cfg.ambientSkyColor;
+                RenderSettings.ambientEquatorColor = Cfg.ambientEquatorColor;
+                RenderSettings.ambientGroundColor = Cfg.ambientGroundColor;
+                _appliedSky = Cfg.ambientSkyColor;
+                _appliedEquator = Cfg.ambientEquatorColor;
+                _appliedGround = Cfg.ambientGroundColor;
+                // Belt-and-suspenders: refresh the runtime ambient probe so the
+                // change propagates to renderers that cache it.
+                DynamicGI.UpdateEnvironment();
+            }
 
-            // Fog Step 3. Enabled only when a density is actually set — this
-            // also OVERRIDES any fog baked into the map scene's
-            // RenderSettings, so a legacy scene bake cannot re-fog a match.
-            RenderSettings.fog = fogDensity > 0f;
+            // Fog. Enabled only when a density is actually set — this also
+            // OVERRIDES any fog baked into the map scene's RenderSettings, so
+            // a legacy scene bake cannot re-fog a match.
+            RenderSettings.fog = Cfg.fogDensity > 0f;
             RenderSettings.fogMode = FogMode.ExponentialSquared;
-            RenderSettings.fogColor = fogColor;
-            RenderSettings.fogDensity = fogDensity;
+            RenderSettings.fogColor = Cfg.fogColor;
+            RenderSettings.fogDensity = Cfg.fogDensity;
+
+            if (_mainCamera != null)
+                _mainCamera.backgroundColor = Cfg.voidColor;
         }
 
         /// <summary>
         /// Build (or reuse) a global URP Volume and register every override
         /// component the scene uses. Values are NOT written here — call
-        /// ApplyPostProcessingValues() to push current inspector fields into
-        /// the overrides. This split lets the inspector knobs stay live at
-        /// Play time without rebuilding the profile each frame.
+        /// ApplyPostProcessingValues() to push the config into the
+        /// overrides. This split lets the asset stay live at Play time
+        /// without rebuilding the profile each frame.
         /// </summary>
         private void EnsurePostProcessingVolume()
         {
@@ -249,62 +228,87 @@ namespace TheWaningBorder.World
             _smhOverride      = profile.Add<ShadowsMidtonesHighlights>(true);
             _grainOverride    = profile.Add<FilmGrain>(true);
 
-            // Tonemapping never changes from the inspector — set once here.
-            var tone = profile.Add<Tonemapping>(true);
-            tone.mode.Override(TonemappingMode.ACES);
+            // Tonemapping and the colour LUT now come FROM the asset, so the
+            // look is tunable in Play mode like every other value here.
+            _toneOverride = profile.Add<Tonemapping>(true);
+            _lutOverride = profile.Add<ColorLookup>(true);
 
-            // NOTE: WhiteBalance is deliberately not registered. Combined
-            // with SMH split-tone and a tinted sun colour it produced a
-            // triple-cool image that crushed faction colours.
+            // NOTE: WhiteBalance is deliberately not registered (one-tint
+            // rule, file header).
 
             _volume.sharedProfile = profile;
         }
 
         /// <summary>
-        /// Push current inspector field values into the cached override
-        /// components. Cheap — only float / Vector4 assignments. Called from
-        /// Update so Play-mode inspector tweaks take effect immediately.
+        /// Push current config values into the cached override components.
+        /// Cheap — only float / Vector4 assignments. Called from Update so
+        /// Play-mode asset tweaks take effect immediately.
         /// </summary>
         private void ApplyPostProcessingValues()
         {
             if (_vignetteOverride != null)
             {
-                _vignetteOverride.intensity.Override(vignetteIntensity);
-                _vignetteOverride.color.Override(vignetteColor);
-                _vignetteOverride.smoothness.Override(vignetteSmoothness);
+                _vignetteOverride.intensity.Override(Cfg.vignetteIntensity);
+                _vignetteOverride.color.Override(Cfg.vignetteColor);
+                _vignetteOverride.smoothness.Override(Cfg.vignetteSmoothness);
                 _vignetteOverride.rounded.Override(false);
+            }
+
+            if (_toneOverride != null)
+            {
+                var mode = Cfg.tonemapping switch
+                {
+                    2 => TonemappingMode.ACES,
+                    1 => TonemappingMode.Neutral,
+                    _ => TonemappingMode.None,
+                };
+                _toneOverride.mode.Override(mode);
+            }
+
+            if (_lutOverride != null)
+            {
+                // An unset texture leaves the override inactive rather than
+                // applying an identity lookup nobody authored.
+                _lutOverride.active = Cfg.lutTexture != null;
+                if (Cfg.lutTexture != null)
+                {
+                    _lutOverride.texture.Override(Cfg.lutTexture);
+                    _lutOverride.contribution.Override(Mathf.Clamp01(Cfg.lutContribution));
+                }
             }
 
             if (_bloomOverride != null)
             {
-                _bloomOverride.intensity.Override(bloomIntensity);
-                _bloomOverride.threshold.Override(bloomThreshold);
-                _bloomOverride.scatter.Override(0.7f);
-                // Bloom tint left at white. A tinted bloom on top of SMH
-                // and the sun colour stacks into a global hue shift.
+                _bloomOverride.intensity.Override(Cfg.bloomIntensity);
+                _bloomOverride.threshold.Override(Cfg.bloomThreshold);
+                _bloomOverride.scatter.Override(Cfg.bloomScatter);
+                // Bloom tint stays white (one-tint rule).
                 _bloomOverride.tint.Override(Color.white);
             }
 
             if (_colorOverride != null)
             {
-                _colorOverride.postExposure.Override(postExposure);
-                _colorOverride.saturation.Override(saturation);
-                _colorOverride.contrast.Override(contrast);
-                // colorFilter left neutral. Any tint here multiplies every
-                // pixel — fastest way to crush faction reds/greens/blues.
+                _colorOverride.postExposure.Override(Cfg.postExposure);
+                _colorOverride.saturation.Override(Cfg.saturation);
+                _colorOverride.contrast.Override(Cfg.contrast);
+                // colorFilter stays neutral (one-tint rule). Any tint here
+                // multiplies every pixel — the fastest way to crush faction
+                // reds / greens / blues.
                 _colorOverride.colorFilter.Override(Color.white);
             }
 
             if (_smhOverride != null)
             {
-                _smhOverride.shadows.Override(new Vector4(smhShadowsTint.r, smhShadowsTint.g, smhShadowsTint.b, 0f));
-                _smhOverride.highlights.Override(new Vector4(smhHighlightsTint.r, smhHighlightsTint.g, smhHighlightsTint.b, 0f));
+                var s = Cfg.smhShadowsTint;
+                var h = Cfg.smhHighlightsTint;
+                _smhOverride.shadows.Override(new Vector4(s.r, s.g, s.b, 0f));
+                _smhOverride.highlights.Override(new Vector4(h.r, h.g, h.b, 0f));
             }
 
             if (_grainOverride != null)
             {
-                _grainOverride.intensity.Override(filmGrainIntensity);
-                _grainOverride.response.Override(filmGrainResponse);
+                _grainOverride.intensity.Override(Cfg.filmGrainIntensity);
+                _grainOverride.response.Override(Cfg.filmGrainResponse);
             }
         }
 
@@ -313,19 +317,22 @@ namespace TheWaningBorder.World
         /// this flag the global Volume is built but the camera silently
         /// ignores it. The camera is created at runtime in CameraController
         /// without ever touching this flag, so we enable it here from the
-        /// canonical post-process owner.
+        /// canonical post-process owner — and give it the void colour, since
+        /// that is atmosphere too.
         /// </summary>
-        private void EnableCameraPostProcessing(Camera cam)
+        private void ConfigureCamera(Camera cam)
         {
             if (cam == null) return;
             var data = cam.GetUniversalAdditionalCameraData();
             if (data != null) data.renderPostProcessing = true;
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = Cfg.voidColor;
         }
 
         private void UpdateCloudShadows()
         {
-            _cloudOffsetX += cloudSpeed * Time.deltaTime;
-            _cloudOffsetZ += cloudSpeed * 0.3f * Time.deltaTime;
+            _cloudOffsetX += Cfg.cloudSpeed * Time.deltaTime;
+            _cloudOffsetZ += Cfg.cloudSpeed * 0.3f * Time.deltaTime;
 
             if (_cloudProjector == null)
                 CreateCloudProjector();
@@ -334,7 +341,7 @@ namespace TheWaningBorder.World
             {
                 _cloudMaterial.SetFloat("_OffsetX", _cloudOffsetX);
                 _cloudMaterial.SetFloat("_OffsetZ", _cloudOffsetZ);
-                _cloudMaterial.SetFloat("_Opacity", cloudOpacity);
+                _cloudMaterial.SetFloat("_Opacity", Cfg.cloudOpacity);
             }
 
             if (_mainCamera == null) _mainCamera = Camera.main;
@@ -354,7 +361,7 @@ namespace TheWaningBorder.World
             var mr = _cloudProjector.AddComponent<MeshRenderer>();
 
             _cloudMesh = new Mesh();
-            float half = cloudProjectorSize;
+            float half = Cfg.cloudProjectorSize;
             _cloudMesh.vertices = new Vector3[]
             {
                 new(-half, 0, -half), new(half, 0, -half),
@@ -402,12 +409,12 @@ namespace TheWaningBorder.World
                     "[DayNightCycle] No unlit shader available for cloud shadows — add "
                     + "\"Universal Render Pipeline/Unlit\" to Project Settings > Graphics > "
                     + "Always Included Shaders. Disabling cloud shadows.");
-                cloudShadows = false;   // stops UpdateCloudShadows being called again
+                _cloudShadowsUnavailable = true;   // stops UpdateCloudShadows being called again
                 return;
             }
             _cloudMaterial = new Material(shader);
             _cloudMaterial.mainTexture = _cloudTexture;
-            _cloudMaterial.color = new Color(0f, 0f, 0f, cloudOpacity);
+            _cloudMaterial.color = new Color(0f, 0f, 0f, Cfg.cloudOpacity);
 
             _cloudMaterial.SetFloat("_Surface", 1);
             _cloudMaterial.SetFloat("_Blend", 0);

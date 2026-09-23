@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fd9eb7f43f1f405bba82463e9fb74968, type: 3}
+  m_Name: BuildingLanternLight
+  m_EditorClassIdentifier:
+  minFootprintMetres: 8
+  color: {r: 1, g: 0.69, b: 0.353, a: 1}
+  intensity: 4.5
+  range: 14
+  height: 4
+  constructionPollSeconds: 0.5

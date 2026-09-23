@@ -45,6 +45,23 @@ public static class ProceduralMaterialHelper
 
     /// <summary>Standard Lit base material (no emission). Shared across all
     /// non-emissive procedural renderers.</summary>
+    /// <summary>
+    /// Ceilings on how shiny and how metal a procedural surface may be.
+    ///
+    /// A stylised look is MATTE. Specular highlights and metallic response are
+    /// what the eye reads as photographic: they move with the camera, they
+    /// blow out under bloom, and they fight the flat painted shapes the rest
+    /// of the art direction is going for. DOTA 2 and League both keep
+    /// reflectance low and carry form in the albedo instead.
+    ///
+    /// Clamped HERE rather than at the ~200 call sites that pass these values,
+    /// so the rule is one number and the callers keep saying what they mean —
+    /// "iron is shinier than timber" survives, it just tops out lower.
+    /// docs/Design/Art_Direction.md § Stylised look.
+    /// </summary>
+    public const float MaxSmoothness = 0.30f;
+    public const float MaxMetallic = 0.30f;
+
     public static Material BaseLit
     {
         get
@@ -113,8 +130,8 @@ public static class ProceduralMaterialHelper
         _mpb.Clear();
         _mpb.SetColor(_BaseColorId, color);
         _mpb.SetColor(_ColorId, color);
-        _mpb.SetFloat(_MetallicId, metallic);
-        _mpb.SetFloat(_SmoothnessId, smoothness);
+        _mpb.SetFloat(_MetallicId, Mathf.Min(metallic, MaxMetallic));
+        _mpb.SetFloat(_SmoothnessId, Mathf.Min(smoothness, MaxSmoothness));
         r.SetPropertyBlock(_mpb);
     }
 
@@ -145,8 +162,8 @@ public static class ProceduralMaterialHelper
         _mpb.Clear();
         _mpb.SetColor(_BaseColorId, color);
         _mpb.SetColor(_ColorId, color);
-        _mpb.SetFloat(_MetallicId, metallic);
-        _mpb.SetFloat(_SmoothnessId, smoothness);
+        _mpb.SetFloat(_MetallicId, Mathf.Min(metallic, MaxMetallic));
+        _mpb.SetFloat(_SmoothnessId, Mathf.Min(smoothness, MaxSmoothness));
         _mpb.SetColor(_EmissionColorId, emissiveColor * intensity);
         r.SetPropertyBlock(_mpb);
     }

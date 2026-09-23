@@ -85,6 +85,8 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         { 552, "Procedural/WallInstance" },                  // Alanthor Wall Instance (small wall piece)
         { 553, "Procedural/WallTower" },                     // Alanthor Wall Tower (upgraded instance)
         { 554, "Procedural/WallGate" },                      // Alanthor Wall Gate (upgraded instance)
+        { 555, "Procedural/WallCurve" },                     // Alanthor curved segment: one swept mesh (drawn walls)
+        { 556, "Procedural/WallCurveCell" },                 // Alanthor curved segment cell: pick collider only
 
         // Alanthor Buildings (procedurally generated)
         { 560, "Procedural/Smelter" },                       // Alanthor Smelter/Forge (generated at runtime)
@@ -250,6 +252,9 @@ public partial class PresentationSpawnSystem : MonoBehaviour
 
     // Entities that gained a view this frame, tagged in one batch at the end.
     private readonly List<Entity> _tagScratch = new();
+    /// <summary>Viewed entities still waiting for the sim to seed their
+    /// PresentationViewSpawned component; see FlushViewTags.</summary>
+    private readonly List<Entity> _tagPending = new();
 
     /// <summary>
     /// Per-view sync state. SyncTransforms runs over EVERY presentation entity
@@ -544,22 +549,42 @@ public partial class PresentationSpawnSystem : MonoBehaviour
     }
 
     /// <summary>
-    /// Stamp PresentationViewSpawned on everything that got a view this frame,
-    /// in ONE structural change rather than one per entity.
+    /// Flip PresentationViewSpawned ON for everything that got a view this
+    /// frame. Never a structural change (2026-09-13): this MonoBehaviour runs
+    /// on FRAME time under a per-frame spawn budget, so an AddComponent here
+    /// landed on a different SIM TICK on every lockstep peer -- the Veilmarch
+    /// 15-31-23 fork (a Hall foundation placed on tick 48565 got its view tag
+    /// on 48566 on two peers and on 48569/48571 on the other two; the chunk
+    /// reorder then forked Pos/Rot/Nav/rng 64 ticks later). Units have carried
+    /// the tag pre-added DISABLED since 2026-09-03 (TransientState); every
+    /// other PresentationId entity gets it from PresentationViewTagSeedSystem,
+    /// which runs inside the sim tick and is therefore the same on all peers.
+    /// An entity whose seed has not landed yet waits in _tagPending -- it is
+    /// already in _spawnedEntities, so it is never spawned twice.
     /// </summary>
     private void FlushViewTags()
     {
+        // Retry the ones that were waiting for the seed.
+        if (_tagPending.Count > 0)
+        {
+            for (int i = _tagPending.Count - 1; i >= 0; i--)
+            {
+                var e = _tagPending[i];
+                if (!_em.Exists(e)) { _tagPending.RemoveAt(i); continue; }
+                if (!_em.HasComponent<PresentationViewSpawned>(e)) continue;
+                _em.SetComponentEnabled<PresentationViewSpawned>(e, true);
+                _tagPending.RemoveAt(i);
+            }
+        }
+
         if (_tagScratch.Count == 0) return;
-        // Units carry PresentationViewSpawned pre-added DISABLED (see
-        // TransientState.cs) — a batch AddComponent is a no-op on them and
-        // would leave the bit off, so each entity is enabled explicitly.
-        // Buildings/nodes without the component still get the one-time add.
         for (int i = 0; i < _tagScratch.Count; i++)
         {
             var e = _tagScratch[i];
-            if (!_em.HasComponent<PresentationViewSpawned>(e))
-                _em.AddComponent<PresentationViewSpawned>(e);
-            _em.SetComponentEnabled<PresentationViewSpawned>(e, true);
+            if (_em.HasComponent<PresentationViewSpawned>(e))
+                _em.SetComponentEnabled<PresentationViewSpawned>(e, true);
+            else
+                _tagPending.Add(e);
         }
         _tagScratch.Clear();
     }
@@ -600,9 +625,15 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         }
 
         // === ALANTHOR WALLS: procedural hub, instances, towers, gates ===
+        // Wall pieces carry the owner's colour on their ownership parts, and
+        // they do NOT go through ApplyFactionColor: that path uses
+        // `renderer.materials`, which clones a material per renderer, and a
+        // finished perimeter is hundreds of pieces. ApplyWallOwnerColor does
+        // the same job through a property block.
         if (presentationId == TheWaningBorder.Entities.AlanthorWall.HubPresentationID)
         {
             var go = CreateProceduralWallHub(pos, entity);
+            ApplyWallOwnerColor(go, entity);
             return go;
         }
         if (presentationId == 551) // Legacy segment — kept for backward compat
@@ -614,18 +645,34 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         {
             var go = CreateProceduralWallInstance(pos, entity);
             AttachConstructionAnimation(go);
+            ApplyWallOwnerColor(go, entity);
+            return go;
+        }
+        if (presentationId == TheWaningBorder.Entities.AlanthorWall.CurvedSegmentPresentationID)
+            return CreateProceduralCurvedWall(pos, entity);   // tints its own sub-meshes
+        if (presentationId == TheWaningBorder.Entities.AlanthorWall.CurveCellPresentationID)
+            return CreateCurveCellPick(pos, entity);
+        if (presentationId == TheWaningBorder.Entities.AlanthorWall.BallistaEmplacementPresentationID
+            || presentationId == TheWaningBorder.Entities.AlanthorWall.TrebuchetEmplacementPresentationID)
+        {
+            var go = CreateProceduralWallEmplacement(pos, entity,
+                presentationId == TheWaningBorder.Entities.AlanthorWall.TrebuchetEmplacementPresentationID);
+            AttachConstructionAnimation(go);
+            ApplyWallOwnerColor(go, entity);
             return go;
         }
         if (presentationId == TheWaningBorder.Entities.AlanthorWall.TowerPresentationID)
         {
             var go = CreateProceduralWallTower(pos, entity);
             AttachConstructionAnimation(go);
+            ApplyWallOwnerColor(go, entity);
             return go;
         }
         if (presentationId == TheWaningBorder.Entities.AlanthorWall.GatePresentationID)
         {
             var go = CreateProceduralWallGate(pos, entity);
             AttachConstructionAnimation(go);
+            ApplyWallOwnerColor(go, entity);
             return go;
         }
 
@@ -679,6 +726,14 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                 case 356: authored = TheWaningBorder.Rendering.RoyalStableVisual.Build(entity.Index + 356); authoredIsBuilding = true; break;
                 case 357: authored = TheWaningBorder.Rendering.SiegeYardVisual.Build(entity.Index + 357); authoredIsBuilding = true; break;
                 case 354: authored = TheWaningBorder.Rendering.WatchTowerVisual.Build(entity.Index + 354); authoredIsBuilding = true; break;
+                // The emplacement PLATFORMS. Their engines are separate
+                // entities and reuse the mobile Ballista / Trebuchet art
+                // (docs/Design/Age_1_Alanthor.md § Ballista and Trebuchet
+                // emplacements).
+                case TheWaningBorder.Entities.BallistaEmplacement.PresentationID:
+                    authored = TheWaningBorder.Rendering.BallistaEmplacementVisual.Build(entity.Index + 570); authoredIsBuilding = true; break;
+                case TheWaningBorder.Entities.TrebuchetEmplacement.PresentationID:
+                    authored = TheWaningBorder.Rendering.TrebuchetEmplacementVisual.Build(entity.Index + 571); authoredIsBuilding = true; break;
                 case 358: authored = TheWaningBorder.Rendering.FieldHospitalVisual.Build(entity.Index + 358); authoredIsBuilding = true; spawnsFinished = true; break;
                 // Raise Anew (Renewal) — the three conjured fortifications, one
                 // per power level. Permanent, and raised pre-built like the tent.
@@ -1121,6 +1176,9 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             // at construction progress 0. Must run after position/scale are
             // final (bounds are world-space).
             AttachConstructionAnimation(goInst);
+
+            // Warm lantern pool for large buildings (Art_Direction.md §4.4).
+            TheWaningBorder.Rendering.BuildingLanternLight.Attach(goInst, entity, _em);
         }
 
         return goInst;
@@ -1201,6 +1259,9 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         var entityRef = go.GetComponent<EntityReference>();
         if (entityRef == null) entityRef = go.AddComponent<EntityReference>();
         entityRef.Entity = entity;
+
+        // Warm lantern pool for large buildings (Art_Direction.md §4.4).
+        TheWaningBorder.Rendering.BuildingLanternLight.Attach(go, entity, _em);
 
         // Authored prefabs paint team-color regions with a flat marker hue
         // (default pure blue). Replace with the faction color at runtime so

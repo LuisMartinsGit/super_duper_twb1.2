@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 56438b5fb34545fd9c86e255cf42cdaa, type: 3}
+  m_Name: CurseBarrierVfx
+  m_EditorClassIdentifier:
+  ribbonHeight: 3.2
+  groundOffset: 0.05
+  ribbonSpacing: 1.5
+  archHalfWidth: 1.1
+  wispsPerMetrePerSecond: 0.25
+  maxWispsPerTerritory: 600
+  wispLifetimeMin: 2.5
+  wispLifetimeMax: 4.5
+  wispSizeMin: 0.8
+  wispSizeMax: 1.6
+  wispRiseSpeed: 0.9
+  wispNoiseStrength: 0.5
+  wispNoiseFrequency: 0.35
+  wispCyan: {r: 0.05, g: 0.55, b: 0.62, a: 1}
+  wispPurple: {r: 0.55, g: 0.2, b: 0.95, a: 1}
+  wispPeakAlpha: 0.55
