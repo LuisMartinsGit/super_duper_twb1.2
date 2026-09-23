@@ -1,4 +1,4 @@
-// MapRegistry.cs
+﻿// MapRegistry.cs
 // Authoritative list of playable maps. The skirmish / multiplayer lobby
 // dropdowns read this list; bootstrap scene-gates accept any entry's
 // SceneName as a valid gameplay scene; GameBootstrap reads IsProcedural
@@ -109,6 +109,7 @@ namespace TheWaningBorder.Core.Maps
             "TwinSpans",       // 3v3 river, two crossings, four bridgehead wells
             "SunderedReach",   // 3P, 704 m (4x Twin Spans' area), 10 regions
             "Veilmarch",       // 4P, 1024 m open field, curse-only centre, 21 regions
+            "VeilmarchGrand",  // 8P, the same field with eight homes on the ring (2026-09-13)
         };
 
         /// <summary>

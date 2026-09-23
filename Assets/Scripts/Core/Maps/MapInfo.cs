@@ -105,5 +105,15 @@ namespace TheWaningBorder.Core.Maps
         /// actually hold, which is now a real difference between maps
         /// rather than a constant.</summary>
         public Vector2[] SupplyNodes = new Vector2[0];
+
+        /// <summary>
+        /// Fingerprint of the RegionSeedMarkers (names, positions, kinds,
+        /// outlines) the thumbnail's border lattice was baked from. The bake
+        /// is a snapshot with no other invalidation; MapInfoBaker compares
+        /// this against the scene on every save and re-bakes when the
+        /// markers moved, so the lobby can never show borders the author has
+        /// since redrawn (2026-09-11).
+        /// </summary>
+        public string RegionStamp = "";
     }
 }

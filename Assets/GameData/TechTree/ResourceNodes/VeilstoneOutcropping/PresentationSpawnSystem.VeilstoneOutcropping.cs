@@ -67,6 +67,15 @@ public partial class PresentationSpawnSystem
         StripThirdPartyControllers(root);
         root.name = $"VeilstoneLoot_{entity.Index}";
 
+        // Id 301 is shared by the mineable outcropping AND the curse pocket
+        // (SmallNode) — same gem prefab, opposite colour language
+        // (Art_Direction.md §6.1): cyan is veilstone, purple is the curse.
+        // The authored gem is cyan; a pocket is hue-shifted a quarter turn.
+        if (_em.HasComponent<SmallNodeTag>(entity))
+            EmissiveLadder.ApplyCrystalGlow(root, EmissiveLadder.Curse, EmissiveLadder.CurseHueShift);
+        else
+            EmissiveLadder.ApplyCrystalGlow(root, EmissiveLadder.Veilstone);
+
         AttachVeilstoneOutcroppingSelectionAndAnimator(root, entity,
             CellColliderScaleFor(entity, VeilstoneOutcroppingVisualBaseScale));
         return root;

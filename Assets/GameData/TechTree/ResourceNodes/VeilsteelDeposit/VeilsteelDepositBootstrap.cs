@@ -118,6 +118,7 @@ namespace TheWaningBorder.Bootstrap
                 {
                     if (have.Contains(r)) continue;
                     if (oreCounts[r] >= ResourceNodeCoverage.MaxOreNodesPerTerritory) continue;
+                    if (ResourceNodeCoverage.IsWellTerritory(r)) continue;   // authored only
                     var seed = RegionMap.SeedOf(r);
                     if (!TrySpawnNear(em, r, seed.x, seed.y)) continue;
                     have.Add(r);
@@ -142,6 +143,7 @@ namespace TheWaningBorder.Bootstrap
                     float px = x + Mathf.Cos(a) * ring;
                     float pz = z + Mathf.Sin(a) * ring;
                     if (RegionMap.RegionAt(px, pz) != region) continue;
+                    if (ResourceNodeCoverage.OnWellFootprint(px, pz)) continue;
                     // Same passability idiom the midpoint fallback uses, so
                     // both paths agree about what counts as standable ground.
                     var grid = PassabilityGrid.Instance;

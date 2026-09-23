@@ -29,6 +29,12 @@ namespace TheWaningBorder.EditorTools
         [MenuItem("Waning Border/Scenarios/Create Scene For Arrow Trails")]
         public static void CreateArrowTrails() => Clone("ArrowTrails");
 
+        [MenuItem("Waning Border/Scenarios/Create Scene For Shardroot Trial")]
+        public static void CreateShardrootTrial() => Clone("ShardrootTrial");
+
+        [MenuItem("Waning Border/Scenarios/Create Scene For Wall Drawing")]
+        public static void CreateWallDrawing() => Clone("WallDrawing");
+
         /// <summary>
         /// Clone the template scene into `Scenario_&lt;name&gt;.unity` and give
         /// it a private copy of the terrain. Existing scenes are left alone —

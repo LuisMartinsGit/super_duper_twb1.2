@@ -1,32 +1,34 @@
-// ResourceNodeCoverage.cs
+﻿// ResourceNodeCoverage.cs
 // The ore half of the node-quota rule (docs/Design/Regions.md §4):
 // EVERY territory carries at least one ore node — iron, veilstone or
-// veilsteel — and never more than four.
+// veilsteel — and never more than four; every home carries veilstone, and
+// half the map does.
+//
+// AUTHORED BY HAND (2026-09-11). Resource nodes are placed by the map
+// author, and only by the map author. This pass used to seed whatever a
+// territory was short of, from its seed outward — which is how Hollow
+// Table's central territory grew an iron node on top of its well and two
+// supply nodes around it that nobody placed. It now AUDITS: every shortfall
+// is logged, naming the territory, so the author sees exactly what the
+// quota wants and decides. Nothing is spawned.
 //
 // Set-level on purpose: it counts across all three node kinds, so it lives
-// one level above the per-node folders, next to ResourcePatchFill. Runs
-// after the three ore bootstraps and before the supply pass
-// (SpawnDelayHelper), so authored markers, fallbacks and the veilsteel
-// coverage top-up are all already on the ground and only a genuine
-// shortfall is filled.
+// one level above the per-node folders. Runs after the three ore bootstraps
+// and before the supply pass (SpawnDelayHelper), so every authored marker
+// is already on the ground when it counts.
 //
-// The generic min-ore top-up is IRON. VEILSTONE has its own coverage rule
-// now (Regions.md §3, 2026-08-31 — it superseded the old centre-ring
-// exclusivity): every starter territory MUST carry a veilstone outcropping,
-// and 50% of ALL territories carry one, because veilstone is both the army
-// economy and the curse's food — the curse only conquers veilstone ground.
-// GuaranteeVeilstoneCoverage runs before the iron pass so a region that just
-// gained veilstone no longer needs the iron fallback.
+// The only runtime seeding left in the game is the fallback for maps that
+// author NO resource markers at all (procedural fixtures, scenario stubs) —
+// see the per-node bootstraps' SpawnFallbackPatches. An authored map gets
+// what its author placed.
 
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Collections;
 using Unity.Entities;
-using Unity.Mathematics;
 using Unity.Transforms;
-using TheWaningBorder.Entities;
+using TheWaningBorder.World.MapMarkers;
 using TheWaningBorder.World.Regions;
-using TheWaningBorder.World.Terrain;
 
 namespace TheWaningBorder.Bootstrap
 {
@@ -35,20 +37,74 @@ namespace TheWaningBorder.Bootstrap
         /// <summary>Ore nodes every territory is guaranteed.</summary>
         public const int MinOreNodesPerTerritory = 1;
 
-        /// <summary>Ore nodes a territory may carry at most. An authored map
-        /// is trusted (a trim would fight its author); the runtime top-up
-        /// passes stop at this line instead.</summary>
+        /// <summary>Ore nodes a territory may carry at most.</summary>
         public const int MaxOreNodesPerTerritory = 4;
 
-        /// <summary>Payload of a topped-up iron node, in marker DepositCount
-        /// units — matches the 24 the generators author for a small
-        /// territory's iron (24 x 50 = 1,200 iron).</summary>
-        private const int TopUpDepositCount = 24;
+        /// <summary>Share of all territories that should carry veilstone
+        /// (Regions.md §3).</summary>
+        private const float VeilstoneCoverageFraction = 0.5f;
 
         /// <summary>
-        /// Give every territory its guaranteed ore node. Deterministic:
-        /// regions walked in index order, candidates ringed around the seed,
-        /// so every lockstep peer fills the identical shortfall.
+        /// True when the map author placed resource markers of any kind. Such
+        /// a map gets exactly what was placed; only a map with none at all is
+        /// filled by the procedural fallbacks.
+        /// </summary>
+        public static bool MapAuthorsResources =>
+            MapMarkerRegistry.HasIronMarkers
+            || MapMarkerRegistry.HasVeilstoneMarkers
+            || MapMarkerRegistry.HasVeilsteelMarkers
+            || MapMarkerRegistry.HasSupplyNodes;
+
+        /// <summary>
+        /// How close to a well's centre a runtime-seeded node may not stand.
+        /// The well's own build footprint is 12x12 cells and it spreads haze
+        /// this far within the first minute; a node inside that ring is
+        /// unreachable ground dressed as an economy, which is how Hollow
+        /// Table's central territory grew an iron node ON its well. Read from
+        /// the curse's own constant so the two cannot drift apart.
+        /// </summary>
+        private static float WellClearRadius =>
+            TheWaningBorder.Core.Config.BorderConstants.MainNodeSpreadRadius;
+
+        /// <summary>
+        /// Does this territory hold an authored well? Such a territory is
+        /// the map author's to fill: the fallback passes leave it alone
+        /// rather than ringing the well with ore nobody placed.
+        /// </summary>
+        public static bool IsWellTerritory(int territory)
+        {
+            if (territory == RegionMap.None || !RegionMap.Ready) return false;
+            var wells = MapMarkerRegistry.BorderNodes;
+            for (int i = 0; i < wells.Count; i++)
+            {
+                var w = wells[i];
+                if (w == null) continue;
+                var p = w.transform.position;
+                if (RegionMap.RegionAt(p.x, p.z) == territory) return true;
+            }
+            return false;
+        }
+
+        /// <summary>Is this world point inside a well's footprint + haze
+        /// ring? Same question as <see cref="IsWellTerritory"/> asks of a
+        /// whole territory, for the ring search that places one node.</summary>
+        public static bool OnWellFootprint(float x, float z)
+        {
+            var wells = MapMarkerRegistry.BorderNodes;
+            for (int i = 0; i < wells.Count; i++)
+            {
+                var w = wells[i];
+                if (w == null) continue;
+                var p = w.transform.position;
+                float dx = p.x - x, dz = p.z - z;
+                if (dx * dx + dz * dz <= WellClearRadius * WellClearRadius) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Audit the one-ore-per-territory rule. Logs every territory below
+        /// the minimum and every one above the maximum; spawns nothing.
         /// </summary>
         public static void GuaranteeTerritoryOre()
         {
@@ -58,38 +114,31 @@ namespace TheWaningBorder.Bootstrap
             if (!RegionMap.Ready || RegionMap.Count == 0) return;
 
             var counts = OreNodeCounts(em);
-            int added = 0;
+            int under = 0, over = 0;
             for (int r = 0; r < counts.Length; r++)
             {
-                if (counts[r] >= MinOreNodesPerTerritory) continue;
-                var seed = RegionMap.SeedOf(r);
-                if (TrySpawnIronInRegion(em, r, seed.x, seed.y)) added++;
-                else
-                    Debug.LogWarning($"[ResourceNodeCoverage] territory {r} " +
-                                     $"({RegionMap.NameOf(r)}) has no ore node and no " +
-                                     "seatable ground to put one on.");
+                if (!ClaimableTerritory(r)) continue;
+                if (counts[r] < MinOreNodesPerTerritory)
+                {
+                    under++;
+                    Debug.LogWarning($"[ResourceNodeCoverage] territory {r} ({RegionMap.NameOf(r)}) " +
+                                     "has no ore node — the quota wants at least one (Regions.md §4). " +
+                                     "Author one; nothing is seeded at runtime.");
+                }
+                else if (counts[r] > MaxOreNodesPerTerritory)
+                {
+                    over++;
+                    Debug.LogWarning($"[ResourceNodeCoverage] territory {r} ({RegionMap.NameOf(r)}) " +
+                                     $"carries {counts[r]} ore nodes — the quota caps at {MaxOreNodesPerTerritory}.");
+                }
             }
-            if (added > 0)
-                Debug.Log($"[ResourceNodeCoverage] topped up {added} territor" +
-                           $"{(added == 1 ? "y" : "ies")} with an iron node " +
-                           "(node-quota rule).");
+            Debug.Log($"[ResourceNodeCoverage] ore audit: {counts.Length} territories, " +
+                      $"{under} under quota, {over} over cap (authored only, nothing seeded).");
         }
 
-        /// <summary>Veilstone a coverage-pass outcropping holds — matches the
-        /// node factory's default patch worth.</summary>
-        private const int VeilstoneTopUpAmount = 300;
-
-        /// <summary>Fraction of ALL territories that must carry veilstone
-        /// (Regions.md §3, 2026-08-31).</summary>
-        private const float VeilstoneCoverageFraction = 0.5f;
-
         /// <summary>
-        /// The veilstone placement rules (Regions.md §3, 2026-08-31):
-        /// every starter territory gets a veilstone outcropping, and the map
-        /// is topped up until half of all territories carry one. Authored
-        /// markers are honoured — only the shortfall is filled. Deterministic:
-        /// homes in hall order, the fill drawn from a sorted candidate list
-        /// with the match-seeded RNG, so lockstep peers agree.
+        /// Audit the veilstone rule: every home territory carries veilstone
+        /// and half the map does. Logs shortfalls; spawns nothing.
         /// </summary>
         public static void GuaranteeVeilstoneCoverage()
         {
@@ -100,13 +149,7 @@ namespace TheWaningBorder.Bootstrap
 
             var veilstone = new int[RegionMap.Count];
             Accumulate<VeilstoneOutcroppingTag>(em, veilstone);
-            var ore = OreNodeCounts(em);
 
-            int added = 0;
-
-            // 1. HOMES — every territory with a starting Hall MUST have one.
-            //    The mandate outranks the four-ore cap; generators author two
-            //    iron per home, so in practice it never collides.
             var homes = new List<int>();
             var hallQ = em.CreateEntityQuery(
                 ComponentType.ReadOnly<HallTag>(),
@@ -120,69 +163,29 @@ namespace TheWaningBorder.Bootstrap
             hallQ.Dispose();
             homes.Sort();
 
+            int homesMissing = 0;
             for (int i = 0; i < homes.Count; i++)
             {
                 int r = homes[i];
                 if (veilstone[r] > 0) continue;
-                if (TrySpawnVeilstoneInRegion(em, r))
-                {
-                    veilstone[r]++;
-                    ore[r]++;
-                    added++;
-                }
-                else
-                    Debug.LogWarning($"[ResourceNodeCoverage] HOME territory {r} " +
-                                     $"({RegionMap.NameOf(r)}) must carry veilstone but has " +
-                                     "no seatable ground for it.");
+                homesMissing++;
+                Debug.LogWarning($"[ResourceNodeCoverage] HOME territory {r} ({RegionMap.NameOf(r)}) " +
+                                 "carries no veilstone — every home must (Regions.md §3). Author one.");
             }
 
-            // 2. THE HALF-THE-MAP RULE. Candidates in sorted order, drawn with
-            //    the seeded RNG so the spread is organic but identical on
-            //    every peer.
             int have = 0;
             for (int r = 0; r < veilstone.Length; r++) if (veilstone[r] > 0) have++;
             int want = Mathf.CeilToInt(RegionMap.Count * VeilstoneCoverageFraction);
-
             if (have < want)
-            {
-                var rng = new Unity.Mathematics.Random(
-                    (uint)(GameSettings.SpawnSeed ^ 0x5EED5) | 1u);
-                var candidates = new List<int>();
-                for (int r = 0; r < RegionMap.Count; r++)
-                    if (veilstone[r] == 0 && ore[r] < MaxOreNodesPerTerritory)
-                        candidates.Add(r);
-                candidates.Sort();
-
-                while (have < want && candidates.Count > 0)
-                {
-                    int idx = rng.NextInt(0, candidates.Count);
-                    int r = candidates[idx];
-                    candidates.RemoveAt(idx);
-                    if (!TrySpawnVeilstoneInRegion(em, r)) continue;
-                    veilstone[r]++;
-                    ore[r]++;
-                    have++;
-                    added++;
-                }
-            }
+                Debug.LogWarning($"[ResourceNodeCoverage] veilstone covers {have}/{RegionMap.Count} " +
+                                 $"territories; the rule wants {want}. Author more, or accept it.");
 
             Debug.Log($"[ResourceNodeCoverage] veilstone coverage: {have}/{RegionMap.Count} " +
-                       $"territories carry veilstone (target {want}), {added} node(s) added, " +
-                       $"{homes.Count} home(s) guaranteed.");
+                      $"territories carry veilstone (target {want}), {homes.Count} home(s), " +
+                      $"{homesMissing} without (authored only, nothing seeded).");
         }
 
-        private static bool TrySpawnVeilstoneInRegion(EntityManager em, int region)
-        {
-            var seed = RegionMap.SeedOf(region);
-            if (!TrySeatInRegion(region, seed.x, seed.y, out float3 pos)) return false;
-            VeilstoneOutcropping.Create(em, pos, VeilstoneTopUpAmount);
-            VeilstonePatchGround.Register(pos, 1);
-            return true;
-        }
-
-        /// <summary>Ore nodes (iron + veilstone + veilsteel) per territory.
-        /// Shared with the veilsteel coverage pass, so both passes count the
-        /// same way and neither can push a region past the cap.</summary>
+        /// <summary>Ore nodes per region, all three kinds together.</summary>
         public static int[] OreNodeCounts(EntityManager em)
         {
             var counts = new int[RegionMap.Count];
@@ -207,45 +210,9 @@ namespace TheWaningBorder.Bootstrap
             q.Dispose();
         }
 
-        /// <summary>Place an iron node on standable ground inside the region,
-        /// ringing outward from its seed. Region containment is checked per
-        /// candidate — a node over the border would pay the neighbour.</summary>
-        private static bool TrySpawnIronInRegion(EntityManager em, int region,
-            float x, float z)
-        {
-            if (!TrySeatInRegion(region, x, z, out float3 pos)) return false;
-            IronDepositBootstrap.SpawnQuotaNode(em, pos, TopUpDepositCount);
-            return true;
-        }
-
-        /// <summary>Standable ground inside the region, ringing outward from
-        /// the given point. Shared by the iron and veilstone passes so both
-        /// seat nodes by the same rule.</summary>
-        private static bool TrySeatInRegion(int region, float x, float z, out float3 pos)
-        {
-            pos = default;
-            var grid = PassabilityGrid.Instance;
-            for (float ring = 0f; ring <= 48f; ring += 8f)
-            {
-                int samples = ring <= 0.01f ? 1 : 8;
-                for (int i = 0; i < samples; i++)
-                {
-                    float a = i * (Mathf.PI * 2f / samples);
-                    float px = x + Mathf.Cos(a) * ring;
-                    float pz = z + Mathf.Sin(a) * ring;
-                    if (RegionMap.RegionAt(px, pz) != region) continue;
-                    if (grid != null)
-                    {
-                        var cell = grid.WorldToCell(new float3(px, 0f, pz));
-                        if (cell.x < 0 || cell.x >= grid.Width
-                            || cell.y < 0 || cell.y >= grid.Height) continue;
-                        if (grid.GetCell(cell) != PassabilityGrid.Passable) continue;
-                    }
-                    pos = new float3(px, TerrainUtility.GetHeight(px, pz), pz);
-                    return true;
-                }
-            }
-            return false;
-        }
+        /// <summary>Water, mountain and obstacle regions hold nothing and are
+        /// not audited.</summary>
+        private static bool ClaimableTerritory(int region) =>
+            !RegionMap.KindBlocks(RegionMap.KindOf(region));
     }
 }

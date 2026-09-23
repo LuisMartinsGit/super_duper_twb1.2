@@ -181,10 +181,20 @@ namespace TheWaningBorder.Core.Maps.EditorTools
 
         private static Texture2D LoadThumbnail(string folder)
         {
+            // The map's MapInfo names its thumbnail. "First Texture2D in the
+            // folder" composed Hollow Table's lobby image on GrassBlades.png,
+            // an orphan terrain texture that happened to sort first
+            // (2026-09-11).
+            foreach (string guid in AssetDatabase.FindAssets("t:MapInfo", new[] { folder }))
+            {
+                var info = AssetDatabase.LoadAssetAtPath<TheWaningBorder.Core.Maps.MapInfo>(
+                    AssetDatabase.GUIDToAssetPath(guid));
+                if (info != null && info.Thumbnail != null) return info.Thumbnail;
+            }
             foreach (string guid in AssetDatabase.FindAssets("t:Texture2D", new[] { folder }))
             {
                 string p = AssetDatabase.GUIDToAssetPath(guid);
-                if (p.EndsWith(" Lobby.png")) continue;   // never compose on ourselves
+                if (!p.EndsWith(" Thumbnail.png")) continue;   // only the bake, never ourselves or an orphan
                 var t = AssetDatabase.LoadAssetAtPath<Texture2D>(p);
                 if (t != null) return t;
             }

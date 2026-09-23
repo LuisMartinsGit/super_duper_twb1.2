@@ -137,6 +137,15 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/GameData/Scenes/Scenarios/Scenario_ArrowTrails.unity
     guid: 57c8478bd4d50d2438a7c10597e790e1
+  - enabled: 1
+    path: Assets/GameData/Scenes/Scenarios/Scenario_ShardrootTrial.unity
+    guid: 5612d526418583b4a9cc0a3d716dd80b
+  - enabled: 1
+    path: Assets/GameData/Scenes/Maps/Veilmarch Grand/VeilmarchGrand.unity
+    guid: be17155099814cd4caf6a39beacb9747
+  - enabled: 1
+    path: Assets/GameData/Scenes/Scenarios/Scenario_WallDrawing.unity
+    guid: 094cd0d4364c1ff41a044dadb70a481a
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

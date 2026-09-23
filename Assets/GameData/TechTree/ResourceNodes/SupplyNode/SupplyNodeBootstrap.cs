@@ -1,4 +1,4 @@
-// SupplyNodeBootstrap.cs
+﻿// SupplyNodeBootstrap.cs
 // Spawns the map's supply nodes from SupplyNodeMarker scene markers, then
 // tops every territory up to its quota.
 //
@@ -67,9 +67,17 @@ namespace TheWaningBorder.Bootstrap
                 authored++;
             }
 
-            int topped = TopUpTerritories(em);
+            // AUTHORED BY HAND (2026-09-11): a map that places resource
+            // markers gets exactly what it places. The quota top-up used to
+            // ring two nodes around every under-quota territory's seed —
+            // which on Hollow Table put them around the well. It now only
+            // audits such maps; the seeding survives solely for maps that
+            // author no resources at all (procedural fixtures).
+            bool seed = !ResourceNodeCoverage.MapAuthorsResources;
+            int topped = TopUpTerritories(em, seed);
             TWBLog.Log($"[SupplyNodeBootstrap] {authored} authored supply node(s), " +
-                       $"{topped} topped up across {RegionMap.Count} territories.");
+                       (seed ? $"{topped} topped up" : "audited, nothing seeded") +
+                       $" across {RegionMap.Count} territories.");
         }
 
         /// <summary>
@@ -79,7 +87,7 @@ namespace TheWaningBorder.Bootstrap
         /// the region index — so every lockstep peer lays out the identical map.
         /// A top-up, never a trim: an authored surplus is a map author's choice.
         /// </summary>
-        private static int TopUpTerritories(EntityManager em)
+        private static int TopUpTerritories(EntityManager em, bool seed)
         {
             if (!RegionMap.Ready || RegionMap.Count == 0) return 0;
 
@@ -107,8 +115,16 @@ namespace TheWaningBorder.Bootstrap
                 int want = homes.Contains(r) ? NodesPerHomeTerritory : NodesPerTerritory;
                 var existing = have[r] ??= new List<float2>();
                 if (existing.Count >= want) continue;
+                if (RegionMap.KindBlocks(RegionMap.KindOf(r))) continue;   // scenery holds nothing
+                if (!seed)
+                {
+                    Debug.LogWarning($"[SupplyNodeBootstrap] territory {r} ({RegionMap.NameOf(r)}) " +
+                                     $"holds {existing.Count}/{want} supply nodes (Regions.md §4). " +
+                                     "Author the rest; nothing is seeded at runtime.");
+                    continue;
+                }
 
-                Vector2 seed = RegionMap.SeedOf(r);
+                Vector2 regionSeed = RegionMap.SeedOf(r);
                 // More attempts than the shortfall: a bearing can fail on
                 // water, a border sliver or a crowded spot, and quota is the
                 // point of the pass.
@@ -121,8 +137,8 @@ namespace TheWaningBorder.Bootstrap
                     // offset per region so neighbouring territories do not
                     // line their nodes up.
                     float angle = (attempt / (float)attempts + r * 0.37f) * Mathf.PI * 2f;
-                    float x = seed.x + Mathf.Cos(angle) * TopUpSpread;
-                    float z = seed.y + Mathf.Sin(angle) * TopUpSpread;
+                    float x = regionSeed.x + Mathf.Cos(angle) * TopUpSpread;
+                    float z = regionSeed.y + Mathf.Sin(angle) * TopUpSpread;
 
                     // Walk toward the seed until the partition agrees — the
                     // boundary is domain-warped, so raw ring arithmetic can

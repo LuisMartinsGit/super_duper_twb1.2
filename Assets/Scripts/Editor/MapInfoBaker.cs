@@ -27,6 +27,73 @@ namespace TheWaningBorder.Core.Maps.EditorTools
         private const string IndexPath = "Assets/UI/Resources/MapInfoIndex.asset";
         private const int ThumbnailSize = 512;
 
+        // ── Keep the thumbnail honest ──────────────────────────────────
+        // The bake is a snapshot of the markers with no other invalidation.
+        // On every scene save, compare a fingerprint of the RegionSeedMarkers
+        // against the one the last bake recorded and re-bake when they differ
+        // — an ordinary save costs nothing, an edited border re-bakes once.
+        [InitializeOnLoadMethod]
+        private static void HookSceneSaved()
+        {
+            UnityEditor.SceneManagement.EditorSceneManager.sceneSaved -= OnSceneSaved;
+            UnityEditor.SceneManagement.EditorSceneManager.sceneSaved += OnSceneSaved;
+        }
+
+        private static void OnSceneSaved(Scene scene)
+        {
+            if (Application.isPlaying) return;
+            if (string.IsNullOrEmpty(scene.path) || !scene.path.StartsWith(MapRegistry.MapsRoot)) return;
+            var regions = Object.FindObjectsByType<RegionSeedMarker>(FindObjectsSortMode.None);
+            if (regions == null || regions.Length == 0) return;
+
+            string folder = Path.GetDirectoryName(scene.path).Replace('\\', '/');
+            MapInfo info = null;
+            foreach (string guid in AssetDatabase.FindAssets("t:MapInfo", new[] { folder }))
+            {
+                info = AssetDatabase.LoadAssetAtPath<MapInfo>(AssetDatabase.GUIDToAssetPath(guid));
+                if (info != null) break;
+            }
+            string stamp = RegionStamp(regions);
+            if (info != null && info.RegionStamp == stamp) return;
+
+            Debug.Log($"[MapInfoBaker] {scene.name}: region markers changed since the last bake — " +
+                      "re-baking Map Info and thumbnail so the lobby matches the scene.");
+            // Deferred one editor tick: baking captures a camera and writes
+            // assets, neither of which belongs inside the save callback.
+            EditorApplication.delayCall += () =>
+            {
+                if (SceneManager.GetActiveScene().path == scene.path) Bake();
+            };
+        }
+
+        /// <summary>Order-independent fingerprint of the region markers.</summary>
+        private static string RegionStamp(RegionSeedMarker[] regions)
+        {
+            var parts = new System.Collections.Generic.List<string>(regions.Length);
+            foreach (var r in regions)
+            {
+                if (r == null) continue;
+                var p = r.transform.position;
+                var sb = new System.Text.StringBuilder();
+                sb.Append(r.RegionName).Append('|').Append(r.Kind).Append('|')
+                  .Append(p.x.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)).Append(',')
+                  .Append(p.z.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)).Append('|');
+                if (r.Shape != null)
+                    foreach (var v in r.Shape)
+                        sb.Append(v.x.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)).Append(',')
+                          .Append(v.y.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)).Append(';');
+                parts.Add(sb.ToString());
+            }
+            parts.Sort(System.StringComparer.Ordinal);
+            unchecked
+            {
+                ulong h = 1469598103934665603UL;
+                foreach (var s in parts)
+                    foreach (char c in s) { h ^= c; h *= 1099511628211UL; }
+                return h.ToString("X16");
+            }
+        }
+
         [MenuItem("Waning Border/Maps/Bake Map Info From Open Scene")]
         public static void Bake()
         {
@@ -57,6 +124,8 @@ namespace TheWaningBorder.Core.Maps.EditorTools
 
             info.SceneName = scene.name;
             if (string.IsNullOrEmpty(info.DisplayName)) info.DisplayName = mapName;
+            info.RegionStamp = RegionStamp(
+                Object.FindObjectsByType<RegionSeedMarker>(FindObjectsSortMode.None));
 
             GetMapBounds(out Vector3 min, out Vector3 size);
 
@@ -203,14 +272,19 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             var seeds = new Vector2[regions.Length];
             var names = new string[regions.Length];
             var shapes = new Vector2[regions.Length][];
+            var kinds = new RegionSeedMarker.RegionKind[regions.Length];
             for (int i = 0; i < regions.Length; i++)
             {
                 var p = regions[i].transform.position;
                 seeds[i] = new Vector2(p.x, p.z);
                 names[i] = regions[i].RegionName;
                 shapes[i] = regions[i].Shape;
+                kinds[i] = regions[i].Kind;
             }
-            TheWaningBorder.World.Regions.RegionMap.Configure(seeds, names, shapes);
+            // Kinds too, or claimability falls back to the 4-24 m height test
+            // and the bake stops its lines at every mountain foot while the
+            // match (which passes kinds) draws them (2026-09-11).
+            TheWaningBorder.World.Regions.RegionMap.Configure(seeds, names, shapes, kinds);
 
             // ~1.5 px wide, in metres so it does not thin out on a large map.
             float width = Mathf.Max(1f, size.x / ThumbnailSize * 1.5f);

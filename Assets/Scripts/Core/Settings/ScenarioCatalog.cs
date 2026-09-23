@@ -41,6 +41,8 @@ public static class ScenarioCatalog
         ("Unit Sandbox (place any unit, live SO editing)", ScenarioType.Sandbox),
         ("Formation Octagon (9 units, 8 legs, formation orders)", ScenarioType.FormationOctagon),
         ("Arrow Trails (4 tiers side by side)", ScenarioType.ArrowTrails),
+        ("Shardroot Trial (King Lexor, the artifact, a Red army)", ScenarioType.ShardrootTrial),
+        ("Wall Drawing (draw walls: drag, bend limit, backtrack)", ScenarioType.WallDrawing),
     };
 
     /// <summary>
@@ -71,6 +73,9 @@ public static class ScenarioCatalog
         GameSettings.LocalPlayerFaction = Faction.Blue;
         GameSettings.FogOfWarEnabled = false;
         GameSettings.TutorialActive = false;   // sticky static; see TutorialMenuItem
+        // Also sticky. The wall-drawing test wants a bank that never says no;
+        // every other scenario keeps its authored economy.
+        GameSettings.MaxStartingResources = scenario == ScenarioType.WallDrawing;
 
         return SceneFor(scenario);
     }
