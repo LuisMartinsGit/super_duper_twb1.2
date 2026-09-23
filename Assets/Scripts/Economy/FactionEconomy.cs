@@ -23,8 +23,18 @@ namespace TheWaningBorder.Economy
     {
         // Cached faction → bank entity mapping. Populated lazily, cleared on world destroy.
         private static readonly Dictionary<Faction, Entity> _bankCache = new Dictionary<Faction, Entity>();
-        private static EntityQuery _bankQuery;
-        private static bool _bankQueryInitialized;
+        // World-aware (2026-09-18): a plain static EntityQuery was created once
+        // per domain and kept pointing at the world it was born in, so in a
+        // match running in a FRESH world (v0.0.23: fresh world per match) the
+        // bank was "not found" and every Spend refused — the Wall Drawing
+        // scenario could not raise a single hub while the HUD showed 99999.
+        // CachedEntityQuery re-creates the query when the world changes.
+        private static readonly ComponentType[] BankQueryTypes =
+        {
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadWrite<FactionResources>(),
+        };
+        private static TheWaningBorder.Core.CachedEntityQuery _bankQuery;
 
         /// <summary>
         /// Clear the bank cache. Call when the ECS world is destroyed or reset.
@@ -32,7 +42,6 @@ namespace TheWaningBorder.Economy
         public static void ClearCache()
         {
             _bankCache.Clear();
-            _bankQueryInitialized = false;
         }
 
         /// <summary>
@@ -54,18 +63,9 @@ namespace TheWaningBorder.Economy
                 _bankCache.Remove(fac);
             }
 
-            // Initialize query once
-            if (!_bankQueryInitialized)
-            {
-                _bankQuery = em.CreateEntityQuery(
-                    ComponentType.ReadOnly<FactionTag>(),
-                    ComponentType.ReadWrite<FactionResources>()
-                );
-                _bankQueryInitialized = true;
-            }
-
-            using var ents = _bankQuery.ToEntityArray(Allocator.Temp);
-            using var tags = _bankQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            var query = _bankQuery.Get(em, BankQueryTypes);
+            using var ents = query.ToEntityArray(Allocator.Temp);
+            using var tags = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
 
             for (int i = 0; i < ents.Length; i++)
             {

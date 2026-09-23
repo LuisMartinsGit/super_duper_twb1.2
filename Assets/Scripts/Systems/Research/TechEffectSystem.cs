@@ -86,6 +86,14 @@ namespace TheWaningBorder.Systems.Research
                 case "MasonGuild":
                     ApplyMasonGuild(em, faction);
                     break;
+                // The wall-level tech (docs/Design/Age_1_Alanthor.md § The
+                // three wall levels). It re-clads EVERYTHING the faction
+                // owns, so a wall is never a patchwork of levels. Level 2
+                // has no tech — AgeUpSystem grants it with the culture.
+                case "ShieldedRamparts":
+                    TheWaningBorder.Entities.AlanthorWall.PromoteFactionWalls(
+                        em, faction, TheWaningBorder.Entities.WallTiers.Reinforced);
+                    break;
                 case "ScoutingCelestarii":
                     ApplyScoutingCelestarii(em, faction);
                     break;

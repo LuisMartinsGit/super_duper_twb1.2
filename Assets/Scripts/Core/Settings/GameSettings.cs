@@ -129,6 +129,21 @@ public enum ScenarioType
     // in one screenshot. See docs/Design/Combat_Pacing.md, "Arrow tips are
     // visible in flight".
     ArrowTrails = 29,
+
+    // Shardroot trial: King Lexor (Blue) with a small escort, his Hall and
+    // Temple of Ridan behind him, and the SHARDROOT lying on the ground in
+    // front, dropped and unclaimed. A Red army waits across the field and
+    // marches on the artifact after a grace period, with fresh Red waves
+    // behind it. Exercises the whole artifact loop of
+    // docs/Design/Curse_And_Shardroot.md 3.1 -- attunement pickup, the
+    // minimap beacon, carrier death and re-drop, the Hall choice (Shardbound
+    // Hero) versus the Temple choice (enshrine), and the detonation.
+    ShardrootTrial = 30,
+    // Wall drawing test: an Alanthor Age 1 Hall with three builders on open
+    // flat ground and a full bank, so the drawn-wall tool (press, drag,
+    // curvature limit, backtrack, release) can be exercised without a match
+    // around it. docs/Design/Age_1_Alanthor.md § Drawing walls.
+    WallDrawing = 31,
 }
 
 /// <summary>

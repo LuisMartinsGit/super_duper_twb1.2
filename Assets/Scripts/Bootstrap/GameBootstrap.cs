@@ -183,6 +183,15 @@ namespace TheWaningBorder.Bootstrap
 
             DisposeMatchWorld();
 
+            // Static match state that no system owns. RegionMap.Reset had no
+            // caller at all; PlayerInfluenceMap/BloodMap were reset only when
+            // InfluenceMapSystem came up in the NEXT world — after the next
+            // scene's InfluenceMaskTexture had already baked region lines
+            // against this map's partition (2026-09-11).
+            TheWaningBorder.World.Regions.RegionMap.Reset();
+            TheWaningBorder.Influence.PlayerInfluenceMap.Reset();
+            TheWaningBorder.Influence.BloodMap.Reset();
+
             // Close the per-faction AI / player log writers. They used to stay
             // open until the NEXT match re-initialised them, which left file
             // handles on the previous match's folder for as long as the player

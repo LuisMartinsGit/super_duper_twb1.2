@@ -61,6 +61,7 @@ namespace TheWaningBorder.Systems.Combat
                 // landing hits. Excluding it here is the same treatment
                 // UnitIntegratorSystem already gives movement.
                 .WithNone<DeathAnimationState>()
+                .WithNone<TheWaningBorder.Entities.Launched>()   // airborne units swing at nothing
                 .WithEntityAccess())
             {
                 // The marker lands via an EndSimulation ECB, so on the FRAME a
@@ -323,6 +324,12 @@ namespace TheWaningBorder.Systems.Combat
                         // Fix #226: last-damager tracking routed through shared helper
                         CombatDamageHelper.TrackLastDamager(em, ecb, entity, tgt.Value, elapsed);
 
+                        // The Shardbound King's blows cleave: every hostile
+                        // within CleaveRadius of the target takes a share of
+                        // the same hit (Curse_And_Shardroot.md 3.1).
+                        if (em.HasComponent<TheWaningBorder.Entities.ShardboundKing>(entity))
+                            Cleave(em, entity, tgt.Value, finalDamage);
+
                         // Match-long damage ledger — what Wrath's Spite pools
                         // and pays back (docs/Design/Sects.md).
                         CombatDamageHelper.RecordDamageDealt(em, ecb, entity, finalDamage);
@@ -450,6 +457,46 @@ namespace TheWaningBorder.Systems.Combat
         /// be somewhere the unit can actually stand, or the field cannot reach
         /// it and line-of-sight steering is defeated too.
         /// </summary>
+        static readonly ComponentType[] QT_CleaveVictims =
+        {
+            ComponentType.ReadOnly<UnitTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<Health>(),
+        };
+        static CachedEntityQuery QC_CleaveVictims;
+
+        /// <summary>Shardbound cleave: CleaveFraction of the hit to every
+        /// hostile unit within CleaveRadius of the struck target (the target
+        /// itself already took the full blow).</summary>
+        private static void Cleave(EntityManager em, Entity attacker, Entity struck, int damage)
+        {
+            if (!em.HasComponent<LocalTransform>(struck) || !em.HasComponent<FactionTag>(attacker)) return;
+            int share = (int)math.round(damage * TheWaningBorder.Entities.ShardboundFury.CleaveFraction);
+            if (share <= 0) return;
+            var centre = em.GetComponentData<LocalTransform>(struck).Position;
+            var mine = em.GetComponentData<FactionTag>(attacker).Value;
+            float r2 = TheWaningBorder.Entities.ShardboundFury.CleaveRadius
+                     * TheWaningBorder.Entities.ShardboundFury.CleaveRadius;
+            var q = QC_CleaveVictims.Get(em, QT_CleaveVictims);
+            using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
+            using var hps = q.ToComponentDataArray<Health>(Unity.Collections.Allocator.Temp);
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (ents[i] == struck || ents[i] == attacker) continue;
+                if (hps[i].Value <= 0) continue;
+                if (!Alliances.AreHostile(mine, facs[i].Value)) continue;
+                var p = xfs[i].Position;
+                float dx = p.x - centre.x, dz = p.z - centre.z;
+                if (dx * dx + dz * dz > r2) continue;
+                var h = hps[i];
+                h.Value = math.max(0, h.Value - share);
+                em.SetComponentData(ents[i], h);
+            }
+        }
+
         private static float3 ResolveChaseAnchor(EntityManager em, EntityCommandBuffer ecb,
             Entity self, Entity target, float3 targetPos, float3 myPos,
             in TargetExtent extent)

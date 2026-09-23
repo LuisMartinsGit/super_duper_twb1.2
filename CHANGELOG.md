@@ -13,6 +13,94 @@ build always name the same number.
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- **Multiplayer desync when a wall was drawn (2026-09-22, HollowTable, tick
+  4664).** The drawn-wall command encoded each point as `x|z`, and `|` is the
+  lockstep datagram's command separator: the receiving peer split the wall
+  order in two, dropped the tail as unparseable, and lost the LAST order of
+  the same tick (a worker's Build), so the host built the wall and sent three
+  workers while the client built nothing and sent two. The encoder now uses
+  `x:z`, and `LockstepManager.QueueCommand` refuses, with an error, any
+  command whose payload carries `|` or `,` — refusing is deterministic, so a
+  future payload bug is loud instead of a fork.
+
+## [0.0.24] — 2026-09-22
+
+### Added
+
+- **Walls have three levels, and the first one belongs to everybody.** A timber
+  **Wooden Wall** is an Age 0 building any culture can raise from the first
+  minute. Choosing Alanthor at age-up re-clads every wall the faction owns in
+  stone, free and at once — there is no tech to buy for it — and
+  `ShieldedRamparts` at the Hall buys the third level: iron banding, great
+  shields along the outer face, and **two garrison slots per curtain module**
+  for infantry or archers. Promoting a wall rescales each piece off its own
+  numbers and keeps the damage already taken, so a breached wall stays
+  breached. `docs/Design/Age_1_Alanthor.md` § The three wall levels.
+- **The gate is one structure, three modules wide.** Converting a wall now
+  replaces three modules with a single gatehouse entity and destroys the two
+  beside it, instead of tagging a run of cells that each kept their own health
+  bar. Its doors are two leaves that **swing**, and the player can **seal** it:
+  a sealed gate stays shut to its own faction too, which makes it a pathing
+  decision rather than a defensive one. One order (`SetGateLock`), so both
+  peers flip the same gate on the same tick.
+- **Ballista and Trebuchet emplacements.** The platform and the engine standing
+  on it are two entities: the platform holds the ground and takes the repairs,
+  the engine shoots and never moves. Mount one on a curtain module, or place it
+  free-standing. If the engine is destroyed the crew rebuilds it for free.
+- **A placement rule for wall fittings.** A tower or emplacement needs three
+  clear modules in a row, a gate needs four — checked in the panel and again in
+  the executor on every peer. A dead module is not clear either: a breach is
+  not building space.
+- **Walls are drawn in runs of at most 11 modules.** A longer stroke is cut by
+  hubs at equal arc intervals, so one extra hub lands exactly at the midpoint
+  and the wall stays symmetrical.
+
+### Changed
+
+- **The wall is authored art, and it lives where every other building's does.**
+  The whole set moved to `Age0/Buildings/Wall/`, one folder per piece (`Hub/`,
+  `Segment/`, `Tower/`, `Gate/`), each with **its own ScriptableObject** —
+  because each piece has its own stats and its own model. The curtain used to
+  have no SO at all, just `segmentHp` bolted onto the hub's. Two numbers that
+  had been hiding in code came out with it: the wall tower's HP was a literal
+  500 while its asset said 900, and the gate's HP was the sum of what it
+  replaced rather than its own stat.
+- **Wall art tiles off the timbers, not the bounding box.** A module's footing
+  and cloth are authored LONGER so they lap into the next copy; measuring the
+  whole box spaced the copies by the overlap and left an 8.7 % gap at every
+  seam. Every wall piece is now drawn at the curtain's scale, so a set authored
+  at one scale in Blender is drawn at one scale in game — hubs were being
+  stretched to their own footprint and came out visibly larger than the wall
+  they anchor.
+- **The wall runs from A to B.** The curtain covers the whole arc between hub
+  centres instead of starting at the tower's rim, so a hub can no longer be a
+  plug hiding a gap, and killing one no longer exposes a hub-wide hole that
+  reads as "the wall beside it died too".
+- **Wall hubs are 30 % smaller** (2 × 2 cells), and every wall piece now takes
+  its owner's colour on its ownership parts — through a property block, not
+  `renderer.materials`, which clones a material per renderer and is the
+  batching collapse the wall's builders were cleaned up to stop causing.
+- **The look moved toward the readable, saturated end.** ACES tonemapping —
+  a filmic curve built for photographic realism that was eating every
+  saturation push in the highlights — is replaced by Neutral, and the grade
+  gained an authored colour LUT. Shadows lift off black, ambient comes up
+  (the ground bounce was near black), fog thins so the playfield reads clear,
+  bloom catches mid-bright emissives, MSAA is on, and material reflectance is
+  capped so surfaces read matte rather than photographic. Water is exempt.
+  `docs/Design/Art_Direction.md` § Stylised look.
+- **`PlaceWallPath` replicates.** It packs the faction in `EntityNetworkId`,
+  not an entity, and was missing from the lockstep manager's skip list — so the
+  entity lookup failed and every DRAWN wall was dropped outright on remote
+  peers.
+- **Garrisoned units still cost population.** A unit absorbed into a wall stops
+  matching ordinary queries; without this, garrisoning was a free pop refund.
+
+---
+
 ## [0.0.23] — 2026-09-11
 
 ### Fixed

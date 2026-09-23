@@ -202,6 +202,7 @@ namespace TheWaningBorder.Systems.Navigation
                 .Query<RefRW<LocalTransform>, RefRW<DesiredDestination>>()
                 .WithAll<UnitTag>()
                 .WithNone<DeathAnimationState>()
+                .WithNone<TheWaningBorder.Entities.Launched>()   // airborne: LaunchSystem owns the transform
                 .WithEntityAccess())
             {
                 if (dd.ValueRO.Has == 0) continue;

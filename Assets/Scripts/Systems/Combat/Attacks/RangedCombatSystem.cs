@@ -75,6 +75,7 @@ namespace TheWaningBorder.Systems.Combat
                 // landing hits. Excluding it here is the same treatment
                 // UnitIntegratorSystem already gives movement.
                 .WithNone<DeathAnimationState>()
+                .WithNone<TheWaningBorder.Entities.Launched>()   // airborne units shoot at nothing
                 .WithEntityAccess())
             {
                 // The marker lands via an EndSimulation ECB, so on the FRAME a

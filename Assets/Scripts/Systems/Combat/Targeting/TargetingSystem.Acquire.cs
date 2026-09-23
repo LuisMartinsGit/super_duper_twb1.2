@@ -32,6 +32,7 @@ namespace TheWaningBorder.Systems.Combat
                 .Query<RefRO<LocalTransform>, RefRO<FactionTag>, RefRO<LineOfSight>, RefRO<Target>>()
                 .WithAll<UnitTag>()
                 .WithNone<DeathAnimationState>()  // a corpse acquires nothing
+                .WithNone<TheWaningBorder.Entities.Launched>()  // neither does a unit in the air
                 .WithNone<AttackCommand>()
                 .WithNone<PassiveWorkerTag>()   // Builders are passive workers...
                                                 //   ...except Feraldis Workers, which are

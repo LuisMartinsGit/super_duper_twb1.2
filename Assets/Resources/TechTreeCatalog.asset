@@ -13,6 +13,8 @@ MonoBehaviour:
   m_Name: TechTreeCatalog
   m_EditorClassIdentifier: 
   units:
+  - {fileID: 11400000, guid: f8457c2441d24d3098d15b96eaba9192, type: 2}
+  - {fileID: 11400000, guid: 618f44a47be342c38f3aec94c391c173, type: 2}
   - {fileID: 11400000, guid: e4d7a92b6c1f4e33a8b5d0c2f7913a55, type: 2}
   - {fileID: 11400000, guid: 3deab3d73e8c8ee48624b24f66f92910, type: 2}
   - {fileID: 11400000, guid: ff55707caf704053f69451a61da9a1a4, type: 2}
@@ -72,6 +74,9 @@ MonoBehaviour:
   - {fileID: 11400000, guid: c6d612c2df454ac4856953a08a225029, type: 2}
   - {fileID: 11400000, guid: b47242a1f0884a1fa2b84439fe91e6d9, type: 2}
   buildings:
+  - {fileID: 11400000, guid: ca058611cdf7466bb35fabc6896b8d27, type: 2}
+  - {fileID: 11400000, guid: 378144c642ba42aabe18d7b7a327f7d3, type: 2}
+  - {fileID: 11400000, guid: 15072b09a7af4b9fa6e21e303e4cac20, type: 2}
   - {fileID: 11400000, guid: a3c8dd32ee424a46ac666d12db5392f1, type: 2}
   - {fileID: 11400000, guid: 84e77a0771bafeccc786e967cf49028f, type: 2}
   - {fileID: 11400000, guid: c93aacf4f26f120975dfbd3d589ec952, type: 2}
@@ -117,6 +122,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 5c73be5850904d59b91f19c6feb58dad, type: 2}
   - {fileID: 11400000, guid: 8b6585a419ac4ea8a1e3e62f4f3622e5, type: 2}
   technologies:
+  - {fileID: 11400000, guid: 434c222e4050433ca21d6bab1ba77c21, type: 2}
   - {fileID: 11400000, guid: 9f97a51987ed418faa82c539cc043a32, type: 2}
   - {fileID: 11400000, guid: c3d6db0783114b2fae3a02aeac586a15, type: 2}
   - {fileID: 11400000, guid: 227350135ea7403d8c0413983e348525, type: 2}

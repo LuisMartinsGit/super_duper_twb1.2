@@ -39,10 +39,15 @@ namespace TheWaningBorder.Systems.Training
                 maxPop[fac] = existing + provider.ValueRO.Amount;
             }
 
-            // Sum PopulationCost from living units
+            // Sum PopulationCost from living units. Disabled ones count:
+            // a unit garrisoned inside a reinforced wall is absorbed — it
+            // stops matching ordinary queries — and must still occupy its
+            // population slot, or garrisoning would be a free pop refund.
+            // docs/Design/Age_1_Alanthor.md § Garrison slots.
             foreach (var (popCost, factionTag) in SystemAPI
                 .Query<RefRO<PopulationCost>, RefRO<FactionTag>>()
-                .WithAll<UnitTag>())
+                .WithAll<UnitTag>()
+                .WithOptions(EntityQueryOptions.IncludeDisabledEntities))
             {
                 int fac = (int)factionTag.ValueRO.Value;
                 curPop.TryGetValue(fac, out int existing);

@@ -1813,7 +1813,10 @@
                         "provides": {
                             "population": 10
                         },
-                        "trains": [],
+                        "trains": [
+                            "Worker",
+                            "Scout"
+                        ],
                         "tech": [
                             "Alanthor_StoneLedgers",
                             "Alanthor_MasonGuild"
