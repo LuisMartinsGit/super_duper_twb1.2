@@ -342,7 +342,26 @@ else {
         Write-Warning "Could not create source tag $srcTag (git exit $LASTEXITCODE). Tag it by hand: git tag -a $srcTag -m '...' ; git push origin $srcTag"
     }
     else {
-        git -C $srcRepo push origin $srcTag
+        # Pushed through GH_TOKEN (the source-repo PAT from .env, the same one
+        # the CLAUDE.md pipeline and tools/source-releases.py use), not through
+        # whatever the credential manager offers: on the machine that cuts
+        # releases that is a different GitHub account, and every release from
+        # 0.0.25 to 0.0.27 warned here and needed the tag pushed by hand.
+        # credential.helper is blanked for the one command so git's plain-text
+        # store cannot save the token for github.com and shadow later logins.
+        $srcToken = $env:GH_TOKEN
+        if (-not $srcToken) {
+            $srcLine = Select-String -Path (Join-Path $root '..\.env') -Pattern '^GH_TOKEN=' -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($srcLine) { $srcToken = ($srcLine.Line -split '=', 2)[1].Trim() }
+        }
+        if ($srcToken) {
+            $srcRemote = "https://x-access-token:$srcToken@github.com/LuisMartinsGit/super_duper_twb1.2.git"
+            git -C $srcRepo -c credential.helper= push $srcRemote $srcTag 2>&1 | ForEach-Object { "$_" -replace [regex]::Escape($srcToken), '***' }
+        }
+        else {
+            Write-Warning 'No GH_TOKEN in the environment or .env - pushing the source tag through the default credentials.'
+            git -C $srcRepo push origin $srcTag
+        }
         if ($LASTEXITCODE -ne 0) {
             Write-Warning "Source tag $srcTag created locally but the push failed (git exit $LASTEXITCODE). Push it by hand: git push origin $srcTag"
         }
