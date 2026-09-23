@@ -11,6 +11,12 @@
     lockstep command stream, clients injecting periodic real orders so the
     clienttohosttorelay path carries traffic too.
 
+    Every match is ALSO checked tick by tick after it ends (mp-diff.ps1):
+    the wire carries a checksum every 30 ticks, but each peer writes one per
+    tick into its own Lockstep.log, so diffing those files is thirty times
+    finer than the DESYNC flag and catches a fork that heals inside the sync
+    interval or happens after the last SYNC.
+
     Exit codes per peer: 0 ok, 42 DESYNC, 43 peer lost, 44 hang guard.
     Any 42 anywhere = the run found a desync; the per-peer match log folders
     (<install>\logs\<stamp>_<map>_host / _client1 / _client2 / _client3)
@@ -53,7 +59,9 @@ param(
     [switch]$Monkey,           # command-coverage monkey: clients rotate every command type
     [int]$Warm = 0,            # >0: warm-up skirmish for this many wall-seconds before the MP match
     [string]$WarmPeers = "",   # "1,3": only these peer indices warm up (default: all)
-    [string]$WarmMaps = "SunderedCrown,HollowTable,Veilmarch"   # rotated per peer index
+    [string]$WarmMaps = "SunderedCrown,HollowTable,Veilmarch",  # rotated per peer index
+    [int]$Age = 0,             # start age; 1+ reaches culture buildings, walls, sects, heroes
+    [switch]$Rich              # every faction at the resource cap: armies meet in minute one
 )
 
 if (-not (Test-Path $Exe)) { Write-Error "Player not found: $Exe"; exit 1 }
@@ -67,8 +75,10 @@ for ($m = 0; $m -lt $Matches; $m++) {
     $runSeed = $Seed + $m
     $warmNote = ""
     if ($Warm -gt 0) { $warmNote = " (warm-up ${Warm}s first)" }
-    Write-Host ("match {0}/{1}: {2} peers, {3} factions, seed {4}, {5}s on {6}{7}" -f `
-        ($m + 1), $Matches, $Peers, $Factions, $runSeed, $LimitSec, $Map, $warmNote) -ForegroundColor Cyan
+    $ageNote = if ($Age -gt 0) { ", Age $Age start" } else { "" }
+    if ($Rich) { $ageNote += ", rich" }
+    Write-Host ("match {0}/{1}: {2} peers, {3} factions, seed {4}, {5}s on {6}{7}{8}" -f `
+        ($m + 1), $Matches, $Peers, $Factions, $runSeed, $LimitSec, $Map, $ageNote, $warmNote) -ForegroundColor Cyan
 
     # Stale verdicts must not shadow this run's.
     Get-ChildItem $logRoot -Filter "MpVerdict_p*.txt" -ErrorAction SilentlyContinue | Remove-Item -Force
@@ -81,12 +91,34 @@ for ($m = 0; $m -lt $Matches; $m++) {
             "-twbMpPort", $BasePort,
             "-twbPlayers", $Factions,
             "-twbSeed", $runSeed, "-twbLimit", $LimitSec,
-            "-twbMap", $Map
+            "-twbMap", $Map,
+            "-twbAge", $Age
         )
         # PS 5.1: a conditional inline element evaluates to $null when the
         # switch is off, and Start-Process refuses null ArgumentList items.
         # Append instead.
         if ($Monkey) { $argList += "-twbMpMonkey" }
+        if ($Rich)   { $argList += "-twbRich" }
+        # THE REPLAY FEED, HOST ONLY (2026-09-12). MapTrace.txt is what the
+        # dashboard's map replay is drawn from: every unit's position, name
+        # and state once a second, plus buildings with real footprints, the
+        # region partition and every resource node. Without it the replay
+        # falls back to Metrics_UnitPositions.csv -- one sample every fifteen
+        # seconds, no unit identity, no state -- which is a replay of dots
+        # that jump.
+        #
+        # ONE PEER WRITES IT. In a synchronised match every peer would write
+        # a byte-identical file, so four peers buy nothing but four times the
+        # disk; a three-hour match is around 100 MB each. Peer 0 is the host
+        # and is the one guaranteed to exist.
+        #
+        # A LONG MATCH NEEDS A LONGER PERIOD. The 400 MB cap in MapTrace stops
+        # the file rather than truncating the match, so the sample period is
+        # scaled off the ceiling: 1 s under an hour, 2 s beyond it.
+        if ($i -eq 0) {
+            $tracePeriod = if ($LimitSec -gt 3600) { 2 } else { 1 }
+            $argList += @("-twbTrace", "-twbTracePeriod", $tracePeriod)
+        }
         if ($Warm -gt 0) {
             $warmThis = $true
             if ($WarmPeers -ne "") {
@@ -149,8 +181,22 @@ for ($m = 0; $m -lt $Matches; $m++) {
         }
     }
 
-    if ($codes -contains 42) {
+    # PER-TICK CROSS-PEER CHECK, always. The wire only carries a checksum
+    # every 30 ticks, but every peer WRITES one per tick; a fork that heals
+    # inside the interval, or one after the last SYNC, exits 0 and would
+    # otherwise be recorded as a clean run. mp-diff.ps1 compares all of them.
+    $diffScript = Join-Path $PSScriptRoot "mp-diff.ps1"
+    $forkFound = $false
+    if (Test-Path $diffScript) {
+        & $diffScript -LogRoot $logRoot | Out-Host
+        if ($LASTEXITCODE -eq 42) { $forkFound = $true }
+    }
+
+    if (($codes -contains 42) -or $forkFound) {
         $desyncs++
+        if ($forkFound -and -not ($codes -contains 42)) {
+            Write-Host "  DESYNC found by the PER-TICK diff only - the 30-tick SYNC cadence missed it." -ForegroundColor Red
+        }
         Write-Host "  DESYNC - evidence in the newest match folders:" -ForegroundColor Red
         Get-ChildItem $logRoot -Directory |
             Sort-Object LastWriteTime -Descending | Select-Object -First $Peers |

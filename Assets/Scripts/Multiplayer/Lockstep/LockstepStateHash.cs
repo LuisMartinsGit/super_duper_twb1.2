@@ -116,6 +116,33 @@ namespace TheWaningBorder.Multiplayer
         public int WorkTarget;           // build site / assigned deposit, -1 = none
         public uint WorkA, WorkB;        // progress pair (see LockstepTrace.Format)
         public byte WorkKind;            // 0 none, 1 construction, 2 training, 3 mining
+
+        // GUARD POINT AND FORMATION SPEED (2026-09-11). Both feed the Nav
+        // hash and NEITHER was recorded, so neither was printed: the
+        // HollowTable tick-1830 dump forked on Nav while every entity row in
+        // both peers' traces was byte-identical, and there was nothing left
+        // to diff. A hashed field that is not dumped is a blind spot by
+        // construction — if it is worth checksumming it is worth printing.
+        public byte HasGuard; public uint Gx, Gz;
+        public byte HasFormSpeed; public uint FormSpeed;
+
+        /// <summary>How many component types this entity's archetype carries.
+        ///
+        /// THE CHEAPEST WAY TO SEE "THE HOST HAS A COMPONENT THE CLIENT DOES
+        /// NOT" (2026-09-13). Two forks were traced to a worker that moved on
+        /// the host and stood still on both clients, with every hashed field
+        /// identical the tick before and NO command on the wire for it. Every
+        /// direct component write in the AI tree was audited and none touches
+        /// unit movement, so the remaining explanation is a shared system
+        /// acting on state only the host has -- i.e. an extra component. The
+        /// per-entity trace prints every FIELD it knows about and had no way
+        /// to show a component it does not know about; a plain type count
+        /// does, and costs one archetype read per entity.
+        ///
+        /// Deliberately NOT mixed into any checksum column: the point is to
+        /// diagnose a fork, not to create a new one out of a number that can
+        /// legitimately differ mid-structural-change.</summary>
+        public int ArchTypes;
     }
 
     public static class LockstepStateHash
@@ -306,7 +333,6 @@ namespace TheWaningBorder.Multiplayer
                     }
                 }
 
-                result.Total = total;
                 result.Pos = hPos; result.Rot = hRot; result.Health = hHealth;
                 // FORMATION GROUP STATE (2026-09-04). The virtual-leader
                 // position drives every member's slot destination, but the
@@ -333,6 +359,44 @@ namespace TheWaningBorder.Multiplayer
                     result.Cost = HashCostField(em);
                     result.Rng = HashRngStreams(em);
                 }
+
+                // ── WHAT ACTUALLY GOES ON THE WIRE ──
+                //
+                // Only Total is compared between peers (ProcessSyncMessage);
+                // every column below it is attribution, printed after the
+                // fact. Until 2026-09-11 Total covered entity count, network
+                // id, health, faction, position and the four banks — and
+                // NOTHING else. Rotation, destination, flow, steering, stuck,
+                // speed, guard points, formation state, combat targets, work
+                // progress, research, sect adoption, the veil field, the nav
+                // cost field and the RNG streams were all computed every tick,
+                // shipped in the detail string, and then never used to decide
+                // whether the two worlds agreed.
+                //
+                // So a fork in any of them was invisible until it eventually
+                // moved a unit. The HollowTable tick-1830 run is the worked
+                // example: Nav had already forked at tick 1711 (the earliest
+                // tick the trace keeps — probably much earlier), every peer
+                // agreed on Total for another 119 ticks, and the dump that
+                // finally fired described a board where every entity row was
+                // byte-identical. The evidence had scrolled away.
+                //
+                // DETERMINISTIC MODE ONLY. Frame-driven lockstep genuinely
+                // does drift in these fields by design; there the narrow
+                // total is the honest one.
+                if (detailed)
+                {
+                    Mix(ref total, hRot);
+                    Mix(ref total, hNav);
+                    Mix(ref total, hCombat);
+                    Mix(ref total, hWork);
+                    Mix(ref total, hTech);
+                    Mix(ref total, result.Veil);
+                    Mix(ref total, result.Cost);
+                    Mix(ref total, result.Rng);
+                }
+
+                result.Total = total;
             }
 
             entities.Dispose();
@@ -415,14 +479,42 @@ namespace TheWaningBorder.Multiplayer
             }
 
             if (em.HasComponent<FormationSpeedOverride>(e))
-                Mix(ref hNav, math.asuint(em.GetComponentData<FormationSpeedOverride>(e).Value));
+            {
+                snap.HasFormSpeed = 1;
+                snap.FormSpeed = math.asuint(em.GetComponentData<FormationSpeedOverride>(e).Value);
+                Mix(ref hNav, snap.FormSpeed);
+                anyNav = true;
+            }
+
+            // WALL GARRISON (2026-09-12). The slot a garrisoned unit holds on
+            // the deck. Same shape as GuardPoint: it steers a real unit, so a
+            // divergence eventually shows in pos anyway -- hashing it means
+            // the nav column names the tick it actually happened. Reachable
+            // only from Age 1, which the harness could not start in until
+            // today.
+            if (em.HasComponent<WallGarrisonState>(e))
+            {
+                var wg = em.GetComponentData<WallGarrisonState>(e);
+                Mix(ref hNav, math.asuint(wg.Slot.x));
+                Mix(ref hNav, math.asuint(wg.Slot.z));
+                anyNav = true;
+            }
+
+            snap.ArchTypes = em.GetChunk(e).Archetype.TypesCount;
 
             if (em.HasComponent<GuardPoint>(e))
             {
                 var g = em.GetComponentData<GuardPoint>(e);
+                snap.HasGuard = g.Has;
+                snap.Gx = math.asuint(g.Position.x);
+                snap.Gz = math.asuint(g.Position.z);
                 Mix(ref hNav, g.Has);
-                Mix(ref hNav, math.asuint(g.Position.x));
-                Mix(ref hNav, math.asuint(g.Position.z));
+                Mix(ref hNav, snap.Gx);
+                Mix(ref hNav, snap.Gz);
+                // The column is a SUM of per-entity hashes, so without the
+                // identity mix below two units swapping guard points would
+                // leave it unchanged. These two used to skip the flag.
+                anyNav = true;
             }
 
             if (anyNav) Mix(ref hNav, (uint)networkId);
@@ -511,6 +603,18 @@ namespace TheWaningBorder.Multiplayer
                 Mix(ref hTech, math.asuint(rs.Total));
             }
 
+            // WALL SEGMENT UPGRADE (2026-09-12). A countdown that ends by
+            // replacing the segment with a gate, so it belongs with the other
+            // structural timers in the work column rather than with research.
+            if (em.HasComponent<WallSegmentUpgradeState>(e))
+            {
+                var wu = em.GetComponentData<WallSegmentUpgradeState>(e);
+                Mix(ref hTech, (uint)networkId);
+                Mix(ref hTech, wu.UpgradeType);
+                Mix(ref hTech, math.asuint(wu.Remaining));
+                Mix(ref hTech, math.asuint(wu.Total));
+            }
+
             if (em.HasBuffer<ProductionQueueItem>(e))
             {
                 var q = em.GetBuffer<ProductionQueueItem>(e);
@@ -528,6 +632,23 @@ namespace TheWaningBorder.Multiplayer
                     // reads, so a fork in it is a fork in the banks later.
                     Mix(ref hTech, math.asuint(q[i].PaidCostMultiplier));
                 }
+            }
+
+            // HERO PROGRESSION (2026-09-11). Levels are earned from kills, and
+            // a level unlocks abilities and scales stats — the same family of
+            // state as research, and just as invisible until it changes what a
+            // hero DOES. The level is derived from the XP, so a fork in the XP
+            // is the fork; both are hashed because a derived value disagreeing
+            // with its input is itself worth catching.
+            if (em.HasComponent<HeroExperience>(e))
+            {
+                Mix(ref hTech, (uint)networkId);
+                Mix(ref hTech, (uint)em.GetComponentData<HeroExperience>(e).Xp);
+            }
+            if (em.HasComponent<HeroLevel>(e))
+            {
+                Mix(ref hTech, (uint)networkId);
+                Mix(ref hTech, em.GetComponentData<HeroLevel>(e).Value);
             }
         }
 
@@ -582,6 +703,23 @@ namespace TheWaningBorder.Multiplayer
                 for (int i = 0; i < vf.Saturation.Length; i++) { h ^= vf.Saturation[i]; h *= 16777619u; }
                 if (vf.Cooldown.IsCreated)
                     for (int i = 0; i < vf.Cooldown.Length; i++) { h ^= vf.Cooldown[i]; h *= 16777619u; }
+
+                // TERRITORY OWNERSHIP rides in this column (2026-09-11). It
+                // is the curse's other half: who holds each region decides
+                // where every faction may build and what its territory tick
+                // pays. Ownership is mostly DERIVED from live claim
+                // structures, which the entity rows already cover — but the
+                // curse-held set is a static fed by CurseTerritorySystem and
+                // is genuine independent state (TerritoryOwnership.Reset had
+                // no caller at all until 0.0.23, and the curse ground of one
+                // match came back in the next). Hashing the resolved owner
+                // array catches both halves for the price of one loop.
+                if (TheWaningBorder.World.Regions.TerritoryOwnership.Ready)
+                {
+                    int n = TheWaningBorder.World.Regions.RegionMap.Count;
+                    for (int t = 0; t < n; t++)
+                        Mix(ref h, (uint)TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(t));
+                }
                 return h;
             }
         }
@@ -640,6 +778,29 @@ namespace TheWaningBorder.Multiplayer
                 // VeilstoneMiningSystem's RNG was hashed here; the system was
                 // deleted with worker gathering, so there is no longer any
                 // gathering randomness to keep peers agreeing about.
+
+                // The other two live streams (2026-09-11). Both run every
+                // tick on every peer and neither was hashed: the veil field's
+                // growth RNG and its three periodic accumulators, and the
+                // curse territory system's wave RNG and match clock.
+                var veil = world.GetExistingSystemManaged<TheWaningBorder.Systems.Border.VeilFieldSystem>();
+                if (veil != null)
+                {
+                    Mix(ref h, veil.RngState);
+                    Mix(ref h, math.asuint(veil.CyclePhase));
+                    Mix(ref h, math.asuint(veil.DormantDuration));
+                    Mix(ref h, math.asuint(veil.MaintAcc));
+                    Mix(ref h, math.asuint(veil.SwallowAcc));
+                }
+
+                var curse = world.GetExistingSystemManaged<TheWaningBorder.Systems.Border.CurseTerritorySystem>();
+                if (curse != null)
+                {
+                    Mix(ref h, curse.RngState);
+                    ulong me = (ulong)System.BitConverter.DoubleToInt64Bits(curse.MatchElapsed);
+                    Mix(ref h, (uint)me);
+                    Mix(ref h, (uint)(me >> 32));
+                }
 
                 return h;
             }

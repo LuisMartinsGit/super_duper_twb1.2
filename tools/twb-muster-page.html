@@ -1,0 +1,679 @@
+<title>Muster Rolls</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+/* The 2026-09-07 Muster Replay's identity, kept deliberately: condensed
+   display face over plex body and mono data, warm gold accent on a cool
+   ground, the map as a dark stage the page is built around. */
+:root{
+  color-scheme: dark;
+  --ground:#101418; --panel:#171d23; --panel2:#1d252c; --rule:#2a333b; --rule-soft:#1f272e;
+  --ink:#e8e4da; --ink2:#b8b3a8; --mute:#8a939c;
+  --gold:#d8a94a; --gold-soft:rgba(216,169,74,.28);
+  --ok:#6fbf8a; --bad:#d9573f; --bad-soft:rgba(217,87,63,.22);
+  --veil:#9f8bd6; --iron:#8a939c; --supply:#6fbf8a; --veilsteel:#6fa8d9; --well:#c86fd9;
+  --map:#131a20; --map-grid:#1c252d;
+  --f-Blue:#5b95d9; --f-Red:#d9573f; --f-Green:#6fbf8a; --f-Yellow:#d8a94a;
+  --f-Purple:#a97ad9; --f-Orange:#d98c4a; --f-Teal:#4ab8b8; --f-White:#b8b3a8;
+  --display:"Barlow Condensed","Arial Narrow",sans-serif;
+  --body:"IBM Plex Sans","Segoe UI",Helvetica,Arial,sans-serif;
+  --mono:"IBM Plex Mono",Consolas,"Courier New",monospace;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    color-scheme: light;
+    --ground:#f1f0ea; --panel:#fff; --panel2:#f7f6f1; --rule:#d6d9d2; --rule-soft:#e4e6e0;
+    --ink:#1b2126; --ink2:#3f474e; --mute:#6a737b;
+    --gold:#a97d25; --gold-soft:rgba(169,125,37,.24);
+    --ok:#2f8a52; --bad:#c04a33; --bad-soft:rgba(192,74,51,.18);
+    --veil:#6f5bb0; --iron:#6a737b; --supply:#2f8a52; --veilsteel:#2f6fb8; --well:#9b4ab0;
+    --map:#e9e8e0; --map-grid:#dcdbd2;
+    --f-Blue:#2f6fb8; --f-Red:#c04a33; --f-Green:#2f8a52; --f-Yellow:#a97d25;
+    --f-Purple:#7a4ab0; --f-Orange:#b06a25; --f-Teal:#2f8a8a; --f-White:#6a737b;
+  }
+}
+:root[data-theme="light"]{
+  color-scheme: light;
+  --ground:#f1f0ea; --panel:#fff; --panel2:#f7f6f1; --rule:#d6d9d2; --rule-soft:#e4e6e0;
+  --ink:#1b2126; --ink2:#3f474e; --mute:#6a737b;
+  --gold:#a97d25; --gold-soft:rgba(169,125,37,.24);
+  --ok:#2f8a52; --bad:#c04a33; --bad-soft:rgba(192,74,51,.18);
+  --veil:#6f5bb0; --iron:#6a737b; --supply:#2f8a52; --veilsteel:#2f6fb8; --well:#9b4ab0;
+  --map:#e9e8e0; --map-grid:#dcdbd2;
+  --f-Blue:#2f6fb8; --f-Red:#c04a33; --f-Green:#2f8a52; --f-Yellow:#a97d25;
+  --f-Purple:#7a4ab0; --f-Orange:#b06a25; --f-Teal:#2f8a8a; --f-White:#6a737b;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--body);
+     font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.page{max-width:1180px;margin:0 auto;padding:28px 22px 64px}
+.eyebrow{font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:.12em;
+         text-transform:uppercase;color:var(--gold)}
+h1{font-family:var(--display);font-weight:700;font-size:46px;line-height:1;margin:6px 0 10px;
+   text-wrap:balance}
+h2{font-family:var(--display);font-weight:600;font-size:22px;margin:34px 0 6px}
+.spec{display:flex;flex-wrap:wrap;gap:6px 22px;font-family:var(--mono);font-size:13px;color:var(--ink2)}
+.spec b{color:var(--ink);font-weight:500}
+.lede{max-width:70ch;color:var(--ink2);margin:14px 0 18px}
+.lede b{color:var(--ink);font-weight:600}
+.swatch{display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;margin-right:6px}
+
+/* ── run picker ── */
+.runs{display:flex;gap:6px;overflow-x:auto;padding:2px 0 10px;margin-bottom:14px}
+.run{flex:none;background:var(--panel);border:1px solid var(--rule);border-radius:2px;
+     padding:8px 12px;cursor:pointer;text-align:left;color:var(--ink);font:inherit;min-width:150px}
+.run:hover{border-color:var(--gold)}
+.run[aria-current="true"]{border-color:var(--gold);background:var(--gold-soft)}
+.run .m{font-family:var(--display);font-weight:600;font-size:15px;white-space:nowrap}
+.run .d{font-family:var(--mono);font-size:11px;color:var(--mute);white-space:nowrap}
+.run .v{font-family:var(--mono);font-size:11px}
+.run .v.ok{color:var(--ok)} .run .v.bad{color:var(--bad)}
+
+/* ── stage ── */
+.stage{position:relative;background:var(--map);border:1px solid var(--rule)}
+.stage canvas{display:block;width:100%;height:auto}
+.hud{position:absolute;inset:0;pointer-events:none}
+.clock{position:absolute;left:16px;top:12px;font-family:var(--display);font-weight:700;
+       font-size:44px;line-height:1;font-variant-numeric:tabular-nums}
+.clock small{display:block;font-size:12px;letter-spacing:.12em;font-weight:600;color:var(--mute);margin-top:2px}
+.counts{position:absolute;right:16px;top:12px;display:grid;grid-template-columns:auto auto auto;
+        gap:2px 14px;font-family:var(--mono);font-size:13px;color:var(--ink2);text-align:right;
+        font-variant-numeric:tabular-nums}
+.counts b{color:var(--ink);font-weight:500}
+.caption{position:absolute;left:16px;right:16px;bottom:12px;font-size:14px;color:var(--ink)}
+.caption .t{font-family:var(--mono);font-size:12.5px;color:var(--mute)}
+
+.transport{display:grid;grid-template-columns:auto auto 1fr;gap:12px 16px;align-items:center;margin-top:12px}
+.btn{font-family:var(--display);font-weight:600;font-size:14px;letter-spacing:.08em;
+     text-transform:uppercase;padding:8px 14px;background:var(--panel);border:1px solid var(--rule);
+     color:var(--ink);cursor:pointer;border-radius:2px}
+.btn:hover{border-color:var(--ink2)}
+.btn.play{min-width:92px;background:var(--gold);color:#1b1608;border-color:var(--gold)}
+.speeds{display:flex;gap:4px}
+.speeds .btn{padding:8px 10px}
+.speeds .btn[aria-pressed="true"]{border-color:var(--gold);color:var(--gold)}
+.scrub{position:relative;padding-top:30px}
+.scrub input[type=range]{width:100%;margin:0;accent-color:var(--gold)}
+.marks{position:absolute;left:0;right:0;top:0;height:28px}
+.mark{position:absolute;top:0;transform:translateX(-50%);font-family:var(--display);font-size:10.5px;
+      letter-spacing:.08em;text-transform:uppercase;color:var(--gold);white-space:nowrap}
+.mark::after{content:"";display:block;width:1px;height:6px;background:currentColor;margin:1px auto 0}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+.legend{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:13px;color:var(--ink2);margin:14px 0 0}
+.dot{display:inline-block;width:11px;height:11px;border-radius:50%;vertical-align:-1px;margin-right:7px}
+.dot.ring{box-shadow:0 0 0 2px var(--gold)}
+.dot.halo{box-shadow:0 0 0 3px var(--bad-soft)}
+.sq{display:inline-block;width:12px;height:9px;vertical-align:-1px;margin-right:7px;border:1px solid}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:12px}
+.card{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:12px 14px}
+.card .k{font-family:var(--display);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold)}
+.card .v{font-family:var(--display);font-weight:700;font-size:26px;line-height:1.1;margin:2px 0}
+.card .s{font-size:13px;color:var(--ink2)}
+.card .v.bad{color:var(--bad)} .card .v.ok{color:var(--ok)}
+
+table{border-collapse:collapse;width:100%;font-size:13px;margin-top:8px}
+th{text-align:left;font-family:var(--display);font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;
+   color:var(--mute);font-weight:600;padding:7px 9px;border-bottom:1px solid var(--rule)}
+td{padding:6px 9px;border-bottom:1px solid var(--rule-soft);font-variant-numeric:tabular-nums}
+tr:last-child td{border-bottom:0}
+.num{text-align:right;font-family:var(--mono)}
+.scroll{overflow-x:auto;background:var(--panel);border:1px solid var(--rule);border-radius:2px}
+tr.live{cursor:pointer} tr.live:hover td{background:var(--gold-soft)}
+tr.live td:first-child::before{content:"B6";font-size:9px;margin-right:6px;color:var(--gold)}
+td.fork{color:var(--bad);font-weight:600} td.ok{color:var(--ok)}
+.note{max-width:70ch;color:var(--ink2);margin:0}
+.warn{color:var(--bad)}
+.foot{margin-top:40px;padding-top:12px;border-top:1px solid var(--rule);font-size:12.5px;
+      color:var(--mute);font-family:var(--mono)}
+canvas.chart{display:block;width:100%;height:132px}
+</style>
+
+<div class="page">
+  <header>
+    <div class="eyebrow" id="eyebrow">Match replays</div>
+    <h1>Muster Rolls</h1>
+    <div class="spec" id="spec"></div>
+    <p class="lede" id="lede"></p>
+  </header>
+
+  <div class="runs" id="runs"></div>
+
+  <div class="stage" id="stage">
+    <canvas id="map" width="1160" height="660"></canvas>
+    <div class="hud">
+      <div class="clock" id="clock">0:00<small>match time</small></div>
+      <div class="counts" id="counts"></div>
+      <div class="caption" id="caption"></div>
+    </div>
+  </div>
+
+  <div class="transport">
+    <button class="btn play" id="play">Play</button>
+    <div class="speeds" id="speeds" role="group" aria-label="Playback speed"></div>
+    <div class="scrub"><div class="marks" id="marks"></div>
+      <input type="range" id="scrub" min="0" max="1000" value="0" aria-label="Match time"></div>
+  </div>
+
+  <div class="legend" id="legend"></div>
+
+  <h2>The waves</h2>
+  <p class="note">Every attack this match launched: when it went, how many marched, how many
+  reinforcements were fed in behind it, and how many ever reached the objective.</p>
+  <div class="scroll" id="waves"></div>
+
+  <h2>Where each faction finished</h2>
+  <div class="scroll" id="standing"></div>
+
+  <h2>Army composition</h2>
+  <p class="note">What each faction actually built, at the last sample.</p>
+  <div class="grid" id="composition"></div>
+
+  <h2>Economy</h2>
+  <div class="grid" id="charts"></div>
+
+  <h2>The curse</h2>
+  <p class="lede" id="curseLede"></p>
+  <div class="scroll" id="curse"></div>
+
+  <h2 id="ledgerHead">Every run</h2>
+  <p class="lede" id="ledgerLede"></p>
+  <div class="scroll" id="ledger"></div>
+
+  <div class="foot" id="foot"></div>
+</div>
+
+<script type="application/json" id="data">/*__TWB_DATA__*/</script>
+<script>
+(function(){
+"use strict";
+var DOC = JSON.parse(document.getElementById("data").textContent);
+var M = (DOC.matches||[]).filter(function(m){ return (m.frames||[]).length > 1; });
+var sel = 0;
+
+function css(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function fhue(f){ return css("--f-"+f) || css("--mute"); }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){
+  return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+function mmss(t){ t=Math.max(0,Math.round(t)); var m=Math.floor(t/60);
+  return m+":"+String(t%60).padStart(2,"0"); }
+function forked(m){ var d=m.desync||{}; return !!(d.flagged||d.forkTick!=null); }
+
+/* ── run picker ─────────────────────────────────────────────────────── */
+/* THE WHOLE LEDGER (2026-09-13). The strip above shows the runs the page
+   holds full replays for; that is capped by page size at about forty. The
+   hunt has recorded far more than that, and until now the rest were simply
+   not on the page at all -- "200 matches I can't see". Every run the history
+   knows is listed here from its ~200-byte verdict row. A row with a replay
+   is marked and clicks through to it; the rest are the record. */
+function renderLedger(){
+  var host=document.getElementById("ledger"); if(!host) return;
+  var H=DOC.history||[], live={};
+  (DOC.live||[]).forEach(function(k){ live[k]=1; });
+  var idx={}; M.forEach(function(m,i){ idx[m.key]=i; });
+  var forks=H.filter(function(r){ return r.forked; }).length;
+  var lede=document.getElementById("ledgerLede");
+  var warm=(DOC.totals||{}).warmups||0;
+  var t=DOC.totals||{};
+  if(lede) lede.textContent=(DOC.since?"This run: ":"")+H.length+" runs, "+forks+" forked, "+
+    Object.keys(live).length+" with a replay on this page (marked). Newest first."+
+    (warm?" "+warm+" sixty-second warm-up worlds are not runs and are not listed.":"")+
+    (DOC.since?" All time: "+(t.runs||0)+" runs, "+(t.forks||0)+" forked, "+
+      (t.compared||0).toLocaleString()+" ticks compared.":"");
+  var rows=H.map(function(r){
+    var has=(r.key in idx);
+    var when=(r.stamp||"").slice(0,16).replace("_"," ");
+    var verdict=r.forked?('FORK'+(r.forkTick!=null?' @'+r.forkTick:'')+
+      (r.forkCols&&r.forkCols.length?' ('+r.forkCols.join(",")+')':'')):
+      (r.kind==="mp"?"agreed":"solo");
+    var cfg=r.config||{};
+    var tags=[cfg.age!=null?"age"+cfg.age:"", cfg.warm==="1"?"warm":"", cfg.monkey==="1"?"monkey":""]
+      .filter(Boolean).join(" ");
+    return '<tr'+(has?' class="live" data-i="'+idx[r.key]+'"':'')+'>'+
+      '<td>'+esc(when)+'</td><td>'+esc(r.map||"?")+'</td>'+
+      '<td class="num">'+(r.peers||1)+'p</td>'+
+      '<td class="num">'+(r.tmax?mmss(r.tmax):'—')+'</td>'+
+      '<td class="num">'+(r.compared||0).toLocaleString()+'</td>'+
+      '<td>'+esc(tags)+'</td>'+
+      '<td class="'+(r.forked?"fork":(r.kind==="mp"?"ok":""))+'">'+esc(verdict)+'</td>'+
+      '<td>'+esc(r.outcome||"?")+'</td></tr>';
+  }).join("");
+  host.innerHTML='<table><thead><tr><th>When</th><th>Map</th><th class="num">Peers</th>'+
+    '<th class="num">Length</th><th class="num">Ticks compared</th><th>Setup</th>'+
+    '<th>Verdict</th><th>Outcome</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  host.querySelectorAll("tr.live").forEach(function(tr){
+    tr.addEventListener("click",function(){
+      sel=parseInt(tr.getAttribute("data-i"),10); renderAll();
+      window.scrollTo({top:0,behavior:"smooth"});
+    });
+  });
+}
+
+/* THE CURSE'S OWN STORY (2026-09-13). One row per territory-system event,
+   in match time, so "what did the curse do" is answerable from the page the
+   moment its rules change -- which they did today (Curse_And_Shardroot.md
+   2.11). TAKEN rows are the ones that matter; "lost" rows are a merge party
+   killed by a player, the counter the rule is built on. */
+function renderCurse(){
+  var m=M[sel], host=document.getElementById("curse"), lede=document.getElementById("curseLede");
+  if(!host) return;
+  var c=m.curse||{events:[]};
+  var ev=c.events||[];
+  if(lede) lede.textContent= ev.length
+    ? (c.taken||0)+" territor"+((c.taken||0)===1?"y":"ies")+" taken by merge, "+(c.lost||0)+
+      " merge part"+((c.lost||0)===1?"y":"ies")+" killed by players. The curse killed "+
+      (c.kills||0)+" and lost "+(c.killed||0)+"."
+    : "No curse territory events in this match.";
+  if(!ev.length){ host.innerHTML=""; return; }
+  var cls={taken:"fork",lost:"ok",merge:"",raid:"",wave:"",other:""};
+  host.innerHTML='<table><thead><tr><th class="num">Time</th><th>Event</th><th>Detail</th></tr></thead><tbody>'+
+    ev.map(function(e){
+      return '<tr><td class="num">'+mmss(e.t)+'</td><td class="'+(cls[e.kind]||"")+'">'+
+        esc(e.kind.toUpperCase())+'</td><td>'+esc(e.text)+'</td></tr>';
+    }).join("")+'</tbody></table>';
+}
+
+function renderRuns(){
+  var host=document.getElementById("runs"); host.textContent="";
+  M.forEach(function(m,i){
+    var b=document.createElement("button");
+    b.type="button"; b.className="run";
+    b.setAttribute("aria-current", i===sel?"true":"false");
+    var bad=forked(m);
+    b.innerHTML='<span class="m">'+esc(m.map)+'</span>'+
+      '<span class="d">'+esc((m.stamp||"").slice(5,16).replace("_"," "))+
+        ' · '+m.peers+'p · '+mmss(m.tmax)+'</span>'+
+      '<span class="v '+(bad?"bad":"ok")+'">'+(bad?"FORK":"agreed")+
+        (m.fidelity==="trace"?" · traced":"")+'</span>';
+    b.addEventListener("click",function(){ sel=i; renderAll(); });
+    host.appendChild(b);
+  });
+}
+
+/* ── map ────────────────────────────────────────────────────────────── */
+var R={t:0,playing:false,speed:8,last:0,raf:0};
+var NODE={iron:"--iron",veilstone:"--veil",veilsteel:"--veilsteel",supply:"--supply",well:"--well"};
+
+/* One decoded Image per map, made on first sight and kept. Decoding a 768 px
+   PNG inside a 60 fps repaint would stall the replay; and the same picture is
+   shared by every match on that map, so there is one per MAP, not per match.
+   Returns null until the bytes have decoded, and draw() simply skips the
+   terrain layer that frame -- the replay is never blocked on artwork. */
+var MAPART={};
+function mapArt(name){
+  if(!name) return null;
+  if(MAPART[name]!==undefined) return MAPART[name];
+  var src=(DOC.mapArt||{})[name];
+  if(!src){ MAPART[name]=null; return null; }
+  var im=new Image();
+  im.onload=function(){ draw(); };      /* repaint once it is actually there */
+  im.src=src;
+  MAPART[name]=im;
+  return im;
+}
+
+function fit(cv,h){
+  var r=window.devicePixelRatio||1,w=cv.clientWidth||900;
+  cv.width=Math.round(w*r); cv.height=Math.round(h*r); cv.style.height=h+"px";
+  var g=cv.getContext("2d"); g.setTransform(r,0,0,r,0,0); return g;
+}
+
+function draw(){
+  var m=M[sel]; if(!m) return;
+  var cv=document.getElementById("map"); if(!cv) return;
+  var W=cv.clientWidth||900, H=Math.round(W*0.57);
+  var g=fit(cv,H);
+  var w=m.world||m.extent;
+  var spanX=Math.max(1,w[2]-w[0]), spanZ=Math.max(1,w[3]-w[1]);
+  var pad=10, k=Math.min((W-pad*2)/spanX,(H-pad*2)/spanZ);
+  var ox=(W-spanX*k)/2, oz=(H-spanZ*k)/2;
+  var PX=function(x){ return ox+(x-w[0])*k; };
+  /* Z grows north in the sim, screen y grows down. */
+  var PZ=function(z){ return oz+(w[3]-z)*k; };
+
+  g.clearRect(0,0,W,H);
+  g.fillStyle=css("--map"); g.fillRect(0,0,W,H);
+
+  /* THE REAL MAP UNDERNEATH. Every map ships a baked top-down render, framed
+     on exactly the terrain bounds -- which is the same box the nav grid calls
+     "covering world" and the same box w[] holds. So it lands with no fitting:
+     left edge at world minX, top edge at world maxZ, because screen y grows
+     down while sim Z grows north. Decoded once per map and cached; a repaint
+     runs sixty times a second and must never decode a 768 px PNG. */
+  var art=mapArt(m.map);
+  if(art&&art.complete&&art.naturalWidth){
+    g.globalAlpha=.85;
+    g.drawImage(art, PX(w[0]), PZ(w[3]), spanX*k, spanZ*k);
+    g.globalAlpha=1;
+    /* Knock the ground back so faction colour still reads on top of terrain. */
+    g.fillStyle=css("--map"); g.globalAlpha=.30;
+    g.fillRect(PX(w[0]), PZ(w[3]), spanX*k, spanZ*k); g.globalAlpha=1;
+  }
+
+  /* grid at a scale you can count in */
+  var step=spanX>600?200:spanX>300?100:50;
+  g.strokeStyle=css("--map-grid"); g.lineWidth=1;
+  for(var gx=Math.ceil(w[0]/step)*step; gx<=w[2]; gx+=step){
+    g.beginPath(); g.moveTo(Math.round(PX(gx))+0.5,0); g.lineTo(Math.round(PX(gx))+0.5,H); g.stroke(); }
+  for(var gz=Math.ceil(w[1]/step)*step; gz<=w[3]; gz+=step){
+    g.beginPath(); g.moveTo(0,Math.round(PZ(gz))+0.5); g.lineTo(W,Math.round(PZ(gz))+0.5); g.stroke(); }
+
+  /* region seeds, when the trace recorded them */
+  (m.regions||[]).forEach(function(r){
+    g.fillStyle=css("--mute"); g.globalAlpha=.5;
+    g.font='11px '+css("--display")||"sans-serif";
+    g.textAlign="center"; g.textBaseline="middle";
+    g.fillText(r.name, PX(r.x), PZ(r.z));
+    g.globalAlpha=1;
+  });
+
+  /* resource nodes — the map's fixed furniture */
+  (m.nodes||[]).forEach(function(n){
+    g.fillStyle=css(NODE[n.kind]||"--mute"); g.globalAlpha=.85;
+    g.beginPath(); g.arc(PX(n.x),PZ(n.z), n.kind==="well"?5:3, 0, Math.PI*2); g.fill();
+    g.globalAlpha=1;
+  });
+
+  var t=R.t;
+
+  /* buildings, with their real footprints, alive at t */
+  (m.blds||[]).forEach(function(b){
+    if(b.t0>t) return;
+    if(b.t1!=null && b.t1<=t) return;
+    var c=fhue(b.f);
+    var x=PX(b.x-b.w/2), y=PZ(b.z+b.h/2), ww=b.w*k, hh=b.h*k;
+    g.fillStyle=c; g.globalAlpha=.22; g.fillRect(x,y,ww,hh); g.globalAlpha=1;
+    g.strokeStyle=c; g.lineWidth=1; g.strokeRect(x,y,ww,hh);
+  });
+
+  /* UNITS, TWEENED BY IDENTITY -- NEVER BY POSITION IN THE LIST.
+     A frame is an unordered bag: its order is whatever order the simulation
+     walked its chunks in, and that changes the moment anything spawns or
+     dies. Pairing point 7 of one frame with point 7 of the next therefore
+     re-paired every dot with a stranger several times a second, and the army
+     appeared to swap places and march backwards on the spot. Each point now
+     carries its unit id, and a dot is only ever tweened toward ITS OWN next
+     position; a unit with no next position (it died, or the frame is the
+     last) simply holds still.
+     Sampled matches -- recorded before the trace existed -- carry id 0 on
+     every point, and are SNAPPED rather than tweened. A 15 s sample honestly
+     shown as a slideshow beats a smooth animation of something that never
+     happened. */
+  var fr=m.frames||[];
+  if(fr.length){
+    var i=0; while(i<fr.length-1 && fr[i+1].t<=t) i++;
+    var a=fr[i], b2=fr[Math.min(i+1,fr.length-1)];
+    var span=(b2.t-a.t)||1, f=Math.max(0,Math.min(1,(t-a.t)/span));
+    var tween=(m.fidelity==="trace");
+    Object.keys(a.u).forEach(function(fa){
+      var pa=a.u[fa]||[], pb=(b2.u&&b2.u[fa])||[];
+      var c=fhue(fa), nxt=null;
+      if(tween){ nxt={}; for(var j=0;j<pb.length;j++) nxt[pb[j][0]]=pb[j]; }
+      for(var n=0;n<pa.length;n++){
+        var cur=pa[n], q=(tween&&nxt[cur[0]])||cur;
+        var x=cur[1]+(q[1]-cur[1])*f, z=cur[2]+(q[2]-cur[2])*f;
+        var fl=cur[3]|0;
+        var px=PX(x), pz=PZ(z);
+        if(fl&4){ g.beginPath(); g.arc(px,pz,5.5,0,Math.PI*2);
+                  g.fillStyle=css("--bad-soft"); g.fill(); }
+        if(fl&2){ g.beginPath(); g.arc(px,pz,4.6,0,Math.PI*2);
+                  g.strokeStyle=css("--gold"); g.lineWidth=1.4; g.stroke(); }
+        g.fillStyle=c; g.beginPath(); g.arc(px,pz,2.7,0,Math.PI*2); g.fill();
+      }
+    });
+  }
+
+  /* deaths flash where they fell */
+  (m.deaths||[]).forEach(function(d){
+    var age=t-d.t; if(age<0||age>10) return;
+    g.strokeStyle=fhue(d.v)||css("--bad");
+    g.globalAlpha=(1-age/10)*.85; g.lineWidth=1.6;
+    g.beginPath(); g.arc(PX(d.x),PZ(d.z),3+age*1.7,0,Math.PI*2); g.stroke();
+    g.globalAlpha=1;
+  });
+
+  document.getElementById("clock").innerHTML=
+    mmss(t)+"<small>match time</small>";
+
+  /* live counts */
+  var live={};
+  if(fr.length){
+    var j=0; while(j<fr.length-1 && fr[j+1].t<=t) j++;
+    Object.keys(fr[j].u).forEach(function(fa){ live[fa]=fr[j].u[fa].length; });
+  }
+  document.getElementById("counts").innerHTML=
+    Object.keys(live).sort().map(function(fa){
+      return '<span style="color:'+fhue(fa)+'">'+fa+'</span><b>'+live[fa]+'</b><span>units</span>';
+    }).join("");
+
+  /* the wave in flight, named */
+  var cap="", best=null;
+  (m.waveList||[]).forEach(function(wv){
+    if(wv.t<=t && (!best||wv.t>best.t)) best=wv;
+  });
+  if(best && t-best.t < 240)
+    cap='<span style="color:'+fhue(best.faction)+'">'+best.faction+'</span> wave '+best.n+
+        ' · <b>'+best.army+'</b> marched'+(best.arrived?', '+best.arrived+' arrived':', none arrived')+
+        ' <span class="t">'+esc(best.why)+'</span>';
+  document.getElementById("caption").innerHTML=cap;
+}
+
+function tick(ts){
+  if(!R.playing){ R.raf=0; return; }
+  var dt=R.last?(ts-R.last)/1000:0; R.last=ts;
+  R.t+=dt*R.speed;
+  var end=M[sel]?M[sel].tmax:0;
+  if(R.t>=end){ R.t=end; setPlay(false); }
+  var sc=document.getElementById("scrub"); if(sc) sc.value=String(R.t);
+  draw(); R.raf=requestAnimationFrame(tick);
+}
+function setPlay(p){
+  R.playing=p; R.last=0;
+  var b=document.getElementById("play");
+  if(b) b.textContent=p?"Pause":(R.t>=(M[sel]?M[sel].tmax:0)?"Replay":"Play");
+  if(p&&!R.raf) R.raf=requestAnimationFrame(tick);
+}
+
+function renderTransport(){
+  var m=M[sel]; if(!m) return;
+  var sp=document.getElementById("speeds"); sp.textContent="";
+  [1,4,8,30,120].forEach(function(s){
+    var b=document.createElement("button");
+    b.type="button"; b.className="btn"; b.textContent=s+"×";
+    b.setAttribute("aria-pressed",String(R.speed===s));
+    b.addEventListener("click",function(){
+      R.speed=s;
+      Array.prototype.forEach.call(sp.children,function(o){
+        o.setAttribute("aria-pressed",String(o.textContent===s+"×")); });
+    });
+    sp.appendChild(b);
+  });
+  var sc=document.getElementById("scrub");
+  sc.max=String(Math.round(m.tmax||1)); sc.value=String(R.t);
+  sc.oninput=function(e){ R.t=Number(e.target.value); draw(); };
+  document.getElementById("play").onclick=function(){
+    if(R.t>=(m.tmax||0)) R.t=0; setPlay(!R.playing); };
+
+  /* wave marks on the scrubber, the way the original showed its moments */
+  var mk=document.getElementById("marks"); mk.textContent="";
+  (m.waveList||[]).forEach(function(wv){
+    if(!m.tmax) return;
+    var d=document.createElement("button");
+    d.className="mark"; d.style.left=(wv.t/m.tmax*100)+"%";
+    d.style.background="none"; d.style.border="0"; d.style.cursor="pointer";
+    d.style.color=fhue(wv.faction);
+    d.textContent=wv.army+"↑";
+    d.title=wv.faction+" wave "+wv.n+" at "+mmss(wv.t)+" — "+wv.army+" marched, "+
+            wv.arrived+" arrived";
+    d.onclick=function(){ R.t=wv.t; sc.value=String(wv.t); draw(); };
+    mk.appendChild(d);
+  });
+}
+
+/* ── tables ─────────────────────────────────────────────────────────── */
+function renderWaves(){
+  var m=M[sel], host=document.getElementById("waves");
+  var ws=m.waveList||[];
+  if(!ws.length){ host.innerHTML='<div style="padding:16px;color:var(--mute)">No wave was launched.</div>'; return; }
+  host.innerHTML='<table><thead><tr><th>Faction</th><th class="num">Wave</th><th class="num">Time</th>'+
+    '<th class="num">Marched</th><th class="num">Reinforced</th><th class="num">Arrived</th>'+
+    '<th class="num">Posture</th><th>Objective</th></tr></thead><tbody>'+
+    ws.map(function(w){
+      var none = w.arrived===0 && (w.army+w.reinforced)>0;
+      return '<tr><td><span class="swatch" style="background:'+fhue(w.faction)+'"></span>'+w.faction+'</td>'+
+        '<td class="num">'+w.n+'</td><td class="num">'+mmss(w.t)+'</td>'+
+        '<td class="num">'+w.army+'</td><td class="num">'+w.reinforced+'</td>'+
+        '<td class="num'+(none?' warn':'')+'">'+w.arrived+'</td>'+
+        '<td class="num">'+esc(w.posture||"")+'</td>'+
+        '<td style="color:var(--ink2)">'+esc(w.why)+'</td></tr>';
+    }).join("")+'</tbody></table>';
+}
+
+function renderStanding(){
+  var m=M[sel], host=document.getElementById("standing");
+  var facs=Object.keys(m.series||{}).sort();
+  if(!facs.length){ host.innerHTML=""; return; }
+  host.innerHTML='<table><thead><tr><th>Faction</th><th class="num">Supplies</th><th class="num">Iron</th>'+
+    '<th class="num">Veilstone</th><th class="num">Pop</th><th class="num">Units</th>'+
+    '<th class="num">Buildings</th><th class="num">Territories</th></tr></thead><tbody>'+
+    facs.map(function(f){
+      var s=m.series[f], l=s[s.length-1]||{};
+      var el=(m.eliminated||{})[f];
+      var tag=(el!=null)?' <span class="v bad" title="last seen in the metrics">eliminated '+mmss(el)+'</span>':'';
+      return '<tr'+(el!=null?' style="opacity:.6"':'')+'><td><span class="swatch" style="background:'+fhue(f)+'"></span>'+f+tag+'</td>'+
+        '<td class="num">'+(l.s||0)+'</td><td class="num">'+(l.i||0)+'</td>'+
+        '<td class="num">'+(l.v||0)+'</td><td class="num">'+(l.pop||0)+'/'+(l.popMax||0)+'</td>'+
+        '<td class="num">'+(l.units||0)+'</td><td class="num">'+(l.bld||0)+'</td>'+
+        '<td class="num">'+(l.terr||0)+'</td></tr>';
+    }).join("")+'</tbody></table>';
+}
+
+function renderComposition(){
+  var m=M[sel], host=document.getElementById("composition"); host.textContent="";
+  var comp=m.composition||{};
+  Object.keys(comp).sort().forEach(function(f){
+    var rows=comp[f]||[];
+    var army=rows.filter(function(r){ return !/Worker|Builder|Miner/.test(r[0]); });
+    var work=rows.filter(function(r){ return /Worker|Builder|Miner/.test(r[0]); })
+                 .reduce(function(a,r){ return a+r[1]; },0);
+    var tot=army.reduce(function(a,r){ return a+r[1]; },0);
+    var d=document.createElement("div"); d.className="card";
+    d.innerHTML='<div class="k"><span class="swatch" style="background:'+fhue(f)+'"></span>'+f+'</div>'+
+      '<div class="v">'+tot+'<span style="font-size:14px;color:var(--mute)"> army · '+work+' workers</span></div>'+
+      (army.length
+        ? '<div class="s">'+army.slice(0,10).map(function(r){
+            return esc(r[0].replace(/^Alanthor_|^Sect_/,""))+" ×"+r[1]; }).join(", ")+'</div>'
+        : '<div class="s">no army</div>');
+    host.appendChild(d);
+  });
+}
+
+function lineChart(cv,series){
+  var H=132,g=fit(cv,H),W=cv.clientWidth||400;
+  var padL=44,padR=8,padT=8,padB=18;
+  var iw=Math.max(10,W-padL-padR), ih=Math.max(10,H-padT-padB);
+  var xs=[],ys=[];
+  series.forEach(function(s){ s.pts.forEach(function(p){ xs.push(p[0]); ys.push(p[1]); }); });
+  g.clearRect(0,0,W,H);
+  if(!xs.length) return;
+  var x1=Math.max.apply(null,xs)||1, y1=Math.max.apply(null,ys)||1;
+  var nice=Math.pow(10,Math.floor(Math.log10(y1))); y1=Math.ceil(y1/nice)*nice;
+  var X=function(v){ return padL+v/x1*iw; }, Y=function(v){ return padT+ih-v/y1*ih; };
+  g.strokeStyle=css("--rule"); g.fillStyle=css("--mute");
+  g.font='10px '+(css("--mono")||"monospace"); g.textBaseline="middle";
+  [0,y1/2,y1].forEach(function(v){
+    var y=Math.round(Y(v))+0.5;
+    g.beginPath(); g.moveTo(padL,y); g.lineTo(W-padR,y); g.stroke();
+    g.textAlign="right"; g.fillText(v>=10000?(v/1000).toFixed(0)+"k":String(Math.round(v)),padL-5,y);
+  });
+  g.textAlign="center"; g.textBaseline="top";
+  [0,.5,1].forEach(function(fr){ g.fillText(mmss(x1*fr),X(x1*fr),padT+ih+4); });
+  series.forEach(function(s){
+    if(!s.pts.length) return;
+    g.strokeStyle=s.color; g.lineWidth=1.8; g.lineJoin="round"; g.beginPath();
+    s.pts.forEach(function(p,i){ i?g.lineTo(X(p[0]),Y(p[1])):g.moveTo(X(p[0]),Y(p[1])); });
+    g.stroke();
+  });
+}
+
+function renderCharts(){
+  var m=M[sel], host=document.getElementById("charts"); host.textContent="";
+  [["Supplies","s"],["Iron","i"],["Army","units"],["Buildings","bld"],["Territories","terr"]]
+  .forEach(function(pair){
+    var d=document.createElement("div"); d.className="card";
+    d.innerHTML='<div class="k">'+pair[0]+'</div><canvas class="chart"></canvas>';
+    host.appendChild(d);
+    var ser=Object.keys(m.series||{}).map(function(f){
+      return {color:fhue(f), pts:(m.series[f]||[]).map(function(r){ return [r.t, r[pair[1]]||0]; })};
+    });
+    requestAnimationFrame(function(){ lineChart(d.querySelector("canvas"),ser); });
+  });
+}
+
+function renderHead(){
+  var m=M[sel]; if(!m) return;
+  var d=m.desync||{};
+  var runNote=DOC.since?" · latest run, since "+DOC.since.slice(0,16).replace("_"," ")
+                        +" ("+M.length+" match"+(M.length===1?"":"es")+")":"";
+  document.getElementById("eyebrow").textContent=
+    "Match replay · "+(m.stamp||"").slice(0,10)+" · "+m.map+runNote;
+  document.getElementById("spec").innerHTML=
+    Object.keys(m.series||{}).sort().map(function(f){
+      return '<span><span class="swatch" style="background:'+fhue(f)+'"></span><b>'+f+'</b></span>';
+    }).join("")+
+    '<span>'+m.peers+' peers</span>'+
+    '<span>'+esc(m.build)+'</span>'+
+    '<span>positions every <b>'+(m.fidelity==="trace"?"1 s":"15 s")+'</b></span>'+
+    '<span>'+(forked(m)
+      ? '<b class="warn">forked at tick '+(d.forkTick!=null?d.forkTick:d.flagTick)+'</b>'
+      : '<b>'+(d.compared||0).toLocaleString()+' tick rows agreed</b>')+'</span>';
+  document.getElementById("lede").innerHTML= m.fidelity==="trace"
+    ? 'Every unit sampled once a second with its state. A <b>gold ring</b> is a unit in '+
+      'formation; a <b>red halo</b> is one with a target. Buildings are drawn at their real '+
+      'footprint, and the map’s regions and resource nodes are the ones the match actually had.'
+    : 'Recorded before the trace existed, so units are sampled every 15 s without formation or '+
+      'combat state — but the map underneath is real: true world extent, every resource node '+
+      'from the map asset, and every building at its true footprint.';
+  document.getElementById("legend").innerHTML=
+    Object.keys(m.series||{}).sort().map(function(f){
+      return '<span><span class="dot" style="background:'+fhue(f)+'"></span>'+f+'</span>'; }).join("")+
+    (m.fidelity==="trace"
+      ? '<span><span class="dot ring" style="background:var(--mute)"></span>in formation</span>'+
+        '<span><span class="dot halo" style="background:var(--mute)"></span>fighting</span>' : "")+
+    '<span><span class="sq" style="border-color:var(--mute)"></span>building</span>'+
+    '<span><span class="dot" style="background:var(--iron);width:8px;height:8px"></span>iron</span>'+
+    '<span><span class="dot" style="background:var(--veil);width:8px;height:8px"></span>veilstone</span>'+
+    '<span><span class="dot" style="background:var(--supply);width:8px;height:8px"></span>supply</span>'+
+    '<span><span class="dot" style="background:var(--well);width:9px;height:9px"></span>well</span>';
+  document.getElementById("foot").textContent=
+    "Source: "+m.key+" · "+(m.frames||[]).length+" position frames, "+
+    (m.blds||[]).length+" buildings, "+(m.nodes||[]).length+" nodes, "+
+    (m.deaths||[]).length+" deaths. Generated "+(DOC.generated||"");
+}
+
+function renderAll(){
+  R.t=0; setPlay(false);
+  renderRuns(); renderHead(); renderTransport();
+  renderWaves(); renderStanding(); renderComposition(); renderCharts(); renderCurse();
+  requestAnimationFrame(draw);
+}
+
+/* The ledger does not depend on the selected match, and it must render even
+   when there is nothing replayable -- the record is the point. */
+renderLedger();
+
+if(!M.length){
+  document.getElementById("stage").innerHTML=
+    '<div style="padding:60px;text-align:center;color:var(--mute)">No replayable match found.</div>';
+} else {
+  renderAll();
+}
+var rz; window.addEventListener("resize",function(){
+  clearTimeout(rz); rz=setTimeout(function(){ draw(); renderCharts(); },160); });
+if(window.matchMedia){
+  var mq=window.matchMedia("(prefers-color-scheme: dark)");
+  if(mq.addEventListener) mq.addEventListener("change",function(){ renderAll(); });
+}
+})();
+</script>

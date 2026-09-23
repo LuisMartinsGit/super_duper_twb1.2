@@ -585,6 +585,113 @@ narrows *which subsystem* forked before you have to go entity-by-entity.
 
 ---
 
+## 9. Two blind spots in the instrument (2026-09-12)
+
+Both of these made the desync harness report a clean run on evidence it had
+never gathered. Neither was a bug in the game; both were bugs in the thing
+that was supposed to find bugs in the game.
+
+### 9.1 The harness had been playing empty matches
+
+`HeadlessMp` created the AI brains behind a one-shot latch, gated on
+`MatchLifecycle.MapPopulated` — a static that stays TRUE from the previous
+match until the next bootstrap coroutine clears it. Since 0.0.23 the ECS world
+is disposed at teardown and rebuilt at every bootstrap, so on the warm-up path
+all four brains were created into the **dying warm world** one frame before
+`RecreateECSWorld`, and the latch then refused to make them again.
+
+The MP match then ran with no AI at all. A 5-minute Veilmarch run:
+
+```
+entities=159   for all 9000 ticks      (nothing built, trained or killed)
+cmds=0         in Lockstep.log          (no orders at all)
+AI_Red.log     8 lines                  (one opening move, then SNAPSHOTs,
+                                         which StatsBoardHUD writes, not the AI)
+military 5     in every resource snapshot, supplies climbing to 2300
+```
+
+It still exited 0. The 0.0.23 acceptance note — "all four peers warmed on
+Veilmarch then 9000 lockstep ticks, every checksum agreeing" — was measured on
+that board.
+
+Fixed by asking the world instead of latching: wait for `MatchEpoch` to move
+past the value captured in `LoadMp()`, then give a brain to each peer faction
+that does not already have one. The log line names the epoch, so a warm run
+that says `epoch 1` has the bug back.
+
+**Never trust a green MP run without checking it was not vacuous.** The AI logs
+should hold hundreds of lines and `entities=` should move.
+
+### 9.2 Only a sixth of the simulation was actually compared
+
+`ProcessSyncMessage` compares ONE number, `SimStateHash.Total`. The rest of the
+SYNC datagram — the `pos rot hp nav cbt wrk bank tech rng veil cost f0..f7`
+breakdown — is attribution printed after the fact, never a detection input.
+
+`Total` covered entity count, `NetworkId`, `Health`, `FactionTag`, position and
+the four banks. Everything else was computed every tick, shipped, and ignored:
+rotation, destination, flow, steering, smoothed direction, stuck, speed, guard
+points, formation-group state, combat targets, work progress, research, sect
+adoption, the veil field, the nav cost field and the RNG streams.
+
+The worked example is the HollowTable tick-1830 run. `nav` had already forked
+by tick 1711 — the earliest tick the trace keeps, so probably much earlier —
+the peers agreed on `Total` for another 119 ticks, and the dump that finally
+fired described a board where **every entity row in both peers' traces was
+byte-identical**. The state that forked was `GuardPoint` or
+`FormationSpeedOverride`: both fed the nav hash and neither was recorded into
+`EntitySnapshot`, so neither was printed in any dump. A hashed field that is
+not dumped is a blind spot by construction.
+
+Changes:
+
+| | |
+|---|---|
+| `Total` | now mixes `rot/nav/cbt/wrk/tech/veil/cost/rng`, in deterministic mode only (frame-driven lockstep drifts in these by design) |
+| dump row | gained `guard=` and `fspd=` |
+| `rng` column | gained `VeilFieldSystem`'s RNG and its three periodic accumulators, and `CurseTerritorySystem`'s wave RNG + match clock. It had exactly ONE live source before (`BloodCurseSpawnSystem`) and was a constant for whole matches |
+| `veil` column | gained the resolved `TerritoryOwnership` owner array |
+| `tech` column | gained `HeroExperience` / `HeroLevel` — levels come from kills and unlock abilities, the same family of state as research |
+
+`-twbMpNoDetail` must now be passed to every peer or none: a peer without the
+detail columns computes a different `Total` for an identical world.
+
+### 9.3 `tools/mp-diff.ps1` — thirty times finer than the desync flag
+
+A peer puts a checksum on the wire every 30 ticks, but writes one to its own
+`Lockstep.log` every tick. `mp-diff.ps1` diffs those files across peers, so it
+compares all 9000 ticks and all fourteen columns instead of 300 ticks of one
+number — and it catches a fork that heals inside the sync interval or happens
+after the last SYNC. `mp-batch.ps1` runs it after every match.
+
+Trailing ticks are not a fork: peers stop a tick or two apart at the limit, so
+only ticks both peers recorded are compared.
+
+### 9.4 Two latent local-faction fallbacks, removed
+
+`ConvertHutCommand` and `ConvertSegmentToGateCommand` resolved the paying
+faction as `GameSettings.LocalPlayerFaction` when the target carried no
+`FactionTag`. These execute on every peer from the replicated command, so
+"whoever is executing me" is a different answer on each — the host would charge
+its own bank for a client's conversion. They refuse now instead of guessing.
+
+### 9.5 Where the runs stand
+
+Seven 4-peer matches on the current build, real AI vs AI with the command
+monkey, every peer agreeing on every shared tick and every column:
+
+| Map | Matches | Ticks each | Notes |
+|---|---|---|---|
+| Veilmarch | 1 | 9,000 | fresh peers |
+| Veilmarch | 1 | 10,800 | warm-up + monkey |
+| HollowTable | 4 | 9,000 | monkey, stepped seeds |
+
+Still outside the checksum: ability cooldowns and transient buffs. They change
+damage, so health catches a fork in them within a few ticks — which is why they
+were left out rather than overlooked.
+
+---
+
 ## Appendix — quick reference
 
 | Constant | Value | File |

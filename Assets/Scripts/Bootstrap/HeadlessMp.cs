@@ -1,4 +1,4 @@
-// HeadlessMp.cs
+﻿// HeadlessMp.cs
 // A REAL multiplayer match with no humans and no windows: N processes on one
 // machine, one lockstep player each, raw UDP between them, DeterministicLockstep
 // on — the desync-hunting instrument (2026-09-03 directive: "make sure the
@@ -31,6 +31,22 @@
 //     -twbMpPort P          host lockstep port (default 17980); peer i binds P+i
 //     -twbPlayers TOTAL     total factions (default = peers; extra become AI slots)
 //     -twbSeed / -twbMap / -twbLimit   as in HeadlessBatch
+//     -twbAge N             start age 0..4 (default 0). Age 1+ is the only
+//                           way the harness reaches culture buildings, walls,
+//                           sects and hero levels at all.
+//     -twbMpInject T        SELF-TEST: nudge one entity 1 mm on one peer at
+//                           tick T. The run MUST then report a desync; a
+//                           clean result means the detector is broken.
+//     -twbMpInjectPeer N    which peer injects (default: the last)
+//     -twbTrace             write MapTrace.txt: every unit's position AND
+//                           state (moving / in formation / fighting) plus
+//                           building footprints, regions and nodes. The feed
+//                           the good replay visualisation needs.
+//     -twbTracePeriod N     seconds between trace samples (default 1)
+//     -twbRich              every faction starts at the resource cap, so the
+//                           armies meet in the first minute instead of the
+//                           sixth -- far more combat per wall-clock second,
+//                           and combat is where the forks have been.
 //     -twbMpWarm S          WARM-UP (see below): play a local skirmish in this
 //                           process until S wall-seconds after launch, tear it
 //                           down like a quit-to-menu, THEN boot the MP match
@@ -72,6 +88,7 @@
 
 using System;
 using System.Collections.Generic;
+using Unity.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using TheWaningBorder.Core;
@@ -116,9 +133,86 @@ namespace TheWaningBorder.Bootstrap
         private float _nextChaosAt;
         private float _decidedAtWall;
 
+        // ── Fault injection: does the detector still WORK? ──────────────
+        //
+        // Every other check in this harness answers "did the peers agree".
+        // None of them answers "would this notice if they had not", and on
+        // 2026-09-12 three separate pieces of the tooling were caught
+        // reporting success on evidence they never gathered -- a match with
+        // no AI in it, a diff that compared nothing, a counter that forgot.
+        // A green run is only worth what the detector is worth.
+        //
+        //   -twbMpInject <tick>     nudge one entity 1 mm on ONE peer
+        //   -twbMpInjectPeer <n>    which peer does it (default: the last)
+        //
+        // The expected RESULT IS A DESYNC. The runner asserts that: an
+        // injected run that comes back clean means the checksum has stopped
+        // covering position, and every clean run since is worthless.
+        private static readonly int s_injectTick = ArgIntStatic("-twbMpInject", -1);
+        private static readonly int s_injectPeer = ArgIntStatic("-twbMpInjectPeer", -1);
+        private bool _injected;
+
+        private static int ArgIntStatic(string key, int fallback)
+        {
+            var a = System.Environment.GetCommandLineArgs();
+            int i = System.Array.IndexOf(a, key);
+            return (i >= 0 && i + 1 < a.Length && int.TryParse(a[i + 1], out int v)) ? v : fallback;
+        }
+
+        private static readonly Unity.Entities.ComponentType[] QT_Injectable =
+        {
+            Unity.Entities.ComponentType.ReadOnly<NetworkedEntity>(),
+            Unity.Entities.ComponentType.ReadWrite<Unity.Transforms.LocalTransform>(),
+        };
+        private static TheWaningBorder.Core.CachedEntityQuery QC_Injectable;
+
+        /// <summary>Move the LOWEST-network-id entity a millimetre, once, on
+        /// one peer. Lowest id so the choice is identical whatever order the
+        /// chunks happen to be in.</summary>
+        private void MaybeInjectFault(int tick)
+        {
+            if (_injected || s_injectTick < 0 || tick < s_injectTick) return;
+            int who = s_injectPeer >= 0 ? s_injectPeer : _peers - 1;
+            if (_peer != who) { _injected = true; return; }
+
+            var w = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (w == null || !w.IsCreated) return;
+            var em = w.EntityManager;
+            var q = QC_Injectable.Get(em, QT_Injectable);
+            if (q.IsEmptyIgnoreFilter) return;
+
+            using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
+            using var ids = q.ToComponentDataArray<NetworkedEntity>(Unity.Collections.Allocator.Temp);
+            int best = -1, bestId = int.MaxValue;
+            for (int i = 0; i < ids.Length; i++)
+                if (ids[i].NetworkId < bestId) { bestId = ids[i].NetworkId; best = i; }
+            if (best < 0) return;
+
+            var lt = em.GetComponentData<Unity.Transforms.LocalTransform>(ents[best]);
+            lt.Position.x += 0.001f;
+            em.SetComponentData(ents[best], lt);
+            _injected = true;
+            Debug.LogWarning($"[HeadlessMp] FAULT INJECTED on peer {_peer} at tick {tick}: " +
+                             $"network id {bestId} moved 1 mm. This run MUST report a desync; " +
+                             "if it does not, the checksum has stopped covering position.");
+        }
+
         private static readonly Unity.Entities.ComponentType[] QT_Verdict =
             { Unity.Entities.ComponentType.ReadOnly<MatchVerdictState>() };
         private static TheWaningBorder.Core.CachedEntityQuery QC_Verdict;
+
+        private static readonly Unity.Entities.ComponentType[] QT_Brains =
+        {
+            Unity.Entities.ComponentType.ReadOnly<TheWaningBorder.AI.AIBrain>(),
+            Unity.Entities.ComponentType.ReadOnly<FactionTag>(),
+        };
+        private static TheWaningBorder.Core.CachedEntityQuery QC_Brains;
+
+        /// <summary>MatchEpoch as it stood when this peer asked for the MP
+        /// scene. The bootstrap bumps it, so "epoch moved" is the signal that
+        /// the world the harness is about to touch is the MP one and not the
+        /// warm-up match that is still standing in the same process.</summary>
+        private int _epochAtLoad = -1;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Install()
@@ -145,6 +239,9 @@ namespace TheWaningBorder.Bootstrap
         private int _basePort, _totalFactions, _seed;
         private bool _loose;
         private string _mpMap;
+        private SkirmishStartAge _startAge = SkirmishStartAge.Age0;
+        private static bool _traceInstalled;
+        private bool _rich;
 
         private void Begin(string[] args)
         {
@@ -164,6 +261,12 @@ namespace TheWaningBorder.Bootstrap
             // -twbMpLoose: DeterministicLockstep OFF (frame-driven sim, only
             // commands synchronised). The second half of the bisection.
             _loose = Array.IndexOf(args, "-twbMpLoose") >= 0;
+
+            // -twbAge 0..4 (default 0). Clamped to what the enum defines so a
+            // typo starts an Age 0 match instead of an undefined one.
+            int age = Mathf.Clamp(ArgInt(args, "-twbAge", 0), 0, 4);
+            _startAge = (SkirmishStartAge)age;
+            _rich = Array.IndexOf(args, "-twbRich") >= 0;
 
             string mapArg = ArgStr(args, "-twbMap");
             _mpMap = !string.IsNullOrEmpty(mapArg) ? mapArg : GameSettings.SelectedMapScene;
@@ -257,6 +360,24 @@ namespace TheWaningBorder.Bootstrap
             GameSettings.TutorialActive = false;
             GameSettings.SpawnSeed = _seed;
             GameSettings.TotalPlayers = total;
+            // START AGE (2026-09-12). Every headless match ever run started
+            // in Age 0, so the harness had never once touched the Age 1
+            // surface: culture buildings, the Alanthor wall set, sects, hero
+            // levels, the per-culture endgame systems. That is most of the
+            // code written this year, and all of it is simulation. Starting
+            // in Age 1 puts a Hall, a Temple and a choice building on the
+            // ground for every faction (StartAgePromoter) and drops the AI
+            // straight into its maintenance loop.
+            GameSettings.StartAge = _startAge;
+            // RICH START (2026-09-12). Combat is the biggest amplifier of
+            // nondeterminism there is -- targeting order, death order, ID
+            // allocation -- and both forks this harness has on record were
+            // combat-heavy. A normal match spends its first several minutes
+            // on economy, so a ten-minute run buys very little fighting.
+            // Pinning every faction at the resource cap puts armies on the
+            // field almost at once and turns the same wall-clock budget into
+            // several times the combat.
+            GameSettings.MaxStartingResources = _rich;
             GameSettings.DeterministicLockstep = !_loose;
             LockstepTiming.Reset();
 
@@ -294,6 +415,18 @@ namespace TheWaningBorder.Bootstrap
             if (GetComponent<MatchMetrics>() == null)
                 gameObject.AddComponent<MatchMetrics>();
 
+            // THE FINE REPLAY FEED (2026-09-12). Metrics_UnitPositions is one
+            // sample every 15 s with no identity and no state; MapTrace is the
+            // format the 2026-09-07 replay was built on, and it was editor-only
+            // so no automated match had ever produced one. -twbTrace turns it
+            // on, -twbTracePeriod sets the seconds between samples (default 1).
+            var cmdArgs = Environment.GetCommandLineArgs();
+            if (Array.IndexOf(cmdArgs, "-twbTrace") >= 0 && !_traceInstalled)
+            {
+                _traceInstalled = true;
+                MapTrace.Install(ArgInt(cmdArgs, "-twbTracePeriod", 0));
+            }
+
             Debug.Log($"[HeadlessMp] peer {_peer}/{_peers} ({GameSettings.NetworkRole}), " +
                       $"{total} factions, seed {_seed}, limit {_limit}s, " +
                       $"lockstep port {_basePort + (_peer == 0 ? 0 : _peer)}, " +
@@ -302,6 +435,10 @@ namespace TheWaningBorder.Bootstrap
 
         private void LoadMp()
         {
+            // Before the load, so any epoch bump after this point belongs to
+            // the match we are booting.
+            _epochAtLoad = MatchLifecycle.MatchEpoch;
+
             // Straight scene load — LoadingScreen pins timeScale to 0 while
             // visible and IsWorldReady refuses tick 0 behind its overlay flag,
             // so the UI path would deadlock a -nographics process.
@@ -348,23 +485,80 @@ namespace TheWaningBorder.Bootstrap
             // ── Every faction gets a brain, created IDENTICALLY on every peer
             // so the worlds stay symmetric. Only the host RUNS the AI systems
             // (ShouldRunAIBrains) — decisions leave it as lockstep commands.
+            //
+            // ASK THE WORLD, do not latch (2026-09-11). Since 0.0.23 the ECS
+            // world is DISPOSED at teardown and built fresh at every
+            // bootstrap, so a brain created a frame too early dies with the
+            // old world — and a one-shot _brainsCreated latch then refused to
+            // make it again. That is exactly what the warm-up path did: all
+            // four brains were created into the dying warm world, the MP
+            // match ran with NO AI at all (36 units, nothing built, nothing
+            // trained, the checksum frozen for 9000 ticks) and still reported
+            // "no desync". A vacuous green run is worse than a red one.
             if (!_brainsCreated)
             {
-                _brainsCreated = true;
+                // THIS match's bootstrap must have run first. MapPopulated
+                // above is a static that stays TRUE from the previous match
+                // until the next bootstrap coroutine clears it, and MatchEpoch
+                // is bumped in the same breath — so "the epoch has moved past
+                // the one current when we asked for the scene" is what
+                // distinguishes the MP world from the warm-up world that is
+                // still standing. Scoped to this block: the chaos mover and
+                // the end conditions below have no such requirement.
+                if (MatchLifecycle.MatchEpoch == _epochAtLoad) return;
+
+                var aiWorld = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+                if (aiWorld == null || !aiWorld.IsCreated) return;
+                var aiEm = aiWorld.EntityManager;
+
+                // Factions past _peers are lobby AI slots; GameBootstrap's
+                // own InitializeAIPlayers already gave those a brain, so the
+                // world is not empty of brains and a bare IsEmpty test would
+                // skip the peer factions forever. Ask per faction.
+                int have = 0;
+                var brainQ = QC_Brains.Get(aiEm, QT_Brains);
+                using (var owners = brainQ.ToComponentDataArray<FactionTag>(Allocator.Temp))
+                    for (int k = 0; k < owners.Length; k++)
+                        have |= 1 << (int)owners[k].Value;
+
+                int made = 0;
                 for (int i = 0; i < _peers; i++)
                 {
-                    try { TheWaningBorder.AI.AIBootstrap.CreateAIForFaction((Faction)i); }
+                    var f = LobbyConfig.Slots[i].Faction;
+                    if ((have & (1 << (int)f)) != 0) continue;
+                    try { TheWaningBorder.AI.AIBootstrap.CreateAIForFaction(f); made++; }
                     catch (Exception e)
-                    { Debug.LogWarning($"[HeadlessMp] brain for faction {i}: {e.Message}"); }
+                    { Debug.LogWarning($"[HeadlessMp] brain for faction {f}: {e.Message}"); }
                 }
-                Debug.Log($"[HeadlessMp] AI brains created for the {_peers} peer factions " +
-                          "(driven host-side, commands ride the lockstep stream)");
+                _brainsCreated = true;
+
+                // ONE machine-readable line naming every axis of this run, so
+                // the dashboard can build a coverage matrix: knowing which
+                // combinations the hunt has NOT tried is worth as much as
+                // knowing the ones it did try passed.
+                //
+                // HERE, not in ConfigureMp. That runs before the scene loads,
+                // which is before MatchLogSession opens the match folder --
+                // the line was written to a console nobody was capturing and
+                // reached no file at all. Anything a log-reading tool needs
+                // must be logged after the world is up.
+                Debug.Log($"[HeadlessMp] CONFIG map={GameSettings.SelectedMapScene} " +
+                          $"peers={_peers} factions={_totalFactions} age={(int)_startAge} " +
+                          $"warm={(_warmUntilWall > 0 ? 1 : 0)} " +
+                          $"monkey={(s_monkey ? 1 : 0)} chaos={(s_noChaos ? 0 : 1)} " +
+                          $"deterministic={(_loose ? 0 : 1)} rich={(_rich ? 1 : 0)} " +
+                          $"seed={_seed} limit={(int)_limit}");
+                Debug.Log($"[HeadlessMp] AI brains ready for the {_peers} peer factions " +
+                          $"({made} created this pass, epoch {MatchLifecycle.MatchEpoch}) " +
+                          "— driven host-side, commands ride the lockstep stream");
             }
 
             // ── Chaos mover (clients only): a small real order through the
             // CLIENT -> HOST -> relay path every few seconds, so that whole
             // layer carries traffic. The AI may immediately re-order the same
             // unit — that is concurrent input, exactly what MP must survive.
+            if (lockstep != null) MaybeInjectFault(lockstep.CurrentTick);
+
             float simNow = lockstep != null
                 ? lockstep.CurrentTick * LockstepManager.TICK_DURATION : 0f;
             if (!s_noChaos && _peer != 0 && simNow >= _nextChaosAt && simNow > 30f)

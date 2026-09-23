@@ -1,4 +1,4 @@
-// MatchLogSession.cs
+﻿// MatchLogSession.cs
 // One folder of logs per match, plus console/exception capture, for alpha
 // testers to send back after a play session.
 
@@ -31,6 +31,21 @@ namespace TheWaningBorder.Core.Diagnostics
         /// A play session is a handful of matches; this only stops an
         /// unattended build from filling a disk.</summary>
         private const int KeepMatchFolders = 30;
+
+        /// <summary>
+        /// The batch limit. A headless desync run writes EIGHT folders per
+        /// match -- four peers, plus four more when the peers warm up on a
+        /// local skirmish first -- so 30 keeps under four matches and a
+        /// -Matches 4 batch deletes its own earliest evidence before the
+        /// runner can diff it. That happened on 2026-09-12: the per-tick
+        /// cross-peer check for the first three HollowTable matches had
+        /// nothing left to read. Batch mode is exactly the case where the
+        /// history is the product.
+        /// </summary>
+        private const int KeepMatchFoldersBatch = 400;
+
+        private static int KeepLimit =>
+            UnityEngine.Application.isBatchMode ? KeepMatchFoldersBatch : KeepMatchFolders;
 
         private const string ConsoleFileName = "Console.log";
         private const string SummaryFileName = "Summary.txt";
@@ -325,10 +340,11 @@ namespace TheWaningBorder.Core.Diagnostics
                 foreach (var d in all)
                     if (LooksLikeMatchFolder(d.Name)) mine.Add(d);
 
-                if (mine.Count <= KeepMatchFolders) return;
+                int keep = KeepLimit;
+                if (mine.Count <= keep) return;
 
                 mine.Sort((a, b) => string.CompareOrdinal(a.Name, b.Name)); // name == timestamp
-                for (int i = 0; i < mine.Count - KeepMatchFolders; i++)
+                for (int i = 0; i < mine.Count - keep; i++)
                 {
                     try { mine[i].Delete(recursive: true); } catch { }
                 }

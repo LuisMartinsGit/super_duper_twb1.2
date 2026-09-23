@@ -1,4 +1,4 @@
-// MatchMetrics.cs
+﻿// MatchMetrics.cs
 // Machine-readable match statistics, for batch runs.
 //
 // ─────────────────────────────────────────────────────────────────────────
@@ -211,7 +211,7 @@ namespace TheWaningBorder.Core.Diagnostics
 
         // ── incremental flush state (instance — resets with the component) ──
         private int _deathsFlushed;
-        private bool _posToggle;
+
 
         /// <summary>Flush death events recorded since the last sample, and —
         /// every other sample (30 s) — every living unit's position. Both
@@ -234,8 +234,11 @@ namespace TheWaningBorder.Core.Diagnostics
                 _deathsFlushed = _deathEvents.Count;
             }
 
-            _posToggle = !_posToggle;
-            if (!_posToggle) return;
+            // POSITIONS EVERY SAMPLE (2026-09-12). This used to skip every
+            // other sample, so the map replay had one frame per 30 s — ten
+            // frames for a five-minute match, which is a slideshow, not a
+            // replay. At 15 s a viewer can interpolate between frames and the
+            // file is still a few hundred KB for a long match.
             var q = QC_UnitTypeIdFactionTagLocalTransform.Get(em, QT_UnitTypeIdFactionTagLocalTransform);
             var pos = new StringBuilder();
             int ti = (int)t;

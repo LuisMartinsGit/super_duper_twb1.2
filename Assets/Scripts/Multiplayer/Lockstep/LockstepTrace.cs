@@ -1,4 +1,4 @@
-// LockstepTrace.cs
+﻿// LockstepTrace.cs
 // A rolling per-entity, per-tick record of the simulation, dumped when a
 // desync fires.
 //
@@ -33,8 +33,10 @@
 // thirty-second match is a few hundred thousand lines of near-identical text
 // and compresses to almost nothing in the log zip.
 
+using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Text;
 
 namespace TheWaningBorder.Multiplayer
@@ -108,6 +110,64 @@ namespace TheWaningBorder.Multiplayer
                 frame.Entities = new EntitySnapshot[snapshots.Count * 2];
 
             for (int i = 0; i < snapshots.Count; i++) frame.Entities[i] = snapshots[i];
+        }
+
+        /// <summary>
+        /// Every live unit's COMPONENT TYPE NAMES, one line per entity, keyed
+        /// by network id so two peers' files diff line-for-line.
+        ///
+        /// WHY (2026-09-13). Three forks in a row were a worker that moved on
+        /// the host and stood still on the clients, every printed field
+        /// identical the tick before, no command on the wire. The `arch=`
+        /// count added to the trace finally showed the shape -- 49 component
+        /// types on the host, 48 on the client at the onset tick -- but a
+        /// count cannot say WHICH type. This can. The extra component is what
+        /// drives the divergent movement, so it is still present at detection
+        /// time (the fork is at most TraceTicks earlier), and a diff of the
+        /// two peers' rosters names it in one line.
+        ///
+        /// Sorted type names, so archetype chunk order cannot fake a diff.
+        /// </summary>
+        public static int FlushTypes(string path, Unity.Entities.EntityManager em)
+        {
+            try
+            {
+                var sb = new StringBuilder(1024 * 1024);
+                sb.AppendLine("=== COMPONENT ROSTER at detection ===");
+                sb.AppendLine("one line per live networked unit: id, then every component type,");
+                sb.AppendLine("sorted. Diff against the other peer: the type present on one side");
+                sb.AppendLine("only is the component that forked the sim.");
+                sb.AppendLine();
+
+                var q = em.CreateEntityQuery(
+                    Unity.Entities.ComponentType.ReadOnly<TheWaningBorder.Core.Multiplayer.NetworkedEntity>(),
+                    Unity.Entities.ComponentType.ReadOnly<UnitTag>());
+                using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
+                var rows = new System.Collections.Generic.List<(int id, string line)>(ents.Length);
+                var names = new System.Collections.Generic.List<string>(64);
+                for (int i = 0; i < ents.Length; i++)
+                {
+                    var e = ents[i];
+                    int id = em.GetComponentData<TheWaningBorder.Core.Multiplayer.NetworkedEntity>(e).NetworkId;
+                    names.Clear();
+                    using (var types = em.GetComponentTypes(e, Unity.Collections.Allocator.Temp))
+                        for (int t = 0; t < types.Length; t++)
+                            names.Add(types[t].GetManagedType()?.Name ?? types[t].ToString());
+                    names.Sort(string.CompareOrdinal);
+                    rows.Add((id, "t " + id.ToString(CultureInfo.InvariantCulture)
+                                  + " " + string.Join(" ", names)));
+                }
+                rows.Sort((a, b) => a.id.CompareTo(b.id));
+                foreach (var r in rows) sb.AppendLine(r.line);
+                q.Dispose();   // created here, disposed here: once per desync, never cached
+                File.WriteAllText(path, sb.ToString());
+                return rows.Count;
+            }
+            catch (Exception ex)
+            {
+                try { File.WriteAllText(path, "roster failed: " + ex.Message); } catch { }
+                return -1;
+            }
         }
 
         /// <summary>
@@ -215,6 +275,16 @@ namespace TheWaningBorder.Multiplayer
                   .Append(" work=").Append(s.WorkKind)
                   .Append(':').Append(Hex(s.WorkA)).Append(',').Append(Hex(s.WorkB))
                   .Append('@').Append(s.WorkTarget.ToString(CultureInfo.InvariantCulture))
+                  // Both of these are hashed into nav; printing them is what
+                  // makes a nav fork diffable at all (2026-09-11).
+                  .Append(" guard=").Append(s.HasGuard).Append(':')
+                                    .Append(Hex(s.Gx)).Append(',').Append(Hex(s.Gz))
+                  .Append(" fspd=").Append(s.HasFormSpeed).Append(':').Append(Hex(s.FormSpeed))
+                  // Archetype type COUNT, not a hashed field: if the host is
+                  // carrying a component the clients are not, every printed
+                  // field can still match while this one differs, and that is
+                  // exactly the 2026-09-13 worker fork's signature.
+                  .Append(" arch=").Append(s.ArchTypes.ToString(CultureInfo.InvariantCulture))
                   .AppendLine();
             }
         }
