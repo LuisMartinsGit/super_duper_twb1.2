@@ -308,3 +308,40 @@ foreach ($asset in @($zipPath, $manifestPath)) {
 Write-Host ""
 Write-Host "Released v$Version." -ForegroundColor Green
 Write-Host "Launchers will pick it up on their next start."
+
+# ---------------------------------------------------------------- tag the source
+# TWB-Releases holds the binaries; THIS repo holds the source, and until
+# 2026-09-23 nothing tied the two together: sixteen builds had shipped and
+# the code repo had zero tags, so a desync log's "0.0.23 4184a27d" could not
+# be checked out. The sixteen were tagged retroactively that day; every
+# release from here on tags the commit it was built from and pushes the tag.
+#
+# The tag goes on HEAD even when the tree is dirty (0.0.24 shipped from a
+# dirty tree), because the nearest commit is still the answer to "where do I
+# start reading" - the tag message records that the tree was dirty so nobody
+# mistakes it for bit-exact. A failed tag or push does not undo the release:
+# the build is already out, so this only warns.
+$srcRepo = Split-Path -Parent $root
+$srcTag = "v$Version"
+$existingTag = git -C $srcRepo tag -l $srcTag
+if ($existingTag) {
+    Write-Warning "Source tag $srcTag already exists - not moved. Delete it first if the release was rebuilt."
+}
+else {
+    $dirty = git -C $srcRepo status --porcelain
+    $dirtyNote = if ($dirty) { " Built from a DIRTY tree ($(@($dirty).Count) uncommitted path(s)); this is the nearest commit, not the exact source." } else { "" }
+    $head = git -C $srcRepo rev-parse --short HEAD
+    git -C $srcRepo tag -a $srcTag -m "The Waning Border $Version - built from $head and published as release $srcTag on $Repo.$dirtyNote"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning "Could not create source tag $srcTag (git exit $LASTEXITCODE). Tag it by hand: git tag -a $srcTag -m '...' ; git push origin $srcTag"
+    }
+    else {
+        git -C $srcRepo push origin $srcTag
+        if ($LASTEXITCODE -ne 0) {
+            Write-Warning "Source tag $srcTag created locally but the push failed (git exit $LASTEXITCODE). Push it by hand: git push origin $srcTag"
+        }
+        else {
+            Write-Host "Tagged the source: $srcTag -> $head$(if ($dirty) { ' (dirty tree)' })" -ForegroundColor Green
+        }
+    }
+}

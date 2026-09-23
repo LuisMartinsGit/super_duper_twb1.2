@@ -11,10 +11,6 @@ build always name the same number.
 
 ## [Unreleased]
 
----
-
-## [Unreleased]
-
 ### Fixed
 
 - **Multiplayer desync when a wall was drawn (2026-09-22, HollowTable, tick
@@ -26,6 +22,8 @@ build always name the same number.
   `x:z`, and `LockstepManager.QueueCommand` refuses, with an error, any
   command whose payload carries `|` or `,` — refusing is deterministic, so a
   future payload bug is loud instead of a fork.
+
+---
 
 ## [0.0.24] — 2026-09-22
 
