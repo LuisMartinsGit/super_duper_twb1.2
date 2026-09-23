@@ -211,3 +211,28 @@ settings.json
 Blender_assets/**/*.zip
 Blender_assets/AssetLibrary/_build_log.txt
 Blender_assets/AssetLibrary/_failed_*.txt
+
+# ===========================
+# Generated junk found tracked on 2026-09-23 — untracked with
+# `git rm --cached`, the files stay on disk.
+# ===========================
+
+# The batch / hunt / build scripts write their console logs at the repo root
+# (batch-pool.log, build-*.log, gen-veilmarch.log). Transient, per machine.
+# docs/player_logs/ is tracked on purpose and is not at the root.
+/*.log
+
+# HudFrontend is an npm project; `npm install` restores this.
+HudFrontend/node_modules/
+
+# Burst's AOT scratch inside the Substance plugin — a fresh random folder
+# name every player build, so the tracked metas were never the same twice.
+Assets/Adobe/Substance3DForUnity/Runtime/Plugins/Temp/
+Assets/Adobe/Substance3DForUnity/Runtime/Plugins/Temp.meta
+
+# Unity writes a meta beside every ignored .blend1 backup.
+*.blend1.meta
+
+# Lower-case twin of /Obj/ above — git matches case-sensitively on any
+# clone that is not on Windows.
+/obj/
