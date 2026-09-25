@@ -26,10 +26,20 @@ build always name the same number.
 - **New house model** for the Hut, with a player-colour material that takes
   the owning player's colour.
 
+- **Four wall levels.** Wooden Wall (every culture, from Age 0), Stone Wall
+  (granted by the Alanthor pick), Battlemented Wall and Shielded Wall. The two
+  upgrades, Battlements and Shielded Ramparts, are researched at the Wall Hub
+  and re-clad every wall you own the moment they finish.
+
 ### Changed
 
 - **Building placement preview is solid white** instead of translucent green
   while the spot is valid. An invalid spot still shows translucent red.
+- **Wall upgrades moved from the Hall to the Wall Hub.**
+- **Walls run exactly where you draw them.** Wall hubs no longer snap to the
+  build grid, and an automatically inserted hub no longer bends the wall.
+- **A wooden wall converts only to a Gate or a Hub** — no tower and no
+  mounted engine on timber, and no disabled placeholder buttons.
 
 ---
 
