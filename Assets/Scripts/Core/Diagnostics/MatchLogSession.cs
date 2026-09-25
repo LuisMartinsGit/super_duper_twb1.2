@@ -301,7 +301,16 @@ namespace TheWaningBorder.Core.Diagnostics
 
         private static void OnQuitting()
         {
-            End("quit");
+            // A WON MATCH MUST NOT REPORT "quit" (2026-09-24). Every match
+            // ends by quitting the process, so passing the literal "quit"
+            // here overwrote the one fact the summary exists to record: a
+            // match decided at 3442s with Blue winning was filed identically
+            // to one that ran out of clock, and a whole batch read as "nobody
+            // ever wins" when somebody had.
+            End(TheWaningBorder.Core.MatchLifecycle.MatchDecided
+                    && !string.IsNullOrEmpty(TheWaningBorder.Core.MatchLifecycle.MatchWinner)
+                ? TheWaningBorder.Core.MatchLifecycle.MatchWinner + " wins"
+                : "quit");
             lock (_consoleLock)
             {
                 WriteConsoleLineUnlocked($"=== Session ended {DateTime.Now:yyyy-MM-dd HH:mm:ss} ===");

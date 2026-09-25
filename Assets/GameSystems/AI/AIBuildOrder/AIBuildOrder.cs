@@ -138,6 +138,13 @@ namespace TheWaningBorder.AI
             BuildOrderStep.Train(UnitRole.Military),   // was Archer — ranged is an Age-1 unlock (2026-08-11)
             BuildOrderStep.Build("ShrineOfRidan"),
             BuildOrderStep.AgeUpStep(),
+            // The wall's own upgrade, researched at a Wall Hub. Optional
+            // twice over: a non-Alanthor pick makes it unavailable, and a
+            // faction with no hub standing has nowhere to research it —
+            // either way a required step here would stall the whole order.
+            // Lv1 (stone) already came free with the culture pick.
+            // docs/Design/Age_1_Alanthor.md § The four wall levels
+            BuildOrderStep.ResearchTech("Battlements", optional: true),
             BuildOrderStep.Train(UnitRole.Worker),
             BuildOrderStep.Train(UnitRole.Worker),
             BuildOrderStep.Train(UnitRole.Worker),
@@ -182,6 +189,13 @@ namespace TheWaningBorder.AI
             BuildOrderStep.Train(UnitRole.Military),
             BuildOrderStep.Build("ShrineOfRidan"),
             BuildOrderStep.AgeUpStep(),
+            // The wall's own upgrade, researched at a Wall Hub. Optional
+            // twice over: a non-Alanthor pick makes it unavailable, and a
+            // faction with no hub standing has nowhere to research it —
+            // either way a required step here would stall the whole order.
+            // Lv1 (stone) already came free with the culture pick.
+            // docs/Design/Age_1_Alanthor.md § The four wall levels
+            BuildOrderStep.ResearchTech("Battlements", optional: true),
             BuildOrderStep.Train(UnitRole.Worker),
             BuildOrderStep.Train(UnitRole.Worker),
             BuildOrderStep.Train(UnitRole.Worker),
@@ -274,6 +288,8 @@ namespace TheWaningBorder.AI
             BuildOrderStep.Train(UnitRole.Military),
             BuildOrderStep.Train(UnitRole.Military),
             BuildOrderStep.AgeUpStep(),
+            // The turtle wants its wall upgraded above all: see Balanced.
+            BuildOrderStep.ResearchTech("Battlements", optional: true),
             // Turtle is defensive but still has a standing army â€” push it
             // out at least once. Maintenance loop keeps the pressure on.
             BuildOrderStep.Train(UnitRole.Military),
@@ -310,6 +326,13 @@ namespace TheWaningBorder.AI
             BuildOrderStep.Train(UnitRole.Military),   // was Archer — ranged is an Age-1 unlock (2026-08-11)
             BuildOrderStep.Build("VaultOfAlmierra"),
             BuildOrderStep.AgeUpStep(),
+            // The wall's own upgrade, researched at a Wall Hub. Optional
+            // twice over: a non-Alanthor pick makes it unavailable, and a
+            // faction with no hub standing has nowhere to research it —
+            // either way a required step here would stall the whole order.
+            // Lv1 (stone) already came free with the culture pick.
+            // docs/Design/Age_1_Alanthor.md § The four wall levels
+            BuildOrderStep.ResearchTech("Battlements", optional: true),
             BuildOrderStep.Train(UnitRole.Worker),
             BuildOrderStep.Train(UnitRole.Worker),
             BuildOrderStep.Train(UnitRole.Worker),

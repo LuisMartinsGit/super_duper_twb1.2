@@ -269,7 +269,7 @@ namespace TheWaningBorder.Input
         private bool TryGetRampartClick(out float3 rampartPoint)
         {
             rampartPoint = float3.zero;
-            var cam = Camera.main;
+            var cam = TheWaningBorder.Core.PresentationState.GameplayCamera;
             if (!cam) return false;
 
             float deckY = Nav.LayerTransitionSystem.DeckY;
@@ -295,7 +295,7 @@ namespace TheWaningBorder.Input
         private bool TryGetClickPoint(out float3 point)
         {
             point = float3.zero;
-            var cam = Camera.main;
+            var cam = TheWaningBorder.Core.PresentationState.GameplayCamera;
             if (!cam) return false;
 
             Ray ray = cam.ScreenPointToRay(UnityEngine.Input.mousePosition);

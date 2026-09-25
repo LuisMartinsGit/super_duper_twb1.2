@@ -22,7 +22,8 @@
 //     -twbPlayers 4 -twbLimit 1200 -twbSpeed 3 -twbSeed 12345
 //
 //   -twbPlayers N   AI factions (all slots become AI; nobody is watching)
-//   -twbLimit S     match seconds before the run is ended and dumped
+//   -twbLimit S     match seconds before the run is ended and dumped.
+//                   0 = NO LIMIT: only a decided match ends the run
 //   -twbSpeed X     Time.timeScale; see the clamp note below
 //   -twbSeed N      spawn seed, so runs can be repeated or deliberately varied
 //   -twbRich        every faction pinned at FactionResources.ResourceCap
@@ -114,13 +115,25 @@ namespace TheWaningBorder.Bootstrap
             MatchMetrics.Enabled = true;
             gameObject.AddComponent<MatchMetrics>();
 
+            // THE FINE REPLAY FEED (2026-09-24). -twbTrace was wired into
+            // HeadlessMp only, so a SINGLE-PLAYER batch silently ignored it
+            // and every automated skirmish replay fell back to
+            // Metrics_UnitPositions: one sample every 15 s, no unit identity,
+            // no state -- a replay of dots that jump, which the report then
+            // cannot tween. The flag existed, the runner passed it, and
+            // nothing read it. Same install as the MP path.
+            if (Array.IndexOf(args, "-twbTrace") >= 0)
+                MapTrace.Install(ArgInt(args, "-twbTracePeriod", 0));
+
             // timeScale directly rather than PlayerProfile.GameSpeed: the
             // profile clamps at 2x for the human-facing setting, and a batch
             // run is not that setting.
             _speed = Mathf.Clamp(speed, 0.25f, 8f);
             Time.timeScale = _speed;
 
-            Debug.Log($"[HeadlessBatch] {players} AI, limit {_limit}s, speed {Time.timeScale}x, " +
+            Debug.Log($"[HeadlessBatch] {players} AI, " +
+                      (_limit > 0 ? $"limit {_limit}s, " : "NO LIMIT (runs until decided), ") +
+                      $"speed {Time.timeScale}x, " +
                       $"seed {seed}, map {GameSettings.SelectedMapScene}" +
                       (_rich ? ", RICH (banks pinned at cap)" : ""));
 
@@ -197,7 +210,17 @@ namespace TheWaningBorder.Bootstrap
                 return;
             }
 
-            if (_t < _limit) return;
+            // -twbLimit 0 = NO LIMIT (2026-09-24). The only thing that ends
+            // the run is then a DECIDED match, above. That is the whole of
+            // the question "how long does a match take to solve itself",
+            // which a limit can only ever answer "at least this long" -- six
+            // matches capped at 3600 s all reported `quit`, which says
+            // nothing about when any of them would have resolved.
+            //
+            // A match that can never decide now runs forever, on purpose.
+            // The runner's stop file and -TimeoutMin are the ways back out;
+            // neither is on by default when the limit is off.
+            if (_limit <= 0f || _t < _limit) return;
 
             _done = true;
             Debug.Log($"[HeadlessBatch] limit reached at {_t:F0}s — dumping metrics");

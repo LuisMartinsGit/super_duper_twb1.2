@@ -121,7 +121,7 @@ tr:last-child td{border-bottom:0}
 .num{text-align:right;font-family:var(--mono)}
 .scroll{overflow-x:auto;background:var(--panel);border:1px solid var(--rule);border-radius:2px}
 tr.live{cursor:pointer} tr.live:hover td{background:var(--gold-soft)}
-tr.live td:first-child::before{content:"B6";font-size:9px;margin-right:6px;color:var(--gold)}
+tr.live td:first-child::before{content:"▶";font-size:9px;margin-right:6px;color:var(--gold)}
 td.fork{color:var(--bad);font-weight:600} td.ok{color:var(--ok)}
 .note{max-width:70ch;color:var(--ink2);margin:0}
 .warn{color:var(--bad)}
@@ -170,8 +170,22 @@ canvas.chart{display:block;width:100%;height:132px}
   <p class="note">What each faction actually built, at the last sample.</p>
   <div class="grid" id="composition"></div>
 
+  <h2>What each faction built</h2>
+  <p class="note">Standing structures at the last sample, and the ground they stand on.</p>
+  <div class="grid" id="structures"></div>
+  <div class="scroll" id="placement"></div>
+
+  <h2>Research</h2>
+  <p class="note">Every technology completed, and how widely each was taken across the
+  factions of this match.</p>
+  <div class="scroll" id="research"></div>
+
   <h2>Economy</h2>
   <div class="grid" id="charts"></div>
+
+  <h2>Kills and deaths</h2>
+  <p class="note">Per minute, from the death events — where the fighting actually was.</p>
+  <div class="scroll" id="combat"></div>
 
   <h2>The curse</h2>
   <p class="lede" id="curseLede"></p>
@@ -181,6 +195,7 @@ canvas.chart{display:block;width:100%;height:132px}
   <p class="lede" id="ledgerLede"></p>
   <div class="scroll" id="ledger"></div>
 
+  <p class="note" id="overflow" style="display:none"></p>
   <div class="foot" id="foot"></div>
 </div>
 
@@ -569,6 +584,101 @@ function renderComposition(){
   });
 }
 
+function renderStructures(){
+  var m=M[sel], host=document.getElementById("structures"); host.textContent="";
+  var st=m.structures||{};
+  var keys=Object.keys(st).sort();
+  if(!keys.length){ host.innerHTML='<div class="card"><div class="s">no building samples</div></div>'; }
+  keys.forEach(function(f){
+    var rows=st[f]||[];
+    var tot=rows.reduce(function(a,r){ return a+r[1]; },0);
+    var d=document.createElement("div"); d.className="card";
+    d.innerHTML='<div class="k"><span class="swatch" style="background:'+fhue(f)+'"></span>'+f+'</div>'+
+      '<div class="v">'+tot+'<span style="font-size:14px;color:var(--mute)"> standing</span></div>'+
+      (rows.length
+        ? '<div class="s">'+rows.slice(0,10).map(function(r){
+            return esc(String(r[0]).replace(/^Alanthor_|^Runai_|^Feraldis_|^Sect_/,""))+" ×"+r[1]; }).join(", ")
+          +'</div>'
+        : '<div class="s">nothing standing</div>');
+    host.appendChild(d);
+  });
+
+  // WHERE it was built. One row per faction per territory, because the
+  // question the old placement heat-map answered was "did anyone expand",
+  // and a region id answers it without a second canvas.
+  var host2=document.getElementById("placement"); host2.textContent="";
+  var pl=m.placement||[];
+  if(!pl.length){ host2.innerHTML='<p class="note">no end-of-match placement roll</p>'; return; }
+  var by={};
+  pl.forEach(function(b){
+    var k=b.f+"|"+b.r;
+    (by[k]=by[k]||{f:b.f,r:b.r,n:0,ids:{}});
+    by[k].n++; by[k].ids[b.id]=(by[k].ids[b.id]||0)+1;
+  });
+  var rows=Object.keys(by).map(function(k){ return by[k]; })
+             .sort(function(a,b){ return a.f===b.f ? b.n-a.n : (a.f<b.f?-1:1); });
+  host2.innerHTML='<table><thead><tr><th>faction</th><th>territory</th>'+
+    '<th class="num">buildings</th><th>what</th></tr></thead><tbody>'+
+    rows.map(function(r){
+      var what=Object.keys(r.ids).sort(function(a,b){ return r.ids[b]-r.ids[a]; })
+        .slice(0,6).map(function(i){
+          return esc(i.replace(/^Alanthor_|^Runai_|^Feraldis_|^Sect_/,""))+(r.ids[i]>1?" ×"+r.ids[i]:""); })
+        .join(", ");
+      return '<tr><td><span class="swatch" style="background:'+fhue(r.f)+'"></span>'+esc(r.f)+'</td>'+
+             '<td>'+(r.r<0?'<span class="s">unregioned</span>':'#'+r.r)+'</td>'+
+             '<td class="num">'+r.n+'</td><td class="s">'+what+'</td></tr>';
+    }).join("")+'</tbody></table>';
+}
+
+function renderResearch(){
+  var m=M[sel], host=document.getElementById("research"); host.textContent="";
+  var rs=m.research||{};
+  var facs=Object.keys(rs).sort();
+  if(!facs.length){ host.innerHTML='<p class="note">nothing was researched in this match</p>'; return; }
+  // Column per faction, row per tech: the shape that shows at a glance
+  // whether a tech is universal or one faction's idea.
+  var techs={};
+  facs.forEach(function(f){ (rs[f]||[]).forEach(function(t){ techs[t]=(techs[t]||0)+1; }); });
+  var names=Object.keys(techs).sort(function(a,b){
+    return techs[b]-techs[a] || (a<b?-1:1); });
+  host.innerHTML='<table><thead><tr><th>technology</th>'+
+    facs.map(function(f){
+      return '<th><span class="swatch" style="background:'+fhue(f)+'"></span>'+esc(f)+'</th>'; }).join("")+
+    '<th class="num">taken by</th></tr></thead><tbody>'+
+    names.map(function(t){
+      return '<tr><td>'+esc(t)+'</td>'+
+        facs.map(function(f){
+          var has=(rs[f]||[]).indexOf(t)>=0;
+          return '<td>'+(has?'<span class="v ok">✓</span>':'<span class="s">–</span>')+'</td>'; }).join("")+
+        '<td class="num">'+techs[t]+'/'+facs.length+'</td></tr>';
+    }).join("")+'</tbody></table>';
+}
+
+function renderCombat(){
+  var m=M[sel], host=document.getElementById("combat"); host.textContent="";
+  var rows=m.combat||[];
+  if(!rows.length){ host.innerHTML='<p class="note">nobody died in this match</p>'; return; }
+  var facs=[]; var per={};
+  rows.forEach(function(r){
+    if(facs.indexOf(r.f)<0) facs.push(r.f);
+    (per[r.f]=per[r.f]||{k:0,d:0,peak:0,peakM:0});
+    per[r.f].k+=r.k; per[r.f].d+=r.d;
+    if(r.k>per[r.f].peak){ per[r.f].peak=r.k; per[r.f].peakM=r.m; }
+  });
+  facs.sort();
+  host.innerHTML='<table><thead><tr><th>faction</th><th class="num">kills</th>'+
+    '<th class="num">deaths</th><th class="num">ratio</th><th>bloodiest minute</th>'+
+    '</tr></thead><tbody>'+
+    facs.map(function(f){
+      var p=per[f];
+      var ratio=p.d>0?(p.k/p.d).toFixed(2):(p.k>0?"∞":"–");
+      return '<tr><td><span class="swatch" style="background:'+fhue(f)+'"></span>'+esc(f)+'</td>'+
+        '<td class="num">'+p.k+'</td><td class="num">'+p.d+'</td>'+
+        '<td class="num '+(p.d>0&&p.k/p.d>=1?"ok":"")+'">'+ratio+'</td>'+
+        '<td class="s">'+(p.peak?('minute '+p.peakM+' — '+p.peak+' kills'):'–')+'</td></tr>';
+    }).join("")+'</tbody></table>';
+}
+
 function lineChart(cv,series){
   var H=132,g=fit(cv,H),W=cv.clientWidth||400;
   var padL=44,padR=8,padT=8,padB=18;
@@ -652,10 +762,21 @@ function renderHead(){
     (m.deaths||[]).length+" deaths. Generated "+(DOC.generated||"");
 }
 
+function renderOverflow(){
+  // The page has a size ceiling and the builder drops whole matches to meet
+  // it. Never silently: if any were dropped, the page says which.
+  var host=document.getElementById("overflow"), o=DOC.overflow||[];
+  if(!o.length){ host.style.display="none"; return; }
+  host.style.display="";
+  host.innerHTML='<strong>'+o.length+' match(es) dropped to fit the page size ceiling:</strong> '+
+    o.map(esc).join(", ")+'. They are still on disk — rebuild with fewer log roots to see them.';
+}
+
 function renderAll(){
   R.t=0; setPlay(false);
   renderRuns(); renderHead(); renderTransport();
-  renderWaves(); renderStanding(); renderComposition(); renderCharts(); renderCurse();
+  renderOverflow(); renderWaves(); renderStanding(); renderComposition(); renderStructures();
+  renderResearch(); renderCharts(); renderCombat(); renderCurse();
   requestAnimationFrame(draw);
 }
 

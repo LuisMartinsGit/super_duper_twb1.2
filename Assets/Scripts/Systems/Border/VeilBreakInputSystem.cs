@@ -53,7 +53,7 @@ namespace TheWaningBorder.Systems.Border
         private static bool TryCursorToWorld(out float wx, out float wz)
         {
             wx = wz = 0f;
-            var cam = Camera.main;
+            var cam = TheWaningBorder.Core.PresentationState.GameplayCamera;
             if (cam == null) return false;
             Ray ray = cam.ScreenPointToRay(UnityEngine.Input.mousePosition);
 

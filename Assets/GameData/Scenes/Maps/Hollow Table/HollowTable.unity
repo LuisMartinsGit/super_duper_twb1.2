@@ -307,23 +307,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   SnapToTerrain: 1
-  RegionName: 
+  RegionName: North Reach
   ValueMultiplier: 1
   Shape:
-  - {x: 26, y: 96}
-  - {x: -20, y: 96}
-  - {x: -14, y: 82}
-  - {x: -16, y: 68}
-  - {x: -24, y: 62}
-  - {x: -36, y: 58}
-  - {x: -36, y: 58}
-  - {x: -4, y: 26}
-  - {x: -4, y: 26}
-  - {x: 8, y: 26}
-  - {x: 34, y: 58}
-  - {x: 28, y: 60}
-  - {x: 22, y: 66}
-  - {x: 22, y: 82}
+  - {x: 24, y: 24}
+  - {x: 96, y: 96}
+  - {x: -96, y: 96}
+  - {x: -24, y: 24}
+  - {x: -24.04, y: 24.04}
+  - {x: -13.01, y: 31.41}
+  - {x: 0, y: 34}
+  - {x: 13.01, y: 31.41}
+  - {x: 24.04, y: 24.04}
   Kind: 0
 --- !u!1 &199157331
 GameObject:
@@ -466,55 +461,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 180, z: 0}
---- !u!1 &289660761
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 289660762}
-  - component: {fileID: 289660763}
-  m_Layer: 0
-  m_Name: "Veilstone \u2014 Table 4"
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &289660762
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 289660761}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 30, y: 11.653543, z: 30}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 390010313}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &289660763
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 289660761}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 565138ae313710a40b8088338c3813d3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  NodeCount: 16
-  VeilstonePerNode: 40
-  Spread: 8
-  Layout: 0
 --- !u!1 &329500998
 GameObject:
   m_ObjectHideFlags: 0
@@ -614,8 +560,7 @@ Transform:
   - {fileID: 737712660}
   - {fileID: 617492677}
   - {fileID: 1261501760}
-  - {fileID: 1291785582}
-  - {fileID: 289660762}
+  - {fileID: 2096222124}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &424459075
@@ -759,32 +704,15 @@ MonoBehaviour:
   RegionName: Blue Home
   ValueMultiplier: 1
   Shape:
-  - {x: -26, y: 8}
-  - {x: -20, y: 18}
-  - {x: -10, y: 24}
-  - {x: -4, y: 26}
-  - {x: -36, y: 58}
-  - {x: -36, y: 58}
-  - {x: -46, y: 56}
-  - {x: -50, y: 50}
-  - {x: -56, y: 46}
-  - {x: -74, y: 42}
-  - {x: -84, y: 34}
-  - {x: -96, y: 36}
-  - {x: -96, y: -50}
-  - {x: -88, y: -46}
-  - {x: -80, y: -38}
-  - {x: -72, y: -38}
-  - {x: -68, y: -40}
-  - {x: -60, y: -46}
-  - {x: -52, y: -50}
-  - {x: -46, y: -52}
-  - {x: -40, y: -54}
-  - {x: -32, y: -58}
-  - {x: -2, y: -28}
-  - {x: -16, y: -22}
-  - {x: -24, y: -12}
-  - {x: -26, y: -6}
+  - {x: -24, y: 24}
+  - {x: -96, y: 96}
+  - {x: -96, y: -96}
+  - {x: -24, y: -24}
+  - {x: -24.04, y: -24.04}
+  - {x: -31.41, y: -13.01}
+  - {x: -34, y: 0}
+  - {x: -31.41, y: 13.01}
+  - {x: -24.04, y: 24.04}
   Kind: 0
 --- !u!1 &521709180
 GameObject:
@@ -879,29 +807,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   SnapToTerrain: 1
-  RegionName: 
+  RegionName: South Reach
   ValueMultiplier: 1
   Shape:
-  - {x: 16, y: -82}
-  - {x: 16, y: -72}
-  - {x: 24, y: -64}
-  - {x: 34, y: -60}
-  - {x: 34, y: -60}
-  - {x: 34, y: -60}
-  - {x: 34, y: -60}
-  - {x: 10, y: -26}
-  - {x: -2, y: -28}
-  - {x: -32, y: -58}
-  - {x: -28, y: -60}
-  - {x: -24, y: -64}
-  - {x: -18, y: -70}
-  - {x: -14, y: -74}
-  - {x: -12, y: -82}
-  - {x: -14, y: -90}
-  - {x: -22, y: -96}
-  - {x: 32, y: -96}
-  - {x: 30, y: -92}
-  - {x: 24, y: -88}
+  - {x: -24, y: -24}
+  - {x: -96, y: -96}
+  - {x: 96, y: -96}
+  - {x: 24, y: -24}
+  - {x: 24.04, y: -24.04}
+  - {x: 13.01, y: -31.41}
+  - {x: 0, y: -34}
+  - {x: -13.01, y: -31.41}
+  - {x: -24.04, y: -24.04}
   Kind: 0
 --- !u!1 &566544244
 GameObject:
@@ -1020,7 +937,7 @@ Transform:
   m_GameObject: {fileID: 617492676}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -30, y: 10.888116, z: -30}
+  m_LocalPosition: {x: 0, y: 10.888116, z: -22}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1133,40 +1050,25 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   SnapToTerrain: 1
-  RegionName: 
+  RegionName: The Table
   ValueMultiplier: 1
   Shape:
-  - {x: -4, y: -24}
-  - {x: -4, y: -28}
-  - {x: 10, y: -26}
-  - {x: 10, y: -22}
-  - {x: 14, y: -20}
-  - {x: 18, y: -16}
-  - {x: 22, y: -10}
-  - {x: 24, y: -6}
-  - {x: 24, y: -6}
-  - {x: 26, y: -6}
-  - {x: 26, y: 6}
-  - {x: 24, y: 6}
-  - {x: 20, y: 12}
-  - {x: 18, y: 16}
-  - {x: 14, y: 20}
-  - {x: 8, y: 24}
-  - {x: 8, y: 24}
-  - {x: 8, y: 24}
-  - {x: 8, y: 26}
-  - {x: -4, y: 26}
-  - {x: -4, y: 24}
-  - {x: -12, y: 20}
-  - {x: -16, y: 18}
-  - {x: -22, y: 10}
-  - {x: -24, y: 8}
-  - {x: -26, y: 8}
-  - {x: -26, y: -6}
-  - {x: -24, y: -6}
-  - {x: -20, y: -14}
-  - {x: -14, y: -20}
-  - {x: -10, y: -22}
+  - {x: 34, y: 0}
+  - {x: 31.41, y: 13.01}
+  - {x: 24.04, y: 24.04}
+  - {x: 13.01, y: 31.41}
+  - {x: 0, y: 34}
+  - {x: -13.01, y: 31.41}
+  - {x: -24.04, y: 24.04}
+  - {x: -31.41, y: 13.01}
+  - {x: -34, y: 0}
+  - {x: -31.41, y: -13.01}
+  - {x: -24.04, y: -24.04}
+  - {x: -13.01, y: -31.41}
+  - {x: 0, y: -34}
+  - {x: 13.01, y: -31.41}
+  - {x: 24.04, y: -24.04}
+  - {x: 31.41, y: -13.01}
   Kind: 0
 --- !u!1 &737712659
 GameObject:
@@ -1179,7 +1081,7 @@ GameObject:
   - component: {fileID: 737712660}
   - component: {fileID: 737712661}
   m_Layer: 0
-  m_Name: "Veilsteel \u2014 North"
+  m_Name: "Veilsteel \u2014 West Table"
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1194,7 +1096,7 @@ Transform:
   m_GameObject: {fileID: 737712659}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 11.489959, z: 70}
+  m_LocalPosition: {x: -16, y: 11.489959, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1275,7 +1177,7 @@ GameObject:
   - component: {fileID: 866546132}
   - component: {fileID: 866546133}
   m_Layer: 0
-  m_Name: "Veilsteel \u2014 South"
+  m_Name: "Veilsteel \u2014 East Table"
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1290,7 +1192,7 @@ Transform:
   m_GameObject: {fileID: 866546131}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 11.50827, z: -70}
+  m_LocalPosition: {x: 16, y: 11.50827, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1724,7 +1626,7 @@ GameObject:
   - component: {fileID: 1246484740}
   - component: {fileID: 1246484741}
   m_Layer: 0
-  m_Name: "Well \u2014 The Table"
+  m_Name: "Well \u2014 North Reach"
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1739,7 +1641,7 @@ Transform:
   m_GameObject: {fileID: 1246484739}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 14.865409, z: 0}
+  m_LocalPosition: {x: 0, y: 14.865409, z: 70}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1752,6 +1654,52 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1246484739}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e3b4f48951458d949863ff40b25913fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  AuthoredPosition: 1
+--- !u!1 &2096222117
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2096222124}
+  - component: {fileID: 2096222131}
+  m_Layer: 0
+  m_Name: "Well \u2014 South Reach"
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2096222124
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2096222117}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 14.865409, z: -70}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 390010313}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2096222131
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2096222117}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e3b4f48951458d949863ff40b25913fb, type: 3}
@@ -1833,7 +1781,7 @@ Transform:
   m_GameObject: {fileID: 1261501759}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 30, y: 11.598608, z: -30}
+  m_LocalPosition: {x: 0, y: 11.598608, z: 22}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1904,78 +1852,16 @@ MonoBehaviour:
   RegionName: Red Home
   ValueMultiplier: 1
   Shape:
-  - {x: 82, y: -50}
-  - {x: 90, y: -46}
-  - {x: 96, y: -44}
-  - {x: 96, y: 34}
-  - {x: 82, y: 32}
-  - {x: 72, y: 36}
-  - {x: 60, y: 40}
-  - {x: 50, y: 54}
-  - {x: 42, y: 56}
-  - {x: 34, y: 58}
-  - {x: 8, y: 26}
-  - {x: 22, y: 16}
-  - {x: 26, y: 8}
-  - {x: 28, y: -0}
-  - {x: 26, y: -10}
-  - {x: 20, y: -18}
-  - {x: 10, y: -26}
-  - {x: 34, y: -60}
-  - {x: 42, y: -58}
-  - {x: 48, y: -56}
-  - {x: 62, y: -52}
-  - {x: 74, y: -50}
+  - {x: 24, y: -24}
+  - {x: 96, y: -96}
+  - {x: 96, y: 96}
+  - {x: 24, y: 24}
+  - {x: 24.04, y: 24.04}
+  - {x: 31.41, y: 13.01}
+  - {x: 34, y: 0}
+  - {x: 31.41, y: -13.01}
+  - {x: 24.04, y: -24.04}
   Kind: 0
---- !u!1 &1291785581
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1291785582}
-  - component: {fileID: 1291785583}
-  m_Layer: 0
-  m_Name: "Veilstone \u2014 Table 3"
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1291785582
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1291785581}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -30, y: 10.84783, z: 30}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 390010313}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1291785583
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1291785581}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 565138ae313710a40b8088338c3813d3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  NodeCount: 16
-  VeilstonePerNode: 40
-  Spread: 8
-  Layout: 0
 --- !u!1 &1393392037
 GameObject:
   m_ObjectHideFlags: 0
@@ -2242,7 +2128,7 @@ Transform:
   m_GameObject: {fileID: 1711516925}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: 0.7071099, z: -0, w: -0.7071037}
-  m_LocalPosition: {x: 2.1819203, y: 11.622482, z: 81.29672}
+  m_LocalPosition: {x: 34, y: 11.622482, z: 82}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2512,6 +2398,96 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   SnapToTerrain: 1
+--- !u!1 &2096222159
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2096222166}
+  - component: {fileID: 2096222173}
+  m_Layer: 0
+  m_Name: Supply Node - Table E
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2096222166
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2096222159}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: 0.7071099, z: -0, w: -0.7071037}
+  m_LocalPosition: {x: 24, y: 11.471316, z: 12}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 269.999, z: 0}
+--- !u!114 &2096222173
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2096222159}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0681c25dec55954419b38b9afbc2fe96, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+--- !u!1 &2096222138
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2096222145}
+  - component: {fileID: 2096222152}
+  m_Layer: 0
+  m_Name: Supply Node - Table W
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2096222145
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2096222138}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: 0.7071099, z: -0, w: -0.7071037}
+  m_LocalPosition: {x: -24, y: 11.471316, z: -12}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 269.999, z: 0}
+--- !u!114 &2096222152
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2096222138}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0681c25dec55954419b38b9afbc2fe96, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
 --- !u!4 &1870712103
 Transform:
   m_ObjectHideFlags: 0
@@ -2566,7 +2542,7 @@ Transform:
   m_GameObject: {fileID: 1892463786}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: 0.70710576, z: -0, w: 0.70710784}
-  m_LocalPosition: {x: -2.3176365, y: 11.542681, z: -80.79664}
+  m_LocalPosition: {x: -34, y: 11.542681, z: -82}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2825,3 +2801,5 @@ SceneRoots:
   - {fileID: 390010313}
   - {fileID: 1065814502}
   - {fileID: 1520339340}
+  - {fileID: 2096222145}
+  - {fileID: 2096222166}

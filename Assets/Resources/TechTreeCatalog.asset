@@ -123,6 +123,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 8b6585a419ac4ea8a1e3e62f4f3622e5, type: 2}
   technologies:
   - {fileID: 11400000, guid: 434c222e4050433ca21d6bab1ba77c21, type: 2}
+  - {fileID: 11400000, guid: 7a41c9b2e05d48f6a3c2716d5e94b038, type: 2}
   - {fileID: 11400000, guid: 9f97a51987ed418faa82c539cc043a32, type: 2}
   - {fileID: 11400000, guid: c3d6db0783114b2fae3a02aeac586a15, type: 2}
   - {fileID: 11400000, guid: 227350135ea7403d8c0413983e348525, type: 2}

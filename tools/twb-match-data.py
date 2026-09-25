@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """Collapse every artefact a headless run leaves behind into ONE json file.
 
-    python tools/twb-hunt-data.py <logs-root> [<logs-root> ...] --out data.json
+    python tools/twb-match-data.py <logs-root> [<logs-root> ...] --out data.json
 
-Six tools already read these folders, each answering one question and each
-with its own idea of what a "session" is: aggregate-metrics (batch economy),
-batch-dashboard (live batch state), batch-report (finished batch), mp-diff
-(per-tick cross-peer agreement), the Desync_* dumps, and the AI_*.log audit
-trail. Nothing joined them, so "did the desync happen in the match where Red
-was starving" was a question you answered by hand, across four windows.
+THE ONE EXTRACTOR (2026-09-24). Six tools used to read these folders, each
+answering one question and each with its own idea of what a "session" is:
+aggregate-metrics (batch economy), batch-dashboard (live batch state),
+batch-report (finished batch), mp-diff (per-tick cross-peer agreement), the
+Desync_* dumps, and the AI_*.log audit trail. Nothing joined them, so "did
+the desync happen in the match where Red was starving" was a question you
+answered by hand, across four windows. The first three are now DELETED and
+everything they read is carried here.
 
 This joins them on the match. One record per MATCH -- peers folded together,
 because a four-peer lockstep match is ONE match seen four times -- carrying:
@@ -21,6 +23,10 @@ because a four-peer lockstep match is ONE match seen four times -- carrying:
   * the economy / military / territory time series from Metrics_Faction.csv
   * everything needed to REPLAY the match on a map: unit position frames,
     building add/remove events, and death events
+  * the end-of-match rolls the old batch reports were built on: what each
+    faction had STANDING (Metrics_Buildings), what it had RESEARCHED
+    (Metrics_Research), WHERE it built (Metrics_Placement) and its kills
+    and deaths per minute (Metrics_Combat)
 
 Peers of one match are matched by map name and a start time within two
 minutes, the same rule mp-diff.ps1 uses.
@@ -30,10 +36,41 @@ from collections import defaultdict
 
 # -- args ------------------------------------------------------------------
 args = list(sys.argv[1:])
-OUT = "twb-hunt-data.json"
+OUT = "twb-match-data.json"
 if "--out" in args:
     i = args.index("--out"); OUT = args[i + 1]; del args[i:i + 2]
 MAX_MATCHES = 40          # newest first; the page has to stay openable
+
+# THE REPLAY POINT BUDGET IS THE PAGE'S, NOT EACH MATCH'S (2026-09-24).
+# Every match in the window draws from these; main() divides them by how many
+# matches it is actually emitting, so six long traced matches cost the same
+# page as thirty short ones and the overflow guard never has to discard a
+# whole match to fit. Floors keep a replay watchable however many matches
+# are in flight: below about 8k points a long match's units teleport.
+# SIZED FROM A MEASUREMENT, not a guess. Six matches a third of the way
+# through a 3600 s run measured 6.7 MB of json, of which the replay frames
+# were ~1.6 MB and growing with the match; the rest (the AI's account of
+# itself, deaths, building lists, series) grows too. Tripling that to the end
+# of the run would clear the build script's 14 MB ceiling, and its overflow
+# guard discards WHOLE MATCHES to fit -- a sixth of the evidence, silently,
+# to make room for the rest. 270k trace points across the window is the old
+# 45k-per-match value at six matches and shrinks from there.
+TRACE_TOTAL_BUDGET = 150000
+SAMPLED_TOTAL_BUDGET = 200000
+TRACE_SHARE = 45000        # set by main(); this is the single-match value
+SAMPLED_SHARE = 60000
+# Death events per match. thin() keeps an EVEN spread and always keeps the
+# last row, so a capped list still ends where the match ended.
+DEATH_TOTAL_BUDGET = 30000
+DEATH_CAP = 5000
+# Frames a match keeps however tight the budget gets. Temporal resolution is
+# what makes a replay readable, so this is the last thing spent -- but with a
+# dozen matches in the window it cannot stay at 240 each.
+FRAME_FLOOR = 240
+# The AI's own series, per faction. Set by main() from the window size.
+AI_SERIES_TOTAL = 2400
+AI_SERIES_CAP = 400
+AI_EVENT_CAP = 300
 if "--max" in args:
     i = args.index("--max"); MAX_MATCHES = int(args[i + 1]); del args[i:i + 2]
 # The append-only record. Match folders are pruned off disk as the hunt runs
@@ -757,6 +794,22 @@ def summary_of(d):
         if ":" in line and not line.startswith("==="):
             k, _, v = line.partition(":")
             out[k.strip()] = v.strip()
+
+    # SUMMARY.TXT LIES ABOUT A WON MATCH (2026-09-24). MatchLogSession.End is
+    # called from OnQuitting with the literal "quit", so a match that someone
+    # WON reports the same outcome as one that hit a time limit -- which makes
+    # the ledger useless for the only question an unlimited run asks: when
+    # does a match solve itself. The runner says so plainly in the console;
+    # believe that instead, and carry the simulated second it happened at.
+    for cn in ("Console.log", "Console-2.log", "Console-3.log", "Console-4.log",
+               "Console-5.log", "Console-6.log", "Console-7.log", "Console-8.log"):
+        for line in read_lines(os.path.join(d, cn)):
+            m = re.search(r"match decided at (\d+)s\s*[^\w]*\s*(\w+) wins", line)
+            if m:
+                out["DecidedAt"] = int(m.group(1))
+                out["Winner"] = m.group(2)
+                out["Outcome"] = "%s wins" % m.group(2)
+                return out
     return out
 
 
@@ -816,7 +869,7 @@ def build(match):
     # order the chunks happened to be in, i.e. one corner of the map), and
     # only drop frames if that still is not enough. Cutting the tail is never
     # an option: it would hide exactly the late-game state these runs reach.
-    POINT_BUDGET = 60000
+    POINT_BUDGET = SAMPLED_SHARE
     PER_FACTION_CAP = 70
 
     def _points(rs):
@@ -836,10 +889,14 @@ def build(match):
               for r in read_csv(os.path.join(hd, "Metrics_BuildingEvents.csv"))]
     builds.sort(key=lambda b: b["t"])
 
+    # DEATHS GROW WITHOUT BOUND in a match with no limit, and nothing capped
+    # them. Keep an even spread across the match rather than the first N, so
+    # the late game -- the part an unlimited run exists to reach -- survives.
     deaths = [dict(t=i_(r["t"]), v=r["victim"], k=r["killer"],
                    x=i_(r["x"]), z=i_(r["z"]))
               for r in read_csv(os.path.join(hd, "Metrics_Deaths.csv"))]
     deaths.sort(key=lambda d: d["t"])
+    deaths = thin(deaths, DEATH_CAP)
 
     # Map extent from whatever the match actually touched, padded. Reading it
     # from MapInfo would be better but that asset is not on the log path.
@@ -914,7 +971,16 @@ def build(match):
         # 15, and sat at 9.4 MB of a 14 MB ceiling. Enough temporal
         # resolution survives (a 3 h match keeps ~280 frames) and the
         # overflow guard that discards whole matches stays well away.
-        TRACE_POINT_BUDGET = 45000
+        # SHARED ACROSS THE WINDOW (2026-09-24). The budget used to be a flat
+        # 45k PER MATCH, which was right when the window was mostly sampled
+        # matches and only a few carried a trace. Six concurrent TRACED
+        # matches is a different shape: 6 x 45k lands the page on the build
+        # script's 14 MB ceiling, and its overflow guard then discards whole
+        # matches, oldest first -- with six in the window that is a sixth of
+        # the evidence thrown away to make room for the rest, silently.
+        #
+        # The page has one budget, so the matches in it share one budget.
+        TRACE_POINT_BUDGET = TRACE_SHARE
         TRACE_FACTION_CAP = 55
 
         def _pts(rs):
@@ -923,13 +989,24 @@ def build(match):
         def _rank(uid):
             return (uid * 2654435761) & 0xFFFFFFFF
 
-        if _pts(frames) > TRACE_POINT_BUDGET:
+        # THE CAP HAS TO TIGHTEN, AND THE FLOOR HAS TO MOVE (2026-09-24).
+        # As written this enforced nothing once a window held more than a few
+        # matches: the faction cap was a fixed 55 and never reduced, and the
+        # frame thinning refused to run below 240 frames. Twelve matches of
+        # ~170 frames each sailed past a 12.5k budget at 42k points apiece,
+        # and the page walked into the overflow guard that discards whole
+        # matches. Squeeze the units per frame FIRST -- losing a few dots is
+        # invisible, losing a second of time is not -- and only then thin in
+        # time, against a floor that also shrinks with the window.
+        cap = TRACE_FACTION_CAP
+        while _pts(frames) > TRACE_POINT_BUDGET and cap > 6:
+            cap = max(6, int(cap * 0.75))
             for fr in frames:
                 for fa, pts in fr["u"].items():
-                    if len(pts) > TRACE_FACTION_CAP:
+                    if len(pts) > cap:
                         pts.sort(key=lambda p: _rank(p[0]))
-                        fr["u"][fa] = pts[:TRACE_FACTION_CAP]
-        while len(frames) > 240 and _pts(frames) > TRACE_POINT_BUDGET:
+                        fr["u"][fa] = pts[:cap]
+        while len(frames) > FRAME_FLOOR and _pts(frames) > TRACE_POINT_BUDGET:
             frames = frames[::2]
         blds = [dict(t0=round(b["t0"], 1), t1=round(died[k], 1) if k in died else None,
                      f=b["f"], id=b["name"], x=int(b["x"]), z=int(b["z"]),
@@ -972,13 +1049,19 @@ def build(match):
                 if a["lines"] > ai.get(fa, {}).get("lines", -1):
                     ai[fa] = a
     ai = {k: v for k, v in ai.items() if v["lines"] > 0}
+    # SHARED, LIKE THE REPLAY (2026-09-24). thin()'s default cap is 400 rows
+    # PER FACTION PER SERIES -- eight factions on Veilmarch is 6,400 rows for
+    # one match, and the window holds twelve. The AI's account of itself was
+    # 2.5 MB of a 12 MB page and the second-largest thing in it, growing with
+    # every match minute, which is how an unlimited run creeps into the
+    # overflow guard even after the replay stops growing.
     for a in ai.values():
-        for k in ("budget", "intel"):
-            a[k] = thin(a[k])
+        for k in ("budget", "intel", "waves"):
+            a[k] = thin(a[k], AI_SERIES_CAP)
         # Event lists are read as text, not plotted; keep the newest of each.
         for k in ("goals", "posture", "plan", "claim", "research"):
-            if len(a[k]) > 300:
-                a[k] = a[k][-300:]
+            if len(a[k]) > AI_EVENT_CAP:
+                a[k] = a[k][-AI_EVENT_CAP:]
 
     # One flat, time-ordered wave list: the page shows the MATCH, not one
     # faction's view of it. Blocked attempts are dropped here -- they are in
@@ -1007,6 +1090,39 @@ def build(match):
         for k in _per:
             _per[k].sort(key=lambda x: -x[1])
         composition = dict(_per)
+
+    # STRUCTURES, RESEARCH, PLACEMENT, COMBAT (2026-09-24). Absorbed from
+    # batch-report.py / aggregate-metrics.py when the three overlapping
+    # reports were folded into this one. The game writes all four and
+    # nothing read them here, so every panel driven by them lived in a
+    # separate tool reading the same folders.
+    _bld_rows = read_csv(os.path.join(hd, "Metrics_Buildings.csv"))
+    structures = {}
+    if _bld_rows:
+        _tl = max(i_(r["t"]) for r in _bld_rows)
+        _per = defaultdict(list)
+        for r in _bld_rows:
+            if i_(r["t"]) == _tl and i_(r["count"]) > 0:
+                _per[r["faction"]].append([r["buildingId"], i_(r["count"])])
+        for k in _per:
+            _per[k].sort(key=lambda x: -x[1])
+        structures = dict(_per)
+
+    research = defaultdict(list)
+    for r in read_csv(os.path.join(hd, "Metrics_Research.csv")):
+        t = (r.get("tech") or "").strip()
+        if t:
+            research[r.get("faction", "?")].append(t)
+    for k in research:
+        research[k].sort()
+
+    placement = [dict(f=r.get("faction", "?"), id=r.get("buildingId", "?"),
+                      x=f(r.get("x")), z=f(r.get("z")), r=i_(r.get("region"), -1))
+                 for r in read_csv(os.path.join(hd, "Metrics_Placement.csv"))]
+
+    combat = [dict(m=i_(r.get("minute")), f=r.get("faction", "?"),
+                   k=i_(r.get("kills")), d=i_(r.get("deaths")))
+              for r in read_csv(os.path.join(hd, "Metrics_Combat.csv"))]
 
     summ = summary_of(hd)
     # DID THE PEERS HOLD REAL TIME? The simulation is pinned to wall clock in
@@ -1037,17 +1153,25 @@ def build(match):
         key=match["key"], map=match["map"], stamp=match["stamp"],
         kind=match["kind"], peers=len(peers),
         outcome=summ.get("Outcome", "?"), duration=summ.get("Duration", "?"),
+        decidedAt=summ.get("DecidedAt"), winner=summ.get("Winner", ""),
         build=summ.get("Build", "?"), exceptions=i_(summ.get("Exceptions")),
         errors=i_(summ.get("Errors")), warnings=i_(summ.get("Warnings")),
         tmax=tmax, extent=ext, config=cfg,
         world=world, nodes=nodes, regions=regions, blds=blds,
         frames=frames, fidelity=fidelity,
-        waveList=wavelist, composition=composition,
+        waveList=wavelist, composition=composition, structures=structures,
+        research={k: v for k, v in research.items()},
+        placement=placement, combat=combat,
         desync=ds, series=dict(series), ai=ai, orders=cmds, audit=audit,
         perf=perf, wall=round(wall, 1),
         realtime=(round(wall / (ds["ticks"] / 30.0), 2)
                   if ds.get("ticks", 0) >= 900 and wall > 0 else 0),
-        replay=replay, builds=builds, deaths=deaths, eliminated=eliminated,
+        # NO `replay` KEY (2026-09-24). The page reads m.frames and has never
+        # read m.replay -- zero references. It was 2.44 MB of a 14 MB page on
+        # a 12-match window and grew with every match minute, which is how an
+        # unlimited run walks into the build script's overflow guard and
+        # starts discarding whole matches to fit.
+        builds=builds, deaths=deaths, eliminated=eliminated,
         curse=curse_story(hd, deaths))
 
 
@@ -1066,6 +1190,17 @@ def main():
     else:
         matches = allmatches[:MAX_MATCHES]
         older = allmatches[MAX_MATCHES:]
+    # Divide the page's replay budget among the matches that will be in it.
+    global TRACE_SHARE, SAMPLED_SHARE
+    n = max(1, len(matches))
+    global DEATH_CAP, FRAME_FLOOR, AI_SERIES_CAP, AI_EVENT_CAP
+    TRACE_SHARE = max(9000, TRACE_TOTAL_BUDGET // n)
+    SAMPLED_SHARE = max(12000, SAMPLED_TOTAL_BUDGET // n)
+    DEATH_CAP = max(600, DEATH_TOTAL_BUDGET // n)
+    FRAME_FLOOR = max(80, 1440 // n)
+    AI_SERIES_CAP = max(80, AI_SERIES_TOTAL // n)
+    AI_EVENT_CAP = max(60, 1800 // n)
+
     records = []
     records_tail = []      # cheap verdicts for everything past the window
     for m in matches:

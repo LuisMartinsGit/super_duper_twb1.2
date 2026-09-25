@@ -183,8 +183,9 @@ namespace TheWaningBorder.UI.Ingame
                     // Snap the ghost to the 2 m build grid so the player sees
                     // the exact cells the building will take, not a free-float
                     // position that jumps when BuildingFactory snaps it later.
-                    // Wall HUBS snap too (they are buildings); wall segments
-                    // are freeform but are never placed through this path.
+                    // The wall HUB is the exception: it is grid-exempt
+                    // (docs/Design/Build_Grid.md § 5), so its ghost follows the
+                    // cursor exactly, as the placed hub will.
                     // docs/Design/Build_Grid.md
                     string snapId = BuildId(_currentBuild);
                     if (!string.IsNullOrEmpty(snapId))

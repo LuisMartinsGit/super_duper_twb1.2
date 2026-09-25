@@ -28,7 +28,7 @@ namespace TheWaningBorder.Input
         /// </summary>
         public static Entity EntityUnderMouse(LayerMask mask, EntityManager em)
         {
-            var cam = Camera.main;
+            var cam = TheWaningBorder.Core.PresentationState.GameplayCamera;
             if (cam == null) return Entity.Null;
 
             var cfg = Cfg;

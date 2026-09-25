@@ -216,12 +216,13 @@ namespace TheWaningBorder.UI.World
                 var k = kind[j];
                 bool isEnd = j == pick.Count - 1 && pick.Count > 1;
                 if (isEnd && endSnap.HasValue) xz = new Vector2(endSnap.Value.x, endSnap.Value.z);
-                else if (k == CommandRouter.WallPathKind.NewHub)
-                {
-                    var snapped = BuildGrid.Snap(new float3(xz.x, 0f, xz.y), "Alanthor_Wall");
-                    xz = new Vector2(snapped.x, snapped.z);
-                }
                 var p = new float3(xz.x, TerrainUtility.GetHeight(xz.x, xz.y), xz.y);
+                // Nothing on a drawn wall is grid-snapped (2026-09-24) -- not
+                // the curve and not the hubs on it. The hub is the one building
+                // exempt from the build grid precisely so a drawn wall runs
+                // where it was drawn; snapping either half kinked the line at
+                // every hub the run cap inserted.
+                // docs/Design/Build_Grid.md § 5
                 _points.Add(p); _kinds.Add(k);
                 if (k == CommandRouter.WallPathKind.NewHub)
                 {

@@ -79,15 +79,29 @@ un-ticked markers are then ignored, because a half-authored well set would
 be a silent balance change). Corner wells are the right default and a poor
 fit whenever the well layout *is* the map:
 
-| Map | Wells | Why not corners |
+**N = 1 IS A BUG, NOT A LAYOUT (2026-09-24).** Domination is "all N wells
+at once", so a map with a single well ends the moment anyone finishes their
+first verb on it — no defending N−1 holds, no match point, no climax, and
+the "holds all but ONE well" broadcast cannot fire because it self-disables
+below N = 2. **Every shipping map authors at least TWO wells**, and the
+audit belongs in the map's own validator.
+
+**A well is never inside an opening.** The corner-well default at a 12 %
+inset put one 31 m from every start on Sundered Crown — each player woke
+up with a well, and its 22 m of haze, in their own base. A well should be
+ground you march to: the shipping maps sit between 70 m (a 192 m duel map)
+and 250 m (a 1024 m field) from the nearest start.
+
+| Map | Wells | Where, and why |
 |---|---|---|
-| Hollow Table (1v1) | **N = 1**, dead centre | The map is a duel over one piece of ground; four objectives would be four duels |
-| Twin Spans (3v3) | **N = 4**, one per bridgehead | The map is about two river crossings; corner wells would put every objective as far from the river as the map allows |
+| Hollow Table (1v1) | **N = 2**, north and south | The middle stays OPEN — it is the map's veilsteel table and the thing the duel is actually about. The two wells flank it on the axis perpendicular to the players, so each is exactly as far from Blue as from Red |
+| Sundered Crown (4P) | **N = 4**, one per map edge | Homes are on the diagonals, so an edge well sits midway between two neighbours and is contested by both from the first minute. The Crown at the centre carries no curse |
+| Sundered Reach (3P) | **N = 4**, spread wide | 704 m of ground: no player can cover two of them without giving up a third |
+| Twin Spans (3v3) | **N = 4**, one per bridgehead | The map is about its two crossings; corner wells would put every objective as far from the river as the map allows |
+| Veilmarch (8P) | **N = 5**, The Scar + the four far corners | The dead centre is the curse's own territory and keeps its well; the other four are the map's extremes, so domination means holding the middle AND all four corners |
 
 Nothing downstream needs a special case: `NodeVictorySystem` scores well
-domination against the **live node count**, so N = 1 and N = 4 both work —
-at N = 1 the victory condition simply reads as king-of-the-hill, and the
-"holds all but ONE well" match-point broadcast self-disables below N = 2.
+domination against the **live node count**, so any N works.
 > **REVERTED (2026-08-03, playtest):** mining the Veil directly is
 > retired — the reforming crust stranded diggers, output was a trickle,
 > and crust spawns killed them. **Veilstone now comes from discrete

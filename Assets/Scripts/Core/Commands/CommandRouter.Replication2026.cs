@@ -150,6 +150,16 @@ namespace TheWaningBorder.Core.Commands
             if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost))
                 return Entity.Null;
 
+            // NO GRID SNAP (2026-09-24). The wall hub is the one building
+            // exempt from the 2 m build grid: a wall is DRAWN, the run cap
+            // inserts hubs along the stroke, and while the hub snapped and the
+            // curtain did not, every inserted hub landed up to ~1.4 m off the
+            // drawn line and the wall visibly kinked at each one. The hub keeps
+            // its 2 x 2 footprint for placement, passability and selection --
+            // it simply stands where it was put.
+            // docs/Design/Build_Grid.md § 5
+            pos.y = TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(pos.x, pos.z);
+
             // Dispatcher, not AlanthorWall.CreateHub direct -- see the same
             // note in the WallExtend executor below (2026-09-13).
             Entity hub = TheWaningBorder.Entities.BuildingFactory.Create(em, "Alanthor_Wall", pos, faction);
@@ -233,6 +243,8 @@ namespace TheWaningBorder.Core.Commands
                 // A hub made here without them (2026-09-13, Hollow Table)
                 // could never be repaired or extended from under lockstep --
                 // every order aimed at it was dropped by the router guard.
+                // Unsnapped, as above: the hub is grid-exempt.
+                pos.y = TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(pos.x, pos.z);
                 hub = TheWaningBorder.Entities.BuildingFactory.Create(em, "Alanthor_Wall", pos, faction);
                 em.AddComponentData(hub,
                     new UnderConstruction { Progress = 0f, Total = BuildSeconds });
@@ -516,6 +528,26 @@ namespace TheWaningBorder.Core.Commands
         }
 
         /// <summary>
+        /// Where a run's curve ENDS at <paramref name="hub"/>.
+        ///
+        /// A hub this order raised (NewHub) ends at the point the player drew:
+        /// the hub snapped to the build grid, the wall did not, and bending the
+        /// wall onto the snapped centre is what made inserted run-cap hubs kink
+        /// the line. An EXISTING hub (or a wall cell converted into one) is a
+        /// thing already standing on the ground, so the wall has to actually
+        /// reach its centre — there is nothing to keep straight.
+        /// docs/Design/Age_1_Alanthor.md § Drawing walls
+        /// </summary>
+        static float3 CurveEndFor(EntityManager em, Entity hub, WallPathKind kind, float3 drawn)
+        {
+            if (kind != WallPathKind.NewHub)
+                return em.GetComponentData<Unity.Transforms.LocalTransform>(hub).Position;
+            // The drawn point carries the ground height sampled at its own XZ,
+            // which is what the swept mesh wants to follow.
+            return drawn;
+        }
+
+        /// <summary>
         /// Executor — every peer. Walks the samples; at each hub point it
         /// raises (or finds, or converts a wall cell into) the hub and, if
         /// there is a previous hub, lays a curved segment along the samples
@@ -534,6 +566,7 @@ namespace TheWaningBorder.Core.Commands
             for (int i = 0; i < kinds.Count; i++) if (kinds[i] != WallPathKind.Point) hubCount++;
 
             Entity prev = Entity.Null;
+            float3 prevEnd = default;
             var sub = new System.Collections.Generic.List<float3>();
             for (int i = 0; i < pts.Count; i++)
             {
@@ -566,15 +599,27 @@ namespace TheWaningBorder.Core.Commands
                 if (prev != Entity.Null && prev != hub
                     && !TheWaningBorder.Entities.AlanthorWall.AreHubsConnected(em, prev, hub))
                 {
-                    // The sub-path runs hub centre to hub centre.
+                    // The sub-path runs END to END, and for a hub the ORDER
+                    // raised itself that end is the point the player DREW, not
+                    // the hub's grid-snapped centre (2026-09-24).
+                    //
+                    // A hub is a building and snaps to the 2 m grid; the drawn
+                    // curve does not. Pulling the curve onto the snapped centre
+                    // bent both runs meeting at an inserted run-cap hub toward
+                    // it by up to ~1.4 m, and the wall visibly kinked at every
+                    // one. Meeting at the drawn point instead keeps the two
+                    // runs collinear and lets the drum CLIP the curtain, which
+                    // is the cheaper error by a wide margin.
+                    // docs/Design/Age_1_Alanthor.md § Drawing walls
                     var curve = new System.Collections.Generic.List<float3>(sub.Count + 2);
-                    curve.Add(em.GetComponentData<Unity.Transforms.LocalTransform>(prev).Position);
+                    curve.Add(prevEnd);
                     curve.AddRange(sub);
-                    curve.Add(em.GetComponentData<Unity.Transforms.LocalTransform>(hub).Position);
+                    curve.Add(CurveEndFor(em, hub, k, pts[i]));
                     var segment = TheWaningBorder.Entities.AlanthorWall.CreateSegmentAlong(em, prev, hub, curve, faction);
                     TagSegmentAutoConstruct(em, segment, BuildSeconds);
                 }
                 prev = hub;
+                prevEnd = CurveEndFor(em, hub, k, pts[i]);
                 sub.Clear();
             }
         }

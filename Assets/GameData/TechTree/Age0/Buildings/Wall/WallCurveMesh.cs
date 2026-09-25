@@ -51,20 +51,32 @@ namespace TheWaningBorder.Rendering
         static readonly Band Unused = default;
 
         /// <summary>
-        /// Level 1 — the palisade: split logs on a timber sill under a lashed
-        /// rail, sharpened tops. Level 2 — crude stone: plinth, masonry body,
-        /// coping ledge, merlon crown. Level 3 — reinforced: heavier stone, an
-        /// iron band at the coping, and great shields hung on the outer face.
+        /// Level 0 — the palisade: split logs on a timber sill under a lashed
+        /// rail, sharpened tops. Level 1 — coursed stone: plinth, masonry body,
+        /// coping ledge, merlon crown. Level 2 — battlemented: the same stone
+        /// with a taller, fuller crown and hoardings. Level 3 — shielded:
+        /// heavier stone, an iron band at the coping, and great shields hung on
+        /// the outer face.
         /// </summary>
         static Band[] Profile(byte tier) => tier switch
         {
-            TheWaningBorder.Entities.WallTiers.Reinforced => new[]
+            TheWaningBorder.Entities.WallTiers.Shielded => new[]
             {
                 Solid(0.72f, 0f,     0.35f),                 // plinth
                 Solid(0.56f, 0.35f,  2.10f),                 // body
                 Solid(0.70f, 2.10f,  2.28f),                 // iron band / coping
                 Blocks(0.46f, 2.28f, 2.90f, 1.5f, 0.65f),    // merlons
                 Blocks(0.24f, 1.00f, 2.05f, 1.6f, 0.50f, shift: 0.50f), // shields
+            },
+            // Level 2 is the stone wall with its crown finished: taller,
+            // denser merlons and a run of timber hoardings on the outer face.
+            TheWaningBorder.Entities.WallTiers.Battlemented => new[]
+            {
+                Solid(0.68f, 0f,     0.32f),                 // plinth
+                Solid(0.53f, 0.32f,  2.05f),                 // body
+                Solid(0.66f, 2.05f,  2.22f),                 // coping
+                Blocks(0.44f, 2.22f, 2.80f, 1.1f, 0.70f),    // full merlon crown
+                Blocks(0.20f, 1.55f, 2.05f, 2.2f, 0.80f, shift: 0.50f), // hoardings
             },
             TheWaningBorder.Entities.WallTiers.Stone => new[]
             {

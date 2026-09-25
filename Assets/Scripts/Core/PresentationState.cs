@@ -50,11 +50,33 @@ namespace TheWaningBorder.Core
         public static bool PlacingBuilding;
 
         /// <summary>
-        /// The gameplay camera. Published by GameCamera; read by the few
-        /// in-world visuals that need to frame themselves against it (the Hut
-        /// evolution cinematic orbits it).
+        /// The gameplay camera. Published by the camera rig as it builds
+        /// itself; read by in-world visuals that frame themselves against it
+        /// (the Hut evolution cinematic orbits it).
         /// </summary>
         public static UnityEngine.Camera MainCamera;
+
+        /// <summary>
+        /// The camera every SCREEN-SPACE query must use: a right-click ray, a
+        /// selection box, a world-to-screen billboard.
+        ///
+        /// NEVER <c>Camera.main</c> for these (2026-09-24). Camera.main is
+        /// "some enabled camera tagged MainCamera", and which one is not
+        /// defined when there are two. A map scene created from
+        /// <c>NewSceneSetup.DefaultGameObjects</c> ships Unity's stock Main
+        /// Camera, the rig then adds its own with the same tag, and on those
+        /// maps Camera.main resolved to the STOCK one — a fixed camera at
+        /// (0, 1, -10) that sees none of what the player sees. Every right-click
+        /// ray was cast from it, missed the terrain, and
+        /// <c>WorldClickInput.TryGetClickPoint</c> returned false: move orders
+        /// could not be issued AT ALL on those maps, with nothing logged.
+        ///
+        /// The rig's camera is the gameplay camera by construction, so ask for
+        /// it by identity. The Camera.main fallback covers the frames before
+        /// the rig exists and the menu scenes, which have no rig.
+        /// </summary>
+        public static UnityEngine.Camera GameplayCamera
+            => MainCamera != null ? MainCamera : UnityEngine.Camera.main;
 
         /// <summary>
         /// Set true to take player camera control away for a cinematic, false

@@ -171,6 +171,14 @@ namespace TheWaningBorder.Entities
             // Dynamic buffer for tracking connections to other hubs
             em.AddBuffer<WallHubLink>(entity);
 
+            // The hub is a RESEARCH HOST (2026-09-24): the wall's own two
+            // upgrades, Battlements and Shielded Ramparts, are bought here
+            // rather than at the Hall, and ResearchCommandDirect refuses any
+            // building without this buffer -- silently, which is exactly how
+            // a button that looks fine does nothing at all.
+            // docs/Design/Age_1_Alanthor.md § The four wall levels
+            em.AddBuffer<ProductionQueueItem>(entity);
+
             AdoptOrphanedSegments(em, entity, position, faction);
 
             return entity;
@@ -627,8 +635,7 @@ namespace TheWaningBorder.Entities
         /// <summary>
         /// Turn a standing wall cell into a hub, SPLITTING its segment there
         /// (docs/Design/Age_1_Alanthor.md § Branching walls). The hub rises
-        /// on the cell's spot (grid-snapped, so it can land up to a metre
-        /// off the line — inside the tower either way); the cell under it is
+        /// on the cell's spot exactly (the hub is grid-exempt); the cell under it is
         /// removed; the cells before it stay on the original segment, which
         /// now ends at the new hub, and the cells after it move to a fresh
         /// segment from the new hub to the far hub. Both segments keep
@@ -646,7 +653,11 @@ namespace TheWaningBorder.Entities
             var segment = em.GetComponentData<WallInstanceParent>(instance).Segment;
             var faction = em.GetComponentData<FactionTag>(instance).Value;
             float3 cellPos = em.GetComponentData<LocalTransform>(instance).Position;
-            float3 hubPos = BuildGrid.Snap(cellPos, new int2((int)HubWidth, (int)HubWidth));
+            // Through the id overload, so the hub's grid exemption applies and
+            // the tower rises EXACTLY on the cell it replaces (2026-09-24).
+            // It used to snap, which put it up to a metre off the wall's line
+            // -- the same kink an inserted run-cap hub used to make.
+            float3 hubPos = BuildGrid.Snap(cellPos, HubId);
             hubPos.y = TerrainUtility.GetHeight(hubPos.x, hubPos.z);
 
             // Snapshot the segment before any structural change.
@@ -709,6 +720,24 @@ namespace TheWaningBorder.Entities
             RemoveHubLink(em, conn.HubB, segment);
 
             var hub = CreateHub(em, hubPos, faction);
+
+            // A hub raised THIS way never went through BuildingFactory, so it
+            // had neither a NetworkId nor a DisplayName -- which meant every
+            // lockstep order aimed at it was dropped by the router guard, the
+            // same trap the WallExtend executor's comment describes. It matters
+            // more now that a hub is where the wall's upgrades are researched.
+            // Deterministic: this runs in the executor on every peer.
+            if (!em.HasComponent<NetworkedEntity>(hub))
+                em.AddComponentData(hub, new NetworkedEntity
+                {
+                    NetworkId = NetworkIdGenerator.GetNextId(),
+                    SpawnTick = NetworkIdGenerator.CurrentTick,
+                });
+            if (!em.HasComponent<DisplayName>(hub))
+                em.AddComponentData(hub, new DisplayName
+                {
+                    Value = TheWaningBorder.Core.DisplayNames.ForBuildingFixed(HubId),
+                });
 
             if (before.Count == 0 && after.Count == 0)
             {
@@ -812,6 +841,12 @@ namespace TheWaningBorder.Entities
         {
             var grid = PassabilityGrid.Instance;
             if (grid == null) return;
+            // Never seal against a mask that has not been written yet. An
+            // unbaked grid is all-zero (Passable), so this would read "no
+            // terrain anywhere" — and a HALF-baked one is worse, because it
+            // reads blocked ground that is about to move.
+            // docs/Design/Build_Grid.md § The terrain seal
+            if (!grid.IsMaskReady) return;
             if (!em.Exists(hub) || !em.HasComponent<LocalTransform>(hub)) return;
 
             // Already sealed? (self-link in the hub's link buffer)
@@ -826,9 +861,10 @@ namespace TheWaningBorder.Entities
             Faction faction = em.HasComponent<FactionTag>(hub)
                 ? em.GetComponentData<FactionTag>(hub).Value : Faction.Blue;
 
-            // 16-bearing scan for the nearest terrain-blocked cell beyond
+            // 16-bearing scan for the nearest SHELTERING terrain face beyond
             // the tower footprint. Terrain only — buildings and razeable
-            // obstacles are not shelter and must not be sealed against.
+            // obstacles are not shelter and must not be sealed against — and
+            // a FACE, not a speck: see IsShelteringTerrain.
             float bestDist = float.MaxValue;
             float3 bestDir = default;
             for (int b = 0; b < 16; b++)
@@ -838,10 +874,9 @@ namespace TheWaningBorder.Entities
                 for (float d = HubInset + 0.5f; d <= TerrainSealRange; d += 1f)
                 {
                     float3 p = hubPos + dir * d;
-                    if (grid.GetCell(grid.WorldToCell(p)) != PassabilityGrid.TerrainBlocked)
-                        continue;
+                    if (!IsShelteringTerrain(grid, p, dir)) continue;
                     if (d < bestDist) { bestDist = d; bestDir = dir; }
-                    break; // first blocked sample decides this bearing
+                    break; // first sheltering sample decides this bearing
                 }
             }
             if (bestDist == float.MaxValue) return;
@@ -892,6 +927,46 @@ namespace TheWaningBorder.Entities
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// How much blocked ground a bearing must actually find before the hub
+        /// will throw a seal at it (2026-09-24). A single
+        /// <see cref="PassabilityGrid.TerrainBlocked"/> cell is NOT an
+        /// obstacle: slope, water paint and the odd bump leave isolated
+        /// blocked cells scattered over ordinary ground, and sealing to one
+        /// put a stub of curtain wall at an arbitrary bearing off perfectly
+        /// open hubs — the "wall hubs sprout segments in random directions"
+        /// report. A rock face you can be flanked around is several cells
+        /// deep and several cells wide, so that is what we require:
+        ///
+        ///   * the cell itself blocked, AND
+        ///   * the cell one metre FURTHER along the bearing blocked (depth —
+        ///     the face continues away from the hub, it is not a pebble), AND
+        ///   * at least one cell blocked to one SIDE of it (breadth — you
+        ///     could not simply walk round it).
+        ///
+        /// Off-grid samples are rejected outright. GetCell answers
+        /// TerrainBlocked for anything outside the grid, so without this a hub
+        /// built anywhere near the map border sealed itself to the void on
+        /// every bearing that ran off the map.
+        /// docs/Design/Build_Grid.md § The terrain seal
+        /// </summary>
+        static bool IsShelteringTerrain(PassabilityGrid grid, float3 p, float3 dir)
+        {
+            if (!BlockedOnMap(grid, p)) return false;
+            if (!BlockedOnMap(grid, p + dir * 1f)) return false;
+            float3 side = new float3(-dir.z, 0f, dir.x);
+            return BlockedOnMap(grid, p + side * 1f) || BlockedOnMap(grid, p - side * 1f);
+        }
+
+        /// <summary>Blocked by TERRAIN and inside the grid. The map edge is
+        /// not an obstacle, whatever GetCell says about it.</summary>
+        static bool BlockedOnMap(PassabilityGrid grid, float3 p)
+        {
+            var c = grid.WorldToCell(p);
+            if (c.x < 0 || c.y < 0 || c.x >= grid.Width || c.y >= grid.Height) return false;
+            return grid.GetCell(c) == PassabilityGrid.TerrainBlocked;
         }
 
         /// <summary>

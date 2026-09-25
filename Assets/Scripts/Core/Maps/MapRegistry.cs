@@ -108,8 +108,13 @@ namespace TheWaningBorder.Core.Maps
             "HollowTable",     // 1v1 duel, one central well
             "TwinSpans",       // 3v3 river, two crossings, four bridgehead wells
             "SunderedReach",   // 3P, 704 m (4x Twin Spans' area), 10 regions
-            "Veilmarch",       // 4P, 1024 m open field, curse-only centre, 21 regions
-            "VeilmarchGrand",  // 8P, the same field with eight homes on the ring (2026-09-13)
+            "Veilmarch",       // 8P, 1024 m open field, eight homes on the ring,
+                               // two wells on the east-west axis. This WAS
+                               // "VeilmarchGrand"; the 4-player Veilmarch was
+                               // the same field with four of the same homes and
+                               // is deleted (2026-09-24) — PlayerCount is a
+                               // lobby MAXIMUM, so the 8-start ring already
+                               // covers every count the 4P map did.
         };
 
         /// <summary>

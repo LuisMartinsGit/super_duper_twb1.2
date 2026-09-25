@@ -562,6 +562,23 @@ hub gets it exactly at the midpoint, two get them at the thirds, and a drawn
 wall is symmetrical rather than "full runs plus a stub at the end". The cap
 lives in `WallDrawTool.asset` as `maxModulesPerSegment`.
 
+**An inserted hub never bends the wall (2026-09-24).** A hub is a building
+and snaps to the 2 m build grid; the drawn curve does not. So an
+automatically inserted run-cap hub lands up to ~1.4 m off the line the player
+drew. The curve used to be dragged onto that snapped centre, which kinked
+BOTH neighbouring runs toward it — the wall visibly veered at every inserted
+hub. It no longer is: **the two runs meet at the point the player drew**, dead
+straight through, and the hub drum stands wherever the grid put it.
+
+**The accepted failure mode is that the hub CLIPS the curtain.** The drum can
+overlap a module by up to a metre, and that is the cheaper of the two errors
+by a wide margin — a straight wall with a tower sunk slightly into it reads as
+a wall; a wall that kinks at every third tower reads as broken geometry. This
+is also exactly why a wall piece **cannot be a prefab variant**: the pieces
+have to interpenetrate freely, so the art is swept and tiled at runtime
+(`WallCurveMesh` / `WallModuleArt`), never assembled from fitted variants that
+would need their joints to line up.
+
 **Why not a hub every few modules.** Intermediate hubs at one module's
 spacing left a single 3 m module per chord: the wall read as a row of towers
 with trim between them, which is the opposite of a curtain wall. Hubs are
@@ -674,47 +691,75 @@ full bank, open ground.
 > the "no manual open/close in v1" line in it. Everything else about the
 > hub-and-segment topology and § Drawing walls stands.
 
-#### The three wall levels
+#### The four wall levels (2026-09-24 — supersedes "the three wall levels")
 
-A wall is not one building that gets tougher — it is three visually
-distinct walls, and which one a faction raises is decided by its research,
-not by the placement. Every hub, curtain and gate the faction owns is
-**re-clad the moment the tech lands**; there is no per-wall upgrade click
-and nothing to re-place.
+A wall is not one building that gets tougher — it is four visually distinct
+walls, and which one a faction raises is decided by its progression, not by
+the placement. Every hub, curtain and gate the faction owns is **re-clad the
+moment the level lands**; there is no per-wall upgrade click and nothing to
+re-place.
+
+**The ladder is the one every other building uses:** Lv0 is the culture-less
+form, the culture pick grants Lv1, and Lv2 and Lv3 are bought. Walls now
+follow it exactly — and the two purchases are made **at the Wall Hub**, not
+at the Hall.
 
 | Lv | Player-facing name | Reached by | Look | Towers? | Curtain HP | Hub HP |
 |----|--------------------|-----------|------|---------|-----------:|-------:|
-| **1** | **Wooden Wall** | **every culture, from Age 0** — it is simply the wall you can build | Split logs driven into a timber sill, sharpened tops, a lashed walk-rail. Timber hub with a conical shingle roof. | **no** | 200 | 600 |
-| **2** | **Stone Wall** | **the Alanthor age-up itself.** Choosing Alanthor re-clads every wall you own, free and at once. There is no tech to buy | Rough-coursed limestone, a coping ledge and the merlon crown. | yes | 320 (×1.6) | 960 |
-| **3** | **Reinforced Wall** | **Alanthor only** — `ShieldedRamparts` at the Hall | Level 2 plus an **iron band** at the coping and **large metallic shields hung along the outer face**, one per module, under the merlons. Each curtain module carries **two garrison slots**. | yes | 460 (×2.3) | 1 380 |
+| **0** | **Wooden Wall** | **every culture, from Age 0** — it is simply the wall you can build | Split logs driven into a timber sill, sharpened tops, a lashed walk-rail. Timber hub with a conical shingle roof. | **no** | 200 | 600 |
+| **1** | **Stone Wall** | **the Alanthor culture pick, free and at once** | Rough-coursed limestone, a coping ledge and the merlon crown. | yes | 320 (×1.6) | 960 |
+| **2** | **Battlemented Wall** | **Alanthor only** — `Battlements`, researched **at the Wall Hub** | Level 1 plus a full merlon crown, arrow loops and timber hoardings along the outer face. | yes | 460 (×2.3) | 1 380 |
+| **3** | **Shielded Wall** | **Alanthor only** — `ShieldedRamparts` at the Wall Hub, after `Battlements` | Level 2 plus an **iron band** at the coping and **large metallic shields hung along the outer face**, one per module, under the merlons. Each curtain module carries **two garrison slots**. | yes | 600 (×3.0) | 1 800 |
 
 **The name follows the level, the id does not.** Everything — the build
 button, the selection panel, the tooltips — calls it a **Wooden Wall**, a
-**Stone Wall** or a **Reinforced Wall**. The internal id stays
+**Stone Wall**, a **Battlemented Wall** or a **Shielded Wall**. The internal id stays
 `Alanthor_Wall` (renaming it ripples through the recipe table, footprints,
 costs, build times, the name resolver and the AI), but nothing a player sees
 ever says "Alanthor Wall" for a fence a Runai player put up in Age 0.
 
-**A palisade carries no tower.** Timber will not hold one, so the
-Convert-to-Tower card is absent at level 1 and the panel says why. Gates and
-emplacements are fine on timber: a barred gate is a gate, and an engine sits
-on a platform, not on masonry.
+**A palisade is a fence, and offers only what a fence can (2026-09-24).**
+Selecting a timber curtain module offers exactly two things — **Convert to
+Gate** (you have to be able to walk through your own wall) and **Convert to
+Hub** (so a timber wall can still branch). **No tower and no mounted engine:**
+timber will not hold a tower, and a war engine is masonry work too. Both cards
+are simply ABSENT at level 0.
+
+**No placeholder buttons, ever.** The panel used to fill the empty space with
+disabled cells reading "No tower" and "No room" to explain the absence. They
+are gone: a card the player cannot press is not information, it is clutter, and
+the tooltip nobody hovers is the wrong place for a rule. An empty action panel
+on a fence is the correct reading. (Supersedes the earlier "the panel says
+why" line.)
 
 **The palisade is an Age 0 building.** Walls stop being an Alanthor-only
 toy: any faction can fence its start region in from the first minute, at
-the Age 0 wall cost. What Alanthor keeps is everything above level 1 — the
-stone, the shields and the garrison slots.
+the Age 0 wall cost. What Alanthor keeps is everything above level 0 — the
+stone, the battlements, the shields and the garrison slots.
 
-**Level 2 is not bought.** Committing to Alanthor at age-up IS the stone
-upgrade: `AgeUpSystem` promotes the faction's whole wall the moment the
-culture lands. The only wall tech is the last step, on the **Hall**
-(`Age0/Buildings/Hall/Research/`), Alanthor-gated, and it has a slot in the
-Hall's authored 3 × 5 action grid (`BuildingActionLayouts["Hall"]`) — a tech
-with no slot there never appears, whatever its `researchAt` says:
+**The wall's upgrades live at the WALL HUB (2026-09-24).** They used to sit
+on the Hall, beside `MasonGuild`. That was wrong twice over: masonry is not
+the wall's progression — walls merely benefit from it like everything else
+built of stone — and a building's own ladder belongs on that building.
+Select any finished Wall Hub and the next level is the button on it. The
+Hall keeps `MasonGuild` and has no wall tech at all.
 
-| Tech | Cost | Time | Effect |
-|------|------|------|--------|
-| `ShieldedRamparts` | 400 S + 250 I + 60 V | 60 s | level 3: HP ×2.3 over a palisade, shields, **2 garrison slots per curtain module** |
+| Tech | Researched at | Cost | Time | Effect |
+|------|---------------|------|------|--------|
+| `Battlements` | **Wall Hub** | 300 S + 180 I + 20 V | 45 s | level 2: HP ×2.3 over timber, merlons and hoardings |
+| `ShieldedRamparts` | **Wall Hub** | 400 S + 250 I + 60 V | 60 s | level 3: HP ×3.0, hung shields, **2 garrison slots per curtain module**. Requires `Battlements` |
+
+**Level 1 is not bought.** Committing to Alanthor at age-up IS the stone
+wall: `AgeUpSystem` promotes the faction's whole wall the moment the culture
+lands. Runai build no walls at all and Feraldis never leave timber —
+everything above Lv0 is Alanthor's, which is the point of the building.
+
+**One hub's button upgrades EVERY wall you own.** A wall is never a patchwork
+of levels, so the purchase is faction-wide: `PromoteFactionWalls` re-clads
+every hub, curtain, gate and tower at once. Which hub you clicked does not
+matter, and the button disappears from all of them the moment it is queued
+anywhere. A hub therefore carries a `ProductionQueueItem` buffer like any
+other research host.
 
 A wall raised **after** the promotion starts at that level; HP is read from
 the tier at creation (its own SO's `hp` × the tier

@@ -151,10 +151,12 @@ namespace TheWaningBorder.UI.Data
             bool roomForFitting = freeRun >= AlanthorWall.FreeRunForTower;
             bool roomForGate = freeRun >= AlanthorWall.FreeRunForGate;
             byte tier = WallTiers.Of(em, entity);
-            bool towersAllowed = WallTiers.AllowsTowers(tier);
-            string crowdedNote = string.Format(
-                Loc.T("Needs {0} clear wall sections in a row — this one has {1}."),
-                AlanthorWall.FreeRunForTower, freeRun);
+            // A timber palisade is a fence: it converts to a GATE (you have to
+            // be able to walk through your own wall) and to a HUB (so a fence
+            // can still branch), and to nothing else. A tower and a mounted
+            // engine are both masonry work. 2026-09-24,
+            // docs/Design/Age_0.md § Wooden Wall.
+            bool masonry = WallTiers.AllowsTowers(tier);
 
             // Gate cell — segment-level conversion. Drops out while the
             // segment is mid-conversion (no double-charge / double-stack).
@@ -192,7 +194,7 @@ namespace TheWaningBorder.UI.Data
             // Tower cell — per-instance conversion. A timber palisade cannot
             // carry a tower, and neither can a module boxed in by other
             // fittings.
-            if (towersAllowed && roomForFitting
+            if (masonry && roomForFitting
                 && TheWaningBorder.Data.BuildCosts.TryGet("Alanthor_WallTower", out var towerCost))
             {
                 bool canAffordTower = !em.Equals(default(EntityManager))
@@ -220,7 +222,7 @@ namespace TheWaningBorder.UI.Data
             // The platform and the engine standing on it stay two entities
             // (docs/Design/Age_1_Alanthor.md § Ballista and Trebuchet
             // emplacements); the module itself is still wall.
-            if (roomForFitting)
+            if (masonry && roomForFitting)
             {
                 AddEmplacementAction(actions, em, faction, available,
                     "WallToBallista", "Alanthor_BallistaEmplacement",
@@ -232,34 +234,12 @@ namespace TheWaningBorder.UI.Data
                     Loc.T("A counterweight engine on the wall: long range, splash, slow. The engine is rebuilt free by the crew if it is destroyed."));
             }
 
-            // Nothing fits here: say WHY rather than showing an empty panel.
-            // Only when the module ITSELF is clear, though — a module that is
-            // already a tower or an emplacement is not "out of room", it is
-            // finished, and should not be told otherwise.
-            if (!roomForFitting && freeRun > 0)
-            {
-                actions.Add(new ActionButton
-                {
-                    Id = "WallNoRoom",
-                    Label = Loc.T("No room"),
-                    Tooltip = BuildTooltip(Loc.T("No room for a fitting"), crowdedNote, default, available),
-                    Enabled = false,
-                    CanAfford = true,
-                });
-            }
-            else if (!towersAllowed && freeRun > 0)
-            {
-                actions.Add(new ActionButton
-                {
-                    Id = "WallNoTower",
-                    Label = Loc.T("No tower"),
-                    Tooltip = BuildTooltip(Loc.T("A palisade carries no tower"),
-                        Loc.T("Timber will not hold one. Age up as Alanthor to re-clad the wall in stone."),
-                        default, available),
-                    Enabled = false,
-                    CanAfford = true,
-                });
-            }
+            // NO PLACEHOLDER CELLS (2026-09-24). The panel used to fill the
+            // gap with disabled "No room" / "No tower" cards explaining the
+            // absence. A card the player cannot press is not information, it
+            // is clutter, and a tooltip nobody hovers is the wrong place for a
+            // rule. An empty action panel on a fence is the correct reading.
+            // docs/Design/Age_1_Alanthor.md § The three wall levels.
 
             // Hub cell — the cell becomes a hub and its segment splits there,
             // so a new wall can be drawn off it (T / X junctions). Costs a hub.

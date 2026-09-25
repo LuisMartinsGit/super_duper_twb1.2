@@ -666,8 +666,11 @@ namespace TheWaningBorder.UI.Data
                         CanAfford = canAfford,
                     }
                 };
+                AddWallLevelAction(info.Actions, entity, em,
+                                   GameSettings.LocalPlayerFaction);
                 return info;
             }
+
 
             // A GATE: open / close it to friendly units
             // (docs/Design/Age_1_Alanthor.md § Opening and closing it). The
@@ -863,6 +866,66 @@ namespace TheWaningBorder.UI.Data
 
             return info;
         }
+
+        /// <summary>
+        /// The wall's own upgrade button, on the Wall Hub (2026-09-24).
+        ///
+        /// Lv0 timber -> Lv1 stone is the Alanthor culture pick and is free,
+        /// so nothing is offered for it. The two BOUGHT levels are a chain in
+        /// a single cell: Battlements while it is unclaimed, then Shielded
+        /// Ramparts, then nothing. One purchase re-clads every wall the
+        /// faction owns, so the button is identical on every hub and
+        /// disappears from all of them the moment it is queued anywhere.
+        /// docs/Design/Age_1_Alanthor.md § The four wall levels
+        /// </summary>
+        private static void AddWallLevelAction(List<ActionButton> into, Entity hub,
+                                               EntityManager em, Faction faction)
+        {
+            // Alanthor's ladder only. A Runai player builds no walls at all
+            // and a Feraldis one never leaves timber.
+            if (CultureConfig.GetCompletedCulture(em, faction) != Cultures.Alanthor) return;
+
+            var research = FactionResearchState.Instance;
+            string techId = null;
+            foreach (var id in WallLevelChain)
+            {
+                if (research != null && research.HasResearched(faction, id)) continue;
+                if (IsTechQueued(em, faction, id)) return;   // already on its way
+                techId = id;
+                break;
+            }
+            if (techId == null) return;                       // fully upgraded
+
+            if (!TechCatalog.TryGetTechnology(techId, out var tech) || tech == null) return;
+
+            var cost = tech.cost != null
+                ? new Cost
+                {
+                    Supplies = tech.cost.Supplies, Iron = tech.cost.Iron,
+                    Veilstone = tech.cost.Veilstone, Veilsteel = tech.cost.Veilsteel,
+                }
+                : default;
+
+            into.Add(new ActionButton
+            {
+                Id = techId,                                  // ExecuteResearch routes on the id
+                Label = tech.name ?? techId,
+                Tooltip = BuildTooltip(tech.name ?? techId, tech.desc ?? tech.effect,
+                                       cost, GetFactionResourcesAsCost(em, faction),
+                                       trainingTime: tech.researchTime),
+                Cost = cost,
+                Enabled = true,
+                CanAfford = FactionEconomy.CanAfford(em, faction, cost),
+                Icon = null,
+            });
+        }
+
+        /// <summary>The bought half of the wall ladder, in order.</summary>
+        private static readonly string[] WallLevelChain =
+        {
+            TheWaningBorder.Entities.WallTiers.BattlementsTechId,
+            TheWaningBorder.Entities.WallTiers.ShieldedTechId,
+        };
 
         /// <summary>
         /// Get the current faction resources as a Cost for rich tooltip formatting.

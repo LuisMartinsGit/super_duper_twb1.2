@@ -117,7 +117,7 @@ namespace TheWaningBorder.UI.World
         private static bool TryGetMouseGround(out float3 point)
         {
             point = default;
-            var cam = Camera.main;
+            var cam = TheWaningBorder.Core.PresentationState.GameplayCamera;
             if (cam == null) return false;
 
             Ray ray = cam.ScreenPointToRay(UnityEngine.Input.mousePosition);

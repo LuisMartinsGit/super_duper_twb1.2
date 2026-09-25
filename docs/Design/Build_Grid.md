@@ -138,16 +138,49 @@ valid/invalid colour.
 
 Walls are the one deliberate exception, and only half of one.
 
-- **Wall hubs are buildings.** They snap to the grid like everything else,
-  at **2 x 2 cells** — a round tower of radius `AlanthorWall.HubRadius` = 0.7 of a
-  wall section (2.1 m), so the footprint is the tower's bounding square and
-  the curtain meets the drum with no gap (2026-09-21; was 3 x 3, and 4 x 4
-  before that).
+- **The wall hub is the ONE building exempt from the grid (2026-09-24).**
+  It keeps a **2 x 2 cell** footprint for placement legality, passability and
+  selection — a round tower of radius `AlanthorWall.HubRadius` = 0.7 of a wall
+  section (2.1 m), so the footprint is the tower's bounding square and the
+  curtain meets the drum with no gap — but it does **not snap**. It stands
+  exactly where it was placed.
 - **Wall segments between hubs are freeform.** The curtain runs on the exact
-  straight line between two hub centres at whatever angle that line has, and
-  its instances are spaced to seal that line. Segments are not quantised,
-  not snapped, and not required to be axis-aligned.
+  line between two hub centres at whatever angle that line has, and its
+  instances are spaced to seal that line. Segments are not quantised, not
+  snapped, and not required to be axis-aligned.
 
 Forcing segments onto the grid would restrict walls to 45-degree runs and
-break the terrain-sealing scan, which follows arbitrary bearings. The hub
-graph carries the grid discipline; the curtain follows the ground.
+break the terrain-sealing scan, which follows arbitrary bearings.
+
+**Why the hub had to follow the curtain out.** A wall is DRAWN, and the run
+cap inserts hubs along the stroke automatically. While the hub snapped and
+the curve did not, every inserted hub landed up to ~1.4 m off the line the
+player drew, and the wall visibly kinked at each one. Snapping the CURVE to
+match only moved the kink into the curve itself. The two have to agree, the
+curtain cannot be quantised, and so the hub is not either: a drawn wall now
+runs exactly where it was drawn, with the drum centred on it.
+
+Nothing else is exempt. The hub can afford to be because it is the only
+building that is placed as part of a continuous line rather than on its own
+patch of ground, and because its footprint is still declared — `BuildingSize`
+2 x 2, stamped on the passability grid at whatever offset it lands, exactly as
+a moving obstacle would be.
+
+### The terrain seal (2026-09-24)
+
+A new hub throws a short stub of curtain at the nearest **impassable
+terrain** within 9 m, so nothing squeezes between the tower and the rock it
+was put against (`AlanthorWall.SealToTerrain`). That is the whole feature,
+and it must fire **only against a real obstacle**:
+
+- The blocked ground has to be a **face, not a speck** — the bearing's first
+  blocked cell must be backed by more blocked cells behind it and beside it.
+  A single slope-blocked cell from a bump in the terrain is not shelter, and
+  sealing to one puts a stub of wall at an angle the player never asked for.
+  That, not the feature, was the "wall hubs sprout segments in random
+  directions" bug.
+- **The map edge is not terrain.** `PassabilityGrid.GetCell` answers
+  `TerrainBlocked` for anything off the grid, so a hub near the border would
+  seal to the void on every bearing that runs off the map.
+- **Nothing seals before the mask is baked.** Gate on
+  `PassabilityGrid.IsMaskReady`, never on `Cells.IsCreated`.

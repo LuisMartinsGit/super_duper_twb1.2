@@ -59,10 +59,33 @@ public static class BuildGrid
     }
 
     /// <summary>
-    /// Snap using the footprint registered for <paramref name="buildingId"/>.
+    /// The one building id that does NOT snap (2026-09-24). A wall is DRAWN,
+    /// and the run cap inserts hubs along the stroke; while the hub snapped
+    /// and the curtain did not, every inserted hub landed up to ~1.4 m off the
+    /// drawn line and the wall visibly kinked at each one. The hub keeps its
+    /// 2 x 2 footprint for placement legality, passability and selection -- it
+    /// simply stands where it was put. docs/Design/Build_Grid.md § 5.
+    ///
+    /// The exemption lives HERE, in the one place every placement path funnels
+    /// through (BuildingFactory.Create, CommandRouter's placement executor,
+    /// the builder panel's ghost, the wall draw tool), because an exemption
+    /// applied at four call sites is an exemption that will be three next
+    /// month.
+    /// </summary>
+    public const string GridExemptBuildingId = "Alanthor_Wall";
+
+    /// <summary>True when this building is placed off-grid.</summary>
+    public static bool IsGridExempt(string buildingId)
+        => buildingId == GridExemptBuildingId;
+
+    /// <summary>
+    /// Snap using the footprint registered for <paramref name="buildingId"/>,
+    /// or pass the position straight through for a grid-exempt building.
     /// </summary>
     public static float3 Snap(float3 world, string buildingId)
-        => Snap(world, BuildingSizeConfig.GetSize(buildingId));
+        => IsGridExempt(buildingId)
+            ? world
+            : Snap(world, BuildingSizeConfig.GetSize(buildingId));
 
     /// <summary>
     /// Snap to the centre of the containing cell — the single-cell case used

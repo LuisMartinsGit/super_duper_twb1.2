@@ -385,9 +385,10 @@ slots.
 |------|-------|
 | Cost | 50 S + 20 I per hub; the curtain between hubs is free |
 | HP | hub 600, curtain module 200 |
-| Footprint | hub 2 × 2 cells (4 × 4 m); the curtain is freeform |
+| Footprint | hub 2 × 2 cells (4 × 4 m), but **not grid-snapped** — the hub is the one building exempt from the build grid, so a drawn wall runs exactly where it was drawn ([Build_Grid.md § 5](Build_Grid.md)). The curtain is freeform |
 | Look | authored art — `Wall_segment.fbx` in the wall's own folder (`Age0/Buildings/Wall/`), tiled along the drawn curve. See [Age_1_Alanthor.md § The wall's art](Age_1_Alanthor.md#the-walls-art-2026-09-21) |
-| Towers | **none** — timber will not carry one. Gates and mounted engines are fine |
+| Conversions | **Gate and Hub only** (2026-09-24). A timber section converts to a gatehouse or to a wall hub (so the fence can branch). **No tower and no mounted engine** — both are masonry work. The panel shows no disabled "No tower" placeholder; the cards are simply absent |
+| Level | **Lv0** — the culture-less wall, exactly as every other building's Lv0. Picking Alanthor grants Lv1 (stone) free; Lv2 and Lv3 are bought **at the Wall Hub**. See [Age_1_Alanthor.md § The four wall levels](Age_1_Alanthor.md#the-four-wall-levels-2026-09-24--supersedes-the-three-wall-levels) |
 | Placement | drawn, exactly as [Age_1_Alanthor.md § Drawing walls](Age_1_Alanthor.md#drawing-walls-2026-09-18) describes |
 
 Full tier table, the gate, garrison and the two emplacement buildings:

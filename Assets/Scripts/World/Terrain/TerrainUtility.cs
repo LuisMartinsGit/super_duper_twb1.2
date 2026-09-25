@@ -173,7 +173,20 @@ namespace TheWaningBorder.World.Terrain
 
             if (terrain != null)
             {
-                return terrain.SampleHeight(new Vector3(x, 0, z)) + terrain.transform.position.y;
+                float h = terrain.SampleHeight(new Vector3(x, 0, z)) + terrain.transform.position.y;
+                // NEVER hand back a non-finite height (2026-09-24). SampleHeight
+                // normalises the world point by terrainData.size, so a terrain
+                // caught mid-swap -- a MapMagic tile still being generated, a
+                // TerrainData with a zero axis -- divides by zero and answers
+                // NaN. This is the hottest call in the game and its result goes
+                // straight into transform.position for units, visuals and the
+                // camera rig, and Unity REFUSES a position containing NaN:
+                // "transform.position assign attempt for 'CameraRig' is not
+                // valid", after which the rig is stuck for the rest of the
+                // match because the NaN is fed back in as its current position.
+                // One bad sample must not poison the world, so fall through to
+                // the raycast and then to 0 exactly as a missing terrain does.
+                if (!float.IsNaN(h) && !float.IsInfinity(h)) return h;
             }
 
             // Fallback: raycast from above

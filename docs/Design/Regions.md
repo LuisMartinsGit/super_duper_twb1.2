@@ -438,6 +438,21 @@ bigger one:
   extractor pass then builds the matching building on each node it holds.
 
 
+**Every marker has to be ON the terrain (2026-09-24).** Twin Spans placed
+24 markers outside its own 352 m terrain, Sundered Crown 13 and Sundered
+Reach 4 — almost all of them supply nodes, which are the ONLY ground a
+Gatherer's Hut may stand on, so each one was an economy slot the player
+could never build and a territory quietly short of its quota. A marker
+pulled back in is walked toward its own region SEED, never toward the map
+centre, so the correction cannot change which territory it belongs to.
+
+**A home opens on FOUR ore nodes, and that is a ceiling as well as a
+floor.** Hollow Table's two homes carried EIGHT each — double the intended
+opening on the map every other map is balanced against — because the home
+polygons wrapped round the centre and swallowed the neutral ground's nodes.
+The shipping opening is **2 iron + 2 veilstone + 4 supply**, identical on
+every map. Where a home needs more than that, it expands.
+
 **The curse's own ground is exempt (2026-09-11).** A territory that holds an
 authored well is the curse's ground (Curse_And_Shardroot.md §1); the author
 decides what stands there, and the runtime top-up passes add nothing to it —

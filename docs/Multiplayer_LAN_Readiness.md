@@ -662,7 +662,7 @@ A peer puts a checksum on the wire every 30 ticks, but writes one to its own
 `Lockstep.log` every tick. `mp-diff.ps1` diffs those files across peers, so it
 compares all 9000 ticks and all fourteen columns instead of 300 ticks of one
 number — and it catches a fork that heals inside the sync interval or happens
-after the last SYNC. `mp-batch.ps1` runs it after every match.
+after the last SYNC. `tools/twb-run.ps1 -Mode mp` runs it after every match.
 
 Trailing ticks are not a fork: peers stop a tick or two apart at the limit, so
 only ticks both peers recorded are compared.

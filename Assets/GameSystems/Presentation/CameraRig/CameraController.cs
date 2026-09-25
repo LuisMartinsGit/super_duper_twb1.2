@@ -129,7 +129,15 @@ namespace TheWaningBorder.CameraRig
 
             if (Cfg.followTerrain)
             {
-                _targetHeight = TerrainUtility.GetHeight(newPos.x, newPos.z) + Cfg.heightOffset;
+                float sampled = TerrainUtility.GetHeight(newPos.x, newPos.z) + Cfg.heightOffset;
+                // Hold the last good height rather than chase a bad sample.
+                // TerrainUtility guards its own result, but the rig is the one
+                // place where a single NaN is unrecoverable: Unity refuses the
+                // assignment, transform.position keeps the NaN it already has,
+                // and next frame it is read back in as currentPos and smoothed
+                // into everything downstream. Belt and braces on purpose.
+                if (!float.IsNaN(sampled) && !float.IsInfinity(sampled))
+                    _targetHeight = sampled;
                 _currentHeight = Mathf.SmoothDamp(_currentHeight, _targetHeight,
                                                   ref _heightVelocity, Cfg.heightDamping);
                 newPos.y = _currentHeight;
@@ -137,6 +145,17 @@ namespace TheWaningBorder.CameraRig
             else
             {
                 newPos.y = Cfg.heightOffset;
+            }
+            if (float.IsNaN(newPos.x) || float.IsNaN(newPos.y) || float.IsNaN(newPos.z))
+            {
+                // Something upstream went non-finite. Re-seed from a position
+                // we know is real instead of pushing the NaN into the
+                // transform, where it would stick permanently.
+                _velocity = Vector3.zero;
+                _heightVelocity = 0f;
+                _currentHeight = _targetHeight = TerrainUtility.GetHeight(
+                    _targetPosition.x, _targetPosition.z) + Cfg.heightOffset;
+                newPos = new Vector3(_targetPosition.x, _currentHeight, _targetPosition.z);
             }
             transform.position = newPos;
 
@@ -204,6 +223,8 @@ namespace TheWaningBorder.CameraRig
 
         private void InitializeCameraRig()
         {
+            EvictSceneCameras();
+
             // The rig owns both objects: a camera sitting back along an arm that
             // tilts with zoom.
             var camGO = new GameObject("Main Camera");
@@ -231,6 +252,45 @@ namespace TheWaningBorder.CameraRig
             _camTransform = camGO.transform;
             _camTransform.SetParent(_arm, false);
             _camTransform.localPosition = new Vector3(0f, 0f, -Cfg.cameraDistance);
+        }
+
+        /// <summary>
+        /// Destroy any camera the SCENE shipped, before the rig makes its own.
+        ///
+        /// No gameplay scene may ship a camera (2026-09-01) and 35 of them were
+        /// stripped then — but a map GENERATOR written afterwards calls
+        /// EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects), and
+        /// Unity's default objects include a Main Camera. Veilmarch shipped one
+        /// again from 2026-09-13.
+        ///
+        /// The cost is not cosmetic. Two cameras both tagged MainCamera make
+        /// <c>Camera.main</c> undefined, and on those maps it resolved to the
+        /// SCENE's camera — a fixed transform at (0, 1, -10) that sees nothing
+        /// the player sees. Every right-click ray was cast from it, missed the
+        /// terrain, and the order was dropped: move orders could not be issued
+        /// at all, silently. Input reads PresentationState.GameplayCamera now,
+        /// which is immune by identity, but the duplicate also gives two
+        /// rendering cameras and two AudioListeners, so it goes.
+        ///
+        /// Loud on purpose: the fix belongs in the generator, not here.
+        /// </summary>
+        private static void EvictSceneCameras()
+        {
+            var strays = FindObjectsByType<Camera>(FindObjectsInactive.Include,
+                                                   FindObjectsSortMode.None);
+            for (int i = 0; i < strays.Length; i++)
+            {
+                var cam = strays[i];
+                if (cam == null) continue;
+                Debug.LogError(
+                    $"[CameraController] The scene ships a camera (\"{cam.name}\", tag " +
+                    $"\"{cam.tag}\") and no gameplay scene may — the rig builds its own. " +
+                    "Destroying it. A map generator using NewSceneSetup.DefaultGameObjects " +
+                    "is the usual source; strip the camera there.", cam.gameObject);
+                var listener = cam.GetComponent<AudioListener>();
+                if (listener != null) Destroy(listener);
+                Destroy(cam.gameObject);
+            }
         }
 
         #region Input

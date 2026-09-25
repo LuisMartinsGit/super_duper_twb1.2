@@ -154,10 +154,11 @@ namespace TheWaningBorder.Systems.Work
                 // 5. Register culture with FactionColors (idempotent — may already be set by UI popup)
                 FactionColors.SetFactionCulture(faction, culture);
 
-                // 5b. Alanthor's age-up IS the stone wall. Every palisade the
-                // faction raised in Age 0 is re-clad in coursed stone, free
-                // and at once — there is no tech to buy for level 2
-                // (docs/Design/Age_1_Alanthor.md § The three wall levels).
+                // 5b. The Alanthor pick IS the stone wall, and it is free:
+                // Lv0 timber -> Lv1 stone, the same shape as every other
+                // building taking its culture form. What the player BUYS is
+                // Lv2 and Lv3, at the Wall Hub (TechEffectSystem).
+                // docs/Design/Age_1_Alanthor.md § The four wall levels.
                 if (culture == Cultures.Alanthor)
                     TheWaningBorder.Entities.AlanthorWall.PromoteFactionWalls(
                         em, faction, TheWaningBorder.Entities.WallTiers.Stone);

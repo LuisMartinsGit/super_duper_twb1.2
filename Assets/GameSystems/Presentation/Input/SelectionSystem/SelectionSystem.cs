@@ -350,7 +350,7 @@ namespace TheWaningBorder.Input
         /// </summary>
         private void SelectAllBuildingsOfType(Unity.Collections.FixedString64Bytes typeName, bool mapWide)
         {
-            var cam = Camera.main;
+            var cam = TheWaningBorder.Core.PresentationState.GameplayCamera;
             if (!cam && !mapWide) return;
 
             _selection.Clear();
@@ -388,7 +388,7 @@ namespace TheWaningBorder.Input
         /// </summary>
         private void SelectAllOfType(UnitClass unitClass, bool mapWide)
         {
-            var cam = Camera.main;
+            var cam = TheWaningBorder.Core.PresentationState.GameplayCamera;
             if (!cam && !mapWide) return;
 
             _selection.Clear();
@@ -430,7 +430,7 @@ namespace TheWaningBorder.Input
 
         private void BoxSelect(Rect screenRect)
         {
-            var cam = Camera.main;
+            var cam = TheWaningBorder.Core.PresentationState.GameplayCamera;
             if (!cam) return;
 
             _selection.Clear();

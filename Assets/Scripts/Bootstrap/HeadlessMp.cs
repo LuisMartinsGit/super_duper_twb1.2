@@ -24,7 +24,7 @@
 // command path carries real traffic too — without it that whole layer would
 // go untested.
 //
-// USAGE (per process; the runner is tools/mp-batch.ps1):
+// USAGE (per process; the runner is tools/twb-run.ps1 -Mode mp):
 //   TheWaningBorder.exe -batchmode -nographics -twbMp
 //     -twbMpPeer 0..N-1     this process's lockstep player index (0 = host)
 //     -twbMpPeers N         total peer processes (default 4)

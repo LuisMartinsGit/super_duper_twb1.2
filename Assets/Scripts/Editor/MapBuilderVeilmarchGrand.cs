@@ -1,6 +1,14 @@
 ﻿// MapBuilderVeilmarchGrand.cs
-// THE EIGHT-PLAYER VEILMARCH (2026-09-13). A copy of MapBuilderVeilmarch
-// with Sectors = 8: eight homes on the same 385 m ring, eight Veilfields on
+// THE VEILMARCH GENERATOR. Eight players on the 385 m ring.
+//
+// 2026-09-24: this is now the ONLY Veilmarch. The four-player map and its
+// generator (MapBuilderVeilmarch.cs) are deleted -- they were the same
+// 1024 m field with four of the same homes on the same ring, and the lobby
+// treats MapInfo.PlayerCount as a MAXIMUM, so the eight-start ring already
+// plays every count the four-start one did. The class name is kept because
+// renaming it buys nothing.
+//
+// Originally a copy of MapBuilderVeilmarch with Sectors = 8: eight homes on the same 385 m ring, eight Veilfields on
 // the half-sector diagonals, the same Scar, ridge ring and nature rim.
 // Three things could not simply scale with the sector count on a SQUARE
 // map and are handled explicitly below:
@@ -58,9 +66,9 @@ namespace TheWaningBorder.Core.Maps.EditorTools
 {
     public static class MapBuilderVeilmarchGrand
     {
-        private const string MapName = "Veilmarch Grand";
-        private const string SceneName = "VeilmarchGrand";
-        private const string Folder = "Assets/GameData/Scenes/Maps/Veilmarch Grand";
+        private const string MapName = "Veilmarch";
+        private const string SceneName = "Veilmarch";
+        private const string Folder = "Assets/GameData/Scenes/Maps/Veilmarch";
         private const string LayerFolder = "Assets/GameData/Scenes/Maps/Twin Spans";
         private const string TerrainMatPath = "Assets/Resources/TWBTerrain.mat";
 
@@ -133,7 +141,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
 
         // ── entry points ────────────────────────────────────────────────────
 
-        [MenuItem("Waning Border/Maps/Build Veilmarch Grand (1024m, 8 players)")]
+        [MenuItem("Waning Border/Maps/Build Veilmarch (1024m, 8 players)")]
         public static void Build()
         {
             // DisplayDialog auto-CANCELS under -batchmode (it does not
@@ -158,6 +166,16 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             MapAssetFolders.Ensure(Folder);
             var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects,
                                                     NewSceneMode.Single);
+
+            // NewSceneSetup.DefaultGameObjects gives us Unity's stock Main
+            // Camera and Directional Light. The light is wanted; the camera is
+            // not -- no gameplay scene may ship one (docs: the rig builds its
+            // own), and a second camera tagged MainCamera makes Camera.main
+            // undefined, which silently broke right-click move orders on every
+            // map generated this way. 2026-09-24.
+            foreach (var stray in Object.FindObjectsByType<Camera>(
+                         FindObjectsInactive.Include, FindObjectsSortMode.None))
+                Object.DestroyImmediate(stray.gameObject);
 
             var terrain = MapGenKit.BuildTerrain(new MapGenKit.TerrainSpec
             {

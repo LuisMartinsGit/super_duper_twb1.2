@@ -117,10 +117,15 @@ namespace TheWaningBorder.Rendering
         {
             switch (_tier)
             {
-                case TheWaningBorder.Entities.WallTiers.Reinforced:
+                case TheWaningBorder.Entities.WallTiers.Shielded:
                     Tint(0, StoneDark, 0.30f); Tint(1, Stone, 0.30f);
                     Tint(2, Iron, 0.55f, metallic: 0.8f); Tint(3, Stone, 0.30f);
                     Tint(4, Steel, 0.70f, metallic: 0.9f);   // the great shields
+                    break;
+                case TheWaningBorder.Entities.WallTiers.Battlemented:
+                    Tint(0, StoneDark, 0.30f); Tint(1, Stone, 0.30f);
+                    Tint(2, Marble, 0.45f); Tint(3, Stone, 0.30f);
+                    Tint(4, Timber, 0.20f);                  // the hoardings
                     break;
                 case TheWaningBorder.Entities.WallTiers.Stone:
                     Tint(0, StoneDark, 0.30f); Tint(1, Stone, 0.30f);

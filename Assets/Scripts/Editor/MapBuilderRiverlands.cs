@@ -102,6 +102,16 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects,
                                                     NewSceneMode.Single);
 
+            // NewSceneSetup.DefaultGameObjects gives us Unity's stock Main
+            // Camera and Directional Light. The light is wanted; the camera is
+            // not -- no gameplay scene may ship one (docs: the rig builds its
+            // own), and a second camera tagged MainCamera makes Camera.main
+            // undefined, which silently broke right-click move orders on every
+            // map generated this way. 2026-09-24.
+            foreach (var stray in Object.FindObjectsByType<Camera>(
+                         FindObjectsInactive.Include, FindObjectsSortMode.None))
+                Object.DestroyImmediate(stray.gameObject);
+
             var data = BuildTerrainData();
             string dataPath = $"{Folder}/{SceneName} TerrainData.asset";
             AssetDatabase.DeleteAsset(dataPath);
