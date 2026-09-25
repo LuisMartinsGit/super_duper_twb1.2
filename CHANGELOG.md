@@ -13,6 +13,26 @@ build always name the same number.
 
 ---
 
+## [0.0.28] — 2026-09-25
+
+### Added
+
+- **Pencil ink outlines.** Buildings, units and terrain features are traced
+  in dark, hand-drawn pencil lines: strokes wobble and break up like pencil
+  pressure, thin out as the camera zooms away and fade on distant ground.
+  The strokes are fixed to the world, so they do not crawl or flicker as the
+  camera pans. Grass, water, effects and fog of war are never inked. This is
+  an art-direction experiment (docs/Design/Art_Direction.md).
+- **New house model** for the Hut, with a player-colour material that takes
+  the owning player's colour.
+
+### Changed
+
+- **Building placement preview is solid white** instead of translucent green
+  while the spot is valid. An invalid spot still shows translucent red.
+
+---
+
 ## [0.0.27] — 2026-09-23
 
 ### Fixed

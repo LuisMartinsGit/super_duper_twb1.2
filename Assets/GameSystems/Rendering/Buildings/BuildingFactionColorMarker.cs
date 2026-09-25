@@ -137,10 +137,11 @@ namespace TheWaningBorder.Rendering
         /// THE building faction-color rule. Every path that produces or
         /// refreshes a building visual must funnel through here — spawn,
         /// culture/level variant switch, prefab upgrade swap, age-up refresh.
-        /// Three sub-rules are applied per renderer, in priority order:
-        ///   1. GameObject named *roof*   → solid dark slate (albedo whited out; §4)
-        ///   2. GameObject named *stripe* → faction tint over the authored albedo
-        ///   3. otherwise                 → atlas pixel swap (marker hue → faction),
+        /// Four sub-rules are applied per material, in priority order:
+        ///   1. MATERIAL named *playercolor* → solid faction colour (albedo whited out)
+        ///   2. GameObject named *roof*   → solid dark slate (albedo whited out; §4)
+        ///   3. GameObject named *stripe* → faction tint over the authored albedo
+        ///   4. otherwise                 → atlas pixel swap (marker hue → faction),
         ///      falling back to flat _BaseColor replacement for untextured materials
         /// plus _StripeColor on every material that exposes it.
         /// </summary>
@@ -191,6 +192,12 @@ namespace TheWaningBorder.Rendering
 
                     if (mat.HasProperty("_StripeColor")) mat.SetColor("_StripeColor", factionColor);
 
+                    // An artist-authored player-colour slot: the model names the
+                    // MATERIAL, so the colour is exact and needs no atlas marker.
+                    // Checked before the roof rule so a roof mesh can still carry
+                    // a player-colour trim. Instances read "Playercolor (Instance)".
+                    if (IsPlayerColorMaterial(mat)) { PaintSolid(mat, factionColor); continue; }
+
                     // Name-tagged parts are a flat solid faction color. They must
                     // NOT also run the atlas swap: the roof rule assigns
                     // Texture2D.whiteTexture, which the swap would then try to
@@ -229,6 +236,10 @@ namespace TheWaningBorder.Rendering
             Apply(stamp.gameObject, stamp.Value);
             return true;
         }
+
+        /// <summary>A material the artist named as the player-colour slot (e.g. the Hut's "Playercolor").</summary>
+        private static bool IsPlayerColorMaterial(Material mat)
+            => mat.name.IndexOf("playercolor", System.StringComparison.OrdinalIgnoreCase) >= 0;
 
         /// <summary>Roof rule — blank the albedo so the solid colour reads flat.</summary>
         private static void PaintSolid(Material mat, Color solid)

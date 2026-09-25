@@ -504,6 +504,30 @@ The remaining four fifths, in order of impact:
 4. **Palette discipline** — strong hue separation between terrain, factions
    and VFX, so nothing has to rely on brightness alone to read.
 
+### Experiment: pencil ink outlines (2026-09-25) — NOT adopted
+
+A Borderlands-style ink pass is being **prototyped for an A/B**, against the
+statement above that the DOTA / League target uses no outline post-effect.
+Until this section says otherwise the DOTA direction stands: the asset is
+checked in with the pass ON so it can be looked at, and it must be switched
+**off** before any release build unless it has been adopted.
+
+- **What it is:** one full-screen pass after opaques and before transparents.
+  It finds edges in the depth + normals buffers and draws them as dark
+  pencil strokes: widths wobble and pressure breaks up, the lines "boil" at a
+  low frame rate, and they thin and fade with camera distance so the RTS zoom
+  does not turn to scribble. Grass (no depth-normals pass), water, VFX and fog
+  of war (Overlay queue, drawn over the lines) are left un-inked by
+  construction.
+- **Cost:** requesting normals makes URP run a depth-normals prepass that the
+  PC renderer does not run today (SSAO is off on it). Measure before adopting.
+- **Where:** `Assets/GameSystems/Rendering/PencilOutline/`. Every value is in
+  `PencilOutline.asset`, and `enabled` there is the A/B switch; it can be
+  edited live in Play mode.
+- **To adopt:** capture Hollow Table at default and max zoom (§3.5) with the
+  pass on and off, then either rewrite the opening paragraph of this
+  "Stylised look" section and delete this subsection, or delete the folder.
+
 ## 11. Implementation plan
 
 Each pass ends with the §3.5 screenshots taken on Hollow Table at default

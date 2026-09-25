@@ -121,6 +121,10 @@ namespace TheWaningBorder.UI.Ingame
 
         // Placement validity
         private bool _placementValid = true;
+        // Which state the preview materials were last configured for; null =
+        // not yet (a fresh ghost). Lets UpdatePreviewColor run every frame
+        // without re-flipping surface modes and keywords every frame.
+        private bool? _previewModeValid;
 
         // Placement yaw in degrees (mouse-wheel rotation during placement)
         private float _placementYaw;
@@ -492,14 +496,20 @@ namespace TheWaningBorder.UI.Ingame
             foreach (var col in _placingInstance.GetComponentsInChildren<Collider>())
                 col.enabled = false;
 
-            // Switch each preview material to URP Transparent surface so the
-            // green/red tint (RGBA, alpha < 1) renders translucent. Without this,
-            // URP Lit materials default to Opaque and ignore the alpha channel.
+            // Blank every preview albedo so the ghost reads as a plain maquette:
+            // solid white while placeable, translucent red while not. The surface
+            // mode (opaque / transparent) is set by UpdatePreviewColor on the
+            // first frame and whenever validity flips.
             foreach (var renderer in _placingInstance.GetComponentsInChildren<Renderer>())
             {
                 foreach (var mat in renderer.materials)
-                    MakeMaterialTransparent(mat);
+                {
+                    if (mat == null) continue;
+                    if (mat.HasProperty("_BaseMap")) mat.SetTexture("_BaseMap", Texture2D.whiteTexture);
+                    if (mat.HasProperty("_MainTex")) mat.SetTexture("_MainTex", Texture2D.whiteTexture);
+                }
             }
+            _previewModeValid = null;
 
             // Reset rotation for fresh placement (mouse wheel adjusts during Update).
             _placementYaw = 0f;
@@ -513,6 +523,21 @@ namespace TheWaningBorder.UI.Ingame
         /// surface mode so per-frame `_BaseColor` alpha values actually blend.
         /// Safe no-op for non-URP shaders that don't have these properties.
         /// </summary>
+        /// <summary>Undo <see cref="MakeMaterialTransparent"/>: URP Opaque surface, depth write on.</summary>
+        private static void MakeMaterialOpaque(Material mat)
+        {
+            if (mat == null) return;
+            if (mat.HasProperty("_Surface")) mat.SetFloat("_Surface", 0f); // 0 = Opaque
+            if (mat.HasProperty("_ZWrite"))  mat.SetFloat("_ZWrite", 1f);
+            if (mat.HasProperty("_SrcBlend")) mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
+            if (mat.HasProperty("_DstBlend")) mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
+            mat.SetOverrideTag("RenderType", "Opaque");
+            mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Geometry;
+            mat.DisableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            mat.DisableKeyword("_ALPHABLEND_ON");
+            mat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+        }
+
         private static void MakeMaterialTransparent(Material mat)
         {
             if (mat == null) return;
@@ -702,13 +727,20 @@ namespace TheWaningBorder.UI.Ingame
         private void UpdatePreviewColor(bool valid)
         {
             if (_placingInstance == null) return;
+            if (_previewModeValid == valid) return; // materials already hold this state
+            _previewModeValid = valid;
+
+            // Placeable: solid opaque white. Blocked: translucent red.
             Color tint = valid
-                ? new Color(0.5f, 1f, 0.5f, 0.5f)
+                ? Color.white
                 : new Color(1f, 0.3f, 0.3f, 0.5f);
             foreach (var renderer in _placingInstance.GetComponentsInChildren<Renderer>())
             {
                 foreach (var mat in renderer.materials)
                 {
+                    if (valid) MakeMaterialOpaque(mat);
+                    else       MakeMaterialTransparent(mat);
+
                     // URP Lit/Unlit use _BaseColor; legacy shaders use _Color.
                     if (mat.HasProperty("_BaseColor"))
                         mat.SetColor("_BaseColor", tint);

@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8ae6c8581b8b41ee9f2dc3e59d360c94, type: 3}
+  m_Name: PencilOutline
+  m_EditorClassIdentifier:
+  enabled: 1
+  shader: {fileID: 4800000, guid: 55a4066a399c438f970c09a490be23b7, type: 3}
+  inkColor: {r: 0.02, g: 0.015, b: 0.018, a: 1}
+  lineWidth: 2.5
+  minLineWidth: 1
+  referenceDistance: 40
+  fadeStart: 90
+  fadeEnd: 160
+  depthThreshold: 0.02
+  grazingCompensation: 1
+  normalThreshold: 0.4
+  normalWeight: 0.8
+  jitterAmount: 1
+  jitterScale: 1
+  boilFps: 0
+  strokeBreakup: 0.35
+  strokeScale: 0.8
+  grain: 0.25
+  grainScale: 0.2

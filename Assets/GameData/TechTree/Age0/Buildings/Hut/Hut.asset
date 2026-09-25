@@ -54,7 +54,7 @@ MonoBehaviour:
     maxTargets: 1
   levels: []
   unitUpgrades: []
-  prefab: {fileID: 6768219770374779136, guid: e6136b3a7b303cc39004b6a6bb7f36f5, type: 3}
+  prefab: {fileID: 2536281967569131644, guid: 1f8bf31d3baafd14ea1a177b91464abb, type: 3}
   presentationId: 102
   prefabPath: 
   canUpgradeTo: []
