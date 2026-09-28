@@ -128,6 +128,26 @@ namespace TheWaningBorder.Core.Localization
             t["<color=#C08040>Recharging — {0}s.</color>"] =
                 "<color=#C08040>A recarregar — {0}s.</color>";
             t["<color=#7FB069>Ready.</color>"] = "<color=#7FB069>Pronta.</color>";
+            // Spell overhaul (docs/Design/Spells.md): damage line, channel
+            // line, the three effect kinds that had no text, cast bar label.
+            t["Allied ranged units."] = "Unidades de ataque à distância aliadas.";
+            t["deals {0:0} {1} damage"] = "inflige {0:0} de dano {1}";
+            t["Channel {0:0.#}s -- a new order, a stun or death interrupts it."] =
+                "Canalização de {0:0.#}s -- uma nova ordem, um atordoamento ou a morte interrompem-na.";
+            t["% fire rate"] = "% de cadência de tiro";
+            t["calls in a temporary army that grows with the hero's level"] =
+                "convoca um exército temporário que cresce com o nível do herói";
+            t["hurls every enemy in the radius into the air; enemy buildings take heavy damage"] =
+                "projeta pelo ar todos os inimigos no raio; os edifícios inimigos sofrem dano pesado";
+            t["casting {0:0.0}s"] = "a lançar {0:0.0}s";
+            t["melee"] = "corpo a corpo";
+            t["ranged"] = "à distância";
+            t["siege"] = "de cerco";
+            t["true"] = "verdadeiro";
+            t["magic"] = "mágico";
+            // Religion panel: power level and damage of the current spec.
+            t["Level {0}"] = "Nível {0}";
+            t["Damage: {0:0} {1}"] = "Dano: {0:0} {1}";
 
             // ── TopChoiceBar ───────────────────────────────────────────────
             t["Select Culture"] = "Selecionar Cultura";

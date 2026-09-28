@@ -24,11 +24,17 @@
 //     from a different cell (routes around the blocker in the common case);
 //     after MaxSoftKicks failed detours, cancel the order — stopped beats
 //     orbiting forever.
-//   * Combat chaser (Target set)       -> clear Target/AttackCommand; the
-//     next targeting pass picks something reachable.
+//   * Combat chaser (Target set)       -> an AUTO-acquired target is
+//     dropped (the next targeting pass picks something reachable); a HUMAN
+//     PLAYER's explicit attack order is kept — the unit keeps trying rather
+//     than being swapped onto whatever is nearest (docs/Design/Stances.md §5).
+//   * Formation members are not tracked at all: the group has its own stall
+//     and tether handling, and the crowd-arrival rule would settle a member
+//     short of its slot (docs/Design/Navigation_And_Formations.md §2.9).
 //
 // Determinism: fixed evaluation cadence, integer/entity-order state only,
-// detour side chosen by entity index parity — no wall-clock, no RNG.
+// detour side chosen by NETWORK-id parity (entity indices differ between
+// lockstep peers) — no wall-clock, no RNG.
 // Structural changes are collected during iteration and applied after.
 
 using Unity.Collections;
@@ -137,7 +143,7 @@ namespace TheWaningBorder.Systems.Navigation
         {
             _needQuery = SystemAPI.QueryBuilder()
                 .WithAll<UnitTag, LocalTransform, DesiredDestination>()
-                .WithNone<StuckTracker>()
+                .WithNone<StuckTracker, EmplacedEngineTag>()
                 .Build();
         }
 
@@ -168,11 +174,16 @@ namespace TheWaningBorder.Systems.Navigation
             foreach (var (tracker, xf, dd, entity) in SystemAPI
                 .Query<RefRW<StuckTracker>, RefRO<LocalTransform>, RefRO<DesiredDestination>>()
                 .WithAll<UnitTag>()
+                .WithNone<EmplacedEngineTag>()   // bolted to a wall: never redirected
                 .WithEntityAccess())
             {
                 ref var t = ref tracker.ValueRW;
 
-                if (dd.ValueRO.Has == 0)
+                // Formation members: the group owns their progress (leader
+                // stall release, tether fuse, settle timeout). Treat them as
+                // having no live intent so a member that leaves the group
+                // starts a clean measurement.
+                if (dd.ValueRO.Has == 0 || em.HasComponent<FormationMemberState>(entity))
                 {
                     // No live intent — reset so the next order starts clean.
                     t.BestDist = float.MaxValue;
@@ -319,10 +330,35 @@ namespace TheWaningBorder.Systems.Navigation
             // entered. Removed rather than left as dead weight -- but note
             // ClearMiner survives, it is still called from the stuck path above.
 
-            // ── Combat chaser: drop the unreachable target, re-acquire ──
+            // ── Combat chaser ──
             if (em.HasComponent<Target>(entity)
                 && em.GetComponentData<Target>(entity).Value != Entity.Null)
             {
+                Entity tgt = em.GetComponentData<Target>(entity).Value;
+
+                // A HUMAN PLAYER's explicit attack order is never swapped for
+                // the nearest enemy by an automatic system. Keep the order and
+                // the chase; only restart the measurement, so this unit gets a
+                // fresh fuse (the target may move, a gate may open). The AI
+                // re-plans its own orders, so its stuck chasers still drop.
+                bool auto = em.HasComponent<UnitEngagement>(entity)
+                    && em.GetComponentData<UnitEngagement>(entity).AutoTarget == tgt;
+                bool playerOrder = !auto
+                    && em.HasComponent<FactionTag>(entity)
+                    && GameSettings.IsFactionHumanControlled(em.GetComponentData<FactionTag>(entity).Value);
+                if (playerOrder)
+                {
+                    var keepTracker = em.GetComponentData<StuckTracker>(entity);
+                    keepTracker.BestDist = float.MaxValue;
+                    keepTracker.NoProgressTime = 0f;
+                    em.SetComponentData(entity, keepTracker);
+                    // RE-PATH: drop the latched approach point, so the melee
+                    // chase derives a fresh one from where the unit now stands
+                    // rather than grinding at the same unreachable face.
+                    TransientState.Clear<ChaseAnchor>(em, entity);
+                    return;
+                }
+
                 em.SetComponentData(entity, new Target { Value = Entity.Null });
                 TransientState.Clear<AttackCommand>(em, entity);
                 ClearDest(em, entity);
@@ -339,7 +375,10 @@ namespace TheWaningBorder.Systems.Navigation
                 tracker.DetourPending = 1;
                 em.SetComponentData(entity, tracker);
 
-                // Perpendicular leg — deterministic side from entity index.
+                // Perpendicular leg — deterministic side from the NETWORK id
+                // (entity indices differ between lockstep peers, so index
+                // parity sent the same unit left on one peer and right on the
+                // other). Unnetworked units only exist outside lockstep.
                 // Re-approaching from a different cell gives the flow field
                 // (and the LOS check) a different answer than the orbit line.
                 float3 dest = em.HasComponent<DesiredDestination>(entity)
@@ -348,7 +387,10 @@ namespace TheWaningBorder.Systems.Navigation
                 float len = math.sqrt(dx * dx + dz * dz);
                 if (len < 0.01f) { ClearDest(em, entity); return; }
                 float inv = 1f / len;
-                float side = (entity.Index & 1) == 0 ? 1f : -1f;
+                int parityKey = em.HasComponent<TheWaningBorder.Core.Multiplayer.NetworkedEntity>(entity)
+                    ? em.GetComponentData<TheWaningBorder.Core.Multiplayer.NetworkedEntity>(entity).NetworkId
+                    : entity.Index;
+                float side = (parityKey & 1) == 0 ? 1f : -1f;
                 // Perp of (dx,dz) is (-dz,dx); step back slightly too so the
                 // detour leaves the contact/orbit ring.
                 float3 detour = pos + new float3(

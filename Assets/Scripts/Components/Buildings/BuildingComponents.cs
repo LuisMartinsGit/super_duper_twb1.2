@@ -128,6 +128,20 @@ public struct BuildingRangedAttack : IComponentData
 }
 
 /// <summary>
+/// A player-DIRECTED target for a shooting building
+/// (docs/Design/Combat_Pacing.md § Directed building fire). While the target
+/// is in range it takes the first of the building's MaxTargets slots; out of
+/// range the order is kept and the building auto-fires as usual.
+/// BuildingCombatSystem removes it once the target is dead or no longer a
+/// legal target; a Stop (CommandRouter.IssueBuildingAttack with no target)
+/// removes it too. Written only by the replicated BuildingAttack command.
+/// </summary>
+public struct BuildingForcedTarget : IComponentData
+{
+    public Entity Target;
+}
+
+/// <summary>
 /// Grid-aligned rectangular footprint for buildings.
 ///
 /// UNITS: METRES — which are also 1 m nav / passability cells. Filled from

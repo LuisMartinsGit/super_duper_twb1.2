@@ -370,16 +370,25 @@ namespace TheWaningBorder.UI.Ingame
         }
 
         /// <summary>Right-click on a pending queue slot: cancel + refund.
-        /// Slot 0 is in production and is not cancellable here, which is the
-        /// rule training has always had.</summary>
+        /// A unit in production (slot 0) is not cancellable here, which is the
+        /// rule training has always had; a running TECH is — that is how a
+        /// wall level, which locks the walls while it runs, is undone
+        /// (docs/Design/Age_1_Alanthor.md § The four wall levels).</summary>
         internal void OnQueueCancelClicked(int index)
         {
-            if (index <= 0 || _queueBuilding == Entity.Null) return;
+            if (index < 0 || _queueBuilding == Entity.Null) return;
             var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated) return;
             var em = world.EntityManager;
             if (!em.Exists(_queueBuilding)) return;
             if (index >= CommandRouter.GetProductionQueueLength(em, _queueBuilding)) return;
+            if (index == 0)
+            {
+                var queue = em.GetBuffer<ProductionQueueItem>(_queueBuilding);
+                bool running = em.HasComponent<ProductionState>(_queueBuilding)
+                    && em.GetComponentData<ProductionState>(_queueBuilding).Busy != 0;
+                if (running && queue[0].Kind != ProductionKind.Research) return;
+            }
 
             // Route through CommandRouter (never the helper directly) so the
             // refund + lockstep replication stay deterministic.

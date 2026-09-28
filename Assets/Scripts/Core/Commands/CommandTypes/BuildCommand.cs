@@ -179,10 +179,7 @@ namespace TheWaningBorder.Core.Commands.Types
         /// </summary>
         public static bool OverlapsExistingBuilding(EntityManager em, float3 position, int2 buildingSize)
         {
-            float halfW = buildingSize.x / 2f;
-            float halfH = buildingSize.y / 2f;
-            float2 newMin = new float2(position.x - halfW, position.z - halfH);
-            float2 newMax = new float2(position.x + halfW, position.z + halfH);
+            FootprintAabb(position, buildingSize, out float2 newMin, out float2 newMax);
 
             var buildingQuery = _buildingQuery.Get(em, BuildingTypes);
             using var xfs = buildingQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
@@ -190,23 +187,7 @@ namespace TheWaningBorder.Core.Commands.Types
 
             for (int i = 0; i < xfs.Length; i++)
             {
-                var bPos = xfs[i].Position;
-                float2 otherMin, otherMax;
-
-                if (em.HasComponent<BuildingSize>(ents[i]))
-                {
-                    var bSize = em.GetComponentData<BuildingSize>(ents[i]);
-                    otherMin = new float2(bPos.x - bSize.Width / 2f, bPos.z - bSize.Height / 2f);
-                    otherMax = new float2(bPos.x + bSize.Width / 2f, bPos.z + bSize.Height / 2f);
-                }
-                else
-                {
-                    float r = em.HasComponent<Radius>(ents[i])
-                        ? em.GetComponentData<Radius>(ents[i]).Value : 1.5f;
-                    otherMin = new float2(bPos.x - r, bPos.z - r);
-                    otherMax = new float2(bPos.x + r, bPos.z + r);
-                }
-
+                BuildingAabb(em, ents[i], xfs[i].Position, out float2 otherMin, out float2 otherMax);
                 if (newMin.x < otherMax.x && newMax.x > otherMin.x &&
                     newMin.y < otherMax.y && newMax.y > otherMin.y)
                     return true;
@@ -221,65 +202,36 @@ namespace TheWaningBorder.Core.Commands.Types
         /// </summary>
         public static bool IsValidBuildPosition(EntityManager em, float3 position, int2 buildingSize,
             string buildingId)
+            => CheckBuildPosition(em, position, buildingSize, buildingId)
+               == TheWaningBorder.World.Regions.PlacementRefusal.None;
+
+        /// <summary>
+        /// <see cref="IsValidBuildPosition(EntityManager, float3, int2, string)"/>
+        /// with its REASON: CursedGround, Terrain (map edge, obstacle, slope,
+        /// water, impassable cells) or Overlap. Same stages, same order — the
+        /// bool form is defined as "this answered None".
+        /// </summary>
+        public static TheWaningBorder.World.Regions.PlacementRefusal CheckBuildPosition(
+            EntityManager em, float3 position, int2 buildingSize, string buildingId)
         {
+            const TheWaningBorder.World.Regions.PlacementRefusal Ok =
+                TheWaningBorder.World.Regions.PlacementRefusal.None;
+            const TheWaningBorder.World.Regions.PlacementRefusal Terrain =
+                TheWaningBorder.World.Regions.PlacementRefusal.Terrain;
+
             // THE VEIL (Curse & Shardroot canon §2.3): veilstone crust is
             // unbuildable ground — humanity is being pushed back. Reclaim it
             // (mine the frontier crystals, starve the wells, sanctify with a
             // Font) before building on it.
-            var veilQuery = _veilQuery.Get(em, VeilTypes);
-            if (!veilQuery.IsEmptyIgnoreFilter)
-            {
-                // Veilworks (Sect of Reclamation) is the ONE exception: a
-                // smelter for cursed matter, explicitly raised on cursed ground
-                // (docs/Design/Sects.md section 4). Everything else obeys the
-                // crust rule.
-                bool ignoresCrust = buildingId == "Sect_Veilworks";
-                var veil = veilQuery.GetSingleton<VeilField>();
-                if (!ignoresCrust
-                    && veil.Initialised != 0
-                    && veil.SaturationAt(position) >= VeilField.CrustThreshold)
-                    return false;
-            }
+            if (!PassesCrustRule(em, position, buildingId))
+                return TheWaningBorder.World.Regions.PlacementRefusal.CursedGround;
 
             // Compute AABB half-extents for the new building
-            float halfW = buildingSize.x / 2f;
-            float halfH = buildingSize.y / 2f;
-            float2 newMin = new float2(position.x - halfW, position.z - halfH);
-            float2 newMax = new float2(position.x + halfW, position.z + halfH);
+            FootprintAabb(position, buildingSize, out float2 newMin, out float2 newMax);
 
             // 0. Map-bounds check — the building's footprint must fit entirely
-            //    inside the world rectangle. Bounds source priority:
-            //      1. ProceduralTerrain.Instance (procedural maps)
-            //      2. Unity Terrain.activeTerrain (hand-authored maps —
-            //         MapMagic terrain may sit at non-origin coords)
-            //      3. ±GameSettings.MapHalfSize box (early bootstrap / flat
-            //         test map fallback)
-            var terrain = ProceduralTerrain.Instance;
-            if (terrain != null)
-            {
-                if (newMin.x < terrain.worldMin.x || newMin.y < terrain.worldMin.y ||
-                    newMax.x > terrain.worldMax.x || newMax.y > terrain.worldMax.y)
-                    return false;
-            }
-            else
-            {
-                var ut = UnityEngine.Terrain.activeTerrain;
-                if (ut != null && ut.terrainData != null)
-                {
-                    var origin = ut.transform.position;
-                    var size = ut.terrainData.size;
-                    if (newMin.x < origin.x || newMin.y < origin.z ||
-                        newMax.x > origin.x + size.x || newMax.y > origin.z + size.z)
-                        return false;
-                }
-                else
-                {
-                    float half = GameSettings.MapHalfSize;
-                    if (newMin.x < -half || newMin.y < -half ||
-                        newMax.x >  half || newMax.y >  half)
-                        return false;
-                }
-            }
+            //    inside the world rectangle.
+            if (!InsideMapBounds(newMin, newMax)) return Terrain;
 
             // 1. Building overlap check (AABB-vs-AABB on XZ plane)
             var buildingQuery = _buildingQuery.Get(em, BuildingTypes);
@@ -288,31 +240,13 @@ namespace TheWaningBorder.Core.Commands.Types
 
             for (int i = 0; i < buildingTransforms.Length; i++)
             {
-                var bPos = buildingTransforms[i].Position;
-                float2 otherMin, otherMax;
-
-                if (em.HasComponent<BuildingSize>(buildingEntities[i]))
-                {
-                    var bSize = em.GetComponentData<BuildingSize>(buildingEntities[i]);
-                    float bHalfW = bSize.Width / 2f;
-                    float bHalfH = bSize.Height / 2f;
-                    otherMin = new float2(bPos.x - bHalfW, bPos.z - bHalfH);
-                    otherMax = new float2(bPos.x + bHalfW, bPos.z + bHalfH);
-                }
-                else
-                {
-                    // Fallback for buildings without BuildingSize (legacy)
-                    float r = em.HasComponent<Radius>(buildingEntities[i])
-                        ? em.GetComponentData<Radius>(buildingEntities[i]).Value
-                        : 1.5f;
-                    otherMin = new float2(bPos.x - r, bPos.z - r);
-                    otherMax = new float2(bPos.x + r, bPos.z + r);
-                }
+                BuildingAabb(em, buildingEntities[i], buildingTransforms[i].Position,
+                    out float2 otherMin, out float2 otherMax);
 
                 // AABB overlap test
                 if (newMin.x < otherMax.x && newMax.x > otherMin.x &&
                     newMin.y < otherMax.y && newMax.y > otherMin.y)
-                    return false;
+                    return TheWaningBorder.World.Regions.PlacementRefusal.Overlap;
             }
 
             // AN EXTRACTOR STANDS ON ITS NODE (docs/Design/Regions.md §4) —
@@ -343,63 +277,173 @@ namespace TheWaningBorder.Core.Commands.Types
                 if (ownNode != null && em.HasComponent(obstacleEntities[i], ownNode.Value))
                     continue;   // the node this extractor exists to stand on
 
-                var oPos = obstacleTransforms[i].Position;
-                float oR = obstacleRadii[i].Value;
-                // Clamp circle center to AABB, check distance
-                float closestX = math.clamp(oPos.x, newMin.x, newMax.x);
-                float closestZ = math.clamp(oPos.z, newMin.y, newMax.y);
-                float dx = oPos.x - closestX;
-                float dz = oPos.z - closestZ;
-                if (dx * dx + dz * dz < oR * oR)
-                    return false;
+                if (CircleHitsAabb(obstacleTransforms[i].Position, obstacleRadii[i].Value,
+                        newMin, newMax))
+                    return Terrain;
             }
 
-            // 3. Terrain checks for all four corners + center
-            float3[] checkPoints = new float3[]
+            // 3 + 4. Terrain (water, slope) and the passability grid.
+            return PassesTerrainAndGrid(position, buildingSize, newMin, newMax, ownNode != null)
+                ? Ok : Terrain;
+        }
+
+        // ─────────────────────────────────────────────────────────────────
+        // SHARED STAGES
+        //
+        // IsValidBuildPosition and BuildSiteSnapshot.IsValidBuildPosition run
+        // the SAME stages in the SAME order; only where the building and
+        // obstacle lists come from differs (a live query per call vs one
+        // snapshot per sim tick). Keeping the stages here is what stops the
+        // AI's site picker and the router's validator from drifting apart.
+        // ─────────────────────────────────────────────────────────────────
+
+        /// <summary>Crust rule: false on veil crust, except for the one
+        /// building raised on cursed ground (Sect_Veilworks).</summary>
+        internal static bool PassesCrustRule(EntityManager em, float3 position, string buildingId)
+        {
+            var veilQuery = _veilQuery.Get(em, VeilTypes);
+            if (veilQuery.IsEmptyIgnoreFilter) return true;
+
+            // Veilworks (Sect of Reclamation) is the ONE exception: a
+            // smelter for cursed matter, explicitly raised on cursed ground
+            // (docs/Design/Sects.md section 4). Everything else obeys the
+            // crust rule.
+            if (buildingId == "Sect_Veilworks") return true;
+            var veil = veilQuery.GetSingleton<VeilField>();
+            return !(veil.Initialised != 0
+                     && veil.SaturationAt(position) >= VeilField.CrustThreshold);
+        }
+
+        internal static void FootprintAabb(float3 position, int2 buildingSize,
+            out float2 min, out float2 max)
+        {
+            float halfW = buildingSize.x / 2f;
+            float halfH = buildingSize.y / 2f;
+            min = new float2(position.x - halfW, position.z - halfH);
+            max = new float2(position.x + halfW, position.z + halfH);
+        }
+
+        /// <summary>An existing building's XZ footprint: its BuildingSize,
+        /// or the legacy Radius square (1.5 m when it has neither).</summary>
+        internal static void BuildingAabb(EntityManager em, Entity e, float3 bPos,
+            out float2 min, out float2 max)
+        {
+            if (em.HasComponent<BuildingSize>(e))
             {
-                position,
-                new float3(newMin.x, 0, newMin.y),
-                new float3(newMax.x, 0, newMin.y),
-                new float3(newMin.x, 0, newMax.y),
-                new float3(newMax.x, 0, newMax.y)
-            };
-
-            // tan(15°) ≈ 0.2679 — buildings reject placement on terrain steeper than 15°.
-            const float maxSlope = 0.2679f;
-            const float slopeStep = 1.5f;
-
-            foreach (var pt in checkPoints)
-            {
-                float h = TerrainUtility.GetHeight(pt.x, pt.z);
-                if (WaterPlane.Instance != null &&
-                    WaterPlane.Instance.IsUnderwater(new UnityEngine.Vector3(pt.x, h, pt.z)))
-                    return false;
-
-                float hL = TerrainUtility.GetHeight(pt.x - slopeStep, pt.z);
-                float hR = TerrainUtility.GetHeight(pt.x + slopeStep, pt.z);
-                float hD = TerrainUtility.GetHeight(pt.x, pt.z - slopeStep);
-                float hU = TerrainUtility.GetHeight(pt.x, pt.z + slopeStep);
-                float dX = (hR - hL) / (slopeStep * 2f);
-                float dZ = (hU - hD) / (slopeStep * 2f);
-                float slope = math.sqrt(dX * dX + dZ * dZ);
-                if (slope > maxSlope)
-                    return false;
+                var bSize = em.GetComponentData<BuildingSize>(e);
+                float bHalfW = bSize.Width / 2f;
+                float bHalfH = bSize.Height / 2f;
+                min = new float2(bPos.x - bHalfW, bPos.z - bHalfH);
+                max = new float2(bPos.x + bHalfW, bPos.z + bHalfH);
             }
+            else
+            {
+                // Fallback for buildings without BuildingSize (legacy)
+                float r = em.HasComponent<Radius>(e)
+                    ? em.GetComponentData<Radius>(e).Value
+                    : 1.5f;
+                min = new float2(bPos.x - r, bPos.z - r);
+                max = new float2(bPos.x + r, bPos.z + r);
+            }
+        }
 
-            // 4. Passability grid check -- all cells under footprint must be
-            //    passable. SKIPPED FOR EXTRACTORS: the blocked cells under an
-            //    on-node candidate ARE its node (nodes block their footprint
-            //    at spawn), the 4 m node gate keeps the footprint on the node,
-            //    and the finished building blocks the same ground again.
+        /// <summary>Circle (natural obstacle) vs footprint: clamp the centre
+        /// to the AABB and compare the distance.</summary>
+        internal static bool CircleHitsAabb(float3 c, float r, float2 min, float2 max)
+        {
+            float closestX = math.clamp(c.x, min.x, max.x);
+            float closestZ = math.clamp(c.z, min.y, max.y);
+            float dx = c.x - closestX;
+            float dz = c.z - closestZ;
+            return dx * dx + dz * dz < r * r;
+        }
+
+        /// <summary>
+        /// The footprint must fit entirely inside the world rectangle. Bounds
+        /// source priority:
+        ///   1. ProceduralTerrain.Instance (procedural maps)
+        ///   2. Unity Terrain.activeTerrain (hand-authored maps — MapMagic
+        ///      terrain may sit at non-origin coords)
+        ///   3. ±GameSettings.MapHalfSize box (early bootstrap / flat test map
+        ///      fallback)
+        /// </summary>
+        internal static bool InsideMapBounds(float2 newMin, float2 newMax)
+        {
+            var terrain = ProceduralTerrain.Instance;
+            if (terrain != null)
+            {
+                return !(newMin.x < terrain.worldMin.x || newMin.y < terrain.worldMin.y ||
+                         newMax.x > terrain.worldMax.x || newMax.y > terrain.worldMax.y);
+            }
+            var ut = UnityEngine.Terrain.activeTerrain;
+            if (ut != null && ut.terrainData != null)
+            {
+                var origin = ut.transform.position;
+                var size = ut.terrainData.size;
+                return !(newMin.x < origin.x || newMin.y < origin.z ||
+                         newMax.x > origin.x + size.x || newMax.y > origin.z + size.z);
+            }
+            float half = GameSettings.MapHalfSize;
+            return !(newMin.x < -half || newMin.y < -half ||
+                     newMax.x >  half || newMax.y >  half);
+        }
+
+        /// <summary>
+        /// 3. Terrain checks for the centre and the four corners (water and a
+        /// 15° slope limit), then 4. the passability grid — every cell under
+        /// the footprint must be passable. The grid test is SKIPPED FOR
+        /// EXTRACTORS: the blocked cells under an on-node candidate ARE its
+        /// node (nodes block their footprint at spawn), the 4 m node gate
+        /// keeps the footprint on the node, and the finished building blocks
+        /// the same ground again.
+        /// </summary>
+        internal static bool PassesTerrainAndGrid(float3 position, int2 buildingSize,
+            float2 newMin, float2 newMax, bool isExtractor)
+        {
+            // Centre first, then the corners — the order the old point array
+            // had, without allocating one per call (this runs per candidate
+            // in the AI's site search).
+            if (!TerrainPointOk(position.x, position.z)) return false;
+            if (!TerrainPointOk(newMin.x, newMin.y)) return false;
+            if (!TerrainPointOk(newMax.x, newMin.y)) return false;
+            if (!TerrainPointOk(newMin.x, newMax.y)) return false;
+            if (!TerrainPointOk(newMax.x, newMax.y)) return false;
+
             var grid = PassabilityGrid.Instance;
-            if (grid != null && ownNode == null)
+            if (grid != null && !isExtractor)
             {
                 if (!grid.IsFootprintPassable(position, buildingSize))
                     return false;
             }
-
             return true;
         }
+
+        private static bool TerrainPointOk(float x, float z)
+        {
+            // tan(15°) ≈ 0.2679 — buildings reject placement on terrain steeper than 15°.
+            const float maxSlope = 0.2679f;
+            const float slopeStep = 1.5f;
+
+            float h = TerrainUtility.GetHeight(x, z);
+            if (WaterPlane.Instance != null &&
+                WaterPlane.Instance.IsUnderwater(new UnityEngine.Vector3(x, h, z)))
+                return false;
+
+            float hL = TerrainUtility.GetHeight(x - slopeStep, z);
+            float hR = TerrainUtility.GetHeight(x + slopeStep, z);
+            float hD = TerrainUtility.GetHeight(x, z - slopeStep);
+            float hU = TerrainUtility.GetHeight(x, z + slopeStep);
+            float dX = (hR - hL) / (slopeStep * 2f);
+            float dZ = (hU - hD) / (slopeStep * 2f);
+            float slope = math.sqrt(dX * dX + dZ * dZ);
+            return !(slope > maxSlope);
+        }
+
+        /// <summary>The building and obstacle query shapes, for
+        /// <see cref="BuildSiteSnapshot"/> — one definition, so the snapshot
+        /// sees exactly the entities the live validator sees.</summary>
+        internal static EntityQuery BuildingQuery(EntityManager em) => _buildingQuery.Get(em, BuildingTypes);
+        internal static EntityQuery ObstacleQuery(EntityManager em) => _obstacleQuery.Get(em, ObstacleTypes);
 
         // GetBuildingRadius removed in task-062 Q-41 — zero callers. Building
         // collision is footprint-based (BuildingSizeConfig), not circle-radius.

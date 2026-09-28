@@ -55,6 +55,9 @@ namespace TheWaningBorder.Core.Localization
             t["MASTER VOLUME"] = "VOLUME GERAL";
             t["MUSIC VOLUME"] = "VOLUME DA MÚSICA";
             t["LANGUAGE"] = "IDIOMA";
+            t["VISUALS"] = "VISUAL";
+            t["INK OUTLINES"] = "CONTORNOS A TINTA";
+            t["Hand-drawn pencil lines around the world."] = "Linhas a lápis desenhadas à mão em todo o mundo.";
             t["APPLY"] = "APLICAR";
             t["Shown to other players in a lobby."] = "Mostrado aos outros jogadores numa sala.";
             t["Higher looks better and costs frames."] = "Mais alta fica melhor e custa fotogramas.";

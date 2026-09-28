@@ -39,6 +39,9 @@ namespace TheWaningBorder.Entities
             // exactly as the mobile Ballista uses.
             em.AddComponent<CatapultTag>(entity);
             em.AddComponent<EmplacedEngineTag>(entity);
+            // Holds for ever: ClearAllCommands keeps this tag on an engine, so
+            // no order can make it chase, retreat or return to a guard post.
+            em.AddComponent<HoldPositionTag>(entity);
             em.AddComponentData(entity, new Health { Value = (int)def.hp, Max = (int)def.hp });
             em.AddComponentData(entity, new Damage { Value = (int)def.damage });
             em.AddComponentData(entity, new LineOfSight { Radius = def.lineOfSight });

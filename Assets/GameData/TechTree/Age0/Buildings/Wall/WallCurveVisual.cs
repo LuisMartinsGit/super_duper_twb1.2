@@ -25,6 +25,25 @@ namespace TheWaningBorder.Rendering
         public Entity Segment;
 
         const float PollSeconds = 0.25f;
+        /// <summary>Construction progress a rebuild waits for. Every 3 % was
+        /// ~33 full mesh rebuilds per segment per build; the rise reads as
+        /// continuous at 10 %, and completion always rebuilds.</summary>
+        const float ProgressStep = 0.10f;
+        /// <summary>Segment mesh rebuilds allowed per frame across ALL walls.
+        /// A faction-wide level-up re-clads every segment at once; spread
+        /// over frames it is a ripple instead of one long hitch.</summary>
+        const int MaxRebuildsPerFrame = 12;
+        static int _budgetFrame = -1;
+        static int _rebuildsThisFrame;
+
+        static bool TakeRebuildBudget()
+        {
+            if (_budgetFrame != Time.frameCount) { _budgetFrame = Time.frameCount; _rebuildsThisFrame = 0; }
+            if (_rebuildsThisFrame >= MaxRebuildsPerFrame) return false;
+            _rebuildsThisFrame++;
+            return true;
+        }
+        bool _rebuildPending;
 
         // Per-level palette: plinth / body / coping / crown / shields.
         // docs/Design/Age_1_Alanthor.md § The three wall levels.
@@ -75,7 +94,11 @@ namespace TheWaningBorder.Rendering
             _mpb = new MaterialPropertyBlock();
             if (_em.Exists(Segment)) _tier = TheWaningBorder.Entities.WallTiers.Of(_em, Segment);
             ApplyMaterials();
-            Rebuild();
+            // Stagger the poll so a wall placed in one go does not poll every
+            // segment on the same frame forever after.
+            _nextPoll = Time.time + UnityEngine.Random.value * PollSeconds;
+            if (TakeRebuildBudget()) Rebuild();
+            else _rebuildPending = true;
         }
 
         /// <summary>
@@ -148,6 +171,16 @@ namespace TheWaningBorder.Rendering
 
         void LateUpdate()
         {
+            if (_valid && _rebuildPending && TakeRebuildBudget())
+            {
+                _rebuildPending = false;
+                var w = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+                if (w != null && w.IsCreated)
+                {
+                    if (_em != w.EntityManager) _em = w.EntityManager;
+                    if (Segment != Entity.Null && _em.Exists(Segment)) Rebuild();
+                }
+            }
             if (!_valid || Time.time < _nextPoll) return;
             _nextPoll = Time.time + PollSeconds;
             var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
@@ -180,8 +213,13 @@ namespace TheWaningBorder.Rendering
             // The root is placed by SyncTransforms after we first build; the
             // mesh lives in the root's frame, so a moved root means a rebuild.
             bool moved = transform.localToWorldMatrix != _builtLocalToWorld;
-            if (alive != _aliveCount || moved || _tier != _builtTier
-                || Mathf.Abs(progress - _builtProgress) > 0.03f) Rebuild();
+            bool finished = progress >= 1f && _builtProgress < 1f;
+            if (alive != _aliveCount || moved || _tier != _builtTier || finished
+                || Mathf.Abs(progress - _builtProgress) >= ProgressStep)
+            {
+                if (TakeRebuildBudget()) { _rebuildPending = false; Rebuild(); }
+                else _rebuildPending = true;   // picked up on a later frame
+            }
         }
 
         void Rebuild()

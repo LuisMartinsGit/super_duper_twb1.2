@@ -374,6 +374,12 @@ public static class GameSettings
     /// always shows one.</summary>
     public static HealthBarMode HealthBars = HealthBarMode.Smart;
 
+    // ==================== Visual Settings ====================
+
+    /// <summary>The player's Ink Outlines choice (Settings > Visuals). Null
+    /// until they make one, and then PencilOutline.asset's own switch decides.</summary>
+    public static bool? InkOutlines = null;
+
     // ==================== Map Settings ====================
 
     /// <summary>

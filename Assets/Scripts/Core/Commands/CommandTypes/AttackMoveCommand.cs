@@ -33,6 +33,8 @@ namespace TheWaningBorder.Core.Commands.Types
             bool keepFormation = false)
         {
             if (!em.Exists(unit)) return;
+            // An emplaced engine is bolted to its wall deck: no move takes it.
+            if (em.HasComponent<EmplacedEngineTag>(unit)) return;
 
             // task-112 M3: snap onto the cost field via NavGridQuery (see
             // MoveCommandHelper for the rationale -- this replaces the

@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Full Gallop
   role: Military
   effect: 
-  desc: "Unlocks the Full Gallop active for Alanthor cavalry: allied cavalry within 20 m gain +40% move speed for 8 s but cannot attack during the burst. 75 s cooldown."
+  desc: "Unlocks the Full Gallop active for Alanthor cavalry: allied cavalry within 15 m gain +40% move speed for 8 s but cannot attack during the burst. 60 s cooldown."
   researchAt: Alanthor_RoyalStable
   minBuildingLevel: 3
   researchTime: 45

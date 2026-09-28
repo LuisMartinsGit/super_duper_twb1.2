@@ -5,6 +5,7 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
+using TheWaningBorder.Core;
 
 namespace TheWaningBorder.Systems.Combat
 {
@@ -58,15 +59,14 @@ namespace TheWaningBorder.Systems.Combat
                 .WithNone<SectVeiled>()
                 .Build();
 
-            var tgtEntities = targetQuery.ToEntityArray(Allocator.Temp);
-            var tgtTransforms = targetQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            var tgtFactions = targetQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            var tgtHealth = targetQuery.ToComponentDataArray<Health>(Allocator.Temp);
-
-            // Process all buildings with ranged attack
-            foreach (var (transform, attack, faction, entity) in SystemAPI
-                .Query<RefRO<LocalTransform>, RefRW<BuildingRangedAttack>, RefRO<FactionTag>>()
-                .WithAll<BuildingTag>()
+            // PASS 1 — tick cooldowns, collect the towers ready to fire, in
+            // query order (2026-09-25). The four-array snapshot of every
+            // target in the world used to be taken every tick even when every
+            // tower was mid-cooldown, which late game is nearly every tick.
+            var ready = new NativeList<Entity>(16, Allocator.Temp);
+            foreach (var (attack, entity) in SystemAPI
+                .Query<RefRW<BuildingRangedAttack>>()
+                .WithAll<BuildingTag, LocalTransform, FactionTag>()
                 // BuildingCollapseState is the buildings' DeathAnimationState:
                 // a tower that has already fallen kept firing for the whole
                 // collapse.
@@ -80,11 +80,53 @@ namespace TheWaningBorder.Systems.Combat
                     attack.ValueRW.Timer -= dt;
                     continue;
                 }
+                ready.Add(entity);
+            }
 
-                var myPos = transform.ValueRO.Position;
-                var myFaction = faction.ValueRO.Value;
-                float range = attack.ValueRO.Range;
-                int maxTargets = math.max(1, attack.ValueRO.MaxTargets);
+            if (ready.Length == 0)
+            {
+                ready.Dispose();
+                return;
+            }
+
+            // A ready tower that finds nothing waits this long (sim time, so
+            // identical on every peer) instead of re-scanning every tick.
+            var cfg = BuildingCombatSystemConfig.I;
+            float noTargetRetry = cfg != null ? cfg.noTargetRetryDelay : 0f;
+
+            var tgtEntities = targetQuery.ToEntityArray(Allocator.Temp);
+            var tgtTransforms = targetQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            var tgtFactions = targetQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            var tgtHealth = targetQuery.ToComponentDataArray<Health>(Allocator.Temp);
+            // Footprints, resolved once per update rather than once per
+            // tower x target: range is measured to the target's SURFACE
+            // (TargetGeometry), so a 7x7 Hall is in range when its wall is,
+            // not only when its pivot is. `tgtPad` is the footprint's
+            // farthest reach from the pivot, for the cheap reject.
+            var tgtExtents = new NativeArray<TargetExtent>(tgtEntities.Length, Allocator.Temp);
+            var tgtPad = new NativeArray<float>(tgtEntities.Length, Allocator.Temp);
+            for (int i = 0; i < tgtEntities.Length; i++)
+            {
+                var ext = TargetGeometry.Extent(em, tgtEntities[i]);
+                tgtExtents[i] = ext;
+                tgtPad[i] = ext.IsBox
+                    ? math.sqrt(ext.HalfW * ext.HalfW + ext.HalfH * ext.HalfH)
+                    : ext.Radius;
+            }
+
+            // PASS 2 — the ready towers, same order as the old single loop.
+            for (int ri = 0; ri < ready.Length; ri++)
+            {
+                var entity = ready[ri];
+                var attackData = em.GetComponentData<BuildingRangedAttack>(entity);
+                var myPos = em.GetComponentData<LocalTransform>(entity).Position;
+                var myFaction = em.GetComponentData<FactionTag>(entity).Value;
+                float range = attackData.Range;
+                // Cheap squared reject before the exact distance: the bound is
+                // padded, so every candidate the exact test would accept
+                // still reaches it and the accepted set is unchanged.
+                float rejectSq = (range * 1.001f + 0.01f) * (range * 1.001f + 0.01f);
+                int maxTargets = math.max(1, attackData.MaxTargets);
 
                 // Fiendstone Keep tech ladder (Age 0): AdditionalTowers adds
                 // two auto-fire targets; the emplacement techs add extra
@@ -94,17 +136,94 @@ namespace TheWaningBorder.Systems.Combat
                 if (isKeep && research != null && research.HasResearched(myFaction, "AdditionalTowers"))
                     maxTargets += 2;
 
+                // The Wall Rule (docs/Design/Combat_Pacing.md): a building
+                // whose own fire is not siege never takes a wall piece as a
+                // target - ProjectileSystem would zero the hit anyway, so a
+                // wall in the list only wastes a volley slot. The Keep's
+                // Ballista / Trebuchet emplacement shots ARE siege, so a Keep
+                // that has them remembers the nearest wall as a fallback for
+                // those shots alone.
+                DamageType dmgType = MainDamageType(em, entity);
+                bool mainIsSiege = dmgType == DamageType.Siege;
+                bool keepSiege = isKeep && research != null
+                    && (research.HasResearched(myFaction, "BallistaEmplacement")
+                        || research.HasResearched(myFaction, "TrebuchetEmplacement"));
+                bool haveWall = false;
+                var nearestWall = default(TargetCandidate);
+
+                // Directed fire (docs/Design/Combat_Pacing.md § Directed
+                // building fire): a legal forced target in range takes the
+                // FIRST slot; out of range the order is simply kept. An
+                // illegal one (dead, allied, veiled, a wall for non-siege
+                // fire) ends the order.
+                Entity forced = Entity.Null;
+                var forcedCandidate = default(TargetCandidate);
+                if (em.HasComponent<BuildingForcedTarget>(entity))
+                {
+                    var ft = em.GetComponentData<BuildingForcedTarget>(entity).Target;
+                    if (!IsLegalForcedTarget(em, entity, ft))
+                    {
+                        // Direct, not through the ECB: the loop walks a copied
+                        // list, so the structural change is safe here, and a
+                        // deferred removal could land on a building the same
+                        // playback destroys.
+                        em.RemoveComponent<BuildingForcedTarget>(entity);
+                    }
+                    else
+                    {
+                        // Gate on the SURFACE distance; the pivot stays the
+                        // aim point and its distance the projectile's flight.
+                        var fpos = em.GetComponentData<LocalTransform>(ft).Position;
+                        float fdist = math.distance(myPos, fpos);
+                        if (TargetGeometry.SurfaceDistXZ(em, myPos, ft) <= range)
+                        {
+                            forced = ft;
+                            forcedCandidate = new TargetCandidate { Entity = ft, Position = fpos, Distance = fdist };
+                        }
+                    }
+                }
+                int autoSlots = forced != Entity.Null ? maxTargets - 1 : maxTargets;
+
                 // Find closest enemies within range
                 var targets = new NativeList<TargetCandidate>(maxTargets, Allocator.Temp);
 
                 for (int i = 0; i < tgtEntities.Length; i++)
                 {
+                    // Every slot belongs to the forced target: nothing to
+                    // auto-pick (a one-target tower under a direct order).
+                    if (autoSlots <= 0 && !keepSiege) break;
+                    if (tgtEntities[i] == forced) continue;
                     // Towers hold fire on allies. docs/Design/Teams.md
                     if (!Alliances.AreHostile(myFaction, tgtFactions[i].Value)) continue;
                     if (tgtHealth[i].Value <= 0) continue;
+                    // Cheap reject on the pivot, padded by the footprint so
+                    // a building whose wall is in range still reaches the
+                    // exact test.
+                    float3 tp = tgtTransforms[i].Position;
+                    float rx = tp.x - myPos.x, rz = tp.z - myPos.z;
+                    float padded = math.sqrt(rejectSq) + tgtPad[i];
+                    if (rx * rx + rz * rz > padded * padded) continue;
 
-                    float dist = math.distance(myPos, tgtTransforms[i].Position);
-                    if (dist > range) continue;
+                    // Range gate on the SURFACE distance; `dist` (pivot) is
+                    // still what the aim, the ordering and the flight use.
+                    if (tgtExtents[i].SurfaceDistXZ(myPos) > range) continue;
+                    float dist = math.distance(myPos, tp);
+
+                    if (!mainIsSiege && em.HasComponent<WallTag>(tgtEntities[i]))
+                    {
+                        if (keepSiege && (!haveWall || dist < nearestWall.Distance))
+                        {
+                            nearestWall = new TargetCandidate
+                            {
+                                Entity = tgtEntities[i],
+                                Position = tgtTransforms[i].Position,
+                                Distance = dist
+                            };
+                            haveWall = true;
+                        }
+                        continue;
+                    }
+                    if (autoSlots <= 0) continue;
 
                     // Curse & Shardroot canon §2.1: BORDER emplacements
                     // (well turrets, Turret sub-nodes) GUARD the well — they
@@ -148,7 +267,7 @@ namespace TheWaningBorder.Systems.Combat
                         Distance = dist
                     };
 
-                    if (targets.Length < maxTargets)
+                    if (targets.Length < autoSlots)
                     {
                         targets.Add(candidate);
                     }
@@ -169,16 +288,19 @@ namespace TheWaningBorder.Systems.Combat
                     }
                 }
 
+                // The forced target leads the list.
+                if (forced != Entity.Null)
+                {
+                    targets.Add(default);
+                    for (int j = targets.Length - 1; j > 0; j--) targets[j] = targets[j - 1];
+                    targets[0] = forcedCandidate;
+                }
+
                 // Fire at each target
-                if (targets.Length > 0)
+                if (targets.Length > 0 || haveWall)
                 {
                     // Veilstone buildings fire lasers instead of arrows
                     bool isBorder = em.HasComponent<BorderTag>(entity);
-
-                    // Get building's damage type (default Ranged for arrow buildings, Magic for veilstone)
-                    DamageType dmgType = isBorder ? DamageType.Magic : DamageType.Ranged;
-                    if (em.HasComponent<DamageTypeData>(entity))
-                        dmgType = em.GetComponentData<DamageTypeData>(entity).Value;
 
                     // Veilstone buff/debuff modifiers (same pattern as MeleeCombatSystem)
                     float attackerBorderMod = 1.0f;
@@ -203,7 +325,7 @@ namespace TheWaningBorder.Systems.Combat
                             borderMod *= 1f + debuff.AttPenalty;
                         }
 
-                        int modifiedDamage = math.max(1, (int)(attack.ValueRO.Damage * borderMod));
+                        int modifiedDamage = math.max(1, (int)(attackData.Damage * borderMod));
                         CreateProjectile(ref ecb, myPos, targets[t].Position,
                             targets[t].Distance, entity, myFaction,
                             modifiedDamage, time, targets[t].Entity, isBorder, dmgType, spawnYOffset);
@@ -211,10 +333,12 @@ namespace TheWaningBorder.Systems.Combat
 
                     // Keep emplacements: extra per-volley shots at the nearest
                     // target. Ballista = single-target siege bolt; Trebuchet =
-                    // arcing siege shell with splash.
+                    // arcing siege shell with splash. With nothing else in
+                    // range they take the nearest wall piece: siege is the
+                    // one thing allowed to (the Wall Rule).
                     if (isKeep && research != null)
                     {
-                        var nearest = targets[0];
+                        var nearest = targets.Length > 0 ? targets[0] : nearestWall;
                         if (research.HasResearched(myFaction, "BallistaEmplacement"))
                         {
                             CreateProjectile(ref ecb, myPos, nearest.Position,
@@ -229,7 +353,13 @@ namespace TheWaningBorder.Systems.Combat
                         }
                     }
 
-                    attack.ValueRW.Timer = attack.ValueRO.Cooldown;
+                    attackData.Timer = attackData.Cooldown;
+                    em.SetComponentData(entity, attackData);
+                }
+                else if (noTargetRetry > 0f)
+                {
+                    attackData.Timer = noTargetRetry;
+                    em.SetComponentData(entity, attackData);
                 }
 
                 targets.Dispose();
@@ -239,6 +369,45 @@ namespace TheWaningBorder.Systems.Combat
             tgtTransforms.Dispose();
             tgtFactions.Dispose();
             tgtHealth.Dispose();
+            tgtExtents.Dispose();
+            tgtPad.Dispose();
+            ready.Dispose();
+        }
+
+        /// <summary>
+        /// A building's own fire type: Magic for the curse's emplacements,
+        /// Ranged for arrow buildings, unless the building carries an explicit
+        /// DamageTypeData.
+        /// </summary>
+        public static DamageType MainDamageType(EntityManager em, Entity building)
+        {
+            if (em.HasComponent<DamageTypeData>(building))
+                return em.GetComponentData<DamageTypeData>(building).Value;
+            return em.HasComponent<BorderTag>(building) ? DamageType.Magic : DamageType.Ranged;
+        }
+
+        /// <summary>
+        /// May <paramref name="building"/>'s fire be directed at
+        /// <paramref name="target"/>? The same exclusions the auto-target
+        /// snapshot applies, plus hostility and the Wall Rule. One test for
+        /// the command's issuer, its executor on every peer, and the combat
+        /// system that keeps or drops the order each volley.
+        /// docs/Design/Combat_Pacing.md § Directed building fire
+        /// </summary>
+        public static bool IsLegalForcedTarget(EntityManager em, Entity building, Entity target)
+        {
+            if (building == Entity.Null || target == Entity.Null) return false;
+            if (!em.Exists(building) || !em.Exists(target)) return false;
+            if (!em.HasComponent<BuildingRangedAttack>(building) || !em.HasComponent<FactionTag>(building)) return false;
+            if (!em.HasComponent<Health>(target) || !em.HasComponent<FactionTag>(target)
+                || !em.HasComponent<LocalTransform>(target)) return false;
+            if (em.GetComponentData<Health>(target).Value <= 0) return false;
+            if (!Alliances.AreHostile(em.GetComponentData<FactionTag>(building).Value,
+                                      em.GetComponentData<FactionTag>(target).Value)) return false;
+            if (em.HasComponent<SectVeiled>(target) || em.HasComponent<NodeUntargetable>(target)
+                || em.HasComponent<NodeNoAutoAcquire>(target)) return false;
+            if (CombatDamageHelper.WallRuleBlocks(em, target, MainDamageType(em, building))) return false;
+            return true;
         }
 
         private static void CreateProjectile(ref EntityCommandBuffer ecb,

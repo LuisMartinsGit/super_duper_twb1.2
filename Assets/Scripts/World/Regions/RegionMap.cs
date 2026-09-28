@@ -30,6 +30,18 @@ namespace TheWaningBorder.World.Regions
         // Authored outlines, parallel to _seeds. A null entry means that
         // region is still a Voronoi cell.
         private static Vector2[][] _shapes = System.Array.Empty<Vector2[]>();
+        // Axis-aligned bounds of each outline, parallel to _shapes (unused
+        // for a null shape). Every polygon query rejects on these first: a
+        // point outside a polygon's box cannot be inside it, and cannot be
+        // nearer to its outline than to the box. Lockstep-exact — see
+        // InsideBounded / BoxDistance for why the rejects never change an
+        // answer.
+        private static Vector2[] _shapeMin = System.Array.Empty<Vector2>();
+        private static Vector2[] _shapeMax = System.Array.Empty<Vector2>();
+        /// <summary>Slack on the x reject, metres: far above float rounding
+        /// of the ray-crossing lerp at map coordinates, far below anything
+        /// that matters.</summary>
+        private const float BoxSlack = 0.01f;
         private static bool _anyShape;
         // Every region has an outline: the polygons ARE the partition. Ground
         // inside none of them is no region at all (see RawRegionAt) — the
@@ -115,6 +127,8 @@ namespace TheWaningBorder.World.Regions
             _seeds = new Vector2[seeds.Count];
             _names = new string[seeds.Count];
             _shapes = new Vector2[seeds.Count][];
+            _shapeMin = new Vector2[seeds.Count];
+            _shapeMax = new Vector2[seeds.Count];
             _anyShape = false;
             _allShaped = true;
             Version++;
@@ -129,7 +143,17 @@ namespace TheWaningBorder.World.Regions
                 // Fewer than three points is not a polygon; treat it as unauthored
                 // rather than as a degenerate shape nothing can be inside of.
                 _shapes[i] = s != null && s.Length >= 3 ? s : null;
-                if (_shapes[i] != null) _anyShape = true;
+                if (_shapes[i] != null)
+                {
+                    _anyShape = true;
+                    Vector2 mn = _shapes[i][0], mx = _shapes[i][0];
+                    for (int k = 1; k < _shapes[i].Length; k++)
+                    {
+                        mn = Vector2.Min(mn, _shapes[i][k]);
+                        mx = Vector2.Max(mx, _shapes[i][k]);
+                    }
+                    _shapeMin[i] = mn; _shapeMax[i] = mx;
+                }
                 else _allShaped = false;
 
                 _kinds[i] = kinds != null && i < kinds.Count
@@ -151,11 +175,40 @@ namespace TheWaningBorder.World.Regions
             return inside;
         }
 
+        /// <summary>
+        /// <see cref="Inside"/> behind the outline's bounding box. Exact:
+        /// with z outside [minY, maxY) no edge straddles the ray, so Inside
+        /// finds no crossing; with x right of every vertex no crossing test
+        /// passes; with x left of every vertex EVERY straddling edge crosses,
+        /// and a closed loop always has an even number of those. The x
+        /// rejects keep <see cref="BoxSlack"/> clear of the vertices so the
+        /// lerp's rounding cannot matter.
+        /// </summary>
+        private static bool InsideBounded(int i, float x, float z)
+        {
+            Vector2 mn = _shapeMin[i], mx = _shapeMax[i];
+            if (z < mn.y || z >= mx.y) return false;
+            if (x > mx.x + BoxSlack || x < mn.x - BoxSlack) return false;
+            return Inside(_shapes[i], x, z);
+        }
+
+        /// <summary>Distance from a point to outline i's bounding box — a
+        /// lower bound on its distance to any of that outline's segments.</summary>
+        private static float BoxDistance(int i, float x, float z)
+        {
+            Vector2 mn = _shapeMin[i], mx = _shapeMax[i];
+            float dx = x < mn.x ? mn.x - x : (x > mx.x ? x - mx.x : 0f);
+            float dz = z < mn.y ? mn.y - z : (z > mx.y ? z - mx.y : 0f);
+            return Mathf.Sqrt(dx * dx + dz * dz);
+        }
+
         public static void Reset()
         {
             _seeds = System.Array.Empty<Vector2>();
             _names = System.Array.Empty<string>();
             _shapes = System.Array.Empty<Vector2[]>();
+            _shapeMin = System.Array.Empty<Vector2>();
+            _shapeMax = System.Array.Empty<Vector2>();
             _anyShape = false;
             _allShaped = false;
             Version++;
@@ -336,7 +389,7 @@ namespace TheWaningBorder.World.Regions
             if (_anyShape)
             {
                 for (int i = 0; i < _shapes.Length; i++)
-                    if (_shapes[i] != null && Inside(_shapes[i], worldX, worldZ))
+                    if (_shapes[i] != null && InsideBounded(i, worldX, worldZ))
                         return i;
 
                 // Inside no outline. On a fully authored map the outlines ARE
@@ -394,6 +447,7 @@ namespace TheWaningBorder.World.Regions
                 {
                     var poly = _shapes[i];
                     if (poly == null) continue;
+                    if (best < float.MaxValue && BoxDistance(i, worldX, worldZ) > best + BoxSlack) continue;
                     for (int a = 0, bIdx = poly.Length - 1; a < poly.Length; bIdx = a++)
                     {
                         float d = DistanceToSegment(worldX, worldZ, poly[bIdx], poly[a]);
@@ -412,7 +466,7 @@ namespace TheWaningBorder.World.Regions
                 // partition itself — never showed (2026-09-11).
                 if (_allShaped) return authored;
                 for (int i = 0; i < _shapes.Length; i++)
-                    if (_shapes[i] != null && Inside(_shapes[i], worldX, worldZ))
+                    if (_shapes[i] != null && InsideBounded(i, worldX, worldZ))
                         return authored;
             }
 
@@ -447,6 +501,9 @@ namespace TheWaningBorder.World.Regions
             {
                 var poly = _shapes[i];
                 if (poly == null) continue;
+                // No segment of this outline can beat bestD (strict <) if its
+                // box is already further; the slack absorbs float rounding.
+                if (BoxDistance(i, x, z) > bestD + BoxSlack) continue;
                 for (int a = 0, bIdx = poly.Length - 1; a < poly.Length; bIdx = a++)
                 {
                     float d = DistanceToSegment(x, z, poly[bIdx], poly[a]);
@@ -466,6 +523,109 @@ namespace TheWaningBorder.World.Regions
             float t = Mathf.Clamp01(((px - a.x) * abx + (pz - a.y) * abz) / len2);
             float cx = a.x + abx * t, cz = a.y + abz * t;
             return Mathf.Sqrt((px - cx) * (px - cx) + (pz - cz) * (pz - cz));
+        }
+
+        // ── adjacency ───────────────────────────────────────────────────
+        // Two regions are ADJACENT when they share a border (Regions.md §2,
+        // the Hall adjacency rule; §3, the curse's conquest). This is the one
+        // definition: the curse's expansion and a player's Hall placement used
+        // to be two different ideas of "next door" — the curse walked the
+        // seed-to-seed segment, the AI measured seed distance — and neither
+        // was the border the player sees.
+        //
+        // Computed by rasterising the PARTITION ITSELF (RawRegionAt, the same
+        // lookup every border view draws) on a coarse grid over the map and
+        // marking every pair of different regions found in orthogonally
+        // neighbouring cells. So an authored outline is adjacent to exactly
+        // the outlines it touches, a Voronoi cell to exactly the cells across
+        // its warped edge, and two regions separated by a Mountain or Water
+        // REGION are not adjacent to each other (each is adjacent to the
+        // mountain). Ground that is no region (a gap wider than the sliver
+        // tolerance) joins nothing.
+        //
+        // LOCKSTEP-SAFE: a pure function of the installed partition — the
+        // grid bounds come from the seeds and outlines, never from the
+        // Terrain object (which a peer may not have finished loading), and
+        // the cells are visited in a fixed order. Cached per Version, so it
+        // is built once per map, lazily, on the first question.
+
+        /// <summary>Longest side of the adjacency raster, in cells.</summary>
+        private const int AdjacencyMaxCells = 160;
+        /// <summary>Finest adjacency cell, metres — the build grid's 2 m.</summary>
+        private const float AdjacencyMinCell = 2f;
+        /// <summary>Margin around the seed/outline bounds, metres, so the
+        /// outer edge regions are sampled past their seeds.</summary>
+        private const float AdjacencyMargin = 24f;
+
+        private static bool[] _adjacency;          // [a * Count + b], symmetric
+        private static int _adjacencyVersion = int.MinValue;
+
+        /// <summary>
+        /// True when regions <paramref name="a"/> and <paramref name="b"/>
+        /// share a border. A region is not adjacent to itself; invalid ids are
+        /// adjacent to nothing.
+        /// </summary>
+        public static bool AreAdjacent(int a, int b)
+        {
+            int n = _seeds.Length;
+            if (a < 0 || b < 0 || a >= n || b >= n || a == b) return false;
+            EnsureAdjacency();
+            return _adjacency[a * n + b];
+        }
+
+        private static void EnsureAdjacency()
+        {
+            int n = _seeds.Length;
+            if (_adjacency != null && _adjacencyVersion == Version && _adjacency.Length == n * n)
+                return;
+            _adjacency = new bool[n * n];
+            _adjacencyVersion = Version;
+            if (n < 2) return;
+
+            // Bounds: every seed and every outline vertex, plus a margin.
+            Vector2 mn = _seeds[0], mx = _seeds[0];
+            for (int i = 0; i < n; i++)
+            {
+                mn = Vector2.Min(mn, _seeds[i]);
+                mx = Vector2.Max(mx, _seeds[i]);
+                if (_shapes.Length > i && _shapes[i] != null)
+                {
+                    mn = Vector2.Min(mn, _shapeMin[i]);
+                    mx = Vector2.Max(mx, _shapeMax[i]);
+                }
+            }
+            mn -= new Vector2(AdjacencyMargin, AdjacencyMargin);
+            mx += new Vector2(AdjacencyMargin, AdjacencyMargin);
+
+            float extent = Mathf.Max(mx.x - mn.x, mx.y - mn.y);
+            float cell = Mathf.Max(AdjacencyMinCell, extent / AdjacencyMaxCells);
+            int w = Mathf.Max(1, Mathf.CeilToInt((mx.x - mn.x) / cell));
+            int h = Mathf.Max(1, Mathf.CeilToInt((mx.y - mn.y) / cell));
+
+            // Two rows are enough: each row is compared with itself (left /
+            // right) and with the row before it (up / down).
+            var prev = new int[w];
+            var cur = new int[w];
+            for (int z = 0; z < h; z++)
+            {
+                float wz = mn.y + (z + 0.5f) * cell;
+                for (int x = 0; x < w; x++)
+                {
+                    float wx = mn.x + (x + 0.5f) * cell;
+                    int r = RawRegionAt(wx, wz);
+                    cur[x] = r;
+                    if (x > 0) Mark(cur[x - 1], r, n);
+                    if (z > 0) Mark(prev[x], r, n);
+                }
+                var t = prev; prev = cur; cur = t;
+            }
+        }
+
+        private static void Mark(int a, int b, int n)
+        {
+            if (a == b || a < 0 || b < 0 || a >= n || b >= n) return;
+            _adjacency[a * n + b] = true;
+            _adjacency[b * n + a] = true;
         }
 
         /// <summary>

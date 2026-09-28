@@ -78,23 +78,49 @@ namespace TheWaningBorder.AI
             var brainsQuery = SystemAPI.QueryBuilder().WithAll<AIBrain, SimpleAIState>().Build();
             using var brainEntities = brainsQuery.ToEntityArray(Allocator.Temp);
 
+            // Match-scoped host memory (failed site searches) must not leak
+            // into the next match in the same process.
+            if (_memoEpoch != SimCadence.Epoch)
+            {
+                _memoEpoch = SimCadence.Epoch;
+                _siteFails.Clear();
+            }
+
+            // 1. Tick every brain's countdown; collect the ones that are due.
+            _dueBrains.Clear();
             foreach (var brainEntity in brainEntities)
             {
                 var brain = em.GetComponentData<AIBrain>(brainEntity);
                 if (brain.IsActive == 0) continue;
 
                 var aiState = em.GetComponentData<SimpleAIState>(brainEntity);
-
-                // Tick countdown.
                 aiState.ThinkTimer -= dt;
-                if (aiState.ThinkTimer > 0f)
-                {
-                    em.SetComponentData(brainEntity, aiState);
-                    continue;
-                }
+                em.SetComponentData(brainEntity, aiState);
+                if (aiState.ThinkTimer > 0f) continue;
+                _dueBrains.Add((brainEntity, aiState.ThinkTimer, (int)brain.Owner));
+            }
+
+            // 2. ROUND-ROBIN FRAME BUDGET (2026-09-25 AI perf pass). At most
+            // maxBrainThinksPerFrame heavy thinks per rendered frame, shared
+            // with the endgame systems (AIThinkBudget). Most overdue first, so
+            // a brain that waited a frame goes next; ties by owner. A brain
+            // left waiting keeps its (negative) timer and is due again next
+            // frame; one overdue by a whole interval thinks regardless.
+            _dueBrains.Sort((a, b) => a.Timer != b.Timer
+                ? a.Timer.CompareTo(b.Timer) : a.Owner.CompareTo(b.Owner));
+
+            for (int d = 0; d < _dueBrains.Count; d++)
+            {
+                var brainEntity = _dueBrains[d].Entity;
+                var brain = em.GetComponentData<AIBrain>(brainEntity);
+                var aiState = em.GetComponentData<SimpleAIState>(brainEntity);
+
                 // Difficulty is DATA (AoE4 model): one brain, per-tier knobs.
                 var profile = AISimpleDifficulty.GetProfile(brain.Difficulty);
                 float thinkInterval = profile.ThinkInterval;
+
+                bool starving = aiState.ThinkTimer <= -thinkInterval * Cfg.thinkStarvationIntervals;
+                if (!AIThinkBudget.TryClaim(starving)) continue;
                 // PHASE stagger (2026-08-16; replaces the period stagger of
                 // 2026-08-05). Different PERIODS per faction drift brains
                 // apart but also beat back into alignment every ~27 ticks,
@@ -111,6 +137,12 @@ namespace TheWaningBorder.AI
                 perfThinks++;
                 aiState.RetreatCooldown = math.max(0f, aiState.RetreatCooldown - thinkInterval);
 
+                // Fresh think: memoised counts, the site-search budgets and
+                // the think clock start over.
+                BeginThinkMemo();
+                _siteCandidatesLeft = Cfg.siteSearchCandidateBudget;
+                _siteValidationsLeft = Cfg.siteSearchValidateBudget;
+
                 var settings = AISettings.Get();
                 var personality = settings.For(brain.Personality);
                 // MATCH-relative clock. World ElapsedTime starts at APP
@@ -123,6 +155,7 @@ namespace TheWaningBorder.AI
                 if (_matchTimeAnchor < 0f)
                     _matchTimeAnchor = (float)SystemAPI.Time.ElapsedTime;
                 float now = (float)SystemAPI.Time.ElapsedTime - _matchTimeAnchor;
+                _thinkNow = now;
 
                 // Miner tasking is gone: income comes from held territory, not
                 // from workers on deposits (Regions.md §4). The AI's economic
@@ -349,6 +382,16 @@ namespace TheWaningBorder.AI
         // (see the OnUpdate comment). -1 = not yet anchored.
         private float _matchTimeAnchor = -1f;
 
+        /// <summary>The current think's match-relative clock, for helpers
+        /// that are not handed `now` (the failed-site-search memory).</summary>
+        private float _thinkNow;
+
+        private int _memoEpoch = -1;
+
+        /// <summary>Brains due this frame (host scratch, cleared per update).</summary>
+        private readonly System.Collections.Generic.List<(Entity Entity, float Timer, int Owner)> _dueBrains
+            = new System.Collections.Generic.List<(Entity Entity, float Timer, int Owner)>(8);
+
         // (The age-up push time moved into the per-difficulty profile —
         // AIDifficultyProfile.AgeUpPushSeconds. It was a single 300 s constant
         // for every tier, which made Easy and Expert advance on the same
@@ -356,6 +399,9 @@ namespace TheWaningBorder.AI
 
         // (The sustained-production army ceiling moved into the per-difficulty
         // profile — AIDifficultyProfile.SustainArmyCap.)
+
+        private static readonly System.Collections.Generic.HashSet<int> _anyFreeOwned =
+            new System.Collections.Generic.HashSet<int>();
 
         private static bool AnyFreeNodeFor(EntityManager em, Faction faction, string buildingId)
         {
@@ -365,7 +411,10 @@ namespace TheWaningBorder.AI
 
             var mine = TheWaningBorder.World.Regions.TerritoryOwnership.TerritoriesOf(faction);
             if (mine.Count == 0) return true;       // pre-partition: do not block
-            var owned = new System.Collections.Generic.HashSet<int>(mine);
+            var owned = _anyFreeOwned;              // pooled
+            owned.Clear();
+            owned.UnionWith(mine);
+            var snap = BuildSiteSnapshot.Current(em);
 
             var q = AIQueryCache.NodeAt(em, required.Value);
             using var xfs = q.ToComponentDataArray<Unity.Transforms.LocalTransform>(
@@ -375,8 +424,7 @@ namespace TheWaningBorder.AI
                 var p = xfs[i].Position;
                 int r = TheWaningBorder.World.Regions.RegionMap.RegionAt(p.x, p.z);
                 if (r == TheWaningBorder.World.Regions.RegionMap.None || !owned.Contains(r)) continue;
-                if (TheWaningBorder.World.Regions.TerritoryOwnership.OnFreeNodeFor(
-                        em, buildingId, p.x, p.z)) return true;
+                if (snap.OnFreeNodeFor(em, buildingId, p.x, p.z)) return true;
             }
             return false;
         }

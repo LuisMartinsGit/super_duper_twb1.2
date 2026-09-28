@@ -188,12 +188,12 @@ namespace TheWaningBorder.Core.Localization
             t["Reveal a medium area for 15s."] = "Revela uma área média durante 15s.";
             t["Reveal a large area for 15s."]  = "Revela uma área grande durante 15s.";
             t["Reveal a large area for 35s."]  = "Revela uma área grande durante 35s.";
-            t["One building stops training, research and resource output for 30s."] =
-                "Um edifício deixa de treinar, investigar e produzir recursos durante 30s.";
-            t["All buildings in a small area stop for 30s."] =
-                "Todos os edifícios numa área pequena param durante 30s.";
-            t["All buildings in a large area stop for 30s."] =
-                "Todos os edifícios numa área grande param durante 30s.";
+            t["One building stops training, research and resource output for 20s."] =
+                "Um edifício deixa de treinar, investigar e produzir recursos durante 20s.";
+            t["All buildings in a small area stop for 20s."] =
+                "Todos os edifícios numa área pequena param durante 20s.";
+            t["All buildings in a large area stop for 20s."] =
+                "Todos os edifícios numa área grande param durante 20s.";
             t["Units in a small area turn hostile to all other units for 8s."] =
                 "As unidades numa área pequena tornam-se hostis a todas as outras unidades durante 8s.";
             t["Units in a medium area turn hostile for 20s."] =
@@ -202,12 +202,12 @@ namespace TheWaningBorder.Core.Localization
                 "As unidades numa área grande tornam-se hostis até serem mortas.";
 
             // Renewal — Hands of Plenty / Raise Anew / Second Wind
-            t["Restore 30% HP to units and buildings in a small area."] =
-                "Restaura 30% de HP a unidades e edifícios numa área pequena.";
-            t["Restore 50% HP in a medium area."] =
-                "Restaura 50% de HP numa área média.";
-            t["Restore 80% HP in a medium area, and healing continues for 10s."] =
-                "Restaura 80% de HP numa área média, e a cura continua durante 10s.";
+            t["Restore 45% HP to units and buildings in a small area."] =
+                "Restaura 45% de HP a unidades e edifícios numa área pequena.";
+            t["Restore 45% HP in a medium area."] =
+                "Restaura 45% de HP numa área média.";
+            t["Restore 60% HP in a medium area, and healing continues for 10s."] =
+                "Restaura 60% de HP numa área média, e a cura continua durante 10s.";
             t["Raise one free Lv 1 Watch Tower. It crumbles after 30s."] =
                 "Ergue uma Torre de Vigia Nv 1 gratuita. Desmorona-se após 30s.";
             t["Raise Lv 2 Watch Towers across a small area. They crumble after 60s."] =
@@ -227,12 +227,12 @@ namespace TheWaningBorder.Core.Localization
             t["Veil a small area for 15s."] = "Vela uma área pequena durante 15s.";
             t["Veil a medium area for 15s; on expiry they gain +25% damage for 10s."] =
                 "Vela uma área média durante 15s; ao terminar, ganham +25% de dano durante 10s.";
-            t["One building gains +100% HP for 30s."] =
-                "Um edifício ganha +100% de HP durante 30s.";
-            t["Buildings in a small area gain +100% HP for 30s."] =
-                "Os edifícios numa área pequena ganham +100% de HP durante 30s.";
-            t["Buildings in a medium area gain +100% HP for 30s and reflect 20% of melee damage."] =
-                "Os edifícios numa área média ganham +100% de HP durante 30s e refletem 20% do dano corpo a corpo.";
+            t["One building gains +100% HP for 15s."] =
+                "Um edifício ganha +100% de HP durante 15s.";
+            t["Buildings in a small area gain +100% HP for 15s."] =
+                "Os edifícios numa área pequena ganham +100% de HP durante 15s.";
+            t["Buildings in a medium area gain +100% HP for 15s and reflect 20% of melee damage."] =
+                "Os edifícios numa área média ganham +100% de HP durante 15s e refletem 20% do dano corpo a corpo.";
             t["Units in a small area gain +5 armor for 10s."] =
                 "As unidades numa área pequena ganham +5 de armadura durante 10s.";
             t["Units in a medium area gain +8 armor for 15s."] =
@@ -260,6 +260,51 @@ namespace TheWaningBorder.Core.Localization
             t["Large area, 30s, and they move 20% faster on cursed ground."] =
                 "Área grande, 30s, e movem-se 20% mais depressa em terreno amaldiçoado.";
 
+            // Antiquity — Writ of Attainder (spell ladder, 2026-09-27)
+            t["Enemies in a small area take 30 damage for every one of your units they have killed, at most 120."] =
+                "Os inimigos numa área pequena sofrem 30 de dano por cada unidade tua que mataram, até 120.";
+            t["Enemies in a medium area take 30 damage per kill they have taken from you, at most 120."] =
+                "Os inimigos numa área média sofrem 30 de dano por cada baixa que te causaram, até 120.";
+            t["Enemies in a large area take 30 damage per kill, at most 120, and at least 30 regardless."] =
+                "Os inimigos numa área grande sofrem 30 de dano por baixa, até 120, e pelo menos 30 em qualquer caso.";
+
+            // ── Legacy stand-ins (SectLeverEffects.LegacyActive) ──────────
+            t["Allies in a small area move 20% faster for 8s."] =
+                "Os aliados numa área pequena movem-se 20% mais depressa durante 8s.";
+            t["Allies in a medium area move 20% faster for 12s."] =
+                "Os aliados numa área média movem-se 20% mais depressa durante 12s.";
+            t["Allies in a large area move 20% faster for 12s."] =
+                "Os aliados numa área grande movem-se 20% mais depressa durante 12s.";
+            t["Reveal a medium area for 10s."] = "Revela uma área média durante 10s.";
+            t["One enemy takes 120 true damage after a 3s telegraph."] =
+                "Um inimigo sofre 120 de dano verdadeiro após um aviso de 3s.";
+            t["Enemies in a medium area take 80 true damage after a 3s telegraph."] =
+                "Os inimigos numa área média sofrem 80 de dano verdadeiro após um aviso de 3s.";
+            t["Allies in a small area deal +20% damage for 10s."] =
+                "Os aliados numa área pequena causam +20% de dano durante 10s.";
+            t["Allies in a medium area deal +20% damage for 15s."] =
+                "Os aliados numa área média causam +20% de dano durante 15s.";
+            t["Allies in a large area deal +50% damage for 15s."] =
+                "Os aliados numa área grande causam +50% de dano durante 15s.";
+            t["Ignite a small area for 15s: 6 damage per second to anyone standing in it."] =
+                "Incendeia uma área pequena durante 15s: 6 de dano por segundo a quem lá estiver.";
+            t["Ignite a medium area for 30s: 6 damage per second to anyone standing in it."] =
+                "Incendeia uma área média durante 30s: 6 de dano por segundo a quem lá estiver.";
+            t["Ignite a large area for 30s: 6 damage per second to anyone standing in it."] =
+                "Incendeia uma área grande durante 30s: 6 de dano por segundo a quem lá estiver.";
+            t["The nearest enemy building in a small area loses 40% of its current HP after a 3s telegraph."] =
+                "O edifício inimigo mais próximo numa área pequena perde 40% do HP atual após um aviso de 3s.";
+            t["The nearest enemy building in a small area loses 60% of its current HP after a 3s telegraph."] =
+                "O edifício inimigo mais próximo numa área pequena perde 60% do HP atual após um aviso de 3s.";
+            t["The nearest enemy building in a small area loses 80% of its current HP; other buildings in a small area around it lose 25%."] =
+                "O edifício inimigo mais próximo numa área pequena perde 80% do HP atual; os outros edifícios numa área pequena à volta perdem 25%.";
+            t["Enemies in a small area pool the damage they have dealt this match and split it back over themselves, at most 120 each."] =
+                "Os inimigos numa área pequena juntam o dano que causaram nesta partida e dividem-no entre si, até 120 cada.";
+            t["Enemies in a medium area pool the damage they have dealt and split it back, at most 120 each."] =
+                "Os inimigos numa área média juntam o dano que causaram e dividem-no entre si, até 120 cada.";
+            t["Enemies in a large area pool the damage they have dealt and split it back, at most 120 each."] =
+                "Os inimigos numa área grande juntam o dano que causaram e dividem-no entre si, até 120 cada.";
+
             // ── Unique buildings (canon four) ──────────────────────────────
             t["Reliquary — a vaulted archive. Every one standing shortens your sect-power cooldowns a little. Limit 5. Trains the Lorekeeper, researches Royal Index."] =
                 "Relicário — um arquivo abobadado. Cada um de pé encurta ligeiramente as recargas dos teus poderes de seita. Limite 5. Treina o Guardião do Saber, investiga o Índice Real.";
@@ -270,16 +315,25 @@ namespace TheWaningBorder.Core.Localization
             t["Veilworks — a smelter for cursed matter, and the only building that may be raised ON cursed ground. Limit 5. Trains the Golem Autark, researches Warden's Ledger."] =
                 "Forja do Véu — uma fundição de matéria amaldiçoada, e o único edifício que pode ser erguido SOBRE terreno amaldiçoado. Limite 5. Treina o Golem Autarca, investiga o Livro-Razão do Guardião.";
 
-            // ── Chapel aura composition (legacy eight) ─────────────────────
-            t["Chapel of {0} — projects an aura within {1}m: "] =
-                "Capela de {0} — projeta uma aura num raio de {1}m: ";
+            // ── Sect buildings with no bespoke case (there is no chapel aura) ──
+            t["Hush Vault — a sunken stone cell. Enemy sect powers cast within its footprint cost their caster extra cooldown. Limit 5."] =
+                "Cofre do Silêncio — uma cela de pedra afundada. Os poderes de seita inimigos lançados na sua área custam ao lançador recarga extra. Limite 5.";
+            t["Tribunal — a raised court platform. Marked enemies that die anywhere on the map refund a little of its research cost. Limit 5."] =
+                "Tribunal — uma plataforma de tribunal elevada. Os inimigos Marcados que morrem em qualquer ponto do mapa reembolsam um pouco do seu custo de investigação. Limite 5.";
+            t["Choir Hall — a resonating hall. Friendly units passing through gain a short Fervor bonus. Limit 5."] =
+                "Salão do Coro — um salão ressonante. As unidades aliadas que o atravessam ganham um breve bónus de Fervor. Limite 5.";
+            t["Glass Spire — a thin mirrored tower that sees further than any other building. Cannot be built inside another Spire's sight. Limit 5."] =
+                "Pináculo de Vidro — uma torre espelhada e esguia que vê mais longe do que qualquer outro edifício. Não pode ser construído no campo de visão de outro Pináculo. Limite 5.";
+            t["Ash Pyre — a permanently burning pyre. Enemies adjacent to it take burn damage. Limit 5."] =
+                "Pira de Cinza — uma pira que arde para sempre. Os inimigos adjacentes sofrem dano de queimadura. Limite 5.";
+            t["Ruinworks — a scaffold of breaking-tools. Siege units built while it stands deal extra damage to structures. Limit 5."] =
+                "Oficina da Ruína — um andaime de ferramentas de demolição. As unidades de cerco construídas enquanto está de pé causam dano extra a estruturas. Limite 5.";
+            t["Chain Altar — an altar strung with iron links. Enemies killed near it feed a faction-wide damage stack that decays. Limit 5."] =
+                "Altar das Correntes — um altar enfeitado com elos de ferro. Os inimigos mortos perto dele alimentam um acumulado de dano de toda a fação que se desvanece. Limite 5.";
+
+            // Stat fragments the Unit-lever description composes.
             t["+{0}% damage"]  = "+{0}% de dano";
             t["+{0} armor"]    = "+{0} de armadura";
-            t["+{0}% speed"]   = "+{0}% de velocidade";
-            t["{0}% reflect"]  = "{0}% de reflexão";
-            t["{0} HP/s regen"] = "{0} HP/s de regeneração";
-            t["a quiet sanctifying presence"] = "uma presença santificante serena";
-            t[" to allied units."] = " às unidades aliadas.";
 
             // ── Unit lever composition ─────────────────────────────────────
             // Whole subject phrases: Portuguese articles must agree in gender
@@ -295,8 +349,8 @@ namespace TheWaningBorder.Core.Localization
             t["a minor blessing"] = "uma bênção menor";
 
             // ── Technology (upgrade-path) text ─────────────────────────────
-            t["At the chapel you can spend RP + resources to upgrade Passive (P), Building aura (B), Unit bonus (U), and Active power (A) — each I → II → III, scaling effects to 1.5× and 2.0× of the listed Lv I numbers.  {0}"] =
-                "Na capela podes gastar RP + recursos para melhorar o Passivo (P), a aura do Edifício (B), o bónus de Unidade (U) e o Poder ativo (A) — cada um I → II → III, escalando os efeitos para 1,5× e 2,0× dos números de Nv I indicados.  {0}";
+            t["At the chapel you can spend RP + resources to upgrade Passive (P), Building (B), Unit bonus (U), and Active power (A) — each I → II → III, scaling effects to 1.5× and 2.0× of the listed Lv I numbers.  {0}"] =
+                "Na capela podes gastar RP + recursos para melhorar o Passivo (P), o Edifício (B), o bónus de Unidade (U) e o Poder ativo (A) — cada um I → II → III, escalando os efeitos para 1,5× e 2,0× dos números de Nv I indicados.  {0}";
             t["More names in the tally — stronger relics, sharper memory."] =
                 "Mais nomes na contagem — relíquias mais fortes, memória mais afiada.";
             t["Deeper communion — walls knit faster, men return from death."] =

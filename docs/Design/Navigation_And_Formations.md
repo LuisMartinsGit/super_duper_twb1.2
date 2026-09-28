@@ -84,6 +84,18 @@ When N ≥ 2 movable units receive one move / attack-move order:
    - Past **~100°** the formation does not wheel, it **re-forms** on the new
      bearing. An about-face at flank-limited rate is ten seconds of pivoting
      on the spot, which is the kiting failure this system exists to prevent.
+   - **A blocked leader does not fake arrival.** When the cell ahead along
+     the facing is blocked (a corner the slow wheel has not come round yet):
+     if the heading error exceeds `stallHeadingToleranceRadians` (0.35 rad),
+     the leader **pivots in place** at `catch-up speed ÷ radius` — with no
+     forward motion a member's whole catch-up speed is free for the sideways
+     drag, not just the 40% headroom — and that is not a stall. Otherwise it
+     **steps along the flow direction**, which the goal field routes round
+     the blocker. Only when that is blocked too does a stall tick count, and
+     after `StallReleaseTicks` (120) the group is **released**: every member
+     detaches and walks on to its own final slot on its own flow. It used to
+     flip to Arrived, snapping every spot to its final slot mid-route and
+     dissolving the group four seconds later far from the destination.
 8. **Slots are remembered across orders** (`FormationSlotMemory`, by index,
    guarded by a layout key). Without this, each order re-derives the
    assignment from positions measured along the NEW travel axis, so every
@@ -92,12 +104,69 @@ When N ≥ 2 movable units receive one move / attack-move order:
    arrival — and is cleared only when a unit genuinely leaves formation
    (plain move, attack-move).
 9. **Arrival**: the leader stops at the destination, spots freeze, units
-   settle into spots and hold; the group dissolves once members are settled.
-10. **Combat dissolves formation**: a unit that engages (attack command or
-    auto-acquired target) leaves the group and fights individually.
-    Re-issuing a move order re-forms.
+   settle into spots and hold. The group does **not** dissolve the moment
+   the leader arrives — rear ranks are still walking then. Each member keeps
+   its formation state (and the same-formation push exemption) until it
+   settles within stop distance of its own slot, and is detached then; a
+   settle timeout (`FormationGroupSystem.asset`, 4 s) releases whoever is
+   left. Formation members are exempt from the crowd-arrival rule and from
+   StuckRedirect — the group has its own stall and tether handling — and the
+   integrator's hard-stuck give-up never cancels a member's order (that read
+   as "settled" and detached it mid-march); it only resets the stuck counter.
+   - **The push exemption is keyed on the formation ORDER**
+     (`FormationSlotMemory.GroupKey`), not only the live group. A settled
+     member has detached, so keyed on the live group alone the front rank
+     shoved the rear ranks walking in behind it. Units sharing a key do not
+     separate/avoid each other unless one of them is chasing a target (a
+     fight still separates). The key is cleared by any order that takes a
+     unit out of formation.
+   - A member released by the settle timeout keeps the formation's exemption
+     from the steering arrival fade, and the crowd-arrival rule ignores
+     formation-mates as blockers (they cannot push it, so they cannot stop it
+     reaching its slot); a foreign unit on its slot still settles it.
+10. **Combat pulls a member out of rank, not out of the group**: a member
+    that auto-acquires a target fights individually at its own speed, but
+    stays on the group's roster; when its target dies or is dropped (leash)
+    while the group still exists, it walks back to its slot and rejoins. An
+    **explicit** attack order on a member detaches it for good. Re-issuing a
+    move order re-forms.
+    - While travelling on an attack-move, members hold rank until 20 m from
+      the destination unless hit within the last **2.5 s** (see
+      [Stances.md §5](Stances.md#5-orders-outrank-stances)).
+    - **Group speed** is the slowest member's *effective* speed — base speed
+      times its debuffs/buffs (SpellDebuff, BorderDebuff, SpellBuff) — and
+      each member's speed override is pre-divided by its own multiplier, so a
+      slowed member does not silently lag the formation it is in.
+    - **The leader holds for a battle.** While strictly more than
+      `engagedHoldFraction` (0.34) of the roster is engaged, the leader
+      stops, and the tether fuse and stall counter pause. After arrival the
+      settle timer is **frozen while any member is engaged**, so the group
+      still exists when its fighters come back for their slots. A skirmisher
+      or two peeling off does not stop the army.
+    - The **tether fuse** (drop the one member that cannot keep up) fires
+      while the leader is easing for a straggler and the worst member
+      **offset** (distance to its spot, in any direction — the same number
+      that triggers the ease) fails to improve by `tetherProgressEpsilon`
+      (0.1 m) for `TetherReleaseTicks` (120). The victim is the member
+      holding that offset, and only while it is outside the ease-engage
+      threshold. It used to measure behind-ness for progress and victim while
+      the ease used distance, so a member wedged sideways kept the ease on
+      and the fuse ejected a well-placed member with a tiny lag instead.
 11. **Villagers / worker units never form up** — they path independently
     (matches AoE4).
+12. **Multiplayer**: a formation order is ONE replicated lockstep command
+    (`FormationOrder`: unit network ids sorted ascending and delta-encoded
+    in base 36, destination, shape, attack-move flag; split into
+    continuation commands above 60 units so no datagram fragments). Every
+    peer builds the same `FormationGroup` from identical state; ties in the
+    slot assignment break on network id, never on entity index. Formation
+    orders used to degrade to per-unit slot moves under lockstep, so
+    multiplayer armies arrived in shape but never held it en route.
+13. **Idle form-up** (`IdleFormUpSystem`, every faction including humans)
+    re-forms an idle cluster in the **shape it last marched in**
+    (remembered in `FormationSlotMemory`), treats the members of one
+    just-arrived formation as that formation — never as "new faces", never
+    split between two clusters — and leaves a settled formation alone.
 
 ## 3. Formation set (AoE4 parity)
 
@@ -149,8 +218,9 @@ the pose-fit tolerance makes the first order snap instead of continue.
 
 - **Right-click = context command** (move / attack / gather / build / repair /
   garrison), **Shift+right-click = queue**, **A = attack-move**,
-  **Patrol**, **Stop**, **Hold Position** (the only stance, = AoE4
-  Stand Ground). Idle units auto-aggro; units on ramparts never chase off
+  **Patrol**, **Stop**, and the three stances **G** Aggressive / **D**
+  Defensive / **H** Hold Position (see [Stances.md](Stances.md)). Idle units
+  auto-engage by stance and are leashed to their guard point; units on ramparts never chase off
   the wall. (All existing behavior, kept.)
 - Move / attack-move orders on multi-selections use the current formation.
 - Rally points support target entities and shift-queued chains.

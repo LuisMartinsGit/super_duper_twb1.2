@@ -18,6 +18,11 @@
 //                   resource buildings and stays immune to takeover.
 //   (every spawn)   one `shardrootChance` roll that a unit carries the
 //                   Shardroot (2.13 rule 5); the wells then hold it no more.
+//   (the holder)    "the curse wants it back" (§3.1): a player holding the
+//                   Shardroot in a territory ADJACENT to the curse draws the
+//                   harassment party as a HUNT aimed at the holder, and a
+//                   garrison with the holder inside its territory goes for
+//                   the holder before any other intruder.
 //   ShepherdLiving  defenders attack anything hostile standing in their
 //                   territory, CHASE it, and walk home after `leashSeconds`
 //                   with nothing to fight. Merge parties march to the node,
@@ -165,7 +170,8 @@ namespace TheWaningBorder.Systems.Border
             // Standing count per territory, one walk.
             var q = QC_Living.Get(em, QT_Living);
             using var members = q.ToComponentDataArray<CurseLivingMember>(Allocator.Temp);
-            var standing = new Dictionary<int, int>();
+            var standing = _standing;
+            standing.Clear();
             for (int i = 0; i < members.Length; i++)
                 if (members[i].Role == RoleGarrison)
                     standing[members[i].Home] = standing.TryGetValue(members[i].Home, out int c) ? c + 1 : 1;
@@ -247,6 +253,25 @@ namespace TheWaningBorder.Systems.Border
                 $"(roll {roll:0.000} < {s.shardrootChance:0.000}); the wells hold it no more.");
         }
 
+        /// <summary>The player holding the Shardroot (carrier, hero or
+        /// enshrining Temple), as ShardrootSystem last published it. A curse
+        /// bearer or a ground pickup is no holder: the curse does not hunt
+        /// itself. Sim state on every peer, so every peer hunts the same.</summary>
+        private static bool TryShardrootHolder(EntityManager em, out Faction holder,
+                                               out float3 pos, out int territory)
+        {
+            holder = Faction.Border; pos = default; territory = RegionMap.None;
+            var q = QC_ShardrootState.Get(em, QT_ShardrootState);
+            if (q.IsEmptyIgnoreFilter) return false;
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            var state = em.GetComponentData<ShardrootState>(ents[0]);
+            if (state.Found == 0 || state.HolderFaction == Faction.Border) return false;
+            holder = state.HolderFaction;
+            pos = state.HolderPos;
+            territory = RegionMap.NearestRegion(pos.x, pos.z);
+            return territory != RegionMap.None;
+        }
+
         // ── expansion ───────────────────────────────────────────────────────
 
         /// <summary>Nodes (veilstone or veilsteel) standing in a territory,
@@ -262,11 +287,9 @@ namespace TheWaningBorder.Systems.Border
         private static void Collect<T>(EntityManager em, int territory, List<(Entity, float3)> into)
             where T : unmanaged, IComponentData
         {
-            var q = em.CreateEntityQuery(ComponentType.ReadOnly<T>(),
-                                         ComponentType.ReadOnly<LocalTransform>());
+            var q = QueryXf<T>(em);
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            q.Dispose();
             for (int i = 0; i < ents.Length; i++)
             {
                 var p = xfs[i].Position;
@@ -275,6 +298,8 @@ namespace TheWaningBorder.Systems.Border
         }
 
         private readonly List<(Entity e, float3 p)> _scratchNodes = new();
+        private readonly Dictionary<int, int> _standing = new();
+        private readonly Dictionary<int, List<float3>> _hostilesByTerritory = new();
 
         private void TryExpand(EntityManager em, double now, BorderSettingsSO s)
         {
@@ -296,6 +321,19 @@ namespace TheWaningBorder.Systems.Border
             _scratchCandidates.Sort();
             int pick = _scratchCandidates[_rng.NextInt(0, _scratchCandidates.Count)];
 
+            // The curse wants it back (§3.1): a Shardroot holder standing in
+            // a neighbouring territory outranks the random pick, and the
+            // party goes as a HUNT (a raid aimed at the holder), not a merge.
+            // The draw above still happens, so the RNG stream is unchanged.
+            bool hunt = false;
+            float3 holderPos = default;
+            if (TryShardrootHolder(em, out var holderFaction, out holderPos, out int holderTerritory)
+                && _scratchCandidates.Contains(holderTerritory))
+            {
+                pick = holderTerritory;
+                hunt = true;
+            }
+
             // Which held neighbour sends the party: the first adjacent one in
             // index order, so every peer agrees.
             int from = -1;
@@ -315,7 +353,7 @@ namespace TheWaningBorder.Systems.Border
             // under a player (kept from the old conquest rule); it can still
             // be raided.
             NodesIn(em, pick, _scratchNodes);
-            bool mergeable = _scratchNodes.Count > 0 && hallCounts[pick] == 0;
+            bool mergeable = !hunt && _scratchNodes.Count > 0 && hallCounts[pick] == 0;
 
             int party = _nextPartyId++;
             _scratchWave.Clear();
@@ -346,7 +384,9 @@ namespace TheWaningBorder.Systems.Border
             else
             {
                 // Node-less (or a home): immune to takeover, subject to a raid.
-                if (!TryNearestHostileBuildingIn(em, pick, out float3 target))
+                // A hunt's objective is the holder itself.
+                float3 target = holderPos;
+                if (!hunt && !TryNearestHostileBuildingIn(em, pick, out target))
                 {
                     var seed = RegionMap.SeedOf(pick);
                     target = new float3(seed.x, TerrainUtility.GetHeight(seed.x, seed.y), seed.y);
@@ -359,8 +399,13 @@ namespace TheWaningBorder.Systems.Border
                 TheWaningBorder.Core.Commands.Types.FormationMoveCommandHelper.Execute(
                     em, _scratchWave, target, FormationShape.Box, attackMove: true);
                 SimSignals.Ping(target, SimPingKind.Curse, 10f);
-                UnityEngine.Debug.Log($"[CurseTerritory] RAID — party {party} of {_scratchWave.Count} " +
-                    $"raids territory {pick} ({RegionMap.NameOf(pick)}); it has no node to take.");
+                if (hunt)
+                    UnityEngine.Debug.Log($"[CurseTerritory] HUNT — party {party} of {_scratchWave.Count} " +
+                        $"hunts the Shardroot holder ({holderFaction}) in territory {pick} ({RegionMap.NameOf(pick)}) " +
+                        $"at ({target.x:F0},{target.z:F0}).");
+                else
+                    UnityEngine.Debug.Log($"[CurseTerritory] RAID — party {party} of {_scratchWave.Count} " +
+                        $"raids territory {pick} ({RegionMap.NameOf(pick)}); it has no node to take.");
             }
         }
 
@@ -371,13 +416,10 @@ namespace TheWaningBorder.Systems.Border
         private static bool TryNearestHostileBuildingIn(EntityManager em, int territory, out float3 pos)
         {
             pos = default;
-            var q = em.CreateEntityQuery(ComponentType.ReadOnly<BuildingTag>(),
-                                         ComponentType.ReadOnly<FactionTag>(),
-                                         ComponentType.ReadOnly<LocalTransform>());
+            var q = QueryFacXf<BuildingTag>(em);
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            q.Dispose();
             var seed = RegionMap.SeedOf(territory);
             float bestD = float.MaxValue, bestResD = float.MaxValue;
             float3 res = default;
@@ -409,14 +451,15 @@ namespace TheWaningBorder.Systems.Border
 
             // Hostiles by territory, one walk, so each garrison's check is a
             // dictionary lookup rather than a query.
-            var hostiles = new Dictionary<int, List<float3>>();
+            // Reused across ticks: every list is emptied, never dropped, so the
+            // lookups below see exactly the per-tick content (an empty list
+            // reads as "no intruders", as a missing key did).
+            var hostiles = _hostilesByTerritory;
+            foreach (var kv in hostiles) kv.Value.Clear();
             {
-                var hq = em.CreateEntityQuery(ComponentType.ReadOnly<UnitTag>(),
-                                              ComponentType.ReadOnly<FactionTag>(),
-                                              ComponentType.ReadOnly<LocalTransform>());
+                var hq = QueryFacXf<UnitTag>(em);
                 using var hx = hq.ToComponentDataArray<LocalTransform>(Allocator.Temp);
                 using var hf = hq.ToComponentDataArray<FactionTag>(Allocator.Temp);
-                hq.Dispose();
                 for (int i = 0; i < hx.Length; i++)
                 {
                     if (hf[i].Value == Faction.Border) continue;
@@ -427,6 +470,10 @@ namespace TheWaningBorder.Systems.Border
                     list.Add(p);
                 }
             }
+
+            // The Shardroot holder, if a player has it: the one intruder a
+            // garrison goes for before any other (§3.1).
+            bool holderKnown = TryShardrootHolder(em, out _, out float3 holderAt, out int holderIn);
 
             // ── garrison: defend, chase, leash ──
             for (int i = 0; i < ents.Length; i++)
@@ -458,14 +505,17 @@ namespace TheWaningBorder.Systems.Border
                 }
 
                 // At home and idle: is anyone in the territory?
-                if (hostiles.TryGetValue(m.Home, out var intruders) && intruders.Count > 0)
+                bool holderHere = holderKnown && holderIn == m.Home;
+                hostiles.TryGetValue(m.Home, out var intruders);
+                if (holderHere || (intruders != null && intruders.Count > 0))
                 {
-                    float bestD = float.MaxValue; float3 best = default;
-                    for (int k = 0; k < intruders.Count; k++)
-                    {
-                        float d = Distance2(intruders[k], p);
-                        if (d < bestD) { bestD = d; best = intruders[k]; }
-                    }
+                    float bestD = float.MaxValue; float3 best = holderAt;
+                    if (!holderHere)
+                        for (int k = 0; k < intruders.Count; k++)
+                        {
+                            float d = Distance2(intruders[k], p);
+                            if (d < bestD) { bestD = d; best = intruders[k]; }
+                        }
                     bool moving = em.HasComponent<DesiredDestination>(e)
                                   && em.GetComponentData<DesiredDestination>(e).Has != 0;
                     if (!moving)
@@ -611,8 +661,15 @@ namespace TheWaningBorder.Systems.Border
                 }
                 if (fighting == 0)
                 {
-                    // Nothing engaged: press the nearest hostile building in the target.
-                    if (TryNearestHostileBuildingIn(em, rs.Target, out float3 obj))
+                    // Nothing engaged: press the Shardroot holder if they are
+                    // in the target territory, else its nearest hostile building.
+                    if (holderKnown && holderIn == rs.Target)
+                    {
+                        rs.Objective = holderAt;
+                        TheWaningBorder.Core.Commands.Types.FormationMoveCommandHelper.Execute(
+                            em, _scratchWave, holderAt, FormationShape.Box, attackMove: true);
+                    }
+                    else if (TryNearestHostileBuildingIn(em, rs.Target, out float3 obj))
                     {
                         rs.Objective = obj;
                         TheWaningBorder.Core.Commands.Types.FormationMoveCommandHelper.Execute(

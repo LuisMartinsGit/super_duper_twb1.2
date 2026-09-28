@@ -28,6 +28,10 @@ namespace TheWaningBorder.Systems.Combat
             if (dps <= 0f || duration <= 0f) return;
             if (!em.HasComponent<Health>(victim)) return;
             if (TransientState.Active<DeathAnimationState>(em, victim)) return;
+            // An Invulnerable victim is not cut at all — it must not come out
+            // of LockdownVault with a bleed waiting (every route: melee,
+            // whirl, projectile).
+            if (em.HasComponent<Invulnerable>(victim)) return;
             // Buildings don't bleed.
             if (!em.HasComponent<UnitTag>(victim)) return;
 

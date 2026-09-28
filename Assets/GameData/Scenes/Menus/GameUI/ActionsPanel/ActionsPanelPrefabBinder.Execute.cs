@@ -142,8 +142,8 @@ namespace TheWaningBorder.UI.Ingame
                     TheWaningBorder.Core.Commands.CommandRouter.IssueReliquaryAbility(em, entity, 2, default);
                     return;
                 case "Alanthor_RangingShot":
-                    if (!TheWaningBorder.Abilities.AlanthorActiveHelper
-                            .TriggerRangingShot(em, OwnFaction(em)))
+                    if (!TheWaningBorder.Core.Commands.CommandRouter
+                            .IssueRangingShot(em, OwnFaction(em)))
                         PlayerNotificationSystem.NotifyError(
                             Loc.T("No planted siege engine ready"));
                     return;

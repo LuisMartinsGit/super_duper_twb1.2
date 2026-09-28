@@ -30,6 +30,17 @@ public struct ShardrootTag : IComponentData { }
 /// </summary>
 public struct ShardboundHeroTag : IComponentData { }
 
+/// <summary>
+/// The Maw backstop's visible artifact (§3): a display-only entity standing
+/// in the host well once it reaches Maw maturity unverbed. NOT a pickup and
+/// NOT a ShardrootTag holder -- nobody can take it; verbing the well
+/// (ShardrootSystem.TryAward) removes it and drops the real pickup.
+/// </summary>
+public struct ShardrootEmbedded : IComponentData
+{
+    public Entity Well;
+}
+
 /// <summary>Singleton tracking the artifact's match state.</summary>
 public struct ShardrootState : IComponentData
 {
@@ -41,8 +52,27 @@ public struct ShardrootState : IComponentData
     /// host well).</summary>
     public byte Found;
     /// <summary>Faction currently holding it (carrier / hero / temple).
-    /// Faction.Border = unheld (on the ground or undiscovered).</summary>
+    /// Faction.Border = unheld (on the ground, undiscovered, or carried by
+    /// a curse unit). Read by the curse's hunt-the-holder bias (§3.1 "the
+    /// curse wants it back").</summary>
     public Faction HolderFaction;
+    /// <summary>Where the holder stands, valid while HolderFaction is not
+    /// Faction.Border.</summary>
+    public Unity.Mathematics.float3 HolderPos;
+
+    /// <summary>THE MAW BACKSTOP (§3): sim seconds the current host well has
+    /// spent Wild (NodeState.Active) while the artifact is still inside it.
+    /// Reaching BorderSettings.shardrootMawSeconds is "Maw maturity".
+    /// Reset when the host is re-chosen.</summary>
+    public float HostWildSeconds;
+    /// <summary>1 once the host has reached Maw maturity unverbed: the
+    /// Shardroot is visibly embedded in it (ShardrootEmbedded marker +
+    /// minimap beacon). Still claimed by verbing that well.</summary>
+    public byte Embedded;
+    /// <summary>SimCadence.Epoch the singleton was created in, so a state
+    /// that outlived its match is reset rather than read. 0 = authored by a
+    /// scenario, never reset.</summary>
+    public int MatchEpoch;
 
     /// <summary>Shardroot quanta the artifact embodies — drives god-power
     /// scaling and the Temple detonation magnitude via existing paths.</summary>

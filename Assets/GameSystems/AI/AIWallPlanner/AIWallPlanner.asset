@@ -21,5 +21,6 @@ MonoBehaviour:
   hubSpacing: 30
   perimeterPad: 12
   perimeterHalfExtentMin: 36
-  perimeterHalfExtentMax: 62
+  perimeterHalfExtentMax: 68
+  perimeterFootprintAllowance: 5
   perimeterGatherRadius: 60

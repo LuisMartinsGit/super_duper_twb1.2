@@ -30,6 +30,7 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
+using TheWaningBorder.Systems.Combat;
 using static TheWaningBorder.Core.Config.VeilCrustConstants;
 
 namespace TheWaningBorder.Systems.Border
@@ -148,7 +149,7 @@ namespace TheWaningBorder.Systems.Border
 
                 byte sat = field.SaturationAt(xfs[i].Position);
                 bool onCrust = sat >= VeilField.CrustThreshold;
-                bool hasVeilTag = em.HasComponent<VeilDebuffTag>(ents[i]);
+                bool hasVeilTag = TransientState.Active<VeilDebuffTag>(em, ents[i]);
 
                 float seconds = em.HasComponent<ExposureState>(ents[i])
                     ? em.GetComponentData<ExposureState>(ents[i]).Seconds : 0f;
@@ -164,7 +165,7 @@ namespace TheWaningBorder.Systems.Border
                         em.SetComponentData(ents[i], debuff);
                     else
                         em.AddComponentData(ents[i], debuff);
-                    if (!hasVeilTag) em.AddComponent<VeilDebuffTag>(ents[i]);
+                    if (!hasVeilTag) TransientState.SetFlag<VeilDebuffTag>(em, ents[i]);
 
                     // Workers auto-flee BEFORE the damage grace ends — an
                     // unattended worker never dies to haze; early neglect
@@ -183,9 +184,14 @@ namespace TheWaningBorder.Systems.Border
                     // Damage only past the grace window.
                     if (seconds > ExposureGraceSeconds)
                     {
+                        // Shared DOT contract (docs/Design/Fire.md): Invulnerable
+                        // takes nothing, Liquid Courage scales it (never to 0),
+                        // Life Cling / Second Wind floors hold. No kill credit
+                        // — the curse is nobody's attack.
                         var hp = hps[i];
-                        hp.Value -= (int)math.ceil(DpsFor(sat) * TickInterval);
-                        if (hp.Value < 0) hp.Value = 0;
+                        int dmg = DamageOverTime.ScaleTick(em, ents[i], false,
+                            math.ceil(DpsFor(sat) * TickInterval));
+                        DamageOverTime.Commit(em, ents[i], ref hp, dmg, false, default);
                         em.SetComponentData(ents[i], hp);
                         // Exposure kills shed no blood (loop damping): the
                         // curse must not feed its own blood-spawner.
@@ -198,9 +204,14 @@ namespace TheWaningBorder.Systems.Border
                     seconds = math.max(0f, seconds - TickInterval * ExposureRecoverMul);
                     if (hasVeilTag)
                     {
-                        em.RemoveComponent<VeilDebuffTag>(ents[i]);
+                        // No structural change (2026-09-27): the tag's enable
+                        // bit drops and BorderDebuff is ZEROED rather than
+                        // removed. Every reader folds it in as (1 + AttPenalty)
+                        // or gates on SpeedPenalty > 0, so a zero debuff is
+                        // exactly an absent one.
+                        TransientState.Clear<VeilDebuffTag>(em, ents[i]);
                         if (em.HasComponent<BorderDebuff>(ents[i]))
-                            em.RemoveComponent<BorderDebuff>(ents[i]);
+                            em.SetComponentData(ents[i], default(BorderDebuff));
                     }
                 }
 
@@ -257,9 +268,11 @@ namespace TheWaningBorder.Systems.Border
                 if (em.HasComponent<VeilworksTag>(ents[i])) continue;
                 if (field.SaturationAt(xfs[i].Position) < VeilField.DeepThreshold) continue;
 
+                // Same DOT contract as unit exposure (Invulnerable, scaling).
                 var hp = hps[i];
-                hp.Value -= (int)math.ceil(CrumbleDps * TickInterval);
-                if (hp.Value < 0) hp.Value = 0;
+                int dmg = DamageOverTime.ScaleTick(em, ents[i], false,
+                    math.ceil(CrumbleDps * TickInterval));
+                DamageOverTime.Commit(em, ents[i], ref hp, dmg, false, default);
                 em.SetComponentData(ents[i], hp);
             }
         }

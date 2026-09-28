@@ -290,6 +290,15 @@ namespace TheWaningBorder.AI
         }
 
 
+        /// <summary>Host-only scratch set for the "who already serves in a
+        /// mission" tests (wave draft, reinforcement sweep) — one HashSet per
+        /// call used to be allocated. Cleared at each use; never held across
+        /// a call.</summary>
+        private readonly System.Collections.Generic.HashSet<Entity> _scratchEnrolled =
+            new System.Collections.Generic.HashSet<Entity>();
+        private readonly System.Collections.Generic.List<Entity> _regroupBody =
+            new System.Collections.Generic.List<Entity>(32);
+
         private readonly System.Collections.Generic.Dictionary<int, System.Collections.Generic.List<Mission>> _missions
             = new System.Collections.Generic.Dictionary<int, System.Collections.Generic.List<Mission>>();
 
@@ -422,7 +431,8 @@ namespace TheWaningBorder.AI
             using var facs = militaryQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
 
             // Units already enrolled in a living mission are never re-drafted.
-            var enrolled = new System.Collections.Generic.HashSet<Entity>();
+            var enrolled = _scratchEnrolled;   // pooled, cleared per use
+            enrolled.Clear();
             foreach (var m in MissionsFor(faction))
                 foreach (var member in m.Members)
                     enrolled.Add(member);
@@ -922,7 +932,8 @@ namespace TheWaningBorder.AI
             // never 98 reinforcements, it was the same sixteen re-drafted, each
             // draft resetting their march. The mission roster already knows who
             // is serving; ask it.
-            var serving = new System.Collections.Generic.HashSet<Entity>();
+            var serving = _scratchEnrolled;    // pooled, cleared per use
+            serving.Clear();
             foreach (var mission in MissionsFor(faction))
                 for (int mi = 0; mi < mission.Members.Count; mi++)
                     serving.Add(mission.Members[mi]);
@@ -1386,7 +1397,13 @@ namespace TheWaningBorder.AI
             if (now < mission.NextRegroupTime) return;
             mission.NextRegroupTime = now + Cfg.regroupInterval;
 
-            bool anyLoose = false;
+            // Re-forming is not free: it re-plans the WHOLE army, and every
+            // sweep that fired on a single stray (a unit the stuck recovery
+            // had just released, a straggler a few metres out) made the
+            // formation stop and re-slot every regroupInterval. Only a real
+            // share of the army travelling loose justifies it; one or two
+            // strays catch up on their own orders.
+            int loose = 0;
             for (int i = 0; i < mission.Members.Count; i++)
             {
                 var u = mission.Members[i];
@@ -1394,11 +1411,14 @@ namespace TheWaningBorder.AI
                 if (em.HasComponent<Target>(u) && em.GetComponentData<Target>(u).Value != Entity.Null) continue;
                 bool travelling = em.HasComponent<DesiredDestination>(u)
                     && em.GetComponentData<DesiredDestination>(u).Has != 0;
-                if (travelling) { anyLoose = true; break; }
+                if (travelling) loose++;
             }
-            if (!anyLoose) return;
+            if (loose == 0) return;
+            if (loose < math.max(2f, mission.Members.Count * Cfg.regroupLooseFraction)) return;
 
-            var body = new System.Collections.Generic.List<Entity>(mission.Members.Count);
+            // Pooled: the router copies what it keeps (CommandRouter.Formation).
+            var body = _regroupBody;
+            body.Clear();
             for (int i = 0; i < mission.Members.Count; i++)
             {
                 var u = mission.Members[i];

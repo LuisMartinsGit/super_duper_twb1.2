@@ -237,7 +237,7 @@ namespace TheWaningBorder.AI
             if (!TryFindBloodSpot(em, faction, hallPos, out float3 spot)) return;
 
             var size = BuildingSizeConfig.GetSize("Feraldis_WarTotem");
-            if (!BuildCommandHelper.IsValidBuildPosition(em, spot, size)) return;
+            if (!BuildSiteSnapshot.Current(em).IsValidBuildPosition(em, spot, size, null)) return;
             // No AI-side Spend: PlaceBuildingDirect charges the cost on
             // every peer (docs/Multiplayer_LAN_Readiness.md).
             bool tQueued = CommandRouter.IssuePlaceBuilding(em, "Feraldis_WarTotem", spot, faction,

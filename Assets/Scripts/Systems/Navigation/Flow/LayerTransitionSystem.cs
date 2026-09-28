@@ -290,14 +290,19 @@ namespace TheWaningBorder.Systems.Navigation
         // Read CanClimb from the unit's TraversalProfile, falling back to
         // 1 (climb-permitted) when no profile component (M5 default for
         // every unit factory).
+        private static readonly ComponentType[] QT_Profile =
+            { ComponentType.ReadOnly<TraversalProfileSingleton>() };
+        private static TheWaningBorder.Core.CachedEntityQuery QC_Profile;
+
         private static byte GetUnitCanClimb(EntityManager em, Entity unit)
         {
             if (!em.HasComponent<NavTraversalProfile>(unit)) return 1;
             byte profileId = em.GetComponentData<NavTraversalProfile>(unit).ProfileId;
-            var profQ = em.CreateEntityQuery(typeof(TraversalProfileSingleton));
-            if (profQ.IsEmptyIgnoreFilter) { profQ.Dispose(); return 1; }
+            // Cached: this runs per unit on the layer-transition path, and a
+            // create+dispose per call re-matched every archetype each time.
+            var profQ = QC_Profile.Get(em, QT_Profile);
+            if (profQ.IsEmptyIgnoreFilter) return 1;
             var profSingleton = profQ.GetSingleton<TraversalProfileSingleton>();
-            profQ.Dispose();
             if (!profSingleton.Profiles.IsCreated) return 1;
             ref var profBlob = ref profSingleton.Profiles.Value;
             if (profileId >= profBlob.Profiles.Length) return 1;

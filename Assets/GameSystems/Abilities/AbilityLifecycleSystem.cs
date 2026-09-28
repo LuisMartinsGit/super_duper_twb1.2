@@ -11,6 +11,7 @@
 
 using Unity.Collections;
 using TheWaningBorder.Core;
+using TheWaningBorder.Core.Commands.Types;
 using Unity.Entities;
 using Unity.Mathematics;
 
@@ -75,6 +76,12 @@ namespace TheWaningBorder.Abilities
                         : FirstActiveSlot(slots, em, e);
                     em.RemoveComponent<AbilityActivated>(e);
                     if (slot < 0) continue;
+                    // One channel at a time. The cooldown is only charged when
+                    // a channel COMPLETES, so without this a second click during
+                    // the channel would find the slot "ready" and restart it.
+                    if (em.HasComponent<AbilityCastState>(e)) continue;
+                    // The dead and the airborne cast nothing.
+                    if (IsInterrupted(em, e)) continue;
                     // Drop the activation BEFORE the cooldown is charged, so a
                     // silenced cast costs the player nothing but the click.
                     // Anything already winding up in AbilityCastState below
@@ -93,30 +100,52 @@ namespace TheWaningBorder.Abilities
                     var card = AbilityCatalog.Get(idx);
                     if (card == null) continue;
 
-                    float cd = card.Cooldown > 0f ? card.Cooldown : (card.CastTime + card.Duration + 1f);
-                    SetCooldown(em, e, slot, cd);
-
+                    // Channelled: the cooldown waits for the channel to land
+                    // (section 3). Instant: charged now, then applied.
+                    // docs/Design/Spells.md, "Cast and interrupt".
                     if (card.CastTime > 0f)
-                        AddOrSet(em, e, new AbilityCastState { AbilityIndex = idx, CastRemaining = card.CastTime, Target = target });
+                    {
+                        var cast = new AbilityCastState
+                        {
+                            AbilityIndex = idx, CastRemaining = card.CastTime, Target = target,
+                            Slot = slot, CastTotal = card.CastTime,
+                        };
+                        SnapshotOrders(em, e, ref cast);
+                        AddOrSet(em, e, cast);
+                    }
                     else
+                    {
+                        SetCooldown(em, e, slot, card.EffectiveCooldown);
                         AbilityEffectExecutor.Apply(em, e, card, target);
+                    }
                 }
             }
 
-            // ---- 3. Cast timers -> apply on completion ----
+            // ---- 3. Cast timers -> interrupt, or apply + charge the cooldown ----
+            // Interrupt first: a channel broken by a new order, a stun or
+            // death is simply lost -- no effect, and no cooldown charged, so the
+            // player can recast at once. Silence and Blinding Glare do NOT
+            // break a channel already in flight (they only stop new casts).
             var castDone = new NativeList<Entity>(Allocator.Temp);
+            var castBroken = new NativeList<Entity>(Allocator.Temp);
             foreach (var (cast, e) in SystemAPI.Query<RefRW<AbilityCastState>>().WithEntityAccess())
             {
                 var c = cast.ValueRO;
+                if (IsInterrupted(em, e) || HasNewOrder(em, e, c)) { castBroken.Add(e); continue; }
                 c.CastRemaining -= dt;
                 cast.ValueRW = c;
                 if (c.CastRemaining <= 0f) castDone.Add(e);
             }
+            foreach (var e in castBroken) em.RemoveComponent<AbilityCastState>(e);
+            castBroken.Dispose();
             foreach (var e in castDone)
             {
                 var c = em.GetComponentData<AbilityCastState>(e);
                 em.RemoveComponent<AbilityCastState>(e);
-                AbilityEffectExecutor.Apply(em, e, AbilityCatalog.Get(c.AbilityIndex), c.Target);
+                var card = AbilityCatalog.Get(c.AbilityIndex);
+                if (card == null) continue;
+                SetCooldown(em, e, c.Slot, card.EffectiveCooldown);
+                AbilityEffectExecutor.Apply(em, e, card, c.Target);
             }
             castDone.Dispose();
 
@@ -223,6 +252,62 @@ namespace TheWaningBorder.Abilities
             // reveal entity is created + ticked by SectActivePowerSystem /
             // SectRevealTickSystem, so nothing to tick here.)
         }
+
+        /// <summary>
+        /// Death or a stun breaks a channel (and refuses a new one): Health at
+        /// 0, the death animation running, or hurled into the air by
+        /// Shardbound Fury (Launched -- the one hard stun in the game).
+        /// </summary>
+        private static bool IsInterrupted(EntityManager em, Entity e)
+        {
+            if (em.HasComponent<Health>(e) && em.GetComponentData<Health>(e).Value <= 0) return true;
+            if (TransientState.Active<DeathAnimationState>(em, e)) return true;
+            if (em.HasComponent<TheWaningBorder.Entities.Launched>(e)) return true;
+            return false;
+        }
+
+        /// <summary>Record the move / attack order live when the channel began,
+        /// so a later DIFFERENT order can be told from the one the caster was
+        /// already carrying out.</summary>
+        private static void SnapshotOrders(EntityManager em, Entity e, ref AbilityCastState cast)
+        {
+            if (TransientState.Active<MoveCommand>(em, e))
+            {
+                cast.HadMove = 1;
+                cast.MoveDestination = em.GetComponentData<MoveCommand>(e).Destination;
+            }
+            if (TransientState.Active<AttackCommand>(em, e))
+            {
+                cast.HadAttack = 1;
+                cast.AttackTarget = em.GetComponentData<AttackCommand>(e).Target;
+            }
+        }
+
+        /// <summary>
+        /// True when the caster has been given a new move or attack order since
+        /// the channel began -- the player (or AI) changed its mind, and the
+        /// cast is abandoned. An order that merely ENDED (arrival, target dead)
+        /// is not a new one.
+        /// </summary>
+        private static bool HasNewOrder(EntityManager em, Entity e, in AbilityCastState cast)
+        {
+            if (TransientState.Active<MoveCommand>(em, e))
+            {
+                if (cast.HadMove == 0) return true;
+                var dest = em.GetComponentData<MoveCommand>(e).Destination;
+                if (math.distancesq(dest, cast.MoveDestination) > OrderChangeEpsilonSq) return true;
+            }
+            if (TransientState.Active<AttackCommand>(em, e))
+            {
+                if (cast.HadAttack == 0) return true;
+                if (em.GetComponentData<AttackCommand>(e).Target != cast.AttackTarget) return true;
+            }
+            return false;
+        }
+
+        /// <summary>Squared distance under which a re-issued move is the same
+        /// order (float noise in a re-snapped destination), not a new one.</summary>
+        private const float OrderChangeEpsilonSq = 0.01f;
 
         /// <summary>First slot holding an Active ability that's off cooldown.</summary>
         private static int FirstActiveSlot(UnitAbilities slots, EntityManager em, Entity e)

@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Choreographed Volleys
   role: Military
   effect: 
-  desc: "Active, carried by every ranged unit: call the cadence and allied ranged units within 20 m fire at double rate for 5 s. 120 s cooldown."
+  desc: "Active, carried by every ranged unit: call the cadence and allied ranged units within 15 m fire at double rate for 5 s. 60 s cooldown."
   researchAt: ArcheryRange
   minBuildingLevel: 0
   researchTime: 35

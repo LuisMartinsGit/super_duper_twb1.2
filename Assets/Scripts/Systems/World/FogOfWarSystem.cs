@@ -39,6 +39,29 @@ namespace TheWaningBorder.Systems.Visibility
         private const float RevealInterval = 0.25f;
         private float _nextReveal;
 
+        private EntityQuery _staticQuery;
+        private EntityQuery _mobileQuery;
+
+        protected override void OnCreate()
+        {
+            // Exclude BorderTag: veilstone entities are enemy to all players
+            // and should NOT reveal fog. Split by UnitTag (2026-09-25): the
+            // non-units (buildings, walls, towers) are stamped once into a
+            // cached static layer and only re-stamped when that set changes.
+            _staticQuery = GetEntityQuery(
+                ComponentType.ReadOnly<LineOfSight>(),
+                ComponentType.ReadOnly<LocalTransform>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.Exclude<BorderTag>(),
+                ComponentType.Exclude<UnitTag>());
+            _mobileQuery = GetEntityQuery(
+                ComponentType.ReadOnly<LineOfSight>(),
+                ComponentType.ReadOnly<LocalTransform>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<UnitTag>(),
+                ComponentType.Exclude<BorderTag>());
+        }
+
         protected override void OnUpdate()
         {
             var mgr = FogOfWarManager.Instance;
@@ -49,52 +72,67 @@ namespace TheWaningBorder.Systems.Visibility
 
             double t0 = UnityEngine.Time.realtimeSinceStartupAsDouble;
 
-            // Begin new frame - clears current visibility
-            mgr.BeginFrame();
-
-            // Query all entities with LineOfSight and position.
-            // Exclude BorderTag: veilstone entities are enemy to all players
-            // and should NOT reveal fog. GetEntityQuery caches per system —
-            // CreateEntityQuery per frame leaks into the world's registry.
-            var query = GetEntityQuery(
-                ComponentType.ReadOnly<LineOfSight>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.Exclude<BorderTag>());
-
-            var lineOfSights = query.ToComponentDataArray<LineOfSight>(Allocator.Temp);
-            var transforms = query.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
-
             // task-063 phase 1: sect FogVisionBonus removed with the
             // FactionSectState bridge. Phase 2 reintroduces vision-related sect
             // levers (e.g. Witness — All-Seeing).
 
-            // ONE Burst batch for every sighted entity — the per-entity
-            // managed Stamp loop was the bulk of the 4 Hz fog cost.
-            var commands = new NativeArray<FogOfWarManager.StampCommand>(
-                lineOfSights.Length, Allocator.Temp);
-            for (int i = 0; i < lineOfSights.Length; i++)
-            {
-                commands[i] = new FogOfWarManager.StampCommand
-                {
-                    Position = (Vector3)transforms[i].Position,
-                    Radius = Mathf.Max(0.01f, lineOfSights[i].Radius),
-                    Faction = factions[i].Value,
-                };
-            }
-            mgr.StampBatch(commands, commands.Length);
-            commands.Dispose();
+            var statics = BuildCommands(_staticQuery, out ulong staticHash);
+            var mobiles = BuildCommands(_mobileQuery, out _);
 
-            lineOfSights.Dispose();
-            transforms.Dispose();
-            factions.Dispose();
+            // Clear + static layer + unit stamps, one Burst worker per faction.
+            mgr.StampPass(statics, statics.Length, staticHash, mobiles, mobiles.Length);
+
+            statics.Dispose();
+            mobiles.Dispose();
 
             // Finalize frame - rebuilds the overlay texture (throttled inside)
             mgr.EndFrameAndBuild();
 
             TheWaningBorder.Core.Diagnostics.PerfSpikeLog.Report("FogStamp",
                 (UnityEngine.Time.realtimeSinceStartupAsDouble - t0) * 1000.0);
+        }
+
+        /// <summary>Snapshot a query into stamp commands, plus an
+        /// ORDER-INDEPENDENT content hash (sum and xor of per-entity mixes),
+        /// so chunk reordering never looks like a change.</summary>
+        private static NativeArray<FogOfWarManager.StampCommand> BuildCommands(EntityQuery q, out ulong hash)
+        {
+            var lineOfSights = q.ToComponentDataArray<LineOfSight>(Allocator.Temp);
+            var transforms = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            var factions = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+
+            var commands = new NativeArray<FogOfWarManager.StampCommand>(
+                lineOfSights.Length, Allocator.Temp);
+            ulong sum = 0, xor = 0;
+            for (int i = 0; i < lineOfSights.Length; i++)
+            {
+                float3 p = transforms[i].Position;
+                float r = Mathf.Max(0.01f, lineOfSights[i].Radius);
+                var f = factions[i].Value;
+                commands[i] = new FogOfWarManager.StampCommand
+                {
+                    Position = (Vector3)p,
+                    Radius = r,
+                    Faction = f,
+                };
+                ulong h = Mix(((ulong)math.asuint(p.x) << 32) | math.asuint(p.z));
+                h = Mix(h ^ (((ulong)math.asuint(r) << 8) | (uint)(int)f));
+                sum += h;
+                xor ^= Mix(h + 0x9E3779B97F4A7C15UL);
+            }
+            hash = sum ^ (xor * 0xBF58476D1CE4E5B9UL);
+
+            lineOfSights.Dispose();
+            transforms.Dispose();
+            factions.Dispose();
+            return commands;
+        }
+
+        private static ulong Mix(ulong z)
+        {
+            z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9UL;
+            z = (z ^ (z >> 27)) * 0x94D049BB133111EBUL;
+            return z ^ (z >> 31);
         }
 
         // ==================== Static Query Methods ====================
@@ -139,6 +177,19 @@ namespace TheWaningBorder.Systems.Visibility
         // heavy to pay per frame.
         private const float SyncInterval = 0.1f;
         private double _nextSync;
+        private EntityQuery _presentedQuery;
+        private EntityQuery _playerLosQuery;
+
+        protected override void OnCreate()
+        {
+            _presentedQuery = GetEntityQuery(
+                ComponentType.ReadOnly<PresentationId>(),
+                ComponentType.ReadOnly<LocalTransform>());
+            _playerLosQuery = GetEntityQuery(
+                ComponentType.ReadOnly<LocalTransform>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<LineOfSight>());
+        }
 
         protected override void OnUpdate()
         {
@@ -165,10 +216,7 @@ namespace TheWaningBorder.Systems.Visibility
             // normal path below culls to that player's vision.
             if (mgr == null || GameSettings.ViewFaction == null)
             {
-                var allQuery = GetEntityQuery(
-                    ComponentType.ReadOnly<PresentationId>(),
-                    ComponentType.ReadOnly<LocalTransform>());
-                var allEntities = allQuery.ToEntityArray(Allocator.Temp);
+                var allEntities = _presentedQuery.ToEntityArray(Allocator.Temp);
                 for (int i = 0; i < allEntities.Length; i++)
                 {
                     if (entityViewManager.TryGetView(allEntities[i], out var go) && go != null)
@@ -180,132 +228,153 @@ namespace TheWaningBorder.Systems.Visibility
 
             var humanFaction = mgr.HumanFaction;
 
-            // Cache player unit positions + LOS for direct distance fallback
-            var playerLosQuery = GetEntityQuery(
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<LineOfSight>());
-            var pAllTransforms = playerLosQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            var pAllFactions = playerLosQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            var pAllLOS = playerLosQuery.ToComponentDataArray<LineOfSight>(Allocator.Temp);
+            // Player sight sources for the direct-distance fallback, bucketed
+            // into a coarse grid (2026-09-25). The fallback used to walk
+            // EVERY player source for EVERY non-visible enemy unit - O(E x P)
+            // at 10 Hz, the late-game cost of this system. With cells no
+            // smaller than the largest sight radius, every source that can
+            // see a point sits in the 3x3 cells around it, so the answer
+            // (any source in range?) is unchanged.
+            var pAllTransforms = _playerLosQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            var pAllFactions = _playerLosQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            var pAllLOS = _playerLosQuery.ToComponentDataArray<LineOfSight>(Allocator.Temp);
 
-            // Build compact arrays of only player units
             int playerCount = 0;
+            float maxLos = StealthProximityReveal;
             for (int pi = 0; pi < pAllFactions.Length; pi++)
-                if (pAllFactions[pi].Value == humanFaction) playerCount++;
+            {
+                if (pAllFactions[pi].Value != humanFaction) continue;
+                playerCount++;
+                if (pAllLOS[pi].Radius > maxLos) maxLos = pAllLOS[pi].Radius;
+            }
 
             var playerPositions = new NativeArray<float3>(playerCount, Allocator.Temp);
             var playerLOSRadii = new NativeArray<float>(playerCount, Allocator.Temp);
+            var buckets = new NativeParallelMultiHashMap<int, int>(math.max(1, playerCount), Allocator.Temp);
+            float invCell = 1f / math.max(1f, maxLos);
             int idx = 0;
             for (int pi = 0; pi < pAllFactions.Length; pi++)
             {
-                if (pAllFactions[pi].Value == humanFaction)
-                {
-                    playerPositions[idx] = pAllTransforms[pi].Position;
-                    playerLOSRadii[idx] = pAllLOS[pi].Radius;
-                    idx++;
-                }
+                if (pAllFactions[pi].Value != humanFaction) continue;
+                var p = pAllTransforms[pi].Position;
+                playerPositions[idx] = p;
+                playerLOSRadii[idx] = pAllLOS[pi].Radius;
+                buckets.Add(BucketKey((int)math.floor(p.x * invCell), (int)math.floor(p.z * invCell)), idx);
+                idx++;
             }
             pAllTransforms.Dispose();
             pAllFactions.Dispose();
             pAllLOS.Dispose();
 
-            // Query entities with presentation
-            var query = GetEntityQuery(
-                ComponentType.ReadOnly<PresentationId>(),
-                ComponentType.ReadOnly<LocalTransform>());
+            // Chunk walk: the tag tests are per ARCHETYPE, not per entity -
+            // three HasComponent + a GetComponentData per entity used to run
+            // across every tree and rock on the map ten times a second.
+            var entityHandle = GetEntityTypeHandle();
+            var ltHandle = GetComponentTypeHandle<LocalTransform>(true);
+            var factionHandle = GetComponentTypeHandle<FactionTag>(true);
+            var buildingHandle = GetComponentTypeHandle<BuildingTag>(true);
+            var unitHandle = GetComponentTypeHandle<UnitTag>(true);
+            var stealthHandle = GetComponentTypeHandle<StealthTag>(true);
 
-            var entities = query.ToEntityArray(Allocator.Temp);
-            var transforms = query.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-
-            for (int i = 0; i < entities.Length; i++)
+            // Main-thread chunk reads: finish any job still writing them.
+            _presentedQuery.CompleteDependency();
+            var chunks = _presentedQuery.ToArchetypeChunkArray(Allocator.Temp);
+            for (int c = 0; c < chunks.Length; c++)
             {
-                var entity = entities[i];
-                var position = transforms[i].Position;
+                var chunk = chunks[c];
+                var entities = chunk.GetNativeArray(entityHandle);
+                var transforms = chunk.GetNativeArray(ref ltHandle);
+                bool hasFaction = chunk.Has(ref factionHandle);
+                var factions = hasFaction ? chunk.GetNativeArray(ref factionHandle) : default;
+                bool isBuilding = chunk.Has(ref buildingHandle);
+                bool isUnit = chunk.Has(ref unitHandle);
+                bool isStealth = chunk.Has(ref stealthHandle);
+                bool mobile = isUnit && !isBuilding;
 
-                if (!entityViewManager.TryGetView(entity, out var gameObject) || gameObject == null) 
-                    continue;
-
-                bool isBuilding = em.HasComponent<BuildingTag>(entity);
-                bool isUnit = em.HasComponent<UnitTag>(entity);
-                bool isVisible = mgr.IsVisible(humanFaction, (Vector3)position);
-                bool isRevealed = mgr.IsRevealed(humanFaction, (Vector3)position);
-                bool isMine = em.HasComponent<FactionTag>(entity) && 
-                              em.GetComponentData<FactionTag>(entity).Value == humanFaction;
-
-                // Player-owned entities - always visible
-                if (isMine)
+                for (int i = 0; i < entities.Length; i++)
                 {
-                    if (!gameObject.activeSelf) gameObject.SetActive(true);
-                    continue;
-                }
+                    if (!entityViewManager.TryGetView(entities[i], out var gameObject) || gameObject == null)
+                        continue;
 
-                // Enemy/neutral units - show when visible through fog OR
-                // when any player unit is close enough to see them directly.
-                // The direct distance check catches fog grid resolution issues.
-                if (isUnit && !isBuilding)
-                {
-                    if (!isVisible)
+                    // Player-owned entities - always visible
+                    if (hasFaction && factions[i].Value == humanFaction)
                     {
-                        for (int pi = 0; pi < playerCount; pi++)
-                        {
-                            float dx = position.x - playerPositions[pi].x;
-                            float dz = position.z - playerPositions[pi].z;
-                            float distSq = dx * dx + dz * dz;
-                            float los = playerLOSRadii[pi];
-                            if (distSq <= los * los)
-                            {
-                                isVisible = true;
-                                break;
-                            }
-                        }
+                        if (!gameObject.activeSelf) gameObject.SetActive(true);
+                        continue;
                     }
 
-                    // Stealth: an enemy unit with StealthTag stays hidden inside
-                    // our vision area unless one of our units is within proximity
-                    // (mirrors TargetingSystem's 3u reveal — keeps "I can shoot it"
-                    // and "I can see it" consistent).
-                    if (isVisible && em.HasComponent<StealthTag>(entity))
+                    var position = transforms[i].Position;
+                    bool isVisible = mgr.IsVisible(humanFaction, (Vector3)position);
+
+                    // Enemy/neutral units - show when visible through fog OR
+                    // when any player unit is close enough to see them directly.
+                    // The direct distance check catches fog grid resolution issues.
+                    if (mobile)
                     {
-                        const float StealthProximityRevealSq = 3f * 3f;
-                        bool revealedByProximity = false;
-                        for (int pi = 0; pi < playerCount; pi++)
-                        {
-                            float dx = position.x - playerPositions[pi].x;
-                            float dz = position.z - playerPositions[pi].z;
-                            if (dx * dx + dz * dz <= StealthProximityRevealSq)
-                            {
-                                revealedByProximity = true;
-                                break;
-                            }
-                        }
-                        if (!revealedByProximity) isVisible = false;
+                        if (!isVisible)
+                            isVisible = AnySourceWithin(position, buckets, invCell,
+                                playerPositions, playerLOSRadii, true, 0f);
+
+                        // Stealth: an enemy unit with StealthTag stays hidden inside
+                        // our vision area unless one of our units is within proximity
+                        // (mirrors TargetingSystem's 3u reveal - keeps "I can shoot it"
+                        // and "I can see it" consistent).
+                        if (isVisible && isStealth
+                            && !AnySourceWithin(position, buckets, invCell,
+                                playerPositions, playerLOSRadii, false,
+                                StealthProximityReveal * StealthProximityReveal))
+                            isVisible = false;
+
+                        if (gameObject.activeSelf != isVisible) gameObject.SetActive(isVisible);
+                        continue;
                     }
 
-                    if (gameObject.activeSelf != isVisible) gameObject.SetActive(isVisible);
-                    continue;
+                    // Enemy/neutral static entities (buildings, deposits, border
+                    // structures - anything without UnitTag). Three-state visibility:
+                    //   currently visible              -> show normally
+                    //   previously revealed, not visible -> show as ghost (last-seen)
+                    //   never revealed                 -> hide entirely
+                    // Previously the ghost branch required isBuilding, which made
+                    // iron / veilstone deposits and any non-BuildingTag static entity
+                    // vanish for good once they left vision - fixed here.
+                    bool show = isVisible || mgr.IsRevealed(humanFaction, (Vector3)position);
+                    if (gameObject.activeSelf != show) gameObject.SetActive(show);
                 }
-
-                // Enemy/neutral static entities (buildings, deposits, border
-                // structures — anything without UnitTag). Three-state visibility:
-                //   currently visible              -> show normally
-                //   previously revealed, not visible -> show as ghost (last-seen)
-                //   never revealed                 -> hide entirely
-                // Previously the ghost branch required isBuilding, which made
-                // iron / veilstone deposits and any non-BuildingTag static entity
-                // vanish for good once they left vision — fixed here.
-                // (The old per-entity Renderer fetch + MaterialPropertyBlock
-                // get/set pair was a no-op that allocated every frame — the
-                // ghost shader hook can come back on a cached renderer when a
-                // ghost material actually exists.)
-                bool show = isVisible || isRevealed;   // revealed → last-seen ghost
-                if (gameObject.activeSelf != show) gameObject.SetActive(show);
             }
 
-            entities.Dispose();
-            transforms.Dispose();
+            chunks.Dispose();
+            buckets.Dispose();
             playerPositions.Dispose();
             playerLOSRadii.Dispose();
+        }
+
+        private const float StealthProximityReveal = 3f;
+
+        private static int BucketKey(int x, int z) => (x * 73856093) ^ (z * 19349663);
+
+        /// <summary>True if any bucketed source lies within its own sight
+        /// radius (useRadii) or within the fixed squared range of the
+        /// position. Order-free: an any() test.</summary>
+        private static bool AnySourceWithin(float3 position, NativeParallelMultiHashMap<int, int> buckets,
+            float invCell, NativeArray<float3> pos, NativeArray<float> radii, bool useRadii, float fixedSq)
+        {
+            int cx = (int)math.floor(position.x * invCell);
+            int cz = (int)math.floor(position.z * invCell);
+            for (int oz = -1; oz <= 1; oz++)
+            for (int ox = -1; ox <= 1; ox++)
+            {
+                if (!buckets.TryGetFirstValue(BucketKey(cx + ox, cz + oz), out int pi, out var it))
+                    continue;
+                do
+                {
+                    float dx = position.x - pos[pi].x;
+                    float dz = position.z - pos[pi].z;
+                    float distSq = dx * dx + dz * dz;
+                    float limit = useRadii ? radii[pi] * radii[pi] : fixedSq;
+                    if (distSq <= limit) return true;
+                } while (buckets.TryGetNextValue(out pi, ref it));
+            }
+            return false;
         }
     }
 }

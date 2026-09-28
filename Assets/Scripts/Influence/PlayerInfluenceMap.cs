@@ -59,6 +59,9 @@ namespace TheWaningBorder.Influence
             _worldSize = new Vector2(Mathf.Max(1f, worldSize.x), Mathf.Max(1f, worldSize.y));
             _values = new float[Resolution * Resolution * ChannelCount];
             Ready = true;
+            // A fresh grid is a content change too: content-keyed caches
+            // (VeilFieldSystem's influence sample) must not survive it.
+            DataVersion++;
         }
 
         /// <summary>Drop all data; the next Configure starts from all-neutral.

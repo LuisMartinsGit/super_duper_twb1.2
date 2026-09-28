@@ -31,7 +31,17 @@ namespace TheWaningBorder.Rendering
             public Transform ShieldBarRoot;   // empty wrapper for the shield bar widget
             public Transform ShieldBarFill;   // inner quad that gets X-scaled by ratio
             public int LastRank = -1;
+            // Last values written (2026-09-25): a unit that did not move or
+            // change shield costs no transform write and no SetActive.
+            public bool Placed;
+            public float3 LastPos;
+            public int ShieldShown = -1;     // -1 unknown, 0 hidden, 1 shown
+            public float LastRatio = -1f;
         }
+
+        // Reused every frame — were a fresh HashSet and List per frame.
+        private readonly HashSet<Entity> _seen = new();
+        private readonly List<Entity> _toRemove = new();
 
         private readonly Dictionary<Entity, Overlay> _overlays = new();
         private Unity.Entities.World _world;
@@ -65,7 +75,8 @@ namespace TheWaningBorder.Rendering
             using var ents = unitQuery.ToEntityArray(Allocator.Temp);
             using var transforms = unitQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
-            var seen = new HashSet<Entity>();
+            var seen = _seen;
+            seen.Clear();
             for (int i = 0; i < ents.Length; i++)
             {
                 Entity e = ents[i];
@@ -83,7 +94,13 @@ namespace TheWaningBorder.Rendering
                 }
 
                 // Position root at the unit; rank pips are children offset above.
-                ov.Root.transform.position = transforms[i].Position;
+                float3 p = transforms[i].Position;
+                if (!ov.Placed || !p.Equals(ov.LastPos))
+                {
+                    ov.Root.transform.position = p;
+                    ov.LastPos = p;
+                    ov.Placed = true;
+                }
 
                 if (ov.LastRank != rank)
                 {
@@ -104,10 +121,16 @@ namespace TheWaningBorder.Rendering
                 bool showBar = hasShield && curShield > 0 && maxShield > 0;
                 if (ov.ShieldBarRoot != null)
                 {
-                    ov.ShieldBarRoot.gameObject.SetActive(showBar);
-                    if (showBar && ov.ShieldBarFill != null)
+                    int shown = showBar ? 1 : 0;
+                    if (ov.ShieldShown != shown)
                     {
-                        float ratio = math.clamp((float)curShield / maxShield, 0f, 1f);
+                        ov.ShieldBarRoot.gameObject.SetActive(showBar);
+                        ov.ShieldShown = shown;
+                    }
+                    float ratio = showBar ? math.clamp((float)curShield / maxShield, 0f, 1f) : -1f;
+                    if (showBar && ov.ShieldBarFill != null && ratio != ov.LastRatio)
+                    {
+                        ov.LastRatio = ratio;
                         ov.ShieldBarFill.localScale = new Vector3(ratio, 1f, 1f);
                         // Pivot the fill to the left so it shrinks rightward.
                         ov.ShieldBarFill.localPosition = new Vector3(-0.5f * (1f - ratio), 0f, 0f);
@@ -117,7 +140,8 @@ namespace TheWaningBorder.Rendering
 
             if (_overlays.Count > seen.Count)
             {
-                var toRemove = new List<Entity>();
+                var toRemove = _toRemove;
+                toRemove.Clear();
                 foreach (var kv in _overlays)
                     if (!seen.Contains(kv.Key))
                     {

@@ -15,5 +15,10 @@ namespace TheWaningBorder.Input
     {
         /// <summary>How far the pick ray reaches into the world, in metres.</summary>
         public float rayLength;
+
+        /// <summary>Metres along the pick ray by which a resource node yields
+        /// to a building behind it — the extractor standing on the node wins
+        /// the click (ScreenPick.EntityUnderMouse).</summary>
+        public float resourceNodeYield;
     }
 }

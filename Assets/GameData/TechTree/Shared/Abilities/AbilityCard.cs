@@ -65,7 +65,7 @@ namespace TheWaningBorder.Abilities
     {
         None = 0,
         AttackPct = 1,          // +Value% outgoing damage (SpellBuff.DamageMultiplier)
-        ArmorPct = 2,           // +Value% armor/defense (SpellBuff.ArmorBonus, resolved vs base)
+        ArmorPct = 2,           // +Value% of the target's own armor for the incoming damage type (SpellBuff.ArmorPct)
         ArmorFlat = 3,          // +Value flat armor
         DamageTakenPct = 4,     // Value% change to incoming damage. -90 = 90% reduction (Liquid Courage)
         MoveSpeedPct = 5,       // Value% move speed change. -50 = -50% (Veilshift Withdrawal)
@@ -95,13 +95,33 @@ namespace TheWaningBorder.Abilities
         public AbilityActivation Activation;
         public AbilityTargeting Targeting;
         public AbilityAffects Affects;
-        public float CastTime;       // seconds before effects apply (0 = instant)
+        public float CastTime;       // seconds of channel before effects apply (0 = instant). Interruptible - docs/Design/Spells.md
         public float Duration;       // seconds the effect lasts (-1 = permanent / always-on passive)
-        public float Cooldown;       // seconds before it can be recast (0 = auto: castTime + duration + 1)
+        public float Cooldown;       // seconds before it can be recast, charged when the cast COMPLETES (0 = auto, see EffectiveCooldown)
         public float Radius;         // units (Aura/Area)
-        public float Range;          // units (SingleTarget/Area cast range; 0 = centred on self / unlimited)
+        public float Range;          // units (SingleTarget/Area cast range; 0 = unlimited for an aimed card)
         public AbilityEffect[] Effects;
         public string[] Aftermath;   // ability names auto-cast when this ends
+
+        /// <summary>
+        /// Damage this ability deals per victim, 0 for abilities that deal
+        /// none. Every point of it lands through SpellDamage.Apply, so armor
+        /// for <see cref="DamageType"/>, Invulnerable, Liquid Courage and the
+        /// death-ward floors all apply. docs/Design/Spells.md.
+        /// </summary>
+        public float Damage;
+
+        /// <summary>Which armor column the damage is measured against. Magic
+        /// unless the design names another (True ignores armor).</summary>
+        public DamageType DamageType = DamageType.Magic;
+
+        /// <summary>
+        /// True when the player picks the ground point the ability lands on
+        /// (the targeting ring). False for an Area ability that forms around
+        /// the caster wherever he stands (War Horn, Honour thy Pledge,
+        /// Shardbound Fury). Range 0 on an aimed card means no range limit.
+        /// </summary>
+        public bool AimedAtPoint;
 
         /// <summary>
         /// Hero level at which this ability becomes available. 1 = always, and
@@ -116,6 +136,25 @@ namespace TheWaningBorder.Abilities
 
         public bool IsPassive => Activation == AbilityActivation.Passive;
         public bool IsPermanent => Duration < 0f;
+
+        /// <summary>
+        /// Grace added to the duration when a card leaves Cooldown at 0
+        /// ("auto"): the ability can be recast one second after its effect
+        /// ends. The cooldown is charged when the cast completes, so the auto
+        /// value counts from the moment the effect lands.
+        /// </summary>
+        public const float AutoCooldownGrace = 1f;
+
+        /// <summary>
+        /// The cooldown the engine actually charges, and the one every UI
+        /// must show: the authored Cooldown, or for "auto" (0) the effect's
+        /// duration plus <see cref="AutoCooldownGrace"/>.
+        /// </summary>
+        public float EffectiveCooldown
+            => Cooldown > 0f ? Cooldown : (Duration > 0f ? Duration : 0f) + AutoCooldownGrace;
+
+        /// <summary>True when the player must pick a ground point to cast it.</summary>
+        public bool IsAimed => Targeting == AbilityTargeting.Area && AimedAtPoint && Radius > 0f;
 
         public bool HasEffect(AbilityEffectKind kind)
         {

@@ -59,6 +59,13 @@ namespace TheWaningBorder.AI
             if (!RegionMap.Ready || !TerritoryOwnership.Ready) return;
 
             int key = (int)faction;
+            // First attempt offset by faction (2026-09-25), so the eight
+            // brains' 15 s extractor walks never line up in one second.
+            if (!_nextExtractorTime.ContainsKey(key))
+            {
+                _nextExtractorTime[key] = now + Cfg.extractorAttemptInterval * ((key & 7) / 8f);
+                return;
+            }
             if (_nextExtractorTime.TryGetValue(key, out float next) && now < next) return;
             _nextExtractorTime[key] = now + Cfg.extractorAttemptInterval;
 
@@ -71,7 +78,9 @@ namespace TheWaningBorder.AI
 
             var mine = TerritoryOwnership.TerritoriesOf(faction);
             if (mine.Count == 0) return;
-            var owned = new HashSet<int>(mine);
+            var owned = _ownedTerritories;   // pooled
+            owned.Clear();
+            owned.UnionWith(mine);
 
             // Diagnostic trail: six 30-minute batch matches produced 80 huts
             // and not one ore extractor, and this walk failed SILENTLY at
@@ -92,7 +101,7 @@ namespace TheWaningBorder.AI
                 if (!TechCatalog.TryGetBuilding(buildingId, out var def) || def == null) continue;
                 if (!FactionEconomy.CanAfford(em, faction, AICommon.ToCost(def.cost)))
                 {
-                    blocked += $" | {buildingId}: bank short";
+                    if (AILogger.Enabled) blocked += $" | {buildingId}: bank short";
                     continue;
                 }
 
@@ -105,7 +114,7 @@ namespace TheWaningBorder.AI
                 CollectFreeNodes(em, buildingId, owned, _freeNodes);
                 if (_freeNodes.Count == 0)
                 {
-                    blocked += $" | {buildingId}: no free owned node";
+                    if (AILogger.Enabled) blocked += $" | {buildingId}: no free owned node";
                     continue;
                 }
                 string reason = null;
@@ -118,7 +127,8 @@ namespace TheWaningBorder.AI
                         $"({_freeNodes[n].x:F0},{_freeNodes[n].z:F0})");
                     return;   // one per attempt
                 }
-                blocked += $" | {buildingId}: {_freeNodes.Count} node(s), last refusal: {reason}";
+                if (AILogger.Enabled)
+                    blocked += $" | {buildingId}: {_freeNodes.Count} node(s), last refusal: {reason}";
             }
 
             if (blocked != null)
@@ -142,6 +152,7 @@ namespace TheWaningBorder.AI
 
         // Host-only managed scratch, cleared per use.
         private readonly List<float3> _freeNodes = new List<float3>();
+        private readonly HashSet<int> _ownedTerritories = new HashSet<int>();
 
         /// <summary>
         /// How far out to look for ground a builder could stand on. Past the
@@ -207,12 +218,14 @@ namespace TheWaningBorder.AI
 
             var q = AIQueryCache.NodeAt(em, required.Value);
             using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            // One node / extractor read per tick, not two queries per node.
+            var snap = TheWaningBorder.Core.Commands.Types.BuildSiteSnapshot.Current(em);
 
             for (int i = 0; i < xfs.Length; i++)
             {
                 // Where the building would stand, and — the same call — whether
                 // this node is free at all.
-                if (!TerritoryOwnership.TrySnapToNode(em, buildingId, xfs[i].Position,
+                if (!snap.TrySnapToNode(em, buildingId, xfs[i].Position,
                         out float3 site)) continue;
 
                 int region = RegionMap.RegionAt(site.x, site.z);

@@ -122,12 +122,30 @@ public static class TransientState
         ComponentType.ReadWrite<SectUnitLeverApplied>(),
     };
 
+    // Second half of the pre-add set. A ComponentTypeSet holds at most 15
+    // types (Unity.Entities throws past that), so the set is added in two
+    // calls. Two structural changes at spawn, then one archetype for life.
+    static readonly ComponentType[] UnitSet2 =
+    {
+        // Veil exposure + hero XP (2026-09-27). ExposureState and BorderDebuff
+        // are PLAIN components pre-added at zero: a zero exposure clock and a
+        // zero debuff read exactly as absent to every reader (the debuff is
+        // folded in as 1 + AttPenalty / gated on SpeedPenalty > 0), so the
+        // veil systems zero them instead of removing. VeilDebuffTag and
+        // HeroXpAwarded are enableable flags, pre-added disabled below.
+        ComponentType.ReadWrite<ExposureState>(),
+        ComponentType.ReadWrite<BorderDebuff>(),
+        ComponentType.ReadWrite<VeilDebuffTag>(),
+        ComponentType.ReadWrite<HeroXpAwarded>(),
+    };
+
     /// <summary>Pre-add the full transient set, disabled, on a freshly
     /// created unit. Called once by UnitFactory's dispatcher; the entity
     /// then keeps one archetype for life.</summary>
     public static void PreAddUnitSet(EntityManager em, Entity e)
     {
         em.AddComponent(e, new ComponentTypeSet(UnitSet));
+        em.AddComponent(e, new ComponentTypeSet(UnitSet2));
 
         em.SetComponentEnabled<TheWaningBorder.Core.Commands.Types.AttackCommand>(e, false);
         em.SetComponentEnabled<TheWaningBorder.Core.Commands.Types.AttackMoveCommand>(e, false);
@@ -143,6 +161,8 @@ public static class TransientState
         em.SetComponentEnabled<DamageDealtTotal>(e, false);
         em.SetComponentEnabled<LastAttackerEntity>(e, false);
         em.SetComponentEnabled<LastDamagedByFaction>(e, false);
+        em.SetComponentEnabled<VeilDebuffTag>(e, false);
+        em.SetComponentEnabled<HeroXpAwarded>(e, false);
     }
 
     /// <summary>ECB twin of <see cref="PreAddUnitSet(EntityManager,Entity)"/>
@@ -150,6 +170,7 @@ public static class TransientState
     public static void PreAddUnitSet(EntityCommandBuffer ecb, Entity e)
     {
         ecb.AddComponent(e, new ComponentTypeSet(UnitSet));
+        ecb.AddComponent(e, new ComponentTypeSet(UnitSet2));
 
         ecb.SetComponentEnabled<TheWaningBorder.Core.Commands.Types.AttackCommand>(e, false);
         ecb.SetComponentEnabled<TheWaningBorder.Core.Commands.Types.AttackMoveCommand>(e, false);
@@ -165,5 +186,7 @@ public static class TransientState
         ecb.SetComponentEnabled<DamageDealtTotal>(e, false);
         ecb.SetComponentEnabled<LastAttackerEntity>(e, false);
         ecb.SetComponentEnabled<LastDamagedByFaction>(e, false);
+        ecb.SetComponentEnabled<VeilDebuffTag>(e, false);
+        ecb.SetComponentEnabled<HeroXpAwarded>(e, false);
     }
 }

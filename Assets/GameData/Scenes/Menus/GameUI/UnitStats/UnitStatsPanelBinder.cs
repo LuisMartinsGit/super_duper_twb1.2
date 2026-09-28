@@ -11,7 +11,8 @@
 // Update and the panel could never come back).
 //
 // Bindings (children found by name):
-// - HPSlider / HPLabel: current vs max Health, label "cur/max".
+// - HPSlider / HPLabel: current vs max Health, label "cur/max", plus
+//   " + shield" when the unit carries an equipment-tier shield.
 // - AttackCooldownSlider / ACDLabel: attack readiness — full bar = ready to
 //   attack, an attack instantly empties it, then it refills as the cooldown
 //   elapses. Label shows remaining cooldown rounded to tenths of a second
@@ -267,7 +268,15 @@ namespace TheWaningBorder.UI.Ingame
             _hpTarget = health.Max > 0
                 ? Mathf.Clamp01((float)health.Value / health.Max) : 0f;
             if (unitChanged && _hpSlider != null) _hpSlider.value = _hpTarget;
-            if (_hpLabel != null) _hpLabel.text = health.Value + "/" + health.Max;
+            if (_hpLabel != null)
+            {
+                // Shield points are hit points spent first (Combat_Pacing.md):
+                // show them beside HP as "cur/max + shield".
+                string text = health.Value + "/" + health.Max;
+                if (TheWaningBorder.UI.Data.EntityInfoExtractor.TryGetShield(em, unit, out int shCur, out _))
+                    text += " + " + shCur;
+                _hpLabel.text = text;
+            }
 
             bool hasAttack = em.HasComponent<AttackCooldown>(unit);
             if (hasAttack)

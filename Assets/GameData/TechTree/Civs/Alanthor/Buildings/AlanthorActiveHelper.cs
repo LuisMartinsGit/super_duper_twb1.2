@@ -36,9 +36,19 @@ namespace TheWaningBorder.Abilities
         static CachedEntityQuery QC_UnitTagUnitTypeIdFactionTag;
 
         #endregion
-        public const float RangingShotPct = 100f; // +100% on the next shot
-        public const float RangingShotWindow = 10f;
-        public const float RangingShotCooldown = 45f;
+        // Ranging Shot's numbers live in AlanthorActiveHelper.asset beside
+        // this file (AlanthorActiveHelperConfig). On the spell ladder
+        // (docs/Design/Spells.md 8-9) it is a unit tactical active: 60 s.
+        static AlanthorActiveHelperConfig _cfg;
+        static AlanthorActiveHelperConfig Cfg
+            => _cfg != null ? _cfg : (_cfg = TheWaningBorder.Core.Settings.ComponentConfig.Require<AlanthorActiveHelperConfig>());
+
+        /// <summary>+% damage on the next shot of every planted siege engine.</summary>
+        public static float RangingShotPct => Cfg.rangingShotPct;
+        /// <summary>Seconds the loaded shot waits to be fired.</summary>
+        public static float RangingShotWindow => Cfg.rangingShotWindow;
+        /// <summary>Per-faction cooldown, seconds.</summary>
+        public static float RangingShotCooldown => Cfg.rangingShotCooldown;
 
         // Per-faction cooldown clocks. Managed static state, mirroring how
         // FactionResearchState holds researched techs; ticked by
@@ -76,7 +86,10 @@ namespace TheWaningBorder.Abilities
         /// aimed shot worth +100%. Engines that are still moving are skipped —
         /// the shot is the reward for having stood still, per the design.
         /// </summary>
-        public static bool TriggerRangingShot(EntityManager em, Faction faction)
+        /// <param name="dryRun">True to only answer "would this fire?" without
+        /// arming anything or starting the cooldown — the issuing peer's
+        /// feedback check before the order goes out through lockstep.</param>
+        public static bool TriggerRangingShot(EntityManager em, Faction faction, bool dryRun = false)
         {
             if (FactionResearchState.Instance == null
                 || !FactionResearchState.Instance.HasResearched(faction, "RangingShot")) return false;
@@ -99,6 +112,7 @@ namespace TheWaningBorder.Abilities
                 if (em.HasComponent<SiegeScreens>(entities[i])
                     && em.GetComponentData<SiegeScreens>(entities[i]).Ready == 0) continue;
 
+                if (dryRun) return true;
                 AddOrSet(em, entities[i], new NextShotBonus { Pct = RangingShotPct, TimeRemaining = RangingShotWindow });
                 armed++;
             }

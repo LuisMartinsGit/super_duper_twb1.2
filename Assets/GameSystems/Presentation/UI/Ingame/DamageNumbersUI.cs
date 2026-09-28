@@ -142,58 +142,85 @@ namespace TheWaningBorder.UI.Ingame
             Faction local = GameSettings.LocalPlayerFaction;
 
             var healthQuery = _healthQuery.Get(_em, HealthQueryTypes);
-            using var entities = healthQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
-            using var healths = healthQuery.ToComponentDataArray<Health>(Unity.Collections.Allocator.Temp);
-            using var xforms = healthQuery.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
 
-            for (int i = 0; i < entities.Length; i++)
+            // CHANGED CHUNKS ONLY (2026-09-25). This copied three arrays over
+            // every entity with Health and did a dictionary read + write per
+            // entity, every frame. A chunk whose Health was not written since
+            // the last sample cannot hold a delta, and a new or moved entity
+            // lands in a chunk that IS marked changed, so its baseline is
+            // still taken on first sighting.
+            // A new world (next match) restarts the version counter.
+            if (!ReferenceEquals(_sampledWorld, _world)) { _sampledWorld = _world; _lastSampleVersion = 0; }
+            uint sinceVersion = _lastSampleVersion;
+            _lastSampleVersion = _em.GlobalSystemVersion;
+            healthQuery.CompleteDependency();
+            var entityHandle = _em.GetEntityTypeHandle();
+            var healthHandle = _em.GetComponentTypeHandle<Health>(true);
+            var xformHandle = _em.GetComponentTypeHandle<LocalTransform>(true);
+            using var chunks = healthQuery.ToArchetypeChunkArray(Unity.Collections.Allocator.Temp);
+
+            for (int c = 0; c < chunks.Length; c++)
             {
-                var e = entities[i];
-                int value = healths[i].Value;
-                int max = healths[i].Max;
+                var chunk = chunks[c];
+                if (sinceVersion != 0 && !chunk.DidChange(ref healthHandle, sinceVersion)) continue;
+                var entities = chunk.GetNativeArray(entityHandle);
+                var healths = chunk.GetNativeArray(ref healthHandle);
+                var xforms = chunk.GetNativeArray(ref xformHandle);
 
-                if (!_lastHealth.TryGetValue(e, out var last))
+                for (int i = 0; i < entities.Length; i++)
                 {
-                    // First sighting — baseline silently (spawning isn't damage).
+                    var e = entities[i];
+                    int value = healths[i].Value;
+                    int max = healths[i].Max;
+
+                    if (!_lastHealth.TryGetValue(e, out var last))
+                    {
+                        // First sighting — baseline silently (spawning isn't damage).
+                        _lastHealth[e] = (value, max);
+                        continue;
+                    }
+                    if (last.value == value && last.max == max) continue;   // no write when unchanged
                     _lastHealth[e] = (value, max);
-                    continue;
+
+                    // Max changed (construction ramp, upgrades, tier research):
+                    // re-baseline without a popup — that's not combat healing.
+                    if (max != last.max) continue;
+
+                    int delta = value - last.value;
+                    if (delta == 0) continue;
+
+                    // Buildings under construction gain HP every tick as they
+                    // build — not healing.
+                    if (delta > 0 && _em.HasComponent<UnderConstruction>(e)) continue;
+
+                    var pos = xforms[i].Position;
+
+                    // Only surface numbers the local player can actually see
+                    // (observers see everything).
+                    if (!GameSettings.IsObserver
+                        && !FogOfWarSystem.IsVisibleToFaction(local, pos)) continue;
+
+                    bool isOwn = _em.HasComponent<FactionTag>(e)
+                        && _em.GetComponentData<FactionTag>(e).Value == local;
+                    float yOff = _em.HasComponent<BuildingTag>(e) ? buildingYOffset : yOffsetAboveEntity;
+
+                    if (!_pending.TryGetValue(e, out var p))
+                    {
+                        p = new Pending { WindowEnd = now + accumulateWindow };
+                    }
+                    if (delta < 0) p.Damage += -delta;
+                    else p.Heal += delta;
+                    p.LastPos = new Vector3(pos.x, pos.y, pos.z);
+                    p.YOffset = yOff;
+                    p.IsOwn = isOwn;
+                    _pending[e] = p;
                 }
-                _lastHealth[e] = (value, max);
-
-                // Max changed (construction ramp, upgrades, tier research):
-                // re-baseline without a popup — that's not combat healing.
-                if (max != last.max) continue;
-
-                int delta = value - last.value;
-                if (delta == 0) continue;
-
-                // Buildings under construction gain HP every tick as they
-                // build — not healing.
-                if (delta > 0 && _em.HasComponent<UnderConstruction>(e)) continue;
-
-                var pos = xforms[i].Position;
-
-                // Only surface numbers the local player can actually see
-                // (observers see everything).
-                if (!GameSettings.IsObserver
-                    && !FogOfWarSystem.IsVisibleToFaction(local, pos)) continue;
-
-                bool isOwn = _em.HasComponent<FactionTag>(e)
-                    && _em.GetComponentData<FactionTag>(e).Value == local;
-                float yOff = _em.HasComponent<BuildingTag>(e) ? buildingYOffset : yOffsetAboveEntity;
-
-                if (!_pending.TryGetValue(e, out var p))
-                {
-                    p = new Pending { WindowEnd = now + accumulateWindow };
-                }
-                if (delta < 0) p.Damage += -delta;
-                else p.Heal += delta;
-                p.LastPos = new Vector3(pos.x, pos.y, pos.z);
-                p.YOffset = yOff;
-                p.IsOwn = isOwn;
-                _pending[e] = p;
             }
         }
+
+        /// <summary>GlobalSystemVersion at the previous sample; 0 = never sampled.</summary>
+        private uint _lastSampleVersion;
+        private EntityWorld _sampledWorld;
 
         /// <summary>Turn finished accumulation windows into popups.</summary>
         private void EmitExpiredWindows()

@@ -22,6 +22,27 @@ namespace TheWaningBorder.AI
         private static float _gameStartTime;
         private static bool _initialized;
 
+        /// <summary>The numbers and switches live in AILogger.asset.</summary>
+        static AILoggerConfig Cfg => AILoggerConfig.I;
+
+        /// <summary>
+        /// True while a match log is open. Callers that BUILD an expensive
+        /// message (interpolated strings, per-candidate tallies) test this
+        /// first, so a match with logging closed pays for no string at all.
+        /// </summary>
+        public static bool Enabled => _initialized;
+
+        /// <summary>
+        /// Per-unit command lines ("CMD": one per move / attack / attack-move
+        /// order). The loudest category by far — a battle issues hundreds per
+        /// second — so it has its own switch, and call sites gate their string
+        /// on this rather than on <see cref="Enabled"/>.
+        /// </summary>
+        public static bool LogsUnitCommands => _initialized && Cfg.logUnitCommands;
+
+        /// <summary>The per-unit command category, see <see cref="LogsUnitCommands"/>.</summary>
+        public const string UnitCommandCategory = "CMD";
+
         /// <summary>
         /// Call once at game start to clear old logs and prepare the folder.
         /// </summary>
@@ -55,6 +76,8 @@ namespace TheWaningBorder.AI
         public static void Log(Faction faction, string category, string message)
         {
             if (!_initialized) return;
+            // Level gate: an ungated caller still cannot flood the file.
+            if (category == UnitCommandCategory && !Cfg.logUnitCommands) return;
 
             var writer = GetWriter(faction);
             if (writer == null) return;
@@ -94,7 +117,8 @@ namespace TheWaningBorder.AI
         }
 
         /// <summary>
-        /// Flush at most every FlushInterval seconds rather than per line.
+        /// Flush at most every flushIntervalSeconds (AILogger.asset) rather
+        /// than per line.
         ///
         /// A Flush is a synchronous disk write on the main thread, and the AI
         /// audit trail writes one line per group order — so a battle where
@@ -103,14 +127,13 @@ namespace TheWaningBorder.AI
         /// PerfSpikeLog. The tail is flushed by Flush() at match end and by
         /// Cleanup() when the writers close.
         /// </summary>
-        private const float FlushInterval = 2f;
         private static float _nextFlush;
 
         private static void FlushDue(StreamWriter writer)
         {
             float now = Time.realtimeSinceStartup;
             if (now < _nextFlush) return;
-            _nextFlush = now + FlushInterval;
+            _nextFlush = now + Cfg.flushIntervalSeconds;
             try { writer.Flush(); } catch { }
         }
 

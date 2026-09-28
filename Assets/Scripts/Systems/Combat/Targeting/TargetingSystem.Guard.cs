@@ -17,14 +17,16 @@ namespace TheWaningBorder.Systems.Combat
     {
         [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
         private void ProcessReturnToGuard(ref SystemState state, ref EntityCommandBuffer ecb,
-            NativeArray<Entity> allEnemies, NativeArray<LocalTransform> allEnemyTransforms,
-            NativeArray<FactionTag> allEnemyFactions, NativeArray<Health> allEnemyHealth,
-            NativeParallelMultiHashMap<int2, int> spatialMap)
+            in EnemyScan scan, in StanceSettings settings,
+            ref NativeHashMap<Entity, int> attackerCount)
         {
             var em = state.EntityManager;
+            uint tick = _tick;
+            float clock = _clock;
 
-            foreach (var (transform, guardPoint, faction, lineOfSight, rtgTarget, entity) in SystemAPI
-                .Query<RefRO<LocalTransform>, RefRO<GuardPoint>, RefRO<FactionTag>, RefRO<LineOfSight>, RefRO<Target>>()
+            foreach (var (transform, guardPoint, faction, lineOfSight, rtgTarget, eng, entity) in SystemAPI
+                .Query<RefRO<LocalTransform>, RefRO<GuardPoint>, RefRO<FactionTag>, RefRO<LineOfSight>,
+                       RefRO<Target>, RefRW<UnitEngagement>>()
                 .WithAll<UnitTag>()
                 .WithNone<AttackCommand>()
                 .WithNone<UserMoveOrder>()
@@ -80,6 +82,9 @@ namespace TheWaningBorder.Systems.Combat
                     continue;
                 }
                 if (guardPoint.ValueRO.Has == 0) continue;
+                // Acquired earlier this tick (the Target write is still in the
+                // ECB): it is about to fight, not to walk home.
+                if (eng.ValueRO.AutoTarget != Entity.Null) continue;
 
                 // Stuck recovery has already resolved this unit against THIS
                 // guard point — crowded arrival, or an order it cancelled after
@@ -133,8 +138,9 @@ namespace TheWaningBorder.Systems.Combat
                     && em.GetComponentData<DesiredDestination>(entity).Has != 0;
 
                 // Hold position units: do NOT return to guard point or chase
-                // They stay exactly where they are
-                if (em.HasComponent<HoldPositionTag>(entity))
+                // They stay exactly where they are. So does an emplaced
+                // engine, which is bolted to its platform.
+                if (em.HasComponent<HoldPositionTag>(entity) || IsFixedMount(em, entity))
                     continue;
 
                 // Attack-move units: resume advancing toward destination after combat
@@ -194,72 +200,49 @@ namespace TheWaningBorder.Systems.Combat
                 // Only consider returning if we're far from guard point
                 if (distToGuard > GuardReturnThreshold)
                 {
-                    // Check if there are any enemies in line of sight (Fix #207: spatial hash).
-                    Entity nearestEnemy = Entity.Null;
-                    float nearestDist = float.MaxValue;
-
-                    // Buildings-only siege (Battering Ram): this engage branch
-                    // is auto-acquisition too — same building-only filter as
-                    // AutoAcquireTargets above.
-                    bool buildingsOnly = em.HasComponent<BuildingsOnlyAttacker>(entity);
-
-                    // The Wall Rule: same non-siege wall filter as above.
-                    bool nonSiegeAttacker = !em.HasComponent<DamageTypeData>(entity)
-                        || em.GetComponentData<DamageTypeData>(entity).Value != DamageType.Siege;
-
-                    int radius = (int)math.ceil(los / TargetingCellSize);
-                    var myCell = new int2(
-                        (int)math.floor(myPos.x / TargetingCellSize),
-                        (int)math.floor(myPos.z / TargetingCellSize));
-
-                    for (int dx = -radius; dx <= radius; dx++)
+                    // Re-engage on the way home — by STANCE, as an AUTO target
+                    // under the leash (docs/Design/Stances.md §3). This branch
+                    // used to scan the whole line of sight, whatever the
+                    // unit's stance, and install an AttackCommand — which made
+                    // the engagement an ORDER, so nothing ever leashed it and
+                    // one scout could tow the unit across the map.
+                    //
+                    // Only for a unit that is actually walking (a stationary
+                    // idle unit was just scanned by the acquire pass), only on
+                    // its stagger tick, never inside a leash-break cooldown,
+                    // and only once it is back inside its own leash — so a
+                    // unit coming home from a broken leash does not turn round
+                    // at the first sight of the target it just gave up on.
+                    // A unit that never moves for a fight (Defensive, support:
+                    // leash 0) still returns fire on the way home — the
+                    // target has to be in reach anyway, so the leash test
+                    // below only applies to a unit that may chase.
+                    var stance = EffectiveStance(em, entity);
+                    bool scanDue = ((tick + eng.ValueRO.ScanPhase) & (AcquireStagger - 1)) == 0;
+                    if (hasLiveDest && scanDue && clock >= eng.ValueRO.NextAcquireAt
+                        && !em.HasComponent<SectVeiled>(entity)   // veiled: may move, nothing else
+                        && em.HasComponent<Damage>(entity)
+                        && em.GetComponentData<Damage>(entity).Value > 0)
                     {
-                        for (int dy = -radius; dy <= radius; dy++)
+                        var cls = em.GetComponentData<UnitTag>(entity).Class;
+                        bool hitRecently = clock - eng.ValueRO.HitAt <= settings.RetaliationWindow;
+                        var rules = RulesFor(em, entity, cls, stance, false, los, hitRecently, in settings);
+                        if (cls != UnitClass.Economy && cls != UnitClass.Miner
+                            && rules.Acquire != 0
+                            && (rules.Leash <= 0f || distToGuard <= rules.Leash))
                         {
-                            var cell = new int2(myCell.x + dx, myCell.y + dy);
-                            if (!spatialMap.TryGetFirstValue(cell, out int i, out var it)) continue;
-                            do
+                            Entity nearestEnemy = FindAutoTarget(em, entity, myPos, myFaction,
+                                in rules, in scan, ref attackerCount);
+                            if (nearestEnemy != Entity.Null && em.Exists(nearestEnemy))
                             {
-                                // Allies are never re-acquired on return-to-guard.
-                                // docs/Design/Teams.md
-                                if (!Alliances.AreHostile(myFaction, allEnemyFactions[i].Value)) continue;
-                                if (allEnemyHealth[i].Value <= 0) continue;
-
-                                // Buildings-only siege: units are invisible to
-                                // the ram's target scan.
-                                if (buildingsOnly && !em.HasComponent<BuildingTag>(allEnemies[i])) continue;
-
-                                // The Wall Rule: wall pieces are invisible to
-                                // non-siege target scans.
-                                if (nonSiegeAttacker && em.HasComponent<WallTag>(allEnemies[i])) continue;
-
-                                var enemyPos = allEnemyTransforms[i].Position;
-                                var dist = DistXZ(myPos, enemyPos);
-
-                                // Skip stealthed enemies unless within proximity
-                                // reveal range (3u) or exposed by a Lorekeeper
-                                // (Antiquity detection stamp).
-                                if (em.HasComponent<StealthTag>(allEnemies[i]) && dist > 3f
-                                    && !em.HasComponent<StealthRevealed>(allEnemies[i]))
-                                    continue;
-
-                                if (dist <= los && dist < nearestDist)
-                                {
-                                    nearestEnemy = allEnemies[i];
-                                    nearestDist = dist;
-                                }
-                            } while (spatialMap.TryGetNextValue(out i, ref it));
+                                ecb.SetComponent(entity, new Target { Value = nearestEnemy });
+                                ref var e = ref eng.ValueRW;
+                                e.AutoTarget = nearestEnemy;
+                                e.Anchor = gpPos;
+                                e.Leash = rules.Leash;
+                                continue; // Don't return to guard point
+                            }
                         }
-                    }
-
-                    // If we found an enemy and it still exists, engage it instead of returning
-                    if (nearestEnemy != Entity.Null && em.Exists(nearestEnemy))
-                    {
-                        ecb.SetComponent(entity, new Target { Value = nearestEnemy });
-
-                        TransientState.Set(ecb, entity, new AttackCommand { Target = nearestEnemy });
-
-                        continue; // Don't return to guard point
                     }
 
                     // No enemies found: Return to guard point — but only if the

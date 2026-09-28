@@ -39,12 +39,31 @@ namespace TheWaningBorder.Abilities
     // ==================== Active-ability lifecycle ====================
 
     /// <summary>An active ability being channelled. Added when the ability fires;
-    /// when CastRemaining hits 0 the effects are applied and it is removed.</summary>
+    /// when CastRemaining hits 0 the effects are applied, the slot's cooldown
+    /// is charged and it is removed. A new order, a stun (Launched) or death
+    /// removes it first -- the cast is lost and NO cooldown is charged
+    /// (docs/Design/Spells.md, "Cast and interrupt").</summary>
     public struct AbilityCastState : IComponentData
     {
         public int AbilityIndex;   // AbilityCatalog index
         public float CastRemaining; // seconds of cast time left (0 = apply now)
         public Entity Target;       // for SingleTarget/Area
+
+        /// <summary>UnitAbilities slot being cast; its cooldown is charged on completion.</summary>
+        public int Slot;
+        /// <summary>The card's full cast time, for the cast bar's progress.</summary>
+        public float CastTotal;
+
+        // Order snapshot taken when the channel began. A move or attack order
+        // that differs from it is a NEW order, and interrupts the cast.
+        public byte HadMove;
+        public Unity.Mathematics.float3 MoveDestination;
+        public byte HadAttack;
+        public Entity AttackTarget;
+
+        /// <summary>0 at the start of the channel, 1 when it lands.</summary>
+        public float Progress => CastTotal > 0f
+            ? Unity.Mathematics.math.saturate(1f - CastRemaining / CastTotal) : 1f;
     }
 
     /// <summary>Scheduled aftermath: when Remaining hits 0, each aftermath ability
@@ -171,6 +190,17 @@ namespace TheWaningBorder.Abilities
     /// <summary>Marks the Ledger automaton so its auto-cast AI can find eligible
     /// eco buildings.</summary>
     public struct LedgerTag : IComponentData { }
+
+    /// <summary>The destination the Ledger's auto-cast roaming last sent it
+    /// to. A live move order pointing anywhere ELSE is the player's, and the
+    /// roaming leaves it alone (AbilityAuraSystem.TickLedgerAutoCast).</summary>
+    public struct LedgerAutoGoal : IComponentData
+    {
+        /// <summary>The (walkable-snapped) destination the roaming wrote.</summary>
+        public Unity.Mathematics.float3 Position;
+        /// <summary>The building position it was heading for.</summary>
+        public Unity.Mathematics.float3 Target;
+    }
 
     /// <summary>Passive Scout-Sight owner — three-level LOS driven by
     /// AbilityAuraSystem.TickScoutSight: a small moving LOS, ramping to the

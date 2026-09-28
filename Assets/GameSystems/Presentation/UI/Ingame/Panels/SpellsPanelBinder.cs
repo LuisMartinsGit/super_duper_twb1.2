@@ -16,6 +16,10 @@
 // An ability the unit has not unlocked yet is not drawn at all rather than
 // drawn greyed out: a button the player cannot explain is worse than no
 // button. Not-controllable automatons (Ledger) show their active as "auto".
+//
+// A channelled ability (cast time > 0) fills its own button from left to
+// right while it channels -- the cast bar. A new order, a stun or death
+// breaks the channel and the fill simply disappears (docs/Design/Spells.md).
 
 using TMPro;
 using Unity.Entities;
@@ -41,6 +45,8 @@ namespace TheWaningBorder.UI.Ingame
         private readonly Button[] _castButtons = new Button[MaxSlots];
         private readonly Image[] _castBgs = new Image[MaxSlots];
         private readonly TMP_Text[] _castLabels = new TMP_Text[MaxSlots];
+        /// <summary>Per-row cast bar: a fill stretched to the channel's progress.</summary>
+        private readonly RectTransform[] _castFills = new RectTransform[MaxSlots];
         /// <summary>UnitAbilities slot each drawn row casts, -1 when unused.</summary>
         private readonly int[] _rowSlot = new int[MaxSlots];
         /// <summary>Scratch for AbilityQuery.ActiveSlots, reused each poll.</summary>
@@ -95,6 +101,21 @@ namespace TheWaningBorder.UI.Ingame
                 _castButtons[row] = castRect.gameObject.AddComponent<Button>();
                 _castButtons[row].targetGraphic = _castBgs[row];
                 _castButtons[row].onClick.AddListener(() => Cast(row));
+
+                // The cast bar sits UNDER the label, inside the button, and is
+                // hidden until this row's ability is channelling.
+                var fill = GameUIKit.Rect(castRect, "CastFill");
+                fill.anchorMin = new Vector2(0f, 0f);
+                fill.anchorMax = new Vector2(0f, 1f);
+                fill.pivot = new Vector2(0f, 0.5f);
+                fill.offsetMin = Vector2.zero;
+                fill.offsetMax = Vector2.zero;
+                var fillImg = fill.gameObject.AddComponent<Image>();
+                fillImg.color = CastFillColor;
+                fillImg.raycastTarget = false;
+                fill.gameObject.SetActive(false);
+                _castFills[row] = fill;
+
                 _castLabels[row] = GameUIKit.Text(castRect, "Label", "", 26f, GameUIKit.Gold,
                     TextAlignmentOptions.Center, wrap: false);
                 GameUIKit.Stretch((RectTransform)_castLabels[row].transform);
@@ -150,9 +171,14 @@ namespace TheWaningBorder.UI.Ingame
                     AbilityAffects.AlliedCavalry      => " " + Loc.T("Allied cavalry."),
                     AbilityAffects.Enemies            => " " + Loc.T("Enemies."),
                     AbilityAffects.EconomicBuildings  => " " + Loc.T("Allied economy buildings."),
+                    AbilityAffects.AlliedRanged       => " " + Loc.T("Allied ranged units."),
                     _                                 => "",
                 });
             }
+
+            if (card.Damage > 0f)
+                sb.Append("\n• ").Append(string.Format(Loc.T("deals {0:0} {1} damage"),
+                    card.Damage, DamageTypeName(card.DamageType)));
 
             if (card.Effects != null)
                 foreach (var effect in card.Effects)
@@ -169,9 +195,15 @@ namespace TheWaningBorder.UI.Ingame
                 sb.Append('\n').Append(Loc.T("Lasts")).Append(' ')
                   .Append(card.Duration.ToString("0.#")).Append('s');
             else if (card.IsPermanent) sb.Append('\n').Append(Loc.T("Always on"));
-            if (card.Cooldown > 0f)
+            // Every ACTIVE shows the cooldown the engine really charges --
+            // including "auto" cards (Cooldown 0), which used to show none.
+            if (!card.IsPassive)
                 sb.Append("   ").Append(Loc.T("Cooldown")).Append(' ')
-                  .Append(Mathf.RoundToInt(card.Cooldown)).Append('s');
+                  .Append(Mathf.RoundToInt(card.EffectiveCooldown)).Append('s');
+            if (card.CastTime > 0f)
+                sb.Append('\n').Append(string.Format(
+                    Loc.T("Channel {0:0.#}s -- a new order, a stun or death interrupts it."),
+                    card.CastTime));
 
             return sb.ToString();
         }
@@ -195,8 +227,24 @@ namespace TheWaningBorder.UI.Ingame
             AbilityEffectKind.ChargeDamagePct  => Signed(e.Value) + Loc.T("% damage on the next charge"),
             AbilityEffectKind.DisarmWhileBuffed=> Loc.T("cannot attack while it lasts"),
             AbilityEffectKind.DeployFieldHospital => Loc.T("deploys a temporary field hospital"),
+            AbilityEffectKind.FireRatePct      => Signed(e.Value) + Loc.T("% fire rate"),
+            AbilityEffectKind.SummonPledgeArmy => Loc.T("calls in a temporary army that grows with the hero's level"),
+            AbilityEffectKind.ShardboundFury   => Loc.T("hurls every enemy in the radius into the air; enemy buildings take heavy damage"),
             _ => null,
         };
+
+        private static string DamageTypeName(DamageType t) => t switch
+        {
+            DamageType.Melee  => Loc.T("melee"),
+            DamageType.Ranged => Loc.T("ranged"),
+            DamageType.Siege  => Loc.T("siege"),
+            DamageType.True   => Loc.T("true"),
+            _                 => Loc.T("magic"),
+        };
+
+        /// <summary>Cast-bar fill colour: the gold of the UI, translucent so the
+        /// label on top stays readable.</summary>
+        private static readonly Color CastFillColor = new Color(0.83f, 0.66f, 0.26f, 0.45f);
 
         private static string Signed(float v) => (v >= 0f ? "+" : "") + v.ToString("0.#");
 
@@ -222,9 +270,10 @@ namespace TheWaningBorder.UI.Ingame
             // An Area ability CENTRED ON SELF takes no aim: Honour thy Pledge
             // forms its ring around the king wherever he stands, so putting up
             // a targeting ring for it would ask the player a question with only
-            // one answer. Range 0 is what marks that.
-            bool aimed = card != null && card.Targeting == AbilityTargeting.Area
-                         && card.Radius > 0f && card.Range > 0f;
+            // one answer. The card's AimedAtPoint flag is what marks the
+            // difference -- it used to be "Range > 0", which also refused the
+            // ring to Use Celestar, whose Range 0 means UNLIMITED.
+            bool aimed = card != null && card.IsAimed;
             if (aimed)
             {
                 Entity caster = _primary;
@@ -247,6 +296,8 @@ namespace TheWaningBorder.UI.Ingame
 
         void Update()
         {
+            // The cast bar moves every frame; everything else polls.
+            UpdateCastBars();
             if (Time.unscaledTime < _nextPoll || _root == null) return;
             _nextPoll = Time.unscaledTime + PollInterval;
 
@@ -309,10 +360,14 @@ namespace TheWaningBorder.UI.Ingame
                 if (active == null) { go.SetActive(false); _rowSlot[row] = -1; continue; }
 
                 float cd = AbilityQuery.CooldownRemaining(_em, _primary, slot);
-                bool ready = !autonomous && cd <= 0f;
+                bool channelling = AbilityQuery.TryGetCast(_em, _primary, out int castSlot,
+                    out _, out float castLeft) && castSlot == slot;
+                bool ready = !autonomous && cd <= 0f && !channelling;
 
                 _castLabels[row].text = autonomous
                     ? $"{Loc.T(active.Name)}  <color=#a8a294>{Loc.T("auto")}</color>"
+                    : channelling
+                        ? $"{Loc.T(active.Name)}  <color=#e8d5a0>{string.Format(Loc.T("casting {0:0.0}s"), castLeft)}</color>"
                     : cd <= 0f
                         ? Loc.T(active.Name)
                         : $"{Loc.T(active.Name)}  <color=#b88452>{Mathf.CeilToInt(cd)}s</color>";
@@ -333,11 +388,37 @@ namespace TheWaningBorder.UI.Ingame
                             : "\n" + Loc.T("<color=#7FB069>Ready.</color>"));
             }
 
+            UpdateCastBars();
+
             // Grow the panel to fit however many rows are drawn, so the
             // passive line along the bottom never rides up over a cast button.
             float h = BaseHeight + RowStride * Mathf.Max(0, count - 1);
             if (!Mathf.Approximately(_root.sizeDelta.y, h))
                 _root.sizeDelta = new Vector2(_root.sizeDelta.x, h);
         }
+
+        /// <summary>
+        /// Stretch each row's fill to its channel's progress. Only the row whose
+        /// slot is channelling shows a fill; every other row hides its own.
+        /// Presentation only -- reads AbilityCastState, never writes the sim.
+        /// </summary>
+        private void UpdateCastBars()
+        {
+            if (!_emReady || _root == null || !_root.gameObject.activeSelf) return;
+            bool casting = _primary != Entity.Null && _em.Exists(_primary)
+                && AbilityQuery.TryGetCast(_em, _primary, out _castSlotScratch,
+                    out _castProgressScratch, out _);
+            for (int row = 0; row < MaxSlots; row++)
+            {
+                var fill = _castFills[row];
+                if (fill == null) continue;
+                bool show = casting && _rowSlot[row] >= 0 && _rowSlot[row] == _castSlotScratch;
+                if (fill.gameObject.activeSelf != show) fill.gameObject.SetActive(show);
+                if (show) fill.anchorMax = new Vector2(_castProgressScratch, 1f);
+            }
+        }
+
+        private int _castSlotScratch;
+        private float _castProgressScratch;
     }
 }

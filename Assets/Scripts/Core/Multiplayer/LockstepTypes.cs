@@ -82,6 +82,11 @@ namespace TheWaningBorder.Core.Multiplayer
         SetGateLock = 44,       // CommandRouter.IssueSetGateLock (gate in EntityNetworkId; 1/0 sealed in TargetEntityId) — a sealed gate is shut to its OWN faction, so it changes where an army can path; docs/Design/Age_1_Alanthor.md § Opening and closing it
         GarrisonWall = 45,      // CommandRouter.IssueGarrisonWall (unit in EntityNetworkId, reinforced curtain module in TargetEntityId) — the unit is absorbed into the wall on every peer
         UngarrisonWall = 46,    // CommandRouter.IssueUngarrisonWall (module in EntityNetworkId) — its occupants step back out beside it
+        ReplaceEquipment = 47,  // CommandRouter.IssueReplaceEquipment (emplacement platform in EntityNetworkId) — pays the engine SO's cost and starts its restore timer on every peer; docs/Design/Age_1_Alanthor.md § Ballista and Trebuchet emplacements
+        SetStance = 48,         // CommandRouter.IssueStance (unit in EntityNetworkId, UnitStanceMode byte in TargetEntityId) — docs/Design/Stances.md §7
+        FormationOrder = 49,    // CommandRouter.IssueFormationMove/AttackMove (issuing faction in EntityNetworkId; BuildingId = unit network ids sorted ascending, delta-encoded base 36, ';'-separated; TargetEntityId = shape | attackMove<<8 | more-follows<<9; SecondaryTargetId = total unit count; destination in TargetPosition) — docs/Design/Navigation_And_Formations.md §2.12
+        RangingShot = 51,       // CommandRouter.IssueRangingShot (faction in EntityNetworkId) — arms every planted siege engine and starts the faction cooldown on every peer; it was a UI button writing ECS on the clicking peer alone
+        BuildingAttack = 50,    // CommandRouter.IssueBuildingAttack (shooting building in EntityNetworkId, forced target in TargetEntityId; 0 = clear the order, i.e. Stop) — docs/Design/Combat_Pacing.md § Directed building fire
     }
 
     /// <summary>

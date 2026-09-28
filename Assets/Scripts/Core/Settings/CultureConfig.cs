@@ -170,6 +170,36 @@ public static class CultureConfig
     }
 
     /// <summary>
+    /// <see cref="GetCompletedCulture"/> for every faction at once, from ONE
+    /// snapshot of the Halls: <paramref name="byFaction"/>[f] = the culture
+    /// of faction f (Cultures.None when it has no Hall or is still Age 0).
+    /// For callers resolving many territories or factions in one pass, which
+    /// paid two ToComponentDataArray copies per lookup.
+    /// </summary>
+    public static void GetCompletedCultures(Unity.Entities.EntityManager em, byte[] byFaction)
+    {
+        for (int i = 0; i < byFaction.Length; i++) byFaction[i] = Cultures.None;
+        if (em.Equals(default(Unity.Entities.EntityManager))) return;
+        _completedCultureTypes ??= new[] {
+            Unity.Entities.ComponentType.ReadOnly<HallTag>(),
+            Unity.Entities.ComponentType.ReadOnly<FactionTag>(),
+            Unity.Entities.ComponentType.ReadOnly<FactionProgress>() };
+        var q = _completedCultureQuery.Get(em, _completedCultureTypes);
+        using var tags = q.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
+        using var prog = q.ToComponentDataArray<FactionProgress>(Unity.Collections.Allocator.Temp);
+        // First Hall wins per faction, exactly as the single lookup's scan.
+        var seen = 0UL;
+        for (int i = 0; i < tags.Length; i++)
+        {
+            int f = (int)tags[i].Value;
+            if (f < 0 || f >= byFaction.Length || f >= 64) continue;
+            if ((seen & (1UL << f)) != 0) continue;
+            seen |= 1UL << f;
+            byFaction[f] = prog[i].Culture;
+        }
+    }
+
+    /// <summary>
     /// True while the faction's Hall carries an in-progress AgeUpState.
     /// progress01 = completed fraction (0..1); culture = the pending pick.
     /// </summary>

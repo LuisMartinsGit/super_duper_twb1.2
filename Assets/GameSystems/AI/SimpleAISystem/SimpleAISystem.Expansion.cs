@@ -65,6 +65,7 @@ namespace TheWaningBorder.AI
 
         // Host-only managed state, same as _missions.
         private readonly Dictionary<int, float> _nextClaimTime = new Dictionary<int, float>();
+        private readonly Dictionary<int, float> _lastPotClaimTry = new Dictionary<int, float>();
 
         /// <summary>
         /// (faction, region) -> the sim time its siting failure expires.
@@ -92,6 +93,133 @@ namespace TheWaningBorder.AI
         /// tried.</summary>
         private const float SiteBlockSeconds = 150f;
         private readonly Dictionary<int, float> _nextClaimLog = new Dictionary<int, float>();
+
+        /// <summary>Set by <see cref="EnsureClaimBuilderOnSite"/> when a Hall
+        /// placement was deferred because its worker is still walking to the
+        /// site. Single-threaded think loop, so a field is safe.</summary>
+        private bool _claimAwaitingBuilder;
+
+        /// <summary>faction -> the worker walking to a Hall site, where to,
+        /// and when that order was last issued.</summary>
+        private readonly Dictionary<int, (Entity builder, float3 target, float issuedAt)> _claimWalker = new();
+
+        /// <summary>
+        /// A HALL NEEDS ITS BUILDER ON SITE (Regions.md §2, 2026-09-26). The
+        /// router refuses a claim unless one of the faction's workers stands
+        /// within <see cref="TerritoryOwnership.HallBuilderRange"/> of it AND
+        /// inside the territory it claims (2026-09-27), and the executor
+        /// re-checks at the execution tick — so the AI sends a
+        /// worker first and places once it is there.
+        ///
+        /// Returns true with <paramref name="builder"/> set when a worker is
+        /// already in range (with a small margin, so a worker at the edge
+        /// cannot drift out between issue and execution). Otherwise walks one
+        /// there — the one already walking if it is still alive, else the
+        /// nearest idle worker, else the nearest worker at all — and returns
+        /// false with <see cref="_claimAwaitingBuilder"/> set.
+        /// </summary>
+        private bool EnsureClaimBuilderOnSite(EntityManager em, Faction faction, float3 site,
+            out Entity builder, out string reason)
+        {
+            builder = Entity.Null;
+            reason = null;
+            float range = TerritoryOwnership.HallBuilderRange;
+            float accept = math.max(1f, range - 2f);
+
+            var q = QC_CanBuildFactionTag.Get(em, QT_CanBuildFactionTag);
+            using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
+            Entity nearest = Entity.Null, nearestIdle = Entity.Null, onSite = Entity.Null;
+            float nearestD = float.MaxValue, nearestIdleD = float.MaxValue, onSiteD = float.MaxValue;
+            for (int i = 0; i < ents.Length; i++)
+            {
+                var e = ents[i];
+                if (!TerritoryOwnership.IsLiveBuilder(em, faction, e)) continue;
+                var p = em.GetComponentData<LocalTransform>(e).Position;
+                float dx = p.x - site.x, dz = p.z - site.z;
+                float d = dx * dx + dz * dz;
+                if (d < nearestD) { nearestD = d; nearest = e; }
+                if (d < nearestIdleD && !AICommon.IsCommittedWorker(em, e))
+                { nearestIdleD = d; nearestIdle = e; }
+                // ON SITE = in range AND inside the territory being claimed
+                // (2026-09-27): a worker across the border in our own region
+                // is in range but is not standing on the ground it claims.
+                if (d < onSiteD && d <= accept * accept
+                    && TerritoryOwnership.IsInSiteTerritory(p.x, p.z, site.x, site.z))
+                { onSiteD = d; onSite = e; }
+            }
+            if (nearest == Entity.Null) { reason = "no builder alive"; return false; }
+
+            if (onSite != Entity.Null)
+            {
+                builder = onSite;
+                _claimWalker.Remove((int)faction);
+                return true;
+            }
+
+            // Walk one there. Keep the worker already on its way.
+            int key = (int)faction;
+            Entity walker = Entity.Null;
+            bool reissue = true;
+            if (_claimWalker.TryGetValue(key, out var w)
+                && TerritoryOwnership.IsLiveBuilder(em, faction, w.builder))
+            {
+                walker = w.builder;
+                float tdx = w.target.x - site.x, tdz = w.target.z - site.z;
+                reissue = tdx * tdx + tdz * tdz > 64f
+                          || _thinkNow - w.issuedAt >= Cfg.claimBuilderRewalkSeconds;
+            }
+            if (walker == Entity.Null) walker = nearestIdle != Entity.Null ? nearestIdle : nearest;
+
+            if (reissue)
+            {
+                // Stand beside the footprint, on the walker's side of it.
+                var wp = em.GetComponentData<LocalTransform>(walker).Position;
+                float2 dir = new float2(wp.x - site.x, wp.z - site.z);
+                float len = math.length(dir);
+                dir = len > 0.01f ? dir / len : new float2(1f, 0f);
+                int2 size = BuildingSizeConfig.GetSize("Hall");
+                float standOff = math.cmax(size) * 0.5f + Cfg.claimBuilderStandOff;
+                var dest = ClaimStandPoint(site, dir, standOff);
+                dest.y = TerrainUtility.GetHeight(dest.x, dest.z);
+                TheWaningBorder.Core.Commands.CommandRouter.IssueMove(em, walker, dest,
+                    TheWaningBorder.Core.Commands.CommandSource.AI);
+                _claimWalker[key] = (walker, site, _thinkNow);
+            }
+
+            _claimAwaitingBuilder = true;
+            reason = "worker walking to the Hall site";
+            return false;
+        }
+
+        /// <summary>
+        /// Where the claim worker stands: beside the footprint, on the
+        /// walker's side of it — but INSIDE the territory the Hall claims
+        /// (Regions.md §2, 2026-09-27). A site near the border would otherwise
+        /// park the worker across the line, in range and still refused. Tries
+        /// the walker's bearing first, then rotates in
+        /// <see cref="ClaimStandBearings"/> steps alternating either side of
+        /// it; if no bearing lands inside, the site itself (the footprint is
+        /// open ground until the Hall is placed).
+        /// </summary>
+        private static float3 ClaimStandPoint(float3 site, float2 dir, float standOff)
+        {
+            for (int k = 0; k < ClaimStandBearings; k++)
+            {
+                // 0, +1, -1, +2, -2, ... steps around the circle.
+                int step = (k + 1) / 2 * ((k & 1) == 1 ? 1 : -1);
+                float a = step * (2f * math.PI / ClaimStandBearings);
+                float c = math.cos(a), s = math.sin(a);
+                float2 d = new float2(dir.x * c - dir.y * s, dir.x * s + dir.y * c);
+                var p = new float3(site.x + d.x * standOff, 0f, site.z + d.y * standOff);
+                if (TerritoryOwnership.IsInSiteTerritory(p.x, p.z, site.x, site.z)) return p;
+            }
+            return new float3(site.x, 0f, site.z);
+        }
+
+        /// <summary>Bearings tried around a Hall site for the claim worker's
+        /// stand point. Loop resolution, not tuning (CLAUDE.md's carve-out
+        /// for AIWallPlanner.Bearings), so it stays a const.</summary>
+        private const int ClaimStandBearings = 8;
 
         /// <summary>
         /// Raise a Hall on the best unclaimed region within reach. One attempt
@@ -155,14 +283,22 @@ namespace TheWaningBorder.AI
             // short" on territory #4 forever. A pending reserve the bank can
             // cover bypasses the interval: the pot converts to a Hall the
             // same tick it fills, before anything else can spend it.
+            // The Hall's price ESCALATES with every Hall the faction already
+            // has (Regions.md §2) — BuildCosts.For is what the executor charges.
             bool potReady = AIPivotalReserve.Has(faction, ClaimReserveKey)
                 && TechCatalog.IsReady
-                && TechCatalog.TryGetBuilding("Hall", out var hallDef)
-                && FactionEconomy.CanAfford(em, faction, AICommon.ToCost(hallDef.cost));
+                && FactionEconomy.CanAfford(em, faction, BuildCosts.For(em, faction, "Hall"));
             if (!potReady)
             {
                 if (_nextClaimTime.TryGetValue(key, out float next) && now < next) return;
             }
+            // …but a funded pot that FAILED to place (no legal Hall site) used
+            // to retry the whole claim — target pick and a Hall site search —
+            // on every single think (2026-09-25). Still near-immediate, just
+            // not per think.
+            else if (_lastPotClaimTry.TryGetValue(key, out float lastTry)
+                     && now - lastTry < Cfg.claimPotReadyRetrySeconds) return;
+            if (potReady) _lastPotClaimTry[key] = now;
             _nextClaimTime[key] = now + Cfg.claimAttemptInterval / appetite;
 
             // A Hall to expand FROM.
@@ -171,7 +307,8 @@ namespace TheWaningBorder.AI
 
             if (!TechCatalog.IsReady) return;
             if (!TechCatalog.TryGetBuilding("Hall", out var def) || def == null) return;
-            var cost = AICommon.ToCost(def.cost);
+            // The escalated price for THIS faction's next Hall (Regions.md §2).
+            var cost = BuildCosts.For(em, faction, "Hall");
 
             // Somewhere to go. No target means no reason to hold income back.
             if (!TryPickClaimTarget(em, faction, now, out int region, out float3 anchor))
@@ -254,8 +391,22 @@ namespace TheWaningBorder.AI
             // Site the Hall on the TARGET REGION, not the home base. This is
             // the whole difference: anchored at home, every candidate lands in
             // ground already claimed, where HallCapReached refuses it.
+            _claimAwaitingBuilder = false;
             if (!TryBuildBuilding(em, faction, "Hall", anchor))
             {
+                // THE BUILDER IS STILL WALKING (Regions.md §2: a Hall needs a
+                // worker on site). The site is fine — a worker has been sent
+                // to it. Hold the pot so nothing spends it, retry on the
+                // funded-pot cadence, and do NOT mark the region unsitable.
+                if (_claimAwaitingBuilder)
+                {
+                    AIPivotalReserve.Set(faction, ClaimReserveKey, cost);
+                    _nextClaimTime[key] = now + Cfg.claimPotReadyRetrySeconds;
+                    LogClaimBlocked(faction, now,
+                        $"worker walking to the Hall site in {RegionMap.NameOf(region)}");
+                    return;
+                }
+
                 // Nothing legal there — a lake, a cursed crust, a rival's
                 // foundation. Keep saving; the site search is what failed, not
                 // the money.
@@ -302,14 +453,15 @@ namespace TheWaningBorder.AI
         }
 
         /// <summary>
-        /// Best unclaimed region to take next: close to ground we already
-        /// hold, and carrying resources if it can.
+        /// Best unclaimed region to take next: ADJACENT to ground we already
+        /// hold (the Hall adjacency rule, docs/Design/Regions.md §2 — the
+        /// router refuses anything else), then the closest and richest.
         ///
-        /// Adjacency is approximated by distance between region seeds rather
-        /// than a neighbour graph. The partition is a Voronoi diagram, so
-        /// seed distance IS adjacency to within a cell — and it degrades
-        /// gracefully, where a wrong neighbour list would send builders
-        /// somewhere unreachable.
+        /// Adjacency used to be approximated by seed distance with a reach
+        /// cap. It is the real neighbour graph now (RegionMap.AreAdjacent,
+        /// the same one the router and the curse use), because an
+        /// approximation that picks a region the router will refuse would
+        /// save for, walk to, and fail on it forever.
         /// </summary>
         private bool TryPickClaimTarget(EntityManager em, Faction faction, float now,
             out int region, out float3 anchor)
@@ -333,11 +485,13 @@ namespace TheWaningBorder.AI
             CollectNodePositions<SupplyNodeTag>(em, nodeXfs);
 
             float bestScore = float.MinValue;
-            float minNearest = float.MaxValue;
             var candidates = new List<(int r, float nearest)>();
             for (int r = 0; r < RegionMap.Count; r++)
             {
                 if (TerritoryOwnership.OwnerOf(r) != TerritoryOwnership.Natural) continue;
+
+                // Only next door to ground we hold — the router's rule.
+                if (!TerritoryOwnership.IsAdjacentToHeld(faction, r)) continue;
 
                 // DO NOT BUY THE SAME GROUND TWICE.
                 //
@@ -373,23 +527,14 @@ namespace TheWaningBorder.AI
                     float d = math.sqrt(dx * dx + dz * dz);
                     if (d < nearest) nearest = d;
                 }
-                if (nearest < minNearest) minNearest = nearest;
                 candidates.Add((r, nearest));
             }
 
-            // REACH SCALES WITH THE MAP. The flat 220 m cap was tuned on
-            // Sundered Crown (512 m) and silently made EVERY region on
-            // Veilmarch (1024 m) unclaimable: the nearest neighbouring seed
-            // there is 276-427 m from a home. Twelve batch matches ended with
-            // all 48 factions holding exactly one territory and zero CLAIM
-            // lines in any log. The cap now stretches to 1.5x the nearest
-            // candidate, so "claim adjacent ground" keeps its meaning at any
-            // seed spacing while genuinely distant land stays out of reach.
-            float reach = math.max(Cfg.maxClaimReach, minNearest * 1.5f);
+            // No reach cap any more: every candidate is adjacent to ground we
+            // hold, which is what the old seed-distance cap (tuned per map,
+            // and wrong on Veilmarch until it was stretched) was guessing at.
             foreach (var (r, nearest) in candidates)
             {
-                if (nearest > reach) continue;
-
                 // Nodes standing in this region — the reason to want it.
                 int nodes = 0;
                 for (int i = 0; i < nodeXfs.Count; i++)

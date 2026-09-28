@@ -115,8 +115,10 @@ namespace TheWaningBorder.AI
                 // else. Giving it a target would only pull it further out, and
                 // an army strung across 40 m is a queue of single units for
                 // whatever it walks into.
-                var body = new System.Collections.Generic.List<Entity>(mission.Members.Count);
-                var strays = new System.Collections.Generic.List<Entity>();
+                // Pooled (2026-09-25): two lists per engaged army per second.
+                // Both are handed to the router, which copies what it keeps.
+                var body = _tacticsBody; body.Clear();
+                var strays = _tacticsStrays; strays.Clear();
                 float cohesionSq = Cfg.armyCohesionRadius * Cfg.armyCohesionRadius;
                 for (int i = 0; i < mission.Members.Count; i++)
                 {
@@ -164,6 +166,11 @@ namespace TheWaningBorder.AI
                 }
             }
         }
+
+        private readonly System.Collections.Generic.List<Entity> _tacticsBody =
+            new System.Collections.Generic.List<Entity>(32);
+        private readonly System.Collections.Generic.List<Entity> _tacticsStrays =
+            new System.Collections.Generic.List<Entity>(16);
 
         /// <summary>Mean position of a mission's living members.</summary>
         private static float3 ArmyCentroid(EntityManager em, Mission mission, out int counted)

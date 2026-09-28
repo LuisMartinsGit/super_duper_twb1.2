@@ -75,9 +75,9 @@ const SECTS = [
         { r: 'Large',  text: 'Reveal the area for 35s.' },
       ]},
       { name: 'Heavy Bureaucracy', levels: [
-        { r: 'Single', text: 'Building stops training, research and resource output for 30s.' },
-        { r: 'Small',  text: 'All buildings in the area stop for 30s.' },
-        { r: 'Large',  text: 'All buildings in the area stop for 30s.' },
+        { r: 'Single', text: 'Building stops training, research and resource output for 20s.' },
+        { r: 'Small',  text: 'All buildings in the area stop for 20s.' },
+        { r: 'Large',  text: 'All buildings in the area stop for 20s.' },
       ]},
       { name: 'Sew Disorder', levels: [
         { r: 'Small',  text: 'Units turn hostile to all other units for 8s.' },
@@ -95,9 +95,9 @@ const SECTS = [
     identity: 'Repair & sustain',
     powers: [
       { name: 'Hands of Plenty', levels: [
-        { r: 'Small',  text: 'Restore 30% HP to units and buildings.' },
-        { r: 'Medium', text: 'Restore 50% HP.' },
-        { r: 'Medium', text: 'Restore 80% HP, and healing continues for 10s.' },
+        { r: 'Small',  text: 'Restore 45% HP to units and buildings.' },
+        { r: 'Medium', text: 'Restore 45% HP.' },
+        { r: 'Medium', text: 'Restore 60% HP, and healing continues for 10s.' },
       ]},
       { name: 'Raise Anew', note: 'Conjures Watch Towers outright — it never touches construction queues.', levels: [
         { r: 'Single', text: 'Raise one free Lv 1 Watch Tower. Crumbles after 30s.' },
@@ -125,9 +125,9 @@ const SECTS = [
         { r: 'Medium', text: '15s; on expiry they gain +25% damage for 10s.' },
       ]},
       { name: 'Bulwark', levels: [
-        { r: 'Single', text: 'Building gains +100% HP for 30s.' },
-        { r: 'Small',  text: 'Buildings gain +100% HP for 30s.' },
-        { r: 'Medium', text: '+100% HP for 30s and they reflect 20% of melee damage.' },
+        { r: 'Single', text: 'Building gains +100% HP for 15s.' },
+        { r: 'Small',  text: 'Buildings gain +100% HP for 15s.' },
+        { r: 'Medium', text: '+100% HP for 15s and they reflect 20% of melee damage.' },
       ]},
       { name: 'Immovable', note: 'Replaces the old crowd-control version — there is no pushback system to negate.', levels: [
         { r: 'Small',  text: 'Units gain +5 armor for 10s.' },
@@ -201,8 +201,8 @@ const SECTS = [
       ]},
       { name: 'Sentence', levels: [
         { r: 'Single', text: '120 true damage after a 3s telegraph.' },
-        { r: 'Small',  text: '120 true damage to everything in the area.' },
-        { r: 'Medium', text: '180 true damage; survivors Marked for 30s.' },
+        { r: 'Small',  text: '90 true damage to everything in the area.' },
+        { r: 'Medium', text: '80 true damage; survivors Marked for 30s.' },
       ]},
       { name: 'Writ of Blood', levels: [
         { r: 'Small',  text: 'Enemies that have killed your units take +50% damage for 10s.' },
@@ -320,9 +320,9 @@ const SECTS = [
     identity: 'Structure breaking',
     powers: [
       { name: 'Unmake', levels: [
-        { r: 'Single', text: 'Enemy building takes 50% of current HP as damage after a 3s telegraph.' },
-        { r: 'Single', text: '75% of current HP.' },
-        { r: 'Small',  text: '90% of current HP; others in the area take 25% splash.' },
+        { r: 'Single', text: 'Enemy building takes 40% of current HP as damage after a 3s telegraph.' },
+        { r: 'Single', text: '60% of current HP.' },
+        { r: 'Small',  text: '80% of current HP; others in the area take 25% splash.' },
       ]},
       { name: 'Profane Strike', levels: [
         { r: 'Small',  text: 'Burst damage across the area.' },

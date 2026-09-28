@@ -301,6 +301,8 @@ namespace TheWaningBorder.Rendering
         void LateUpdate()
         {
             if (!_tinted) TryTint();
+            // Off-screen rigs hold their pose (see ProceduralRigCulling).
+            if (!TheWaningBorder.Rendering.ProceduralRigCulling.Visible(transform.position)) return;
 
             float dt = Time.deltaTime;
             if (dt <= 0.0001f) return;

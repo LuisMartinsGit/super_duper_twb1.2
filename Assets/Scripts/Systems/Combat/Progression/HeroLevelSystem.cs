@@ -88,8 +88,10 @@ namespace TheWaningBorder.Systems.Combat
             // Stamp every corpse we looked at, paying or not, so it is never
             // reconsidered. Done outside the query — this is a structural
             // change and cannot run during iteration.
+            // Enable bit on the pre-added component (2026-09-27); SetFlag adds
+            // it only on units that never got the pre-add (Border creatures).
             for (int i = 0; i < stamp.Length; i++)
-                em.AddComponent<HeroXpAwarded>(stamp[i]);
+                TransientState.SetFlag<HeroXpAwarded>(em, stamp[i]);
 
             // ── 2. Pay it out ───────────────────────────────────────────
             if (victimXp.Length > 0) Award(em, victimPos, victimFaction, victimXp, victimKiller);

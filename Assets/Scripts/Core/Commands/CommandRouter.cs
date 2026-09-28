@@ -110,7 +110,10 @@ namespace TheWaningBorder.Core.Commands
             if (unit == Entity.Null || !em.Exists(unit)) return;
             if (IsBlockedByNotControllable(em, unit, source)) return;
 
-            if (source == CommandSource.AI && em.HasComponent<FactionTag>(unit))
+            // Gated BEFORE the string is built: per-unit lines are off by
+            // default (AILogger.asset, logUnitCommands).
+            if (source == CommandSource.AI && TheWaningBorder.AI.AILogger.LogsUnitCommands
+                && em.HasComponent<FactionTag>(unit))
                 TheWaningBorder.AI.AILogger.Log(
                     em.GetComponentData<FactionTag>(unit).Value, "CMD",
                     $"move -> ({destination.x:0},{destination.z:0})");
@@ -140,7 +143,10 @@ namespace TheWaningBorder.Core.Commands
             if (IsBlockedByNotControllable(em, unit, source)) return;
             if (target == Entity.Null || !em.Exists(target)) return;
 
-            if (source == CommandSource.AI && em.HasComponent<FactionTag>(unit))
+            // Gated BEFORE the string is built: per-unit lines are off by
+            // default (AILogger.asset, logUnitCommands).
+            if (source == CommandSource.AI && TheWaningBorder.AI.AILogger.LogsUnitCommands
+                && em.HasComponent<FactionTag>(unit))
                 TheWaningBorder.AI.AILogger.Log(
                     em.GetComponentData<FactionTag>(unit).Value, "CMD",
                     $"attack {TheWaningBorder.Entities.BuildingIds.Of(target, em) ?? "unit"} " +
@@ -209,7 +215,10 @@ namespace TheWaningBorder.Core.Commands
             if (unit == Entity.Null || !em.Exists(unit)) return;
             if (IsBlockedByNotControllable(em, unit, source)) return;
 
-            if (source == CommandSource.AI && em.HasComponent<FactionTag>(unit))
+            // Gated BEFORE the string is built: per-unit lines are off by
+            // default (AILogger.asset, logUnitCommands).
+            if (source == CommandSource.AI && TheWaningBorder.AI.AILogger.LogsUnitCommands
+                && em.HasComponent<FactionTag>(unit))
                 TheWaningBorder.AI.AILogger.Log(
                     em.GetComponentData<FactionTag>(unit).Value, "CMD",
                     $"attack-move -> ({destination.x:0},{destination.z:0})");
@@ -706,6 +715,21 @@ namespace TheWaningBorder.Core.Commands
                 em.SetComponentData(scholar, new PurifyCommand { TargetNode = node });
             else
                 em.AddComponentData(scholar, new PurifyCommand { TargetNode = node });
+
+            // The well is the Scholar's new post (docs/Design/Stances.md §2):
+            // guard from the stand point beside it, so the moment the rite
+            // ends (or breaks) return-to-guard does not walk it back to
+            // wherever it was trained. PurificationRitualSystem re-plants it
+            // on the exact spot where the channel starts.
+            if (em.HasComponent<Unity.Transforms.LocalTransform>(scholar) && em.HasComponent<Unity.Transforms.LocalTransform>(node))
+            {
+                var stand = TheWaningBorder.Systems.Border.RitualApproach.StandPoint(
+                    em.GetComponentData<Unity.Transforms.LocalTransform>(node).Position,
+                    em.GetComponentData<Unity.Transforms.LocalTransform>(scholar).Position);
+                var gp = new GuardPoint { Position = stand, Has = 1 };
+                if (em.HasComponent<GuardPoint>(scholar)) em.SetComponentData(scholar, gp);
+                else em.AddComponentData(scholar, gp);
+            }
         }
 
         /// <summary>
@@ -836,8 +860,30 @@ namespace TheWaningBorder.Core.Commands
             if (!em.HasComponent<TheWaningBorder.Abilities.UnitAbilities>(unit)) return false;
             if (!TheWaningBorder.Abilities.AbilityQuery.HasReadyActiveAbility(em, unit)) return false;
 
-            // Stamp (or clear) the aim BEFORE the cast starts, so a previous
-            // cast's point can never leak into an unaimed one.
+            // Under lockstep the aim rides the command and is stamped when it
+            // executes, on every peer. Stamping it here would write it on the
+            // issuing machine only: the other peers would reveal somewhere
+            // else, and the component add is a structural change on one
+            // world alone.
+            if (ShouldQueueForLockstep(source))
+            {
+                QueueAbilityForLockstep(em, unit, target, slot, aimPoint);
+                return true;
+            }
+            StampAbilityAim(em, unit, aimPoint);
+            IssueAbilityDirect(em, unit, target, slot);
+            return true;
+        }
+
+        /// <summary>
+        /// Stamp (or clear) the aimed ground point BEFORE the cast starts, so a
+        /// previous cast's point can never leak into an unaimed one. Called on
+        /// the direct path and by the lockstep executor, never at issue time
+        /// under lockstep.
+        /// </summary>
+        public static void StampAbilityAim(EntityManager em, Entity unit, float3? aimPoint)
+        {
+            if (!em.Exists(unit)) return;
             if (aimPoint.HasValue)
             {
                 var aim = new TheWaningBorder.Abilities.AbilityAimPoint { Position = aimPoint.Value };
@@ -850,15 +896,12 @@ namespace TheWaningBorder.Core.Commands
             {
                 em.RemoveComponent<TheWaningBorder.Abilities.AbilityAimPoint>(unit);
             }
-
-            if (ShouldQueueForLockstep(source))
-            {
-                QueueAbilityForLockstep(em, unit, target, slot);
-                return true;
-            }
-            IssueAbilityDirect(em, unit, target, slot);
-            return true;
         }
+
+        /// <summary>Bit set in an Ability command's SecondaryTargetId when
+        /// TargetPosition carries an aimed ground point. The low bits keep the
+        /// slot+1 encoding, so an unaimed command decodes exactly as before.</summary>
+        public const int AbilityAimFlag = 1 << 20;
 
         // ═══════════════════════════════════════════════════════════════
         // TRAIN COMMANDS
@@ -1164,7 +1207,16 @@ namespace TheWaningBorder.Core.Commands
         /// (no partial effects).</summary>
         public static void ResearchCommandDirect(EntityManager em, Entity building, string techId)
         {
+            if (!em.Exists(building)) return;
             if (!em.HasBuffer<ProductionQueueItem>(building)) return;
+            if (string.IsNullOrEmpty(techId)) return;
+
+            // The queue needs its clock. A host that carries the buffer but no
+            // ProductionState (every Wall Hub raised before 2026-09-27) would
+            // take the money and never start — back-fill it here, the same
+            // way UpgradeBuildingCommand does for a level-up.
+            if (!em.HasComponent<ProductionState>(building))
+                em.AddComponentData(building, default(ProductionState));
 
             // Cost comes from the shared TechCatalog — identical data on all
             // peers, so the debit is deterministic. A tech missing from the
@@ -1173,6 +1225,18 @@ namespace TheWaningBorder.Core.Commands
             if (em.HasComponent<FactionTag>(building))
             {
                 var faction = em.GetComponentData<FactionTag>(building).Value;
+
+                // One-shot per faction: a tech already researched, or already
+                // waiting in ANY of this faction's queues, is refused BEFORE
+                // the spend. Without this a double-click, a second selected
+                // host or a replayed AI order charged the price twice for one
+                // effect (the second copy was later dropped at the head with
+                // no refund). Reads only replicated sim state, so every peer
+                // refuses the same command.
+                var research = TheWaningBorder.Economy.FactionResearchState.Instance;
+                if (research != null && research.HasResearched(faction, techId)) return;
+                if (IsResearchQueued(em, faction, techId, out _, out _)) return;
+
                 var cost = ResearchCost(faction, techId);
                 if (!cost.IsZero
                     && !TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost))
@@ -1185,6 +1249,50 @@ namespace TheWaningBorder.Core.Commands
                 Kind = ProductionKind.Research,
                 Id   = new Unity.Collections.FixedString64Bytes(techId),
             });
+        }
+
+        static readonly ComponentType[] QT_ResearchHosts =
+        {
+            ComponentType.ReadOnly<ProductionQueueItem>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static TheWaningBorder.Core.CachedEntityQuery QC_ResearchHosts;
+
+        /// <summary>
+        /// Whether <paramref name="techId"/> sits in any of
+        /// <paramref name="faction"/>'s production queues (running or
+        /// waiting). <paramref name="host"/> / <paramref name="slot"/> name
+        /// where; when several hosts carry it the lowest entity index wins, so
+        /// every caller (and every peer) names the same one. The runtime twin
+        /// of the UI's IsTechQueued, used by the research executor's
+        /// duplicate guard and by the wall-level lock.
+        /// </summary>
+        public static bool IsResearchQueued(EntityManager em, Faction faction, string techId,
+            out Entity host, out int slot)
+        {
+            host = Entity.Null;
+            slot = -1;
+            if (string.IsNullOrEmpty(techId)) return false;
+
+            var q = QC_ResearchHosts.Get(em, QT_ResearchHosts);
+            using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
+            var id = new Unity.Collections.FixedString64Bytes(techId);
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (facs[i].Value != faction) continue;
+                if (host != Entity.Null && ents[i].Index >= host.Index) continue;
+                var buf = em.GetBuffer<ProductionQueueItem>(ents[i], true);
+                for (int b = 0; b < buf.Length; b++)
+                {
+                    if (buf[b].Kind != ProductionKind.Research) continue;
+                    if (!buf[b].Id.Equals(id)) continue;
+                    host = ents[i];
+                    slot = b;
+                    break;
+                }
+            }
+            return host != Entity.Null;
         }
 
         /// <summary>
@@ -1366,6 +1474,9 @@ namespace TheWaningBorder.Core.Commands
                 5 => TheWaningBorder.Data.BuildCosts.Get("Alanthor_TrebuchetEmplacement"),
                 _ => default,
             };
+            // The wall lock: no piece changes while a wall level researches.
+            if (WallsLockedForUpgrade(em, em.GetComponentData<FactionTag>(wall).Value))
+                return false;
             if (upgradeType == 3 && !TheWaningBorder.Entities.AlanthorWall.CanConvertInstanceToHub(em, wall))
                 return false;
             // The placement rule is re-checked HERE, not just in the UI: it is
@@ -1384,6 +1495,20 @@ namespace TheWaningBorder.Core.Commands
             WallUpgradeDirect(em, wall, upgradeType, duration);
             return true;
         }
+
+        /// <summary>
+        /// THE WALL LOCK, as the executors apply it: true while a wall level
+        /// (Battlements / Shielded Ramparts) is queued or researching anywhere
+        /// for <paramref name="faction"/>. Every wall-changing executor —
+        /// tower / hub / emplacement conversion, gate conversion, extending
+        /// from a standing hub, a drawn wall that attaches to a standing hub
+        /// or cell — refuses on it BEFORE its spend, so a stale panel or a
+        /// command already in flight cannot slip through, and every peer
+        /// refuses identically. Cancelling the research lifts it.
+        /// docs/Design/Age_1_Alanthor.md § The four wall levels
+        /// </summary>
+        public static bool WallsLockedForUpgrade(EntityManager em, Faction faction)
+            => TheWaningBorder.Entities.WallTiers.LevelResearchActive(em, faction);
 
         /// <summary>
         /// Fiendstone Keep wing construction with the cost charged in the
@@ -1741,35 +1866,52 @@ namespace TheWaningBorder.Core.Commands
         /// </summary>
         public static bool IssuePlaceBuilding(EntityManager em, string buildingId, float3 position,
             Faction faction, out Entity created, CommandSource source = CommandSource.LocalPlayer)
+            => IssuePlaceBuilding(em, buildingId, position, faction, Entity.Null, out created, source);
+
+        /// <summary>
+        /// The router's own placement gates, in order, with the REASON the
+        /// first failing one refused: wall-mount-only, the per-faction caps,
+        /// the territory gate (including the Hall's adjacency rule), the
+        /// extractor node gate, one Hall per territory, and — for a Hall — the
+        /// named builder standing within range of the site.
+        ///
+        /// Public so the placement ghost asks THIS rather than a copy of it:
+        /// the preview and the router cannot disagree about a click.
+        /// <paramref name="position"/> comes back snapped onto the extractor's
+        /// node when the building is one (the position that will be queued).
+        /// Reads replicated state only.
+        /// </summary>
+        public static TheWaningBorder.World.Regions.PlacementRefusal CheckPlaceBuilding(
+            EntityManager em, string buildingId, ref float3 position, Faction faction, Entity builder)
         {
-            created = Entity.Null;
-            if (ShouldDropCommand(source)) return false;
+            const TheWaningBorder.World.Regions.PlacementRefusal Ok =
+                TheWaningBorder.World.Regions.PlacementRefusal.None;
+
+            // Emplacements are WALL-MOUNT ONLY (2026-09-25): the free-standing
+            // platforms are no longer placeable by anyone.
+            if (IsWallMountOnlyBuilding(buildingId))
+                return TheWaningBorder.World.Regions.PlacementRefusal.UnknownBuilding;
 
             // Smelter cap (5 per faction). Rejected here so callers with a
             // spend-then-place flow (AI TryBuildOnce) see created == Null and
             // refund cleanly; the UI normally hides the button first.
-            if (buildingId == "Alanthor_Smelter"
-                && CountFactionSmelters(em, faction) >= MaxSmeltersPerFaction)
-                return false;
-
-            // Sect buildings, 5 per faction. Same reasoning as the Smelter cap:
-            // rejected here so a spend-then-place caller sees created == Null
-            // and refunds cleanly.
-            if (SectBuildingCapReached(em, buildingId, faction))
-                return false;
+            // Sect buildings, 5 per faction, for the same reason.
+            if (!CanPlaceBuilding(em, buildingId, faction))
+                return TheWaningBorder.World.Regions.PlacementRefusal.CapReached;
 
             // TERRITORY GATE (docs/Design/Regions.md §2 + §6). You build in the
             // ground you hold; a claim structure is the one thing that may go
-            // on Natural ground, because planting it is how ground is taken.
+            // on Natural ground, because planting it is how ground is taken —
+            // and only on ground ADJACENT to a territory you already hold.
             //
             // Enforced HERE and not only in the placement UI: the UI paints the
             // preview red, but the AI, the lockstep replay and any future
             // command source come through this function, and a rule only the
             // local player's mouse obeys is not a rule. Same spend-then-place
             // contract as the caps above — a rejected placement refunds.
-            if (!TheWaningBorder.World.Regions.TerritoryOwnership.CanBuildAt(
-                    em, faction, buildingId, position.x, position.z))
-                return false;
+            var territory = TheWaningBorder.World.Regions.TerritoryOwnership.TerritoryRefusal(
+                em, faction, buildingId, position.x, position.z);
+            if (territory != Ok) return territory;
 
             // EVERY EXTRACTOR STANDS ON ITS OWN NODE, one per node
             // (docs/Design/Regions.md §4): Gatherer's Hut on a supply site,
@@ -1790,14 +1932,47 @@ namespace TheWaningBorder.Core.Commands
 
             if (!TheWaningBorder.World.Regions.TerritoryOwnership.OnFreeNodeFor(
                     em, buildingId, position.x, position.z))
-                return false;
+                return TheWaningBorder.World.Regions.PlacementRefusal.OffNode;
 
             // One Hall per territory. A second claims nothing (the first
-            // already holds the ground), so it is only a way to waste 600
-            // supplies.
-            if (buildingId == "Hall"
+            // already holds the ground), so it is only a way to waste the
+            // Hall's 450 supplies and 450 iron.
+            if (TheWaningBorder.World.Regions.TerritoryOwnership.IsClaimStructure(buildingId)
                 && TheWaningBorder.World.Regions.TerritoryOwnership.HallCapReached(
                        em, position.x, position.z))
+                return TheWaningBorder.World.Regions.PlacementRefusal.HallAlreadyHere;
+
+            // THE BUILDER HAS TO BE THERE (Regions.md §2, 2026-09-26). A claim
+            // is made on the ground, by a worker standing on it — not dropped
+            // across the map from the home base. Within range of the site AND
+            // inside the territory it claims (2026-09-27) — not reaching over
+            // the border from the faction's own ground.
+            if (TheWaningBorder.World.Regions.TerritoryOwnership.NeedsBuilderNearby(buildingId))
+            {
+                var near = TheWaningBorder.World.Regions.TerritoryOwnership.CheckHallBuilder(
+                    em, faction, builder, position.x, position.z);
+                if (near != Ok) return near;
+            }
+            return Ok;
+        }
+
+        /// <summary>
+        /// Place-building with the BUILDER that makes the placement. Only a
+        /// Hall reads it (it must stand within
+        /// <see cref="TheWaningBorder.World.Regions.TerritoryOwnership.HallBuilderRange"/>
+        /// of the site); every other building ignores it. In lockstep the
+        /// builder's NetworkId rides the command's TargetEntityId, and the
+        /// executor re-checks it at the execution tick.
+        /// </summary>
+        public static bool IssuePlaceBuilding(EntityManager em, string buildingId, float3 position,
+            Faction faction, Entity builder, out Entity created,
+            CommandSource source = CommandSource.LocalPlayer)
+        {
+            created = Entity.Null;
+            if (ShouldDropCommand(source)) return false;
+
+            if (CheckPlaceBuilding(em, buildingId, ref position, faction, builder)
+                != TheWaningBorder.World.Regions.PlacementRefusal.None)
                 return false;
 
             if (source == CommandSource.LocalPlayer)
@@ -1809,12 +1984,21 @@ namespace TheWaningBorder.Core.Commands
 
             if (ShouldQueueForLockstep(source))
             {
+                // TargetEntityId carries the BUILDER's NetworkId (0 = none).
+                // It was an unused field on this command, so older commands
+                // decode as "no builder" — accepted for every building except
+                // a Hall, which the executor refuses without one.
+                int builderId = builder != Entity.Null && em.Exists(builder)
+                                && em.HasComponent<NetworkedEntity>(builder)
+                    ? em.GetComponentData<NetworkedEntity>(builder).NetworkId
+                    : 0;
                 var cmd = new LockstepCommand
                 {
                     Type = LockstepCommandType.PlaceBuilding,
                     BuildingId = buildingId,
                     TargetPosition = position,
-                    EntityNetworkId = (int)faction // Carry faction in EntityNetworkId
+                    EntityNetworkId = (int)faction, // Carry faction in EntityNetworkId
+                    TargetEntityId = builderId,
                 };
                 LockstepServiceLocator.Instance.QueueCommand(cmd);
                 return true; // Queued — caller must NOT create entity locally
@@ -1822,10 +2006,53 @@ namespace TheWaningBorder.Core.Commands
             else
             {
                 // Single player — create immediately
-                created = PlaceBuildingDirect(em, buildingId, position, faction);
+                created = PlaceBuildingDirect(em, buildingId, position, faction, builder);
                 return false; // Created locally — caller can proceed
             }
         }
+
+        /// <summary>
+        /// <see cref="PlaceBuildingDirect(EntityManager, string, float3, Faction, Entity)"/>
+        /// with no builder. Every building but a Hall places exactly as before;
+        /// a Hall is refused (it needs its builder on site).
+        /// </summary>
+        public static Entity PlaceBuildingDirect(EntityManager em, string buildingId, float3 position, Faction faction)
+            => PlaceBuildingDirect(em, buildingId, position, faction, Entity.Null);
+
+        /// <summary>
+        /// The HALL's execution-tick re-check (Regions.md §2). A queued claim
+        /// executes ticks after it was issued, and on a remote peer the issue
+        /// gates never ran, so the rules that depend on a changing world are
+        /// asked again here, against replicated state: the territory gate with
+        /// its adjacency rule, one Hall per territory, and the named builder
+        /// alive, owned, a worker, within range, and inside the site's
+        /// territory. Ownership is re-derived
+        /// first so every peer answers from the same live Halls rather than
+        /// from whenever its own income tick last ran.
+        /// </summary>
+        private static TheWaningBorder.World.Regions.PlacementRefusal CheckClaimAtExecution(
+            EntityManager em, string buildingId, float3 position, Faction faction, Entity builder)
+        {
+            if (!TheWaningBorder.World.Regions.TerritoryOwnership.IsClaimStructure(buildingId))
+                return TheWaningBorder.World.Regions.PlacementRefusal.None;
+            if (TheWaningBorder.World.Regions.RegionMap.Ready)
+                TheWaningBorder.World.Regions.TerritoryOwnership.Recompute(em);
+            var r = TheWaningBorder.World.Regions.TerritoryOwnership.TerritoryRefusal(
+                em, faction, buildingId, position.x, position.z);
+            if (r != TheWaningBorder.World.Regions.PlacementRefusal.None) return r;
+            if (TheWaningBorder.World.Regions.TerritoryOwnership.HallCapReached(em, position.x, position.z))
+                return TheWaningBorder.World.Regions.PlacementRefusal.HallAlreadyHere;
+            // In range AND standing inside the territory being claimed.
+            if (TheWaningBorder.World.Regions.TerritoryOwnership.NeedsBuilderNearby(buildingId))
+                return TheWaningBorder.World.Regions.TerritoryOwnership.CheckHallBuilder(
+                    em, faction, builder, position.x, position.z);
+            return TheWaningBorder.World.Regions.PlacementRefusal.None;
+        }
+
+        /// <summary>Set by <see cref="PlaceBuildingDirect(EntityManager, string, float3, Faction, Entity)"/>
+        /// when it refuses a CLAIM at execution: the rule it broke, so the
+        /// issuing client can tell its player. None after every other call.</summary>
+        public static TheWaningBorder.World.Regions.PlacementRefusal LastPlacementRefusal { get; private set; }
 
         /// <summary>
         /// Execute building placement: create entity, mark under construction, set HP to 1.
@@ -1837,8 +2064,27 @@ namespace TheWaningBorder.Core.Commands
         /// bank cannot pay, identically on every peer — no entity, no
         /// partial effects.
         /// </summary>
-        public static Entity PlaceBuildingDirect(EntityManager em, string buildingId, float3 position, Faction faction)
+        public static Entity PlaceBuildingDirect(EntityManager em, string buildingId, float3 position,
+            Faction faction, Entity builder)
         {
+            LastPlacementRefusal = TheWaningBorder.World.Regions.PlacementRefusal.None;
+
+            // Wall-mount-only ids never place, on any peer — refused before
+            // the spend, like the collision check below.
+            if (IsWallMountOnlyBuilding(buildingId)) return Entity.Null;
+
+            // A CLAIM is re-checked against the world as it is NOW, before the
+            // spend, identically on every peer (see CheckClaimAtExecution).
+            var claim = CheckClaimAtExecution(em, buildingId, position, faction, builder);
+            if (claim != TheWaningBorder.World.Regions.PlacementRefusal.None)
+            {
+                LastPlacementRefusal = claim;
+                UnityEngine.Debug.LogWarning(
+                    $"[CommandRouter] Refused {buildingId} for {faction} at " +
+                    $"({position.x:F1},{position.z:F1}) — {claim}.");
+                return Entity.Null;
+            }
+
             // COLLISION, LAST LINE. The issue site validated a CANDIDATE
             // position; this is the only place that knows the position the
             // building will actually occupy, because BuildingFactory.Create
@@ -1860,24 +2106,26 @@ namespace TheWaningBorder.Core.Commands
             }
 
             // BuildCosts is synced from the shared TechTree on every peer, so
-            // the debit is deterministic. An id missing from the table places
+            // the debit is deterministic. BuildCosts.For folds in the
+            // faction-dependent parts — the Hall's escalation (Regions.md §2,
+            // counted from the live Halls at THIS tick) and Deep Foundations —
+            // from replicated state only. An id missing from the table places
             // free — the same lenient fallback the old panel spend had.
-            if (!TheWaningBorder.Data.BuildCosts.TryGet(buildingId, out var cost))
-                cost = default;
-            // Deep Foundations (Fortitude): defensive structures cost 20% less.
-            // Deterministic on every peer - it reads replicated research state.
-            float buildMult = TheWaningBorder.Economy.SectResearchEffects
-                .BuildingCostMultiplier(faction, buildingId);
-            if (buildMult < 1f)
-                cost = TheWaningBorder.Core.Cost.Of(
-                    supplies:  (int)(cost.Supplies  * buildMult),
-                    iron:      (int)(cost.Iron      * buildMult),
-                    veilstone: (int)(cost.Veilstone * buildMult),
-                    veilsteel: (int)(cost.Veilsteel * buildMult));
+            var cost = TheWaningBorder.Data.BuildCosts.For(em, faction, buildingId);
             if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost))
                 return Entity.Null;
 
             Entity building = TheWaningBorder.Entities.BuildingFactory.Create(em, buildingId, position, faction);
+
+            // Remember what was charged, so a refund pays back THIS price and
+            // not whatever the faction's next Hall would cost by then.
+            if (building != Entity.Null && em.Exists(building))
+            {
+                if (em.HasComponent<PaidBuildCost>(building))
+                    em.SetComponentData(building, new PaidBuildCost { Value = cost });
+                else
+                    em.AddComponentData(building, new PaidBuildCost { Value = cost });
+            }
 
             // Mark as under construction
             float buildTime = GetBuildTime(buildingId);
@@ -1907,7 +2155,7 @@ namespace TheWaningBorder.Core.Commands
                 em.AddComponent<AutoConstructTag>(building);
             }
 
-            // Builder-placed Halls (post-age-up expansion, capped at 6) inherit
+            // Builder-placed Halls (expansion claims, one per territory) inherit
             // the faction's current culture so culture-driven queries that
             // pick "the first hall" stay consistent — EntityActionExtractor and
             // CultureChoicePopup both read FactionProgress off whichever Hall
@@ -2095,8 +2343,11 @@ namespace TheWaningBorder.Core.Commands
                 em.RemoveComponent<Types.PatrolCommand>(unit);
             if (em.HasBuffer<PatrolWaypoint>(unit))
                 em.GetBuffer<PatrolWaypoint>(unit).Clear();
-            if (em.HasComponent<HoldPositionTag>(unit))
-                em.RemoveComponent<HoldPositionTag>(unit);
+            // HoldPositionTag is NOT cleared here any more: it marks the Hold
+            // STANCE, and a stance is a mode that survives Stop and every other
+            // order (docs/Design/Stances.md §1). Only choosing another stance
+            // (StanceCommandHelper) removes it — which also keeps an emplaced
+            // engine, bolted to its platform, holding for ever.
             if (em.HasComponent<AbilityActivated>(unit))
                 em.RemoveComponent<AbilityActivated>(unit);
             if (em.HasComponent<CommandQueueActive>(unit))

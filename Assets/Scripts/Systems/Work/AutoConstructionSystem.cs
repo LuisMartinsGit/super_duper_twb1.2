@@ -58,6 +58,10 @@ namespace TheWaningBorder.Systems.Work
                 Entity site = sites[i];
                 if (!em.Exists(site)) continue;
                 if (!em.HasComponent<UnderConstruction>(site)) continue;
+                // A site killed mid-build belongs to DeathSystem now. The HP
+                // step below floors at 1, so ticking it would REVIVE it --
+                // which is how a razed wall cell came back invisible and whole.
+                if (IsDead(em, site)) continue;
 
                 var uc = em.GetComponentData<UnderConstruction>(site);
                 uc.Progress += dt;
@@ -86,6 +90,14 @@ namespace TheWaningBorder.Systems.Work
                     em.SetComponentData(site, uc);
                 }
             }
+        }
+
+        /// <summary>At 0 HP, collapsing, or in its death animation.</summary>
+        private static bool IsDead(EntityManager em, Entity site)
+        {
+            if (em.HasComponent<BuildingCollapseState>(site)) return true;
+            if (TransientState.Active<DeathAnimationState>(em, site)) return true;
+            return em.HasComponent<Health>(site) && em.GetComponentData<Health>(site).Value <= 0;
         }
 
         private static void Complete(EntityManager em, Entity site)

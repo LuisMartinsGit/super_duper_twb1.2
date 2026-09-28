@@ -161,6 +161,10 @@ namespace TheWaningBorder.AI
                 {
                     var tick = em.GetComponentData<AIAlanthorTickState>(entity);
                     if (time < tick.NextThinkTime) continue;
+                    // Shared per-frame heavy-think budget (AIThinkBudget):
+                    // refused = try again next frame, unless a whole interval
+                    // overdue.
+                    if (!AIThinkBudget.TryClaim(time - tick.NextThinkTime > think)) continue;
                     tick.NextThinkTime = time + think;
                     em.SetComponentData(entity, tick);
                     perfThinks++;

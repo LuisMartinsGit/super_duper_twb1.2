@@ -2,11 +2,15 @@
 // Keeps an emplacement's ENGINE and its PLATFORM in step
 // (docs/Design/Age_1_Alanthor.md § Ballista and Trebuchet emplacements).
 //
-// Three rules, and nothing else:
-//   1. a finished platform with no engine and no rebuild timer raises one;
-//   2. an engine that dies starts the crew's free replacement timer, and
-//      the platform raises a fresh engine when it runs out;
-//   3. an engine whose platform is gone dies with it — the position is what
+// Four rules, and nothing else:
+//   1. a finished platform that has never raised an engine raises one at
+//      once — the first engine comes with the mount;
+//   2. an engine that dies leaves the platform EMPTY. There is no free
+//      rebuild (removed 2026-09-25): the owner pays for a Replace Equipment
+//      order (CommandRouter.ReplaceEquipmentDirect), which starts
+//      EmplacementCrew.Restore;
+//   3. a running restore counts down and raises the engine when it ends;
+//   4. an engine whose platform is gone dies with it — the position is what
 //      was killed, not just the machine standing on it.
 //
 // Set-level: both emplacements use it, so it sits one level above their
@@ -34,7 +38,7 @@ namespace TheWaningBorder.Systems.Buildings
             float dt = SystemAPI.Time.DeltaTime;
             var em = state.EntityManager;
 
-            // ── Platforms: raise / re-raise the engine ───────────────────
+            // ── Platforms: raise the first engine, run paid restores ─────
             var toRaise = new List<Entity>();
             foreach (var (crew, entity) in SystemAPI
                          .Query<RefRW<EmplacementCrew>>()
@@ -46,20 +50,27 @@ namespace TheWaningBorder.Systems.Buildings
 
                 if (c.Engine != Entity.Null && !em.Exists(c.Engine))
                 {
-                    // The engine was killed off the platform: the crew starts
-                    // building a replacement, free.
+                    // The engine was killed off the platform: it stays empty
+                    // until its owner pays to replace the equipment.
                     c.Engine = Entity.Null;
-                    c.Rebuild = c.RebuildTime;
                 }
                 if (c.Engine != Entity.Null) continue;
 
-                if (c.Rebuild > 0f)
+                if (c.Raised == 0)
                 {
-                    c.Rebuild -= dt;
-                    if (c.Rebuild > 0f) continue;
-                    c.Rebuild = 0f;
+                    // The mount's own engine — raised the moment it lands.
+                    toRaise.Add(entity);
+                    continue;
                 }
-                toRaise.Add(entity);
+
+                if (c.Restore > 0f)
+                {
+                    c.Restore -= dt;
+                    if (c.Restore > 0f) continue;
+                    c.Restore = 0f;
+                    toRaise.Add(entity);
+                }
+                // Otherwise: empty, waiting for Replace Equipment.
             }
 
             // ── Engines whose platform is gone ───────────────────────────
@@ -94,6 +105,9 @@ namespace TheWaningBorder.Systems.Buildings
 
                 em.AddComponentData(engine, new EmplacedOn { Emplacement = platform });
                 c.Engine = engine;
+                c.Raised = 1;
+                c.Restore = 0f;
+                c.RestoreTime = 0f;
                 em.SetComponentData(platform, c);
             }
         }

@@ -141,7 +141,7 @@ namespace TheWaningBorder.Systems.Combat
                 float dx = p.x - center.x, dz = p.z - center.z;
                 if (dx * dx + dz * dz > r2) continue;
 
-                hp.Value = math.max(0, hp.Value - charge.BlastDamage);
+                hp.Value = math.max(0, hp.Value - ShieldDamage.Absorb(em, e, charge.BlastDamage));
                 em.SetComponentData(e, hp);
 
                 if (em.HasComponent<LastDamagedByFaction>(e))

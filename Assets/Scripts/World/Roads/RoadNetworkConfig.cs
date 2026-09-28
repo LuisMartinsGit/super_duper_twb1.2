@@ -28,6 +28,11 @@ namespace TheWaningBorder.World.Roads
         public float slopePenalty;
         /// <summary>A* expansion budget per edge; beyond it the edge is dropped.</summary>
         public int maxRouteExpansions;
+        /// <summary>The A* may stray this far (metres) outside the box
+        /// spanned by an edge's two endpoints.</summary>
+        public float routeCorridorMargin;
+        /// <summary>...plus this fraction of the edge's length.</summary>
+        public float routeCorridorFraction;
         /// <summary>Chaikin passes over the cell path - the FALLBACK when the
         /// spline cannot stay on passable ground.</summary>
         public int smoothingPasses;

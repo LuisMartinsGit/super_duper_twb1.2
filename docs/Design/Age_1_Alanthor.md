@@ -226,7 +226,7 @@ that uses the same per-battalion upgrade model as Garrison's weapon ladder
 
 | Tech | Building lvl req. | Effect (unlock) | Status |
 |------|-------------------|------------------|--------|
-| **Choreographed volleys** | L1 | Active skill on the Practice Range: 2× fire rate for 5 s on all Archers in faction, 40 s cd *(faction-wide active)* | *(new)* |
+| **Choreographed volleys** | L1 | Unit active carried by every ranged unit: 2× fire rate for 5 s on allied ranged units within 15 m, 60 s cd ([Spells.md](Spells.md) §9) | *(new)* |
 | **Fletching** | L2 | +15 % attack range for all Archer-class units *(faction-wide passive)* | *(new)* |
 | **Stone-tipped arrows** (T1) | L1 | **Unlocks** tier-1 arrow upgrade for Practice Range battalions (per-battalion cost when applied) | *(new — replaces the old "single tech" model)* |
 | **Iron-tipped arrows** (T2) | L2 | **Unlocks** tier-2 arrow upgrade | *(new)* |
@@ -535,10 +535,12 @@ palette:
 | Step | What happens |
 |---|---|
 | **Press** on the ground | the path starts there — or, within the hub snap radius of a friendly hub, *at that hub* (so a wall can be extended from the per-hub Build Wall action the same way) — or, within one wall section of a friendly **wall cell**, *at that cell*, which **becomes a hub** when the order lands (see § Branching walls) |
-| **Drag** | the path follows the cursor as a curve. Hubs go up at the stroke's **two ends** — and, once the stroke passes the run cap, at **evenly spaced points between**, so everything between two hubs is ONE continuous swept wall |
-| **Turn too sharply** | the curve cannot bend tighter than a **12 m radius**: it follows the cursor at maximum curvature and catches up when the cursor is ahead of it again. A wall of 3 m modules and 6 m hubs has no business kinking |
-| **Retrace** over the path | **backtracking** — moving the cursor back onto an earlier part of the path erases everything drawn after that point |
-| **Release** | every hub and the segments between them are placed as **one order**; a press-and-release with no drag places a single hub as before. The **end snaps** the same way the start does: onto a friendly hub (closing a loop or joining an older wall) or onto a friendly wall cell, which becomes a hub — a T-junction into a standing wall. The preview line runs on to whatever it snapped to |
+| **Drag** | the path **follows the drag** — the cursor's own track, sampled every metre and lightly smoothed; it never grows faster than the cursor moves and never steers on its own. Hubs go up at the stroke's **two ends** — and, once the stroke passes the run cap, at **evenly spaced points between**, so everything between two hubs is ONE continuous swept wall |
+| **Turn too sharply** | a path that bends tighter than a **12 m radius** anywhere (measured over a 4 m window, so hand jitter does not count) turns **red** and is refused on release. A wall of 3 m modules has no business kinking. *(2026-09-25 — supersedes the path "running at maximum curvature and catching up": that steering law orbited any cursor inside its 12 m turning circle, and an orbit that snapped shut became a ring)* |
+| **Run back over itself** | a path that crosses, doubles back onto or spirals within one module (3 m) of an earlier part of itself is **red** and refused |
+| **Retrace** over the path | **backtracking** — moving the cursor back along the path, or onto any earlier part of it, erases everything drawn after that point |
+| **Release** | every hub and the segments between them are placed as **one order**; a press-and-release with no drag places a single hub as before. The **end snaps** the same way the start does — judged at the PATH's end, not the cursor's: onto a friendly hub (joining an older wall) or onto a friendly wall cell, which becomes a hub — a T-junction into a standing wall. The last stretch of the path is **bent smoothly onto** whatever it snapped to, never a straight chord to it |
+| **Close a loop** | bring the end back to the stroke's own start (hub snap radius) once the stroke is at least three snap radii long. The start may be an existing hub, a new one or a converted cell. A closed loop always gets **at least three runs** (two inserted hubs), because a one-run loop would join a hub to itself and a two-run one would join the same pair of hubs twice |
 | Right-click / Esc | cancels the drawing |
 
 Hubs snap to the 2 m build grid as every building does. Each hub ghost is
@@ -554,6 +556,18 @@ works in **modules**: invisible cells every 3 m along the same arc carry the
 HP, the passability and the gate / tower / hub conversions, and a dead
 cell's span is simply left open by the mesh, so a breach shows as a breach.
 Presentation ids: `555` the swept segment, `556` a cell's pick collider.
+
+**The segment itself carries no HP (2026-09-25).** It is the graph edge
+between two hubs and the owner of the swept mesh, nothing more: no
+`Health`, so no attack, splash or auto-acquire can find it. It lives
+exactly as long as one of its cells does. (It used to carry a 1/1
+placeholder at the curve's midpoint; one splashed point of damage killed
+it, the whole mesh collapsed with it, and the cells stood on invisible and
+at full HP.) As a safety net, a hub link to a segment that no longer exists
+is pruned and connects nothing, and an invisible cell whose segment is gone
+is destroyed. A cell killed mid-construction, or before a wall-level
+promotion lands, stays dead — neither the self-build tick nor the re-clad
+revives it.
 
 **The run cap: 11 modules.** A single wall run is capped at **11 modules
 (33 m)**. A longer stroke is cut into the fewest runs that all fit under the
@@ -685,7 +699,7 @@ full bank, open ground.
 ### Wall levels, the gate structure and emplacements (2026-09-21)
 
 > **Canonical for wall TIERS, the gate as a structure, wall garrison and the
-> two emplacement buildings.** Supersedes, in the sections below: the Wall
+> two wall-mounted emplacements.** Supersedes, in the sections below: the Wall
 > Hub's `3 x 3 cells (6 x 6 m)` footprint, the "Gate (5-instance composite)"
 > section in full (a gate is now ONE entity, not a tagged run of cells), and
 > the "no manual open/close in v1" line in it. Everything else about the
@@ -758,8 +772,38 @@ everything above Lv0 is Alanthor's, which is the point of the building.
 of levels, so the purchase is faction-wide: `PromoteFactionWalls` re-clads
 every hub, curtain, gate and tower at once. Which hub you clicked does not
 matter, and the button disappears from all of them the moment it is queued
-anywhere. A hub therefore carries a `ProductionQueueItem` buffer like any
-other research host.
+anywhere. A hub therefore carries a `ProductionQueueItem` buffer **and a
+`ProductionState`** like any other research host — the buffer alone took the
+money and never started the clock (fixed 2026-09-27; the research executor
+back-fills `ProductionState` onto older hubs).
+
+**The walls are LOCKED while a level researches (2026-09-27).** From the
+moment `Battlements` or `ShieldedRamparts` is queued anywhere until it lands
+or is cancelled:
+
+- **every wall-changing action is greyed**, with the tooltip *"Walls are being
+  upgraded"*: Build Wall on a hub, and Convert to Gate / Tower / Hub, Mount
+  Ballista / Trebuchet on a module. A drawn wall that **attaches to a standing
+  hub or cell** is refused whole; a free-standing new wall may still be drawn
+  (it rises at the current level and is re-clad with the rest when the
+  research lands). Gate Open / Close, Empty (ungarrison) and Replace Equipment
+  stay live — they change no wall.
+- **the level button becomes its progress**: an *"Upgrading: <tech> (N%)"*
+  cell stands where it was, and the panel's progress bar follows the research
+  on whichever hub is running it — shown on that hub, on every other hub and
+  on any selected wall module.
+- **a Cancel Upgrade cell** (on any of the faction's wall pieces, and the
+  running slot in the hub's queue strip) stops it and refunds the full price;
+  everything unlocks again on the next refresh. A running tech's queue slot is
+  now cancellable everywhere — a running UNIT's still is not.
+- The lock is enforced by the **executors**, not just the panel
+  (`CommandRouter.WallsLockedForUpgrade`, read from `WallTiers.LevelResearchActive`),
+  so a stale panel or an order already in flight is refused identically on
+  every lockstep peer. The AI's wall doctrine waits the lock out instead of
+  re-issuing refused orders.
+- **A tech is one-shot per faction.** The research executor refuses a tech
+  already researched or already queued in ANY of the faction's queues before
+  charging — the old path charged a double-click twice for one effect.
 
 A wall raised **after** the promotion starts at that level; HP is read from
 the tier at creation (its own SO's `hp` × the tier
@@ -871,7 +915,7 @@ give it the saturated blue — no code changes either way.
 Hubs, gates and towers draw their authored prefab when one is bound and fall
 back to their procedural builder when it is not, so the set can be replaced
 one piece at a time. Only the curtain module has art today. The emplacements
-are still procedural throughout.
+(wall mounts) are still procedural throughout.
 
 #### What a module may become, and where
 
@@ -883,8 +927,8 @@ and says why, and the executor re-checks it on every peer before it spends.
 | Fitting | Needs a clear run of | Why |
 |---------|---------------------:|-----|
 | **Tower** | **3** modules (one clear either side) | plus masonry: level 2+ only |
-| **Ballista emplacement** | **3** modules | any wall level |
-| **Trebuchet emplacement** | **3** modules | any wall level |
+| **Ballista emplacement** | **3** modules | plus masonry: level 1+ only — a palisade cannot carry an engine |
+| **Trebuchet emplacement** | **3** modules | plus masonry: level 1+ only |
 | **Gate** | **4** modules | the gatehouse eats three of them; the fourth keeps it off the next fitting |
 
 "Clear" means alive, finished, and not already a gate, a tower, an
@@ -946,37 +990,54 @@ from routing through a gate you would rather keep shut.
 #### Ballista and Trebuchet emplacements
 
 Two engines, in both cases **the emplacement and the engine are separate
-entities**: the emplacement is the platform (the thing the player builds,
+entities**: the emplacement is the platform (the thing the player mounts,
 the thing that is repaired, the thing that holds the ground) and the engine
 is a unit standing on it that **never moves**.
 
-They are placed **two ways**, and the pair works identically in both:
+**Emplacements are WALL-MOUNT ONLY (2026-09-25).** There is no free-standing
+ground platform any more: it is in no build list, and the placement command
+refuses its id on every peer. The one route is:
 
-- **On a wall** — the primary route. Select a curtain module and its action
-  panel offers **Mount Ballista** / **Mount Trebuchet**, subject to the clear
-  run above. The module stays wall (its HP, its footprint, its place in the
+- **On a wall.** Select a **masonry** curtain module (Stone, Battlemented or
+  Shielded — a timber palisade cannot carry an engine) and its action panel
+  offers **Mount Ballista** / **Mount Trebuchet**, subject to the clear run
+  above. The module stays wall (its HP, its footprint, its place in the
   segment); it gains corbels out to a planked fighting deck, a mantlet and
   the engine's pintle ring, and 50 % more HP to carry the weight. A module
   with an engine on it takes no garrison — the crew needs the whole crown.
-- **On the ground** — a free-standing platform placed like any building, for
-  a battery that is not part of a wall line.
 
-`EmplacementCrewSystem` does not care which: it sees a finished platform with
-no engine and raises one.
+The engine **stands on that deck**: its simulated height is the module's
+ground height plus the deck height (`AlanthorWall.EmplacementDeckHeight`,
+2.9 m — the crown plus 0.3 m), and the deck the module draws reads the same
+number, so the two cannot drift apart. The deck is identical at every
+masonry level; the Stone / Battlemented / Shielded merlons top out at
+2.60 / 2.80 / 2.90 m, at or under it. Standing 2.9 m up gives the engine the
+normal high-ground range and damage bonus.
 
-| | **Ballista Emplacement** | **Trebuchet Emplacement** |
+**A destroyed engine is not rebuilt for free (2026-09-25 — supersedes the
+45 s / 60 s free crew rebuild).** When the engine dies the platform stays,
+**empty**: the module keeps its deck and its extra HP but shoots nothing.
+Its action panel then offers **Replace Equipment** for a price, with a
+restore timer and **no builder**; when the timer ends the crew raises a new
+engine. While the restore runs, that card shows the countdown instead. The
+price and the timer are the ENGINE's own SO numbers (`cost` and
+`trainingTime` on `EmplacedBallista.asset` / `EmplacedTrebuchet.asset`) —
+about half the mount price, since the deck is already built. The order is one
+lockstep command (`ReplaceEquipment`, type 47) so every peer pays and starts
+the timer on the same tick. The FIRST engine still comes with the mount: it
+is raised the moment the mount completes.
+
+| | **Wall Ballista** | **Wall Trebuchet** |
 |---|---|---|
-| Id | `Alanthor_BallistaEmplacement` | `Alanthor_TrebuchetEmplacement` |
-| Cost | 140 S + 80 I | 260 S + 140 I + 40 V |
-| Build time | 35 s | 55 s |
-| Footprint | 4 × 4 m | 6 × 6 m |
-| Platform HP | 500 | 700 |
+| Id (mount price SO) | `Alanthor_BallistaEmplacement` | `Alanthor_TrebuchetEmplacement` |
+| Mounting cost / timer | **140 S + 80 I**, 12 s, no builder | **260 S + 140 I + 40 V**, 12 s, no builder |
 | Engine | `Alanthor_EmplacedBallista` — 260 HP, 46 dmg, 3.5 s, range 8–26 | `Alanthor_EmplacedTrebuchet` — 320 HP, 120 dmg, 8 s, range 14–48, 4 m splash |
 | Against | single targets, **+30 vs Building** | massed infantry and siege lines, **+45 vs Building** |
-| Movement | **none.** No move speed, no destination, no move order will take it | same |
-| Crew | if the engine is destroyed the platform rebuilds it in **45 s**, free. Killing the emplacement kills the engine with it | same, 60 s |
-| Where | on a curtain module (**Mount** on its action panel) or free-standing in own territory |
-| Mounting cost / timer | the same cost as the free-standing platform, 12 s, no builder |
+| Movement | **none.** No move speed, no destination; it holds position permanently — it never chases, never backs off out of its minimum range, never returns to a guard post. A target outside its range band is simply dropped | same |
+| Engine destroyed | the platform stays **empty**; its panel offers **Replace Equipment** | same |
+| Replace Equipment | **70 S + 40 I**, **15 s** restore, no builder | **130 S + 70 I + 20 V**, **20 s** restore, no builder |
+| Platform destroyed | the module dies as wall; its engine dies with it | same |
+| Where | a **masonry** curtain module only (level 1+), with the clear run of 3. Never on a palisade, never free-standing | same |
 
 The engines are deliberately *stronger per shot and slower* than the mobile
 Siege Yard versions and cost no population: an emplacement is ground you
@@ -1365,7 +1426,7 @@ stage).
 | Cost | **~300 Supplies + 150 Iron + 100 Veilstone + 30 Veilsteel** *(rebalanced to the cross-faction game-ender religious tier — see [Overview.md § Religious units](Overview.md#religious-units--cross-faction-game-ender-tier))* |
 | Pop | 1 |
 | Single unit / battalion | **Single** ([Overview.md § Unit granularity](Overview.md#unit-granularity--single-units-vs-battalions)) |
-| Role | Channels **Purification** rituals on Active veilstone nodes — Alanthor's Glow-generator. Vulnerable to direct attack, needs escort. *(Note: L4 building level conflicts with the L1-L3 cap stated in this culture summary — the Temple/Shrine's "level 4" is the spec-refinement #5 stage, not a fourth upgrade tier in the building-upgrade system.)* |
+| Role | Channels **Purification** rituals on Active veilstone nodes **and on rubble (Destroyed) wells** — right-click either with the Scholar selected; the well becomes its post (guard point), so it stays there when the rite ends. Damage 0: it never fights, even to return fire — Alanthor's Glow-generator. Vulnerable to direct attack, needs escort. *(Note: L4 building level conflicts with the L1-L3 cap stated in this culture summary — the Temple/Shrine's "level 4" is the spec-refinement #5 stage, not a fourth upgrade tier in the building-upgrade system.)* |
 
 ---
 

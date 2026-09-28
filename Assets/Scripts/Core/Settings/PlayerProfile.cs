@@ -56,6 +56,10 @@ namespace TheWaningBorder.Core.Config
             /// SmartMilitaryDrag bool did when it was on.</summary>
             public int DragPriority = 1;
 
+            /// <summary>Pencil ink outlines: -1 = never chosen (follow
+            /// PencilOutline.asset), 0 = off, 1 = on.</summary>
+            public int InkOutlines = -1;
+
             /// <summary>The player has been asked for a name and answered.
             /// Persisted, because "have we asked yet" has to survive the
             /// process that asked — see PlayerProfile.NameConfirmed.</summary>
@@ -120,6 +124,13 @@ namespace TheWaningBorder.Core.Config
         {
             get => Load().DragPriority;
             set { Load().DragPriority = value; }
+        }
+
+        /// <summary>-1 until the player has expressed a preference; then 0 / 1.</summary>
+        public static int InkOutlines
+        {
+            get => Load().InkOutlines;
+            set { Load().InkOutlines = value; }
         }
 
         public static int GraphicsQuality

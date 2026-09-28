@@ -17,9 +17,61 @@ namespace TheWaningBorder.Rendering
         private EntityManager _em;
         private EntityQuery _projectileQuery;
 
-        // Track spawned visuals
-        private readonly Dictionary<Entity, GameObject> _visuals = new();
+        // Track spawned visuals. A null value = an entity deliberately given no
+        // visual (catapult shots), remembered so the check does not repeat.
+        private readonly Dictionary<Entity, PooledVisual> _visuals = new();
         private readonly List<Entity> _toRemove = new();
+
+        // ── Pooling (2026-09-25) ──────────────────────────────────────────
+        // Every arrow was an Instantiate on spawn and a Destroy ~0.8 s later,
+        // every impact the same — a late-game volley is hundreds of each per
+        // second, and both are among the most expensive calls Unity has.
+        // Visuals are now recycled per template.
+        private sealed class PooledVisual
+        {
+            public GameObject Go;
+            public GameObject Template;
+            public TrailRenderer Trail;   // cached: was a GetComponentInChildren per spawn
+            public Vector3 RestScale;
+        }
+
+        private readonly Dictionary<GameObject, Stack<PooledVisual>> _pools = new();
+
+        private struct PendingImpact { public PooledVisual Visual; public float ReturnAt; }
+        private readonly List<PendingImpact> _liveImpacts = new();
+        /// <summary>How long an impact plays before it is recycled (it was
+        /// Destroy(impact, 3f)).</summary>
+        private const float ImpactLifetime = 3f;
+
+        private PooledVisual Rent(GameObject template)
+        {
+            if (_pools.TryGetValue(template, out var stack))
+            {
+                while (stack.Count > 0)
+                {
+                    var v = stack.Pop();
+                    if (v.Go != null) return v;
+                }
+            }
+            var go = Instantiate(template);
+            return new PooledVisual
+            {
+                Go = go,
+                Template = template,
+                Trail = go.GetComponentInChildren<TrailRenderer>(true),
+                RestScale = go.transform.localScale,
+            };
+        }
+
+        private void Return(PooledVisual v)
+        {
+            if (v == null || v.Go == null) return;
+            v.Go.SetActive(false);
+            v.Go.transform.localScale = v.RestScale;
+            if (!_pools.TryGetValue(v.Template, out var stack))
+                _pools[v.Template] = stack = new Stack<PooledVisual>();
+            stack.Push(v);
+        }
 
         // Prefab templates (procedural fallback + authored MagicArsenal wrappers).
         private GameObject _arrowTemplate;
@@ -99,8 +151,29 @@ namespace TheWaningBorder.Rendering
             if (_world == null || !_world.IsCreated) return;
 
             CleanupDestroyed();
-            SpawnMissing();
-            SyncTransforms();
+            RecycleFinishedImpacts();
+
+            // ONE snapshot for spawn + sync — the query was copied twice.
+            if (_projectileQuery == null) return;
+            var entities = _projectileQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
+            var transforms = _projectileQuery.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
+            SpawnMissing(entities, transforms);
+            SyncTransforms(entities, transforms);
+            entities.Dispose();
+            transforms.Dispose();
+        }
+
+        private void RecycleFinishedImpacts()
+        {
+            if (_liveImpacts.Count == 0) return;
+            float now = Time.time;
+            for (int i = _liveImpacts.Count - 1; i >= 0; i--)
+            {
+                if (now < _liveImpacts[i].ReturnAt) continue;
+                Return(_liveImpacts[i].Visual);
+                _liveImpacts[i] = _liveImpacts[_liveImpacts.Count - 1];
+                _liveImpacts.RemoveAt(_liveImpacts.Count - 1);
+            }
         }
 
         private void CleanupDestroyed()
@@ -115,8 +188,9 @@ namespace TheWaningBorder.Rendering
 
             foreach (var entity in _toRemove)
             {
-                if (_visuals.TryGetValue(entity, out var go))
+                if (_visuals.TryGetValue(entity, out var pv))
                 {
+                    var go = pv?.Go;
                     // Spawn impact VFX at projectile death — Veilstinger gets a
                     // tiny arcane pop at scale 1; Godsplinter shells reuse the
                     // same prefab scaled up so the explosion visually covers
@@ -126,27 +200,25 @@ namespace TheWaningBorder.Rendering
                     if (_impactScales.TryGetValue(entity, out var impactScale)
                         && _impactTemplate != null && go != null)
                     {
-                        var impact = Instantiate(_impactTemplate, go.transform.position, Quaternion.identity);
-                        impact.SetActive(true);
+                        var impact = Rent(_impactTemplate);
+                        impact.Go.transform.SetPositionAndRotation(go.transform.position, Quaternion.identity);
                         if (impactScale > 0f && !Mathf.Approximately(impactScale, 1f))
-                            impact.transform.localScale = Vector3.one * impactScale;
-                        // Hand the impact ~3 s to play out then collect it.
-                        Destroy(impact, 3f);
+                            impact.Go.transform.localScale = Vector3.one * impactScale;
+                        impact.Go.SetActive(true);
+                        // Hand the impact ~3 s to play out then recycle it.
+                        _liveImpacts.Add(new PendingImpact { Visual = impact, ReturnAt = Time.time + ImpactLifetime });
                     }
 
-                    if (go != null) Destroy(go);
+                    Return(pv);
                 }
                 _visuals.Remove(entity);
                 _impactScales.Remove(entity);
             }
         }
 
-        private void SpawnMissing()
+        private void SpawnMissing(Unity.Collections.NativeArray<Entity> entities,
+            Unity.Collections.NativeArray<LocalTransform> transforms)
         {
-            if (_projectileQuery == null) return;
-
-            var entities = _projectileQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
-            var transforms = _projectileQuery.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
 
             for (int i = 0; i < entities.Length; i++)
             {
@@ -158,7 +230,6 @@ namespace TheWaningBorder.Rendering
                 // arrow. Specific tags also opt the visual in for the impact-VFX
                 // spawn on death, with a per-projectile scale.
                 GameObject template;
-                string namePrefix;
                 float impactScale = 0f; // 0 = no impact
 
                 if (_em.HasComponent<CatapultShotTag>(entity))
@@ -177,12 +248,10 @@ namespace TheWaningBorder.Rendering
                     // Feraldis Firethrower: the Synty catapult fire effect, way
                     // down in scale — a hurled fireball, not a boulder.
                     template = _fireballTemplate;
-                    namePrefix = "Fireball";
                 }
                 else if (_em.HasComponent<GodsplinterProjectileTag>(entity) && _godsplinterTemplate != null)
                 {
                     template = _godsplinterTemplate;
-                    namePrefix = "GodSplinterShell";
                     // Scale the impact VFX to match the AOEProjectile.Radius so
                     // the blast visually covers the full splash zone. The base
                     // Veilstinger-impact prefab reads as roughly a 1.5 m pop,
@@ -196,32 +265,32 @@ namespace TheWaningBorder.Rendering
                 else if (_em.HasComponent<VeilstingerProjectileTag>(entity) && _veilstingerTemplate != null)
                 {
                     template = _veilstingerTemplate;
-                    namePrefix = "VeilstingerMissile";
                     impactScale = 1f;
                 }
                 else if (_em.HasComponent<LaserProjectileTag>(entity))
                 {
                     template = _laserTemplate;
-                    namePrefix = "Laser";
                 }
                 else
                 {
                     template = _arrowTemplate;
-                    namePrefix = "Arrow";
                 }
 
-                var go = Instantiate(template);
+                // Pooled; placed BEFORE activation so a recycled trail or
+                // particle system never samples its previous position. (The
+                // per-spawn name was a string allocation per arrow — debug
+                // naming only, dropped.)
+                var pooled = Rent(template);
+                var go = pooled.Go;
+                go.transform.SetPositionAndRotation((Vector3)transforms[i].Position, transforms[i].Rotation);
                 go.SetActive(true);
-                go.name = $"{namePrefix}_{entity.Index}";
-                go.transform.position = (Vector3)transforms[i].Position;
-                go.transform.rotation = transforms[i].Rotation;
 
                 // A trail sampled before the reposition would streak from the
-                // template's origin to the spawn point on the first frame.
-                // ArrowTrailTiers.Apply clears it again for the same reason,
-                // so an authored template that carries its own trail is still
-                // handled here.
-                var spawnTrail = go.GetComponentInChildren<TrailRenderer>();
+                // template's origin (or its last flight) to the spawn point on
+                // the first frame. ArrowTrailTiers.Apply clears it again for
+                // the same reason, so an authored template that carries its
+                // own trail is still handled here.
+                var spawnTrail = pooled.Trail;
                 if (spawnTrail != null) spawnTrail.Clear();
 
                 // Scale up siege projectiles (ballista bolts) for visual distinction —
@@ -243,10 +312,7 @@ namespace TheWaningBorder.Rendering
                 {
                     var proj = _em.GetComponentData<Projectile>(entity);
                     if (proj.DmgType == DamageType.Siege)
-                    {
                         go.transform.localScale = Vector3.one * 2.5f;
-                        go.name = $"Bolt_{entity.Index}";
-                    }
                 }
 
                 // Godsplinter shells are massive siege ordnance — scale 2× over
@@ -265,33 +331,23 @@ namespace TheWaningBorder.Rendering
                 }
 
 
-                _visuals[entity] = go;
+                _visuals[entity] = pooled;
                 if (impactScale > 0f) _impactScales[entity] = impactScale;
             }
-
-            entities.Dispose();
-            transforms.Dispose();
         }
 
-        private void SyncTransforms()
+        private void SyncTransforms(Unity.Collections.NativeArray<Entity> entities,
+            Unity.Collections.NativeArray<LocalTransform> transforms)
         {
-            if (_projectileQuery == null) return;
-
-            var entities = _projectileQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
-            var transforms = _projectileQuery.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
-
             for (int i = 0; i < entities.Length; i++)
             {
-                if (_visuals.TryGetValue(entities[i], out var go) && go != null)
+                if (_visuals.TryGetValue(entities[i], out var pv) && pv != null && pv.Go != null)
                 {
                     // Direct position sync — NO terrain height snapping
-                    go.transform.position = (Vector3)transforms[i].Position;
-                    go.transform.rotation = transforms[i].Rotation;
+                    pv.Go.transform.SetPositionAndRotation(
+                        (Vector3)transforms[i].Position, transforms[i].Rotation);
                 }
             }
-
-            entities.Dispose();
-            transforms.Dispose();
         }
 
         /// <summary>
@@ -471,9 +527,16 @@ namespace TheWaningBorder.Rendering
             // Clean up all visuals
             foreach (var kvp in _visuals)
             {
-                if (kvp.Value != null) Destroy(kvp.Value);
+                if (kvp.Value?.Go != null) Destroy(kvp.Value.Go);
             }
             _visuals.Clear();
+            foreach (var li in _liveImpacts)
+                if (li.Visual?.Go != null) Destroy(li.Visual.Go);
+            _liveImpacts.Clear();
+            foreach (var stack in _pools.Values)
+                foreach (var v in stack)
+                    if (v.Go != null) Destroy(v.Go);
+            _pools.Clear();
 
             if (_arrowTemplate != null) Destroy(_arrowTemplate);
             if (_laserTemplate != null) Destroy(_laserTemplate);

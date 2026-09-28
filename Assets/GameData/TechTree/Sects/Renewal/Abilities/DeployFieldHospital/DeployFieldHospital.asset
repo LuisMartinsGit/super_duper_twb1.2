@@ -19,11 +19,15 @@ MonoBehaviour:
   castTime: 3
   duration: 0
   cooldown: 300
-  radius: 12
+  radius: 15
   range: 0
   effects:
   - kind: 15
     value: 1
   aftermath: []
+  unlocksAtLevel: 1
+  damage: 0
+  damageType: 3
+  aimedAtPoint: 0
   icon: {fileID: 0}
   vfxPrefab: {fileID: 11165556360237, guid: 5c24f675fc47bb1e2447de147eae14a2, type: 3}

@@ -74,6 +74,20 @@ namespace TheWaningBorder.Entities
         public const float WallHeight = 2.6f;  // parapet crown top (solid curtain, no deck)
 
         /// <summary>
+        /// Top of the planked fighting deck a mounted module carries, above
+        /// the module's ground origin: the one number both the engine's
+        /// simulated Y (<see cref="MountEmplacement"/>) and the deck the
+        /// emplacement visual draws (PresentationSpawnSystem.Walls
+        /// CreateProceduralWallEmplacement) read, so the engine can never
+        /// float over or sink into its deck. It is wall GEOMETRY, derived
+        /// from the crown, not a per-entity balance stat — the same footing
+        /// as WallHeight. The deck is the same at every masonry level
+        /// (Stone / Battlemented / Shielded merlons top out at 2.60 / 2.80 /
+        /// 2.90 m, all at or under it), and palisades cannot mount.
+        /// </summary>
+        public const float EmplacementDeckHeight = WallHeight + 0.3f;
+
+        /// <summary>
         /// Hub radius, in metres: 0.7 of a wall section (2026-09-21 — 30 %
         /// smaller than the 2026-09-19 value of one full section, which made
         /// the tower the wall's main event and the curtain trim between
@@ -178,6 +192,12 @@ namespace TheWaningBorder.Entities
             // a button that looks fine does nothing at all.
             // docs/Design/Age_1_Alanthor.md § The four wall levels
             em.AddBuffer<ProductionQueueItem>(entity);
+            // ...and the CLOCK that runs it. ProductionQueueSystem only ticks
+            // entities carrying ProductionState, so a hub with the buffer
+            // alone took the money for Battlements and never started it
+            // (2026-09-27). The research executor also back-fills this onto
+            // hubs raised before the fix.
+            em.AddComponentData(entity, new ProductionState { Busy = 0, Remaining = 0 });
 
             AdoptOrphanedSegments(em, entity, position, faction);
 
@@ -274,7 +294,6 @@ namespace TheWaningBorder.Entities
                 typeof(LocalTransform),
                 typeof(FactionTag),
                 typeof(BuildingTag),
-                typeof(Health),
                 typeof(WallTag),
                 typeof(WallSegmentTag),
                 typeof(WallConnection)
@@ -283,7 +302,16 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(midpoint, rotation, 1f));
             em.SetComponentData(entity, new FactionTag { Value = faction });
             em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
-            em.SetComponentData(entity, new Health { Value = 1, Max = 1 }); // structural placeholder
+            // NO Health (2026-09-25). The segment is a graph edge; its cells
+            // carry every HP the wall has. It used to hold a 1/1 placeholder,
+            // and that made it a real target: splash and auto-acquire found
+            // it at the curve's midpoint, one point of damage killed it,
+            // DeathSystem collapsed it -- and with it the swept mesh, which a
+            // drawn segment OWNS (PresentationId 555) -- leaving every cell
+            // standing at full HP and invisible. Without Health nothing that
+            // deals damage or picks targets can match it; it lives exactly as
+            // long as one of its cells (WallSegmentCleanupSystem).
+            // docs/Design/Age_1_Alanthor.md § One mesh, invisible cells
             em.AddComponentData(entity, new WallTier { Level = WallTiers.LevelFor(em, faction) });
             em.SetComponentData(entity, new WallConnection { HubA = hubA, HubB = hubB, PosA = posA, PosB = posB });
 
@@ -982,7 +1010,10 @@ namespace TheWaningBorder.Entities
             var links = em.GetBuffer<WallHubLink>(hubA);
             for (int i = 0; i < links.Length; i++)
             {
-                if (links[i].ConnectedHub == hubB) return true;
+                // A link to a segment that no longer exists connects nothing
+                // (WallSegmentCleanupSystem prunes it on its next poll); until
+                // then it must not stop the gap from being redrawn.
+                if (links[i].ConnectedHub == hubB && em.Exists(links[i].Segment)) return true;
             }
             return false;
         }
@@ -1049,10 +1080,13 @@ namespace TheWaningBorder.Entities
             => WallTiers.AllowsTowers(WallTiers.Of(em, cell))
                && FreeRunAround(em, cell) >= FreeRunForTower;
 
-        /// <summary>An emplacement needs the same clear run a tower does. It
-        /// sits on any wall level: the engine is the weapon, not the wall.</summary>
+        /// <summary>An emplacement needs masonry under it and the same clear
+        /// run a tower does: a timber palisade cannot carry a war engine
+        /// (docs/Design/Age_1_Alanthor.md § A palisade is a fence). Re-checked
+        /// by the executor, not just the panel.</summary>
         public static bool CanConvertToEmplacement(EntityManager em, Entity cell)
-            => FreeRunAround(em, cell) >= FreeRunForTower;
+            => WallTiers.AllowsTowers(WallTiers.Of(em, cell))
+               && FreeRunAround(em, cell) >= FreeRunForTower;
 
         /// <summary>A gate needs a longer clear run — see FreeRunForGate.</summary>
         public static bool CanConvertToGate(EntityManager em, Entity cell)
@@ -1062,9 +1096,9 @@ namespace TheWaningBorder.Entities
         /// Mount an engine on a standing module: the module KEEPS being wall
         /// (its HP, its footprint, its place in the segment) and gains the
         /// emplacement's platform on its crown. EmplacementCrewSystem raises
-        /// the engine on it from there, exactly as it does for the
-        /// free-standing platform — one system, one pair of entities, whether
-        /// the platform stands on the ground or on a wall.
+        /// the first engine on it at once; a later engine is a paid Replace
+        /// Equipment order (docs/Design/Age_1_Alanthor.md § Ballista and
+        /// Trebuchet emplacements). Emplacements are wall-mount only.
         /// Structural: call outside any query iteration.
         /// </summary>
         public static void MountEmplacement(EntityManager em, Entity cell, bool trebuchet)
@@ -1078,13 +1112,10 @@ namespace TheWaningBorder.Entities
             em.AddComponentData(cell, new EmplacementCrew
             {
                 Engine = Entity.Null,
-                Rebuild = 0f,
-                RebuildTime = trebuchet
-                    ? TrebuchetEmplacement.RebuildSeconds : BallistaEmplacement.RebuildSeconds,
                 EngineId = engineId,
-                // The engine stands on the crown, not on the ground the
+                // The engine stands on the deck, not on the ground the
                 // module's origin sits on.
-                MountHeight = WallHeight + 0.3f,
+                MountHeight = EmplacementDeckHeight,
             });
 
             // A mounted module is reinforced to carry the engine.
@@ -1212,6 +1243,12 @@ namespace TheWaningBorder.Entities
 
             var pieces = q.ToEntityArray(Allocator.Temp);
             var touched = new List<Entity>();
+            // Structural adds are batched: one AddComponent over every piece
+            // that still lacks a WallTier (and one for the new garrison
+            // buffers) instead of an archetype move per piece, which on a
+            // late-game wall was hundreds of chunk moves in one frame.
+            var needTier = new NativeList<Entity>(pieces.Length, Allocator.Temp);
+            var needSlots = new NativeList<Entity>(16, Allocator.Temp);
             int promoted = 0;
             for (int i = 0; i < pieces.Length; i++)
             {
@@ -1219,13 +1256,18 @@ namespace TheWaningBorder.Entities
                 if (!em.Exists(e)) continue;
                 if (em.GetComponentData<FactionTag>(e).Value != faction) continue;
                 if (WallTiers.Of(em, e) >= level) continue;
+                // A piece already dead or collapsing is DeathSystem's. The HP
+                // rescale below floors at 1, so promoting it would revive it
+                // (and the re-clad would respawn its visual mid-collapse).
+                if (IsDyingPiece(em, e)) continue;
 
-                em.AddComponentData(e, new WallTier { Level = level });
+                if (em.HasComponent<WallTier>(e)) em.SetComponentData(e, new WallTier { Level = level });
+                else needTier.Add(e);
                 touched.Add(e);
                 promoted++;
 
-                // Segments are the graph edge and carry a placeholder HP; only
-                // the pieces that actually take damage are rescaled.
+                // Segments are the graph edge and carry no HP; only the
+                // pieces that actually take damage are rescaled.
                 if (em.HasComponent<WallSegmentTag>(e)) continue;
 
                 if (em.HasComponent<Health>(e))
@@ -1258,12 +1300,28 @@ namespace TheWaningBorder.Entities
                 int slots = WallTiers.GarrisonSlots(level);
                 if (slots > 0 && em.HasComponent<WallInstanceTag>(e)
                     && !em.HasComponent<WallGateTag>(e) && !em.HasBuffer<WallGarrisonSlot>(e))
+                    needSlots.Add(e);
+            }
+            pieces.Dispose();
+
+            if (needTier.Length > 0)
+            {
+                em.AddComponent<WallTier>(needTier.AsArray());
+                for (int i = 0; i < needTier.Length; i++)
+                    em.SetComponentData(needTier[i], new WallTier { Level = level });
+            }
+            if (needSlots.Length > 0)
+            {
+                int slots = WallTiers.GarrisonSlots(level);
+                em.AddComponent(needSlots.AsArray(), ComponentType.ReadWrite<WallGarrisonSlot>());
+                for (int i = 0; i < needSlots.Length; i++)
                 {
-                    var buf = em.AddBuffer<WallGarrisonSlot>(e);
+                    var buf = em.GetBuffer<WallGarrisonSlot>(needSlots[i]);
                     for (int k = 0; k < slots; k++) buf.Add(new WallGarrisonSlot { Occupant = Entity.Null });
                 }
             }
-            pieces.Dispose();
+            needTier.Dispose();
+            needSlots.Dispose();
 
             // Re-clad: the visuals read WallTier when they are built.
             var spawn = PresentationSpawnSystem.Instance;
@@ -1271,6 +1329,14 @@ namespace TheWaningBorder.Entities
                 for (int i = 0; i < touched.Count; i++)
                     if (em.Exists(touched[i])) spawn.ForceRespawn(touched[i]);
             return promoted;
+        }
+
+        /// <summary>At 0 HP, collapsing, or in its death animation.</summary>
+        static bool IsDyingPiece(EntityManager em, Entity e)
+        {
+            if (em.HasComponent<BuildingCollapseState>(e)) return true;
+            if (TransientState.Active<DeathAnimationState>(em, e)) return true;
+            return em.HasComponent<Health>(e) && em.GetComponentData<Health>(e).Value <= 0;
         }
 
         /// <summary>

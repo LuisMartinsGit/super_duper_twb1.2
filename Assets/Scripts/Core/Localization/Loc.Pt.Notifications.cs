@@ -28,6 +28,17 @@ namespace TheWaningBorder.Core.Localization
             t["Not enough resources"] = "Recursos insuficientes";
             t["Source hub no longer exists"] = "O bastião de origem já não existe";
             t["Those hubs are already connected"] = "Esses bastiões já estão ligados";
+            // Placement refusal reasons (TerritoryOwnership.PlacementRefusalText)
+            t["That building cannot be placed"] = "Esse edifício não pode ser colocado";
+            t["The ground here is unsuitable"] = "O terreno aqui não é adequado";
+            t["Something is already built here"] = "Já existe algo construído aqui";
+            t["Cannot build on cursed ground"] = "Não podes construir em terreno amaldiçoado";
+            t["The curse holds this territory"] = "A maldição domina este território";
+            t["A Hall must border a territory you hold"] = "Um Salão tem de fazer fronteira com um território que detenhas";
+            t["Builder too far — a worker must stand near the Hall site"] = "Construtor demasiado longe — um trabalhador tem de estar junto ao local do Salão";
+            t["Select a worker to place a Hall"] = "Seleciona um trabalhador para colocar um Salão";
+            t["The worker must stand inside the territory the Hall will claim"] = "O trabalhador tem de estar dentro do território que o Salão vai reclamar";
+            t["You have the most of that building you may hold"] = "Já tens o máximo permitido desse edifício";
 
             // ---- Command routing (CommandRouter) ----
             t["The well is sealed — an Iconoclast must crack it open first"] =
@@ -38,9 +49,21 @@ namespace TheWaningBorder.Core.Localization
             t["King Lexor already serves your realm"] = "O Rei Lexor já serve o teu reino";
             t["Your court already employs a Ledger"] = "A tua corte já emprega um Escrivão";
             t["Production queue full"] = "Fila de produção cheia";
+            // The Wall Rule refusal (WorldClickInput) — docs/Design/Combat_Pacing.md
+            t["Only siege can damage walls"] = "Apenas máquinas de cerco podem danificar muralhas";
+            // Directed building fire refused by every selected building (WorldClickInput)
+            t["Cannot fire on that target"] = "Não é possível disparar sobre esse alvo";
+
+            // ---- Wall drawing (BuildCommandPannel wall-draw release) ----
+            t["Wall is too short to close into a loop"] = "A muralha é demasiado curta para fechar em anel";
+            t["Wall bends too sharply"] = "A muralha curva demasiado";
+            t["Wall runs back over itself"] = "A muralha cruza-se a si própria";
+            t["Wall crosses ground you cannot build on"] = "A muralha atravessa terreno onde não podes construir";
 
             // ---- Shardroot (ShardrootSystem / ShardrootCarrySystem / TempleExplodeSystem) ----
             t["The SHARDROOT has been unearthed!"] = "O SHARDROOT foi desenterrado!";
+            t["A SHARDROOT sleeps beneath one of the wells. The first to work that well claims it."] =
+                "Um SHARDROOT dorme sob um dos poços. O primeiro a trabalhar esse poço reclama-o.";
             t["{0} has awakened the SHARDBOUND HERO!"] = "{0} despertou o HERÓI SHARDBOUND!";
             t["{0} carries the SHARDROOT!"] = "{0} transporta o SHARDROOT!";
             t["{0} has ENSHRINED the Shardroot — their powers surge!"] =

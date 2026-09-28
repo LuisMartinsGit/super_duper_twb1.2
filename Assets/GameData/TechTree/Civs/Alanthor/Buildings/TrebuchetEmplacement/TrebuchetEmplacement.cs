@@ -1,10 +1,16 @@
 // Trebuchet Emplacement — the PLATFORM half of the pair
 // (docs/Design/Age_1_Alanthor.md § Ballista and Trebuchet emplacements).
 //
-// The player places this; EmplacementCrewSystem raises the engine on it the
-// moment construction finishes, and raises a replacement 60 s after one is
-// killed. Killing the platform kills the engine with it. The platform does
-// not shoot — it is ground you have decided to hold.
+// UNREACHABLE SINCE 2026-09-25: emplacements are WALL-MOUNT ONLY
+// (docs/Design/Age_1_Alanthor.md § Ballista and Trebuchet emplacements).
+// This free-standing platform is no longer in any build list and
+// CommandRouter.IssuePlaceBuilding refuses its id. The factory and its
+// recipe row stay registered because the SO still loads (its cost is the
+// wall MOUNT's price) and old scenarios/saves may name it.
+//
+// Were one to exist, EmplacementCrewSystem would raise its engine when
+// construction finished; a killed engine leaves it empty until a paid
+// Replace Equipment order, exactly like a wall mount.
 
 using Unity.Entities;
 using Unity.Mathematics;
@@ -18,8 +24,6 @@ namespace TheWaningBorder.Entities
         public const string Id = "Alanthor_TrebuchetEmplacement";
         /// <summary>The engine this platform mounts.</summary>
         public const string EngineId = "Alanthor_EmplacedTrebuchet";
-        /// <summary>Seconds the crew takes to raise a replacement engine.</summary>
-        public const float RebuildSeconds = 60f;
         /// <summary>How high above the platform origin the engine stands.</summary>
         public const float MountHeight = 1.4f;
 
@@ -43,8 +47,6 @@ namespace TheWaningBorder.Entities
             em.AddComponentData(entity, new EmplacementCrew
             {
                 Engine = Entity.Null,
-                Rebuild = 0f,
-                RebuildTime = RebuildSeconds,
                 EngineId = EngineId,
                 MountHeight = MountHeight,
             });
@@ -70,8 +72,6 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new EmplacementCrew
             {
                 Engine = Entity.Null,
-                Rebuild = 0f,
-                RebuildTime = RebuildSeconds,
                 EngineId = EngineId,
                 MountHeight = MountHeight,
             });

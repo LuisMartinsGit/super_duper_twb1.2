@@ -107,26 +107,28 @@ namespace TheWaningBorder.Systems.Navigation
             var specList = SystemAPI.GetSingleton<WallPortalSpecList>();
             if (!specList.Specs.IsCreated) return;
 
+            // The previous spec set, so only the specs that actually came or
+            // went dirty their tiles (every hub/gate tile used to be
+            // re-dirtied on any change — and a REMOVED spec's tiles were
+            // never dirtied at all, because only the new list was walked).
+            var oldKeys = new NativeHashSet<ulong>(math.max(8, specList.Specs.Length), Allocator.Temp);
+            var oldSpecs = new NativeList<WallPortalSpec>(math.max(8, specList.Specs.Length), Allocator.Temp);
+            for (int i = 0; i < specList.Specs.Length; i++)
+            {
+                oldKeys.Add(SpecKey(specList.Specs[i]));
+                oldSpecs.Add(specList.Specs[i]);
+            }
+
             specList.Specs.Clear();
 
             // ── Climb portals (WallHubTag entities -- stair / access cores) ─
             using (var hubEntities = _hubQuery.ToEntityArray(Allocator.Temp))
             using (var hubXfs = _hubQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp))
             {
-                var order = new NativeArray<int>(hubEntities.Length, Allocator.Temp);
-                for (int i = 0; i < order.Length; i++) order[i] = i;
-                // Insertion sort by entity.Index asc (DR-10).
-                for (int i = 1; i < order.Length; i++)
-                {
-                    int k = order[i];
-                    int j = i - 1;
-                    while (j >= 0 && hubEntities[order[j]].Index > hubEntities[k].Index)
-                    {
-                        order[j + 1] = order[j];
-                        j--;
-                    }
-                    order[j + 1] = k;
-                }
+                // Sort by entity.Index asc (DR-10). Packed (Index, position)
+                // keys through NativeSort: the insertion sort was O(n^2) in
+                // the hub count, and a late game has hundreds of hubs.
+                var order = SortedByIndex(hubEntities);
 
                 for (int oi = 0; oi < order.Length; oi++)
                 {
@@ -155,19 +157,7 @@ namespace TheWaningBorder.Systems.Navigation
             using (var gateXfs = _gateQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp))
             using (var gateFactions = _gateQuery.ToComponentDataArray<FactionTag>(Allocator.Temp))
             {
-                var order = new NativeArray<int>(gateEntities.Length, Allocator.Temp);
-                for (int i = 0; i < order.Length; i++) order[i] = i;
-                for (int i = 1; i < order.Length; i++)
-                {
-                    int k = order[i];
-                    int j = i - 1;
-                    while (j >= 0 && gateEntities[order[j]].Index > gateEntities[k].Index)
-                    {
-                        order[j + 1] = order[j];
-                        j--;
-                    }
-                    order[j + 1] = k;
-                }
+                var order = SortedByIndex(gateEntities);
 
                 for (int oi = 0; oi < order.Length; oi++)
                 {
@@ -214,11 +204,11 @@ namespace TheWaningBorder.Systems.Navigation
             specList.Generation++;
             SystemAPI.SetSingleton(specList);
 
-            // task-112 M5 -- topology changed; flag the spec-covered tiles
-            // dirty so IncrementalPortalRebuildSystem on the NEXT tick
-            // picks the new wall-portal specs into the graph blob. Without
-            // this nudge, the wall-stamp pass might have already drained
-            // the dirty set in the same tick the walls were created.
+            // task-112 M5 -- topology changed; flag the tiles of every spec
+            // that was added or removed dirty so IncrementalPortalRebuildSystem
+            // on the NEXT tick picks the new wall-portal specs into the graph
+            // blob. Without this nudge, the wall-stamp pass might have already
+            // drained the dirty set in the same tick the walls were created.
             if (SystemAPI.HasSingleton<NavDirtyTiles>())
             {
                 var dirty = SystemAPI.GetSingleton<NavDirtyTiles>();
@@ -226,19 +216,75 @@ namespace TheWaningBorder.Systems.Navigation
                 {
                     int tileSize = PortalGraphSingleton.TileSize;
                     int tilesX = (grid.Width + tileSize - 1) / tileSize;
+                    var newKeys = new NativeHashSet<ulong>(math.max(8, specList.Specs.Length), Allocator.Temp);
+                    bool any = false;
                     for (int i = 0; i < specList.Specs.Length; i++)
                     {
                         var s = specList.Specs[i];
-                        int tx = s.SourceCell.x / tileSize;
-                        int tz = s.SourceCell.y / tileSize;
-                        dirty.DirtyTileIndices.Add(tz * tilesX + tx);
-                        tx = s.TargetCell.x / tileSize;
-                        tz = s.TargetCell.y / tileSize;
-                        dirty.DirtyTileIndices.Add(tz * tilesX + tx);
+                        ulong k = SpecKey(s);
+                        newKeys.Add(k);
+                        if (oldKeys.Contains(k)) continue;
+                        DirtySpecTiles(ref dirty, s, tileSize, tilesX);
+                        any = true;
                     }
+                    for (int i = 0; i < oldSpecs.Length; i++)
+                    {
+                        if (newKeys.Contains(SpecKey(oldSpecs[i]))) continue;
+                        DirtySpecTiles(ref dirty, oldSpecs[i], tileSize, tilesX);
+                        any = true;
+                    }
+                    // Spec ORDER is node order in the blob, so any change at
+                    // all needs the graph rebuilt, not just a slab flush.
+                    if (any) dirty.TopologyDirty = 1;
+                    newKeys.Dispose();
                     SystemAPI.SetSingleton(dirty);
                 }
             }
+            oldKeys.Dispose();
+            oldSpecs.Dispose();
+        }
+
+        private static void DirtySpecTiles(ref NavDirtyTiles dirty, in WallPortalSpec s, int tileSize, int tilesX)
+        {
+            dirty.DirtyTileIndices.Add((s.SourceCell.y / tileSize) * tilesX + s.SourceCell.x / tileSize);
+            dirty.DirtyTileIndices.Add((s.TargetCell.y / tileSize) * tilesX + s.TargetCell.x / tileSize);
+        }
+
+        /// <summary>Identity of a spec for the old/new diff: every field the
+        /// graph appender reads, plus the source entity.</summary>
+        private static ulong SpecKey(in WallPortalSpec s)
+        {
+            unchecked
+            {
+                const ulong P = 1099511628211UL;
+                ulong h = 1469598103934665603UL;
+                h = (h ^ (uint)s.Kind) * P;
+                h = (h ^ (uint)s.SourceCell.x) * P;
+                h = (h ^ (uint)s.SourceCell.y) * P;
+                h = (h ^ (uint)s.SourceLayer) * P;
+                h = (h ^ (uint)s.TargetCell.x) * P;
+                h = (h ^ (uint)s.TargetCell.y) * P;
+                h = (h ^ (uint)s.TargetLayer) * P;
+                h = (h ^ (uint)s.OwnerId) * P;
+                h = (h ^ (uint)s.SourceEntity.Index) * P;
+                h = (h ^ (uint)s.SourceEntity.Version) * P;
+                return h;
+            }
+        }
+
+        /// <summary>Array positions ordered by entity.Index ascending.
+        /// Index is unique among live entities, so the packed key is a total
+        /// order and the unstable sort is deterministic.</summary>
+        private static NativeArray<int> SortedByIndex(NativeArray<Entity> ents)
+        {
+            var keys = new NativeArray<ulong>(ents.Length, Allocator.Temp);
+            for (int i = 0; i < ents.Length; i++)
+                keys[i] = ((ulong)(uint)ents[i].Index << 32) | (uint)i;
+            keys.Sort();
+            var order = new NativeArray<int>(ents.Length, Allocator.Temp);
+            for (int i = 0; i < ents.Length; i++) order[i] = (int)(keys[i] & 0xFFFFFFFFUL);
+            keys.Dispose();
+            return order;
         }
 
         public void OnDestroy(ref SystemState state)

@@ -42,7 +42,16 @@ namespace TheWaningBorder.Economy
         public static void ClearCache()
         {
             _bankCache.Clear();
+            _noBankVersion.Clear();
         }
+
+        // Factions KNOWN to have no bank (the curse's Faction.Border never has
+        // one), with the bank query's order version at the time of the miss.
+        // While that version stands no bank entity has been created or
+        // destroyed, so the miss is still true and the full snapshot below is
+        // skipped. Exact, not time-based: any structural change to a bank's
+        // chunks moves the version and the next lookup re-scans.
+        private static readonly Dictionary<Faction, int> _noBankVersion = new Dictionary<Faction, int>();
 
         /// <summary>
         /// Try to find the resource bank entity for a faction.
@@ -64,6 +73,12 @@ namespace TheWaningBorder.Economy
             }
 
             var query = _bankQuery.Get(em, BankQueryTypes);
+            int orderVersion = query.GetCombinedComponentOrderVersion();
+            if (_noBankVersion.TryGetValue(fac, out int missAt) && missAt == orderVersion)
+            {
+                bank = Entity.Null;
+                return false;
+            }
             using var ents = query.ToEntityArray(Allocator.Temp);
             using var tags = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
 
@@ -80,6 +95,7 @@ namespace TheWaningBorder.Economy
             }
 
             bank = Entity.Null;
+            _noBankVersion[fac] = orderVersion;
             return false;
         }
 

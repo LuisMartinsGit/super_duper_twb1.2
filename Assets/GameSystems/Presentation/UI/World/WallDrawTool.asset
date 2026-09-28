@@ -14,6 +14,14 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   sampleSpacing: 1
   minBendRadius: 12
+  curvatureWindow: 6
+  smoothingRadius: 3
+  selfClearance: 3
+  snapBlendLength: 6
+  snapBlendMaxLength: 10
+  snapBlendMaxFraction: 0.35
+  bendRelaxPasses: 8
+  closeGuardRadius: 5
   maxModulesPerSegment: 11
   commandSampleSpacing: 2
   backtrackRadius: 1.5
@@ -23,3 +31,4 @@ MonoBehaviour:
   hubRingRadius: 3
   groundOffset: 0.25
   invalidColor: {r: 0.85, g: 0.2, b: 0.15, a: 1}
+  loopCloseColor: {r: 0.35, g: 0.9, b: 1, a: 1}

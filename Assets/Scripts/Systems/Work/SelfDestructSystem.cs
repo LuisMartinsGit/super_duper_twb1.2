@@ -58,7 +58,7 @@ namespace TheWaningBorder.Systems.Work
 
                     // Determine building type and look up cost
                     string buildingId = GetBuildingId(em, entity);
-                    if (buildingId != null && BuildCosts.TryGet(buildingId, out var cost))
+                    if (buildingId != null && BuildCosts.TryGetPaid(em, entity, buildingId, out var cost))
                     {
                         // Refund 80% of construction cost, plus a salvage bonus
                         // of 10% of the Veilsteel that went into it. The salvage

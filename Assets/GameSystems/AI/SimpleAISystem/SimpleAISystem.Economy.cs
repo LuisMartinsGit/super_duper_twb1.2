@@ -360,11 +360,12 @@ namespace TheWaningBorder.AI
         private static int CountAliveByUnitId(EntityManager em, Faction faction, string unitId)
         {
             var q = QC_UnitTypeIdFactionTag.Get(em, QT_UnitTypeIdFactionTag);
+            var key = new FixedString64Bytes(unitId);   // no ToString per unit
             int n = 0;
             using (var uids = q.ToComponentDataArray<UnitTypeId>(Allocator.Temp))
             using (var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp))
                 for (int i = 0; i < uids.Length; i++)
-                    if (facs[i].Value == faction && uids[i].Value.ToString() == unitId)
+                    if (facs[i].Value == faction && uids[i].Value == key)
                         n++;
             return n;
         }
@@ -649,7 +650,15 @@ namespace TheWaningBorder.AI
                 era = em.GetComponentData<FactionEra>(bank).Value;
             if (era < 2) return;
 
-            // Throttle (~20 s per faction).
+            // Throttle (~20 s per faction). The FIRST sweep is offset by
+            // faction (2026-09-25), so eight brains do not all run their
+            // sweep in the same second for the rest of the match.
+            if (!_nextResearchSweep.ContainsKey((int)faction))
+            {
+                _nextResearchSweep[(int)faction] =
+                    now + Cfg.researchSweepInterval * (((int)faction & 7) / 8f);
+                return;
+            }
             if (_nextResearchSweep.TryGetValue((int)faction, out float next) && now < next)
                 return;
             _nextResearchSweep[(int)faction] = now + Cfg.researchSweepInterval;
@@ -720,6 +729,7 @@ namespace TheWaningBorder.AI
                     TheWaningBorder.Core.Commands.CommandRouter.IssueResearch(
                         em, building, techId,
                         TheWaningBorder.Core.Commands.CommandSource.AI);
+                    InvalidateThinkMemo();
                     AILogger.Log(faction, "RESEARCH", $"sweep: {techId} at {buildingId}");
                     break; // one tech per building per sweep
                 }
@@ -875,12 +885,22 @@ namespace TheWaningBorder.AI
 
         private bool TryBuildBuildingBudgeted(EntityManager em, Faction faction,
             string buildingId, AIBudgetCategory cat, bool honourReservation = true)
+            => TryBuildBuildingBudgeted(em, faction, buildingId, cat, honourReservation, out _);
+
+        /// <summary>As above, reporting why it refused ("wallet short" or
+        /// the placement reason) — so a caller that logs the cause never has
+        /// to re-run the site search to learn it.</summary>
+        private bool TryBuildBuildingBudgeted(EntityManager em, Faction faction,
+            string buildingId, AIBudgetCategory cat, bool honourReservation, out string reason)
         {
-            if (!TechCatalog.TryGetBuilding(buildingId, out var def) || def == null) return false;
+            reason = null;
+            if (!TechCatalog.TryGetBuilding(buildingId, out var def) || def == null)
+            { reason = "no catalog def"; return false; }
             var cost = AICommon.ToCost(def.cost);
             if (!AIBudget.TryAfford(faction, cat, cost,
-                    (float)SystemAPI.Time.ElapsedTime, honourReservation)) return false;
-            if (!TryBuildBuilding(em, faction, buildingId)) return false;
+                    (float)SystemAPI.Time.ElapsedTime, honourReservation))
+            { reason = "wallet short"; return false; }
+            if (!TryBuildBuildingWithReason(em, faction, buildingId, out reason)) return false;
             AIBudget.RecordSpend(faction, cat, cost);
             return true;
         }
@@ -904,6 +924,7 @@ namespace TheWaningBorder.AI
         /// stops the ladder re-buying an in-flight tech every tick.</summary>
         private static bool IsResearchInFlight(EntityManager em, Faction faction, string techId)
         {
+            var key = new FixedString64Bytes(techId);   // no ToString per slot
             var q = QC_FactionTagResearchQueueItem.Get(em, QT_FactionTagResearchQueueItem);
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
@@ -916,7 +937,7 @@ namespace TheWaningBorder.AI
                     // The buffer carries level-ups too now; only a research
                     // item can BE this tech.
                     if (buf[j].Kind != ProductionKind.Research) continue;
-                    if (buf[j].Id.ToString() == techId) return true;
+                    if (buf[j].Id == key) return true;
                 }
             }
             return false;

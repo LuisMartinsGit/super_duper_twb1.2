@@ -24,6 +24,12 @@ namespace TheWaningBorder.Systems.Sect
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct SectBuildingLeverSystem : ISystem
     {
+        // Aura regen lands once per whole second (match-phased). The old
+        // per-frame ceil with a floor of 1 healed 1 HP every frame, which
+        // made every unit near a Renewal / Reclamation chapel immune to
+        // damage over time.
+        private SimCadence.Periodic _regenTimer;
+
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<ChapelTag>();
@@ -33,6 +39,7 @@ namespace TheWaningBorder.Systems.Sect
         {
             var em = state.EntityManager;
             float dt = SystemAPI.Time.DeltaTime;
+            bool regenDue = _regenTimer.Due(dt, 1f);
 
             // Snapshot all chapels and their auras once per tick.
             var chapelPositions = new NativeList<float3>(Allocator.Temp);
@@ -123,12 +130,12 @@ namespace TheWaningBorder.Systems.Sect
                 }
 
                 // Inline HP regen — bounded by MaxHP, applied per dt.
-                if (best.HpRegenPerSecond > 0
+                if (regenDue
+                    && best.HpRegenPerSecond > 0
                     && health.ValueRO.Value > 0
                     && health.ValueRO.Value < health.ValueRO.Max)
                 {
-                    int delta = (int)math.ceil(best.HpRegenPerSecond * dt);
-                    if (delta < 1) delta = 1;
+                    int delta = math.max(1, (int)best.HpRegenPerSecond);
                     int newHp = math.min(health.ValueRO.Max, health.ValueRO.Value + delta);
                     health.ValueRW.Value = newHp;
                 }

@@ -40,7 +40,8 @@ namespace TheWaningBorder.Core.Diagnostics
 
         /// <summary>The previous COMPLETE frame's phase durations, in ms:
         /// Init, EarlyUpdate, FixedUpdate, PreUpdate, Update, PreLateUpdate,
-        /// PostLateUpdate, and Tail (render submit + present + vsync wait).
+        /// PostLateUpdate (includes render submission), and Tail (from the end
+        /// of PostLateUpdate to the next frame: present + vsync / pacing).
         /// Formatted for the hitch log; empty until two frames have run.</summary>
         public static string Describe()
         {
@@ -83,7 +84,12 @@ namespace TheWaningBorder.Core.Diagnostics
                 marker++;
 
                 var subs = phase.subSystemList ?? System.Array.Empty<PlayerLoopSystem>();
-                var extended = new PlayerLoopSystem[subs.Length + 1];
+                // PostLateUpdate also gets a marker at its END: that is where
+                // the tail begins. Without it the tail was timed from
+                // PostLateUpdate's ENTRY, so it silently swallowed the whole
+                // phase (render submission lives there) and PostLate read 0.
+                bool closeTail = index == 6;
+                var extended = new PlayerLoopSystem[subs.Length + (closeTail ? 2 : 1)];
                 int captured = index;
                 extended[0] = new PlayerLoopSystem
                 {
@@ -91,6 +97,12 @@ namespace TheWaningBorder.Core.Diagnostics
                     updateDelegate = () => Mark(captured),
                 };
                 System.Array.Copy(subs, 0, extended, 1, subs.Length);
+                if (closeTail)
+                    extended[extended.Length - 1] = new PlayerLoopSystem
+                    {
+                        type = typeof(PlayerLoopPhaseProfiler),
+                        updateDelegate = MarkTailStart,
+                    };
                 phase.subSystemList = extended;
                 loop.subSystemList[i] = phase;
             }
@@ -112,7 +124,10 @@ namespace TheWaningBorder.Core.Diagnostics
                     for (int i = 0; i < 7; i++)
                     {
                         long from = _entry[i];
-                        long to = i < 6 ? _entry[i + 1] : _entry[7];
+                        // A phase ends where the next one that RAN begins
+                        // (FixedUpdate is skipped on some frames).
+                        long to = 0;
+                        for (int j = i + 1; j <= 7 && to == 0; j++) to = _entry[j];
                         _lastMs[i] = from != 0 && to != 0
                             ? (to - from) * 1000.0 / Stopwatch.Frequency : 0;
                     }
@@ -132,14 +147,15 @@ namespace TheWaningBorder.Core.Diagnostics
             // FixedUpdate can run its list several times a frame; keep the
             // FIRST entry so the phase spans all iterations.
             if (_entry[phase] == 0) _entry[phase] = now;
-            if (phase == 6) _entry[7] = 0;   // reset; set below on exit-marker
 
             _cursor = phase;
+        }
 
-            // PostLateUpdate is the last phase we mark the entry of; its end
-            // (= tail start) is approximated by the entry of the next frame,
-            // so also stamp a "last marker seen" for the tail computation.
-            _entry[7] = now;
+        /// <summary>End of PostLateUpdate = start of the tail (present +
+        /// frame pacing up to the next frame's Initialization).</summary>
+        private static void MarkTailStart()
+        {
+            _entry[7] = Stopwatch.GetTimestamp();
         }
     }
 }

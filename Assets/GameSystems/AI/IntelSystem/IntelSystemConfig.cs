@@ -22,5 +22,10 @@ namespace TheWaningBorder.AI
 
         // Damage signal stamped per damaged own-unit per tick.
         public int damageThreatStamp;
+
+        /// <summary>Seconds a MOBILE sighting (army unit, worker) survives
+        /// without being seen again before it is dropped. Structures never
+        /// age out — only their death removes them. 0 disables aging.</summary>
+        public float mobileSightingMaxAge;
     }
 }

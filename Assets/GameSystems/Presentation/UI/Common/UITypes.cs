@@ -20,6 +20,11 @@ public struct EntityDisplayInfo
     // Health (nullable - not all entities have health)
     public int? CurrentHealth;
     public int? MaxHealth;
+
+    // Shield (equipment-tier ShieldBar). Shield points are hit points spent
+    // before Health (docs/Design/Combat_Pacing.md). 0 / 0 = no shield.
+    public int CurrentShield;
+    public int MaxShield;
     
     // Combat stats (nullable)
     public bool HasCombatStats;

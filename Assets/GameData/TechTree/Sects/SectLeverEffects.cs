@@ -5,9 +5,8 @@
 // passive has its own bespoke trigger and side effects. The other three
 // levers are implemented uniformly:
 //
-//   - Building lever: chapel emits a faction-wide aura to allied units in
-//     range of the chapel. Each sect's aura is a SpellBuff parameter set
-//     (damage / armor / speed / reflect) plus a flat HP regen.
+//   - Building lever: RETIRED. There is no chapel aura (docs/Design/Sects.md
+//     section 1); AuraOf returns no aura for every sect.
 //
 //   - Unit lever: per-faction passive bonus applied to a designated
 //     UnitClass when the lever is at Lv 1+. Stat-bump only — no new
@@ -133,6 +132,38 @@ namespace TheWaningBorder.Economy
         /// the legacy per-sect fallback. Lets the UI show real names instead of
         /// the old "Locked" placeholder without guessing.</summary>
         public bool IsCanon => Kind != SectActivePowerKind.None && Name != null;
+
+        // Backing pair so a spec that never names a type reads as Magic —
+        // a plain enum field would default to Melee (0), which no spell is.
+        private DamageType _damageType;
+        private bool _damageTypeSet;
+
+        /// <summary>
+        /// Armor column this power's damage is measured against, routed
+        /// through SpellDamage.Apply. Magic unless the design names another
+        /// (Justice's Sentence is True damage, docs/Design/Sects.md).
+        /// docs/Design/Spells.md.
+        /// </summary>
+        public DamageType DamageType
+        {
+            get => _damageTypeSet ? _damageType : DamageType.Magic;
+            set { _damageType = value; _damageTypeSet = true; }
+        }
+
+        /// <summary>
+        /// The damage number this power deals per victim, for the kinds that
+        /// deal a flat amount (it is carried in <see cref="Magnitude"/>; for
+        /// Writ of Attainder it is the amount PER KILL). 0 for everything else,
+        /// including Unmake (a fraction of current HP) and Spite (a pool).
+        /// Read-only on purpose: the tables keep authoring Magnitude.
+        /// </summary>
+        public float Damage => Kind switch
+        {
+            SectActivePowerKind.SmiteCircle     => Magnitude,
+            SectActivePowerKind.RevealedStrike  => Magnitude,
+            SectActivePowerKind.AttainderStrike => Magnitude,
+            _                                   => 0f,
+        };
     }
 
     /// <summary>
@@ -147,6 +178,17 @@ namespace TheWaningBorder.Economy
         /// <summary>Duration value meaning "does not expire" — Sew Disorder III
         /// (until killed) and Raise Anew III (until destroyed).</summary>
         public const float Permanent = 0f;
+
+        // There is no global cooldown scale. Until 2026-09-27 every authored
+        // cooldown was multiplied by 0.5 (CooldownScale), so a table saying
+        // 240 charged 120. That halving is folded into the authored numbers:
+        // what a spec says is what a player without Shrine or Shardroot waits
+        // (docs/Design/Spells.md sections 5 and 8.2).
+
+        /// <summary>Cooldown scale with the Shardroot enshrined for the sect:
+        /// "all sect power cooldowns reduced by 30%"
+        /// (docs/Design/Curse_And_Shardroot.md).</summary>
+        public const float ShardrootCooldownScale = 0.7f;
 
         /// <summary>
         /// Canon active for one (sect, slot, level). Slot is 1-based to match
@@ -196,9 +238,10 @@ namespace TheWaningBorder.Economy
             };
 
         /// <summary>
-        /// Magnitude multiplier per lever level. Lv I = 1.00, Lv II = 1.5,
-        /// Lv III = 2.0 — applied by the consuming systems on the relevant
-        /// axes (damage / armor / regen). Cooldowns scale inversely.
+        /// Magnitude multiplier per level. Lv I = 1.00, Lv II = 1.5,
+        /// Lv III = 2.0 -- the level rule of the spell ladder
+        /// (docs/Design/Spells.md section 8.3, SpellLadder). Cooldowns do NOT
+        /// scale with level: they are flat per power (section 8.2).
         /// </summary>
         public static float LevelScalar(byte level) => level switch
         {
@@ -207,39 +250,14 @@ namespace TheWaningBorder.Economy
             _ => 1.0f,
         };
 
-        public static SectAuraSpec AuraOf(string sectId)
-        {
-            // Default: small benign aura. Per-sect overrides below.
-            switch (sectId)
-            {
-                case SectConfig.Antiquity:
-                    return new SectAuraSpec { Radius = 8f, DamageMultiplier = 1.05f };
-                case SectConfig.Renewal:
-                    return new SectAuraSpec { Radius = 10f, HpRegenPerSecond = 1 };
-                case SectConfig.Fortitude:
-                    return new SectAuraSpec { Radius = 8f, ArmorBonus = 2 };
-                case SectConfig.Reclamation:
-                    return new SectAuraSpec { Radius = 8f, ArmorBonus = 1, HpRegenPerSecond = 1 };
-                case SectConfig.Silence:
-                    return new SectAuraSpec { Radius = 8f, ArmorBonus = 3 };
-                case SectConfig.Justice:
-                    return new SectAuraSpec { Radius = 9f, DamageMultiplier = 1.05f, ArmorBonus = 1 };
-                case SectConfig.Veneration:
-                    return new SectAuraSpec { Radius = 8f, DamageMultiplier = 1.05f };
-                case SectConfig.Witness:
-                    return new SectAuraSpec { Radius = 12f, DamageMultiplier = 1.03f };
-                case SectConfig.War:
-                    return new SectAuraSpec { Radius = 8f, DamageMultiplier = 1.08f };
-                case SectConfig.Ash:
-                    return new SectAuraSpec { Radius = 6f, DamageReflect = 0.10f };
-                case SectConfig.Ruin:
-                    return new SectAuraSpec { Radius = 8f, DamageMultiplier = 1.06f };
-                case SectConfig.Wrath:
-                    return new SectAuraSpec { Radius = 7f, DamageMultiplier = 1.05f, DamageReflect = 0.05f };
-                default:
-                    return default;
-            }
-        }
+        /// <summary>
+        /// Chapel aura for a sect: none, for every sect. docs/Design/Sects.md
+        /// section 1: "There is no chapel aura" -- a sect projects no passive
+        /// area effect unless its Passive or Research says so. Radius 0 is the
+        /// "no aura" signal SectBuildingLeverSystem already skips, so that
+        /// system is a no-op until it is deleted.
+        /// </summary>
+        public static SectAuraSpec AuraOf(string sectId) => default;
 
         public static SectUnitLeverSpec UnitOf(string sectId)
         {
@@ -262,56 +280,14 @@ namespace TheWaningBorder.Economy
             }
         }
 
-        public static SectActivePowerSpec ActiveOf(string sectId)
-        {
-            // Cut-over sects answer from canon; the table below is the legacy
-            // fallback for the eight that have not had their pass yet.
-            var canon = CanonActive(sectId, 1, 1);
-            if (canon.Kind != SectActivePowerKind.None) return canon;
+        public static SectActivePowerSpec ActiveOf(string sectId) => ActiveOf(sectId, 1);
 
-            switch (sectId)
-            {
-                // Recall the Codex (spec): AoE freeze of enemy attack/ability
-                // cooldown recovery. Duration rides Magnitude so the level
-                // scalar stretches it (10s / 15s / 20s at Lv I/II/III);
-                // Lv III's extra "+50% current cooldowns" surge is handled
-                // at dispatch.
-                case SectConfig.Antiquity:   return new SectActivePowerSpec { Kind = SectActivePowerKind.FreezeCooldowns, Radius = 10f, Magnitude = 10f, Cooldown = 300f };
-                case SectConfig.Renewal:     return new SectActivePowerSpec { Kind = SectActivePowerKind.HealCircle,    Radius = 8f,  Magnitude = 50f, Cooldown = 90f };
-                case SectConfig.Fortitude:   return new SectActivePowerSpec { Kind = SectActivePowerKind.ArmorCircle,   Radius = 8f,  Magnitude = 5f,  Duration = 12f, Cooldown = 120f };
-                case SectConfig.Reclamation: return new SectActivePowerSpec { Kind = SectActivePowerKind.HealCircle,    Radius = 6f,  Magnitude = 30f, Cooldown = 75f };
-                case SectConfig.Silence:     return new SectActivePowerSpec { Kind = SectActivePowerKind.SpeedCircle,   Radius = 8f,  Magnitude = 1.20f, Duration = 8f, Cooldown = 90f };
-                // Tiered actives (design 2026-07-05): tier 1 is the UTILITY
-                // skill; the aggressive skills moved to tiers 2/3 (see the
-                // ActiveOf(sectId, tier) overload below).
-                case SectConfig.Justice:     return new SectActivePowerSpec { Kind = SectActivePowerKind.RevealCircle,  Radius = 14f, Duration = 10f, Cooldown = 60f };
-                case SectConfig.Veneration:  return new SectActivePowerSpec { Kind = SectActivePowerKind.DamageCircle,  Radius = 8f,  Magnitude = 1.20f, Duration = 10f, Cooldown = 120f };
-                case SectConfig.Witness:     return new SectActivePowerSpec { Kind = SectActivePowerKind.RevealCircle,  Radius = 16f, Duration = 12f, Cooldown = 75f };
-                case SectConfig.War:         return new SectActivePowerSpec { Kind = SectActivePowerKind.SpeedCircle,   Radius = 8f,  Magnitude = 1.30f, Duration = 8f,  Cooldown = 75f };
-                case SectConfig.Ash:         return new SectActivePowerSpec { Kind = SectActivePowerKind.BurningCircle, Radius = 6f,  Magnitude = 8f,  Duration = 6f,  Cooldown = 120f };
-                // Unmake I — one building, half its current hp. Radius is the
-                // search range, NOT a blast: exactly one building is ever hit.
-                case SectConfig.Ruin:        return new SectActivePowerSpec { Kind = SectActivePowerKind.UnmakeBuilding, Radius = 8f, Magnitude = 0.50f, Cooldown = 150f };
-                // Spite I — small area.
-                case SectConfig.Wrath:       return new SectActivePowerSpec { Kind = SectActivePowerKind.SpitePool,      Radius = 6f, Cooldown = 120f };
-                default: return default;
-            }
-        }
-
-        /// <summary>
-        /// Tiered actives (design 2026-07-05). Temple level unlocks tiers:
-        ///   Tier 1 — utility (available on adoption)          → ActiveOf(sectId)
-        ///   Tier 2 — economy / buff / aggressive second skill (temple Lv 2)
-        ///   Tier 3 — ultimate: devastating offensive          (temple Lv 3)
-        /// Only the playable sects (Justice / Renewal / War) have tiers 2-3;
-        /// everything else returns Kind = None above tier 1.
-        /// </summary>
         /// <summary>
         /// Canon lookup: which of the sect's three actives (slot, 1-based) at
         /// which power level (1-3, earned by adoption timing). Sects that have
         /// been cut over to docs/Design/Sects.md answer from CanonActive; the
-        /// rest fall through to the legacy tier table below, which treats the
-        /// slot as the old "tier" and ignores the level.
+        /// rest fall through to the legacy table below, which treats the slot
+        /// as the level and ignores the level argument.
         /// </summary>
         public static SectActivePowerSpec ActiveOf(string sectId, int slot, int level)
         {
@@ -320,103 +296,166 @@ namespace TheWaningBorder.Economy
             return ActiveOf(sectId, slot);
         }
 
+        /// <summary>
+        /// One active by SLOT. Canon sects answer from their tables at level I;
+        /// the six sects still on the legacy table answer from LegacyActive.
+        /// </summary>
         public static SectActivePowerSpec ActiveOf(string sectId, int tier)
         {
-            // Canon sects answer at every slot, including slot 1 — the legacy
-            // "tier 1 is the sect's only power" shortcut does not apply to them.
             var canon = CanonActive(sectId, tier, 1);
             if (canon.Kind != SectActivePowerKind.None) return canon;
+            return LegacyActive(sectId, tier);
+        }
 
-            if (tier <= 1) return ActiveOf(sectId);
+        /// <summary>
+        /// The six sects not yet cut over to their canon kits (Silence,
+        /// Justice, Veneration, Ash, Ruin, Wrath) each have ONE implemented
+        /// power, and a legacy sect unlocks its slots one Temple level at a
+        /// time -- so slot 1 / 2 / 3 is that power at level I / II / III.
+        /// Justice is the exception: Eye of the Law I, Sentence I, and
+        /// Sentence III (named Final Sentence).
+        ///
+        /// Every figure comes off the spell ladder (SpellLadder,
+        /// docs/Design/Spells.md sections 8 and 9.3): canon radii, flat
+        /// cooldowns by band, per-victim damage by reach x level. The canon
+        /// sects' old rows that used to sit here were unreachable (CanonActive
+        /// answers first) and are gone.
+        /// </summary>
+        private static SectActivePowerSpec LegacyActive(string sectId, int tier)
+        {
+            int lv = tier < 1 ? 1 : (tier > 3 ? 3 : tier);
             switch (sectId)
             {
+                // Whisper-Wind: reach grows, the +20% holds (docs/Design/Sects.md).
+                case SectConfig.Silence:
+                    return lv switch
+                    {
+                        1 => Spec(SectActivePowerKind.SpeedCircle, SectRadius.Small, "Whisper-Wind",
+                                  "Allies in a small area move 20% faster for 8s.",
+                                  magnitude: 1.20f, duration: 8f, cooldown: SpellLadder.SectTacticalCooldown),
+                        2 => Spec(SectActivePowerKind.SpeedCircle, SectRadius.Medium, "Whisper-Wind",
+                                  "Allies in a medium area move 20% faster for 12s.",
+                                  magnitude: 1.20f, duration: 12f, cooldown: SpellLadder.SectTacticalCooldown),
+                        _ => Spec(SectActivePowerKind.SpeedCircle, SectRadius.Large, "Whisper-Wind",
+                                  "Allies in a large area move 20% faster for 12s.",
+                                  magnitude: 1.20f, duration: 12f, cooldown: SpellLadder.SectTacticalCooldown),
+                    };
+
+                // Justice: Eye of the Law I, then Sentence -- TRUE damage
+                // (docs/Design/Sects.md) -- at its level I and level III figures.
                 case SectConfig.Justice:
-                    // T2 "Sentence" — focused smite. T3 "Final Sentence" —
-                    // massive smite (spec: heavier windup handled globally).
-                    return tier == 2
-                        ? new SectActivePowerSpec { Kind = SectActivePowerKind.SmiteCircle, Radius = 6f,  Magnitude = 60f,  Cooldown = 120f }
-                        : new SectActivePowerSpec { Kind = SectActivePowerKind.SmiteCircle, Radius = 10f, Magnitude = 150f, Cooldown = 240f };
-                case SectConfig.Renewal:
-                    // T2 "Mason's Blessing" — armor buff. T3 "Reckoning of the
-                    // Rebuilt" — heavy smite.
-                    return tier == 2
-                        ? new SectActivePowerSpec { Kind = SectActivePowerKind.ArmorCircle, Radius = 8f,  Magnitude = 3f,   Duration = 12f, Cooldown = 120f }
-                        : new SectActivePowerSpec { Kind = SectActivePowerKind.SmiteCircle, Radius = 9f,  Magnitude = 120f, Cooldown = 240f };
-                case SectConfig.War:
-                    // T2 "Bloodfury" — damage buff. T3 "Annihilation" —
-                    // devastating smite.
-                    return tier == 2
-                        ? new SectActivePowerSpec { Kind = SectActivePowerKind.DamageCircle, Radius = 8f,  Magnitude = 1.25f, Duration = 8f, Cooldown = 120f }
-                        : new SectActivePowerSpec { Kind = SectActivePowerKind.SmiteCircle,  Radius = 10f, Magnitude = 140f, Cooldown = 240f };
+                    return lv switch
+                    {
+                        1 => Spec(SectActivePowerKind.RevealCircle, SectRadius.Medium, "Eye of the Law",
+                                  "Reveal a medium area for 10s.",
+                                  duration: 10f, cooldown: SpellLadder.SectTacticalCooldown),
+                        2 => AsTrue(Spec(SectActivePowerKind.SmiteCircle, SectRadius.Single, "Sentence",
+                                  "One enemy takes 120 true damage after a 3s telegraph.",
+                                  magnitude: SpellLadder.Damage(SectRadius.Single, 1),
+                                  cooldown: SpellLadder.SectDamageCooldown)),
+                        _ => AsTrue(Spec(SectActivePowerKind.SmiteCircle, SectRadius.Medium, "Final Sentence",
+                                  "Enemies in a medium area take 80 true damage after a 3s telegraph.",
+                                  magnitude: SpellLadder.Damage(SectRadius.Medium, 3),
+                                  cooldown: SpellLadder.SectDamageCooldown)),
+                    };
 
-                // ── The other nine sects (2026-08-12) ────────────────────────
-                // These returned Kind = None above tier 1, so every chapel but
-                // Justice / Renewal / War showed "Locked" on its Active lever
-                // at temple Lv 2-3 and the power silently refused to fire.
-                // task-063 canon gives ALL twelve sects an Active at Lv I/II/III,
-                // so the gap was an unfinished implementation, not a design call.
-                //
-                // Each sect escalates its OWN tier-1 kind along the direction its
-                // canonical entry describes — bigger effect, longer duration,
-                // shorter cooldown — so no new SectActivePowerKind (and no engine
-                // work) is needed; the dispatcher already handles all nine kinds.
+                // Litany (docs/Design/Sects.md): +20% small 10s, medium 15s,
+                // then large 15s at +50%.
+                case SectConfig.Veneration:
+                    return lv switch
+                    {
+                        1 => Spec(SectActivePowerKind.DamageCircle, SectRadius.Small, "Litany",
+                                  "Allies in a small area deal +20% damage for 10s.",
+                                  magnitude: 1.20f, duration: 10f, cooldown: SpellLadder.SectTacticalCooldown),
+                        2 => Spec(SectActivePowerKind.DamageCircle, SectRadius.Medium, "Litany",
+                                  "Allies in a medium area deal +20% damage for 15s.",
+                                  magnitude: 1.20f, duration: 15f, cooldown: SpellLadder.SectTacticalCooldown),
+                        _ => Spec(SectActivePowerKind.DamageCircle, SectRadius.Large, "Litany",
+                                  "Allies in a large area deal +50% damage for 15s.",
+                                  magnitude: 1.50f, duration: 15f, cooldown: SpellLadder.SectTacticalCooldown),
+                    };
 
-                case SectConfig.Antiquity:   // Recall the Codex: 10s → 15s → 20s freeze
-                    return tier == 2
-                        ? new SectActivePowerSpec { Kind = SectActivePowerKind.FreezeCooldowns, Radius = 12f, Magnitude = 15f, Cooldown = 240f }
-                        : new SectActivePowerSpec { Kind = SectActivePowerKind.FreezeCooldowns, Radius = 14f, Magnitude = 20f, Cooldown = 180f };
-
-                case SectConfig.Fortitude:   // Stoneveil: longer, heavier ward
-                    return tier == 2
-                        ? new SectActivePowerSpec { Kind = SectActivePowerKind.ArmorCircle, Radius = 9f,  Magnitude = 8f,  Duration = 15f, Cooldown = 100f }
-                        : new SectActivePowerSpec { Kind = SectActivePowerKind.ArmorCircle, Radius = 10f, Magnitude = 12f, Duration = 18f, Cooldown = 80f };
-
-                case SectConfig.Reclamation: // Harvest the Veil: bigger restorative burst
-                    return tier == 2
-                        ? new SectActivePowerSpec { Kind = SectActivePowerKind.HealCircle, Radius = 8f,  Magnitude = 55f, Cooldown = 65f }
-                        : new SectActivePowerSpec { Kind = SectActivePowerKind.HealCircle, Radius = 10f, Magnitude = 85f, Cooldown = 55f };
-
-                case SectConfig.Silence:     // Whisper-Wind → Entomb tempo: faster, longer
-                    return tier == 2
-                        ? new SectActivePowerSpec { Kind = SectActivePowerKind.SpeedCircle, Radius = 9f,  Magnitude = 1.30f, Duration = 10f, Cooldown = 75f }
-                        : new SectActivePowerSpec { Kind = SectActivePowerKind.SpeedCircle, Radius = 10f, Magnitude = 1.40f, Duration = 12f, Cooldown = 60f };
-
-                case SectConfig.Veneration:  // Crystal Communion: +25% → +35% → +50% damage
-                    return tier == 2
-                        ? new SectActivePowerSpec { Kind = SectActivePowerKind.DamageCircle, Radius = 9f,  Magnitude = 1.35f, Duration = 12f, Cooldown = 100f }
-                        : new SectActivePowerSpec { Kind = SectActivePowerKind.DamageCircle, Radius = 10f, Magnitude = 1.50f, Duration = 14f, Cooldown = 80f };
-
-                case SectConfig.Witness:     // Foresight: wider and longer reveal
-                    return tier == 2
-                        ? new SectActivePowerSpec { Kind = SectActivePowerKind.RevealCircle, Radius = 22f, Duration = 15f, Cooldown = 60f }
-                        : new SectActivePowerSpec { Kind = SectActivePowerKind.RevealCircle, Radius = 28f, Duration = 20f, Cooldown = 50f };
-
-                case SectConfig.Ash:         // Pyre: 15s → 30s → 45s of burning ground
-                    return tier == 2
-                        ? new SectActivePowerSpec { Kind = SectActivePowerKind.BurningCircle, Radius = 7f, Magnitude = 11f, Duration = 9f,  Cooldown = 100f }
-                        : new SectActivePowerSpec { Kind = SectActivePowerKind.BurningCircle, Radius = 8f, Magnitude = 14f, Duration = 12f, Cooldown = 80f };
+                // Pyre: a damage zone. Magnitude is DPS, the zone rule (band
+                // over SpellLadder.ZoneSeconds), which holds at 6 as the reach
+                // grows. Fire is ownerless (docs/Design/Fire.md section 3).
+                case SectConfig.Ash:
+                    return lv switch
+                    {
+                        1 => Spec(SectActivePowerKind.BurningCircle, SectRadius.Small, "Pyre",
+                                  "Ignite a small area for 15s: 6 damage per second to anyone standing in it.",
+                                  magnitude: SpellLadder.ZoneDps(SectRadius.Small, 1), duration: 15f,
+                                  cooldown: SpellLadder.SectDamageCooldown),
+                        2 => Spec(SectActivePowerKind.BurningCircle, SectRadius.Medium, "Pyre",
+                                  "Ignite a medium area for 30s: 6 damage per second to anyone standing in it.",
+                                  magnitude: SpellLadder.ZoneDps(SectRadius.Medium, 2), duration: 30f,
+                                  cooldown: SpellLadder.SectDamageCooldown),
+                        _ => Spec(SectActivePowerKind.BurningCircle, SectRadius.Large, "Pyre",
+                                  "Ignite a large area for 30s: 6 damage per second to anyone standing in it.",
+                                  magnitude: SpellLadder.ZoneDps(SectRadius.Large, 3), duration: 30f,
+                                  cooldown: SpellLadder.SectDamageCooldown),
+                    };
 
                 // Unmake (docs/Design/Sects.md): ONE building, never an area.
                 // Magnitude is the FRACTION of that building's CURRENT hp it
-                // loses — 50% / 75% / 90%. Radius is only the search range for
-                // "the nearest enemy building to the cast point"; III adds the
-                // 25% splash to other buildings, handled by the executor.
+                // loses -- UnmakeFraction x the level multiplier. The small
+                // radius is only the search range for "the nearest enemy
+                // building to the cast point"; III adds the small-area splash
+                // (ApplyUnmake).
                 case SectConfig.Ruin:
-                    return tier == 2
-                        ? new SectActivePowerSpec { Kind = SectActivePowerKind.UnmakeBuilding, Radius = 9f,  Magnitude = 0.75f, Cooldown = 125f }
-                        : new SectActivePowerSpec { Kind = SectActivePowerKind.UnmakeBuilding, Radius = 10f, Magnitude = 0.90f, Cooldown = 100f };
+                    return lv switch
+                    {
+                        1 => AsTrue(Spec(SectActivePowerKind.UnmakeBuilding, SectRadius.Small, "Unmake",
+                                  "The nearest enemy building in a small area loses 40% of its current HP after a 3s telegraph.",
+                                  magnitude: UnmakeFraction * LevelScalar(1), cooldown: SpellLadder.SectDamageCooldown)),
+                        2 => AsTrue(Spec(SectActivePowerKind.UnmakeBuilding, SectRadius.Small, "Unmake",
+                                  "The nearest enemy building in a small area loses 60% of its current HP after a 3s telegraph.",
+                                  magnitude: UnmakeFraction * LevelScalar(2), cooldown: SpellLadder.SectDamageCooldown)),
+                        _ => AsTrue(Spec(SectActivePowerKind.UnmakeBuilding, SectRadius.Small, "Unmake",
+                                  "The nearest enemy building in a small area loses 80% of its current HP; other buildings in a small area around it lose 25%.",
+                                  magnitude: UnmakeFraction * LevelScalar(3), cooldown: SpellLadder.SectDamageCooldown)),
+                    };
 
-                // Spite: the level scales the AREA only (small / medium /
-                // large). The arithmetic — pool every enemy's damage dealt,
-                // split it back over them — is identical at every level.
+                // Spite: the level scales the AREA only. Magnitude is the
+                // per-head CAP -- the conditional cap, 2x the band -- so a
+                // lone veteran pays its account up to 120, not all at once.
                 case SectConfig.Wrath:
-                    return tier == 2
-                        ? new SectActivePowerSpec { Kind = SectActivePowerKind.SpitePool, Radius = 9f,  Cooldown = 100f }
-                        : new SectActivePowerSpec { Kind = SectActivePowerKind.SpitePool, Radius = 13f, Cooldown = 80f };
+                    return lv switch
+                    {
+                        1 => AsTrue(Spec(SectActivePowerKind.SpitePool, SectRadius.Small, "Spite",
+                                  "Enemies in a small area pool the damage they have dealt this match and split it back over themselves, at most 120 each.",
+                                  magnitude: SpellLadder.ConditionalCap(SectRadius.Small, 1),
+                                  cooldown: SpellLadder.SectDamageCooldown)),
+                        2 => AsTrue(Spec(SectActivePowerKind.SpitePool, SectRadius.Medium, "Spite",
+                                  "Enemies in a medium area pool the damage they have dealt and split it back, at most 120 each.",
+                                  magnitude: SpellLadder.ConditionalCap(SectRadius.Medium, 2),
+                                  cooldown: SpellLadder.SectDamageCooldown)),
+                        _ => AsTrue(Spec(SectActivePowerKind.SpitePool, SectRadius.Large, "Spite",
+                                  "Enemies in a large area pool the damage they have dealt and split it back, at most 120 each.",
+                                  magnitude: SpellLadder.ConditionalCap(SectRadius.Large, 3),
+                                  cooldown: SpellLadder.SectDamageCooldown)),
+                    };
 
                 default:
-                    return default; // Kind = None — unknown sect id
+                    return default; // Kind = None -- unknown sect id
             }
+        }
+
+        /// <summary>Unmake's level-I fraction of current HP; the level
+        /// multiplier makes it 40 / 60 / 80 %.</summary>
+        public const float UnmakeFraction = 0.40f;
+
+        /// <summary>Unmake III's splash, as a fraction of each splashed
+        /// building's current HP. Its radius is the canon Small.</summary>
+        public const float UnmakeSplashFraction = 0.25f;
+
+        /// <summary>Writ of Attainder bills at most this many kills per victim
+        /// (the ladder's conditional cap: 30 per kill x 4 = 120 = 2x the band).</summary>
+        public const int AttainderMaxKills = 4;
+
+        private static SectActivePowerSpec AsTrue(SectActivePowerSpec spec)
+        {
+            spec.DamageType = DamageType.True;
+            return spec;
         }
     }
 }

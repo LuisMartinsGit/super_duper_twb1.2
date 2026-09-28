@@ -1,5 +1,7 @@
 // HoldPositionCommand.cs
-// Hold position command component and execution logic
+// Hold Position — the Hold STANCE (docs/Design/Stances.md). Kept as its own
+// helper because the H key and the legacy HoldPosition lockstep opcode both
+// land here; it is the stance plus "stop and hold this spot".
 
 using Unity.Entities;
 using Unity.Mathematics;
@@ -8,9 +10,8 @@ using Unity.Transforms;
 namespace TheWaningBorder.Core.Commands.Types
 {
     /// <summary>
-    /// ECS Component representing a hold position command for a unit.
-    /// Units stop moving and attack enemies within range, but do not chase.
-    /// Consumed immediately by the command helper.
+    /// Legacy marker type, kept so old references compile. Nothing adds it:
+    /// the command is executed immediately by the helper below.
     /// </summary>
     public struct HoldPositionCommand : IComponentData { }
 
@@ -20,21 +21,17 @@ namespace TheWaningBorder.Core.Commands.Types
     public static class HoldPositionCommandHelper
     {
         /// <summary>
-        /// Execute a hold position command on a unit.
-        /// Clears all existing commands, then adds HoldPositionTag
-        /// so combat systems know not to chase targets.
+        /// Stop the unit, put it in the Hold stance, and make where it stands
+        /// its guard point. Stance lives on (<see cref="UnitStance"/> +
+        /// <see cref="HoldPositionTag"/>) until another stance is chosen —
+        /// Stop no longer clears it.
         /// </summary>
         public static void Execute(EntityManager em, Entity unit)
         {
             if (!em.Exists(unit)) return;
 
-            // Clear all existing commands (this also removes HoldPositionTag,
-            // but we re-add it immediately below)
             CommandHelper.ClearAllCommands(em, unit);
-
-            // Add HoldPositionTag marker
-            if (!em.HasComponent<HoldPositionTag>(unit))
-                em.AddComponent<HoldPositionTag>(unit);
+            StanceCommandHelper.Apply(em, unit, UnitStanceMode.Hold);
 
             // Set guard point to current position (unit holds here)
             if (em.HasComponent<LocalTransform>(unit))

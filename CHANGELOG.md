@@ -13,6 +13,82 @@ build always name the same number.
 
 ---
 
+## [0.0.29] — 2026-09-28
+
+### Added
+
+- **Unit stances.** Aggressive (G), Defensive (D) and Hold (H), on the
+  actions panel and as hotkeys. Aggressive units engage anything they see,
+  chase up to 30 m and walk back. Defensive units (the default for your
+  units) only fire back at whoever attacks them and never chase. Hold units
+  do nothing on their own. **Your orders always win**: an attack order sends
+  any unit to its target, whatever its stance.
+- **Direct fire from buildings.** Select a Hall, tower or Keep and right-click
+  an enemy to focus it. The other shots keep firing at whatever is nearest.
+  Stop clears the focus; right-clicking ground still sets the rally point.
+- **Replace Equipment.** A wall emplacement whose engine is destroyed stays
+  on the wall, empty, and offers Replace Equipment: Ballista 70 supplies +
+  40 iron (15 s), Trebuchet 130 supplies + 70 iron + 20 veilstone (20 s).
+- **The Maw.** If nobody touches the Shardroot's host well for 25 minutes,
+  the Shardroot surfaces there for everyone to see. It now also has a proper
+  glowing model, shows on the minimap whoever carries it, and the curse
+  hunts whoever holds it.
+- **Spell casting.** Spells with a cast time now channel: a new order, a
+  stun or death interrupts the cast and no cooldown is charged. The spell
+  button fills as a cast bar. Sect powers show a wind-up ring (3 s for
+  damage, 1.5 s for other hostile powers, 1 s for friendly ones).
+- **Placement reasons.** A red building ghost now says why the spot is
+  refused instead of "Invalid placement".
+
+### Changed
+
+- **Hall claims.** A new Hall must go in a territory that borders one you
+  hold, and a selected worker must be within 30 m of the site.
+- **Fire burns everyone**: your own units, allies, enemies and buildings.
+  Large units are burned when any part of their body is in the fire.
+- **Spell damage follows the same rules as weapons**: armour, damage
+  types, invulnerability and kill credit (heroes now gain XP from spell
+  kills). Spell cooldowns, damage and radii were rebalanced against one
+  shared ladder (docs/Design/Spells.md).
+- **Formations hold together** until every unit reaches its place, work in
+  multiplayer, and keep your chosen shape when idle units regroup.
+- **Units no longer chase forever.** Automatic chases have a leash, and
+  targets are picked at sight range instead of 1.5× sight.
+- **Drawing curved walls** follows your stroke. A bend that is too sharp or a
+  wall that crosses itself turns red instead of drawing a circle.
+- **Emplacements are wall-mounted only** and no longer appear in the worker
+  build menu. Stone walls only; timber palisades cannot take an engine.
+- **Litharchs** stay back when healing and no longer fight until Warrior
+  Priests is researched (then 6 damage every 1.5 s).
+- **AI bases are more spread out**, with at least 4 m between buildings,
+  still inside their walls. The AI now tries more than one curse well to
+  purify.
+- **Late-game performance.** Roads, fog of war, the navigation grid, AI
+  planning, territory income, towers, health bars and the minimap all do far
+  less work per frame in long matches.
+
+### Fixed
+
+- Walls sometimes collapsed and left an invisible, full-health wall behind.
+- Emplacement ballistas and trebuchets stood at the foot of the wall instead
+  of on top of it.
+- Mending Hall, Muster Yard, Stonehold, Veilworks and Reliquary were built
+  as ordinary Huts.
+- Towers and Halls shot at enemy walls with arrows. Only siege damages walls,
+  and clicking a wall without siege now says so.
+- Clicking the middle of an enemy mine moved your units instead of
+  attacking it.
+- Firethrower blood fires did no damage; buildings never burned; Liquid
+  Courage made units immune to small burns; invulnerable units still bled.
+- The Holy Scholar could not purify a destroyed well and walked home after a
+  ritual.
+- A Shardroot host well destroyed by anyone but Feraldis locked the Shardroot
+  away for the rest of the match.
+- Player units no longer lose an attack order after being stuck for 5
+  seconds, and the Ledger no longer overrides your move orders.
+
+---
+
 ## [0.0.28] — 2026-09-25
 
 ### Added

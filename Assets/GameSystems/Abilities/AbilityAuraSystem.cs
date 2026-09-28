@@ -142,7 +142,9 @@ namespace TheWaningBorder.Abilities
                 float radSq = aura.Radius * aura.Radius;
 
                 float atkMult = 1f + aura.EffectValue(AbilityEffectKind.AttackPct) / 100f;
-                float armor = aura.EffectValue(AbilityEffectKind.ArmorPct); // flat placeholder
+                // Percent of each unit's own armor, resolved at the damage site.
+                float armorPct = aura.EffectValue(AbilityEffectKind.ArmorPct);
+                float armorFlat = aura.EffectValue(AbilityEffectKind.ArmorFlat);
                 int chargeBonus = (int)aura.EffectValue(AbilityEffectKind.ChargeBonusFlat);
 
                 for (int i = 0; i < units.Length; i++)
@@ -158,7 +160,8 @@ namespace TheWaningBorder.Abilities
 
                     var buff = TransientState.Active<SpellBuff>(em, units[i]) ? em.GetComponentData<SpellBuff>(units[i]) : default;
                     buff.DamageMultiplier = math.max(buff.DamageMultiplier, atkMult);
-                    buff.ArmorBonus = math.max(buff.ArmorBonus, armor);
+                    buff.ArmorBonus = math.max(buff.ArmorBonus, armorFlat);
+                    buff.ArmorPct = math.max(buff.ArmorPct, armorPct);
                     buff.TimeRemaining = math.max(buff.TimeRemaining, BuffRefresh);
                     TransientState.Set(em, units[i], buff);
 
@@ -246,6 +249,16 @@ namespace TheWaningBorder.Abilities
                 Faction fac = em.GetComponentData<FactionTag>(led).Value;
                 float3 pos = em.GetComponentData<LocalTransform>(led).Position;
 
+                // A PLAYER'S MOVE ORDER OUTRANKS THE ROAMING. This loop used to
+                // re-issue its own move (or StopLedger) on every throttle tick,
+                // so a Ledger the player sent somewhere was dragged straight
+                // back to the nearest building, or stopped dead. A live move
+                // whose destination is not the one the roaming last wrote is
+                // the player's: leave the Ledger entirely alone until it
+                // arrives. (UserMoveOrder alone cannot tell them apart — the
+                // roaming's own IssueMove sets it too.)
+                if (IsPlayerMoving(em, led)) continue;
+
                 // Nearest eligible economy building at ANY distance (not just in range).
                 Entity best = Entity.Null; float bestSq = float.MaxValue; float3 bestPos = default;
                 for (int i = 0; i < bldgs.Length; i++)
@@ -280,13 +293,20 @@ namespace TheWaningBorder.Abilities
                     // Walk toward the target building via the AI move path. Only
                     // (re)issue when the goal actually changed, so we don't spam
                     // nav-path requests every throttle tick.
+                    // Compared against the goal the roaming RECORDED: the
+                    // move snaps the building centre onto walkable ground, so
+                    // the destination never equals bestPos and the old test
+                    // re-issued the move every throttle tick.
                     bool needMove = true;
-                    if (em.HasComponent<DesiredDestination>(led))
+                    if (em.HasComponent<DesiredDestination>(led) && em.HasComponent<LedgerAutoGoal>(led))
                     {
                         var dd = em.GetComponentData<DesiredDestination>(led);
-                        if (dd.Has == 1 && math.distancesq(dd.Position, bestPos) < 1f) needMove = false;
+                        var goal = em.GetComponentData<LedgerAutoGoal>(led);
+                        if (dd.Has == 1 && math.distancesq(goal.Target, bestPos) < 1f
+                            && math.distancesq(dd.Position, goal.Position) < 1f) needMove = false;
                     }
                     if (needMove)
+                    {
                         // CommandSource.System, NOT AI: this system runs on
                         // EVERY peer (no host gate) and the move is a
                         // deterministic consequence of the tick. AI-source
@@ -295,14 +315,34 @@ namespace TheWaningBorder.Abilities
                         // divergence under lockstep.
                         TheWaningBorder.Core.Commands.CommandRouter.IssueMove(
                             em, led, bestPos, TheWaningBorder.Core.Commands.CommandSource.System);
+                        float3 written = em.HasComponent<DesiredDestination>(led)
+                            ? em.GetComponentData<DesiredDestination>(led).Position : bestPos;
+                        AddOrSet(em, led, new LedgerAutoGoal { Position = written, Target = bestPos });
+                    }
                 }
             }
         }
 
+        /// <summary>True while the Ledger is executing a move the PLAYER gave
+        /// it — a live destination the roaming did not write.</summary>
+        private static bool IsPlayerMoving(EntityManager em, Entity led)
+        {
+            if (!TransientState.Active<UserMoveOrder>(em, led)) return false;
+            if (!em.HasComponent<DesiredDestination>(led)) return false;
+            var dd = em.GetComponentData<DesiredDestination>(led);
+            if (dd.Has == 0) return false;
+            if (!em.HasComponent<LedgerAutoGoal>(led)) return true;
+            return math.distancesq(dd.Position, em.GetComponentData<LedgerAutoGoal>(led).Position) >= 1f;
+        }
+
         // Clear a Ledger's movement goal so it stops (used when it arrives at a
-        // building or has nothing to automate). Leaves any in-flight cast alone.
+        // building or has nothing to automate). Leaves any in-flight cast alone,
+        // and never touches a destination the PLAYER set — the caller has
+        // already skipped a player-moving Ledger, and this re-checks so no
+        // future caller can clear one by accident.
         private static void StopLedger(EntityManager em, Entity led, float3 pos)
         {
+            if (IsPlayerMoving(em, led)) return;
             if (em.HasComponent<DesiredDestination>(led))
             {
                 var dd = em.GetComponentData<DesiredDestination>(led);

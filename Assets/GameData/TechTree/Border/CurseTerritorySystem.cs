@@ -79,11 +79,6 @@ namespace TheWaningBorder.Systems.Border
         /// Pressure, not a perf incident.</summary>
         private const int MaxLiveWaveUnits = 48;
 
-        /// <summary>Samples along the seed-to-seed segment for Voronoi
-        /// adjacency: two regions are neighbours when the walk between their
-        /// seeds crosses only the two of them.</summary>
-        private const int AdjacencySamples = 9;
-
         private float _timer;
         private double _nextConquerAt = -1.0;
         private int _rngEpoch = -1;
@@ -291,9 +286,7 @@ namespace TheWaningBorder.Systems.Border
             // (a) A WELL LOSING HP. Edge-triggered on the drop, because
             //     LastDamagedByFaction stays set long after the blow and would
             //     otherwise re-provoke on every tick forever.
-            var wellQ = em.CreateEntityQuery(
-                ComponentType.ReadOnly<BorderMainNodeTag>(),
-                ComponentType.ReadOnly<Health>());
+            var wellQ = QC_WellHealth.Get(em, QT_WellHealth);
             using (var ents = wellQ.ToEntityArray(Allocator.Temp))
             {
                 for (int i = 0; i < ents.Length; i++)
@@ -315,7 +308,6 @@ namespace TheWaningBorder.Systems.Border
                     _wellHp[e] = hp;
                 }
             }
-            wellQ.Dispose();
 
             // (b) WHO IS HITTING EACH ANCHOR. Remembered while it still
             //     stands: by the time SyncHoldings notices the anchor is gone
@@ -352,16 +344,13 @@ namespace TheWaningBorder.Systems.Border
         {
             _scratchHeld.Clear();
 
-            var wellQ = em.CreateEntityQuery(
-                ComponentType.ReadOnly<BorderMainNodeTag>(),
-                ComponentType.ReadOnly<LocalTransform>());
+            var wellQ = QueryXf<BorderMainNodeTag>(em);
             using (var xfs = wellQ.ToComponentDataArray<LocalTransform>(Allocator.Temp))
                 for (int i = 0; i < xfs.Length; i++)
                 {
                     int t = RegionMap.NearestRegion(xfs[i].Position.x, xfs[i].Position.z);
                     if (t != RegionMap.None && !_scratchHeld.Contains(t)) _scratchHeld.Add(t);
                 }
-            wellQ.Dispose();
 
             // Anchors: drop the dead, keep the living.
             var deadAnchors = new List<int>();
@@ -473,22 +462,43 @@ namespace TheWaningBorder.Systems.Border
                        $"taken; anchor at ({seat.x:F0},{seat.z:F0}). Curse holds {_held.Count} territories.");
         }
 
-        /// <summary>Voronoi adjacency: walk the segment between the two seeds;
-        /// neighbours are regions whose walk never crosses a third.</summary>
-        private static bool AreAdjacent(int a, int b)
+        // ── cached queries (no per-tick CreateEntityQuery) ────────────────
+        // One query per (tag, shape), held for the world's lifetime. Same
+        // component set as the ad-hoc queries they replace, so the chunk
+        // walk — and every order-dependent pick below — is unchanged.
+        private static class TagQuery<T> where T : unmanaged, IComponentData
         {
-            var sa = RegionMap.SeedOf(a);
-            var sb = RegionMap.SeedOf(b);
-            for (int i = 1; i < AdjacencySamples; i++)
-            {
-                float f = i / (float)AdjacencySamples;
-                float x = math.lerp(sa.x, sb.x, f);
-                float z = math.lerp(sa.y, sb.y, f);
-                int r = RegionMap.NearestRegion(x, z);
-                if (r != a && r != b) return false;
-            }
-            return true;
+            public static ComponentType[] Xf, FacXf;
+            public static CachedEntityQuery QXf, QFacXf;
         }
+
+        private static EntityQuery QueryXf<T>(EntityManager em) where T : unmanaged, IComponentData
+        {
+            TagQuery<T>.Xf ??= new[] { ComponentType.ReadOnly<T>(), ComponentType.ReadOnly<LocalTransform>() };
+            return TagQuery<T>.QXf.Get(em, TagQuery<T>.Xf);
+        }
+
+        private static EntityQuery QueryFacXf<T>(EntityManager em) where T : unmanaged, IComponentData
+        {
+            TagQuery<T>.FacXf ??= new[]
+            {
+                ComponentType.ReadOnly<T>(), ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<LocalTransform>(),
+            };
+            return TagQuery<T>.QFacXf.Get(em, TagQuery<T>.FacXf);
+        }
+
+        private static readonly ComponentType[] QT_WellHealth =
+            { ComponentType.ReadOnly<BorderMainNodeTag>(), ComponentType.ReadOnly<Health>() };
+        private static CachedEntityQuery QC_WellHealth;
+
+        /// <summary>Region adjacency — ONE definition, shared with the Hall
+        /// placement rule (docs/Design/Regions.md §2, §3). Hoisted into
+        /// <see cref="RegionMap.AreAdjacent"/> on 2026-09-26: this used to
+        /// walk the seed-to-seed segment here, a second idea of "next door"
+        /// that disagreed with the border the player sees wherever a region
+        /// is an authored outline.</summary>
+        private static bool AreAdjacent(int a, int b) => RegionMap.AreAdjacent(a, b);
 
         /// <summary>Anchor beside the region's veilstone nearest its seed —
         /// the curse grows from the stone. Steps toward the seed until the
@@ -500,9 +510,7 @@ namespace TheWaningBorder.Systems.Border
 
             float3 best = default;
             float bestD = float.MaxValue;
-            var q = em.CreateEntityQuery(
-                ComponentType.ReadOnly<VeilstoneOutcroppingTag>(),
-                ComponentType.ReadOnly<LocalTransform>());
+            var q = QueryXf<VeilstoneOutcroppingTag>(em);
             using (var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp))
                 for (int i = 0; i < xfs.Length; i++)
                 {
@@ -519,7 +527,6 @@ namespace TheWaningBorder.Systems.Border
                         best = p;
                     }
                 }
-            q.Dispose();
             if (bestD == float.MaxValue) return false;
 
             float2 dir = math.normalizesafe(new float2(seed.x - best.x, seed.y - best.z),
@@ -543,16 +550,13 @@ namespace TheWaningBorder.Systems.Border
         private static int[] CountPerRegion<T>(EntityManager em) where T : unmanaged, IComponentData
         {
             var counts = new int[RegionMap.Count];
-            var q = em.CreateEntityQuery(
-                ComponentType.ReadOnly<T>(),
-                ComponentType.ReadOnly<LocalTransform>());
+            var q = QueryXf<T>(em);
             using (var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp))
                 for (int i = 0; i < xfs.Length; i++)
                 {
                     int r = RegionMap.RegionAt(xfs[i].Position.x, xfs[i].Position.z);
                     if (r >= 0 && r < counts.Length) counts[r]++;
                 }
-            q.Dispose();
             return counts;
         }
 
@@ -654,12 +658,9 @@ namespace TheWaningBorder.Systems.Border
         {
             _awakeWellTerritories.Clear();
 
-            var q = em.CreateEntityQuery(
-                ComponentType.ReadOnly<BorderMainNodeTag>(),
-                ComponentType.ReadOnly<LocalTransform>());
+            var q = QueryXf<BorderMainNodeTag>(em);
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            q.Dispose();
 
             for (int i = 0; i < ents.Length; i++)
             {
@@ -697,13 +698,9 @@ namespace TheWaningBorder.Systems.Border
             where T : unmanaged, IComponentData
         {
             pos = default;
-            var q = em.CreateEntityQuery(
-                ComponentType.ReadOnly<T>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<LocalTransform>());
+            var q = QueryFacXf<T>(em);
             using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            q.Dispose();
 
             float bestD = float.MaxValue;
             for (int i = 0; i < xfs.Length; i++)
@@ -723,9 +720,7 @@ namespace TheWaningBorder.Systems.Border
             if (_anchors.TryGetValue(territory, out var anchor) && em.Exists(anchor))
                 return em.GetComponentData<LocalTransform>(anchor).Position;
 
-            var q = em.CreateEntityQuery(
-                ComponentType.ReadOnly<BorderMainNodeTag>(),
-                ComponentType.ReadOnly<LocalTransform>());
+            var q = QueryXf<BorderMainNodeTag>(em);
             float3 best = default;
             bool found = false;
             using (var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp))
@@ -737,7 +732,6 @@ namespace TheWaningBorder.Systems.Border
                     found = true;
                     break;
                 }
-            q.Dispose();
             if (found) return best;
 
             var seed = RegionMap.SeedOf(territory);
@@ -876,13 +870,19 @@ namespace TheWaningBorder.Systems.Border
         /// </summary>
         private void ShepherdWaves(EntityManager em, double now)
         {
-            var q = em.CreateEntityQuery(
-                ComponentType.ReadOnly<CurseWaveMember>(),
-                ComponentType.ReadOnly<LocalTransform>());
+            // Hostile positions are read at most once per shepherd pass and
+            // shared by every wave (each wave used to re-snapshot all units
+            // and buildings up to three times). Nothing in this pass moves a
+            // hostile or creates one, so the lists are what each wave's own
+            // query would have returned.
+            _hostileUnits.Valid = false;
+            _hostileHalls.Valid = false;
+            _hostileBuildings.Valid = false;
+
+            var q = QueryXf<CurseWaveMember>(em);
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var members = q.ToComponentDataArray<CurseWaveMember>(Allocator.Temp);
             using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            q.Dispose();
 
             // Waves with no one left alive drop their state.
             _scratchHeld.Clear();
@@ -921,13 +921,14 @@ namespace TheWaningBorder.Systems.Border
                 // buildings.
                 float3 objective;
                 bool haveObjective = false;
-                if (TryNearestHostileUnit(em, centre, out float3 defender)
+                if (NearestIn(Hostiles<UnitTag>(em, _hostileUnits), centre, out float3 defender)
                     && Distance2(defender, centre) <= DefenderRedirectRange * DefenderRedirectRange)
                 {
                     objective = defender;
                     haveObjective = true;
                 }
-                else if (TryNearestHostileBuilding(em, centre, out objective))
+                else if (NearestIn(Hostiles<HallTag>(em, _hostileHalls), centre, out objective)
+                         || NearestIn(Hostiles<BuildingTag>(em, _hostileBuildings), centre, out objective))
                 {
                     haveObjective = true;
                 }
@@ -997,6 +998,49 @@ namespace TheWaningBorder.Systems.Border
             }
         }
 
+        /// <summary>Positions of every live entity of one tag hostile to the
+        /// curse, in query order, gathered once per pass.</summary>
+        private sealed class HostileSnapshot
+        {
+            public readonly List<float3> Pos = new List<float3>();
+            public bool Valid;
+        }
+
+        private readonly HostileSnapshot _hostileUnits = new HostileSnapshot();
+        private readonly HostileSnapshot _hostileHalls = new HostileSnapshot();
+        private readonly HostileSnapshot _hostileBuildings = new HostileSnapshot();
+
+        private static HostileSnapshot Hostiles<T>(EntityManager em, HostileSnapshot snap)
+            where T : unmanaged, IComponentData
+        {
+            if (snap.Valid) return snap;
+            snap.Pos.Clear();
+            var q = QueryFacXf<T>(em);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            for (int i = 0; i < xfs.Length; i++)
+                if (Alliances.AreHostile(Faction.Border, facs[i].Value)) snap.Pos.Add(xfs[i].Position);
+            snap.Valid = true;
+            return snap;
+        }
+
+        /// <summary>Same pick as <see cref="TryNearestHostile{T}"/>: first
+        /// strictly nearest in query order.</summary>
+        private static bool NearestIn(HostileSnapshot snap, float3 from, out float3 pos)
+        {
+            pos = default;
+            float bestD = float.MaxValue;
+            var list = snap.Pos;
+            for (int i = 0; i < list.Count; i++)
+            {
+                var p = list[i];
+                float dx = p.x - from.x, dz = p.z - from.z;
+                float d = dx * dx + dz * dz;
+                if (d < bestD) { bestD = d; pos = p; }
+            }
+            return bestD < float.MaxValue;
+        }
+
         private static float Distance2(float3 a, float3 b)
         {
             float dx = a.x - b.x, dz = a.z - b.z;
@@ -1020,13 +1064,9 @@ namespace TheWaningBorder.Systems.Border
             where T : unmanaged, IComponentData
         {
             pos = default;
-            var q = em.CreateEntityQuery(
-                ComponentType.ReadOnly<T>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<LocalTransform>());
+            var q = QueryFacXf<T>(em);
             using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            q.Dispose();
 
             float bestD = float.MaxValue;
             for (int i = 0; i < xfs.Length; i++)

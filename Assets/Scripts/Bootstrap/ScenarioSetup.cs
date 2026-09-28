@@ -1649,6 +1649,11 @@ namespace TheWaningBorder.Bootstrap
                     }
                     if (!em.HasComponent<HoldPositionTag>(enemy))
                         em.AddComponent<HoldPositionTag>(enemy);
+                    // Hold is passive now (docs/Design/Stances.md §1): the
+                    // fixed-mount flag is what keeps it swinging at whatever
+                    // walks into reach without ever leaving its spot.
+                    if (!em.HasComponent<StationaryAutoFire>(enemy))
+                        em.AddComponent<StationaryAutoFire>(enemy);
                 }
 
                 // Wave spawner: one Longbowman every 5 s on a ring around the
@@ -1730,9 +1735,13 @@ namespace TheWaningBorder.Bootstrap
                         em.SetComponentData(e, xf);
                     }
 
-                    // Hold the line — don't chase out-of-range enemies.
+                    // Hold the line — don't chase out-of-range enemies, but
+                    // DO shoot what is in range: Hold alone is passive now
+                    // (docs/Design/Stances.md §1), the fixed-mount flag fires.
                     if (!em.HasComponent<HoldPositionTag>(e))
                         em.AddComponent<HoldPositionTag>(e);
+                    if (!em.HasComponent<StationaryAutoFire>(e))
+                        em.AddComponent<StationaryAutoFire>(e);
                 }
             }
         }
@@ -2122,6 +2131,10 @@ namespace TheWaningBorder.Bootstrap
                     // compare.
                     if (!em.HasComponent<HoldPositionTag>(bow))
                         em.AddComponent<HoldPositionTag>(bow);
+                    // An ordered target is chased even on Hold now; the
+                    // fixed-mount flag keeps the lane shooter planted.
+                    if (!em.HasComponent<StationaryAutoFire>(bow))
+                        em.AddComponent<StationaryAutoFire>(bow);
                     if (em.HasComponent<Target>(bow))
                         em.SetComponentData(bow, new Target { Value = dummy });
                 }

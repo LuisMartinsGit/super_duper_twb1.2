@@ -20,6 +20,12 @@ namespace TheWaningBorder.Systems.Combat
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct UnitRankSystem : ISystem
     {
+        // Regen lands once per whole second (match-phased, SimCadence.cs).
+        // It used to ceil rate*dt, which is 1 HP EVERY FRAME for any rate
+        // under the frame rate: a 1 HP/s veteran healed ~60 HP/s in single
+        // player and out-healed every damage-over-time in the game.
+        private SimCadence.Periodic _regenTimer;
+
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<UnitTag>();
@@ -61,6 +67,8 @@ namespace TheWaningBorder.Systems.Combat
             ecb.Dispose();
 
             // ── Lv 4+ HP regen ────────────────────────────────────────────
+            bool regenDue = _regenTimer.Due(dt, 1f);
+            if (regenDue)
             foreach (var (rank, health) in SystemAPI
                 .Query<RefRO<UnitRank>, RefRW<Health>>()
                 .WithAll<UnitTag>())
@@ -69,9 +77,7 @@ namespace TheWaningBorder.Systems.Combat
                 if (health.ValueRO.Value <= 0) continue;
                 if (health.ValueRO.Value >= health.ValueRO.Max) continue;
 
-                float regen = UnitRankConfig.Lv4HpRegenPerSecond * dt;
-                int delta = (int)math.ceil(regen);
-                if (delta < 1) delta = 0; // sub-1 rounds to nothing — accumulates over multiple ticks
+                int delta = (int)UnitRankConfig.Lv4HpRegenPerSecond;
                 if (delta > 0)
                     health.ValueRW.Value = math.min(health.ValueRO.Max, health.ValueRO.Value + delta);
             }
@@ -86,9 +92,9 @@ namespace TheWaningBorder.Systems.Combat
                 {
                     glow.ValueRW.ActiveRemaining = math.max(0f, glow.ValueRO.ActiveRemaining - dt);
                     // Burst HP regen while active.
-                    if (health.ValueRO.Value > 0 && health.ValueRO.Value < health.ValueRO.Max)
+                    if (regenDue && health.ValueRO.Value > 0 && health.ValueRO.Value < health.ValueRO.Max)
                     {
-                        int bonus = (int)math.ceil(UnitRankConfig.ShardrootAbilityRegenPerSec * dt);
+                        int bonus = (int)UnitRankConfig.ShardrootAbilityRegenPerSec;
                         if (bonus > 0)
                             health.ValueRW.Value = math.min(health.ValueRO.Max, health.ValueRO.Value + bonus);
                     }

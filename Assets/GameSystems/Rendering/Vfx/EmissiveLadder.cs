@@ -24,6 +24,11 @@ namespace TheWaningBorder.Rendering
         /// <summary>Veilstone outcropping crystals — cyan. The resource, never the curse.</summary>
         public static readonly Color Veilstone = Hdr(0x5FD8E8, 3.0f);
 
+        /// <summary>The Shardroot — a veilstone artifact, so cyan, pushed toward
+        /// white and above every other rung: the one object on the map meant
+        /// to be found by its light alone.</summary>
+        public static readonly Color Shardroot = Hdr(0xA8F4FF, 6.0f);
+
         /// <summary>Curse crystals (well, pockets) — purple, the strongest static glow.</summary>
         public static readonly Color Curse = Hdr(0xB14BFF, 4.0f);
 

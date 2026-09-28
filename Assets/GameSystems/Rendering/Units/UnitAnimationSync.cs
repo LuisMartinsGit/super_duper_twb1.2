@@ -132,15 +132,21 @@ namespace TheWaningBorder.Rendering
                 + ((GetInstanceID() & 15) / 16f) * PollInterval;
         }
 
-        void LateUpdate()
+        // ── Central tick (2026-09-25) ────────────────────────────────────
+        // Every unit used to carry its own LateUpdate: hundreds of native ->
+        // managed calls a frame, each re-resolving the ECS world. They now
+        // register while ENABLED (a fog-hidden view is disabled, and Unity
+        // did not call its LateUpdate either) and UnitAnimationTicker runs
+        // them all from one LateUpdate with one world lookup.
+        internal int TickIndex = -1;
+
+        void OnEnable() => UnitAnimationTicker.Register(this);
+        void OnDisable() => UnitAnimationTicker.Unregister(this);
+
+        internal void Tick(EntityManager em)
         {
             if (!_valid || _animator == null) return;
-            // Guard against the ECS world being disposed (player returned to
-            // main menu mid-game); `_em.Exists` throws ObjectDisposedException
-            // if the world is gone. Re-acquire silently on the next valid frame.
-            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
-            if (world == null || !world.IsCreated) return;
-            if (_em != world.EntityManager) _em = world.EntityManager;
+            if (_em != em) _em = em;
             if (LinkedEntity == Entity.Null || !_em.Exists(LinkedEntity)) return;
             if (_deathTriggered) return;
 
@@ -334,6 +340,72 @@ namespace TheWaningBorder.Rendering
                         _drawArmed = true;
                     }
                 }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Runs every enabled <see cref="UnitAnimationSync"/> from ONE LateUpdate.
+    /// Created on first registration, lives for the session. Order among the
+    /// units is irrelevant: each writes only its own Animator.
+    /// </summary>
+    internal sealed class UnitAnimationTicker : MonoBehaviour
+    {
+        private static UnitAnimationTicker _instance;
+        private static readonly System.Collections.Generic.List<UnitAnimationSync> _all = new();
+
+        internal static void Register(UnitAnimationSync s)
+        {
+            if (s.TickIndex >= 0) return;
+            s.TickIndex = _all.Count;
+            _all.Add(s);
+            if (_instance == null)
+            {
+                var go = new GameObject("UnitAnimationTicker");
+                go.hideFlags = HideFlags.HideAndDontSave;
+                DontDestroyOnLoad(go);
+                _instance = go.AddComponent<UnitAnimationTicker>();
+            }
+        }
+
+        internal static void Unregister(UnitAnimationSync s)
+        {
+            int i = s.TickIndex;
+            if (i < 0 || i >= _all.Count || _all[i] != s) { s.TickIndex = -1; return; }
+            int last = _all.Count - 1;
+            if (i != last)
+            {
+                var moved = _all[last];
+                _all[i] = moved;
+                moved.TickIndex = i;
+            }
+            _all.RemoveAt(last);
+            s.TickIndex = -1;
+        }
+
+        void LateUpdate()
+        {
+            // Guard against the ECS world being disposed (player returned to
+            // main menu mid-game); Exists throws ObjectDisposedException if the
+            // world is gone. Re-acquired on the next valid frame.
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (world == null || !world.IsCreated) return;
+            var em = world.EntityManager;
+            // Backwards: a tick that disables its own view swap-removes it.
+            for (int i = _all.Count - 1; i >= 0; i--)
+            {
+                if (i >= _all.Count) continue;
+                var s = _all[i];
+                if (s == null)
+                {
+                    // Destroyed without OnDisable (domain teardown): swap-remove.
+                    int last = _all.Count - 1;
+                    _all[i] = _all[last];
+                    if (_all[i] != null) _all[i].TickIndex = i;
+                    _all.RemoveAt(last);
+                    continue;
+                }
+                s.Tick(em);
             }
         }
     }

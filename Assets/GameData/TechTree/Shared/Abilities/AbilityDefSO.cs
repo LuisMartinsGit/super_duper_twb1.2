@@ -4,10 +4,10 @@
 // Assets live in an Abilities/<Ability>/ folder under whatever OWNS the
 // ability -- the unit that casts it (Scout/Abilities/ScoutSight), or the
 // building whose research grants it (RoyalStable/Abilities/WarHorn). Sect
-// powers stay JSON-backed for now. They are aggregated by AbilityCatalogSO,
-// which AbilityCatalog loads at runtime.
-// Generated/refreshed from the code seed by
-// Waning Border > Tech Tree > Generate Ability SOs.
+// powers stay code-table-backed (SectLeverEffects). They are aggregated, in
+// index order, by Assets/Resources/AbilityCatalog.asset (AbilityCatalogSO),
+// which AbilityCatalog loads at runtime: the SOs are what runs, and the code
+// seed is only the fallback for a missing catalog. docs/Design/Spells.md.
 
 using System;
 using UnityEngine;
@@ -40,6 +40,14 @@ namespace TheWaningBorder.Abilities
         /// docs/Design/Heroes.md §2.</summary>
         public int unlocksAtLevel = 1;
 
+        /// <summary>Damage per victim (0 = deals none) and the armor column it
+        /// is measured against. docs/Design/Spells.md.</summary>
+        public float damage;
+        public DamageType damageType = DamageType.Magic;
+
+        /// <summary>The player picks the ground point (targeting ring).</summary>
+        public bool aimedAtPoint;
+
         public Sprite icon;
         public GameObject vfxPrefab;
 
@@ -62,6 +70,9 @@ namespace TheWaningBorder.Abilities
                 Effects = fx,
                 Aftermath = (aftermath != null && aftermath.Length > 0) ? aftermath : null,
                 UnlocksAtLevel = unlocksAtLevel < 1 ? 1 : unlocksAtLevel,
+                Damage = damage,
+                DamageType = damageType,
+                AimedAtPoint = aimedAtPoint,
             };
         }
     }

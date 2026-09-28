@@ -114,10 +114,7 @@ namespace TheWaningBorder.Core.Config
         public const float NodeVictoryHoldTime = 5f;
 
         // ==================== Scholar (Alanthor ritualist) ====================
-        public const float ScholarHP = 90f;
-        public const float ScholarSpeed = 3.0f;
-        public const float ScholarLoS = 14f;
-        public const float ScholarRadius = 0.5f;
+        // Stats live in Scholar.asset (TechCatalog.Unit("Alanthor_Scholar")).
         public const int   ScholarPresentationID = 382;       // After sect-unique unit IDs (370-381)
 
         // ==================== Iconoclast (Feraldis node breaker, spec refinement #1) ====================

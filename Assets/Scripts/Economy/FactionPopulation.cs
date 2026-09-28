@@ -139,6 +139,7 @@ namespace TheWaningBorder.Economy
         {
             _cachedQuery = default;
             _queryOwner = default;
+            System.Array.Clear(_entityOf, 0, _entityOf.Length);
         }
 
         public static bool TryGetFactionPopulation(Faction faction, out int current, out int max)
@@ -153,6 +154,7 @@ namespace TheWaningBorder.Economy
 
             if (!_queryOwner.Equals(em))
             {
+                System.Array.Clear(_entityOf, 0, _entityOf.Length);
                 _cachedQuery = em.CreateEntityQuery(
                     ComponentType.ReadOnly<FactionTag>(),
                     ComponentType.ReadOnly<FactionPopulation>()
@@ -160,22 +162,41 @@ namespace TheWaningBorder.Economy
                 _queryOwner = em;
             }
 
+            // Entity remembered, data read fresh (see FactionResourcesHelper).
+            int slot = (int)faction;
+            if (slot >= 0 && slot < _entityOf.Length)
+            {
+                var known = _entityOf[slot];
+                if (known != Entity.Null && em.Exists(known)
+                    && em.HasComponent<FactionPopulation>(known) && em.HasComponent<FactionTag>(known)
+                    && em.GetComponentData<FactionTag>(known).Value == faction)
+                {
+                    var pop = em.GetComponentData<FactionPopulation>(known);
+                    current = pop.Current;
+                    max = pop.Max;
+                    return true;
+                }
+            }
+
             using var entities = _cachedQuery.ToEntityArray(Allocator.Temp);
             using var tags = _cachedQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var populations = _cachedQuery.ToComponentDataArray<FactionPopulation>(Allocator.Temp);
 
             for (int i = 0; i < tags.Length; i++)
             {
                 if (tags[i].Value == faction)
                 {
-                    current = populations[i].Current;
-                    max = populations[i].Max;
+                    if (slot >= 0 && slot < _entityOf.Length) _entityOf[slot] = entities[i];
+                    var pop = em.GetComponentData<FactionPopulation>(entities[i]);
+                    current = pop.Current;
+                    max = pop.Max;
                     return true;
                 }
             }
 
             return false;
         }
+
+        private static readonly Entity[] _entityOf = new Entity[16];
 
         /// <summary>
         /// Check if a faction has enough population capacity to create a unit.

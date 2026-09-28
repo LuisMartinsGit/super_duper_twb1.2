@@ -81,6 +81,8 @@ namespace TheWaningBorder.Rendering
 
             // Player color arrives once the ECS entity link is live.
             if (!_tinted) TryTint();
+            // Off-screen rigs hold their pose (see ProceduralRigCulling).
+            if (!TheWaningBorder.Rendering.ProceduralRigCulling.Visible(transform.position)) return;
 
             // Hover bob — the whole body floats; there are no legs to plant.
             if (_body != null)

@@ -39,14 +39,37 @@ namespace TheWaningBorder.Systems.Combat
         /// fire. (task-062 C-1, task-063 phase 2e)
         /// </summary>
         public static int GetSpellBuffArmorBonus(EntityManager em, Entity target)
+            => GetSpellBuffArmorBonus(em, target, 0);
+
+        /// <summary>
+        /// As above, plus the PERCENTAGE armor buffs (SpellBuff.ArmorPct —
+        /// King's Call): <paramref name="baseDefense"/> is the target's own
+        /// armor for the incoming damage type, and the buff adds that
+        /// percentage of it, rounded. A unit with no armor in that column gains
+        /// nothing from a percentage, which is what "percent" means.
+        /// docs/Design/Spells.md.
+        /// </summary>
+        public static int GetSpellBuffArmorBonus(EntityManager em, Entity target, int baseDefense)
         {
             int bonus = 0;
             if (TransientState.Active<SpellBuff>(em, target))
-                bonus += (int)em.GetComponentData<SpellBuff>(target).ArmorBonus;
+            {
+                var buff = em.GetComponentData<SpellBuff>(target);
+                bonus += (int)buff.ArmorBonus;
+                if (buff.ArmorPct > 0f && baseDefense > 0)
+                    bonus += (int)math.round(baseDefense * buff.ArmorPct / 100f);
+            }
             if (em.HasComponent<SilenceVigilArmor>(target))
                 bonus += em.GetComponentData<SilenceVigilArmor>(target).Bonus;
             return bonus;
         }
+
+        /// <summary>The target's own armor against <paramref name="dmgType"/>
+        /// (0 without a Defense component), before any buff.</summary>
+        public static int BaseDefense(EntityManager em, Entity target, DamageType dmgType)
+            => em.HasComponent<Defense>(target)
+                ? CombatModifiers.GetDefenseValue(em.GetComponentData<Defense>(target), dmgType)
+                : 0;
 
         /// <summary>
         /// Feraldis fire-and-blood attack multiplier for one attacker
@@ -117,6 +140,7 @@ namespace TheWaningBorder.Systems.Combat
             {
                 var existing = em.GetComponentData<SpellBuff>(target);
                 existing.ArmorBonus       = Unity.Mathematics.math.max(existing.ArmorBonus, incoming.ArmorBonus);
+                existing.ArmorPct         = Unity.Mathematics.math.max(existing.ArmorPct, incoming.ArmorPct);
                 existing.DamageMultiplier = Unity.Mathematics.math.max(existing.DamageMultiplier, incoming.DamageMultiplier);
                 existing.SpeedMultiplier  = Unity.Mathematics.math.max(existing.SpeedMultiplier, incoming.SpeedMultiplier);
                 existing.DamageReflect    = Unity.Mathematics.math.max(existing.DamageReflect, incoming.DamageReflect);
@@ -157,6 +181,23 @@ namespace TheWaningBorder.Systems.Combat
         /// Entities without a FactionTag (neutral props, unowned wreckage) are
         /// damageable as before — this only speaks about faction relations.
         /// </summary>
+        /// <summary>
+        /// The Wall Rule (docs/Design/Combat_Pacing.md): only SIEGE damages a
+        /// wall piece. True when a hit of <paramref name="dmgType"/> on
+        /// <paramref name="target"/> must do nothing. Every damage path that
+        /// can reach a wall asks this where the damage lands, so a shooter
+        /// that forgets to filter walls out of its targeting (the building
+        /// towers did, until 2026-09-26) still cannot chip one down.
+        /// </summary>
+        public static bool WallRuleBlocks(EntityManager em, Entity target, DamageType dmgType)
+            => dmgType != DamageType.Siege && em.HasComponent<WallTag>(target);
+
+        /// <summary>The attacker-side form of <see cref="WallRuleBlocks"/>:
+        /// may this entity's own damage type hurt a wall at all?</summary>
+        public static bool DealsSiege(EntityManager em, Entity attacker)
+            => em.HasComponent<DamageTypeData>(attacker)
+               && em.GetComponentData<DamageTypeData>(attacker).Value == DamageType.Siege;
+
         public static bool CanDamage(EntityManager em, Entity attacker, Entity target)
         {
             if (!em.HasComponent<FactionTag>(attacker) || !em.HasComponent<FactionTag>(target))
@@ -435,7 +476,7 @@ namespace TheWaningBorder.Systems.Combat
                         if (paid > 0)
                         {
                             var atkHealth = em.GetComponentData<Health>(attacker);
-                            atkHealth.Value -= paid;
+                            atkHealth.Value -= ShieldDamage.Absorb(em, attacker, paid);
                             em.SetComponentData(attacker, atkHealth);
                         }
                     }
@@ -491,8 +532,11 @@ namespace TheWaningBorder.Systems.Combat
 
             int reflected = math.max(1, (int)(finalDamage * tgtBuff.DamageReflect));
             if (!em.HasComponent<Health>(attacker)) return;
+            // A shooting wall tower is a wall piece: a reflected hit is not
+            // siege, so it must not chip the tower. The Wall Rule.
+            if (em.HasComponent<WallTag>(attacker)) return;
             var attackerHealth = em.GetComponentData<Health>(attacker);
-            attackerHealth.Value -= reflected;
+            attackerHealth.Value -= ShieldDamage.Absorb(em, attacker, reflected);
             em.SetComponentData(attacker, attackerHealth);
         }
 

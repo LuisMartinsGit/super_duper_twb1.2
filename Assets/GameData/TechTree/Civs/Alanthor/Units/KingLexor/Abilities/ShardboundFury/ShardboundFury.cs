@@ -40,6 +40,15 @@ namespace TheWaningBorder.Entities
         public float3 From;      // where it left the ground
         public float3 To;        // where it lands (ground height resolved on landing)
         public int LandDamage;
+
+        /// <summary>Who threw it: kill credit and the friendly-fire test.</summary>
+        public Faction Source;
+        /// <summary>Armor column the landing is measured against.</summary>
+        public DamageType DamageKind;
+        /// <summary>1 = the landing is a SPELL hit and goes through
+        /// SpellDamage.Apply (Shardbound Fury). 0 = raw and lethal by design
+        /// (the death detonation: "killed on landing", friend or foe).</summary>
+        public byte SpellRouted;
     }
 
     public static class ShardboundFury
@@ -51,15 +60,22 @@ namespace TheWaningBorder.Entities
         public const float CleaveRadius = 4f;
         public const float CleaveFraction = 0.6f;
 
-        // The ability.
-        public const float FuryRadius = 22f;
+        // The ability. Cooldown, radius and slam are the CARD's numbers (the
+        // ShardboundFury AbilityDefSO is what runs); these constants only seed
+        // the code-side card and must stay equal to the SO. On the spell
+        // ladder (docs/Design/Spells.md 8): a hero ultimate, 120 s; the canon
+        // Large radius, 25 m; the slam of a level-III Large power, 30 x 2 = 60.
+        public const float FuryRadius = 25f;
         public const float FuryCooldown = 120f;
         public const float FuryMinHeight = 4f;        // at the rim
         public const float FuryMaxHeight = 10f;       // at the king's feet
         public const float FuryThrow = 3f;            // metres thrown outward
         public const float FuryFlightSeconds = 1.6f;
-        public const int FurySlamDamage = 90;
-        public const int FuryBuildingDamage = 600;
+        public const int FurySlamDamage = 60;
+        /// <summary>Flat damage to each hostile building in the radius: half a
+        /// standard (600 HP) building -- a hero ultimate cracks a district, it
+        /// does not level it (docs/Design/Spells.md 8.3).</summary>
+        public const int FuryBuildingDamage = 300;
 
         // The death detonation.
         public const float DetonationRadius = 20f;
@@ -80,18 +96,25 @@ namespace TheWaningBorder.Entities
 
         /// <summary>Shardbound Fury: hurl every HOSTILE unit within FuryRadius
         /// of the caster, damage every hostile building in it.</summary>
-        public static void Cast(EntityManager em, Entity caster)
+        /// <summary>The slam damage and its type come off the ability CARD
+        /// (Damage / DamageType, i.e. the ShardboundFury AbilityDefSO), so the
+        /// SO is what runs; the geometry and the building figure live here.</summary>
+        public static void Cast(EntityManager em, Entity caster,
+            TheWaningBorder.Abilities.AbilityCard card)
         {
             if (!em.Exists(caster) || !em.HasComponent<LocalTransform>(caster)
                 || !em.HasComponent<FactionTag>(caster)) return;
             var origin = em.GetComponentData<LocalTransform>(caster).Position;
             var faction = em.GetComponentData<FactionTag>(caster).Value;
+            int slam = card != null ? (int)card.Damage : FurySlamDamage;
+            DamageType type = card != null ? card.DamageType : DamageType.Magic;
+            float radius = card != null && card.Radius > 0f ? card.Radius : FuryRadius;
 
-            int units = Blast(em, origin, FuryRadius, caster, hostileOnly: true, faction,
+            int units = Blast(em, origin, radius, caster, hostileOnly: true, faction,
                 FuryMinHeight, FuryMaxHeight, FuryThrow, FuryFlightSeconds,
-                FurySlamDamage, FuryBuildingDamage);
+                slam, FuryBuildingDamage, spellRouted: true, type);
 
-            SimSignals.Ping(origin, SimPingKind.Combat, FuryRadius, big: true);
+            SimSignals.Ping(origin, SimPingKind.Combat, radius, big: true);
             SimSignals.Notify(string.Format(Loc.T("{0}'s SHARDBOUND FURY hurls {1} into the air!"), faction, units));
             TWBLog.Log($"[Shardbound] {faction} Fury at ({origin.x:F0},{origin.z:F0}): {units} units launched");
         }
@@ -103,7 +126,7 @@ namespace TheWaningBorder.Entities
         {
             int units = Blast(em, origin, DetonationRadius, king, hostileOnly: false, faction,
                 DetonationHeight, DetonationHeight, DetonationThrow, DetonationFlightSeconds,
-                DetonationLandDamage, DetonationBuildingDamage);
+                DetonationLandDamage, DetonationBuildingDamage, spellRouted: false, DamageType.True);
 
             SimSignals.Ping(origin, SimPingKind.Combat, DetonationRadius, big: true);
             SimSignals.Notify(Loc.T("The SHARDBOUND KING has fallen -- the Shardroot detonates!"));
@@ -112,7 +135,8 @@ namespace TheWaningBorder.Entities
 
         private static int Blast(EntityManager em, float3 origin, float radius, Entity self,
             bool hostileOnly, Faction faction, float minHeight, float maxHeight, float throwDist,
-            float flightSeconds, int landDamage, int buildingDamage)
+            float flightSeconds, int landDamage, int buildingDamage,
+            bool spellRouted, DamageType dmgType)
         {
             float r2 = radius * radius;
             var q = QC_Victims.Get(em, QT_Victims);
@@ -142,6 +166,9 @@ namespace TheWaningBorder.Entities
                     continue;
                 }
                 if (!em.HasComponent<UnitTag>(e)) continue;
+                // An emplaced engine is bolted to its wall deck; launching it
+                // would land it on the terrain, off its platform for good.
+                if (em.HasComponent<EmplacedEngineTag>(e)) continue;
                 if (em.HasComponent<Launched>(e)) continue;
                 if (TransientState.Active<DeathAnimationState>(em, e)) continue;
 
@@ -156,6 +183,8 @@ namespace TheWaningBorder.Entities
                 {
                     Elapsed = 0f, Duration = flightSeconds, Height = height,
                     From = p, To = to, LandDamage = landDamage,
+                    Source = faction, DamageKind = dmgType,
+                    SpellRouted = (byte)(spellRouted ? 1 : 0),
                 });
             }
 
@@ -175,8 +204,18 @@ namespace TheWaningBorder.Entities
             }
             for (int i = 0; i < hitBuildings.Length; i++)
             {
+                if (spellRouted)
+                {
+                    // The Fury is a spell: armor, Invulnerable and the ally
+                    // test apply (docs/Design/Spells.md).
+                    TheWaningBorder.Systems.Combat.SpellDamage.Apply(
+                        em, hitBuildings[i], buildingDamage, dmgType, faction);
+                    continue;
+                }
+                // Shield points are hit points (Combat_Pacing.md): spend them first.
+                int left = TheWaningBorder.Systems.Combat.ShieldDamage.Absorb(em, hitBuildings[i], buildingDamage);
                 var h = em.GetComponentData<Health>(hitBuildings[i]);
-                h.Value = math.max(0, h.Value - buildingDamage);
+                h.Value = math.max(0, h.Value - left);
                 em.SetComponentData(hitBuildings[i], h);
             }
 

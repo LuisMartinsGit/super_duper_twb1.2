@@ -275,6 +275,14 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         public GameObject View;
         public ProceduralScaleTag ScaleTag;
         public BuildingRiseData Rise;
+        /// <summary>An emplaced engine stands on a wall deck: its simulated
+        /// Y IS its height, and no ground/bridge sample may replace it.</summary>
+        public bool KeepSimY;
+        /// <summary>Resolved with the view — was a GetComponent per frame
+        /// for every building under construction.</summary>
+        public BuildingVisualSinkDepth Sink;
+        /// <summary>Frame this view was last synced (see SyncView).</summary>
+        public int LastFrame = -1;
 
         public bool Primed;
         public Unity.Mathematics.float3 LastPos;
@@ -336,8 +344,6 @@ public partial class PresentationSpawnSystem : MonoBehaviour
     /// </summary>
     private EntityQuery _missingViewQuery;
 
-    // Throttle SyncTransforms to ~15fps to reduce per-frame cost
-    private float _syncTimer;
 
     void Awake()
     {
@@ -474,10 +480,14 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         // we never touch the world. This is true for the overwhelming majority
         // of frames in a match — the pass used to copy three arrays covering
         // every entity in the world to discover exactly that.
-        // IsEmptyIgnoreFilter: no chunk filter is ever set on this query, and
-        // the Exclude is part of the archetype match rather than a filter, so
-        // this is the same answer without the job sync IsEmpty would force.
-        if (_missingViewQuery.IsEmptyIgnoreFilter) return;
+        // IsEmpty, NOT IsEmptyIgnoreFilter (2026-09-25). PresentationViewSpawned
+        // is ENABLEABLE and pre-added (disabled) to every presented entity, so
+        // every archetype CARRIES it and the Exclude is answered per entity by
+        // the enabled bit, not by the archetype match. IsEmptyIgnoreFilter
+        // ignores enabled bits and was therefore never true: the early-out
+        // never fired and the three-array copy below ran every frame. Same
+        // trap PresentationViewTagSeedSystem documents for None<T>.
+        if (_missingViewQuery.IsEmpty) return;
 
         var entities = _missingViewQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
         var presentations = _missingViewQuery.ToComponentDataArray<PresentationId>(Unity.Collections.Allocator.Temp);
@@ -593,7 +603,10 @@ public partial class PresentationSpawnSystem : MonoBehaviour
     {
         // Get position and adjust Y to terrain height using shared utility
         Vector3 pos = transform.Position;
-        pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
+        // An emplaced engine stands on a wall deck, not on the ground under
+        // it: its simulated Y is where it is drawn.
+        if (!_em.HasComponent<EmplacedEngineTag>(entity))
+            pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
 
         // === PROCEDURAL OBSTACLES: generate compound GameObjects instead of loading prefabs ===
         if (presentationId == ObstacleBootstrap.ForestPresentationId)
@@ -826,6 +839,10 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             var go = CreateProceduralVeilstoneOutcroppingLoot(pos, entity);
             return go;
         }
+
+        // === THE SHARDROOT (ground pickup, or embedded in a Maw) ===
+        if (presentationId == TheWaningBorder.Core.Config.BorderConstants.ShardrootPresentationID)
+            return CreateShardrootVisual(pos, entity);
 
         // === CRYSTAL NODES (buildings): procedural veilstone-themed visuals ===
         // Veilstone UNITS (320-322) use actual prefabs, so they fall through to prefab loading below
@@ -1543,14 +1560,33 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         FlushViewTags();
     }
 
+    // ── SyncTransforms chunk skip (2026-09-25) ─────────────────────────
+    //
+    // The per-view fast path below already made a static view cheap, but
+    // "cheap" was still a dictionary lookup, a ViewSync lookup, a
+    // HasComponent and three compares for EVERY tree, rock, node and wall
+    // module on the map, every frame. Now whole chunks whose LocalTransform
+    // did not change since the last pass are skipped without touching a
+    // single entity. Three things can still need a write on an unchanged
+    // chunk, and each is covered:
+    //   * a view (re)registered on an unchanged entity -> the registration
+    //     journal (EntityViewManager.DrainRegistered) puts it in _activeViews;
+    //   * an interpolation segment still playing out, or a building that
+    //     just left construction -> kept in _activeViews until it settles;
+    //   * the ground moving under everything (TerrainVersion), a journal
+    //     overflow, or a lockstep/free-run switch -> one full sweep.
+    // Under-construction chunks are always walked (their rise animates).
+    private uint _lastSyncVersion;
+    private int _lastSyncTerrainVersion = int.MinValue;
+    private bool _lastSyncInterpolate;
+    private bool _syncEverRan;
+    private readonly HashSet<Entity> _activeViews = new();
+    private readonly List<Entity> _activeScratch = new();
+
     private void SyncTransforms()
     {
-        if (EntityViewManager.Instance == null) return;
-
-        var entities = _presentationQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
-        var transforms = _presentationQuery.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
-
-        var em = World.DefaultGameObjectInjectionWorld?.EntityManager;
+        var evm = EntityViewManager.Instance;
+        if (evm == null) return;
 
         // Under lockstep the simulation advances in fixed steps, so transforms
         // arrive in discrete jumps and views have to be interpolated between
@@ -1559,168 +1595,240 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         float stepDuration = Mathf.Max(
             0.0001f, TheWaningBorder.Core.Multiplayer.LockstepTiming.TickDuration);
 
-        for (int i = 0; i < entities.Length; i++)
+        _activeScratch.Clear();
+        evm.DrainRegistered(_activeScratch, out bool overflow);
+        for (int k = 0; k < _activeScratch.Count; k++) _activeViews.Add(_activeScratch[k]);
+
+        bool full = !_syncEverRan || overflow
+            || interpolate != _lastSyncInterpolate
+            || _lastSyncTerrainVersion != TerrainUtility.TerrainVersion;
+        uint lastVersion = _lastSyncVersion;
+        _lastSyncVersion = _em.GlobalSystemVersion;
+        _syncEverRan = true;
+        _lastSyncInterpolate = interpolate;
+        _lastSyncTerrainVersion = TerrainUtility.TerrainVersion;
+        int frame = Time.frameCount;
+
+        _presentationQuery.CompleteDependency();
+        var entityHandle = _em.GetEntityTypeHandle();
+        var ltHandle = _em.GetComponentTypeHandle<LocalTransform>(true);
+        var ucHandle = _em.GetComponentTypeHandle<UnderConstruction>(true);
+
+        var chunks = _presentationQuery.ToArchetypeChunkArray(Unity.Collections.Allocator.Temp);
+        for (int c = 0; c < chunks.Length; c++)
         {
-            if (EntityViewManager.Instance.TryGetView(entities[i], out var go) && go != null)
+            var chunk = chunks[c];
+            bool underConstruction = chunk.Has(ref ucHandle);
+            if (!full && !underConstruction && !chunk.DidChange(ref ltHandle, lastVersion))
+                continue;
+
+            var entities = chunk.GetNativeArray(entityHandle);
+            var transforms = chunk.GetNativeArray(ref ltHandle);
+            for (int i = 0; i < entities.Length; i++)
+                SyncView(evm, entities[i], transforms[i], underConstruction,
+                    interpolate, stepDuration, frame);
+        }
+        chunks.Dispose();
+
+        // Views whose chunk was skipped but which still owe a write.
+        if (_activeViews.Count > 0)
+        {
+            _activeScratch.Clear();
+            _activeScratch.AddRange(_activeViews);
+            for (int k = 0; k < _activeScratch.Count; k++)
             {
-                // ── Per-view cache (see ViewSync) ────────────────────────
-                if (!_viewSync.TryGetValue(entities[i], out var sync))
+                var e = _activeScratch[k];
+                if (!_em.Exists(e) || !_em.HasComponent<PresentationId>(e)
+                    || !_em.HasComponent<LocalTransform>(e))
                 {
-                    sync = new ViewSync();
-                    _viewSync[entities[i]] = sync;
-                }
-                if (sync.View != go)
-                {
-                    sync.View = go;
-                    sync.ScaleTag = go.GetComponent<ProceduralScaleTag>();
-                    sync.Rise = go.GetComponent<TheWaningBorder.Rendering.BuildingRiseData>();
-                    sync.Primed = false;   // new view: force a full write
-                }
-
-                bool underConstruction = em.HasValue
-                    && em.Value.HasComponent<UnderConstruction>(entities[i]);
-
-                // Static-entity fast path: nothing about this visual changed
-                // since the last sync, so skip the terrain sample and the
-                // three transform writes entirely. Under-construction visuals
-                // never take it — their rise animation advances every frame.
-                // Nor does a view still playing out an interpolation segment.
-                if (sync.Primed && !underConstruction && !sync.LastUnderConstruction
-                    && sync.LastTerrainVersion == TerrainUtility.TerrainVersion
-                    && sync.LastPos.Equals(transforms[i].Position)
-                    && sync.LastRot.value.Equals(transforms[i].Rotation.value)
-                    && sync.LastScale == transforms[i].Scale
-                    && (!interpolate || sync.SegmentT >= 1f))
+                    _activeViews.Remove(e);
                     continue;
+                }
+                SyncView(evm, e, _em.GetComponentData<LocalTransform>(e),
+                    _em.HasComponent<UnderConstruction>(e), interpolate, stepDuration, frame);
+            }
+        }
+    }
 
-                var simPos = transforms[i].Position;
-                var simRot = VisualRotation(entities[i], transforms[i].Rotation);
+    private void SyncView(EntityViewManager evm, Entity entity, LocalTransform lt,
+        bool underConstruction, bool interpolate, float stepDuration, int frame)
+    {
+        if (!evm.TryGetView(entity, out var go) || go == null)
+        {
+            _activeViews.Remove(entity);
+            return;
+        }
 
-                if (interpolate)
+        // ── Per-view cache (see ViewSync) ────────────────────────
+        if (!_viewSync.TryGetValue(entity, out var sync))
+        {
+            sync = new ViewSync();
+            _viewSync[entity] = sync;
+        }
+        // Once per frame: an active view can be reached by both the chunk
+        // walk and the active pass, and a second visit would advance its
+        // interpolation twice.
+        if (sync.LastFrame == frame) return;
+        sync.LastFrame = frame;
+
+        if (sync.View != go)
+        {
+            sync.View = go;
+            sync.ScaleTag = go.GetComponent<ProceduralScaleTag>();
+            sync.Rise = go.GetComponent<TheWaningBorder.Rendering.BuildingRiseData>();
+            sync.Sink = go.GetComponent<TheWaningBorder.Rendering.BuildingVisualSinkDepth>();
+            sync.KeepSimY = _em.HasComponent<EmplacedEngineTag>(entity);
+            sync.Primed = false;   // new view: force a full write
+        }
+
+        // Static-entity fast path: nothing about this visual changed
+        // since the last sync, so skip the terrain sample and the
+        // three transform writes entirely. Under-construction visuals
+        // never take it — their rise animation advances every frame.
+        // Nor does a view still playing out an interpolation segment.
+        if (sync.Primed && !underConstruction && !sync.LastUnderConstruction
+            && sync.LastTerrainVersion == TerrainUtility.TerrainVersion
+            && sync.LastPos.Equals(lt.Position)
+            && sync.LastRot.value.Equals(lt.Rotation.value)
+            && sync.LastScale == lt.Scale
+            && (!interpolate || sync.SegmentT >= 1f))
+        {
+            _activeViews.Remove(entity);
+            return;
+        }
+
+        var simPos = lt.Position;
+        var simRot = VisualRotation(entity, lt.Rotation);
+
+        if (interpolate)
+        {
+            // A changed simulated transform opens a new segment, played
+            // out over one tick's worth of real time. Starting it from
+            // where the view actually IS (not from the previous
+            // simulated value) keeps the motion continuous even when a
+            // frame is long enough to span two ticks.
+            if (!sync.Primed
+                || !sync.LastPos.Equals(simPos)
+                || !sync.LastRot.value.Equals(lt.Rotation.value))
+            {
+                bool teleport = !sync.Primed
+                    || Unity.Mathematics.math.distancesq(sync.RenderPos, simPos) > TeleportSnapDistanceSq;
+
+                sync.FromPos = teleport ? simPos : sync.RenderPos;
+                sync.FromRot = teleport ? simRot : sync.RenderRot;
+                sync.ToPos = simPos;
+                sync.ToRot = simRot;
+                sync.SegmentT = teleport ? 1f : 0f;
+            }
+
+            sync.SegmentT = Mathf.Min(1f, sync.SegmentT + Time.deltaTime / stepDuration);
+            sync.RenderPos = Unity.Mathematics.math.lerp(sync.FromPos, sync.ToPos, sync.SegmentT);
+            sync.RenderRot = Quaternion.Slerp(sync.FromRot, sync.ToRot, sync.SegmentT);
+        }
+        else
+        {
+            sync.RenderPos = simPos;
+            sync.RenderRot = simRot;
+            sync.SegmentT = 1f;
+        }
+
+        var pos = (Vector3)sync.RenderPos;
+        // Nearest walking surface to the SIMULATED Y — keeps visuals
+        // on the bridge deck when the entity is on a bridge, and on
+        // the ground when it walks under one. Sampled at the RENDERED
+        // x/z so a unit crossing a slope rides it smoothly rather than
+        // in tick-sized steps.
+        if (!sync.KeepSimY)
+            pos.y = TerrainUtility.GetSurfaceHeight(pos.x, pos.z, sync.RenderPos.y);
+
+        // Construction rising animation: pieces start below ground and
+        // rise into place bottom-to-top via BuildingRiseData. Falls back
+        // to a rigid root sink for visuals that don't have rise data
+        // attached (e.g. mid-construction prefab swap before re-init).
+        if (underConstruction)
+        {
+            var uc = _em.GetComponentData<UnderConstruction>(entity);
+            float ratio = uc.Total > 0 ? Mathf.Clamp01(uc.Progress / uc.Total) : 1f;
+            // Cached on the view (was a GetComponent per frame per site).
+            // A miss re-resolves: the tag can be added after registration.
+            var sinkTag = sync.Sink != null ? sync.Sink
+                : (sync.Sink = go.GetComponent<TheWaningBorder.Rendering.BuildingVisualSinkDepth>());
+            float sinkDepth = (sinkTag != null && sinkTag.Value > 0f)
+                ? sinkTag.Value
+                : (_em.HasComponent<Radius>(entity)
+                    ? _em.GetComponentData<Radius>(entity).Value * 2f
+                    : 3f);
+
+            var rise = sync.Rise;
+            if (rise != null && rise.HasPieces)
+                rise.ApplyRise(ratio, sinkDepth);
+            else
+                // Rigid root sink — also the path for single-mesh
+                // prefabs whose only renderer sits on the root (no
+                // child pieces to stagger).
+                pos.y -= sinkDepth * (1f - ratio);
+        }
+        else
+        {
+            // Just exited UnderConstruction: snap pieces back to rest
+            // once and fire the same flourish used for level-up swaps
+            // so the transition reads clearly to the player.
+            var rise = sync.Rise;
+            if (rise != null && rise.NotifyConstructionComplete())
+            {
+                Color accent = new Color(1f, 0.85f, 0.45f);
+                if (_em.HasComponent<FactionTag>(entity))
                 {
-                    // A changed simulated transform opens a new segment, played
-                    // out over one tick's worth of real time. Starting it from
-                    // where the view actually IS (not from the previous
-                    // simulated value) keeps the motion continuous even when a
-                    // frame is long enough to span two ticks.
-                    if (!sync.Primed
-                        || !sync.LastPos.Equals(simPos)
-                        || !sync.LastRot.value.Equals(transforms[i].Rotation.value))
+                    var cFac = _em.GetComponentData<FactionTag>(entity).Value;
+                    accent = FactionColors.Get(cFac);
+
+                    // Culture already chosen: the finished building
+                    // transitions to its culture Lv1 model right away
+                    // (multi-variant prefabs only) using the same
+                    // dissolve wave as the Hall's level-up swaps.
+                    var cVariant = go.GetComponent<TheWaningBorder.Rendering.BuildingVariantVisual>();
+                    if (cVariant != null)
                     {
-                        bool teleport = !sync.Primed
-                            || Unity.Mathematics.math.distancesq(sync.RenderPos, simPos) > TeleportSnapDistanceSq;
-
-                        sync.FromPos = teleport ? simPos : sync.RenderPos;
-                        sync.FromRot = teleport ? simRot : sync.RenderRot;
-                        sync.ToPos = simPos;
-                        sync.ToRot = simRot;
-                        sync.SegmentT = teleport ? 1f : 0f;
-                    }
-
-                    sync.SegmentT = Mathf.Min(1f, sync.SegmentT + Time.deltaTime / stepDuration);
-                    sync.RenderPos = Unity.Mathematics.math.lerp(sync.FromPos, sync.ToPos, sync.SegmentT);
-                    sync.RenderRot = Quaternion.Slerp(sync.FromRot, sync.ToRot, sync.SegmentT);
-                }
-                else
-                {
-                    sync.RenderPos = simPos;
-                    sync.RenderRot = simRot;
-                    sync.SegmentT = 1f;
-                }
-
-                var pos = (Vector3)sync.RenderPos;
-                // Nearest walking surface to the SIMULATED Y — keeps visuals
-                // on the bridge deck when the entity is on a bridge, and on
-                // the ground when it walks under one. Sampled at the RENDERED
-                // x/z so a unit crossing a slope rides it smoothly rather than
-                // in tick-sized steps.
-                pos.y = TerrainUtility.GetSurfaceHeight(pos.x, pos.z, sync.RenderPos.y);
-
-                // Construction rising animation: pieces start below ground and
-                // rise into place bottom-to-top via BuildingRiseData. Falls back
-                // to a rigid root sink for visuals that don't have rise data
-                // attached (e.g. mid-construction prefab swap before re-init).
-                if (underConstruction)
-                {
-                    var uc = em.Value.GetComponentData<UnderConstruction>(entities[i]);
-                    float ratio = uc.Total > 0 ? Mathf.Clamp01(uc.Progress / uc.Total) : 1f;
-                    var sinkTag = go.GetComponent<TheWaningBorder.Rendering.BuildingVisualSinkDepth>();
-                    float sinkDepth = (sinkTag != null && sinkTag.Value > 0f)
-                        ? sinkTag.Value
-                        : (em.Value.HasComponent<Radius>(entities[i])
-                            ? em.Value.GetComponentData<Radius>(entities[i]).Value * 2f
-                            : 3f);
-
-                    var rise = sync.Rise;
-                    if (rise != null && rise.HasPieces)
-                        rise.ApplyRise(ratio, sinkDepth);
-                    else
-                        // Rigid root sink — also the path for single-mesh
-                        // prefabs whose only renderer sits on the root (no
-                        // child pieces to stagger).
-                        pos.y -= sinkDepth * (1f - ratio);
-                }
-                else
-                {
-                    // Just exited UnderConstruction: snap pieces back to rest
-                    // once and fire the same flourish used for level-up swaps
-                    // so the transition reads clearly to the player.
-                    var rise = sync.Rise;
-                    if (rise != null && rise.NotifyConstructionComplete())
-                    {
-                        Color accent = new Color(1f, 0.85f, 0.45f);
-                        if (em.HasValue && em.Value.HasComponent<FactionTag>(entities[i]))
-                        {
-                            var cFac = em.Value.GetComponentData<FactionTag>(entities[i]).Value;
-                            accent = FactionColors.Get(cFac);
-
-                            // Culture already chosen: the finished building
-                            // transitions to its culture Lv1 model right away
-                            // (multi-variant prefabs only) using the same
-                            // dissolve wave as the Hall's level-up swaps.
-                            var cVariant = go.GetComponent<TheWaningBorder.Rendering.BuildingVariantVisual>();
-                            if (cVariant != null)
-                            {
-                                byte cCulture = CultureConfig.GetCompletedCulture(_em, cFac);
-                                cVariant.ShowVariantWithTransition(cCulture, 1, accent);
-                                // Already-earned tech visuals appear as part
-                                // of the reveal, not as separate waves.
-                                cVariant.SyncTechVisuals(cFac, accent, withTransition: false);
-                                // The culture branch is different art from
-                                // the Lv0 the fit was measured on.
-                                RefitVariantView(go, entities[i], em.Value);
-                            }
-                        }
-                        TheWaningBorder.Rendering.BuildingLevelUpEffect.Spawn(go, accent);
+                        byte cCulture = CultureConfig.GetCompletedCulture(_em, cFac);
+                        cVariant.ShowVariantWithTransition(cCulture, 1, accent);
+                        // Already-earned tech visuals appear as part
+                        // of the reveal, not as separate waves.
+                        cVariant.SyncTechVisuals(cFac, accent, withTransition: false);
+                        // The culture branch is different art from
+                        // the Lv0 the fit was measured on.
+                        RefitVariantView(go, entity, _em);
                     }
                 }
-
-                // Respect procedural unit base scale (ProceduralScaleTag)
-                float baseScale = (sync.ScaleTag != null) ? sync.ScaleTag.BaseScale : 1f;
-                float finalScale = transforms[i].Scale * baseScale;
-
-                // Pivot-offset compensation: shift the root so the SCALED
-                // bounds centre — not the prefab pivot — sits on the entity
-                // position. Rotates with the view. Zero for units and
-                // procedural builders (see ProceduralScaleTag.BaseOffset).
-                if (sync.ScaleTag != null && sync.ScaleTag.BaseOffset != Vector3.zero)
-                    pos -= (sync.RenderRot * sync.ScaleTag.BaseOffset) * finalScale;
-
-                go.transform.position = pos;
-                go.transform.rotation = sync.RenderRot;
-                go.transform.localScale = Vector3.one * finalScale;
-
-                sync.LastPos = transforms[i].Position;
-                sync.LastRot = transforms[i].Rotation;
-                sync.LastScale = transforms[i].Scale;
-                sync.LastUnderConstruction = underConstruction;
-                sync.LastTerrainVersion = TerrainUtility.TerrainVersion;
-                sync.Primed = true;
+                TheWaningBorder.Rendering.BuildingLevelUpEffect.Spawn(go, accent);
             }
         }
 
-        entities.Dispose();
-        transforms.Dispose();
+        // Respect procedural unit base scale (ProceduralScaleTag)
+        float baseScale = (sync.ScaleTag != null) ? sync.ScaleTag.BaseScale : 1f;
+        float finalScale = lt.Scale * baseScale;
+
+        // Pivot-offset compensation: shift the root so the SCALED
+        // bounds centre — not the prefab pivot — sits on the entity
+        // position. Rotates with the view. Zero for units and
+        // procedural builders (see ProceduralScaleTag.BaseOffset).
+        if (sync.ScaleTag != null && sync.ScaleTag.BaseOffset != Vector3.zero)
+            pos -= (sync.RenderRot * sync.ScaleTag.BaseOffset) * finalScale;
+
+        go.transform.SetPositionAndRotation(pos, sync.RenderRot);
+        go.transform.localScale = Vector3.one * finalScale;
+
+        sync.LastPos = lt.Position;
+        sync.LastRot = lt.Rotation;
+        sync.LastScale = lt.Scale;
+        sync.LastUnderConstruction = underConstruction;
+        sync.LastTerrainVersion = TerrainUtility.TerrainVersion;
+        sync.Primed = true;
+
+        // Still owes a write next frame even if its chunk goes quiet.
+        if ((interpolate && sync.SegmentT < 1f) || underConstruction)
+            _activeViews.Add(entity);
+        else
+            _activeViews.Remove(entity);
     }
 
     private GameObject CreateFallbackPrefab(string name, PrimitiveType type, float scale)

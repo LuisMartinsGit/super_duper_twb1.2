@@ -9,6 +9,16 @@
 // with a drawn wall being one segment end to end (WallDrawTool.asset
 // hubSpacing 0) that meant one 400 HP bastion kill erased a whole stroke.
 // Do not reintroduce it.
+//
+// It is also the safety net for a segment that went away by ANY other
+// path (2026-09-25). A segment carries no Health, so nothing should be able
+// to kill it -- but the old 1/1 placeholder let splash do exactly that, and
+// DeathSystem's destruction skipped every step below: the hubs kept a link
+// to a segment that no longer existed (so AreHubsConnected stayed true and
+// the gap could never be redrawn), and the drawn curve's cells, which draw
+// nothing themselves, stood on at full HP with no mesh -- an invisible wall.
+// So each poll also prunes links to missing segments and zeroes an orphaned
+// invisible curve cell (DeathSystem destroys it, per the unit-death contract).
 
 using Unity.Entities;
 using Unity.Collections;
@@ -71,6 +81,26 @@ namespace TheWaningBorder.Systems.Buildings
             for (int i = 0; i < toDestroy.Length; i++)
                 DestroySegment(em, toDestroy[i]);
             toDestroy.Dispose();
+
+            // A hub link whose segment is gone is a lie: prune it.
+            foreach (var links in SystemAPI.Query<DynamicBuffer<WallHubLink>>().WithAll<WallHubTag>())
+            {
+                for (int i = links.Length - 1; i >= 0; i--)
+                    if (!em.Exists(links[i].Segment)) links.RemoveAt(i);
+            }
+
+            // An invisible curve cell whose segment is gone has no mesh left
+            // to be part of. Only the plain pick-collider cells: a gate or a
+            // mounted engine draws itself and stands on its own.
+            foreach (var (hp, parent, pid) in SystemAPI
+                         .Query<RefRW<Health>, RefRO<WallInstanceParent>, RefRO<PresentationId>>()
+                         .WithAll<WallCurveCellTag>())
+            {
+                if (hp.ValueRO.Value <= 0) continue;
+                if (pid.ValueRO.Id != TheWaningBorder.Entities.AlanthorWall.CurveCellPresentationID) continue;
+                if (em.Exists(parent.ValueRO.Segment)) continue;
+                hp.ValueRW.Value = 0;
+            }
         }
 
         /// <summary>

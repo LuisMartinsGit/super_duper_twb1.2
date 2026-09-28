@@ -13,9 +13,17 @@
 //      back to its own goal flow toward its final slot destination.
 //   4. Members behind their spot get the +40% catch-up speed; members in
 //      place march at the group speed.
-//   5. Combat dissolves membership (a unit that acquires a Target leaves
-//      the group and fights at its own speed). Arrival settles members
-//      into their spots and the group dissolves.
+//   5. Combat takes a member OUT OF RANK, not out of the group: a member
+//      that auto-acquires a target fights at its own speed and rejoins its
+//      slot when the target is gone (an explicit attack order detaches it
+//      for good). Arrival settles members into their slots one by one; the
+//      group lives until the last has settled or the settle timeout runs out,
+//      which is frozen while anyone is fighting; while more than
+//      engagedHoldFraction of the roster fights, the leader holds for them
+//      (docs/Design/Navigation_And_Formations.md §2.9-2.10).
+//   6. A blocked leader pivots in place or steps along the flow; only a
+//      genuine stall releases the group, and it releases members to their
+//      own final slots rather than faking arrival.
 //
 // Runs on the main thread (group counts are tiny — one entity per active
 // group order); per-member work is O(members) with O(grid-ray) LOS checks.
@@ -135,6 +143,8 @@ namespace TheWaningBorder.Systems.Navigation
 
             var em = state.EntityManager;
             float dt = SystemAPI.Time.DeltaTime;
+            var cfg = FormationGroupSystemConfig.I;
+            float settleTimeout = cfg != null ? cfg.settleTimeoutSeconds : 0f;
 
             var grid = SystemAPI.GetSingleton<NavGridSingleton>();
             var cost = SystemAPI.GetSingleton<NavCostField>();
@@ -158,16 +168,21 @@ namespace TheWaningBorder.Systems.Navigation
 
                 var keep = new NativeList<FormationMember>(snapshot.Length, Allocator.Temp);
                 var toDetach = new NativeList<Entity>(snapshot.Length, Allocator.Temp);
+                // Members stepping out of rank to fight lose the group speed
+                // (they fight at their own); removal is structural, so it is
+                // collected and applied with the detaches.
+                var toUnspeed = new NativeList<Entity>(snapshot.Length, Allocator.Temp);
                 float slowest = float.MaxValue;
 
-                // Worst member lag against the PRE-advance leader pose. Drives
-                // the leader tether below: the leader may only travel as fast
-                // as the formation it is leading can actually follow.
+                // Worst member->spot DISTANCE this tick, in any direction,
+                // against the PRE-advance leader pose, and who holds it. ONE
+                // metric drives the ease, the fuse's progress test AND the
+                // fuse's victim (see the tether block below).
                 float3 preRight = math.cross(new float3(0f, 1f, 0f), g.Facing);
-                float maxLag = 0f;
-                // Worst member->spot DISTANCE this tick, in any direction.
                 float maxOffset = 0f;
-                Entity worstLaggard = Entity.Null;
+                Entity worstOffender = Entity.Null;
+                // Members out of rank fighting an auto-acquired target.
+                int engagedCount = 0;
 
                 for (int i = 0; i < snapshot.Length; i++)
                 {
@@ -183,12 +198,36 @@ namespace TheWaningBorder.Systems.Navigation
                         || em.GetComponentData<FormationMemberState>(u).Group != groupEntity)
                         continue;
 
-                    // Combat dissolves the formation (AoE4): the unit
-                    // fights individually at its own speed.
-                    if (em.HasComponent<Target>(u)
-                        && em.GetComponentData<Target>(u).Value != Entity.Null)
+                    // -- Combat takes the member out of RANK, not out of the
+                    // group. An AUTO-acquired target (TargetingSystem records
+                    // it in UnitEngagement.AutoTarget) keeps the member on the
+                    // roster, fighting at its own speed, so it can rejoin once
+                    // the target is dead or leashed away. An explicit attack
+                    // order is a different intent: that member leaves for good.
+                    Entity fightTarget = em.HasComponent<Target>(u)
+                        ? em.GetComponentData<Target>(u).Value : Entity.Null;
+                    if (fightTarget != Entity.Null)
                     {
-                        toDetach.Add(u);
+                        bool auto = em.HasComponent<UnitEngagement>(u)
+                            && em.GetComponentData<UnitEngagement>(u).AutoTarget == fightTarget;
+                        if (!auto) { toDetach.Add(u); continue; }
+
+                        m.Engaged = 1;
+                        engagedCount++;
+                        keep.Add(m);
+                        if (em.HasComponent<FormationSpeedOverride>(u)) toUnspeed.Add(u);
+                        continue;
+                    }
+
+                    if (m.Engaged != 0)
+                    {
+                        // The fight is over and the group still exists: walk
+                        // back to the slot and fall in again. Not counted in
+                        // the lag this tick - it is legitimately out of place.
+                        m.Engaged = 0;
+                        if (em.HasComponent<DesiredDestination>(u))
+                            em.SetComponentData(u, new DesiredDestination { Position = m.SlotWorld, Has = 1 });
+                        keep.Add(m);
                         continue;
                     }
 
@@ -207,7 +246,13 @@ namespace TheWaningBorder.Systems.Navigation
                     keep.Add(m);
                     if (em.HasComponent<MoveSpeed>(u))
                     {
-                        float sp = em.GetComponentData<MoveSpeed>(u).Value;
+                        // EFFECTIVE speed: base times the member's own slows
+                        // and hastes, exactly as the integrator will apply them.
+                        // A group paced on base speeds silently leaves a slowed
+                        // member behind for the whole march. A member that
+                        // cannot move at all (Fortified) does not set the pace.
+                        float mult = UnitSpeedModifiers.Multiplier(em, u);
+                        float sp = em.GetComponentData<MoveSpeed>(u).Value * mult;
                         if (sp > 0f && sp < slowest) slowest = sp;
                     }
 
@@ -215,36 +260,29 @@ namespace TheWaningBorder.Systems.Navigation
                     {
                         float3 sp0 = g.LeaderPos + preRight * m.Slot.x + g.Facing * m.Slot.y;
                         float3 p0 = em.GetComponentData<LocalTransform>(u).Position;
-                        // LAG IS BEHIND-NESS, not distance. Measured along the
-                        // travel direction and clamped at zero, so only members
-                        // the leader is actually leaving behind hold it back.
+                        // OUT OF POSITION, in any direction. A member 40 cm off
+                        // to the SIDE is just as out of formation as one 40 cm
+                        // behind; slowing the leader for it is what buys it the
+                        // spare speed to slide back into its column.
                         //
-                        // As raw distance it also counted members AHEAD of their
-                        // spot and members merely offset SIDEWAYS from it — and
-                        // on the tick an order is issued that is most of the
-                        // group, because the spots appear around the centroid.
-                        // lagScale reaches 0 at 6 m of lag, so a block of ten
-                        // deeper than that pinned the leader at a standstill
-                        // until the whole formation had closed up on the
-                        // centroid. That is the "form up before you move" the
-                        // player sees, and under a stream of kite orders it
-                        // meant the group never departed at all.
+                        // The tether fuse used to measure BEHIND-NESS (lag
+                        // along the facing) for its progress test and victim
+                        // while the ease was triggered by this distance. The
+                        // two disagreed exactly when it mattered: a member
+                        // wedged SIDEWAYS kept the leader easing, its lag stayed
+                        // flat at ~0, the fuse fired every 120 ticks — and
+                        // ejected whichever member happened to have the largest
+                        // TINY lag, a perfectly placed one, while the wedged
+                        // member stayed and the ease went on. Progress, victim
+                        // and ease are now the same number, so the member the
+                        // fuse drops is the member the leader is waiting for.
+                        //
+                        // (No forming-up stall from counting members AHEAD or
+                        // abeam: the ease is a flat 10%, not the old ramp to a
+                        // standstill that behind-ness was introduced to spare.)
                         float lx = sp0.x - p0.x, lz = sp0.z - p0.z;
-                        float lag = lx * g.Facing.x + lz * g.Facing.z;
-                        if (lag > maxLag) { maxLag = lag; worstLaggard = u; }
-
-                        // OUT OF POSITION IS NOT THE SAME QUESTION AS BEHIND.
-                        // The release fuse above wants behind-ness — it is
-                        // deciding whether the leader is leaving somebody
-                        // behind. "Should the leader ease off so the shape can
-                        // tighten" wants the honest distance, because a member
-                        // that is 40 cm off to the SIDE is just as out of
-                        // formation and reads as zero behind-ness. Slowing for
-                        // it is what buys it the spare speed to slide back into
-                        // its column; without this the squad marches
-                        // permanently a little askew and nothing corrects it.
                         float offset = math.sqrt(lx * lx + lz * lz);
-                        if (offset > maxOffset) maxOffset = offset;
+                        if (offset > maxOffset) { maxOffset = offset; worstOffender = u; }
                     }
                 }
                 snapshot.Dispose();
@@ -252,6 +290,10 @@ namespace TheWaningBorder.Systems.Navigation
                 for (int i = 0; i < toDetach.Length; i++)
                     Detach(em, toDetach[i]);
                 toDetach.Dispose();
+                for (int i = 0; i < toUnspeed.Length; i++)
+                    if (em.Exists(toUnspeed[i]) && em.HasComponent<FormationSpeedOverride>(toUnspeed[i]))
+                        em.RemoveComponent<FormationSpeedOverride>(toUnspeed[i]);
+                toUnspeed.Dispose();
 
                 if (keep.Length == 0)
                 {
@@ -260,12 +302,11 @@ namespace TheWaningBorder.Systems.Navigation
                     continue;
                 }
 
+                // Always rewritten: Engaged flags change without the length
+                // changing.
                 var buffer = em.GetBuffer<FormationMember>(groupEntity);
-                if (keep.Length != buffer.Length)
-                {
-                    buffer.Clear();
-                    for (int i = 0; i < keep.Length; i++) buffer.Add(keep[i]);
-                }
+                buffer.Clear();
+                for (int i = 0; i < keep.Length; i++) buffer.Add(keep[i]);
 
                 if (slowest > 0f && slowest != float.MaxValue)
                     g.GroupSpeed = slowest;
@@ -303,7 +344,7 @@ namespace TheWaningBorder.Systems.Navigation
                 // group's speed, which recovers a slot-width in about a second.
                 // The pathological case — a member that genuinely cannot keep
                 // up — is not this rule's job; TetherReleaseTicks drops the
-                // worst laggard once the lag stops improving, so the formation
+                // worst-OFFSET member once that offset stops improving, so the formation
                 // heals instead of being held hostage.
                 // HYSTERESIS, because a single threshold sat inside the
                 // formation's own noise floor.
@@ -334,25 +375,59 @@ namespace TheWaningBorder.Systems.Navigation
 
                 float lagScale = easing ? OutOfFormationLeaderSpeed : 1f;
 
+                // ── Hold for the fight. ────────────────────────────────────
+                // A member fighting an auto-acquired target is out of rank and
+                // excluded from the offset measure above, so the leader used
+                // to march straight on while half its army was locked in a
+                // melee behind it — and, after arrival, the settle timer ran
+                // the whole time, so the group could dissolve under members
+                // that were still fighting and they never had a slot to walk
+                // back to. While MORE than engagedHoldFraction of the roster
+                // is engaged the leader holds where it is, the fuse and stall
+                // counters pause, and the settle timer is frozen while ANY
+                // member is engaged. A skirmisher or two peeling off does not
+                // stop the army; a battle does.
+                float holdFraction = cfg != null ? cfg.engagedHoldFraction : 1f;
+                bool holdForFight = engagedCount > 0
+                    && engagedCount > holdFraction * keep.Length;
+
+                // ── Tether fuse. ───────────────────────────────────────────
                 // Only a group that is FAILING to close up counts toward the
-                // release fuse — a formation still forming has a large lag that
-                // is steadily shrinking, and must not be torn apart for it.
+                // release fuse — a formation still forming has a large offset
+                // that is steadily shrinking, and must not be torn apart for
+                // it. Progress is measured on the SAME offset that drives the
+                // ease, and the victim is the member holding that offset, and
+                // only while it is genuinely out of formation.
+                //
+                // The fuse only runs while the leader is easing on the march.
+                // Outside an ease episode it is reset, so the next episode's
+                // first tick records its own starting offset as the baseline
+                // rather than inheriting a stale, smaller one it could never
+                // "improve" on.
                 Entity pendingDrop = Entity.Null;
-                if (maxLag < g.BestLag - FormationGroup.TetherProgressEpsilon)
+                float progressEps = cfg != null ? cfg.tetherProgressEpsilon : 0f;
+                if (!easing || holdForFight || g.State != FormationGroup.StateMoving)
                 {
-                    g.BestLag = maxLag;
+                    g.TetherTicks = 0;
+                    g.BestLag = float.MaxValue;
+                }
+                else if (maxOffset < g.BestLag - progressEps)
+                {
+                    g.BestLag = maxOffset;
                     g.TetherTicks = 0;
                 }
-                else if (lagScale <= 0.01f)
+                else
                 {
                     g.TetherTicks = (byte)math.min(g.TetherTicks + 1, 255);
                     if (g.TetherTicks >= FormationGroup.TetherReleaseTicks
-                        && worstLaggard != Entity.Null)
+                        && worstOffender != Entity.Null
+                        && maxOffset > OutOfFormationEngage)
                     {
-                        // One wedged member would otherwise freeze the whole
-                        // group at a standstill. Drop it; it finishes to its
-                        // own slot independently (design §2.4 outlier rule).
-                        pendingDrop = worstLaggard;
+                        // One wedged member would otherwise hold the whole
+                        // group at 90% for the rest of the march. Drop it; it
+                        // finishes to its own slot independently (design §2.4
+                        // outlier rule).
+                        pendingDrop = worstOffender;
                         g.TetherTicks = 0;
                         g.BestLag = float.MaxValue;
                         lagScale = 1f;
@@ -362,11 +437,14 @@ namespace TheWaningBorder.Systems.Navigation
                 // ── Advance the virtual leader. ──
                 // What the leader ACTUALLY did this tick, published for the
                 // member steering below: every spot rides on the leader, so a
-                // spot's velocity is exactly this linear step plus this
-                // rotation applied to the arm out to it.
-                float leaderLinSpeed = 0f;
+                // spot's velocity is exactly this linear velocity plus this
+                // rotation applied to the arm out to it. A velocity VECTOR,
+                // not a speed along the facing: a blocked leader may step
+                // along the flow direction instead (see below).
+                float3 leaderVel = float3.zero;
                 float appliedOmega = 0f;
-                if (g.State == FormationGroup.StateMoving)
+                bool genuineStall = false;
+                if (g.State == FormationGroup.StateMoving && !holdForFight)
                 {
                     float3 toDest = g.Destination - g.LeaderPos;
                     toDest.y = 0f;
@@ -381,6 +459,7 @@ namespace TheWaningBorder.Systems.Navigation
                     {
                         float3 dir = ResolveLeaderDir(in grid, in cost, hasGoalCache, in goalCache,
                             hasDirTable, in dirTable, g.LeaderPos, g.Destination, g.FactionIdx);
+                        bool hasDir = math.lengthsq(dir) > 1e-6f;
 
                         // ── WHEEL, DO NOT CRAB. ──
                         //
@@ -403,13 +482,19 @@ namespace TheWaningBorder.Systems.Navigation
                         // rotates rigidly about the leader and every member
                         // walks a clean arc: the inner file short and slow, the
                         // outer file long and fast, exactly as ranks wheel.
+                        //
+                        // The turn is only COMMITTED once the step it belongs
+                        // to is known to be legal (or replaced by a pivot).
                         float turnScale = 1f;
-                        if (math.lengthsq(dir) > 1e-6f)
+                        float err = 0f;
+                        float wheelTurn = 0f;
+                        float3 wheelFacing = g.Facing;
+                        if (hasDir)
                         {
                             float cosErr = math.clamp(
                                 dir.x * g.Facing.x + dir.z * g.Facing.z, -1f, 1f);
                             float sinErr = g.Facing.x * dir.z - g.Facing.z * dir.x;
-                            float err = math.atan2(sinErr, cosErr);
+                            err = math.atan2(sinErr, cosErr);
 
                             // The turn rate the formation can actually hold: a
                             // member has (CatchUpMultiplier - 1) of its speed
@@ -417,13 +502,8 @@ namespace TheWaningBorder.Systems.Navigation
                             // sideways. Wide armies wheel slowly; that is not a
                             // limitation to tune away, it is what keeps the
                             // flank attached to the formation.
-                            float headroom = g.GroupSpeed
-                                * (FormationGroup.CatchUpMultiplier - 1f);
-                            float omega = g.Radius > 0.5f
-                                ? headroom / g.Radius
-                                : FormationGroup.MaxTurnRate;
-                            omega = math.clamp(omega, FormationGroup.MinTurnRate,
-                                FormationGroup.MaxTurnRate);
+                            float omega = FlankTurnRate(g,
+                                g.GroupSpeed * (FormationGroup.CatchUpMultiplier - 1f));
 
                             if (math.abs(err) > FormationGroup.WheelSnapAngle)
                             {
@@ -431,21 +511,17 @@ namespace TheWaningBorder.Systems.Navigation
                                 // bearing instead. See WheelSnapAngle — an
                                 // about-face pivoted at flank-limited rate is
                                 // ten seconds of an army turning on the spot
-                                // while it is being shot at.
+                                // while it is being shot at. A re-form is a
+                                // jump by design, so it is committed at once.
                                 g.Facing = math.normalizesafe(dir, g.Facing);
+                                wheelFacing = g.Facing;
+                                err = 0f;
                                 cosErr = 1f;
                             }
                             else
                             {
-                                float turn = math.clamp(err, -omega * dt, omega * dt);
-                                if (dt > 1e-6f) appliedOmega = turn / dt;
-
-                                float sn = math.sin(turn), cs = math.cos(turn);
-                                float3 f = new float3(
-                                    g.Facing.x * cs - g.Facing.z * sn, 0f,
-                                    g.Facing.x * sn + g.Facing.z * cs);
-                                f = math.normalizesafe(f, g.Facing);
-                                if (math.lengthsq(f) > 1e-6f) g.Facing = f;
+                                wheelTurn = math.clamp(err, -omega * dt, omega * dt);
+                                wheelFacing = Rotate(g.Facing, wheelTurn);
                             }
 
                             // Slow down through the turn. A body of troops that
@@ -459,52 +535,137 @@ namespace TheWaningBorder.Systems.Navigation
                         float destDist = math.sqrt(destDistSq);
                         float stepLen = math.min(
                             g.GroupSpeed * lagScale * turnScale * dt, destDist);
-                        float3 next = g.LeaderPos + g.Facing * stepLen;
+                        float3 next = g.LeaderPos + wheelFacing * stepLen;
 
-                        if (IsLeaderCellPassable(in grid, in cost, next, g.FactionIdx))
+                        // A leader that starts inside a blocked cell (an order
+                        // issued from a building footprint) must be allowed to
+                        // walk out of it, exactly as the integrator lets units
+                        // walk out of their own spawn footprint.
+                        bool leaderInBlockedCell = !IsLeaderCellPassable(in grid, in cost, g.LeaderPos, g.FactionIdx);
+
+                        if (leaderInBlockedCell || IsLeaderCellPassable(in grid, in cost, next, g.FactionIdx))
                         {
+                            g.Facing = wheelFacing;
                             g.LeaderPos = next;
                             g.StallTicks = 0;
-                            if (dt > 1e-6f) leaderLinSpeed = stepLen / dt;
+                            if (dt > 1e-6f)
+                            {
+                                leaderVel = wheelFacing * (stepLen / dt);
+                                appliedOmega = wheelTurn / dt;
+                            }
+                        }
+                        else if (hasDir && math.abs(err) > StallHeadingTolerance(cfg))
+                        {
+                            // ── BLOCKED MID-TURN: PIVOT IN PLACE. ──
+                            // The flank-limited wheel rate can be a twentieth of
+                            // a radian a second, so at a corner the facing was
+                            // still pointing at the wall long after the flow had
+                            // turned — every step blocked, and 120 blocked ticks
+                            // used to FAKE ARRIVAL: every slot jumped to its
+                            // final position and the group was destroyed four
+                            // seconds later, nowhere near the destination.
+                            //
+                            // A stationary leader is not a wheeling one. With no
+                            // forward motion a member's WHOLE catch-up speed is
+                            // free for the sideways drag, not just the 40%
+                            // headroom, so the formation can pivot several times
+                            // faster than it can wheel. Turn at that rate until
+                            // the facing is on the flow; this is angular
+                            // progress, so it does not count as a stall.
+                            float pivot = FlankTurnRate(g,
+                                g.GroupSpeed * FormationGroup.CatchUpMultiplier);
+                            float turn = math.clamp(err, -pivot * dt, pivot * dt);
+                            g.Facing = Rotate(g.Facing, turn);
+                            if (dt > 1e-6f) appliedOmega = turn / dt;
                         }
                         else
                         {
-                            // Held this tick, so the spots are not translating
-                            // either; drop the rotation too rather than
-                            // sweeping the lattice around a stationary leader.
-                            appliedOmega = 0f;
-
-                            // Blocked: hold this tick; the goal field routes
-                            // the leader around the blocker on following
-                            // ticks. A leader stuck for good releases the
-                            // group so members finish on their own flow
-                            // instead of hovering around a dead spot layout.
-                            g.StallTicks = (byte)math.min(g.StallTicks + 1, 255);
-                            if (g.StallTicks >= FormationGroup.StallReleaseTicks)
-                                g.State = FormationGroup.StateArrived;
+                            // Facing is (nearly) on the flow, yet the cell ahead
+                            // along it is blocked — a corner the facing clips.
+                            // Step along the FLOW itself, which the goal field
+                            // routes around the blocker; the facing keeps its
+                            // bounded turn toward it.
+                            float3 flowNext = g.LeaderPos + dir * stepLen;
+                            if (hasDir && IsLeaderCellPassable(in grid, in cost, flowNext, g.FactionIdx))
+                            {
+                                g.Facing = wheelFacing;
+                                g.LeaderPos = flowNext;
+                                g.StallTicks = 0;
+                                if (dt > 1e-6f)
+                                {
+                                    leaderVel = dir * (stepLen / dt);
+                                    appliedOmega = wheelTurn / dt;
+                                }
+                            }
+                            else
+                            {
+                                // Genuinely blocked this tick. A leader stuck
+                                // for good RELEASES the group (below) so members
+                                // finish on their own flow to their final slots
+                                // - it does not pretend to have arrived.
+                                g.StallTicks = (byte)math.min(g.StallTicks + 1, 255);
+                                if (g.StallTicks >= FormationGroup.StallReleaseTicks)
+                                    genuineStall = true;
+                            }
                         }
                     }
                 }
 
-                // ── Arrival DISSOLVES the group (design §2.8). ─────────────
-                // The leader has reached the destination, so every member's
-                // own DesiredDestination — its final slot — already IS the
-                // frozen spot. Keeping the group alive past this point kept
-                // FormationMemberState / FormationSpeedOverride on units that
-                // the system no longer steers, which (a) leaked the group
-                // entity whenever a member could not close the last 0.5 m, and
-                // (b) held SteeringSystem's formation exemption open during the
-                // settle, when the arrival damping is exactly what's wanted.
-                if (g.State == FormationGroup.StateArrived)
+                if (genuineStall)
                 {
-                    var settling = em.GetBuffer<FormationMember>(groupEntity);
-                    var settled = new NativeArray<Entity>(settling.Length, Allocator.Temp);
-                    for (int i = 0; i < settling.Length; i++) settled[i] = settling[i].Unit;
-                    for (int i = 0; i < settled.Length; i++) Detach(em, settled[i]);
-                    settled.Dispose();
+                    // Every member walks on to its own FINAL slot on its own
+                    // goal flow. Members that are fighting keep their chase;
+                    // the rest get their slot re-issued (the prune guarantees
+                    // they already have it, this just makes it explicit).
+                    var roster = em.GetBuffer<FormationMember>(groupEntity);
+                    var released = new NativeArray<FormationMember>(roster.Length, Allocator.Temp);
+                    roster.AsNativeArray().CopyTo(released);
+                    for (int i = 0; i < released.Length; i++)
+                    {
+                        var ru = released[i].Unit;
+                        if (!em.Exists(ru)) continue;
+                        if (released[i].Engaged == 0 && em.HasComponent<DesiredDestination>(ru))
+                            em.SetComponentData(ru, new DesiredDestination
+                            {
+                                Position = released[i].SlotWorld,
+                                Has = 1,
+                            });
+                        Detach(em, ru);
+                    }
+                    released.Dispose();
                     keep.Dispose();
                     em.DestroyEntity(groupEntity);
                     continue;
+                }
+
+                // ── Arrival SETTLES the group; it does not dissolve it. ─────
+                // The leader reaching the destination used to dissolve the
+                // whole group on the spot - while the rear ranks were still
+                // walking. Those members lost their formation state and the
+                // same-formation push exemption with metres still to go, so
+                // the last few metres were a scrum. Now each member keeps its
+                // membership until it settles on its own slot (the integrator
+                // clears its destination; the prune above detaches it), and a
+                // settle timeout releases whoever is left, so a member that
+                // cannot close the last half-metre never leaks the group.
+                // The timer is frozen while any member is fighting: the group
+                // must still exist when it comes back for its slot.
+                bool arrivedState = g.State == FormationGroup.StateArrived;
+                if (arrivedState)
+                {
+                    if (engagedCount == 0) g.SettleTime += dt;
+                    if (g.SettleTime >= settleTimeout)
+                    {
+                        var settling = em.GetBuffer<FormationMember>(groupEntity);
+                        var settled = new NativeArray<Entity>(settling.Length, Allocator.Temp);
+                        for (int i = 0; i < settling.Length; i++) settled[i] = settling[i].Unit;
+                        for (int i = 0; i < settled.Length; i++)
+                            if (em.Exists(settled[i])) Detach(em, settled[i]);
+                        settled.Dispose();
+                        keep.Dispose();
+                        em.DestroyEntity(groupEntity);
+                        continue;
+                    }
                 }
 
                 // ── Steer members to their moving spots. ──
@@ -536,6 +697,7 @@ namespace TheWaningBorder.Systems.Navigation
                     for (int i = 0; i < pre.Length; i++)
                     {
                         var pu = pre[i].Unit;
+                        if (pre[i].Engaged != 0) continue;   // fighting at its own speed
                         if (em.Exists(pu) && !em.HasComponent<FormationSpeedOverride>(pu))
                             missing.Add(pu);
                     }
@@ -549,12 +711,21 @@ namespace TheWaningBorder.Systems.Navigation
                 for (int i = 0; i < buffer.Length; i++)
                 {
                     var u = buffer[i].Unit;
+                    if (buffer[i].Engaged != 0) continue;   // out of rank, fighting
 
                     if (!em.HasComponent<LocalTransform>(u)
                         || !em.HasComponent<FlowDesiredDir>(u)) continue;
 
                     float2 s = buffer[i].Slot;
-                    float3 spot = g.LeaderPos + right * s.x + g.Facing * s.y;
+                    // Settling: aim at the member's own FINAL slot, which is
+                    // what its DesiredDestination (and so the integrator's
+                    // arrival test) names. The live lattice can sit a few
+                    // degrees off it - the leader's facing at arrival is not
+                    // exactly the order's bearing - and steering at one point
+                    // while arriving at another never settles.
+                    float3 spot = arrivedState
+                        ? buffer[i].SlotWorld
+                        : g.LeaderPos + right * s.x + g.Facing * s.y;
                     float3 pos = em.GetComponentData<LocalTransform>(u).Position;
                     float3 toSpot = spot - pos;
                     toSpot.y = 0f;
@@ -594,7 +765,7 @@ namespace TheWaningBorder.Systems.Navigation
                     // separately and each with its own failure mode.
                     float3 arm = spot - g.LeaderPos;
                     arm.y = 0f;
-                    float3 spotVel = g.Facing * leaderLinSpeed
+                    float3 spotVel = leaderVel
                         + appliedOmega * new float3(-arm.z, 0f, arm.x);
 
                     float3 want = spotVel + toSpot * SpotCorrectionGain;
@@ -631,11 +802,17 @@ namespace TheWaningBorder.Systems.Navigation
                     // for any member the integrator released. Capped at the
                     // catch-up ceiling, so a correction can never ask a unit
                     // for more speed than it has.
+                    // Pre-divided by the member's own speed multiplier: the
+                    // integrator multiplies the override by it again, so a
+                    // slowed member is commanded exactly the speed its spot
+                    // needs instead of the slowed version of it.
                     if (em.HasComponent<FormationSpeedOverride>(u))
-                        em.SetComponentData(u, new FormationSpeedOverride
-                        {
-                            Value = math.min(wantSpeed, catchUpSpeed),
-                        });
+                    {
+                        float cmdSpeed = math.min(wantSpeed, catchUpSpeed);
+                        float mult = UnitSpeedModifiers.Multiplier(em, u);
+                        if (mult > 0.05f) cmdSpeed /= mult;
+                        em.SetComponentData(u, new FormationSpeedOverride { Value = cmdSpeed });
+                    }
                 }
 
                 em.SetComponentData(groupEntity, g);
@@ -646,6 +823,36 @@ namespace TheWaningBorder.Systems.Navigation
                 if (pendingDrop != Entity.Null) Detach(em, pendingDrop);
             }
         }
+
+        /// <summary>The fastest rotation (rad/s) the formation's outer slot can
+        /// follow when <paramref name="sidewaysBudget"/> m/s of a member's
+        /// speed is free for the sideways drag, clamped to the group's turn
+        /// band. Wheeling spends only the catch-up headroom; a pivot in place
+        /// has no forward motion, so it can spend the whole catch-up speed.</summary>
+        private static float FlankTurnRate(in FormationGroup g, float sidewaysBudget)
+        {
+            float omega = g.Radius > 0.5f
+                ? sidewaysBudget / g.Radius
+                : FormationGroup.MaxTurnRate;
+            return math.clamp(omega, FormationGroup.MinTurnRate, FormationGroup.MaxTurnRate);
+        }
+
+        /// <summary>Rotate a unit XZ heading by <paramref name="angle"/> rad
+        /// (counter-clockwise seen from above, matching the err sign).</summary>
+        private static float3 Rotate(float3 facing, float angle)
+        {
+            float sn = math.sin(angle), cs = math.cos(angle);
+            float3 f = new float3(
+                facing.x * cs - facing.z * sn, 0f,
+                facing.x * sn + facing.z * cs);
+            f = math.normalizesafe(f, facing);
+            return math.lengthsq(f) > 1e-6f ? f : facing;
+        }
+
+        /// <summary>Heading error (rad) above which a BLOCKED leader pivots in
+        /// place instead of counting a stall tick.</summary>
+        private static float StallHeadingTolerance(FormationGroupSystemConfig cfg)
+            => cfg != null ? cfg.stallHeadingToleranceRadians : 0f;
 
         /// <summary>Detach a unit from formation travel: it keeps whatever
         /// order it is executing, at its own speed.</summary>

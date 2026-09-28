@@ -92,10 +92,9 @@ namespace TheWaningBorder.Systems.Border
 
             var em = EntityManager;
 
-            var registryQ = em.CreateEntityQuery(ComponentType.ReadWrite<BlightPocket>());
-            if (registryQ.IsEmptyIgnoreFilter) { registryQ.Dispose(); return; }
+            var registryQ = QC_Registry.Get(em, QT_Registry);
+            if (registryQ.IsEmptyIgnoreFilter) return;
             using var registries = registryQ.ToEntityArray(Allocator.Temp);
-            registryQ.Dispose();
             if (registries.Length == 0) return;
 
             double now = SystemAPI.Time.ElapsedTime;
@@ -104,11 +103,11 @@ namespace TheWaningBorder.Systems.Border
             // Where the veilstone is. Positions, not just territory ids: the
             // pocket rises AT the node, the way it used to rise at the drained
             // bud.
-            var q = em.CreateEntityQuery(
-                ComponentType.ReadOnly<VeilstoneOutcroppingTag>(),
-                ComponentType.ReadOnly<LocalTransform>());
+            var q = QC_Veilstone.Get(em, QT_Veilstone);
             var nodes = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            q.Dispose();
+            // Which (faction, territory) pairs hold a Hall — once per pass,
+            // not a full Hall query per node.
+            BuildHomes(em);
 
             for (int i = 0; i < nodes.Length; i++)
             {
@@ -121,7 +120,7 @@ namespace TheWaningBorder.Systems.Border
 
                 // Home ground is immune — the same rule the old trigger had via
                 // the Hall hearth ring, expressed in territory terms now.
-                if (IsHomeTerritory(em, t, (Faction)owner)) { _tenure.Remove(t); continue; }
+                if (_homes.Contains(HomeKey(t, (Faction)owner))) { _tenure.Remove(t); continue; }
 
                 if (!_tenure.TryGetValue(t, out var rec) || rec.owner != owner)
                     rec = (owner, 0f);
@@ -148,24 +147,36 @@ namespace TheWaningBorder.Systems.Border
             nodes.Dispose();
         }
 
-        /// <summary>A territory containing one of this faction's Halls is home.</summary>
-        private bool IsHomeTerritory(EntityManager em, int territory, Faction f)
+        private static readonly ComponentType[] QT_Registry = { ComponentType.ReadWrite<BlightPocket>() };
+        private static readonly ComponentType[] QT_Veilstone =
+            { ComponentType.ReadOnly<VeilstoneOutcroppingTag>(), ComponentType.ReadOnly<LocalTransform>() };
+        private static readonly ComponentType[] QT_Hall =
         {
-            var q = em.CreateEntityQuery(
-                ComponentType.ReadOnly<HallTag>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<LocalTransform>());
-            var ents = q.ToEntityArray(Allocator.Temp);
-            bool home = false;
-            for (int i = 0; i < ents.Length && !home; i++)
+            ComponentType.ReadOnly<HallTag>(), ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        private static CachedEntityQuery QC_Registry, QC_Veilstone, QC_Hall;
+
+        private readonly System.Collections.Generic.HashSet<long> _homes = new();
+
+        private static long HomeKey(int territory, Faction f) => ((long)territory << 8) | (byte)f;
+
+        /// <summary>A territory containing one of this faction's Halls is
+        /// home. Collected for every Hall at once; membership only, so the
+        /// set's order never matters.</summary>
+        private void BuildHomes(EntityManager em)
+        {
+            _homes.Clear();
+            var q = QC_Hall.Get(em, QT_Hall);
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            for (int i = 0; i < xfs.Length; i++)
             {
-                if (em.GetComponentData<FactionTag>(ents[i]).Value != f) continue;
-                var p = em.GetComponentData<LocalTransform>(ents[i]).Position;
-                home = RegionMap.RegionAt(p.x, p.z) == territory;
+                var p = xfs[i].Position;
+                int r = RegionMap.RegionAt(p.x, p.z);
+                if (r == RegionMap.None) continue;
+                _homes.Add(HomeKey(r, facs[i].Value));
             }
-            ents.Dispose();
-            q.Dispose();
-            return home;
         }
     }
 }

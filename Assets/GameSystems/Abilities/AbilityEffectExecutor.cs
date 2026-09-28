@@ -73,8 +73,11 @@ namespace TheWaningBorder.Abilities
                         break;
 
                     case AbilityEffectKind.ArmorPct:
-                        // Applied as a flat armor bonus (placeholder scaling — tune later).
-                        buff.ArmorBonus += e.Value; // e.g. +15
+                        // A PERCENTAGE of the unit's own armor for the incoming
+                        // damage type, resolved where the damage lands
+                        // (CombatDamageHelper.GetSpellBuffArmorBonus). Max-merged,
+                        // like every other SpellBuff field, so two sources never stack.
+                        buff.ArmorPct = math.max(buff.ArmorPct, e.Value);
                         buff.TimeRemaining = math.max(buff.TimeRemaining, dur);
                         touchBuff = true;
                         break;
@@ -184,7 +187,7 @@ namespace TheWaningBorder.Abilities
                         break;
 
                     case AbilityEffectKind.ShardboundFury:
-                        TheWaningBorder.Entities.ShardboundFury.Cast(em, caster);
+                        TheWaningBorder.Entities.ShardboundFury.Cast(em, caster, card);
                         break;
 
                     case AbilityEffectKind.SummonPledgeArmy:

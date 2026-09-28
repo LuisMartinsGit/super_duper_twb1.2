@@ -229,6 +229,12 @@ namespace TheWaningBorder.Systems.World
 
             float minutes = TickInterval / 60f;
             int count = RegionMap.Count;
+            // One snapshot of everything that pays, for every territory: the
+            // per-territory queries this replaced re-read every node, hut,
+            // mine and Hall once PER TERRITORY (and once per node for huts
+            // and mines) through a fresh CreateEntityQuery each time.
+            var census = _tickCensus;
+            census.Build(em);
 
             for (int t = 0; t < count; t++)
             {
@@ -238,7 +244,7 @@ namespace TheWaningBorder.Systems.World
                 // drainMinutes > 0: this is the PAYING call, so it also takes
                 // what it pays out of the ground. The panel's read-only call
                 // passes 0 — a player opening the Hall panel must not mine.
-                var yield = ComputeYield(em, t, (Faction)owner, minutes);
+                var yield = Yield(em, census, t, (Faction)owner, minutes);
                 if (yield.IsEmpty) continue;
 
                 FactionEconomy.Add(em, (Faction)owner, new Cost
@@ -268,15 +274,59 @@ namespace TheWaningBorder.Systems.World
         /// whoever holds it. Public because the Hall panel shows exactly this —
         /// see the class comment on why there is only one implementation.
         ///
-        /// Counts from live entity state rather than a cache: territories are
-        /// few, this runs on a 5 s tick and on panel refresh, and a cached count
-        /// that missed a hut finishing would show the player a number their bank
-        /// disagrees with.
+        /// Counts from live entity state rather than a cache: a cached count
+        /// that missed a hut finishing would show the player a number their
+        /// bank disagrees with. (The tick builds ONE census for all
+        /// territories; this entry point builds its own.)
         /// </summary>
         /// <param name="drainMinutes">Minutes of extraction to subtract from
         /// the nodes. 0 for a read-only query.</param>
         public static TerritoryYield ComputeYield(EntityManager em, int territory, Faction owner,
             float drainMinutes = 0f)
+        {
+            if (territory < 0 || !RegionMap.Ready) return new TerritoryYield();
+            var census = new Census();
+            census.Build(em);
+            return Yield(em, census, territory, owner, drainMinutes);
+        }
+
+        private static Census _displayCensus;
+        private static double _displayCensusAt = double.NegativeInfinity;
+        private static Unity.Entities.World _displayCensusWorld;
+
+        /// <summary>Seconds (real time) a panel readout may reuse one census.</summary>
+        private const double DisplayCensusSeconds = 0.5;
+
+        /// <summary>
+        /// <see cref="ComputeYield"/> for a READ-ONLY readout (the Hall panel,
+        /// the tooltip), which polls at 10 Hz. One census is shared by every
+        /// such call for half a second of real time, so a panel no longer
+        /// re-scans the world per refresh. Presentation only: never call this
+        /// from the simulation — its reuse window is wall-clock.
+        /// </summary>
+        public static TerritoryYield ComputeYieldForDisplay(EntityManager em, int territory, Faction owner)
+        {
+            if (territory < 0 || !RegionMap.Ready) return new TerritoryYield();
+            double now = UnityEngine.Time.realtimeSinceStartupAsDouble;
+            if (_displayCensus == null || !ReferenceEquals(_displayCensusWorld, em.World)
+                || now - _displayCensusAt > DisplayCensusSeconds || now < _displayCensusAt)
+            {
+                if (_displayCensus == null) _displayCensus = new Census();
+                _displayCensus.Build(em);
+                _displayCensusAt = now;
+                _displayCensusWorld = em.World;
+            }
+            return Yield(em, _displayCensus, territory, owner, 0f);
+        }
+
+        private readonly Census _tickCensus = new Census();
+
+        /// <summary>The yield computation proper, over a census. Every sum
+        /// runs over the census lists in their query (chunk) order, filtered
+        /// to the territory — the same entities in the same order the
+        /// per-territory scans used, so the float totals are bit-identical.</summary>
+        private static TerritoryYield Yield(EntityManager em, Census c, int territory, Faction owner,
+            float drainMinutes)
         {
             var y = new TerritoryYield();
             if (territory < 0 || !RegionMap.Ready) return y;
@@ -295,40 +345,24 @@ namespace TheWaningBorder.Systems.World
             // ground is never worth literally nothing.
             int minSlotLevel = int.MaxValue;
             int slotsSeen = 0;
+            for (int i = 0; i < c.SupplyRegion.Count; i++)
             {
-                var q = em.CreateEntityQuery(
-                    ComponentType.ReadOnly<SupplyNodeTag>(),
-                    ComponentType.ReadOnly<LocalTransform>());
-                using var xfs = q.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
-                q.Dispose();
-                for (int i = 0; i < xfs.Length; i++)
-                {
-                    var np = xfs[i].Position;
-                    if (RegionMap.RegionAt(np.x, np.z) != territory) continue;
-                    slotsSeen++;
-                    int lvl = HutLevelOn(em, np.x, np.z);
-                    if (lvl < minSlotLevel) minSlotLevel = lvl;
-                    if (lvl > 0)
-                        y.Supplies += SuppliesPerHutPerMinute * Pow2(lvl - 1);
-                }
+                if (c.SupplyRegion[i] != territory) continue;
+                slotsSeen++;
+                int lvl = c.SupplyHutLevel[i];
+                if (lvl < minSlotLevel) minSlotLevel = lvl;
+                if (lvl > 0)
+                    y.Supplies += SuppliesPerHutPerMinute * Pow2(lvl - 1);
             }
             if (slotsSeen == 0 || minSlotLevel == int.MaxValue) minSlotLevel = 0;
             y.Supplies += BareSuppliesPerMinute * Pow2(minSlotLevel);
 
             // Forests are scene markers, not entities.
-            int forests = 0;
-            var stands = MapMarkerRegistry.NatureRegions;
-            for (int i = 0; i < stands.Count; i++)
-            {
-                var f = stands[i];
-                if (f == null || f.Kind != NatureRegionMarker.NatureKind.Forest) continue;
-                var p = f.WorldPosition;
-                if (RegionMap.RegionAt(p.x, p.z) == territory) forests++;
-            }
+            int forests = Census.CountAt(c.ForestRegion, territory);
             if (forests > 0)
             {
                 float forestPay = forests * SuppliesPerForestPerMinute;
-                int sawyers = CountIn<SawyerTag>(em, territory);
+                int sawyers = Census.CountAt(c.SawyerRegion, territory);
                 if (sawyers > 0)
                     forestPay *= Mathf.Pow(SawyerMultiplier,
                                            Mathf.Min(sawyers, MaxSawyersPerTerritory));
@@ -338,13 +372,13 @@ namespace TheWaningBorder.Systems.World
             // Resource nodes, and whatever mines are standing on them. Survey
             // research scales the lot: it is the only remaining consumer of the
             // Guild survey ladder now that the hut's area model is gone.
-            y.Iron      = NodeAndMineYield<IronMineTag>(em, territory, drainMinutes,
+            y.Iron      = NodeAndMineYield(em, c.Ore[0], territory, drainMinutes,
                               IronYieldPerMinute)
                           * SurveyMultiplier(owner, IronSurveyLadder);
-            y.Veilstone = NodeAndMineYield<VeilstoneOutcroppingTag>(em, territory, drainMinutes,
+            y.Veilstone = NodeAndMineYield(em, c.Ore[1], territory, drainMinutes,
                               VeilstoneYieldPerMinute)
                           * SurveyMultiplier(owner, VeilstoneSurveyLadder);
-            y.Veilsteel = NodeAndMineYield<VeilsteelDepositTag>(em, territory, drainMinutes,
+            y.Veilsteel = NodeAndMineYield(em, c.Ore[2], territory, drainMinutes,
                               VeilsteelYieldPerMinute)
                           * SurveyMultiplier(owner, VeilstoneSurveyLadder);
 
@@ -358,7 +392,10 @@ namespace TheWaningBorder.Systems.World
             //
             // The Fortress carries HallTag too, so a capital scales its home
             // territory exactly as an expansion Hall scales its own.
-            int hallLevel = BestHallLevelIn(em, territory);
+            int hallLevel = 0;
+            for (int i = 0; i < c.HallRegion.Count; i++)
+                if (c.HallRegion[i] == territory && c.HallLevel[i] > hallLevel)
+                    hallLevel = c.HallLevel[i];
             if (hallLevel > 1)
             {
                 float m = Pow2(hallLevel - 1);
@@ -371,67 +408,198 @@ namespace TheWaningBorder.Systems.World
             return y;
         }
 
+        // ── census ──────────────────────────────────────────────────────
+        static readonly ComponentType[] QT_Supply = { ComponentType.ReadOnly<SupplyNodeTag>(), ComponentType.ReadOnly<LocalTransform>() };
+        static readonly ComponentType[] QT_Hut = { ComponentType.ReadOnly<GathererHutTag>(), ComponentType.ReadOnly<LocalTransform>() };
+        static readonly ComponentType[] QT_Hall = { ComponentType.ReadOnly<HallTag>(), ComponentType.ReadOnly<LocalTransform>() };
+        static readonly ComponentType[] QT_Sawyer = { ComponentType.ReadOnly<SawyerTag>(), ComponentType.ReadOnly<LocalTransform>() };
+        static readonly ComponentType[] QT_Iron = { ComponentType.ReadOnly<IronMineTag>(), ComponentType.ReadOnly<LocalTransform>() };
+        static readonly ComponentType[] QT_Veilstone = { ComponentType.ReadOnly<VeilstoneOutcroppingTag>(), ComponentType.ReadOnly<LocalTransform>() };
+        static readonly ComponentType[] QT_Veilsteel = { ComponentType.ReadOnly<VeilsteelDepositTag>(), ComponentType.ReadOnly<LocalTransform>() };
+        static readonly ComponentType[] QT_Mine = { ComponentType.ReadOnly<MineTag>(), ComponentType.ReadOnly<LocalTransform>() };
+        static readonly ComponentType[] QT_VeilstoneMine = { ComponentType.ReadOnly<VeilstoneMineTag>(), ComponentType.ReadOnly<LocalTransform>() };
+        static readonly ComponentType[] QT_Smelter = { ComponentType.ReadOnly<SmelterTag>(), ComponentType.ReadOnly<LocalTransform>() };
+        static readonly ComponentType[] QT_MissingIron = { ComponentType.ReadOnly<IronMineTag>(), ComponentType.ReadOnly<LocalTransform>(), ComponentType.Exclude<NodeReserve>() };
+        static readonly ComponentType[] QT_MissingVeilstone = { ComponentType.ReadOnly<VeilstoneOutcroppingTag>(), ComponentType.ReadOnly<LocalTransform>(), ComponentType.Exclude<NodeReserve>() };
+        static readonly ComponentType[] QT_MissingVeilsteel = { ComponentType.ReadOnly<VeilsteelDepositTag>(), ComponentType.ReadOnly<LocalTransform>(), ComponentType.Exclude<NodeReserve>() };
+        static CachedEntityQuery QC_Supply, QC_Hut, QC_Hall, QC_Sawyer, QC_Iron, QC_Veilstone, QC_Veilsteel,
+                                 QC_Mine, QC_VeilstoneMine, QC_Smelter,
+                                 QC_MissingIron, QC_MissingVeilstone, QC_MissingVeilsteel;
+
+        // Nodes and buildings never move, so each one's territory is asked
+        // once per partition (RegionMap.Version), not once per tick per
+        // territory. The stored position guards the assumption: a moved
+        // entity is simply re-asked. RegionAt is a pure function of position,
+        // so the cache cannot change an answer.
+        private struct CachedRegion { public float X, Z; public int Region; }
+        private static readonly Dictionary<Entity, CachedRegion> _regionCache = new Dictionary<Entity, CachedRegion>();
+        private static int _regionCacheVersion = int.MinValue;
+
+        private static int RegionOfStatic(Entity e, float x, float z)
+        {
+            if (_regionCacheVersion != RegionMap.Version)
+            {
+                _regionCache.Clear();
+                _regionCacheVersion = RegionMap.Version;
+            }
+            if (_regionCache.TryGetValue(e, out var c) && c.X == x && c.Z == z) return c.Region;
+            // Dead entities are never evicted one by one; drop the lot when
+            // it has plainly outgrown the live set.
+            if (_regionCache.Count > 8192) _regionCache.Clear();
+            int r = RegionMap.RegionAt(x, z);
+            _regionCache[e] = new CachedRegion { X = x, Z = z, Region = r };
+            return r;
+        }
+
+        /// <summary>One ore kind: its nodes (query order) and the fresh
+        /// extractor levels standing on each.</summary>
+        private sealed class OreCensus
+        {
+            public readonly List<Entity> Node = new List<Entity>();
+            public readonly List<int> Region = new List<int>();
+            public readonly List<int> ExtractorLevels = new List<int>();
+            public void Clear() { Node.Clear(); Region.Clear(); ExtractorLevels.Clear(); }
+        }
+
+        /// <summary>Everything the yield reads, gathered once. Lists are in
+        /// query order; see <see cref="Yield"/> for why that matters.</summary>
+        private sealed class Census
+        {
+            public readonly List<int> SupplyRegion = new List<int>();
+            public readonly List<int> SupplyHutLevel = new List<int>();
+            public readonly List<int> ForestRegion = new List<int>();
+            public readonly List<int> SawyerRegion = new List<int>();
+            public readonly List<int> HallRegion = new List<int>();
+            public readonly List<int> HallLevel = new List<int>();
+            public readonly OreCensus[] Ore = { new OreCensus(), new OreCensus(), new OreCensus() };
+            private readonly List<Vector3> _built = new List<Vector3>();   // x, z, level
+
+            public static int CountAt(List<int> regions, int territory)
+            {
+                int n = 0;
+                for (int i = 0; i < regions.Count; i++) if (regions[i] == territory) n++;
+                return n;
+            }
+
+            public void Build(EntityManager em)
+            {
+                SupplyRegion.Clear(); SupplyHutLevel.Clear(); ForestRegion.Clear();
+                SawyerRegion.Clear(); HallRegion.Clear(); HallLevel.Clear();
+
+                // Gatherer's Huts, built, not Raider Camps (converted huts that
+                // KEEP GathererHutTag — AgeUpSystem adds RaiderCampTag to the
+                // same entity — so a Feraldis player does not draw the slot's
+                // supplies on top of what its raiders steal).
+                GatherBuilt(em, QC_Hut.Get(em, QT_Hut), true);
+                float r2 = MineToNodeRange * MineToNodeRange;
+                {
+                    var q = QC_Supply.Get(em, QT_Supply);
+                    using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
+                    using var xfs = q.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
+                    for (int i = 0; i < ents.Length; i++)
+                    {
+                        var np = xfs[i].Position;
+                        SupplyRegion.Add(RegionOfStatic(ents[i], np.x, np.z));
+                        // The best hut level on the slot (0 = empty).
+                        int best = 0;
+                        for (int h = 0; h < _built.Count; h++)
+                        {
+                            float dx = _built[h].x - np.x, dz = _built[h].y - np.z;
+                            if (dx * dx + dz * dz > r2) continue;
+                            int lvl = (int)_built[h].z;
+                            if (lvl > best) best = lvl;
+                        }
+                        SupplyHutLevel.Add(best);
+                    }
+                }
+
+                var stands = MapMarkerRegistry.NatureRegions;
+                for (int i = 0; i < stands.Count; i++)
+                {
+                    var fm = stands[i];
+                    if (fm == null || fm.Kind != NatureRegionMarker.NatureKind.Forest) continue;
+                    var p = fm.WorldPosition;
+                    ForestRegion.Add(RegionMap.RegionAt(p.x, p.z));
+                }
+
+                {
+                    var q = QC_Sawyer.Get(em, QT_Sawyer);
+                    using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
+                    for (int i = 0; i < ents.Length; i++)
+                    {
+                        if (em.HasComponent<UnderConstruction>(ents[i])) continue;
+                        var p = em.GetComponentData<LocalTransform>(ents[i]).Position;
+                        SawyerRegion.Add(RegionOfStatic(ents[i], p.x, p.z));
+                    }
+                }
+
+                {
+                    var q = QC_Hall.Get(em, QT_Hall);
+                    using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
+                    for (int i = 0; i < ents.Length; i++)
+                    {
+                        if (em.HasComponent<UnderConstruction>(ents[i])) continue;
+                        var p = em.GetComponentData<LocalTransform>(ents[i]).Position;
+                        HallRegion.Add(RegionOfStatic(ents[i], p.x, p.z));
+                        HallLevel.Add(LevelOf(em, ents[i]));
+                    }
+                }
+
+                BuildOre(em, Ore[0], QC_Iron.Get(em, QT_Iron), QC_Mine.Get(em, QT_Mine));
+                BuildOre(em, Ore[1], QC_Veilstone.Get(em, QT_Veilstone), QC_VeilstoneMine.Get(em, QT_VeilstoneMine));
+                BuildOre(em, Ore[2], QC_Veilsteel.Get(em, QT_Veilsteel), QC_Smelter.Get(em, QT_Smelter));
+            }
+
+            /// <summary>One building per resource: a Mine on iron, a Veilstone
+            /// Mine on veilstone, a Smelter on veilsteel. (This used to be one
+            /// generic Mine counted for all three ore kinds, so a single
+            /// building near a cluster boosted everything at once.) Levels are
+            /// summed per node.</summary>
+            private void BuildOre(EntityManager em, OreCensus o, EntityQuery nodeQ, EntityQuery extractorQ)
+            {
+                o.Clear();
+                GatherBuilt(em, extractorQ, false);
+                float r2 = MineToNodeRange * MineToNodeRange;
+                using var ents = nodeQ.ToEntityArray(Unity.Collections.Allocator.Temp);
+                for (int i = 0; i < ents.Length; i++)
+                {
+                    var np = em.GetComponentData<LocalTransform>(ents[i]).Position;
+                    o.Node.Add(ents[i]);
+                    o.Region.Add(RegionOfStatic(ents[i], np.x, np.z));
+                    int levels = 0;
+                    for (int h = 0; h < _built.Count; h++)
+                    {
+                        float dx = _built[h].x - np.x, dz = _built[h].y - np.z;
+                        if (dx * dx + dz * dz > r2) continue;
+                        levels += (int)_built[h].z;
+                    }
+                    o.ExtractorLevels.Add(levels);
+                }
+            }
+
+            /// <summary>Completed buildings of a query as (x, z, level).</summary>
+            private void GatherBuilt(EntityManager em, EntityQuery q, bool excludeRaiderCamps)
+            {
+                _built.Clear();
+                using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
+                for (int i = 0; i < ents.Length; i++)
+                {
+                    if (em.HasComponent<UnderConstruction>(ents[i])) continue;
+                    if (excludeRaiderCamps && em.HasComponent<RaiderCampTag>(ents[i])) continue;
+                    var p = em.GetComponentData<LocalTransform>(ents[i]).Position;
+                    _built.Add(new Vector3(p.x, p.z, LevelOf(em, ents[i])));
+                }
+            }
+        }
+
+        /// <summary>Built and never upgraded is level 1, not level 0.</summary>
+        private static int LevelOf(EntityManager em, Entity e)
+            => em.HasComponent<BuildingUpgradeState>(e)
+                ? Mathf.Max(1, em.GetComponentData<BuildingUpgradeState>(e).Level)
+                : 1;
+
         /// <summary>2^n for the small n this model uses (level 0-3).</summary>
         private static float Pow2(int n) => n <= 0 ? 1f : (1 << Mathf.Min(n, 16));
-
-        /// <summary>
-        /// The Gatherer's Hut level standing on this supply node, or 0 for an
-        /// empty slot.
-        ///
-        /// Feraldis Raider Camps are converted huts that KEEP GathererHutTag
-        /// (AgeUpSystem adds RaiderCampTag to the same entity), so they are
-        /// excluded by hand — otherwise a Feraldis player would draw the slot's
-        /// supplies on top of what its raiders steal.
-        /// </summary>
-        private static int HutLevelOn(EntityManager em, float x, float z)
-        {
-            var q = em.CreateEntityQuery(
-                ComponentType.ReadOnly<GathererHutTag>(),
-                ComponentType.ReadOnly<LocalTransform>());
-            var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
-            int best = 0;
-            float r2 = MineToNodeRange * MineToNodeRange;
-            for (int i = 0; i < ents.Length; i++)
-            {
-                if (em.HasComponent<UnderConstruction>(ents[i])) continue;
-                if (em.HasComponent<RaiderCampTag>(ents[i])) continue;
-                var p = em.GetComponentData<LocalTransform>(ents[i]).Position;
-                float dx = p.x - x, dz = p.z - z;
-                if (dx * dx + dz * dz > r2) continue;
-                // Built and never upgraded is level 1, not level 0.
-                int lvl = em.HasComponent<BuildingUpgradeState>(ents[i])
-                    ? Mathf.Max(1, em.GetComponentData<BuildingUpgradeState>(ents[i]).Level)
-                    : 1;
-                if (lvl > best) best = lvl;
-            }
-            ents.Dispose();
-            q.Dispose();
-            return best;
-        }
-
-        /// <summary>The best Hall level standing in this territory, or 0 for a
-        /// territory held on influence alone. Fortresses carry HallTag.</summary>
-        private static int BestHallLevelIn(EntityManager em, int territory)
-        {
-            var q = em.CreateEntityQuery(
-                ComponentType.ReadOnly<HallTag>(),
-                ComponentType.ReadOnly<LocalTransform>());
-            var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
-            int best = 0;
-            for (int i = 0; i < ents.Length; i++)
-            {
-                if (em.HasComponent<UnderConstruction>(ents[i])) continue;
-                var p = em.GetComponentData<LocalTransform>(ents[i]).Position;
-                if (RegionMap.RegionAt(p.x, p.z) != territory) continue;
-                int lvl = em.HasComponent<BuildingUpgradeState>(ents[i])
-                    ? Mathf.Max(1, em.GetComponentData<BuildingUpgradeState>(ents[i]).Level)
-                    : 1;
-                if (lvl > best) best = lvl;
-            }
-            ents.Dispose();
-            q.Dispose();
-            return best;
-        }
 
         // ── Survey ladders ──────────────────────────────────────────────
         // Ordered cheapest-first; each tier researched multiplies the trickle
@@ -461,34 +629,27 @@ namespace TheWaningBorder.Systems.World
 
         /// <summary>
         /// Per-minute output of every node of one kind in a territory: the
-        /// node's own trickle plus 25 per level of any Mine built on it.
+        /// node's own trickle plus 25 per level of the extractor built on it.
         /// </summary>
-        private static float NodeAndMineYield<TNode>(EntityManager em, int territory,
+        private static float NodeAndMineYield(EntityManager em, OreCensus o, int territory,
             float drainMinutes, float nodeYieldPerMinute)
-            where TNode : unmanaged, IComponentData
         {
-            var nodeQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<TNode>(),
-                ComponentType.ReadOnly<LocalTransform>());
-            var nodes = nodeQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
-
             float total = 0f;
-            for (int i = 0; i < nodes.Length; i++)
+            for (int i = 0; i < o.Node.Count; i++)
             {
-                var np = em.GetComponentData<LocalTransform>(nodes[i]).Position;
-                if (RegionMap.RegionAt(np.x, np.z) != territory) continue;
+                if (o.Region[i] != territory) continue;
+                var node = o.Node[i];
 
                 // Fresh rate: the node's own trickle plus every level of the
                 // extraction building standing on it.
                 float fresh = nodeYieldPerMinute
-                            + ExtractorLevelsOn<TNode>(em, np.x, np.z)
-                              * MineYieldPerMinutePerLevel;
+                            + o.ExtractorLevels[i] * MineYieldPerMinutePerLevel;
 
                 // Scaled by how much is left in the ground.
                 float scale = 1f;
-                if (em.HasComponent<NodeReserve>(nodes[i]))
+                if (em.HasComponent<NodeReserve>(node))
                 {
-                    var res = em.GetComponentData<NodeReserve>(nodes[i]);
+                    var res = em.GetComponentData<NodeReserve>(node);
                     if (res.Initial > 0f)
                         scale = Mathf.Max(DepletionFloor, res.Remaining / res.Initial);
 
@@ -500,14 +661,12 @@ namespace TheWaningBorder.Systems.World
                         // sooner, which is the whole tension.
                         res.Remaining = Mathf.Max(0f,
                             res.Remaining - fresh * scale * drainMinutes);
-                        em.SetComponentData(nodes[i], res);
+                        em.SetComponentData(node, res);
                     }
                 }
 
                 total += fresh * scale;
             }
-            nodes.Dispose();
-            nodeQuery.Dispose();
             return total;
         }
 
@@ -522,17 +681,14 @@ namespace TheWaningBorder.Systems.World
         /// </summary>
         private static void EnsureNodeReserves(EntityManager em)
         {
-            var q = em.CreateEntityQuery(new EntityQueryDesc
-            {
-                All = new[] { ComponentType.ReadOnly<LocalTransform>() },
-                Any = new[]
-                {
-                    ComponentType.ReadOnly<IronMineTag>(),
-                    ComponentType.ReadOnly<VeilstoneOutcroppingTag>(),
-                    ComponentType.ReadOnly<VeilsteelDepositTag>(),
-                },
-                None = new[] { ComponentType.ReadOnly<NodeReserve>() },
-            });
+            AddMissingReserves(em, QC_MissingIron.Get(em, QT_MissingIron));
+            AddMissingReserves(em, QC_MissingVeilstone.Get(em, QT_MissingVeilstone));
+            AddMissingReserves(em, QC_MissingVeilsteel.Get(em, QT_MissingVeilsteel));
+        }
+
+        private static void AddMissingReserves(EntityManager em, EntityQuery q)
+        {
+            if (q.IsEmptyIgnoreFilter) return;
             var missing = q.ToEntityArray(Unity.Collections.Allocator.Temp);
             for (int i = 0; i < missing.Length; i++)
                 em.AddComponentData(missing[i], new NodeReserve
@@ -541,112 +697,7 @@ namespace TheWaningBorder.Systems.World
                     Initial = NodeReserveUnits,
                 });
             missing.Dispose();
-            q.Dispose();
         }
 
-        /// <summary>
-        /// The extractor that belongs on this node kind. One building per
-        /// resource: a Gatherer's Hut pays supplies, a Mine iron, a Veilstone
-        /// Mine veilstone, a Smelter veilsteel.
-        ///
-        /// This used to be one generic Mine counted for ALL THREE ore kinds, so
-        /// a single building raised anywhere near a cluster boosted iron,
-        /// veilstone and veilsteel at once and there was no decision about what
-        /// to invest in. Veilsteel in particular had no building of its own at
-        /// all, which is why it accumulated untouched.
-        /// </summary>
-        private static ComponentType ExtractorTagFor<TNode>()
-            where TNode : unmanaged, IComponentData
-        {
-            if (typeof(TNode) == typeof(IronMineTag))
-                return ComponentType.ReadOnly<MineTag>();
-            if (typeof(TNode) == typeof(VeilstoneOutcroppingTag))
-                return ComponentType.ReadOnly<VeilstoneMineTag>();
-            if (typeof(TNode) == typeof(VeilsteelDepositTag))
-                return ComponentType.ReadOnly<SmelterTag>();
-            return ComponentType.ReadOnly<MineTag>();
-        }
-
-        /// <summary>Total extractor levels standing on the node at this
-        /// position, counting only the building that belongs on it.</summary>
-        private static int ExtractorLevelsOn<TNode>(EntityManager em, float x, float z)
-            where TNode : unmanaged, IComponentData
-        {
-            var q = em.CreateEntityQuery(
-                ExtractorTagFor<TNode>(),
-                ComponentType.ReadOnly<LocalTransform>());
-            var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
-            int levels = 0;
-            float r2 = MineToNodeRange * MineToNodeRange;
-            for (int i = 0; i < ents.Length; i++)
-            {
-                if (em.HasComponent<UnderConstruction>(ents[i])) continue;
-                var p = em.GetComponentData<LocalTransform>(ents[i]).Position;
-                float dx = p.x - x, dz = p.z - z;
-                if (dx * dx + dz * dz > r2) continue;
-                levels += em.HasComponent<BuildingUpgradeState>(ents[i])
-                    ? Mathf.Max(1, em.GetComponentData<BuildingUpgradeState>(ents[i]).Level)
-                    : 1;
-            }
-            ents.Dispose();
-            q.Dispose();
-            return levels;
-        }
-
-        /// <summary>Total Mine levels standing on the node at this position.
-        /// Levels, not mines: a mine is level 1 when raised and each upgrade
-        /// adds another 25/min, which is what "mines can be upgraded" buys.</summary>
-        private static int MineLevelsOn(EntityManager em, float x, float z)
-        {
-            var q = em.CreateEntityQuery(
-                ComponentType.ReadOnly<MineTag>(),
-                ComponentType.ReadOnly<LocalTransform>());
-            var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
-            int levels = 0;
-            float r2 = MineToNodeRange * MineToNodeRange;
-            for (int i = 0; i < ents.Length; i++)
-            {
-                if (em.HasComponent<UnderConstruction>(ents[i])) continue;
-                var p = em.GetComponentData<LocalTransform>(ents[i]).Position;
-                float dx = p.x - x, dz = p.z - z;
-                if (dx * dx + dz * dz > r2) continue;
-                // A building with no upgrade state has been built and not yet
-                // upgraded, which is level 1 — not level 0.
-                levels += em.HasComponent<BuildingUpgradeState>(ents[i])
-                    ? Mathf.Max(1, em.GetComponentData<BuildingUpgradeState>(ents[i]).Level)
-                    : 1;
-            }
-            ents.Dispose();
-            q.Dispose();
-            return levels;
-        }
-
-        private static int CountIn<T>(EntityManager em, int territory)
-            where T : unmanaged, IComponentData
-            => CountIn<T, UnderConstruction>(em, territory);
-
-        /// <summary>Completed <typeparamref name="T"/> buildings standing in a
-        /// territory, skipping anything also carrying
-        /// <typeparamref name="TExclude"/>.</summary>
-        private static int CountIn<T, TExclude>(EntityManager em, int territory)
-            where T : unmanaged, IComponentData
-            where TExclude : unmanaged, IComponentData
-        {
-            var q = em.CreateEntityQuery(
-                ComponentType.ReadOnly<T>(),
-                ComponentType.ReadOnly<LocalTransform>());
-            var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
-            int n = 0;
-            for (int i = 0; i < ents.Length; i++)
-            {
-                if (em.HasComponent<UnderConstruction>(ents[i])) continue;
-                if (em.HasComponent<TExclude>(ents[i])) continue;
-                var p = em.GetComponentData<LocalTransform>(ents[i]).Position;
-                if (RegionMap.RegionAt(p.x, p.z) == territory) n++;
-            }
-            ents.Dispose();
-            q.Dispose();
-            return n;
-        }
     }
 }

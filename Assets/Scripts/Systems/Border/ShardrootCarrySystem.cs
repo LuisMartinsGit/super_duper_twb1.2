@@ -209,7 +209,7 @@ namespace TheWaningBorder.Systems.Economy
 
                     Faction f = em.HasComponent<FactionTag>(unit)
                         ? em.GetComponentData<FactionTag>(unit).Value : Faction.Blue;
-                    TWBLog.Log($"[Shardroot] {f} attunement complete — picked up {amount} Shardroot (carrying {merged.Amount})");
+                    UnityEngine.Debug.Log($"[Shardroot] {f} attunement complete — picked up {amount} Shardroot (carrying {merged.Amount})");
 
                     // The Shardroot hops from the pickup onto the claimer:
                     // the carrier is now the artifact's embodiment (visible
@@ -290,7 +290,7 @@ namespace TheWaningBorder.Systems.Economy
                                 string.Format(Loc.T("{0} has ENSHRINED the Shardroot — their powers surge!"), f));
                         }
 
-                        TWBLog.Log($"[Shardroot] {f} deposited {delivered} Shardroot at Temple of Ridan (stored: {stored.Amount})");
+                        UnityEngine.Debug.Log($"[Shardroot] {f} deposited {delivered} Shardroot at Temple of Ridan (stored: {stored.Amount})");
                         break;
                     }
                 }
@@ -349,7 +349,7 @@ namespace TheWaningBorder.Systems.Economy
 
                 if (em.HasComponent<ShardrootBearer>(dropList[i]))
                     em.RemoveComponent<ShardrootBearer>(dropList[i]);
-                TWBLog.Log("[Shardroot] bearer died — the artifact lies where they fell");
+                UnityEngine.Debug.Log($"[Shardroot] bearer ({(em.HasComponent<FactionTag>(dropList[i]) ? em.GetComponentData<FactionTag>(dropList[i]).Value : Faction.Border)}) died at ({dropPositions[i].x:F0},{dropPositions[i].z:F0}) — the artifact lies where they fell");
             }
             dropList.Dispose();
             dropPositions.Dispose();

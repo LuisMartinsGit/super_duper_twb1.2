@@ -55,6 +55,11 @@ namespace TheWaningBorder.AI
 
         public float perimeterHalfExtentMax;
 
+        /// <summary>Half the widest base footprint the AI places (Barracks,
+        /// 10 m), added to the base placer's ring reach when sizing the
+        /// perimeter — the wall must clear a building's EDGE, not its centre.</summary>
+        public float perimeterFootprintAllowance;
+
         /// <summary>Buildings farther than this from the Hall are outlying
         /// expansion, not base — the perimeter does not chase them.</summary>
         public float perimeterGatherRadius;

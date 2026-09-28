@@ -76,7 +76,7 @@ namespace TheWaningBorder.Systems.Border
 
                 byte sat = field.SaturationAt(xfs[i].Position);
                 bool onCrust = sat >= VeilField.CrustThreshold;
-                bool hasVeilTag = em.HasComponent<VeilDebuffTag>(ents[i]);
+                bool hasVeilTag = TransientState.Active<VeilDebuffTag>(em, ents[i]);
 
                 // CATCH-CONVERSION (2026-07-12): the crust is impassable, so a
                 // unit standing ON crust means the wall grew over it. Workers
@@ -108,13 +108,15 @@ namespace TheWaningBorder.Systems.Border
                         em.SetComponentData(ents[i], debuff);
                     else
                         em.AddComponentData(ents[i], debuff);
-                    if (!hasVeilTag) em.AddComponent<VeilDebuffTag>(ents[i]);
+                    if (!hasVeilTag) TransientState.SetFlag<VeilDebuffTag>(em, ents[i]);
                 }
                 else if (hasVeilTag)
                 {
-                    em.RemoveComponent<VeilDebuffTag>(ents[i]);
+                    // Enable bit + zeroed debuff, no structural change — see
+                    // VeilExposureSystem (a zero BorderDebuff reads as absent).
+                    TransientState.Clear<VeilDebuffTag>(em, ents[i]);
                     if (em.HasComponent<BorderDebuff>(ents[i]))
-                        em.RemoveComponent<BorderDebuff>(ents[i]);
+                        em.SetComponentData(ents[i], default(BorderDebuff));
                 }
             }
         }

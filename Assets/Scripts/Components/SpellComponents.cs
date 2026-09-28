@@ -14,6 +14,12 @@ public struct SpellBuff : IComponentData, IEnableableComponent
     /// <summary>Flat armor bonus added to all defense types</summary>
     public float ArmorBonus;
 
+    /// <summary>Percentage armor bonus: +ArmorPct% of the target's OWN armor
+    /// for the incoming damage type (King's Call +15 = a 6-armor unit gains
+    /// ~1). Resolved at the damage site by
+    /// CombatDamageHelper.GetSpellBuffArmorBonus(em, target, type, baseDefense).</summary>
+    public float ArmorPct;
+
     /// <summary>Damage multiplier (1.25 = +25% damage)</summary>
     public float DamageMultiplier;
 
@@ -261,6 +267,11 @@ public struct PendingSectStrike : IComponentData
     public float Radius;
     public float Magnitude;
     public float Duration;
+
+    /// <summary>Armor column a damaging strike is measured against
+    /// (SectActivePowerSpec.DamageType, Magic unless the design says
+    /// otherwise). Rides the strike for the same reason Secondary does.</summary>
+    public DamageType DamageKind;
 
     /// <summary>
     /// The spec's second number, for the handful of powers that need two —

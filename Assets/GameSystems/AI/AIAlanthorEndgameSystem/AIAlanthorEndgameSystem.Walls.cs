@@ -155,6 +155,14 @@ namespace TheWaningBorder.AI
                         hubEntities, hubPositions))
                     return;
 
+                // The wall lock: while a wall level researches, standing
+                // walls cannot be extended or converted, and the executors
+                // would refuse every order below. Wait it out rather than
+                // re-issuing refused orders each think tick.
+                // docs/Design/Age_1_Alanthor.md § The four wall levels
+                if (CommandRouter.WallsLockedForUpgrade(em, faction))
+                    return;
+
                 // Close any hole BEFORE spending on gates and towers — an
                 // unbroken wall with no gate beats a decorated one with a
                 // doorway in it.

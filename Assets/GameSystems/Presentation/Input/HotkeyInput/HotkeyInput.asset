@@ -17,6 +17,8 @@ MonoBehaviour:
   cycleFormation: 120
   stop: 115
   holdPosition: 104
+  aggressiveStance: 103
+  defensiveStance: 100
   cycleIdleBuilders: 98
   planningMode: 122
   planningExecute: 13

@@ -14,3 +14,4 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   tickInterval: 1
   damageThreatStamp: 40
+  mobileSightingMaxAge: 180

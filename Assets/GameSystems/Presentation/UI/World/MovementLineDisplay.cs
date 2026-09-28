@@ -41,6 +41,21 @@ namespace TheWaningBorder.UI.World
 
         private Material _lineMat;
 
+        // Slot reuse + change detection (2026-09-25). Every line and marker
+        // used to be returned to the pool and re-claimed every frame, and
+        // every segment re-sampled the terrain 11 times and rewrote all its
+        // points and its material colour — for a selection that had not
+        // moved. Slots are now claimed in order and a segment is rebuilt only
+        // when an endpoint moved more than RebuildDistance or its colour
+        // changed.
+        private const float RebuildDistanceSq = 0.15f * 0.15f;
+        private int _lineCursor;
+        private int _markerCursor;
+        private struct LineState { public Vector3 From, To; public Color Color; }
+        private struct MarkerState { public Vector3 At; public Color Color; }
+        private readonly Dictionary<LineRenderer, LineState> _lineState = new();
+        private readonly Dictionary<GameObject, MarkerState> _markerState = new();
+
         void Awake()
         {
             _world = EntityWorld.DefaultGameObjectInjectionWorld;
@@ -62,24 +77,36 @@ namespace TheWaningBorder.UI.World
             }
             _em = _world.EntityManager;
 
-            // Return all to pool
-            foreach (var lr in _activeLines)
-            {
-                lr.gameObject.SetActive(false);
-                _linePool.Add(lr);
-            }
-            _activeLines.Clear();
-
-            foreach (var m in _activeMarkers)
-            {
-                m.SetActive(false);
-                _markerPool.Add(m);
-            }
-            _activeMarkers.Clear();
+            _lineCursor = 0;
+            _markerCursor = 0;
 
             var selection = SelectionSystem.CurrentSelection;
-            if (selection == null || selection.Count == 0) return;
+            if (selection != null && selection.Count > 0)
+                DrawSelection(selection);
 
+            // Release the slots this frame did not claim.
+            for (int i = _activeLines.Count - 1; i >= _lineCursor; i--)
+            {
+                var lr = _activeLines[i];
+                _activeLines.RemoveAt(i);
+                if (lr == null) continue;
+                lr.gameObject.SetActive(false);
+                _lineState.Remove(lr);
+                _linePool.Add(lr);
+            }
+            for (int i = _activeMarkers.Count - 1; i >= _markerCursor; i--)
+            {
+                var m = _activeMarkers[i];
+                _activeMarkers.RemoveAt(i);
+                if (m == null) continue;
+                m.SetActive(false);
+                _markerState.Remove(m);
+                _markerPool.Add(m);
+            }
+        }
+
+        private void DrawSelection(List<Entity> selection)
+        {
             foreach (var entity in selection)
             {
                 if (!_em.Exists(entity)) continue;
@@ -155,9 +182,30 @@ namespace TheWaningBorder.UI.World
         // line follows hills.
         private void DrawSegment(Vector3 fromXZ, Vector3 toXZ, Color color)
         {
-            var lr = GetOrCreateLine();
+            LineRenderer lr;
+            if (_lineCursor < _activeLines.Count && _activeLines[_lineCursor] != null)
+            {
+                lr = _activeLines[_lineCursor];
+                if (_lineState.TryGetValue(lr, out var st)
+                    && st.Color == color
+                    && (st.From - fromXZ).sqrMagnitude < RebuildDistanceSq
+                    && (st.To - toXZ).sqrMagnitude < RebuildDistanceSq)
+                {
+                    _lineCursor++;
+                    return;   // unchanged: keep what is drawn
+                }
+            }
+            else
+            {
+                lr = GetOrCreateLine();
+                if (_lineCursor < _activeLines.Count) _activeLines[_lineCursor] = lr;
+                else _activeLines.Add(lr);
+            }
+            _lineCursor++;
+            _lineState[lr] = new LineState { From = fromXZ, To = toXZ, Color = color };
+
             ApplyLineColor(lr, color);
-            lr.gameObject.SetActive(true);
+            if (!lr.gameObject.activeSelf) lr.gameObject.SetActive(true);
             lr.positionCount = lineSegments + 1;
             for (int s = 0; s <= lineSegments; s++)
             {
@@ -167,18 +215,38 @@ namespace TheWaningBorder.UI.World
                 float y = TerrainUtility.GetHeight(x, z) + lineYOffset;
                 lr.SetPosition(s, new Vector3(x, y, z));
             }
-            _activeLines.Add(lr);
         }
 
         // Places a destination decal marker at the given world XZ point,
         // pulled from the marker pool.
         private void PlaceMarker(float3 worldPos, Color color)
         {
+            Vector3 at = new Vector3(worldPos.x, 0f, worldPos.z);
+            GameObject marker;
+            if (_markerCursor < _activeMarkers.Count && _activeMarkers[_markerCursor] != null)
+            {
+                marker = _activeMarkers[_markerCursor];
+                if (_markerState.TryGetValue(marker, out var st) && st.Color == color
+                    && (st.At - at).sqrMagnitude < RebuildDistanceSq)
+                {
+                    _markerCursor++;
+                    return;
+                }
+                if (!_markerState.TryGetValue(marker, out var prev) || prev.Color != color)
+                    ApplyMarkerColor(marker, color);
+            }
+            else
+            {
+                marker = GetOrCreateMarker(color);
+                if (_markerCursor < _activeMarkers.Count) _activeMarkers[_markerCursor] = marker;
+                else _activeMarkers.Add(marker);
+            }
+            _markerCursor++;
+            _markerState[marker] = new MarkerState { At = at, Color = color };
+
             float terrainY = TerrainUtility.GetHeight(worldPos.x, worldPos.z);
-            var marker = GetOrCreateMarker(color);
-            marker.SetActive(true);
+            if (!marker.activeSelf) marker.SetActive(true);
             marker.transform.position = new Vector3(worldPos.x, terrainY + 5f, worldPos.z);
-            _activeMarkers.Add(marker);
         }
 
         private void ApplyLineColor(LineRenderer lr, Color color)

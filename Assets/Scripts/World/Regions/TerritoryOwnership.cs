@@ -32,6 +32,66 @@ namespace TheWaningBorder.World.Regions
 {
     public static class TerritoryOwnership
     {
+        #region Cached queries
+
+        // Every query in here used to be a fresh CreateEntityQuery (and a
+        // Dispose) per call — and OnFreeNodeFor / TrySnapToNode /
+        // HallCapReached run per CANDIDATE in the AI's site search and per
+        // frame under the placement ghost. Creating a query walks every
+        // archetype in the world. See Core/CachedEntityQuery.cs; these are
+        // never disposed (world teardown owns them).
+
+        /// <summary>One cached query per runtime-typed shape (the node and
+        /// extractor tags are only known as ComponentType values).</summary>
+        private sealed class TypedQuery
+        {
+            public ComponentType[] Types;
+            public TheWaningBorder.Core.CachedEntityQuery Q;
+        }
+
+        private static readonly Dictionary<TypeIndex, TypedQuery> _withTransform =
+            new Dictionary<TypeIndex, TypedQuery>();
+
+        /// <summary>Cached {tag, LocalTransform} query for a runtime tag.</summary>
+        internal static EntityQuery TagWithTransform(EntityManager em, ComponentType tag)
+        {
+            if (!_withTransform.TryGetValue(tag.TypeIndex, out var box))
+            {
+                box = new TypedQuery
+                {
+                    Types = new[] { tag, ComponentType.ReadOnly<LocalTransform>() },
+                };
+                _withTransform[tag.TypeIndex] = box;
+            }
+            return box.Q.Get(em, box.Types);
+        }
+
+        /// <summary>Per-T cache for the generic claim scan.</summary>
+        private static class ClaimQuery<T> where T : unmanaged, IComponentData
+        {
+            public static readonly ComponentType[] Types =
+            {
+                ComponentType.ReadOnly<T>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<LocalTransform>(),
+            };
+            public static TheWaningBorder.Core.CachedEntityQuery Q;
+        }
+
+        private static readonly ComponentType[] QT_HallTagLocalTransform =
+        {
+            ComponentType.ReadOnly<HallTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        private static TheWaningBorder.Core.CachedEntityQuery QC_HallTagLocalTransform;
+
+        /// <summary>Every Hall (finished or not) — the hall-cap scan, shared
+        /// with the AI's placement snapshot.</summary>
+        internal static EntityQuery HallQuery(EntityManager em)
+            => QC_HallTagLocalTransform.Get(em, QT_HallTagLocalTransform);
+
+        #endregion
+
         /// <summary>Unowned. Natural ground -- claimable by anyone.</summary>
         public const int Natural = -1;
 
@@ -165,18 +225,37 @@ namespace TheWaningBorder.World.Regions
         /// </summary>
         public static bool CanBuildAt(EntityManager em, Faction faction,
                                       string buildingId, float worldX, float worldZ)
+            => TerritoryRefusal(em, faction, buildingId, worldX, worldZ) == PlacementRefusal.None;
+
+        /// <summary>True when the territory rules are switched off for this
+        /// match: scenarios and the sandbox are fixtures, not matches — they
+        /// build their board wherever the author or the tester points. Same
+        /// carve out VictoryConditionSystem makes for the same reason.</summary>
+        private static bool RulesOff =>
+            GameSettings.IsSandbox || GameSettings.Mode == GameMode.Scenario;
+
+        /// <summary>
+        /// <see cref="CanBuildAt"/> with its REASON — the placement ghost names
+        /// the rule a red preview broke instead of a generic "invalid
+        /// placement". Same rule, same order; <see cref="PlacementRefusal.None"/>
+        /// is the only "yes".
+        ///
+        /// For a Hall this includes the ADJACENCY RULE (Regions.md §2,
+        /// 2026-09-26): a claim goes only into a Natural territory that shares
+        /// a border with one the faction already holds, so expansion grows
+        /// outward from the ground you have instead of hopping across the map.
+        /// </summary>
+        public static PlacementRefusal TerritoryRefusal(EntityManager em, Faction faction,
+                                      string buildingId, float worldX, float worldZ)
         {
-            // Scenarios and the sandbox are fixtures, not matches — they build
-            // their board wherever the author or the tester points. Same carve
-            // out VictoryConditionSystem makes for the same reason.
-            if (GameSettings.IsSandbox || GameSettings.Mode == GameMode.Scenario) return true;
-            if (!RegionMap.Ready) return true;
+            if (RulesOff) return PlacementRefusal.None;
+            if (!RegionMap.Ready) return PlacementRefusal.None;
 
             // Ownership is recomputed on TerritoryIncomeSystem's 5 s tick, so
             // for the first few seconds of a match nothing is owned yet. Derive
             // it once here rather than letting that window be a free-for-all.
             if (!Ready) Recompute(em);
-            if (!Ready) return true;
+            if (!Ready) return PlacementRefusal.None;
 
             // RegionAt, matching what the borders DRAW. Ground no region can
             // own is unowned for everyone (Regions.md §1), so the gate must not
@@ -190,12 +269,176 @@ namespace TheWaningBorder.World.Regions
             // anyway, and a gate that cannot say whose ground it is must not be
             // the thing that refuses.
             int t = RegionMap.RegionAt(worldX, worldZ);
-            if (t == RegionMap.None) return true;
+            if (t == RegionMap.None) return PlacementRefusal.None;
 
             int owner = OwnerOf(t);
-            if (owner == (int)faction) return true;
-            return IsClaimStructure(buildingId) && owner == Natural;
+            if (owner == (int)faction) return PlacementRefusal.None;
+
+            if (owner == Curse) return PlacementRefusal.HeldByCurse;
+            if (owner != Natural) return PlacementRefusal.HeldByRival;
+            if (!IsClaimStructure(buildingId)) return PlacementRefusal.NotYourTerritory;
+
+            // A claim on Natural ground: only next door to ground you hold.
+            return IsAdjacentToHeld(faction, t)
+                ? PlacementRefusal.None
+                : PlacementRefusal.NotAdjacent;
         }
+
+        /// <summary>
+        /// Does <paramref name="territory"/> share a border with a territory
+        /// <paramref name="faction"/> holds right now? The Hall adjacency rule
+        /// (Regions.md §2). Holding means a FINISHED claim — a Hall still under
+        /// construction claims nothing (see <see cref="Claim{T}"/>), so it
+        /// cannot be the stepping stone for the next one either.
+        /// </summary>
+        public static bool IsAdjacentToHeld(Faction faction, int territory)
+        {
+            if (territory < 0) return false;
+            for (int i = 0; i < _owner.Length; i++)
+                if (_owner[i] == (int)faction && RegionMap.AreAdjacent(i, territory))
+                    return true;
+            return false;
+        }
+
+        // ── Hall builder proximity (Regions.md §2, 2026-09-26) ───────────
+
+        private static TerritoryOwnershipConfig _cfg;
+        private static TerritoryOwnershipConfig Cfg =>
+            _cfg != null ? _cfg
+            : (_cfg = TheWaningBorder.Core.Settings.ComponentConfig.Require<TerritoryOwnershipConfig>());
+
+        /// <summary>How close (metres, XZ) one of the placing faction's
+        /// workers must stand to a Hall site for the claim to be accepted.
+        /// Read from TerritoryOwnership.asset.</summary>
+        public static float HallBuilderRange => Cfg.hallBuilderRange;
+
+        /// <summary>
+        /// True when this building's placement must name a builder standing
+        /// near the site: the Hall, and only when the territory rules are on.
+        /// A claim is the one purchase that takes ground, so it is the one
+        /// that has to be MADE there — a player cannot drop a Hall on the far
+        /// side of the map from a worker standing at home.
+        /// </summary>
+        public static bool NeedsBuilderNearby(string buildingId)
+            => IsClaimStructure(buildingId) && !RulesOff && RegionMap.Ready;
+
+        /// <summary>
+        /// Is <paramref name="builder"/> a live worker of <paramref name="faction"/>
+        /// within <see cref="HallBuilderRange"/> of the site AND standing
+        /// inside the territory the site is in (Regions.md §2, 2026-09-27)?
+        /// Reads replicated simulation state only, so the lockstep executor
+        /// reaches the same verdict on every peer at the execution tick.
+        /// </summary>
+        public static PlacementRefusal CheckHallBuilder(EntityManager em, Faction faction,
+            Entity builder, float worldX, float worldZ)
+        {
+            if (!IsLiveBuilder(em, faction, builder)) return PlacementRefusal.NoBuilder;
+            var p = em.GetComponentData<LocalTransform>(builder).Position;
+            float dx = p.x - worldX, dz = p.z - worldZ;
+            float r = HallBuilderRange;
+            if (dx * dx + dz * dz > r * r) return PlacementRefusal.BuilderTooFar;
+            return IsInSiteTerritory(p.x, p.z, worldX, worldZ)
+                ? PlacementRefusal.None
+                : PlacementRefusal.BuilderOutsideTerritory;
+        }
+
+        /// <summary>
+        /// Does the point (<paramref name="x"/>, <paramref name="z"/>) lie in
+        /// the same territory as the site? The claim is made from INSIDE the
+        /// ground it takes — a worker standing across the border in the
+        /// faction's own region is not on the ground being claimed. A site no
+        /// region owns (RegionMap.None — already answered "no gate" by
+        /// <see cref="TerritoryRefusal"/>) asks nothing more of the worker.
+        /// </summary>
+        public static bool IsInSiteTerritory(float x, float z, float siteX, float siteZ)
+        {
+            if (!RegionMap.Ready) return true;
+            int site = RegionMap.RegionAt(siteX, siteZ);
+            if (site == RegionMap.None) return true;
+            return RegionMap.RegionAt(x, z) == site;
+        }
+
+        /// <summary>A worker (CanBuild, not conscripted) owned by the
+        /// faction, alive, with a transform.</summary>
+        public static bool IsLiveBuilder(EntityManager em, Faction faction, Entity e)
+        {
+            if (e == Entity.Null || !em.Exists(e)) return false;
+            if (!em.HasComponent<CanBuild>(e) || !em.HasComponent<LocalTransform>(e)) return false;
+            if (em.HasComponent<ConscriptedTag>(e)) return false;
+            if (!em.HasComponent<FactionTag>(e) || em.GetComponentData<FactionTag>(e).Value != faction)
+                return false;
+            if (em.HasComponent<Health>(e) && em.GetComponentData<Health>(e).Value <= 0) return false;
+            return true;
+        }
+
+        /// <summary>
+        /// The worker of <paramref name="faction"/> among
+        /// <paramref name="candidates"/> (the local player's selection) the
+        /// Hall command should carry, or Entity.Null. The nearest worker that
+        /// PASSES <see cref="CheckHallBuilder"/> (in range and inside the
+        /// site's territory) wins; failing that, the nearest live worker, so
+        /// the refusal names the rule it broke. Distance ties break on list
+        /// order — this is a UI helper; the chosen id then rides the command,
+        /// so peers never pick.
+        /// </summary>
+        public static Entity NearestBuilder(EntityManager em, Faction faction,
+            System.Collections.Generic.IReadOnlyList<Entity> candidates, float worldX, float worldZ)
+        {
+            Entity best = Entity.Null, bestOk = Entity.Null;
+            float bestD = float.MaxValue, bestOkD = float.MaxValue;
+            if (candidates == null) return best;
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                var e = candidates[i];
+                if (!IsLiveBuilder(em, faction, e)) continue;
+                var p = em.GetComponentData<LocalTransform>(e).Position;
+                float dx = p.x - worldX, dz = p.z - worldZ;
+                float d = dx * dx + dz * dz;
+                if (d < bestD) { bestD = d; best = e; }
+                if (d < bestOkD
+                    && CheckHallBuilder(em, faction, e, worldX, worldZ) == PlacementRefusal.None)
+                { bestOkD = d; bestOk = e; }
+            }
+            return bestOk != Entity.Null ? bestOk : best;
+        }
+
+        // ── Hall cost escalation (Regions.md §2 "No territory hopping") ──
+
+        private static readonly ComponentType[] QT_ExpansionHalls =
+        {
+            ComponentType.ReadOnly<HallTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.Exclude<FortressTag>(),
+        };
+        private static TheWaningBorder.Core.CachedEntityQuery QC_ExpansionHalls;
+
+        /// <summary>The escalation step from TerritoryOwnership.asset.</summary>
+        public static float HallCostStep => Cfg.hallCostStep;
+
+        /// <summary>
+        /// N in the Hall price: the faction's live and under-construction
+        /// Halls, NOT counting the starting Fortress (which carries HallTag
+        /// but was never bought). Reads replicated entity state only, so every
+        /// lockstep peer counts the same N at the execution tick.
+        /// </summary>
+        public static int ExpansionHallCount(EntityManager em, Faction faction)
+        {
+            var q = QC_ExpansionHalls.Get(em, QT_ExpansionHalls);
+            using var facs = q.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
+            int n = 0;
+            for (int i = 0; i < facs.Length; i++)
+                if (facs[i].Value == faction) n++;
+            return n;
+        }
+
+        /// <summary>
+        /// The multiplier on the Hall's base price for the next Hall this
+        /// faction places: 1 + <see cref="HallCostStep"/> x N. Applies in
+        /// every mode — the escalation is a price, not a territory rule, so it
+        /// does not switch off with <see cref="RulesOff"/>.
+        /// </summary>
+        public static float HallCostMultiplier(EntityManager em, Faction faction)
+            => 1f + HallCostStep * ExpansionHallCount(em, faction);
 
         /// <summary>
         /// True when this territory already has a Hall. One Hall claims the
@@ -212,18 +455,14 @@ namespace TheWaningBorder.World.Regions
             int here = RegionMap.RegionAt(worldX, worldZ);
             if (here == RegionMap.None) return false;
 
-            var q = em.CreateEntityQuery(
-                ComponentType.ReadOnly<HallTag>(),
-                ComponentType.ReadOnly<LocalTransform>());
-            var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
+            var q = HallQuery(em);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
             bool found = false;
-            for (int i = 0; i < ents.Length && !found; i++)
+            for (int i = 0; i < xfs.Length && !found; i++)
             {
-                var p = em.GetComponentData<LocalTransform>(ents[i]).Position;
+                var p = xfs[i].Position;
                 found = RegionMap.RegionAt(p.x, p.z) == here;
             }
-            ents.Dispose();
-            q.Dispose();
             return found;
         }
 
@@ -318,10 +557,8 @@ namespace TheWaningBorder.World.Regions
             var required = RequiredNodeFor(buildingId);
             if (required == null) return true;   // not an extractor — no node rule
 
-            var nodeQuery = em.CreateEntityQuery(required.Value);
-            bool none = nodeQuery.IsEmpty;
-            nodeQuery.Dispose();
-            if (none) return true;               // unseeded map — stay buildable
+            if (TagWithTransform(em, required.Value).IsEmpty)
+                return true;                     // unseeded map — stay buildable
 
             return TrySnapToNode(em, buildingId,
                                  new float3(worldX, 0f, worldZ), out _);
@@ -359,10 +596,7 @@ namespace TheWaningBorder.World.Regions
             var required = RequiredNodeFor(buildingId);
             if (required == null) return false;
 
-            var nodeQuery = em.CreateEntityQuery(
-                required.Value,
-                ComponentType.ReadOnly<LocalTransform>());
-            var nodes = nodeQuery.ToComponentDataArray<LocalTransform>(
+            var nodes = TagWithTransform(em, required.Value).ToComponentDataArray<LocalTransform>(
                 Unity.Collections.Allocator.Temp);
 
             // Occupancy is read ONCE, not re-queried per candidate node. The
@@ -371,18 +605,53 @@ namespace TheWaningBorder.World.Regions
             // frame, and query matching walks every archetype in the world.
             var taken = ExtractorPositions(em, buildingId);
 
+            int nodeCount = Fill(ref _scratchNodes, nodes);
+            int takenCount = taken.IsCreated ? Fill(ref _scratchTaken, taken) : 0;
+            if (taken.IsCreated) taken.Dispose();
+            nodes.Dispose();
+
+            return SnapAmong(buildingId, pos, _scratchNodes, nodeCount,
+                             _scratchTaken, takenCount, out snapped);
+        }
+
+        // Managed scratch for the live path, so it and the AI's snapshot path
+        // share ONE implementation of the nearest-free-node rule. Main-thread
+        // only (every caller is managed ECS / UI code).
+        private static LocalTransform[] _scratchNodes = System.Array.Empty<LocalTransform>();
+        private static LocalTransform[] _scratchTaken = System.Array.Empty<LocalTransform>();
+
+        private static int Fill(ref LocalTransform[] into,
+            Unity.Collections.NativeArray<LocalTransform> from)
+        {
+            if (into.Length < from.Length) into = new LocalTransform[math.max(from.Length, 16)];
+            for (int i = 0; i < from.Length; i++) into[i] = from[i];
+            return from.Length;
+        }
+
+        /// <summary>
+        /// The nearest-free-node rule over caller-supplied node and occupancy
+        /// lists — <see cref="TrySnapToNode"/> reads them live, the AI's
+        /// placement snapshot reads them once per tick. Same rule, same
+        /// tie-break, so the two cannot disagree.
+        /// </summary>
+        internal static bool SnapAmong(string buildingId, float3 pos,
+            LocalTransform[] nodes, int nodeCount,
+            LocalTransform[] taken, int takenCount, out float3 snapped)
+        {
+            snapped = pos;
+
             float r2 = SupplyNodeSnapRange * SupplyNodeSnapRange;
             bool found = false;
             float bestD2 = float.MaxValue;
             float3 best = default;
 
-            for (int i = 0; i < nodes.Length; i++)
+            for (int i = 0; i < nodeCount; i++)
             {
                 var np = nodes[i].Position;
                 float dx = np.x - pos.x, dz = np.z - pos.z;
                 float d2 = dx * dx + dz * dz;
                 if (d2 > r2) continue;
-                if (Occupied(taken, np.x, np.z, r2)) continue;
+                if (Occupied(taken, takenCount, np.x, np.z, r2)) continue;
 
                 // Strictly-better, then a coordinate tie-break: two nodes at
                 // the same distance must resolve identically on every peer.
@@ -395,9 +664,6 @@ namespace TheWaningBorder.World.Regions
                 }
             }
 
-            if (taken.IsCreated) taken.Dispose();
-            nodes.Dispose();
-            nodeQuery.Dispose();
             if (!found) return false;
 
             snapped = BuildGrid.Snap(new float3(best.x, pos.y, best.z), buildingId);
@@ -411,17 +677,17 @@ namespace TheWaningBorder.World.Regions
             var tag = ExtractorTagFor(buildingId);
             if (tag == null) return default;
 
-            var q = em.CreateEntityQuery(tag.Value, ComponentType.ReadOnly<LocalTransform>());
-            var xfs = q.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
-            q.Dispose();
-            return xfs;
+            return TagWithTransform(em, tag.Value)
+                .ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
         }
 
-        private static bool Occupied(
-            Unity.Collections.NativeArray<LocalTransform> taken, float x, float z, float r2)
+        /// <summary>Tag of an already-built extractor of this kind, for the
+        /// AI's placement snapshot (null for non-extractors).</summary>
+        internal static ComponentType? ExtractorTagOf(string buildingId) => ExtractorTagFor(buildingId);
+
+        private static bool Occupied(LocalTransform[] taken, int count, float x, float z, float r2)
         {
-            if (!taken.IsCreated) return false;
-            for (int i = 0; i < taken.Length; i++)
+            for (int i = 0; i < count; i++)
             {
                 var p = taken[i].Position;
                 float dx = p.x - x, dz = p.z - z;
@@ -499,10 +765,7 @@ namespace TheWaningBorder.World.Regions
         /// </summary>
         private static void Claim<T>(EntityManager em) where T : unmanaged, IComponentData
         {
-            var q = em.CreateEntityQuery(
-                ComponentType.ReadOnly<T>(),
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<LocalTransform>());
+            var q = ClaimQuery<T>.Q.Get(em, ClaimQuery<T>.Types);
 
             var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
             for (int i = 0; i < ents.Length; i++)
@@ -528,7 +791,98 @@ namespace TheWaningBorder.World.Regions
                     _owner[t] = (int)em.GetComponentData<FactionTag>(e).Value;
             }
             ents.Dispose();
-            q.Dispose();
         }
+    }
+
+    /// <summary>
+    /// WHY a placement was refused. Every placement stage that can say no
+    /// answers with one of these, so the ghost can name the rule instead of a
+    /// generic "invalid placement", and the executor can tell the local player
+    /// why a queued order was dropped. Localised by the UI; the simulation only
+    /// ever compares against <see cref="None"/>.
+    /// </summary>
+    public enum PlacementRefusal : byte
+    {
+        None = 0,
+        /// <summary>Id unknown to the catalog — never silently a Hut.</summary>
+        UnknownBuilding,
+        /// <summary>Slope, water, map edge, impassable ground or an obstacle.</summary>
+        Terrain,
+        /// <summary>The footprint overlaps an existing building.</summary>
+        Overlap,
+        /// <summary>Veil crust (only the Veilworks may stand on it).</summary>
+        CursedGround,
+        /// <summary>An ordinary building outside ground you hold.</summary>
+        NotYourTerritory,
+        /// <summary>The territory is held by another player.</summary>
+        HeldByRival,
+        /// <summary>The territory is held by the curse.</summary>
+        HeldByCurse,
+        /// <summary>One Hall per territory.</summary>
+        HallAlreadyHere,
+        /// <summary>A Hall must go next to a territory you hold.</summary>
+        NotAdjacent,
+        /// <summary>A Hall needs one of your workers within range.</summary>
+        BuilderTooFar,
+        /// <summary>No live worker of yours was named for the Hall.</summary>
+        NoBuilder,
+        /// <summary>An extractor off a free node of its own kind.</summary>
+        OffNode,
+        /// <summary>A War Totem off blood.</summary>
+        NotOnBlood,
+        /// <summary>A Sawyer away from a forest.</summary>
+        NotByForest,
+        /// <summary>A per-faction cap (Smelters, sect buildings).</summary>
+        CapReached,
+        /// <summary>The Hall's worker is in range but not standing inside
+        /// the territory the Hall would claim.</summary>
+        BuilderOutsideTerritory,
+    }
+
+    /// <summary>
+    /// The player-facing line for each <see cref="PlacementRefusal"/>,
+    /// localised (Loc.Pt.Notifications.cs holds the Portuguese). Shared by
+    /// the placement ghost and the lockstep executor's refusal notice, so a
+    /// refusal reads the same whichever side caught it.
+    /// </summary>
+    public static class PlacementRefusalText
+    {
+        public static string Of(PlacementRefusal r, string buildingId = null)
+        {
+            string en = r switch
+            {
+                PlacementRefusal.UnknownBuilding  => "That building cannot be placed",
+                PlacementRefusal.Terrain          => "The ground here is unsuitable",
+                PlacementRefusal.Overlap          => "Something is already built here",
+                PlacementRefusal.CursedGround     => "Cannot build on cursed ground",
+                PlacementRefusal.NotYourTerritory => "You can only build in your own territory",
+                PlacementRefusal.HeldByRival      => "Cannot claim ground another player holds",
+                PlacementRefusal.HeldByCurse      => "The curse holds this territory",
+                PlacementRefusal.HallAlreadyHere  => "This territory already has a Hall",
+                PlacementRefusal.NotAdjacent      => "A Hall must border a territory you hold",
+                PlacementRefusal.BuilderTooFar    => "Builder too far — a worker must stand near the Hall site",
+                PlacementRefusal.NoBuilder        => "Select a worker to place a Hall",
+                PlacementRefusal.OffNode          => ExtractorLine(buildingId),
+                PlacementRefusal.NotOnBlood       => "War Totems must be planted on blood",
+                PlacementRefusal.NotByForest      => "Sawyers must be built against a forest",
+                PlacementRefusal.CapReached       => "You have the most of that building you may hold",
+                PlacementRefusal.BuilderOutsideTerritory
+                    => "The worker must stand inside the territory the Hall will claim",
+                _                                 => "Invalid placement",
+            };
+            return TheWaningBorder.Core.Localization.Loc.T(en);
+        }
+
+        /// <summary>Why an extractor was refused, named by the node it
+        /// wanted — the iron Mine and the Veilstone Mine are different
+        /// buildings wanting different ground.</summary>
+        private static string ExtractorLine(string buildingId) => buildingId switch
+        {
+            "GatherersHut"     => "Gatherer's Huts must be built on a free supply node",
+            "Mine"             => "Mines must be built on a free iron deposit",
+            "VeilstoneMine"    => "Veilstone Mines must be built on a free veilstone outcropping",
+            "Alanthor_Smelter" => "Smelters must be built on a free veilsteel deposit",
+            _                  => "This building must stand on a free resource node",
+        };
     }
 }

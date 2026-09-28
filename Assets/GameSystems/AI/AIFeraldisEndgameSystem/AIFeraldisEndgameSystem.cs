@@ -125,6 +125,8 @@ namespace TheWaningBorder.AI
                 }
                 var tick = em.GetComponentData<AIFeraldisTickState>(brainEntity);
                 if (now < tick.NextThinkTime) continue;
+                // Shared per-frame heavy-think budget (AIThinkBudget).
+                if (!AIThinkBudget.TryClaim(now - tick.NextThinkTime > think)) continue;
                 tick.NextThinkTime = now + think;
                 em.SetComponentData(brainEntity, tick);
 

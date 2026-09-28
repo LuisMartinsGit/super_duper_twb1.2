@@ -81,8 +81,13 @@ public struct VeilField : IComponentData
 /// Marks a unit whose BorderDebuff was applied by the Veil (standing on
 /// crust) — so the veil system and the Suppression-aura system don't
 /// fight over adding/removing the shared BorderDebuff component.
+///
+/// ENABLEABLE (2026-09-27): pre-added disabled with the TransientState unit
+/// set and toggled by the enable bit on every crust excursion — adding and
+/// removing it (plus BorderDebuff) per excursion was archetype churn. Read it
+/// with TransientState.Active, never HasComponent.
 /// </summary>
-public struct VeilDebuffTag : IComponentData { }
+public struct VeilDebuffTag : IComponentData, IEnableableComponent { }
 
 /// <summary>
 /// Miner-infection accumulator (curse canon: neglect a villager digging at

@@ -127,9 +127,10 @@ question with a different answer per culture.
 A Hall is the ONLY building that may be raised on ground you do not hold.
 Everything else, towers included, goes inside territory that is already yours.
 
-**A Hall is expensive on purpose** — 600 supplies and 200 iron, against 350/100
-before. Taking ground is the largest single purchase in the game, because it is
-the only purchase that grows the economy.
+**A Hall is expensive on purpose** — **450 supplies and 450 iron** (the Hall
+SO; rebalanced from 600/200 on 2026-08-31, see §3). Taking ground is the
+largest single purchase in the game, because it is the only purchase that grows
+the economy.
 
 **One Hall per territory.** A second claims nothing, so there is no reason to
 build it. This replaces the old flat six-per-faction cap: the limit on how wide
@@ -137,7 +138,75 @@ you spread is how much ground you can hold, not a number.
 
 **Claiming starts in Age 0.** The Hall is an Age 0 building, so expansion is
 open from the first minute — this supersedes the earlier "no claiming before
-age-up", which existed only because every claim structure was Age 1.
+age-up", which existed only because every claim structure was Age 1. (Confirmed
+2026-09-26: "Age 0 holds only the start region" means you START with only it
+and every non-Hall building stays inside held ground; it does not forbid an
+Age 0 Hall. The adjacency rule below is what keeps that first claim local.)
+
+### No territory hopping (2026-09-26, extended 2026-09-27)
+
+Expansion grows outward from the ground you hold; it does not hop across the
+map. Three rules, all enforced by the placement ghost AND re-checked by the
+command executor at the tick the order runs (so the AI, multiplayer peers and
+a stale click all obey them):
+
+- **Adjacency.** A Hall may be placed only in a Natural territory that **shares
+  a border** with a territory the faction already **holds** (a finished claim —
+  a Hall still under construction holds nothing, so it cannot be the stepping
+  stone for the next one). "Shares a border" is the one adjacency the whole
+  game uses, `RegionMap.AreAdjacent`: the partition itself, rasterised once per
+  map, so an authored outline neighbours exactly the outlines it touches, and
+  two territories separated by a Mountain or Water region are NOT neighbours.
+  The curse's conquest (§3) uses the same graph.
+- **The builder has to be there — inside the territory.** A Hall can be placed
+  only while one of the faction's workers stands within **30 m** of the site
+  (`hallBuilderRange` in `Scripts/World/Regions/TerritoryOwnership.asset`)
+  **and inside the territory the Hall would claim** (the region the site is
+  in, `RegionMap.RegionAt` — 2026-09-27). A worker across the border on the
+  faction's own ground is in range but is not on the ground it is claiming, so
+  it does not count. For the player the order names the nearest selected
+  worker that meets both conditions (else the nearest selected worker, so the
+  refusal names the rule); the executor refuses the claim if that worker is
+  missing, dead, not yours, not a worker, out of range, or outside the
+  territory at execution. The AI walks a worker to a stand point beside the
+  footprint that lies inside the territory (trying bearings around the site,
+  the site itself as the last resort) and places once it has arrived. A claim
+  is made on the ground, not dropped from the home base or reached over the
+  border.
+- **Each Hall costs more than the last.** The Hall's price escalates with the
+  Halls the faction already has:
+
+  `price = base Hall cost × (1 + step × N)`
+
+  where **N** is the faction's live **and under-construction** Halls, **not
+  counting the starting Fortress**, and **step = 0.5** (`hallCostStep` in
+  `TerritoryOwnership.asset`). With the Hall's base of 450 Supplies + 450 Iron:
+  the 1st expansion Hall costs 450 / 450, the 2nd 675 / 675, the 3rd
+  900 / 900, the 4th 1 125 / 1 125. Each resource is rounded to the nearest
+  whole unit. An under-construction Hall counts, so queuing several claims at
+  once does not dodge the step; a Hall that is destroyed stops counting, so
+  losing ground makes re-claiming it cheaper again. The price is computed from
+  simulation state at the tick the order executes (every lockstep peer counts
+  the same N), and the Hall **remembers what it was charged**: any refund
+  (self-destruct, an AI rolling back an orphan foundation) pays back from that
+  price, never from what the next Hall would cost. The build button's tooltip,
+  the placement click's affordability check and the AI's savings target all
+  show the same escalated number (`BuildCosts.For`).
+  *Why:* adjacency alone let a faction chain cheap claims across every free
+  region in reach; the step makes each further territory a bigger decision
+  than the last, so a wide empire is something paid for, not a default.
+
+A refused placement always says which rule it broke — not your territory,
+held by another player or the curse, one Hall per territory, not adjacent,
+builder too far / worker outside the territory / no worker selected, terrain,
+overlap — instead of a generic "invalid placement". (Not enough resources is
+the ordinary affordability notice, at the escalated price.)
+
+**What this still does not cover:** a faction that has lost every territory
+holds nothing to be adjacent to, so it cannot claim again. That is currently
+elimination in all but name (the Fortress is its home claim); whether a
+landless faction may re-found somewhere is an open design question, not
+implemented.
 
 ### Losing and taking
 
@@ -183,11 +252,16 @@ one-for-one.
   INDESTRUCTIBLE, and is the curse's version of a Hall: the territory holding
   it is curse-owned from the first tick. Pure nodes are the verb-victory
   objectives (purify / pacify / destroy per culture) and the Shardroot host —
-  they are interacted with, never razed. **Veilmarch carries exactly ONE pure
-  node, in the centre territory.**
+  they are interacted with, never razed. ~~Veilmarch carries exactly ONE pure
+  node, in the centre territory.~~ **Superseded (2026-09-24,
+  Curse_And_Shardroot.md §2.1 "N = 1 is a bug"):** a map authors N ≥ 2 pure
+  nodes — every well is one, Veilmarch has five (The Scar + the four far
+  corners) — and the Shardroot host is ONE of the N, picked from the seed.
 - **Expansion rule: the curse conquers a RANDOM ADJACENT territory when that
   territory (a) contains no Hall and (b) contains at least one veilstone
-  node.** Adjacent means region-graph adjacent (Voronoi neighbours). The
+  node.** Adjacent means sharing a border — the same `RegionMap.AreAdjacent`
+  graph the Hall adjacency rule (§2) uses (until 2026-09-26 the curse walked
+  the seed-to-seed segment instead, which disagreed with authored outlines). The
   conquest is instant, like a player's claim. Ground without veilstone does
   not interest it; ground a player holds (a live Hall) is safe from
   conquest — the curse fights players with waves, not paperwork.

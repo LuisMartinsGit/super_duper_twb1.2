@@ -85,6 +85,17 @@ namespace TheWaningBorder.Core.Commands.Types
                 em.SetComponentData(unit, new Target { Value = target });
                 else
                     em.AddComponentData(unit, new Target { Value = target });
+
+            // An ORDERED target, not an automatic one: never leashed, never
+            // dropped by stuck recovery (docs/Design/Stances.md §5). Clearing
+            // the auto record is what makes it so — even when the order names
+            // the very enemy the unit had auto-acquired.
+            if (em.HasComponent<UnitEngagement>(unit))
+            {
+                var eng = em.GetComponentData<UnitEngagement>(unit);
+                eng.AutoTarget = Entity.Null;
+                em.SetComponentData(unit, eng);
+            }
         }
 
         private static void SetGuardPointToCurrent(EntityManager em, Entity unit)

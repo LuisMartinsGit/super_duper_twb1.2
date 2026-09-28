@@ -302,6 +302,8 @@ namespace TheWaningBorder.Rendering
         void LateUpdate()
         {
             if (!_tinted) TryTint();
+            // Off-screen rigs hold their pose (see ProceduralRigCulling).
+            if (!TheWaningBorder.Rendering.ProceduralRigCulling.Visible(transform.position)) return;
 
             // Planar speed from position delta (SyncTransforms moves the root).
             Vector3 pos = transform.position;

@@ -27,6 +27,21 @@
 //     only when dirty.
 //   * Cache invalidation walks the slot keys in slot-index order so
 //     evictions happen in a stable order across machines.
+//
+// Late-game cost (2026-09-25):
+//   * The graph reads NOTHING of the cost byte but "is it 255", so a drain
+//     whose diff saw no cell cross the impassable line (NavDirtyTiles.
+//     TopologyDirty clear — the veil's travel-cost pulses, bridge premiums)
+//     skips the rebuild outright and only flushes the dirty tiles' flow
+//     slabs. The rebuilt graph would have been byte-identical.
+//   * The intra-tile walkable-region labels (the flood fill that was most
+//     of a rebuild) are cached per cell and recomputed only for dirty
+//     tiles. Two portals of a tile share a region iff their cells are both
+//     walkable, in the same tile, and 4-connected inside it — which is
+//     exactly what the per-seed flood decided, so the edge set is
+//     unchanged. The cache is a pure function of the lockstep-identical
+//     cost slab, relabelled in full whenever it cannot be trusted (first
+//     rebuild, new match, a graph published by someone else, grid resize).
 
 using Unity.Burst;
 using Unity.Collections;
@@ -54,6 +69,12 @@ namespace TheWaningBorder.Systems.Navigation
         private byte _mirrorInitialised;
         /// <summary>Mirror of PortalOwnerBitsMirror.Bits, disposable after a wipe.</summary>
         private NativeArray<ushort> _bits;
+        /// <summary>Per ground cell: its walkable-region id within its own
+        /// tile, or -1 when impassable. See the header.</summary>
+        private NativeArray<int> _regionLabels;
+        private int _labelsEpoch;
+        private int _labelsGraphGeneration;   // graph generation WE last published
+        private byte _labelsValid;
 
         // NOT [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]: BlobBuilder + EntityManager.GetComponentData
         // are managed entry points.
@@ -99,6 +120,18 @@ namespace TheWaningBorder.Systems.Navigation
             // ── CCD-5: drain in-flight nav deps before reading cost field ──
             state.Dependency.Complete();
 
+            // Nothing the graph reads changed: flush the flow slabs over the
+            // dirty tiles (they integrate real costs) and drain, no rebuild.
+            if (dirty.TopologyDirty == 0)
+            {
+                InvalidateDirtyTiles(ref state, dirtyTiles);
+                dirty.DirtyTileIndices.Clear();
+                dirty.Generation++;
+                SystemAPI.SetSingleton(dirty);
+                dirtyTiles.Dispose();
+                return;
+            }
+
             // ── Full graph rebuild (same shape as PortalGraphBuildSystem) ──
             var cost = SystemAPI.GetSingleton<NavCostField>();
             var grid = SystemAPI.GetSingleton<NavGridSingleton>();
@@ -132,8 +165,27 @@ namespace TheWaningBorder.Systems.Navigation
             // 1026x1026 grid scale was a 70-85 ms hitch on every building
             // placement. Same-tick synchronous on every path, so nothing
             // about availability timing changes for lockstep.
+            // Region-label cache: trusted only if WE published the current
+            // graph from it this match on this grid; otherwise relabel all.
+            var graphBefore = SystemAPI.GetSingleton<PortalGraphSingleton>();
+            int cells = grid.Width * grid.Height;
+            bool relabelAll = _labelsValid == 0
+                || _labelsEpoch != SimCadence.Epoch
+                || _labelsGraphGeneration != graphBefore.Generation
+                || !_regionLabels.IsCreated || _regionLabels.Length != cells;
+            if (!_regionLabels.IsCreated || _regionLabels.Length != cells)
+            {
+                if (_regionLabels.IsCreated) _regionLabels.Dispose();
+                _regionLabels = new NativeArray<int>(cells, Allocator.Persistent,
+                    NativeArrayOptions.UninitializedMemory);
+            }
+
             var outBlob = new NativeReference<BlobAssetReference<PortalGraphBlob>>(
                 Allocator.TempJob);
+            // A TempJob copy, not dirtyTiles.AsArray(): a view over a Temp
+            // list carries the list's safety handle, and job safety refuses
+            // Temp memory in a job even under Run().
+            var dirtyArr = new NativeArray<int>(dirtyTiles.AsArray(), Allocator.TempJob);
             new RebuildPortalGraphJob
             {
                 Cost = cost.Cost,
@@ -143,9 +195,13 @@ namespace TheWaningBorder.Systems.Navigation
                 TilesZ = tilesZ,
                 WallSpecs = wallSpecs,
                 OutBlob = outBlob,
+                RegionLabels = _regionLabels,
+                DirtyTiles = dirtyArr,
+                RelabelAll = relabelAll,
             }.Run();
             BlobAssetReference<PortalGraphBlob> newBlob = outBlob.Value;
             outBlob.Dispose();
+            dirtyArr.Dispose();
             if (ownWallSpecs) wallSpecs.Dispose();
 
             // ── CCD-5 publish: drain in-flight, swap, dispose old AFTER ──
@@ -156,6 +212,9 @@ namespace TheWaningBorder.Systems.Navigation
             graphSingleton.Generation++;
             graphSingleton.Built = 1;
             SystemAPI.SetSingleton(graphSingleton);
+            _labelsValid = 1;
+            _labelsEpoch = SimCadence.Epoch;
+            _labelsGraphGeneration = graphSingleton.Generation;
 
             // Bump NavGenerationCounter so request consumers can tell the
             // graph generation moved this tick.
@@ -176,22 +235,12 @@ namespace TheWaningBorder.Systems.Navigation
             RebuildOwnerBitsMirror(ref state, em, graphSingleton);
 
             // ── Cache invalidation: drop every slab whose TileIndex is dirty ──
-            if (SystemAPI.HasSingleton<NavFlowCache>())
-            {
-                var cache = SystemAPI.GetSingleton<NavFlowCache>();
-                if (cache.Slots.IsCreated)
-                {
-                    for (int i = 0; i < dirtyTiles.Length; i++)
-                    {
-                        InvalidateTile(ref cache, dirtyTiles[i]);
-                    }
-                    SystemAPI.SetSingleton(cache);
-                }
-            }
+            InvalidateDirtyTiles(ref state, dirtyTiles);
 
             // ── Drain the dirty set + bump its generation. ──
             dirty.DirtyTileIndices.Clear();
             dirty.Generation++;
+            dirty.TopologyDirty = 0;
             SystemAPI.SetSingleton(dirty);
 
             dirtyTiles.Dispose();
@@ -201,6 +250,19 @@ namespace TheWaningBorder.Systems.Navigation
         {
             // Mirror, not the component — the entity may already be wiped.
             if (_bits.IsCreated) _bits.Dispose();
+            if (_regionLabels.IsCreated) _regionLabels.Dispose();
+        }
+
+        /// <summary>Drop every flow slab over a dirty tile (slot-index
+        /// order per tile, tiles ascending).</summary>
+        private void InvalidateDirtyTiles(ref SystemState state, NativeList<int> dirtyTiles)
+        {
+            if (!SystemAPI.HasSingleton<NavFlowCache>()) return;
+            var cache = SystemAPI.GetSingleton<NavFlowCache>();
+            if (!cache.Slots.IsCreated) return;
+            for (int i = 0; i < dirtyTiles.Length; i++)
+                InvalidateTile(ref cache, dirtyTiles[i]);
+            SystemAPI.SetSingleton(cache);
         }
 
         /// <summary>
@@ -322,6 +384,12 @@ namespace TheWaningBorder.Systems.Navigation
         public int TilesZ;
         [ReadOnly] public NativeArray<WallPortalSpec> WallSpecs;
         public NativeReference<BlobAssetReference<PortalGraphBlob>> OutBlob;
+        /// <summary>Per-cell tile-local region cache (see the system header).
+        /// Relabelled here for <see cref="DirtyTiles"/>, or every tile when
+        /// <see cref="RelabelAll"/>.</summary>
+        public NativeArray<int> RegionLabels;
+        [ReadOnly] public NativeArray<int> DirtyTiles;
+        public bool RelabelAll;
 
         /// <summary>Total order over edges: (From, To, Cost). ProfileMask is
         /// constant (0xFF) across every emitter, so equal keys are equal
@@ -338,6 +406,27 @@ namespace TheWaningBorder.Systems.Navigation
 
         public void Execute()
         {
+            {
+                var stack = new NativeList<int>(TileSize * TileSize, Allocator.Temp);
+                if (RelabelAll)
+                {
+                    for (int t = 0; t < TilesX * TilesZ; t++)
+                        PortalIntraTileEdges.LabelTile(Cost, Grid.Width, Grid.Height, TileSize,
+                            t % TilesX, t / TilesX, RegionLabels, stack);
+                }
+                else
+                {
+                    for (int i = 0; i < DirtyTiles.Length; i++)
+                    {
+                        int t = DirtyTiles[i];
+                        if (t < 0 || t >= TilesX * TilesZ) continue;
+                        PortalIntraTileEdges.LabelTile(Cost, Grid.Width, Grid.Height, TileSize,
+                            t % TilesX, t / TilesX, RegionLabels, stack);
+                    }
+                }
+                stack.Dispose();
+            }
+
             var portals = new NativeList<PortalSpec>(4096, Allocator.Temp);
             var detect = new PortalDetectionJob
             {
@@ -413,7 +502,7 @@ namespace TheWaningBorder.Systems.Navigation
             // M5: include the new wall portal nodes in the per-tile pairing
             // so the A* search can hop through them within a tile too.
             var intraEdges = new NativeList<PortalEdge>(nodeCount, Allocator.Temp);
-            PortalIntraTileEdges.Build(Grid, nodes.AsArray(), intraEdges, Cost);
+            PortalIntraTileEdges.BuildFromLabels(Grid, nodes.AsArray(), intraEdges, RegionLabels);
 
             int totalEdgeCount = edges.Length + intraEdges.Length;
             var allEdges = new NativeArray<PortalEdge>(totalEdgeCount, Allocator.Temp,

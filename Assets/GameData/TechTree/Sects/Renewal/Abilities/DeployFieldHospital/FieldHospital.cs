@@ -21,7 +21,9 @@ namespace TheWaningBorder.Entities
         public const int PresentationID = 358;
 
         public const float LifetimeSeconds = 120f;
-        public const float HealRadius = 12f;
+        /// <summary>Heal radius: the canon Medium (docs/Design/Spells.md 8.5),
+        /// and the Deploy Field Hospital card's Radius, which must match.</summary>
+        public const float HealRadius = 15f;
         public const float HealPerSecond = 3f;
         public const int MaxHealth = 400;
         public const float BuildingRadius = 1.2f;

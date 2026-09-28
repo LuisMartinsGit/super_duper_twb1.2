@@ -14,6 +14,14 @@ using Unity.Transforms;
 
 namespace TheWaningBorder.Systems.Navigation
 {
+    /// <summary>Switch for the temporary MP desync instrumentation in the
+    /// nav stamp systems (CostFieldStampSystem, VeilNavStampSystem). Off
+    /// unless a debugging session sets it; never read by the simulation.</summary>
+    public static class NavStampDebug
+    {
+        public static bool Log;
+    }
+
     /// <summary>
     /// Runs in <see cref="SimulationSystemGroup"/> after
     /// <see cref="NavGridBootstrapSystem"/>. Owns no allocations — borrows
@@ -144,7 +152,10 @@ namespace TheWaningBorder.Systems.Navigation
 
             // MP DESYNC INSTRUMENTATION (2026-09-04, temporary): one line per
             // restamp so two peers' logs can be diffed against each other.
-            if (TheWaningBorder.Multiplayer.LockstepManager.Instance != null
+            // Off by default (NavStampDebug.Log): the sorted per-building
+            // string dump allocated on every restamp of a late game.
+            if (NavStampDebug.Log
+                && TheWaningBorder.Multiplayer.LockstepManager.Instance != null
                 && TheWaningBorder.Multiplayer.LockstepManager.Instance.IsSimulationRunning)
             {
                 UnityEngine.Debug.Log(

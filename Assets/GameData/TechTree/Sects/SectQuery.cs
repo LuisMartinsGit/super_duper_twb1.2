@@ -48,10 +48,11 @@ namespace TheWaningBorder.Economy
         public static bool HasStandingTemple(EntityManager em, Faction faction)
         {
             var q = QC_StandingTemple.Get(em, QT_StandingTemple);
+            using var factions = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var ents = q.ToEntityArray(Allocator.Temp);
             for (int i = 0; i < ents.Length; i++)
             {
-                if (em.GetComponentData<FactionTag>(ents[i]).Value != faction) continue;
+                if (factions[i].Value != faction) continue;
                 if (em.HasComponent<Health>(ents[i])
                     && em.GetComponentData<Health>(ents[i]).Value <= 0) continue;
                 return true;
@@ -77,10 +78,11 @@ namespace TheWaningBorder.Economy
             var sect  = state.Get(idx);
             if (!sect.IsAdopted) return false;
 
-            // Passives sleep while the Temple is down (see HasStandingTemple).
-            if (lever == SectLeverKind.Passive && !HasStandingTemple(em, faction)) return false;
+            if (sect.LevelOf(lever) < minLevel) return false;
 
-            return sect.LevelOf(lever) >= minLevel;
+            // Passives sleep while the Temple is down (see HasStandingTemple).
+            // Checked LAST: it walks every Temple, the rest is one read.
+            return lever != SectLeverKind.Passive || HasStandingTemple(em, faction);
         }
 
         /// <summary>
@@ -95,10 +97,30 @@ namespace TheWaningBorder.Economy
             if (!FactionEconomy.TryGetBank(em, faction, out var bank)) return 0;
             if (!em.HasComponent<SectAdoptionState>(bank)) return 0;
 
-            if (lever == SectLeverKind.Passive && !HasStandingTemple(em, faction)) return 0;
-
             var state = em.GetComponentData<SectAdoptionState>(bank);
-            return state.Get(idx).LevelOf(lever);
+            byte level = state.Get(idx).LevelOf(lever);
+            if (level == 0) return 0;
+
+            // Temple gate LAST (2026-09-25): it walks every Temple in the
+            // world, and was paid even for a sect the faction never adopted.
+            if (lever == SectLeverKind.Passive && !HasStandingTemple(em, faction)) return 0;
+            return level;
+        }
+
+        /// <summary>
+        /// The faction's whole adoption record in one read, for systems that
+        /// want every sect of a faction at once (SectUnitLeverSystem builds a
+        /// faction x sect table from it once per tick instead of calling
+        /// LevelOf per unit per sect). False if the faction has no bank or no
+        /// adoption state.
+        /// </summary>
+        public static bool TryGetAdoptionState(EntityManager em, Faction faction, out SectAdoptionState state)
+        {
+            state = default;
+            if (!FactionEconomy.TryGetBank(em, faction, out var bank)) return false;
+            if (!em.HasComponent<SectAdoptionState>(bank)) return false;
+            state = em.GetComponentData<SectAdoptionState>(bank);
+            return true;
         }
 
         /// <summary>

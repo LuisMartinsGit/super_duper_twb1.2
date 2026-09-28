@@ -90,7 +90,8 @@ namespace TheWaningBorder.Data
         /// <summary>"Hp" | "Damage" | "Speed" | "DefenseAll" | "AttackRange" | "AttackCooldown" | "LineOfSight".</summary>
         public string Stat;
 
-        /// <summary>"Add" (+= Value) or "Pct" (*= 1 + Value/100).</summary>
+        /// <summary>"Add" (+= Value), "Pct" (*= 1 + Value/100), or "Set" (= Value;
+        /// Damage / AttackCooldown only -- the one op that arms a Damage-0 unit).</summary>
         public string Op;
 
         public float Value;

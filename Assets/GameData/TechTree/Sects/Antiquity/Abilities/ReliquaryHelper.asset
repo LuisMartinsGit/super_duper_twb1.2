@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9cb5d6d56e584e789690b6cc6e4aee22, type: 3}
+  m_Name: ReliquaryHelper
+  m_EditorClassIdentifier:
+  scryCooldown: 90
+  scryRadius: 8
+  scryDuration: 10
+  lockoutCooldown: 90
+  lockoutRadius: 8
+  lockoutDuration: 6
+  visionCooldown: 90
+  visionRadius: 15
+  visionDuration: 15
+  level3CooldownScale: 0.7

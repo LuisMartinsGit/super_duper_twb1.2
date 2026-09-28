@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b3ecc1043fa62454ebb9521a55d0673d, type: 3}
+  m_Name: ChoreographedVolleys
+  m_EditorClassIdentifier:
+  abilityName: "Choreographed Volleys"
+  activation: 0
+  targeting: 2
+  affects: 6
+  castTime: 0
+  duration: 5
+  cooldown: 60
+  radius: 15
+  range: 0
+  effects:
+  - kind: 17
+    value: 100
+  aftermath: []
+  unlocksAtLevel: 1
+  damage: 0
+  damageType: 3
+  aimedAtPoint: 0
+  icon: {fileID: 0}
+  vfxPrefab: {fileID: 0}

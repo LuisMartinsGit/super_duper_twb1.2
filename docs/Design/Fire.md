@@ -70,6 +70,51 @@ The damage is a burn: it does not care about armour type or counter tags. Fire
 is the one thing on this map that treats a Spearman and a Siege Yard the same
 way.
 
+### Fire has no owner *(rule, 2026-09-26)*
+
+A burning patch is an **ownerless hazard**. It burns **everyone** standing in
+it — the faction that lit it, its allies and its enemies alike, units and
+buildings alike. Burning your own frenzy carpet, or walking your own army
+through your own pyre, costs you exactly what it costs the enemy. This is the
+one explicit exception to the ally-damage rule in [Teams.md](Teams.md): allies
+cannot damage each other, but **fire is not an ally's attack**, it is the
+ground.
+
+- **Overlap, not centre.** An entity is "in" a fire when its body touches the
+  patch: a unit when its collision radius reaches the patch, a building when
+  any part of its footprint box does. A large building on the rim of a fire
+  burns.
+- **Attribution only.** The faction that lit a fire is remembered for **kill
+  credit** (pillage, last-damager bookkeeping) when the victim is hostile to
+  it. It never decides *who* takes damage. Your own fire killing your own unit
+  credits nobody.
+- **The curse's own nodes do not burn.** Wells and pockets are part of the
+  crust (§7) — only the curse verbs in
+  [Curse_And_Shardroot.md](Curse_And_Shardroot.md) touch them. The curse's
+  UNITS burn like anyone else's.
+
+### Immunity is granted, never assumed
+
+The only way out of the rule is an explicit **fire immunity** granted to one
+entity by a spell, a unit trait or a technology that says so in its own design
+text. In code that is a single marker, `FireImmune` (a component; timed when a
+spell grants it, permanent when a trait or tech does). Every fire damage path
+— burning ground and a burning building (the Raider's mark) — honours it, and
+nothing else is fire.
+
+Nothing grants `FireImmune` today. A spell, trait or tech that should must
+say so in its own section of the Design folder first, and then add the
+marker — never a faction check in the fire system.
+
+### The damage-over-time contract
+
+Every damage-over-time source (fire, bleeding, curse exposure and crumble)
+goes through the same rules as a direct hit: an **Invulnerable** entity takes
+nothing, incoming-damage reductions (Liquid Courage) scale it, and HP floors
+(Life Cling, Second Wind) hold. Reductions scale the **rate**, carried as a
+fraction, so a heavily reduced DOT still bites slowly instead of rounding to
+zero — a reduced tick is never silently erased.
+
 ---
 
 ## 4. Blood catches all at once

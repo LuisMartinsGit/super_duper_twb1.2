@@ -50,8 +50,64 @@ namespace TheWaningBorder.Bootstrap
                 WorldSystemFilterFlags.Default);
             DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(world, systemIndices);
 
+            DisableUnusedPhysics(world);
+
             ScriptBehaviourUpdateOrder.AppendWorldToCurrentPlayerLoop(world);
             return true;
+        }
+
+        /// <summary>
+        /// com.unity.physics is in the manifest but NO game code uses it
+        /// (audited 2026-09-27: no Unity.Physics type, collider, body, query
+        /// or PhysicsWorldSingleton read anywhere under Assets/ — raycasts
+        /// are all UnityEngine.Physics, a different engine). Its systems still
+        /// ran every frame inside FixedStepSimulationSystemGroup, whose
+        /// catch-up rate manager runs several substeps on a slow frame — the
+        /// late-game logs show both groups in thousands of slow frames,
+        /// feeding the spiral they were catching up from.
+        ///
+        /// PhysicsSystemGroup is always disabled. The whole fixed-step group is
+        /// disabled too, but ONLY when every direct child is one we know is
+        /// idle here (physics, the fixed-step ECB pair nothing records into,
+        /// physics' temporal-coherence injector): a system someone adds to
+        /// that group later keeps the group running, and the log says so.
+        /// The package itself stays installed (no package changes).
+        /// </summary>
+        private static void DisableUnusedPhysics(Unity.Entities.World world)
+        {
+            var physicsGroup = world.GetExistingSystemManaged<Unity.Physics.Systems.PhysicsSystemGroup>();
+            if (physicsGroup != null) physicsGroup.Enabled = false;
+
+            var fixedGroup = world.GetExistingSystemManaged<FixedStepSimulationSystemGroup>();
+            if (fixedGroup == null) return;
+
+            string blocker = null;
+            using (var children = fixedGroup.GetAllSystems(Allocator.Temp))
+            {
+                for (int i = 0; i < children.Length; i++)
+                {
+                    string name = world.Unmanaged.ResolveSystemStateRef(children[i]).DebugName.ToString();
+                    if (name.EndsWith("PhysicsSystemGroup")
+                        || name.EndsWith("BeginFixedStepSimulationEntityCommandBufferSystem")
+                        || name.EndsWith("EndFixedStepSimulationEntityCommandBufferSystem")
+                        || name.EndsWith("InjectTemporalCoherenceDataSystem"))
+                        continue;
+                    blocker = name;
+                    break;
+                }
+            }
+
+            if (blocker == null)
+            {
+                fixedGroup.Enabled = false;
+                UnityEngine.Debug.Log("[Bootstrap] Unity Physics unused: PhysicsSystemGroup and " +
+                                      "FixedStepSimulationSystemGroup disabled.");
+            }
+            else
+            {
+                UnityEngine.Debug.Log("[Bootstrap] Unity Physics unused: PhysicsSystemGroup disabled; " +
+                                      $"FixedStepSimulationSystemGroup kept running for '{blocker}'.");
+            }
         }
     }
 }

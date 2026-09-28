@@ -130,10 +130,15 @@ namespace TheWaningBorder.Systems.Research
         /// <summary>
         /// Destructive in-place stat write for one effectsList entry.
         /// Components the entity lacks are silently skipped. Ops:
-        /// "Add" (+= Value), "Pct" (*= 1 + Value/100).
+        /// "Add" (+= Value), "Pct" (*= 1 + Value/100), and "Set" (= Value) on
+        /// Damage and AttackCooldown only. "Set" is the one op that may ARM a
+        /// disarmed (Damage 0) unit -- Warrior Priests giving the Litharch its
+        /// attack (docs/Design/Age_0.md) -- so the value lives in the tech's
+        /// SO, not in code.
         /// </summary>
         private static void ApplyStatWrite(EntityManager em, Entity unit, string stat, string op, float v)
         {
+            bool set = op == "Set";
             bool pct = op == "Pct";
             float mult = 1f + v / 100f;
 
@@ -163,8 +168,15 @@ namespace TheWaningBorder.Systems.Research
                 {
                     if (!em.HasComponent<Damage>(unit)) return;
                     var dmg = em.GetComponentData<Damage>(unit);
+                    if (set)
+                    {
+                        // Arming: never LOWERS a unit that already out-hits it.
+                        int armed = Mathf.RoundToInt(v);
+                        if (dmg.Value < armed) { dmg.Value = armed; em.SetComponentData(unit, dmg); }
+                        return;
+                    }
                     // Disarmed-unit convention (see ApplyDamageAddEffect):
-                    // never arm a Damage<=0 unit through a stat tech.
+                    // never arm a Damage<=0 unit through an Add/Pct stat tech.
                     if (dmg.Value <= 0) return;
                     dmg.Value = pct ? Mathf.RoundToInt(dmg.Value * mult) : dmg.Value + (int)v;
                     em.SetComponentData(unit, dmg);
@@ -217,7 +229,7 @@ namespace TheWaningBorder.Systems.Research
                     if (!em.HasComponent<AttackCooldown>(unit)) return;
                     var cd = em.GetComponentData<AttackCooldown>(unit);
                     // Pct: NEGATIVE v shrinks the cooldown (-30 => *0.7).
-                    cd.Cooldown = pct ? cd.Cooldown * mult : cd.Cooldown + v;
+                    cd.Cooldown = set ? v : pct ? cd.Cooldown * mult : cd.Cooldown + v;
                     if (cd.Cooldown < MinAttackCooldown) cd.Cooldown = MinAttackCooldown;
                     em.SetComponentData(unit, cd);
                     return;
@@ -277,13 +289,6 @@ namespace TheWaningBorder.Systems.Research
 
             foreach (var techId in completedTechs)
             {
-                // Behaviour techs by id (no effects block).
-                if (techId == "WarriorPriests" && em.HasComponent<LitharchTag>(unit))
-                {
-                    GrantLitharchAttack(em, unit);
-                    continue;
-                }
-
 
                 var tech = TechCatalog.GetTechnology(techId);
                 if (tech == null) continue;

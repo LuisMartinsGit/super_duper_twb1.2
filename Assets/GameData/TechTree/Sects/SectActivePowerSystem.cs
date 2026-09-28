@@ -87,7 +87,7 @@ namespace TheWaningBorder.Systems.Sect
 
                 SectActivePowerHelper.DispatchEffect(em, s.Caster,
                     (SectActivePowerKind)s.Kind, s.Position, s.Radius,
-                    s.Magnitude, s.Duration, s.Level, s.Secondary);
+                    s.Magnitude, s.Duration, s.Level, s.Secondary, s.DamageKind);
                 TheWaningBorder.Rendering.SectPowerVfx.SpawnForSect(
                     SectConfig.IdAt(s.SectIndex), s.Position, s.Radius);
             }
@@ -315,7 +315,7 @@ namespace TheWaningBorder.Systems.Sect
             var spec = SectLeverEffects.ActiveOf(sectId, slot, level);
             if (spec.Kind == SectActivePowerKind.None) return false;
 
-            float windup = IsOffensive(spec.Kind) ? OffensiveWindupSeconds : UtilityWindupSeconds;
+            float windup = WindupFor(spec.Kind);
 
             var strike = em.CreateEntity(typeof(PendingSectStrike));
             em.SetComponentData(strike, new PendingSectStrike
@@ -329,6 +329,7 @@ namespace TheWaningBorder.Systems.Sect
                 Magnitude = spec.Magnitude,
                 Duration  = spec.Duration,
                 Secondary = spec.Secondary,
+                DamageKind = spec.DamageType,
                 Windup    = windup,
             });
             TheWaningBorder.Rendering.SectPowerVfx.SpawnTelegraph(targetPos, spec.Radius, windup);
@@ -373,28 +374,16 @@ namespace TheWaningBorder.Systems.Sect
             float radius = spec.Radius;
             float magnitude = spec.Magnitude;
             float duration = spec.Duration;
-            float cooldown = spec.Cooldown;
-            // Global rebalance (2026-08-04): every power now WINDS UP before
-            // landing, so cooldowns halve to keep powers present in play —
-            // telegraphed-but-frequent beats instant-but-rare.
-            cooldown *= 0.5f;
-            if (HasShardrootAllocated(em, faction, sectId)) cooldown *= 0.5f;
+            // The one cooldown formula -- the tooltips read the same function,
+            // so the number the player sees is the number charged here.
+            float cooldown = EffectiveCooldown(em, faction, sectId, spec.Cooldown);
 
-            // Shrine of Ridan simple upgrade (design 2026-07-04): reduces
-            // sect power cooldowns — -10% at L2, -20% at L3.
-            int shrineLv = ChoiceUpgradeQuery.MaxShrineLevel(em, faction);
-            if (shrineLv >= 2) cooldown *= 0.8f;
-            else if (shrineLv == 1) cooldown *= 0.9f;
-
-            // EVERY power winds up now (design 2026-08-04 — was offensive
-            // only): a telegraph ring marks the circle for the windup so
-            // everyone can react, then SectActivePowerSystem applies the
-            // effect. Offensive strikes keep their longer tell; buffs and
-            // utility land after a short charge. The cooldown still starts
-            // at cast.
-            float windup = IsOffensive(spec.Kind)
-                ? OffensiveWindupSeconds
-                : UtilityWindupSeconds;
+            // EVERY power winds up (design 2026-08-04): a telegraph ring marks
+            // the circle so everyone can react, then SectActivePowerSystem
+            // applies the effect. Three tiers -- damage 3 s, hostile 1.5 s,
+            // friendly 1 s (docs/Design/Spells.md 8.6). The cooldown still
+            // starts at cast.
+            float windup = WindupFor(spec.Kind);
             var strike = em.CreateEntity(typeof(PendingSectStrike));
             em.SetComponentData(strike, new PendingSectStrike
             {
@@ -407,6 +396,7 @@ namespace TheWaningBorder.Systems.Sect
                 Magnitude = magnitude,
                 Duration  = duration,
                 Secondary = spec.Secondary,
+                DamageKind = spec.DamageType,
                 Windup    = windup,
             });
             TheWaningBorder.Rendering.SectPowerVfx.SpawnTelegraph(
@@ -442,12 +432,69 @@ namespace TheWaningBorder.Systems.Sect
             return true;
         }
 
-        /// <summary>Wind-up applied to hostile-target powers so they can be
-        /// dodged (damage bursts, burning ground, pyres, the Codex freeze).</summary>
-        public const float OffensiveWindupSeconds = 1.5f;
-        /// <summary>Windup for non-offensive powers (2026-08-04: every power
-        /// telegraphs now) — a short visible charge, not a combat tell.</summary>
-        public const float UtilityWindupSeconds = 1.0f;
+        /// <summary>Shrine of Ridan simple upgrade (design 2026-07-04): sect
+        /// power cooldowns -10% at shrine L1 and -20% at L2+.</summary>
+        public const float ShrineL1CooldownScale = 0.9f;
+        public const float ShrineL2CooldownScale = 0.8f;
+
+        /// <summary>
+        /// The cooldown a cast of a power authored at
+        /// <paramref name="specCooldown"/> actually charges this faction: the
+        /// authored number (there is no hidden global scale), x0.7 with the
+        /// Shardroot enshrined for the sect, then the Shrine of Ridan
+        /// discount. Fire charges exactly this, and the Religion panel shows
+        /// exactly this. docs/Design/Spells.md section 5.
+        /// </summary>
+        public static float EffectiveCooldown(EntityManager em, Faction faction, string sectId,
+            float specCooldown)
+        {
+            float cooldown = specCooldown;
+            if (HasShardrootAllocated(em, faction, sectId))
+                cooldown *= SectLeverEffects.ShardrootCooldownScale;
+            int shrineLv = ChoiceUpgradeQuery.MaxShrineLevel(em, faction);
+            if (shrineLv >= 2) cooldown *= ShrineL2CooldownScale;
+            else if (shrineLv == 1) cooldown *= ShrineL1CooldownScale;
+            return cooldown;
+        }
+
+        /// <summary>
+        /// The spec this faction's button casts right now for
+        /// <paramref name="slot"/>: the power LEVEL comes from adoption timing
+        /// (SectQuery.PowerLevelOf), exactly as Fire reads it. The Religion
+        /// panel used to describe the level-I spec regardless.
+        /// </summary>
+        public static SectActivePowerSpec CurrentSpec(EntityManager em, Faction faction,
+            string sectId, int slot, out int level)
+        {
+            level = SectQuery.PowerLevelOf(em, faction, sectId);
+            if (level < 1) level = 1;
+            return SectLeverEffects.ActiveOf(sectId, slot, level);
+        }
+
+        /// <summary>
+        /// Telegraph seconds before a power lands, in the ladder's three tiers
+        /// (docs/Design/Spells.md 8.6): a power that deals damage gets the
+        /// longest tell -- the "3 s telegraph" Sects.md names for Sentence and
+        /// Unmake -- a hostile power without damage 1.5 s, a friendly one 1 s.
+        /// </summary>
+        public static float WindupFor(SectActivePowerKind kind)
+            => DealsDamage(kind) ? SpellLadder.DamageWindupSeconds
+             : IsOffensive(kind) ? SpellLadder.HostileWindupSeconds
+             : SpellLadder.FriendlyWindupSeconds;
+
+        /// <summary>Powers whose effect is damage (the 3 s telegraph tier).
+        /// Unlike IsOffensive this includes the map-wide Nowhere to Hide.</summary>
+        private static bool DealsDamage(SectActivePowerKind kind) => kind switch
+        {
+            SectActivePowerKind.SmiteCircle     => true,
+            SectActivePowerKind.BurningCircle   => true,
+            SectActivePowerKind.SpawnPyre       => true,
+            SectActivePowerKind.UnmakeBuilding  => true,
+            SectActivePowerKind.SpitePool       => true,
+            SectActivePowerKind.AttainderStrike => true,
+            SectActivePowerKind.RevealedStrike  => true,
+            _                                   => false,
+        };
 
         /// <summary>Radius around a curse well inside which an offensive cast is
         /// refused. Generous — the intent is "you cannot aim at the well", not
@@ -500,7 +547,7 @@ namespace TheWaningBorder.Systems.Sect
         // Internal so SectActivePowerSystem can apply a wound-up strike.
         internal static void DispatchEffect(EntityManager em, Faction faction,
             SectActivePowerKind kind, float3 pos, float radius, float magnitude, float duration,
-            byte level = 1, float secondary = 0f)
+            byte level = 1, float secondary = 0f, DamageType dmgType = DamageType.Magic)
         {
             switch (kind)
             {
@@ -511,13 +558,15 @@ namespace TheWaningBorder.Systems.Sect
                     ApplyCooldownFreeze(em, faction, pos, radius, magnitude, surge: level >= 3);
                     break;
                 case SectActivePowerKind.SmiteCircle:
-                    ApplyCircleDamage(em, faction, pos, radius, (int)magnitude);
+                    ApplyCircleDamage(em, faction, pos, radius, (int)magnitude, dmgType);
                     break;
                 case SectActivePowerKind.UnmakeBuilding:
-                    ApplyUnmake(em, faction, pos, radius, magnitude, level);
+                    ApplyUnmake(em, faction, pos, radius, magnitude, level, dmgType);
                     break;
                 case SectActivePowerKind.SpitePool:
-                    ApplySpite(em, faction, pos, radius);
+                    // Magnitude is the per-head cap (the ladder's conditional
+                    // cap); 0 would mean uncapped.
+                    ApplySpite(em, faction, pos, radius, magnitude, dmgType);
                     break;
                 case SectActivePowerKind.HealCircle:
                     ApplyCircleHeal(em, faction, pos, radius, (int)magnitude);
@@ -554,7 +603,7 @@ namespace TheWaningBorder.Systems.Sect
                     // Magnitude is damage PER KILL the target has taken from
                     // us; Secondary is Lv III's floor. Both come straight off
                     // the spec — see SectLeverEffects.Alanthor.cs.
-                    ApplyAttainder(em, faction, pos, radius, magnitude, secondary);
+                    ApplyAttainder(em, faction, pos, radius, magnitude, secondary, dmgType);
                     break;
                 case SectActivePowerKind.SpyNetwork:
                     ApplySpyNetwork(em, faction, pos, radius, duration, level);
@@ -565,7 +614,7 @@ namespace TheWaningBorder.Systems.Sect
                 case SectActivePowerKind.RevealedStrike:
                     // Map-wide: pos and radius are meaningless here, which is
                     // why neither is passed.
-                    ApplyRevealedStrike(em, faction, (int)magnitude, hitBuildings: secondary >= 1f);
+                    ApplyRevealedStrike(em, faction, (int)magnitude, secondary >= 1f, dmgType);
                     break;
                 case SectActivePowerKind.HealCirclePercent:
                     ApplyCircleHealPercent(em, faction, pos, radius, magnitude, duration);
@@ -619,10 +668,12 @@ namespace TheWaningBorder.Systems.Sect
         /// small area around the one that was unmade.
         /// </summary>
         private static void ApplyUnmake(EntityManager em, Faction faction,
-            float3 center, float radius, float hpFraction, byte level)
+            float3 center, float radius, float hpFraction, byte level, DamageType dmgType)
         {
-            const float SplashRadius = 6f;      // "small area" (Sects.md)
-            const float SplashFraction = 0.25f;
+            // "Other buildings in a SMALL area" (Sects.md): the canon Small,
+            // not a bespoke 6 m.
+            const float SplashRadius = SectRadii.Small;
+            const float SplashFraction = SectLeverEffects.UnmakeSplashFraction;
 
             float r2 = radius * radius;
             var bq = QC_BuildingTagLocalTransformFactionTagHealth.Get(em, QT_BuildingTagLocalTransformFactionTagHealth);
@@ -650,9 +701,11 @@ namespace TheWaningBorder.Systems.Sect
             }
             if (target == Entity.Null) return;
 
-            var hp = em.GetComponentData<Health>(target);
-            hp.Value = math.max(0, hp.Value - (int)(hp.Value * hpFraction));
-            em.SetComponentData(target, hp);
+            // The fraction is of CURRENT hp, computed here; the loss itself
+            // lands through the one spell-damage door (docs/Design/Spells.md).
+            int cur = em.GetComponentData<Health>(target).Value;
+            TheWaningBorder.Systems.Combat.SpellDamage.Apply(em, target,
+                (int)(cur * hpFraction), dmgType, faction);
 
             if (level < 3) return;
 
@@ -671,9 +724,9 @@ namespace TheWaningBorder.Systems.Sect
                 float dx = p.x - epicentre.x, dz = p.z - epicentre.z;
                 if (dx * dx + dz * dz > s2) continue;
 
-                var shp = em.GetComponentData<Health>(e);
-                shp.Value = math.max(0, shp.Value - (int)(shp.Value * SplashFraction));
-                em.SetComponentData(e, shp);
+                int scur = em.GetComponentData<Health>(e).Value;
+                TheWaningBorder.Systems.Combat.SpellDamage.Apply(em, e,
+                    (int)(scur * SplashFraction), dmgType, faction);
             }
         }
 
@@ -687,9 +740,14 @@ namespace TheWaningBorder.Systems.Sect
         /// Levels scale the AREA only — the arithmetic here is identical at
         /// every level, so a bigger Spite catches more of the army rather than
         /// hitting harder per head.
+        ///
+        /// The share is capped at <paramref name="cap"/> per head (the spell
+        /// ladder's conditional cap, docs/Design/Spells.md 8.3): below it the
+        /// canon arithmetic is untouched, above it a lone veteran no longer
+        /// pays a thousand-damage account in one cast. 0 = uncapped.
         /// </summary>
         private static void ApplySpite(EntityManager em, Faction faction,
-            float3 center, float radius)
+            float3 center, float radius, float cap, DamageType dmgType)
         {
             float r2 = radius * radius;
             var query = QC_UnitTagLocalTransformFactionTagHealth.Get(em, QT_UnitTagLocalTransformFactionTagHealth);
@@ -716,21 +774,19 @@ namespace TheWaningBorder.Systems.Sect
                 // Integer division, so the split is bit-identical on every
                 // lockstep peer regardless of float order.
                 int share = (int)(pool / caught.Length);
+                if (cap > 0f && share > (int)cap) share = (int)cap;
                 if (share > 0)
                 {
                     for (int i = 0; i < caught.Length; i++)
-                    {
-                        var hp = em.GetComponentData<Health>(caught[i]);
-                        hp.Value = math.max(0, hp.Value - share);
-                        em.SetComponentData(caught[i], hp);
-                    }
+                        TheWaningBorder.Systems.Combat.SpellDamage.Apply(
+                            em, caught[i], share, dmgType, faction);
                 }
             }
             caught.Dispose();
         }
 
         private static void ApplyCircleDamage(EntityManager em, Faction faction,
-            float3 center, float radius, int dmg)
+            float3 center, float radius, int dmg, DamageType dmgType)
         {
             float r2 = radius * radius;
             var query = QC_UnitTagLocalTransformFactionTagHealth.Get(em, QT_UnitTagLocalTransformFactionTagHealth);
@@ -743,9 +799,7 @@ namespace TheWaningBorder.Systems.Sect
                 float3 p = em.GetComponentData<LocalTransform>(e).Position;
                 float dx = p.x - center.x, dz = p.z - center.z;
                 if (dx * dx + dz * dz > r2) continue;
-                var hp = em.GetComponentData<Health>(e);
-                hp.Value = math.max(0, hp.Value - dmg);
-                em.SetComponentData(e, hp);
+                TheWaningBorder.Systems.Combat.SpellDamage.Apply(em, e, dmg, dmgType, faction);
             }
 
             // Buildings burn under the god's hand too (2026-08-11: smite
@@ -765,9 +819,9 @@ namespace TheWaningBorder.Systems.Sect
                 float3 p = em.GetComponentData<LocalTransform>(e).Position;
                 float dx = p.x - center.x, dz = p.z - center.z;
                 if (dx * dx + dz * dz > r2) continue;
-                var hp = em.GetComponentData<Health>(e);
-                hp.Value = math.max(0, hp.Value - dmg);
-                em.SetComponentData(e, hp);
+                // SpellDamage also spares team ALLIES' buildings -- the
+                // `fac == faction` test above only ever spared the caster's own.
+                TheWaningBorder.Systems.Combat.SpellDamage.Apply(em, e, dmg, dmgType, faction);
             }
         }
 
@@ -813,6 +867,8 @@ namespace TheWaningBorder.Systems.Sect
             ecb.Dispose();
         }
 
+        // Ownerless fire (docs/Design/Fire.md §3): it burns the caster's own
+        // and allied units too. The FactionTag is kill credit only.
         private static void SpawnBurning(EntityManager em, Faction faction,
             float3 center, float radius, float dps, float duration)
         {

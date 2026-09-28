@@ -1208,7 +1208,13 @@ namespace TheWaningBorder.Multiplayer
                             // not exist yet). It was missing from this list,
                             // so the lookup failed and a DRAWN wall was
                             // dropped outright on every remote peer.
-                            && cmd.Type != LockstepCommandType.PlaceWallPath;
+                            && cmd.Type != LockstepCommandType.PlaceWallPath
+                            // FormationOrder packs the issuing FACTION; its
+                            // units ride BuildingId (docs/Design/
+                            // Navigation_And_Formations.md §2.12).
+                            && cmd.Type != LockstepCommandType.FormationOrder
+                            // RangingShot packs the casting FACTION.
+                            && cmd.Type != LockstepCommandType.RangingShot;
 
             if (needsEntity)
             {
@@ -1312,6 +1318,27 @@ namespace TheWaningBorder.Multiplayer
                 case LockstepCommandType.HoldPosition:
                     HoldPositionCommandHelper.Execute(em, entity);
                     if (LogCommands) TWBLog.Log($"[Lockstep] Executed HoldPosition from player {cmd.PlayerIndex}");
+                    break;
+
+                case LockstepCommandType.SetStance:
+                    // TargetEntityId: the UnitStanceMode byte (docs/Design/Stances.md §7).
+                    StanceCommandHelper.Execute(em, entity, (UnitStanceMode)(byte)(cmd.TargetEntityId & 0xFF));
+                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed SetStance {cmd.TargetEntityId} from player {cmd.PlayerIndex}");
+                    break;
+
+                case LockstepCommandType.BuildingAttack:
+                    // TargetEntityId 0 = clear (Stop). A target id that no
+                    // longer resolves also clears — same answer on every peer.
+                    CommandRouter.ExecuteBuildingAttack(em, entity, targetEntity);
+                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed BuildingAttack from player {cmd.PlayerIndex}");
+                    break;
+
+                case LockstepCommandType.FormationOrder:
+                    // One replicated group order; the router accumulates any
+                    // continuation commands of this tick and runs the order on
+                    // the last one.
+                    CommandRouter.ExecuteFormationOrder(em, cmd, FindEntityByNetworkId);
+                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed FormationOrder x{cmd.SecondaryTargetId} from player {cmd.PlayerIndex}");
                     break;
 
                 case LockstepCommandType.Train:
@@ -1450,6 +1477,15 @@ namespace TheWaningBorder.Multiplayer
                     if (LogCommands) TWBLog.Log($"[Lockstep] Executed UngarrisonWall from player {cmd.PlayerIndex}");
                     break;
 
+                case LockstepCommandType.ReplaceEquipment:
+                    // EntityNetworkId: the emplacement platform. The executor
+                    // re-validates, spends the engine SO's cost and starts the
+                    // restore on every peer.
+                    if (entity != Entity.Null)
+                        CommandRouter.ReplaceEquipmentDirect(em, entity);
+                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed ReplaceEquipment from player {cmd.PlayerIndex}");
+                    break;
+
                 case LockstepCommandType.WallExtend:
                     if (entity != Entity.Null)
                     {
@@ -1481,7 +1517,20 @@ namespace TheWaningBorder.Multiplayer
                 case LockstepCommandType.PlaceBuilding:
                     {
                         Faction buildFaction = (Faction)cmd.EntityNetworkId;
-                        var placed = CommandRouter.PlaceBuildingDirect(em, cmd.BuildingId, cmd.TargetPosition, buildFaction);
+                        // TargetEntityId = the BUILDER's NetworkId (0 = none),
+                        // resolved into targetEntity above. Only a Hall reads
+                        // it: the executor refuses a claim whose builder is
+                        // missing, dead, not ours, or out of range at THIS tick.
+                        var placed = CommandRouter.PlaceBuildingDirect(em, cmd.BuildingId,
+                            cmd.TargetPosition, buildFaction, targetEntity);
+                        // Tell the issuing player why their queued claim was
+                        // dropped. Presentation only — nothing simulated.
+                        if (placed == Entity.Null
+                            && CommandRouter.LastPlacementRefusal
+                               != TheWaningBorder.World.Regions.PlacementRefusal.None
+                            && buildFaction == GameSettings.LocalPlayerFaction)
+                            SimSignals.NotifyError(TheWaningBorder.World.Regions.PlacementRefusalText
+                                .Of(CommandRouter.LastPlacementRefusal));
                         // Register in the per-tick lookup so a later command in
                         // THIS tick (e.g. Build targeting the new foundation)
                         // resolves it without a rebuild.
@@ -1503,7 +1552,13 @@ namespace TheWaningBorder.Multiplayer
                         // SecondaryTargetId carries the named ability slot as
                         // slot+1, so an unset 0 decodes to -1 ("first ready
                         // active") and matches every pre-hero command.
-                        int abilitySlot = cmd.SecondaryTargetId - 1;
+                        // Bit AbilityAimFlag marks an aimed ground point in
+                        // TargetPosition; stamp it here so every peer casts at
+                        // the same spot.
+                        bool aimed = (cmd.SecondaryTargetId & CommandRouter.AbilityAimFlag) != 0;
+                        int abilitySlot = (cmd.SecondaryTargetId & ~CommandRouter.AbilityAimFlag) - 1;
+                        CommandRouter.StampAbilityAim(em, entity,
+                            aimed ? cmd.TargetPosition : (float3?)null);
                         CommandRouter.IssueAbilityDirect(em, entity, abilityTarget, abilitySlot);
                         if (LogCommands) TWBLog.Log($"[Lockstep] Executed Ability from player {cmd.PlayerIndex}");
                     }
@@ -1585,6 +1640,11 @@ namespace TheWaningBorder.Multiplayer
                             cmd.TargetEntityId, cmd.TargetPosition);
                         if (LogCommands) TWBLog.Log($"[Lockstep] Executed SectPower {cmd.BuildingId} t{cmd.TargetEntityId} from player {cmd.PlayerIndex}");
                     }
+                    break;
+
+                case LockstepCommandType.RangingShot:
+                    CommandRouter.RangingShotDirect(em, (Faction)cmd.EntityNetworkId);
+                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed RangingShot from player {cmd.PlayerIndex}");
                     break;
 
                 case LockstepCommandType.ReliquaryAbility:

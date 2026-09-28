@@ -44,6 +44,28 @@ namespace TheWaningBorder.Rendering
         {
             if (entity == Entity.Null || view == null) return;
             _entityToView[entity] = view;
+            if (_registered.Count < RegisteredJournalCap) _registered.Add(entity);
+            else _registeredOverflow = true;
+        }
+
+        // Registration journal (2026-09-25). PresentationSpawnSystem skips
+        // whole chunks whose LocalTransform did not change; a view that was
+        // (re)registered on an unchanged entity must still get its first
+        // write, and this is how it learns which ones. Drained every frame by
+        // that one consumer; the cap only guards a consumer-less scene.
+        private const int RegisteredJournalCap = 65536;
+        private readonly List<Entity> _registered = new();
+        private bool _registeredOverflow;
+
+        /// <summary>Moves every entity registered since the last drain into
+        /// <paramref name="into"/>. <paramref name="overflow"/> = the journal
+        /// hit its cap and the consumer must fall back to a full sweep.</summary>
+        public void DrainRegistered(List<Entity> into, out bool overflow)
+        {
+            into.AddRange(_registered);
+            _registered.Clear();
+            overflow = _registeredOverflow;
+            _registeredOverflow = false;
         }
 
         /// <summary>
@@ -76,6 +98,8 @@ namespace TheWaningBorder.Rendering
         public void ClearAll()
         {
             _entityToView.Clear();
+            _registered.Clear();
+            _registeredOverflow = true;   // consumer re-sweeps everything
         }
     }
 }

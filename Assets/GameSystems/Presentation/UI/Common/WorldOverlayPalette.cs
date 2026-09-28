@@ -79,6 +79,11 @@ namespace TheWaningBorder.UI.Common
         public static readonly Color HealthMid    = new Color(0.910f, 0.722f, 0.290f, 1.0f); // accent gold
         /// <summary>Critical bar — used at &lt;30% HP.</summary>
         public static readonly Color HealthLow    = new Color(0.910f, 0.290f, 0.220f, 1.0f); // red
+        /// <summary>Shield segment on the floating HP bar — veilstone cyan
+        /// (Art_Direction.md: cyan = veilstone; the shield is the Veilstone
+        /// equipment tier's). Drawn after the HP fill, because shield points
+        /// are hit points spent first (Combat_Pacing.md).</summary>
+        public static readonly Color Shield       = new Color(0.400f, 0.850f, 0.950f, 1.0f); // veilstone cyan
 
         /// <summary>
         /// Resource depletion bar — amber, used by FloatingHealthBars for iron

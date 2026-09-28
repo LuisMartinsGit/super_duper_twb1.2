@@ -217,6 +217,7 @@ namespace TheWaningBorder.AI
             // Through CommandRouter (CommandSource.AI) so host-AI training
             // replicates — a direct queue.Add spawned units on the host only.
             CommandRouter.IssueTrain(em, trainer, unitId, CommandSource.AI);
+            InvalidateThinkMemo();   // a queue and (single-player) the bank moved
             return true;
         }
 
@@ -374,6 +375,11 @@ namespace TheWaningBorder.AI
             // Skip if already researched (or in flight) on this faction.
             var researchState = FactionResearchState.Instance;
             if (researchState != null && researchState.HasResearched(faction, techId)) return true;
+            // In flight counts as done for the ladder: the executor refuses a
+            // second copy anyway (one-shot per faction, 2026-09-27), and
+            // re-issuing it every think only logged refusals.
+            if (TheWaningBorder.Core.Commands.CommandRouter.IsResearchQueued(
+                    em, faction, techId, out _, out _)) return true;
 
             // Resolve a host that can actually TAKE the research now —
             // completed, research-capable, queue not full. The old
@@ -409,6 +415,11 @@ namespace TheWaningBorder.AI
                 "Sect_Stonehold"       => FindResearchHost<StoneholdTag>(em, faction),
                 "Sect_Veilworks"       => FindResearchHost<VeilworksTag>(em, faction),
                 "Sect_MusterYard"      => FindResearchHost<MusterYardTag>(em, faction),
+                // The wall's own levels (Battlements, Shielded Ramparts) are
+                // bought AT A WALL HUB (docs/Design/Age_1_Alanthor.md § The
+                // four wall levels). Without this case the build orders'
+                // optional Battlements step never found a host.
+                "Alanthor_Wall"        => FindResearchHost<WallHubTag>(em, faction),
                 _                      => Entity.Null,
             };
             if (bldg == Entity.Null)
@@ -436,6 +447,7 @@ namespace TheWaningBorder.AI
             // replicates to clients in multiplayer.
             TheWaningBorder.Core.Commands.CommandRouter.IssueResearch(em, bldg, techId,
                 TheWaningBorder.Core.Commands.CommandSource.AI);
+            InvalidateThinkMemo();
             return true;
         }
         // ─────────────────────────────────────────────────────────────────
@@ -537,6 +549,7 @@ namespace TheWaningBorder.AI
             // Replicated age-up (audit F3): host-only direct writes left the
             // AI faction frozen in Age 1 on every client.
             CommandRouter.IssueAgeUp(em, hall, culture, CommandSource.AI);
+            InvalidateThinkMemo();
 
             // NOT latched — the next TryAgeUp observes whether the era
             // actually advanced and re-issues after the cool-down if the
@@ -727,6 +740,38 @@ namespace TheWaningBorder.AI
             EntityManager em, Entity brainEntity, Faction faction, float now,
             RoleBudget budget, float intelFreshness)
         {
+            // THE ROSTER HALF IS MEMOISED PER THINK (2026-09-25 AI perf pass).
+            // One think called this up to five times (the maintenance steer,
+            // a training burst of 1-3, the goal list), and each call walked
+            // every unit, every sighting, the whole unit catalog with a
+            // trainer lookup per id, and built a Dictionary. Everything that
+            // walk reads — who is alive, what was sighted, which trainers
+            // stand — is fixed for the length of a think; only the bank can
+            // move between calls, so the bank-dependent tail below is still
+            // evaluated live every time.
+            ref var c = ref _compMemo;
+            if (c.Stamp != _thinkStamp || c.F != faction || c.Brain != brainEntity)
+            {
+                c = ComputeComposition(em, brainEntity, faction, now, budget, intelFreshness);
+                c.Stamp = _thinkStamp; c.F = faction; c.Brain = brainEntity;
+            }
+            return FinishComposition(em, faction, budget, in c);
+        }
+
+        private struct CompositionMemo
+        {
+            public int Stamp; public Faction F; public Entity Brain;
+            public int OwnMelee, OwnRanged, OwnCav, OwnSiege;
+            public float DesiredRangedFrac;
+            public bool CavHeavy, RangedHeavy, RangedTrainerMissing;
+            public string Melee, Ranged, Cavalry, Siege, Spread;
+        }
+        private static CompositionMemo _compMemo;
+
+        private static CompositionMemo ComputeComposition(
+            EntityManager em, Entity brainEntity, Faction faction, float now,
+            RoleBudget budget, float intelFreshness)
+        {
             // Own composition.
             int ownMelee = 0, ownRanged = 0, ownCav = 0, ownSiege = 0;
             var q = QC_UnitTagFactionTag.Get(em, QT_UnitTagFactionTag);
@@ -852,6 +897,30 @@ namespace TheWaningBorder.AI
                     "Alanthor_Trebuchet", "Alanthor_Catapult", "Alanthor_Ballista");
             }
 
+            return new CompositionMemo
+            {
+                OwnMelee = ownMelee, OwnRanged = ownRanged, OwnCav = ownCav, OwnSiege = ownSiege,
+                DesiredRangedFrac = desiredRangedFrac,
+                CavHeavy = cavHeavy, RangedHeavy = rangedHeavy,
+                Melee = melee, Ranged = ranged, Cavalry = cavalry, Siege = siege,
+                // ── TRAIN EVERY UNIT THE CULTURE OWNS ── (see FinishComposition)
+                Spread = LeastRepresentedTrainable(em, faction),
+                // Ranged is an Age-1 unlock (2026-08-11): with no Archery
+                // Range standing the ranged pick has no trainer.
+                RangedTrainerMissing = FindTrainerForUnit(em, faction, ranged) == Entity.Null,
+            };
+        }
+
+        /// <summary>The bank-dependent tail of <see cref="PickCompositionUnit"/>,
+        /// run live on every call over the per-think roster memo.</summary>
+        private static string FinishComposition(EntityManager em, Faction faction,
+            RoleBudget budget, in CompositionMemo c)
+        {
+            int ownMelee = c.OwnMelee, ownRanged = c.OwnRanged, ownCav = c.OwnCav, ownSiege = c.OwnSiege;
+            bool rangedHeavy = c.RangedHeavy;
+            string melee = c.Melee, ranged = c.Ranged, cavalry = c.Cavalry, siege = c.Siege;
+            float desiredRangedFrac = c.DesiredRangedFrac;
+
             int totalArmy = ownMelee + ownRanged + ownCav + ownSiege;
 
             // SPEND WHAT YOU ARE DROWNING IN. A bank fat with veilstone and
@@ -898,14 +967,14 @@ namespace TheWaningBorder.AI
             // take whichever is furthest below an even share. The line logic
             // still leads (it carries the counter-composition read); this stops
             // the roster collapsing to two ids.
-            string spread = LeastRepresentedTrainable(em, faction);
+            string spread = c.Spread;
             if (spread != null) return spread;
 
             // Ranged is an Age-1 unlock (2026-08-11): with no Archery Range
             // standing (era 1 cannot build one, or it was razed), the ranged
             // pick has no trainer — train the melee line instead of feeding
             // the "floor blocked" retry loop.
-            if (FindTrainerForUnit(em, faction, ranged) == Entity.Null)
+            if (c.RangedTrainerMissing)
                 return melee;
 
             int total = ownMelee + ownRanged;
@@ -927,8 +996,15 @@ namespace TheWaningBorder.AI
             var ids = TrainableCombatIds(em, faction);
             if (ids.Count < 2) return null;
 
-            var owned = new Dictionary<string, int>();
-            foreach (var id in ids) owned[id] = 0;
+            // Counted against FixedString keys (a ToString per living unit
+            // used to allocate one managed string each, every call).
+            _rosterKeys.Clear();
+            _rosterCounts.Clear();
+            for (int k = 0; k < ids.Count; k++)
+            {
+                _rosterKeys.Add(new FixedString64Bytes(ids[k]));
+                _rosterCounts.Add(0);
+            }
             int total = 0;
 
             var q = QC_UnitTypeIdFactionTag.Get(em, QT_UnitTypeIdFactionTag);
@@ -937,27 +1013,41 @@ namespace TheWaningBorder.AI
                 for (int i = 0; i < uids.Length; i++)
                 {
                     if (facs[i].Value != faction) continue;
-                    string id = uids[i].Value.ToString();
-                    if (!owned.ContainsKey(id)) continue;
-                    owned[id]++; total++;
+                    var id = uids[i].Value;
+                    for (int k = 0; k < _rosterKeys.Count; k++)
+                        if (_rosterKeys[k] == id) { _rosterCounts[k]++; total++; break; }
                 }
 
             // Even share across the roster, with a floor so the check still
             // bites while the army is small.
             float share = math.max(2f, total / (float)ids.Count);
             string worst = null; float worstGap = 0f;
-            foreach (var id in ids)
+            for (int k = 0; k < ids.Count; k++)
             {
-                float gap = share - owned[id];
-                if (gap > worstGap) { worstGap = gap; worst = id; }
+                float gap = share - _rosterCounts[k];
+                if (gap > worstGap) { worstGap = gap; worst = ids[k]; }
             }
             return worst;
         }
 
         /// <summary>Combat units with a standing, buildable trainer.</summary>
+        // Host-only scratch for the roster walk.
+        private static readonly List<FixedString64Bytes> _rosterKeys = new List<FixedString64Bytes>(16);
+        private static readonly List<int> _rosterCounts = new List<int>(16);
+        private static readonly List<string> _trainableIds = new List<string>(16);
+        private static int _trainableStamp; private static Faction _trainableFaction;
+
+        /// <summary>Combat units with a standing, buildable trainer.
+        /// Memoised per think (the answer depends on the roster of trainers,
+        /// fixed for a think); the returned list is shared scratch — read it,
+        /// do not keep it.</summary>
         private static List<string> TrainableCombatIds(EntityManager em, Faction faction)
         {
-            var outIds = new List<string>();
+            if (_trainableStamp == _thinkStamp && _trainableFaction == faction) return _trainableIds;
+            _trainableStamp = _thinkStamp;
+            _trainableFaction = faction;
+            var outIds = _trainableIds;
+            outIds.Clear();
             if (!TechCatalog.IsReady) return outIds;
 
             // CULTURE GATE. Without it this list carries every culture's roster

@@ -29,6 +29,52 @@ namespace TheWaningBorder.Systems.Border
         /// slowly. Extends to Runai (decay) / Feraldis (corrupt) later.</summary>
         private void SampleInfluence(in VeilField field)
         {
+            // CACHED (2026-09-27): the influence map is the territory
+            // rasterize, static between ownership changes, and every write to
+            // it bumps PlayerInfluenceMap.DataVersion. The sampled effect is a
+            // pure function of that content and this grid's geometry, so the
+            // full-grid bilinear resample (36,864 cells x (1 + players)
+            // samples, the bulk of the 5-12 ms VeilPulse) now runs only when
+            // one of those moves. Every pulse still starts from a fresh copy,
+            // because SampleHearths stamps on top of it. Content-keyed, not
+            // time-keyed: every peer reads the same array on the same tick.
+            int total = field.Width * field.Height;
+            bool fresh = !_influenceBase.IsCreated || _influenceBase.Length != total
+                || _influenceBaseVersion != PlayerInfluenceMap.DataVersion
+                || _influenceBaseReady != PlayerInfluenceMap.Ready
+                || _influenceBaseEpoch != SimCadence.Epoch
+                || !_influenceBaseValid;
+            if (fresh)
+            {
+                if (!_influenceBase.IsCreated || _influenceBase.Length != total)
+                {
+                    if (_influenceBase.IsCreated) _influenceBase.Dispose();
+                    _influenceBase = new NativeArray<byte>(total, Allocator.Persistent,
+                        NativeArrayOptions.ClearMemory);
+                }
+                ComputeInfluence(in field);
+                _influenceBase.CopyFrom(_influence);
+                _influenceBaseVersion = PlayerInfluenceMap.DataVersion;
+                _influenceBaseReady = PlayerInfluenceMap.Ready;
+                _influenceBaseEpoch = SimCadence.Epoch;
+                _influenceBaseValid = true;
+            }
+            else
+            {
+                _influence.CopyFrom(_influenceBase);
+            }
+        }
+
+        private NativeArray<byte> _influenceBase;
+        private int _influenceBaseVersion;
+        private bool _influenceBaseReady;
+        private int _influenceBaseEpoch;
+        /// <summary>Cleared by TryInitialise so a re-initialised field (new
+        /// match, same grid size) never adopts the previous match's sample.</summary>
+        private bool _influenceBaseValid;
+
+        private void ComputeInfluence(in VeilField field)
+        {
             if (!PlayerInfluenceMap.Ready) { ClearInfluence(); return; }
 
             // ANY player's influence reverts the curse (per the "player
@@ -184,27 +230,28 @@ namespace TheWaningBorder.Systems.Border
             const byte structural = (byte)(NavCostField.FlagBuildingFootprint
                 | NavCostField.FlagStaticWall | NavCostField.FlagGate);
 
-            for (int z = 0; z < field.Height; z++)
+            // Burst job (2026-09-27) — was a 36,864-cell managed loop on the
+            // main thread every pulse. Same per-cell arithmetic; each index
+            // writes only its own slot, so the result is order-independent.
+            bool hasTerrain = nav.TerrainCost.IsCreated;
+            new VeilBlockedSampleJob
             {
-                float wz = field.Origin.y + (z + 0.5f) * field.CellSize;
-                int nz = (int)math.floor((wz - navOrigin.z) / navCell);
-                int row = z * field.Width;
-                for (int x = 0; x < field.Width; x++)
-                {
-                    float wx = field.Origin.x + (x + 0.5f) * field.CellSize;
-                    int nx = (int)math.floor((wx - navOrigin.x) / navCell);
-                    byte b = 0;
-                    if (nx >= 0 && nx < nav.Width && nz >= 0 && nz < nav.Height)
-                    {
-                        int nidx = nz * nav.Width + nx;
-                        bool terrainBlock = nav.TerrainCost.IsCreated
-                            && nav.TerrainCost[nidx] == NavCostField.CostImpassable;
-                        bool structBlock = (nav.Flags[nidx] & structural) != 0;
-                        if (terrainBlock || structBlock) b = 1;
-                    }
-                    _blocked[row + x] = b;
-                }
-            }
+                // An unassigned container cannot be scheduled; Flags stands in
+                // and is never read through this field when hasTerrain is false.
+                NavTerrainCost = hasTerrain ? nav.TerrainCost : nav.Flags,
+                NavFlags = nav.Flags,
+                HasTerrainCost = hasTerrain,
+                NavWidth = nav.Width,
+                NavHeight = nav.Height,
+                NavCell = navCell,
+                NavOrigin = navOrigin,
+                StructuralMask = structural,
+                CostImpassable = NavCostField.CostImpassable,
+                Width = field.Width,
+                CellSize = field.CellSize,
+                Origin = field.Origin,
+                Blocked = _blocked,
+            }.Schedule(field.Width * field.Height, 1024).Complete();
         }
     }
 }

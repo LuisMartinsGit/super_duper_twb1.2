@@ -18,7 +18,9 @@ MonoBehaviour:
   roadWidth: 3
   trailWidth: 2
   slopePenalty: 4
-  maxRouteExpansions: 60000
+  maxRouteExpansions: 20000
+  routeCorridorMargin: 16
+  routeCorridorFraction: 0.5
   smoothingPasses: 2
   simplifyTolerance: 1.2
   meanderAmplitude: 2

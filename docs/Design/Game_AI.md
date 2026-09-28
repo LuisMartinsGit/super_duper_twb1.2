@@ -212,11 +212,44 @@ The claim planner's `_siteBlocked` is the same rule for build sites.
 
 The AI keeps roughly 20 m between its buildings so a base stays walkable.
 That is a preference, and it now yields: when a placement scan finds no legal
-site in its normal passes, it runs one more with the spacing rule dropped.
-Nothing else relaxes. Footprint overlap, resource-node clearance, curse
-crust, territory ownership, the hall cap and the router's own validator all
-still refuse the candidate, so the relaxed pass can produce a cramped base
-but never an illegal one.
+site in its normal passes, it runs further passes with the centre spacing
+dropped. Nothing else relaxes. Footprint overlap, resource-node clearance,
+curse crust, territory ownership, the hall cap and the router's own validator
+all still refuse the candidate.
+
+**But it never packs buildings flush (2026-09-25, operator: "AI building
+placement is too cramped").** Every pass also keeps an EDGE-TO-EDGE lane
+between footprints, counted in 2 m build cells (docs/Design/Build_Grid.md):
+
+| Pass | Centre spacing | Edge gap | Ring reach |
+|------|----------------|----------|------------|
+| normal (huts: covered-ground first) | 20 m (30 m hut-to-hut) | 2 cells = 4 m | 16-48 m from the Hall |
+| loose | — | 2 cells = 4 m | same |
+| last resort | — | 1 cell = 2 m | out to 52 m |
+
+The last resort used to be spacing ZERO, which is what packed full bases wall
+to wall. It now keeps at least one clear cell, so an army can always walk
+between any two AI buildings. The endgame placers (smelters, sect buildings,
+houses) use the same lane: 2 cells, falling back to 1, never 0. Wall pieces
+are left out of the gap test (a diagonal curtain's bounding box is mostly
+open ground) but never out of the overlap test.
+
+Exempt: **extractors** (Gatherer's Hut, Mine, Veilstone Mine, Smelter) stand
+on their node, and the node — map data — decides where they go; and the
+**Hall** when it claims new ground, which is sited on the target region.
+
+**Inside the walls.** When the Alanthor wall doctrine has planned a PERIMETER
+wall around the base (AIWallPlanner, planned once), every later base building
+must fit inside the planned rectangle with 4 m to spare, so wider spacing can
+never push the layout out through the wall line. The perimeter itself is now
+sized from the placer's reach — the last-resort ring (52 m) plus half the
+widest footprint (5 m) plus that 4 m clearance, i.e. at least 61 m half-extent
+(capped at 68 m) and centred so the Hall's whole build disc fits — instead of
+from whatever stood when the plan was drawn. Chokepoint plans seal corridors
+rather than enclose a box, and bound nothing. All numbers are data:
+`SimpleAISystem.asset` (buildingGapCells, relaxedBuildingGapCells,
+relaxedBuildRingDistanceMax, wallInteriorClearance) and `AIWallPlanner.asset`
+(perimeterHalfExtentMin/Max, perimeterFootprintAllowance).
 
 Why this is not optional. Hollow Table 1v1, 2026-09-12: at minute 16 Red held
 24 buildings, 13,166 iron and 11,315 veilstone, and fielded ONE unit. It had
@@ -225,6 +258,32 @@ with huts and mines, and all 216 candidate sites were refused -- 201 of them
 on spacing. Blue, on the other side of the same match, had eight units.
 Neither faction ever attacked. This is upstream of every wave rule in 6a: an
 army that was never trainable cannot be mustered, however good the muster is.
+
+### 6d. What a think costs (2026-09-25 performance pass)
+
+The brain's decisions are unchanged; what they cost is bounded.
+
+- **Strength reads are a five-second picture.** Every "how strong is it
+  here" question (retreat checks, target scoring, focus fire, posture, the
+  garrison tally on a sighted building, idle form-up) reads `AIStrengthMap`:
+  every unit and building walked a slice per frame so one full refresh takes
+  ~5 s, bucketed into a 16 m spatial hash and swapped in whole (readers never
+  see a half-built picture). Operator direction: "It's not a problem if info
+  is 5 s out of date." Focus fire takes its *candidates* from the picture but
+  scores them on live health and position.
+- **Site searches read one snapshot per tick** (`BuildSiteSnapshot`) instead of
+  copying every building and obstacle per candidate, run their cheap gates
+  (savings hold, crew, open sites) before searching, spend a per-think
+  candidate budget, and remember a failed search per (faction, building,
+  place) for 10 s — forgotten early when a building is razed or territory
+  changes hands.
+- **One heavy think per frame** across all brains and the endgame systems
+  (`AIThinkBudget`), most overdue first; a brain a whole interval late thinks
+  regardless, so a crowded match slows the AI down but never starves one.
+- **Counts are memoised per think** (army, crew, building counts, the
+  composition roster) and recomputed after each order the brain issues.
+- Mobile sightings not re-seen for 180 s are dropped; structures persist until
+  they die.
 
 ## 6c. The production snowball
 
@@ -332,6 +391,35 @@ a 15 m build-space circle) AND its static defense:
 - **Anti-clump**: own towers never closer than 24 m (1.6× the influence
   radius), so their build-space circles tile ground instead of stacking.
 
+## 7c. Alanthor well purification
+
+The Holy Scholar's rite is the Alanthor AI's victory path
+([Curse_And_Shardroot.md § 2.12](Curse_And_Shardroot.md#212-what-the-ai-owes-the-rite-2026-09-13)
+is the gate it must pass). Until 2026-09-26 the AI only ever looked at the
+**one well nearest its Hall**: if that well was garrisoned it assaulted or
+waited there all match, while clean wells went unvisited. Now
+`TryPurifyWells` **ranks every purifiable well** (Active or rubble, built,
+no rite in progress, revealed to this faction) and works down the list:
+
+- **Score** (lower is better) = distance from the Hall
+  + `wellDefenderPenalty` (20 m) per curse defender at the well
+  - `wellOwnedBonus` (60 m) if the well's territory is already ours, or
+  - `wellAdjacentBonus` (30 m) if any of 8 probes on a
+  `wellAdjacencyProbeRadius` (35 m) ring around it lands on our territory.
+  Ties break on position, never on chunk order.
+- The **first well that passes the rite gate** gets the Scholar and its
+  escort (`escortSize` **6**, was 10).
+- If none passes because of defenders, the **best-scored defended well is
+  assaulted** (`assaultOdds` 2 x defenders, at least `assaultMinUnits`
+  **6**); the rite follows on a later think.
+- A short escort blocks every well alike, so the search stops there and
+  logs it.
+
+Gate numbers (both cultures, `AIEndgameCommon.asset`): defenders counted
+within `wellDefenceRadius` **25 m** (was 45 — the garrison area, not the
+region), retry after this faction's Backlash `riteRetrySeconds` **240 s**
+(was 600). Ranking numbers: `AIAlanthorEndgameSystem.asset`.
+
 ## 8. Tech / age / culture
 
 - Age-up is a utility request (§5). Culture choice remains **Alanthor for
@@ -341,6 +429,14 @@ a 15 m build-space circle) AND its static defense:
   AI until they have endgame behavior.
 
 ## 9. Multiplayer contract
+
+> **Superseded in code (2026-07/08) and relied on since:** the brains run on
+> the HOST ONLY (`GameSettings.ShouldRunAIBrains()`), and every decision
+> leaves as a replicated `CommandRouter` command
+> (docs/Multiplayer_LAN_Readiness.md). A brain's internal state — including
+> the strength map, the placement snapshot and the per-think memo of §6d —
+> therefore never has to match another machine. The paragraph below
+> describes the older every-client model.
 
 AI brains exist on **every client** and must stay **strictly
 deterministic**: seeded RNG only (`GameSettings.SpawnSeed` / lockstep

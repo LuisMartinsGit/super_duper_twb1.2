@@ -26,7 +26,9 @@ namespace TheWaningBorder.Systems.Combat
     [UpdateAfter(typeof(TargetingSystem))]
     public partial struct MeleeCombatSystem : ISystem
     {
-        private const float MeleeRange = 1.5f;
+        /// <summary>Melee reach to the target's surface. Internal: the
+        /// Defensive / Hold stances acquire by it (TargetingSystem.AttackReach).</summary>
+        internal const float MeleeRange = 1.5f;
 
         // Height damage modifier settings
         private const float HeightDamageScale = 0.04f; // 4% per unit height diff
@@ -202,9 +204,13 @@ namespace TheWaningBorder.Systems.Combat
                 // Vertically separated (bridge deck vs underpass): melee
                 // cannot reach across surfaces. Drop the target so the next
                 // targeting pass picks someone reachable — standing under an
-                // enemy hacking at the deck is neither.
-                if (math.abs(myPos.y - targetPos.y) > TargetingSystem.MeleeMaxHeightDelta
-                    && surfaceDist <= MeleeRange)
+                // enemy hacking at the deck is neither. A building is exempt
+                // unless the attacker is on a rampart: its pivot height is the
+                // terrain at its centre, not its body (MeleeHeightBlocks).
+                if (surfaceDist <= MeleeRange
+                    && TargetingSystem.MeleeHeightBlocks(myPos.y, targetPos.y,
+                        em.HasComponent<BuildingTag>(tgt.Value),
+                        TargetingSystem.IsOnRampart(em, entity)))
                 {
                     tgt.Value = Entity.Null;
                     if (TransientState.Active<AttackCommand>(em, entity))
@@ -264,7 +270,7 @@ namespace TheWaningBorder.Systems.Combat
                         // StoneheartBastion +3 aura, etc.). Adds to defense BEFORE
                         // the matrix calc so it actually reduces incoming damage.
                         // Was previously written but never read. (task-062 C-1)
-                        defenseValue += CombatDamageHelper.GetSpellBuffArmorBonus(em, tgt.Value);
+                        defenseValue += CombatDamageHelper.GetSpellBuffArmorBonus(em, tgt.Value, CombatDamageHelper.BaseDefense(em, tgt.Value, dmgType));
 
                         bool targetHasDebuff = em.HasComponent<BorderDebuff>(tgt.Value);
                         BorderDebuff targetDebuff = targetHasDebuff
@@ -314,8 +320,9 @@ namespace TheWaningBorder.Systems.Combat
 
                         // Apply damage — use immediate write so multiple attackers
                         // in the same frame correctly stack damage (not last-write-wins via ECB)
+                        // Shield points are hit points: the shield pays first.
                         var health = em.GetComponentData<Health>(tgt.Value);
-                        health.Value -= finalDamage;
+                        health.Value -= ShieldDamage.Absorb(em, tgt.Value, finalDamage);
                         if (health.Value < 0) health.Value = 0;
                         // (Life Cling HP-floor is applied centrally in DeathSystem,
                         // source-agnostic, right before the death check.)
@@ -371,16 +378,22 @@ namespace TheWaningBorder.Systems.Combat
                 }
                 else
                 {
-                    // Out of range - hold position units do NOT chase
-                    // A channelling ritualist holds its ground exactly like a
-                    // unit on Hold Position. TargetingSystem no longer hands
-                    // one a target, but a target acquired BEFORE the channel
-                    // began would survive into it, and the chase below rewrites
-                    // DesiredDestination every frame — the same way the
-                    // return-to-guard branch did before it was gated, which
-                    // broke every measured channel on 2026-08-07.
-                    if (em.HasComponent<HoldPositionTag>(entity)
-                        || em.HasComponent<RitualState>(entity))
+                    // Out of range — chase only if this engagement allows it
+                    // (TargetingSystem.MayChase, docs/Design/Stances.md §1/§5).
+                    // An ORDERED target is always chased, on every stance —
+                    // Hold included: player orders win. A target the unit
+                    // picked itself is chased only on a leashed (Aggressive /
+                    // attack-move / patrol) engagement; Defensive, Hold and
+                    // support units let it go. A fixed mount never moves.
+                    //
+                    // A channelling ritualist holds its ground too.
+                    // TargetingSystem no longer hands one a target, but a
+                    // target acquired BEFORE the channel began would survive
+                    // into it, and the chase below rewrites DesiredDestination
+                    // every frame — the same way the return-to-guard branch
+                    // did before it was gated, which broke every measured
+                    // channel on 2026-08-07.
+                    if (!TargetingSystem.MayChase(em, entity, tgt.Value))
                     {
                         // Clear target so unit stays put
                         tgt.Value = Entity.Null;
@@ -492,7 +505,7 @@ namespace TheWaningBorder.Systems.Combat
                 float dx = p.x - centre.x, dz = p.z - centre.z;
                 if (dx * dx + dz * dz > r2) continue;
                 var h = hps[i];
-                h.Value = math.max(0, h.Value - share);
+                h.Value = math.max(0, h.Value - ShieldDamage.Absorb(em, ents[i], share));
                 em.SetComponentData(ents[i], h);
             }
         }

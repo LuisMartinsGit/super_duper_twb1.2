@@ -17,6 +17,17 @@ MonoBehaviour:
   minBuildingSpacing: 20
   minResourceNodeClearance: 14
   minGHutToGHutSpacing: 30
+  buildingGapCells: 2
+  relaxedBuildingGapCells: 1
+  relaxedBuildRingDistanceMax: 52
+  wallInteriorClearance: 4
+  extractorSearchRadius: 8
+  failedSiteSearchCooldown: 10
+  siteSearchCandidateBudget: 4000
+  siteSearchValidateBudget: 160
+  maxBrainThinksPerFrame: 1
+  thinkStarvationIntervals: 1
+  claimPotReadyRetrySeconds: 2
   populationHeadroomFloor: 16
   hutCostSupplies: 80
   economyWorkingFloor: 240
@@ -36,7 +47,8 @@ MonoBehaviour:
   claimSuccessCooldown: 30
   minArmyForNextClaim: 6
   claimLogInterval: 60
-  maxClaimReach: 220
+  claimBuilderRewalkSeconds: 20
+  claimBuilderStandOff: 3
   claimNodeBonus: 60
   extractorAttemptInterval: 15
   extractLogInterval: 60
@@ -56,6 +68,7 @@ MonoBehaviour:
   musterGatherFraction: 0.85
   musterTimeoutSeconds: 45
   regroupInterval: 5
+  regroupLooseFraction: 0.25
   reinforceMergeRadius: 35
   stagingTimeoutSeconds: 240
   raidPartySize: 3

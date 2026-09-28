@@ -137,7 +137,8 @@ namespace TheWaningBorder.Systems.Border
             // MP DESYNC INSTRUMENTATION (2026-09-04, temporary): one line per
             // crust pass so two peers' logs can be diffed — the tick-8600-class
             // fork was one peer stamping a pass the other skipped.
-            if (TheWaningBorder.Multiplayer.LockstepManager.Instance != null
+            if (NavStampDebug.Log
+                && TheWaningBorder.Multiplayer.LockstepManager.Instance != null
                 && TheWaningBorder.Multiplayer.LockstepManager.Instance.IsSimulationRunning)
                 UnityEngine.Debug.Log(
                     $"[VeilNavStamp] tick={TheWaningBorder.Multiplayer.LockstepManager.Instance.CurrentTick} " +
@@ -270,8 +271,14 @@ namespace TheWaningBorder.Systems.Border
                             ? NavCostField.CostImpassable
                             : VeilNavStampSystem.TravelCost(sat, HasTerrainCost
                                 ? TerrainCost[idx] : (byte)0);
-                        if (!was || NavWiped
-                            || NavCost[idx] != want
+                        // Written (and reported) only when the cell actually
+                        // differs. The old test also fired on !was / NavWiped
+                        // with the cell already holding exactly this value,
+                        // which wrote nothing new but still bumped the nav
+                        // Generation — every downstream consumer (the dirty
+                        // diff, every cached goal field) then treated an
+                        // identical field as changed.
+                        if (NavCost[idx] != want
                             || (NavFlags[idx] & NavCostField.FlagCrust) == 0)
                         {
                             NavCost[idx] = want;
@@ -290,7 +297,7 @@ namespace TheWaningBorder.Systems.Border
                             NavCost[idx] = HasTerrainCost
                                 ? TerrainCost[idx] : (byte)0;
                             NavFlags[idx] = (byte)(NavFlags[idx] & ~NavCostField.FlagCrust);
-                            changed = true;
+                            changed = true;   // the flag bit itself changed
                         }
                         StampedCrust[idx] = 0;
                     }

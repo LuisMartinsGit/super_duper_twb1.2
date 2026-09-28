@@ -44,30 +44,6 @@ namespace TheWaningBorder.AI
 
     public static class AIEngagement
     {
-        #region Cached queries
-
-        // CreateEntityQuery registers a new query with the world on EVERY
-        // call; these run per think tick. See Core/CachedEntityQuery.cs.
-
-        static readonly ComponentType[] QT_BuildingTagFactionTagLocalTransformHealth =
-        {
-            ComponentType.ReadOnly<BuildingTag>(),
-            ComponentType.ReadOnly<FactionTag>(),
-            ComponentType.ReadOnly<LocalTransform>(),
-            ComponentType.ReadOnly<Health>(),
-        };
-        static CachedEntityQuery QC_BuildingTagFactionTagLocalTransformHealth;
-
-        static readonly ComponentType[] QT_UnitTagFactionTagLocalTransformHealth =
-        {
-            ComponentType.ReadOnly<UnitTag>(),
-            ComponentType.ReadOnly<FactionTag>(),
-            ComponentType.ReadOnly<LocalTransform>(),
-            ComponentType.ReadOnly<Health>(),
-        };
-        static CachedEntityQuery QC_UnitTagFactionTagLocalTransformHealth;
-
-        #endregion
 
         #region Tuning
 
@@ -114,39 +90,9 @@ namespace TheWaningBorder.AI
         public static int StaticDefencePower(EntityManager em, Faction faction,
             float3 pos, float radius)
         {
-            var q = QC_BuildingTagFactionTagLocalTransformHealth.Get(em, QT_BuildingTagFactionTagLocalTransformHealth);
-            using var ents = q.ToEntityArray(Allocator.Temp);
-            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            using var hps = q.ToComponentDataArray<Health>(Allocator.Temp);
-
-            float r2 = radius * radius;
-            int sum = 0;
-            for (int i = 0; i < ents.Length; i++)
-            {
-                if (!Alliances.AreHostile(faction, facs[i].Value)) continue;
-                if (facs[i].Value == Faction.Border) continue;
-                if (hps[i].Value <= 0) continue;
-                if (em.HasComponent<WallTag>(ents[i])) continue;
-                if (em.HasComponent<UnderConstruction>(ents[i])) continue;
-
-                float dx = xfs[i].Position.x - pos.x;
-                float dz = xfs[i].Position.z - pos.z;
-                if (dx * dx + dz * dz > r2) continue;
-
-                // An unarmed building is an objective, not a threat: it still
-                // costs time to chew through, hence the small durability term.
-                int power = hps[i].Value / 40;
-
-                if (em.HasComponent<BuildingRangedAttack>(ents[i]))
-                {
-                    var atk = em.GetComponentData<BuildingRangedAttack>(ents[i]);
-                    int targets = math.max(1, atk.MaxTargets);
-                    power += atk.Damage * 2 * targets;
-                }
-                sum += math.max(0, power);
-            }
-            return sum;
+            // Served from AIStrengthMap: the per-building rules above are
+            // evaluated once per refresh, not once per call.
+            return AIStrengthMap.StaticPowerInRadius(em, faction, pos, radius);
         }
 
         /// <summary>
@@ -237,48 +183,57 @@ namespace TheWaningBorder.AI
         ///   * CLOSE — a mild pull so the army does not run past three enemies
         ///     to reach a marginally better fourth.
         ///
-        /// Deterministic: pure arithmetic over replicated component data, ties
-        /// broken by entity index, so every lockstep peer picks the same
-        /// target from the same world.
+        /// Ties broken by entity index. Host-only (the AI brains are), so the
+        /// candidate list may come from the host's strength map; the scoring
+        /// itself is pure arithmetic over live component data.
         /// </summary>
+        // Host-only scratch (the AI runs on one thread, on the host).
+        private static readonly System.Collections.Generic.List<Entity> _candidates =
+            new System.Collections.Generic.List<Entity>(64);
+
         public static Entity PickPriorityTarget(EntityManager em, Faction faction,
             float3 fromPos, float radius = float.NaN)
         {
             radius = Radius(radius);
 
-            var q = QC_UnitTagFactionTagLocalTransformHealth.Get(em, QT_UnitTagFactionTagLocalTransformHealth);
-            using var ents = q.ToEntityArray(Allocator.Temp);
-            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            using var hps = q.ToComponentDataArray<Health>(Allocator.Temp);
+            // CANDIDATES from the strength map (up to one refresh stale),
+            // SCORED on live state: a candidate that died or walked out of
+            // the radius since the snapshot is skipped, so the order never
+            // names a stale body.
+            AIStrengthMap.HostileUnitCandidates(em, faction, fromPos, radius, _candidates);
 
             float r2 = radius * radius;
             Entity best = Entity.Null;
             float bestScore = float.MinValue;
 
-            for (int i = 0; i < ents.Length; i++)
+            for (int i = 0; i < _candidates.Count; i++)
             {
-                if (!Alliances.AreHostile(faction, facs[i].Value)) continue;
-                if (hps[i].Value <= 0) continue;
+                var e = _candidates[i];
+                if (!em.Exists(e) || !em.HasComponent<Health>(e)
+                    || !em.HasComponent<LocalTransform>(e) || !em.HasComponent<FactionTag>(e)) continue;
+                if (!Alliances.AreHostile(faction, em.GetComponentData<FactionTag>(e).Value)) continue;
+                var hp = em.GetComponentData<Health>(e);
+                if (hp.Value <= 0) continue;
 
-                float dx = xfs[i].Position.x - fromPos.x;
-                float dz = xfs[i].Position.z - fromPos.z;
+                var p = em.GetComponentData<LocalTransform>(e).Position;
+                float dx = p.x - fromPos.x;
+                float dz = p.z - fromPos.z;
                 float d2 = dx * dx + dz * dz;
                 if (d2 > r2) continue;
 
-                int dmg = em.HasComponent<Damage>(ents[i])
-                    ? em.GetComponentData<Damage>(ents[i]).Value : 0;
+                int dmg = em.HasComponent<Damage>(e)
+                    ? em.GetComponentData<Damage>(e).Value : 0;
 
                 float score = dmg * 3f;                              // danger
-                score += (hps[i].Max - hps[i].Value) * 0.10f;        // nearly dead
-                score -= hps[i].Max * 0.02f;                         // fragile first
+                score += (hp.Max - hp.Value) * 0.10f;                // nearly dead
+                score -= hp.Max * 0.02f;                             // fragile first
                 score -= math.sqrt(d2) * 0.5f;                       // mild proximity pull
 
                 if (score > bestScore
-                    || (score == bestScore && best != Entity.Null && ents[i].Index < best.Index))
+                    || (score == bestScore && best != Entity.Null && e.Index < best.Index))
                 {
                     bestScore = score;
-                    best = ents[i];
+                    best = e;
                 }
             }
             return best;

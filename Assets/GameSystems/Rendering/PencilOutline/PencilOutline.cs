@@ -42,6 +42,12 @@ namespace TheWaningBorder.Rendering
             }
         }
 
+        /// <summary>
+        /// Whether the ink is drawn: the player's Ink Outlines setting when they
+        /// have made one, otherwise the asset's A/B switch.
+        /// </summary>
+        public static bool Active => GameSettings.InkOutlines ?? (Cfg != null && Cfg.enabled);
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Install()
         {
@@ -57,7 +63,7 @@ namespace TheWaningBorder.Rendering
             if (camera == null || camera != PresentationState.MainCamera) return;
 
             var cfg = Cfg;
-            if (cfg == null || !cfg.enabled || cfg.shader == null) return;
+            if (cfg == null || !Active || cfg.shader == null) return;
 
             if (_material == null) _material = CoreUtils.CreateEngineMaterial(cfg.shader);
             _pass ??= new PencilOutlinePass();

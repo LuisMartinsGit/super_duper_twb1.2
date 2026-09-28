@@ -82,7 +82,7 @@ namespace TheWaningBorder.Systems.Sect
         /// the killing, and a Watch Tower's kills are not a soldier's guilt.
         /// </summary>
         private static void ApplyAttainder(EntityManager em, Faction faction,
-            float3 center, float radius, float perKill, float floor)
+            float3 center, float radius, float perKill, float floor, DamageType dmgType)
         {
             float r2 = radius * radius;
             var query = QC_UnitTagLocalTransformFactionTagHealth.Get(
@@ -101,13 +101,18 @@ namespace TheWaningBorder.Systems.Sect
                 int kills = em.HasComponent<AttainderLedger>(e)
                     ? em.GetComponentData<AttainderLedger>(e).Against(faction)
                     : 0;
+                // The bill stops at AttainderMaxKills -- the spell ladder's
+                // conditional cap (docs/Design/Spells.md 8.3). Uncapped, a
+                // twenty-kill veteran took 1600 from one cast.
+                if (kills > SectLeverEffects.AttainderMaxKills)
+                    kills = SectLeverEffects.AttainderMaxKills;
 
                 int dmg = (int)math.max(floor, kills * perKill);
                 if (dmg <= 0) continue;
 
-                var hp = em.GetComponentData<Health>(e);
-                hp.Value = math.max(0, hp.Value - dmg);
-                em.SetComponentData(e, hp);
+                // Through the one spell-damage door: armor, Invulnerable,
+                // Liquid Courage and the death-ward floors apply.
+                TheWaningBorder.Systems.Combat.SpellDamage.Apply(em, e, dmg, dmgType, faction);
             }
         }
 

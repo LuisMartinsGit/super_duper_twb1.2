@@ -7,7 +7,15 @@
 //     culture's Shardbound Hero (locked choice; Temple enshrinement is
 //     the alternative, handled by ShardrootCarrySystem's deposit path).
 //   * Holder tracking for the minimap beacon and the Border's
-//     hunt-the-holder aggression bias.
+//     hunt-the-holder aggression bias (read by CurseTerritorySystem.Living).
+//   * THE MAW BACKSTOP (section 3): a host well left Wild (unverbed) for
+//     BorderSettings.shardrootMawSeconds reaches "Maw maturity" -- the
+//     artifact becomes visibly embedded in it (a ShardrootEmbedded display
+//     entity + minimap beacon + a ping for everyone). It is still claimed
+//     only by verbing that well. The Well->Fissure->Maw ladder itself is
+//     superseded by the Veil (section 2.3), so maturity is measured as sim
+//     time the host has spent alive and Wild. No map data is needed: the Maw
+//     IS the host well, wherever the map put it.
 //
 // The artifact itself is a persistent ShardrootPickup carrying ShardrootTag —
 // attunement/carry/interception/drop-on-death/temple-storage/detonation
@@ -21,6 +29,7 @@ using TheWaningBorder.Entities;
 using TheWaningBorder.Core.Localization;
 
 using TheWaningBorder.Core;
+using TheWaningBorder.Data.Border;
 namespace TheWaningBorder.Systems.Border
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -54,6 +63,12 @@ namespace TheWaningBorder.Systems.Border
         };
         static CachedEntityQuery QC_HallTagFactionTagLocalTransform;
 
+        static readonly ComponentType[] QT_Embedded =
+        {
+            ComponentType.ReadOnly<ShardrootEmbedded>(),
+        };
+        static CachedEntityQuery QC_Embedded;
+
         #endregion
 
         protected override void OnCreate()
@@ -71,13 +86,7 @@ namespace TheWaningBorder.Systems.Border
             if (stateQuery.IsEmptyIgnoreFilter)
             {
                 stateEntity = em.CreateEntity(typeof(ShardrootState));
-                em.SetComponentData(stateEntity, new ShardrootState
-                {
-                    HostNode = Entity.Null,
-                    HostChosen = 0,
-                    Found = 0,
-                    HolderFaction = Faction.Border,
-                });
+                em.SetComponentData(stateEntity, FreshState());
             }
             else
             {
@@ -85,6 +94,19 @@ namespace TheWaningBorder.Systems.Border
                 stateEntity = ents[0];
             }
             var state = em.GetComponentData<ShardrootState>(stateEntity);
+
+            // Per-match state must never walk into the next match (the
+            // second-match-in-process desync class). The world is disposed
+            // at teardown today, which already drops this singleton; this
+            // guard is what keeps a previous match's Found = 1 from blocking
+            // the artifact if any path ever keeps a world alive. A scenario-
+            // authored state (MatchEpoch 0) is left alone.
+            if (state.MatchEpoch != 0 && state.MatchEpoch != SimCadence.Epoch)
+            {
+                ClearEmbedded(em);
+                state = FreshState();
+                UnityEngine.Debug.Log("[Shardroot] state carried over from a previous match -- reset");
+            }
 
             // ── Host-well selection (once, deterministic) ───────────────
             if (state.HostChosen == 0)
@@ -114,8 +136,17 @@ namespace TheWaningBorder.Systems.Border
                     int pick = (int)(hash % (uint)count);
                     state.HostNode = nodes[order[pick]];
                     state.HostChosen = 1;
+                    state.HostWildSeconds = 0f;
+                    var hp = xfs[order[pick]].Position;
                     order.Dispose();
-                    TWBLog.Log($"[Shardroot] host well chosen ({count} candidates)");
+                    UnityEngine.Debug.Log($"[Shardroot] host well chosen: #{pick + 1} of {count} " +
+                        $"at ({hp.x:F0},{hp.z:F0}), seed {GameSettings.SpawnSeed}");
+                    // Tell every player the artifact exists. Nothing else
+                    // does until someone lands a verb on the host well, so
+                    // a match could run its whole course without anyone
+                    // knowing there was something to look for.
+                    SimSignals.Notify(Loc.T(
+                        "A SHARDROOT sleeps beneath one of the wells. The first to work that well claims it."));
                 }
             }
 
@@ -136,8 +167,11 @@ namespace TheWaningBorder.Systems.Border
                 bool hostClaimed = false;
                 if (hostValid)
                 {
-                    var hs = em.GetComponentData<BorderNodeState>(state.HostNode).State;
-                    hostClaimed = hs == NodeState.Cleansed || hs == NodeState.Converted;
+                    // Destroyed counts as claimed (2026-09-26): the death
+                    // intercept awards any killer now, but a well set
+                    // Destroyed by any other path used to strand the artifact
+                    // inside a dormant husk until regrowth.
+                    hostClaimed = IsClaimed(em.GetComponentData<BorderNodeState>(state.HostNode).State);
                 }
 
                 if (!hostValid || hostClaimed)
@@ -152,7 +186,7 @@ namespace TheWaningBorder.Systems.Border
                     {
                         var s = ns.ValueRO.State;
                         var p = xf.ValueRO.Position;
-                        bool isClaimed = s == NodeState.Cleansed || s == NodeState.Converted;
+                        bool isClaimed = IsClaimed(s);
                         if (!isClaimed)
                         {
                             if (unclaimed == Entity.Null || p.x < unclaimedPos.x
@@ -170,7 +204,10 @@ namespace TheWaningBorder.Systems.Border
                     if (!hostValid && unclaimed != Entity.Null)
                     {
                         state.HostNode = unclaimed;
-                        TWBLog.Log("[Shardroot] host re-chosen (previous host dangled)");
+                        state.HostWildSeconds = 0f;
+                        if (state.Embedded != 0) { ClearEmbedded(em); state.Embedded = 0; }
+                        UnityEngine.Debug.Log($"[Shardroot] host re-chosen at ({unclaimedPos.x:F0},{unclaimedPos.z:F0}) " +
+                            "(previous host dangled)");
                     }
                     else if (hostClaimed || claimed != Entity.Null)
                     {
@@ -178,15 +215,35 @@ namespace TheWaningBorder.Systems.Border
                             ? em.GetComponentData<LocalTransform>(state.HostNode).Position
                             : claimedPos;
                         state.Found = 1;
+                        ClearEmbedded(em);
+                        state.Embedded = 0;
                         var pickup = ShardrootPickup.Create(em,
                             dropPos + new float3(3f, 0f, 3f),
                             RitualKind.Purification, ShardrootState.ShardrootPower);
                         em.AddComponent<ShardrootTag>(pickup);
                         MakePersistent(em, pickup);
                         SimSignals.Notify(Loc.T("The SHARDROOT has been unearthed!"));
-                        TWBLog.Log("[Shardroot] artifact surfaced by fallback " +
-                            "(host lost or claimed without award)");
+                        UnityEngine.Debug.Log($"[Shardroot] artifact surfaced by fallback at ({dropPos.x:F0},{dropPos.z:F0}) " +
+                            "(host lost, or claimed/destroyed without an award)");
                     }
+                }
+            }
+
+            // ── The Maw backstop (section 3) ────────────────────────────
+            // Only while the artifact is still inside the host: once it is
+            // out -- awarded, surfaced, or riding out with the curse (2.13
+            // rule 5) -- Found = 1 and the backstop never fires.
+            if (state.HostChosen != 0 && state.Found == 0 && state.Embedded == 0
+                && state.HostNode != Entity.Null && em.Exists(state.HostNode)
+                && em.HasComponent<BorderNodeState>(state.HostNode))
+            {
+                float maw = BorderSettings.Get().shardrootMawSeconds;
+                var hs = em.GetComponentData<BorderNodeState>(state.HostNode).State;
+                if (maw > 0f && hs == NodeState.Active)
+                {
+                    state.HostWildSeconds += SystemAPI.Time.DeltaTime;
+                    if (state.HostWildSeconds >= maw)
+                        EmbedInMaw(em, ref state);
                 }
             }
 
@@ -217,27 +274,40 @@ namespace TheWaningBorder.Systems.Border
             }
 
             // ── Holder tracking (minimap beacon + Border aggression) ────
+            // A Faction.Border holder (the ground pickup, or a curse unit
+            // carrying it) is "unheld": the curse does not hunt itself.
+            Faction prevHolder = state.HolderFaction;
             state.HolderFaction = Faction.Border;
-            foreach (var fac in SystemAPI
-                .Query<RefRO<FactionTag>>()
+            state.HolderPos = default;
+            foreach (var (fac, xf) in SystemAPI
+                .Query<RefRO<FactionTag>, RefRO<LocalTransform>>()
                 .WithAll<ShardrootTag>())
             {
                 if (fac.ValueRO.Value != Faction.Border)
                 {
                     state.HolderFaction = fac.ValueRO.Value;
+                    state.HolderPos = xf.ValueRO.Position;
                     break;
                 }
             }
+            if (state.HolderFaction != prevHolder)
+                UnityEngine.Debug.Log(state.HolderFaction == Faction.Border
+                    ? $"[Shardroot] {prevHolder} no longer holds the artifact"
+                    : $"[Shardroot] {state.HolderFaction} now holds the artifact at " +
+                      $"({state.HolderPos.x:F0},{state.HolderPos.z:F0})");
 
             // ── Minimap beacon (2026-08-04, "where did the Shardroot go?"):
             // once unearthed, a slow GOLD pulse follows the artifact wherever
             // it is — ground drop, courier, hero, or enshrining temple — so
             // the One Ring is never invisible again. (The old beacon promise
             // predated the UI redesign and had no surviving consumer.)
-            if (state.Found != 0)
+            // The Maw's embedded artifact beacons the same way (section 3,
+            // "map ping").
+            if (state.Found != 0 || state.Embedded != 0)
             {
                 if (_beaconAcc.Due(SystemAPI.Time.DeltaTime, BeaconInterval))
                 {
+                    bool pinged = false;
                     foreach (var xf in SystemAPI
                         .Query<RefRO<LocalTransform>>()
                         .WithAll<ShardrootTag>())
@@ -246,8 +316,20 @@ namespace TheWaningBorder.Systems.Border
                             xf.ValueRO.Position,
                             SimPingKind.Discovery,
                             BeaconInterval + 0.5f, big: true);
+                        pinged = true;
                         break; // there is only ever one Shardroot
                     }
+                    if (!pinged)
+                        foreach (var xf in SystemAPI
+                            .Query<RefRO<LocalTransform>>()
+                            .WithAll<ShardrootEmbedded>())
+                        {
+                            SimSignals.Ping(
+                                xf.ValueRO.Position,
+                                SimPingKind.Discovery,
+                                BeaconInterval + 0.5f, big: true);
+                            break;
+                        }
                 }
             }
 
@@ -271,8 +353,11 @@ namespace TheWaningBorder.Systems.Border
             if (state.HostChosen == 0 || state.Found != 0) return;
             if (state.HostNode != node) return;
 
+            bool fromMaw = state.Embedded != 0;
             state.Found = 1;
+            state.Embedded = 0;
             em.SetComponentData(ents[0], state);
+            ClearEmbedded(em);
 
             var pickup = ShardrootPickup.Create(em, pos + new float3(3f, 0f, 3f),
                 kind, ShardrootState.ShardrootPower);
@@ -280,7 +365,54 @@ namespace TheWaningBorder.Systems.Border
             MakePersistent(em, pickup);
 
             SimSignals.Notify(Loc.T("The SHARDROOT has been unearthed!"));
-            TWBLog.Log("[Shardroot] artifact dropped at the host well");
+            UnityEngine.Debug.Log($"[Shardroot] AWARDED -- {kind} on the host well at ({pos.x:F0},{pos.z:F0}) " +
+                $"drops the artifact{(fromMaw ? " (it was embedded in the Maw)" : "")}");
+        }
+
+        private static ShardrootState FreshState() => new ShardrootState
+        {
+            HostNode = Entity.Null,
+            HostChosen = 0,
+            Found = 0,
+            HolderFaction = Faction.Border,
+            HostWildSeconds = 0f,
+            Embedded = 0,
+            MatchEpoch = SimCadence.Epoch,
+        };
+
+        /// <summary>A well is "claimed" for the Shardroot when any verb has
+        /// landed on it -- purified, pacified, or destroyed.</summary>
+        private static bool IsClaimed(NodeState s) =>
+            s == NodeState.Cleansed || s == NodeState.Converted || s == NodeState.Destroyed;
+
+        /// <summary>The Maw backstop fires: the artifact shows itself inside
+        /// the host well. A display-only entity (no pickup, no ShardrootTag)
+        /// so nobody can walk off with it; TryAward still decides who gets it.</summary>
+        private static void EmbedInMaw(EntityManager em, ref ShardrootState state)
+        {
+            state.Embedded = 1;
+            var wellPos = em.GetComponentData<LocalTransform>(state.HostNode).Position;
+            var marker = em.CreateEntity(
+                typeof(PresentationId),
+                typeof(LocalTransform),
+                typeof(ShardrootEmbedded));
+            em.SetComponentData(marker, new PresentationId
+                { Id = TheWaningBorder.Core.Config.BorderConstants.ShardrootPresentationID });
+            em.SetComponentData(marker, LocalTransform.FromPosition(wellPos));
+            em.SetComponentData(marker, new ShardrootEmbedded { Well = state.HostNode });
+
+            SimSignals.Ping(wellPos, SimPingKind.Discovery, BeaconInterval * 3f, big: true);
+            SimSignals.Notify(Loc.T("The SHARDROOT gleams in the heart of a Maw -- verb that well to claim it!"));
+            UnityEngine.Debug.Log($"[Shardroot] MAW -- the host well at ({wellPos.x:F0},{wellPos.z:F0}) stood Wild " +
+                $"for {state.HostWildSeconds:F0}s unverbed; the artifact is now visibly embedded in it");
+        }
+
+        /// <summary>Remove the Maw's display artifact, if any.</summary>
+        private static void ClearEmbedded(EntityManager em)
+        {
+            var q = QC_Embedded.Get(em, QT_Embedded);
+            if (q.IsEmptyIgnoreFilter) return;
+            em.DestroyEntity(q);
         }
 
         /// <summary>Shardroot pickups never despawn (the artifact is
@@ -369,7 +501,7 @@ namespace TheWaningBorder.Systems.Border
                     }
                     em.AddComponent<ShardboundHeroTag>(king);
                     SimSignals.Notify(string.Format(Loc.T("{0}'s King Lexor takes up the SHARDROOT!"), faction));
-                    TWBLog.Log($"[Shardroot] {faction}: the Hall hands the artifact to King Lexor");
+                    UnityEngine.Debug.Log($"[Shardroot] {faction}: the Hall hands the artifact to King Lexor");
                     return;
                 }
             }
@@ -405,7 +537,7 @@ namespace TheWaningBorder.Systems.Border
             if (em.HasComponent<ShardrootBearer>(courier)) em.RemoveComponent<ShardrootBearer>(courier);
 
             SimSignals.Notify(string.Format(Loc.T("{0} has awakened the SHARDBOUND HERO!"), faction));
-            TWBLog.Log($"[Shardroot] {faction} hero awakened ({heroId} body)");
+            UnityEngine.Debug.Log($"[Shardroot] {faction} hero awakened ({heroId} body)");
         }
     }
 }

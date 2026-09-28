@@ -74,6 +74,15 @@ namespace TheWaningBorder.Systems.Combat
                 ecb.DestroyEntity(expiredEntities[i]);
             expiredEntities.Dispose();
 
+            // Shield points are hit points (Combat_Pacing.md): refund any
+            // Health drop a shield should have absorbed but that reached
+            // Health through a stray direct write, BEFORE the death check. The
+            // real damage paths spend the shield at the point of damage
+            // (ShieldDamage.Absorb); this is the order-safe backstop, run here
+            // for the same reason LifeCling is: nothing else is guaranteed to
+            // follow every damage source in the frame.
+            ShieldDamage.RefundUnobserved(state.EntityManager);
+
             // Phase 1: Collect all dead entities (health <= 0, no death/collapse animation yet)
             var deadEntities = new NativeList<Entity>(Allocator.Temp);
 

@@ -31,8 +31,16 @@ namespace TheWaningBorder.Input
         /// <summary>Stops the selection where it stands.</summary>
         public KeyCode stop;
 
-        /// <summary>Holds position — stay put, but still fight what comes.</summary>
+        /// <summary>Hold Position stance — stay put, fight only what is in
+        /// reach (docs/Design/Stances.md).</summary>
         public KeyCode holdPosition;
+
+        /// <summary>Aggressive stance — engage anything in sight, long chase.</summary>
+        public KeyCode aggressiveStance;
+
+        /// <summary>Defensive stance (the default) — engage what is in reach
+        /// or attacking, short chase.</summary>
+        public KeyCode defensiveStance;
 
         /// <summary>Selects and centres on the next idle builder.</summary>
         public KeyCode cycleIdleBuilders;

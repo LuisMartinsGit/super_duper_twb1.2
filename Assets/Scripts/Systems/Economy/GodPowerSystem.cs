@@ -239,6 +239,8 @@ namespace TheWaningBorder.Systems.Economy
                 float falloff = 1f - (dxz / GodPowerRadius);
                 int dealt = (int)math.max(1, damage * falloff);
 
+                // Shield points are hit points (Combat_Pacing.md): spend them first.
+                dealt = TheWaningBorder.Systems.Combat.ShieldDamage.Absorb(em, ents[v], dealt);
                 var h = em.GetComponentData<Health>(ents[v]);
                 h.Value = math.max(0, h.Value - dealt);
                 em.SetComponentData(ents[v], h);
@@ -316,6 +318,8 @@ namespace TheWaningBorder.Systems.Economy
                 float falloff = 1f - (dxz / GodPowerRadius);
                 int dealt = (int)math.max(1, GodPowerDamage * falloff);
 
+                // Shield points are hit points (Combat_Pacing.md): spend them first.
+                dealt = TheWaningBorder.Systems.Combat.ShieldDamage.Absorb(em, ents[v], dealt);
                 var h = em.GetComponentData<Health>(ents[v]);
                 h.Value = math.max(0, h.Value - dealt);
                 em.SetComponentData(ents[v], h);

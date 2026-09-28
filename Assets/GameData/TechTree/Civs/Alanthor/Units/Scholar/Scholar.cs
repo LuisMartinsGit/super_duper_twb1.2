@@ -25,14 +25,13 @@ namespace TheWaningBorder.Entities
         private static Entity CreateInternal<TCreator>(TCreator creator, float3 position, Faction faction)
             where TCreator : struct, IEntityCreator
         {
-            float hp = ScholarHP;
-            float speed = ScholarSpeed;
-            float los = ScholarLoS;
-
+            // Every stat from the SO (Scholar.asset) -- the factory holds no
+            // numbers. Damage is 0 by design (Age_1_Alanthor.md § Alanthor
+            // Scholar): it never auto-engages and relies on its escort.
             var def = TechCatalog.Unit("Alanthor_Scholar");
-            hp = def.hp;
-            speed = def.speed;
-            los = def.lineOfSight;
+            float hp = def.hp;
+            float speed = def.speed;
+            float los = def.lineOfSight;
 
             var entity = creator.CreateEntity();
             creator.AddComponent(entity, new PresentationId { Id = ScholarPresentationID });
@@ -42,8 +41,7 @@ namespace TheWaningBorder.Entities
             creator.AddComponent<ScholarTag>(entity);
             creator.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
             creator.AddComponent(entity, new MoveSpeed { Value = speed });
-            // Scholars don't attack — Damage = 0. They rely on escorts.
-            creator.AddComponent(entity, new Damage { Value = 0 });
+            creator.AddComponent(entity, new Damage { Value = (int)def.damage });
             creator.AddComponent(entity, new LineOfSight { Radius = los });
             creator.AddComponent(entity, new Radius { Value = def.radius });
             creator.AddComponent(entity, new PopulationCost { Amount = 1 });

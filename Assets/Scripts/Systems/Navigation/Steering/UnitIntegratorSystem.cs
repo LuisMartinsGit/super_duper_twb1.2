@@ -129,7 +129,8 @@ namespace TheWaningBorder.Systems.Navigation
             // ── PHASE 1: MoveCommand -> DesiredDestination ──────────────
             foreach (var (mc, entity) in SystemAPI.Query<RefRO<MoveCommand>>().WithEntityAccess())
             {
-                if (SystemAPI.HasComponent<BuildingTag>(entity))
+                if (SystemAPI.HasComponent<BuildingTag>(entity)
+                    || SystemAPI.HasComponent<EmplacedEngineTag>(entity))   // bolted to a wall deck
                 {
                     TransientState.Clear<MoveCommand>(em, ecb, entity);
                     if (em.HasComponent<DesiredDestination>(entity))
@@ -165,7 +166,8 @@ namespace TheWaningBorder.Systems.Navigation
             // ── PHASE 1b: AttackMoveCommand -> DesiredDestination ───────
             foreach (var (amc, entity) in SystemAPI.Query<RefRO<AttackMoveCommand>>().WithEntityAccess())
             {
-                if (SystemAPI.HasComponent<BuildingTag>(entity))
+                if (SystemAPI.HasComponent<BuildingTag>(entity)
+                    || SystemAPI.HasComponent<EmplacedEngineTag>(entity))
                 {
                     TransientState.Clear<AttackMoveCommand>(em, ecb, entity);
                     continue;
@@ -207,8 +209,11 @@ namespace TheWaningBorder.Systems.Navigation
             {
                 if (dd.ValueRO.Has == 0) continue;
 
-                // Buildings should never move.
-                if (SystemAPI.HasComponent<BuildingTag>(entity))
+                // Buildings should never move — and neither should an
+                // emplaced engine, whose Y is the wall deck it stands on and
+                // must never be re-snapped to the ground under the wall.
+                if (SystemAPI.HasComponent<BuildingTag>(entity)
+                    || SystemAPI.HasComponent<EmplacedEngineTag>(entity))
                 {
                     dd.ValueRW.Has = 0;
                     continue;
@@ -239,27 +244,10 @@ namespace TheWaningBorder.Systems.Navigation
                     if (ms.Value > 0) speed = ms.Value;
                 }
 
-                if (em.HasComponent<SpellDebuff>(entity))
-                {
-                    var debuff = em.GetComponentData<SpellDebuff>(entity);
-                    speed *= (1f - debuff.SpeedReduction);
-                }
-                // The Veil / Suppression auras: BorderDebuff.SpeedPenalty was
-                // authored but never consumed — units wading through veil
-                // crust (or a Suppression field) now actually slow down.
-                if (em.HasComponent<BorderDebuff>(entity))
-                {
-                    var bd = em.GetComponentData<BorderDebuff>(entity);
-                    if (bd.SpeedPenalty > 0f)
-                        speed *= (1f - math.min(0.9f, bd.SpeedPenalty));
-                }
-                if (em.HasComponent<Fortified>(entity)) speed = 0f;
-                if (TransientState.Active<SpellBuff>(em, entity))
-                {
-                    var buff = em.GetComponentData<SpellBuff>(entity);
-                    if (buff.SpeedMultiplier > 0f && buff.SpeedMultiplier != 1f)
-                        speed *= buff.SpeedMultiplier;
-                }
+                // Spell slows, veil / Suppression drag, Fortify, haste — one
+                // shared definition, so FormationGroupSystem can size a group's
+                // speed from exactly what this applies.
+                speed *= UnitSpeedModifiers.Multiplier(em, entity);
                 if (speed <= 0f) continue;
 
                 // Archers in firing range: ARRIVE, don't just halt. The old
@@ -274,14 +262,15 @@ namespace TheWaningBorder.Systems.Navigation
                 // systems can never disagree about "in range" and flip-flop
                 // across a halt/chase band on slopes or against buildings.
                 // ...but an EXPLICIT player move order outranks the firing
-                // band. Without this, any ranged unit that auto-acquires a
-                // target mid-march declares itself arrived and drops the order.
-                // On a catapult (min 5.5-10 m, max 20-30 m) that means it
-                // freezes the moment anything enters a very wide band and
-                // refuses to continue — reported as "siege engines cannot
-                // move". Auto-acquire deliberately does NOT exclude
-                // UserMoveOrder (TargetingSystem.Acquire), so the exemption
-                // has to live here.
+                // band. Without this, a ranged unit carrying a target into a
+                // move order — one it was already fighting when the order
+                // landed, or one handed over by retaliation — would declare
+                // itself arrived and drop the order the moment the target
+                // entered a very wide band. On a catapult (min 5.5-10 m, max
+                // 20-30 m) that was reported as "siege engines cannot move".
+                // TargetingSystem's auto-acquire does skip UserMoveOrder units,
+                // but a Target can reach a moving unit by other routes, so the
+                // exemption stays here.
                 if (em.HasComponent<ArcherTag>(entity)
                     && em.HasComponent<Target>(entity)
                     && !TransientState.Active<UserMoveOrder>(em, entity))
@@ -382,6 +371,13 @@ namespace TheWaningBorder.Systems.Navigation
                 if (arrived)
                 {
                     dd.ValueRW.Has = 0;
+                    // A finished PLAYER MOVE makes where the unit stopped its
+                    // guard point: its stance takes over from here
+                    // (docs/Design/Stances.md §2). Not for a chase, whose
+                    // destination is the target's edge.
+                    if (!chasing && TransientState.Active<UserMoveOrder>(em, entity)
+                        && em.HasComponent<GuardPoint>(entity))
+                        ecb.SetComponent(entity, new GuardPoint { Position = pos, Has = 1 });
                     TransientState.Clear<UserMoveOrder>(em, ecb, entity);
                     TransientState.Clear<AttackMoveTag>(em, ecb, entity);
                     // Only for a unit travelling ALONE. While it is still a
@@ -577,13 +573,26 @@ namespace TheWaningBorder.Systems.Navigation
                                 }
                             }
 
-                            if (!escaped)
+                            if (!escaped && em.HasComponent<FormationMemberState>(entity))
+                            {
+                                // A FORMATION MEMBER DOES NOT ABANDON ITS ORDER
+                                // HERE. Clearing Has made FormationGroupSystem's
+                                // prune read the member as "settled" and detach
+                                // it mid-march, leaving it parked against the
+                                // blocker with no order at all. The group owns a
+                                // member's progress: its spot steering (with the
+                                // goal-flow fallback when the spot is out of
+                                // sight) routes it round, and the tether fuse
+                                // drops it if it stays wedged - at which point it
+                                // is a loose unit and this give-up applies.
+                                ecb.SetComponent(entity, new StuckState { Counter = 0, LastAttempt = 0 });
+                            }
+                            else if (!escaped)
                             {
                                 dd.ValueRW.Has = 0;
                                 TransientState.Clear<UserMoveOrder>(em, ecb, entity);
                                 TransientState.Clear<AttackMoveTag>(em, ecb, entity);
-                                if (!em.HasComponent<FormationMemberState>(entity)
-                                    && em.HasComponent<FormationSpeedOverride>(entity))
+                                if (em.HasComponent<FormationSpeedOverride>(entity))
                                     ecb.RemoveComponent<FormationSpeedOverride>(entity);
                                 ecb.SetComponent(entity, new StuckState { Counter = 0, LastAttempt = 0 });
 
@@ -684,6 +693,7 @@ namespace TheWaningBorder.Systems.Navigation
             float3 goal, float3 pos, Entity self, float myDist)
         {
             if (!hash.Map.IsCreated) return false;
+            uint myKey = FormationKinKey(em, self);
 
             NavSpatialHash.WorldToCell(in goal, hash.CellSize, out int cx, out int cz);
             for (int dz = -1; dz <= 1; dz++)
@@ -696,6 +706,14 @@ namespace TheWaningBorder.Systems.Navigation
                     {
                         if (other == self) continue;
                         if (!em.HasComponent<LocalTransform>(other)) continue;
+                        // A formation-mate does not block us: steering exempts
+                        // units of the same formation order from pushing each
+                        // other (SteeringSystem), so we can walk right up to a
+                        // slot a mate is standing beside. Counting it would let
+                        // a member released by the settle timeout call itself
+                        // arrived up to 2 m off its slot, which is the "out of
+                        // formation on arrival" the tight window exists to stop.
+                        if (myKey != 0 && FormationKinKey(em, other) == myKey) continue;
                         // A corpse mid-death-animation is about to stop
                         // occupying the point; don't settle behind it.
                         if (TransientState.Active<DeathAnimationState>(em, other)) continue;
@@ -727,6 +745,17 @@ namespace TheWaningBorder.Systems.Navigation
                 }
             }
             return false;
+        }
+
+        /// <summary>The unit's remembered formation-order key
+        /// (FormationSlotMemory.GroupKey), or 0 when it has none or is chasing
+        /// a target. Mirrors SteeringSystem's push-exemption key exactly.</summary>
+        private static uint FormationKinKey(EntityManager em, Entity e)
+        {
+            if (!TransientState.Active<FormationSlotMemory>(em, e)) return 0;
+            if (em.HasComponent<Target>(e) && em.GetComponentData<Target>(e).Value != Entity.Null)
+                return 0;
+            return em.GetComponentData<FormationSlotMemory>(e).GroupKey;
         }
 
         /// <summary>

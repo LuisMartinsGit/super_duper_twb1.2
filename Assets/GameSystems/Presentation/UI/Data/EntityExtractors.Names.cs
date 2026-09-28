@@ -221,10 +221,19 @@ namespace TheWaningBorder.UI.Data
                 // A module carrying an engine is named for the engine: that
                 // is what the player built and what they are looking at.
                 if (em.HasComponent<EmplacementTag>(entity))
-                    return em.HasComponent<EmplacementCrew>(entity)
+                {
+                    string mountName = em.HasComponent<EmplacementCrew>(entity)
                            && em.GetComponentData<EmplacementCrew>(entity).EngineId
                               == TheWaningBorder.Entities.EmplacedTrebuchet.Id
                         ? "Wall Trebuchet" : "Wall Ballista";
+                    // Engine destroyed: the platform stands empty until its
+                    // owner buys Replace Equipment.
+                    if (TheWaningBorder.Entities.EmplacementEquipment.IsRestoring(em, entity))
+                        return mountName + " (restoring)";
+                    if (TheWaningBorder.Entities.EmplacementEquipment.IsEmpty(em, entity))
+                        return mountName + " (empty)";
+                    return mountName;
+                }
                 if (em.HasComponent<WallHubTag>(entity)) return wallName + " Hub";
                 if (em.HasComponent<WallTowerTag>(entity)) return "Wall Tower";
                 if (em.HasComponent<WallGateTag>(entity)) return wallName + " Gate";

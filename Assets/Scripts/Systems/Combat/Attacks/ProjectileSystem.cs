@@ -79,10 +79,28 @@ namespace TheWaningBorder.Systems.Combat
             // that was 60 full entity-list copies per frame. Now we copy once
             // at the top of OnUpdate and every piercing bolt shares the
             // snapshots.
-            using var pierceEntities   = _aoeTargetQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
-            using var pierceTransforms = _aoeTargetQuery.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
-            using var pierceFactions   = _aoeTargetQuery.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
-            using var pierceHealth     = _aoeTargetQuery.ToComponentDataArray<Health>(Unity.Collections.Allocator.Temp);
+            //
+            // And ONLY when a piercing bolt is in flight at all (2026-09-25):
+            // the four-array copy of every damageable entity ran every frame
+            // with no bolt anywhere. Taken at the same point as before when
+            // one exists, so the Health values it carries are unchanged.
+            var piercingQuery = SystemAPI.QueryBuilder()
+                .WithAll<PiercingProjectile, ArrowProjectile, Projectile, LocalTransform>()
+                .Build();
+            bool anyPiercing = !piercingQuery.IsEmpty;
+            using var pierceEntities   = anyPiercing ? _aoeTargetQuery.ToEntityArray(Allocator.Temp) : new NativeArray<Entity>(0, Allocator.Temp);
+            using var pierceTransforms = anyPiercing ? _aoeTargetQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp) : new NativeArray<LocalTransform>(0, Allocator.Temp);
+            using var pierceFactions   = anyPiercing ? _aoeTargetQuery.ToComponentDataArray<FactionTag>(Allocator.Temp) : new NativeArray<FactionTag>(0, Allocator.Temp);
+            using var pierceHealth     = anyPiercing ? _aoeTargetQuery.ToComponentDataArray<Health>(Allocator.Temp) : new NativeArray<Health>(0, Allocator.Temp);
+
+            // Splash snapshot, taken lazily at the FIRST impact and shared by
+            // every impact of the frame (2026-09-25). Entities, positions and
+            // factions of the splash set cannot change inside this loop — no
+            // structural change happens here (ECB only), projectiles are not
+            // in the set, and Health, the one thing that does change, is read
+            // live per victim. So one copy answers exactly what a copy per
+            // impact did.
+            var aoeSnap = new AoeSnapshot();
 
             foreach (var (transform, arrow, projectile, entity)
                      in SystemAPI.Query<RefRW<LocalTransform>, RefRW<ArrowProjectile>, RefRW<Projectile>>()
@@ -300,13 +318,23 @@ namespace TheWaningBorder.Systems.Combat
                     // AOE splash damage on impact
                     if (em.HasComponent<AOEProjectile>(entity))
                     {
+                        if (!aoeSnap.Taken)
+                        {
+                            aoeSnap.Entities = _aoeTargetQuery.ToEntityArray(Allocator.Temp);
+                            aoeSnap.Transforms = _aoeTargetQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+                            aoeSnap.Factions = _aoeTargetQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+                            aoeSnap.Taken = true;
+                        }
                         ApplyAOEDamage(em, ecb, proj, em.GetComponentData<AOEProjectile>(entity),
-                            trans.Position, arrow.ValueRO.Shooter);
+                            trans.Position, arrow.ValueRO.Shooter,
+                            aoeSnap.Entities, aoeSnap.Transforms, aoeSnap.Factions);
                     }
 
                     ecb.DestroyEntity(entity);
                 }
             }
+
+            aoeSnap.Dispose();
         }
 
         /// <summary>
@@ -332,11 +360,24 @@ namespace TheWaningBorder.Systems.Combat
             {
                 FeraldisIgnition.TryIgnite(em, ecb,
                     em.GetComponentData<IgnitesBlood>(projectileEntity),
-                    em.GetComponentData<LocalTransform>(targetEntity).Position);
+                    em.GetComponentData<LocalTransform>(targetEntity).Position,
+                    proj.Faction); // kill credit only — the fire is ownerless
             }
 
             if (!targetIsAlive) return;
             if (!em.HasComponent<Health>(targetEntity)) return;
+
+            // The Wall Rule, enforced where the damage LANDS: only siege hurts
+            // a wall piece — no chip, no on-hit riders. Hall / tower / Keep
+            // arrows were reaching walls because BuildingCombatSystem never
+            // filtered them (2026-09-26). docs/Design/Combat_Pacing.md
+            if (CombatDamageHelper.WallRuleBlocks(em, targetEntity, proj.DmgType)) return;
+
+            // Fix #211: skip damage application if the target is Invulnerable.
+            // BEFORE the on-hit riders: an Invulnerable target used to take
+            // the Axe Thrower's bleed here and walk out of LockdownVault
+            // already bleeding (docs/Design/Fire.md, DOT contract).
+            if (em.HasComponent<Invulnerable>(targetEntity)) return;
 
             // Feraldis on-hit riders carried by the shot (Axe Thrower bleed,
             // Firethrower blood ignition). No-op for every other projectile.
@@ -352,9 +393,6 @@ namespace TheWaningBorder.Systems.Combat
                 // shot is the killing blow, so it lives before the liveness
                 // gate rather than here.
             }
-
-            // Fix #211: skip damage application if the target is Invulnerable.
-            if (em.HasComponent<Invulnerable>(targetEntity)) return;
 
             int baseDamage = proj.Damage;
             DamageType dmgType = proj.DmgType;
@@ -418,8 +456,9 @@ namespace TheWaningBorder.Systems.Combat
 
             // Ability: scale total incoming damage (Liquid Courage 90% DR) before HP.
             int appliedDamage = TheWaningBorder.Abilities.AbilityDamageHooks.ScaleIncoming(em, targetEntity, impactDamage);
+            // Shield points are hit points: the shield pays first.
             var targetHealth = em.GetComponentData<Health>(targetEntity);
-            targetHealth.Value -= appliedDamage;
+            targetHealth.Value -= ShieldDamage.Absorb(em, targetEntity, appliedDamage);
             if (targetHealth.Value <= 0) targetHealth.Value = 0;
             em.SetComponentData(targetEntity, targetHealth);
 
@@ -473,12 +512,27 @@ namespace TheWaningBorder.Systems.Combat
         /// Apply AOE splash damage to all enemies within radius of impact point.
         /// Skips the primary target (already damaged by ApplyDamage).
         /// </summary>
-        private void ApplyAOEDamage(EntityManager em, EntityCommandBuffer ecb, in Projectile proj,
-            in AOEProjectile aoe, float3 impactPos, Entity shooter)
+        private struct AoeSnapshot
         {
-            using var entities = _aoeTargetQuery.ToEntityArray(Allocator.Temp);
-            using var transforms = _aoeTargetQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            using var factions = _aoeTargetQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            public bool Taken;
+            public NativeArray<Entity> Entities;
+            public NativeArray<LocalTransform> Transforms;
+            public NativeArray<FactionTag> Factions;
+
+            public void Dispose()
+            {
+                if (!Taken) return;
+                Entities.Dispose();
+                Transforms.Dispose();
+                Factions.Dispose();
+            }
+        }
+
+        private static void ApplyAOEDamage(EntityManager em, EntityCommandBuffer ecb, in Projectile proj,
+            in AOEProjectile aoe, float3 impactPos, Entity shooter,
+            NativeArray<Entity> entities, NativeArray<LocalTransform> transforms,
+            NativeArray<FactionTag> factions)
+        {
 
             float radiusSq = aoe.Radius * aoe.Radius;
 
@@ -498,6 +552,9 @@ namespace TheWaningBorder.Systems.Combat
                 // LockdownVault target inside the splash radius still took damage.
                 // (task-062 C-4)
                 if (em.HasComponent<Invulnerable>(entities[i])) continue;
+
+                // The Wall Rule: non-siege splash passes over wall pieces.
+                if (CombatDamageHelper.WallRuleBlocks(em, entities[i], proj.DmgType)) continue;
 
                 // Check health > 0
                 var hp = em.GetComponentData<Health>(entities[i]);
@@ -537,7 +594,7 @@ namespace TheWaningBorder.Systems.Combat
                 }
                 splashDmg = TheWaningBorder.Abilities.AbilityDamageHooks.ScaleIncoming(em, entities[i], splashDmg);
 
-                hp.Value = math.max(0, hp.Value - splashDmg);
+                hp.Value = math.max(0, hp.Value - ShieldDamage.Absorb(em, entities[i], splashDmg));
                 em.SetComponentData(entities[i], hp);
 
                 // Match-long damage ledger — Wrath's Spite pools this and pays

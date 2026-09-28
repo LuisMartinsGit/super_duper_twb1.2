@@ -26,10 +26,43 @@ namespace TheWaningBorder.Rendering
         static readonly List<Vector3> _norms = new List<Vector3>();
         static readonly List<Vector2> _uvs = new List<Vector2>();
         static readonly List<List<int>> _subs = new List<List<int>>();
+        // A module piece's source arrays, read ONCE per (mesh, sub-mesh) —
+        // Append used to pull vertices, normals, UVs and triangles out of the
+        // source mesh for every piece of every copy of every rebuild. Module
+        // meshes are imported assets and never change at runtime.
+        sealed class SourcePiece
+        {
+            public Vector3[] Verts;
+            public Vector3[] Norms;   // null when the source has none
+            public Vector2[] Uvs;     // null when the source has none
+            public int[] Tris;
+        }
+        static readonly Dictionary<(Mesh, int), SourcePiece> _sources = new Dictionary<(Mesh, int), SourcePiece>();
         static readonly List<Vector3> _srcVerts = new List<Vector3>();
         static readonly List<Vector3> _srcNorms = new List<Vector3>();
         static readonly List<Vector2> _srcUvs = new List<Vector2>();
         static readonly List<int> _srcTris = new List<int>();
+        // Cells by arc length, for the per-copy nearest-cell lookup.
+        static readonly List<int> _cellOrder = new List<int>();
+
+        static SourcePiece SourceOf(Mesh mesh, int subMesh)
+        {
+            if (_sources.TryGetValue((mesh, subMesh), out var sp) && sp != null) return sp;
+            if (_sources.Count > 512) _sources.Clear();   // art swapped out wholesale
+            mesh.GetVertices(_srcVerts);
+            mesh.GetNormals(_srcNorms);
+            mesh.GetUVs(0, _srcUvs);
+            mesh.GetTriangles(_srcTris, subMesh);
+            sp = new SourcePiece
+            {
+                Verts = _srcVerts.ToArray(),
+                Norms = _srcNorms.Count == _srcVerts.Count ? _srcNorms.ToArray() : null,
+                Uvs = _srcUvs.Count == _srcVerts.Count ? _srcUvs.ToArray() : null,
+                Tris = _srcTris.ToArray(),
+            };
+            _sources[(mesh, subMesh)] = sp;
+            return sp;
+        }
 
         /// <summary>
         /// Build the segment's mesh from <paramref name="art"/>.
@@ -75,11 +108,12 @@ namespace TheWaningBorder.Rendering
 
             var toLocal = worldToLocal ?? Matrix4x4.identity;
             int cellCount = cellArcs != null ? cellArcs.Count : 0;
+            if (cellCount > 0) SortCellsByArc(cellArcs);
 
             for (int c = 0; c < copies; c++)
             {
                 float sAt = s0 + pitch * (c + 0.5f);
-                if (cellCount > 0 && cellSolid != null && !cellSolid(NearestCell(cellArcs, sAt))) continue;
+                if (cellCount > 0 && cellSolid != null && !cellSolid(NearestCellSorted(cellArcs, sAt))) continue;
 
                 float3 p = TheWaningBorder.Entities.AlanthorWall.SampleCurve(curve, cum, sAt, out float3 tan);
                 var pos = new Vector3(p.x, TerrainUtility.GetHeight(p.x, p.z), p.z);
@@ -109,23 +143,68 @@ namespace TheWaningBorder.Rendering
 
         static void Append(in WallModuleArt.Piece piece, Matrix4x4 m, List<int> tris)
         {
-            var src = piece.Mesh;
-            src.GetVertices(_srcVerts);
-            src.GetNormals(_srcNorms);
-            src.GetUVs(0, _srcUvs);
-            src.GetTriangles(_srcTris, piece.SubMesh);
-            if (_srcTris.Count == 0) return;
+            if (piece.Mesh == null) return;
+            var src = SourceOf(piece.Mesh, piece.SubMesh);
+            if (src.Tris.Length == 0) return;
 
             int baseIndex = _verts.Count;
-            bool haveNormals = _srcNorms.Count == _srcVerts.Count;
-            bool haveUvs = _srcUvs.Count == _srcVerts.Count;
-            for (int i = 0; i < _srcVerts.Count; i++)
+            var verts = src.Verts; var norms = src.Norms; var uvs = src.Uvs;
+            for (int i = 0; i < verts.Length; i++)
             {
-                _verts.Add(m.MultiplyPoint3x4(_srcVerts[i]));
-                _norms.Add(haveNormals ? m.MultiplyVector(_srcNorms[i]).normalized : Vector3.up);
-                _uvs.Add(haveUvs ? _srcUvs[i] : Vector2.zero);
+                _verts.Add(m.MultiplyPoint3x4(verts[i]));
+                _norms.Add(norms != null ? m.MultiplyVector(norms[i]).normalized : Vector3.up);
+                _uvs.Add(uvs != null ? uvs[i] : Vector2.zero);
             }
-            for (int i = 0; i < _srcTris.Count; i++) tris.Add(baseIndex + _srcTris[i]);
+            var srcTris = src.Tris;
+            for (int i = 0; i < srcTris.Length; i++) tris.Add(baseIndex + srcTris[i]);
+        }
+
+        static IReadOnlyList<float> _sortArcs;
+        static readonly System.Comparison<int> _byArc = (a, b) =>
+        {
+            int c = _sortArcs[a].CompareTo(_sortArcs[b]);
+            return c != 0 ? c : a.CompareTo(b);
+        };
+
+        static void SortCellsByArc(IReadOnlyList<float> arcs)
+        {
+            _cellOrder.Clear();
+            for (int i = 0; i < arcs.Count; i++) _cellOrder.Add(i);
+            _sortArcs = arcs;
+            _cellOrder.Sort(_byArc);
+            _sortArcs = null;
+        }
+
+        /// <summary><see cref="NearestCell"/> by binary search over the
+        /// arc-sorted cells: the nearer of the two cells either side of
+        /// <paramref name="s"/>, lowest index on a tie — the same pick as the
+        /// linear scan.</summary>
+        static int NearestCellSorted(IReadOnlyList<float> arcs, float s)
+        {
+            int n = _cellOrder.Count;
+            int lo = 0, hi = n;                       // first position with arc >= s
+            while (lo < hi)
+            {
+                int mid = (lo + hi) >> 1;
+                if (arcs[_cellOrder[mid]] < s) lo = mid + 1; else hi = mid;
+            }
+            int best = -1; float bestD = float.MaxValue;
+            if (lo < n)
+            {
+                best = _cellOrder[lo];               // lowest index of its arc value
+                bestD = math.abs(arcs[best] - s);
+            }
+            if (lo > 0)
+            {
+                // Lowest index among the cells sharing the value just below s.
+                int k = lo - 1;
+                float v = arcs[_cellOrder[k]];
+                while (k > 0 && arcs[_cellOrder[k - 1]] == v) k--;
+                int cand = _cellOrder[k];
+                float d = math.abs(v - s);
+                if (d < bestD || (d == bestD && cand < best)) { best = cand; bestD = d; }
+            }
+            return best < 0 ? 0 : best;
         }
 
         /// <summary>Index of the cell whose arc position is nearest <paramref name="s"/>.</summary>

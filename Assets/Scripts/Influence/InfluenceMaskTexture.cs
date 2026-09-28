@@ -131,7 +131,6 @@ namespace TheWaningBorder.Influence
         // an ease glide is still in flight; a quiet map costs two compares.
         private int _lastInfVersion = int.MinValue;
         private int _lastBloodVersion = int.MinValue;
-        private bool _settled;
 
         private readonly System.Collections.Generic.List<int> _alanthorChannels = new();
         private readonly System.Collections.Generic.List<int> _feraldisChannels = new();
@@ -203,34 +202,169 @@ namespace TheWaningBorder.Influence
             // bake just landed. The 2026-08-16 instrumentation measured these
             // passes + a texture upload on MOST frames; now a static map
             // costs two integer compares.
-            bool inputsMoved = _lastInfVersion != PlayerInfluenceMap.DataVersion
-                            || _lastBloodVersion != BloodMap.DataVersion
-                            || regionEdgesJustBaked || _snapFirstFrame;
-            if (!inputsMoved && _settled) return;
+            //
+            // SPLIT (2026-09-27): blood and culture are two independent
+            // halves. Late game, blood decays on almost every frame, and that
+            // used to re-run the whole culture fill + frontier seam + two
+            // curse-halo dilations + the culture upload (6-9 ms) for a texture
+            // whose inputs had not moved. Now:
+            //   - blood moving runs ONLY the blood channel;
+            //   - the culture TARGETS (fill, owner, frontier, dilated curse)
+            //     are rebuilt only when their sources change - the influence
+            //     version, the region bake, or the per-territory verdict;
+            //   - an ease glide in flight only steps eased values toward the
+            //     cached targets, skipping cells already at target.
+            // The targets are pure functions of those sources and the ease
+            // arithmetic is unchanged, so the pixels are byte-identical.
+            bool infMoved = _lastInfVersion != PlayerInfluenceMap.DataVersion;
+            bool bloodMoved = _lastBloodVersion != BloodMap.DataVersion;
+            bool inputsMoved = infMoved || bloodMoved || regionEdgesJustBaked || _snapFirstFrame;
+            if (!inputsMoved && _cultureSettled && _bloodSettled) return;
             _lastInfVersion = PlayerInfluenceMap.DataVersion;
             _lastBloodVersion = BloodMap.DataVersion;
 
             double perfT0 = Time.realtimeSinceStartupAsDouble;
 
-            RefreshCultureChannels();
-
             // First frame snaps to targets so established territory shows
             // instantly instead of fading in from a clean map.
             float step = _snapFirstFrame ? float.MaxValue : EasePerSecond * Time.deltaTime;
+
+            // ── Culture half ─────────────────────────────────────────────
+            // The territory verdict is re-resolved on every pass (a per-REGION
+            // loop, not per cell) because culture completion and ownership can
+            // move without the influence version moving; the old monolithic
+            // pass picked those up whenever anything ran, and the signature
+            // compare keeps exactly that behaviour.
+            RefreshCultureChannels();
+            bool byTerritory = ResolveTerritories();
+            bool signatureChanged = UpdateCultureSignature(byTerritory);
+            bool targetsChanged = !_targetsValid || infMoved || regionEdgesJustBaked
+                                  || _snapFirstFrame || signatureChanged;
+            if (targetsChanged)
+            {
+                RebuildCultureTargets(byTerritory);
+                _targetsValid = true;
+            }
+
             bool cultureDirty = _snapFirstFrame;
+            if (targetsChanged || !_cultureSettled)
+            {
+                cultureDirty |= EaseCulture(step, rewriteAll: targetsChanged);
+                _cultureSettled = !cultureDirty;
+            }
+
+            // ── Blood half ───────────────────────────────────────────────
             // A fresh region bake writes .g on every texel, so the blood
             // texture must be re-uploaded even when no blood moved.
             bool bloodDirty = _snapFirstFrame || regionEdgesJustBaked;
+            if (bloodMoved || regionEdgesJustBaked || _snapFirstFrame || !_bloodSettled)
+            {
+                for (int y = 0; y < Res; y++)
+                {
+                    int row = y * Res;
+                    for (int x = 0; x < Res; x++)
+                    {
+                        int i = row + x;
+                        int e = i * 5 + 4;
+                        float b = Ramp(BloodMap.CellValue(x, y), BloodStart, BloodFull);
+                        if (_eased[e] == b) continue; // Ease would be a no-op
+                        bloodDirty |= Ease(ref _eased[e], b, step);
+                        _bloodPixels[i].r = (byte)(_eased[e] * 255f);
+                    }
+                }
+                _bloodSettled = !bloodDirty;
+            }
 
-            bool byTerritory = ResolveTerritories();
+            // Idle maps upload nothing.
+            if (cultureDirty)
+            {
+                _cultureTex.SetPixels32(_culturePixels);
+                _cultureTex.Apply(false, false);
+            }
+            if (bloodDirty)
+            {
+                _bloodTex.SetPixels32(_bloodPixels);
+                _bloodTex.Apply(false, false);
+            }
+            _snapFirstFrame = false;
 
+            TheWaningBorder.Core.Diagnostics.PerfSpikeLog.Report("InfluenceMask",
+                (Time.realtimeSinceStartupAsDouble - perfT0) * 1000.0);
+        }
+
+        // ── Cached culture targets (2026-09-27 split) ─────────────────────
+        // 4 per cell: Alanthor, Feraldis, Runai, dilated curse halo.
+        private float[] _targets;
+        private bool _targetsValid;
+        private bool _cultureSettled;
+        private bool _bloodSettled;
+        // Last-seen target inputs that carry no version of their own: the
+        // per-territory verdict and the faction -> culture channel map.
+        private byte[] _sigCulture = System.Array.Empty<byte>();
+        private sbyte[] _sigOwner = System.Array.Empty<sbyte>();
+        private bool[] _sigCursed = System.Array.Empty<bool>();
+        private readonly byte[] _sigChannelCulture = new byte[PlayerInfluenceMap.PlayerChannels];
+        private bool _sigByTerritory;
+
+        /// <summary>True when an unversioned target input changed since the
+        /// last call (and records the new state).</summary>
+        private bool UpdateCultureSignature(bool byTerritory)
+        {
+            bool changed = byTerritory != _sigByTerritory;
+            _sigByTerritory = byTerritory;
+
+            if (byTerritory)
+            {
+                int n = _territoryCulture.Length;
+                if (_sigCulture.Length != n)
+                {
+                    _sigCulture = new byte[n];
+                    _sigOwner = new sbyte[n];
+                    _sigCursed = new bool[n];
+                    changed = true;
+                }
+                for (int t = 0; t < n; t++)
+                {
+                    if (_sigCulture[t] != _territoryCulture[t]
+                        || _sigOwner[t] != _territoryOwner[t]
+                        || _sigCursed[t] != _territoryCursed[t])
+                    {
+                        changed = true;
+                        _sigCulture[t] = _territoryCulture[t];
+                        _sigOwner[t] = _territoryOwner[t];
+                        _sigCursed[t] = _territoryCursed[t];
+                    }
+                }
+            }
+            else
+            {
+                // The fallback path reads the influence field per culture
+                // channel, so the faction -> culture map is its unversioned input.
+                for (int f = 0; f < _sigChannelCulture.Length; f++)
+                {
+                    byte c = FactionColors.GetFactionCulture((Faction)f);
+                    if (_sigChannelCulture[f] != c)
+                    {
+                        changed = true;
+                        _sigChannelCulture[f] = c;
+                    }
+                }
+            }
+            return changed;
+        }
+
+        /// <summary>Rebuild the per-cell culture targets, the owner/frontier
+        /// seam and the dilated curse halo from the current inputs. Identical
+        /// arithmetic to the pre-split monolithic pass.</summary>
+        private void RebuildCultureTargets(bool byTerritory)
+        {
             for (int y = 0; y < Res; y++)
             {
                 int row = y * Res;
                 for (int x = 0; x < Res; x++)
                 {
                     int i = row + x;
-                    int e = i * 5;
+                    int t4 = i * 4;
 
                     float a, f, r;
                     int owner;
@@ -281,17 +415,9 @@ namespace TheWaningBorder.Influence
                     }
 
                     _owner[i] = (sbyte)owner;
-                    float b = Ramp(BloodMap.CellValue(x, y), BloodStart, BloodFull);
-
-                    cultureDirty |= Ease(ref _eased[e + 0], a, step);
-                    cultureDirty |= Ease(ref _eased[e + 1], f, step);
-                    cultureDirty |= Ease(ref _eased[e + 2], r, step);
-                    bloodDirty   |= Ease(ref _eased[e + 4], b, step);
-
-                    _culturePixels[i].r = (byte)(_eased[e + 0] * 255f);
-                    _culturePixels[i].g = (byte)(_eased[e + 1] * 255f);
-                    _culturePixels[i].b = (byte)(_eased[e + 2] * 255f);
-                    _bloodPixels[i].r = (byte)(_eased[e + 4] * 255f);
+                    _targets[t4 + 0] = a;
+                    _targets[t4 + 1] = f;
+                    _targets[t4 + 2] = r;
                 }
             }
 
@@ -324,19 +450,6 @@ namespace TheWaningBorder.Influence
                     }
                     _frontier[i] = edge;
                 }
-            }
-
-            for (int i = 0; i < _frontier.Length; i++)
-            {
-                if (!_frontier[i]) continue;
-                _culturePixels[i].r = (byte)(_culturePixels[i].r * FrontierFill);
-                _culturePixels[i].g = (byte)(_culturePixels[i].g * FrontierFill);
-                _culturePixels[i].b = (byte)(_culturePixels[i].b * FrontierFill);
-                // Deliberately NOT setting cultureDirty: the seam is a pure
-                // function of the eased data already uploaded, so a pass in
-                // which nothing eased writes byte-identical pixels — marking
-                // dirty here forced an upload on every pass with any live
-                // frontier, and kept the version-gated mask from settling.
             }
 
             // ── Curse halo: separable max-dilate with linear falloff, so the
@@ -373,31 +486,53 @@ namespace TheWaningBorder.Influence
                         float v = _curseTmp[sy * Res + x] * w;
                         if (v > best) best = v;
                     }
-                    int i = row + x;
-                    cultureDirty |= Ease(ref _eased[i * 5 + 3], best, step);
-                    _culturePixels[i].a = (byte)(_eased[i * 5 + 3] * 255f);
+                    _targets[(row + x) * 4 + 3] = best;
                 }
             }
+        }
 
-            // Idle maps upload nothing.
-            if (cultureDirty)
+        /// <summary>Step the four culture channels toward the cached targets
+        /// and write the culture pixels (frontier seam applied). With
+        /// <paramref name="rewriteAll"/> false, cells already at target are
+        /// skipped — their pixels were written when they got there and nothing
+        /// that feeds them (targets, frontier) has changed since.</summary>
+        private bool EaseCulture(float step, bool rewriteAll)
+        {
+            bool dirty = false;
+            int cells = Res * Res;
+            for (int i = 0; i < cells; i++)
             {
-                _cultureTex.SetPixels32(_culturePixels);
-                _cultureTex.Apply(false, false);
-            }
-            if (bloodDirty)
-            {
-                _bloodTex.SetPixels32(_bloodPixels);
-                _bloodTex.Apply(false, false);
-            }
-            _snapFirstFrame = false;
+                int e = i * 5;
+                int t4 = i * 4;
+                if (!rewriteAll
+                    && _eased[e + 0] == _targets[t4 + 0]
+                    && _eased[e + 1] == _targets[t4 + 1]
+                    && _eased[e + 2] == _targets[t4 + 2]
+                    && _eased[e + 3] == _targets[t4 + 3])
+                    continue;
 
-            // Nothing eased this pass — the mask has caught up with its
-            // inputs and can sleep until a version moves again.
-            _settled = !cultureDirty && !bloodDirty;
+                dirty |= Ease(ref _eased[e + 0], _targets[t4 + 0], step);
+                dirty |= Ease(ref _eased[e + 1], _targets[t4 + 1], step);
+                dirty |= Ease(ref _eased[e + 2], _targets[t4 + 2], step);
+                dirty |= Ease(ref _eased[e + 3], _targets[t4 + 3], step);
 
-            TheWaningBorder.Core.Diagnostics.PerfSpikeLog.Report("InfluenceMask",
-                (Time.realtimeSinceStartupAsDouble - perfT0) * 1000.0);
+                byte pr = (byte)(_eased[e + 0] * 255f);
+                byte pg = (byte)(_eased[e + 1] * 255f);
+                byte pb = (byte)(_eased[e + 2] * 255f);
+                if (_frontier[i])
+                {
+                    // Deliberately does not mark dirty on its own: the seam is
+                    // a pure function of the eased data already uploaded.
+                    pr = (byte)(pr * FrontierFill);
+                    pg = (byte)(pg * FrontierFill);
+                    pb = (byte)(pb * FrontierFill);
+                }
+                _culturePixels[i].r = pr;
+                _culturePixels[i].g = pg;
+                _culturePixels[i].b = pb;
+                _culturePixels[i].a = (byte)(_eased[e + 3] * 255f);
+            }
+            return dirty;
         }
 
         /// <summary>
@@ -411,6 +546,8 @@ namespace TheWaningBorder.Influence
         /// the curse holds whole territories exactly like a player, so the
         /// ground reads cursed precisely where the ownership says Curse.
         /// </summary>
+        private byte[] _cultureByFaction;
+
         private bool ResolveTerritories()
         {
             if (!_regionEdgesBaked || _regionCellIndex == null) return false;
@@ -433,6 +570,10 @@ namespace TheWaningBorder.Influence
             if (!TheWaningBorder.World.Regions.TerritoryOwnership.Ready)
                 TheWaningBorder.World.Regions.TerritoryOwnership.Recompute(em);
 
+            // One Hall snapshot per pass, not two per territory.
+            if (_cultureByFaction == null) _cultureByFaction = new byte[8];
+            CultureConfig.GetCompletedCultures(em, _cultureByFaction);
+
             for (int t = 0; t < regions; t++)
             {
                 int owner = TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(t);
@@ -440,8 +581,7 @@ namespace TheWaningBorder.Influence
                 // COMPLETED culture only: the ground must not change the instant
                 // the age-up research is queued.
                 _territoryCulture[t] = _territoryOwner[t] >= 0
-                    ? CultureConfig.GetCompletedCulture(
-                          em, (Faction)_territoryOwner[t])
+                    ? _cultureByFaction[_territoryOwner[t]]
                     : Cultures.None;
                 // Ownership IS the curse verdict now — no coverage counting.
                 _territoryCursed[t] =
@@ -545,6 +685,8 @@ namespace TheWaningBorder.Influence
             _frontier = new bool[Res * Res];
             _curseRaw = new float[Res * Res];
             _curseTmp = new float[Res * Res];
+            _targets = new float[Res * Res * 4];
+            _targetsValid = false;
             _snapFirstFrame = true;
 
             // A fresh Texture2D's contents are UNDEFINED until the first

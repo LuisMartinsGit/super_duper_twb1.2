@@ -164,16 +164,18 @@ namespace TheWaningBorder.Systems.Border
                 if (killerCulture == Cultures.Feraldis && !isSecondary)
                 {
                     SpawnFinalBorderWave(dyingPositions[i], killer, node);
-
-                    // Curse & Shardroot canon §2.3 (THE VEIL): no discrete
-                    // shard-field drop — the dead well's crust now lingers
-                    // (slow decay in VeilFieldSystem) as an UNDEFENDED
-                    // minable loot field, Feraldis' burst income. Plus the
-                    // Shardroot if this was the seeded host well.
-                    ShardrootSystem.TryAward(EntityManager, node,
-                        dyingPositions[i], RitualKind.ViolentExtraction);
                     TWBLog.Log($"[ViolentExtraction] well destroyed by {killer} (Feraldis) — final wave; its crust lingers as an undefended loot field");
                 }
+
+                // The Shardroot if this was the seeded host well -- whoever
+                // broke it (2026-09-26). Gating this on a Feraldis killer
+                // stranded the artifact inside the husk whenever anyone else
+                // landed the blow (a tower, a tie-broken attribution, a
+                // Border-credited death): the vessel broke, so the artifact
+                // drops, exactly as it does from a detonated holder (§3.1).
+                // TryAward itself checks that this is the host.
+                ShardrootSystem.TryAward(EntityManager, node,
+                    dyingPositions[i], RitualKind.ViolentExtraction);
             }
 
             if (hasVictoryState)

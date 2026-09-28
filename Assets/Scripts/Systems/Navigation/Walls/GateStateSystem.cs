@@ -89,6 +89,16 @@ namespace TheWaningBorder.Systems.Navigation
             using var unitFactions = _unitQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var unitTransforms = _unitQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
+            // Bucket the units on a grid one detect-radius wide, so each gate
+            // tests only the 3x3 cells around it instead of every unit on the
+            // map. "Is any ally within r" is order-independent, and every
+            // unit within r of the gate lies in those nine cells, so the
+            // answer is exactly the full scan's.
+            var buckets = new NativeParallelMultiHashMap<int2, int>(
+                math.max(16, unitTransforms.Length), Allocator.Temp);
+            for (int u = 0; u < unitTransforms.Length; u++)
+                buckets.Add(BucketOf(unitTransforms[u].Position), u);
+
             // Snapshot gates -- sort by entity.Index so flips happen in a
             // deterministic order across machines (DR-9 + DR ordering row).
             using var gateEntities = _gateQuery.ToEntityArray(Allocator.Temp);
@@ -132,21 +142,27 @@ namespace TheWaningBorder.Systems.Navigation
                     && em.GetComponentData<WallGateLock>(gateEntity).Sealed != 0;
 
                 bool friendlyNearby = false;
-                for (int u = 0; u < unitFactions.Length && !sealedShut; u++)
+                int2 gc = BucketOf(gatePos);
+                for (int bz = -1; bz <= 1 && !friendlyNearby && !sealedShut; bz++)
+                for (int bx = -1; bx <= 1 && !friendlyNearby; bx++)
                 {
-                    // A gate opens for its TEAM. A wall that shuts your ally
-                    // out is worse than no wall — the wall still belongs to
-                    // its owner, but passage follows the alliance.
-                    // docs/Design/Teams.md
-                    if (!Alliances.AreAllied(gateFac, unitFactions[u].Value)) continue;
-                    var up = unitTransforms[u].Position;
-                    float dx = up.x - gatePos.x;
-                    float dz = up.z - gatePos.z;
-                    if (dx * dx + dz * dz <= radiusSq)
+                    if (!buckets.TryGetFirstValue(gc + new int2(bx, bz), out int u, out var it)) continue;
+                    do
                     {
-                        friendlyNearby = true;
-                        break;
-                    }
+                        // A gate opens for its TEAM. A wall that shuts your ally
+                        // out is worse than no wall — the wall still belongs to
+                        // its owner, but passage follows the alliance.
+                        // docs/Design/Teams.md
+                        if (!Alliances.AreAllied(gateFac, unitFactions[u].Value)) continue;
+                        var up = unitTransforms[u].Position;
+                        float dx = up.x - gatePos.x;
+                        float dz = up.z - gatePos.z;
+                        if (dx * dx + dz * dz <= radiusSq)
+                        {
+                            friendlyNearby = true;
+                            break;
+                        }
+                    } while (buckets.TryGetNextValue(out u, ref it));
                 }
 
                 byte nowOpen = friendlyNearby ? (byte)1 : (byte)0;
@@ -169,7 +185,14 @@ namespace TheWaningBorder.Systems.Navigation
             }
 
             order.Dispose();
+            buckets.Dispose();
         }
+
+        /// <summary>Unit bucket: cells <see cref="RegionDetectRadius"/> wide
+        /// (the larger detect radius), so any unit within either radius of a
+        /// gate sits in the gate's cell or one of its eight neighbours.</summary>
+        private static int2 BucketOf(float3 p)
+            => new int2((int)math.floor(p.x / RegionDetectRadius), (int)math.floor(p.z / RegionDetectRadius));
 
         /// <summary>
         /// task-112 M5 -- managed-side helper used by tests / debug
@@ -200,8 +223,9 @@ namespace TheWaningBorder.Systems.Navigation
             var w = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             if (w != null && w.IsCreated)
             {
-                var mirrorEntity = w.EntityManager.CreateEntityQuery(typeof(PortalOwnerBitsMirror))
-                    .GetSingletonEntity();
+                var entityQ = w.EntityManager.CreateEntityQuery(typeof(PortalOwnerBitsMirror));
+                var mirrorEntity = entityQ.GetSingletonEntity();
+                entityQ.Dispose();
                 w.EntityManager.SetComponentData(mirrorEntity, mirror);
             }
             return true;

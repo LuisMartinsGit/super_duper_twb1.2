@@ -126,7 +126,8 @@ namespace TheWaningBorder.AI
             // not a substitute for having one.
             if (AIEndgameCommon.FindFactionBuilding<BarracksTag>(em, faction) == Entity.Null) return;
 
-            if (!BuildCosts.TryGet(towerId, out var cost)) return;
+            if (!BuildCosts.Exists(towerId)) return;
+            var cost = BuildCosts.For(em, faction, towerId);
             if (!FactionEconomy.CanAfford(em, faction, cost)) return;
             if (AICommon.CountIdleBuilders(em, faction) == 0) return;
 

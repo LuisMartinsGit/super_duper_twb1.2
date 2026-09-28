@@ -104,9 +104,10 @@ public struct ShieldBar : IComponentData
     public int Max;
 
     /// <summary>
-    /// Health.Value snapshot from the previous frame. Used to detect new
-    /// damage and route it through the shield. Mirrors the stamp pattern
-    /// used by UnitRankSystem.
+    /// Health.Value as last observed by the shield. Damage routed through
+    /// ShieldDamage.Absorb keeps it in step; ShieldDamage.RefundUnobserved
+    /// treats any drop below it as a stray direct Health write and refunds
+    /// that drop out of the shield (the backstop).
     /// </summary>
     public int LastObservedHealth;
 

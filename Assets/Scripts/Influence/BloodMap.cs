@@ -37,9 +37,13 @@ namespace TheWaningBorder.Influence
 
         public static bool Ready { get; private set; }
 
-        /// <summary>Bumped by every write, so renderers can gate their blood
-        /// passes on "did anything actually move" instead of re-reading the
-        /// grid per frame (Regions.md §3b discipline, applied to blood too).</summary>
+        /// <summary>Bumped by every write that actually changed a cell, so
+        /// renderers can gate their blood passes on "did anything actually
+        /// move" instead of re-reading the grid per frame (Regions.md §3b
+        /// discipline, applied to blood too). A decay or drink over clean
+        /// ground changes nothing and bumps nothing — before 2026-09-25 the
+        /// half-second decay bumped it unconditionally, which re-ran the
+        /// mask texture's full 128² passes twice a second all match.</summary>
         public static int DataVersion { get; private set; }
 
         public static void Configure(Vector2 worldMin, Vector2 worldSize)
@@ -62,7 +66,7 @@ namespace TheWaningBorder.Influence
         public static void AddBlood(Vector3 worldPos, float amount)
         {
             if (!Ready || amount <= 0f) return;
-            DataVersion++;
+            bool changed = false;
 
             float cellW = _worldSize.x / Resolution;
             float cellH = _worldSize.y / Resolution;
@@ -87,9 +91,11 @@ namespace TheWaningBorder.Influence
 
                     int idx = y * Resolution + x;
                     float nv = _values[idx] + deposit * (1f - dist / SplatRadius);
-                    _values[idx] = nv > MaxValue ? MaxValue : nv;
+                    nv = nv > MaxValue ? MaxValue : nv;
+                    if (nv != _values[idx]) { _values[idx] = nv; changed = true; }
                 }
             }
+            if (changed) DataVersion++;
         }
 
         /// <summary>Slow uniform fade (legacy — see
@@ -97,14 +103,17 @@ namespace TheWaningBorder.Influence
         public static void Decay(float fraction, float linear)
         {
             if (!Ready) return;
-            DataVersion++;
+            bool changed = false;
             float keep = 1f - Mathf.Clamp01(fraction);
             var v = _values;
             for (int i = 0; i < v.Length; i++)
             {
+                if (v[i] <= 0f && linear >= 0f) continue;   // 0 stays 0: max(0, 0*keep - linear)
                 float x = v[i] * keep - linear;
-                v[i] = x > 0f ? x : 0f;
+                x = x > 0f ? x : 0f;
+                if (x != v[i]) { v[i] = x; changed = true; }
             }
+            if (changed) DataVersion++;
         }
 
         /// <summary>§2.5b rev.3 fade: blood inside ANY player influence
@@ -115,7 +124,7 @@ namespace TheWaningBorder.Influence
         public static void DecayInsideInfluence(float fraction, float linear, float threshold01)
         {
             if (!Ready) return;
-            DataVersion++;
+            bool changed = false;
             float keep = 1f - Mathf.Clamp01(fraction);
             var v = _values;
             for (int y = 0; y < Resolution; y++)
@@ -132,9 +141,11 @@ namespace TheWaningBorder.Influence
                     if (!covered) continue;
 
                     float nv = v[idx] * keep - linear;
-                    v[idx] = nv > 0f ? nv : 0f;
+                    nv = nv > 0f ? nv : 0f;
+                    if (nv != v[idx]) { v[idx] = nv; changed = true; }
                 }
             }
+            if (changed) DataVersion++;
         }
 
         /// <summary>Zero all blood within a world radius — a blood-curse
@@ -142,7 +153,7 @@ namespace TheWaningBorder.Influence
         public static void Drain(float worldX, float worldZ, float radius)
         {
             if (!Ready || radius <= 0f) return;
-            DataVersion++;
+            bool changed = false;
 
             float cellW = _worldSize.x / Resolution;
             float cellH = _worldSize.y / Resolution;
@@ -163,9 +174,11 @@ namespace TheWaningBorder.Influence
                     float dx = (x + 0.5f - u) * cellW;
                     float dz = (y + 0.5f - v) * cellH;
                     if (dx * dx + dz * dz > r2) continue;
-                    _values[y * Resolution + x] = 0f;
+                    int idx = y * Resolution + x;
+                    if (_values[idx] != 0f) { _values[idx] = 0f; changed = true; }
                 }
             }
+            if (changed) DataVersion++;
         }
 
         /// <summary>Scale down all blood within a world radius by
@@ -181,7 +194,7 @@ namespace TheWaningBorder.Influence
         public static float Consume(float worldX, float worldZ, float radius, float fraction)
         {
             if (!Ready || radius <= 0f) return 0f;
-            DataVersion++;
+            bool changed = false;
             fraction = Mathf.Clamp01(fraction);
 
             float cellW = _worldSize.x / Resolution;
@@ -207,11 +220,14 @@ namespace TheWaningBorder.Influence
                     if (dx * dx + dz * dz > r2) continue;
 
                     int idx = y * Resolution + x;
-                    total += _values[idx];
+                    float before = _values[idx];
+                    total += before;
                     count++;
-                    _values[idx] *= (1f - fraction);
+                    float after = before * (1f - fraction);
+                    if (after != before) { _values[idx] = after; changed = true; }
                 }
             }
+            if (changed) DataVersion++;
             return count > 0 ? total / (count * MaxValue) : 0f;
         }
 

@@ -21,6 +21,7 @@ using TheWaningBorder.Core;
 using TheWaningBorder.Input;
 using TheWaningBorder.Systems.Visibility;
 using TheWaningBorder.UI.Common;
+using TheWaningBorder.UI.Data;
 using EntityWorld = Unity.Entities.World;
 
 namespace TheWaningBorder.UI.Ingame
@@ -200,6 +201,16 @@ namespace TheWaningBorder.UI.Ingame
             var local = GameSettings.ViewFaction ?? GameSettings.LocalPlayerFaction;
             var q = QC_Healthy.Get(_em, QT_Healthy);
             using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
+            using var hps = q.ToComponentDataArray<Health>(Unity.Collections.Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
+
+            // Screen rect with a margin, so a bar whose anchor is just off the
+            // edge still draws. Off-screen candidates used to be drawn (and
+            // then clipped) and to eat the MaxUnpromptedBars budget, so a big
+            // off-screen army could starve the bars the player was looking at.
+            float margin = barWidth + 8f;
+            float sw = Screen.width, sh = Screen.height;
 
             int budget = MaxUnpromptedBars;
             for (int i = 0; i < ents.Length && budget > 0; i++)
@@ -207,16 +218,19 @@ namespace TheWaningBorder.UI.Ingame
                 var e = ents[i];
                 if (_drawn.Contains(e)) continue;
 
-                var hp = _em.GetComponentData<Health>(e);
+                var hp = hps[i];
                 if (hp.Max <= 0 || hp.Value <= 0) continue;
 
                 bool isBuilding = _em.HasComponent<BuildingTag>(e);
-                bool damaged = hp.Value < hp.Max;
+                // A spent shield is lost hit points too (Combat_Pacing.md).
+                bool damaged = hp.Value < hp.Max
+                    || (EntityInfoExtractor.TryGetShield(_em, e, out int shCur, out int shMax)
+                        && shCur < shMax);
 
                 if (mode != HealthBarMode.Smart && isBuilding) continue;
                 if (!isBuilding && !_em.HasComponent<UnitTag>(e)) continue;
 
-                var faction = _em.GetComponentData<FactionTag>(e).Value;
+                var faction = facs[i].Value;
                 bool mine = faction == local;
                 bool friendly = mine || !Alliances.AreHostile(local, faction);
 
@@ -232,6 +246,13 @@ namespace TheWaningBorder.UI.Ingame
                     _ => false,
                 };
                 if (!want) continue;
+
+                var wp = xfs[i].Position;
+                Vector3 sp = cam.WorldToScreenPoint(new Vector3(wp.x,
+                    wp.y + (isBuilding ? buildingYOffset : yOffsetAboveEntity), wp.z));
+                if (sp.z < 0f || sp.x < -margin || sp.x > sw + margin
+                    || sp.y < -margin || sp.y > sh + margin) continue;
+
                 if (!IsVisible(e)) continue;
 
                 DrawBarForEntity(cam, e);
@@ -336,11 +357,24 @@ namespace TheWaningBorder.UI.Ingame
                               ratio > 0.25f ? WorldOverlayPalette.HealthMid  :
                                               WorldOverlayPalette.HealthLow;
 
+            // Shield points are hit points spent first (Combat_Pacing.md), so
+            // the shield is drawn as a cyan segment continuing the HP fill.
+            // When HP + shield exceeds max HP the whole bar rescales to that
+            // total, so the two always read as one pool.
+            float hpFill = ratio, shieldFill = 0f;
+            if (EntityInfoExtractor.TryGetShield(_em, e, out int shCur, out _) && shCur > 0)
+            {
+                float total = Mathf.Max(hp.Max, Mathf.Max(0, hp.Value) + shCur);
+                hpFill = Mathf.Clamp01(Mathf.Max(0, hp.Value) / total);
+                shieldFill = Mathf.Clamp01(shCur / total);
+            }
+
             var bar = GetOrAllocate(_activeCount++);
             // UGUI uses bottom-left origin in screen space (matches WorldToScreenPoint).
             bar.SetGeometry(screenPos.x, screenPos.y, barWidth, barHeight, barBorder);
             bar.SetColors(BgColor, BorderColor, fillColor);
-            bar.SetFill(ratio);
+            bar.SetFill(hpFill);
+            bar.SetShield(hpFill, shieldFill);
             bar.SetActive(true);
 
             // Action progress bar — buildings that are producing anything:
@@ -374,6 +408,7 @@ namespace TheWaningBorder.UI.Ingame
                     pbar.SetGeometry(screenPos.x, py, barWidth, barHeight, barBorder);
                     pbar.SetColors(BgColor, BorderColor, Color.white);
                     pbar.SetFill(progress);
+                    pbar.SetShield(0f, 0f);
                     pbar.SetActive(true);
                 }
             }
@@ -398,6 +433,7 @@ namespace TheWaningBorder.UI.Ingame
                     rbar.SetGeometry(screenPos.x, py, barWidth, barHeight, barBorder);
                     rbar.SetColors(BgColor, BorderColor, RitualFillColor(ritual.Kind));
                     rbar.SetFill(Mathf.Clamp01(ritual.Progress / ritual.TotalDuration));
+                    rbar.SetShield(0f, 0f);
                     rbar.SetActive(true);
                 }
             }
@@ -468,6 +504,7 @@ namespace TheWaningBorder.UI.Ingame
             // outline + the amber fill portion.
             bar.SetColors(TransparentBg, BorderColor, fillColor);
             bar.SetFill(lerpedFill);
+            bar.SetShield(0f, 0f);
             bar.SetActive(true);
         }
 
@@ -489,7 +526,7 @@ namespace TheWaningBorder.UI.Ingame
         {
             public GameObject Root;
             public RectTransform Rect;
-            public Image Border, Bg, Fill;
+            public Image Border, Bg, Fill, Shield;
 
             public static BarWidget Create(RectTransform parent)
             {
@@ -512,6 +549,13 @@ namespace TheWaningBorder.UI.Ingame
                 w.Fill = fill.AddComponent<Image>();
                 w.Fill.raycastTarget = false;
 
+                // Created after Fill so it draws on top of the track.
+                var shield = NewChild(go.transform, "Shield");
+                w.Shield = shield.AddComponent<Image>();
+                w.Shield.raycastTarget = false;
+                w.Shield.color = WorldOverlayPalette.Shield;
+                w.Shield.enabled = false;
+
                 return w;
             }
 
@@ -532,12 +576,32 @@ namespace TheWaningBorder.UI.Ingame
 
             public void SetActive(bool on) { if (Root.activeSelf != on) Root.SetActive(on); }
 
+            // Last values written (2026-09-25). A pooled bar is re-claimed
+            // every frame, usually by the same entity at the same spot; each
+            // RectTransform write dirties the canvas for a rebuild, so only
+            // what actually changed is written.
+            private Vector2 _lastPos = new Vector2(float.NaN, float.NaN);
+            private Vector3 _lastSize = new Vector3(float.NaN, float.NaN, float.NaN);
+            private float _lastRatio = float.NaN;
+            private float _lastInnerWidth;
+            private float _lastBorder;
+            private float _lastShieldStart = float.NaN, _lastShieldWidth = float.NaN;
+
             public void SetGeometry(float screenX, float screenY, float w, float h, float border)
             {
                 // Screen-space pixel position; bar is centred on (screenX, screenY).
                 float bx = screenX - w * 0.5f - border;
                 float by = screenY - h * 0.5f - border;
-                Rect.anchoredPosition = new Vector2(bx, by);
+                var pos = new Vector2(bx, by);
+                if (pos != _lastPos)
+                {
+                    Rect.anchoredPosition = pos;
+                    _lastPos = pos;
+                }
+
+                var size = new Vector3(w, h, border);
+                if (size == _lastSize) return;
+                _lastSize = size;
                 Rect.sizeDelta = new Vector2(w + border * 2, h + border * 2);
 
                 ((RectTransform)Bg.transform).anchoredPosition  = new Vector2(border, border);
@@ -545,13 +609,16 @@ namespace TheWaningBorder.UI.Ingame
 
                 ((RectTransform)Fill.transform).anchoredPosition = new Vector2(border, border);
                 ((RectTransform)Fill.transform).sizeDelta        = new Vector2(w, h);
+                ((RectTransform)Shield.transform).sizeDelta      = new Vector2(0f, h);
                 _lastInnerWidth = w;
+                _lastBorder = border;
+                _lastRatio = float.NaN;   // the fill width was just reset
+                _lastShieldStart = _lastShieldWidth = float.NaN;
             }
-
-            private float _lastInnerWidth;
 
             public void SetColors(Color bg, Color border, Color fill)
             {
+                // Graphic.color early-outs on an equal value itself.
                 Border.color = border;
                 Bg.color = bg;
                 Fill.color = fill;
@@ -559,8 +626,26 @@ namespace TheWaningBorder.UI.Ingame
 
             public void SetFill(float ratio)
             {
+                if (ratio == _lastRatio) return;
+                _lastRatio = ratio;
                 var s = ((RectTransform)Fill.transform).sizeDelta;
                 ((RectTransform)Fill.transform).sizeDelta = new Vector2(_lastInnerWidth * ratio, s.y);
+            }
+
+            /// <summary>Shield segment: starts at <paramref name="start"/> of
+            /// the inner width (where the HP fill ends) and spans
+            /// <paramref name="width"/> of it. 0 width hides it.</summary>
+            public void SetShield(float start, float width)
+            {
+                bool on = width > 0f;
+                if (Shield.enabled != on) Shield.enabled = on;
+                if (!on) return;
+                if (start == _lastShieldStart && width == _lastShieldWidth) return;
+                _lastShieldStart = start;
+                _lastShieldWidth = width;
+                var r = (RectTransform)Shield.transform;
+                r.anchoredPosition = new Vector2(_lastBorder + _lastInnerWidth * start, _lastBorder);
+                r.sizeDelta = new Vector2(_lastInnerWidth * width, r.sizeDelta.y);
             }
         }
     }

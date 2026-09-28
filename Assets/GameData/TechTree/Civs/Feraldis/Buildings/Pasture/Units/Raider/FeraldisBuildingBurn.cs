@@ -28,6 +28,7 @@ namespace TheWaningBorder.Systems.Combat
             if (!em.HasComponent<BuildingTag>(victim)) return;
             if (!em.HasComponent<Health>(victim)) return;
             if (em.HasComponent<BuildingCollapseState>(victim)) return;
+            if (em.HasComponent<Invulnerable>(victim)) return; // LockdownVault
 
             var spec = em.GetComponentData<InflictsBuildingBurn>(attacker);
             if (spec.DamagePerSecond <= 0f || spec.Duration <= 0f) return;
@@ -85,21 +86,17 @@ namespace TheWaningBorder.Systems.Combat
                 }
 
                 b.Remaining -= dt;
-                b.Accumulator += b.DamagePerSecond * dt;
 
-                int whole = (int)b.Accumulator;
+                // A burning building is FIRE (docs/Design/Fire.md §3): the
+                // shared DOT contract, with FireImmune honoured. Invulnerable
+                // stops it accruing; Liquid Courage-style reductions scale the
+                // rate; kill credit goes to the Raider's faction.
+                int whole = DamageOverTime.Accrue(em, entity, true,
+                    b.DamagePerSecond * dt, ref b.Accumulator);
                 if (whole > 0)
                 {
-                    b.Accumulator -= whole;
-                    var h = health.ValueRO;
-                    h.Value = Unity.Mathematics.math.max(0, h.Value - whole);
-                    health.ValueRW = h;
-
-                    if (em.HasComponent<LastDamagedByFaction>(entity))
-                    {
-                        em.SetComponentData(entity, new LastDamagedByFaction { Value = b.Source });
-                        em.SetComponentEnabled<LastDamagedByFaction>(entity, true);
-                    }
+                    ref var h = ref health.ValueRW;
+                    DamageOverTime.Commit(em, entity, ref h, whole, true, b.Source);
                 }
 
                 if (b.Remaining <= 0f) expired.Add(entity);

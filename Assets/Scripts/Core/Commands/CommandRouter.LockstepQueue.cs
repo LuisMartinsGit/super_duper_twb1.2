@@ -562,7 +562,7 @@ namespace TheWaningBorder.Core.Commands
         /// ability commands (it carries the deposit on gather commands),
         /// encoded as slot+1 so the field's natural 0 still decodes to -1.</param>
         private static void QueueAbilityForLockstep(EntityManager em, Entity unit, Entity target,
-            int slot = -1)
+            int slot = -1, float3? aimPoint = null)
         {
             int unitId = GetNetworkId(em, unit);
             int targetId = target != Entity.Null ? GetNetworkId(em, target) : 0;
@@ -570,6 +570,7 @@ namespace TheWaningBorder.Core.Commands
             if (unitId <= 0)
             {
                 if (!MayExecuteLocally(em, unit, "IssueAbility")) return;
+                StampAbilityAim(em, unit, aimPoint);
                 IssueAbilityDirect(em, unit, target, slot);
                 return;
             }
@@ -579,7 +580,8 @@ namespace TheWaningBorder.Core.Commands
                 Type = LockstepCommandType.Ability,
                 EntityNetworkId = unitId,
                 TargetEntityId = targetId,
-                SecondaryTargetId = slot + 1
+                SecondaryTargetId = (slot + 1) | (aimPoint.HasValue ? AbilityAimFlag : 0),
+                TargetPosition = aimPoint ?? float3.zero,
             };
             LockstepServiceLocator.Instance.QueueCommand(cmd);
         }

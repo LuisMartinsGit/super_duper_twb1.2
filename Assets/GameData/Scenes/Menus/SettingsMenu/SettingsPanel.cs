@@ -1,8 +1,9 @@
 ﻿// SettingsPanel.cs
 // uGUI controller for the Settings screen (scene GameObjects under UI_Canvas,
 // built by MenuSceneBuilder from the Skirmish scene's own parts and then
-// hand-editable). Layout: profile + display options on the left, audio +
-// language on the right, < MAIN MENU / APPLY in the footer.
+// hand-editable). Layout: profile + display options on the left, audio,
+// language and visuals (Ink Outlines) on the right, < MAIN MENU / APPLY in
+// the footer.
 //
 // Lives in its own scene (SettingsMenu.unity) since 2026-09-07. Before that it
 // was OptionsPanelBinder driving an OptionsPanel prefab instance parked
@@ -26,6 +27,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using TheWaningBorder.Core.Config;
 using TheWaningBorder.Core.Localization;
+using TheWaningBorder.Rendering;
 using TheWaningBorder.Systems.Audio;
 
 namespace TheWaningBorder.UI.Menus.Panels
@@ -47,10 +49,13 @@ namespace TheWaningBorder.UI.Menus.Panels
         TMP_Dropdown _dragPriority;
         Button _fullscreenToggle;
         TMP_Text _fullscreenState;
+        Button _inkToggle;
+        TMP_Text _inkState;
         Slider _master, _music;
         TMP_Text _masterValue, _musicValue, _status;
 
         bool _fullscreen;
+        bool _ink;
         Resolution[] _resolutions = Array.Empty<Resolution>();
         float _statusTimer;
 
@@ -89,6 +94,8 @@ namespace TheWaningBorder.UI.Menus.Panels
             // BOOT — not when the Settings screen happens to be visited.
             GameSettings.HealthBars = ClampHealthBars(PlayerProfile.HealthBars);
             GameSettings.DragPriority = ClampDragPriority(PlayerProfile.DragPriority);
+            GameSettings.InkOutlines = PlayerProfile.InkOutlines < 0
+                ? (bool?)null : PlayerProfile.InkOutlines == 1;
 
             AudioListener.volume = Mathf.Clamp01(PlayerProfile.MasterVolume / 100f);
 
@@ -131,6 +138,8 @@ namespace TheWaningBorder.UI.Menus.Panels
             _dragPriority     = Find<TMP_Dropdown>("DragPriorityDropdown");
             _fullscreenToggle = Find<Button>("FullscreenToggle");
             _fullscreenState  = Find<TMP_Text>("FullscreenState");
+            _inkToggle        = Find<Button>("InkOutlinesToggle");
+            _inkState         = Find<TMP_Text>("InkOutlinesState");
             _master           = Find<Slider>("MasterSlider");
             _music            = Find<Slider>("MusicSlider");
             _masterValue      = Find<TMP_Text>("MasterValue");
@@ -152,6 +161,13 @@ namespace TheWaningBorder.UI.Menus.Panels
                 {
                     _fullscreen = !_fullscreen;
                     SyncPill(_fullscreenToggle, _fullscreenState, _fullscreen);
+                });
+
+            if (_inkToggle != null)
+                _inkToggle.onClick.AddListener(() =>
+                {
+                    _ink = !_ink;
+                    SyncPill(_inkToggle, _inkState, _ink);
                 });
 
             if (_master != null) _master.onValueChanged.AddListener(v => Show(_masterValue, v));
@@ -241,6 +257,11 @@ namespace TheWaningBorder.UI.Menus.Panels
             _fullscreen = PlayerProfile.Fullscreen >= 0
                 ? PlayerProfile.Fullscreen == 1 : Screen.fullScreen;
             SyncPill(_fullscreenToggle, _fullscreenState, _fullscreen);
+
+            // Shows what is actually drawn, which before the player has chosen
+            // is PencilOutline.asset's own switch.
+            _ink = PencilOutline.Active;
+            SyncPill(_inkToggle, _inkState, _ink);
 
             if (_master != null) _master.SetValueWithoutNotify(PlayerProfile.MasterVolume);
             if (_music != null) _music.SetValueWithoutNotify(PlayerProfile.MusicVolume);
@@ -369,6 +390,12 @@ namespace TheWaningBorder.UI.Menus.Panels
                 Screen.fullScreen = fullscreen;
             }
             PlayerProfile.Fullscreen = fullscreen ? 1 : 0;
+
+            if (_inkToggle != null)
+            {
+                PlayerProfile.InkOutlines = _ink ? 1 : 0;
+                GameSettings.InkOutlines = _ink;
+            }
 
             if (_master != null)
             {

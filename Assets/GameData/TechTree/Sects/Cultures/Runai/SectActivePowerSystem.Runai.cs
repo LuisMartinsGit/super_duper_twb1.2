@@ -181,7 +181,7 @@ namespace TheWaningBorder.Systems.Sect
         /// <paramref name="hitBuildings"/> (Lv II+) extends it to structures.
         /// </summary>
         private static void ApplyRevealedStrike(EntityManager em, Faction faction,
-            int dmg, bool hitBuildings)
+            int dmg, bool hitBuildings, DamageType dmgType)
         {
             // Every sight source the caster's side owns: units, buildings, and
             // the invisible eyes riding its spies. Deliberately NOT the fog
@@ -211,9 +211,7 @@ namespace TheWaningBorder.Systems.Sect
                     if (!Alliances.AreHostile(faction, em.GetComponentData<FactionTag>(e).Value)) continue;
                     if (!Seen(eyes, em.GetComponentData<LocalTransform>(e).Position)) continue;
 
-                    var hp = em.GetComponentData<Health>(e);
-                    hp.Value = math.max(0, hp.Value - dmg);
-                    em.SetComponentData(e, hp);
+                    TheWaningBorder.Systems.Combat.SpellDamage.Apply(em, e, dmg, dmgType, faction);
                 }
 
                 if (hitBuildings)
@@ -232,9 +230,7 @@ namespace TheWaningBorder.Systems.Sect
                         if (em.HasComponent<WallTag>(e)) continue;
                         if (!Seen(eyes, em.GetComponentData<LocalTransform>(e).Position)) continue;
 
-                        var hp = em.GetComponentData<Health>(e);
-                        hp.Value = math.max(0, hp.Value - dmg);
-                        em.SetComponentData(e, hp);
+                        TheWaningBorder.Systems.Combat.SpellDamage.Apply(em, e, dmg, dmgType, faction);
                     }
                 }
             }

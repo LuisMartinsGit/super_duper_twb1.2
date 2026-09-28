@@ -132,6 +132,12 @@ namespace TheWaningBorder.UI.Data
 
             Cost available = GetFactionResourcesAsCost(em, faction);
 
+            // A mounted module whose engine was destroyed sells a new one
+            // (docs/Design/Age_1_Alanthor.md § Ballista and Trebuchet
+            // emplacements). First in the list: it is the reason the player
+            // clicked an empty emplacement.
+            AddReplaceEquipmentAction(actions, em, entity, faction, available);
+
             // Resolve parent segment to derive the gate width label.
             Entity segment = Entity.Null;
             if (em.HasComponent<WallInstanceParent>(entity))
@@ -227,11 +233,11 @@ namespace TheWaningBorder.UI.Data
                 AddEmplacementAction(actions, em, faction, available,
                     "WallToBallista", "Alanthor_BallistaEmplacement",
                     Loc.T("Mount Ballista"),
-                    Loc.T("A bolt thrower on the wall: single targets, heavy against buildings. The engine is rebuilt free by the crew if it is destroyed."));
+                    Loc.T("A bolt thrower on the wall: single targets, heavy against buildings. If the engine is destroyed the platform stays, and a new one can be bought with Replace Equipment."));
                 AddEmplacementAction(actions, em, faction, available,
                     "WallToTrebuchet", "Alanthor_TrebuchetEmplacement",
                     Loc.T("Mount Trebuchet"),
-                    Loc.T("A counterweight engine on the wall: long range, splash, slow. The engine is rebuilt free by the crew if it is destroyed."));
+                    Loc.T("A counterweight engine on the wall: long range, splash, slow. If the engine is destroyed the platform stays, and a new one can be bought with Replace Equipment."));
             }
 
             // NO PLACEHOLDER CELLS (2026-09-24). The panel used to fill the
@@ -291,6 +297,59 @@ namespace TheWaningBorder.UI.Data
             });
         }
 
+        /// <summary>
+        /// The Replace Equipment card on an emplacement platform. Offered only
+        /// while the engine is gone; while a paid restore runs the card turns
+        /// into its countdown (not pressable — the order is already paid).
+        /// Price and time are the engine SO's cost / trainingTime, read
+        /// through <see cref="EmplacementEquipment"/>, the same numbers the
+        /// executor charges.
+        /// </summary>
+        private static void AddReplaceEquipmentAction(List<ActionButton> actions, EntityManager em,
+            Entity platform, Faction faction, Cost available)
+        {
+            if (em.Equals(default(EntityManager))) return;
+            if (!em.HasComponent<EmplacementTag>(platform) || !em.HasComponent<EmplacementCrew>(platform)) return;
+            if (!TechCatalog.IsReady) return;
+            string engineId = EmplacementEquipment.EngineIdOf(em, platform);
+            if (string.IsNullOrEmpty(engineId)) return;
+
+            string label = Loc.T("Replace Equipment");
+            if (EmplacementEquipment.IsRestoring(em, platform))
+            {
+                var crew = em.GetComponentData<EmplacementCrew>(platform);
+                int left = (int)System.Math.Ceiling(crew.Restore);
+                actions.Add(new ActionButton
+                {
+                    Id = "ReplaceEquipmentRestoring",
+                    Label = string.Format(Loc.T("Restoring ({0}s)"), left),
+                    Tooltip = Loc.T("The crew is raising a new engine on this platform."),
+                    Enabled = false,
+                    CanAfford = true,
+                    Icon = null,
+                });
+                return;
+            }
+            if (!EmplacementEquipment.IsEmpty(em, platform)) return;
+
+            var cost = EmplacementEquipment.CostOf(engineId);
+            float seconds = EmplacementEquipment.SecondsOf(engineId);
+            string engineName = TechCatalog.Unit(engineId).name;
+            actions.Add(new ActionButton
+            {
+                Id = "ReplaceEquipment",
+                Label = label,
+                Tooltip = BuildTooltip(label,
+                    string.Format(Loc.T("The {0} on this platform was destroyed. The crew raises a new one when the timer ends; no builder needed."),
+                        Loc.T(engineName)),
+                    cost, available, trainingTime: seconds),
+                Cost = cost,
+                Enabled = true,
+                CanAfford = FactionEconomy.CanAfford(em, faction, cost),
+                Icon = null,
+            });
+        }
+
         // Buildings the player can place via builder (excludes starting buildings and other-faction variants)
         //
         // task-109: Alanthor wall primitives — only "Alanthor_Wall" (hub) and "Alanthor_Tower"
@@ -325,10 +384,10 @@ namespace TheWaningBorder.UI.Data
             // Smelter absorbs its veilsteel role) — calculator 2026-08.
             "Alanthor_Tower", "Alanthor_SiegeYard", "Alanthor_RoyalStable",
             "Alanthor_Sawyer",
-            // The emplacement PLATFORMS are what the player places; the
-            // engines standing on them are raised by the crew and are
-            // deliberately absent from every build list.
-            "Alanthor_BallistaEmplacement", "Alanthor_TrebuchetEmplacement",
+            // NO emplacement platforms (2026-09-25): emplacements are
+            // WALL-MOUNT ONLY — Mount Ballista / Mount Trebuchet on a masonry
+            // curtain module's panel. The free-standing platforms are
+            // guarded out by the static-ctor asserts below.
             // Feraldis culture buildings. Hunting Lodge / Logging Station
             // were CUT (2026-08-05 rev.4) — Feraldis huts became Raider
             // Camps, so the gathering-upgrade pair had nothing left to do.
@@ -385,6 +444,12 @@ namespace TheWaningBorder.UI.Data
             UnityEngine.Debug.Assert(
                 !BuildableBuildings.Contains("Alanthor_WallGate"),
                 "task-109: Alanthor_WallGate must remain conversion-only (segment → Convert to Gate). Do not add it to BuildableBuildings.");
+            UnityEngine.Debug.Assert(
+                !BuildableBuildings.Contains("Alanthor_BallistaEmplacement"),
+                "Emplacements are wall-mount only (Mount Ballista on a masonry curtain module). Do not add Alanthor_BallistaEmplacement to BuildableBuildings.");
+            UnityEngine.Debug.Assert(
+                !BuildableBuildings.Contains("Alanthor_TrebuchetEmplacement"),
+                "Emplacements are wall-mount only (Mount Trebuchet on a masonry curtain module). Do not add Alanthor_TrebuchetEmplacement to BuildableBuildings.");
         }
 
         // Cached queries — CreateEntityQuery per frame leaks into the world's query registry.
@@ -498,6 +563,14 @@ namespace TheWaningBorder.UI.Data
                         Iron = building.cost.Iron,
                         Veilstone = building.cost.Veilstone
                     } : default;
+                    // Show what THIS faction would be charged (the executor's
+                    // price): the Hall's escalation — each Hall beyond the
+                    // Fortress raises the next one's price, Regions.md §2 —
+                    // and Deep Foundations. Ids the cost table does not carry
+                    // keep the catalog figure.
+                    if (!em.Equals(default(EntityManager))
+                        && TheWaningBorder.Data.BuildCosts.Exists(building.id))
+                        cost = TheWaningBorder.Data.BuildCosts.For(em, faction, building.id);
 
                     bool canAfford = !em.Equals(default(EntityManager))
                         ? FactionEconomy.CanAfford(em, faction, cost)

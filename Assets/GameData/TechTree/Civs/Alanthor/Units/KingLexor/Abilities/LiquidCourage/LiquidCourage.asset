@@ -18,7 +18,7 @@ MonoBehaviour:
   affects: 0
   castTime: 0
   duration: 10
-  cooldown: 0
+  cooldown: 45
   radius: 0
   range: 0
   effects:
@@ -29,5 +29,9 @@ MonoBehaviour:
   aftermath:
   - "Veilshift Withdrawal"
   - "Life Cling"
+  unlocksAtLevel: 1
+  damage: 0
+  damageType: 3
+  aimedAtPoint: 0
   icon: {fileID: 0}
   vfxPrefab: {fileID: 8283292468574, guid: c909b5d8e36060e284d854b07802e042, type: 3}

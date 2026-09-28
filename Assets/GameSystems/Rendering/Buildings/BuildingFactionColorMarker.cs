@@ -137,7 +137,8 @@ namespace TheWaningBorder.Rendering
         /// THE building faction-color rule. Every path that produces or
         /// refreshes a building visual must funnel through here — spawn,
         /// culture/level variant switch, prefab upgrade swap, age-up refresh.
-        /// Four sub-rules are applied per material, in priority order:
+        /// Five sub-rules are applied per material, in priority order:
+        ///   0. _DetailMask holds a *playercolormask* texture → albedo recolored under the mask
         ///   1. MATERIAL named *playercolor* → solid faction colour (albedo whited out)
         ///   2. GameObject named *roof*   → solid dark slate (albedo whited out; §4)
         ///   3. GameObject named *stripe* → faction tint over the authored albedo
@@ -191,6 +192,11 @@ namespace TheWaningBorder.Rendering
                     if (mat == null) continue;
 
                     if (mat.HasProperty("_StripeColor")) mat.SetColor("_StripeColor", factionColor);
+
+                    // A textured part with a painted player-colour mask (the
+                    // Hut's roof tiles). Before every other rule: the mask says
+                    // exactly where the colour goes, so nothing may guess.
+                    if (TryApplyMaskedColor(mat, factionColor, factionKey)) continue;
 
                     // An artist-authored player-colour slot: the model names the
                     // MATERIAL, so the colour is exact and needs no atlas marker.
@@ -259,6 +265,116 @@ namespace TheWaningBorder.Rendering
             if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", factionColor);
             else if (mat.HasProperty("_Color")) mat.color = factionColor;
         }
+
+        // ──────────────────────────────────────────────────────────────────
+        // MASKED PATH (a per-part texture set with a painted colour mask)
+        // ──────────────────────────────────────────────────────────────────
+
+        // URP Lit has no player-colour slot, so the mask rides in _DetailMask:
+        // Lit only samples it when a detail albedo is also set, which a masked
+        // material never has, so it costs nothing on screen. The texture NAME
+        // is the opt-in — a detail mask that is not a player-colour mask (the
+        // GatherersHut's MULX2 detail setup) must keep going down the old rules.
+        private const string MaskProp = "_DetailMask";
+        private const string MaskNameTag = "playercolormask";
+
+        private static readonly Dictionary<(Texture2D, Texture2D, int), SwapEntry> _maskedCache
+            = new Dictionary<(Texture2D, Texture2D, int), SwapEntry>();
+
+        /// <summary>
+        /// Rule 0. Recolor the albedo wherever the mask is white; the mask's
+        /// grey levels blend. Returns true when the material carries a
+        /// player-colour mask at all — even if the recolor could not be built —
+        /// so the hue-guessing atlas swap never runs over a masked texture set.
+        /// </summary>
+        private static bool TryApplyMaskedColor(Material mat, Color factionColor, int factionKey)
+        {
+            if (!mat.HasProperty(MaskProp) || !mat.HasProperty("_BaseMap")) return false;
+            var mask = mat.GetTexture(MaskProp) as Texture2D;
+            if (mask == null ||
+                mask.name.IndexOf(MaskNameTag, System.StringComparison.OrdinalIgnoreCase) < 0)
+                return false;
+
+            var source = mat.GetTexture("_BaseMap") as Texture2D;
+            if (source == null) return true;
+
+            // Re-apply: same clone-origin handling as the atlas path.
+            if (_cloneOrigin.TryGetValue(source, out var origin))
+            {
+                if (origin.FactionKey == factionKey) return true;
+                source = origin.Source;
+                if (source == null) return true;
+            }
+
+            var key = (source, mask, factionKey);
+            if (!_maskedCache.TryGetValue(key, out var entry) ||
+                (entry.Swapped == null && entry.HadMarkerPixels))
+            {
+                var built = BuildMaskedAlbedo(source, mask, factionColor);
+                entry = new SwapEntry { Swapped = built, HadMarkerPixels = built != null };
+                _maskedCache[key] = entry;
+                if (built != null) _cloneOrigin[built] = (source, factionKey);
+            }
+            if (entry.Swapped == null) return true;
+
+            mat.SetTexture("_BaseMap", entry.Swapped);
+            if (mat.HasProperty("_MainTex")) mat.SetTexture("_MainTex", entry.Swapped);
+            return true;
+        }
+
+        /// <summary>
+        /// A copy of <paramref name="source"/> with every masked pixel pulled
+        /// toward the faction colour: the faction's hue and saturation, the
+        /// pixel's own VALUE (times the faction's), so the painted shading
+        /// survives. Per-pixel on purpose — normalising to the masked region's
+        /// mean brightness was tried and failed, because a mask exported with
+        /// the UV padding filled white averages the padding in with the part.
+        /// Null when either texture cannot be read or the mask is empty.
+        /// </summary>
+        private static Texture2D BuildMaskedAlbedo(Texture2D source, Texture2D mask, Color factionColor)
+        {
+            var pixels = ReadPixels(source);
+            var maskPixels = ReadPixels(mask);
+            if (pixels == null || maskPixels == null) return null;
+
+            Color.RGBToHSV(factionColor, out float facH, out float facS, out float facV);
+
+            int w = source.width, h = source.height;
+            int mw = mask.width, mh = mask.height;
+            int replaced = 0;
+            for (int y = 0; y < h; y++)
+            {
+                int mRow = (y * mh / h) * mw;
+                for (int x = 0; x < w; x++)
+                {
+                    float m = maskPixels[mRow + x * mw / w].r / 255f;
+                    if (m <= 0f) continue;
+                    int i = y * w + x;
+                    var p = pixels[i];
+                    float v = Mathf.Max(p.r, Mathf.Max(p.g, p.b)) / 255f;
+                    var tinted = Color.HSVToRGB(facH, facS, v * facV);
+                    pixels[i].r = MaskBlend(p.r, tinted.r, m);
+                    pixels[i].g = MaskBlend(p.g, tinted.g, m);
+                    pixels[i].b = MaskBlend(p.b, tinted.b, m);
+                    replaced++;
+                }
+            }
+            if (replaced == 0) return null;
+
+            var clone = new Texture2D(w, h, TextureFormat.RGBA32,
+                mipChain: source.mipmapCount > 1, linear: false);
+            clone.name = $"{source.name}_Faction_{PackKey(factionColor):X6}";
+            clone.hideFlags = HideFlags.HideAndDontSave;
+            clone.wrapMode = source.wrapMode;
+            clone.filterMode = source.filterMode;
+            clone.anisoLevel = source.anisoLevel;
+            clone.SetPixels32(pixels);
+            clone.Apply(updateMipmaps: clone.mipmapCount > 1, makeNoLongerReadable: false);
+            return clone;
+        }
+
+        private static byte MaskBlend(byte authored, float tinted, float mask)
+            => (byte)Mathf.Clamp(Mathf.RoundToInt(Mathf.Lerp(authored / 255f, tinted, mask) * 255f), 0, 255);
 
         // ──────────────────────────────────────────────────────────────────
         // ATLAS TEXTURE PATH (preferred — used by hand-authored prefabs)

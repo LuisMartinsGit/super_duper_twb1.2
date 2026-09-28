@@ -1,5 +1,5 @@
 // HotkeyInput.cs
-// The keyboard: mode keys, stop/hold, idle-builder cycle, formation cycle,
+// The keyboard: mode keys, stop, stances, idle-builder cycle, formation cycle,
 // planning mode, control groups. Every binding comes from HotkeyInput.asset.
 // Part of: Input/ — split out of RTSInputManager.
 
@@ -85,12 +85,18 @@ namespace TheWaningBorder.Input
                 _orders.IssueStopToSelection();
             }
 
-            // Hold position for all selected units
+            // Stances (docs/Design/Stances.md §6). Hold also stops the unit,
+            // so it disarms any aiming mode like Stop does; the other two are
+            // modes and leave the current order alone.
             if (UnityEngine.Input.GetKeyDown(cfg.holdPosition))
             {
                 _modes.Disarm();
                 _orders.IssueHoldPositionToSelection();
             }
+            if (UnityEngine.Input.GetKeyDown(cfg.aggressiveStance))
+                _orders.IssueStanceToSelection(UnitStanceMode.Aggressive);
+            if (UnityEngine.Input.GetKeyDown(cfg.defensiveStance))
+                _orders.IssueStanceToSelection(UnitStanceMode.Defensive);
 
             // Cycle through idle builders (workers with no BuildOrder/RepairOrder)
             if (UnityEngine.Input.GetKeyDown(cfg.cycleIdleBuilders))

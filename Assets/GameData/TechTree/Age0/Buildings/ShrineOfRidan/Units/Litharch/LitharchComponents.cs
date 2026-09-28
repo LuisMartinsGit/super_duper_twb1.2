@@ -37,4 +37,24 @@ public struct LitharchState : IComponentData
 
     /// <summary>Timer for searching for new heal targets</summary>
     public float SearchTimer;
+
+    /// <summary>1 when HealTarget came from an explicit heal ORDER (player or
+    /// AI right-click) rather than the idle auto-search. An ordered heal is
+    /// pursued on every stance, Hold included (docs/Design/Stances.md §5).</summary>
+    public byte Ordered;
+
+    /// <summary>Counts down to the next nearby-enemy check.</summary>
+    public float ThreatTimer;
+
+    /// <summary>1 while the Litharch is stepping away from an enemy that got
+    /// too close — healing does not move it until the step ends, i.e. until
+    /// it reaches <see cref="StepTarget"/> or <see cref="StepTimer"/> runs out.</summary>
+    public byte SteppingAway;
+
+    /// <summary>Where the running step-away is headed.</summary>
+    public float3 StepTarget;
+
+    /// <summary>Time left (s) on the running step-away — a safety bound for a
+    /// step whose destination is never reached (blocked, pushed).</summary>
+    public float StepTimer;
 }

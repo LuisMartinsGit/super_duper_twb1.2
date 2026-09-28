@@ -140,7 +140,7 @@ namespace TheWaningBorder.UI.Ingame
                         ? em.GetComponentData<FactionTag>(building).Value
                         : GameSettings.LocalPlayerFaction;
                     var ty = TheWaningBorder.Systems.World.TerritoryIncomeSystem
-                        .ComputeYield(em, territory, owner);
+                        .ComputeYieldForDisplay(em, territory, owner);
                     supplies  += ty.Supplies;
                     iron      += ty.Iron;
                     veilstone += ty.Veilstone;

@@ -13,3 +13,4 @@ MonoBehaviour:
   m_Name: ScreenPick
   m_EditorClassIdentifier:
   rayLength: 1000
+  resourceNodeYield: 2

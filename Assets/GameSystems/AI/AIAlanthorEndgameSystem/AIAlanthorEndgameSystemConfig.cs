@@ -23,6 +23,23 @@ namespace TheWaningBorder.AI
         /// channeling Scholar — a token screen kept losing the ritual.</summary>
         public int escortSize;
 
+        /// <summary>Well ranking (TryPurifyWells): metres added to a well's
+        /// score per curse defender standing at it, so a clean well a little
+        /// further away outranks a garrisoned one next door.</summary>
+        public float wellDefenderPenalty;
+
+        /// <summary>Metres taken off a well's score when its territory is
+        /// already ours.</summary>
+        public float wellOwnedBonus;
+
+        /// <summary>Metres taken off a well's score when it borders our
+        /// territory (a probe on the adjacency ring lands on our ground).</summary>
+        public float wellAdjacentBonus;
+
+        /// <summary>Radius (m) of the ring probed around a well for owned
+        /// territory next to it.</summary>
+        public float wellAdjacencyProbeRadius;
+
         /// <summary>Endgame Smelter fleet target — matches
         /// CommandRouter.MaxSmeltersPerFaction. Five L3 Forges = 15
         /// veilsteel / 10 s, the ceiling of the veilsteel economy.</summary>

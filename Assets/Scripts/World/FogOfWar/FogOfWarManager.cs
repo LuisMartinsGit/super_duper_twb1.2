@@ -1,6 +1,7 @@
 ﻿using System;
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using UnityEngine;
 
@@ -135,8 +136,7 @@ namespace TheWaningBorder.World.FogOfWar
             if (Instance == this) Instance = null;
             if (_visible.IsCreated) _visible.Dispose();
             if (_revealed.IsCreated) _revealed.Dispose();
-            if (_teamVisible.IsCreated) _teamVisible.Dispose();
-            if (_teamRevealed.IsCreated) _teamRevealed.Dispose();
+            if (_static.IsCreated) _static.Dispose();
             if (_pushedVis.IsCreated) _pushedVis.Dispose();
             if (_pushedRev.IsCreated) _pushedRev.Dispose();
             if (_prevVis.IsCreated) _prevVis.Dispose();
@@ -177,20 +177,58 @@ namespace TheWaningBorder.World.FogOfWar
             ClearVisible();
         }
 
-        void ClearVisible()
+        // ---- Late-game pass bookkeeping (2026-09-25 perf pass) ----------
+        //
+        // _sliceDirty: a faction slice of _visible MAY hold non-zero cells.
+        // Clearing used to zero all eight slices every pass (8 MB on a
+        // million-cell map) although a 2-player match only ever writes two.
+        //
+        // _static: a per-faction layer holding the stamps of everything that
+        // does NOT move (buildings, walls, towers). Late game those are most
+        // of the sighted entities, and every one was re-stamped each pass.
+        // The layer is rebuilt only when the static set's content hash
+        // changes; each pass then copies it and stamps only the units. Max
+        // is commutative, so the result is byte-identical to stamping all.
+        readonly bool[] _sliceDirty = new bool[MaxFactions];
+
+        /// <summary>Bumped whenever any grid may have changed (a stamp pass,
+        /// a reveal, a team merge, a rebuild). Readers that sample the grids
+        /// on their own cadence — the minimap — skip the sampling when it has
+        /// not moved. Presentation only; never read by the simulation.</summary>
+        public int DataVersion { get; private set; }
+        readonly bool[] _staticHas = new bool[MaxFactions];
+        NativeArray<byte> _static;
+        ulong _staticHash;
+        int _staticCount = -1;
+        bool _staticValid;
+
+        static int FIdx(Faction f)
         {
-            if (!_visible.IsCreated) return;
-            new ClearJob { Data = _visible }.Run();
+            int fi = (int)f;
+            if (fi < 0) fi = -fi;
+            return fi % MaxFactions;
         }
 
-        [BurstCompile]
-        struct ClearJob : IJob
+        unsafe void ClearVisible()
         {
-            public NativeArray<byte> Data;
-            public void Execute()
+            if (!_visible.IsCreated) return;
+            int cells = _w * _h;
+            byte* p = (byte*)_visible.GetUnsafePtr();
+            for (int f = 0; f < MaxFactions; f++)
             {
-                for (int i = 0; i < Data.Length; i++) Data[i] = 0;
+                if (!_sliceDirty[f]) continue;
+                UnsafeUtility.MemClear(p + (long)f * cells, cells);
+                _sliceDirty[f] = false;
             }
+        }
+
+        /// <summary>Drops the cached static layer (grid resized / revealed
+        /// wiped) so the next pass re-stamps it into both grids.</summary>
+        void InvalidateStatic()
+        {
+            _staticValid = false;
+            for (int f = 0; f < MaxFactions; f++) { _staticHas[f] = false; _sliceDirty[f] = false; }
+            if (_static.IsCreated) _static.Dispose();
         }
 
         /// <summary>
@@ -219,6 +257,7 @@ namespace TheWaningBorder.World.FogOfWar
                         _revealed[fx + Idx(x, y)] = 255;
                 }
             }
+            DataVersion++;
         }
 
         /// <summary>
@@ -276,6 +315,8 @@ namespace TheWaningBorder.World.FogOfWar
                     if (cov > _revealed[i]) _revealed[i] = cov;
                 }
             }
+            _sliceDirty[FIdx(f)] = true;
+            DataVersion++;
         }
 
         /// <summary>One LoS circle for the Burst stamp batch.</summary>
@@ -295,80 +336,259 @@ namespace TheWaningBorder.World.FogOfWar
         public void StampBatch(NativeArray<StampCommand> commands, int count)
         {
             if (!_visible.IsCreated || count <= 0) return;
+            RunFactionPass(commands, count, clearFirst: false);
+            DataVersion++;
+        }
 
-            var jobCmds = new NativeArray<StampJob.Cmd>(count, Allocator.TempJob);
+        /// <summary>
+        /// One full reveal pass: clear, stamp, and (when the static set has
+        /// changed) rebuild the static layer. Replaces BeginFrame +
+        /// StampBatch for the per-tick caller.
+        ///
+        /// <paramref name="statics"/> are the sighted entities that do not
+        /// move; <paramref name="staticHash"/> is an ORDER-INDEPENDENT hash of
+        /// their (faction, position, radius), so a chunk reorder never forces
+        /// a rebuild but any real change (placed, destroyed, upgraded LoS,
+        /// moved) does. Correctness never depends on the static/mobile split:
+        /// a mis-classified mover simply changes the hash and rebuilds.
+        /// </summary>
+        public void StampPass(NativeArray<StampCommand> statics, int staticCount, ulong staticHash,
+                              NativeArray<StampCommand> mobiles, int mobileCount)
+        {
+            if (!_visible.IsCreated) return;
+
+            if (!_staticValid || staticHash != _staticHash || staticCount != _staticCount)
+                RebuildStatic(statics, staticCount, staticHash);
+
+            RunFactionPass(mobiles, mobileCount, clearFirst: true);
+            DataVersion++;
+        }
+
+        unsafe void RebuildStatic(NativeArray<StampCommand> statics, int count, ulong hash)
+        {
+            int cells = _w * _h;
+            if (!_static.IsCreated || _static.Length != MaxFactions * cells)
+            {
+                if (_static.IsCreated) _static.Dispose();
+                _static = new NativeArray<byte>(MaxFactions * cells, Allocator.Persistent);
+                for (int f = 0; f < MaxFactions; f++) _staticHas[f] = false;
+            }
+
+            var cmds = SortByFaction(statics, count, out var start, out var cnt);
+            var flags = new NativeArray<byte>(MaxFactions, Allocator.TempJob);
+            for (int f = 0; f < MaxFactions; f++)
+            {
+                // Clear a slice that held stamps before or is about to.
+                bool has = cnt[f] > 0;
+                flags[f] = (byte)((_staticHas[f] || has) ? FlagClear : 0);
+                _staticHas[f] = has;
+            }
+
+            // Static stamps go into the LAYER and into Revealed. Revealed
+            // never shrinks (only a grid rebuild wipes it, which invalidates
+            // this cache), so after this one write it already contains every
+            // static stamp and the per-pass copy need only touch Visible.
+            new FactionPassJob
+            {
+                Vis = (byte*)_static.GetUnsafePtr(),
+                Rev = (byte*)_revealed.GetUnsafePtr(),
+                Static = null,
+                Cmds = cmds,
+                Start = start,
+                Count = cnt,
+                Flags = flags,
+                Cells = cells,
+                W = _w,
+                H = _h,
+            }.Schedule(MaxFactions, 1).Complete();
+
+            cmds.Dispose(); start.Dispose(); cnt.Dispose(); flags.Dispose();
+            _staticHash = hash;
+            _staticCount = count;
+            _staticValid = true;
+        }
+
+        unsafe void RunFactionPass(NativeArray<StampCommand> mobiles, int count, bool clearFirst)
+        {
+            int cells = _w * _h;
+            var cmds = SortByFaction(mobiles, count, out var start, out var cnt);
+            var flags = new NativeArray<byte>(MaxFactions, Allocator.TempJob);
+            bool useStatic = clearFirst && _staticValid && _static.IsCreated;
+            for (int f = 0; f < MaxFactions; f++)
+            {
+                byte fl = 0;
+                if (clearFirst)
+                {
+                    if (useStatic && _staticHas[f]) fl = FlagCopyStatic;
+                    else if (_sliceDirty[f]) fl = FlagClear;
+                    _sliceDirty[f] = (useStatic && _staticHas[f]) || cnt[f] > 0;
+                }
+                else if (cnt[f] > 0) _sliceDirty[f] = true;
+                flags[f] = fl;
+            }
+
+            new FactionPassJob
+            {
+                Vis = (byte*)_visible.GetUnsafePtr(),
+                Rev = (byte*)_revealed.GetUnsafePtr(),
+                Static = useStatic ? (byte*)_static.GetUnsafeReadOnlyPtr() : null,
+                Cmds = cmds,
+                Start = start,
+                Count = cnt,
+                Flags = flags,
+                Cells = cells,
+                W = _w,
+                H = _h,
+            }.Schedule(MaxFactions, 1).Complete();
+
+            cmds.Dispose(); start.Dispose(); cnt.Dispose(); flags.Dispose();
+        }
+
+        /// <summary>Counting sort of the commands into per-faction runs so
+        /// each faction's slice is stamped by exactly one worker.</summary>
+        NativeArray<StampJobCmd> SortByFaction(NativeArray<StampCommand> src, int count,
+            out NativeArray<int> start, out NativeArray<int> cnt)
+        {
+            if (count > src.Length) count = src.Length;
+            if (count < 0) count = 0;
+            start = new NativeArray<int>(MaxFactions, Allocator.TempJob);
+            cnt = new NativeArray<int>(MaxFactions, Allocator.TempJob);
+            var cmds = new NativeArray<StampJobCmd>(count, Allocator.TempJob,
+                NativeArrayOptions.UninitializedMemory);
+            if (count == 0) return cmds;
+
+            for (int i = 0; i < count; i++) cnt[FIdx(src[i].Faction)]++;
+            int run = 0;
+            for (int f = 0; f < MaxFactions; f++) { start[f] = run; run += cnt[f]; }
+            var fill = new NativeArray<int>(MaxFactions, Allocator.Temp);
+            int cells = _w * _h;
             for (int i = 0; i < count; i++)
             {
-                var c = commands[i];
-                jobCmds[i] = new StampJob.Cmd
+                var c = src[i];
+                int f = FIdx(c.Faction);
+                cmds[start[f] + fill[f]++] = new StampJobCmd
                 {
                     GX = (c.Position.x - WorldMin.x) / CellSize,
                     GY = (c.Position.z - WorldMin.y) / CellSize,
                     R = Mathf.Max(0.01f, c.Radius / CellSize),
-                    Ofs = FOfs(c.Faction),
+                    Ofs = f * cells,
                 };
             }
-
-            new StampJob
-            {
-                Cmds = jobCmds,
-                Visible = _visible,
-                Revealed = _revealed,
-                W = _w,
-                H = _h,
-            }.Run();
-            jobCmds.Dispose();
+            fill.Dispose();
+            return cmds;
         }
 
+        const byte FlagClear = 1;
+        const byte FlagCopyStatic = 2;
+
+        public struct StampJobCmd { public float GX, GY, R; public int Ofs; }
+
+        /// <summary>
+        /// One worker per faction slice: seed the slice (copy the static
+        /// layer, or clear it), then stamp that faction's circles. Slices
+        /// are disjoint, so the workers never touch the same byte.
+        /// </summary>
         [BurstCompile]
-        struct StampJob : IJob
+        unsafe struct FactionPassJob : IJobParallelFor
         {
-            public struct Cmd { public float GX, GY, R; public int Ofs; }
+            [NativeDisableUnsafePtrRestriction] public byte* Vis;
+            [NativeDisableUnsafePtrRestriction] public byte* Rev;
+            [NativeDisableUnsafePtrRestriction] public byte* Static;
+            [ReadOnly] public NativeArray<StampJobCmd> Cmds;
+            [ReadOnly] public NativeArray<int> Start;
+            [ReadOnly] public NativeArray<int> Count;
+            [ReadOnly] public NativeArray<byte> Flags;
+            public int Cells, W, H;
 
-            [ReadOnly] public NativeArray<Cmd> Cmds;
-            public NativeArray<byte> Visible;
-            public NativeArray<byte> Revealed;
-            public int W, H;
-
-            public void Execute()
+            public void Execute(int f)
             {
-                for (int ci = 0; ci < Cmds.Length; ci++)
+                long ofs = (long)f * Cells;
+                byte fl = Flags[f];
+                if ((fl & FlagCopyStatic) != 0 && Static != null)
+                    UnsafeUtility.MemCpy(Vis + ofs, Static + ofs, Cells);
+                else if ((fl & FlagClear) != 0)
+                    UnsafeUtility.MemClear(Vis + ofs, Cells);
+
+                int s = Start[f], e = s + Count[f];
+                for (int k = s; k < e; k++)
+                    StampOne(Cmds[k], Vis, Rev, W, H);
+            }
+        }
+
+        /// <summary>
+        /// Row-span stamp. Byte-identical to the old per-cell loop: the
+        /// sqrt per row only bounds which cells are tested — cells outside
+        /// the widened outer span are provably beyond rOut, cells inside the
+        /// shrunken inner span provably inside rIn (both with a full cell of
+        /// margin), and every rim cell still runs the exact original test.
+        /// </summary>
+        static unsafe void StampOne(in StampJobCmd c, byte* vis, byte* rev, int W, int H)
+        {
+            float rOut = c.R + 0.75f;
+            float rIn = rOut - 1.5f; if (rIn < 0f) rIn = 0f;
+            int minx = (int)(c.GX - rOut); if (minx < 0) minx = 0;
+            int maxx = (int)(c.GX + rOut) + 1; if (maxx > W - 1) maxx = W - 1;
+            int miny = (int)(c.GY - rOut); if (miny < 0) miny = 0;
+            int maxy = (int)(c.GY + rOut) + 1; if (maxy > H - 1) maxy = H - 1;
+            float r2Out = rOut * rOut;
+            float r2In = rIn * rIn;
+            float cx = c.GX - 0.5f;
+
+            for (int y = miny; y <= maxy; y++)
+            {
+                float dy = (y + 0.5f) - c.GY;
+                float dy2 = dy * dy;
+                if (dy2 > r2Out) continue;     // d2 >= dy2 for every cell of the row
+
+                float hOut = Unity.Mathematics.math.sqrt(r2Out - dy2);
+                int x0 = (int)Unity.Mathematics.math.floor(cx - hOut) - 1; if (x0 < minx) x0 = minx;
+                int x1 = (int)Unity.Mathematics.math.ceil(cx + hOut) + 1; if (x1 > maxx) x1 = maxx;
+                if (x0 > x1) continue;
+
+                int i0 = x1 + 1, i1 = x1;      // empty interior by default
+                if (dy2 < r2In)
                 {
-                    var c = Cmds[ci];
-                    float rOut = c.R + 0.75f;
-                    float rIn = rOut - 1.5f; if (rIn < 0f) rIn = 0f;
-                    int minx = (int)(c.GX - rOut); if (minx < 0) minx = 0;
-                    int maxx = (int)(c.GX + rOut) + 1; if (maxx > W - 1) maxx = W - 1;
-                    int miny = (int)(c.GY - rOut); if (miny < 0) miny = 0;
-                    int maxy = (int)(c.GY + rOut) + 1; if (maxy > H - 1) maxy = H - 1;
-                    float r2Out = rOut * rOut;
-                    float r2In = rIn * rIn;
-
-                    for (int y = miny; y <= maxy; y++)
-                    {
-                        int row = c.Ofs + y * W;
-                        for (int x = minx; x <= maxx; x++)
-                        {
-                            float dx = (x + 0.5f) - c.GX;
-                            float dy = (y + 0.5f) - c.GY;
-                            float d2 = dx * dx + dy * dy;
-                            if (d2 > r2Out) continue;
-
-                            byte cov = 255;
-                            if (d2 > r2In)
-                            {
-                                float v = (rOut - Unity.Mathematics.math.sqrt(d2)) / 1.5f;
-                                if (v <= 0f) continue;
-                                if (v > 1f) v = 1f;
-                                cov = (byte)(v * 255f);
-                            }
-
-                            int i = row + x;
-                            if (cov > Visible[i]) Visible[i] = cov;
-                            if (cov > Revealed[i]) Revealed[i] = cov;
-                        }
-                    }
+                    float hIn = Unity.Mathematics.math.sqrt(r2In - dy2);
+                    int a = (int)Unity.Mathematics.math.ceil(cx - hIn) + 1;
+                    int b = (int)Unity.Mathematics.math.floor(cx + hIn) - 1;
+                    if (a < x0) a = x0;
+                    if (b > x1) b = x1;
+                    if (a <= b) { i0 = a; i1 = b; }
                 }
+
+                long row = c.Ofs + (long)y * W;
+                RimCells(c, vis, rev, row, y, x0, i0 - 1, r2Out, r2In, rOut);
+                if (i0 <= i1)
+                {
+                    UnsafeUtility.MemSet(vis + row + i0, 255, i1 - i0 + 1);
+                    UnsafeUtility.MemSet(rev + row + i0, 255, i1 - i0 + 1);
+                }
+                RimCells(c, vis, rev, row, y, i1 + 1, x1, r2Out, r2In, rOut);
+            }
+        }
+
+        static unsafe void RimCells(in StampJobCmd c, byte* vis, byte* rev, long row, int y,
+            int xa, int xb, float r2Out, float r2In, float rOut)
+        {
+            for (int x = xa; x <= xb; x++)
+            {
+                float dx = (x + 0.5f) - c.GX;
+                float dy = (y + 0.5f) - c.GY;
+                float d2 = dx * dx + dy * dy;
+                if (d2 > r2Out) continue;
+
+                byte cov = 255;
+                if (d2 > r2In)
+                {
+                    float v = (rOut - Unity.Mathematics.math.sqrt(d2)) / 1.5f;
+                    if (v <= 0f) continue;
+                    if (v > 1f) v = 1f;
+                    cov = (byte)(v * 255f);
+                }
+
+                long i = row + x;
+                if (cov > vis[i]) vis[i] = cov;
+                if (cov > rev[i]) rev[i] = cov;
             }
         }
 
@@ -404,18 +624,18 @@ namespace TheWaningBorder.World.FogOfWar
             PushHumanTexture();
         }
 
-        // Scratch buffer for the team merge, kept alive between frames so the
-        // merge does not allocate per frame.
-        NativeArray<byte> _teamVisible;
-        NativeArray<byte> _teamRevealed;
-
         /// <summary>
-        /// OR every team member's visibility into a shared result and write it
-        /// back to each member. Costs nothing in a free-for-all: if no team has
-        /// two or more members the whole pass is skipped, which is the default
-        /// lobby state.
+        /// Max every team member's visibility into a shared result and write
+        /// it back to each member. Costs nothing in a free-for-all: if no team
+        /// has two or more members the whole pass is skipped, which is the
+        /// default lobby state.
+        ///
+        /// Burst, parallel over cells, in place (2026-09-25): the managed
+        /// per-cell loop was a million-iteration C# loop per team per pass.
+        /// Each cell reads every member and writes the max back to every
+        /// member, so no scratch buffer is needed and the result is identical.
         /// </summary>
-        void MergeTeamVision()
+        unsafe void MergeTeamVision()
         {
             if (!_visible.IsCreated || !_revealed.IsCreated) return;
 
@@ -424,48 +644,57 @@ namespace TheWaningBorder.World.FogOfWar
 
             for (byte team = 1; team <= Alliances.MaxTeams; team++)
             {
-                // Collect this team's slice offsets.
                 int memberCount = 0;
-                int firstOfs = 0;
-                Span<int> offsets = stackalloc int[MaxFactions];
+                Span<int> members = stackalloc int[MaxFactions];
                 for (int f = 0; f < MaxFactions; f++)
                 {
                     if (Alliances.TeamOf((Faction)f) != team) continue;
-                    if (memberCount == 0) firstOfs = f * cells;
-                    offsets[memberCount++] = f * cells;
+                    members[memberCount++] = f;
                 }
                 if (memberCount < 2) continue;   // solo team == no sharing to do
 
-                if (!_teamVisible.IsCreated || _teamVisible.Length < cells)
-                {
-                    if (_teamVisible.IsCreated) _teamVisible.Dispose();
-                    if (_teamRevealed.IsCreated) _teamRevealed.Dispose();
-                    _teamVisible = new NativeArray<byte>(cells, Allocator.Persistent);
-                    _teamRevealed = new NativeArray<byte>(cells, Allocator.Persistent);
-                }
-
-                // Seed from the first member, then merge the rest in.
-                NativeArray<byte>.Copy(_visible, firstOfs, _teamVisible, 0, cells);
-                NativeArray<byte>.Copy(_revealed, firstOfs, _teamRevealed, 0, cells);
-
-                for (int m = 1; m < memberCount; m++)
-                {
-                    int ofs = offsets[m];
-                    for (int i = 0; i < cells; i++)
-                    {
-                        // Max, not OR: cells carry fractional AA coverage now.
-                        byte v = _visible[ofs + i];
-                        if (v > _teamVisible[i]) _teamVisible[i] = v;
-                        byte rv = _revealed[ofs + i];
-                        if (rv > _teamRevealed[i]) _teamRevealed[i] = rv;
-                    }
-                }
-
-                // Write the union back to every member.
+                var offsets = new NativeArray<int>(memberCount, Allocator.TempJob);
+                bool anyDirty = false;
                 for (int m = 0; m < memberCount; m++)
                 {
-                    NativeArray<byte>.Copy(_teamVisible, 0, _visible, offsets[m], cells);
-                    NativeArray<byte>.Copy(_teamRevealed, 0, _revealed, offsets[m], cells);
+                    offsets[m] = members[m] * cells;
+                    anyDirty |= _sliceDirty[members[m]];
+                }
+
+                new TeamMergeJob
+                {
+                    Vis = (byte*)_visible.GetUnsafePtr(),
+                    Rev = (byte*)_revealed.GetUnsafePtr(),
+                    Offsets = offsets,
+                }.Schedule(cells, 16384).Complete();
+                offsets.Dispose();
+
+                if (anyDirty)
+                    for (int m = 0; m < memberCount; m++) _sliceDirty[members[m]] = true;
+            }
+        }
+
+        [BurstCompile]
+        unsafe struct TeamMergeJob : IJobParallelFor
+        {
+            [NativeDisableUnsafePtrRestriction] public byte* Vis;
+            [NativeDisableUnsafePtrRestriction] public byte* Rev;
+            [ReadOnly] public NativeArray<int> Offsets;
+
+            public void Execute(int i)
+            {
+                byte v = 0, r = 0;
+                for (int m = 0; m < Offsets.Length; m++)
+                {
+                    long o = Offsets[m] + (long)i;
+                    if (Vis[o] > v) v = Vis[o];
+                    if (Rev[o] > r) r = Rev[o];
+                }
+                for (int m = 0; m < Offsets.Length; m++)
+                {
+                    long o = Offsets[m] + (long)i;
+                    Vis[o] = v;
+                    Rev[o] = r;
                 }
             }
         }
@@ -485,12 +714,25 @@ namespace TheWaningBorder.World.FogOfWar
             var data = _tex.GetRawTextureData<byte>();
             int cells = _w * _h;
             int required = cells * 4;   // RGBA32: four bytes per pixel
+            bool reinit = false;
             if (data.Length != required)
             {
                 _tex.Reinitialize(_w, _h);
                 data = _tex.GetRawTextureData<byte>();
                 EnsureMaterialBound();
+                reinit = true;
             }
+
+            // Nothing to upload when the human slice is byte-identical to the
+            // last push (2026-09-25): an idle base, a paused match, a stable
+            // late-game front. The 4 MB Apply is the expensive half of a push;
+            // a 2 MB memcmp is not. Skipping also lets an in-flight crossfade
+            // finish on its own clock, which is what a same-data push would
+            // have converged to anyway.
+            if (!reinit && _pushedVis.IsCreated && _pushedVis.Length == cells
+                && SliceEquals(_visible, ofs, _pushedVis, cells)
+                && SliceEquals(_revealed, ofs, _pushedRev, cells))
+                return;
 
             // The crossfade SOURCE rides in BA. It is NOT simply the last
             // push: if a push lands while the previous fade is still
@@ -532,7 +774,7 @@ namespace TheWaningBorder.World.FogOfWar
                 Data = data,
                 Tq = tq,
                 Fresh = freshPrev ? (byte)1 : (byte)0,
-            }.Run();
+            }.Schedule(cells, 16384).Complete();
 
             _tex.Apply(false, false);
 
@@ -558,8 +800,17 @@ namespace TheWaningBorder.World.FogOfWar
         NativeArray<byte> _prevVis;
         NativeArray<byte> _prevRev;
 
+        static unsafe bool SliceEquals(NativeArray<byte> a, int aOfs, NativeArray<byte> b, int count)
+        {
+            byte* pa = (byte*)a.GetUnsafeReadOnlyPtr() + aOfs;
+            byte* pb = (byte*)b.GetUnsafeReadOnlyPtr();
+            return UnsafeUtility.MemCmp(pa, pb, count) == 0;
+        }
+
+        // Parallel over cells (2026-09-25): each index touches only its own
+        // cell in every array and its own four texel bytes.
         [BurstCompile]
-        struct PushJob : IJob
+        struct PushJob : IJobParallelFor
         {
             [ReadOnly] public NativeArray<byte> Visible;
             [ReadOnly] public NativeArray<byte> Revealed;
@@ -569,13 +820,13 @@ namespace TheWaningBorder.World.FogOfWar
             public NativeArray<byte> PrevRev;
             public NativeArray<byte> PushedVis;
             public NativeArray<byte> PushedRev;
+            [NativeDisableParallelForRestriction]
             public NativeArray<byte> Data;   // RGBA32 raw texture data
             public int Tq;
             public byte Fresh;
 
-            public void Execute()
+            public void Execute(int i)
             {
-                for (int i = 0; i < Cells; i++)
                 {
                     byte vis = Visible[Ofs + i];
                     byte rev = Revealed[Ofs + i];
@@ -664,6 +915,10 @@ namespace TheWaningBorder.World.FogOfWar
             int slice = _w * _h;
             if (_visible.IsCreated) _visible.Dispose();
             _visible = new NativeArray<byte>(MaxFactions * slice, Allocator.Persistent);
+            // Fresh zeroed grid: nothing is dirty, and the static layer is the
+            // wrong size and (if Revealed is wiped below) no longer folded in.
+            InvalidateStatic();
+            DataVersion++;
 
             if (clearRevealed || !oldRevealed.IsCreated || oldW <= 0 || oldH <= 0)
             {

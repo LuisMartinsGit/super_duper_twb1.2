@@ -435,7 +435,7 @@ namespace TheWaningBorder.AI
             {
                 float3 p = edge + inward * t;
                 p.y = TerrainUtility.GetHeight(p.x, p.z);
-                if (BuildCommandHelper.IsValidBuildPosition(em, p, hubSize)) return p;
+                if (BuildSiteSnapshot.Current(em).IsValidBuildPosition(em, p, hubSize, null)) return p;
             }
             float3 fallback = edge + inward * 1.5f;
             fallback.y = TerrainUtility.GetHeight(fallback.x, fallback.z);
@@ -478,8 +478,25 @@ namespace TheWaningBorder.AI
             }
 
             float2 center = (mn + mx) * 0.5f;
-            float2 he = math.clamp((mx - mn) * 0.5f + Cfg.perimeterPad,
-                Cfg.perimeterHalfExtentMin, Cfg.perimeterHalfExtentMax);
+            // The wall is planned ONCE, usually while the base is still small,
+            // so its extent must cover the ground the AI will build on later —
+            // not just what stands today. The floor is the base placer's own
+            // reach (last-resort ring + the widest footprint's half + the
+            // interior clearance it keeps), so wider AI spacing can never push
+            // later buildings out through the wall (2026-09-25). SimpleAISystem
+            // then refuses sites outside the planned rectangle.
+            var ai = SimpleAISystemConfig.I;
+            float reach = math.max(ai.buildRingDistanceMax, ai.relaxedBuildRingDistanceMax)
+                        + Cfg.perimeterFootprintAllowance + ai.wallInteriorClearance;
+            float heMin = math.min(math.max(Cfg.perimeterHalfExtentMin, reach),
+                                   Cfg.perimeterHalfExtentMax);
+            // Centre the enclosure on the Hall the ring is measured from, far
+            // enough that the Hall-centred build disc fits on every side.
+            float2 hall2 = new float2(hallPos.x, hallPos.z);
+            float2 lo = math.min(mn - Cfg.perimeterPad, hall2 - heMin);
+            float2 hi = math.max(mx + Cfg.perimeterPad, hall2 + heMin);
+            center = (lo + hi) * 0.5f;
+            float2 he = math.clamp((hi - lo) * 0.5f, heMin, Cfg.perimeterHalfExtentMax);
 
             // Corners in loop order (counter-clockwise, starting +x/+z).
             var corners = new float2[4]
@@ -629,7 +646,8 @@ namespace TheWaningBorder.AI
                     float3 candidate = c.ChokePos + backDir * back
                         + c.ChokeAxis * laterals[l];
                     candidate.y = TerrainUtility.GetHeight(candidate.x, candidate.z);
-                    if (BuildCommandHelper.IsValidBuildPosition(em, candidate, keepSize))
+                    if (BuildSiteSnapshot.Current(em)
+                            .IsValidBuildPosition(em, candidate, keepSize, null))
                     {
                         pos = candidate;
                         return true;

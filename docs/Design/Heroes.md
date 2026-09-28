@@ -78,6 +78,10 @@ that exception arrives: King Lexor holds King's Call (passive), Liquid Courage
 (active) and Honour thy Pledge (active). The cast path takes the slot it is
 asked for instead of assuming the first ready active.
 
+Their numbers sit on the spell ladder ([Spells.md](Spells.md) §8-9): Liquid
+Courage is a hero active (45 s cooldown, 10 s of -90 % damage taken, 22 %
+uptime), Honour thy Pledge and Shardbound Fury are hero ultimates (120 s).
+
 ---
 
 ## 3. Honour thy Pledge — King Lexor
@@ -89,7 +93,7 @@ asked for instead of assuming the first ready active.
 | **Type** | Active, area centred on the caster |
 | **Unlocks at** | hero level **4** |
 | **Effect** | Spawns a temporary army of sworn Alanthor soldiers around the king |
-| **Cooldown** | 90 s |
+| **Cooldown** | 120 s (the hero-ultimate band, [Spells.md](Spells.md) §8.2; was 90 s) |
 | **Spawn radius** | 6 m ring around Lexor |
 
 Size, quality and duration all scale with Lexor's level:

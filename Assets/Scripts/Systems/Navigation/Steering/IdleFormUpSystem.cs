@@ -8,7 +8,12 @@
 // slots stable across re-forms, so a settled group barely moves.
 //
 // Runs for EVERY faction, human included — the visual language of "an army"
-// should not depend on who owns it.
+// should not depend on who owns it. It respects the player's choices
+// (docs/Design/Navigation_And_Formations.md §2.13): a cluster re-forms in the
+// shape its units last marched in (FormationSlotMemory.Shape), the members of
+// one formation (FormationSlotMemory.GroupKey) are always clustered together
+// and are never "new faces" to each other, and Hold-stance units are never
+// moved (docs/Design/Stances.md §1).
 //
 // What it must never touch:
 //   * anything with an order or a target in flight (command follow-through);
@@ -68,6 +73,8 @@ namespace TheWaningBorder.Systems.Navigation
             ComponentType.ReadOnly<FactionTag>(),
             ComponentType.ReadOnly<LocalTransform>(),
             ComponentType.ReadOnly<Health>(),
+            // An emplaced engine is bolted to a wall: never part of a cluster.
+            ComponentType.Exclude<EmplacedEngineTag>(),
         };
         static CachedEntityQuery QC_Idle;
 
@@ -108,6 +115,8 @@ namespace TheWaningBorder.Systems.Navigation
                 if (TransientState.Active<DeathAnimationState>(em, e)) continue;
                 if (em.HasComponent<BuildCommand>(e)) continue;
                 if (em.HasComponent<PatrolTag>(e)) continue;
+                // Hold Position never moves on its own — not even to tidy up.
+                if (em.HasComponent<HoldPositionTag>(e)) continue;
                 if (em.HasComponent<Target>(e)
                     && em.GetComponentData<Target>(e).Value != Entity.Null) continue;
                 if (em.HasComponent<DesiredDestination>(e)
@@ -150,6 +159,34 @@ namespace TheWaningBorder.Systems.Navigation
                         members.Add(ents[idle[j]]);
                         memberIdx.Add(idle[j]);
                     }
+                    // ONE FORMATION IS ONE CLUSTER. A formation wider than
+                    // ClusterRadius (a 30-unit line is 60 m across) used to be
+                    // cut in two by the seed-radius test and re-formed as two
+                    // armies. Pull in every idle unit that marched in the same
+                    // formation as anyone already gathered, transitively.
+                    {
+                        var keys = new HashSet<uint>();
+                        bool grew = true;
+                        while (grew)
+                        {
+                            grew = false;
+                            for (int j = 0; j < memberIdx.Count; j++)
+                            {
+                                uint k = GroupKeyOf(em, ents[memberIdx[j]]);
+                                if (k != 0) keys.Add(k);
+                            }
+                            if (keys.Count == 0) break;
+                            for (int j = s + 1; j < idle.Count; j++)
+                            {
+                                if (assigned[j]) continue;
+                                if (!keys.Contains(GroupKeyOf(em, ents[idle[j]]))) continue;
+                                assigned[j] = true;
+                                members.Add(ents[idle[j]]);
+                                memberIdx.Add(idle[j]);
+                                grew = true;
+                            }
+                        }
+                    }
                     if (members.Count < MinClusterSize) continue;
 
                     float3 centroid = float3.zero;
@@ -161,13 +198,41 @@ namespace TheWaningBorder.Systems.Navigation
                     if (TheWaningBorder.AI.TacticalQuery.EnemyStrengthInRadius(
                             em, (Faction)fKey, centroid, EnemyVetoRadius) > 0) continue;
 
+                    // The formation most of this cluster last marched in, and
+                    // the shape it marched in. Ties resolve to the key seen
+                    // first, in the deterministic member order.
+                    uint dominantKey = 0;
+                    FormationShape shape = FormationShape.Box;
+                    {
+                        var counts = new Dictionary<uint, int>();
+                        int best = 0;
+                        for (int j = 0; j < members.Count; j++)
+                        {
+                            uint k = GroupKeyOf(em, members[j]);
+                            if (k == 0) continue;
+                            counts.TryGetValue(k, out int c);
+                            counts[k] = ++c;
+                            if (c > best)
+                            {
+                                best = c;
+                                dominantKey = k;
+                                shape = em.GetComponentData<FormationSlotMemory>(members[j]).Shape;
+                            }
+                        }
+                    }
+
                     // Re-form only for a new face or a drifted member — a
-                    // settled group stays settled.
+                    // settled group stays settled. A member of the cluster's
+                    // own just-arrived formation is NOT a new face even though
+                    // this system has never formed it: it already stands in
+                    // the shape the player gave it.
                     bool worthIt = false;
                     for (int j = 0; j < members.Count && !worthIt; j++)
                     {
                         var e = members[j];
-                        if (!formedSet.Contains(e)) { worthIt = true; break; }
+                        bool known = formedSet.Contains(e)
+                            || (dominantKey != 0 && GroupKeyOf(em, e) == dominantKey);
+                        if (!known) { worthIt = true; break; }
                         if (em.HasComponent<GuardPoint>(e))
                         {
                             var gp = em.GetComponentData<GuardPoint>(e);
@@ -189,7 +254,7 @@ namespace TheWaningBorder.Systems.Navigation
                     // source rides the lockstep queue like every other
                     // host-authoritative order.
                     CommandRouter.IssueFormationMove(em, members, centroid,
-                        FormationShape.Box, CommandSource.AI);
+                        shape, CommandSource.AI);
                     for (int j = 0; j < members.Count; j++) formedSet.Add(members[j]);
                     issuedAny = true;
                 }
@@ -200,6 +265,13 @@ namespace TheWaningBorder.Systems.Navigation
                 if (formedSet.Count > 400)
                     formedSet.RemoveWhere(e => !em.Exists(e));
             }
+        }
+
+        /// <summary>The formation a unit last marched in (0 = none / forgotten).</summary>
+        private static uint GroupKeyOf(EntityManager em, Entity e)
+        {
+            if (!TransientState.Active<FormationSlotMemory>(em, e)) return 0;
+            return em.GetComponentData<FormationSlotMemory>(e).GroupKey;
         }
     }
 }

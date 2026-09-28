@@ -230,6 +230,7 @@ namespace TheWaningBorder.Economy
         {
             _cachedQuery = default;
             _queryOwner = default;
+            System.Array.Clear(_entityOf, 0, _entityOf.Length);
         }
 
         /// <summary>
@@ -247,6 +248,7 @@ namespace TheWaningBorder.Economy
             // Rebuild the query if this is the first call or the world changed.
             if (!_queryOwner.Equals(em))
             {
+                System.Array.Clear(_entityOf, 0, _entityOf.Length);
                 _cachedQuery = em.CreateEntityQuery(
                     ComponentType.ReadOnly<FactionTag>(),
                     ComponentType.ReadOnly<FactionResources>()
@@ -254,21 +256,39 @@ namespace TheWaningBorder.Economy
                 _queryOwner = em;
             }
 
+            // The faction's bank entity is remembered; its data is always
+            // read fresh. Three whole-query snapshots per lookup were the
+            // cost of this helper, and it is polled by UI and sim alike.
+            int slot = (int)faction;
+            if (slot >= 0 && slot < _entityOf.Length)
+            {
+                var known = _entityOf[slot];
+                if (known != Entity.Null && em.Exists(known)
+                    && em.HasComponent<FactionResources>(known) && em.HasComponent<FactionTag>(known)
+                    && em.GetComponentData<FactionTag>(known).Value == faction)
+                {
+                    resources = em.GetComponentData<FactionResources>(known);
+                    return true;
+                }
+            }
+
             using var entities = _cachedQuery.ToEntityArray(Allocator.Temp);
             using var tags = _cachedQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var resourceData = _cachedQuery.ToComponentDataArray<FactionResources>(Allocator.Temp);
 
             for (int i = 0; i < tags.Length; i++)
             {
                 if (tags[i].Value == faction)
                 {
-                    resources = resourceData[i];
+                    if (slot >= 0 && slot < _entityOf.Length) _entityOf[slot] = entities[i];
+                    resources = em.GetComponentData<FactionResources>(entities[i]);
                     return true;
                 }
             }
 
             return false;
         }
+
+        private static readonly Entity[] _entityOf = new Entity[16];
 
     }
 }

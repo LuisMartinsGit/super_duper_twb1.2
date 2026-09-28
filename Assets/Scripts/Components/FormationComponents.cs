@@ -10,10 +10,9 @@
 // spot falls back to its own goal flow toward its FINAL slot destination —
 // exactly the AoE4 rule (GDC 2022, slide 32).
 //
-// Groups are created by FormationMoveCommandHelper (single-player / direct
-// execution path). In lockstep multiplayer the router falls back to
-// per-unit slot moves (see CommandRouter.Formation.cs) so no new network
-// command type is needed.
+// Groups are created by FormationMoveCommandHelper on every peer: in lockstep
+// multiplayer a formation order is one replicated FormationOrder command (see
+// CommandRouter.Formation.cs), so every peer builds the same group.
 //
 // All components live in the global namespace per project convention.
 
@@ -55,20 +54,29 @@ public struct FormationGroup : IComponentData
     public FormationShape Shape;
     /// <summary>0 = Moving, 1 = Arrived (spots frozen at the destination).</summary>
     public byte State;
-    /// <summary>Consecutive ticks the leader has been unable to step
-    /// (blocked cell). At <see cref="StallReleaseTicks"/> the group flips
-    /// to Arrived so members finish on their own flow instead of hovering
-    /// around a stuck leader.</summary>
+    /// <summary>Consecutive ticks the leader has been GENUINELY unable to
+    /// move: the cell ahead along its facing is blocked, its heading is
+    /// already within the stall tolerance of the flow (otherwise it pivots in
+    /// place, which is progress), and the cell ahead along the flow is blocked
+    /// too. At <see cref="StallReleaseTicks"/> the group is RELEASED - every
+    /// member detaches and walks on to its own final slot on its own flow. It
+    /// no longer flips to Arrived, which snapped every spot to its final slot
+    /// in the middle of the route and dissolved the group far from the
+    /// destination.</summary>
     public byte StallTicks;
-    /// <summary>Consecutive ticks the leader has been held at a standstill by
-    /// the tether (see <see cref="LeaderTetherDistance"/>) WITHOUT the group
-    /// closing up. At <see cref="TetherReleaseTicks"/> the worst laggard is
-    /// detached so one wedged unit can't freeze the whole formation.</summary>
+    /// <summary>Consecutive ticks the leader has been EASING for a member out
+    /// of formation WITHOUT the worst offset improving. At
+    /// <see cref="TetherReleaseTicks"/> the member holding that offset is
+    /// detached, so one wedged unit can't hold the whole formation at reduced
+    /// speed.</summary>
     public byte TetherTicks;
-    /// <summary>Smallest worst-member lag seen so far this leg. Any genuine
-    /// improvement resets <see cref="TetherTicks"/>, so a group that is still
-    /// forming up (legitimately large lag, steadily shrinking) is never
-    /// mistaken for a wedged one. Initialised to float.MaxValue.</summary>
+    /// <summary>Smallest worst-member OFFSET (distance to spot, any
+    /// direction) seen so far in the current ease episode. The name is
+    /// historical: it measured behind-ness until 2026-09-27, which disagreed
+    /// with the any-direction offset that triggers the ease and made the fuse
+    /// drop the wrong member. Any genuine improvement resets
+    /// <see cref="TetherTicks"/>, so a group that is still forming up is never
+    /// mistaken for a wedged one. float.MaxValue outside an ease episode.</summary>
     public float BestLag;
 
     /// <summary>1 while the leader is easing for a member out of formation.
@@ -77,6 +85,13 @@ public struct FormationGroup : IComponentData
     /// triggers the ease were within 3 cm of each other, so the leader stuck at
     /// 90% forever and the squad simply moved slower than it should.</summary>
     public byte Easing;
+
+    /// <summary>Seconds since the leader ARRIVED. The group no longer
+    /// dissolves on the leader's arrival — rear ranks are still walking then —
+    /// but each member detaches as it settles on its own slot, and whoever is
+    /// still unsettled after FormationGroupSystem's settle timeout is released
+    /// (docs/Design/Navigation_And_Formations.md §2.9).</summary>
+    public float SettleTime;
 
     /// <summary>
     /// Distance from the leader to the OUTERMOST slot, in metres. Taken from
@@ -157,11 +172,11 @@ public struct FormationGroup : IComponentData
     /// stalled while it "formed up" on ground it was already standing on.
     /// </summary>
     public const float LeaderTetherDistance = 3f;
-    /// <summary>Ticks the leader may sit fully tethered with NO improvement
-    /// in the worst lag before the laggard is dropped from the group.</summary>
+    /// <summary>Ticks the leader may ease with NO improvement in the worst
+    /// member offset before that member is dropped from the group. The
+    /// improvement that counts is FormationGroupSystem.asset
+    /// tetherProgressEpsilon.</summary>
     public const byte TetherReleaseTicks = 120;
-    /// <summary>Lag improvement that counts as the group closing up.</summary>
-    public const float TetherProgressEpsilon = 0.25f;
 
     public const byte StateMoving = 0;
     public const byte StateArrived = 1;
@@ -199,6 +214,15 @@ public struct FormationMember : IBufferElementData
     /// engages above the trigger distance and releases only once actually back
     /// in place.</summary>
     public byte CatchingUp;
+    /// <summary>The member's FINAL slot in the world (its order's
+    /// destination). Kept so a member that stepped out of rank to fight can
+    /// be sent back to it — its own DesiredDestination was overwritten by the
+    /// chase.</summary>
+    public float3 SlotWorld;
+    /// <summary>1 while the member is out of rank fighting an AUTO-acquired
+    /// target. It stays on the roster and rejoins when the target is gone;
+    /// an explicit attack order detaches it instead.</summary>
+    public byte Engaged;
 }
 
 /// <summary>
@@ -239,4 +263,12 @@ public struct FormationSlotMemory : IComponentData, IEnableableComponent
     public int Slot;
     /// <summary>Identifies the layout the index belongs to.</summary>
     public uint LayoutKey;
+    /// <summary>The shape the unit last marched in — IdleFormUpSystem re-forms
+    /// an idle cluster in it rather than always in Box.</summary>
+    public FormationShape Shape;
+    /// <summary>Identifies the formation ORDER the unit last belonged to (a
+    /// hash of the members' network ids and the layout), so IdleFormUpSystem
+    /// can tell one just-arrived formation from a mob of new faces. 0 = none.
+    /// Deterministic: built only from sim state every peer agrees on.</summary>
+    public uint GroupKey;
 }

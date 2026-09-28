@@ -55,26 +55,17 @@ namespace TheWaningBorder.Systems.Combat
                 }
 
                 b.Remaining -= dt;
-                b.Accumulator += b.DamagePerSecond * dt;
 
-                int whole = (int)b.Accumulator;
+                // The shared DOT contract (docs/Design/Fire.md): Invulnerable
+                // stops the bleed accruing, Liquid Courage scales the RATE so
+                // the fraction carries, Life Cling / Second Wind floors hold,
+                // and the bleed's owner gets pillage / last-damager credit.
+                int whole = DamageOverTime.Accrue(em, entity, false,
+                    b.DamagePerSecond * dt, ref b.Accumulator);
                 if (whole > 0)
                 {
-                    b.Accumulator -= whole;
-                    var h = health.ValueRO;
-                    h.Value = math.max(0, h.Value - whole);
-                    health.ValueRW = h;
-
-                    // Credit the bleed's owner so pillage / last-damager
-                    // bookkeeping attributes a bleed-out correctly.
-                    if (em.HasComponent<LastDamagedByFaction>(entity))
-                    {
-                        em.SetComponentData(entity, new LastDamagedByFaction
-                        {
-                            Value = b.Source
-                        });
-                        em.SetComponentEnabled<LastDamagedByFaction>(entity, true);
-                    }
+                    ref var h = ref health.ValueRW;
+                    DamageOverTime.Commit(em, entity, ref h, whole, true, b.Source);
                 }
 
                 // The blood half of the rule: drip under the victim wherever

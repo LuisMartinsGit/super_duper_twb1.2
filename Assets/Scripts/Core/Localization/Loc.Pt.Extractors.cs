@@ -68,6 +68,22 @@ namespace TheWaningBorder.Core.Localization
             t["Convert to Hub"] = "Converter em Nó";
             t["Raises a wall hub on this section. New walls can be drawn from it, so the wall can branch."] =
                 "Ergue um nó de muralha nesta secção. Podem desenhar-se novas muralhas a partir dele, ramificando a muralha.";
+            // The wall lock while a wall level researches
+            // (docs/Design/Age_1_Alanthor.md § The four wall levels)
+            t["Walls are being upgraded"] = "As muralhas estão a ser melhoradas";
+            t["Walls are being upgraded. Wall actions return when the upgrade finishes or is cancelled."] =
+                "As muralhas estão a ser melhoradas. As ações da muralha voltam quando a melhoria terminar ou for cancelada.";
+            t["Upgrading: {0} ({1}%)"] = "A melhorar: {0} ({1}%)";
+            t["Cancel Upgrade"] = "Cancelar Melhoria";
+            t["Stop the wall upgrade and refund its cost. Wall actions unlock again."] =
+                "Interrompe a melhoria da muralha e devolve o custo. As ações da muralha voltam a ficar disponíveis.";
+            // Wall emplacements — Replace Equipment (docs/Design/Age_1_Alanthor.md)
+            t["Replace Equipment"] = "Substituir Equipamento";
+            t["Restoring ({0}s)"] = "A restaurar ({0}s)";
+            t["The crew is raising a new engine on this platform."] =
+                "A guarnição está a erguer uma nova máquina nesta plataforma.";
+            t["The {0} on this platform was destroyed. The crew raises a new one when the timer ends; no builder needed."] =
+                "A {0} desta plataforma foi destruída. A guarnição ergue uma nova quando o tempo terminar; não é preciso construtor.";
 
             // ── Armor types + bonus-vs text (stat chips) ──
             t["Light Infantry"] = "Infantaria Ligeira";

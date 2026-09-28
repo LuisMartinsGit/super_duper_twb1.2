@@ -31,6 +31,15 @@ namespace TheWaningBorder.UI.Ingame
         private byte[] _pixelRevealed;
         private bool _fogLayerValid;
 
+        // Fog-sample skip (2026-09-25). The minimap refreshes at 10 Hz, the
+        // fog grid changes at 4 Hz: most refreshes re-sampled a grid that
+        // had not moved. FogOfWarManager.DataVersion says when it did.
+        private int _fogSampledVersion = int.MinValue;
+        private Faction _fogSampledFaction;
+
+        /// <summary>Bumped whenever the fog layer (pixels or revealed mask)
+        /// is rebuilt — the key for the cached base layer (see Update).</summary>
+        private int _fogLayerVersion;
         /// <summary>True when fog is off for this view — every pixel counts
         /// as explored and _pixelRevealed is not consulted.</summary>
         private bool _unfogged;
@@ -59,9 +68,22 @@ namespace TheWaningBorder.UI.Ingame
             {
                 for (int i = 0; i < n; i++)
                     _overlayPixels[i] = ClearPixel;
+                if (_fogLayerValid) _fogLayerVersion++;
                 _fogLayerValid = false;   // fog switched back on later: rebuild
                 return;
             }
+
+            var fogMgr = TheWaningBorder.World.FogOfWar.FogOfWarManager.Instance;
+            int fogVersion = fogMgr != null ? fogMgr.DataVersion : int.MinValue;
+            if (_fogLayerValid && fogMgr != null
+                && fogVersion == _fogSampledVersion && faction == _fogSampledFaction
+                && _fogGrid != null && _fogGrid.Length == (_ovW / FogSampleStride + 2) * (_ovH / FogSampleStride + 2))
+            {
+                System.Array.Copy(_fogPixels, _overlayPixels, n);
+                return;
+            }
+            _fogSampledVersion = fogVersion;
+            _fogSampledFaction = faction;
 
             int gw = _ovW / FogSampleStride + 2;
             int gh = _ovH / FogSampleStride + 2;
@@ -101,6 +123,7 @@ namespace TheWaningBorder.UI.Ingame
             {
                 System.Array.Copy(_fogGrid, _fogGridPrev, _fogGrid.Length);
                 _fogLayerValid = true;
+                _fogLayerVersion++;
 
                 for (int gy = 0; gy < gh; gy++)
                 {

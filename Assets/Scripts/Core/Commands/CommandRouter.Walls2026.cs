@@ -7,6 +7,9 @@
 //   GarrisonWall    — put a foot unit inside a reinforced curtain module.
 //   UngarrisonWall  — empty a module's slots back onto the ground.
 //
+// plus, 2026-09-25, ReplaceEquipment — pay to re-arm a wall emplacement whose
+// engine was destroyed (the free auto-rebuild is gone).
+//
 // All three replicate. A sealed gate changes where an army can path and a
 // garrisoned unit stops existing as a target, so a peer that missed one
 // diverges within seconds. Each has a *Direct executor that every peer runs
@@ -204,5 +207,83 @@ namespace TheWaningBorder.Core.Commands
             ComponentType.Exclude<UnderConstruction>(),
         };
         static TheWaningBorder.Core.CachedEntityQuery QC_GarrisonModules;
+
+        // ═══════════════════════════════════════════════════════════════
+        // EMPLACEMENTS — wall-mount only, paid Replace Equipment (2026-09-25)
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// The free-standing emplacement platforms. Emplacements are
+        /// WALL-MOUNT ONLY (docs/Design/Age_1_Alanthor.md § Ballista and
+        /// Trebuchet emplacements), so no placement path may create one; the
+        /// ids stay registered only because their SOs carry the mount price.
+        /// </summary>
+        public static bool IsWallMountOnlyBuilding(string buildingId)
+            => buildingId == BallistaEmplacement.Id || buildingId == TrebuchetEmplacement.Id;
+
+        /// <summary>
+        /// Re-arm an EMPTY emplacement: pay the engine SO's cost and start its
+        /// restore timer (trainingTime). The engine is raised by
+        /// EmplacementCrewSystem when the timer ends; there is no builder.
+        /// Replicates — the spend and the timer happen in the executor on
+        /// every peer, never at the click site.
+        /// </summary>
+        public static void IssueReplaceEquipment(EntityManager em, Entity platform,
+            CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (ShouldDropCommand(source)) return;
+            if (!EmplacementEquipment.CanReplace(em, platform)) return;
+            if (IsBlockedByNotControllable(em, platform, source)) return;
+
+            if (ShouldQueueForLockstep(source))
+            {
+                int platformId = GetNetworkId(em, platform);
+                if (platformId <= 0)
+                {
+                    if (!MayExecuteLocally(em, platform, "ReplaceEquipment")) return;
+                    ReplaceEquipmentDirect(em, platform);
+                    return;
+                }
+                LockstepServiceLocator.Instance.QueueCommand(new LockstepCommand
+                {
+                    Type = LockstepCommandType.ReplaceEquipment,
+                    EntityNetworkId = platformId,
+                });
+            }
+            else
+            {
+                ReplaceEquipmentDirect(em, platform);
+            }
+        }
+
+        /// <summary>
+        /// Executor — runs on every peer. Validates (a finished, owned
+        /// platform whose engine is gone and not already restoring) BEFORE the
+        /// spend, so a replayed duplicate can never double-charge and a short
+        /// bank rejects identically everywhere. Price and duration are read
+        /// from the engine's SO, so they cannot differ between peers.
+        /// </summary>
+        public static bool ReplaceEquipmentDirect(EntityManager em, Entity platform)
+        {
+            if (!EmplacementEquipment.CanReplace(em, platform)) return false;
+
+            string engineId = EmplacementEquipment.EngineIdOf(em, platform);
+            if (string.IsNullOrEmpty(engineId)) return false;
+
+            var faction = em.GetComponentData<FactionTag>(platform).Value;
+            var cost = EmplacementEquipment.CostOf(engineId);
+            if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost))
+                return false;
+
+            float seconds = EmplacementEquipment.SecondsOf(engineId);
+            var crew = em.GetComponentData<EmplacementCrew>(platform);
+            crew.Engine = Entity.Null;
+            // A zero trainingTime would read as "not restoring" and strand
+            // the paid order; the crew system raises on the next tick instead.
+            crew.Restore = seconds > 0f ? seconds : 1e-4f;
+            crew.RestoreTime = crew.Restore;
+            em.SetComponentData(platform, crew);
+            return true;
+        }
     }
 }

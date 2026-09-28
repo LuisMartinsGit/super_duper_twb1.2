@@ -41,6 +41,44 @@ entries — flat bonus damage vs a target tag, added **after** armor and
 ignoring it. Tags: Infantry, Cavalry, Ranged, Siege, Heavy, Light,
 Building, Worker, Religious, Ship.
 
+### Shield points are hit points
+
+**There is no difference between shield and HP.** A unit with shield points
+(the equipment-tier `ShieldBar` — **50** at the Veilstone tier, **80** at
+Veilsteel, plus the siege Veilstone+ aura's `AuraShieldBoost` while in range)
+simply has that many extra hit points, and **the next damage draws from the
+shield first**. Only what the shield cannot cover reaches Health.
+
+- **Every source** obeys it: melee (and the Shardbound cleave), ranged,
+  projectiles and their splash, spells, reflected damage, damage over time,
+  burning ground, bleed, curse exposure, death blasts.
+- The hit is resolved **before** the shield: armor, `bonusVsTags`, damage-taken
+  multipliers (Liquid Courage) and Invulnerable all apply to the incoming
+  number, and the result is what the shield pays. A shield is not armor and
+  does not reduce a hit — it only absorbs it.
+- **A shielded unit can never die from damage its shield covered.** Overkill
+  is exact: 30 damage against 10 HP + 50 shield leaves 10 HP + 20 shield.
+- A hit that the shield absorbed in full still **counts as a hit**: kill credit
+  (`LastDamagedByFaction`) is recorded, the damage ledger counts it, and it
+  resets the shield's regen gate.
+- Life Cling / Second Wind floors protect **Health**, never the shield: the
+  shield is spent first, then the floor holds whatever reaches Health.
+- Regen: **5 points once per whole second**, after **3 s** without a hit;
+  never above the current max. Max follows the tier (and the siege aura) live.
+- The player sees it: a **veilstone-cyan segment** continuing the HP fill on
+  the floating health bar (the bar rescales to HP + shield when that exceeds
+  max HP), and the selected-unit HP line reads `cur/max + shield`.
+
+Implementation: `ShieldDamage.Absorb` (`Systems/Combat/ShieldBarSystem.cs`) is
+called at the point of damage by `MeleeCombatSystem`, `ProjectileSystem`,
+`CombatDamageHelper` (reflect / stakes), `DamageOverTime.Commit` (and through
+it `SpellDamage.Apply`) and the blast / explosion systems.
+`ShieldDamage.RefundUnobserved` is the order-safe backstop for any Health write
+that has not been routed through it yet: it refunds an unobserved Health drop
+out of the shield in `ShieldBarSystem` and again at the top of `DeathSystem`'s
+death check. Any new damage path must call `ShieldDamage.Absorb` before it
+writes Health — the backstop is exact only for unclamped writes.
+
 ---
 
 ## Armor (canonical values)
@@ -242,6 +280,50 @@ attackers whose damage type is **Siege**.
 - The Border is not exempt and needs no exemption: its wall answer is the
   **Godsplinter** (siege class). Curse pressure against a walled base
   otherwise comes from hostile ground, not from creature chip damage.
+- **Buildings obey it too** (2026-09-26). A Hall, tower, Keep or wall tower
+  firing arrows never auto-acquires a wall piece and its arrows do no damage
+  to one. The rule is enforced where damage LANDS (`ProjectileSystem`, direct
+  hit and splash), so no future shooter can leak past it; target selection
+  filters walls out only so no volley is wasted. The Fiendstone Keep's
+  Ballista / Trebuchet emplacement shots are siege and may still be aimed at
+  a wall — when no other target is in range, the siege shots take the
+  nearest enemy wall piece.
+- **The player is told.** Right-clicking an enemy wall piece with a
+  selection that holds no siege shows *"Only siege can damage walls"* and
+  issues no order — a doomed attack order used to be silently dropped by the
+  combat system, which read as the units ignoring the player. With at least
+  one siege unit selected, the siege units attack and the rest of the
+  selection is left alone.
+
+## Directed building fire
+
+Every building that shoots (`BuildingRangedAttack` — Hall, watch / totem
+towers, Fiendstone Keep, Fortress, wall towers) auto-fires at the nearest
+enemies in range, up to its **MaxTargets** at once. The player may also
+**direct** that fire (2026-09-26):
+
+- Select one or more of your shooting buildings and **right-click an enemy**:
+  that enemy becomes the building's **forced target**. Right-clicking ground
+  or a resource still sets the rally point, unchanged.
+- The forced target takes **one** of the building's MaxTargets slots —
+  always the first — while it is in range. The other slots keep auto-firing
+  at the nearest enemies exactly as before, so directing a Keep's fire never
+  costs it its volley.
+- If the forced target **leaves range the order is kept**; the building
+  auto-fires normally meanwhile and snaps back onto the target when it
+  returns. The order ends when the target dies or stops being a legal
+  target (allied, veiled, an untargetable node), or when the player issues
+  **Stop** or a new forced target.
+- **The Wall Rule applies.** A building whose fire is not siege cannot be
+  directed onto a wall piece; the order is refused with the same notice.
+- **Emplacements** are two entities (the platform and the engine on it).
+  Right-clicking an enemy with the platform selected orders its ENGINE to
+  attack, through the ordinary unit attack order.
+- A mixed selection does both: the units attack, and the buildings in it
+  take the forced target.
+- Replicated: one `BuildingAttack` lockstep command per building
+  (`CommandRouter.IssueBuildingAttack`); a clear (Stop) is the same command
+  with no target.
 
 Consequence for the meta: beat-1 walls genuinely shelter a base until the
 opponent fields beat-2 siege — which is the intended pacing lever.

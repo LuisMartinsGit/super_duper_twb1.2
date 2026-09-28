@@ -224,6 +224,8 @@ namespace TheWaningBorder.Rendering
         void LateUpdate()
         {
             if (!_tinted) TryTint();
+            // Off-screen rigs hold their pose (see ProceduralRigCulling).
+            if (!TheWaningBorder.Rendering.ProceduralRigCulling.Visible(transform.position)) return;
 
             Vector3 pos = transform.position;
             float dist = 0f;

@@ -79,7 +79,7 @@ namespace TheWaningBorder.Entities
         {
             float dt = SystemAPI.Time.DeltaTime;
             var landed = new NativeList<Entity>(Allocator.Temp);
-            var landDamage = new NativeList<int>(Allocator.Temp);
+            var landHit = new NativeList<Launched>(Allocator.Temp);
 
             foreach (var (launched, xf, entity) in SystemAPI
                 .Query<RefRW<Launched>, RefRW<LocalTransform>>()
@@ -98,7 +98,7 @@ namespace TheWaningBorder.Entities
                 if (u >= 1f)
                 {
                     landed.Add(entity);
-                    landDamage.Add(l.LandDamage);
+                    landHit.Add(l);
                 }
             }
 
@@ -108,12 +108,24 @@ namespace TheWaningBorder.Entities
                 var e = landed[i];
                 em.RemoveComponent<Launched>(e);
                 if (!em.HasComponent<Health>(e)) continue;
+                var hit = landHit[i];
+                if (hit.SpellRouted != 0)
+                {
+                    // Shardbound Fury's slam is a spell hit (docs/Design/Spells.md).
+                    // The victim was hostile when thrown; friendlyFire keeps a
+                    // unit converted mid-flight from landing unharmed.
+                    TheWaningBorder.Systems.Combat.SpellDamage.Apply(
+                        em, e, hit.LandDamage, hit.DamageKind, hit.Source, friendlyFire: true);
+                    continue;
+                }
+                // Shield points are hit points (Combat_Pacing.md): spend them first.
+                int left = TheWaningBorder.Systems.Combat.ShieldDamage.Absorb(em, e, hit.LandDamage);
                 var h = em.GetComponentData<Health>(e);
-                h.Value = math.max(0, h.Value - landDamage[i]);
+                h.Value = math.max(0, h.Value - left);
                 em.SetComponentData(e, h);
             }
             landed.Dispose();
-            landDamage.Dispose();
+            landHit.Dispose();
         }
     }
 }

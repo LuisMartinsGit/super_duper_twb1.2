@@ -604,6 +604,19 @@ namespace TheWaningBorder.UI.Ingame
                 case "BuildWall":
                     BuilderCommandPanel.TriggerHubBuildWall(entity);
                     return;
+                case "CancelWallLevel":
+                {
+                    // The wall level runs on whichever hub took it, not
+                    // necessarily the selected piece. Cancel through the
+                    // router so the refund lands on every peer; the wall lock
+                    // lifts on the next refresh because nothing is queued.
+                    // docs/Design/Age_1_Alanthor.md § The four wall levels
+                    if (TheWaningBorder.Entities.WallTiers.TryGetLevelResearch(
+                            em, OwnFaction(em), out var host, out int slot, out _))
+                        CommandRouter.IssueCancelProduction(em, host, slot);
+                    _timer = RefreshInterval;
+                    return;
+                }
                 case "GateClose":
                     TheWaningBorder.Core.Commands.CommandRouter.IssueSetGateLock(em, entity, true);
                     return;
@@ -613,6 +626,20 @@ namespace TheWaningBorder.UI.Ingame
                 case "WallUngarrison":
                     TheWaningBorder.Core.Commands.CommandRouter.IssueUngarrisonWall(em, entity);
                     return;
+                case "ReplaceEquipment":
+                {
+                    // Affordability CHECK only — the executor
+                    // (CommandRouter.ReplaceEquipmentDirect) re-validates and
+                    // spends on every peer.
+                    var faction = OwnFaction(em);
+                    if (!FactionEconomy.CanAfford(em, faction, b.Cost))
+                    {
+                        PlayerNotificationSystem.NotifyError(Loc.T("Not enough resources"));
+                        return;
+                    }
+                    TheWaningBorder.Core.Commands.CommandRouter.IssueReplaceEquipment(em, entity);
+                    return;
+                }
                 case "Reliquary_Build":
                 {
                     // Antiquity chapel lever: spend and spawn the Reliquary
@@ -931,7 +958,11 @@ namespace TheWaningBorder.UI.Ingame
                 bool occupied = i < r.Entries.Length;
                 slot.Root.SetActive(true);
                 bool producing = i == 0 && r.IsBusy;
-                slot.Cancellable = occupied && !producing;
+                // A running unit stays uncancellable (the old training rule);
+                // a running TECH can be stopped and refunded — that is how a
+                // wall level, which locks the walls while it runs, is undone.
+                slot.Cancellable = occupied
+                    && (!producing || r.Entries[i].Kind == ProductionKind.Research);
                 slot.Bg.color = !occupied ? GameUIKit.BarBg
                     : producing ? new Color(0.83f, 0.66f, 0.26f, 0.55f)
                     : GameUIKit.ButtonBg;

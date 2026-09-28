@@ -124,7 +124,7 @@ military units over economy units when both are inside the box.
 > without any mental rotation.
 >
 > **There is no keyboard pan.** Arrow-key panning was removed (2026-08-28) so
-> **A** stays unambiguously attack-move and **F** unambiguously Default stance.
+> **A** stays unambiguously attack-move and **D** unambiguously the Defensive stance.
 > Pan with the middle mouse button, the screen edge, or the minimap.
 >
 > Edge panning does **not** fire while the cursor is over the interface — the
@@ -139,8 +139,9 @@ military units over economy units when both are inside the box.
 | **A** | Enter Attack-Move mode — next right-click is an attack-move order. |
 | **P** | Enter Patrol mode — next right-click sets a patrol endpoint. |
 | **S** | Stop — clear all commands on selected units. |
-| **H** | Hold Position — stay in place but defend in range. |
-| **D / F / G** | Stance: Aggressive / Default / Defensive. |
+| **H** | Stance: **Hold Position** — stop, and from now on stay completely passive: never moves on its own and does not even return fire. Your orders still work. |
+| **D** | Stance: **Defensive** (the default for your units) — returns fire on whatever attacks it, if it can reach it from where it stands; never pursues. |
+| **G** | Stance: **Aggressive** — engages anything it can see and pursues it up to 30 m from its post, then walks back. |
 | **X** | Cycle formation shape: Box → Line → Wedge → Staggered. Re-slots the current selection immediately (AoE4-style). |
 | **B** | Cycle through idle Builders and center the camera. |
 | **Z** | Enter / exit Planning Mode (queue commands visually, execute on confirm). |
@@ -156,7 +157,7 @@ Right-click does whatever makes sense for the target:
 
 | Target | Result |
 |---|---|
-| Ground | Move (in formation: units hold their shape en route — melee front, ranged back — at the slowest member's speed, with a +40% catch-up boost for stragglers; workers and far-away outliers path independently). |
+| Ground | Move (in formation: units hold their shape en route — melee front, ranged back — at the slowest member's speed, slows included, with a +40% catch-up boost for stragglers; workers and far-away outliers path independently). The rear ranks keep formation right up to their own slots after the front has arrived. On an attack-move a unit that steps out of rank to fight falls back in once its fight is over. Formations hold their shape in multiplayer too. |
 | Overpass bridge deck | Send the selection OVER the bridge — any unit type; they climb a ramp, cross the deck, and descend the far side. Units not ordered onto the deck simply walk UNDER the span. |
 | Enemy unit / building | Attack. |
 | Friendly damaged building | Repair (with builders). |
@@ -166,10 +167,18 @@ Right-click does whatever makes sense for the target:
 | Smelter (Worker selected) | Supply the Smelter with iron and veilstone. |
 | Veilstone Main Node, active (Scholar selected) | Begin Purification ritual (Alanthor). |
 | Veilstone Main Node, active (Acolyte selected) | Begin Conversion ritual (Runai). |
-| Ground or unit, with a building selected | Set Rally Point. |
+| Ground or resource, with only buildings selected | Set Rally Point. |
+| Enemy, with a shooting building selected (Hall, tower, Keep, Fortress, wall tower) | Direct its fire: the enemy takes one of the building's target slots while in range; the rest keep auto-firing. The order holds if the target walks out of range, and ends when it dies or you press **Stop**. On an emplacement, its engine attacks. |
+| Enemy wall piece, no siege selected | Nothing — "Only siege can damage walls". Only siege units (and siege-firing buildings) can damage walls. |
 
 **Shift + Right-Click** — Queue a waypoint instead of replacing the current
 order. Hold Shift to chain several; release to execute the chain.
+
+**Idle soldiers form up.** Four or more idle soldiers standing together (and
+nowhere near a fight) tidy themselves into ranks where they stand, in the
+formation shape they last marched in. A formation that has just arrived is
+left alone, and one formation is never split into two. Units on Hold
+Position are never moved.
 
 ### Control Groups
 
@@ -184,7 +193,7 @@ the camera.
 | **Resource HUD** | Top / Bottom-right | Supplies, Iron, Veilstone, Veilsteel, Glow — live values. |
 | **Game Stats** | Bottom-center | Population, unit count, building count, focus count. |
 | **Entity Info Panel** | Left | Portrait, HP, stats; or multi-selection grid for big groups. |
-| **Entity Action Panel** | Left | Build buttons, train queue, research, stance buttons. |
+| **Entity Action Panel** | Left | Build buttons, train queue, research. With units selected: the four formation shapes (top row) and the three stances (second row). The stance the whole selection shares is lit gold; in a mixed selection every stance present is lit dimmer and its tooltip says how many units hold it. |
 | **Spell Panel** | Left | Active sect abilities with cooldowns (only after adopting a sect). |
 | **Minimap** | Corner | Terrain, fog of war, ally / enemy markers; click to pan. |
 
@@ -200,7 +209,20 @@ the camera.
 
 When you queue a building it follows the cursor as a ghost:
 
-- **Green** = valid placement; **Red** = blocked.
+- **Green** = valid placement; **Red** = blocked. Clicking a red ghost tells you
+  **why** — not your territory, held by another player or the curse, this
+  territory already has a Hall, not adjacent, builder too far, no worker
+  selected, unsuitable ground, something already built there, or the building's
+  own rule (a free node, blood, a forest).
+- **Claiming territory with a Hall** (450 supplies, 450 iron): the Hall is the
+  one building you may place outside your own ground, and only
+  - in an unclaimed territory that **borders one you already hold** — no
+    hopping across the map; and
+  - while **one of your selected workers stands within 30 m** of the site.
+    Walk a worker out first, then place. The worker is named in the order, so
+    in multiplayer the claim is refused if that worker has died or wandered off
+    by the time the order runs.
+  One Hall per territory. See [docs/Design/Regions.md §2](docs/Design/Regions.md).
 - **Mouse Wheel** rotates non-wall buildings in 15° steps.
 - **Wall hubs** snap to nearby existing hubs (≤2 units).
 - **Shift + Click** to place keeps you in placement mode — drop several in a row.
@@ -215,10 +237,35 @@ When you queue a building it follows the cursor as a ghost:
 
 ### Targeting
 
-Units scan a spatial grid for enemies inside their line-of-sight radius
-(default 20 for battalions) and acquire the closest. **Explicit player move
-orders pause auto-acquire** — a unit you sent somewhere will not break off
-on its own unless attacked.
+Idle units pick their own targets by **stance** (see
+[docs/Design/Stances.md](docs/Design/Stances.md)):
+
+| Stance | Picks a fight with | Returns fire | Pursues (from its post) |
+|---|---|---|---|
+| **Aggressive** (AI default) | anything inside its line of sight | yes | up to 30 m, then walks back |
+| **Defensive** (your default) | only an enemy attacking it, inside its reach | yes | never |
+| **Hold Position** | nothing | no | never |
+
+- **Your orders always win.** An attack order is carried out on every
+  stance — a unit on Hold walks over and fights the target you gave it.
+  Stances only decide what a unit does *on its own*.
+- **Emplaced engines** (Ballista / Trebuchet emplacements) are fixed
+  mounts: they always shoot whatever comes into range and never move.
+- **Support units** (Litharch, Lorekeeper, Inquisitor) never go looking
+  for a fight; once armed they only fight back, and never chase into
+  melee. A Litharch heals from a few metres back, prefers patients who are
+  not in melee, and steps away when an enemy gets close.
+
+- A unit's **post** is where it was last sent: a finished move, its rally
+  point, or where you put it on Hold.
+- A stance is a mode, not an order: it survives every order — including
+  **Stop** — until you pick another.
+- **Explicit player move orders pause auto-acquire** — a unit you sent
+  somewhere will not break off on its own.
+- **Your attack orders are never cut short** by the leash, the stance or
+  stuck recovery; the unit keeps after the target you gave it.
+- **Attack-move and patrol** fight their way along with the Aggressive rules,
+  whatever the stance, and resume the march after each fight.
 
 ### Damage Formula
 
@@ -233,9 +280,11 @@ on its own unless attacked.
 
 ### Melee
 
-Engages at ~1.5 unit range. Melee chases targets that flee. If pursuit
-times out (~5 seconds outside their leash on Default stance), they return
-to their guard point.
+Engages at ~1.5 unit range. Melee chases targets that flee — always for a
+target you ordered; for a target it picked itself only on Aggressive (and
+attack-move / patrol), as far as the 30 m leash allows, then it returns to
+its post and will not re-engage for a moment. A Defensive unit lets a
+fleeing attacker go.
 
 ### Ranged
 
@@ -243,14 +292,14 @@ Archers have three rings:
 
 - **Minimum range (~10 units):** if an enemy gets inside, the archer **retreats**.
 - **Optimal range (10–25):** stops, aims (AimTime), fires.
-- **Maximum range (~25):** chases until the target enters the optimal band.
+- **Maximum range (~25):** chases until the target enters the optimal band — only for an ordered target, or on Aggressive / attack-move; a Defensive or Hold archer lets it go.
 
 Projectiles travel at 30 units/sec (arrows) or 55 (siege bolts) and apply
 damage on hit.
 
 ### Special Combat Mechanics
 
-- **Healing** — Litharchs restore HP to nearby allies. (Litharchs have **0 base damage** — they cannot attack unless **Warrior priests** is researched at the Shrine of Ridan, per [Age_0.md](docs/Design/Age_0.md).)
+- **Healing** — Litharchs restore HP to allies within 10 m. (Litharchs have **0 base damage** — they cannot attack unless **Warrior priests** is researched at the Shrine of Ridan, which gives them 6 damage every 1.5 s, per [Age_0.md](docs/Design/Age_0.md).)
 - **Spell Buffs** — Temporary status effects from sect spells (damage, cooldown, invulnerability).
 - **Mind Control** — Flips a unit's allegiance for a duration, then returns it.
 - **Summons** — Spawned units expire on timer or when the summoner dies.
@@ -359,6 +408,21 @@ its line of sight **blooms outward to 55 m** over ~10 seconds (Age of
 Mythology Oracle-style). Move again and it snaps back instantly. Scout by
 hopping between vantage points and letting the circle grow — but a
 perched scout is a sitting duck.
+
+### How the AI lays out its base
+
+AI bases keep a walkable lane between buildings: normally about 20 m between
+building centres and never less than two clear build cells (4 m) edge to edge;
+when the base is full it will squeeze down to one cell (2 m), never flush.
+Mines, veilstone mines, smelters and gatherer's huts stand on their resource
+node wherever the map put it. An Alanthor AI that has planned a perimeter
+wall builds everything inside it. See docs/Design/Game_AI.md §6b.
+
+The AI claims territory under the same rules you do: only territories that
+border ground it holds, and only once a worker has walked to the Hall site —
+you will see a lone worker head out to a neighbouring territory a little
+before its Hall foundation appears there (logged as `CLAIM no claim: worker
+walking to the Hall site in …`).
 
 ### Observer Mode (AI vs AI)
 

@@ -227,6 +227,8 @@ namespace TheWaningBorder.Rendering
             // EntityReference is wired by the orchestrator a few frames after
             // Build returns — keep retrying until the tint lands.
             if (!_tinted) TryTint();
+            // Off-screen rigs hold their pose (see ProceduralRigCulling).
+            if (!TheWaningBorder.Rendering.ProceduralRigCulling.Visible(transform.position)) return;
 
             float dt = Time.deltaTime;
             if (dt <= 0.0001f) return;

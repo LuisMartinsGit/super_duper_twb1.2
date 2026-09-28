@@ -62,16 +62,16 @@ namespace TheWaningBorder.Economy
                     {
                         1 => Spec(SectActivePowerKind.SpyNetwork, SectRadius.Single, "Spy Network",
                                   "One enemy unit becomes your spy for 45s. Enemies that spend 3s near a spy become spies too.",
-                                  magnitude: 3f, duration: 45f, cooldown: 120f, secondary: SectRadii.Small),
+                                  magnitude: 3f, duration: 45f, cooldown: SpellLadder.SectTacticalCooldown, secondary: SectRadii.Small),
                         2 => Spec(SectActivePowerKind.SpyNetwork, SectRadius.Single, "Spy Network",
                                   "One enemy unit becomes your spy for 90s, and the cascade reaches further.",
-                                  magnitude: 3f, duration: 90f, cooldown: 105f, secondary: SectRadii.Medium),
+                                  magnitude: 3f, duration: 90f, cooldown: SpellLadder.SectTacticalCooldown, secondary: SectRadii.Medium),
                         // III is the level the network stops decaying: spies
                         // last until they die, so a cascade that gets going
                         // never unwinds on its own.
                         _ => Spec(SectActivePowerKind.SpyNetwork, SectRadius.Single, "Spy Network",
                                   "One enemy unit spies for you until it dies, and the cascade takes only 1.5s.",
-                                  magnitude: 1.5f, duration: Permanent, cooldown: 90f, secondary: SectRadii.Medium),
+                                  magnitude: 1.5f, duration: Permanent, cooldown: SpellLadder.SectTacticalCooldown, secondary: SectRadii.Medium),
                     };
 
                 // Blinding Glare — Magnitude >= 1 also locks abilities (Lv III).
@@ -80,33 +80,35 @@ namespace TheWaningBorder.Economy
                     {
                         1 => Spec(SectActivePowerKind.Blind, SectRadius.Small, "Blinding Glare",
                                   "Enemies in a small area lose all vision for 8s.",
-                                  duration: 8f, cooldown: 120f),
+                                  duration: 8f, cooldown: SpellLadder.SectTacticalCooldown),
                         2 => Spec(SectActivePowerKind.Blind, SectRadius.Medium, "Blinding Glare",
                                   "Enemies in a medium area lose all vision for 12s.",
-                                  duration: 12f, cooldown: 110f),
+                                  duration: 12f, cooldown: SpellLadder.SectTacticalCooldown),
                         _ => Spec(SectActivePowerKind.Blind, SectRadius.Large, "Blinding Glare",
                                   "Enemies in a large area lose all vision for 12s and cannot use abilities.",
-                                  magnitude: 1f, duration: 12f, cooldown: 100f),
+                                  magnitude: 1f, duration: 12f, cooldown: SpellLadder.SectTacticalCooldown),
                     };
 
                 // Nowhere to Hide — MAP-WIDE. Reach is nominal here, the same
                 // concession Blood Rain makes: the power's true reach is
                 // however much of the enemy army you have managed to reveal,
                 // which is not expressible as a radius. Magnitude is the
-                // damage each revealed enemy takes; Secondary >= 1 lets it
+                // damage each revealed enemy takes -- the ladder's map-wide
+                // band, the lowest per victim because the victim count has no
+                // ceiling (docs/Design/Spells.md 8.3); Secondary >= 1 lets it
                 // reach revealed BUILDINGS as well.
                 default:
                     return level switch
                     {
                         1 => Spec(SectActivePowerKind.RevealedStrike, SectRadius.Large, "Nowhere to Hide",
-                                  "Every enemy unit you can see takes 60 damage, anywhere on the map.",
-                                  magnitude: 60f, cooldown: 300f),
+                                  "Every enemy unit you can see takes 20 damage, anywhere on the map.",
+                                  magnitude: SpellLadder.MapWide(1), cooldown: SpellLadder.MapWideCooldown),
                         2 => Spec(SectActivePowerKind.RevealedStrike, SectRadius.Large, "Nowhere to Hide",
-                                  "Every revealed enemy takes 110 damage, buildings included.",
-                                  magnitude: 110f, cooldown: 270f, secondary: 1f),
+                                  "Every revealed enemy takes 30 damage, buildings included.",
+                                  magnitude: SpellLadder.MapWide(2), cooldown: SpellLadder.MapWideCooldown, secondary: 1f),
                         _ => Spec(SectActivePowerKind.RevealedStrike, SectRadius.Large, "Nowhere to Hide",
-                                  "Every revealed enemy takes 200 damage, buildings included — enough to finish a wounded army.",
-                                  magnitude: 200f, cooldown: 240f, secondary: 1f),
+                                  "Every revealed enemy takes 40 damage, buildings included — enough to finish a wounded army.",
+                                  magnitude: SpellLadder.MapWide(3), cooldown: SpellLadder.MapWideCooldown, secondary: 1f),
                     };
             }
         }

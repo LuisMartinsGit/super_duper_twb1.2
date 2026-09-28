@@ -31,9 +31,24 @@ namespace TheWaningBorder.Systems.Combat
         ///
         /// Structural: creates a BurningGround entity via the ECB, so this is
         /// safe to call from inside a query iteration.
+        ///
+        /// The fire is OWNERLESS (docs/Design/Fire.md §3): it burns the
+        /// shooter's own army standing in the blood as surely as the enemy's.
+        /// <paramref name="source"/> is stamped as the tile's FactionTag for
+        /// kill credit only — BurningGroundSystem never filters on it.
         /// </summary>
         public static bool TryIgnite(EntityManager em, EntityCommandBuffer ecb,
+            in IgnitesBlood spec, float3 at, Faction source)
+            => TryIgnite(em, ecb, in spec, at, true, source);
+
+        /// <summary>Unattributed overload — the fire burns identically, but a
+        /// kill it lands credits nobody.</summary>
+        public static bool TryIgnite(EntityManager em, EntityCommandBuffer ecb,
             in IgnitesBlood spec, float3 at)
+            => TryIgnite(em, ecb, in spec, at, false, default);
+
+        private static bool TryIgnite(EntityManager em, EntityCommandBuffer ecb,
+            in IgnitesBlood spec, float3 at, bool attributed, Faction source)
         {
             if (spec.Radius <= 0f || spec.Duration <= 0f) return false;
             if (!BloodMap.Ready) return false;
@@ -53,6 +68,8 @@ namespace TheWaningBorder.Systems.Combat
             });
             ecb.AddComponent(fire, LocalTransform.FromPositionRotationScale(
                 at, quaternion.identity, 1f));
+            if (attributed)
+                ecb.AddComponent(fire, new FactionTag { Value = source });
             return true;
         }
     }

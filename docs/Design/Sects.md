@@ -40,6 +40,25 @@ author a bespoke number.
 | **Medium** | 15 m | an engagement, a base district |
 | **Large** | 25 m | an army, a whole base |
 
+## 2b. Cooldowns, damage and wind-ups
+
+Every sect power's numbers are set by the balance ladder in
+[Spells.md](Spells.md) §8, and the full table of every power is Spells.md
+§9. The short version:
+
+- **A power's cooldown is flat across its levels.** The level buys reach,
+  magnitude or duration, never tempo. Bands: tactical and economy 60 s,
+  damage 75 s, wildcard 120 s, map-wide 150 s. Two powers rise with the level
+  because the level changes what they are: Raise Anew (120 / 150 / 180 s) and
+  Immovable (60 / 60 / 120 s).
+- **Damage per victim falls with reach**: Single 120, Small 60, Medium 40,
+  Large 30, map-wide 20 at level I, times 1 / 1.5 / 2 for level I / II / III.
+  A power whose reach grows each level keeps its per-victim number.
+- **Wind-ups**: 3 s for a power that deals damage, 1.5 s for a hostile power
+  that does not, 1 s for a friendly one.
+- The cooldown written here is the one a player waits. There is no hidden
+  global scale; only the Shrine of Ridan and the Shardroot shorten it.
+
 ## 3. Power levels come from adoption timing
 
 A power's level is **how many Temple upgrades happened while the sect was
@@ -100,11 +119,14 @@ attack that has already begun. The Alanthor kits below are meant to BITE BACK.
 Identity: intel and enemy shutdown.
 
 **[ACTIVE · A] Writ of Attainder** — *the record settles its accounts*
-- **I** — Enemies in a **small** area take damage scaled by how many of your
-  units they have killed this match.
-- **II** — **Medium** area, and the multiplier per kill rises.
-- **III** — **Large** area; a unit that has killed nothing takes a floor of
-  damage, so the power never whiffs on fresh reinforcements.
+- **I** — Enemies in a **small** area take **30 damage for every one of your
+  units they have killed** this match, at most **120** (four kills).
+- **II** — **Medium** area, same bill.
+- **III** — **Large** area; a unit that has killed nothing still takes
+  **30**, so the power never whiffs on fresh reinforcements.
+
+> The cap is the ladder's conditional-damage rule (2x the band): uncapped, a
+> veteran with twenty kills took 1600 from one cast.
 
 > Reads off the same per-type tally the Passive keeps, so the sect's two halves
 > are one idea: Antiquity remembers what you did, then bills you for it. It is
@@ -112,9 +134,9 @@ Identity: intel and enemy shutdown.
 > shutdown had NO way to punish an attack that was already landing.
 
 **[ACTIVE · B] Heavy Bureaucracy**
-- **I** — **Single target** building stops training, research and resource output for 30 s.
-- **II** — Buildings in a **small** area stop for 30 s.
-- **III** — Buildings in a **large** area stop for 30 s.
+- **I** — **Single target** building stops training, research and resource output for 20 s.
+- **II** — Buildings in a **small** area stop for 20 s.
+- **III** — Buildings in a **large** area stop for 20 s.
 
 **[ACTIVE · ★ WILDCARD] Sew Disorder**
 - **I** — Units in a **small** area turn hostile to all other units for 8 s.
@@ -151,9 +173,9 @@ less time and 10 % fewer resources.
 Identity: repair and sustain.
 
 **[ACTIVE · A] Hands of Plenty**
-- **I** — Restore 30 % HP to units and buildings in a **small** area.
-- **II** — Restore 50 % in a **medium** area.
-- **III** — Restore 80 % in a **medium** area, and healing continues for 10 s.
+- **I** — Restore 45 % HP to units and buildings in a **small** area.
+- **II** — Restore 45 % in a **medium** area.
+- **III** — Restore 60 % in a **medium** area, and healing continues for 10 s.
 
 **[ACTIVE · ★ WILDCARD] Raise Anew**
 Conjures a **permanent** fortification outright — it does not touch construction
@@ -216,9 +238,9 @@ while veiled. **Sect powers still reach them**, friendly and hostile alike.
 - **III** — **Medium** area, 15 s; on expiry they gain +25 % damage for 10 s.
 
 **[ACTIVE] Bulwark**
-- **I** — **Single target** building gains +100 % HP for 30 s.
-- **II** — Buildings in a **small** area gain +100 % HP for 30 s.
-- **III** — Buildings in a **medium** area gain +100 % HP for 30 s and reflect 20 % of melee damage.
+- **I** — **Single target** building gains +100 % HP for 15 s.
+- **II** — Buildings in a **small** area gain +100 % HP for 15 s.
+- **III** — Buildings in a **medium** area gain +100 % HP for 15 s and reflect 20 % of melee damage.
 
 **[ACTIVE] Immovable**
 (Replaces the earlier crowd-control version — the game has no pushback or
@@ -229,7 +251,8 @@ knockback system for it to negate.)
 
 > Balance flag: III is a 25 m army-wide invulnerability for 20 s — the single
 > strongest defensive effect in the game. On-theme for the wall-keepers, but it
-> is the first number to revisit if Fortitude dominates.
+> is the first number to revisit if Fortitude dominates. Its 120 s cooldown
+> (twice levels I-II) holds it to 17 % uptime.
 
 **[PASSIVE] Veiled Stone** — your walls and towers gain +25 % HP; towers gain
 +1 range.
@@ -322,8 +345,8 @@ Identity: retribution.
 
 **[ACTIVE] Sentence**
 - **I** — **Single target** takes 120 true damage after a 3 s telegraph.
-- **II** — **Small** area, 120 true damage.
-- **III** — **Medium** area, 180 true damage; survivors Marked for 30 s.
+- **II** — **Small** area, 90 true damage.
+- **III** — **Medium** area, 80 true damage; survivors Marked for 30 s.
 
 **[ACTIVE] Writ of Blood**
 - **I** — Enemies in a **small** area that have killed your units take +50 % damage for 10 s.
@@ -403,9 +426,13 @@ Every enemy unit **you can currently see** takes damage at once, anywhere on the
 map. Its reach is not a radius — it is however much of the enemy army you have
 managed to reveal.
 
-- **I** — Light damage to every revealed enemy.
-- **II** — Heavier, and it also strikes revealed buildings.
-- **III** — Heavy enough to finish a wounded army outright.
+- **I** — 20 damage to every revealed enemy.
+- **II** — 30, and it also strikes revealed buildings.
+- **III** — 40: enough to finish a wounded army outright.
+
+> Map-wide is the lowest band on the ladder per victim, because the victim
+> count has no ceiling. It used to deal 60 / 110 / 200, which deleted any
+> revealed army outright rather than finishing a wounded one.
 
 > The pivot, and the reason Spy Network is worth planting. A Witness player who
 > has done nothing gets a weak map-wide tickle; one whose spy network has
@@ -498,6 +525,12 @@ Identity: area denial by fire.
 
 **[PASSIVE] Pyre's Promise** — your units leave a burning patch where they die.
 
+> Every Ash fire — Pyre, Cinderfall, Pyre's Promise, the Ash Pyre — is
+> ordinary fire and so **ownerless** ([Fire.md §3](Fire.md#3-standing-in-fire)):
+> it burns your own and allied units standing in it too. "Damaging enemies"
+> above describes who the sect aims it at, not who it spares. No Ash lever
+> grants fire immunity today.
+
 **[BUILDING] Ash Pyre** — a permanently burning pyre. Enemies adjacent to it take
 burn damage; it is as much a weapon as a building. **Limit 5.**
 
@@ -511,9 +544,9 @@ burn damage; it is as much a weapon as a building. **Limit 5.**
 Identity: structure breaking.
 
 **[ACTIVE] Unmake**
-- **I** — **One** enemy building — the single nearest to the cast point, within the cast radius — takes 50 % of its current HP as damage after a 3 s telegraph. Never more than one building, whatever else stands in range.
-- **II** — 75 % of current HP, still a single building.
-- **III** — 90 % of current HP; other buildings in a **small** area take 25 % splash.
+- **I** — **One** enemy building — the single nearest to the cast point, within a **small** search radius — takes 40 % of its current HP as damage after a 3 s telegraph. Never more than one building, whatever else stands in range.
+- **II** — 60 % of current HP, still a single building.
+- **III** — 80 % of current HP; other buildings in a **small** area take 25 % splash.
 
 **[ACTIVE] Profane Strike**
 - **I** — Burst damage across a **small** area.
@@ -579,7 +612,9 @@ that share. A lone veteran pays its whole account; a crowd splits one bill.
 
 Levels scale the AREA only — the arithmetic is identical at every level, so a
 higher Spite catches more of the enemy army in one accounting rather than
-hitting harder per head.
+hitting harder per head. **The share is capped at 120 per head** (the ladder's
+conditional cap): a lone veteran pays its account up to that, not a
+thousand-damage bill in one cast.
 
 **[ACTIVE] Wrathfire**
 - **I** — A burning pillar scorches a **small** area for 8 s.
@@ -613,7 +648,7 @@ What the code does today vs. this document:
 |---|---|---|
 | Radii | bespoke per power (4–28 m) | four fixed radii |
 | Power level | tracks the purchasable Active-Power lever | tracks Temple upgrades **since adoption** |
-| Chapel aura | `SectLeverEffects.AuraOf` grants an aura per sect | **no aura** unless a Passive/Research says so — delete the table |
+| Chapel aura | **Done (2026-09-27).** The aura table is emptied: `SectLeverEffects.AuraOf` returns no aura (radius 0) for every sect, and the sect tooltips describe the building instead of an aura. `SectBuildingLeverSystem.cs` is now a no-op and is waiting to be deleted | **no aura** unless a Passive/Research says so |
 | Actives | 3 per sect, shipped | same shape, new effects; several need new `SectActivePowerKind`s (hostile-conversion, building shutdown, tower-raising, veil/untargetable, flat-armor buff, invulnerability, armor-strip, reveal-until-death, node over-yield, influence burst, map-wide attack-speed, map-wide silence, blood-pool deposit, training-cost discount, training-speed boost) |
 | Unit | 12 factories exist, no meshes | unchanged roster, capped at 5, **trained at the sect building** (not the Temple), authored mesh required |
 | Research | none | 12 new techs, one per sect, bought at the sect building |

@@ -136,8 +136,12 @@ namespace TheWaningBorder.UI.Ingame
                 }
             }
 
-            // Glow pickups — gold, also fog-ignorant by spec.
+            // The Shardroot — gold, fog-ignorant by spec (3.1: the carrier is
+            // visible to every player), wherever it is: on the ground, on a
+            // carrier (drawn over the unit's own dot), in a hero or a Temple,
+            // or embedded in a Maw.
             DrawSimpleBlips(_shardrootQ.Get(em, ShardrootQueryTypes), 3, ShardrootBlip);
+            DrawSimpleBlips(_shardrootEmbeddedQ.Get(em, ShardrootEmbeddedQueryTypes), 3, ShardrootBlip);
         }
 
         /// <summary>Draw a disc per query entity. Pass <paramref name="revealGate"/>

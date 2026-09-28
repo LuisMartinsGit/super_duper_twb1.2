@@ -47,15 +47,36 @@ namespace TheWaningBorder.Systems.AI
 
             // Snapshot all faction-tagged entities with health — Raiders consider
             // both units and buildings as valid targets per design §5.3.
-            var enemyQuery = em.CreateEntityQuery(
-                ComponentType.ReadOnly<FactionTag>(),
-                ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<Health>());
+            var enemyQuery = QC_Enemies.Get(em, QT_Enemies);
 
             using var enemyEnts = enemyQuery.ToEntityArray(Allocator.Temp);
             using var enemyFactions = enemyQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var enemyTransforms = enemyQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             using var enemyHealth = enemyQuery.ToComponentDataArray<Health>(Allocator.Temp);
+
+            // The raider-independent filters (alive, not the curse, not
+            // standing on cursed ground) are decided ONCE per candidate, in
+            // snapshot order — they used to run per raider per candidate,
+            // and the cursed-ground probe is not cheap. Only the own-faction
+            // test depends on the raider, so it stays in the inner loop.
+            var candidates = new NativeList<int>(enemyEnts.Length, Allocator.Temp);
+            for (int i = 0; i < enemyEnts.Length; i++)
+            {
+                if (enemyHealth[i].Value <= 0) continue;
+                // RAID PLAYERS, NEVER THE CURSE (2026-08-05 match post-
+                // mortem). Faction.Border owns the wells, the crust and
+                // every curse creature, and it was almost always the
+                // NEAREST thing — so raiders marched into the curse,
+                // died there, and their blood fed BloodCurseSpawnSystem,
+                // which then killed their owner. The entire Feraldis
+                // economy was feeding the thing that was killing it.
+                if (enemyFactions[i].Value == Faction.Border) continue;
+                // Don't chase a target standing on cursed ground either —
+                // exposure would kill the raider before it ever landed a
+                // hit, and the corpse would feed the spawner again.
+                if (OnCursedGround(enemyTransforms[i].Position)) continue;
+                candidates.Add(i);
+            }
 
             // Writes are staged and applied AFTER the loop. Adding
             // DesiredDestination to a raider that lacks one is a structural
@@ -80,24 +101,10 @@ namespace TheWaningBorder.Systems.AI
                 float bestDistSq = MaxSearchRadiusSq;
                 float3 bestPos = float3.zero;
 
-                for (int i = 0; i < enemyEnts.Length; i++)
+                for (int c = 0; c < candidates.Length; c++)
                 {
-                    if (enemyFactions[i].Value == self) continue;
-                    if (enemyHealth[i].Value <= 0) continue;
-
-                    // RAID PLAYERS, NEVER THE CURSE (2026-08-05 match post-
-                    // mortem). Faction.Border owns the wells, the crust and
-                    // every curse creature, and it was almost always the
-                    // NEAREST thing — so raiders marched into the curse,
-                    // died there, and their blood fed BloodCurseSpawnSystem,
-                    // which then killed their owner. The entire Feraldis
-                    // economy was feeding the thing that was killing it.
-                    if (enemyFactions[i].Value == Faction.Border) continue;
-
-                    // Don't chase a target standing on cursed ground either —
-                    // exposure would kill the raider before it ever landed a
-                    // hit, and the corpse would feed the spawner again.
-                    if (OnCursedGround(enemyTransforms[i].Position)) continue;
+                    int i = candidates[c];
+                    if (!Alliances.AreHostile(self, enemyFactions[i].Value)) continue;
 
                     float3 d = enemyTransforms[i].Position - myPos;
                     float distSq = math.lengthsq(d);
@@ -130,8 +137,16 @@ namespace TheWaningBorder.Systems.AI
             writeEnts.Dispose();
             writeDest.Dispose();
             writeTarget.Dispose();
-            enemyQuery.Dispose();
+            candidates.Dispose();
         }
+
+        private static readonly ComponentType[] QT_Enemies =
+        {
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<Health>(),
+        };
+        private static TheWaningBorder.Core.CachedEntityQuery QC_Enemies;
 
         /// <summary>
         /// True where the curse crust is thick enough to hurt. Raiders are

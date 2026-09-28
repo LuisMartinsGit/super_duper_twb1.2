@@ -20,8 +20,11 @@ pathing", and "dangerous, not lethal" behaviour described below.
 - **Wells are the PURE NODES.** They are indestructible-by-raze (verbs
   only), they are the verb-victory objectives and the Shardroot host —
   unchanged — and the territory a well stands in is **curse-owned from
-  the first tick**. Maps may author any N; **Veilmarch authors exactly
-  ONE pure node, in its centre territory.**
+  the first tick**. Maps may author any N. ~~Veilmarch authors exactly
+  ONE pure node, in its centre territory.~~ **Superseded by §2.1
+  (2026-09-24, "N = 1 is a bug"):** every well is a pure node, Veilmarch
+  authors five (The Scar + the four far corners), and the Shardroot host is
+  one of them, chosen from the seed (§3).
 - **The curse expands like a player**: every conquest interval it takes
   one random ADJACENT territory that has **no Hall** and **at least one
   veilstone node** — instantly, whole territories at a time. A conquered
@@ -447,7 +450,8 @@ it channels Purification while the node births defenders at it → the
 escort screens the channel. The Scholar is a **walking font**: a wide
 cleanse circle (26 m vs the hero aura's 12 m) that burns crust AND
 drains blood pools, so the escort fights on clean ground. The AI levels
-its Temple, trains the Scholar, and escorts it heavily (10 bodyguards).
+its Temple, trains the Scholar, and escorts it (6 bodyguards since
+2026-09-26, was 10 — see [Game_AI.md § 7c](Game_AI.md#7c-alanthor-well-purification)).
 Rubble (Destroyed) wells are purifiable — consecrating a broken well
 before it rebuilds is the cheapest hold there is.
 
@@ -909,6 +913,14 @@ The numbers live in `AIEndgameCommon.asset` (`wellDefenceRadius`,
 `assaultOdds`, `assaultMinUnits`, `riteRetrySeconds`) and apply to both
 cultures' verb systems.
 
+**Loosened 2026-09-26** (the gate held too often — the AI all but never
+purified): `wellDefenceRadius` 45 → **25 m** (the well's own garrison
+area, just past its 22 m spread radius — not every roaming curse unit in
+the region), `assaultMinUnits` 8 → **6**, `riteRetrySeconds` 600 →
+**240 s**; the Alanthor escort 10 → **6**. And the Alanthor AI now ranks
+every purifiable well instead of trying only the one nearest its Hall
+([Game_AI.md § 7c](Game_AI.md#7c-alanthor-well-purification)).
+
 ### 2.13 The curse army — one spawn, one window, one growing number (2026-09-13, CURRENT)
 
 **Supersedes the garrison cadence of 2.11 rule 2** (one unit every
@@ -938,7 +950,7 @@ every instant and a rite a coin flip -- see 2.12).
    node it is the merge party of 2.11 rule 5 and converts the territory.
    The home garrison never leaves.
 5. **The Shardroot rides out with the curse.** On every spawn (garrison or
-   harassment party) there is a `shardrootChance` (1%) roll that ONE unit
+   harassment party) there is a `shardrootChance` (4%) roll that ONE unit
    of that spawn carries the Shardroot. Once it is out, the wells no
    longer hold it -- the "first verb on the host well claims it" path of
    section 3 is closed, and the section 3 backstop does not fire. The
@@ -960,6 +972,41 @@ begins. Since every well eventually gets verbed in normal play, the
 Shardroot is guaranteed to surface; backstop: if the host well reaches
 **Maw** maturity unverbed, the Shardroot becomes visibly embedded in it
 (map ping) — still claimed by verbing that Maw.
+
+**The host is ONE of the N wells (2026-09-26).** Every well is a pure node
+(§2.1, Regions.md §3) and any of them can host; the seed picks one per
+match (`ShardrootSystem`, wells sorted by position so every peer agrees).
+Nothing assumes a single-well map.
+
+**The Maw backstop as implemented (2026-09-26).** The Well→Fissure→Maw
+ladder is superseded by the Veil (§2.3), so "Maw maturity" is measured as
+**time the host well has spent Wild** (`NodeState.Active`, unverbed) with
+the artifact still inside: `BorderSettings.shardrootMawSeconds`, default
+**720 s (12 min)**; 0 turns the backstop off. **Reduced 2026-09-27** from
+1500 s and a 1 % spawn roll: playtest matches ran about 10 minutes with
+roughly 14 curse spawns, so the artifact surfaced in almost none of them.
+At 4 % a 14-spawn match has about a 44 % chance of a curse-borne
+Shardroot, and the Maw guarantees one by minute 12 at the latest. The Maw needs no map data: it
+IS the host well, wherever the map placed it. When it fires:
+
+- a display-only artifact (`ShardrootEmbedded`, PresentationID 383 — the
+  veilstone gem at the top `EmissiveLadder.Shardroot` rung, cyan, lit)
+  appears floating in the well;
+- every player gets a notification, a big ping, a repeating minimap beacon
+  and a permanent gold minimap blip, fog-ignorant;
+- nobody can pick it up. Verbing the well (`TryAward`) removes it and drops
+  the real pickup, exactly as for an un-matured host.
+
+The backstop never fires once the artifact is out (§2.13 rule 5: it rode
+out with a curse unit, or it was awarded/surfaced). Time spent in a verb
+state does not count toward maturity; a re-chosen host starts from zero.
+
+**A broken host drops it, whoever broke it (2026-09-26).** Destroyed counts
+as claimed. The death intercept used to award the artifact only to a
+Feraldis killing blow, so a host brought to 0 HP by anyone else (a tower,
+a Border-credited death) held it inside a dormant husk until regrowth. The
+vessel broke; the artifact drops at the rubble, up for grabs, the same way
+it drops from a detonated holder (§3.1).
 
 ### 3.1 Lifecycle (power, not victory)
 
@@ -1002,7 +1049,16 @@ Shardroot is guaranteed to surface; backstop: if the host well reaches
     only if he is dead does the Hall awaken the placeholder champion.
   The numbers live in `ShardboundFury.cs` beside the ability.
 - **The curse wants it back**: Border aggression **prioritizes the
-  holder** — the anti-snowball valve.
+  holder** — the anti-snowball valve. *Implemented 2026-09-26 in the
+  living curse (§2.11/§2.13):* when a player holds the Shardroot (carrier,
+  hero or enshrining Temple) in a territory ADJACENT to the curse, the next
+  harassment dispatch goes there as a **hunt** — a raid whose objective is
+  the holder, never a merge — and it keeps re-pressing the holder while
+  they stay in that territory; a garrison whose territory the holder
+  enters goes for the holder before any other intruder. A curse unit
+  carrying it, or the artifact lying on the ground, is no holder: the curse
+  does not hunt itself. The per-spawn `shardrootChance` (4 %, §2.13 rule 5)
+  is unchanged.
 - The Shardroot **does not win the game by itself** — it is the power
   that helps you take or defend wells. Victory is § 2.4 (or conquest).
 

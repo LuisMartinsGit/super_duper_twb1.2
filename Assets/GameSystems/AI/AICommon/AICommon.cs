@@ -138,6 +138,9 @@ namespace TheWaningBorder.AI
         /// </summary>
         public static bool IsUnitQueued(EntityManager em, Faction faction, string unitId)
         {
+            // Compared as FixedStrings: a ToString per queue slot allocated a
+            // managed string per item, per call, per think.
+            var key = new FixedString64Bytes(unitId);
             var q = _trainQueueQuery.Get(em, TrainQueueTypes);
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
@@ -148,7 +151,7 @@ namespace TheWaningBorder.AI
                 var buf = em.GetBuffer<ProductionQueueItem>(ents[i]);
                 for (int j = 0; j < buf.Length; j++)
                     if (buf[j].Kind == ProductionKind.Train
-                        && buf[j].Id.ToString() == unitId) return true;
+                        && buf[j].Id == key) return true;
             }
             return false;
         }
@@ -162,6 +165,7 @@ namespace TheWaningBorder.AI
         /// </summary>
         public static int CountQueued(EntityManager em, Faction faction, string unitId)
         {
+            var key = new FixedString64Bytes(unitId);
             var q = _trainQueueQuery.Get(em, TrainQueueTypes);
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
@@ -173,7 +177,7 @@ namespace TheWaningBorder.AI
                 var buf = em.GetBuffer<ProductionQueueItem>(ents[i]);
                 for (int j = 0; j < buf.Length; j++)
                     if (buf[j].Kind == ProductionKind.Train
-                        && buf[j].Id.ToString() == unitId) n++;
+                        && buf[j].Id == key) n++;
             }
             return n;
         }

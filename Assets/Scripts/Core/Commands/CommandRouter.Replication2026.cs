@@ -62,6 +62,33 @@ namespace TheWaningBorder.Core.Commands
             }
         }
 
+        /// <summary>
+        /// Alanthor Ranging Shot (faction-wide siege active). Returns false
+        /// when it would not fire, so the button can say why. Under lockstep
+        /// the check is a dry run here and the real trigger runs on every
+        /// peer in <see cref="RangingShotDirect"/>, which re-checks.
+        /// </summary>
+        public static bool IssueRangingShot(EntityManager em, Faction faction,
+            CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (ShouldQueueForLockstep(source))
+            {
+                if (!TheWaningBorder.Abilities.AlanthorActiveHelper
+                        .TriggerRangingShot(em, faction, dryRun: true)) return false;
+                LockstepServiceLocator.Instance.QueueCommand(new LockstepCommand
+                {
+                    Type = LockstepCommandType.RangingShot,
+                    EntityNetworkId = (int)faction,   // no entity — the faction casts it
+                });
+                return true;
+            }
+            return RangingShotDirect(em, faction);
+        }
+
+        /// <summary>Post-lockstep application. Every peer runs this.</summary>
+        public static bool RangingShotDirect(EntityManager em, Faction faction)
+            => TheWaningBorder.Abilities.AlanthorActiveHelper.TriggerRangingShot(em, faction);
+
         /// <summary>Post-lockstep application. Every peer runs this.</summary>
         public static void SectPowerDirect(EntityManager em, Faction faction, string sectId,
             int tier, float3 targetPos)
@@ -225,6 +252,10 @@ namespace TheWaningBorder.Core.Commands
         {
             const float BuildSeconds = 30f;
             if (sourceHub == Entity.Null || !em.Exists(sourceHub)) return Entity.Null;
+            // The wall lock: a standing hub cannot be built on from while a
+            // wall level researches (docs/Design/Age_1_Alanthor.md § The four
+            // wall levels).
+            if (WallsLockedForUpgrade(em, faction)) return Entity.Null;
 
             Entity hub = snapHub;
             if (hub != Entity.Null && em.Exists(hub))
@@ -519,6 +550,9 @@ namespace TheWaningBorder.Core.Commands
         /// </summary>
         public static Entity ConvertWallCellToHubDirect(EntityManager em, float3 pos, Faction faction)
         {
+            // The wall lock: a standing cell is not converted while a wall
+            // level researches.
+            if (WallsLockedForUpgrade(em, faction)) return Entity.Null;
             Entity cell = FindWallCellNear(em, pos, faction);
             if (cell == Entity.Null) return Entity.Null;
             if (!BuildCosts.TryGet("Alanthor_Wall", out var cost)) cost = default;
@@ -563,7 +597,21 @@ namespace TheWaningBorder.Core.Commands
         {
             const float BuildSeconds = 30f;
             int hubCount = 0;
-            for (int i = 0; i < kinds.Count; i++) if (kinds[i] != WallPathKind.Point) hubCount++;
+            bool touchesStanding = false;
+            for (int i = 0; i < kinds.Count; i++)
+            {
+                if (kinds[i] != WallPathKind.Point) hubCount++;
+                if (kinds[i] == WallPathKind.ExistingHub || kinds[i] == WallPathKind.CellHub)
+                    touchesStanding = true;
+            }
+
+            // The wall lock (docs/Design/Age_1_Alanthor.md § The four wall
+            // levels): while a wall level researches, a drawn wall that
+            // attaches to a STANDING hub or cell is refused whole, before any
+            // spend, on every peer. A free-standing new wall is still allowed;
+            // it rises at the current level and is re-clad with the rest when
+            // the research lands.
+            if (touchesStanding && WallsLockedForUpgrade(em, faction)) return;
 
             Entity prev = Entity.Null;
             float3 prevEnd = default;

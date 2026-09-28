@@ -354,8 +354,33 @@ namespace TheWaningBorder.AI
             int2 buildingSize, float rmin, float rmax,
             int angleSamples, float radiusStep, bool seededStart, out float3 pos)
         {
+            // SPACED, AND SNAPSHOT-BACKED (2026-09-25). This search took the
+            // first spot IsValidBuildPosition accepted — footprints could sit
+            // flush against each other, which is most of the "AI bases are
+            // cramped" look for the endgame buildings (smelters, sect halls,
+            // houses). It now wants the same edge-to-edge lane the base
+            // placer keeps (buildingGapCells), falling back to the relaxed
+            // one-cell seam, never to flush. And each candidate reads the
+            // per-tick BuildSiteSnapshot instead of copying every building
+            // and obstacle out of the world.
+            var cfg = SimpleAISystemConfig.I;
+            float gapNormal = math.max(0, cfg.buildingGapCells) * BuildGrid.CellSize;
+            float gapRelaxed = math.max(0, cfg.relaxedBuildingGapCells) * BuildGrid.CellSize;
+            if (TryFindBuildSpotRingGap(em, anchor, buildingSize, rmin, rmax,
+                    angleSamples, radiusStep, seededStart, gapNormal, out pos))
+                return true;
+            return gapRelaxed < gapNormal
+                && TryFindBuildSpotRingGap(em, anchor, buildingSize, rmin, rmax,
+                    angleSamples, radiusStep, seededStart, gapRelaxed, out pos);
+        }
+
+        private static bool TryFindBuildSpotRingGap(EntityManager em, float3 anchor,
+            int2 buildingSize, float rmin, float rmax,
+            int angleSamples, float radiusStep, bool seededStart, float gap, out float3 pos)
+        {
             pos = default;
             if (angleSamples <= 0 || radiusStep <= 0f) return false;
+            var snap = BuildSiteSnapshot.Current(em);
 
             var rng = default(Unity.Mathematics.Random);
             if (seededStart)
@@ -385,7 +410,9 @@ namespace TheWaningBorder.AI
                     var candidate = BuildGrid.Snap(new float3(x, 0f, z), buildingSize);
                     candidate.y = TerrainUtility.GetHeight(candidate.x, candidate.z);
 
-                    if (BuildCommandHelper.IsValidBuildPosition(em, candidate, buildingSize))
+                    if (gap > 0f && snap.Overlaps(candidate, buildingSize, gap, ignoreWalls: true))
+                        continue;
+                    if (snap.IsValidBuildPosition(em, candidate, buildingSize, null))
                     {
                         pos = candidate;
                         return true;

@@ -68,7 +68,7 @@ namespace TheWaningBorder.Systems.Combat
 
                 var hp = em.GetComponentData<Health>(e);
                 if (hp.Value <= 0) continue;
-                hp.Value = math.max(0, hp.Value - math.max(1, damage));
+                hp.Value = math.max(0, hp.Value - ShieldDamage.Absorb(em, e, math.max(1, damage)));
                 em.SetComponentData(e, hp);
 
                 if (em.HasComponent<LastDamagedByFaction>(e))

@@ -19,6 +19,7 @@ using TheWaningBorder.UI.World;
 using TheWaningBorder.UI.Data;
 using TheWaningBorder.Rendering;
 using TheWaningBorder.Core.Localization;
+using TheWaningBorder.World.Regions;
 
 namespace TheWaningBorder.UI.Ingame
 {
@@ -80,9 +81,21 @@ namespace TheWaningBorder.UI.Ingame
             // segment onto an existing wall hub. Placed without a builder;
             // auto-builds in 30 s. Entered via
             // BuilderCommandPanel.TriggerHubBuildWall(sourceHub).
-            WallExtend
+            WallExtend,
+            // Any other catalog building. NOT a fallback to some default
+            // building — the placed id is _currentBuildId, always.
+            Other
         }
-        private BuildType _currentBuild = BuildType.Hut;
+        private BuildType _currentBuild = BuildType.Other;
+
+        /// <summary>Why the current ghost is red (None while it is white).</summary>
+        private PlacementRefusal _placementRefusal;
+
+        /// <summary>Why the current placement ghost is refused, for any UI
+        /// that wants to show it; None when valid or not placing.</summary>
+        public static PlacementRefusal CurrentPlacementRefusal =>
+            _activeInstance != null && IsPlacingBuilding ? _activeInstance._placementRefusal
+                                                         : PlacementRefusal.None;
 
         // Hub-anchored "Build Wall" placement: the source hub the player
         // selected when invoking the action. The next LMB click drops a new
@@ -187,7 +200,7 @@ namespace TheWaningBorder.UI.Ingame
                     // (docs/Design/Build_Grid.md § 5), so its ghost follows the
                     // cursor exactly, as the placed hub will.
                     // docs/Design/Build_Grid.md
-                    string snapId = BuildId(_currentBuild);
+                    string snapId = _currentBuildId;
                     if (!string.IsNullOrEmpty(snapId))
                     {
                         // An EXTRACTOR snaps to its node first, and to the bare
@@ -224,56 +237,16 @@ namespace TheWaningBorder.UI.Ingame
                     if (_currentBuild != BuildType.Wall && _currentBuild != BuildType.WallExtend)
                     {
                         _em = (_world ?? EntityWorld.DefaultGameObjectInjectionWorld).EntityManager;
-                        var buildSize = BuildCommandHelper.GetBuildingSize(BuildId(_currentBuild));
-                        // The id goes in so the crust rule can make its one
-                        // exception: Veilworks (Reclamation) is the only
-                        // building that may be raised on cursed ground.
-                        _placementValid = BuildCommandHelper.IsValidBuildPosition(
-                            _em, (float3)_placingInstance.transform.position, buildSize,
-                            BuildId(_currentBuild));
-                        // Alanthor territorial rule: no building outside your
-                        // own influence border (design 2026-07-06).
-                        if (_placementValid && !MeetsTerritoryRequirement(
-                                GetSelectedFactionOrDefault(),
-                                (float3)_placingInstance.transform.position,
-                                BuildId(_currentBuild)))
-                            _placementValid = false;
-                        // An EXTRACTOR goes on a free node of ITS OWN kind; a
-                        // Hall goes in a territory that has none. Both show as
-                        // a red preview rather than as a refused click.
-                        //
-                        // OnFreeNodeFor is the router's own gate, asked here so
-                        // the two cannot disagree. They used to: this checked
-                        // only the Gatherer's Hut (against supply nodes), while
-                        // MeetsPatchRequirement below let a "Mine" go green
-                        // within 18 m of an iron OR a veilstone node and never
-                        // gated the Veilstone Mine at all — so the preview
-                        // approved an iron mine on veilstone, at four times the
-                        // range the router would accept, and the click was then
-                        // refused with no explanation.
-                        if (_placementValid)
-                        {
-                            string previewId = BuildId(_currentBuild);
-                            float pxw = _placingInstance.transform.position.x;
-                            float pzw = _placingInstance.transform.position.z;
-                            if (!TheWaningBorder.World.Regions.TerritoryOwnership
-                                    .OnFreeNodeFor(_em, previewId, pxw, pzw))
-                                _placementValid = false;
-                            else if (previewId == "Hall"
-                                && TheWaningBorder.World.Regions.TerritoryOwnership
-                                        .HallCapReached(_em, pxw, pzw))
-                                _placementValid = false;
-                        }
-                        // Feraldis War Totems must land on blood.
-                        if (_placementValid && !MeetsBloodRequirement(
-                                (float3)_placingInstance.transform.position,
-                                BuildId(_currentBuild)))
-                            _placementValid = false;
-                        // Mines must land on an ore patch.
-                        if (_placementValid && !MeetsPatchRequirement(_em,
-                                (float3)_placingInstance.transform.position,
-                                BuildId(_currentBuild)))
-                            _placementValid = false;
+                        var buildSize = BuildCommandHelper.GetBuildingSize(_currentBuildId);
+                        // ONE evaluation, with its REASON, shared with the
+                        // click guard in SpawnSelectedBuilding — the router's
+                        // own gates (caps, territory + Hall adjacency, node,
+                        // one Hall per territory, builder on site), then the
+                        // geometry, then the blood / forest rules.
+                        _placementRefusal = EvaluatePlacement(
+                            (float3)_placingInstance.transform.position, _currentBuildId,
+                            PlacementFaction(_currentBuildId), out _);
+                        _placementValid = _placementRefusal == PlacementRefusal.None;
                         UpdatePreviewColor(_placementValid);
 
                         // Grid marks under the cursor, then the footprint
@@ -291,7 +264,7 @@ namespace TheWaningBorder.UI.Ingame
                         // proximity gates them instead), so draw as valid.
                         BuildFootprintOutline.Show(
                             (float3)_placingInstance.transform.position,
-                            BuildCommandHelper.GetBuildingSize(BuildId(_currentBuild)), true);
+                            BuildCommandHelper.GetBuildingSize(_currentBuildId), true);
                     }
                 }
 
@@ -303,7 +276,9 @@ namespace TheWaningBorder.UI.Ingame
                 }
                 else if (UnityEngine.Input.GetMouseButtonDown(0) && !_placementValid)
                 {
-                    PlayerNotificationSystem.Notify(Loc.T("Invalid placement"));
+                    // Name the rule the red ghost broke, not "invalid placement".
+                    PlayerNotificationSystem.Notify(
+                        PlacementRefusalText.Of(_placementRefusal, _currentBuildId));
                 }
                 if (UnityEngine.Input.GetMouseButtonDown(0) && !isWallBuild && _placementValid)
                 {
@@ -347,7 +322,44 @@ namespace TheWaningBorder.UI.Ingame
             var instance = FindFirstObjectByType<BuilderCommandPanel>();
             if (instance == null) return;
 
-            instance._currentBuild = buildingId switch
+            // THE DATA-DRIVEN ID IS WHAT GETS PLACED (2026-09-26). This used to
+            // round-trip the id through the BuildType enum and back, and both
+            // switches ended in `_ => Hut` — so every id the enum did not name
+            // (all five sect buildings: Mending Hall, Muster Yard, Stonehold,
+            // Veilworks, Reliquary) placed and PAID FOR a real Hut, skipping
+            // the sect cap and the Veilworks crust exception on the way. The
+            // enum now only flags the few ids with special handling (walls,
+            // preview prefabs); the id itself is carried straight through.
+            string id = buildingId == "ShrineOfAhridan" ? "ShrineOfRidan" : buildingId;
+            if (!IsPlaceableId(id))
+            {
+                // Refuse loudly. An unknown id is a data bug — never a Hut.
+                Debug.LogError($"[BuilderCommandPanel] Refused placement of unknown building id " +
+                               $"'{buildingId}' — it is not in the TechCatalog.");
+                PlayerNotificationSystem.NotifyError(
+                    PlacementRefusalText.Of(PlacementRefusal.UnknownBuilding));
+                return;
+            }
+
+            instance._currentBuildId = id;
+            instance._currentBuild = BuildTypeFor(id);
+
+            instance.StartPlacement();
+            SuppressClicksThisFrame = true;
+        }
+
+        /// <summary>True when the id names a building the catalog knows.</summary>
+        private static bool IsPlaceableId(string id)
+            => !string.IsNullOrEmpty(id)
+               && (TechCatalog.TryGetBuilding(id, out var def) && def != null);
+
+        /// <summary>
+        /// The special-handling flag for an id — walls draw, a few buildings
+        /// have hand-picked preview prefabs. <see cref="BuildType.Other"/> for
+        /// everything else, which is NOT a fallback building: the id is.
+        /// </summary>
+        private static BuildType BuildTypeFor(string buildingId)
+            => buildingId switch
             {
                 "Hall" => BuildType.Hall,
                 "Hut" => BuildType.Hut,
@@ -382,18 +394,17 @@ namespace TheWaningBorder.UI.Ingame
                 "Feraldis_Pasture" => BuildType.FeraldisPasture,
                 "Mine" => BuildType.Mine,
                 "Alanthor_Sawyer" => BuildType.AlanthorSawyer,
-                _ => BuildType.Hut
+                _ => BuildType.Other
             };
-
-            instance.StartPlacement();
-            SuppressClicksThisFrame = true;
-        }
 
         public void StartPlacement()
         {
             CancelPlacement();
-            _currentBuildId = BuildId(_currentBuild);
+            // _currentBuildId was set by the trigger (TriggerBuildingPlacement /
+            // TriggerHubBuildWall) and is kept for a shift-click re-entry.
+            if (string.IsNullOrEmpty(_currentBuildId)) return;
             _placementIsPlaceholderCube = false;
+            _placementRefusal = PlacementRefusal.None;
 
             // Culture for the preview: the COMPLETED culture only.
             // FactionColors flips at click time (unit-tint preview), but
@@ -406,7 +417,7 @@ namespace TheWaningBorder.UI.Ingame
                     cultureWorld.EntityManager, GameSettings.LocalPlayerFaction);
 
             // Get presentation ID for the current build type
-            int previewPid = GetPreviewPresentationId(_currentBuild);
+            int previewPid = GetPreviewPresentationId(_currentBuild, _currentBuildId);
 
             // ── Upgrade-aware prefab-first preview ─────────────────────
             // Mirror the actual spawn path: pre-age-up shows the L0 base
@@ -458,7 +469,7 @@ namespace TheWaningBorder.UI.Ingame
                     // Final fallback: placeholder cube, sized to the actual
                     // footprint rather than a fixed 2 m block so the ghost
                     // reads as the ground the building will take.
-                    var fbSize = BuildCommandHelper.GetBuildingSize(BuildId(_currentBuild));
+                    var fbSize = BuildCommandHelper.GetBuildingSize(_currentBuildId);
                     _placementIsPlaceholderCube = true;
                     _placingInstance = GameObject.CreatePrimitive(PrimitiveType.Cube);
                     _placingInstance.transform.localScale =
@@ -646,15 +657,32 @@ namespace TheWaningBorder.UI.Ingame
             // from unless the stroke is long enough to be a loop) — that is how
             // a wall closes or joins an older one — or onto a friendly wall
             // cell, which becomes a hub: a T-junction into a standing wall.
+            // Tested at the PATH's end, not the cursor's: the snap belongs to
+            // what was drawn.
             Entity endHub = Entity.Null, endCell = Entity.Null;
             float3? endSnap = null;
-            if (tool.PointCount >= 2 && TryGetMouseWorld(out Vector3 endWorld))
+            bool closesOnOwnStart = false;
+            // Closing into a loop is only ever the deliberate case: the end is
+            // brought back within snap reach of the start AND the stroke is
+            // long enough to be a legal loop at all (a circle of the minimum
+            // bend radius). A shorter U or arc ending near its start is an
+            // OPEN end -- previewed as such, and refused on release with a
+            // reason if its end hub would sit on the start -- never a ring.
+            // The start then shows a distinct close ring while a release
+            // would close (WallDrawTool.ClosesLoop).
+            float loopMin = Mathf.Max(3f * HubSnapRadius, tool.MinLoopLength);
+            bool endNearStart = false;
+            if (tool.PointCount >= 2)
             {
-                endHub = FindNearestHubForSnap((float3)endWorld, fac, Entity.Null);
-                if (endHub == _drawStartHub && tool.PointCount < 24) endHub = Entity.Null;
+                Vector2 endXZ = tool.EndXZ;
+                var endWorld = new float3(endXZ.x, 0f, endXZ.y);
+                float ex = endXZ.x - _drawStartPos.x, ez = endXZ.y - _drawStartPos.y;
+                endNearStart = ex * ex + ez * ez < HubSnapRadius * HubSnapRadius;
+                endHub = FindNearestHubForSnap(endWorld, fac, Entity.Null);
+                if (endHub == _drawStartHub && tool.Length < loopMin) endHub = Entity.Null;
                 if (endHub == Entity.Null)
                 {
-                    endCell = FindNearestCellForSnap((float3)endWorld, fac);
+                    endCell = FindNearestCellForSnap(endWorld, fac);
                     // Not the cell it started on, and not so close to the
                     // start that two hubs would overlap.
                     if (endCell == _drawStartCell) endCell = Entity.Null;
@@ -668,14 +696,41 @@ namespace TheWaningBorder.UI.Ingame
                 Entity endAnchor = endHub != Entity.Null ? endHub : endCell;
                 if (endAnchor != Entity.Null)
                     endSnap = _em.GetComponentData<Unity.Transforms.LocalTransform>(endAnchor).Position;
+                else if (!startsOnHub && tool.Length >= loopMin)
+                {
+                    // A loop back onto a start that is not a hub YET (a new
+                    // hub, or a cell this order converts): the end is that
+                    // start. The executor raises the start hub first, so by
+                    // the time it reaches the end, FindWallHubNear finds it.
+                    if (endNearStart)
+                    {
+                        closesOnOwnStart = true;
+                        endSnap = new float3(_drawStartPos.x,
+                            TerrainUtility.GetHeight(_drawStartPos.x, _drawStartPos.y),
+                            _drawStartPos.y);
+                    }
+                }
             }
-            var endKind = endHub != Entity.Null ? CommandRouter.WallPathKind.ExistingHub
+            var endKind = endHub != Entity.Null || closesOnOwnStart ? CommandRouter.WallPathKind.ExistingHub
                         : endCell != Entity.Null ? CommandRouter.WallPathKind.CellHub
                         : CommandRouter.WallPathKind.NewHub;
+            // An open end left on top of the start (too short to close) would
+            // raise two overlapping hubs: that end hub is not legal. The
+            // start itself (distance 0) is exempt.
+            bool openEndOnStart = endNearStart && endSnap == null && tool.Length >= 3f * HubSnapRadius;
+            Vector2 drawStart = _drawStartPos;
             tool.ComputeLayout(startKind, endKind, endSnap, p =>
-                BuildCommandHelper.IsValidBuildPosition(_em, p,
-                    BuildCommandHelper.GetBuildingSize("Alanthor_Wall"), "Alanthor_Wall")
-                && MeetsTerritoryRequirement(fac, p, "Alanthor_Wall"));
+            {
+                if (openEndOnStart)
+                {
+                    float dx = p.x - drawStart.x, dz = p.z - drawStart.y;
+                    float d2 = dx * dx + dz * dz;
+                    if (d2 > 0.01f && d2 < HubSnapRadius * HubSnapRadius) return false;
+                }
+                return BuildCommandHelper.IsValidBuildPosition(_em, p,
+                        BuildCommandHelper.GetBuildingSize("Alanthor_Wall"), "Alanthor_Wall")
+                    && MeetsTerritoryRequirement(fac, p, "Alanthor_Wall");
+            });
             tool.ShowPreview();
 
             if (!UnityEngine.Input.GetMouseButtonUp(0)) return;
@@ -688,9 +743,33 @@ namespace TheWaningBorder.UI.Ingame
                 CancelPlacementPreviewOnly();
                 return;
             }
+            if (openEndOnStart)
+            {
+                PlayerNotificationSystem.NotifyError(Loc.T("Wall is too short to close into a loop"));
+                CancelPlacementPreviewOnly();
+                return;
+            }
+            if (tool.Problem != WallDrawTool.PathProblem.None)
+            {
+                PlayerNotificationSystem.NotifyError(Loc.T(tool.Problem == WallDrawTool.PathProblem.TooTight
+                    ? "Wall bends too sharply" : "Wall runs back over itself"));
+                CancelPlacementPreviewOnly();
+                return;
+            }
             if (!tool.AllHubsValid)
             {
                 PlayerNotificationSystem.NotifyError(Loc.T("Wall crosses ground you cannot build on"));
+                CancelPlacementPreviewOnly();
+                return;
+            }
+            // The executor refuses a wall that attaches to a standing hub or
+            // cell while a wall level researches; say so instead of letting
+            // the order vanish.
+            bool touchesStanding = _drawStartHub != Entity.Null || _drawStartCell != Entity.Null
+                || endHub != Entity.Null || endCell != Entity.Null;
+            if (touchesStanding && CommandRouter.WallsLockedForUpgrade(_em, fac))
+            {
+                PlayerNotificationSystem.NotifyError(Loc.T("Walls are being upgraded"));
                 CancelPlacementPreviewOnly();
                 return;
             }
@@ -755,16 +834,16 @@ namespace TheWaningBorder.UI.Ingame
         {
             _em = (_world ?? EntityWorld.DefaultGameObjectInjectionWorld).EntityManager;
 
-            var fac = GetSelectedFactionOrDefault();
+            var id = _currentBuildId;
+            if (!IsPlaceableId(id))
+            {
+                Debug.LogError($"[BuilderCommandPanel] Refused placement of unknown building id '{id}'.");
+                PlayerNotificationSystem.NotifyError(
+                    PlacementRefusalText.Of(PlacementRefusal.UnknownBuilding));
+                return;
+            }
 
-            var id = BuildId(_currentBuild);
-
-            // Choice buildings are placed from the top-bar buttons, which can
-            // be clicked with anything (or nothing) selected — the selection-
-            // derived faction is not trustworthy for them. They always belong
-            // to the local player.
-            if (BuildingFactory.IsChoiceBuilding(id))
-                fac = GameSettings.LocalPlayerFaction;
+            var fac = PlacementFaction(id);
 
             // Block trading post if faction already has 10
             if (id == "Runai_TradingPost")
@@ -801,64 +880,23 @@ namespace TheWaningBorder.UI.Ingame
                 }
             }
 
-            // Territorial rule — runtime guard behind the preview validity
-            // check. EVERY culture and Age 0 included: docs/Design/Regions.md
-            // §2 (you hold your start region and nothing else until you can
-            // claim) and §6, which supersedes Overview.md's Alanthor-only
-            // influence rule with territory.
-            if (!MeetsTerritoryRequirement(fac, pos, id))
+            // THE SAME EVALUATION THE GHOST RAN, re-asked at the click so a
+            // stale frame cannot slip one through: the router's gates (caps,
+            // territory + the Hall's adjacency rule, the extractor node, one
+            // Hall per territory, a worker on site for a Hall), the geometry,
+            // and the blood / forest rules — each refusal named. Extractors
+            // come back snapped onto their node, the position the router
+            // queues.
+            var refusal = EvaluatePlacement(pos, id, fac, out Entity hallBuilder, out pos);
+            if (refusal != PlacementRefusal.None)
             {
-                PlayerNotificationSystem.NotifyError(TerritoryRefusal(id));
+                PlayerNotificationSystem.NotifyError(PlacementRefusalText.Of(refusal, id));
                 return;
             }
 
-            // EVERY extractor stands on a free node of its own kind, one per
-            // node. Snap onto it first — the same move CommandRouter makes on
-            // commit — so a click that NAMES the node is accepted rather than
-            // refused for being a metre off it, and so this guard and the
-            // router are asking about the same spot.
-            if (TheWaningBorder.World.Regions.TerritoryOwnership.TrySnapToNode(
-                    _em, id, pos, out float3 onNode))
-                pos = onNode;
-
-            // Checked here as well as in the preview so a stale click cannot
-            // land one on bare ground.
-            if (!TheWaningBorder.World.Regions.TerritoryOwnership.OnFreeNodeFor(
-                    _em, id, pos.x, pos.z))
-            {
-                PlayerNotificationSystem.NotifyError(Loc.T(ExtractorRefusal(id)));
-                return;
-            }
-
-            // One Hall per territory.
-            if (id == "Hall"
-                && TheWaningBorder.World.Regions.TerritoryOwnership.HallCapReached(
-                       _em, pos.x, pos.z))
-            {
-                PlayerNotificationSystem.NotifyError(
-                    Loc.T("This territory already has a Hall"));
-                return;
-            }
-
-            // Feraldis blood rule — runtime guard behind the preview check.
-            if (!MeetsBloodRequirement(pos, id))
-            {
-                PlayerNotificationSystem.NotifyError(Loc.T("War Totems must be planted on blood"));
-                return;
-            }
-
-            // Sawyer forest rule — runtime guard behind the preview check.
-            // (The Mine's old "next to iron OR veilstone" rule left with the
-            // patch check: a mine stands on a node of its own kind now, and
-            // that is gated with the other extractors above.)
-            if (!MeetsPatchRequirement(_em, pos, id))
-            {
-                PlayerNotificationSystem.NotifyError(
-                    Loc.T("Sawyers must be built against a forest"));
-                return;
-            }
-
-            if (!BuildCosts.TryGet(id, out var cost)) cost = default;
+            // The price the executor will charge THIS faction — the Hall's
+            // escalation (Regions.md §2) and Deep Foundations included.
+            var cost = BuildCosts.For(_em, fac, id);
 
             // Affordability CHECK only — the SPEND lives in
             // CommandRouter.PlaceBuildingDirect, the executor both the
@@ -873,8 +911,10 @@ namespace TheWaningBorder.UI.Ingame
 
             if (GameSettings.IsMultiplayer)
             {
-                // Multiplayer: queue via lockstep — building created on all clients at same tick
-                CommandRouter.IssuePlaceBuilding(_em, id, pos, fac);
+                // Multiplayer: queue via lockstep — building created on all
+                // clients at same tick. A Hall carries the worker standing at
+                // its site; the executor re-checks that worker at that tick.
+                CommandRouter.IssuePlaceBuilding(_em, id, pos, fac, hallBuilder, out _);
 
                 // Send selected builders to the build position — the building entity doesn't
                 // exist yet (created 2 ticks later), so we issue Build with Entity.Null target.
@@ -894,12 +934,16 @@ namespace TheWaningBorder.UI.Ingame
             }
 
             // Single player: create building directly and assign builders.
-            // PlaceBuildingDirect validates + spends; Entity.Null means the
-            // bank came up short between the CanAfford check and now.
-            Entity building = CommandRouter.PlaceBuildingDirect(_em, id, pos, fac);
+            // PlaceBuildingDirect re-checks a claim and spends; Entity.Null
+            // means a claim rule refused it (LastPlacementRefusal says which)
+            // or the bank came up short between the CanAfford check and now.
+            Entity building = CommandRouter.PlaceBuildingDirect(_em, id, pos, fac, hallBuilder);
             if (building == Entity.Null)
             {
-                PlayerNotificationSystem.NotifyError(Loc.T("Not enough resources"));
+                var why = CommandRouter.LastPlacementRefusal;
+                PlayerNotificationSystem.NotifyError(why != PlacementRefusal.None
+                    ? PlacementRefusalText.Of(why, id)
+                    : Loc.T("Not enough resources"));
                 return;
             }
 
@@ -936,6 +980,72 @@ namespace TheWaningBorder.UI.Ingame
 
                 CommandRouter.IssueBuild(_em, entity, building, buildingId, pos);
             }
+        }
+
+        /// <summary>
+        /// The faction a placement of <paramref name="buildingId"/> belongs
+        /// to. Choice buildings are placed from the top-bar buttons, which can
+        /// be clicked with anything (or nothing) selected — the selection-
+        /// derived faction is not trustworthy for them. They always belong to
+        /// the local player.
+        /// </summary>
+        private Faction PlacementFaction(string buildingId)
+            => BuildingFactory.IsChoiceBuilding(buildingId)
+                ? GameSettings.LocalPlayerFaction
+                : GetSelectedFactionOrDefault();
+
+        private PlacementRefusal EvaluatePlacement(float3 pos, string buildingId, Faction fac,
+            out Entity hallBuilder)
+            => EvaluatePlacement(pos, buildingId, fac, out hallBuilder, out _);
+
+        /// <summary>
+        /// Every rule a placement answers to, in one place, with the REASON
+        /// the first failing one refused — the ghost's colour, the click's
+        /// refusal notice and the command all come from this.
+        ///
+        /// 1. The router's own gates (<see cref="CommandRouter.CheckPlaceBuilding"/>):
+        ///    per-faction caps, the territory gate with the Hall's ADJACENCY
+        ///    rule, the extractor node, one Hall per territory, and — for a
+        ///    Hall — one of the selected workers within
+        ///    <see cref="TerritoryOwnership.HallBuilderRange"/> of the site.
+        ///    Asked, not copied, so the ghost cannot go white on a click the
+        ///    router refuses.
+        /// 2. The geometry (crust, terrain, overlap).
+        /// 3. The ghost-only terrain rules: blood for a War Totem, a forest
+        ///    for a Sawyer.
+        ///
+        /// <paramref name="hallBuilder"/> is the worker the Hall command
+        /// will carry (Entity.Null for anything else); <paramref name="placedPos"/>
+        /// is the position the router will queue (an extractor snapped onto
+        /// its node).
+        /// </summary>
+        private PlacementRefusal EvaluatePlacement(float3 pos, string buildingId, Faction fac,
+            out Entity hallBuilder, out float3 placedPos)
+        {
+            hallBuilder = Entity.Null;
+            placedPos = pos;
+            var w = EntityWorld.DefaultGameObjectInjectionWorld;
+            if (w == null || !w.IsCreated) return PlacementRefusal.None;
+            var em = w.EntityManager;
+            if (!IsPlaceableId(buildingId)) return PlacementRefusal.UnknownBuilding;
+
+            if (TerritoryOwnership.NeedsBuilderNearby(buildingId))
+                hallBuilder = TerritoryOwnership.NearestBuilder(
+                    em, fac, SelectionSystem.CurrentSelection, pos.x, pos.z);
+
+            var r = CommandRouter.CheckPlaceBuilding(em, buildingId, ref placedPos, fac, hallBuilder);
+            if (r != PlacementRefusal.None) return r;
+
+            // The id goes in so the crust rule can make its one exception:
+            // Veilworks (Reclamation) is the only building that may be raised
+            // on cursed ground.
+            r = BuildCommandHelper.CheckBuildPosition(em, placedPos,
+                BuildCommandHelper.GetBuildingSize(buildingId), buildingId);
+            if (r != PlacementRefusal.None) return r;
+
+            if (!MeetsBloodRequirement(placedPos, buildingId)) return PlacementRefusal.NotOnBlood;
+            if (!MeetsPatchRequirement(em, placedPos, buildingId)) return PlacementRefusal.NotByForest;
+            return PlacementRefusal.None;
         }
 
         /// <summary>
@@ -984,22 +1094,6 @@ namespace TheWaningBorder.UI.Ingame
         /// The extractors left here when their rule became "stand on a free
         /// node of your own kind", which TerritoryOwnership owns.
         /// </summary>
-        /// <summary>
-        /// Why an extractor was refused, named by the node it wanted. One
-        /// message per building rather than one shared "must be on a node":
-        /// the iron Mine and the Veilstone Mine are different buildings
-        /// wanting different ground, and a player told only "on a node" cannot
-        /// tell which one they picked wrong.
-        /// </summary>
-        private static string ExtractorRefusal(string buildingId) => buildingId switch
-        {
-            "GatherersHut"     => "Gatherer's Huts must be built on a free supply node",
-            "Mine"             => "Mines must be built on a free iron deposit",
-            "VeilstoneMine"    => "Veilstone Mines must be built on a free veilstone outcropping",
-            "Alanthor_Smelter" => "Smelters must be built on a free veilsteel deposit",
-            _                  => "This building must stand on a free resource node",
-        };
-
         private static bool MeetsPatchRequirement(EntityManager em, float3 pos, string buildingId)
         {
             // A Sawyer may only be raised beside a FOREST, for the same reason
@@ -1047,45 +1141,6 @@ namespace TheWaningBorder.UI.Ingame
             }
             return GameSettings.LocalPlayerFaction;
         }
-
-        private static string BuildId(BuildType t) => t switch
-        {
-            BuildType.Hut => "Hut",
-            BuildType.GatherersHut => "GatherersHut",
-            BuildType.Barracks => "Barracks",
-            BuildType.ArcheryRange => "ArcheryRange",
-            BuildType.Shrine => "ShrineOfRidan",
-            BuildType.Temple => "TempleOfRidan",
-            BuildType.Vault => "VaultOfAlmierra",
-            BuildType.Keep => "FiendstoneKeep",
-            BuildType.Wall => "Alanthor_Wall",
-            BuildType.WallExtend => "Alanthor_Wall", // per-hub Build Wall — same preview as a base hub
-            BuildType.Hall => "Hall",
-            BuildType.VeilstoneMine => "VeilstoneMine",
-            BuildType.Smelter => "Alanthor_Smelter",
-            // Runai culture buildings
-            BuildType.RunaiOutpost => "Runai_Outpost",
-            BuildType.RunaiTradeHub => "Runai_TradeHub",
-            BuildType.RunaiBazaar => "ThessarasBazaar",
-            BuildType.RunaiSiegeWorkshop => "Runai_SiegeWorkshop",
-            // Alanthor culture buildings
-            BuildType.AlanthorWatchTower => "Alanthor_Tower",
-            BuildType.AlanthorSiegeYard => "Alanthor_SiegeYard",
-            BuildType.AlanthorRoyalStable => "Alanthor_RoyalStable",
-            BuildType.AlanthorBallistaEmplacement => "Alanthor_BallistaEmplacement",
-            BuildType.AlanthorTrebuchetEmplacement => "Alanthor_TrebuchetEmplacement",
-            // Feraldis culture buildings
-            BuildType.FeraldisHuntingLodge => "Feraldis_HuntingLodge",
-            BuildType.FeraldisLoggingStation => "Feraldis_LoggingStation",
-            BuildType.FeraldisLonghouse => "Feraldis_Longhouse",
-            BuildType.FeraldisTotemTower => "Feraldis_Tower",
-            BuildType.FeraldisSiegeYard => "Feraldis_SiegeYard",
-            BuildType.FeraldisWarTotem => "Feraldis_WarTotem",
-            BuildType.FeraldisPasture => "Feraldis_Pasture",
-            BuildType.Mine => "Mine",
-            BuildType.AlanthorSawyer => "Alanthor_Sawyer",
-            _ => "Hut"
-        };
 
         // Cached preview-prefab lookups so Resources.Load runs at most once
         // per (BuildType, culture) pair. null = "no upgrade-aware prefab present"
@@ -1142,39 +1197,19 @@ namespace TheWaningBorder.UI.Ingame
         }
 
         /// <summary>
-        /// Get the PresentationId for preview rendering of a BuildType.
+        /// The PresentationId to preview a building with. Read from the
+        /// building's own recipe (BuildingFactory.GetPresentationId), the same
+        /// number the real spawn uses — the old per-BuildType table ended in
+        /// `_ => 102`, so every building it did not list (sect buildings, the
+        /// Temple) previewed as a Hut. Walls and the Smelter are procedural
+        /// and answer 0.
         /// </summary>
-        private static int GetPreviewPresentationId(BuildType t) => t switch
+        private static int GetPreviewPresentationId(BuildType t, string buildingId) => t switch
         {
-            BuildType.Hut => 102,
-            BuildType.GatherersHut => 101,
-            BuildType.Barracks => 510,
-            BuildType.ArcheryRange => 511,
-            BuildType.Shrine => 520,
-            BuildType.Vault => 530,
-            BuildType.Keep => 540,
-            BuildType.Wall => 0,     // Procedural wall handled separately
+            BuildType.Wall => 0,       // Procedural wall handled separately
             BuildType.WallExtend => 0, // Same procedural hub mesh as Wall
-            BuildType.Hall => 100,   // Hall.PresentationID — uses the standard Hall prefab
-            BuildType.Smelter => 0,  // Procedural smelter handled separately
-            BuildType.RunaiOutpost => 350,
-            BuildType.RunaiTradeHub => 351,
-            BuildType.RunaiBazaar => 352,
-            BuildType.RunaiSiegeWorkshop => 353,
-            BuildType.AlanthorWatchTower => 354,
-            BuildType.AlanthorSiegeYard => 357,
-            BuildType.AlanthorRoyalStable => 356,
-            BuildType.AlanthorBallistaEmplacement => TheWaningBorder.Entities.BallistaEmplacement.PresentationID,
-            BuildType.AlanthorTrebuchetEmplacement => TheWaningBorder.Entities.TrebuchetEmplacement.PresentationID,
-            BuildType.FeraldisHuntingLodge => 358,
-            BuildType.FeraldisLoggingStation => 359,
-            BuildType.FeraldisLonghouse => 360,
-            BuildType.FeraldisTotemTower => 361,
-            BuildType.FeraldisSiegeYard => 362,
-            BuildType.FeraldisWarTotem => TheWaningBorder.Entities.WarTotem.PresentationID,
-            BuildType.FeraldisPasture => TheWaningBorder.Entities.Pasture.PresentationID,
-            BuildType.Mine => TheWaningBorder.Entities.Mine.PresentationID,
-            _ => 102
+            BuildType.Smelter => 0,    // Procedural smelter handled separately
+            _ => BuildingFactory.GetPresentationId(buildingId),
         };
 
         // task-109: Alanthor wall primitives — only Alanthor_Wall (hub) and Alanthor_Tower
@@ -1364,6 +1399,7 @@ namespace TheWaningBorder.UI.Ingame
             // survives — otherwise the click commit sees a null source and bails
             // ("Source hub no longer exists"), clearing the preview without building.
             instance._currentBuild = BuildType.WallExtend;
+            instance._currentBuildId = "Alanthor_Wall"; // per-hub Build Wall — same preview as a base hub
             instance.StartPlacement();
             instance._wallExtendSourceHub = sourceHub;
             SuppressClicksThisFrame = true;

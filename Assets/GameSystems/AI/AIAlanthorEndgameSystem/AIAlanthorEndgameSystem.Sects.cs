@@ -534,6 +534,7 @@ namespace TheWaningBorder.AI
         private static int CountAliveAndQueued(EntityManager em, Faction faction, string unitId)
         {
             int n = 0;
+            var key = new FixedString64Bytes(unitId);   // no ToString per unit
             var uq = QC_UnitTypeIdFactionTagHealth.Get(em, QT_UnitTypeIdFactionTagHealth);
             using (var uEnts = uq.ToEntityArray(Allocator.Temp))
             using (var uFacs = uq.ToComponentDataArray<FactionTag>(Allocator.Temp))
@@ -542,7 +543,7 @@ namespace TheWaningBorder.AI
                 {
                     if (uFacs[i].Value != faction) continue;
                     if (em.GetComponentData<Health>(uEnts[i]).Value <= 0) continue;
-                    if (em.GetComponentData<UnitTypeId>(uEnts[i]).Value.ToString() == unitId) n++;
+                    if (em.GetComponentData<UnitTypeId>(uEnts[i]).Value == key) n++;
                 }
             }
             var tq = QC_FactionTagProductionQueueItem.Get(em, QT_FactionTagProductionQueueItem);
@@ -555,7 +556,7 @@ namespace TheWaningBorder.AI
                     var buf = em.GetBuffer<ProductionQueueItem>(tEnts[i]);
                     for (int j = 0; j < buf.Length; j++)
                         if (buf[j].Kind == ProductionKind.Train
-                            && buf[j].Id.ToString() == unitId) n++;
+                            && buf[j].Id == key) n++;
                 }
             }
             return n;

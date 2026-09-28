@@ -77,9 +77,9 @@ namespace TheWaningBorder.Systems.Research
             // ── Behaviour techs (no stat-effects block; wired by id) ────────
             switch (techId)
             {
-                case "WarriorPriests":
-                    ApplyWarriorPriests(em, faction);
-                    break;
+                // Warrior Priests is DATA now: its effectsList SETs the
+                // Litharch's Damage and AttackCooldown (WarriorPriests.asset),
+                // applied by ApplyGenericEffects below like any stat tech.
                 case "ReinforcedWalls":
                     ApplyReinforcedWalls(em, faction);
                     break;

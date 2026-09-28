@@ -320,12 +320,9 @@ namespace TheWaningBorder.Systems.Combat
 
                 if (distSq <= radiusSq)
                 {
-                    // Ability: scale incoming AoE damage (Liquid Courage DR) before HP.
-                    int dmg = TheWaningBorder.Abilities.AbilityDamageHooks.ScaleIncoming(em, entities[i], damage);
-                    var health = em.GetComponentData<Health>(entities[i]);
-                    health.Value -= dmg;
-                    if (health.Value < 0) health.Value = 0;
-                    em.SetComponentData(entities[i], health);
+                    // Spell damage goes through the one door: armor (Magic),
+                    // Liquid Courage, death-ward floors. docs/Design/Spells.md
+                    SpellDamage.Apply(em, entities[i], damage, DamageType.Magic, casterFaction);
                 }
             }
 

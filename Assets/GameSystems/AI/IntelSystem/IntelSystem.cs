@@ -53,6 +53,9 @@ namespace TheWaningBorder.AI
 
         private SimCadence.Periodic _acc;
 
+        // Host-only scratch, cleared per brain.
+        private readonly Dictionary<Entity, int> _index = new Dictionary<Entity, int>(256);
+
 
         protected override void OnCreate()
         {
@@ -94,13 +97,33 @@ namespace TheWaningBorder.AI
                     em.AddBuffer<EnemySightingRecord>(brainEntity);
                 var buffer = em.GetBuffer<EnemySightingRecord>(brainEntity);
 
-                // 1. Prune dead entities (preserve order for determinism).
+                // 1. Prune dead entities (preserve order for determinism),
+                //    and AGE OUT mobile sightings nobody has re-seen
+                //    (2026-09-25). The buffer used to shrink only when the
+                //    enemy DIED, so every unit ever glimpsed stayed in it for
+                //    the rest of the match and every consumer (target
+                //    scoring, composition, recon) walked the whole history.
+                //    Structures are kept: they do not move, and "where is
+                //    their base" stays true until they die. The age cap sits
+                //    above every consumer's own freshness window (composition
+                //    <= 150 s, the aggregate 90 s, mobile targets need live
+                //    vision anyway), so no decision loses data it used.
+                float maxMobileAge = Cfg.mobileSightingMaxAge;
                 for (int i = buffer.Length - 1; i >= 0; i--)
-                    if (!em.Exists(buffer[i].Enemy))
+                {
+                    var rec = buffer[i];
+                    if (!em.Exists(rec.Enemy)
+                        || (maxMobileAge > 0f
+                            && (rec.Category == IntelCategory.MilitaryUnit
+                                || rec.Category == IntelCategory.Miner)
+                            && now - rec.LastSeenTime > maxMobileAge))
                         buffer.RemoveAt(i);
+                }
 
-                // Lookup-only index of existing records by enemy entity.
-                var index = new Dictionary<Entity, int>(buffer.Length);
+                // Lookup-only index of existing records by enemy entity
+                // (pooled — one per tick per brain used to be allocated).
+                var index = _index;
+                index.Clear();
                 for (int i = 0; i < buffer.Length; i++)
                     index[buffer[i].Enemy] = i;
 
@@ -200,7 +223,7 @@ namespace TheWaningBorder.AI
                     // thing, and there was no way to see what it had been
                     // told. Throttled to one line per faction per interval so
                     // it stays readable next to the rest.
-                    if (now - _lastIntelLog >= IntelLogInterval)
+                    if (now - _lastIntelLog >= IntelLogInterval && AILogger.Enabled)
                     {
                         int milUnits = 0, structures = 0, miners = 0;
                         for (int i = 0; i < buffer.Length; i++)

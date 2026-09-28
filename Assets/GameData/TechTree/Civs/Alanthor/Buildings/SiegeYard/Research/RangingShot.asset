@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Ranging Shot
   role: Military
   effect: 
-  desc: "Unlocks the Ranging Shot active for Alanthor siege engines: after standing still for 3 s the next shot deals +100% damage. 45 s cooldown."
+  desc: "Unlocks the Ranging Shot active for Alanthor siege engines: after standing still for 3 s the next shot deals +100% damage. 60 s cooldown."
   researchAt: Alanthor_SiegeYard
   minBuildingLevel: 2
   researchTime: 40

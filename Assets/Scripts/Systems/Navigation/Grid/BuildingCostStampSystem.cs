@@ -124,6 +124,7 @@ namespace TheWaningBorder.Systems.Navigation
                 {
                     DirtyTileIndices = dirtySet,
                     Generation = 0,
+                    TopologyDirty = 0,
                 });
 
                 _genEntity = em.CreateEntity(typeof(NavGenerationCounter));
@@ -174,32 +175,25 @@ namespace TheWaningBorder.Systems.Navigation
             var dirty = SystemAPI.GetSingleton<NavDirtyTiles>();
             if (!dirty.DirtyTileIndices.IsCreated) return;
 
-            // Single-thread diff (deterministic by construction). Tile-set
-            // size is bounded by total tile count (~1024 at 512x512 / 16
-            // tile size) so the walk is sub-ms even on a full restamp.
-            int tileSize2 = PortalGraphSingleton.TileSize;
-            int tilesXForDiff = (cost.Width + tileSize2 - 1) / tileSize2;
-            int layerArea = cost.Width * cost.Height;
-
-            // Walk every layer's slab. Cells on layers >= 1 still map to
-            // tiles in the layer-0 tile-index space (one tile-index per
-            // (tileX, tileZ) pair, layer-aware portals share the index).
-            int total = layerArea * cost.LayerCount;
-            for (int i = 0; i < total; i++)
+            // Single-thread diff (deterministic by construction), Burst-
+            // compiled and run inline: the managed byte-by-byte walk over
+            // W x H x layers was a multi-millisecond main-thread pass on every
+            // restamp — and the veil crust restamps about once a second.
+            var topo = new NativeReference<byte>(Allocator.TempJob);
+            new DiffCostJob
             {
-                byte cur = cost.Cost[i];
-                byte prev = _shadowCost[i];
-                if (cur == prev) continue;
-
-                int layerCellIdx = i % layerArea;
-                int x = layerCellIdx % cost.Width;
-                int z = layerCellIdx / cost.Width;
-                int tileX = x / tileSize2;
-                int tileZ = z / tileSize2;
-                int tileIndex = tileZ * tilesXForDiff + tileX;
-                dirty.DirtyTileIndices.Add(tileIndex);
-                _shadowCost[i] = cur;
-            }
+                Cost = cost.Cost,
+                Shadow = _shadowCost,
+                Dirty = dirty.DirtyTileIndices,
+                Width = cost.Width,
+                LayerArea = cost.Width * cost.Height,
+                Total = cost.Width * cost.Height * cost.LayerCount,
+                TileSize = PortalGraphSingleton.TileSize,
+                TilesX = (cost.Width + PortalGraphSingleton.TileSize - 1) / PortalGraphSingleton.TileSize,
+                TopologyChanged = topo,
+            }.Run();
+            if (topo.Value != 0) dirty.TopologyDirty = 1;
+            topo.Dispose();
 
             // Persist the dirty set header back (DirtyTileIndices is a
             // reference-typed handle so the Add above is observable, but
@@ -212,6 +206,48 @@ namespace TheWaningBorder.Systems.Navigation
             // Mirrors, not the component — the entity may already be wiped.
             if (_dirtySet.IsCreated) _dirtySet.Dispose();
             if (_shadowCost.IsCreated) _shadowCost.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// The cost-slab diff: every cell that differs from the shadow marks its
+    /// tile dirty and is copied into the shadow. Cells on layers &gt;= 1 map
+    /// to the layer-0 tile index. <see cref="TopologyChanged"/> reports
+    /// whether any cell crossed the impassable line — the only change the
+    /// portal graph can see. Single-threaded: the set's contents, not its
+    /// insertion order, are what consumers read (they sort a snapshot).
+    /// </summary>
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
+    internal struct DiffCostJob : IJob
+    {
+        [ReadOnly] public NativeArray<byte> Cost;
+        public NativeArray<byte> Shadow;
+        public NativeHashSet<int> Dirty;
+        public int Width;
+        public int LayerArea;
+        public int Total;
+        public int TileSize;
+        public int TilesX;
+        public NativeReference<byte> TopologyChanged;
+
+        public void Execute()
+        {
+            byte topo = 0;
+            for (int i = 0; i < Total; i++)
+            {
+                byte cur = Cost[i];
+                byte prev = Shadow[i];
+                if (cur == prev) continue;
+
+                int layerCellIdx = i % LayerArea;
+                int x = layerCellIdx % Width;
+                int z = layerCellIdx / Width;
+                Dirty.Add((z / TileSize) * TilesX + (x / TileSize));
+                if ((cur == NavCostField.CostImpassable) != (prev == NavCostField.CostImpassable))
+                    topo = 1;
+                Shadow[i] = cur;
+            }
+            TopologyChanged.Value = topo;
         }
     }
 }

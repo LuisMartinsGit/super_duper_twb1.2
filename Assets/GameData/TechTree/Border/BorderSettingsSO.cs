@@ -100,7 +100,17 @@ namespace TheWaningBorder.Data.Border
         /// <summary>Chance, per spawn (garrison or harassment party), that
         /// one unit of that spawn carries the Shardroot (2.13 rule 5).
         /// Rolled only while the artifact is neither out nor claimed.</summary>
-        [Range(0f, 1f)] public float shardrootChance = 0.01f;
+        [Range(0f, 1f)] public float shardrootChance = 0.04f;
+
+        /// <summary>THE MAW BACKSTOP (Curse_And_Shardroot.md §3): sim seconds
+        /// the Shardroot's host well must spend Wild (unverbed) before it
+        /// reaches "Maw maturity" and the artifact shows itself embedded in
+        /// it -- a visible gem in the well, a minimap beacon and a ping for
+        /// every player. It is still claimed only by verbing that well. The
+        /// Well->Fissure->Maw ladder is superseded by the Veil (§2.3), so
+        /// maturity is time-alive-and-feeding. 1500 s = 25 min, the middle of
+        /// §2.3's "a neglected map is overrun in ~20-30 minutes". 0 = off.</summary>
+        [Min(0f)] public float shardrootMawSeconds = 720f;
 
         /// <summary>Seconds of uninterrupted merging for a node to turn.
         /// Progress PAUSES while the merge party is out defending the node
@@ -314,7 +324,8 @@ namespace TheWaningBorder.Data.Border
             armySpawnSeconds = 180f;
             armyGrowth = 1.12f;
             expansionSeconds = 150f;
-            shardrootChance = 0.01f;
+            shardrootChance = 0.04f;
+            shardrootMawSeconds = 720f;
             mergeSeconds = 90f;
             mergePartySize = 6;
             mergeDefendRadius = 30f;

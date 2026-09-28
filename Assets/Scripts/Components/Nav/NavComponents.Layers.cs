@@ -37,6 +37,13 @@ public struct NavDirtyTiles : IComponentData
     /// <summary>Bumped every drain. Lets stale readers detect they
     /// missed a generation and force a full refresh.</summary>
     public int Generation;
+    /// <summary>1 when something the PORTAL GRAPH depends on changed since
+    /// the last drain: a cell crossed the impassable line (portal detection
+    /// and the intra-tile regions read nothing else of the cost byte), or
+    /// the wall-portal spec set changed. A drain with this clear only
+    /// invalidates the dirty tiles' flow slabs — a finite cost change (the
+    /// veil's travel cost, a bridge premium) cannot move a portal.</summary>
+    public byte TopologyDirty;
 }
 
 /// <summary>

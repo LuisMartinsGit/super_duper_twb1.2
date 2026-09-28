@@ -62,13 +62,13 @@ namespace TheWaningBorder.Economy
                     {
                         1 => Spec(SectActivePowerKind.BloodRain, SectRadius.Small, "Blood Rain",
                                   "Blood falls, leaving a small pool. For 10s every unit on the map attacks 5% faster and no ability or sect power can be cast anywhere.",
-                                  magnitude: 1.05f, duration: 10f, cooldown: 240f),
+                                  magnitude: 1.05f, duration: 10f, cooldown: SpellLadder.MapWideCooldown),
                         2 => Spec(SectActivePowerKind.BloodRain, SectRadius.Medium, "Blood Rain",
                                   "A medium pool. For 20s every unit on the map attacks 10% faster and no ability or sect power can be cast anywhere.",
-                                  magnitude: 1.10f, duration: 20f, cooldown: 220f),
+                                  magnitude: 1.10f, duration: 20f, cooldown: SpellLadder.MapWideCooldown),
                         _ => Spec(SectActivePowerKind.BloodRain, SectRadius.Large, "Blood Rain",
                                   "A large pool. For 30s every unit on the map attacks 15% faster and no ability or sect power can be cast anywhere.",
-                                  magnitude: 1.15f, duration: 30f, cooldown: 200f),
+                                  magnitude: 1.15f, duration: 30f, cooldown: SpellLadder.MapWideCooldown),
                     };
 
                 // Call to Arms — Magnitude is the training-COST multiplier.
@@ -79,13 +79,13 @@ namespace TheWaningBorder.Economy
                     {
                         1 => Spec(SectActivePowerKind.TrainingBoon, SectRadius.Single, "Call to Arms",
                                   "One military building trains units 50% cheaper for 15s.",
-                                  magnitude: 0.5f, duration: 15f, cooldown: 150f),
+                                  magnitude: 0.5f, duration: 15f, cooldown: SpellLadder.SectEconomyCooldown),
                         2 => Spec(SectActivePowerKind.TrainingBoon, SectRadius.Small, "Call to Arms",
                                   "Military buildings in a small area train 50% cheaper for 30s.",
-                                  magnitude: 0.5f, duration: 30f, cooldown: 135f),
+                                  magnitude: 0.5f, duration: 30f, cooldown: SpellLadder.SectEconomyCooldown),
                         _ => Spec(SectActivePowerKind.TrainingBoon, SectRadius.Medium, "Call to Arms",
                                   "Military buildings in a medium area train 50% cheaper AND at double speed for 30s.",
-                                  magnitude: 0.5f, duration: 30f, cooldown: 120f),
+                                  magnitude: 0.5f, duration: 30f, cooldown: SpellLadder.SectEconomyCooldown),
                     };
 
                 // Bloodfury — Magnitude is the outgoing-damage multiplier.
@@ -95,13 +95,13 @@ namespace TheWaningBorder.Economy
                     {
                         1 => Spec(SectActivePowerKind.DamageCircle, SectRadius.Small, "Bloodfury",
                                   "Allies in a small area deal +25% attack damage for 8s.",
-                                  magnitude: 1.25f, duration: 8f, cooldown: 120f),
+                                  magnitude: 1.25f, duration: 8f, cooldown: SpellLadder.SectTacticalCooldown),
                         2 => Spec(SectActivePowerKind.DamageCircle, SectRadius.Medium, "Bloodfury",
                                   "Allies in a medium area deal +25% attack damage for 12s.",
-                                  magnitude: 1.25f, duration: 12f, cooldown: 110f),
+                                  magnitude: 1.25f, duration: 12f, cooldown: SpellLadder.SectTacticalCooldown),
                         _ => Spec(SectActivePowerKind.DamageArmorCircle, SectRadius.Large, "Bloodfury",
                                   "Allies in a large area deal +25% attack damage and gain +5 armor for 12s.",
-                                  magnitude: 1.25f, duration: 12f, cooldown: 100f),
+                                  magnitude: 1.25f, duration: 12f, cooldown: SpellLadder.SectTacticalCooldown),
                     };
             }
         }

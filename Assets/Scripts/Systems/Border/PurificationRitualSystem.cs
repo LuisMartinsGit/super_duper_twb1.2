@@ -268,6 +268,22 @@ namespace TheWaningBorder.Systems.Border
                 if (em.HasComponent<DesiredDestination>(scholar))
                     em.SetComponentData(scholar, new DesiredDestination { Has = 0 });
 
+                // Where it channels is its post now (docs/Design/Stances.md
+                // §2): when the rite ends or breaks, return-to-guard keeps it
+                // at the well instead of walking it back to where it was
+                // trained. (IssuePurifyDirect set the approach stand point;
+                // this is the exact spot the channel began on.)
+                if (em.HasComponent<LocalTransform>(scholar))
+                {
+                    var gp = new GuardPoint
+                    {
+                        Position = em.GetComponentData<LocalTransform>(scholar).Position,
+                        Has = 1,
+                    };
+                    if (em.HasComponent<GuardPoint>(scholar)) em.SetComponentData(scholar, gp);
+                    else em.AddComponentData(scholar, gp);
+                }
+
                 // THE WAKING (canon §2.8): touching a well wakes THAT well —
                 // it starts feeding the veil and never sleeps again. Fires on
                 // channel START, not completion, so an interrupted attempt has

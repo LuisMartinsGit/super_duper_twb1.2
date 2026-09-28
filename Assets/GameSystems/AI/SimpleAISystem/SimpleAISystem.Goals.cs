@@ -75,6 +75,9 @@ namespace TheWaningBorder.AI
 
         private readonly Dictionary<int, float> _nextGoalLog = new Dictionary<int, float>();
 
+        /// <summary>Host-only scratch for the per-think want-list.</summary>
+        private readonly List<Goal> _goals = new List<Goal>(24);
+
         /// <summary>Why each building id was last refused — fills the goal log.</summary>
         private readonly Dictionary<string, string> _lastBuildReason = new Dictionary<string, string>();
 
@@ -124,7 +127,8 @@ namespace TheWaningBorder.AI
             int workerWant = math.clamp(personality.minerFloor + openSites, 2, 12);
             int perKind = math.max(2, personality.productionBuildingTarget / (aged ? 4 : 2));
 
-            var goals = new List<Goal>(24);
+            var goals = _goals;   // pooled: one list per think used to be allocated
+            goals.Clear();
 
             // ── 1. NEVER BE POPULATION-BLOCKED. ──
             // Housing first when it is actually about to stop production;
@@ -270,7 +274,8 @@ namespace TheWaningBorder.AI
             // Nothing affordable this tick. Say so occasionally — silence here
             // is what made five blockers take five batches to find.
             int key = (int)faction;
-            if (!_nextGoalLog.TryGetValue(key, out float next) || now >= next)
+            if (AILogger.Enabled
+                && (!_nextGoalLog.TryGetValue(key, out float next) || now >= next))
             {
                 _nextGoalLog[key] = now + 60f;
                 // List the first few REFUSED goals, not just the first unmet
@@ -344,20 +349,13 @@ namespace TheWaningBorder.AI
                         // the building the army is waiting on (Game_AI.md 6c).
                         || ProductionLineSaturated(em, brain.Owner, g.Id);
                     if (TryBuildBuildingBudgeted(em, brain.Owner, g.Id, g.Cat,
-                            honourReservation: !essential)) return true;
+                            !essential, out string why)) return true;
                     // Record why, so the "nothing affordable" log can name the
-                    // actual cause instead of the first unmet want. Same
-                    // reservation stance as the attempt above, or an essential
-                    // refused on placement logs as "wallet short".
-                    if (!AIBudget.TryAfford(brain.Owner, g.Cat, AICommon.ToCost(
-                            TechCatalog.TryGetBuilding(g.Id, out var bd) && bd != null
-                                ? bd.cost : default), now, honourReservation: !essential))
-                        _lastBuildReason[g.Id] = "wallet short";
-                    else
-                    {
-                        TryBuildBuildingWithReason(em, brain.Owner, g.Id, out string why);
-                        _lastBuildReason[g.Id] = why ?? "placement refused";
-                    }
+                    // actual cause instead of the first unmet want. The reason
+                    // comes back from the attempt itself (2026-09-25) — this
+                    // used to re-run the WHOLE site search a second time just
+                    // to learn why the first one refused.
+                    _lastBuildReason[g.Id] = why ?? "placement refused";
                     return false;
 
                 case GoalKind.Train:

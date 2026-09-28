@@ -22,6 +22,22 @@ namespace TheWaningBorder.UI.Data
     /// </summary>
     public static partial class EntityInfoExtractor
     {
+        /// <summary>
+        /// The entity's shield (equipment-tier ShieldBar): extra hit points
+        /// every hit spends before Health (docs/Design/Combat_Pacing.md).
+        /// False, with 0 / 0, when the entity carries no shield.
+        /// </summary>
+        public static bool TryGetShield(EntityManager em, Entity entity, out int current, out int max)
+        {
+            current = 0; max = 0;
+            if (!em.Exists(entity) || !em.HasComponent<ShieldBar>(entity)) return false;
+            var sb = em.GetComponentData<ShieldBar>(entity);
+            if (sb.Max <= 0) return false;
+            max = sb.Max;
+            current = sb.Current < 0 ? 0 : (sb.Current > sb.Max ? sb.Max : sb.Current);
+            return true;
+        }
+
         public static EntityDisplayInfo GetDisplayInfo(Entity entity, EntityManager em)
         {
             var info = new EntityDisplayInfo
@@ -69,6 +85,7 @@ namespace TheWaningBorder.UI.Data
                 info.CurrentHealth = (int)health.Value;
                 info.MaxHealth = (int)health.Max;
             }
+            TryGetShield(em, entity, out info.CurrentShield, out info.MaxShield);
 
             // task-109 Phase 5: aggregated Health bar for wall segments and
             // gate regions. Segments carry a placeholder Health{1,1} (they
@@ -247,7 +264,7 @@ namespace TheWaningBorder.UI.Data
                         ? em.GetComponentData<FactionTag>(entity).Value
                         : GameSettings.LocalPlayerFaction;
                     var ty = TheWaningBorder.Systems.World.TerritoryIncomeSystem
-                        .ComputeYield(em, territory, faction);
+                        .ComputeYieldForDisplay(em, territory, faction);
 
                     info.HasResourceGeneration = true;
                     info.SuppliesPerMinute  = ty.Supplies;
@@ -668,6 +685,7 @@ namespace TheWaningBorder.UI.Data
                 };
                 AddWallLevelAction(info.Actions, entity, em,
                                    GameSettings.LocalPlayerFaction);
+                ApplyWallLock(ref info, entity, em, GameSettings.LocalPlayerFaction);
                 return info;
             }
 
@@ -696,6 +714,7 @@ namespace TheWaningBorder.UI.Data
                         CanAfford = true,
                     }
                 };
+                ApplyWallLock(ref info, entity, em, GameSettings.LocalPlayerFaction);
                 return info;
             }
 
@@ -720,6 +739,7 @@ namespace TheWaningBorder.UI.Data
                         CanAfford = true,
                     }
                 };
+                ApplyWallLock(ref info, entity, em, GameSettings.LocalPlayerFaction);
                 return info;
             }
 
@@ -743,6 +763,9 @@ namespace TheWaningBorder.UI.Data
             {
                 info.Type = ActionType.WallInstanceUpgrade;
                 info.Actions = BuildSegmentConversionActions(entity, em);
+                if (em.HasComponent<FactionTag>(entity))
+                    ApplyWallLock(ref info, entity, em,
+                                  em.GetComponentData<FactionTag>(entity).Value);
                 return info;
             }
 
@@ -890,7 +913,11 @@ namespace TheWaningBorder.UI.Data
             foreach (var id in WallLevelChain)
             {
                 if (research != null && research.HasResearched(faction, id)) continue;
-                if (IsTechQueued(em, faction, id)) return;   // already on its way
+                // Already on its way: ApplyWallLock puts the progress cell and
+                // the Cancel button where this one was. The runtime scan, not
+                // IsTechQueued — that one only sees hosts with a ProductionState.
+                if (TheWaningBorder.Core.Commands.CommandRouter.IsResearchQueued(
+                        em, faction, id, out _, out _)) return;
                 techId = id;
                 break;
             }
@@ -918,6 +945,79 @@ namespace TheWaningBorder.UI.Data
                 CanAfford = FactionEconomy.CanAfford(em, faction, cost),
                 Icon = null,
             });
+        }
+
+        /// <summary>The wall actions the lock greys out: everything that
+        /// changes or extends a standing wall piece. Gate open/close,
+        /// ungarrison and Replace Equipment stay live — they change no wall.</summary>
+        private static readonly HashSet<string> WallLockedActionIds = new HashSet<string>
+        {
+            "BuildWall", "WallSegmentToGate", "WallInstanceToTower",
+            "WallToBallista", "WallToTrebuchet", "WallInstanceToHub",
+        };
+
+        /// <summary>
+        /// THE WALL LOCK, as the panel shows it (docs/Design/Age_1_Alanthor.md
+        /// § The four wall levels). From the moment a wall level is queued
+        /// anywhere for <paramref name="faction"/> until it completes or is
+        /// cancelled: every wall-changing action is greyed with the reason,
+        /// a progress cell stands where the level button was, a Cancel cell
+        /// refunds it, and the panel's progress bar follows the research on
+        /// whichever hub is running it. The executors refuse the same actions
+        /// on the same test (CommandRouter.WallsLockedForUpgrade), so the grey
+        /// is a courtesy, not the lock. Nothing is stored: when the research
+        /// ends or is cancelled the next refresh simply stops applying it.
+        /// </summary>
+        private static void ApplyWallLock(ref EntityActionInfo info, Entity entity,
+                                          EntityManager em, Faction faction)
+        {
+            if (!TheWaningBorder.Entities.WallTiers.TryGetLevelResearch(
+                    em, faction, out var host, out int slot, out var techId))
+                return;
+
+            string lockTip = Loc.T("Walls are being upgraded. Wall actions return when the upgrade finishes or is cancelled.");
+            if (info.Actions == null) info.Actions = new List<ActionButton>();
+            for (int i = 0; i < info.Actions.Count; i++)
+            {
+                var b = info.Actions[i];
+                if (b.Id == null || !WallLockedActionIds.Contains(b.Id)) continue;
+                b.Enabled = false;
+                b.Tooltip = b.Label + "\n" + lockTip;
+                info.Actions[i] = b;
+            }
+
+            var progress = GetProductionInfo(host, em);
+            bool running = slot == 0 && progress.IsBusy;
+            int pct = running ? (int)System.Math.Round(progress.Progress * 100f) : 0;
+            string techName = TechCatalog.TryGetTechnology(techId, out var tech) && tech != null
+                ? Loc.T(tech.name ?? techId) : techId;
+
+            info.Actions.Add(new ActionButton
+            {
+                Id = "WallLevelResearching",
+                Label = string.Format(Loc.T("Upgrading: {0} ({1}%)"), techName, pct),
+                Tooltip = lockTip,
+                Enabled = false,
+                CanAfford = true,
+                Icon = null,
+            });
+
+            if (faction == GameSettings.LocalPlayerFaction && !GameSettings.IsObserver)
+                info.Actions.Add(new ActionButton
+                {
+                    Id = "CancelWallLevel",
+                    Label = Loc.T("Cancel Upgrade"),
+                    Tooltip = Loc.T("Stop the wall upgrade and refund its cost. Wall actions unlock again."),
+                    Enabled = true,
+                    CanAfford = true,
+                    Icon = null,
+                });
+
+            // The bar follows the research wherever it runs. Only the host
+            // itself shows its queue slots: the slot strip cancels on the
+            // SELECTED entity, which on any other wall piece is the wrong one.
+            if (entity != host) progress.Entries = System.Array.Empty<ProductionQueueEntry>();
+            info.ProductionState = progress;
         }
 
         /// <summary>The bought half of the wall ladder, in order.</summary>

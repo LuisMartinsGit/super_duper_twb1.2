@@ -294,13 +294,19 @@ namespace TheWaningBorder.Systems.Navigation
         public byte IsGate;
         public byte IsClimbAccess;
 
+        /// <summary>Side of the square every wall instance stamps, in
+        /// cells. Public so the input layer can tell WHICH wall a deck cell
+        /// belongs to (SelectionOrders.IsFriendlyRampartDeck) with the same
+        /// footprint the stamp used.</summary>
+        public const int FootprintCells = 7;
+
         public void Execute(in WallTag wall, in LocalTransform xf, in FactionTag faction)
         {
             // Wall instance footprint: 7x7. See history above for the
             // sealing math (3 cells of overlap between 4 m-spaced cubes,
             // blocks Bresenham diagonal tunneling).
-            int w = 7;
-            int h = 7;
+            int w = FootprintCells;
+            int h = FootprintCells;
             // Gate cells encode owner faction in the low 3 bits of Flags
             // so faction-aware LOS / obstacle-avoidance probes can tell
             // who is allowed through. Owner faction value is the Faction

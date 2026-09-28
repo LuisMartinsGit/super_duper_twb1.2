@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: War Horn
   role: Military
   effect: 
-  desc: "Unlocks the War Horn active for Alanthor cavalry: allied cavalry within 20 m gain +50% damage on their next charge. 20 s window, 60 s cooldown."
+  desc: "Unlocks the War Horn active for Alanthor cavalry: allied cavalry within 15 m gain +50% damage on their next charge. 20 s window, 60 s cooldown."
   researchAt: Alanthor_RoyalStable
   minBuildingLevel: 2
   researchTime: 35

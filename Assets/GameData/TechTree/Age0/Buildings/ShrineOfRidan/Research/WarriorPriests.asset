@@ -34,4 +34,12 @@ MonoBehaviour:
     meleeDamageAdd: 0
     rangedDamageAdd: 0
     archerRangeMult: 0
-  effectsList: []
+  effectsList:
+  - Target: "unit:Litharch"
+    Stat: Damage
+    Op: Set
+    Value: 6
+  - Target: "unit:Litharch"
+    Stat: AttackCooldown
+    Op: Set
+    Value: 1.5

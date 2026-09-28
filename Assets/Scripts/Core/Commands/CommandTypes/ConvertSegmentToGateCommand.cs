@@ -97,6 +97,10 @@ namespace TheWaningBorder.Core.Commands.Types
             }
             Faction faction = em.GetComponentData<FactionTag>(segment).Value;
 
+            // The wall lock: no conversion while a wall level is researching
+            // (docs/Design/Age_1_Alanthor.md § The four wall levels).
+            if (CommandRouter.WallsLockedForUpgrade(em, faction)) return false;
+
             // The placement rule, re-checked on every peer BEFORE the spend:
             // a gatehouse needs a clear run of FreeRunForGate modules around
             // the one the player picked, so it cannot be dropped on top of a

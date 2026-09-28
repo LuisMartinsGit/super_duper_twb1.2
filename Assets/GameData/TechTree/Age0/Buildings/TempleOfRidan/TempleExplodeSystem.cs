@@ -109,7 +109,7 @@ namespace TheWaningBorder.Systems.Economy
                     int dealt = (int)math.max(1, damage * falloff);
 
                     var h = em.GetComponentData<Health>(victimEnts[v]);
-                    h.Value = math.max(0, h.Value - dealt);
+                    h.Value = math.max(0, h.Value - ShieldDamage.Absorb(em, victimEnts[v], dealt));
                     em.SetComponentData(victimEnts[v], h);
                 }
             }
@@ -130,6 +130,8 @@ namespace TheWaningBorder.Systems.Economy
                 TheWaningBorder.Systems.Border.ShardrootSystem.MakePersistent(em, dropped);
                 SimSignals.Notify(
                     Loc.T("The Temple falls — the SHARDROOT lies in the crater!"));
+                UnityEngine.Debug.Log($"[Shardroot] enshrining Temple destroyed at ({explodes[e].x:F0},{explodes[e].z:F0}) " +
+                    "-- the artifact drops in the crater");
             }
 
             selfSet.Dispose();

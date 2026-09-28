@@ -72,7 +72,10 @@ namespace TheWaningBorder.UI.World
         };
         private TheWaningBorder.Core.CachedEntityQuery _visibleUnitQuery;
 
-        private struct Indicators
+        // A class, not a struct (2026-09-25): it now carries the last state
+        // written to its GameObjects, so a unit that did not move, change
+        // owner, get selected or start healing costs no Unity API call at all.
+        private sealed class Indicators
         {
             public DecalProjector Ring;
             public GameObject Circle;
@@ -81,10 +84,32 @@ namespace TheWaningBorder.UI.World
             public GameObject CrossV;       // Vertical bar of the cross
             public MeshRenderer CrossHRenderer;
             public MeshRenderer CrossVRenderer;
+
+            public bool Shown;              // last fog-gate result applied
+            public bool RingOn;
+            public bool Healing;
+            public bool Primed;
+            public float3 LastPos;
+            public Vector3 IndicatorPos;
+            public Material CircleMat;      // shared, per owner colour
         }
 
         private readonly Dictionary<Entity, Indicators> _indicators = new();
         private readonly List<Entity> _toRemove = new();
+
+        /// <summary>SHARED materials, one per colour (2026-09-25). Every
+        /// indicator used to own three `new Material` copies that were never
+        /// destroyed with it - a steady material leak across a match, and no
+        /// batching. Owner colours are the faction palette plus neutral and
+        /// the heal green, so this holds about ten entries.</summary>
+        private readonly Dictionary<Color, Material> _sharedMats = new();
+
+        private readonly HashSet<Entity> _selectedSet = new();
+        private int _lastUnitOrderVersion = -1;
+        private bool _spawnPending = true;
+
+        private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        private static readonly int ColorId = Shader.PropertyToID("_Color");
 
         void Awake()
         {
@@ -125,6 +150,9 @@ namespace TheWaningBorder.UI.World
                 if (kv.Value.CrossV != null) Destroy(kv.Value.CrossV);
             }
             _indicators.Clear();
+            foreach (var m in _sharedMats.Values)
+                if (m != null) Destroy(m);
+            _sharedMats.Clear();
             if (_baseMat != null) Destroy(_baseMat);
         }
 
@@ -165,6 +193,16 @@ namespace TheWaningBorder.UI.World
             // so use the PresentationId query to find all visible units
             var query = _visibleUnitQuery.Get(_em, VisibleUnitQueryTypes);
 
+            // Only sweep when the unit set can have changed (2026-09-25): the
+            // UnitTag order version moves on any structural change to a unit
+            // chunk (spawn, death, tag add/remove), and a unit that had no view
+            // yet keeps the sweep pending. Otherwise this copied every unit
+            // entity every frame to find nothing new.
+            int orderVersion = _em.GetComponentOrderVersion<UnitTag>();
+            if (!_spawnPending && orderVersion == _lastUnitOrderVersion) return;
+            _lastUnitOrderVersion = orderVersion;
+            _spawnPending = false;
+
             var entities = query.ToEntityArray(Unity.Collections.Allocator.Temp);
 
             for (int i = 0; i < entities.Length; i++)
@@ -173,7 +211,11 @@ namespace TheWaningBorder.UI.World
                 if (_indicators.ContainsKey(entity)) continue;
 
                 // Only create if the entity has a visual GameObject
-                if (!EntityViewManager.Instance.TryGetView(entity, out _)) continue;
+                if (!EntityViewManager.Instance.TryGetView(entity, out _))
+                {
+                    _spawnPending = true;   // retry next frame, as before
+                    continue;
+                }
 
                 var ind = new Indicators
                 {
@@ -203,6 +245,12 @@ namespace TheWaningBorder.UI.World
         private void UpdateIndicators()
         {
             var selection = SelectionSystem.CurrentSelection;
+            // List.Contains per indicator was O(units x selection).
+            _selectedSet.Clear();
+            if (selection != null)
+                for (int i = 0; i < selection.Count; i++) _selectedSet.Add(selection[i]);
+
+            var evm = EntityViewManager.Instance;
 
             foreach (var kv in _indicators)
             {
@@ -219,67 +267,98 @@ namespace TheWaningBorder.UI.World
                 // with it. Without this the indicators were standalone objects
                 // the fog never touched, so an enemy's ownership disc hung in
                 // the dark exactly where the unit was — free intel.
-                bool viewVisible = EntityViewManager.Instance != null
-                    && EntityViewManager.Instance.TryGetView(entity, out var view)
+                bool viewVisible = evm != null
+                    && evm.TryGetView(entity, out var view)
                     && view != null && view.activeInHierarchy;
 
                 if (!viewVisible)
                 {
-                    if (ind.Ring != null) ind.Ring.gameObject.SetActive(false);
-                    if (ind.Circle != null) ind.Circle.SetActive(false);
-                    if (ind.CrossH != null) ind.CrossH.SetActive(false);
-                    if (ind.CrossV != null) ind.CrossV.SetActive(false);
+                    if (ind.Shown || !ind.Primed)
+                    {
+                        if (ind.Ring != null) ind.Ring.gameObject.SetActive(false);
+                        if (ind.Circle != null) ind.Circle.SetActive(false);
+                        if (ind.CrossH != null) ind.CrossH.SetActive(false);
+                        if (ind.CrossV != null) ind.CrossV.SetActive(false);
+                        ind.Shown = false;
+                        ind.RingOn = false;
+                        ind.Healing = false;
+                        ind.Primed = true;
+                    }
                     continue;
                 }
 
-                var xf = _em.GetComponentData<LocalTransform>(entity);
-                float3 pos = xf.Position;
-                float terrainY = TerrainUtility.GetHeight(pos.x, pos.z);
+                bool justShown = !ind.Shown;
+                ind.Shown = true;
+                ind.Primed = true;
+
+                float3 pos = _em.GetComponentData<LocalTransform>(entity).Position;
+                bool moved = justShown || !pos.Equals(ind.LastPos);
+                if (moved)
+                {
+                    // Terrain sample only when the unit actually moved.
+                    float terrainY = TerrainUtility.GetHeight(pos.x, pos.z);
+                    ind.IndicatorPos = new Vector3(pos.x, terrainY + circleYAboveUnit, pos.z);
+                    ind.LastPos = pos;
+                }
 
                 // ── Selection ring ──
                 if (ind.Ring != null)
                 {
-                    bool selected = selection != null && selection.Contains(entity);
-                    ind.Ring.gameObject.SetActive(selected);
+                    bool selected = _selectedSet.Contains(entity);
+                    if (selected != ind.RingOn || justShown)
+                    {
+                        ind.Ring.gameObject.SetActive(selected);
+                        ind.RingOn = selected;
+                    }
+                    // Only a handful are selected; they keep the per-frame
+                    // shape/colour write the decal path always had.
                     if (selected)
                         UpdateSelectionRing(ind.Ring, entity, pos);
                 }
 
                 // ── Ownership disc ──
-                Vector3 indicatorPos = new Vector3(pos.x, terrainY + circleYAboveUnit, pos.z);
-
                 if (ind.Circle != null)
                 {
-                    ind.Circle.SetActive(true);
-                    ind.Circle.transform.position = indicatorPos;
-                    SetMaterialColor(ind.CircleRenderer.sharedMaterial, OwnerColor(entity));
+                    if (justShown) ind.Circle.SetActive(true);
+                    if (moved) ind.Circle.transform.position = ind.IndicatorPos;
+                    // Owner can change (conversion): swap the shared material
+                    // only when the colour does.
+                    var mat = SharedMat(OwnerColor(entity));
+                    if (mat != ind.CircleMat)
+                    {
+                        ind.CircleRenderer.sharedMaterial = mat;
+                        ind.CircleMat = mat;
+                    }
                 }
 
                 // ── Healing cross ──
                 // Overlaid ABOVE the ownership disc rather than replacing it, so
                 // a unit being healed still shows who owns it.
                 bool isHealing = IsHealing(entity);
-                Vector3 crossPos = indicatorPos + Vector3.up * (circleRadius * 1.6f);
-
-                if (ind.CrossH != null)
+                bool healChanged = isHealing != ind.Healing || justShown;
+                ind.Healing = isHealing;
+                if (healChanged)
                 {
-                    ind.CrossH.SetActive(isHealing);
-                    if (isHealing)
-                    {
-                        ind.CrossH.transform.position = crossPos;
-                        SetMaterialColor(ind.CrossHRenderer.sharedMaterial, HealingColor);
-                    }
+                    if (ind.CrossH != null) ind.CrossH.SetActive(isHealing);
+                    if (ind.CrossV != null) ind.CrossV.SetActive(isHealing);
                 }
-                if (ind.CrossV != null)
+                if (isHealing && (moved || healChanged))
                 {
-                    ind.CrossV.SetActive(isHealing);
-                    if (isHealing)
-                    {
-                        ind.CrossV.transform.position = crossPos;
-                        SetMaterialColor(ind.CrossVRenderer.sharedMaterial, HealingColor);
-                    }
+                    Vector3 crossPos = ind.IndicatorPos + Vector3.up * (circleRadius * 1.6f);
+                    if (ind.CrossH != null) ind.CrossH.transform.position = crossPos;
+                    if (ind.CrossV != null) ind.CrossV.transform.position = crossPos;
                 }
             }
+        }
+
+        /// <summary>One shared material per colour; see _sharedMats.</summary>
+        private Material SharedMat(Color color)
+        {
+            if (_sharedMats.TryGetValue(color, out var mat) && mat != null) return mat;
+            mat = new Material(_baseMat);
+            SetMaterialColor(mat, color);
+            _sharedMats[color] = mat;
+            return mat;
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -366,9 +445,7 @@ namespace TheWaningBorder.UI.World
             if (col != null) Destroy(col);
 
             renderer = go.GetComponent<MeshRenderer>();
-            var mat = new Material(_baseMat);
-            SetMaterialColor(mat, UnownedColor);
-            renderer.sharedMaterial = mat;
+            renderer.sharedMaterial = SharedMat(UnownedColor);
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
 
@@ -392,9 +469,7 @@ namespace TheWaningBorder.UI.World
             if (col != null) Destroy(col);
 
             renderer = go.GetComponent<MeshRenderer>();
-            var mat = new Material(_baseMat);
-            SetMaterialColor(mat, HealingColor);
-            renderer.sharedMaterial = mat;
+            renderer.sharedMaterial = SharedMat(HealingColor);
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
 
@@ -414,10 +489,11 @@ namespace TheWaningBorder.UI.World
             return mat;
         }
 
+        // Only called when a shared material is created, never per frame.
         private static void SetMaterialColor(Material mat, Color color)
         {
-            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
-            if (mat.HasProperty("_Color")) mat.SetColor("_Color", color);
+            if (mat.HasProperty(BaseColorId)) mat.SetColor(BaseColorId, color);
+            if (mat.HasProperty(ColorId)) mat.SetColor(ColorId, color);
         }
     }
 }

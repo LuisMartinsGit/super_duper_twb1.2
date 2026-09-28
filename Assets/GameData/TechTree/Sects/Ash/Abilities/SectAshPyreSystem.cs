@@ -1,8 +1,10 @@
 // SectAshPyreSystem.cs
 // Implements Ash's Lv I "Pyre's Promise" passive: when a unit of an Ash-
 // adopted faction dies, it leaves a small burning-ground patch at its
-// death position — a low-DPS, short-lived AoE that damages enemies who
-// walk through it. Mirrors PillageSystem's death-event hook (runs before
+// death position — a low-DPS, short-lived AoE that burns whoever walks
+// through it. Fire is OWNERLESS (docs/Design/Fire.md §3): the patch burns the
+// dead unit's comrades and allies too; the FactionTag stamped on it is kill
+// credit only, BurningGroundSystem never filters on it. Mirrors PillageSystem's death-event hook (runs before
 // DeathSystem with the WithNone marker so each death fires exactly once).
 //
 // Lv I tuning (overridden per-level by SectAshPyreSystem.GetTuning when

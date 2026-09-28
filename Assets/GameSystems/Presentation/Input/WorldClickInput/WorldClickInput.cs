@@ -9,6 +9,8 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Core.Settings;
 using TheWaningBorder.Core.Commands.Issuing;
+using TheWaningBorder.Core.Localization;
+using TheWaningBorder.UI.Ingame;
 using Nav = TheWaningBorder.Systems.Navigation;
 
 namespace TheWaningBorder.Input
@@ -92,12 +94,26 @@ namespace TheWaningBorder.Input
                 return;
             }
 
+            // Determine target and issue appropriate command. Picked FIRST:
+            // the rampart test below projects onto the deck plane, and every
+            // faction's walls are walkable on that layer, so testing it first
+            // swallowed right-clicks on enemy walls and on anything whose
+            // screen ray crossed a wall deck on the way.
+            var target = ScreenPick.EntityUnderMouse(_clickMask, _em);
+            var targetType = _orders.DetermineTargetType(target);
+
             // ── Right-click on the WALL TOP (rampart): order selected units
             //    onto the wall. They route to the nearest access point, climb,
-            //    and move freely on the rampart. ──
-            if (!_modes.AnyArmed && TryGetRampartClick(out float3 rampartPoint))
+            //    and move freely on the rampart. Only when the cursor is on
+            //    nothing or on a friendly wall, only onto an own/allied deck
+            //    (or an overpass bridge), and only if someone took the order —
+            //    otherwise the click is handled as usual below. ──
+            if (!_modes.AnyArmed
+                && RampartClickAllowedOn(target, targetType)
+                && TryGetRampartClick(out float3 rampartPoint)
+                && _orders.IsFriendlyRampartDeck(rampartPoint)
+                && _orders.IssueWallTopMove(rampartPoint) > 0)
             {
-                _orders.IssueWallTopMove(rampartPoint);
                 return;
             }
 
@@ -107,9 +123,6 @@ namespace TheWaningBorder.Input
             //    influence-only (VeilCrustConstants.CrustPhysical false):
             //    veilstone comes from discrete deposits, and routing miners
             //    into the reforming crust stranded and killed them. ──
-            // Determine target and issue appropriate command
-            var target = ScreenPick.EntityUnderMouse(_clickMask, _em);
-            var targetType = _orders.DetermineTargetType(target);
 
             // Attack-move mode: A + right-click
             if (_modes.AttackMove)
@@ -117,10 +130,11 @@ namespace TheWaningBorder.Input
                 _modes.Disarm();
                 var amCaps = _orders.DetermineCapabilities();
 
-                if (targetType == SelectionOrders.TargetType.Enemy && amCaps.CanAttack)
+                if (targetType == SelectionOrders.TargetType.Enemy
+                    && (amCaps.CanAttack || amCaps.CanDirectBuildingFire))
                 {
                     // Clicking enemy in attack-move mode issues normal attack
-                    _orders.IssueAttackCommands(target);
+                    AttackEnemy(target, amCaps);
                 }
                 else if (targetType == SelectionOrders.TargetType.Ground || targetType == SelectionOrders.TargetType.FriendlyUnit
                          || targetType == SelectionOrders.TargetType.FriendlyBuilding || targetType == SelectionOrders.TargetType.Resource
@@ -139,8 +153,8 @@ namespace TheWaningBorder.Input
                 if (targetType == SelectionOrders.TargetType.Enemy)
                 {
                     var pCaps = _orders.DetermineCapabilities();
-                    if (pCaps.CanAttack)
-                        _orders.IssueAttackCommands(target);
+                    if (pCaps.CanAttack || pCaps.CanDirectBuildingFire)
+                        AttackEnemy(target, pCaps);
                 }
                 else
                 {
@@ -171,11 +185,11 @@ namespace TheWaningBorder.Input
             switch (targetType)
             {
                 case SelectionOrders.TargetType.Enemy:
-                    // Scholar + Active veilstone main node → Purify ritual.
-                    // Falls through to Attack if the scholar is not selected
-                    // or the node is no longer Active (Cleansed/Converted/
-                    // Destroyed nodes don't accept purification).
-                    if (capabilities.CanPurify && _orders.IsActiveBorderMainNode(target))
+                    // Scholar + Active OR rubble (Destroyed) well → Purify
+                    // ritual. Falls through to Attack if the scholar is not
+                    // selected or another culture already claimed the well
+                    // (Cleansed/Converted don't accept purification).
+                    if (capabilities.CanPurify && _orders.IsPurifiableBorderMainNode(target))
                     {
                         _orders.IssuePurifyCommands(target);
                         break;
@@ -193,8 +207,8 @@ namespace TheWaningBorder.Input
                         _orders.IssueConvertNodeCommands(target);
                         break;
                     }
-                    if (capabilities.CanAttack)
-                        _orders.IssueAttackCommands(target);
+                    if (capabilities.CanAttack || capabilities.CanDirectBuildingFire)
+                        AttackEnemy(target, capabilities);
                     break;
 
                 case SelectionOrders.TargetType.FriendlyUnit:
@@ -221,8 +235,10 @@ namespace TheWaningBorder.Input
                         && _em.HasComponent<LocalTransform>(target))
                     {
                         var wp = _em.GetComponentData<LocalTransform>(target).Position;
-                        _orders.IssueWallTopMove(new float3(wp.x, Nav.LayerTransitionSystem.DeckY, wp.z));
-                        break;
+                        if (_orders.IssueWallTopMove(new float3(wp.x, Nav.LayerTransitionSystem.DeckY, wp.z)) > 0)
+                            break;
+                        // Nobody here may stand on a wall (workers, cavalry,
+                        // siege): fall through so they can still repair it.
                     }
                     if (capabilities.CanBuildRepair && _em.HasComponent<UnderConstruction>(target))
                         _orders.IssueBuildCommands(target);
@@ -255,6 +271,49 @@ namespace TheWaningBorder.Input
                     _orders.IssueFormationMove(clickWorld);
                     break;
             }
+        }
+
+        /// <summary>
+        /// Right-click on an enemy: units attack it, and owned shooting
+        /// buildings in the selection take it as their forced target
+        /// (docs/Design/Combat_Pacing.md § Directed building fire).
+        ///
+        /// A wall piece with nothing siege in the selection is refused HERE,
+        /// with a notice, instead of issuing an order the combat system would
+        /// silently drop (§ The Wall Rule). Whether a unit or a building deals
+        /// siege is a Runtime fact, read off the capabilities.
+        /// </summary>
+        private void AttackEnemy(Entity target, SelectionOrders.UnitCapabilities caps)
+        {
+            if (_orders.IsWallPiece(target) && !caps.CanAttackWalls && !caps.CanDirectSiegeFire)
+            {
+                PlayerNotificationSystem.NotifyError(Loc.T("Only siege can damage walls"));
+                return;
+            }
+
+            int directed = 0;
+            if (caps.CanDirectBuildingFire)
+                directed = _orders.IssueBuildingAttackCommands(target);
+            if (caps.CanAttack)
+                _orders.IssueAttackCommands(target);
+
+            // Only buildings were asked and every one refused (an untargetable
+            // or veiled target): say so instead of doing nothing.
+            if (caps.CanDirectBuildingFire && directed == 0 && !caps.CanAttack)
+                PlayerNotificationSystem.NotifyError(Loc.T("Cannot fire on that target"));
+        }
+
+        /// <summary>
+        /// Whether the thing under the cursor leaves room for a wall-top
+        /// order: nothing at all (the deck plane is the only thing there), or
+        /// a wall piece that is not hostile. An enemy wall, or any other
+        /// entity, is a real target and takes the normal right-click.
+        /// </summary>
+        private bool RampartClickAllowedOn(Entity target, SelectionOrders.TargetType targetType)
+        {
+            if (target == Entity.Null || !_em.Exists(target)) return true;
+            return targetType == SelectionOrders.TargetType.FriendlyBuilding
+                   && _orders.IsWallPiece(target);
         }
 
         #endregion

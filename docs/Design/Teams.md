@@ -49,12 +49,20 @@ Allied units and buildings **cannot** damage each other, by any route:
 
 - they are never auto-acquired as targets
 - an explicit attack order on an ally is rejected
-- area-of-effect damage, projectile splash and damage-over-time ground skip
-  allied entities exactly as they skip the caster's own
+- area-of-effect damage and projectile splash skip allied entities exactly as
+  they skip the caster's own (burning ground does not — see the fire
+  exception below)
 - AI target selection never picks an ally
 
 There is no friendly-fire toggle. Allied damage is not reduced — it does not
 happen.
+
+**The one exception is fire.** Burning ground is an ownerless hazard, not an
+attack: it burns everyone standing in it, the faction that lit it and its
+allies included, unless the entity carries a fire immunity granted by a spell,
+trait or tech. "Allies cannot damage each other" is about attacks and effects
+an ally *aims*; it does not cover the ground being on fire. See
+[Fire.md §3](Fire.md#3-standing-in-fire).
 
 ### Heals and buffs — allowed, but they do not stack
 

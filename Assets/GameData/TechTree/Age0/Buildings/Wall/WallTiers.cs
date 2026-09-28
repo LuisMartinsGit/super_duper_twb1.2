@@ -124,6 +124,43 @@ namespace TheWaningBorder.Entities
             return lvl > MaxLevel ? Palisade : lvl;
         }
 
+        /// <summary>True for the two BOUGHT wall levels.</summary>
+        public static bool IsLevelTech(string techId)
+            => techId == BattlementsTechId || techId == ShieldedTechId;
+
+        /// <summary>
+        /// THE WALL LOCK (docs/Design/Age_1_Alanthor.md § The four wall
+        /// levels): true from the moment a wall level is queued anywhere for
+        /// <paramref name="faction"/> until it completes or is cancelled.
+        /// While it holds, no standing wall piece may be converted (tower,
+        /// gate, hub, emplacement) or extended from, and the level button is
+        /// replaced by the research's progress. The UI greys the actions and
+        /// the executors refuse the commands on this same test, so the lock
+        /// holds identically on every lockstep peer.
+        /// </summary>
+        public static bool LevelResearchActive(EntityManager em, Faction faction)
+            => TryGetLevelResearch(em, faction, out _, out _, out _);
+
+        /// <summary>
+        /// The wall level in flight for <paramref name="faction"/>: which
+        /// tech, the building whose queue holds it, and its slot there (for a
+        /// cancel). False when none is queued.
+        /// </summary>
+        public static bool TryGetLevelResearch(EntityManager em, Faction faction,
+            out Entity host, out int slot, out string techId)
+        {
+            techId = BattlementsTechId;
+            if (TheWaningBorder.Core.Commands.CommandRouter.IsResearchQueued(
+                    em, faction, BattlementsTechId, out host, out slot))
+                return true;
+            techId = ShieldedTechId;
+            if (TheWaningBorder.Core.Commands.CommandRouter.IsResearchQueued(
+                    em, faction, ShieldedTechId, out host, out slot))
+                return true;
+            techId = null;
+            return false;
+        }
+
         /// <summary>Scale a Lv0 (timber) stat off the SO into this level's value.</summary>
         public static int ScaleHp(float baseHp, byte level)
             => Mathf.Max(1, Mathf.RoundToInt(baseHp * HpMultiplier(level)));

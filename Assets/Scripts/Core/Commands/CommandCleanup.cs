@@ -74,5 +74,24 @@ namespace TheWaningBorder.Core.Commands
             TransientState.Clear<Types.MoveCommand>(em, unit);
             TransientState.Clear<UserMoveOrder>(em, unit);
         }
+
+        /// <summary>
+        /// Take the unit off its patrol route: the tag, the agent's cursor,
+        /// the pending command and the waypoints. A patroller scans like an
+        /// attack-mover, so leaving any of this behind lets it peel off a
+        /// later plain move to chase whatever it sees, and PatrolSystem would
+        /// send it back onto the route on arrival.
+        /// </summary>
+        public static void ClearPatrol(EntityManager em, Entity unit)
+        {
+            if (em.HasComponent<PatrolTag>(unit))
+                em.RemoveComponent<PatrolTag>(unit);
+            if (em.HasComponent<PatrolAgent>(unit))
+                em.RemoveComponent<PatrolAgent>(unit);
+            if (em.HasComponent<Types.PatrolCommand>(unit))
+                em.RemoveComponent<Types.PatrolCommand>(unit);
+            if (em.HasBuffer<PatrolWaypoint>(unit))
+                em.GetBuffer<PatrolWaypoint>(unit).Clear();
+        }
     }
 }

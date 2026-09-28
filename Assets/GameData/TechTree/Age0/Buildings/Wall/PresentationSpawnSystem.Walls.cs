@@ -414,7 +414,9 @@ public partial class PresentationSpawnSystem
         // A trebuchet needs a bigger bed than a bolt thrower.
         float deckLen = trebuchet ? ModuleLen + 0.6f : ModuleLen + 0.1f;
         float deckWide = trebuchet ? 3.2f : 2.4f;
-        float deckY = CrownTop + 0.30f;
+        // The SAME number the engine's simulated Y is built from
+        // (AlanthorWall.MountEmplacement), so the engine sits on this deck.
+        float deckY = TheWaningBorder.Entities.AlanthorWall.EmplacementDeckHeight;
 
         // Curtain below, unchanged in section so the wall line runs through.
         WallPrim(PrimitiveType.Cube, "1_Plinth", root.transform,

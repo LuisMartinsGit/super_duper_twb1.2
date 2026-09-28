@@ -78,7 +78,8 @@ namespace TheWaningBorder.AI
         private static void TryPlace(EntityManager em, Faction faction, string buildingId,
             float3 anchor, float rmin, float rmax, AIBudgetCategory cat)
         {
-            if (!BuildCosts.TryGet(buildingId, out var cost)) return;
+            if (!BuildCosts.Exists(buildingId)) return;
+            var cost = BuildCosts.For(em, faction, buildingId);
             if (!AIBudget.CanSpend(faction, cat, cost)) return;
             if (!FactionEconomy.CanAfford(em, faction, cost)) return;
 

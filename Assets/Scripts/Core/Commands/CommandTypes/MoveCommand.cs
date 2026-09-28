@@ -54,6 +54,8 @@ namespace TheWaningBorder.Core.Commands.Types
             bool keepFormation = false)
         {
             if (!em.Exists(unit)) return;
+            // An emplaced engine is bolted to its wall deck: no move takes it.
+            if (em.HasComponent<EmplacedEngineTag>(unit)) return;
 
             // A move order on a wall-garrisoning unit brings it back DOWN off
             // the rampart so it can leave the wall: drop to the ground layer,
@@ -188,8 +190,9 @@ namespace TheWaningBorder.Core.Commands.Types
         {
             if (!em.Exists(unit)) return false;
             
-            // Buildings can't move
+            // Buildings can't move, and neither can an emplaced engine
             if (em.HasComponent<BuildingTag>(unit)) return false;
+            if (em.HasComponent<EmplacedEngineTag>(unit)) return false;
             
             return true;
         }
@@ -287,6 +290,13 @@ namespace TheWaningBorder.Core.Commands.Types
         {
             CommandCleanup.ClearCombat(em, unit);
             CommandCleanup.ClearWorkOrders(em, unit);
+            // A plain move replaces an attack-move or a patrol outright. Both
+            // leave the unit an "active scanner", which bypasses the
+            // UserMoveOrder shield, so without this the unit peeled off the
+            // move to chase anything in sight. Runs before Execute sets
+            // MoveCommand and UserMoveOrder, so clearing those here is safe.
+            CommandCleanup.ClearMovement(em, unit);
+            CommandCleanup.ClearPatrol(em, unit);
         }
     }
 }

@@ -27,5 +27,9 @@ MonoBehaviour:
   - kind: 6
     value: 50
   aftermath: []
+  unlocksAtLevel: 1
+  damage: 0
+  damageType: 3
+  aimedAtPoint: 0
   icon: {fileID: 0}
   vfxPrefab: {fileID: 60471307221677, guid: 4c6ef18e94451f43bd1b350c1d26afd0, type: 3}

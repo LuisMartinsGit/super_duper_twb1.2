@@ -111,16 +111,23 @@ namespace TheWaningBorder.AI
             }
             if (scholar == Entity.Null) return; // all Scholars busy
 
-            // Nearest claimable well: Active, built, no ritual in progress,
+            // Claimable wells: Active or rubble, built, no ritual in progress,
             // and fog-honest (the AI only verbs wells it has revealed).
+            // RANKED, not nearest-only (2026-09-26): the old pick looked at the
+            // one well nearest the Hall and, when that well was garrisoned,
+            // stalled there for the whole match while a clean well sat
+            // unvisited. Score = distance from the Hall + a per-defender
+            // penalty - a bonus when the well sits in (or beside) our own
+            // territory. The best well that PASSES the rite gate is purified;
+            // if none passes because of defenders, the best-scored defended
+            // one is assaulted instead (docs/Design/Game_AI.md § 7c).
             var fogMgr = TheWaningBorder.World.FogOfWar.FogOfWarManager.Instance;
             var nq = QC_BorderMainNodeTagBorderNodeStateLocalTransform.Get(em, QT_BorderMainNodeTagBorderNodeStateLocalTransform);
             using var nEnts = nq.ToEntityArray(Allocator.Temp);
             using var nStates = nq.ToComponentDataArray<BorderNodeState>(Allocator.Temp);
             using var nXfs = nq.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
-            Entity best = Entity.Null;
-            float bestDistSq = float.MaxValue;
+            var cands = new NativeList<WellCandidate>(nEnts.Length, Allocator.Temp);
             for (int i = 0; i < nEnts.Length; i++)
             {
                 // Active wells AND Destroyed rubble are both purifiable
@@ -136,11 +143,14 @@ namespace TheWaningBorder.AI
                 var p = nXfs[i].Position;
                 if (fogMgr != null && !fogMgr.IsRevealed(faction,
                         new UnityEngine.Vector3(p.x, 0f, p.z))) continue;
-                float dx = p.x - hallPos.x, dz = p.z - hallPos.z;
-                float d = dx * dx + dz * dz;
-                if (d < bestDistSq) { bestDistSq = d; best = nEnts[i]; }
+
+                float dist = math.distance(new float2(p.x, p.z), new float2(hallPos.x, hallPos.z));
+                int defenders = AIEndgameCommon.CountWellDefenders(em, p);
+                float score = dist + defenders * Cfg.wellDefenderPenalty - TerritoryBonus(faction, p);
+                cands.Add(new WellCandidate { Well = nEnts[i], Pos = p, Score = score });
             }
-            if (best == Entity.Null) return;
+            if (cands.Length == 0) { cands.Dispose(); return; }
+            cands.Sort(new WellCandidate.ByScore());
 
             // THE RITE GATE (Curse_And_Shardroot.md 2.12, 2026-09-13). On
             // Hollow Table this loop sent a Scholar + 3 escorts at a well
@@ -150,14 +160,42 @@ namespace TheWaningBorder.AI
             // on the retry clock, and never with a short escort. A defended
             // well is ASSAULTED instead, with real odds, and the rite follows
             // on a later think once the ground is clear.
-            float3 wellPos = em.GetComponentData<LocalTransform>(best).Position;
             float simNow = TheWaningBorder.Core.SimClock.Now;
             int idleMil = AIEndgameCommon.CountIdleMilitary(em, faction);
-            if (!AIEndgameCommon.RiteAllowed(em, faction, best, wellPos, simNow, idleMil, Cfg.escortSize,
-                    out int defenders, out string why))
+            Entity best = Entity.Null;
+            float3 wellPos = default;
+            Entity assaultWell = Entity.Null;
+            float3 assaultPos = default;
+            int assaultDefenders = 0;
+            string firstWhy = null;
+            for (int c = 0; c < cands.Length; c++)
             {
-                if (defenders > 0) AIEndgameCommon.TryAssaultWell(em, faction, wellPos, defenders);
-                else AILogger.Log(faction, "STRATEGY", $"Alanthor: rite held -- {why}");
+                var cand = cands[c];
+                if (AIEndgameCommon.RiteAllowed(em, faction, cand.Well, cand.Pos, simNow, idleMil,
+                        Cfg.escortSize, out int defenders, out string why))
+                {
+                    best = cand.Well;
+                    wellPos = cand.Pos;
+                    break;
+                }
+                if (firstWhy == null) firstWhy = why;
+                if (defenders > 0 && assaultWell == Entity.Null)
+                {
+                    assaultWell = cand.Well;
+                    assaultPos = cand.Pos;
+                    assaultDefenders = defenders;
+                }
+                // A short escort blocks EVERY well alike — stop looking.
+                if (defenders == 0 && idleMil < Cfg.escortSize) break;
+            }
+            cands.Dispose();
+
+            if (best == Entity.Null)
+            {
+                if (assaultWell != Entity.Null)
+                    AIEndgameCommon.TryAssaultWell(em, faction, assaultPos, assaultDefenders);
+                else
+                    AILogger.Log(faction, "STRATEGY", $"Alanthor: rite held -- {firstWhy}");
                 return;
             }
 
@@ -204,6 +242,52 @@ namespace TheWaningBorder.AI
         }
 
 
+
+        /// <summary>One purifiable well and its rank (lower is better).</summary>
+        private struct WellCandidate
+        {
+            public Entity Well;
+            public float3 Pos;
+            public float Score;
+
+            public struct ByScore : System.Collections.Generic.IComparer<WellCandidate>
+            {
+                // Ties broken on position bits, never on chunk order.
+                public int Compare(WellCandidate a, WellCandidate b)
+                {
+                    if (a.Score != b.Score) return a.Score < b.Score ? -1 : 1;
+                    if (a.Pos.x != b.Pos.x) return a.Pos.x < b.Pos.x ? -1 : 1;
+                    if (a.Pos.z != b.Pos.z) return a.Pos.z < b.Pos.z ? -1 : 1;
+                    return 0;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Metres knocked off a well's rank for our own ground: the full
+        /// wellOwnedBonus when the well's territory is ours, wellAdjacentBonus
+        /// when any probe on a wellAdjacencyProbeRadius ring around it lands in
+        /// our territory (the well borders us), otherwise nothing.
+        /// </summary>
+        private static float TerritoryBonus(Faction faction, float3 p)
+        {
+            if (!TheWaningBorder.World.Regions.TerritoryOwnership.Ready) return 0f;
+            int me = (int)faction;
+            if (TheWaningBorder.World.Regions.TerritoryOwnership.OwnerAt(p.x, p.z) == me)
+                return Cfg.wellOwnedBonus;
+            float r = Cfg.wellAdjacencyProbeRadius;
+            for (int k = 0; k < WellAdjacencyProbes; k++)
+            {
+                float ang = k * (math.PI * 2f / WellAdjacencyProbes);
+                if (TheWaningBorder.World.Regions.TerritoryOwnership.OwnerAt(
+                        p.x + math.cos(ang) * r, p.z + math.sin(ang) * r) == me)
+                    return Cfg.wellAdjacentBonus;
+            }
+            return 0f;
+        }
+
+        /// <summary>Probe count on the adjacency ring — loop resolution, not a tunable.</summary>
+        private const int WellAdjacencyProbes = 8;
 
         /// <summary>Level the Temple toward max — era progression, sect
         /// levers, and (at L3) the Holy Scholar all hang off it, and the
@@ -301,7 +385,8 @@ namespace TheWaningBorder.AI
         private static bool TryBuildOnce(Faction faction, EntityManager em, float3 hallPos,
             string buildingId, float ringMin, float ringMax)
         {
-            if (!BuildCosts.TryGet(buildingId, out var cost)) return false;
+            if (!BuildCosts.Exists(buildingId)) return false;
+            var cost = BuildCosts.For(em, faction, buildingId);
             if (!FactionEconomy.CanAfford(em, faction, cost)) return false;
 
             // Pre-flight: need an idle builder. Don't spend cost on a foundation

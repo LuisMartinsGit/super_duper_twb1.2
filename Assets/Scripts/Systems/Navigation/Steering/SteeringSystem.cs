@@ -56,6 +56,8 @@ namespace TheWaningBorder.Systems.Navigation
         private ComponentLookup<DesiredDestination> _destLookup;
         private ComponentLookup<FactionTag> _factionLookup;
         private ComponentLookup<FormationMemberState> _memberLookup;
+        private ComponentLookup<FormationSlotMemory> _slotMemoryLookup;
+        private ComponentLookup<Target> _targetLookup;
 
         [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
         public void OnCreate(ref SystemState state)
@@ -80,6 +82,8 @@ namespace TheWaningBorder.Systems.Navigation
             _destLookup = state.GetComponentLookup<DesiredDestination>(isReadOnly: true);
             _factionLookup = state.GetComponentLookup<FactionTag>(isReadOnly: true);
             _memberLookup = state.GetComponentLookup<FormationMemberState>(isReadOnly: true);
+            _slotMemoryLookup = state.GetComponentLookup<FormationSlotMemory>(isReadOnly: true);
+            _targetLookup = state.GetComponentLookup<Target>(isReadOnly: true);
         }
 
         public void OnUpdate(ref SystemState state)
@@ -107,6 +111,8 @@ namespace TheWaningBorder.Systems.Navigation
             _destLookup.Update(ref state);
             _factionLookup.Update(ref state);
             _memberLookup.Update(ref state);
+            _slotMemoryLookup.Update(ref state);
+            _targetLookup.Update(ref state);
 
             var job = new AccumulateSteeringForcesJob
             {
@@ -121,6 +127,8 @@ namespace TheWaningBorder.Systems.Navigation
                 DestLookup = _destLookup,
                 FactionLookup = _factionLookup,
                 MemberLookup = _memberLookup,
+                SlotMemoryLookup = _slotMemoryLookup,
+                TargetLookup = _targetLookup,
                 Flags = cost.Flags,
             };
             state.Dependency = job.ScheduleParallel(_hasComponentQuery, state.Dependency);
@@ -230,6 +238,8 @@ namespace TheWaningBorder.Systems.Navigation
         [ReadOnly] public ComponentLookup<DesiredDestination> DestLookup;
         [ReadOnly] public ComponentLookup<FactionTag> FactionLookup;
         [ReadOnly] public ComponentLookup<FormationMemberState> MemberLookup;
+        [ReadOnly] public ComponentLookup<FormationSlotMemory> SlotMemoryLookup;
+        [ReadOnly] public ComponentLookup<Target> TargetLookup;
         [ReadOnly] public NativeArray<byte> Flags;
 
         // Within this radius of the goal, BOTH the flow contribution
@@ -249,6 +259,18 @@ namespace TheWaningBorder.Systems.Navigation
         // -- the 60-unit Phase 6 crowd settles into 2-3 concentric rings
         // without oscillation.
         private const float ArrivalRadius = 15.0f;
+
+        /// <summary>The unit's remembered formation-order key, or 0 when it
+        /// has none or is chasing a target (a fight is not formation travel,
+        /// and fighters must still separate).</summary>
+        private uint FormationKinKey(Entity e)
+        {
+            if (!SlotMemoryLookup.HasComponent(e) || !SlotMemoryLookup.IsComponentEnabled(e))
+                return 0;
+            if (TargetLookup.HasComponent(e) && TargetLookup[e].Value != Entity.Null)
+                return 0;
+            return SlotMemoryLookup[e].GroupKey;
+        }
 
         public void Execute(Entity self, in LocalTransform xf, in FlowDesiredDir flow,
             ref SteeringDesiredDir dst)
@@ -279,12 +301,24 @@ namespace TheWaningBorder.Systems.Navigation
             // it arrived. The fade exists for "N units converging on ONE
             // point", which is the opposite of a formation, where every member
             // has its own distinct slot and they are not competing for it.
-            // The group dissolves the moment the leader lands (design §2.8),
-            // so the settle itself still gets the full arrival damping.
+            // Members settle one by one on their own slots (design §2.9), so
+            // the arrival damping they need is the integrator's tight
+            // formation stop window, not this crowd fade.
             bool inFormation = MemberLookup.HasComponent(self);
             // Which group, so a neighbour in the SAME formation can be
             // recognised below. Entity.Null when this unit travels alone.
             Entity myGroup = inFormation ? MemberLookup[self].Group : Entity.Null;
+
+            // The formation ORDER this unit last belonged to, while it is not
+            // fighting. Unlike FormationMemberState this survives the unit
+            // settling (detach-on-settle) and the settle-timeout release, so
+            // formation-mates stay recognisable to each other right through
+            // the arrival - see the push exemption below. 0 = none / chasing.
+            uint myKey = FormationKinKey(self);
+            // A member released by the settle timeout is still walking to its
+            // OWN slot, not converging on a shared point, so it keeps the
+            // formation's exemption from the arrival fade.
+            bool formationTravel = inFormation || myKey != 0;
 
             float arrivalScale = 1f;
             bool atGoal = false;
@@ -297,7 +331,7 @@ namespace TheWaningBorder.Systems.Navigation
                     float ddz = d.Position.z - pos.z;
                     float distSq = ddx * ddx + ddz * ddz;
                     float r2 = ArrivalRadius * ArrivalRadius;
-                    if (distSq < r2 && !inFormation)
+                    if (distSq < r2 && !formationTravel)
                     {
                         arrivalScale = math.sqrt(distSq) / ArrivalRadius;
                     }
@@ -391,9 +425,21 @@ namespace TheWaningBorder.Systems.Navigation
                         // Only members of the SAME group are exempt. Another
                         // formation, a loose unit or an enemy still pushes
                         // normally, so two squads meeting still resolve.
-                        bool sameFormation = myGroup != Entity.Null
-                            && MemberLookup.HasComponent(other)
-                            && MemberLookup[other].Group == myGroup;
+                        //
+                        // "Same group" is the live group OR the same formation
+                        // ORDER (FormationSlotMemory.GroupKey). A member that
+                        // settles on its slot detaches from the live group, so
+                        // keyed on the live group alone every settled front-
+                        // rank unit started shoving the rear ranks still
+                        // walking in behind it - the arrival scrum, one rank
+                        // at a time. The key survives the detach; it is
+                        // cleared by any order that genuinely takes a unit out
+                        // of formation, and a unit that is CHASING a target
+                        // reports no key, so a melee still separates.
+                        bool sameFormation = (myGroup != Entity.Null
+                                && MemberLookup.HasComponent(other)
+                                && MemberLookup[other].Group == myGroup)
+                            || (myKey != 0 && FormationKinKey(other) == myKey);
 
                         // 1. Separation -- triggers within SeparationRadius
                         if (!sameFormation && dist < SeparationRadius)

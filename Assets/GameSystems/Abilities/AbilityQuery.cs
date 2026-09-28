@@ -81,6 +81,26 @@ namespace TheWaningBorder.Abilities
             return null;
         }
 
+        /// <summary>
+        /// The channel the unit is casting, if any, for a cast bar:
+        /// <paramref name="slot"/> is the UnitAbilities slot,
+        /// <paramref name="progress"/> runs 0..1 and <paramref name="remaining"/>
+        /// is seconds left. False when the unit is not channelling.
+        /// Read-only; safe from presentation code.
+        /// </summary>
+        public static bool TryGetCast(EntityManager em, Entity unit, out int slot,
+            out float progress, out float remaining)
+        {
+            slot = -1; progress = 0f; remaining = 0f;
+            if (unit == Entity.Null || !em.Exists(unit) || !em.HasComponent<AbilityCastState>(unit))
+                return false;
+            var c = em.GetComponentData<AbilityCastState>(unit);
+            slot = c.Slot;
+            progress = c.Progress;
+            remaining = c.CastRemaining > 0f ? c.CastRemaining : 0f;
+            return true;
+        }
+
         /// <summary>Cooldown remaining (seconds) on a given ability slot.</summary>
         public static float CooldownRemaining(EntityManager em, Entity unit, int slot)
         {

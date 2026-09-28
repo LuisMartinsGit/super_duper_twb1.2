@@ -58,6 +58,74 @@ namespace TheWaningBorder.AI
 
         #endregion
 
+        // ─────────────────────────────────────────────────────────────────
+        // THINK-SCOPED MEMO (2026-09-25 AI perf pass)
+        //
+        // One think asked the same questions over and over — CountAliveMilitary
+        // ~8 times, CountAliveMiners 4, the building counts once per goal —
+        // and each answer was a full copy of every unit or building out of the
+        // world. The answers cannot change inside a think except through this
+        // brain's own orders, so they are memoised against a STAMP that is
+        // bumped when a think starts and again after every world-changing
+        // order the brain issues (place / train / research / age-up). A memo
+        // therefore never outlives the state it describes.
+        //
+        // Host-only, single-threaded, per-brain: the faction is part of every
+        // key, so two brains never share an answer.
+        // ─────────────────────────────────────────────────────────────────
+
+        private struct IntMemo { public int Stamp; public Faction F; public int Value; }
+
+        /// <summary>Bumped per think and per issued order. Starts at 1 so a
+        /// default (Stamp 0) memo never matches.</summary>
+        private static int _memoStamp = 1;
+
+        /// <summary>Bumped per think only — for answers that depend on the
+        /// ROSTER (who is alive, which trainers stand) rather than on queues
+        /// or the bank.</summary>
+        private static int _thinkStamp = 1;
+
+        private static void BeginThinkMemo() { _memoStamp++; _thinkStamp++; }
+
+        /// <summary>Call after any order that changes buildings, queues or
+        /// the bank — every memoised answer is recomputed on next ask.</summary>
+        private static void InvalidateThinkMemo() => _memoStamp++;
+
+        private static bool MemoHit(ref IntMemo m, Faction f, out int v)
+        {
+            if (m.Stamp == _memoStamp && m.F == f) { v = m.Value; return true; }
+            v = 0;
+            return false;
+        }
+
+        private static int MemoSet(ref IntMemo m, Faction f, int v)
+        {
+            m.Stamp = _memoStamp; m.F = f; m.Value = v;
+            return v;
+        }
+
+        private static IntMemo _mAliveMilitary, _mAliveMiners, _mUnderConstruction;
+
+        /// <summary>Per-tag memo slots (statics in a generic class are
+        /// per-T, the AIQueryCache pattern).</summary>
+        private static class TagMemo<T> where T : unmanaged, IComponentData
+        {
+            public static IntMemo Count, Finished, UnderConstruction, Saturated;
+            public static int FirstStamp; public static Faction FirstF; public static Entity First;
+        }
+
+        /// <summary>UnitFactory.GetUnitClass by FixedString id, so the queue
+        /// walk does not allocate a string per slot.</summary>
+        private static readonly System.Collections.Generic.Dictionary<FixedString64Bytes, UnitClass>
+            _classById = new System.Collections.Generic.Dictionary<FixedString64Bytes, UnitClass>();
+
+        private static UnitClass ClassOf(in FixedString64Bytes id)
+        {
+            if (!_classById.TryGetValue(id, out var c))
+                _classById[id] = c = UnitFactory.GetUnitClass(id.ToString());
+            return c;
+        }
+
         /// <summary>Least-queued completed trainer of the given tag — this is
         /// what makes multiple Barracks/Ranges train in PARALLEL (the old
         /// first-found lookup funneled every order into one building's
@@ -102,6 +170,13 @@ namespace TheWaningBorder.AI
         private static int CountFactionBuildingsUnderConstruction<T>(EntityManager em, Faction faction)
             where T : unmanaged, IComponentData
         {
+            if (MemoHit(ref TagMemo<T>.UnderConstruction, faction, out int memo)) return memo;
+            return MemoSet(ref TagMemo<T>.UnderConstruction, faction, CountUnderConstructionLive<T>(em, faction));
+        }
+
+        private static int CountUnderConstructionLive<T>(EntityManager em, Faction faction)
+            where T : unmanaged, IComponentData
+        {
             var q = AIQueryCache.TagFactionUnderConstruction<T>(em);
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
             int n = 0;
@@ -116,12 +191,13 @@ namespace TheWaningBorder.AI
         /// can be worked at once.</summary>
         private static int CountFactionBuildingsUnderConstruction(EntityManager em, Faction faction)
         {
+            if (MemoHit(ref _mUnderConstruction, faction, out int memo)) return memo;
             var q = QC_BuildingTagFactionTagUnderConstruction.Get(em, QT_BuildingTagFactionTagUnderConstruction);
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
             int n = 0;
             for (int i = 0; i < facs.Length; i++)
                 if (facs[i].Value == faction) n++;
-            return n;
+            return MemoSet(ref _mUnderConstruction, faction, n);
         }
 
         /// <summary>Faction buildings of a tag, INCLUDING under-construction
@@ -130,12 +206,13 @@ namespace TheWaningBorder.AI
         private static int CountFactionBuildings<T>(EntityManager em, Faction faction)
             where T : unmanaged, IComponentData
         {
+            if (MemoHit(ref TagMemo<T>.Count, faction, out int memo)) return memo;
             var q = AIQueryCache.TagFaction<T>(em);
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
             int n = 0;
             for (int i = 0; i < facs.Length; i++)
                 if (facs[i].Value == faction) n++;
-            return n;
+            return MemoSet(ref TagMemo<T>.Count, faction, n);
         }
 
         /// <summary>How many finished trainers of this kind the faction has,
@@ -150,6 +227,14 @@ namespace TheWaningBorder.AI
         /// them toward what it has, so the target does not re-order a
         /// building already on its way up.</summary>
         private static bool LineSaturated<T>(EntityManager em, Faction faction)
+            where T : unmanaged, IComponentData
+        {
+            if (MemoHit(ref TagMemo<T>.Saturated, faction, out int memo)) return memo != 0;
+            return MemoSet(ref TagMemo<T>.Saturated, faction,
+                LineSaturatedLive<T>(em, faction) ? 1 : 0) != 0;
+        }
+
+        private static bool LineSaturatedLive<T>(EntityManager em, Faction faction)
             where T : unmanaged, IComponentData
         {
             var q = AIQueryCache.TagFaction<T>(em);
@@ -204,6 +289,13 @@ namespace TheWaningBorder.AI
         private static int CountFinished<T>(EntityManager em, Faction faction)
             where T : unmanaged, IComponentData
         {
+            if (MemoHit(ref TagMemo<T>.Finished, faction, out int memo)) return memo;
+            return MemoSet(ref TagMemo<T>.Finished, faction, CountFinishedLive<T>(em, faction));
+        }
+
+        private static int CountFinishedLive<T>(EntityManager em, Faction faction)
+            where T : unmanaged, IComponentData
+        {
             var q = AIQueryCache.TagFaction<T>(em);
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
@@ -245,6 +337,12 @@ namespace TheWaningBorder.AI
         /// "1 Train step = 1 entry" bookkeeping).
         /// </summary>
         private static int CountAliveMilitary(EntityManager em, Faction faction)
+        {
+            if (MemoHit(ref _mAliveMilitary, faction, out int memo)) return memo;
+            return MemoSet(ref _mAliveMilitary, faction, CountAliveMilitaryLive(em, faction));
+        }
+
+        private static int CountAliveMilitaryLive(EntityManager em, Faction faction)
         {
             var q = QC_UnitTagFactionTag.Get(em, QT_UnitTagFactionTag);
             using var ents = q.ToEntityArray(Allocator.Temp);
@@ -305,12 +403,14 @@ namespace TheWaningBorder.AI
         /// </summary>
         private static int CountAliveMiners(EntityManager em, Faction faction)
         {
+            if (MemoHit(ref _mAliveMiners, faction, out int memo)) return memo;
             var q = QC_CanBuildFactionTag.Get(em, QT_CanBuildFactionTag);
             using var ents = q.ToEntityArray(Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
             int n = 0;
             for (int i = 0; i < ents.Length; i++)
             {
-                if (em.GetComponentData<FactionTag>(ents[i]).Value != faction) continue;
+                if (facs[i].Value != faction) continue;
                 // A conscripted Feraldis Worker is a soldier now, not a
                 // builder — counting it kept the floor "satisfied" by troops
                 // out on the map, so a faction that sent everyone to war
@@ -319,7 +419,7 @@ namespace TheWaningBorder.AI
                 if (em.HasComponent<ConscriptedTag>(ents[i])) continue;
                 n++;
             }
-            return n;
+            return MemoSet(ref _mAliveMiners, faction, n);
         }
         /// <summary>
         /// Count items in this faction's training queues that match either the
@@ -344,8 +444,7 @@ namespace TheWaningBorder.AI
                 for (int j = 0; j < buffer.Length; j++)
                 {
                     if (buffer[j].Kind != ProductionKind.Train) continue;
-                    string id = buffer[j].Id.ToString();
-                    UnitClass cls = UnitFactory.GetUnitClass(id);
+                    UnitClass cls = ClassOf(buffer[j].Id);   // no string per slot
                     if (isCombat && IsCombatClass(cls)) n++;
                     // Worker (formerly Builder + Miner) is UnitClass.Economy
                     // since the merge but still counts as a miner slot —
@@ -416,6 +515,10 @@ namespace TheWaningBorder.AI
         private static Entity FindFactionBuilding<TTag>(EntityManager em, Faction faction)
             where TTag : unmanaged, IComponentData
         {
+            if (TagMemo<TTag>.FirstStamp == _memoStamp && TagMemo<TTag>.FirstF == faction
+                && (TagMemo<TTag>.First == Entity.Null || em.Exists(TagMemo<TTag>.First)))
+                return TagMemo<TTag>.First;
+            Entity found = Entity.Null;
             var query = AIQueryCache.TagFaction<TTag>(em);
             using var entities = query.ToEntityArray(Allocator.Temp);
             using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
@@ -423,9 +526,13 @@ namespace TheWaningBorder.AI
             {
                 if (factions[i].Value != faction) continue;
                 // Skip buildings still under construction unless caller checks itself.
-                return entities[i];
+                found = entities[i];
+                break;
             }
-            return Entity.Null;
+            TagMemo<TTag>.FirstStamp = _memoStamp;
+            TagMemo<TTag>.FirstF = faction;
+            TagMemo<TTag>.First = found;
+            return found;
         }
 
         private static bool FactionHasChoiceBuilding(EntityManager em, Faction faction)

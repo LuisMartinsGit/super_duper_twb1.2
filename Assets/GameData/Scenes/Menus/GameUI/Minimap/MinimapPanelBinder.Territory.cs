@@ -119,6 +119,8 @@ namespace TheWaningBorder.UI.Ingame
         private bool[] _layerCursed;        // _cursedRegion the layer was built from
         private int _layerPartition = -1;   // _regionEdgeSeeds the layer was built from
         private bool _layerAnyOwned;
+        /// <summary>Bumped on every territory layer rebuild (see Update).</summary>
+        private int _territoryLayerVersion;
         private readonly Color32[] _tintColor = new Color32[10];
 
         private const byte TintCurse = 9;
@@ -171,6 +173,7 @@ namespace TheWaningBorder.UI.Ingame
             System.Array.Copy(_ownerOfRegion, _layerOwners, regions);
             System.Array.Copy(_cursedRegion, _layerCursed, regions);
             _layerPartition = _regionEdgeSeeds;
+            _territoryLayerVersion++;
 
             for (int f = 0; f < 8; f++) _tintColor[f + 1] = FactionColors.Get((Faction)f);
             _tintColor[TintCurse] = TheWaningBorder.Influence.PlayerInfluenceMap.ChannelColor(

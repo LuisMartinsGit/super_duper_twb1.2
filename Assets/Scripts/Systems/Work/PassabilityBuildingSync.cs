@@ -39,6 +39,21 @@ namespace TheWaningBorder.Systems.Work
         private SimCadence.Periodic _acc;
         private NativeHashMap<Entity, BuildingRecord> _knownBuildings;
         private NativeHashMap<Entity, BuildingRecord> _knownObstacles;
+        // Same shapes as the two foreach queries below, for the change gate.
+        private EntityQuery _buildingQuery;
+        private EntityQuery _obstacleQuery;
+        // Order versions at the last pass. A query's order version moves on
+        // every structural change to its chunks, so while both stand no
+        // building or obstacle has appeared or vanished and the diff below
+        // would find nothing — the whole scan is skipped. Exact, not a
+        // heuristic: only presence is tracked (a known entity's record is
+        // never refreshed), and presence cannot change without a structural
+        // change. Zero-initialised; 0 is never a live order version once
+        // the queries have matched anything, and the first pass always runs
+        // because _scannedOnce is 0.
+        private int _lastBuildingOrder;
+        private int _lastObstacleOrder;
+        private byte _scannedOnce;
 
         /// <summary>
         /// Cached position and radius for a known building/obstacle, used to unblock
@@ -57,6 +72,13 @@ namespace TheWaningBorder.Systems.Work
 
             _knownBuildings = new NativeHashMap<Entity, BuildingRecord>(128, Allocator.Persistent);
             _knownObstacles = new NativeHashMap<Entity, BuildingRecord>(512, Allocator.Persistent);
+            _buildingQuery = SystemAPI.QueryBuilder()
+                .WithAll<LocalTransform, Radius, BuildingTag>()
+                .WithNone<UnderConstruction, WallGateTag>()
+                .Build();
+            _obstacleQuery = SystemAPI.QueryBuilder()
+                .WithAll<LocalTransform, Radius, ObstacleTag>()
+                .Build();
         }
 
         public void OnDestroy(ref SystemState state)
@@ -76,8 +98,19 @@ namespace TheWaningBorder.Systems.Work
 
             var em = state.EntityManager;
 
-            // Collect all current buildings with their position and radius
-            var currentBuildings = new NativeHashMap<Entity, BuildingRecord>(64, Allocator.Temp);
+            int buildingOrder = _buildingQuery.GetCombinedComponentOrderVersion();
+            int obstacleOrder = _obstacleQuery.GetCombinedComponentOrderVersion();
+            if (_scannedOnce != 0 && buildingOrder == _lastBuildingOrder
+                && obstacleOrder == _lastObstacleOrder) return;
+            _scannedOnce = 1;
+            _lastBuildingOrder = buildingOrder;
+            _lastObstacleOrder = obstacleOrder;
+
+            // Collect all current buildings with their position and radius.
+            // Presized: the old 64-slot map regrew several times every pass
+            // on a late-game base.
+            var currentBuildings = new NativeHashMap<Entity, BuildingRecord>(
+                math.max(64, _buildingQuery.CalculateEntityCount()), Allocator.Temp);
 
             foreach (var (transform, radius, entity) in SystemAPI
                          .Query<RefRO<LocalTransform>, RefRO<Radius>>()
@@ -169,7 +202,8 @@ namespace TheWaningBorder.Systems.Work
             // ─────────────────────────────────────────────────────────────────
 
             // Collect current obstacles
-            var currentObstacles = new NativeHashMap<Entity, BuildingRecord>(512, Allocator.Temp);
+            var currentObstacles = new NativeHashMap<Entity, BuildingRecord>(
+                math.max(512, _obstacleQuery.CalculateEntityCount()), Allocator.Temp);
 
             foreach (var (transform, radius, entity) in SystemAPI
                          .Query<RefRO<LocalTransform>, RefRO<Radius>>()

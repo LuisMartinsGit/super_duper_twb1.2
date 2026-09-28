@@ -220,6 +220,20 @@ namespace TheWaningBorder.Systems.Combat
                 // =============================================================================
                 if (edgeDist < minRange)
                 {
+                    // An emplaced engine is bolted to its platform
+                    // (docs/Design/Age_1_Alanthor.md § Ballista and Trebuchet
+                    // emplacements): it cannot back off, so a target inside
+                    // its dead zone is simply dropped for the next re-pick.
+                    if (TargetingSystem.IsFixedMount(em, entity))
+                    {
+                        tgt.Value = Entity.Null;
+                        archer.AimTimer = 0;
+                        archer.IsRetreating = 0;
+                        if (TransientState.Active<AttackCommand>(em, entity))
+                            TransientState.Clear<AttackCommand>(em, ecb, entity);
+                        continue;
+                    }
+
                     archer.IsRetreating = 1;
                     archer.AimTimer = 0;
 
@@ -350,7 +364,7 @@ namespace TheWaningBorder.Systems.Combat
                         // StoneheartBastion +3 aura, etc.). Mirrors the Fortified
                         // path — flat reduction on the already-computed damage.
                         // (task-062 C-1)
-                        int spellArmor = CombatDamageHelper.GetSpellBuffArmorBonus(em, tgt.Value);
+                        int spellArmor = CombatDamageHelper.GetSpellBuffArmorBonus(em, tgt.Value, CombatDamageHelper.BaseDefense(em, tgt.Value, em.HasComponent<DamageTypeData>(entity) ? em.GetComponentData<DamageTypeData>(entity).Value : DamageType.Ranged));
                         if (spellArmor > 0)
                             finalDamage = math.max(1, finalDamage - spellArmor);
 
@@ -453,8 +467,14 @@ namespace TheWaningBorder.Systems.Combat
                 // =============================================================================
                 else
                 {
-                    // Hold position units do NOT chase - clear target instead
-                    if (em.HasComponent<HoldPositionTag>(entity))
+                    // Chase only if this engagement allows it
+                    // (TargetingSystem.MayChase, docs/Design/Stances.md §1/§5):
+                    // an ORDERED target is always chased, on every stance —
+                    // Hold included; a target the unit picked itself only on a
+                    // leashed (Aggressive / attack-move / patrol) engagement.
+                    // A fixed mount (emplaced engine) never chases, whatever
+                    // the order. Otherwise clear the target and stay put.
+                    if (!TargetingSystem.MayChase(em, entity, tgt.Value))
                     {
                         tgt.Value = Entity.Null;
                         archer.AimTimer = 0;

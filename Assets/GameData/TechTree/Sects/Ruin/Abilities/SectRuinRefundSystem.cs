@@ -66,7 +66,9 @@ namespace TheWaningBorder.Systems.Sect
 
                 string buildingId = BuildCosts.IdFromEntity(em, entity);
                 if (buildingId == null) continue;
-                if (!BuildCosts.TryGet(buildingId, out var cost)) continue;
+                // The price actually paid, so an escalated Hall refunds its
+                // real cost (docs/Design/Regions.md §2).
+                if (!BuildCosts.TryGetPaid(em, entity, buildingId, out var cost)) continue;
 
                 float frac = RefundFractionFor(level);
                 var refund = Cost.Of(

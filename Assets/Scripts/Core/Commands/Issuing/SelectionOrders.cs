@@ -107,8 +107,10 @@ namespace TheWaningBorder.Core.Commands.Issuing
         // Order selected FOOT units onto the wall top, spread along the wall
         // around the clicked point. LayeredMoveSystem routes each to the
         // nearest friendly access (tower/gate) or a breach ramp, LERPs it up,
-        // then it walks the deck to its slot.
-        public void IssueWallTopMove(float3 wallTopPoint)
+        // then it walks the deck to its slot. Returns how many units took the
+        // order, so the input layer can fall through to its normal handling
+        // when nobody in the selection may stand on a wall.
+        public int IssueWallTopMove(float3 wallTopPoint)
         {
             // Overpass-bridge decks are roads, not fortifications: ANY
             // movable unit (cavalry, siege, workers included) may cross.
@@ -130,7 +132,7 @@ namespace TheWaningBorder.Core.Commands.Issuing
             }
 
             int n = units.Count;
-            if (n == 0) return;
+            if (n == 0) return 0;
 
             float3 along = WallAlongAxis(wallTopPoint);
             for (int i = 0; i < n; i++)
@@ -140,6 +142,50 @@ namespace TheWaningBorder.Core.Commands.Issuing
                 CommandRouter.IssueLayeredMove(_em, units[i], dest,
                     NavLayerIndex.LayerRampart, CommandSource.LocalPlayer);
             }
+            return n;
+        }
+
+        // Every wall instance, for resolving which one a deck cell belongs to.
+        // Cached: CreateEntityQuery registers permanently with the world.
+        static readonly ComponentType[] WallTypes =
+        {
+            ComponentType.ReadOnly<WallTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static TheWaningBorder.Core.CachedEntityQuery _wallQuery;
+
+        /// <summary>
+        /// True when a walkable deck point may take a wall-top order from the
+        /// local player: an overpass bridge (a road, nobody's), or the
+        /// rampart of a wall owned by the local player or an ally. The deck
+        /// layer is stamped walkable for EVERY faction's walls, so without
+        /// this an enemy rampart would read as a place to walk to.
+        /// </summary>
+        public bool IsFriendlyRampartDeck(float3 deckPoint)
+        {
+            if (TheWaningBorder.World.Terrain.BridgeSurface
+                    .TryGetDeckHeight(deckPoint.x, deckPoint.z, out _))
+                return true;
+
+            var cell = TheWaningBorder.Systems.Navigation.NavGridQuery.WorldToCellInt2(deckPoint);
+            if (cell.x == int.MinValue) return false;
+
+            // Same square StampWallLayersJob writes around each wall's cell.
+            int half = TheWaningBorder.Systems.Navigation.StampWallLayersJob.FootprintCells / 2;
+            var local = GameSettings.LocalPlayerFaction;
+
+            var query = _wallQuery.Get(_em, WallTypes);
+            using var walls = query.ToEntityArray(Allocator.Temp);
+            using var xfs = query.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            for (int i = 0; i < walls.Length; i++)
+            {
+                var wc = TheWaningBorder.Systems.Navigation.NavGridQuery.WorldToCellInt2(xfs[i].Position);
+                if (math.abs(wc.x - cell.x) > half || math.abs(wc.y - cell.y) > half) continue;
+                if (!Alliances.AreHostile(local, factions[i].Value)) return true;
+            }
+            return false;
         }
 
         /// <summary>
@@ -195,7 +241,14 @@ namespace TheWaningBorder.Core.Commands.Issuing
             {
                 if (!_em.Exists(e)) continue;
                 if (!IsOwnedByLocalPlayer(e)) continue;
-                if (_em.HasComponent<BuildingTag>(e)) continue;
+                if (_em.HasComponent<BuildingTag>(e))
+                {
+                    // Stop on a building ends its directed fire
+                    // (docs/Design/Combat_Pacing.md § Directed building fire).
+                    if (_em.HasComponent<BuildingForcedTarget>(e) && issued.Add(e))
+                        CommandRouter.IssueBuildingAttack(_em, e, Entity.Null, CommandSource.LocalPlayer);
+                    continue;
+                }
 
                 Entity unit = e;
                 if (!issued.Add(unit)) continue;
@@ -204,22 +257,35 @@ namespace TheWaningBorder.Core.Commands.Issuing
             }
         }
 
-        public void IssueHoldPositionToSelection()
+        /// <summary>Hold Position — the Hold STANCE (docs/Design/Stances.md).</summary>
+        public void IssueHoldPositionToSelection() => IssueStanceToSelection(UnitStanceMode.Hold);
+
+        /// <summary>Put every owned unit of the selection in a stance.</summary>
+        public void IssueStanceToSelection(UnitStanceMode stance)
+            => IssueStanceToOwnedUnits(_em, CurrentSelection, stance, GameSettings.LocalPlayerFaction);
+
+        /// <summary>
+        /// Put every owned UNIT of a selection in a stance. Static for the
+        /// actions panel, which holds no SelectionOrders instance — the same
+        /// contract as <see cref="IssueMoveToOwnedUnits"/>. Emplaced engines are
+        /// skipped: they always hold.
+        /// </summary>
+        public static void IssueStanceToOwnedUnits(EntityManager em, List<Entity> selection,
+            UnitStanceMode stance, Faction faction)
         {
-            var selection = CurrentSelection;
             if (selection == null || selection.Count == 0) return;
             var issued = new HashSet<Entity>();
 
             foreach (var e in selection)
             {
-                if (!_em.Exists(e)) continue;
-                if (!IsOwnedByLocalPlayer(e)) continue;
-                if (_em.HasComponent<BuildingTag>(e)) continue;
+                if (!em.Exists(e)) continue;
+                if (!em.HasComponent<UnitTag>(e) || em.HasComponent<BuildingTag>(e)) continue;
+                if (!em.HasComponent<FactionTag>(e)
+                    || em.GetComponentData<FactionTag>(e).Value != faction) continue;
+                if (em.HasComponent<EmplacedEngineTag>(e)) continue;
+                if (!issued.Add(e)) continue;
 
-                Entity unit = e;
-                if (!issued.Add(unit)) continue;
-
-                CommandRouter.IssueHoldPosition(_em, unit, CommandSource.LocalPlayer);
+                CommandRouter.IssueStance(em, e, stance, CommandSource.LocalPlayer);
             }
         }
 
@@ -237,18 +303,69 @@ namespace TheWaningBorder.Core.Commands.Issuing
 
         public void IssueAttackCommands(Entity target)
         {
+            // The Wall Rule (docs/Design/Combat_Pacing.md): against a wall
+            // piece only the SIEGE units are ordered. The rest would have the
+            // order dropped by the combat system anyway; leaving them alone
+            // keeps whatever they were doing.
+            bool wall = IsWallPiece(target);
+
             var issued = new HashSet<Entity>();
             foreach (var e in CurrentSelection)
             {
                 if (!_em.Exists(e)) continue;
                 if (!IsOwnedByLocalPlayer(e)) continue;
-                if (_em.HasComponent<BuildingTag>(e)) continue;
 
                 Entity unit = e;
+                if (_em.HasComponent<BuildingTag>(e))
+                {
+                    // An emplacement PLATFORM is selected, but its ENGINE is
+                    // the thing that shoots: forward the order to it.
+                    unit = EmplacedEngineOf(e);
+                    if (unit == Entity.Null) continue;
+                }
+
+                if (wall && !TheWaningBorder.Systems.Combat.CombatDamageHelper.DealsSiege(_em, unit)) continue;
                 if (!issued.Add(unit)) continue; // Deduplicate leader commands
 
                 CommandRouter.IssueAttack(_em, unit, target, CommandSource.LocalPlayer);
             }
+        }
+
+        /// <summary>
+        /// Direct the fire of every owned shooting building in the selection
+        /// at <paramref name="target"/> (docs/Design/Combat_Pacing.md §
+        /// Directed building fire). Buildings the Wall Rule forbids are
+        /// skipped. Returns how many buildings took the order.
+        /// </summary>
+        public int IssueBuildingAttackCommands(Entity target)
+        {
+            int n = 0;
+            var faction = GameSettings.LocalPlayerFaction;
+            foreach (var e in CurrentSelection)
+            {
+                if (!CommandRouter.CanDirectFire(_em, e, faction)) continue;
+                if (!TheWaningBorder.Systems.Combat.BuildingCombatSystem.IsLegalForcedTarget(_em, e, target))
+                    continue;
+                CommandRouter.IssueBuildingAttack(_em, e, target, CommandSource.LocalPlayer);
+                n++;
+            }
+            return n;
+        }
+
+        /// <summary>True when <paramref name="target"/> is a wall piece —
+        /// hub, curtain, wall tower or gate — which only siege may damage.</summary>
+        public bool IsWallPiece(Entity target)
+            => target != Entity.Null && _em.Exists(target) && _em.HasComponent<WallTag>(target);
+
+        /// <summary>The live engine standing on an owned emplacement
+        /// platform, or Entity.Null.</summary>
+        private Entity EmplacedEngineOf(Entity platform)
+        {
+            if (!_em.HasComponent<EmplacementTag>(platform) || !_em.HasComponent<EmplacementCrew>(platform))
+                return Entity.Null;
+            var engine = _em.GetComponentData<EmplacementCrew>(platform).Engine;
+            return engine != Entity.Null && _em.Exists(engine) && IsOwnedByLocalPlayer(engine)
+                ? engine : Entity.Null;
         }
 
         public void IssueHealCommands(Entity target)
@@ -273,6 +390,23 @@ namespace TheWaningBorder.Core.Commands.Issuing
             if (!_em.HasComponent<BorderMainNodeTag>(target)) return false;
             if (!_em.HasComponent<BorderNodeState>(target)) return false;
             return _em.GetComponentData<BorderNodeState>(target).State == NodeState.Active;
+        }
+
+        /// <summary>
+        /// True when the right-click target is a well a Holy Scholar may
+        /// PURIFY: Active, or lying in rubble (Destroyed) — consecrating a
+        /// broken well before it rebuilds is legal (Curse_And_Shardroot.md,
+        /// "Rubble (Destroyed) wells are purifiable"). Mirrors what
+        /// PurificationRitualSystem and the AI accept; only a well another
+        /// culture already claimed (Cleansed / Converted) is refused.
+        /// </summary>
+        public bool IsPurifiableBorderMainNode(Entity target)
+        {
+            if (target == Entity.Null || !_em.Exists(target)) return false;
+            if (!_em.HasComponent<BorderMainNodeTag>(target)) return false;
+            if (!_em.HasComponent<BorderNodeState>(target)) return false;
+            var st = _em.GetComponentData<BorderNodeState>(target).State;
+            return st == NodeState.Active || st == NodeState.Destroyed;
         }
 
         /// <summary>
@@ -573,6 +707,16 @@ namespace TheWaningBorder.Core.Commands.Issuing
             /// <summary>Feraldis Corruptor selected — right-click a well to crack it open.</summary>
             public bool CanCorrupt;
             public bool CanConvertNode;
+            /// <summary>A siege-damage attacker is selected (a unit, or the
+            /// engine on a selected emplacement) — the only thing that may
+            /// attack a wall piece. docs/Design/Combat_Pacing.md § The Wall Rule</summary>
+            public bool CanAttackWalls;
+            /// <summary>An owned shooting building is selected: right-click
+            /// an enemy directs its fire (§ Directed building fire).</summary>
+            public bool CanDirectBuildingFire;
+            /// <summary>At least one owned building in the selection fires
+            /// siege, so it may be directed at a wall.</summary>
+            public bool CanDirectSiegeFire;
         }
 
         public UnitCapabilities DetermineCapabilities()
@@ -611,6 +755,29 @@ namespace TheWaningBorder.Core.Commands.Issuing
                 // Feraldis Corruptor channels corruption on a living well.
                 if (_em.HasComponent<CorruptorTag>(e))
                     caps.CanCorrupt = true;
+
+                if (_em.HasComponent<BuildingTag>(e))
+                {
+                    if (_em.HasComponent<BuildingRangedAttack>(e))
+                    {
+                        caps.CanDirectBuildingFire = true;
+                        if (TheWaningBorder.Systems.Combat.BuildingCombatSystem.MainDamageType(_em, e) == DamageType.Siege)
+                            caps.CanDirectSiegeFire = true;
+                    }
+                    // An emplacement platform: its engine is the attacker.
+                    var engine = EmplacedEngineOf(e);
+                    if (engine != Entity.Null)
+                    {
+                        caps.CanAttack = true;
+                        if (TheWaningBorder.Systems.Combat.CombatDamageHelper.DealsSiege(_em, engine))
+                            caps.CanAttackWalls = true;
+                    }
+                }
+                else if (_em.HasComponent<Damage>(e)
+                         && TheWaningBorder.Systems.Combat.CombatDamageHelper.DealsSiege(_em, e))
+                {
+                    caps.CanAttackWalls = true;
+                }
             }
 
             return caps;

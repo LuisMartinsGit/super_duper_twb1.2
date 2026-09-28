@@ -137,15 +137,26 @@ namespace TheWaningBorder.UI.Ingame
             ComponentType.ReadOnly<ActiveRitualOnNode>(),
             ComponentType.ReadOnly<LocalTransform>(),
         };
+        // Whatever EMBODIES the Shardroot -- the ground pickup, a carrier,
+        // the Shardbound Hero, an enshrining Temple (Curse_And_Shardroot.md
+        // 3.1: "the carrier is visible to every player on the minimap").
+        // It was the pickup tag alone, so the artifact vanished from the
+        // minimap the moment anyone picked it up.
         private static readonly ComponentType[] ShardrootQueryTypes =
         {
-            ComponentType.ReadOnly<ShardrootPickupTag>(),
+            ComponentType.ReadOnly<ShardrootTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        // The Maw backstop's embedded artifact (section 3): shown to all.
+        private static readonly ComponentType[] ShardrootEmbeddedQueryTypes =
+        {
+            ComponentType.ReadOnly<ShardrootEmbedded>(),
             ComponentType.ReadOnly<LocalTransform>(),
         };
 
         private CachedEntityQuery _unitsQ, _buildingsQ, _obstaclesQ,
                                   _ironQ, _veilstoneQ, _veilsteelQ,
-                                  _ritualsQ, _shardrootQ;
+                                  _ritualsQ, _shardrootQ, _shardrootEmbeddedQ;
 
         private Image _mapImage;
 
@@ -306,6 +317,13 @@ namespace TheWaningBorder.UI.Ingame
             _mapImage.rectTransform.localRotation = Quaternion.Euler(0f, 0f, yaw);
         }
 
+        // Cached fog + territory composite; see Update.
+        private Color32[] _basePixels;
+        private int _baseFogVersion = int.MinValue;
+        private int _baseTerritoryVersion = int.MinValue;
+        private bool _baseUnfogged;
+        private Faction _baseFaction;
+
         private void Update()
         {
             if (!_layersReady) return;
@@ -328,7 +346,36 @@ namespace TheWaningBorder.UI.Ingame
             // both: a region division is map structure, an ownership border
             // is a claim, and the claim has to win where they run along the
             // same line. One composite pass from cached layers (2026-09-16).
-            DrawTerritory(faction);
+            //
+            // The fog + territory composite is itself cached as a BASE layer
+            // (2026-09-25): when neither the fog layer nor the territory layer
+            // was rebuilt this refresh, the 65k-pixel composite would produce
+            // the same pixels again, so the cached result is copied instead
+            // and only blips and pings are drawn fresh. The influence-field
+            // fallback (no partition) is live data and is never cached.
+            int n = _ovW * _ovH;
+            if (_territoryStateReady) RebuildTerritoryLayerIfNeeded();
+            bool baseHit = _territoryStateReady && _basePixels != null && _basePixels.Length == n
+                && _baseFogVersion == _fogLayerVersion
+                && _baseTerritoryVersion == _territoryLayerVersion
+                && _baseUnfogged == _unfogged && _baseFaction == faction;
+            if (baseHit)
+            {
+                System.Array.Copy(_basePixels, _overlayPixels, n);
+            }
+            else
+            {
+                DrawTerritory(faction);
+                if (_territoryStateReady)
+                {
+                    if (_basePixels == null || _basePixels.Length != n) _basePixels = new Color32[n];
+                    System.Array.Copy(_overlayPixels, _basePixels, n);
+                    _baseFogVersion = _fogLayerVersion;
+                    _baseTerritoryVersion = _territoryLayerVersion;
+                    _baseUnfogged = _unfogged;
+                    _baseFaction = faction;
+                }
+            }
             DrawBlips(world.EntityManager, faction);
             DrawPings();
             _overlayTex.SetPixels32(_overlayPixels);

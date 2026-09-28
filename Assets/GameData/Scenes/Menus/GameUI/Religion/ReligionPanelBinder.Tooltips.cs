@@ -31,17 +31,30 @@ namespace TheWaningBorder.UI.Ingame
             var em = world.EntityManager;
             var faction = GameSettings.LocalPlayerFaction;
 
+            // The spec this button casts NOW: the sect's power level (from
+            // adoption timing) picks I / II / III, exactly as Fire reads it.
+            // The tooltip used to describe level I whatever the level was.
+            var spec = SectActivePowerHelper.CurrentSpec(em, faction, view.SectId, tier, out int level);
+
             var sb = new System.Text.StringBuilder();
             sb.Append("<b>").Append(SectInfo.ActiveName(view.SectId, tier))
               .Append("</b>  <color=#8FA8C0>")
-              .Append(string.Format(Loc.T("Active {0}/3"), tier)).Append("</color>\n")
-              .Append(SectInfo.ActivePowerDescription(view.SectId, tier));
+              .Append(string.Format(Loc.T("Active {0}/3"), tier))
+              .Append("  ").Append(string.Format(Loc.T("Level {0}"), SectInfo.Roman(level)))
+              .Append("</color>\n")
+              .Append(SectInfo.ActivePowerDescription(view.SectId, tier, level));
 
-            var spec = SectLeverEffects.ActiveOf(view.SectId, tier);
+            if (spec.Damage > 0f)
+                sb.Append('\n').Append(string.Format(Loc.T("Damage: {0:0} {1}"),
+                    spec.Damage, SectInfo.DamageTypeName(spec.DamageType)));
             if (spec.Radius > 0f) sb.Append('\n').Append(Loc.T("Radius")).Append(' ')
                                     .Append(spec.Radius.ToString("0.#"));
+            // EFFECTIVE cooldown: the authored number, the Shardroot and the
+            // Shrine discount, via the same function Fire charges with
+            // (docs/Design/Spells.md section 5).
             if (spec.Cooldown > 0f) sb.Append("   ").Append(Loc.T("Cooldown")).Append(' ')
-                                      .Append(Mathf.RoundToInt(spec.Cooldown)).Append('s');
+                                      .Append(Mathf.RoundToInt(SectActivePowerHelper.EffectiveCooldown(
+                                          em, faction, view.SectId, spec.Cooldown))).Append('s');
 
             int unlocked = SectActivePowerHelper.UnlockedTier(em, faction, view.SectId);
             if (tier > unlocked)

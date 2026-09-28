@@ -87,7 +87,84 @@ namespace TheWaningBorder.UI.Ingame
             }
             for (int i = count; i < _slots.Length; i++) ClearSlot(_slots[i]);
 
+            RenderStances(em, sel);
             return count;
+        }
+
+        // ── Unit mode: stances (docs/Design/Stances.md §6) ─────────────────
+
+        /// <summary>First slot of the stance row: row 1 (research row in
+        /// building mode, unused in unit mode), so the formation row above
+        /// keeps its place.</summary>
+        private const int StanceFirstSlot = Cols;
+
+        private static readonly UnitStanceMode[] StanceOrder =
+            { UnitStanceMode.Aggressive, UnitStanceMode.Defensive, UnitStanceMode.Hold };
+        private static readonly string[] StanceLabels = { "Aggressive", "Defensive", "Hold" };
+        private static readonly string[] StanceTips =
+        {
+            "<b>Aggressive</b>  [G]\nEngages any enemy it can see and pursues it (up to "
+                + "30 m from its post), then walks back.",
+            "<b>Defensive</b>  [D]\nReturns fire: fights back against whatever attacks it, "
+                + "if it can reach it from where it stands. Never pursues. The default.",
+            "<b>Hold Position</b>  [H]\nCompletely passive: does not return fire and never "
+                + "moves on its own. Your orders still work.",
+        };
+
+        /// <summary>Dimmer gold for a stance only PART of a mixed selection holds.</summary>
+        private static readonly Color MixedStanceTint = new Color(0.55f, 0.45f, 0.20f, 1f);
+
+        private void RenderStances(EntityManager em, List<Entity> sel)
+        {
+            if (_slots.Length < StanceFirstSlot + StanceOrder.Length) return;
+
+            // Census of the owned units the stance order would reach. An
+            // emplaced engine always holds and is left out, so an all-engine
+            // selection shows no stance row at all.
+            var counts = new int[StanceOrder.Length];
+            int total = 0;
+            var local = GameSettings.LocalPlayerFaction;
+            for (int i = 0; sel != null && i < sel.Count; i++)
+            {
+                var e = sel[i];
+                if (!em.Exists(e) || !em.HasComponent<UnitTag>(e) || em.HasComponent<BuildingTag>(e)) continue;
+                if (!em.HasComponent<FactionTag>(e) || em.GetComponentData<FactionTag>(e).Value != local) continue;
+                if (em.HasComponent<EmplacedEngineTag>(e)) continue;
+                counts[(int)StanceCommandHelper.Effective(em, e)]++;
+                total++;
+            }
+            if (total == 0) return;
+
+            for (int k = 0; k < StanceOrder.Length; k++)
+            {
+                var stance = StanceOrder[k];
+                string tip = Loc.T(StanceTips[k]);
+                if (counts[k] > 0 && counts[k] < total)
+                    tip += "\n<i>" + counts[k] + " / " + total + "</i>";
+                var b = new ActionButton
+                {
+                    Id = "Stance_" + StanceLabels[k],
+                    Label = Loc.T(StanceLabels[k]),
+                    Tooltip = tip,
+                    Enabled = true,
+                    CanAfford = true,
+                };
+                var slot = _slots[StanceFirstSlot + k];
+                FillSlot(slot, b, Category.Military, null, () =>
+                {
+                    TheWaningBorder.Core.Commands.Issuing.SelectionOrders.IssueStanceToOwnedUnits(
+                        em, TheWaningBorder.Input.SelectionSystem.CurrentSelection, stance,
+                        GameSettings.LocalPlayerFaction);
+                    _timer = RefreshInterval;   // repaint the highlight now
+                }, em);
+
+                // Gold: the whole selection is in this stance. Dim gold: part
+                // of a mixed selection is.
+                if (counts[k] == total)
+                    foreach (var img in slot.TintBg) img.color = GameUIKit.BarGold;
+                else if (counts[k] > 0)
+                    foreach (var img in slot.TintBg) img.color = MixedStanceTint;
+            }
         }
 
         /// <summary>Row 0 = trainable units, rows 1-2 = research. Returns -1

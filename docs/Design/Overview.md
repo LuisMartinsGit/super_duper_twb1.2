@@ -544,12 +544,12 @@ real power spike, so sect growth is tied directly to the Temple:
 - **Planned, not yet implemented:** one sect *tech* at temple Lv 1 plus one
   additional *research* at Lv 2 and Lv 3. Requires a sect-tech data model.
 
-**Offensive map powers wind up (decided 2026-07-05).** Powers that strike
-enemies (damage bursts, burning ground, pyres, the Codex cooldown-freeze)
-telegraph their circle on the ground for **1.5 seconds** before the effect
-lands, so the target can dodge out and offensive casts are counterable.
-Friendly powers (heals, buffs, reveals) remain instant. The cooldown starts
-at cast, not at impact.
+**Sect powers wind up (decided 2026-07-05, tiers 2026-09-27).** Every power
+telegraphs its circle on the ground before the effect lands, so the target can
+dodge out and offensive casts are counterable: **3 s** for a power that deals
+damage, **1.5 s** for a hostile power that does not, **1 s** for a friendly
+one ([Spells.md](Spells.md) §4 and §8.6). The cooldown starts at cast, not at
+impact.
 
 > **Status note:** The sect roster and mechanics are being redesigned under
 > [.deft/tasks/task-sect-system-redesign-063/](../../.deft/tasks/task-sect-system-redesign-063/task.md).

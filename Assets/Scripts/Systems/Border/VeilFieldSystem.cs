@@ -102,6 +102,13 @@ namespace TheWaningBorder.Systems.Border
         private float _escalation = 1f;       // dormant-window multiplier (shrinks over match time)
         private float _escalationT = 0f;      // raw 0..1 escalation ramp progress
         private NativeArray<byte> _wasCrust;  // precipitation: crust state at last pulse
+        // Saturation as of the last Generation bump. A pulse or substep that
+        // leaves every cell as it was (a veil at equilibrium, a burst with
+        // nothing left to grow into) must not bump Generation: the bump
+        // drives VeilNavStampSystem's full-grid pass and, through it, the
+        // nav dirty diff and every cached goal field.
+        private NativeArray<byte> _satAtLastBump;
+        private int _satAtLastBumpEpoch;
         // Mirrors of the VeilField component's own arrays, so they can still be
         // disposed after the entity holding them has been wiped.
         private NativeArray<byte> _saturation;
@@ -178,9 +185,12 @@ namespace TheWaningBorder.Systems.Border
             if (_back.IsCreated) _back.Dispose();
             if (_visited.IsCreated) _visited.Dispose();
             if (_influence.IsCreated) _influence.Dispose();
+            if (_influenceBase.IsCreated) _influenceBase.Dispose();
+            _influenceBaseValid = false;
             if (_blocked.IsCreated) _blocked.Dispose();
             if (_workerWard.IsCreated) _workerWard.Dispose();
             if (_wasCrust.IsCreated) _wasCrust.Dispose();
+            if (_satAtLastBump.IsCreated) _satAtLastBump.Dispose();
             if (_saturation.IsCreated) _saturation.Dispose();
             if (_cooldown.IsCreated) _cooldown.Dispose();
         }
@@ -298,8 +308,38 @@ namespace TheWaningBorder.Systems.Border
                 }
             }
 
+            if (mutated && !SaturationChangedSinceLastBump(in field)) mutated = false;
             if (mutated) field.Generation++;
             em.SetComponentData(_fieldEntity, field);
+        }
+
+        /// <summary>
+        /// True when the saturation grid differs from the copy taken at the
+        /// last Generation bump (and refreshes that copy). A new match, a
+        /// resized grid or a first call always counts as changed. A pure
+        /// function of the lockstep-identical grid, so every peer bumps on
+        /// the same ticks.
+        /// </summary>
+        private unsafe bool SaturationChangedSinceLastBump(in VeilField field)
+        {
+            if (!field.Saturation.IsCreated) return true;
+            int len = field.Saturation.Length;
+            bool fresh = !_satAtLastBump.IsCreated || _satAtLastBump.Length != len
+                || _satAtLastBumpEpoch != SimCadence.Epoch;
+            if (fresh)
+            {
+                if (_satAtLastBump.IsCreated) _satAtLastBump.Dispose();
+                _satAtLastBump = new NativeArray<byte>(len, Allocator.Persistent,
+                    NativeArrayOptions.UninitializedMemory);
+                _satAtLastBumpEpoch = SimCadence.Epoch;
+            }
+            else if (Unity.Collections.LowLevel.Unsafe.UnsafeUtility.MemCmp(
+                         Unity.Collections.LowLevel.Unsafe.NativeArrayUnsafeUtility.GetUnsafeReadOnlyPtr(field.Saturation),
+                         Unity.Collections.LowLevel.Unsafe.NativeArrayUnsafeUtility.GetUnsafeReadOnlyPtr(_satAtLastBump),
+                         len) == 0)
+                return false;
+            _satAtLastBump.CopyFrom(field.Saturation);
+            return true;
         }
 
         /// <summary>Random still time before the next tendril burst, scaled by

@@ -9,6 +9,18 @@ using System.Collections.Generic;
 using Unity.Entities;
 using TheWaningBorder.Core;
 
+/// <summary>
+/// The price the placement executor actually charged for this building
+/// (CommandRouter.PlaceBuildingDirect), stamped on every peer at the same
+/// tick. Refunds read it through <see cref="TheWaningBorder.Data.BuildCosts.TryGetPaid"/>:
+/// a price that depends on the faction's state (the Hall's escalation, Deep
+/// Foundations) cannot be recomputed later, because that state has moved on.
+/// </summary>
+public struct PaidBuildCost : IComponentData
+{
+    public Cost Value;
+}
+
 namespace TheWaningBorder.Data
 {
     /// <summary>
@@ -176,6 +188,70 @@ namespace TheWaningBorder.Data
         public static Cost Get(string id)
         {
             return _byId.TryGetValue(id, out var cost) ? cost : default;
+        }
+
+        /// <summary>
+        /// What <paramref name="faction"/> pays to place <paramref name="id"/>
+        /// RIGHT NOW — the one price the executor charges
+        /// (CommandRouter.PlaceBuildingDirect) and every display / affordability
+        /// check should show. The table price with, in order:
+        /// <list type="number">
+        /// <item>the Hall's escalation (docs/Design/Regions.md §2 "No territory
+        /// hopping"): base x (1 + step x N), N = the faction's live +
+        /// under-construction Halls not counting the starting Fortress, step
+        /// from TerritoryOwnership.asset;</item>
+        /// <item>Deep Foundations (Fortitude): defensive structures -20%.</item>
+        /// </list>
+        /// Reads replicated simulation state only, so every lockstep peer
+        /// prices the same order identically at its execution tick. An id
+        /// missing from the table prices free — the executor's long-standing
+        /// lenient fallback.
+        /// </summary>
+        public static Cost For(EntityManager em, Faction faction, string id)
+        {
+            if (!_byId.TryGetValue(id, out var cost)) return default;
+
+            if (TheWaningBorder.World.Regions.TerritoryOwnership.IsClaimStructure(id))
+            {
+                float m = TheWaningBorder.World.Regions.TerritoryOwnership.HallCostMultiplier(em, faction);
+                if (m != 1f) cost = Scale(cost, m);
+            }
+
+            float buildMult = TheWaningBorder.Economy.SectResearchEffects
+                .BuildingCostMultiplier(faction, id);
+            if (buildMult < 1f)
+                cost = Cost.Of(
+                    supplies:  (int)(cost.Supplies  * buildMult),
+                    iron:      (int)(cost.Iron      * buildMult),
+                    veilstone: (int)(cost.Veilstone * buildMult),
+                    veilsteel: (int)(cost.Veilsteel * buildMult));
+            return cost;
+        }
+
+        /// <summary>Scale every resource, rounding to the nearest whole unit
+        /// (1.5 x 450 is 675, never 674 from float truncation).</summary>
+        private static Cost Scale(Cost c, float m) => Cost.Of(
+            supplies:  (int)System.Math.Round(c.Supplies  * (double)m),
+            iron:      (int)System.Math.Round(c.Iron      * (double)m),
+            veilstone: (int)System.Math.Round(c.Veilstone * (double)m),
+            veilsteel: (int)System.Math.Round(c.Veilsteel * (double)m));
+
+        /// <summary>
+        /// What was actually paid for <paramref name="entity"/>: the
+        /// <see cref="PaidBuildCost"/> the executor stamped at placement, or —
+        /// for a building that never went through the executor (the starting
+        /// Fortress, scenario-authored structures) — the table price. Refunds
+        /// read this so an escalated Hall refunds from what it cost, not from
+        /// whatever the NEXT Hall would cost.
+        /// </summary>
+        public static bool TryGetPaid(EntityManager em, Entity entity, string id, out Cost cost)
+        {
+            if (em.HasComponent<PaidBuildCost>(entity))
+            {
+                cost = em.GetComponentData<PaidBuildCost>(entity).Value;
+                return true;
+            }
+            return TryGet(id, out cost);
         }
         
         /// <summary>

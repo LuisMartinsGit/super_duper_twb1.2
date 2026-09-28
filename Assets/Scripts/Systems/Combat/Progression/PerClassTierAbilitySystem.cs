@@ -88,7 +88,13 @@ namespace TheWaningBorder.Systems.Combat
                             BonusShield = bonus,
                         };
                         if (em.HasComponent<SiegeShieldAura>(entity))
-                            em.SetComponentData(entity, aura);
+                        {
+                            // Write only on change: an unconditional write
+                            // re-dirtied every siege chunk every frame.
+                            var cur = em.GetComponentData<SiegeShieldAura>(entity);
+                            if (cur.Radius != aura.Radius || cur.BonusShield != aura.BonusShield)
+                                em.SetComponentData(entity, aura);
+                        }
                         else
                             ecb.AddComponent(entity, aura);
                     }
@@ -112,9 +118,13 @@ namespace TheWaningBorder.Systems.Combat
                         if (em.HasComponent<HeroPhaseShield>(entity))
                         {
                             var ps = em.GetComponentData<HeroPhaseShield>(entity);
-                            ps.BaseCooldown = EquipmentTierConfig.HeroPhaseShieldCooldown;
-                            ps.ReductionPercent = reduction;
-                            em.SetComponentData(entity, ps);
+                            if (ps.BaseCooldown != EquipmentTierConfig.HeroPhaseShieldCooldown
+                                || ps.ReductionPercent != reduction)
+                            {
+                                ps.BaseCooldown = EquipmentTierConfig.HeroPhaseShieldCooldown;
+                                ps.ReductionPercent = reduction;
+                                em.SetComponentData(entity, ps);
+                            }
                         }
                         else
                         {
@@ -141,6 +151,21 @@ namespace TheWaningBorder.Systems.Combat
             ecb.Dispose();
 
             // ── Phase 2: resolve siege auras ──
+            // Nothing to do unless an aura exists or a stale boost must be
+            // stripped (2026-09-25). This used to snapshot four arrays over
+            // every unit and walk them every frame in matches with no
+            // Veilstone siege at all — which is most of every match.
+            var auraSourceQuery = SystemAPI.QueryBuilder()
+                .WithAll<SiegeShieldAura, LocalTransform, FactionTag, UnitTag>().Build();
+            var boostedQuery = SystemAPI.QueryBuilder().WithAll<AuraShieldBoost>().Build();
+            if (!auraSourceQuery.IsEmpty || !boostedQuery.IsEmpty)
+                ResolveSiegeAuras(em);
+
+            TickPhaseShields(dt);
+        }
+
+        private void ResolveSiegeAuras(EntityManager em)
+        {
             // Snapshot allied targets (units) once.
             var allyQuery = QC_UnitTagFactionTagLocalTransformHealth.Get(em, QT_UnitTagFactionTagLocalTransformHealth);
             using var allyEnts = allyQuery.ToEntityArray(Allocator.Temp);
@@ -165,6 +190,13 @@ namespace TheWaningBorder.Systems.Combat
                     // what keeps two sources from stacking. docs/Design/Teams.md
                     if (!Alliances.AreAllied(myFac, allyFactions[i].Value)) continue;
                     if (allyHealths[i].Value <= 0) continue;
+
+                    // Padded squared reject first; the exact test below
+                    // still decides every candidate it lets through.
+                    float ddx = center.x - allyTransforms[i].Position.x;
+                    float ddz = center.z - allyTransforms[i].Position.z;
+                    float rPad = r * 1.001f + 0.01f;
+                    if (ddx * ddx + ddz * ddz > rPad * rPad) continue;
 
                     float dxz = math.distance(
                         new float2(center.x, center.z),
@@ -191,7 +223,10 @@ namespace TheWaningBorder.Systems.Combat
                 if (boostByEntity.TryGetValue(e, out int amount))
                 {
                     if (em.HasComponent<AuraShieldBoost>(e))
-                        em.SetComponentData(e, new AuraShieldBoost { Amount = amount });
+                    {
+                        if (em.GetComponentData<AuraShieldBoost>(e).Amount != amount)
+                            em.SetComponentData(e, new AuraShieldBoost { Amount = amount });
+                    }
                     else
                         ecb2.AddComponent(e, new AuraShieldBoost { Amount = amount });
                 }
@@ -203,13 +238,23 @@ namespace TheWaningBorder.Systems.Combat
             ecb2.Playback(em);
             ecb2.Dispose();
             boostByEntity.Dispose();
+        }
 
-            // ── Phase 3: tick hero phase shield + absorb damage ──
-            foreach (var (psRW, healthRW) in SystemAPI
-                .Query<RefRW<HeroPhaseShield>, RefRW<Health>>())
+        // ── Phase 3: tick hero phase shield + absorb damage ──
+        // RefRO + a write only when the shield actually refunds (2026-09-25):
+        // RefRW<Health> marked every hero chunk's Health as changed every
+        // frame, defeating every Health change filter downstream.
+        private void TickPhaseShields(float dt)
+        {
+            var em = EntityManager;
+            var healEnts = new NativeList<Entity>(4, Allocator.Temp);
+            var healVals = new NativeList<int>(4, Allocator.Temp);
+            foreach (var (psRW, healthRO, entity) in SystemAPI
+                .Query<RefRW<HeroPhaseShield>, RefRO<Health>>()
+                .WithEntityAccess())
             {
                 ref var ps = ref psRW.ValueRW;
-                ref var hp = ref healthRW.ValueRW;
+                var hp = healthRO.ValueRO;
 
                 if (ps.ChargeReadyTimer > 0f)
                     ps.ChargeReadyTimer = math.max(0f, ps.ChargeReadyTimer - dt);
@@ -219,11 +264,26 @@ namespace TheWaningBorder.Systems.Combat
                 {
                     // Absorb a fraction of the damage and reset cooldown.
                     int refunded = (int)math.ceil(delta * ps.ReductionPercent);
-                    hp.Value = math.min(hp.Max, hp.Value + refunded);
+                    int healed = math.min(hp.Max, hp.Value + refunded);
+                    if (healed != hp.Value)
+                    {
+                        hp.Value = healed;
+                        healEnts.Add(entity);
+                        healVals.Add(healed);
+                    }
                     ps.ChargeReadyTimer = ps.BaseCooldown;
                 }
                 ps.LastObservedHealth = hp.Value;
             }
+
+            for (int i = 0; i < healEnts.Length; i++)
+            {
+                var h = em.GetComponentData<Health>(healEnts[i]);
+                h.Value = healVals[i];
+                em.SetComponentData(healEnts[i], h);
+            }
+            healEnts.Dispose();
+            healVals.Dispose();
         }
     }
 }

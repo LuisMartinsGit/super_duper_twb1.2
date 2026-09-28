@@ -44,9 +44,13 @@ namespace TheWaningBorder.Systems.Buildings
         private readonly List<float3> _apPos = new List<float3>();
         private readonly List<int> _apOwner = new List<int>();
 
+        private EntityQuery _segQ;
+
         protected override void OnCreate()
         {
             RequireForUpdate(GetEntityQuery(ComponentType.ReadOnly<LayeredMoveOrder>()));
+            _segQ = GetEntityQuery(ComponentType.ReadOnly<WallSegmentTag>(),
+                                   ComponentType.ReadOnly<WallInstanceRef>());
         }
 
         protected override void OnUpdate()
@@ -178,9 +182,7 @@ namespace TheWaningBorder.Systems.Buildings
         // immediately left and right of it into ramps usable by any unit.
         private void GatherBreachRamps(EntityManager em)
         {
-            var segQ = GetEntityQuery(ComponentType.ReadOnly<WallSegmentTag>(),
-                                      ComponentType.ReadOnly<WallInstanceRef>());
-            using var segs = segQ.ToEntityArray(Allocator.Temp);
+            using var segs = _segQ.ToEntityArray(Allocator.Temp);
             for (int s = 0; s < segs.Length; s++)
             {
                 var buf = em.GetBuffer<WallInstanceRef>(segs[s], true);

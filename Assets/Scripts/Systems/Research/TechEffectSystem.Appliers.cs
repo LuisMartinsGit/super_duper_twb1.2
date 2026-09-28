@@ -59,13 +59,6 @@ namespace TheWaningBorder.Systems.Research
             ComponentType.ReadOnly<Health>(),
         };
         static CachedEntityQuery QC_FiendstoneKeepTagFactionTagHealth;
-        static readonly ComponentType[] QT_LitharchTagFactionTagDamage =
-        {
-            ComponentType.ReadOnly<LitharchTag>(),
-            ComponentType.ReadOnly<FactionTag>(),
-            ComponentType.ReadOnly<Damage>(),
-        };
-        static CachedEntityQuery QC_LitharchTagFactionTagDamage;
         static readonly ComponentType[] QT_FactionTagArcherState =
         {
             ComponentType.ReadOnly<FactionTag>(),
@@ -236,49 +229,6 @@ namespace TheWaningBorder.Systems.Research
                 var s = states[i];
                 s.MaxRange *= mult;
                 em.SetComponentData(entities[i], s);
-            }
-        }
-
-        /// <summary>
-        /// Warrior Priests: existing faction Litharchs gain their melee attack
-        /// (6 damage / 1.5 s per the Age 0 design). Litharchs already carry
-        /// Damage(0) + AttackCooldown, so this is a value write, not a
-        /// structural change. New Litharchs get the same treatment at spawn
-        /// via ApplyCompletedTechEffects.
-        /// </summary>
-        private static void ApplyWarriorPriests(EntityManager em, Faction faction)
-        {
-            var query = QC_LitharchTagFactionTagDamage.Get(em, QT_LitharchTagFactionTagDamage);
-
-            using var entities = query.ToEntityArray(Allocator.Temp);
-            using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
-
-            for (int i = 0; i < entities.Length; i++)
-            {
-                if (factions[i].Value != faction) continue;
-                GrantLitharchAttack(em, entities[i]);
-            }
-        }
-
-        internal const int WarriorPriestDamage = 6;
-        internal const float WarriorPriestCooldown = 1.5f;
-
-        private static void GrantLitharchAttack(EntityManager em, Entity litharch)
-        {
-            if (em.HasComponent<Damage>(litharch))
-            {
-                var dmg = em.GetComponentData<Damage>(litharch);
-                if (dmg.Value < WarriorPriestDamage)
-                {
-                    dmg.Value = WarriorPriestDamage;
-                    em.SetComponentData(litharch, dmg);
-                }
-            }
-            if (em.HasComponent<AttackCooldown>(litharch))
-            {
-                var cd = em.GetComponentData<AttackCooldown>(litharch);
-                cd.Cooldown = WarriorPriestCooldown;
-                em.SetComponentData(litharch, cd);
             }
         }
 

@@ -22,6 +22,158 @@ namespace TheWaningBorder.Systems.Navigation
 {
     internal static class PortalIntraTileEdges
     {
+        /// <summary>
+        /// Label every 4-connected walkable component of one tile (cost !=
+        /// CostImpassable, the same walkability and connectivity
+        /// <see cref="NavTileRegions.FloodFromCell"/> uses) into
+        /// <paramref name="labels"/>: 0.. per component in row-major seed
+        /// order, -1 for impassable cells. Only equality within one tile is
+        /// meaningful.
+        /// </summary>
+        public static void LabelTile(in NativeArray<byte> cost, int gridWidth, int gridHeight,
+            int tileSize, int tileX, int tileZ, NativeArray<int> labels, NativeList<int> stack)
+        {
+            int baseX = tileX * tileSize, baseZ = tileZ * tileSize;
+            int w = math.min(tileSize, gridWidth - baseX);
+            int h = math.min(tileSize, gridHeight - baseZ);
+            if (w <= 0 || h <= 0) return;
+
+            for (int z = 0; z < h; z++)
+            {
+                int row = (baseZ + z) * gridWidth + baseX;
+                for (int x = 0; x < w; x++)
+                    labels[row + x] = cost[row + x] == NavCostField.CostImpassable ? -1 : -2;
+            }
+
+            int next = 0;
+            for (int z = 0; z < h; z++)
+            {
+                for (int x = 0; x < w; x++)
+                {
+                    int g = (baseZ + z) * gridWidth + baseX + x;
+                    if (labels[g] != -2) continue;
+                    int id = next++;
+                    labels[g] = id;
+                    stack.Clear();
+                    stack.Add(z * tileSize + x);
+                    while (stack.Length > 0)
+                    {
+                        int local = stack[stack.Length - 1];
+                        stack.RemoveAt(stack.Length - 1);
+                        int cx = local % tileSize, cz = local / tileSize;
+                        for (int n = 0; n < 4; n++)
+                        {
+                            int nx = cx, nz = cz;
+                            switch (n)
+                            {
+                                case 0: nx--; break;
+                                case 1: nx++; break;
+                                case 2: nz--; break;
+                                default: nz++; break;
+                            }
+                            if (nx < 0 || nx >= w || nz < 0 || nz >= h) continue;
+                            int ng = (baseZ + nz) * gridWidth + baseX + nx;
+                            if (labels[ng] != -2) continue;
+                            labels[ng] = id;
+                            stack.Add(nz * tileSize + nx);
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// <see cref="Build"/> with the region test answered from cached
+        /// <see cref="LabelTile"/> labels instead of a flood per region.
+        /// Same edge set: two portals of a bucket share a region iff both
+        /// cells are walkable, lie in the same tile and carry the same label
+        /// (the flood's mask covered exactly the seed's tile component; an
+        /// impassable portal cell was isolated).
+        /// </summary>
+        public static void BuildFromLabels(
+            in NavGridSingleton grid,
+            NativeArray<PortalNode> nodes,
+            NativeList<PortalEdge> outEdges,
+            in NativeArray<int> labels)
+        {
+            int n = nodes.Length;
+            if (n < 2) return;
+
+            int width = grid.Width;
+            int tileSize = PortalGraphSingleton.TileSize;
+            int tilesX = (grid.Width + tileSize - 1) / tileSize;
+
+            var order = new NativeArray<ulong>(n, Allocator.Temp,
+                NativeArrayOptions.UninitializedMemory);
+            for (int i = 0; i < n; i++)
+            {
+                order[i] = ((ulong)(uint)nodes[i].TileIndex << 42)
+                    | ((ulong)(uint)nodes[i].CellIndex << 21)
+                    | (uint)i;
+            }
+            NativeSortExtension.Sort(order);
+
+            // Region key per node: (geometric tile, label), or a unique
+            // negative for an impassable / off-grid cell.
+            var regionKey = new NativeArray<long>(n, Allocator.Temp,
+                NativeArrayOptions.UninitializedMemory);
+            for (int i = 0; i < n; i++)
+            {
+                int c = nodes[i].CellIndex;
+                int lbl = (c >= 0 && c < labels.Length) ? labels[c] : -1;
+                if (lbl < 0) { regionKey[i] = -1L - i; continue; }
+                int gt = ((c / width) / tileSize) * tilesX + (c % width) / tileSize;
+                regionKey[i] = ((long)gt << 20) | (uint)lbl;
+            }
+
+            int start = 0;
+            while (start < n)
+            {
+                int tile = (int)(order[start] >> 42);
+                int end = start + 1;
+                while (end < n && (int)(order[end] >> 42) == tile) end++;
+
+                for (int i = start; i < end; i++)
+                {
+                    int oi = (int)(order[i] & 0x1FFFFF);
+                    var ni = nodes[oi];
+                    int aX = ni.CellIndex % width;
+                    int aZ = ni.CellIndex / width;
+                    for (int j = i + 1; j < end; j++)
+                    {
+                        int oj = (int)(order[j] & 0x1FFFFF);
+                        if (regionKey[oi] != regionKey[oj]) continue;
+
+                        var nj = nodes[oj];
+                        int bX = nj.CellIndex % width;
+                        int bZ = nj.CellIndex / width;
+                        int manhattan = math.abs(aX - bX) + math.abs(aZ - bZ);
+                        ushort edgeCost = (ushort)math.min(manhattan * 10, ushort.MaxValue);
+
+                        outEdges.Add(new PortalEdge
+                        {
+                            FromPortalId = ni.Id,
+                            ToPortalId = nj.Id,
+                            Cost = edgeCost,
+                            ProfileMask = 0xFF,
+                        });
+                        outEdges.Add(new PortalEdge
+                        {
+                            FromPortalId = nj.Id,
+                            ToPortalId = ni.Id,
+                            Cost = edgeCost,
+                            ProfileMask = 0xFF,
+                        });
+                    }
+                }
+
+                start = end;
+            }
+
+            regionKey.Dispose();
+            order.Dispose();
+        }
+
         public static void Build(
             in NavGridSingleton grid,
             NativeArray<PortalNode> nodes,

@@ -21,30 +21,98 @@ namespace TheWaningBorder.World.Roads
         /// Edges (i, j) of the relative-neighbourhood graph over
         /// <paramref name="pts"/>: i and j are joined unless some third point
         /// k is closer to BOTH than they are to each other. Connected, planar,
-        /// no hubs — the classic organic road web. O(n³) on tens of points.
+        /// no hubs — the classic organic road web.
+        ///
+        /// Candidates first, then the exact lune test. In any 60° sector
+        /// around i, a point k strictly nearer i than j blocks j (law of
+        /// cosines: |jk|² ≤ |ik|² + |ij|² − |ik||ij| &lt; |ij|²), so an RNG
+        /// neighbour of i is always the nearest point of its sector (the Yao
+        /// graph). That bounds the candidates to six per point, and the
+        /// lune test runs on those alone: O(n²) where the naive triple loop
+        /// was O(n³). Coincident points have no sector and are always
+        /// candidates. Output is sorted by (i, j), as the triple loop emitted.
         /// </summary>
-        public static void RelativeNeighbourhood(List<Vector2> pts, List<int2> edges)
+        public static void RelativeNeighbourhood(List<Vector2> pts, List<int2> edges, RngScratch scratch)
         {
             edges.Clear();
             int n = pts.Count;
+            if (n < 2) return;
+            var cand = scratch.Candidates;
+            cand.Clear();
+            var best = scratch.SectorBest;
+            var bestD = scratch.SectorBestD;
+
             for (int i = 0; i < n; i++)
             {
-                for (int j = i + 1; j < n; j++)
+                for (int s = 0; s < 6; s++) { bestD[s] = float.MaxValue; }
+                scratch.Tied.Clear();
+                Vector2 pi = pts[i];
+                for (int j = 0; j < n; j++)
                 {
-                    float dij = (pts[i] - pts[j]).sqrMagnitude;
-                    bool blocked = false;
-                    for (int k = 0; k < n && !blocked; k++)
-                    {
-                        if (k == i || k == j) continue;
-                        if ((pts[i] - pts[k]).sqrMagnitude < dij && (pts[j] - pts[k]).sqrMagnitude < dij)
-                            blocked = true;
-                    }
-                    if (!blocked) edges.Add(new int2(i, j));
+                    if (j == i) continue;
+                    Vector2 d = pts[j] - pi;
+                    float d2 = d.sqrMagnitude;
+                    if (d2 <= 0f) { AddCandidate(cand, i, j); continue; }
+                    float ang = Mathf.Atan2(d.y, d.x);                 // -π..π
+                    int sector = (int)((ang + Mathf.PI) * (3f / Mathf.PI));
+                    if (sector > 5) sector = 5; else if (sector < 0) sector = 0;
+                    if (d2 < bestD[sector]) { bestD[sector] = d2; best[sector] = j; }
+                    else if (d2 == bestD[sector]) scratch.Tied.Add(new int2(sector, j));
                 }
+                for (int s = 0; s < 6; s++)
+                    if (bestD[s] < float.MaxValue) AddCandidate(cand, i, best[s]);
+                // Ties at the sector minimum are not blocked by each other
+                // (the test is strict), so every one stays a candidate.
+                for (int t = 0; t < scratch.Tied.Count; t++)
+                {
+                    var tj = scratch.Tied[t];
+                    if (bestD[tj.x] < float.MaxValue && (pts[tj.y] - pi).sqrMagnitude == bestD[tj.x])
+                        AddCandidate(cand, i, tj.y);
+                }
+            }
+
+            cand.Sort();
+            long prev = long.MinValue;
+            for (int c = 0; c < cand.Count; c++)
+            {
+                long key = cand[c];
+                if (key == prev) continue;
+                prev = key;
+                int i = (int)(key >> 32), j = (int)(key & 0xffffffffL);
+                float dij = (pts[i] - pts[j]).sqrMagnitude;
+                bool blocked = false;
+                for (int k = 0; k < n && !blocked; k++)
+                {
+                    if (k == i || k == j) continue;
+                    if ((pts[i] - pts[k]).sqrMagnitude < dij && (pts[j] - pts[k]).sqrMagnitude < dij)
+                        blocked = true;
+                }
+                if (!blocked) edges.Add(new int2(i, j));
             }
         }
 
+        static void AddCandidate(List<long> cand, int a, int b)
+        {
+            int lo = a < b ? a : b, hi = a < b ? b : a;
+            cand.Add(((long)lo << 32) | (uint)hi);
+        }
+
+        /// <summary>Reused buffers for <see cref="RelativeNeighbourhood"/>.</summary>
+        public sealed class RngScratch
+        {
+            public readonly List<long> Candidates = new List<long>();
+            public readonly List<int2> Tied = new List<int2>();
+            public readonly int[] SectorBest = new int[6];
+            public readonly float[] SectorBestD = new float[6];
+        }
+
         // ── Routing ───────────────────────────────────────────────────────
+
+        /// <summary>Per-cell walkability for <see cref="Route{TPass}"/>. A struct
+        /// constraint instead of a delegate: the A* asks it up to three times
+        /// per neighbour, and a closure call per ask was most of a failed
+        /// search's cost.</summary>
+        public interface ICellTest { bool Passable(int2 cell); }
 
         /// <summary>
         /// Grid geometry for a route: read once per rebuild from
@@ -103,9 +171,10 @@ namespace TheWaningBorder.World.Roads
         /// false when no route exists within <paramref name="maxExpansions"/>
         /// — an island site simply gets no road.
         /// </summary>
-        public static bool Route(in Grid grid, Scratch s, System.Func<int2, bool> passable,
+        public static bool Route<TPass>(in Grid grid, Scratch s, ref TPass passable,
                                  Vector2 from, Vector2 to, float slopePenalty, int maxExpansions,
-                                 List<Vector2> outPath)
+                                 float corridorMetres, List<Vector2> outPath)
+            where TPass : struct, ICellTest
         {
             outPath.Clear();
             int cells = grid.Width * grid.Height;
@@ -116,6 +185,13 @@ namespace TheWaningBorder.World.Roads
             int2 a = grid.CellOf(from), b = grid.CellOf(to);
             if (!grid.InBounds(a) || !grid.InBounds(b)) return false;
             int start = a.y * grid.Width + a.x, goal = b.y * grid.Width + b.x;
+            // The search stays inside the endpoints' box grown by the
+            // corridor: a road that has to leave it to get round a wall is
+            // not a road anyone would build, and an unroutable pair then
+            // fails after a bounded search instead of flooding the map.
+            int pad = (int)math.ceil(corridorMetres / math.max(1e-3f, grid.CellSize));
+            int2 lo = math.max(math.min(a, b) - pad, int2.zero);
+            int2 hi = math.min(math.max(a, b) + pad, new int2(grid.Width - 1, grid.Height - 1));
 
             s.Open.Clear(); s.OpenF.Clear();
             s.Stamp[start] = gen; s.G[start] = 0f; s.Parent[start] = -1;
@@ -139,16 +215,16 @@ namespace TheWaningBorder.World.Roads
                 for (int k = 0; k < 8; k++)
                 {
                     int2 nc = cc + Steps[k];
-                    if (!grid.InBounds(nc)) continue;
+                    if (nc.x < lo.x || nc.y < lo.y || nc.x > hi.x || nc.y > hi.y) continue;
                     int ni = nc.y * grid.Width + nc.x;
                     // Endpoints may sit inside a stamped footprint (the site
                     // itself); everything in between must be walkable.
-                    if (ni != goal && !passable(nc)) continue;
+                    if (ni != goal && !passable.Passable(nc)) continue;
                     // No corner cutting between two blocked orthogonals.
                     if (k >= 4)
                     {
-                        if (!passable(new int2(cc.x + Steps[k].x, cc.y)) ||
-                            !passable(new int2(cc.x, cc.y + Steps[k].y))) continue;
+                        if (!passable.Passable(new int2(cc.x + Steps[k].x, cc.y)) ||
+                            !passable.Passable(new int2(cc.x, cc.y + Steps[k].y))) continue;
                     }
                     float dist = (k < 4 ? 1f : 1.41421356f) * grid.CellSize;
                     float dh = math.abs(HeightAt(s, grid, ni, nc) - hCur);

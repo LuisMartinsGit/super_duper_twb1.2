@@ -57,29 +57,35 @@ namespace TheWaningBorder.Economy
                 case 1:
                     return level switch
                     {
+                        // Per kill = half the band at this reach and level (the
+                        // reach grows each level, so it holds at 30); the bill
+                        // stops at AttainderMaxKills -- the ladder's conditional
+                        // cap, 2x the band = 120 (docs/Design/Spells.md 8.3).
                         1 => Spec(SectActivePowerKind.AttainderStrike, SectRadius.Small, "Writ of Attainder",
-                                  "Enemies in a small area take 40 damage for every one of your units they have killed.",
-                                  magnitude: 40f, cooldown: 110f),
+                                  "Enemies in a small area take 30 damage for every one of your units they have killed, at most 120.",
+                                  magnitude: SpellLadder.Damage(SectRadius.Small, 1) * 0.5f, cooldown: SpellLadder.SectDamageCooldown),
                         2 => Spec(SectActivePowerKind.AttainderStrike, SectRadius.Medium, "Writ of Attainder",
-                                  "Enemies in a medium area take 60 damage per kill they have taken from you.",
-                                  magnitude: 60f, cooldown: 100f),
+                                  "Enemies in a medium area take 30 damage per kill they have taken from you, at most 120.",
+                                  magnitude: SpellLadder.Damage(SectRadius.Medium, 2) * 0.5f, cooldown: SpellLadder.SectDamageCooldown),
                         // III's floor is what stops the power whiffing entirely
                         // on reinforcements that have not killed anything yet.
                         _ => Spec(SectActivePowerKind.AttainderStrike, SectRadius.Large, "Writ of Attainder",
-                                  "Enemies in a large area take 80 damage per kill, and at least 60 regardless.",
-                                  magnitude: 80f, cooldown: 90f, secondary: 60f),
+                                  "Enemies in a large area take 30 damage per kill, at most 120, and at least 30 regardless.",
+                                  magnitude: SpellLadder.Damage(SectRadius.Large, 3) * 0.5f, cooldown: SpellLadder.SectDamageCooldown,
+                                  secondary: SpellLadder.Damage(SectRadius.Large, 3) * 0.5f),
                     };
 
                 case 2: // Heavy Bureaucracy — building shutdown.
                     return level switch
                     {
+                        // 20s on a 60s cooldown: the 35% uptime cap for a debuff.
                         1 => Spec(SectActivePowerKind.BuildingShutdown, SectRadius.Single, "Heavy Bureaucracy",
-                                  "One building stops training, research and resource output for 30s.",
-                                  duration: 30f, cooldown: 150f),
+                                  "One building stops training, research and resource output for 20s.",
+                                  duration: 20f, cooldown: SpellLadder.SectTacticalCooldown),
                         2 => Spec(SectActivePowerKind.BuildingShutdown, SectRadius.Small, "Heavy Bureaucracy",
-                                  "All buildings in a small area stop for 30s.", duration: 30f, cooldown: 135f),
+                                  "All buildings in a small area stop for 20s.", duration: 20f, cooldown: SpellLadder.SectTacticalCooldown),
                         _ => Spec(SectActivePowerKind.BuildingShutdown, SectRadius.Large, "Heavy Bureaucracy",
-                                  "All buildings in a large area stop for 30s.", duration: 30f, cooldown: 120f),
+                                  "All buildings in a large area stop for 20s.", duration: 20f, cooldown: SpellLadder.SectTacticalCooldown),
                     };
 
                 default: // Sew Disorder — turn units hostile to everything.
@@ -87,12 +93,12 @@ namespace TheWaningBorder.Economy
                     {
                         1 => Spec(SectActivePowerKind.HostileConversion, SectRadius.Small, "Sew Disorder",
                                   "Units in a small area turn hostile to all other units for 8s.",
-                                  duration: 8f, cooldown: 300f),
+                                  duration: 8f, cooldown: SpellLadder.SectWildcardCooldown),
                         2 => Spec(SectActivePowerKind.HostileConversion, SectRadius.Medium, "Sew Disorder",
-                                  "Units in a medium area turn hostile for 20s.", duration: 20f, cooldown: 270f),
+                                  "Units in a medium area turn hostile for 20s.", duration: 20f, cooldown: SpellLadder.SectWildcardCooldown),
                         _ => Spec(SectActivePowerKind.HostileConversion, SectRadius.Large, "Sew Disorder",
                                   "Units in a large area turn hostile until killed.",
-                                  duration: Permanent, cooldown: 240f),
+                                  duration: Permanent, cooldown: SpellLadder.SectWildcardCooldown),
                     };
             }
         }
@@ -107,17 +113,20 @@ namespace TheWaningBorder.Economy
                 case 1: // Hands of Plenty — Magnitude is a FRACTION of max HP.
                     return level switch
                     {
+                        // The heal band mirrors the damage band as a fraction
+                        // of max HP (docs/Design/Spells.md 8.3): Small 45%,
+                        // Medium 30% x 1.5 = 45%, then Medium 30% x 2 = 60%.
                         1 => Spec(SectActivePowerKind.HealCirclePercent, SectRadius.Small, "Hands of Plenty",
-                                  "Restore 30% HP to units and buildings in a small area.",
-                                  magnitude: 0.30f, cooldown: 90f),
+                                  "Restore 45% HP to units and buildings in a small area.",
+                                  magnitude: SpellLadder.Heal(SectRadius.Small, 1), cooldown: SpellLadder.SectTacticalCooldown),
                         2 => Spec(SectActivePowerKind.HealCirclePercent, SectRadius.Medium, "Hands of Plenty",
-                                  "Restore 50% HP in a medium area.", magnitude: 0.50f, cooldown: 85f),
+                                  "Restore 45% HP in a medium area.",
+                                  magnitude: SpellLadder.Heal(SectRadius.Medium, 2), cooldown: SpellLadder.SectTacticalCooldown),
                         // Duration is the regen tail: the burst lands, then healing
-                        // continues for 10s. 80%, not 100% — a full heal made every
-                        // other Renewal power redundant.
+                        // continues for 10s.
                         _ => Spec(SectActivePowerKind.HealCirclePercent, SectRadius.Medium, "Hands of Plenty",
-                                  "Restore 80% HP in a medium area, and healing continues for 10s.",
-                                  magnitude: 0.80f, duration: 10f, cooldown: 80f),
+                                  "Restore 60% HP in a medium area, and healing continues for 10s.",
+                                  magnitude: SpellLadder.Heal(SectRadius.Medium, 3), duration: 10f, cooldown: SpellLadder.SectTacticalCooldown),
                     };
 
                 // Raise Anew — Magnitude selects WHICH STRUCTURE, and every
@@ -132,21 +141,24 @@ namespace TheWaningBorder.Economy
                 // buildings, each with its own SO, none of them on a timer.
                 //
                 // The long cooldowns are kept, and now earn their keep: what
-                // each cast leaves behind is a permanent board change.
+                // each cast leaves behind is a permanent board change. One of
+                // the two ladder exceptions where the cooldown RISES with the
+                // level (docs/Design/Spells.md 8.2): each level raises a
+                // different, much larger permanent building.
                 case 2:
                     return level switch
                     {
                         1 => Spec(SectActivePowerKind.RaiseTower, SectRadius.Single, "Raise Anew",
                                   "Raise a permanent Renewal Tower — a watch post. It stays until destroyed.",
-                                  magnitude: 1f, duration: Permanent, cooldown: 156f),
+                                  magnitude: 1f, duration: Permanent, cooldown: SpellLadder.SectWildcardCooldown),
                         2 => Spec(SectActivePowerKind.RaiseTower, SectRadius.Single, "Raise Anew",
                                   "Raise a permanent Renewal Fortification — a walled strongpoint.",
-                                  magnitude: 2f, duration: Permanent, cooldown: 195f),
+                                  magnitude: 2f, duration: Permanent, cooldown: 150f),
                         // III raises a keep outright, which is why it carries
                         // the longest recharge in the set.
                         _ => Spec(SectActivePowerKind.RaiseTower, SectRadius.Single, "Raise Anew",
                                   "Raise a permanent Renewal Fortress — a keep that anchors the ground.",
-                                  magnitude: 3f, duration: Permanent, cooldown: 234f),
+                                  magnitude: 3f, duration: Permanent, cooldown: 180f),
                     };
 
                 default: // Second Wind — Magnitude is the heal-on-expiry fraction.
@@ -154,13 +166,13 @@ namespace TheWaningBorder.Economy
                     {
                         1 => Spec(SectActivePowerKind.DeathWard, SectRadius.Small, "Second Wind",
                                   "Units in a small area cannot drop below 1 HP for 6s.",
-                                  duration: 6f, cooldown: 150f),
+                                  duration: 6f, cooldown: SpellLadder.SectTacticalCooldown),
                         2 => Spec(SectActivePowerKind.DeathWard, SectRadius.Small, "Second Wind",
                                   "Units in a small area cannot drop below 1 HP for 12s.",
-                                  duration: 12f, cooldown: 140f),
+                                  duration: 12f, cooldown: SpellLadder.SectTacticalCooldown),
                         _ => Spec(SectActivePowerKind.DeathWard, SectRadius.Medium, "Second Wind",
                                   "Medium area, 12s; survivors heal 25% when it ends.",
-                                  magnitude: 0.25f, duration: 12f, cooldown: 130f),
+                                  magnitude: 0.25f, duration: 12f, cooldown: SpellLadder.SectTacticalCooldown),
                     };
             }
         }
@@ -180,27 +192,30 @@ namespace TheWaningBorder.Economy
                     {
                         1 => Spec(SectActivePowerKind.Veil, SectRadius.Small, "Stoneveil",
                                   "Veil a small area for 8s: invisible, untargetable, faster, but unable to act.",
-                                  duration: 8f, cooldown: 120f),
+                                  duration: 8f, cooldown: SpellLadder.SectTacticalCooldown),
                         2 => Spec(SectActivePowerKind.Veil, SectRadius.Small, "Stoneveil",
-                                  "Veil a small area for 15s.", duration: 15f, cooldown: 110f),
+                                  "Veil a small area for 15s.", duration: 15f, cooldown: SpellLadder.SectTacticalCooldown),
                         _ => Spec(SectActivePowerKind.Veil, SectRadius.Medium, "Stoneveil",
                                   "Veil a medium area for 15s; on expiry they gain +25% damage for 10s.",
-                                  magnitude: 0.25f, duration: 15f, cooldown: 100f),
+                                  magnitude: 0.25f, duration: 15f, cooldown: SpellLadder.SectTacticalCooldown),
                     };
 
                 // Bulwark — Magnitude is the bonus HP fraction; Lv III adds reflect.
                 case 2:
                     return level switch
                     {
+                        // 15s on a 60s cooldown: a doubled building is strong
+                        // defense, capped at 25% uptime (docs/Design/Spells.md
+                        // 8.4). 30s was 50-60%.
                         1 => Spec(SectActivePowerKind.BuildingHpBuff, SectRadius.Single, "Bulwark",
-                                  "One building gains +100% HP for 30s.",
-                                  magnitude: 1.0f, duration: 30f, cooldown: 120f),
+                                  "One building gains +100% HP for 15s.",
+                                  magnitude: 1.0f, duration: 15f, cooldown: SpellLadder.SectTacticalCooldown),
                         2 => Spec(SectActivePowerKind.BuildingHpBuff, SectRadius.Small, "Bulwark",
-                                  "Buildings in a small area gain +100% HP for 30s.",
-                                  magnitude: 1.0f, duration: 30f, cooldown: 110f),
+                                  "Buildings in a small area gain +100% HP for 15s.",
+                                  magnitude: 1.0f, duration: 15f, cooldown: SpellLadder.SectTacticalCooldown),
                         _ => Spec(SectActivePowerKind.BuildingHpBuff, SectRadius.Medium, "Bulwark",
-                                  "Buildings in a medium area gain +100% HP for 30s and reflect 20% of melee damage.",
-                                  magnitude: 1.0f, duration: 30f, cooldown: 100f),
+                                  "Buildings in a medium area gain +100% HP for 15s and reflect 20% of melee damage.",
+                                  magnitude: 1.0f, duration: 15f, cooldown: SpellLadder.SectTacticalCooldown),
                     };
 
                 // Immovable — flat armor, then outright invulnerability. Replaces the
@@ -211,17 +226,18 @@ namespace TheWaningBorder.Economy
                     {
                         1 => Spec(SectActivePowerKind.ArmorCircle, SectRadius.Small, "Immovable",
                                   "Units in a small area gain +5 armor for 10s.",
-                                  magnitude: 5f, duration: 10f, cooldown: 120f),
+                                  magnitude: 5f, duration: 10f, cooldown: SpellLadder.SectTacticalCooldown),
                         2 => Spec(SectActivePowerKind.ArmorCircle, SectRadius.Medium, "Immovable",
                                   "Units in a medium area gain +8 armor for 15s.",
-                                  magnitude: 8f, duration: 15f, cooldown: 130f),
+                                  magnitude: 8f, duration: 15f, cooldown: SpellLadder.SectTacticalCooldown),
                         // Balance flag (docs/Design/Sects.md): a 25m army-wide 20s
                         // invulnerability is the strongest defensive effect in the
                         // game. On-theme, but the first number to revisit if
-                        // Fortitude dominates — hence the long cooldown.
+                        // Fortitude dominates — hence the wildcard cooldown, the
+                        // ladder exception where III costs more than I-II.
                         _ => Spec(SectActivePowerKind.Invulnerable, SectRadius.Large, "Immovable",
                                   "Units in a large area become invulnerable for 20s.",
-                                  duration: 20f, cooldown: 240f),
+                                  duration: 20f, cooldown: SpellLadder.SectWildcardCooldown),
                     };
             }
         }
@@ -242,13 +258,13 @@ namespace TheWaningBorder.Economy
                     {
                         1 => Spec(SectActivePowerKind.NodeOverYield, SectRadius.Single, "Harvest the Veil",
                                   "Target a resource node: 50 Supplies every 5s for 30s (300 total).",
-                                  magnitude: 50f, duration: 30f, cooldown: 120f),
+                                  magnitude: 50f, duration: 30f, cooldown: SpellLadder.SectEconomyCooldown),
                         2 => Spec(SectActivePowerKind.NodeOverYield, SectRadius.Single, "Harvest the Veil",
                                   "Target a resource node: 75 Supplies + 20 Iron every 5s for 30s.",
-                                  magnitude: 75f, duration: 30f, cooldown: 120f),
+                                  magnitude: 75f, duration: 30f, cooldown: SpellLadder.SectEconomyCooldown),
                         _ => Spec(SectActivePowerKind.NodeOverYield, SectRadius.Single, "Harvest the Veil",
                                   "Target a resource node: 150 Supplies + 60 Iron + 35 Veilstone + 5 Veilsteel every 5s for 30s.",
-                                  magnitude: 150f, duration: 30f, cooldown: 120f),
+                                  magnitude: 150f, duration: 30f, cooldown: SpellLadder.SectEconomyCooldown),
                     };
 
                 // Cleanse — drives the existing influence map rather than inventing a
@@ -259,13 +275,13 @@ namespace TheWaningBorder.Economy
                     {
                         1 => Spec(SectActivePowerKind.InfluenceBurst, SectRadius.Small, "Cleanse",
                                   "Pump heavy player influence into a small area for 20s.",
-                                  magnitude: 6f, duration: 20f, cooldown: 120f),
+                                  magnitude: 6f, duration: 20f, cooldown: SpellLadder.SectEconomyCooldown),
                         2 => Spec(SectActivePowerKind.InfluenceBurst, SectRadius.Medium, "Cleanse",
                                   "Pump heavy player influence into a medium area for 40s.",
-                                  magnitude: 6f, duration: 40f, cooldown: 120f),
+                                  magnitude: 6f, duration: 40f, cooldown: SpellLadder.SectEconomyCooldown),
                         _ => Spec(SectActivePowerKind.InfluenceBurst, SectRadius.Large, "Cleanse",
                                   "Pump heavy player influence into a large area for 40s; allies inside regenerate.",
-                                  magnitude: 8f, duration: 40f, cooldown: 120f),
+                                  magnitude: 8f, duration: 40f, cooldown: SpellLadder.SectEconomyCooldown),
                     };
 
                 // Veil-Touched — Magnitude is the cursed-ground speed bonus at Lv III.
@@ -274,13 +290,13 @@ namespace TheWaningBorder.Economy
                     {
                         1 => Spec(SectActivePowerKind.CurseWard, SectRadius.Small, "Veil-Touched",
                                   "Units in a small area take no curse damage for 15s.",
-                                  duration: 15f, cooldown: 100f),
+                                  duration: 15f, cooldown: SpellLadder.SectTacticalCooldown),
                         2 => Spec(SectActivePowerKind.CurseWard, SectRadius.Medium, "Veil-Touched",
                                   "Units in a medium area take no curse damage for 30s.",
-                                  duration: 30f, cooldown: 100f),
+                                  duration: 30f, cooldown: SpellLadder.SectTacticalCooldown),
                         _ => Spec(SectActivePowerKind.CurseWard, SectRadius.Large, "Veil-Touched",
                                   "Large area, 30s, and they move 20% faster on cursed ground.",
-                                  magnitude: 0.20f, duration: 30f, cooldown: 100f),
+                                  magnitude: 0.20f, duration: 30f, cooldown: SpellLadder.SectTacticalCooldown),
                     };
             }
         }

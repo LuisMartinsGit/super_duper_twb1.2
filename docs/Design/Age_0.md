@@ -100,7 +100,7 @@ pre-culture lvl 0 form exists.
 | Line of Sight | 24 |
 | Auto-fire max targets | 1 |
 | Provides population | 20 |
-| Build cost | starting (free) |
+| Build cost | 450 Supplies + 450 Iron base, **escalating**: × (1 + 0.5 × N), N = your live + under-construction Halls not counting the Fortress ([Regions.md §2 No territory hopping](Regions.md#no-territory-hopping-2026-09-26-extended-2026-09-27)). The starting Fortress is free. |
 
 #### Trainable units
 
@@ -291,7 +291,7 @@ before the melee engagement closes.
 
 | Tech | Cost | Time | Effect |
 |------|------|------|--------|
-| **Choreographed volleys** | 120 S + 30 I | 35 s | Active skill: doubles fire-rate of all Archers for 5 s. 40 s cooldown. **(new)** |
+| **Choreographed volleys** | 120 S + 30 I | 35 s | Active skill, carried by every ranged unit: allied ranged units within 15 m fire at double rate for 5 s. 60 s cooldown ([Spells.md](Spells.md) §9). **(new)** |
 | **Stone-tipped arrows** | 80 S + 20 I | 25 s | Unlocks unit upgrade 1 (Archer tier-1 damage bump â€” TBD line). **(new)** |
 | **Fletching** | 80 S + 30 I | 30 s | +15 % range for Archers (attackRange 25 â†’ 28.75). **(new)** |
 
@@ -391,7 +391,7 @@ slots.
 | Level | **Lv0** — the culture-less wall, exactly as every other building's Lv0. Picking Alanthor grants Lv1 (stone) free; Lv2 and Lv3 are bought **at the Wall Hub**. See [Age_1_Alanthor.md § The four wall levels](Age_1_Alanthor.md#the-four-wall-levels-2026-09-24--supersedes-the-three-wall-levels) |
 | Placement | drawn, exactly as [Age_1_Alanthor.md § Drawing walls](Age_1_Alanthor.md#drawing-walls-2026-09-18) describes |
 
-Full tier table, the gate, garrison and the two emplacement buildings:
+Full tier table, the gate, garrison and the two wall-mounted emplacements (masonry levels only):
 [Age_1_Alanthor.md § Wall levels, the gate structure and emplacements](Age_1_Alanthor.md#wall-levels-the-gate-structure-and-emplacements-2026-09-21).
 
 ## Special buildings (starts lvl 1)
@@ -472,7 +472,7 @@ within a 10-unit radius (1 s ticks). On build, awards **+1 Religion Point**;
 | Tech | Building lvl req. | Cost | Time | Effect |
 |------|------------------|------|------|--------|
 | **Heightened masses** | L1 | 150 S + 40 C | 30 s | Heal rate 1 % â†’ 3 % / s. |
-| **Warrior priests** | L1 | 180 S + 50 I + 20 C | 35 s | Litharchs gain a melee attack (default melee damage TBD â€” suggest 6 dmg/1.5 s). |
+| **Warrior priests** | L1 | 180 S + 50 I + 20 C | 35 s | Litharchs gain a melee attack: **6 damage every 1.5 s** (the suggested value, adopted 2026-09-26; authored as `Set` entries in `WarriorPriests.asset`'s effectsList, not in code). |
 | **Pious masses** | L2 | 220 S + 80 C | 40 s | Heal rate 3 % â†’ 6 % / s. Requires Heightened masses. |
 | **Fervored masses** | L3 | 320 S + 120 C | 50 s | Heal rate 6 % â†’ 15 % / s. Requires Pious masses. |
 
@@ -601,7 +601,7 @@ Combat math: `finalDamage = baseDamage Ã— dmgTypeVsArmor Ã— (1 âˆ’ def
 | Line of Sight | 30 |
 | Cost | 50 Supplies + 25 Iron |
 | Pop cost | 1 |
-| Active skill (post **Choreographed volleys**) | Halve cooldown to 1.0 s for 5 s, then 40 s cooldown. Faction-wide skill triggered at the Archery Range UI. |
+| Active skill (post **Choreographed volleys**) | Halve cooldown to 1.0 s for 5 s, then 60 s cooldown. A unit active: every ranged unit carries it and it reaches allied ranged units within 15 m ([Spells.md](Spells.md) §9). |
 
 ### Litharch
 
@@ -612,10 +612,11 @@ Combat math: `finalDamage = baseDamage Ã— dmgTypeVsArmor Ã— (1 âˆ’ def
 | Speed | 5.5 |
 | Training time | 7 s |
 | Armor type | ranged |
-| Damage | **0 (Litharchs cannot attack â€” they are pure healers)**. The **Warrior priests** tech is what grants them an attack ability. *(spec gap â€” exact damage / cooldown when Warrior priests is researched. Q#2 resolved this rule.)* |
+| Damage | **0 (Litharchs cannot attack â€” they are pure healers)**. The **Warrior priests** tech is what grants them an attack ability: **6 damage / 1.5 s**. Even armed, a Litharch never goes looking for a fight: it only returns fire on an attacker in reach and never chases ([Stances.md § 1b](Stances.md#1b-support-units)). |
 | Heal | 6 HP / s on target (single-target right-click heal). Shrine's *aura* heal is separate. |
 | Defense (M/R/S/Mg) | 0 / 0 / 0 / 2 |
-| Attack range | 10 (heal range) |
+| Attack range | 10 (heal range; `healRange` in `Litharch.asset`) |
+| Healer positioning | Walks to a stand-off point **2 m inside** heal range on the patient-to-Litharch line (never onto the patient); prefers wounded allies **not in melee contact** (no enemy within 3 m of them); **steps 6 m away** from any armed enemy within **5 m**; auto-searches wounded allies within **16 m**. On Hold it heals only what is already in range. A move order always wins. Tunables: `LitharchHealingSystem.asset`. |
 | Line of Sight | 20 |
 | Cost | 100 Supplies + 25 Iron + 10 Veilstone |
 | Pop cost | 1 |
@@ -698,8 +699,8 @@ record**. Cross-faction items are flagged.
    ladder.
 2. **Warrior priests Litharch damage** â€” **resolved.** Litharch has
    **0 damage by default** (pure healer). The **Warrior priests** tech
-   is what grants attack ability. Exact damage / cooldown post-Warrior-
-   priests TBD.
+   is what grants attack ability: 6 damage / 1.5 s (adopted
+   2026-09-26 from the suggestion above).
 3. **Fiendstone Keep base ranged stats** â€” **resolved.** Bump to:
    **range 30** (from 25), **max targets 4** (from 3). Damage and
    cooldown stay (20 dmg / 2.0 s). Emplacement techs still add separate
@@ -730,9 +731,8 @@ record**. Cross-faction items are flagged.
   Iron / Veilstone / Glow weapons + Stone-tipped / Iron-tipped /
   Veilstone-tipped / Glow-tipped arrows + Tools 4-tier). Numbers TBD
   per playtest; the *unlock* mechanic is set.
-- **Warrior priests Litharch damage** (Q#2) â€” exact damage and cooldown
-  TBD once the rule is "0 by default, attack granted by Warrior
-  priests."
+- **Warrior priests Litharch damage** (Q#2) â€” 6 damage / 1.5 s adopted
+  2026-09-26; revisit in playtest.
 - **Fiendstone Keep range bump validation** (Q#3) â€” 30 range with 4 max
   targets is a meaningful buff vs the prior 25 range / 3 targets. Worth
   a playtest pass to confirm it doesn't make the Keep dominant in

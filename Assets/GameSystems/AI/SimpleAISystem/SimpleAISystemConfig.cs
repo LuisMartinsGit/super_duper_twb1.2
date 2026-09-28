@@ -57,6 +57,64 @@ namespace TheWaningBorder.AI
         // the AI's own base, so the distance earns its keep on layout alone.
         public float minGHutToGHutSpacing;
 
+        /// <summary>
+        /// Clear build cells (2 m each) kept EDGE TO EDGE between an AI
+        /// building's footprint and every other building's, on the normal and
+        /// the loose placement passes — a lane an army can walk through.
+        /// Operator direction 2026-09-25: "AI building placement is too
+        /// cramped". Extractors are exempt (their node decides where they
+        /// stand). docs/Design/Game_AI.md §6b.
+        /// </summary>
+        public int buildingGapCells;
+
+        /// <summary>The same gap on the LAST-RESORT pass, which drops the
+        /// centre spacing. Was effectively 0 (flush); must stay at least 1
+        /// so even a full base keeps a walkable seam.</summary>
+        public int relaxedBuildingGapCells;
+
+        /// <summary>How far from the Hall the last-resort pass may reach
+        /// (the normal passes stop at buildRingDistanceMax). Kept inside the
+        /// AI's perimeter wall: see AIWallPlanner.perimeterHalfExtentMin.</summary>
+        public float relaxedBuildRingDistanceMax;
+
+        /// <summary>Metres a base building's footprint keeps inside a planned
+        /// perimeter wall's hub line.</summary>
+        public float wallInteriorClearance;
+
+        /// <summary>Ring reach of an EXTRACTOR's site search around its node
+        /// site. The node gate accepts only candidates within 4 m of a free
+        /// node, so anything beyond this is candidates that cannot pass.</summary>
+        public float extractorSearchRadius;
+
+        // ── Think cost (2026-09-25 AI perf pass) ─────────────────────────
+
+        /// <summary>Seconds a FAILED site search for one (faction, building,
+        /// anchor) is remembered and not re-run. Forgotten early when a
+        /// building is razed or territory changes hands. 0 disables.</summary>
+        public float failedSiteSearchCooldown;
+
+        /// <summary>Site-search candidates one think may test in total, over
+        /// every building it tries to place.</summary>
+        public int siteSearchCandidateBudget;
+
+        /// <summary>Of those, how many may reach the expensive terrain /
+        /// passability validation stage.</summary>
+        public int siteSearchValidateBudget;
+
+        /// <summary>Heavy AI thinks (a SimpleAISystem brain think, an endgame
+        /// pass) allowed per rendered frame, across all brains and systems.
+        /// Extra due brains wait a frame, most overdue first.</summary>
+        public int maxBrainThinksPerFrame;
+
+        /// <summary>A brain overdue by this many of its own think intervals
+        /// thinks regardless of the per-frame budget, so a crowded match
+        /// slows brains down but never starves one.</summary>
+        public float thinkStarvationIntervals;
+
+        /// <summary>Minimum seconds between claim attempts while a funded
+        /// claim pot bypasses claimAttemptInterval.</summary>
+        public float claimPotReadyRetrySeconds;
+
         // Build a Hut whenever population headroom drops to this or below.
         /// <summary>
         /// Spare population the AI keeps in hand. Below this it raises a Hut.
@@ -204,10 +262,20 @@ namespace TheWaningBorder.AI
         /// claim is diagnosable without filling the log.</summary>
         public float claimLogInterval;
 
-        /// <summary>Ignore regions further than this from anything we hold.
-        /// A claim across the map is a Hall nobody can defend and builders
-        /// walking for a minute to reach it.</summary>
-        public float maxClaimReach;
+        // maxClaimReach (a seed-distance cap on claim targets) was retired on
+        // 2026-09-26: a Hall may only go into a territory ADJACENT to one the
+        // faction holds (docs/Design/Regions.md §2), which is the real rule
+        // the distance cap approximated.
+
+        /// <summary>A Hall needs one of the faction's workers within
+        /// TerritoryOwnership.HallBuilderRange of its site. When none is, the
+        /// AI walks one there first; this is how long (seconds) before the
+        /// walk order is re-issued, in case something else overrode it.</summary>
+        public float claimBuilderRewalkSeconds;
+
+        /// <summary>The walking worker's stand-off from the Hall's footprint
+        /// edge, metres — it waits beside the site, not on it.</summary>
+        public float claimBuilderStandOff;
 
         /// <summary>A region with resources is worth more than empty ground —
         /// territory income comes from the nodes standing in it
@@ -311,6 +379,11 @@ namespace TheWaningBorder.AI
         /// travelling outside the formation is folded back in by re-issuing
         /// the leg's order to the whole army.</summary>
         public float regroupInterval;
+        /// <summary>Share of the army that must be travelling OUTSIDE the
+        /// formation before a straggler sweep re-issues the leg (never fewer
+        /// than two units). Below it the strays finish on their own orders
+        /// rather than stopping the whole army to re-slot.</summary>
+        public float regroupLooseFraction;
         /// <summary>A reinforcement column this close to the army it was sent
         /// to join is merged into it.</summary>
         public float reinforceMergeRadius;

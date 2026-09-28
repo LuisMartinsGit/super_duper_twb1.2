@@ -287,8 +287,27 @@ namespace TheWaningBorder.Core.Commands.Types
             for (int i = 0; i < plan.Units.Count; i++)
             {
                 if (!plan.Member[i]) continue;
-                members.Add(new FormationMember { Unit = plan.Units[i], Slot = plan.SlotLocal[i] });
+                members.Add(new FormationMember
+                {
+                    Unit = plan.Units[i],
+                    Slot = plan.SlotLocal[i],
+                    SlotWorld = plan.SlotWorld[i],
+                });
             }
+
+            // Identity of THIS formation for IdleFormUpSystem: a hash of the
+            // members' stable keys (network ids) and the layout, in plan order.
+            // Every peer builds the plan from the same state, so every peer
+            // derives the same key.
+            uint groupKey = 2166136261u ^ plan.LayoutKey;
+            for (int i = 0; i < plan.Units.Count; i++)
+            {
+                if (!plan.Member[i]) continue;
+                long k = StableKey(em, plan.Units[i]);
+                groupKey = (groupKey ^ (uint)k) * 16777619u;
+                groupKey = (groupKey ^ (uint)(k >> 32)) * 16777619u;
+            }
+            if (groupKey == 0) groupKey = 1;
 
             // Attach the back-reference + group speed AFTER the per-unit
             // command execution (MoveCommandHelper.Execute strips any prior
@@ -316,23 +335,24 @@ namespace TheWaningBorder.Core.Commands.Types
                 {
                     Slot = plan.SlotIndex[i],
                     LayoutKey = plan.LayoutKey,
+                    Shape = shape,
+                    GroupKey = groupKey,
                 };
                 TransientState.Set(em, unit, mem);
             }
         }
 
         /// <summary>
-        /// Issue the per-unit orders of a plan WITHOUT creating a group.
-        /// Used directly by the lockstep fallback (slot moves serialize as
-        /// ordinary per-unit move commands).
+        /// Issue the per-unit orders of a plan WITHOUT creating a group
+        /// (the group path calls it first, then attaches membership).
         /// </summary>
         /// <param name="reattaches">
         /// True when the caller will re-attach formation membership right
         /// after this (the group path). Members then keep their three
         /// formation components instead of having them stripped and
         /// immediately re-added — six structural changes per unit per order.
-        /// The lockstep path passes false: there is no group, and membership
-        /// really does end.
+        /// A plan with fewer than two members passes false: there is no
+        /// group, and membership really does end.
         /// </param>
         public static void IssuePlanOrders(EntityManager em, in FormationPlan plan, bool attackMove,
             bool reattaches = false)
@@ -419,8 +439,15 @@ namespace TheWaningBorder.Core.Commands.Types
             var ranks = new int[count];
             var lateral = new float[count];
             var along = new float[count];
+            // Tie-break key. NETWORK ID, never Entity.Index: this plan is
+            // built on EVERY lockstep peer from the replicated FormationOrder,
+            // and entity indices legitimately differ between peers (host-only
+            // AI structural changes). Unnetworked units (single-player only)
+            // fall back to the index, offset past every real id.
+            var stable = new long[count];
             for (int i = 0; i < count; i++)
             {
+                stable[i] = StableKey(em, units[i]);
                 ranks[i] = FormationRank(em, units[i]);
                 float3 d = positions[i] - centroid;
                 lateral[i] = d.x * right.x + d.z * right.z;
@@ -490,7 +517,7 @@ namespace TheWaningBorder.Core.Commands.Types
                 if (byAlong != 0) return byAlong;
                 int byLat = lateral[a].CompareTo(lateral[b]);
                 if (byLat != 0) return byLat;
-                return units[a].Index.CompareTo(units[b].Index); // deterministic tie-break
+                return stable[a].CompareTo(stable[b]); // deterministic tie-break (see `stable`)
             });
 
             var unitSlot = new int[count];
@@ -555,7 +582,7 @@ namespace TheWaningBorder.Core.Commands.Types
                     {
                         int byLat = lateral[a].CompareTo(lateral[b]);
                         if (byLat != 0) return byLat;
-                        return units[a].Index.CompareTo(units[b].Index);
+                        return stable[a].CompareTo(stable[b]);
                     });
                     for (int k = 0; k < rowUnits.Count; k++)
                     {
@@ -980,6 +1007,16 @@ namespace TheWaningBorder.Core.Commands.Types
                 }
             }
             return RankMelee;
+        }
+
+        /// <summary>Peer-stable ordering key: the network id, or — for an
+        /// unnetworked unit, which only exists outside lockstep — the entity
+        /// index pushed past every possible id.</summary>
+        internal static long StableKey(EntityManager em, Entity e)
+        {
+            if (em.HasComponent<TheWaningBorder.Core.Multiplayer.NetworkedEntity>(e))
+                return em.GetComponentData<TheWaningBorder.Core.Multiplayer.NetworkedEntity>(e).NetworkId;
+            return (1L << 40) + e.Index;
         }
 
         /// <summary>Villagers / worker units never form up (AoE4 rule) —

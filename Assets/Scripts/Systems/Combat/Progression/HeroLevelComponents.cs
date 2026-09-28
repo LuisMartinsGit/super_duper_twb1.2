@@ -40,8 +40,12 @@ public struct HeroExperience : IComponentData
 /// clear it. Without this marker a hero standing over a body would collect its
 /// XP every frame until the body vanished, which at 60 fps is roughly "kill
 /// one archer, reach level 10".
+///
+/// ENABLEABLE (2026-09-27): pre-added disabled with the TransientState unit
+/// set and raised by the enable bit. Adding it per corpse gave every unit
+/// archetype a dead twin. WithNone<HeroXpAwarded> treats disabled as absent.
 /// </summary>
-public struct HeroXpAwarded : IComponentData { }
+public struct HeroXpAwarded : IComponentData, IEnableableComponent { }
 
 /// <summary>
 /// Marks a unit conjured by an ability rather than trained — King Lexor's

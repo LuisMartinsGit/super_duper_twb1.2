@@ -524,6 +524,9 @@ checked in with the pass ON so it can be looked at, and it must be switched
 - **Where:** `Assets/GameSystems/Rendering/PencilOutline/`. Every value is in
   `PencilOutline.asset`, and `enabled` there is the A/B switch; it can be
   edited live in Play mode.
+- **Player setting (2026-09-27):** Settings > Visuals > **Ink Outlines**
+  turns the pass on or off, saved in settings.json. Until a player chooses,
+  the asset's `enabled` decides, so the A/B switch is still the default.
 - **To adopt:** capture Hollow Table at default and max zoom (§3.5) with the
   pass on and off, then either rewrite the opening paragraph of this
   "Stylised look" section and delete this subsection, or delete the folder.

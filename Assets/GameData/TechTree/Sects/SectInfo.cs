@@ -4,7 +4,7 @@
 //   • Lore  — a single sentence of flavour for the picker header.
 //   • Passive  — what the sect's passive lever does (level-agnostic summary).
 //   • ActivePower  — what the active ability does, with Lv-I numbers.
-//   • Building  — what the chapel's aura does, with Lv-I numbers.
+//   • Building  — what the sect's building does (there is no chapel aura).
 //   • Unit  — what the unit lever bonus is, with Lv-I numbers.
 //   • Technology  — what a chapel-upgrade chain (P/B/U/A Lv I→II→III) means
 //                   thematically for the sect.
@@ -77,13 +77,13 @@ namespace TheWaningBorder.Economy
             // tier-less overload kept answering from the legacy switch below,
             // which still advertises retired powers - War's entry there is the
             // old move-speed "War March", a power that no longer exists.
-            var canonFirst = SectLeverEffects.CanonActive(sectId, 1, 1);
+            var canonFirst = SectLeverEffects.ActiveOf(sectId, 1, 1);
             if (canonFirst.Description != null)
             {
                 return Loc.T(canonFirst.Description) + "  " +
                        string.Format(Loc.T("Reach: {0}. Cooldown: {1}s."),
                            Loc.T(SectRadii.Label(canonFirst.Reach)),
-                           canonFirst.Cooldown.ToString("0"));
+                           BaseCooldown(canonFirst.Cooldown));
             }
 
             var spec = SectLeverEffects.ActiveOf(sectId);
@@ -110,8 +110,31 @@ namespace TheWaningBorder.Economy
                 SectConfig.Wrath       => string.Format(Loc.T("Spite — enemies within {0}m pool the damage they have dealt this match, and the pool is split back over them."), radius),
                 _                      => "—",
             };
-            return body + "  " + string.Format(Loc.T("Cooldown: {0}s."), spec.Cooldown.ToString("0"));
+            return body + "  " + string.Format(Loc.T("Cooldown: {0}s."), BaseCooldown(spec.Cooldown));
         }
+
+        /// <summary>
+        /// The cooldown a player without Shardroot or Shrine upgrades actually
+        /// waits: the authored number, since there is no hidden global scale.
+        /// These texts have no faction to ask; the Religion panel shows the
+        /// fully effective number (SectActivePowerHelper.EffectiveCooldown).
+        /// docs/Design/Spells.md section 5.
+        /// </summary>
+        public static string BaseCooldown(float specCooldown)
+            => specCooldown.ToString("0");
+
+        /// <summary>Player-facing name of a damage type ("magic", "true", ...).</summary>
+        public static string DamageTypeName(DamageType t) => t switch
+        {
+            DamageType.Melee  => Loc.T("melee"),
+            DamageType.Ranged => Loc.T("ranged"),
+            DamageType.Siege  => Loc.T("siege"),
+            DamageType.True   => Loc.T("true"),
+            _                 => Loc.T("magic"),
+        };
+
+        /// <summary>I / II / III for a power level.</summary>
+        public static string Roman(int level) => level >= 3 ? "III" : level == 2 ? "II" : "I";
 
         // ─────────────────────────────────────────────────────────────────
         // TIERED ACTIVES (design 2026-07-05) — name + description per tier.
@@ -124,7 +147,7 @@ namespace TheWaningBorder.Economy
             // The legacy table below only answers for sects not yet cut over —
             // and it is where the literal "Locked" came from, which is what a
             // pre-canon sect showed on tiers 2 and 3.
-            var canon = SectLeverEffects.CanonActive(sectId, tier, 1);
+            var canon = SectLeverEffects.ActiveOf(sectId, tier, 1);
             if (canon.Name != null) return Loc.T(canon.Name);
             return Loc.T(LegacyActiveName(sectId, tier));
         }
@@ -187,13 +210,13 @@ namespace TheWaningBorder.Economy
         /// </summary>
         public static string ActivePowerDescription(string sectId, int tier, int level)
         {
-            var canonSpec = SectLeverEffects.CanonActive(sectId, tier, level);
+            var canonSpec = SectLeverEffects.ActiveOf(sectId, tier, level);
             if (canonSpec.Description != null)
             {
                 return Loc.T(canonSpec.Description) + "  " +
                        string.Format(Loc.T("Reach: {0}. Cooldown: {1}s."),
                            Loc.T(SectRadii.Label(canonSpec.Reach)),
-                           canonSpec.Cooldown.ToString("0"));
+                           BaseCooldown(canonSpec.Cooldown));
             }
 
             if (tier <= 1) return ActivePowerDescription(sectId);
@@ -215,17 +238,17 @@ namespace TheWaningBorder.Economy
                 (SectConfig.War, 3)     => string.Format(Loc.T("Annihilation — {0} devastating damage to everything hostile in a {1}m circle."), magnitude, radius),
                 _                       => "—",
             };
-            return body + "  " + string.Format(Loc.T("Cooldown: {0}s."), spec.Cooldown.ToString("0"));
+            return body + "  " + string.Format(Loc.T("Cooldown: {0}s."), BaseCooldown(spec.Cooldown));
         }
 
         // ─────────────────────────────────────────────────────────────────
-        // UNIQUE BUILDING — Chapel of <Sect> and its aura.
+        // UNIQUE BUILDING — the sect building (no chapel aura).
         // ─────────────────────────────────────────────────────────────────
         /// <summary>
         /// The sect's building — one per sect, capped at 5 per faction, where
         /// that sect's unit is trained and its research is bought
-        /// (docs/Design/Sects.md section 1). Sects not yet cut over still fall
-        /// through to the legacy chapel-aura text below.
+        /// (docs/Design/Sects.md section 1). There is no chapel aura; every
+        /// sect describes its building.
         /// </summary>
         public static string BuildingDescription(string sectId)
         {
@@ -254,21 +277,35 @@ namespace TheWaningBorder.Economy
                            "Trains the Warbreaker, researches Endless Muster.");
             }
 
-            var aura = SectLeverEffects.AuraOf(sectId);
-            var sb = new StringBuilder();
-            sb.Append(string.Format(Loc.T("Chapel of {0} — projects an aura within {1}m: "),
-                ShortName(sectId), aura.Radius.ToString("0")));
-
-            bool any = false;
-            if (aura.DamageMultiplier > 1.001f) { sb.Append(string.Format(Loc.T("+{0}% damage"), ((aura.DamageMultiplier - 1f) * 100f).ToString("0"))); any = true; }
-            if (aura.ArmorBonus > 0)            { if (any) sb.Append(", "); sb.Append(string.Format(Loc.T("+{0} armor"), aura.ArmorBonus)); any = true; }
-            if (aura.SpeedMultiplier > 1.001f)  { if (any) sb.Append(", "); sb.Append(string.Format(Loc.T("+{0}% speed"), ((aura.SpeedMultiplier - 1f) * 100f).ToString("0"))); any = true; }
-            if (aura.DamageReflect > 0.001f)    { if (any) sb.Append(", "); sb.Append(string.Format(Loc.T("{0}% reflect"), (aura.DamageReflect * 100f).ToString("0"))); any = true; }
-            if (aura.HpRegenPerSecond > 0)      { if (any) sb.Append(", "); sb.Append(string.Format(Loc.T("{0} HP/s regen"), aura.HpRegenPerSecond)); any = true; }
-            if (!any) sb.Append(Loc.T("a quiet sanctifying presence"));
-
-            sb.Append(Loc.T(" to allied units."));
-            return sb.ToString();
+            // There is no chapel aura (docs/Design/Sects.md section 1), so a
+            // sect with no bespoke case above describes its building from the
+            // design text rather than composing an aura that no longer exists.
+            switch (sectId)
+            {
+                case SectConfig.Silence:
+                    return Loc.T("Hush Vault — a sunken stone cell. Enemy sect powers cast within " +
+                           "its footprint cost their caster extra cooldown. Limit 5.");
+                case SectConfig.Justice:
+                    return Loc.T("Tribunal — a raised court platform. Marked enemies that die " +
+                           "anywhere on the map refund a little of its research cost. Limit 5.");
+                case SectConfig.Veneration:
+                    return Loc.T("Choir Hall — a resonating hall. Friendly units passing through " +
+                           "gain a short Fervor bonus. Limit 5.");
+                case SectConfig.Witness:
+                    return Loc.T("Glass Spire — a thin mirrored tower that sees further than any " +
+                           "other building. Cannot be built inside another Spire's sight. Limit 5.");
+                case SectConfig.Ash:
+                    return Loc.T("Ash Pyre — a permanently burning pyre. Enemies adjacent to it " +
+                           "take burn damage. Limit 5.");
+                case SectConfig.Ruin:
+                    return Loc.T("Ruinworks — a scaffold of breaking-tools. Siege units built " +
+                           "while it stands deal extra damage to structures. Limit 5.");
+                case SectConfig.Wrath:
+                    return Loc.T("Chain Altar — an altar strung with iron links. Enemies killed " +
+                           "near it feed a faction-wide damage stack that decays. Limit 5.");
+                default:
+                    return "—";
+            }
         }
 
         // ─────────────────────────────────────────────────────────────────
@@ -326,7 +363,7 @@ namespace TheWaningBorder.Economy
                 SectConfig.Wrath       => "Deeper spite — the bleeding wound deals the killing blow.",
                 _                      => "Deeper devotion improves every lever this sect grants.",
             });
-            return string.Format(Loc.T("At the chapel you can spend RP + resources to upgrade Passive (P), Building aura (B), Unit bonus (U), and Active power (A) — each I → II → III, scaling effects to 1.5× and 2.0× of the listed Lv I numbers.  {0}"), flavour);
+            return string.Format(Loc.T("At the chapel you can spend RP + resources to upgrade Passive (P), Building (B), Unit bonus (U), and Active power (A) — each I → II → III, scaling effects to 1.5× and 2.0× of the listed Lv I numbers.  {0}"), flavour);
         }
 
         // ─────────────────────────────────────────────────────────────────

@@ -214,10 +214,25 @@ namespace TheWaningBorder.Systems.Navigation
         private NativeArray<GoalFlowKey> _slotKeys;
         private NativeArray<byte> _dirPool;
         private NativeArray<uint> _integrationScratch;
+        // Written-region bookkeeping so a job clears only what the previous
+        // job on the same slice dirtied, instead of memsetting whole-map
+        // slices (4 MB of scratch + 1 MB of directions per field at 1026²).
+        // int4 = (minX, minZ, maxX, maxZ); minX == int.MinValue = unknown
+        // (full clear). Outside its box a scratch slice is all uint.MaxValue
+        // and a dir slice is all _dirSentinels[slot].
+        private NativeArray<int4> _scratchBoxes;
+        private NativeArray<int4> _dirBoxes;
+        private NativeArray<byte> _dirSentinels;
 
         /// <summary>Free the cache pools via the mirrors.</summary>
         private void ReleaseCache()
         {
+            if (_scratchBoxes.IsCreated) _scratchBoxes.Dispose();
+            if (_dirBoxes.IsCreated) _dirBoxes.Dispose();
+            if (_dirSentinels.IsCreated) _dirSentinels.Dispose();
+            _scratchBoxes = default;
+            _dirBoxes = default;
+            _dirSentinels = default;
             if (_slotIndex.IsCreated) _slotIndex.Dispose();
             if (_slots.IsCreated) _slots.Dispose();
             if (_slotKeys.IsCreated) _slotKeys.Dispose();
@@ -250,6 +265,12 @@ namespace TheWaningBorder.Systems.Navigation
         private NativeList<int> _pendingSlots;
         private Unity.Jobs.JobHandle _pendingHandle;
         private int _pendingGeneration;
+        // The cost Generation the snapshot above was copied at. The copy is
+        // taken only when the field has actually changed since (every cost
+        // writer bumps Generation), not once per detached batch.
+        private int _snapshotGeneration;
+        private int _snapshotEpoch;
+        private byte _snapshotValid;
 
         /// <summary>Last SimCadence epoch this system re-phased its cache
         /// TickCounter to. -1 forces a reset on the first update. See the
@@ -323,6 +344,12 @@ namespace TheWaningBorder.Systems.Navigation
                 _slotKeys = cache.SlotKeys;
                 _dirPool = cache.DirPool;
                 _integrationScratch = cache.IntegrationScratch;
+                _scratchBoxes = new NativeArray<int4>(MaxIntegrationsPerTick, Allocator.Persistent);
+                _dirBoxes = new NativeArray<int4>(SlotCountDefault, Allocator.Persistent);
+                _dirSentinels = new NativeArray<byte>(SlotCountDefault, Allocator.Persistent);
+                for (int i = 0; i < _scratchBoxes.Length; i++) _scratchBoxes[i] = new int4(int.MinValue);
+                for (int i = 0; i < _dirBoxes.Length; i++) _dirBoxes[i] = new int4(int.MinValue);
+                _snapshotValid = 0;
                 // Snapshot arrays are allocated lazily at the copy site —
                 // Cost/Flags are LAYERED (Width*Height*LayerCount), NOT the
                 // ground cellCount this cache works in; sizing them here at
@@ -556,15 +583,24 @@ namespace TheWaningBorder.Systems.Navigation
                         if (_costSnapshot.IsCreated) _costSnapshot.Dispose();
                         _costSnapshot = new NativeArray<byte>(cost.Cost.Length,
                             Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+                        _snapshotValid = 0;
                     }
                     if (!_flagsSnapshot.IsCreated || _flagsSnapshot.Length != cost.Flags.Length)
                     {
                         if (_flagsSnapshot.IsCreated) _flagsSnapshot.Dispose();
                         _flagsSnapshot = new NativeArray<byte>(cost.Flags.Length,
                             Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+                        _snapshotValid = 0;
                     }
-                    _costSnapshot.CopyFrom(cost.Cost);
-                    _flagsSnapshot.CopyFrom(cost.Flags);
+                    if (_snapshotValid == 0 || _snapshotGeneration != cost.Generation
+                        || _snapshotEpoch != SimCadence.Epoch)
+                    {
+                        _costSnapshot.CopyFrom(cost.Cost);
+                        _flagsSnapshot.CopyFrom(cost.Flags);
+                        _snapshotGeneration = cost.Generation;
+                        _snapshotEpoch = SimCadence.Epoch;
+                        _snapshotValid = 1;
+                    }
                     _pendingGeneration = cost.Generation;
                 }
 
@@ -694,6 +730,11 @@ namespace TheWaningBorder.Systems.Navigation
                         SeekerOffset = i * MaxSeekersPerField,
                         SeekerCount = seekerCounts[i],
                         CoverageMargin = CoverageMarginCost,
+                        ScratchBoxes = _scratchBoxes,
+                        ScratchSlot = i,
+                        DirBoxes = _dirBoxes,
+                        DirSentinels = _dirSentinels,
+                        DirSlot = slot,
                     };
                     handles[i] = job.Schedule();
                 }
@@ -822,6 +863,17 @@ namespace TheWaningBorder.Systems.Navigation
         public int SeekerOffset;
         public int SeekerCount;
         public uint CoverageMargin;
+        // Written-region bookkeeping (see the system's _scratchBoxes). Each
+        // concurrently scheduled job touches only its own ScratchSlot /
+        // DirSlot entry.
+        [Unity.Collections.LowLevel.Unsafe.NativeDisableContainerSafetyRestriction]
+        public NativeArray<int4> ScratchBoxes;
+        public int ScratchSlot;
+        [Unity.Collections.LowLevel.Unsafe.NativeDisableContainerSafetyRestriction]
+        public NativeArray<int4> DirBoxes;
+        [Unity.Collections.LowLevel.Unsafe.NativeDisableContainerSafetyRestriction]
+        public NativeArray<byte> DirSentinels;
+        public int DirSlot;
 
         // Mirrors IntegrateTileJob.WallClearancePenalty — a finite bias off
         // obstacle edges, never a hard block.
@@ -841,8 +893,9 @@ namespace TheWaningBorder.Systems.Navigation
         public void Execute()
         {
             int cellCount = Width * Height;
-            for (int i = 0; i < cellCount; i++)
-                Integration[ScratchOffset + i] = uint.MaxValue;
+            // Reset only what the previous job on this scratch slice wrote.
+            FillBox(Integration, ScratchOffset, ScratchBoxes[ScratchSlot], uint.MaxValue, cellCount);
+            ScratchBoxes[ScratchSlot] = new int4(0, 0, -1, -1);   // empty until relaxed
 
             // Snap a blocked goal cell to the nearest walkable cell inside
             // an expanding ring (deterministic scan order: ring radius asc,
@@ -875,6 +928,8 @@ namespace TheWaningBorder.Systems.Navigation
                     // unreachable (all NoDirection). Units will hold.
                     for (int i = 0; i < cellCount; i++)
                         DirPool[DirOffset + i] = NavFlowConstants.NoDirection;
+                    DirBoxes[DirSlot] = new int4(0, 0, -1, -1);
+                    DirSentinels[DirSlot] = NavFlowConstants.NoDirection;
                     return;
                 }
             }
@@ -962,8 +1017,18 @@ namespace TheWaningBorder.Systems.Navigation
             byte unreachedSentinel = stopped
                 ? NavFlowConstants.NotCovered
                 : NavFlowConstants.NoDirection;
-            for (int i = 0; i < cellCount; i++)
-                DirPool[DirOffset + i] = unreachedSentinel;
+            ScratchBoxes[ScratchSlot] = new int4(_minX, _minZ, _maxX, _maxZ);
+            // Outside its recorded box the slice already holds the previous
+            // field's sentinel; when that is ours, restoring the old box is
+            // the whole fill. Otherwise (or unknown) fill everything.
+            int4 prevDir = DirBoxes[DirSlot];
+            if (prevDir.x != int.MinValue && DirSentinels[DirSlot] == unreachedSentinel)
+                FillBox(DirPool, DirOffset, prevDir, unreachedSentinel, cellCount);
+            else
+                for (int i = 0; i < cellCount; i++)
+                    DirPool[DirOffset + i] = unreachedSentinel;
+            DirBoxes[DirSlot] = new int4(_minX, _minZ, _maxX, _maxZ);
+            DirSentinels[DirSlot] = unreachedSentinel;
 
             // Direction bytes: weighted gradient over walkable neighbours,
             // quantized to the 256-bin angle byte — over the covered
@@ -1017,6 +1082,25 @@ namespace TheWaningBorder.Systems.Navigation
                     else if (dirByte == 254) dirByte = 253;
                     DirPool[DirOffset + idx] = (byte)dirByte;
                 }
+            }
+        }
+
+        /// <summary>Set the cells of <paramref name="box"/> (unknown =
+        /// the whole slice) to <paramref name="value"/>.</summary>
+        private void FillBox<T>(NativeArray<T> arr, int offset, int4 box, T value, int cellCount)
+            where T : unmanaged
+        {
+            if (box.x == int.MinValue)
+            {
+                for (int i = 0; i < cellCount; i++) arr[offset + i] = value;
+                return;
+            }
+            int x0 = math.max(box.x, 0), z0 = math.max(box.y, 0);
+            int x1 = math.min(box.z, Width - 1), z1 = math.min(box.w, Height - 1);
+            for (int z = z0; z <= z1; z++)
+            {
+                int row = offset + z * Width;
+                for (int x = x0; x <= x1; x++) arr[row + x] = value;
             }
         }
 
