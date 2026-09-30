@@ -967,7 +967,8 @@ namespace TheWaningBorder.UI.Ingame
                 // Multiplayer: queue via lockstep — building created on all
                 // clients at same tick. A Hall carries the worker standing at
                 // its site; the executor re-checks that worker at that tick.
-                CommandRouter.IssuePlaceBuilding(_em, id, pos, fac, hallBuilder, out _);
+                CommandRouter.IssuePlaceBuilding(_em, id, pos, fac, hallBuilder, out _,
+                    CommandSource.LocalPlayer, yawDegrees);
 
                 // Send selected builders to the build position — the building entity doesn't
                 // exist yet (created 2 ticks later), so we issue Build with Entity.Null target.
@@ -990,7 +991,8 @@ namespace TheWaningBorder.UI.Ingame
             // PlaceBuildingDirect re-checks a claim and spends; Entity.Null
             // means a claim rule refused it (LastPlacementRefusal says which)
             // or the bank came up short between the CanAfford check and now.
-            Entity building = CommandRouter.PlaceBuildingDirect(_em, id, pos, fac, hallBuilder);
+            Entity building = CommandRouter.PlaceBuildingDirect(_em, id, pos, fac, hallBuilder,
+                CommandRouter.YawFromWire(CommandRouter.YawToWire(yawDegrees)));
             if (building == Entity.Null)
             {
                 var why = CommandRouter.LastPlacementRefusal;
@@ -1000,13 +1002,8 @@ namespace TheWaningBorder.UI.Ingame
                 return;
             }
 
-            // Apply mouse-wheel rotation to the new building's transform.
-            if (_em.HasComponent<LocalTransform>(building))
-            {
-                var lt = _em.GetComponentData<LocalTransform>(building);
-                lt.Rotation = quaternion.RotateY(math.radians(yawDegrees));
-                _em.SetComponentData(building, lt);
-            }
+            // The mouse-wheel rotation is applied by PlaceBuildingDirect itself
+            // (the executor), so single player and lockstep agree.
 
             // Flatten the terrain under the building footprint so the model
             // sits on level ground regardless of the (≤15°) underlying slope.

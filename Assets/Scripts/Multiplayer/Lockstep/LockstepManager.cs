@@ -1524,7 +1524,8 @@ namespace TheWaningBorder.Multiplayer
                         // it: the executor refuses a claim whose builder is
                         // missing, dead, not ours, or out of range at THIS tick.
                         var placed = CommandRouter.PlaceBuildingDirect(em, cmd.BuildingId,
-                            cmd.TargetPosition, buildFaction, targetEntity);
+                            cmd.TargetPosition, buildFaction, targetEntity,
+                            CommandRouter.YawFromWire(cmd.SecondaryTargetId));
                         // Tell the issuing player why their queued claim was
                         // dropped. Presentation only — nothing simulated.
                         if (placed == Entity.Null

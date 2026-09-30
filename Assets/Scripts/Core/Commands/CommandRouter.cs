@@ -1993,7 +1993,7 @@ namespace TheWaningBorder.Core.Commands
         /// </summary>
         public static bool IssuePlaceBuilding(EntityManager em, string buildingId, float3 position,
             Faction faction, Entity builder, out Entity created,
-            CommandSource source = CommandSource.LocalPlayer)
+            CommandSource source = CommandSource.LocalPlayer, float yawDegrees = 0f)
         {
             created = Entity.Null;
             if (ShouldDropCommand(source)) return false;
@@ -2026,6 +2026,9 @@ namespace TheWaningBorder.Core.Commands
                     TargetPosition = position,
                     EntityNetworkId = (int)faction, // Carry faction in EntityNetworkId
                     TargetEntityId = builderId,
+                    // The placement ghost's rotation, in tenths of a degree
+                    // (0 = unrotated, which is also how older commands decode).
+                    SecondaryTargetId = YawToWire(yawDegrees),
                 };
                 LockstepServiceLocator.Instance.QueueCommand(cmd);
                 return true; // Queued — caller must NOT create entity locally
@@ -2033,7 +2036,8 @@ namespace TheWaningBorder.Core.Commands
             else
             {
                 // Single player — create immediately
-                created = PlaceBuildingDirect(em, buildingId, position, faction, builder);
+                created = PlaceBuildingDirect(em, buildingId, position, faction, builder,
+                                              YawFromWire(YawToWire(yawDegrees)));
                 return false; // Created locally — caller can proceed
             }
         }
@@ -2112,8 +2116,19 @@ namespace TheWaningBorder.Core.Commands
             return culture == Cultures.None || CultureConfig.IsComingSoon(culture);
         }
 
+        /// <summary>The placement yaw on the wire: tenths of a degree,
+        /// normalised to [0, 3600). Both paths round-trip through it, so single
+        /// player and every lockstep peer build the identical rotation.</summary>
+        public static int YawToWire(float yawDegrees)
+        {
+            int t = (int)math.round(yawDegrees * 10f) % 3600;
+            return t < 0 ? t + 3600 : t;
+        }
+
+        public static float YawFromWire(int tenths) => tenths / 10f;
+
         public static Entity PlaceBuildingDirect(EntityManager em, string buildingId, float3 position,
-            Faction faction, Entity builder)
+            Faction faction, Entity builder, float yawDegrees = 0f)
         {
             LastPlacementRefusal = TheWaningBorder.World.Regions.PlacementRefusal.None;
 
@@ -2215,6 +2230,19 @@ namespace TheWaningBorder.Core.Commands
                 TheWaningBorder.Economy.FactionReligionPointsHelper.TrySpend(em, faction, templeRp);
 
             Entity building = TheWaningBorder.Entities.BuildingFactory.Create(em, buildingId, position, faction);
+
+            // THE PLACEMENT ROTATION (2026-09-30). Applied here, by the
+            // executor, on every peer — it used to be written by the click
+            // handler after the fact, on the single-player path only, so a
+            // lockstep placement always stood unrotated whatever the ghost
+            // showed. Factories create every building facing identity.
+            if (yawDegrees != 0f && building != Entity.Null && em.Exists(building)
+                && em.HasComponent<Unity.Transforms.LocalTransform>(building))
+            {
+                var lt = em.GetComponentData<Unity.Transforms.LocalTransform>(building);
+                lt.Rotation = quaternion.RotateY(math.radians(yawDegrees));
+                em.SetComponentData(building, lt);
+            }
 
             // Remember what was charged, so a refund pays back THIS price and
             // not whatever the faction's next Hall would cost by then.

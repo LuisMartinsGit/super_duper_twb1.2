@@ -13,6 +13,17 @@ build always name the same number.
 
 ---
 
+## [0.0.32] — 2026-09-30
+
+### Fixed
+
+- **Rotated buildings keep their rotation in multiplayer.** A building turned
+  with the mouse wheel before placing now stands the way its preview showed,
+  on every player's machine. In multiplayer matches it always went down facing
+  the default direction. Everyone in the match needs 0.0.32 or later.
+
+---
+
 ## [0.0.31] — 2026-09-30
 
 ### Fixed
