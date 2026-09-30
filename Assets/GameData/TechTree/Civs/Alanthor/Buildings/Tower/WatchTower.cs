@@ -17,7 +17,8 @@ namespace TheWaningBorder.Entities
     public static class WatchTower
     {
         /// <summary>
-        /// Alanthor Watch Tower — ranged defense (18u range, 14 dmg, 2.0s CD). Garrison 4.
+        /// Alanthor Watch Tower — ranged defense; every stat from Tower.asset,
+        /// three levels (Age_1_Alanthor.md § Watch Tower levels).
         /// </summary>
         public static Entity Create(EntityManager em, float3 position, Faction faction)
         {
@@ -38,9 +39,12 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             em.AddComponent<WatchTowerTag>(entity);
+            // Level 1's attack IS the def's attack; L2 / L3 come from
+            // def.levels when the upgrade lands (BuildingUpgradeSystem).
             em.AddComponentData(entity, new BuildingRangedAttack
             {
-                Range = 18f, Damage = 14, Cooldown = 2.0f, Timer = 0f, MaxTargets = 1
+                Range = def.attack.range, Damage = (int)def.attack.damage,
+                Cooldown = def.attack.cooldown, Timer = 0f, MaxTargets = def.attack.maxTargets,
             });
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             em.AddComponentData(entity, new DamageTypeData { Value = DamageType.Ranged });
@@ -69,7 +73,8 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent<WatchTowerTag>(entity);
             ecb.AddComponent(entity, new BuildingRangedAttack
             {
-                Range = 18f, Damage = 14, Cooldown = 2.0f, Timer = 0f, MaxTargets = 1
+                Range = def.attack.range, Damage = (int)def.attack.damage,
+                Cooldown = def.attack.cooldown, Timer = 0f, MaxTargets = def.attack.maxTargets,
             });
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Ranged });

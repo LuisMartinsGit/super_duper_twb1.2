@@ -50,13 +50,21 @@ namespace TheWaningBorder.Bootstrap
         static CachedEntityQuery QC_HallTagFactionTagLocalTransform;
 
         #endregion
-        // Three Alanthor-cluster choice buildings. Random pick at start.
+        // Kept only for its LENGTH: the seeded draw that used to pick from
+        // it still runs so the RNG stream is unchanged (see PromoteFaction).
         private static readonly string[] ChoiceBuildings =
         {
             "ShrineOfRidan",
             "VaultOfAlmierra",
             "FiendstoneKeep",
         };
+
+        /// <summary>The landmark that ages a faction into this culture;
+        /// null for Runai until Thessara's Crossing exists.</summary>
+        private static string LandmarkFor(byte culture) =>
+            culture == Cultures.Alanthor ? "VaultOfAlmierra"
+            : culture == Cultures.Feraldis ? "FiendstoneKeep"
+            : null;
 
         // Fixed offsets from the Hall's centre for the auto-placed buildings.
         // Temple north, choice building south — keeps them inside the cleared
@@ -207,10 +215,14 @@ namespace TheWaningBorder.Bootstrap
             if (em.HasComponent<TempleLevel>(temple))
                 em.SetComponentData(temple, new TempleLevel { Level = templeLevel });
 
-            // Pick + spawn one choice building from the trio. Random pick is
-            // seeded so multiplayer / replays land on the same choice.
-            string chosen = ChoiceBuildings[rng.NextInt(0, ChoiceBuildings.Length)];
-            BuildingFactory.Create(em, chosen, hallPos + ChoiceOffset, faction);
+            // The landmark that WOULD have aged this faction up (Age_0.md
+            // § Age-up by landmark): the culture decides it, it is no longer
+            // a random pick. The draw is kept so the seeded stream every
+            // later pick reads stays where it was.
+            rng.NextInt(0, ChoiceBuildings.Length);
+            string chosen = LandmarkFor(culture);
+            if (chosen != null)
+                BuildingFactory.Create(em, chosen, hallPos + ChoiceOffset, faction);
 
             // Military production — see BarracksOffset. The Barracks is where
             // FindTrainerForUnit routes the melee line, so this is what makes

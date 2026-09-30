@@ -37,9 +37,9 @@ MonoBehaviour:
   - VeilsteelBonds
   minEra: 0
   cost:
-    Supplies: 257
-    Iron: 0
-    Crystal: 0
+    Supplies: 600
+    Iron: 300
+    Crystal: 200
     Veilsteel: 0
   tags:
   - Building

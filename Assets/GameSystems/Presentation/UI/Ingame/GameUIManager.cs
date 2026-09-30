@@ -67,6 +67,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using TheWaningBorder.UI.Data;
 using TheWaningBorder.UI.Common;
+using TheWaningBorder.Core.Localization;
 
 namespace TheWaningBorder.UI.Ingame
 {
@@ -116,6 +117,11 @@ namespace TheWaningBorder.UI.Ingame
         private RectTransform _bottomLeftDock;
         private GameObject _resourcePanel;
         private TMP_Text _supplies, _iron, _veilstone, _veilsteel, _housing;
+
+        // ── Religion Points as a resource (Religion.md §1) ──
+        private TMP_Text _religion;
+        private Image _religionRing;
+        private string _religionTip;
 
         private GameObject _selectionHeader;
         private TMP_Text _selectionLabel;
@@ -237,6 +243,8 @@ namespace TheWaningBorder.UI.Ingame
                 _veilstone = FindAmountLabel(_resourcePanel.transform, "Veilstone");
                 _veilsteel = FindAmountLabel(_resourcePanel.transform, "Veilsteel");
                 _housing   = FindAmountLabel(_resourcePanel.transform, "Housing");
+                BuildReligionRow(_resourcePanel.transform, catalog.hud);
+                RegisterResourceIcons(_resourcePanel.transform);
                 if (_supplies == null)
                     TWBLog.Log("[GameUI] ResourcePanel: no Supplies/amount label found — " +
                         "row names changed?");
@@ -301,6 +309,13 @@ namespace TheWaningBorder.UI.Ingame
                 // once the scene's baked terrain is ready.
                 var minimap = SpawnPanel(catalog.minimapPanel, "GameUI_Minimap");
                 minimap.AddComponent<MinimapPanelBinder>();
+                // Territory takeovers as Synty bars floating over each
+                // territory's centre (Territory_Claims.md §2).
+                if (catalog.hud != null && catalog.hud.claimBarFrame != null)
+                    gameObject.AddComponent<TheWaningBorder.UI.World.TerritoryClaimBars>().Init(
+                        catalog.hud.claimBarFrame, catalog.hud.claimBarFill);
+                else
+                    TWBLog.Log("[GameUI] GameUICatalog.hud claim-bar sprites unassigned — no takeover bars.");
             }
 
             if (catalog.actionsPanel != null)
@@ -541,6 +556,100 @@ namespace TheWaningBorder.UI.Ingame
                 cell.Root.SetActive(active);
         }
 
+        /// <summary>
+        /// Hand each resource row's icon to ResourceIcons, so tooltip prices
+        /// can show the SAME picture inline instead of a letter.
+        /// </summary>
+        private static void RegisterResourceIcons(Transform panelRoot)
+        {
+            foreach (var row in panelRoot.GetComponentsInChildren<Transform>(true))
+            {
+                string res = row.name;
+                if (res != TheWaningBorder.UI.Common.ResourceIcons.Supplies
+                    && res != TheWaningBorder.UI.Common.ResourceIcons.Iron
+                    && res != TheWaningBorder.UI.Common.ResourceIcons.Veilstone
+                    && res != TheWaningBorder.UI.Common.ResourceIcons.Veilsteel) continue;
+                foreach (var img in row.GetComponentsInChildren<Image>(true))
+                {
+                    if (img.transform == row || img.sprite == null) continue;
+                    TheWaningBorder.UI.Common.ResourceIcons.Register(res, img.sprite);
+                    break;
+                }
+            }
+        }
+
+        /// <summary>
+        /// RELIGION POINTS ARE A RESOURCE (docs/Design/Religion.md §1): a
+        /// fifth row in the resource panel, cloned from the Veilsteel row so it
+        /// wears the panel's own layout and type, with the Synty star as its
+        /// icon and a round Synty ring around it that fills as curse kills
+        /// bank points toward the next Religion Point.
+        /// </summary>
+        private void BuildReligionRow(Transform panelRoot, GameUICatalog.HudSet hud)
+        {
+            Transform source = null;
+            foreach (var t in panelRoot.GetComponentsInChildren<Transform>(true))
+                if (t.name == "Veilsteel") { source = t; break; }
+            if (source == null || hud == null)
+            {
+                TWBLog.Log("[GameUI] ResourcePanel: no Veilsteel row or HUD sprites — no Religion row.");
+                return;
+            }
+
+            var row = Instantiate(source.gameObject, source.parent);
+            row.name = "Religion";
+            row.transform.SetAsLastSibling();
+
+            Image icon = null;
+            foreach (var img in row.GetComponentsInChildren<Image>(true))
+                if (img.transform != row.transform) { icon = img; break; }
+            if (icon != null)
+            {
+                if (hud.religionIcon != null) icon.sprite = hud.religionIcon;
+                icon.preserveAspect = true;
+
+                if (hud.religionRing != null)
+                {
+                    // Track (the whole ring, dark) then the fill on top of it.
+                    MakeRing(icon.rectTransform, "RingTrack", hud.religionRing,
+                        new Color(0.12f, 0.1f, 0.16f, 0.75f), filled: false);
+                    _religionRing = MakeRing(icon.rectTransform, "RingFill", hud.religionRing,
+                        Color.white, filled: true);
+                }
+            }
+
+            foreach (var label in row.GetComponentsInChildren<TMP_Text>(true))
+                if (string.Equals(label.transform.name, "amount", System.StringComparison.OrdinalIgnoreCase))
+                { _religion = label; break; }
+
+            UITooltip.Bind(row, () => _religionTip);
+        }
+
+        private static Image MakeRing(RectTransform icon, string name, Sprite sprite, Color color, bool filled)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            var rt = (RectTransform)go.transform;
+            rt.SetParent(icon, false);
+            // A little larger than the icon, so the ring frames it.
+            rt.anchorMin = new Vector2(-0.22f, -0.22f);
+            rt.anchorMax = new Vector2(1.22f, 1.22f);
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+            var img = go.GetComponent<Image>();
+            img.sprite = sprite;
+            img.color = color;
+            img.raycastTarget = false;
+            if (filled)
+            {
+                img.type = Image.Type.Filled;
+                img.fillMethod = Image.FillMethod.Radial360;
+                img.fillOrigin = (int)Image.Origin360.Top;
+                img.fillClockwise = true;
+                img.fillAmount = 0f;
+            }
+            return img;
+        }
+
         /// <summary>Row node by name anywhere under the panel, then its
         /// "amount" TMP child (falls back to any TMP under the row).</summary>
         private static TMP_Text FindAmountLabel(Transform panelRoot, string rowName)
@@ -598,6 +707,8 @@ namespace TheWaningBorder.UI.Ingame
                 if (_veilstone != null) _veilstone.text = "-";
                 if (_veilsteel != null) _veilsteel.text = "-";
                 if (_housing != null)   _housing.text   = "-";
+                if (_religion != null)  _religion.text  = "-";
+                if (_religionRing != null) _religionRing.fillAmount = 0f;
                 return;
             }
             var faction = view.Value;
@@ -614,6 +725,7 @@ namespace TheWaningBorder.UI.Ingame
                 if (_iron != null)      _iron.text      = banks[i].Iron.ToString();
                 if (_veilstone != null) _veilstone.text = banks[i].Veilstone.ToString();
                 if (_veilsteel != null) _veilsteel.text = banks[i].Veilsteel.ToString();
+                RefreshReligion(em, faction);
 
                 if (_housing != null
                     && em.HasComponent<TheWaningBorder.Economy.FactionPopulation>(entities[i]))
@@ -623,6 +735,19 @@ namespace TheWaningBorder.UI.Ingame
                 }
                 return;
             }
+        }
+
+        private void RefreshReligion(EntityManager em, Faction faction)
+        {
+            if (_religion == null && _religionRing == null) return;
+            int rp = TheWaningBorder.Economy.FactionReligionPointsHelper.GetBalance(em, faction);
+            var (have, need) = TheWaningBorder.Economy.FactionReligionPointsHelper.PtsProgress(em, faction);
+            if (_religion != null) _religion.text = rp.ToString();
+            if (_religionRing != null) _religionRing.fillAmount = need > 0 ? Mathf.Clamp01((float)have / need) : 0f;
+            _religionTip = "<b>" + Loc.T("Religion Points") + "</b>: " + rp + "\n"
+                + string.Format(Loc.T("Killing curse units pays points — {0}/{1} toward the next Religion Point."),
+                    have, need)
+                + "\n<i>" + Loc.T("Spent on the Temple, chapels, sect powers and sect heroes.") + "</i>";
         }
 
         /// <summary>

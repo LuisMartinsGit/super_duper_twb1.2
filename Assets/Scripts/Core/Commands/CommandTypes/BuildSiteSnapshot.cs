@@ -376,6 +376,10 @@ namespace TheWaningBorder.Core.Commands.Types
 
             var ownNode = buildingId != null ? TerritoryOwnership.RequiredNodeFor(buildingId) : null;
 
+            // Nothing on a resource node but its own extractor — the live
+            // validator's stage 1b, same test.
+            if (TheWaningBorder.Entities.ResourceNodeSite.OverlapsNode(em, mn, mx, ownNode)) return false;
+
             CellRange(mn - _oMaxRad, mx + _oMaxRad, out int x0, out int z0, out int x1, out int z1);
             for (int z = z0; z <= z1; z++)
                 for (int x = x0; x <= x1; x++)

@@ -59,10 +59,19 @@ namespace TheWaningBorder.UI.Ingame
             int unlocked = SectActivePowerHelper.UnlockedTier(em, faction, view.SectId);
             if (tier > unlocked)
             {
-                sb.Append("\n<color=#C08040>")
-                  .Append(string.Format(
-                      Loc.T("Locked — raise the sect's Active lever to Lv {0}."), tier))
-                  .Append("</color>");
+                sb.Append("\n<color=#C08040>");
+                if (tier == unlocked + 1)
+                {
+                    ReligionPurchases.CanBuy(em, faction, ReligionPurchaseKind.UnlockActive,
+                        view.SectId, out int rpCost);
+                    int price = rpCost > 0 ? rpCost
+                        : (unlocked == 1 ? FactionReligionPointsHelper.Cfg.unlockSecondRp
+                                         : FactionReligionPointsHelper.Cfg.unlockWildcardRp);
+                    sb.Append(string.Format(Loc.T("Locked — click to unlock for {0} Religion Points."), price));
+                }
+                else
+                    sb.Append(Loc.T("Locked — unlock the power before it first."));
+                sb.Append("</color>");
             }
             else
             {
@@ -139,12 +148,40 @@ namespace TheWaningBorder.UI.Ingame
             bool live = world != null && world.IsCreated
                 && SectQuery.HasStandingTemple(world.EntityManager, GameSettings.LocalPlayerFaction);
 
+            int level = world != null && world.IsCreated
+                ? SectQuery.PowerLevelOf(world.EntityManager, GameSettings.LocalPlayerFaction, view.SectId) : 1;
+            string levelLine = level >= 3
+                ? string.Format(Loc.T("Chapel level {0} — the highest."), SectInfo.Roman(level))
+                : string.Format(Loc.T("Chapel level {0} — click to raise it to {1} for {2} Religion Points. " +
+                                      "Every unlocked power casts at the chapel's level."),
+                      SectInfo.Roman(level), SectInfo.Roman(level + 1),
+                      level == 1 ? FactionReligionPointsHelper.Cfg.chapelLevel2Rp
+                                 : FactionReligionPointsHelper.Cfg.chapelLevel3Rp);
+
             return string.Format(Loc.T("<b>{0} — passive</b>"),
                     SectInfo.ShortName(view.SectId)) + "\n"
                 + SectInfo.PassiveDescription(view.SectId)
                 + (live
                     ? "\n" + Loc.T("<color=#7FB069>Active — always on, no cooldown.</color>")
-                    : "\n" + Loc.T("<color=#C08040>Dormant — your Temple is down.</color>"));
+                    : "\n" + Loc.T("<color=#C08040>Dormant — your Temple is down.</color>"))
+                + "\n" + levelLine;
+        }
+
+        /// <summary>The Tithe's price and what the curse has paid so far.</summary>
+        private string TitheTooltip()
+        {
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (world == null || !world.IsCreated) return null;
+            var em = world.EntityManager;
+            var faction = GameSettings.LocalPlayerFaction;
+            var cost = FactionReligionPointsHelper.TitheCost(em, faction);
+            var (have, need) = FactionReligionPointsHelper.PtsProgress(em, faction);
+            return "<b>" + Loc.T("Religion Points") + "</b>\n"
+                + string.Format(Loc.T("Killing curse units pays points: {0}/{1} toward the next Religion Point."),
+                    have, need)
+                + "\n\n<b>" + Loc.T("Tithe") + "</b> — " + Loc.T("click to buy one Religion Point for ")
+                + TheWaningBorder.UI.Common.UIHelpers.FormatCostRich(cost, EntityActionExtractor.GetFactionResourcesAsCostPublic(em, faction))
+                + "\n<i>" + Loc.T("Each Tithe costs more than the last.") + "</i>";
         }
     }
 }

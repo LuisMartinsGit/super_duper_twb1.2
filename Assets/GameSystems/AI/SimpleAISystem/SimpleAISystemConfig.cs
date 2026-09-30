@@ -214,6 +214,20 @@ namespace TheWaningBorder.AI
         /// retrying every tick.</summary>
         public float claimAttemptInterval;
 
+        /// <summary>Soldiers drafted to stand on a territory and claim it
+        /// (Territory_Claims.md §2). Population weight is what fills the
+        /// meter, so a bigger squad claims faster.</summary>
+        public int claimSquadSize;
+
+        /// <summary>A faction holding fewer Religion Points than this sends a
+        /// squad against the nearest curse node within reclaimRadius, even
+        /// when not threatened: curse kills are where RP come from.</summary>
+        public int reclaimReligionBelow;
+
+        /// <summary>Seconds a claim squad may hold before the attempt is
+        /// abandoned and the territory skipped for a while.</summary>
+        public float claimSquadTimeoutSeconds;
+
         /// <summary>
         /// How long the brain will hold income back while saving for a Hall.
         ///

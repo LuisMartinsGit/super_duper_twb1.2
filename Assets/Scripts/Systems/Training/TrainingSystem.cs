@@ -257,6 +257,9 @@ namespace TheWaningBorder.Systems.Training
             // Siege Screens) are stamped here so a freshly trained unit matches
             // the ones the research sweep already touched.
             TheWaningBorder.Abilities.AlanthorActiveHelper.ApplySpawnPassives(em, unit, faction, unitId);
+            // A sect's unit is a HERO (docs/Design/Religion.md §4): hero
+            // levels, and the sect's recruit latched so the next costs no RP.
+            TheWaningBorder.Systems.Sect.SectHeroes.OnSpawned(em, unit, faction, unitId);
 
             // A REVIVED hero comes back at the level the player paid for
             // (docs/Design/Heroes.md §4). The factory always stamps level 1,

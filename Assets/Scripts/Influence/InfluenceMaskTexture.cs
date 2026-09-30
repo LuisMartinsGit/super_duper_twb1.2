@@ -218,7 +218,8 @@ namespace TheWaningBorder.Influence
             // arithmetic is unchanged, so the pixels are byte-identical.
             bool infMoved = _lastInfVersion != PlayerInfluenceMap.DataVersion;
             bool bloodMoved = _lastBloodVersion != BloodMap.DataVersion;
-            bool inputsMoved = infMoved || bloodMoved || regionEdgesJustBaked || _snapFirstFrame;
+            bool inputsMoved = infMoved || bloodMoved || regionEdgesJustBaked || _snapFirstFrame
+                               || CurseNodesMoved();
             if (!inputsMoved && _cultureSettled && _bloodSettled) return;
             _lastInfVersion = PlayerInfluenceMap.DataVersion;
             _lastBloodVersion = BloodMap.DataVersion;
@@ -306,12 +307,86 @@ namespace TheWaningBorder.Influence
         private readonly byte[] _sigChannelCulture = new byte[PlayerInfluenceMap.PlayerChannels];
         private bool _sigByTerritory;
 
+        // Curse node positions (XZ) for the radius stamp, and the signature
+        // that notices one rising or falling — a node can appear without any
+        // ownership change (it rises on ground the curse already holds).
+        private readonly System.Collections.Generic.List<Vector2> _curseNodes =
+            new System.Collections.Generic.List<Vector2>();
+        private float _curseNodeRadius = 20f;
+        private int _sigCurseNodes = int.MinValue;
+
+        private static readonly Unity.Entities.ComponentType[] QT_CurseNodes =
+        {
+            Unity.Entities.ComponentType.ReadOnly<SmallNodeTag>(),
+            Unity.Entities.ComponentType.ReadOnly<FactionTag>(),
+            Unity.Entities.ComponentType.ReadOnly<Unity.Transforms.LocalTransform>(),
+        };
+        private static TheWaningBorder.Core.CachedEntityQuery QC_CurseNodes;
+
+        private void GatherCurseNodes(Unity.Entities.EntityManager em)
+        {
+            _curseNodes.Clear();
+            var q = QC_CurseNodes.Get(em, QT_CurseNodes);
+            using var xfs = q.ToComponentDataArray<Unity.Transforms.LocalTransform>(Unity.Collections.Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
+            for (int i = 0; i < xfs.Length; i++)
+                if (facs[i].Value == Faction.Border)
+                    _curseNodes.Add(new Vector2(xfs[i].Position.x, xfs[i].Position.z));
+            var bs = TheWaningBorder.Data.Border.BorderSettings.Get();
+            _curseNodeRadius = bs != null ? bs.nodeAuraRadius : 20f;
+        }
+
+        /// <summary>A curse node rose or fell since the last repaint. Checked
+        /// every frame because a node changes the look without moving any
+        /// versioned input (it rises on ground the curse already owns). A
+        /// handful of entities — cheap.</summary>
+        private bool CurseNodesMoved()
+        {
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (world == null || !world.IsCreated) return false;
+            GatherCurseNodes(world.EntityManager);
+            return CurseNodeSignature() != _sigCurseNodes;
+        }
+
+        private int CurseNodeSignature()
+        {
+            unchecked
+            {
+                int h = _curseNodes.Count * 397;
+                for (int i = 0; i < _curseNodes.Count; i++)
+                    h = h * 31 + _curseNodes[i].GetHashCode();
+                return h ^ _curseNodeRadius.GetHashCode();
+            }
+        }
+
+        /// <summary>Full curse inside 70 % of the radius, fading to nothing
+        /// at its edge.</summary>
+        private float CurseNodeStamp(int x, int y)
+        {
+            if (_curseNodes.Count == 0 || _curseNodeRadius <= 0f) return 0f;
+            Vector2 min = PlayerInfluenceMap.WorldMin;
+            Vector2 size = PlayerInfluenceMap.WorldSize;
+            float wx = min.x + (x + 0.5f) / Res * size.x;
+            float wz = min.y + (y + 0.5f) / Res * size.y;
+            float best = float.MaxValue;
+            for (int i = 0; i < _curseNodes.Count; i++)
+            {
+                float dx = _curseNodes[i].x - wx, dz = _curseNodes[i].y - wz;
+                best = Mathf.Min(best, dx * dx + dz * dz);
+            }
+            float d = Mathf.Sqrt(best);
+            return 1f - Mathf.Clamp01((d - _curseNodeRadius * 0.7f) / (_curseNodeRadius * 0.3f));
+        }
+
         /// <summary>True when an unversioned target input changed since the
         /// last call (and records the new state).</summary>
         private bool UpdateCultureSignature(bool byTerritory)
         {
             bool changed = byTerritory != _sigByTerritory;
             _sigByTerritory = byTerritory;
+
+            int nodeSig = CurseNodeSignature();
+            if (nodeSig != _sigCurseNodes) { _sigCurseNodes = nodeSig; changed = true; }
 
             if (byTerritory)
             {
@@ -388,8 +463,11 @@ namespace TheWaningBorder.Influence
                         f = culture == Cultures.Feraldis ? 1f : 0f;
                         r = culture == Cultures.Runai    ? 1f : 0f;
 
-                        _curseRaw[i] = region >= 0 && region < _territoryCursed.Length
-                                       && _territoryCursed[region] ? 1f : 0f;
+                        // CURSED GROUND IS A RADIUS (Territory_Claims.md §6.3,
+                        // 2026-09-29): the look follows the curse NODES, not
+                        // the territory they hold — the same ring the
+                        // exposure damage uses (BorderSettings.nodeAuraRadius).
+                        _curseRaw[i] = CurseNodeStamp(x, y);
                     }
                     else
                     {
@@ -569,6 +647,8 @@ namespace TheWaningBorder.Influence
 
             if (!TheWaningBorder.World.Regions.TerritoryOwnership.Ready)
                 TheWaningBorder.World.Regions.TerritoryOwnership.Recompute(em);
+
+            GatherCurseNodes(em);
 
             // One Hall snapshot per pass, not two per territory.
             if (_cultureByFaction == null) _cultureByFaction = new byte[8];

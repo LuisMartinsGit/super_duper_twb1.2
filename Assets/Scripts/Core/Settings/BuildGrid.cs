@@ -27,6 +27,33 @@ public static class BuildGrid
     /// <summary>Half a cell. Cell centres sit at odd metres.</summary>
     public const float HalfCell = CellSize * 0.5f;
 
+    // ── Resource nodes (docs/Design/Build_Grid.md §3, 2026-09-29) ──────────
+    // EVERY resource node — iron, veilstone, veilsteel, supply — is 2 x 2
+    // cells (4 x 4 m), snapped with EVEN parity (to a cell boundary), and so
+    // is every resource building standing on one (Gatherer's Hut, Iron Mine,
+    // Veilstone Mine, Veilsteel extractor): the extractor lands exactly on
+    // its node.
+
+    /// <summary>A resource node's footprint, in build cells across.</summary>
+    public const int ResourceNodeCells = 2;
+
+    /// <summary>A resource node's footprint, in metres across.</summary>
+    public const float ResourceNodeMeters = ResourceNodeCells * CellSize;
+
+    /// <summary>Half the footprint — the node's sim Radius.</summary>
+    public const float ResourceNodeHalf = ResourceNodeMeters * 0.5f;
+
+    /// <summary>
+    /// Radius for PassabilityGrid.BlockObstacle that blocks EXACTLY the node's
+    /// 4 x 4 m square of 1 m cells: the disc test reaches the corner cells'
+    /// centres (2.12 m out) and stops short of the next ring (2.5 m).
+    /// </summary>
+    public const float ResourceNodeBlockRadius = 2.13f;
+
+    /// <summary>Snap a resource node onto the grid (even parity).</summary>
+    public static float3 SnapResourceNode(float3 world)
+        => Snap(world, new int2((int)ResourceNodeMeters, (int)ResourceNodeMeters));
+
     // ── Cell <-> world ──────────────────────────────────────────────────
 
     /// <summary>World XZ -> the build cell containing it.</summary>

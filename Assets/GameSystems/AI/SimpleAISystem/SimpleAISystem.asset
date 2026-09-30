@@ -28,7 +28,7 @@ MonoBehaviour:
   maxBrainThinksPerFrame: 1
   thinkStarvationIntervals: 1
   claimPotReadyRetrySeconds: 2
-  populationHeadroomFloor: 16
+  populationHeadroomFloor: 8
   hutCostSupplies: 80
   economyWorkingFloor: 240
   feraldisWorkerFloor: 2
@@ -43,6 +43,9 @@ MonoBehaviour:
   hutPipelineFreeCount: 4
   researchSweepInterval: 20
   claimAttemptInterval: 12
+  claimSquadSize: 5
+  reclaimReligionBelow: 3
+  claimSquadTimeoutSeconds: 180
   claimSaveSeconds: 120
   claimSuccessCooldown: 30
   minArmyForNextClaim: 6

@@ -115,6 +115,16 @@ namespace TheWaningBorder.UI.Ingame
                 root.sizeDelta = new Vector2(MinPanelWidth, root.sizeDelta.y);
 
             _rp = FindLabel(transform, "RP");
+            // THE TITHE (docs/Design/Religion.md §1.1): clicking the RP line
+            // buys one Religion Point for resources at the Temple.
+            if (_rp != null)
+            {
+                _rp.raycastTarget = true;
+                var tithe = _rp.gameObject.GetComponent<Button>() ?? _rp.gameObject.AddComponent<Button>();
+                tithe.targetGraphic = _rp;
+                tithe.onClick.AddListener(ClickTithe);
+                UITooltip.Bind(_rp.gameObject, TitheTooltip);
+            }
             _templeInfo = FindLabel(transform, "TempleInfo");
 
             for (int i = 0; i < 6; i++)
@@ -205,7 +215,12 @@ namespace TheWaningBorder.UI.Ingame
             int rp = FactionReligionPointsHelper.GetBalance(em, faction);
             if (_rp != null)
             {
-                string text = Loc.T("Religion Points: ") + rp;
+                // The balance, and how far the curse kills have come toward
+                // the next point (Religion.md §1).
+                var (have, need) = FactionReligionPointsHelper.PtsProgress(em, faction);
+                string text = Loc.T("Religion Points: ") + rp
+                    + "   <size=80%><color=#B89AD8>" + string.Format(Loc.T("curse {0}/{1}"), have, need)
+                    + "</color></size>";
                 if (_rp.text != text) _rp.text = text;
             }
 

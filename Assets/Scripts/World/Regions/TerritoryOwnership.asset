@@ -14,3 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   hallBuilderRange: 30
   hallCostStep: 0.5
+  claimRate: 1
+  claimExponent: 1
+  decayRate: 3
+  curseClaimMultiplier: 2

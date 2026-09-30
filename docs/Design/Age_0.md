@@ -70,6 +70,11 @@ Age 0 projects **no influence**, so it gets its own curse layer:
 
 ### Fortress — the capital (2026-08-31, NEW)
 
+> **Superseded in part 2026-09-29** ([Territory_Claims.md](Territory_Claims.md) §4):
+> the Fortress is now **buildable** (the most expensive building in the game,
+> one per territory, locks its territory), and the Hall below is **removed** —
+> the Fortress inherits its roster and research.
+
 **Every player STARTS with a Fortress, not a Hall.** It is the capital: a
 bit larger than a Hall (10x10 build cells vs 8x8) and much more formidable
 (~3x the hp, stronger defenses, a real garrison attack). It hosts
@@ -346,6 +351,12 @@ No level-up path. No trainable units.
 
 ### House (a.k.a. Hut) â€” lvl 0 (pre-culture)
 
+> **Population (2026-09-29):** a House provides **3 / 5 / 8 / 10** at levels
+> 0 / 1 / 2 / 3 (`Hut.asset` base 3 + `BuildingUpgradeConfig.HutBonusPop`
+> +0 / +2 / +5 / +7). The **Fortress provides 10**, flat — its levels do not
+> raise it. A match opens on 9 of 10 (3 Workers, 3 Spearmen, 2 Archers, a
+> Scout), so the first House is the first thing any army needs.
+
 Provides population in Age 0. At age-up the per-culture behavior splits
 three ways (see [Â§ Age-up transitions](#age-up-transitions) for details):
 
@@ -394,7 +405,47 @@ slots.
 Full tier table, the gate, garrison and the two wall-mounted emplacements (masonry levels only):
 [Age_1_Alanthor.md § Wall levels, the gate structure and emplacements](Age_1_Alanthor.md#wall-levels-the-gate-structure-and-emplacements-2026-09-21).
 
+## Age-up by landmark (2026-09-29 — SUPERSEDES the section below and the Advance to Era II research)
+
+**The age-up IS the construction of a landmark.** There is no age-up research
+and no culture-choice dialog: the landmark you build decides the culture.
+
+| Landmark | Culture | Demo |
+|---|---|---|
+| **Vault of Almiérra** | Alanthor | available |
+| **Fiendstone Keep** | Feraldis | shown, disabled ("Unavailable in the demo") |
+| **Thessara's Crossing** *(new building, design TBD)* | Runai | shown, disabled ("Unavailable in the demo") |
+
+**The demo is 100 % Alanthor** — every player, AI included.
+
+- **Cost: 600 Supplies + 300 Iron + 200 Veilstone**, paid on placement. Every
+  start territory carries veilstone (Regions.md node quotas), so the price is
+  reachable on every map.
+- **Progress = construction.** The landmark self-builds in 90 s; each worker on
+  the site adds +25 % build rate (intended: workers buy a faster age-up). On
+  completion the faction ages up to that culture.
+- **One landmark per faction.** Placing one disables the other buttons for the
+  rest of the match.
+- **Destroyed before completion:** progress resets and **everything spent is
+  lost**. The buttons return and the player may pay again.
+- **Destroyed after completion:** the culture stays; the building is gone.
+- Placement follows the ordinary build gate — owned territory only
+  ([Territory_Claims.md](Territory_Claims.md) §5).
+- The landmarks' own properties (Vault interest, Keep volleys) are unchanged
+  for now; the Vault is due a rework.
+
+**The Shrine of Ridan is cut** — it is no longer a choice building. The
+Litharch and the Shrine's research move to the Temple of Ridan, which is now an
+Age 0 building ([Religion.md](Religion.md) §2).
+
+**The Hall is removed**; the Fortress takes its roster and research
+([Territory_Claims.md](Territory_Claims.md) §4).
+
 ## Special buildings (starts lvl 1)
+
+> **Superseded 2026-09-29** by § Age-up by landmark above: the choice is the
+> landmark, the Shrine of Ridan is cut, and the build costs below no longer
+> apply. Kept for the buildings' stats and research.
 
 These three are mutually-exclusive **choice buildings** in Age 0 â€” the player
 picks one to unlock the age-up research. All three start at lvl 1 (no lvl 0

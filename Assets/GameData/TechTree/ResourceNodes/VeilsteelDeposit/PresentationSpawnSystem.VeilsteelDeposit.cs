@@ -76,7 +76,8 @@ public partial class PresentationSpawnSystem
         // rule as iron and veilstone. The node's ECS scale is already sized so
         // the gem cluster spans exactly one cell, so this matches the art too.
         // docs/Design/Build_Grid.md
-        FitCellBoxCollider(root, CellColliderScaleFor(entity, VeilsteelDepositVisualBaseScale));
+        FitCellBoxCollider(root, CellColliderScaleFor(entity, VeilsteelDepositVisualBaseScale),
+            cellsAcross: BuildGrid.ResourceNodeCells);
 
         var entityRef = root.GetComponent<EntityReference>();
         if (entityRef == null) entityRef = root.AddComponent<EntityReference>();

@@ -1,20 +1,21 @@
 // FactionReligionPoints.cs
-// Per-faction RP balance + age-tracking for the sect-adoption economy.
-// Lives on the faction bank entity.
+// Per-faction RP balance for the religion layer. Lives on the faction bank.
+//
+// docs/Design/Religion.md (2026-09-29):
 //
 // RP sources:
-//  - Shrine of Ahridan completion (Age 1) → +1 (one-time, latched)
-//  - Age II / III / IV up           → +6 / +8 / +10
-//  - Carryover at age-up: floor(leftover / 2) added to the per-age award
+//  - killing curse units: the last hit pays POINTS (crystalling / veilstinger /
+//    godsplinter), and points convert to RP at an escalating rate — the first
+//    RP is cheap, later ones cost the cap (CurseKillReligionSystem);
+//  - the Temple's Tithe: RP for resources, dearer each time.
+//  (Age-ups and Temple upgrades no longer award RP; the Shrine is cut.)
 //
 // RP sinks:
-//  - Adopt sect           → 2 (same cluster) or 3 (cross cluster)
-//  - Lever upgrade Lv I→II → 2
-//  - Lever upgrade Lv II→III → 3
+//  - the Temple itself (1), a chapel (2 with affinity / 3 without),
+//  - the second active and the wildcard, chapel levels II / III,
+//  - a sect hero.
 //
-// Phase 1 (task-063): component + grant/spend helpers. Adoption logic lives
-// in SectAdoption; age-up wiring lives in AgeUpSystem; Shrine wiring lives
-// in BuildingConstructionSystem.GrantShrineRPBonus.
+// Every number is in FactionReligionPoints.asset (FactionReligionPointsConfig).
 
 using Unity.Entities;
 
@@ -39,6 +40,19 @@ namespace TheWaningBorder.Economy
         /// Initialised to 1 on faction creation.
         /// </summary>
         public byte CurrentAge;
+
+        /// <summary>Kill points banked toward the next RP (Religion.md §1).</summary>
+        public int Pts;
+
+        /// <summary>RP earned from kills so far — the n that prices the next one.</summary>
+        public int KillRp;
+
+        /// <summary>Tithes bought so far — the exponent of the Tithe's price.</summary>
+        public int TithesBought;
+
+        /// <summary>Seconds a standing Temple has banked toward its next
+        /// point (Religion.md §2 — the Temple's slow trickle).</summary>
+        public int TempleSeconds;
     }
 
     /// <summary>
@@ -48,6 +62,77 @@ namespace TheWaningBorder.Economy
     /// </summary>
     public static class FactionReligionPointsHelper
     {
+        private static FactionReligionPointsConfig _cfg;
+        public static FactionReligionPointsConfig Cfg =>
+            _cfg != null ? _cfg
+            : (_cfg = TheWaningBorder.Core.Settings.ComponentConfig.Require<FactionReligionPointsConfig>());
+
+        /// <summary>Kill points the next RP costs, given how many RP kills
+        /// have already paid: min(base + step x n, cap).</summary>
+        public static int PtsForNext(int killRpSoFar)
+            => System.Math.Min(Cfg.ptsBase + Cfg.ptsStep * killRpSoFar, Cfg.ptsCap);
+
+        /// <summary>
+        /// Bank curse-kill points for a faction and convert every full RP
+        /// they pay for. Returns the RP gained (0 when none).
+        /// </summary>
+        public static int AddKillPoints(EntityManager em, Faction faction, int pts)
+        {
+            if (pts <= 0) return 0;
+            if (!FactionEconomy.TryGetBank(em, faction, out var bank)) return 0;
+            if (!em.HasComponent<FactionReligionPoints>(bank)) return 0;
+            var rp = em.GetComponentData<FactionReligionPoints>(bank);
+            rp.Pts += pts;
+            int gained = 0;
+            for (int need = PtsForNext(rp.KillRp); rp.Pts >= need; need = PtsForNext(rp.KillRp))
+            {
+                rp.Pts -= need;
+                rp.KillRp++;
+                rp.Balance++;
+                gained++;
+            }
+            em.SetComponentData(bank, rp);
+            return gained;
+        }
+
+        /// <summary>(points banked, points the next RP needs) for the HUD.</summary>
+        public static (int have, int need) PtsProgress(EntityManager em, Faction faction)
+        {
+            if (!FactionEconomy.TryGetBank(em, faction, out var bank)
+                || !em.HasComponent<FactionReligionPoints>(bank)) return (0, 0);
+            var rp = em.GetComponentData<FactionReligionPoints>(bank);
+            return (rp.Pts, PtsForNext(rp.KillRp));
+        }
+
+        /// <summary>The Tithe's price for this faction's next purchase:
+        /// the base price x step^(tithes already bought), rounded.</summary>
+        public static TheWaningBorder.Core.Cost TitheCost(EntityManager em, Faction faction)
+        {
+            int bought = 0;
+            if (FactionEconomy.TryGetBank(em, faction, out var bank)
+                && em.HasComponent<FactionReligionPoints>(bank))
+                bought = em.GetComponentData<FactionReligionPoints>(bank).TithesBought;
+            float m = (float)System.Math.Pow(Cfg.titheStep, bought);
+            return TheWaningBorder.Core.Cost.Of(
+                supplies: (int)System.Math.Round(Cfg.titheSupplies * m),
+                iron: (int)System.Math.Round(Cfg.titheIron * m),
+                veilstone: (int)System.Math.Round(Cfg.titheVeilstone * m));
+        }
+
+        /// <summary>Buy one RP through the Tithe. Executor side — every peer
+        /// runs it at the same tick. False (nothing spent) when unaffordable.</summary>
+        public static bool TryBuyTithe(EntityManager em, Faction faction)
+        {
+            if (!FactionEconomy.TryGetBank(em, faction, out var bank)) return false;
+            if (!em.HasComponent<FactionReligionPoints>(bank)) return false;
+            var cost = TitheCost(em, faction);
+            if (!FactionEconomy.Spend(em, faction, cost)) return false;
+            var rp = em.GetComponentData<FactionReligionPoints>(bank);
+            rp.Balance++;
+            rp.TithesBought++;
+            em.SetComponentData(bank, rp);
+            return true;
+        }
         /// <summary>
         /// Award the +1 Shrine bonus exactly once per faction. Idempotent —
         /// safe to call from BuildingConstructionSystem on every Shrine
@@ -76,30 +161,18 @@ namespace TheWaningBorder.Economy
         /// </summary>
         public static int AwardAgeUp(EntityManager em, Faction faction, int newAge)
         {
-            int award = SectConfig.RpAwardForAge(newAge);
-            if (award == 0) return 0;
-
+            // RETIRED (docs/Design/Religion.md §1, 2026-09-29): Religion
+            // Points come from killing the curse and from the Temple's Tithe,
+            // never from an age. The call sites (age-up, Temple upgrade, the
+            // start-age promoter) still land here so the faction's age is
+            // tracked; no RP changes hands and no balance is converted.
             if (!FactionEconomy.TryGetBank(em, faction, out var bank)) return 0;
             if (!em.HasComponent<FactionReligionPoints>(bank)) return 0;
-
             var rp = em.GetComponentData<FactionReligionPoints>(bank);
-
-            // Skip if we've already awarded this age (re-entrancy guard).
             if (rp.CurrentAge >= newAge) return 0;
-
-            // Carry-over: leftover before the award is halved (floor) and added on top.
-            int carry = rp.Balance / SectConfig.CarryoverDivisor;
-            int delta = award + carry;
-
-            // Drop the un-carried half (the post-carry remainder is discarded —
-            // i.e. balance is REPLACED by carry, not balance + carry, otherwise
-            // the player would keep their leftover *and* gain the halved bonus).
-            // Spec: "Unspent points carry to the next age at 2:1 (4 unspent → 2 next age)".
-            // That reads as a replacement: the leftover is CONVERTED at 2:1.
-            rp.Balance = carry + award;
             rp.CurrentAge = (byte)newAge;
             em.SetComponentData(bank, rp);
-            return delta;
+            return 0;
         }
 
         /// <summary>

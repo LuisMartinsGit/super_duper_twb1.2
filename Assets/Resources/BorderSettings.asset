@@ -109,6 +109,11 @@ MonoBehaviour:
   mergeDefendRadius: 30
   leashSeconds: 25
   raidSeconds: 60
+  initialNodes: 0
+  reseedSeconds: 180
+  nodeAuraRadius: 20
+  shardrootGuaranteeSeconds: 720
+  shardrootCurseBonus: 0.5
   minutesPerTier: 8
   decisionInterval: 5
   replenishInterval: 4

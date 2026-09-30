@@ -115,6 +115,10 @@ save whenever the markers have changed since the last bake.
 
 ## 2. Claiming a territory
 
+> **SUPERSEDED 2026-09-29 by [Territory_Claims.md](Territory_Claims.md).**
+> Territory is now claimed by standing military units on it (an ownership
+> meter), not by building a Hall; the Hall is removed. Kept for history.
+
 **Claiming is an ACTION, not a threshold.** This reverses the second pass, which
 had a territory flip to whoever dominated it on the influence map.
 
@@ -225,6 +229,11 @@ front line is a row of structures somebody has to keep alive.
 ---
 
 ## 3. The curse is a PLAYER (2026-08-31 — THIRD MODEL, supersedes the wave-claim model below)
+
+> **SUPERSEDED 2026-09-29 by [Territory_Claims.md](Territory_Claims.md) §6.**
+> No pure nodes: the curse claims by the same meter (double weight), builds
+> destructible nodes on any resource node, and those nodes lock its ground.
+> The "not a full player" scope rule still stands.
 
 **The curse expands exactly the way a player does: it takes whole territories,
 instantly, by the same ownership rules.** No influence, no gradient, no
@@ -428,6 +437,15 @@ is shown (see *Reading a territory* at the end of this section).
   the currencies a territory-holding faction accumulates and previously could
   not spend.
 
+- **One Mine button** (2026-09-29): the three ore extractors are ONE entry in
+  the build menu. The node under the cursor decides which is raised — an iron
+  deposit an Iron Mine, a veilstone outcropping a Veilstone Mine, a veilsteel
+  deposit the veilsteel extractor (`Alanthor_Smelter`, Alanthor only, cap 5) —
+  and the ghost shows that pithead. All three share one procedural pithead
+  (`MineVisual`) and differ by their ore: rust iron, glowing cyan veilstone
+  crystal, dark blue-steel veilsteel. The ids stay separate underneath; the AI
+  and the command stream use them directly.
+
 - **Ore extractors are priced in IRON first** (2026-08-30): Mine 90 supplies +
   140 iron, Veilstone Mine 90 + 160 iron, Smelter 240 + 320 iron. They were
   supply-priced, and the measured result — the moment on-node placement
@@ -607,7 +625,7 @@ either would be silently mistaken for a gather order by a peer on an old build.
   only.
 - ~~The Sawyer and the mine do not exist.~~ **Both exist now (2026-08-28).**
 
-  **Mine** — `Mine`, 220 supplies, 8x8. It already existed as a Feraldis
+  **Mine** — `Mine`, 220 supplies, 4x4 m (2 x 2 cells since 2026-09-29, on its node). It already existed as a Feraldis
   building doing exactly what §4 describes ("workerless ore extraction; works
   every iron and veilstone node in range with no workers at all"), so it was
   made **universal** rather than duplicated per culture: §4's trickle-plus-mine

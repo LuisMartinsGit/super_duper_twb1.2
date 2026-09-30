@@ -1718,6 +1718,27 @@ namespace TheWaningBorder.Core.Commands
                     SimSignals.Notify(Loc.T("Your court already employs a Ledger"));
                 return;
             }
+            // SECT HEROES (docs/Design/Religion.md §4): one per sect, and the
+            // first recruit costs Religion Points on top of its resources.
+            int heroRp = 0;
+            string heroSect = TheWaningBorder.Systems.Sect.SectHeroes.SectIdForUnit(unitId);
+            if (heroSect != null && em.HasComponent<FactionTag>(building))
+            {
+                var heroFaction = em.GetComponentData<FactionTag>(building).Value;
+                if (TheWaningBorder.Systems.Sect.SectHeroes.HasLiveOrQueued(em, heroFaction, unitId))
+                {
+                    if (notifyLocal)
+                        SimSignals.Notify(Loc.T("This sect's hero already serves you"));
+                    return;
+                }
+                heroRp = TheWaningBorder.Systems.Sect.SectHeroes.RpDue(em, heroFaction, heroSect);
+                if (!TheWaningBorder.Economy.FactionReligionPointsHelper.CanAfford(em, heroFaction, heroRp))
+                {
+                    if (notifyLocal)
+                        SimSignals.NotifyError(Loc.T("Not enough Religion Points"));
+                    return;
+                }
+            }
             // Reject when combined production queue would exceed the cap.
             if (IsProductionQueueFull(em, building))
             {
@@ -1759,6 +1780,8 @@ namespace TheWaningBorder.Core.Commands
                         SimSignals.NotifyError(Loc.T("Not enough resources"));
                     return;
                 }
+                if (heroRp > 0)
+                    TheWaningBorder.Economy.FactionReligionPointsHelper.TrySpend(em, trainFaction, heroRp);
             }
 
             // Behind whatever the building is already making — a unit
@@ -1892,6 +1915,11 @@ namespace TheWaningBorder.Core.Commands
             if (IsWallMountOnlyBuilding(buildingId))
                 return TheWaningBorder.World.Regions.PlacementRefusal.UnknownBuilding;
 
+            // The Hall is removed (Territory_Claims.md §4) — the Fortress
+            // took its roster and research.
+            if (TheWaningBorder.World.Regions.TerritoryOwnership.IsRetiredBuilding(buildingId))
+                return TheWaningBorder.World.Regions.PlacementRefusal.Retired;
+
             // Smelter cap (5 per faction). Rejected here so callers with a
             // spend-then-place flow (AI TryBuildOnce) see created == Null and
             // refund cleanly; the UI normally hides the button first.
@@ -1934,13 +1962,12 @@ namespace TheWaningBorder.Core.Commands
                     em, buildingId, position.x, position.z))
                 return TheWaningBorder.World.Regions.PlacementRefusal.OffNode;
 
-            // One Hall per territory. A second claims nothing (the first
-            // already holds the ground), so it is only a way to waste the
-            // Hall's 450 supplies and 450 iron.
-            if (TheWaningBorder.World.Regions.TerritoryOwnership.IsClaimStructure(buildingId)
-                && TheWaningBorder.World.Regions.TerritoryOwnership.HallCapReached(
+            // One Fortress per territory (Territory_Claims.md §4). A second
+            // locks nothing the first does not already lock.
+            if (buildingId == "Fortress"
+                && TheWaningBorder.World.Regions.TerritoryOwnership.FortressCapReached(
                        em, position.x, position.z))
-                return TheWaningBorder.World.Regions.PlacementRefusal.HallAlreadyHere;
+                return TheWaningBorder.World.Regions.PlacementRefusal.FortressAlreadyHere;
 
             // THE BUILDER HAS TO BE THERE (Regions.md §2, 2026-09-26). A claim
             // is made on the ground, by a worker standing on it — not dropped
@@ -2033,15 +2060,21 @@ namespace TheWaningBorder.Core.Commands
         private static TheWaningBorder.World.Regions.PlacementRefusal CheckClaimAtExecution(
             EntityManager em, string buildingId, float3 position, Faction faction, Entity builder)
         {
-            if (!TheWaningBorder.World.Regions.TerritoryOwnership.IsClaimStructure(buildingId))
-                return TheWaningBorder.World.Regions.PlacementRefusal.None;
+            // Territory_Claims.md §5: EVERY placement is re-checked against
+            // ownership at the tick it executes. Ground changes hands on the
+            // meter between issue and execution, and on a remote peer the
+            // issue gates never ran — a building must never land on ground
+            // its faction lost in the meantime.
+            if (TheWaningBorder.World.Regions.TerritoryOwnership.IsRetiredBuilding(buildingId))
+                return TheWaningBorder.World.Regions.PlacementRefusal.Retired;
             if (TheWaningBorder.World.Regions.RegionMap.Ready)
                 TheWaningBorder.World.Regions.TerritoryOwnership.Recompute(em);
             var r = TheWaningBorder.World.Regions.TerritoryOwnership.TerritoryRefusal(
                 em, faction, buildingId, position.x, position.z);
             if (r != TheWaningBorder.World.Regions.PlacementRefusal.None) return r;
-            if (TheWaningBorder.World.Regions.TerritoryOwnership.HallCapReached(em, position.x, position.z))
-                return TheWaningBorder.World.Regions.PlacementRefusal.HallAlreadyHere;
+            if (buildingId == "Fortress"
+                && TheWaningBorder.World.Regions.TerritoryOwnership.FortressCapReached(em, position.x, position.z))
+                return TheWaningBorder.World.Regions.PlacementRefusal.FortressAlreadyHere;
             // In range AND standing inside the territory being claimed.
             if (TheWaningBorder.World.Regions.TerritoryOwnership.NeedsBuilderNearby(buildingId))
                 return TheWaningBorder.World.Regions.TerritoryOwnership.CheckHallBuilder(
@@ -2064,6 +2097,21 @@ namespace TheWaningBorder.Core.Commands
         /// bank cannot pay, identically on every peer — no entity, no
         /// partial effects.
         /// </summary>
+        /// <summary>
+        /// True when <paramref name="faction"/> may not place this landmark:
+        /// it already has one (built or under construction), it already has a
+        /// culture, or the landmark's culture is not in this build (the demo
+        /// ships Alanthor only). Replicated state only — same verdict on
+        /// every lockstep peer.
+        /// </summary>
+        public static bool LandmarkRefused(EntityManager em, string buildingId, Faction faction)
+        {
+            if (TheWaningBorder.Entities.BuildingFactory.GetFactionChoiceBuilding(em, faction) != null) return true;
+            if (CultureConfig.GetCompletedCulture(em, faction) != Cultures.None) return true;
+            byte culture = TheWaningBorder.Systems.Work.LandmarkAgeUp.CultureOf(buildingId);
+            return culture == Cultures.None || CultureConfig.IsComingSoon(culture);
+        }
+
         public static Entity PlaceBuildingDirect(EntityManager em, string buildingId, float3 position,
             Faction faction, Entity builder)
         {
@@ -2082,6 +2130,22 @@ namespace TheWaningBorder.Core.Commands
                 UnityEngine.Debug.LogWarning(
                     $"[CommandRouter] Refused {buildingId} for {faction} at " +
                     $"({position.x:F1},{position.z:F1}) — {claim}.");
+                return Entity.Null;
+            }
+
+            // ONE LANDMARK PER FACTION (Age_0.md § Age-up by landmark). The
+            // panel and the AI check this before issuing, but only the
+            // executor sees two queued placements land in order — the second
+            // must be refused here, on every peer, before the spend. A faction
+            // that already has a culture never builds another, and a landmark
+            // whose culture the build does not ship is refused outright.
+            if (TheWaningBorder.Entities.BuildingFactory.IsChoiceBuilding(buildingId)
+                && LandmarkRefused(em, buildingId, faction))
+            {
+                LastPlacementRefusal = TheWaningBorder.World.Regions.PlacementRefusal.CapReached;
+                UnityEngine.Debug.LogWarning(
+                    $"[CommandRouter] Refused {buildingId} for {faction} — landmark already placed, " +
+                    "culture already chosen, or culture unavailable.");
                 return Entity.Null;
             }
 
@@ -2105,15 +2169,50 @@ namespace TheWaningBorder.Core.Commands
                 return Entity.Null;
             }
 
+            // Nothing on a resource node but its own extractor (Build_Grid.md
+            // §3) — the same geometry-only kind of invariant as the overlap
+            // above, from replicated node positions, so every peer agrees.
+            BuildCommandHelper.FootprintAabb(snappedPos, BuildingSizeConfig.GetSize(buildingId),
+                out float2 nodeMin, out float2 nodeMax);
+            if (TheWaningBorder.Entities.ResourceNodeSite.OverlapsNode(em, nodeMin, nodeMax,
+                    TheWaningBorder.World.Regions.TerritoryOwnership.RequiredNodeFor(buildingId)))
+            {
+                LastPlacementRefusal = TheWaningBorder.World.Regions.PlacementRefusal.OnResourceNode;
+                UnityEngine.Debug.LogWarning(
+                    $"[CommandRouter] Refused {buildingId} for {faction} at " +
+                    $"({snappedPos.x:F1},{snappedPos.z:F1}) — footprint covers a resource node.");
+                return Entity.Null;
+            }
+
             // BuildCosts is synced from the shared TechTree on every peer, so
             // the debit is deterministic. BuildCosts.For folds in the
             // faction-dependent parts — the Hall's escalation (Regions.md §2,
             // counted from the live Halls at THIS tick) and Deep Foundations —
             // from replicated state only. An id missing from the table places
             // free — the same lenient fallback the old panel spend had.
+            // THE TEMPLE COSTS A RELIGION POINT (docs/Design/Religion.md §2),
+            // and a faction raises one. Checked before either spend so a
+            // refused Temple costs nothing; the RP is taken only once the
+            // resources went through, so no peer ever pays one without the
+            // other.
+            bool temple = buildingId == "TempleOfRidan";
+            int templeRp = 0;
+            if (temple)
+            {
+                templeRp = TheWaningBorder.Economy.FactionReligionPointsHelper.Cfg.templeRp;
+                if (TheWaningBorder.Entities.BuildingFactory.GetFactionBuildingCount<TempleOfRidanTag>(em, faction) > 0
+                    || !TheWaningBorder.Economy.FactionReligionPointsHelper.CanAfford(em, faction, templeRp))
+                {
+                    LastPlacementRefusal = TheWaningBorder.World.Regions.PlacementRefusal.CapReached;
+                    return Entity.Null;
+                }
+            }
+
             var cost = TheWaningBorder.Data.BuildCosts.For(em, faction, buildingId);
             if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost))
                 return Entity.Null;
+            if (temple)
+                TheWaningBorder.Economy.FactionReligionPointsHelper.TrySpend(em, faction, templeRp);
 
             Entity building = TheWaningBorder.Entities.BuildingFactory.Create(em, buildingId, position, faction);
 
@@ -2164,10 +2263,16 @@ namespace TheWaningBorder.Core.Commands
             // deterministic across lockstep peers (set by AgeUpSystem during
             // tick replay), so this works for both single-player and
             // multiplayer paths.
-            if (buildingId == "Hall" && em.HasComponent<FactionProgress>(building))
+            // A built FORTRESS (Territory_Claims.md §4) is the same case, and
+            // after age-up it also takes the cultured capital form the
+            // starting Fortress took (King's Court for Alanthor).
+            if ((buildingId == "Hall" || buildingId == "Fortress")
+                && em.HasComponent<FactionProgress>(building))
             {
                 byte culture = FactionColors.GetFactionCulture(faction);
                 em.SetComponentData(building, new FactionProgress { Culture = culture });
+                if (buildingId == "Fortress" && culture != Cultures.None)
+                    TheWaningBorder.Systems.Work.AgeUpSystem.TransformHallForCulture(em, building, culture);
             }
 
             return building;
@@ -2354,6 +2459,10 @@ namespace TheWaningBorder.Core.Commands
                 em.RemoveComponent<CommandQueueActive>(unit);
             if (em.HasBuffer<QueuedCommand>(unit))
                 em.GetBuffer<QueuedCommand>(unit).Clear();
+            if (em.HasComponent<QueuedMoveStep>(unit))
+                em.RemoveComponent<QueuedMoveStep>(unit);
+            if (em.HasComponent<QueuedAttackTarget>(unit))
+                em.RemoveComponent<QueuedAttackTarget>(unit);
             // Cancel a pending or in-progress ritual when any other command
             // is issued. PurificationRitualSystem / ConversionRitualSystem
             // also clear ActiveRitualOnNode on the targeted node when they

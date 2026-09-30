@@ -106,7 +106,7 @@ namespace TheWaningBorder.Entities
             r["Alanthor_Cataphract"]  = new UnitRecipe(Cataphract.Create, Cataphract.Create, UnitClass.Melee, 336);
             r["Alanthor_Outrider"]    = new UnitRecipe(Outrider.Create, Outrider.Create, UnitClass.Melee, Outrider.PresentationID);
             // Siege Yard bolt-thrower: single-target flat bolt, +30 vs Building.
-            var ballista              = new UnitRecipe(Ballista.Create, Ballista.Create, UnitClass.Siege, 337);
+            var ballista              = new UnitRecipe(Ballista.Create, Ballista.Create, UnitClass.Siege, Ballista.PresentationID);
             // Ballista and Catapult are SEPARATE units as of 2026-08-27 — the
             // Siege Yard trains all four of Ballista / Battering Ram / Catapult /
             // Trebuchet. The Catapult is no longer an alias of the Ballista.

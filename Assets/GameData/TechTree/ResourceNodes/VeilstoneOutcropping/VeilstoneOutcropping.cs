@@ -94,7 +94,7 @@ namespace TheWaningBorder.Entities
         /// contest and to give a Mine something to sit against. Matches iron's
         /// footprint, so the two resources are the same kind of object.
         /// </summary>
-        public const int NodeFootprintCells = 3;
+        public const int NodeFootprintCells = BuildGrid.ResourceNodeCells;
 
         /// <summary>Half-extent of the node footprint, in metres.</summary>
         public static float NodeRadius => BuildGrid.CellSize * NodeFootprintCells * 0.5f;
@@ -135,7 +135,10 @@ namespace TheWaningBorder.Entities
                     int totalVeilstone = states[i].RemainingVeilstone + veilstoneAmount;
                     float3 mergedPos = transforms[i].Position;
                     em.DestroyEntity(entities[i]);
-                    return Create(em, mergedPos, totalVeilstone);
+                    // Same ground as the node it replaces — already a legal
+                    // site, and its own grid cells are still blocked, so it
+                    // must not be re-resolved (it would be moved off itself).
+                    return Create(em, mergedPos, totalVeilstone, resolveSite: false);
                 }
             }
 
@@ -147,11 +150,23 @@ namespace TheWaningBorder.Entities
 
         public static Entity Create(EntityCommandBuffer ecb, float3 position) => Create(ecb, position, DefaultVeilstone);
 
-        public static Entity Create(EntityManager em, float3 position, int veilstoneAmount)
+        public static Entity Create(EntityManager em, float3 position, int veilstoneAmount,
+                                    bool resolveSite = true)
         {
             // One node, one build cell, snapped to its centre.
             // docs/Design/Build_Grid.md
-            position = BuildGrid.SnapToCellCentre(position);
+            position = BuildGrid.SnapResourceNode(position);
+            if (resolveSite)
+            {
+                // A legal site only: whole footprint on buildable ground, one
+                // clear cell from every other node (ResourceNodeSite, Build_Grid.md §3).
+                if (!ResourceNodeSite.TryResolve(em, position, out position))
+                {
+                    UnityEngine.Debug.LogWarning($"[VeilstoneOutcropping] no legal node site within " +
+                        $"{ResourceNodeSite.SearchRings} cells of ({position.x:F0},{position.z:F0}) — not spawned.");
+                    return Entity.Null;
+                }
+            }
 
             float scale = ComputeScale(veilstoneAmount);
             float radius = ComputeRadius(veilstoneAmount);
@@ -181,6 +196,7 @@ namespace TheWaningBorder.Entities
                 Depleted = 0
             });
             em.SetComponentData(entity, new Radius { Value = radius });
+            em.AddComponentData(entity, new NodeFootprint { Meters = BuildGrid.ResourceNodeMeters });
 
             em.AddComponentData(entity, new NetworkedEntity
             {
@@ -192,7 +208,7 @@ namespace TheWaningBorder.Entities
             // the ONE node type that never did this — it carved the nav cost
             // field but stayed passable here, so placement validation and
             // steering both thought the ground was free.
-            PassabilityGrid.Instance?.BlockObstacle(position, NodeRadius);
+            PassabilityGrid.Instance?.BlockObstacle(position, BuildGrid.ResourceNodeBlockRadius);
 
             return entity;
         }
@@ -200,7 +216,7 @@ namespace TheWaningBorder.Entities
         public static Entity Create(EntityCommandBuffer ecb, float3 position, int veilstoneAmount)
         {
             // Same single-cell snap as the EntityManager path above.
-            position = BuildGrid.SnapToCellCentre(position);
+            position = BuildGrid.SnapResourceNode(position);
 
             float scale = ComputeScale(veilstoneAmount);
             float radius = ComputeRadius(veilstoneAmount);
@@ -217,6 +233,7 @@ namespace TheWaningBorder.Entities
                 Depleted = 0
             });
             ecb.AddComponent(entity, new Radius { Value = radius });
+            ecb.AddComponent(entity, new NodeFootprint { Meters = BuildGrid.ResourceNodeMeters });
             // Mirror the EntityManager path above — see comment there for
             // why outcroppings carry ObstacleTag.
             ecb.AddComponent<ObstacleTag>(entity);
@@ -230,7 +247,7 @@ namespace TheWaningBorder.Entities
             // Mirror the EntityManager path's passability block. Safe to do
             // eagerly: the grid is keyed by world position, not by entity, so
             // it does not need to wait for ECB playback.
-            PassabilityGrid.Instance?.BlockObstacle(position, NodeRadius);
+            PassabilityGrid.Instance?.BlockObstacle(position, BuildGrid.ResourceNodeBlockRadius);
 
             return entity;
         }

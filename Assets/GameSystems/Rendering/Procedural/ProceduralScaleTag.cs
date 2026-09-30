@@ -27,7 +27,8 @@ namespace TheWaningBorder.Rendering
         public float AuthoredScale = 1f;
 
         /// <summary>
-        /// Pivot-to-bounds-centre offset in root-local units (XZ only),
+        /// Pivot-to-bounds-centre offset in root-local units (XZ), and
+        /// pivot-to-lowest-point (Y) so the model stands on the ground,
         /// measured at scale 1 / rotation identity by the footprint fit.
         /// SyncTransforms subtracts it (rotated, scaled) from the entity
         /// position so the SCALED mesh centre — not the prefab's pivot —

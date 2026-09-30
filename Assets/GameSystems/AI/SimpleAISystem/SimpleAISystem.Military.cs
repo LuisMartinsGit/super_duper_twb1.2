@@ -123,11 +123,7 @@ namespace TheWaningBorder.AI
         /// memory, not live vision: knowing where a base IS survives the
         /// scout that found it. Fail-open without a fog manager.</summary>
         private static bool IsKnownGround(Faction faction, float3 pos)
-        {
-            var fog = TheWaningBorder.World.FogOfWar.FogOfWarManager.Instance;
-            return fog == null
-                || fog.IsRevealed(faction, new UnityEngine.Vector3(pos.x, 0f, pos.z));
-        }
+            => AICommon.IsKnownGround(faction, pos);
 
         /// <summary>
         /// The victim's nearest KNOWN Hall — from OUR sighting buffer, not
@@ -445,6 +441,7 @@ namespace TheWaningBorder.AI
                 Entity e = ents[i];
                 if (em.HasComponent<UnderConstruction>(e)) continue;
                 if (IsVerbUnit(em, e)) continue;   // ritualists are not army
+                if (IsClaimSquadMember(e)) continue;   // holding ground for a claim
                 // Uncommandable bodies (Feraldis House Raiders) cannot be sent
                 // anywhere — FeraldisRaiderPatrolSystem owns them and
                 // overrides any order the same frame. Drafting them inflates
@@ -704,7 +701,7 @@ namespace TheWaningBorder.AI
                 if (IsFeraldisCulture(em, faction))
                     anchor = FindNearestActiveWell(em, mid, out anchorPos);
                 else
-                    anchor = FindNearestSmallNode(em, mid, out anchorPos);
+                    anchor = FindNearestSmallNode(em, faction, mid, out anchorPos);
                 if (anchor != Entity.Null)
                 {
                     target = anchor;
@@ -949,6 +946,7 @@ namespace TheWaningBorder.AI
                 if (em.HasComponent<PlundererTag>(e)) continue;
                 // Ritualists carry the culture verb — never draft them.
                 if (IsVerbUnit(em, e)) continue;
+                if (IsClaimSquadMember(e)) continue;   // holding ground for a claim
                 // Nor uncommandable raiders: ordering them is a no-op that
                 // still counts as "sent", which kept spent waves alive.
                 if (em.HasComponent<NotControllableTag>(e)) continue;
@@ -1504,6 +1502,7 @@ namespace TheWaningBorder.AI
             for (int i = 0; i < sXfs.Length; i++)
             {
                 if (sHps[i].Value <= 0) continue;
+                if (!IsKnownGround(faction, sXfs[i].Position)) continue;   // only curse it has SEEN
                 float dx = sXfs[i].Position.x - hallPos.x;
                 float dz = sXfs[i].Position.z - hallPos.z;
                 float d2 = dx * dx + dz * dz;
@@ -1530,7 +1529,13 @@ namespace TheWaningBorder.AI
             bool atDoorstep = bestD2 < Cfg.reclaimHallThreatRadius * Cfg.reclaimHallThreatRadius;
             bool veilstonePoor = FactionEconomy.TryGetBank(em, faction, out var bank)
                 && em.GetComponentData<FactionResources>(bank).Veilstone < Cfg.reclaimVeilstonePoorBelow;
-            if (!atDoorstep && !veilstonePoor) return;
+            // RELIGION COMES FROM THE CURSE (docs/Design/Religion.md §1): a
+            // faction short of Religion Points hunts the nearest curse node's
+            // defenders too — curse kills are its main source of RP, and the
+            // node's fall opens the ground under it for a claim.
+            bool wantsReligion = TheWaningBorder.Economy.FactionReligionPointsHelper
+                .GetBalance(em, faction) < Cfg.reclaimReligionBelow;
+            if (!atDoorstep && !veilstonePoor && !wantsReligion) return;
 
             // Draft a small squad of uncommitted military (same eligibility
             // rules as the attack waves).
@@ -1546,6 +1551,7 @@ namespace TheWaningBorder.AI
                 Entity e = ents[i];
                 if (em.HasComponent<UnderConstruction>(e)) continue;
                 if (IsVerbUnit(em, e)) continue;   // ritualists are not army
+                if (IsClaimSquadMember(e)) continue;   // holding ground for a claim
                 if (TransientState.Active<AttackMoveTag>(em, e)) continue;
                 if (TransientState.Active<MoveCommand>(em, e)) continue;
                 if (TransientState.Active<AttackCommand>(em, e)) continue;

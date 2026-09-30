@@ -30,6 +30,56 @@ namespace TheWaningBorder.AI
     /// <summary>Helpers shared by every AI system, whatever culture or phase.</summary>
     public static class AICommon
     {
+        /// <summary>
+        /// HAS THIS FACTION EVER SEEN THIS GROUND? The AI's single fog-honest
+        /// test (explored-map memory, not live vision: a node a scout found
+        /// stays known after the scout leaves). Every lookup of map features
+        /// the AI could not otherwise know — resource nodes, curse nodes — goes
+        /// through it, so the AI discovers the map the way a player does.
+        /// Fail-open when there is no fog manager (fog off, scenarios).
+        /// </summary>
+        /// <summary>
+        /// CHAINED ORDERS — the AI's Shift+right-click. The first step is
+        /// issued as an ordinary order (which also clears any old queue); the
+        /// rest are appended to the unit's command queue through the same
+        /// replicated path a player's Shift+click uses
+        /// (CommandRouter.IssueQueuedWaypoint), and CommandQueueSystem runs
+        /// them in order as each one completes. Lets the AI hand a unit a
+        /// whole route in one decision instead of re-ordering it on arrival —
+        /// no idle tick between legs. An attack-move step waits out any fight
+        /// it picks up before the next step starts.
+        /// </summary>
+        public static void IssueChain(EntityManager em, Entity unit,
+            System.Collections.Generic.IReadOnlyList<(QueuedCommandType type, float3 pos)> steps)
+        {
+            if (steps == null || steps.Count == 0 || unit == Entity.Null || !em.Exists(unit)) return;
+
+            // A clean slate first: whatever the unit was doing — an old queue
+            // included — is replaced by this route. (Stop keeps the stance.)
+            CommandRouter.IssueStop(em, unit, CommandSource.AI);
+
+            var first = steps[0];
+            switch (first.type)
+            {
+                case QueuedCommandType.AttackMove:
+                    CommandRouter.IssueAttackMove(em, unit, first.pos, CommandSource.AI); break;
+                case QueuedCommandType.Patrol:
+                    CommandRouter.IssuePatrol(em, unit, first.pos, CommandSource.AI); break;
+                default:
+                    CommandRouter.IssueMove(em, unit, first.pos, CommandSource.AI); break;
+            }
+            for (int i = 1; i < steps.Count; i++)
+                CommandRouter.IssueQueuedWaypoint(em, unit, steps[i].type, steps[i].pos,
+                    Entity.Null, CommandSource.AI);
+        }
+
+        public static bool IsKnownGround(Faction faction, float3 pos)
+        {
+            var fog = TheWaningBorder.World.FogOfWar.FogOfWarManager.Instance;
+            return fog == null
+                || fog.IsRevealed(faction, new UnityEngine.Vector3(pos.x, 0f, pos.z));
+        }
+
         static readonly ComponentType[] BuilderTypes =
         {
             ComponentType.ReadOnly<CanBuild>(),

@@ -594,38 +594,66 @@ namespace TheWaningBorder.Core.Commands.Issuing
             return units;
         }
 
+        /// <summary>Formation groups of queued steps; see QueuedCommand.Group.</summary>
+        private static int _nextQueueGroup;
+
         /// <summary>
-        /// Shift+right-click: queue a move waypoint on each selected unit instead of replacing their current command.
+        /// Shift+right-click (2026-09-29): QUEUE what was clicked on each
+        /// selected unit, behind whatever it is doing.
+        ///   enemy            -> Attack (units that can attack; others move there)
+        ///   own site         -> Build   (workers)
+        ///   damaged building -> Repair  (workers)
+        ///   wounded ally     -> Heal    (healers)
+        ///   anything else    -> the armed mode (AttackMove / Patrol) or Move
+        /// Moves, attack-moves and patrols carry one formation group for the
+        /// whole selection, so the route is marched in formation; attacks and
+        /// work orders are per unit. The first step starts at once when the
+        /// unit is idle — in single player and multiplayer alike.
         /// </summary>
-        public void QueueWaypointForSelection(float3 clickWorld)
+        public void QueueOrderForSelection(float3 clickWorld, Entity target, TargetType targetType,
+                                           QueuedCommandType armed)
         {
-            // Called only while Shift is held. Every waypoint is appended to
-            // the command queue and the entity is marked CommandQueueFrozen,
-            // so CommandQueueSystem will not pop the next command until Shift
-            // is released (UnfreezeAllQueues clears the tag).
-            var selection = CurrentSelection;
-            foreach (var e in selection)
+            _nextQueueGroup = _nextQueueGroup % 32000 + 1;
+            int group = _nextQueueGroup;
+            byte shape = (byte)Shape;
+            bool anyFull = false;
+
+            foreach (var e in CurrentSelection)
             {
                 if (!_em.Exists(e) || _em.HasComponent<BuildingTag>(e)) continue;
                 if (!IsOwnedByLocalPlayer(e)) continue;
+                if (CommandRouter.IsCommandQueueFull(_em, e)) { anyFull = true; continue; }
 
-                // Through the router. Ordinary moves have replicated for a
-                // long time; the SHIFT-queued variant never did, so a queued
-                // march existed only on the machine that drew it and the other
-                // peer's copy of those units simply stood there.
-                // docs/Multiplayer_LAN_Readiness.md
-                CommandRouter.IssueQueuedWaypoint(_em, e, QueuedCommandType.Move,
-                    clickWorld, Entity.Null, CommandSource.LocalPlayer);
+                var type = armed;
+                var stepTarget = Entity.Null;
+                float3 point = clickWorld;
+                // The same capability tests the ordinary right-click uses.
+                bool canAttack = _em.HasComponent<Damage>(e);
+                bool canBuild = _em.HasComponent<CanBuild>(e);
+                bool canHeal = CanHeal(e);
 
-                // CommandQueueActive now rides QueuedWaypointDirect itself, so
-                // every peer that applies the waypoint also activates the
-                // queue. The FREEZE stays local-input-only and is therefore
-                // single-player only: a frozen queue on one peer and a
-                // draining queue on the other is a position fork. In MP the
-                // queue simply starts draining immediately on all peers.
-                if (!GameSettings.IsMultiplayer && !_em.HasComponent<CommandQueueFrozen>(e))
-                    _em.AddComponent<CommandQueueFrozen>(e);
+                if (targetType == TargetType.Enemy && canAttack)
+                { type = QueuedCommandType.Attack; stepTarget = target; }
+                else if (targetType == TargetType.FriendlyBuilding && canBuild
+                         && _em.HasComponent<UnderConstruction>(target))
+                { type = QueuedCommandType.Build; stepTarget = target; }
+                else if (targetType == TargetType.FriendlyBuilding && canBuild && IsBuildingDamaged(target))
+                { type = QueuedCommandType.Repair; stepTarget = target; }
+                else if (targetType == TargetType.FriendlyUnit && canHeal && target != e
+                         && _em.HasComponent<Health>(target)
+                         && _em.GetComponentData<Health>(target).Value < _em.GetComponentData<Health>(target).Max)
+                { type = QueuedCommandType.Heal; stepTarget = target; }
+
+                if (stepTarget != Entity.Null && _em.HasComponent<LocalTransform>(stepTarget))
+                    point = _em.GetComponentData<LocalTransform>(stepTarget).Position;
+
+                bool grouped = stepTarget == Entity.Null;
+                CommandRouter.IssueQueuedWaypoint(_em, e, type, point, stepTarget,
+                    CommandSource.LocalPlayer, grouped ? shape : (byte)0, grouped ? group : 0);
             }
+            if (anyFull)
+                SimSignals.Notify(TheWaningBorder.Core.Localization.Loc.T(
+                    "Command queue full — at most 15 queued actions"));
         }
 
         // Strips CommandQueueFrozen from every entity that carries it. Called

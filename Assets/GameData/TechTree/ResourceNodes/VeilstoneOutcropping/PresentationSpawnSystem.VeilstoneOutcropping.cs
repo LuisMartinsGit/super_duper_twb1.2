@@ -111,7 +111,7 @@ public partial class PresentationSpawnSystem
         // clump was narrow and overhung it wherever a spar stuck out, so
         // clicking the visible ground of a node could miss it while clicking
         // the neighbouring cell could hit it.
-        FitCellBoxCollider(root, cellColliderWorldScale);
+        FitCellBoxCollider(root, cellColliderWorldScale, cellsAcross: BuildGrid.ResourceNodeCells);
 
         var entityRef = root.GetComponent<EntityReference>();
         if (entityRef == null) entityRef = root.AddComponent<EntityReference>();

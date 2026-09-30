@@ -274,7 +274,17 @@ namespace TheWaningBorder.Systems.Sect
             // two of every canon sect's three powers uncastable until the
             // Temple was upgraded - Heavy Bureaucracy and Sew Disorder were
             // simply unreachable for an Antiquity faction at a Lv-1 Temple.
-            if (SectLeverEffects.IsCanonSect(sectId)) return SectLeverEffects.ActiveSlots;
+            // Religion.md §3.1 (2026-09-29): the SLOTS are bought — the first
+            // comes with the chapel, the second and the wildcard for RP.
+            if (SectLeverEffects.IsCanonSect(sectId))
+            {
+                int idx = SectConfig.IndexOf(sectId);
+                if (idx < 0 || !FactionEconomy.TryGetBank(em, faction, out var bank)
+                    || !em.HasComponent<SectAdoptionState>(bank)) return 1;
+                var sect = em.GetComponentData<SectAdoptionState>(bank).Get(idx);
+                int unlocked = sect.UnlockedActives < 1 ? 1 : sect.UnlockedActives;
+                return unlocked > SectLeverEffects.ActiveSlots ? SectLeverEffects.ActiveSlots : unlocked;
+            }
 
             byte level = SectQuery.LevelOf(em, faction, sectId, SectLeverKind.ActivePower);
             return level == 0 ? 1 : (level > 3 ? 3 : level);

@@ -685,13 +685,38 @@ namespace TheWaningBorder.Multiplayer
             return sum;
         }
 
+        /// <summary>
+        /// The OWNERSHIP METER (Territory_Claims.md §2): holder, value and
+        /// claimed flag per territory — independent simulation state advanced
+        /// by TerritoryClaimSystem. Hashed on its own, because the veil column
+        /// below only runs while a veil field exists and a map without wells
+        /// has none.
+        /// </summary>
+        private static uint HashTerritory()
+        {
+            if (!TheWaningBorder.World.Regions.TerritoryOwnership.Ready) return 0u;
+            unchecked
+            {
+                uint h = 2166136261u;
+                int n = TheWaningBorder.World.Regions.RegionMap.Count;
+                for (int t = 0; t < n; t++)
+                {
+                    Mix(ref h, (uint)TheWaningBorder.World.Regions.TerritoryOwnership.HolderOf(t));
+                    Mix(ref h, (uint)TheWaningBorder.World.Regions.TerritoryOwnership.RawValueOf(t));
+                    Mix(ref h, TheWaningBorder.World.Regions.TerritoryOwnership.IsClaimed(t) ? 1u : 0u);
+                }
+                return h;
+            }
+        }
+
         private static uint HashVeil(EntityManager em)
         {
+            uint territory = HashTerritory();
             var q = _veilQuery.Get(em, VeilTypes);
-            if (q.CalculateEntityCount() == 0) return 0u;
+            if (q.CalculateEntityCount() == 0) return territory;
 
             var vf = q.GetSingleton<VeilField>();
-            if (vf.Initialised == 0 || !vf.Saturation.IsCreated) return 0u;
+            if (vf.Initialised == 0 || !vf.Saturation.IsCreated) return territory;
 
             unchecked
             {
@@ -714,13 +739,7 @@ namespace TheWaningBorder.Multiplayer
                 // no caller at all until 0.0.23, and the curse ground of one
                 // match came back in the next). Hashing the resolved owner
                 // array catches both halves for the price of one loop.
-                if (TheWaningBorder.World.Regions.TerritoryOwnership.Ready)
-                {
-                    int n = TheWaningBorder.World.Regions.RegionMap.Count;
-                    for (int t = 0; t < n; t++)
-                        Mix(ref h, (uint)TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(t));
-                }
-                return h;
+                return h ^ territory;
             }
         }
 

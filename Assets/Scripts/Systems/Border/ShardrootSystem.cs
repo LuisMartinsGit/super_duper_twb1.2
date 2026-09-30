@@ -73,7 +73,12 @@ namespace TheWaningBorder.Systems.Border
 
         protected override void OnCreate()
         {
-            RequireForUpdate<BorderNodeState>();
+            // No well gate any more (Territory_Claims.md §6.6, 2026-09-29):
+            // there are no wells, and this system still owns the ShardrootState
+            // singleton, the Fortress delivery and the holder tracking the
+            // curse hunts by. Host selection and the Maw find no well and
+            // simply never arm; the artifact comes from a curse spawn
+            // (CurseTerritorySystem.TryRollShardroot and its guarantee).
         }
 
         protected override void OnUpdate()

@@ -303,9 +303,16 @@ namespace TheWaningBorder.AI
                     // answer to precisely this ("500-supply lump sums never
                     // formed"): it holds discretionary spending until the bank
                     // covers the pending purchase.
-                    if (!FactionHasChoiceBuilding(em, brain.Owner))
+                    // THE LANDMARK IS THE AGE-UP (Age_0.md § Age-up by
+                    // landmark): save for it, place it, and the age-up lands
+                    // when it finishes. A landmark destroyed mid-build is gone
+                    // with everything spent — the latch re-opens so the
+                    // director pays for another.
+                    if (!FactionHasLandmark(em, brain.Owner))
                     {
-                        if (TheWaningBorder.Data.BuildCosts.TryGet("ShrineOfRidan", out var choiceCost))
+                        aiState.OpportunisticChoiceStarted = 0;
+                        string landmark = AgeUpLandmark(em, brain.Owner);
+                        if (TheWaningBorder.Data.BuildCosts.TryGet(landmark, out var choiceCost))
                             AIPivotalReserve.Set(brain.Owner, "AgeUpChoice", choiceCost);
                         // BANK-DIRECT, not wallet-budgeted (2026-08-18,
                         // log-proven): this is the OVERRIDE path — its whole
@@ -320,7 +327,7 @@ namespace TheWaningBorder.AI
                         // AI to beat. TryBuildBuilding spends from the bank,
                         // and TryAgeUp below already gates on the bank too.
                         if (aiState.OpportunisticChoiceStarted == 0
-                            && TryBuildBuilding(em, brain.Owner, "ShrineOfRidan"))
+                            && TryBuildBuilding(em, brain.Owner, landmark))
                         {
                             aiState.OpportunisticChoiceStarted = 1;
                             AIPivotalReserve.Clear(brain.Owner, "AgeUpChoice");
@@ -330,9 +337,9 @@ namespace TheWaningBorder.AI
                     }
                     else
                     {
-                        // Choice building up — now hold the bank for the
-                        // 700-supply age-up itself.
-                        AIPivotalReserve.Set(brain.Owner, "AgeUp", CultureConfig.AgeUpCost);
+                        // Landmark placed — nothing left to buy. TryAgeUp
+                        // only observes the era advancing when it finishes.
+                        AIPivotalReserve.Clear(brain.Owner, "AgeUpChoice");
                         if (TryAgeUp(em, brain.Owner, ref aiState))
                         {
                             AIPivotalReserve.Clear(brain.Owner, "AgeUp");

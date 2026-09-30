@@ -15,10 +15,10 @@ namespace TheWaningBorder.Entities
 {
     public static class EmplacedBallista
     {
-        /// <summary>Shares the mobile Ballista's art (pid 338) — an emplaced
+        /// <summary>Shares the mobile Ballista's procedural art (pid 385) — an emplaced
         /// engine is the same machine, bolted down. Its own model can take
         /// this pid's place without touching anything here.</summary>
-        public const int PresentationID = 338;
+        public const int PresentationID = Ballista.PresentationID;   // the mobile engine's procedural art
         public const string Id = "Alanthor_EmplacedBallista";
 
         public static Entity Create(EntityManager em, float3 position, Faction faction)
@@ -38,6 +38,7 @@ namespace TheWaningBorder.Entities
             // Single-shot fire path + the CatapultVisual-driven projectile,
             // exactly as the mobile Ballista uses.
             em.AddComponent<CatapultTag>(entity);
+            em.AddComponent<BallistaShooterTag>(entity);
             em.AddComponent<EmplacedEngineTag>(entity);
             // Holds for ever: ClearAllCommands keeps this tag on an engine, so
             // no order can make it chase, retreat or return to a guard post.

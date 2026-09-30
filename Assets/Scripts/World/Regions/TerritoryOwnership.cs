@@ -1,26 +1,18 @@
 // TerritoryOwnership.cs
 // Who holds each territory.
 //
-// docs/Design/Regions.md §2: a territory is claimed by BUILDING your culture's
-// claim structure inside it, not by dominating it on the influence map.
+// docs/Design/Territory_Claims.md (2026-09-29, FOURTH MODEL): ground belongs to
+// whoever STANDS on it. Each territory carries one ownership meter — a holder
+// and a value 0..100 — advanced once a second by TerritoryClaimSystem from the
+// military units standing in it. Reaching 100 claims the territory; falling
+// back to 0 from claimed loses it (and collapses every building the loser had
+// there). Finished buildings HOLD ground against decay; extractors on resource
+// nodes, Fortresses and curse nodes LOCK it against draining.
 //
-//   Alanthor   a fortification   -> Alanthor_Tower   (WatchTowerTag)
-//   Runai      a trade post      -> Runai_TradingPost (TradingPostTag)
-//   Feraldis   a totem           -> Feraldis_WarTotem (WarTotemTag)
-//
-// Ownership is DERIVED, never stored as an authoritative fact: it is recomputed
-// from the claim structures that are alive right now. That is what makes the
-// two design rules fall out for free rather than needing their own bookkeeping:
-//
-//   * "a claim decays back to Natural when its structure dies" -- the structure
-//     stops existing, so the next recompute finds nothing and the territory is
-//     unowned. No timer, no ownership record to clean up, and no way for a
-//     territory to stay claimed by a faction that has nothing there.
-//   * "you cannot claim over a live claim" -- enforced at BUILD time
-//     (see CanClaim), not here.
-//
-// Deriving also means a territory is never owned by a player who has been wiped
-// out, which a stored owner would have to be told about.
+// This class is the meter's STATE and the placement rules that read it. The
+// meter is genuine simulation state (the Hall-claim model derived ownership
+// from live Halls and stored nothing), so it is advanced only on the lockstep
+// clock, reset per match, and hashed by LockstepStateHash.
 
 using System.Collections.Generic;
 using Unity.Entities;
@@ -95,30 +87,135 @@ namespace TheWaningBorder.World.Regions
         /// <summary>Unowned. Natural ground -- claimable by anyone.</summary>
         public const int Natural = -1;
 
-        /// <summary>Held by the curse (Regions.md §3 -- taken by wave, not built).</summary>
+        /// <summary>Held by the curse (Territory_Claims.md §6).</summary>
         public const int Curse = -2;
+
+        /// <summary>The meter's full scale, in thousandths of a point. Stored
+        /// as an integer so every lockstep peer agrees on it to the unit and
+        /// the state hash can read it exactly.</summary>
+        public const int MeterMax = 100_000;
 
         private static int[] _owner = System.Array.Empty<int>();
 
-        /// <summary>
-        /// Territories the curse holds (Regions.md §3, 2026-08-31). Fed by
-        /// CurseTerritorySystem — a territory is here while a live well or a
-        /// live curse anchor stands in it, and leaves the moment the anchor
-        /// dies. Stamped into <see cref="_owner"/> on every Recompute, AFTER
-        /// the Halls: the curse never conquers Hall ground, so a conflict
-        /// here is a state the rules already exclude and the Hall wins it.
-        /// </summary>
-        private static readonly HashSet<int> _curseHeld = new HashSet<int>();
+        // ── The meter (Territory_Claims.md §2). Advanced ONLY by
+        //    TerritoryClaimSystem, on the lockstep clock. ──
+        private static int[] _holder = System.Array.Empty<int>();     // side, or Natural
+        private static int[] _value = System.Array.Empty<int>();      // 0..MeterMax
+        private static byte[] _claimed = System.Array.Empty<byte>();  // reached 100, not back to 0 since
+        private static byte[] _locked = System.Array.Empty<byte>();   // last tick's lock verdict
+        private static byte[] _contested = System.Array.Empty<byte>(); // last tick: frozen by hostiles
+        private static int[] _challenger = System.Array.Empty<int>(); // last tick: the side draining it, or Natural
 
-        public static void MarkCurseHeld(int territory, bool held)
+        /// <summary>The side that drained (or tried to drain — a locked
+        /// territory refuses it) this territory on the last claim tick, or
+        /// <see cref="Natural"/>. Presentation only: it is a per-tick reading
+        /// of who stood there, not state the meter depends on.</summary>
+        public static int ChallengerOf(int t) => t >= 0 && t < _challenger.Length ? _challenger[t] : Natural;
+
+        /// <summary>The side filling (or holding) this territory's meter: a
+        /// Faction cast to int, <see cref="Curse"/>, or <see cref="Natural"/>
+        /// when nobody has put weight on it.</summary>
+        public static int HolderOf(int t) => t >= 0 && t < _holder.Length ? _holder[t] : Natural;
+
+        /// <summary>The meter, 0..100.</summary>
+        public static float ValueOf(int t) => t >= 0 && t < _value.Length ? _value[t] / 1000f : 0f;
+
+        /// <summary>Raw meter in thousandths (sim and hash use).</summary>
+        public static int RawValueOf(int t) => t >= 0 && t < _value.Length ? _value[t] : 0;
+
+        public static bool IsClaimed(int t) => t >= 0 && t < _claimed.Length && _claimed[t] != 0;
+
+        /// <summary>Locked on the last claim tick: a finished extractor,
+        /// Fortress or curse node of the owner stands in it.</summary>
+        public static bool IsLocked(int t) => t >= 0 && t < _locked.Length && _locked[t] != 0;
+
+        /// <summary>Frozen on the last claim tick: hostile sides shared it.</summary>
+        public static bool IsContested(int t) => t >= 0 && t < _contested.Length && _contested[t] != 0;
+
+        /// <summary>Sizes the meter for the current partition. A new
+        /// partition (a new map) starts every territory unclaimed.</summary>
+        internal static bool EnsureMeter()
         {
-            if (held) _curseHeld.Add(territory);
-            else _curseHeld.Remove(territory);
+            int count = RegionMap.Count;
+            if (count == 0) return false;
+            if (_holder.Length == count) return true;
+            _holder = new int[count];
+            _value = new int[count];
+            _claimed = new byte[count];
+            _locked = new byte[count];
+            _contested = new byte[count];
+            _challenger = new int[count];
+            for (int i = 0; i < count; i++) { _holder[i] = Natural; _challenger[i] = Natural; }
+            return true;
         }
 
-        public static bool IsCurseHeld(int territory) => _curseHeld.Contains(territory);
+        /// <summary>Every territory back to unclaimed — a new match on the
+        /// same partition must not inherit the last one's meters.</summary>
+        internal static void ResetMeter()
+        {
+            if (!EnsureMeter()) return;
+            for (int i = 0; i < _holder.Length; i++)
+            {
+                _holder[i] = Natural;
+                _value[i] = 0;
+                _claimed[i] = 0;
+                _locked[i] = 0;
+                _contested[i] = 0;
+                _challenger[i] = Natural;
+            }
+            Publish();
+        }
 
-        public static int CurseHeldCount => _curseHeld.Count;
+        /// <summary>The meter write TerritoryClaimSystem makes each tick.</summary>
+        internal static void SetMeter(int t, int holder, int value, bool claimed, bool locked, bool contested,
+                                      int challenger = Natural)
+        {
+            _challenger[t] = challenger;
+            _holder[t] = holder;
+            _value[t] = value;
+            _claimed[t] = (byte)(claimed ? 1 : 0);
+            _locked[t] = (byte)(locked ? 1 : 0);
+            _contested[t] = (byte)(contested ? 1 : 0);
+        }
+
+        /// <summary>
+        /// Claim a territory outright for <paramref name="side"/> (a Faction
+        /// cast to int, or <see cref="Curse"/>): meter full, claimed. Used for
+        /// a home territory under its Fortress at match start and for the
+        /// curse's seeded nodes (Territory_Claims.md §4, §6.4) — ground that
+        /// is owned from tick 0 rather than stood on.
+        /// </summary>
+        public static void ForceClaim(int t, int side)
+        {
+            if (!EnsureMeter() || t < 0 || t >= _holder.Length) return;
+            _holder[t] = side;
+            _value[t] = MeterMax;
+            _claimed[t] = 1;
+            Publish();
+        }
+
+        /// <summary>
+        /// Legacy hook of the Hall-claim era. The curse now claims on the
+        /// meter like everyone else (Territory_Claims.md §6): an explicit
+        /// "held" is a <see cref="ForceClaim"/>, and a release is left to the
+        /// meter, which decays or is drained like any other claim.
+        /// </summary>
+        public static void MarkCurseHeld(int territory, bool held)
+        {
+            if (held) ForceClaim(territory, Curse);
+        }
+
+        public static bool IsCurseHeld(int territory) => OwnerOf(territory) == Curse;
+
+        public static int CurseHeldCount
+        {
+            get
+            {
+                int n = 0;
+                for (int i = 0; i < _owner.Length; i++) if (_owner[i] == Curse) n++;
+                return n;
+            }
+        }
 
         /// <summary>
         /// Bumped whenever a Recompute actually CHANGES who owns something
@@ -170,7 +267,12 @@ namespace TheWaningBorder.World.Regions
         {
             _owner = System.Array.Empty<int>();
             _prevOwner = System.Array.Empty<int>();
-            _curseHeld.Clear();
+            _holder = System.Array.Empty<int>();
+            _value = System.Array.Empty<int>();
+            _claimed = System.Array.Empty<byte>();
+            _locked = System.Array.Empty<byte>();
+            _contested = System.Array.Empty<byte>();
+            _challenger = System.Array.Empty<int>();
             Version++;
         }
 
@@ -204,7 +306,39 @@ namespace TheWaningBorder.World.Regions
         /// "can I build here" a question with a different answer per culture.
         /// They are ordinary buildings now, and go inside your own ground.
         /// </summary>
-        public static bool IsClaimStructure(string buildingId) => buildingId == "Hall";
+        public static bool IsClaimStructure(string buildingId) => false;
+
+        /// <summary>
+        /// The Hall is REMOVED (Territory_Claims.md §4): its roster and
+        /// research live on the Fortress. The id stays in the catalog
+        /// (scenarios, legacy references), but no one may place one.
+        /// </summary>
+        public static bool IsRetiredBuilding(string buildingId) => buildingId == "Hall";
+
+        /// <summary>
+        /// One Fortress per territory (Territory_Claims.md §4). Counts
+        /// Fortresses under construction too, or a double-click slips a
+        /// second one past.
+        /// </summary>
+        public static bool FortressCapReached(EntityManager em, float worldX, float worldZ)
+        {
+            if (!RegionMap.Ready) return false;
+            int here = RegionMap.RegionAt(worldX, worldZ);
+            if (here == RegionMap.None) return false;
+            var q = QC_Fortresses.Get(em, QT_Fortresses);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
+            for (int i = 0; i < xfs.Length; i++)
+                if (RegionMap.NearestRegion(xfs[i].Position.x, xfs[i].Position.z) == here)
+                    return true;
+            return false;
+        }
+
+        private static readonly ComponentType[] QT_Fortresses =
+        {
+            ComponentType.ReadOnly<FortressTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        private static TheWaningBorder.Core.CachedEntityQuery QC_Fortresses;
 
         /// <summary>
         /// May <paramref name="faction"/> raise <paramref name="buildingId"/>
@@ -274,14 +408,12 @@ namespace TheWaningBorder.World.Regions
             int owner = OwnerOf(t);
             if (owner == (int)faction) return PlacementRefusal.None;
 
+            // EVERY building goes on ground you own (Territory_Claims.md §5).
+            // There is no claim structure any more: ground is taken by
+            // standing on it, so nothing may be raised outside it.
             if (owner == Curse) return PlacementRefusal.HeldByCurse;
             if (owner != Natural) return PlacementRefusal.HeldByRival;
-            if (!IsClaimStructure(buildingId)) return PlacementRefusal.NotYourTerritory;
-
-            // A claim on Natural ground: only next door to ground you hold.
-            return IsAdjacentToHeld(faction, t)
-                ? PlacementRefusal.None
-                : PlacementRefusal.NotAdjacent;
+            return PlacementRefusal.NotYourTerritory;
         }
 
         /// <summary>
@@ -530,6 +662,39 @@ namespace TheWaningBorder.World.Regions
             _ => null,
         };
 
+        /// <summary>
+        /// ONE MINE BUTTON (2026-09-29): the three ore extractors — iron Mine,
+        /// Veilstone Mine, the veilsteel extractor (Alanthor_Smelter) — are one
+        /// "Mine" in the build menu, and the node under the cursor decides
+        /// which is raised. Returns the concrete id whose free node is nearest
+        /// <paramref name="pos"/> (within snap reach), or false when none is.
+        /// The veilsteel extractor is offered only to an Alanthor faction under
+        /// its per-faction cap. UI-side: the AI and the executor always deal
+        /// in the concrete ids.
+        /// </summary>
+        public static bool ResolveExtractorAt(EntityManager em, Faction faction, float3 pos,
+                                              out string buildingId, out float3 snapped)
+        {
+            buildingId = null;
+            snapped = pos;
+            float best = float.MaxValue;
+            for (int i = 0; i < MineIds.Length; i++)
+            {
+                string id = MineIds[i];
+                if (id == "Alanthor_Smelter"
+                    && (CultureConfig.GetCompletedCulture(em, faction) != Cultures.Alanthor
+                        || !TheWaningBorder.Core.Commands.CommandRouter.CanPlaceBuilding(em, id, faction)))
+                    continue;
+                if (!TrySnapToNode(em, id, pos, out var at)) continue;
+                float d = math.lengthsq(new float2(at.x - pos.x, at.z - pos.z));
+                if (d < best) { best = d; buildingId = id; snapped = at; }
+            }
+            return buildingId != null;
+        }
+
+        /// <summary>The ids the one Mine button stands for.</summary>
+        public static readonly string[] MineIds = { "Mine", "VeilstoneMine", "Alanthor_Smelter" };
+
         /// <summary>True when this building must be raised on a resource node.</summary>
         public static bool IsExtractor(string buildingId)
             => RequiredNodeFor(buildingId) != null;
@@ -577,12 +742,9 @@ namespace TheWaningBorder.World.Regions
         ///
         /// The result is then put through the ordinary build-grid snap for the
         /// BUILDING's own footprint, so an extractor is still grid-aligned like
-        /// everything else. The two parities differ and that is fine: a supply
-        /// spot is 2x2 cells with even parity and the Gatherer's Hut is the
-        /// same, so the hut lands EXACTLY on the spot; the ore nodes are 3x3
-        /// cells with ODD parity against a 4x4-cell Mine, which puts the mine
-        /// one metre off the node centre and still covers all nine of its
-        /// cells (docs/Design/Build_Grid.md §2, §3).
+        /// everything else. Every resource node AND every resource building is
+        /// 2 x 2 cells with even parity (docs/Design/Build_Grid.md §3,
+        /// 2026-09-29), so the extractor lands EXACTLY on its node.
         ///
         /// Deterministic: nearest node wins, ties broken on the node's own
         /// coordinates rather than on entity order, so every lockstep peer
@@ -697,53 +859,30 @@ namespace TheWaningBorder.World.Regions
         }
 
         /// <summary>
-        /// Rebuild ownership from the claim structures currently alive.
-        ///
-        /// Cheap enough to run on a timer: it is one pass over the claim
-        /// structures (a handful per player), not over the territories or the
-        /// map. Territories with no structure in them are left Natural, which is
-        /// why a destroyed claim reverts with no extra work.
+        /// Refresh the resolved owner array from the meter. Kept under its old
+        /// name because a dozen readers call it to make sure ownership is
+        /// current; the meter itself only moves in TerritoryClaimSystem.
         /// </summary>
         public static void Recompute(EntityManager em)
         {
-            int count = RegionMap.Count;
-            if (count == 0) { Reset(); return; }
+            if (RegionMap.Count == 0) { Reset(); return; }
+            EnsureMeter();
+            Publish();
+        }
 
+        /// <summary>
+        /// Owner = holder while claimed, else Natural. Version bumps only on a
+        /// REAL change, so everything gated on it (the border ribbon, the
+        /// ground mask, the rasterized ownership grid) stays untouched across
+        /// the no-op refreshes.
+        /// </summary>
+        internal static void Publish()
+        {
+            int count = _holder.Length;
             if (_owner.Length != count) _owner = new int[count];
-            for (int i = 0; i < count; i++) _owner[i] = Natural;
+            for (int i = 0; i < count; i++)
+                _owner[i] = _claimed[i] != 0 ? _holder[i] : Natural;
 
-            // The HALL claims its own ground, and it must be stamped FIRST.
-            //
-            // Every culture claim structure below is an AGE 1 building. Derived
-            // purely from those, nobody would own anything for the whole of Age
-            // 0 -- and with income coming from territory (Regions.md §4) that is
-            // not "no territory bonus", it is NO ECONOMY AT ALL for the entire
-            // opening, in the exact age the Gatherer's Hut belongs to.
-            //
-            // Regions.md §2 already says the answer: "you begin holding the
-            // region your start sits in", granted rather than claimed. The Hall
-            // is what marks that ground, so the Hall carries the grant. It keeps
-            // working after age-up, where an extra Hall is an expensive and
-            // legitimate way to hold ground, and it fails the right way -- lose
-            // every Hall in a territory and it reverts like any other claim.
-            // THE ONLY CLAIM (Regions.md §2, 2026-08-28). One rule for every
-            // culture, and it works from Age 0 because the Hall is an Age 0
-            // building — which is what lets the claim game start in the opening
-            // instead of waiting on an age-up.
-            Claim<HallTag>(em);
-
-            // The curse's holdings (Regions.md §3, 2026-08-31). Stamped after
-            // the Halls so a Hall on contested ground always wins — the curse
-            // never conquers Hall ground in the first place, so this is a
-            // tie-break for an excluded state, same as the Hall-vs-Hall one.
-            foreach (int t in _curseHeld)
-                if (t >= 0 && t < _owner.Length && _owner[t] == Natural)
-                    _owner[t] = Curse;
-
-            // Version bump only on a REAL change, so everything gated on it
-            // (the border ribbon, the ground mask, the rasterized ownership
-            // grid) stays untouched across the no-op recomputes that run on
-            // the income tick.
             bool changed = _prevOwner.Length != _owner.Length;
             if (!changed)
                 for (int i = 0; i < _owner.Length; i++)
@@ -754,43 +893,6 @@ namespace TheWaningBorder.World.Regions
                 System.Array.Copy(_owner, _prevOwner, _owner.Length);
                 Version++;
             }
-        }
-
-        /// <summary>
-        /// Stamp every territory containing a live structure of this type.
-        ///
-        /// Under construction counts as NOT claimed: a foundation is not a
-        /// fortification, and letting it claim would mean a player could take
-        /// ground by starting a building they never finish.
-        /// </summary>
-        private static void Claim<T>(EntityManager em) where T : unmanaged, IComponentData
-        {
-            var q = ClaimQuery<T>.Q.Get(em, ClaimQuery<T>.Types);
-
-            var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
-            for (int i = 0; i < ents.Length; i++)
-            {
-                var e = ents[i];
-                if (em.HasComponent<UnderConstruction>(e)) continue;
-
-                var p = em.GetComponentData<LocalTransform>(e).Position;
-                // NearestRegion, not RegionAt. RegionAt answers None on ground
-                // no region can own (outside the 4-24 m claimable band), and a
-                // structure that files nowhere claims nothing — for the HALL
-                // that is a soft-lock, because the build gate then finds the
-                // player owns no territory at all and refuses every placement.
-                // A building that exists stands in the region it is nearest to.
-                int t = RegionMap.NearestRegion(p.x, p.z);
-                if (t == RegionMap.None) continue;
-
-                // First claim wins. Two factions holding live structures in one
-                // territory should be impossible (CanClaim forbids building the
-                // second), so this is a tie-break for a state the rules already
-                // exclude rather than a meaningful contest.
-                if (_owner[t] == Natural)
-                    _owner[t] = (int)em.GetComponentData<FactionTag>(e).Value;
-            }
-            ents.Dispose();
         }
     }
 
@@ -837,6 +939,13 @@ namespace TheWaningBorder.World.Regions
         /// <summary>The Hall's worker is in range but not standing inside
         /// the territory the Hall would claim.</summary>
         BuilderOutsideTerritory,
+        /// <summary>One Fortress per territory.</summary>
+        FortressAlreadyHere,
+        /// <summary>A building that can no longer be placed (the Hall).</summary>
+        Retired,
+        /// <summary>The footprint covers a resource node it was not made for
+        /// (Build_Grid.md §3) — only a node's own extractor stands on it.</summary>
+        OnResourceNode,
     }
 
     /// <summary>
@@ -855,7 +964,7 @@ namespace TheWaningBorder.World.Regions
                 PlacementRefusal.Terrain          => "The ground here is unsuitable",
                 PlacementRefusal.Overlap          => "Something is already built here",
                 PlacementRefusal.CursedGround     => "Cannot build on cursed ground",
-                PlacementRefusal.NotYourTerritory => "You can only build in your own territory",
+                PlacementRefusal.NotYourTerritory => "You can only build in territory you own — stand your army on it to claim it",
                 PlacementRefusal.HeldByRival      => "Cannot claim ground another player holds",
                 PlacementRefusal.HeldByCurse      => "The curse holds this territory",
                 PlacementRefusal.HallAlreadyHere  => "This territory already has a Hall",
@@ -868,6 +977,9 @@ namespace TheWaningBorder.World.Regions
                 PlacementRefusal.CapReached       => "You have the most of that building you may hold",
                 PlacementRefusal.BuilderOutsideTerritory
                     => "The worker must stand inside the territory the Hall will claim",
+                PlacementRefusal.FortressAlreadyHere => "This territory already has a Fortress",
+                PlacementRefusal.Retired          => "That building can no longer be built",
+                PlacementRefusal.OnResourceNode   => "Cannot build on a resource node — only its own extractor may stand there",
                 _                                 => "Invalid placement",
             };
             return TheWaningBorder.Core.Localization.Loc.T(en);
@@ -879,7 +991,7 @@ namespace TheWaningBorder.World.Regions
         private static string ExtractorLine(string buildingId) => buildingId switch
         {
             "GatherersHut"     => "Gatherer's Huts must be built on a free supply node",
-            "Mine"             => "Mines must be built on a free iron deposit",
+            "Mine"             => "Mines must be built on a free iron, veilstone or veilsteel node",
             "VeilstoneMine"    => "Veilstone Mines must be built on a free veilstone outcropping",
             "Alanthor_Smelter" => "Smelters must be built on a free veilsteel deposit",
             _                  => "This building must stand on a free resource node",

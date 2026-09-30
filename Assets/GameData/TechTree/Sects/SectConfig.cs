@@ -236,6 +236,9 @@ namespace TheWaningBorder.Economy
         {
             int idx = IndexOf(sectId);
             if (idx < 0) return -1;
+            // No culture yet, no affinity: every chapel is the full price
+            // before age-up (docs/Design/Religion.md §3).
+            if (factionCulture == Cultures.None) return AdoptCostCrossCulture;
             var sectCluster = ClusterByIndex[idx];
             var factionCluster = ClusterFromCulture(factionCulture);
             return sectCluster == factionCluster ? AdoptCostSameCulture : AdoptCostCrossCulture;

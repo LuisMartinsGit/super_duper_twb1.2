@@ -22,10 +22,6 @@ namespace TheWaningBorder.UI.World
         [SerializeField] private Color supportMarkerColor = new Color(0.3f, 1f, 0.3f, 0.6f);
         [SerializeField] private Color moveLineColor = new Color(1f, 0.82f, 0.2f, 0.35f);
         [SerializeField] private Color moveMarkerColor = new Color(1f, 0.82f, 0.2f, 0.6f);
-        // Saturated yellow for queued waypoints (Shift+rclick chain). More
-        // opaque than moveLineColor so the chain reads against terrain.
-        [SerializeField] private Color queueLineColor = new Color(1f, 0.95f, 0.2f, 0.85f);
-        [SerializeField] private Color queueMarkerColor = new Color(1f, 0.95f, 0.2f, 0.95f);
         [SerializeField] private float lineWidth = 0.06f;
         [SerializeField] private float markerSize = 0.3f;
         [SerializeField] private int lineSegments = 10;
@@ -159,18 +155,40 @@ namespace TheWaningBorder.UI.World
                     chainEnd = destWorld;
                 }
 
-                // ── Queued-waypoint chain (Shift+rclick) ──
-                // Draws a yellow line from the previous waypoint endpoint to
-                // each queued waypoint, plus a marker at every queued point.
+                // ── Queued chain (Shift+right-click, chained AI orders) ──
+                // Each queued step is drawn with the SAME lines that mark the
+                // live order (2026-09-29): red for an attack or attack-move,
+                // green for build / repair / heal, the move colour for moves
+                // and patrols — chained from the previous step's end. A
+                // targeted step follows its target's current position.
                 if (hasQueuedCommands)
                 {
                     var buffer = _em.GetBuffer<QueuedCommand>(entity);
                     for (int q = 0; q < buffer.Length; q++)
                     {
                         var cmd = buffer[q];
-                        Vector3 wp = new Vector3(cmd.TargetPosition.x, 0f, cmd.TargetPosition.z);
-                        DrawSegment(chainEnd, wp, queueLineColor);
-                        PlaceMarker(cmd.TargetPosition, queueMarkerColor);
+                        float3 at = cmd.TargetPosition;
+                        if (cmd.TargetEntity != Entity.Null && _em.Exists(cmd.TargetEntity)
+                            && _em.HasComponent<LocalTransform>(cmd.TargetEntity))
+                            at = _em.GetComponentData<LocalTransform>(cmd.TargetEntity).Position;
+
+                        Color ql, qm;
+                        switch (cmd.Type)
+                        {
+                            case QueuedCommandType.Attack:
+                            case QueuedCommandType.AttackMove:
+                                ql = attackLineColor; qm = attackMarkerColor; break;
+                            case QueuedCommandType.Build:
+                            case QueuedCommandType.Repair:
+                            case QueuedCommandType.Heal:
+                                ql = supportLineColor; qm = supportMarkerColor; break;
+                            default:
+                                ql = moveLineColor; qm = moveMarkerColor; break;
+                        }
+
+                        Vector3 wp = new Vector3(at.x, 0f, at.z);
+                        DrawSegment(chainEnd, wp, ql);
+                        PlaceMarker(at, qm);
                         chainEnd = wp;
                     }
                 }

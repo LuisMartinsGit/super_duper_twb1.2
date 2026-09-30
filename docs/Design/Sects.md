@@ -12,6 +12,10 @@ Companion visualization: [`docs/SectReference.jsx`](../SectReference.jsx) — op
 
 ## 1. What a sect grants
 
+> **Superseded in part 2026-09-29 by [Religion.md](Religion.md):** the sect
+> building IS its chapel (max six, bought with RP), and the sect unit is a
+> **hero** (limit one, levels per Heroes.md) instead of a unit capped at 5.
+
 Every sect grants exactly five things. **There is no chapel aura** — a sect
 projects no passive area effect unless its Passive or its Research explicitly
 says so. (This removes the old `SectLeverEffects.AuraOf` table.)
@@ -60,6 +64,10 @@ Every sect power's numbers are set by the balance ladder in
   global scale; only the Shrine of Ridan and the Shardroot shorten it.
 
 ## 3. Power levels come from adoption timing
+
+> **SUPERSEDED 2026-09-29 by [Religion.md](Religion.md) §3.1:** a power's
+> level is its chapel's level, bought with RP. Early adoption is no longer
+> rewarded.
 
 A power's level is **how many Temple upgrades happened while the sect was
 already adopted**, capped at III.

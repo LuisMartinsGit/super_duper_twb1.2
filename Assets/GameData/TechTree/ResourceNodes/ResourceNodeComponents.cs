@@ -33,9 +33,10 @@ public static class ResourceNodeQuery
         if (!IsGatherable(em, node)) return false;
         if (!em.HasComponent<Unity.Transforms.LocalTransform>(node)) return false;
 
+        // Nodes are 2 x 2 cells with even parity (Build_Grid.md §3): their
+        // centre is a cell BOUNDARY, so re-snap with the node's own footprint.
         var p = em.GetComponentData<Unity.Transforms.LocalTransform>(node).Position;
-        var c = BuildGrid.CellCentre(BuildGrid.WorldToCell(p));
-        centre = new Unity.Mathematics.float3(c.x, p.y, c.y);
+        centre = BuildGrid.SnapResourceNode(p);
         return true;
     }
 }

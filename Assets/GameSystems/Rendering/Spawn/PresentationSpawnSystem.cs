@@ -121,7 +121,6 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         { 361, "Procedural/FeraldisTotemTower" },                 // Feraldis_Tower
         { 362, "Procedural/FeraldisSiegeYard" },                  // Feraldis_SiegeYard
         { 363, "Procedural/FeraldisLonghouse" },                  // Feraldis_Pasture (reuses the longhouse shell)
-        { 364, "Procedural/AlanthorSiegeYard" },                  // Mine (placeholder shell)
 
         // Chapels — pid 390 + sect index (see BuildingFactory.ChapelPidForSect;
         // Ruin/Wrath sit at 412/413: 400-403 are Forest/Rock/deposits and
@@ -689,13 +688,9 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             return go;
         }
 
-        // === ALANTHOR SMELTER: procedural forge building ===
-        if (presentationId == TheWaningBorder.Entities.Smelter.PresentationID)
-        {
-            var go = CreateProceduralSmelter(pos, entity);
-            AttachConstructionAnimation(go);
-            return go;
-        }
+        // (The Smelter's forge visual, CreateProceduralSmelter, is retired: the
+        // veilsteel extractor is a MineVisual pithead like its two siblings —
+        // see the switch below.)
 
         // === Alanthor + Age-0 choice authored visuals (tech-tree implementation) ===
         // High-detail procedural builders co-located with their entities. Units
@@ -725,7 +720,8 @@ public partial class PresentationSpawnSystem : MonoBehaviour
 
             switch (authoredPrefabWins ? -1 : presentationId)
             {
-                case 368: authored = TheWaningBorder.Rendering.SpearmanVisual.Build(entity.Index + 368); break;
+                // 368 Spearman: no procedural case — its SO prefab (the MPFB
+                // human in its unit folder) is the visual now.
                 // 201: the Swordsman prefab is a Synty variant whose skinned-mesh
                 // guid resolves to nothing on disk (invisible). Authored rig wins.
                 case 201: authored = TheWaningBorder.Rendering.SwordsmanVisual.Build(entity.Index + 201); break;
@@ -736,6 +732,21 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                 case 346: authored = TheWaningBorder.Rendering.NoblemanVisual.Build(entity.Index + 346); break;
                 case 347: authored = TheWaningBorder.Rendering.BatteringRamVisual.Build(entity.Index + 347); break;
                 case 348: authored = TheWaningBorder.Rendering.TrebuchetVisual.Build(entity.Index + 348); break;
+                // THE ORE EXTRACTORS — one procedural pithead, three ores
+                // (MineVisual, 2026-09-29).
+                case TheWaningBorder.Entities.Mine.PresentationID:
+                    authored = TheWaningBorder.Rendering.MineVisual.Build(entity.Index + 364,
+                        TheWaningBorder.Rendering.MineKind.Iron); authoredIsBuilding = true; break;
+                case TheWaningBorder.Entities.VeilstoneMine.PresentationID:
+                    authored = TheWaningBorder.Rendering.MineVisual.Build(entity.Index + 566,
+                        TheWaningBorder.Rendering.MineKind.Veilstone); authoredIsBuilding = true; break;
+                case TheWaningBorder.Entities.Smelter.PresentationID:
+                    authored = TheWaningBorder.Rendering.MineVisual.Build(entity.Index + 560,
+                        TheWaningBorder.Rendering.MineKind.Veilsteel); authoredIsBuilding = true; break;
+                // The Ballista — mobile and wall-mounted — is procedural
+                // (2026-09-29); it used to render as the Hunter's human model.
+                case TheWaningBorder.Entities.Ballista.PresentationID:
+                    authored = TheWaningBorder.Rendering.BallistaVisual.Build(entity.Index + 385); break;
                 case 356: authored = TheWaningBorder.Rendering.RoyalStableVisual.Build(entity.Index + 356); authoredIsBuilding = true; break;
                 case 357: authored = TheWaningBorder.Rendering.SiegeYardVisual.Build(entity.Index + 357); authoredIsBuilding = true; break;
                 case 354: authored = TheWaningBorder.Rendering.WatchTowerVisual.Build(entity.Index + 354); authoredIsBuilding = true; break;
@@ -1943,7 +1954,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
     }
 
     internal static BoxCollider FitCellBoxCollider(GameObject root,
-        float worldScaleFactor, float worldHeight = 2f)
+        float worldScaleFactor, float worldHeight = 2f, float cellsAcross = 1f)
     {
         BoxCollider col = null;
         var existing = root.GetComponentsInChildren<Collider>(true);
@@ -1956,7 +1967,8 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         if (col == null) col = root.AddComponent<BoxCollider>();
 
         float s = Mathf.Abs(worldScaleFactor) > 1e-4f ? Mathf.Abs(worldScaleFactor) : 1f;
-        col.size = new Vector3(BuildGrid.CellSize, worldHeight, BuildGrid.CellSize) / s;
+        float across = BuildGrid.CellSize * cellsAcross;
+        col.size = new Vector3(across, worldHeight, across) / s;
         col.center = new Vector3(0f, worldHeight * 0.5f, 0f) / s;
         return col;
     }

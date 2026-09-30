@@ -241,6 +241,78 @@ namespace TheWaningBorder.Rendering
             Destroy(fx, 12f); // stone particle lifetime is 10 s
         }
 
+        // ── Shared launcher for engines with no CatapultVisual of their own ──
+
+        private static GameObject _sharedFx;
+        private static float _sharedSpeed = 20f, _sharedGravity = 9.81f;
+
+        /// <summary>
+        /// Fire the Synty catapult FX (stone + trail + impact) from
+        /// <paramref name="origin"/> so it lands on <paramref name="target"/>
+        /// after <paramref name="flightSeconds"/> — the same solve and the same
+        /// one-volley handling as <see cref="SpawnShotFx"/>, on the Resources
+        /// template. For siege engines that draw no CatapultVisual: the
+        /// procedural Trebuchet and the Trebuchet emplacement, whose ECS stone
+        /// only carries the damage (ProjectileVisualSystem calls this once per
+        /// stone, with the projectile's own start, end and flight time).
+        /// </summary>
+        public static void FireSyntyStone(Vector3 origin, Vector3 target, float flightSeconds)
+        {
+            if (_sharedFx == null)
+            {
+                _sharedFx = Resources.Load<GameObject>("Prefabs/Effects/FX_CatapultShot");
+                if (_sharedFx == null) return;
+                foreach (var ps in _sharedFx.GetComponentsInChildren<ParticleSystem>(true))
+                {
+                    if (!ps.collision.enabled) continue;
+                    var m = ps.main;
+                    if (m.startSpeed.constant > 0.1f) _sharedSpeed = m.startSpeed.constant;
+                    float gMod = Mathf.Abs(m.gravityModifier.constant);
+                    if (gMod > 0.01f) _sharedGravity = gMod * Mathf.Abs(Physics.gravity.y);
+                    break;
+                }
+            }
+
+            Vector3 d3 = target - origin;
+            Vector3 flat = new Vector3(d3.x, 0f, d3.z);
+            float x = flat.magnitude;
+            Quaternion rot = x > 0.01f
+                ? Quaternion.LookRotation(flat / x, Vector3.up)
+                : Quaternion.identity;
+
+            // Same impact-synchronised solve as SpawnShotFx, against the
+            // template's authored 30 deg elevation (the Resources fallback's).
+            const float templateElevation = 30f;
+            float launchSpeed = _sharedSpeed;
+            float pitch = 0f;
+            if (x > 0.5f)
+            {
+                float T = Mathf.Max(0.5f, flightSeconds);
+                float g = _sharedGravity;
+                float vx = x / T;
+                float vy = (d3.y + 0.5f * g * T * T) / T;
+                launchSpeed = Mathf.Sqrt(vx * vx + vy * vy);
+                pitch = templateElevation - Mathf.Atan2(vy, vx) * Mathf.Rad2Deg;
+            }
+            rot = Quaternion.AngleAxis(pitch, rot * Vector3.right) * rot;
+
+            var fx = Instantiate(_sharedFx, origin, rot);
+            fx.SetActive(true);
+            foreach (var ps in fx.GetComponentsInChildren<ParticleSystem>(true))
+            {
+                if (!ps.collision.enabled) continue;
+                var stoneMain = ps.main;
+                stoneMain.startSpeed = launchSpeed;
+                break;
+            }
+            foreach (var ps in fx.GetComponentsInChildren<ParticleSystem>(true))
+            {
+                var psMain = ps.main;
+                psMain.loop = false;
+            }
+            Destroy(fx, 12f);
+        }
+
         private static Transform FindDeep(Transform root, string childName)
         {
             if (root.name == childName) return root;

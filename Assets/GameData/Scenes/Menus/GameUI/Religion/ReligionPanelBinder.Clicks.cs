@@ -26,7 +26,48 @@ namespace TheWaningBorder.UI.Ingame
             if (slotIndex < 0 || slotIndex >= _slots.Count) return;
             var view = _slots[slotIndex];
             if (view.State != 2 || string.IsNullOrEmpty(view.SectId)) return;
+
+            // The NEXT locked active is bought, not cast (Religion.md §3.1).
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (world != null && world.IsCreated)
+            {
+                var em = world.EntityManager;
+                var faction = GameSettings.LocalPlayerFaction;
+                if (tier > SectActivePowerHelper.UnlockedTier(em, faction, view.SectId))
+                {
+                    if (!TheWaningBorder.Core.Commands.CommandRouter.IssueReligionPurchase(
+                            em, faction, ReligionPurchaseKind.UnlockActive, view.SectId))
+                        PlayerNotificationSystem.NotifyError(Loc.T("Not enough Religion Points"));
+                    return;
+                }
+            }
             BeginCast(view.SectId, tier);
+        }
+
+        /// <summary>The chapel's level (the passive badge): II, then III, for RP.</summary>
+        private void ClickChapelLevel(int slotIndex)
+        {
+            if (slotIndex < 0 || slotIndex >= _slots.Count) return;
+            var view = _slots[slotIndex];
+            if (view.State != 2 || string.IsNullOrEmpty(view.SectId)) return;
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (world == null || !world.IsCreated) return;
+            var em = world.EntityManager;
+            var faction = GameSettings.LocalPlayerFaction;
+            if (SectQuery.PowerLevelOf(em, faction, view.SectId) >= 3) return;
+            if (!TheWaningBorder.Core.Commands.CommandRouter.IssueReligionPurchase(
+                    em, faction, ReligionPurchaseKind.ChapelLevel, view.SectId))
+                PlayerNotificationSystem.NotifyError(Loc.T("Not enough Religion Points"));
+        }
+
+        /// <summary>The Tithe (Religion.md §1.1): resources for one RP.</summary>
+        private void ClickTithe()
+        {
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (world == null || !world.IsCreated) return;
+            if (!TheWaningBorder.Core.Commands.CommandRouter.IssueReligionPurchase(
+                    world.EntityManager, GameSettings.LocalPlayerFaction, ReligionPurchaseKind.Tithe, null))
+                PlayerNotificationSystem.NotifyError(Loc.T("Not enough resources for the Tithe"));
         }
 
         private void ClickSlot(int index)

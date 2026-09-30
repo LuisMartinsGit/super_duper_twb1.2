@@ -49,6 +49,19 @@ namespace TheWaningBorder.Economy
         /// </summary>
         public byte PowerLevel;
 
+        /// <summary>
+        /// How many of the sect's three actives this faction has unlocked
+        /// (docs/Design/Religion.md §3.1): 1 on adoption, 2 once the second
+        /// counterpart is bought (1 RP), 3 with the wildcard (2 RP). 0 reads
+        /// as 1 for an adopted sect (saves from before the field existed).
+        /// </summary>
+        public byte UnlockedActives;
+
+        /// <summary>1 once the sect's hero has been recruited for its RP
+        /// (Religion.md §4). A hero recruited again after dying pays only its
+        /// resources — revival never costs RP.</summary>
+        public byte HeroRecruited;
+
         /// <summary>0 = not yet purchased, 1/2/3 = Lv I/II/III. Adoption grants 1 on every lever automatically.</summary>
         public byte PassiveLevel;
         public byte BuildingLevel;

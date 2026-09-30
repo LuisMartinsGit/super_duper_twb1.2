@@ -13,10 +13,9 @@ namespace TheWaningBorder.Entities
     /// </summary>
     public static class VeilstoneMine
     {
-        // Shares the Mine's procedural visual: same pit, same headframe, and
-        // the presentation layer has no veilstone-specific art yet. A distinct
-        // id would only produce an invisible building.
-        public const int PresentationID = 364;
+        // Its own id (2026-09-29): the same procedural pithead as the Mine
+        // (MineVisual), with the veilstone crystals as its ore.
+        public const int PresentationID = 566;
 
         public static Entity Create(EntityManager em, float3 position, Faction faction)
         {

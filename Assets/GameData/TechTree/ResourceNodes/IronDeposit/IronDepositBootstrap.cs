@@ -184,7 +184,7 @@ namespace TheWaningBorder.Bootstrap
         /// and so a Mine placed on it has something to sit against.
         /// docs/Design/Build_Grid.md
         /// </summary>
-        public const int NodeFootprintCells = 3;
+        public const int NodeFootprintCells = BuildGrid.ResourceNodeCells;
 
         /// <summary>Half-extent of the node footprint, in metres.</summary>
         public static float NodeRadius => BuildGrid.CellSize * NodeFootprintCells * 0.5f;
@@ -192,9 +192,17 @@ namespace TheWaningBorder.Bootstrap
         private static Entity CreateIronDepositEntity(EntityManager em, float3 position,
             int amount = IronPerDeposit)
         {
-            // One deposit, one build cell, snapped to its centre.
-            // docs/Design/Build_Grid.md
-            position = BuildGrid.SnapToCellCentre(position);
+            // 2 x 2 cells, even parity — the Mine lands exactly on it.
+            // docs/Design/Build_Grid.md §3
+            position = BuildGrid.SnapResourceNode(position);
+            // A legal site only: whole footprint on buildable ground, one
+            // clear cell from every other node (ResourceNodeSite, Build_Grid.md §3).
+            if (!ResourceNodeSite.TryResolve(em, position, out position))
+            {
+                UnityEngine.Debug.LogWarning($"[IronDeposit] no legal node site within " +
+                    $"{ResourceNodeSite.SearchRings} cells of ({position.x:F0},{position.z:F0}) — not spawned.");
+                return Entity.Null;
+            }
 
             var entity = em.CreateEntity(
                 typeof(IronMineTag),
@@ -235,7 +243,8 @@ namespace TheWaningBorder.Bootstrap
             // ObstacleTag entity and carves a matching box out of the navmesh.
             var grid = PassabilityGrid.Instance;
             if (grid != null)
-                grid.BlockObstacle(position, NodeRadius);
+                grid.BlockObstacle(position, BuildGrid.ResourceNodeBlockRadius);
+            em.AddComponentData(entity, new NodeFootprint { Meters = BuildGrid.ResourceNodeMeters });
 
             return entity;
         }

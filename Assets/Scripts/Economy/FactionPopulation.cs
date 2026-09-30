@@ -288,7 +288,8 @@ namespace TheWaningBorder.Economy
                 // a measured match ever got there — caps sat at 20-75 while the
                 // AI logged "nothing affordable; top want = Hut" 27 times.
                 "Hall" => 30,
-                "Hut" => 30,
+                "Hut" => 3,
+                "Fortress" => 10,
                 "FiendstoneKeep" => 25,
                 "KingsCourt" => 30,
                 "Feraldis_Longhouse" => 15,

@@ -457,6 +457,12 @@ Glow becomes a pickup on the map when:
 In the world of The Waning Border, **12 religious sects** control different
 aspects of life and rulership.
 
+> **SUPERSEDED 2026-09-29 by [Religion.md](Religion.md):** RP come from
+> killing curse units (or the Temple's Tithe), the Temple is an Age 0 building
+> costing 1 RP, chapels cost 2 RP (affinity) / 3 RP, sect units are heroes, and
+> double chapels and Temple-driven sect levels are retired. Kept for the Temple
+> and chapel architecture.
+
 After you choose your culture, invest in a temple. Out of the 12 sects, **6
 can be chosen**. Each adopted sect unlocks:
 

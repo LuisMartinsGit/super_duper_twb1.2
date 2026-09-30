@@ -30,21 +30,28 @@ MonoBehaviour:
   attackRange: 1
   minAttackRange: 0
   lineOfSight: 14
+  aimTime: 0
   radius: 0.5
+  trajectory: 
+  projectileSpeed: 0
   cost:
     Supplies: 60
     Iron: 0
-    Crystal: 0
+    Veilstone: 0
     Veilsteel: 0
   minBuildingLevel: 0
   buildSpeed: 0
   gatheringSpeed: 1
-  carryCapacity: 1
   healsPerSecond: 0
+  healRange: 0
+  siegeRange: 0
+  siegeCooldown: 0
+  aoeRadius: 0
   tags:
   - Infantry
   - Light
   bonusVsTags: []
+  abilities: []
   prefab: {fileID: 342948935409451641, guid: a98691f844e469d41b37447a39939965, type: 3}
   presentationId: 200
   animatorController: {fileID: 9100000, guid: a17c0de1000000000000000000000100, type: 2}

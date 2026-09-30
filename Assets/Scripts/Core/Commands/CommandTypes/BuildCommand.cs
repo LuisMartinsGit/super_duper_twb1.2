@@ -266,6 +266,13 @@ namespace TheWaningBorder.Core.Commands.Types
                 ? TheWaningBorder.World.Regions.TerritoryOwnership.RequiredNodeFor(buildingId)
                 : null;
 
+            // 1b. NOTHING IS BUILT ON A RESOURCE NODE except the extractor made
+            //     for it (Build_Grid.md §3). The node's whole 4 x 4 m square is
+            //     tested — the obstacle circle below misses its corners, and a
+            //     supply node is no obstacle at all.
+            if (TheWaningBorder.Entities.ResourceNodeSite.OverlapsNode(em, newMin, newMax, ownNode))
+                return TheWaningBorder.World.Regions.PlacementRefusal.OnResourceNode;
+
             // 2. Obstacle overlap check (AABB-vs-circle for natural obstacles)
             var obstacleQuery = _obstacleQuery.Get(em, ObstacleTypes);
             using var obstacleRadii = obstacleQuery.ToComponentDataArray<Radius>(Allocator.Temp);

@@ -80,6 +80,7 @@ namespace TheWaningBorder.AI
                     .ToComponentDataArray<LocalTransform>(Allocator.Temp);
                 for (int i = 0; i < xfs.Length; i++)
                 {
+                    if (!AICommon.IsKnownGround(faction, xfs[i].Position)) continue;
                     float dx = xfs[i].Position.x - hallPos.x;
                     float dz = xfs[i].Position.z - hallPos.z;
                     float d2 = dx * dx + dz * dz;

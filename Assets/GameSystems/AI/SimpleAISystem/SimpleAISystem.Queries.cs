@@ -543,13 +543,9 @@ namespace TheWaningBorder.AI
             // helper that excludes UnderConstruction is
             // GetCompletedFactionChoiceBuilding. (Player + AI gates were both
             // counting under-construction choice buildings before the fix.)
-            var existing = BuildingFactory.GetCompletedFactionChoiceBuilding(em, faction);
-            if (existing != null) return true;
-
-            // Also accept a completed TempleOfRidan even though it isn't a
-            // "choice" building per ChoiceBuildingIds.
-            Entity temple = FindFactionBuilding<TempleTag>(em, faction);
-            return temple != Entity.Null && !em.HasComponent<UnderConstruction>(temple);
+            // The Temple no longer counts: it is an Age 0 religion building
+            // now, and the only choice buildings are the landmarks.
+            return BuildingFactory.GetCompletedFactionChoiceBuilding(em, faction) != null;
         }
 
         private static Entity FindBrainEntity(EntityManager em, Faction faction)

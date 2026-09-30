@@ -306,11 +306,11 @@ namespace TheWaningBorder.Economy
             var sect = new PerSectState
             {
                 AdoptedAtAge = currentAge,
-                // Power level ALWAYS starts at I, whatever the Temple is at
-                // (docs/Design/Sects.md section 3). Only Temple upgrades that
-                // happen AFTER this moment raise it — that is the whole point
-                // of the rule: adopt at a maxed Temple and you stay Lv I.
+                // A new chapel is level I with its FIRST active unlocked
+                // (docs/Design/Religion.md §3). The second active, the
+                // wildcard and chapel levels II / III are bought with RP.
                 PowerLevel = 1,
+                UnlockedActives = 1,
                 PassiveLevel = startLevel,
                 BuildingLevel = startLevel,
                 UnitLevel = startLevel,
@@ -350,15 +350,10 @@ namespace TheWaningBorder.Economy
                 var sect = state.Get(i);
                 if (!sect.IsAdopted) continue;
 
-                // Canon power level: +1 per Temple upgrade survived while
-                // already adopted, capped at III. This is called exactly once
-                // per completed upgrade (TempleUpgradeSystem), so a plain
-                // increment is the rule.
-                if (sect.PowerLevel < 3)
-                {
-                    sect.PowerLevel = (byte)(sect.PowerLevel < 1 ? 1 : sect.PowerLevel + 1);
-                    changed = true;
-                }
+                // The POWER level is no longer the Temple's to give: it is the
+                // chapel's level, bought with Religion Points
+                // (docs/Design/Religion.md §3.1). Only the levers below still
+                // follow the Temple.
 
                 if (sect.PassiveLevel < target)     { sect.SetLevel(SectLeverKind.Passive,     target, currentAge); changed = true; }
                 if (sect.BuildingLevel < target)    { sect.SetLevel(SectLeverKind.Building,    target, currentAge); changed = true; }

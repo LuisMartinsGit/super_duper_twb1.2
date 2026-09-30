@@ -231,6 +231,18 @@ the blue-painted roofs in the shared atlases (`Assets/GameData/Art/Atlases/`).
   lands (task 5); it exists so Pass 1 is shippable without 2D work.
   Shipped 2026-09-18 as `InterimSwapValue` / `InterimSwapSaturation`.
 
+**Rule 0 — the painted player-colour mask (2026-09-29).** A model whose
+artist paints a player-colour mask takes the colour exactly where the mask
+says, and that includes roofs: the mask overrides the slate rule for the
+pixels it covers. The mask is a greyscale texture whose name contains
+`PlayerColorMask`, placed in the URP Lit material's `_DetailMask` slot; white
+= full faction colour (its hue and saturation, the albedo's own shading),
+grey blends, black keeps the authored albedo. It runs before every other
+rule, and a masked material never gets the atlas hue swap. First use: the
+new house model's roof tiles (`Hut/Materials/Toit_texture.mat` +
+`Hut/Textures/Toit_texture_PlayerColorMask.png`). The mask and the albedo
+it recolours should be Read/Write enabled, or the recolour takes a GPU copy.
+
 Culture variants (Lv1–Lv3 branches of the `*Variants.fbx` models)
 reference all seven atlas materials; §12 Q1 is which one Age 0 actually
 samples.

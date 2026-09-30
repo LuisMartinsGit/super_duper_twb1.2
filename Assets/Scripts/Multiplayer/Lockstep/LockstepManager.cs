@@ -1214,7 +1214,9 @@ namespace TheWaningBorder.Multiplayer
                             // Navigation_And_Formations.md §2.12).
                             && cmd.Type != LockstepCommandType.FormationOrder
                             // RangingShot packs the casting FACTION.
-                            && cmd.Type != LockstepCommandType.RangingShot;
+                            && cmd.Type != LockstepCommandType.RangingShot
+                            // ReligionPurchase packs the buying FACTION.
+                            && cmd.Type != LockstepCommandType.ReligionPurchase;
 
             if (needsEntity)
             {
@@ -1642,6 +1644,12 @@ namespace TheWaningBorder.Multiplayer
                     }
                     break;
 
+                case LockstepCommandType.ReligionPurchase:
+                    CommandRouter.ReligionPurchaseDirect(em, (Faction)cmd.EntityNetworkId,
+                        (TheWaningBorder.Systems.Sect.ReligionPurchaseKind)cmd.TargetEntityId, cmd.BuildingId);
+                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed ReligionPurchase {cmd.TargetEntityId} {cmd.BuildingId} from player {cmd.PlayerIndex}");
+                    break;
+
                 case LockstepCommandType.RangingShot:
                     CommandRouter.RangingShotDirect(em, (Faction)cmd.EntityNetworkId);
                     if (LogCommands) TWBLog.Log($"[Lockstep] Executed RangingShot from player {cmd.PlayerIndex}");
@@ -1694,7 +1702,8 @@ namespace TheWaningBorder.Multiplayer
                             ? FindEntityByNetworkId(cmd.SecondaryTargetId)
                             : Entity.Null;
                         CommandRouter.QueuedWaypointDirect(em, entity,
-                            (QueuedCommandType)cmd.TargetEntityId, cmd.TargetPosition, wpTarget);
+                            (QueuedCommandType)(cmd.TargetEntityId & 0xFF), cmd.TargetPosition, wpTarget,
+                            (byte)((cmd.TargetEntityId >> 8) & 0xFF), (cmd.TargetEntityId >> 16) & 0x7FFF);
                         if (LogCommands) TWBLog.Log($"[Lockstep] Executed QueueWaypoint from player {cmd.PlayerIndex}");
                     }
                     break;

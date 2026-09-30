@@ -142,11 +142,14 @@ namespace TheWaningBorder.Bootstrap
             // rather than "how many" and "how far apart" — nothing stands on a
             // deposit any more, so the scatter bought nothing and cost a
             // hundred-odd entities and blocked cells per patch.
-            VeilstoneOutcropping.Create(em, center, nodeCount * veilstonePerNode);
+            var node = VeilstoneOutcropping.Create(em, center, nodeCount * veilstonePerNode);
+            if (node == Entity.Null) return;
 
-            // The painted ground is the node's own footprint now rather than a
-            // block of cells, so 1 keeps Register's units honest.
-            VeilstonePatchGround.Register(center, 1);
+            // The painted ground is the node's own 2 x 2-cell footprint, on the
+            // centre the node actually stands on (it may have been moved off an
+            // illegal authored spot — ResourceNodeSite).
+            VeilstonePatchGround.Register(em.GetComponentData<LocalTransform>(node).Position,
+                BuildGrid.ResourceNodeCells * BuildGrid.ResourceNodeCells);
         }
 
         /// <summary>

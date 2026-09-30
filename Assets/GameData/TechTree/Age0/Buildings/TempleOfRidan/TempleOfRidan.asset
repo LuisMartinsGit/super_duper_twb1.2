@@ -35,10 +35,10 @@ MonoBehaviour:
   segmentLineOfSight: 0
   trains: []
   research: []
-  minEra: 2
+  minEra: 0
   cost:
-    Supplies: 257
-    Iron: 0
+    Supplies: 200
+    Iron: 100
     Veilstone: 0
     Veilsteel: 0
   tags:

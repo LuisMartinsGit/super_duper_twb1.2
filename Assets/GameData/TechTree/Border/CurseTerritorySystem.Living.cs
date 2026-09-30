@@ -126,7 +126,62 @@ namespace TheWaningBorder.Systems.Border
             _raids.Clear();
             _nextPartyId = 1;
             _nextExpandAt = -1.0;
+            _noNodeSince = -1.0;
+            _shardrootGuaranteed = false;
         }
+
+        /// <summary>Sim time the curse was first seen with no node, or -1.</summary>
+        private double _noNodeSince = -1.0;
+
+        /// <summary>
+        /// THE CURSE CAN BE DRIVEN BACK, NEVER OUT (Territory_Claims.md §6.5):
+        /// left with no node at all, it raises a fresh one after
+        /// reseedSeconds, on a random resource node outside every start
+        /// territory. It is the only source of religion points (Religion.md),
+        /// so a curse wiped from the map would end a layer of the game.
+        /// </summary>
+        private void TickReseed(EntityManager em, double now, BorderSettingsSO s)
+        {
+            if (_curseNodeCount > 0) { _noNodeSince = -1.0; return; }
+            if (_noNodeSince < 0.0) { _noNodeSince = now; return; }
+            if (now - _noNodeSince < s.reseedSeconds) return;
+
+            var excluded = new List<int>();
+            var fq = QueryFacXf<FortressTag>(em);
+            using (var fx = fq.ToComponentDataArray<LocalTransform>(Allocator.Temp))
+                for (int i = 0; i < fx.Length; i++)
+                {
+                    int t = RegionMap.NearestRegion(fx[i].Position.x, fx[i].Position.z);
+                    if (t != RegionMap.None) excluded.Add(t);
+                }
+            if (CurseNodeSeeding.TryReseedOne(em, excluded, ref _rng, out float3 at))
+            {
+                int t = RegionMap.NearestRegion(at.x, at.z);
+                // Ground under a fresh node is the curse's at once — the same
+                // grant a seeded node gets at tick 0.
+                if (t != RegionMap.None && TerritoryOwnership.OwnerOf(t) == TerritoryOwnership.Natural)
+                    TerritoryOwnership.ForceClaim(t, TerritoryOwnership.Curse);
+                SimSignals.Ping(at, SimPingKind.Curse, 15f, big: true);
+                SimSignals.Notify(Loc.T("The curse rises again!"));
+                UnityEngine.Debug.Log($"[CurseTerritory] RESEED — a curse node rises at ({at.x:F0},{at.z:F0}).");
+            }
+            _noNodeSince = -1.0;
+        }
+
+        /// <summary>
+        /// The Shardroot backstop (Territory_Claims.md §6.6): the wells that
+        /// used to guarantee it are gone, so the first curse spawn after
+        /// shardrootGuaranteeSeconds carries it if it is not out yet.
+        /// </summary>
+        private void TickShardrootGuarantee(EntityManager em, double now, BorderSettingsSO s)
+        {
+            if (s.shardrootGuaranteeSeconds <= 0f || now < s.shardrootGuaranteeSeconds) return;
+            _shardrootGuaranteed = true;
+        }
+
+        /// <summary>Set once the guarantee time has passed: the next roll
+        /// always succeeds.</summary>
+        private bool _shardrootGuaranteed;
 
         /// <summary>Tier index for the match minute (replaces wrath as the
         /// composition dial).</summary>
@@ -160,7 +215,7 @@ namespace TheWaningBorder.Systems.Border
         /// brings its garrison up to garrisonCap x armyGrowth^n in ONE spawn.
         /// Survivors count; between spawns nothing regrows, which is the
         /// window in which a well can be verbed.</summary>
-        private void TickGarrisons(EntityManager em, double now, BorderSettingsSO s)
+        private void TickGarrisons(EntityManager em, double now, BorderSettingsSO s, float bonus)
         {
             int tierIndex = TierForNow(s, now);
             if (tierIndex < 0) return;
@@ -183,6 +238,10 @@ namespace TheWaningBorder.Systems.Border
             for (int i = 0; i < _scratchHeld.Count; i++)
             {
                 int t = _scratchHeld[i];
+                // A garrison rises from a NODE (Territory_Claims.md §6.3).
+                // Ground the curse holds by standing on it, with no node yet,
+                // fields nothing — its claimants are its only defence.
+                if (!_anchors.ContainsKey(t)) continue;
                 if (!_nextArmyAt.TryGetValue(t, out double at))
                 {
                     // First army almost at once, staggered by territory so
@@ -193,7 +252,7 @@ namespace TheWaningBorder.Systems.Border
                 if (now < at) continue;
 
                 _armySpawns.TryGetValue(t, out int n);
-                int size = (int)math.round(s.garrisonCap * math.pow(math.max(1f, s.armyGrowth), n));
+                int size = (int)math.round(s.garrisonCap * math.pow(math.max(1f, s.armyGrowth), n) * bonus);
                 standing.TryGetValue(t, out int have);
                 int toSpawn = math.max(0, size - have);
 
@@ -207,7 +266,7 @@ namespace TheWaningBorder.Systems.Border
                     _scratchWave.Add(e);
                 }
                 _armySpawns[t] = n + 1;
-                _nextArmyAt[t] = now + s.armySpawnSeconds;
+                _nextArmyAt[t] = now + s.armySpawnSeconds / bonus;
                 UnityEngine.Debug.Log($"[CurseTerritory] ARMY {n + 1} in territory {t} ({RegionMap.NameOf(t)}): " +
                     $"{toSpawn} spawned, {have} survived, {size} strong; next in {s.armySpawnSeconds:0}s.");
                 TryRollShardroot(em, s, _scratchWave, $"garrison army {n + 1} of territory {t}");
@@ -227,7 +286,7 @@ namespace TheWaningBorder.Systems.Border
         /// backstop both check). The draw is on the sim RNG on every peer.</summary>
         private void TryRollShardroot(EntityManager em, BorderSettingsSO s, List<Entity> spawned, string what)
         {
-            if (spawned.Count == 0 || s.shardrootChance <= 0f) return;
+            if (spawned.Count == 0 || (s.shardrootChance <= 0f && !_shardrootGuaranteed)) return;
             var q = QC_ShardrootState.Get(em, QT_ShardrootState);
             if (q.IsEmptyIgnoreFilter) return;
             using var ents = q.ToEntityArray(Allocator.Temp);
@@ -238,7 +297,7 @@ namespace TheWaningBorder.Systems.Border
             // whether or not the roll succeeds.
             float roll = _rng.NextFloat();
             int pick = _rng.NextInt(0, spawned.Count);
-            if (roll >= s.shardrootChance) return;
+            if (roll >= s.shardrootChance && !_shardrootGuaranteed) return;
 
             var bearer = spawned[pick];
             state.Found = 1;
@@ -274,13 +333,16 @@ namespace TheWaningBorder.Systems.Border
 
         // ── expansion ───────────────────────────────────────────────────────
 
-        /// <summary>Nodes (veilstone or veilsteel) standing in a territory,
-        /// sorted by entity so every peer picks the same one.</summary>
+        /// <summary>Resource nodes of ANY kind standing in a territory
+        /// (Territory_Claims.md §6.3 — the curse builds on any node), sorted
+        /// by entity so every peer picks the same one.</summary>
         private void NodesIn(EntityManager em, int territory, List<(Entity e, float3 p)> into)
         {
             into.Clear();
             Collect<VeilstoneOutcroppingTag>(em, territory, into);
             Collect<VeilsteelDepositTag>(em, territory, into);
+            Collect<IronMineTag>(em, territory, into);
+            Collect<SupplyNodeTag>(em, territory, into);
             into.Sort((a, b) => a.e.Index.CompareTo(b.e.Index));
         }
 
@@ -301,47 +363,81 @@ namespace TheWaningBorder.Systems.Border
         private readonly Dictionary<int, int> _standing = new();
         private readonly Dictionary<int, List<float3>> _hostilesByTerritory = new();
 
-        private void TryExpand(EntityManager em, double now, BorderSettingsSO s)
+        /// <summary>
+        /// One expansion dispatch (Territory_Claims.md §6.5). A party of
+        /// mergePartySize leaves a held territory for an adjacent one it does
+        /// not hold:
+        ///   * unclaimed, or claimed but NOT LOCKED — a CLAIM party: it stands
+        ///     on the ground until the meter turns it, then raises a curse
+        ///     node on one of its resource nodes (the merge bar);
+        ///   * LOCKED — a RAID: resource buildings first, then any building,
+        ///     home after raidSeconds. Razing the last lock opens the ground.
+        /// While a player holds the Shardroot the curse ignores everyone
+        /// else: the party goes for the holder's territory, wherever it is.
+        /// </summary>
+        private void TryExpand(EntityManager em, double now, BorderSettingsSO s, float bonus)
         {
             if (_held.Count == 0) return;
-            if (_merges.Count > 0) return;    // one merge at a time: it is the curse's whole attention
-
-            var hallCounts = CountPerRegion<HallTag>(em);
 
             _scratchCandidates.Clear();
             for (int r = 0; r < RegionMap.Count; r++)
             {
                 if (_held.Contains(r)) continue;
+                if (RegionMap.KindBlocks(RegionMap.KindOf(r))) continue;
                 bool adjacent = false;
                 foreach (int h in _held)
                     if (AreAdjacent(h, r)) { adjacent = true; break; }
                 if (adjacent) _scratchCandidates.Add(r);
             }
-            if (_scratchCandidates.Count == 0) return;
             _scratchCandidates.Sort();
-            int pick = _scratchCandidates[_rng.NextInt(0, _scratchCandidates.Count)];
+            // Always draw, so the RNG stream is the same on every peer
+            // whatever the branch below.
+            int draw = _rng.NextInt(0, math.max(1, _scratchCandidates.Count));
 
-            // The curse wants it back (§3.1): a Shardroot holder standing in
-            // a neighbouring territory outranks the random pick, and the
-            // party goes as a HUNT (a raid aimed at the holder), not a merge.
-            // The draw above still happens, so the RNG stream is unchanged.
-            bool hunt = false;
-            float3 holderPos = default;
-            if (TryShardrootHolder(em, out var holderFaction, out holderPos, out int holderTerritory)
-                && _scratchCandidates.Contains(holderTerritory))
+            bool hunt = TryShardrootHolder(em, out var holderFaction, out float3 holderPos, out int holderTerritory);
+
+            // FILL BEFORE SPREADING (2026-09-29): the curse takes EVERY
+            // resource node in the ground it holds before it reaches for new
+            // ground. A held territory with a node still free gets the merge
+            // party — from that territory itself — and a curse node rises on
+            // it. Only the Shardroot hunt outranks this.
+            if (!hunt && _merges.Count == 0
+                && TryFindUntakenNode(em, out int fillT, out Entity fillNode, out float3 fillPos))
             {
-                pick = holderTerritory;
-                hunt = true;
+                SendFillParty(em, now, s, bonus, fillT, fillNode, fillPos);
+                return;
             }
 
-            // Which held neighbour sends the party: the first adjacent one in
-            // index order, so every peer agrees.
+            int pick;
+            if (hunt)
+            {
+                // THE CURSE IGNORES EVERYONE BUT THE HOLDER (§6.6).
+                pick = holderTerritory;
+            }
+            else
+            {
+                if (_scratchCandidates.Count == 0) return;
+                if (_merges.Count > 0) return;   // one takeover at a time: it is the curse's whole attention
+                pick = _scratchCandidates[draw];
+            }
+
+            // Which held territory sends the party: one with a node (a
+            // garrison source), nearest to the pick by seed, index breaking
+            // ties, so every peer agrees.
             int from = -1;
+            float fromD = float.MaxValue;
+            var pickSeed = RegionMap.SeedOf(pick);
             _scratchHeld.Clear();
             foreach (int h in _held) _scratchHeld.Add(h);
             _scratchHeld.Sort();
             for (int i = 0; i < _scratchHeld.Count; i++)
-                if (AreAdjacent(_scratchHeld[i], pick)) { from = _scratchHeld[i]; break; }
+            {
+                int h = _scratchHeld[i];
+                if (!_anchors.ContainsKey(h)) continue;
+                var hs = RegionMap.SeedOf(h);
+                float d = math.lengthsq(new float2(hs.x - pickSeed.x, hs.y - pickSeed.y));
+                if (d < fromD) { fromD = d; from = h; }
+            }
             if (from < 0) return;
             float3 origin = WaveOrigin(em, from);
 
@@ -349,48 +445,46 @@ namespace TheWaningBorder.Systems.Border
             var tier = tierIndex >= 0 ? s.Tier(tierIndex) : null;
             if (tier == null || tier.TotalUnits == 0) return;
 
-            // A home territory (one with a Hall) is never MERGED away from
-            // under a player (kept from the old conquest rule); it can still
-            // be raided.
+            bool claim = !hunt && !TerritoryOwnership.IsLocked(pick);
             NodesIn(em, pick, _scratchNodes);
-            bool mergeable = !hunt && _scratchNodes.Count > 0 && hallCounts[pick] == 0;
 
             int party = _nextPartyId++;
+            int partySize = (int)math.round(s.mergePartySize * bonus);
             _scratchWave.Clear();
-            for (int u = 0; u < s.mergePartySize; u++)
+            for (int u = 0; u < partySize; u++)
             {
                 var e = SpawnCurseUnit(em, tier, u, origin);
                 em.AddComponentData(e, new CurseLivingMember
-                    { Home = from, Role = mergeable ? RoleMerge : RoleRaid, Party = party, AbroadSince = -1.0 });
+                    { Home = from, Role = claim ? RoleMerge : RoleRaid, Party = party, AbroadSince = -1.0 });
                 _scratchWave.Add(e);
             }
             TryRollShardroot(em, s, _scratchWave, $"harassment party {party}");
 
-            if (mergeable)
+            if (claim)
             {
-                var (node, npos) = _scratchNodes[0];
+                // Stand by a node when the territory has one (the node the
+                // curse will raise its own on); by the seed otherwise.
+                Entity node = Entity.Null;
+                float3 stand;
+                if (_scratchNodes.Count > 0) (node, stand) = _scratchNodes[0];
+                else stand = new float3(pickSeed.x, TerrainUtility.GetHeight(pickSeed.x, pickSeed.y), pickSeed.y);
+
                 _merges[party] = new MergeState
                 {
-                    Territory = pick, Node = node, NodePos = npos,
+                    Territory = pick, Node = node, NodePos = stand,
                     Progress = 0f, Phase = MergeMarching, StartedAt = now, NextThinkAt = 0.0,
                 };
                 TheWaningBorder.Core.Commands.Types.FormationMoveCommandHelper.Execute(
-                    em, _scratchWave, npos, FormationShape.Box, attackMove: false);
-                SimSignals.Ping(npos, SimPingKind.Curse, 10f, big: true);
-                UnityEngine.Debug.Log($"[CurseTerritory] MERGE — party {party} of {_scratchWave.Count} " +
-                    $"marches on the node at ({npos.x:F0},{npos.z:F0}) in territory {pick} " +
-                    $"({RegionMap.NameOf(pick)}) from {from}.");
+                    em, _scratchWave, stand, FormationShape.Box, attackMove: true);
+                SimSignals.Ping(stand, SimPingKind.Curse, 10f, big: true);
+                UnityEngine.Debug.Log($"[CurseTerritory] CLAIM — party {party} of {_scratchWave.Count} " +
+                    $"marches to stand on territory {pick} ({RegionMap.NameOf(pick)}) from {from}.");
             }
             else
             {
-                // Node-less (or a home): immune to takeover, subject to a raid.
-                // A hunt's objective is the holder itself.
                 float3 target = holderPos;
                 if (!hunt && !TryNearestHostileBuildingIn(em, pick, out target))
-                {
-                    var seed = RegionMap.SeedOf(pick);
-                    target = new float3(seed.x, TerrainUtility.GetHeight(seed.x, seed.y), seed.y);
-                }
+                    target = new float3(pickSeed.x, TerrainUtility.GetHeight(pickSeed.x, pickSeed.y), pickSeed.y);
                 _raids[party] = new RaidState
                 {
                     Home = from, Target = pick, Objective = target,
@@ -399,14 +493,86 @@ namespace TheWaningBorder.Systems.Border
                 TheWaningBorder.Core.Commands.Types.FormationMoveCommandHelper.Execute(
                     em, _scratchWave, target, FormationShape.Box, attackMove: true);
                 SimSignals.Ping(target, SimPingKind.Curse, 10f);
-                if (hunt)
-                    UnityEngine.Debug.Log($"[CurseTerritory] HUNT — party {party} of {_scratchWave.Count} " +
-                        $"hunts the Shardroot holder ({holderFaction}) in territory {pick} ({RegionMap.NameOf(pick)}) " +
-                        $"at ({target.x:F0},{target.z:F0}).");
-                else
-                    UnityEngine.Debug.Log($"[CurseTerritory] RAID — party {party} of {_scratchWave.Count} " +
-                        $"raids territory {pick} ({RegionMap.NameOf(pick)}); it has no node to take.");
+                UnityEngine.Debug.Log(hunt
+                    ? $"[CurseTerritory] HUNT — party {party} of {_scratchWave.Count} hunts the Shardroot " +
+                      $"holder ({holderFaction}) in territory {pick} ({RegionMap.NameOf(pick)})."
+                    : $"[CurseTerritory] RAID — party {party} of {_scratchWave.Count} raids locked " +
+                      $"territory {pick} ({RegionMap.NameOf(pick)}).");
             }
+        }
+
+        /// <summary>
+        /// The first free resource node (any kind) in ground the curse holds:
+        /// no curse node on it and no building of anyone's. Territories and
+        /// nodes are walked in index order, so every peer picks the same one.
+        /// Only territories that already field a garrison (have a node) send
+        /// a party.
+        /// </summary>
+        private bool TryFindUntakenNode(EntityManager em, out int territory, out Entity node, out float3 pos)
+        {
+            territory = RegionMap.None; node = Entity.Null; pos = default;
+            _scratchHeld.Clear();
+            foreach (int h in _held) _scratchHeld.Add(h);
+            _scratchHeld.Sort();
+
+            var bq = QueryXf<BuildingTag>(em);
+            using var bx = bq.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+
+            for (int i = 0; i < _scratchHeld.Count; i++)
+            {
+                int t = _scratchHeld[i];
+                if (!_anchors.ContainsKey(t)) continue;
+                NodesIn(em, t, _scratchNodes);
+                for (int n = 0; n < _scratchNodes.Count; n++)
+                {
+                    var p = _scratchNodes[n].p;
+                    bool taken = false;
+                    for (int b = 0; b < bx.Length && !taken; b++)
+                    {
+                        float dx = bx[b].Position.x - p.x, dz = bx[b].Position.z - p.z;
+                        taken = dx * dx + dz * dz <= 2.5f * 2.5f;
+                    }
+                    if (taken) continue;
+                    territory = t; node = _scratchNodes[n].e; pos = p;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>A merge party from a held territory onto one of its own
+        /// free nodes. The ground is already the curse's, so the merge bar
+        /// starts filling as soon as the party arrives.</summary>
+        private void SendFillParty(EntityManager em, double now, BorderSettingsSO s, float bonus,
+                                   int territory, Entity node, float3 nodePos)
+        {
+            int tierIndex = TierForNow(s, now);
+            var tier = tierIndex >= 0 ? s.Tier(tierIndex) : null;
+            if (tier == null || tier.TotalUnits == 0) return;
+
+            float3 origin = WaveOrigin(em, territory);
+            int party = _nextPartyId++;
+            int partySize = (int)math.round(s.mergePartySize * bonus);
+            _scratchWave.Clear();
+            for (int u = 0; u < partySize; u++)
+            {
+                var e = SpawnCurseUnit(em, tier, u, origin);
+                em.AddComponentData(e, new CurseLivingMember
+                    { Home = territory, Role = RoleMerge, Party = party, AbroadSince = -1.0 });
+                _scratchWave.Add(e);
+            }
+            TryRollShardroot(em, s, _scratchWave, $"fill party {party}");
+
+            _merges[party] = new MergeState
+            {
+                Territory = territory, Node = node, NodePos = nodePos,
+                Progress = 0f, Phase = MergeMarching, StartedAt = now, NextThinkAt = 0.0,
+            };
+            TheWaningBorder.Core.Commands.Types.FormationMoveCommandHelper.Execute(
+                em, _scratchWave, nodePos, FormationShape.Box, attackMove: true);
+            UnityEngine.Debug.Log($"[CurseTerritory] FILL — party {party} of {_scratchWave.Count} " +
+                $"takes the free node at ({nodePos.x:F0},{nodePos.z:F0}) in its own territory " +
+                $"{territory} ({RegionMap.NameOf(territory)}).");
         }
 
         /// <summary>The harassment army's objective in a territory (2.13
@@ -544,7 +710,8 @@ namespace TheWaningBorder.Systems.Border
                     centre += xfs[i].Position;
                     if (em.HasComponent<Target>(ents[i]) && em.GetComponentData<Target>(ents[i]).Value != Entity.Null) fighting++;
                 }
-                if (_scratchWave.Count == 0 || !em.Exists(ms.Node))
+                bool nodeGone = ms.Node != Entity.Null && !em.Exists(ms.Node);
+                if (_scratchWave.Count == 0 || nodeGone)
                 {
                     // The party is dead (or the node is gone): the takeover stops.
                     UnityEngine.Debug.Log($"[CurseTerritory] MERGE party {party} lost — takeover of " +
@@ -582,6 +749,24 @@ namespace TheWaningBorder.Systems.Border
                             ms.Phase = MergeDefending;
                             TheWaningBorder.Core.Commands.Types.FormationMoveCommandHelper.Execute(
                                 em, _scratchWave, threat, FormationShape.Box, attackMove: true);
+                            break;
+                        }
+                        // Territory_Claims.md §6.5: the party CLAIMS by
+                        // standing (the ownership meter does the counting);
+                        // the node only rises on ground that is already the
+                        // curse's. Locked under it by a player's extractor or
+                        // Fortress: the claim is over, the party raids.
+                        if (TerritoryOwnership.OwnerOf(ms.Territory) != TerritoryOwnership.Curse)
+                        {
+                            if (TerritoryOwnership.IsLocked(ms.Territory))
+                                ConvertMergeToRaid(em, party, ms, now);
+                            break;
+                        }
+                        if (ms.Node == Entity.Null)
+                        {
+                            // Nothing to build on: the party holds the ground
+                            // as its garrison, by standing on it.
+                            HoldWithoutNode(em, party, ms);
                             break;
                         }
                         ms.Progress += (float)(WaveThinkSeconds / s.mergeSeconds);
@@ -679,16 +864,59 @@ namespace TheWaningBorder.Systems.Border
             }
         }
 
+        /// <summary>A claim party on a node-less territory the meter has
+        /// turned: it stays as the territory's garrison and holds it by
+        /// standing on it. No node, so no army will ever spawn there.</summary>
+        private void HoldWithoutNode(EntityManager em, int party, MergeState ms)
+        {
+            for (int i = 0; i < _scratchWave.Count; i++)
+            {
+                var e = _scratchWave[i];
+                var m = em.GetComponentData<CurseLivingMember>(e);
+                m.Home = ms.Territory; m.Role = RoleGarrison; m.Party = -1; m.AbroadSince = -1.0;
+                em.SetComponentData(e, m);
+            }
+            _merges.Remove(party);
+            _held.Add(ms.Territory);
+            UnityEngine.Debug.Log($"[CurseTerritory] HELD — territory {ms.Territory} " +
+                $"({RegionMap.NameOf(ms.Territory)}) claimed by standing; it has no node to raise.");
+        }
+
+        /// <summary>A player locked the ground under a claim party: the
+        /// party turns raider on the lock itself.</summary>
+        private void ConvertMergeToRaid(EntityManager em, int party, MergeState ms, double now)
+        {
+            float3 target = ms.NodePos;
+            TryNearestHostileBuildingIn(em, ms.Territory, out target);
+            int home = -1;
+            for (int i = 0; i < _scratchWave.Count; i++)
+            {
+                var e = _scratchWave[i];
+                var m = em.GetComponentData<CurseLivingMember>(e);
+                home = m.Home;
+                m.Role = RoleRaid;
+                em.SetComponentData(e, m);
+            }
+            _merges.Remove(party);
+            _raids[party] = new RaidState
+            {
+                Home = home, Target = ms.Territory, Objective = target,
+                StartedAt = now, NextThinkAt = 0.0, Returning = false,
+            };
+            TheWaningBorder.Core.Commands.Types.FormationMoveCommandHelper.Execute(
+                em, _scratchWave, target, FormationShape.Box, attackMove: true);
+        }
+
         /// <summary>The bar is full: a curse node rises on the merged node,
         /// hazing the patch, and the territory is the curse's. The party
         /// becomes the new territory's first garrison.</summary>
         private void CompleteMerge(EntityManager em, int party, MergeState ms)
         {
+            // The territory is already the curse's (the meter turned it); the
+            // node LOCKS it (Territory_Claims.md §3) and fields its garrison.
             var anchor = TheWaningBorder.Entities.SmallNode.Create(em, ms.NodePos);
             _anchors[ms.Territory] = anchor;
-            TerritoryOwnership.MarkCurseHeld(ms.Territory, true);
             _held.Add(ms.Territory);
-            TerritoryOwnership.Recompute(em);
 
             for (int i = 0; i < _scratchWave.Count; i++)
             {

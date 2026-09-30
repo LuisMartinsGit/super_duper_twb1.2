@@ -51,8 +51,9 @@ namespace TheWaningBorder.Core.Settings
         /// (calculator: 1 at Lv1, 3 at Lv2, 6 at Lv3).</summary>
         public static readonly int[] HallMaxTargets = { 1, 1, 3, 6 };
 
-        /// <summary>Hut +pop per level past base (0 / 5 / 10 / 15).</summary>
-        public static readonly int[] HutBonusPop = { 0, 5, 10, 15 };
+        /// <summary>House +pop per level past its base 3 (Hut.asset): 3 -> 5 -> 8 -> 10
+        /// across levels 0-3 (2026-09-29).</summary>
+        public static readonly int[] HutBonusPop = { 0, 2, 5, 7 };
 
         // ──────────────────────────────────────────────────────────────────
         // UPGRADE DURATIONS (seconds; index 1..3 corresponds to TARGET level)

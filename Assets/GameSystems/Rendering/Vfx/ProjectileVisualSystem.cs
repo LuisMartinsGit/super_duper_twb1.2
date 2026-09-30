@@ -75,6 +75,8 @@ namespace TheWaningBorder.Rendering
 
         // Prefab templates (procedural fallback + authored MagicArsenal wrappers).
         private GameObject _arrowTemplate;
+        // The ballista's large procedural bolt (2026-09-29).
+        private GameObject _ballistaBoltTemplate;
         private GameObject _laserTemplate;        // generic laser (e.g. tower beams)
         private GameObject _veilstingerTemplate;  // arcane-purple SMALL missile, arcs in
         private GameObject _godsplinterTemplate;  // arcane-purple MEGA missile, straight beam
@@ -97,6 +99,10 @@ namespace TheWaningBorder.Rendering
         void Awake()
         {
             _arrowTemplate       = CreateArrowTemplate();
+            _ballistaBoltTemplate = TheWaningBorder.Rendering.BallistaBoltVisual.Build();
+            _ballistaBoltTemplate.name = "BallistaBoltTemplate";
+            _ballistaBoltTemplate.SetActive(false);
+            DontDestroyOnLoad(_ballistaBoltTemplate);
             _veilstingerTemplate = LoadAuthoredTemplate("Prefabs/Border/Effects/VeilstingerLaser", "VeilstingerTemplate");
             _godsplinterTemplate = LoadAuthoredTemplate("Prefabs/Border/Effects/GodsplinterLaser", "GodsplinterTemplate");
             _impactTemplate      = LoadAuthoredTemplate("Prefabs/Border/Effects/VeilstingerImpact", "VeilstingerImpactTemplate");
@@ -232,7 +238,22 @@ namespace TheWaningBorder.Rendering
                 GameObject template;
                 float impactScale = 0f; // 0 = no impact
 
-                if (_em.HasComponent<CatapultShotTag>(entity))
+                bool bolt = _em.HasComponent<BallistaBoltTag>(entity) && _ballistaBoltTemplate != null;
+                // TREBUCHET STONES fly the Synty catapult FX, like the
+                // catapult's — but the procedural Trebuchet and the emplacement
+                // carry no CatapultVisual to launch it, so it is launched here,
+                // once, from the ECS stone's own start / end / flight time. The
+                // ECS projectile only carries the damage.
+                if (!bolt && _em.HasComponent<TrebuchetStoneTag>(entity)
+                    && _em.HasComponent<Projectile>(entity))
+                {
+                    var shot = _em.GetComponentData<Projectile>(entity);
+                    CatapultVisual.FireSyntyStone(shot.Start, shot.End, shot.FlightTime);
+                    _visuals[entity] = null;
+                    continue;
+                }
+
+                if (!bolt && _em.HasComponent<CatapultShotTag>(entity))
                 {
                     // Catapult shots have NO per-entity visual: CatapultVisual
                     // fires the self-contained Synty FX (stone + trail +
@@ -243,7 +264,11 @@ namespace TheWaningBorder.Rendering
                     continue;
                 }
 
-                if (_em.HasComponent<FirethrowerShotTag>(entity) && _fireballTemplate != null)
+                if (bolt)
+                {
+                    template = _ballistaBoltTemplate;
+                }
+                else if (_em.HasComponent<FirethrowerShotTag>(entity) && _fireballTemplate != null)
                 {
                     // Feraldis Firethrower: the Synty catapult fire effect, way
                     // down in scale — a hurled fireball, not a boulder.
@@ -308,6 +333,7 @@ namespace TheWaningBorder.Rendering
                         : Faction.Blue;
                     ArrowTrailTiers.Apply(spawnTrail, ArrowTrailTiers.Of(shooter));
                 }
+                if (bolt) go.transform.localScale = Vector3.one;
                 if (isPlainArrow && _em.HasComponent<Projectile>(entity))
                 {
                     var proj = _em.GetComponentData<Projectile>(entity);

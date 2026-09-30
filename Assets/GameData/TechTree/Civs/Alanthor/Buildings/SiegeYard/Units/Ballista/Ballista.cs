@@ -23,9 +23,13 @@ namespace TheWaningBorder.Entities
         // Default stats (calculator: tools/calculator/techtree.json,
         // id "Alanthor_Ballista" — 220 HP / 40 dmg / 4.0 cd / range 6-22 /
         // LoS 26 / speed 3.2 / 38 s train / pop 2 / 180 S + 80 I + 40 V).
-        // 338: its own Synty ballista model (Ballista.prefab beside this
+        // (History: 338 was its own Synty ballista model, Ballista.prefab beside this
         // file). It shared 337 — the catapult model — until 2026-09-07.
-        private const int PresentationID = 338;
+        // 385: its OWN procedural visual (BallistaVisual beside this file).
+        // It sat on 338 until 2026-09-29, which the Feraldis Hunter also uses
+        // — the catalog's last-loaded prefab won, and every ballista rendered
+        // as a human archer.
+        public const int PresentationID = 385;
 
         /// <summary>
         /// Create Ballista using EntityManager.
@@ -74,6 +78,7 @@ namespace TheWaningBorder.Entities
             // in RangedCombatSystem is a 3-bolt volley) and routes the shot
             // to the CatapultVisual-driven presentation.
             creator.AddComponent<CatapultTag>(entity);
+            creator.AddComponent<BallistaShooterTag>(entity);
             creator.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
             creator.AddComponent(entity, new MoveSpeed { Value = speed });
             creator.AddComponent(entity, new Damage { Value = (int)damage });

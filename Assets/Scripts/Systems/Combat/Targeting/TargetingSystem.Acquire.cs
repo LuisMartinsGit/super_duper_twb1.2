@@ -289,6 +289,11 @@ namespace TheWaningBorder.Systems.Combat
                 // Idle units (no AttackMove/Patrol) with UserMoveOrder skip targeting
                 if (!isActiveScanner && hasUserMoveOrder) continue;
 
+                // Walking a QUEUED plain-move route: waypoints outweigh the
+                // stance until the queue is done (2026-09-29) — a route that
+                // fights at every stop is an attack-move, queued as such.
+                if (!isActiveScanner && em.HasComponent<QueuedMoveStep>(entity)) continue;
+
                 // Idle units skip while moving to a destination — including the
                 // walk home from a broken leash. Return-to-guard owns
                 // re-engagement en route (ProcessReturnToGuard).
@@ -622,7 +627,7 @@ namespace TheWaningBorder.Systems.Combat
         {
             if (em.HasComponent<HoldPositionTag>(e)) return UnitStanceMode.Hold;
             if (em.HasComponent<UnitStance>(e)) return em.GetComponentData<UnitStance>(e).Value;
-            return UnitStanceMode.Defensive;
+            return UnitStanceMode.Aggressive;   // the default for every unit (Stances.md §4)
         }
 
         private static void SetDestination(EntityManager em, ref EntityCommandBuffer ecb,

@@ -76,17 +76,13 @@ namespace TheWaningBorder.Systems.Combat
             }
         }
 
-        /// <summary>Humans start Defensive, AI factions (and the curse)
-        /// Aggressive (Stances.md §4).</summary>
+        /// <summary>EVERY unit starts Aggressive — humans, AI and the curse
+        /// alike (Stances.md §4, 2026-09-29). Aggressive is what claims
+        /// ground under the ownership meter: an army that fights what walks
+        /// into its territory holds it; one that only returns fire lets a
+        /// raiding party stand there and drain it.</summary>
         private static UnitStanceMode DefaultFor(EntityManager em, Entity e)
-        {
-            if (!em.HasComponent<FactionTag>(e)) return UnitStanceMode.Defensive;
-            var f = em.GetComponentData<FactionTag>(e).Value;
-            if (f == Faction.Border) return UnitStanceMode.Aggressive;
-            return GameSettings.IsFactionHumanControlled(f)
-                ? UnitStanceMode.Defensive
-                : UnitStanceMode.Aggressive;
-        }
+            => UnitStanceMode.Aggressive;
 
         private void PublishSettings(EntityManager em)
         {

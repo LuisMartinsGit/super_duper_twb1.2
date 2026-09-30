@@ -20,7 +20,7 @@ MonoBehaviour:
   smelterTarget: 5
   houseTarget: 8
   fleeRadius: 14
-  sectUnitCap: 2
+  sectUnitCap: 1
   sectBuildingTarget: 2
   minTowerSpacing: 24
   chokeWidthThreshold: 26

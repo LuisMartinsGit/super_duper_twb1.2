@@ -26,8 +26,8 @@ the player picks another stance.
 
 | Stance | Auto-engages | Returns fire | Pursues (moves on its own to fight) |
 |---|---|---|---|
-| **Aggressive** *(AI default)* | any hostile inside its **line of sight** | yes | **yes** — up to the **30 m** leash from its guard point, then walks home |
-| **Defensive** *(player default)* | only an enemy **attacking it** that is inside its **attack reach** | yes | **never** |
+| **Aggressive** *(default for everyone, 2026-09-29)* | any hostile inside its **line of sight** | yes | **yes** — up to the **30 m** leash from its guard point, then walks home |
+| **Defensive** | only an enemy **attacking it** that is inside its **attack reach** | yes | **never** |
 | **Hold Position** | nothing | **no** | **never** |
 
 - *Attacking it* means: the enemy **hit it within the last 5 s**
@@ -89,8 +89,8 @@ The guard point is where the unit was last told to be:
 
 - where it spawned / rallied;
 - where a **plain move arrived** (a unit that finishes a move takes up its
-  stance **there** — Defensive by default, so it will not wander off after
-  the first thing it sees);
+  stance **there** — Aggressive by default, so it engages what comes into
+  sight but is leashed back to this point);
 - where it stood when set to **Hold**;
 - the destination of an **attack-move** or the current patrol waypoint.
 
@@ -123,9 +123,10 @@ tow a defending army into the enemy base. That is the bug the leash closes.
 
 ## 4. Who gets which default
 
-- **Human players' units** start **Defensive**.
-- **AI factions' units** start **Aggressive** — close to how AI armies
-  behaved before, minus the unbounded chase.
+- **Every unit starts Aggressive** — human players' and AI factions' alike
+  (2026-09-29; human units used to start Defensive). Territory is now held by
+  standing on it ([Territory_Claims.md](Territory_Claims.md)), so the default
+  army must fight what walks into its ground, not only return fire.
 - **Curse (Border) units** are driven by the curse's own wave logic and are
   **not leashed**.
 - **Buildings and towers** have no stance.

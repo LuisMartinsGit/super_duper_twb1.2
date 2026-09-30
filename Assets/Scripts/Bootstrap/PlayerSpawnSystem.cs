@@ -304,6 +304,41 @@ namespace TheWaningBorder.Bootstrap
             UnitFactory.Create(em, "Alanthor_Archer", EnsureValidSpawnPosition(backRow + new float3(spacing * 0.5f, 0, 0)), faction);
 
             UnitFactory.Create(em, "Scout", EnsureValidSpawnPosition(backRow + new float3(spacing * 2f, 0, 0)), faction);
+
+            SpawnStartingHouse(em, faction, spawnPos);
+        }
+
+        /// <summary>
+        /// Every player starts with one finished House (Hut) beside the
+        /// Fortress (Territory_Claims.md §4, 2026-09-30). It goes on a
+        /// DIAGONAL — workers stand E / W / N and the army S — 10 m out, so
+        /// its 4 x 4 m footprint (8-12 m) clears the Fortress's 10 x 10 m and
+        /// its padding. Candidates are tried in a fixed order and each must
+        /// pass the ordinary placement test, so every lockstep peer lands on
+        /// the same cell; a start with no legal diagonal gets no house rather
+        /// than one on a cliff or a node.
+        /// </summary>
+        private static void SpawnStartingHouse(EntityManager em, Faction faction, float3 fortress)
+        {
+            const string HutId = "Hut";
+            var size = BuildingSizeConfig.GetSize(HutId);
+            float[] rings = { 10f, 14f };
+            float2[] dirs = { new float2(1, 1), new float2(-1, 1), new float2(1, -1), new float2(-1, -1) };
+
+            foreach (float r in rings)
+                foreach (var d in dirs)
+                {
+                    float3 p = BuildGrid.Snap(fortress + new float3(d.x * r, 0f, d.y * r), HutId);
+                    p.y = TerrainUtility.GetHeight(p.x, p.z);
+                    if (!TheWaningBorder.Core.Commands.Types.BuildCommandHelper.IsValidBuildPosition(
+                            em, p, size, HutId))
+                        continue;
+                    BuildingFactory.Create(em, HutId, p, faction);
+                    return;
+                }
+
+            Debug.LogWarning($"[PlayerSpawnSystem] {faction}: no legal spot beside the Fortress " +
+                             "for the starting House — none spawned.");
         }
 
         /// <summary>

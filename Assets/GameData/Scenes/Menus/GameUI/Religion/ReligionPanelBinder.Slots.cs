@@ -132,8 +132,13 @@ namespace TheWaningBorder.UI.Ingame
             // Cell 0 is the passive badge, cells 1-3 the actives, laid out
             // left to right from the strip's left edge.
             view.PassiveIcon = BuildCell(parent, "PassiveIcon", 0, PassiveLive,
-                out view.PassiveGlyph, out _);
+                out view.PassiveGlyph, out var passiveImage);
             UITooltip.Bind(view.PassiveIcon, () => PassiveTooltip(slotIndex));
+            // The badge carries the CHAPEL LEVEL and buys the next one
+            // (Religion.md §3.1).
+            var levelBtn = view.PassiveIcon.AddComponent<Button>();
+            levelBtn.targetGraphic = passiveImage;
+            levelBtn.onClick.AddListener(() => ClickChapelLevel(slotIndex));
 
             for (int t = 0; t < 3; t++)
             {
@@ -195,6 +200,8 @@ namespace TheWaningBorder.UI.Ingame
                     bool live = SectQuery.HasStandingTemple(em, faction);
                     var c = live ? GlyphLive : GlyphDormant;
                     if (view.PassiveGlyph.color != c) view.PassiveGlyph.color = c;
+                    string lvl = SectInfo.Roman(SectQuery.PowerLevelOf(em, faction, view.SectId));
+                    if (view.PassiveGlyph.text != lvl) view.PassiveGlyph.text = lvl;
                 }
             }
 
@@ -211,7 +218,11 @@ namespace TheWaningBorder.UI.Ingame
                 int tier = t + 1;
                 bool owned = tier <= unlocked;
                 bool ready = owned && SectActivePowerHelper.CanFire(em, faction, view.SectId, tier);
-                if (btn.interactable != ready) btn.interactable = ready;
+                // The next locked active is BOUGHT from this cell.
+                bool buyable = tier == unlocked + 1 && ReligionPurchases.CanBuy(
+                    em, faction, ReligionPurchaseKind.UnlockActive, view.SectId, out _);
+                bool clickable = ready || buyable;
+                if (btn.interactable != clickable) btn.interactable = clickable;
 
                 if (btn.targetGraphic is Image img)
                 {
@@ -222,7 +233,7 @@ namespace TheWaningBorder.UI.Ingame
                 var lbl = view.TierLabel[t];
                 if (lbl == null) continue;
                 string txt;
-                if (!owned) txt = "-";
+                if (!owned) txt = tier == unlocked + 1 ? "+" : "-";
                 else
                 {
                     float rem = SectActivePowerHelper.CooldownRemaining(em, faction, view.SectId, tier);

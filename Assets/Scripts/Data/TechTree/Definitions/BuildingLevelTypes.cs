@@ -26,6 +26,10 @@ namespace TheWaningBorder.Data
         public float range = 22f;
         public float cooldown = 1.5f;
         public int maxTargets = 1;
+        /// <summary>Siege damage of one extra BALLISTA bolt fired each volley
+        /// at the nearest target (0 = none). The Watch Tower's third level
+        /// (Age_1_Alanthor.md § Watch Tower levels).</summary>
+        public int siegeShotDamage;
     }
 
     /// <summary>
@@ -106,5 +110,7 @@ namespace TheWaningBorder.Data
         public string[] trains;
         public string[] availableUpgrades;
         public BuildingAttack attack = new BuildingAttack();
+        /// <summary>Line of sight at this level; 0 = unchanged.</summary>
+        public float lineOfSight;
     }
 }

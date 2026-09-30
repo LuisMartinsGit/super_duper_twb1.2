@@ -428,13 +428,16 @@ namespace TheWaningBorder.Systems.Combat
                             ? em.GetComponentData<IgnitesBlood>(entity)
                             : default;
 
+                        // 1 = ballista bolt, 2 = trebuchet stone (the projectile's look).
+                        byte shooterKind = em.HasComponent<BallistaShooterTag>(entity) ? (byte)1
+                            : em.HasComponent<TrebuchetShooterTag>(entity) ? (byte)2 : (byte)0;
                         for (int shot = 0; shot < shotCount; shot++)
                         {
                             CreateArrow(ref ecb, myPos, aimPos, aimDist, entity,
                                 faction.ValueRO.Value, finalDamage, (float)time + shot * 0.001f, tgt.Value, dmgType,
                                 isAOE, aoeRadius, spawnYOffset,
                                 archer.Trajectory, archer.ProjectileSpeed, isCatapult,
-                                shotBleed, shotIgnites ? ignite : default, shotIgnites);
+                                shotBleed, shotIgnites ? ignite : default, shotIgnites, shooterKind);
                         }
 
                         // Reset state — use unit's configured cooldown.
@@ -529,7 +532,8 @@ namespace TheWaningBorder.Systems.Combat
             DamageType dmgType = DamageType.Ranged, bool isAOE = false, float aoeRadius = 0f,
             float spawnYOffset = 1.5f, byte trajectory = ShotTrajectory.Low, float projectileSpeed = 0f,
             bool catapultShot = false,
-            InflictsBleed shotBleed = default, IgnitesBlood ignite = default, bool ignitesBlood = false)
+            InflictsBleed shotBleed = default, IgnitesBlood ignite = default, bool ignitesBlood = false,
+            byte shooterKind = 0)
         {
             // Calculate initial velocity towards target
             var direction = math.normalize(targetPos - start);
@@ -637,6 +641,11 @@ namespace TheWaningBorder.Systems.Combat
             // the damage carrier and impact timing can never drift.
             if (catapultShot && trajectory != ShotTrajectory.Flat)
                 ecb.AddComponent<CatapultShotTag>(arrow);
+
+            // The engine's own projectile look: a large bolt for ballistas, the
+            // Synty siege rock for trebuchets (ProjectileVisualSystem).
+            if (shooterKind == 1) ecb.AddComponent<BallistaBoltTag>(arrow);
+            else if (shooterKind == 2) ecb.AddComponent<TrebuchetStoneTag>(arrow);
 
             // Feraldis riders carried by the shot itself (see call site).
             if (shotBleed.DamagePerSecond > 0f && shotBleed.Duration > 0f)

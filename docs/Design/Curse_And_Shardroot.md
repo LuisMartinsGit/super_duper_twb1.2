@@ -1,5 +1,14 @@
 ﻿# The Curse & the Shardroot — Canonical Design
 
+> **2026-09-29 — WELLS, VERBS AND WELL-DOMINATION VICTORY ARE REMOVED.**
+> [Territory_Claims.md](Territory_Claims.md) is canon for curse territory,
+> curse nodes, the Shardroot's source and who the curse hunts; elimination is
+> the only victory. Still in force from this file: the hostile-ground effects
+> (§2.5b, now within a radius of each curse node), the army cadence and growth
+> (§2.13 rules 1-3) and the Shardroot carry / store / detonate rules (§3.1,
+> with Fortress in place of Hall). Rites, the Backlash (§2.9), the Waking and
+> the Wrath are gone.
+
 **This document COMPLETELY REPLACES the previous curse/Border design and
 the Glow economy** (design decisions 2026-07-10/11). Where any other
 document — including

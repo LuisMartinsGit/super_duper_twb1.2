@@ -73,6 +73,7 @@ namespace TheWaningBorder.Entities
             // Single lobbed AOE stone + catapult FX + hang-time flight (see
             // class doc) instead of the 3-bolt pierce volley.
             creator.AddComponent<CatapultTag>(entity);
+            creator.AddComponent<TrebuchetShooterTag>(entity);
             creator.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
             creator.AddComponent(entity, new MoveSpeed { Value = speed });
             creator.AddComponent(entity, new Damage { Value = (int)damage });

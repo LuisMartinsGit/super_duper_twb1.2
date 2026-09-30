@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8ae6c8581b8b41ee9f2dc3e59d360c94, type: 3}
   m_Name: PencilOutline
   m_EditorClassIdentifier:
-  enabled: 1
+  enabled: 0
   shader: {fileID: 4800000, guid: 55a4066a399c438f970c09a490be23b7, type: 3}
   inkColor: {r: 0.02, g: 0.015, b: 0.018, a: 1}
   lineWidth: 2.5

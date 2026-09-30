@@ -178,7 +178,22 @@ namespace TheWaningBorder.UI.Ingame
                 && info.Type != ActionType.UnitTraining
                 && info.Type != ActionType.UnitTrainingAndResearch
                 && info.Type != ActionType.TempleUpgrade)
+            {
+                // A building whose ONLY action is its level-up — the Watch
+                // Tower trains and researches nothing — used to fall through
+                // to the code-built panel, which hides for a building with no
+                // actions, so its upgrade had nowhere to appear. It gets the
+                // grid with just the upgrade slot.
+                if (info.Type == ActionType.None
+                    && BuildingUpgradeAction.Describe(em, _entity).Show)
+                {
+                    for (int i = 0; i < _slots.Length; i++) ClearSlot(_slots[i]);
+                    int only = RenderUpgradeSlot(em);
+                    RenderProgress(em, info);
+                    return only;
+                }
                 return -1;   // vault / walls / hut choice / wagon → code-built panel
+            }
 
             int used = 0;
             if (hasLayout)

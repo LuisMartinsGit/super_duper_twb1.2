@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 710b34834d2946eca07bad5c76fe6a03, type: 3}
+  m_Name: FactionReligionPoints
+  m_EditorClassIdentifier: 
+  ptsCrystalling: 3
+  ptsVeilstinger: 8
+  ptsGodsplinter: 20
+  templeSecondsPerPoint: 5
+  templeKillBonusPct: 50
+  ptsBase: 40
+  ptsStep: 15
+  ptsCap: 100
+  titheSupplies: 300
+  titheIron: 150
+  titheVeilstone: 100
+  titheStep: 1.5
+  templeRp: 1
+  unlockSecondRp: 1
+  unlockWildcardRp: 2
+  chapelLevel2Rp: 2
+  chapelLevel3Rp: 3
+  heroRp: 1

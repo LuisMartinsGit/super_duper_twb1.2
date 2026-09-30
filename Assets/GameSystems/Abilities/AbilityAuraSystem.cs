@@ -68,26 +68,10 @@ namespace TheWaningBorder.Abilities
 
         private const float Interval = 0.4f;
         private const float BuffRefresh = Interval + 0.6f; // buff outlives one tick so it only fades when truly out of range
-        // Scout Sight: three vision levels.
-        //   moving   → X = BaseLos * ScoutMovingFraction (small, never lower);
-        //   settling → LOS ramps linearly X→Y over ScoutRampSeconds while the
-        //              scout neither moves nor takes damage;
-        //   settled  → Y = BaseLos * ScoutMaxFraction, held steady.
-        // Moving or taking damage resets the ramp to X (never below it).
-        private const float ScoutRampSeconds   = 25f;
-        private const float ScoutMovingFraction = 0.25f;
-        private const float ScoutMaxFraction    = 1.0f;
-        // Pre-Celestarii handicap (design 2026-08-02): until the faction
-        // researches ScoutingCelestarii, the settled max is capped at 80 %
-        // of BaseLos and the ramp fills half as fast. The research restores
-        // both to full — read live, so it applies the moment it completes.
-        private const float PreCelestariiMaxScale  = 0.8f;
-        private const float PreCelestariiRampScale = 0.5f;
-        // Stillness detection is a real speed threshold (u/s), not a raw
-        // per-tick displacement: collision-separation and arrival-settling
-        // nudges stay below it, so a perched scout at full vision no longer
-        // gets spuriously reset (which read as LOS "pulsating").
-        private const float ScoutStillSpeed = 1.0f;
+        // (Scout Sight's changing vision — small while moving, ramping up while
+        // still, capped until Scouting Celestarii — is REMOVED, 2026-09-29. A
+        // scout's line of sight is its authored maximum at all times, set once
+        // by Scout.Create; nothing here writes it.)
         private double _last;
         // Anchored to a match clock that restarts at 0 under lockstep; a
         // stale anchor from an earlier match in this process silences the
@@ -108,7 +92,6 @@ namespace TheWaningBorder.Abilities
             var em = EntityManager;
 
             ApplyPassiveAuras(em);
-            TickScoutSight(em, elapsed);
             TickLedgerAutoCast(em);
             TickChargeDetection(em, elapsed);
         }
@@ -172,53 +155,6 @@ namespace TheWaningBorder.Abilities
                         AddOrSet(em, units[i], new ChargeDamageBonus { Bonus = chargeBonus, TimeRemaining = BuffRefresh });
                     }
                 }
-            }
-        }
-
-        // ---- Scout Sight: small LOS on the move, ramps X→Y while still & unharmed ----
-        private void TickScoutSight(EntityManager em, float elapsed)
-        {
-            foreach (var (state, los, xf, fac, e) in
-                     SystemAPI.Query<RefRW<ScoutSightState>, RefRW<LineOfSight>, RefRO<LocalTransform>, RefRO<FactionTag>>()
-                         .WithEntityAccess())
-            {
-                var st = state.ValueRO;
-
-                bool celestarii = FactionResearchState.Instance != null &&
-                    FactionResearchState.Instance.HasResearched(fac.ValueRO.Value, "ScoutingCelestarii");
-                float maxFraction = ScoutMaxFraction * (celestarii ? 1f : PreCelestariiMaxScale);
-                float rampSeconds = ScoutRampSeconds / (celestarii ? 1f : PreCelestariiRampScale);
-                float3 p = xf.ValueRO.Position;
-                float moved = math.distance(new float2(p.x, p.z), new float2(st.LastX, st.LastZ));
-                bool moving = elapsed > 0f && moved / elapsed > ScoutStillSpeed;
-                st.LastX = p.x; st.LastZ = p.z;
-
-                // Taking damage counts as disturbed — the ramp restarts.
-                bool damaged = false;
-                if (em.HasComponent<Health>(e))
-                {
-                    int hp = em.GetComponentData<Health>(e).Value;
-                    damaged = hp < st.LastHealth;
-                    st.LastHealth = hp;
-                }
-
-                // BaseLos is the scout's authored LOS (seeded at spawn). Guard for
-                // older saves that never captured it.
-                if (st.BaseLos <= 0f) st.BaseLos = math.max(1f, los.ValueRO.Radius);
-                float movingLos = st.BaseLos * ScoutMovingFraction; // X
-                float maxLos = st.BaseLos * maxFraction;            // Y
-
-                // CurrentBonus is the ramp fraction [0..1]: 0 = moving LOS,
-                // 1 = fully settled. It only ever resets to 0 (the X floor —
-                // vision never drops below the moving level) or grows; at 1
-                // the radius holds perfectly steady at Y.
-                if (moving || damaged)
-                    st.CurrentBonus = 0f;
-                else
-                    st.CurrentBonus = math.min(1f, st.CurrentBonus + elapsed / rampSeconds);
-
-                los.ValueRW = new LineOfSight { Radius = math.lerp(movingLos, maxLos, st.CurrentBonus) };
-                state.ValueRW = st;
             }
         }
 

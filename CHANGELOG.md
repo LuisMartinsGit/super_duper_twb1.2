@@ -13,6 +13,97 @@ build always name the same number.
 
 ---
 
+## [0.0.30] — 2026-09-30
+
+### Changed — the new territory model
+
+- **Ground belongs to whoever stands on it.** Every territory has a meter.
+  Soldiers standing in it fill it (faster the more population stands there);
+  at 100 it is yours. An enemy standing alone drains it; two hostile armies
+  in one territory freeze it. Empty, unbuilt ground decays back to nobody.
+  Workers, scouts and caravans do not claim.
+- **Buildings hold, extractors and Fortresses lock.** Any finished building
+  stops a territory decaying. An extractor on a resource node, or a
+  Fortress, locks it: it cannot be drained until every lock is razed.
+  **Lose a territory and every building you had in it collapses.**
+- **The Hall is gone.** The Fortress takes its roster and research and can
+  now be built — the most expensive building in the game, one per territory.
+- **Build only on ground you own.** No more claiming by placing a building.
+- **Takeover bars over the territory.** Every takeover you are part of shows
+  a large bar floating over that territory's centre (Claiming, Taking,
+  Locked, Losing, Decaying, Contested).
+- **Elimination is the only victory.** Wells, verbs and well-domination are
+  removed. You are out with no Fortress, no military building and no Worker.
+
+### Changed — the curse
+
+- **The curse claims ground like a player**, at double weight, but only
+  where its units mean to stand. It raises **curse nodes** on resource nodes;
+  each locks its territory and fields a garrison that grows. Cursed ground is
+  now a radius around each node, not a whole territory.
+- **It takes every node in ground it holds** before it spreads further.
+- **It hunts the Shardroot holder and ignores everyone else**, with bigger
+  and faster garrisons while anyone holds it. The Shardroot now rides out
+  with a curse unit (guaranteed by 12 minutes).
+- The curse is never gone for good: with no node left it raises a new one.
+
+### Changed — age-up and religion
+
+- **Age up by building a landmark.** Placing the Vault of Almiérra
+  (600 supplies, 300 iron, 200 veilstone) IS the age-up: when it finishes you
+  are Alanthor. One per match; destroyed before it finishes, the progress
+  and everything paid are lost. Fiendstone Keep and Thessara's Crossing are
+  shown but unavailable in the demo.
+- **Religion Points come from the curse.** Killing curse creatures pays
+  points (last hit is paid) that convert to Religion Points; a destroyed
+  curse node pays a full RP. RP is now a resource in the lower-left panel
+  with a ring showing progress to the next point.
+- **The Temple of Ridan is an Age 0 building** (1 RP + 200 supplies +
+  100 iron). It trains the Litharch, boosts curse kills by 50 %, trickles
+  religion slowly, and sells RP through its Tithe. The Shrine of Ridan is cut.
+- **Chapels cost RP** (2 for a sect of your culture, 3 otherwise and before
+  age-up). Extra powers and chapel levels are bought with RP.
+- **Every sect's unit is a hero**: one per sect, 1 RP to recruit, levels
+  from kills, revived for resources only.
+
+### Added
+
+- **A starting House** beside every Fortress (starting population 13).
+- **Command queues.** Shift + right-click chains up to 15 orders — moves,
+  attacks, builds, repairs, heals. Moves go in formation unless it is an
+  attack; a step aimed at a unit that dies or leaves sight is dropped; the
+  route is drawn on the ground. The AI chains orders too.
+- **Watch Tower levels.** Three levels, each with faster fire, more range and
+  more sight; the last shoots three arrows and a ballista bolt. Upgrade from
+  the tower's actions panel.
+- **One Mine button.** The node under the cursor decides whether it raises an
+  iron Mine, a Veilstone Mine or a veilsteel extractor, each with its own
+  model.
+- **Resource icons in prices.** Tooltip costs show the resource panel's
+  icons instead of letters.
+- **Siege projectiles.** Ballistas fire a large bolt from a new ballista
+  model; trebuchets (unit and wall emplacement) hurl the Synty catapult stone.
+- **The tutorial is rewritten** for the new game: economy, army, territory,
+  landmark, curse, religion and victory.
+
+### Changed
+
+- **Aggressive is the default stance** for every unit.
+- **Resource nodes and resource buildings are 2 x 2 cells.** Nodes never
+  overlap each other and never sit on water, cliffs, forests or slopes; no
+  building except a node's own extractor can be placed on a node.
+- **Population:** the Fortress gives a flat 10; Houses give 3, then 5 / 8 / 10
+  as they are upgraded.
+- **Scouts** keep their full sight at all times; AI scouts never stop moving.
+- **The AI** only knows about resource nodes it has scouted, claims ground
+  with its army, builds the landmark to age up, and buys religion.
+- **Buildings stand on the ground** whatever pivot their model was exported
+  with (the new House no longer sinks).
+- **The new House model** takes the player colour on its roof.
+- **Pencil ink outlines are off by default** (Settings > Visuals).
+
+---
+
 ## [0.0.29] — 2026-09-28
 
 ### Added

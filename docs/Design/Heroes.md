@@ -10,6 +10,9 @@ training command. King Lexor is the only one built today; the three Shardbound
 Heroes of [Curse_And_Shardroot.md](Curse_And_Shardroot.md) §3 join this system
 when they exist. Sect unique units (`SectUniqueUnitTag`) are **not** heroes and
 do not level.
+**Superseded 2026-09-29 ([Religion.md](Religion.md) §4): every sect's unit is
+now a hero** — one per sect, recruited at its chapel for 1 RP, levelling by
+this document.
 
 ---
 

@@ -103,11 +103,38 @@ namespace TheWaningBorder.UI.Ingame
             // on (ExpandTooltip) — composer and splitter must always agree.
             info.Tooltip = "<b>" + string.Format(Loc.T("Upgrade to Level {0}"), nextLevel)
                 + "</b>\n"
-                + Loc.T("Raises this building's stats and unlocks its next tier of units and research.")
+                + (NextLevelStats(em, building, nextLevel)
+                   ?? Loc.T("Raises this building's stats and unlocks its next tier of units and research."))
                 + "\n" + Loc.T("Cost: ") + UIHelpers.FormatCostRich(cost, available)
                 + (canAfford ? ""
                     : "\n" + Loc.T("<color=#C08040>Not enough resources.</color>"));
             return info;
+        }
+
+        /// <summary>
+        /// The next level's own numbers when the building's SO authors them
+        /// (BuildingDef.levels — the Watch Tower's range / fire rate / sight /
+        /// targets ladder), else null for the generic line.
+        /// </summary>
+        private static string NextLevelStats(EntityManager em, Entity building, byte nextLevel)
+        {
+            string id = TheWaningBorder.Entities.BuildingIds.Of(building, em);
+            if (string.IsNullOrEmpty(id) || !TechCatalog.TryGetBuilding(id, out var def)
+                || def?.levels == null) return null;
+            TheWaningBorder.Data.BuildingLevel entry = null;
+            foreach (var l in def.levels) if (l != null && l.level == nextLevel) { entry = l; break; }
+            if (entry == null || entry.attack == null || !entry.attack.enabled) return null;
+
+            var a = entry.attack;
+            string line = string.Format(Loc.T("Range {0:0} m, fires every {1:0.0} s"), a.range, a.cooldown);
+            if (entry.lineOfSight > 0f)
+                line += ", " + string.Format(Loc.T("sight {0:0} m"), entry.lineOfSight);
+            line += "\n" + (a.maxTargets > 1
+                ? string.Format(Loc.T("Shoots {0} targets at once"), a.maxTargets)
+                : Loc.T("Shoots one target"));
+            if (a.siegeShotDamage > 0)
+                line += " " + string.Format(Loc.T("+ a ballista bolt ({0} siege damage)"), a.siegeShotDamage);
+            return line;
         }
 
         /// <summary>Route the upgrade and surface the refusal reason.</summary>

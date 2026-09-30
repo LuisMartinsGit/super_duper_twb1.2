@@ -82,7 +82,7 @@ public static class BuildingSizeConfig
             "Alanthor_TrebuchetEmplacement" => new int2(6, 6),
 
             // Alanthor culture
-            "Alanthor_Smelter"  => new int2(8, 8),
+            "Alanthor_Smelter"  => new int2(4, 4),   // 2 x 2 cells, on its node (Build_Grid.md §3)
             "Alanthor_Tower"    => new int2(4, 4),
             "Alanthor_SiegeYard"=> new int2(8, 8),
             "KingsCourt"        => new int2(8, 8),
@@ -107,8 +107,8 @@ public static class BuildingSizeConfig
             "Feraldis_WarTotem"       => new int2(4, 4),
             "Feraldis_Pasture"        => new int2(8, 8),
             "Feraldis_HallOfAxes"     => new int2(8, 8),
-            "Mine"                    => new int2(8, 8),
-            "VeilstoneMine"           => new int2(8, 8),
+            "Mine"                    => new int2(4, 4),   // 2 x 2 cells, on its node
+            "VeilstoneMine"           => new int2(4, 4),   // 2 x 2 cells, on its node
             "Alanthor_Sawyer"         => new int2(4, 4),
 
             // Sect buildings — one per sect, capped at 5 per faction.

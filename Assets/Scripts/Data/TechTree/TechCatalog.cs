@@ -551,12 +551,11 @@ public static class TechCatalog
             "Veilstone extraction - built on a veilstone outcropping",
             700, 12, 1.5f, 1, System.Array.Empty<string>(), System.Array.Empty<string>());
 
-        // THE TEMPLE IS AN AGE-1 BUILDING. It is common to all three cultures,
-        // but it unlocks only once the culture adoption has COMPLETED — era 2,
-        // since era 1 is pre-culture Age 0 (FactionEra, EconomyBootstrap).
-        // TempleOfRidan.asset now carries minEra 2 as well; this stays as the
-        // backstop, and unlike before it actually holds (see _eraOverrides).
-        _eraOverrides["TempleOfRidan"] = 2;
+        // THE TEMPLE IS AN AGE 0 BUILDING (docs/Design/Religion.md §2,
+        // 2026-09-29). It costs a Religion Point, and the first one comes from
+        // fighting the curse — that, not the age, is its gate. The Shrine of
+        // Ridan is cut; its Litharch and research live here now.
+        _eraOverrides["TempleOfRidan"] = 0;
         if (!_buildingsById.ContainsKey("TempleOfRidan"))
         {
             EnsureBuildingDefault("TempleOfRidan", "Temple of Ridan", "Sect expansion, training, research", 1500, 18, 2.5f, 2, new[] { "Litharch" }, ShrineResearch);
@@ -564,7 +563,7 @@ public static class TechCatalog
         else
         {
             var existing = _buildingsById["TempleOfRidan"];
-            existing.minEra = 2;
+            existing.minEra = 0;
             existing.name = "Temple of Ridan";
             existing.role = "Sect expansion, training, research";
             if (existing.trains == null || existing.trains.Length == 0)

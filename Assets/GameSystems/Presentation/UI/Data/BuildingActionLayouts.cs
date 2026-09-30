@@ -157,6 +157,16 @@ namespace TheWaningBorder.UI.Data
         public static bool HasLayout(string buildingId) =>
             buildingId != null && _layouts.ContainsKey(buildingId);
 
+        /// <summary>
+        /// The FORTRESS runs the Hall's grid (Territory_Claims.md §4): the Hall
+        /// is removed and the Fortress hosts its roster and research, so the
+        /// capital — starting or built — shows the same slots.
+        /// </summary>
+        static BuildingActionLayouts()
+        {
+            _layouts["Fortress"] = _layouts["Hall"];
+        }
+
         /// <summary>Faction age = FactionEra.Value - 1, clamped 0..3.</summary>
         public static int FactionAge(EntityManager em, Faction faction) =>
             System.Math.Max(0, System.Math.Min(3, EntityInfoExtractor.GetFactionEra(em, faction) - 1));

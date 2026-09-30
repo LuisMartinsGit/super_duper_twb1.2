@@ -408,6 +408,9 @@ namespace TheWaningBorder.AI
                 "Alanthor_SiegeYard"   => FindResearchHost<SiegeYardTag>(em, faction),
                 "Alanthor_Smelter"     => FindResearchHost<SmelterTag>(em, faction),
                 "ShrineOfRidan"        => FindResearchHost<ShrineTag>(em, faction),
+                // The Shrine is cut; its research is the Temple's now
+                // (docs/Design/Religion.md §2).
+                "TempleOfRidan"        => FindResearchHost<TempleOfRidanTag>(em, faction),
                 // Sect buildings — each sells exactly its own sect's research
                 // (docs/Design/Sects.md section 1).
                 "Sect_Reliquary"       => FindResearchHost<ReliquaryTag>(em, faction),
@@ -477,93 +480,20 @@ namespace TheWaningBorder.AI
 
         private bool TryAgeUp(EntityManager em, Faction faction, ref SimpleAIState aiState)
         {
-            // LATCH ON OUTCOME, NOT ON ISSUE (2026-08-31, batch 13). The
-            // command's SPEND happens at lockstep playback two ticks after
-            // the affordability check here — and in the savings-hold meta
-            // another spender routinely drained the bank in that window, so
-            // AgeUpCommandDirect dropped silently while AgeUpIssued stayed
-            // latched. Every faction "aged up" at ~5 minutes on paper and
-            // stayed era 0 all match (the era-0 army cap of 8 then froze the
-            // whole expansion flywheel). The flag now means THE ERA ACTUALLY
-            // ADVANCED; until it does, the issue retries on a cool-down.
-            if (aiState.AgeUpIssued != 0) return true; // era advance observed
+            // THE AGE-UP IS THE LANDMARK (Age_0.md § Age-up by landmark,
+            // 2026-09-29). There is nothing to issue: the landmark finishing
+            // construction ages the faction up on every peer. This only
+            // observes the outcome — latched once the era has advanced — and
+            // places the landmark if the faction has none (the director and
+            // the AgeUp goal both land here).
+            if (aiState.AgeUpIssued != 0) return true;
             if (FactionEra(em, faction) >= 2)
             {
                 aiState.AgeUpIssued = 1;
                 return true;
             }
-            float simNow = TheWaningBorder.Core.SimClock.Now;
-            if (_ageUpRetryAt.TryGetValue(faction, out float at))
-            {
-                // The dictionary is static and the sim clock restarts at 0
-                // each match — a timestamp further out than any legal
-                // cool-down is last match's leftovers, not a wait.
-                if (at > simNow + 60f) _ageUpRetryAt.Remove(faction);
-                else if (simNow < at) return false;
-            }
-
-            // AGEING ALREADY IN FLIGHT = WAIT, DON'T PAY AGAIN (batch 16).
-            // The executor's re-entry guard is PER-HALL, and each retry
-            // resolved FindFactionBuilding to a different Hall — so a
-            // faction mid-ageing re-issued onto its expansion hall and was
-            // charged the full age-up cost a second time (84 completions
-            // for 48 factions, and the burned banks froze the claim pots).
-            // While any owned hall carries AgeUpState the era is coming;
-            // the retry only exists for the DROPPED-spend case.
-            if (FactionHasAgeingHall(em, faction)) return false;
-
-            Entity hall = FindFactionBuilding<HallTag>(em, faction);
-            if (hall == Entity.Null) return false;
-
-            // Need a choice building (Shrine / Vault / Keep / TempleOfRidan).
-            if (!FactionHasChoiceBuilding(em, faction)) return false;
-
-            // Wait for: cost + reserve. Matches the optimised build-order targets.
-            var ageUpCost = CultureConfig.AgeUpCost;
-            var target = new Cost
-            {
-                Supplies = ageUpCost.Supplies + Cfg.ageUpReserveSupplies,
-                Iron     = ageUpCost.Iron     + Cfg.ageUpReserveIron,
-                Veilstone  = ageUpCost.Veilstone  + Cfg.ageUpReserveVeilstone,
-            };
-            // Affordability CHECK only (cost + reserve) — AgeUpCommandDirect
-            // spends the age-up cost on every peer
-            // (docs/Multiplayer_LAN_Readiness.md).
-            if (!FactionEconomy.CanAfford(em, faction, target)) return false;
-
-            // Pick the Age-2 culture from personality + difficulty + whatever
-            // this AI has actually SCOUTED by now (AICultureChoice). Fog-honest:
-            // an AI that never explored falls back to its personality prior.
-            var brainEntity = FindBrainEntity(em, faction);
-            byte culture = Cultures.None;
-            if (brainEntity != Entity.Null)
-            {
-                var brain = em.GetComponentData<AIBrain>(brainEntity);
-                culture = AICultureChoice.Pick(em, faction, brainEntity,
-                    brain.Personality, brain.Difficulty, NextRandUint());
-                AILogger.Log(faction, "CULTURE",
-                    $"age-up culture = {CultureConfig.GetName(culture)} " +
-                    $"(personality {brain.Personality}, difficulty {brain.Difficulty})");
-            }
-
-            // Replicated age-up (audit F3): host-only direct writes left the
-            // AI faction frozen in Age 1 on every client.
-            CommandRouter.IssueAgeUp(em, hall, culture, CommandSource.AI);
-            InvalidateThinkMemo();
-
-            // NOT latched — the next TryAgeUp observes whether the era
-            // actually advanced and re-issues after the cool-down if the
-            // executor dropped the command (see the header note).
-            //
-            // RETURN FALSE (batch 14): returning true here ADVANCED THE
-            // BUILD-ORDER STEP, so TryAgeUp was never called again and the
-            // "retry" fired at most once — 96 issues across a batch, all in
-            // the opening's claim-saving poverty, zero eras advanced. The
-            // step is not done until the era is: it stays current, and the
-            // 30 s cool-down paces the re-issues for as long as it takes.
-            _ageUpRetryAt[faction] = simNow + 30f;
-            AILogger.Log(faction, "CULTURE",
-                $"age-up issued (era {FactionEra(em, faction)}) — will verify and retry in 30s if dropped");
+            if (!FactionHasLandmark(em, faction))
+                TryBuildBuilding(em, faction, AgeUpLandmark(em, faction));
             return false;
         }
 

@@ -171,8 +171,20 @@ Right-click does whatever makes sense for the target:
 | Enemy, with a shooting building selected (Hall, tower, Keep, Fortress, wall tower) | Direct its fire: the enemy takes one of the building's target slots while in range; the rest keep auto-firing. The order holds if the target walks out of range, and ends when it dies or you press **Stop**. On an emplacement, its engine attacks. |
 | Enemy wall piece, no siege selected | Nothing — "Only siege can damage walls". Only siege units (and siege-firing buildings) can damage walls. |
 
-**Shift + Right-Click** — Queue a waypoint instead of replacing the current
-order. Hold Shift to chain several; release to execute the chain.
+**Shift + Right-Click** — Add an order to the END of each selected unit's
+queue instead of replacing what it is doing (up to **15** queued orders per
+unit). The first order starts at once if the unit is idle; the rest run in
+turn as each one finishes. What you click decides the order: an enemy is a
+queued **attack**, your construction site a queued **build**, a damaged
+building a queued **repair**, a wounded ally a queued **heal** (for units that
+can), anything else a queued **move** — or, with **A** / **P** armed, a
+queued attack-move / patrol. Queued moves, attack-moves and patrols are
+marched **in formation**; attacks and work orders are per unit. A queued
+attack is dropped if its target dies or leaves your (and your allies')
+sight. While walking queued moves, units **hold fire** — waypoints outweigh
+the Aggressive stance; queue an attack-move if the route should fight. The
+queued route is drawn with the usual movement lines. Any ordinary order
+clears the queue.
 
 **Idle soldiers form up.** Four or more idle soldiers standing together (and
 nowhere near a fight) tidy themselves into ranks where they stand, in the
@@ -401,13 +413,11 @@ powers surge — but the Temple detonates catastrophically if it falls, and
 the Shardroot drops in the crater). The choice is locked until the vessel
 dies. And beware: while you hold it, **the Border hunts you**.
 
-### Scout Vision (perch-and-bloom)
+### Scout Vision
 
-Scouts see only **18 m** while moving. Stand one still for a moment and
-its line of sight **blooms outward to 55 m** over ~10 seconds (Age of
-Mythology Oracle-style). Move again and it snaps back instantly. Scout by
-hopping between vantage points and letting the circle grow — but a
-perched scout is a sitting duck.
+A Scout always sees its full line of sight (**40 m**), moving or standing
+still. (The old perch-and-bloom vision, which shrank while moving and grew
+while standing, was removed on 2026-09-29.)
 
 ### How the AI lays out its base
 
@@ -523,7 +533,7 @@ match starts.
 | Destroy a Veilstone Main Node | You need **Iconoclasts** (Feraldis) to bypass node invulnerability. |
 | Save a control group | Select your units, press Ctrl+1 through Ctrl+9. |
 | Repeat-place buildings | Hold Shift while placing — stay in placement mode. |
-| Queue waypoints | Hold Shift and right-click along the path. |
+| Queue orders | Hold Shift and right-click along the path — targets, sites and ground (up to 15). |
 
 ### B. Faction Color Pool
 

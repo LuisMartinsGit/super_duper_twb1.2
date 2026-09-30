@@ -31,6 +31,7 @@ namespace TheWaningBorder.Core.Localization
             // Placement refusal reasons (TerritoryOwnership.PlacementRefusalText)
             t["That building cannot be placed"] = "Esse edifício não pode ser colocado";
             t["The ground here is unsuitable"] = "O terreno aqui não é adequado";
+            t["Cannot build on a resource node — only its own extractor may stand there"] = "Não é possível construir sobre um recurso — só o seu próprio extrator pode lá estar";
             t["Something is already built here"] = "Já existe algo construído aqui";
             t["Cannot build on cursed ground"] = "Não podes construir em terreno amaldiçoado";
             t["The curse holds this territory"] = "A maldição domina este território";

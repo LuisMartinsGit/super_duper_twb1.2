@@ -133,6 +133,29 @@ namespace TheWaningBorder.Data.Border
         /// raiders walk home and rejoin the garrison.</summary>
         [Min(10f)] public float raidSeconds = 60f;
 
+        // ── Territory_Claims.md §6 (2026-09-29): the curse as a claimant ──
+
+        /// <summary>Curse nodes raised at match start on random resource
+        /// nodes (§6.4). 0 = one per player.</summary>
+        [Min(0)] public int initialNodes = 0;
+
+        /// <summary>Seconds a curse with no node left waits before it raises
+        /// a fresh one (§6.5). The curse can be driven back, never out.</summary>
+        [Min(0f)] public float reseedSeconds = 180f;
+
+        /// <summary>Radius (m) of cursed ground around each curse node:
+        /// speed debuff, damage over time and the cursed look (§6.3).</summary>
+        [Min(0f)] public float nodeAuraRadius = 20f;
+
+        /// <summary>The first curse spawn after this many seconds carries the
+        /// Shardroot if it is not out yet (§6.6 backstop).</summary>
+        [Min(0f)] public float shardrootGuaranteeSeconds = 720f;
+
+        /// <summary>While a player holds the Shardroot the curse's garrison
+        /// size and spawn rate rise by this fraction (§6.6): 0.5 = size x1.5,
+        /// interval / 1.5.</summary>
+        [Min(0f)] public float shardrootCurseBonus = 0.5f;
+
         /// <summary>Which army tier the garrisons and merge parties draw from
         /// at a given match minute: tier index = minute / this. Clamped to
         /// the ladder. Replaces wrath as the composition dial.</summary>
@@ -331,6 +354,11 @@ namespace TheWaningBorder.Data.Border
             mergeDefendRadius = 30f;
             leashSeconds = 25f;
             raidSeconds = 60f;
+            initialNodes = 0;
+            reseedSeconds = 180f;
+            nodeAuraRadius = 20f;
+            shardrootGuaranteeSeconds = 720f;
+            shardrootCurseBonus = 0.5f;
             minutesPerTier = 8f;
             tiers = BuildDefaultTiers();
             waves = BuildDefaultWaves();

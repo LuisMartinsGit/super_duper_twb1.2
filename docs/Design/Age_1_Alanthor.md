@@ -427,6 +427,23 @@ applies — exact tech names TBD (suggest **Barding** / **Iron barding** /
 
 ### Watch Tower — `Alanthor_Tower` (canonical stat block)
 
+> **Watch Tower levels (2026-09-29, SUPERSEDES the attack / LoS rows below).**
+> The tower has **three levels**; each upgrade raises its **fire rate, range and
+> line of sight**, and the last adds targets and a ballista:
+>
+> | Level | Range | Cooldown | LoS | Targets |
+> |---|---|---|---|---|
+> | I | 24 | 1.8 s | 28 | 1 arrow |
+> | II | 28 | 1.5 s | 32 | 1 arrow |
+> | III | 32 | 1.2 s | 36 | **3 arrows + 1 ballista bolt** (30 siege) |
+>
+> Authored as `levels` in `Tower.asset` (every number from the SO; the
+> factory no longer hard-codes 18 / 14 / 2.0) and applied by
+> `BuildingUpgradeSystem` when the level lands. The L3 bolt is a
+> `BuildingSiegeShot`, the same one-bolt-per-volley rule as the Fiendstone
+> Keep's Ballista emplacement, so it may take a wall piece (siege fire).
+> Level prices and times stay in `BuildingUpgradeConfig`.
+
 | Stat | Value |
 |------|-------|
 | HP | **250** |

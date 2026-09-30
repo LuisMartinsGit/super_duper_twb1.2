@@ -53,7 +53,11 @@ namespace TheWaningBorder.AI
 
 
         /// <summary>The choice building that unlocks the age-up.</summary>
-        private const string AgeUpGateBuilding = "ShrineOfRidan";
+        /// <summary>The age-up gate is this faction's landmark (Age_0.md
+        /// § Age-up by landmark) — resolved per faction, since the culture
+        /// decides which one.</summary>
+        private string AgeUpGateBuilding(EntityManager em, Faction faction)
+            => AgeUpLandmark(em, faction);
 
         private enum GoalKind : byte { Build, Train, AgeUp }
 
@@ -180,8 +184,8 @@ namespace TheWaningBorder.AI
             // ── 6. THE AGE-UP AND ITS GATE. ──
             if (!aged)
             {
-                goals.Add(new Goal(GoalKind.Build, "ShrineOfRidan", 1,
-                    CountFactionBuildings<ShrineTag>(em, faction),
+                goals.Add(new Goal(GoalKind.Build, AgeUpGateBuilding(em, faction), 1,
+                    CountFactionBuildings<ChoiceBuildingTag>(em, faction),
                     AIBudgetCategory.Advancement, "age-up gate"));
                 goals.Add(new Goal(GoalKind.AgeUp, "AgeUp", 1, aiState.AgeUpIssued != 0 ? 1 : 0,
                     AIBudgetCategory.Advancement, "advance"));
@@ -341,7 +345,7 @@ namespace TheWaningBorder.AI
                         || g.Id == "ArcheryRange"
                         || g.Id == "Alanthor_RoyalStable"
                         || g.Id == "Alanthor_SiegeYard");
-                    bool essential = g.Id == AgeUpGateBuilding
+                    bool essential = g.Id == AgeUpGateBuilding(em, brain.Owner)
                         || g.Id == "Hut"
                         || g.Id == "GatherersHut"
                         || firstOfLine
@@ -405,34 +409,25 @@ namespace TheWaningBorder.AI
                     // hold, and never aged up -- 17 of 52 got there.
                     //
                     // Stage 1 saves for the Shrine, stage 2 for the age-up.
-                    Cost stage;
-                    if (!FactionHasChoiceBuilding(em, brain.Owner))
-                    {
-                        if (!TechCatalog.TryGetBuilding(AgeUpGateBuilding, out var gate)
-                            || gate == null) return false;
-                        stage = AICommon.ToCost(gate.cost);
-                    }
-                    else
-                    {
-                        stage = CultureConfig.AgeUpCost;
+                    // ONE STAGE NOW (Age_0.md § Age-up by landmark): the
+                    // landmark's price IS the age-up. Once it is placed there
+                    // is nothing left to save for — construction finishes it.
+                    if (FactionHasLandmark(em, brain.Owner)) return false;
+                    if (!TechCatalog.TryGetBuilding(AgeUpGateBuilding(em, brain.Owner), out var gate)
+                        || gate == null) return false;
+                    Cost stage = AICommon.ToCost(gate.cost);
 
-                        // DO NOT SAVE FOR WHAT CANNOT BE FINISHED. The age-up
-                        // costs veilstone, and on a map where veilstone is
-                        // geographically gated (Veilmarch: centre-only) a
-                        // faction with no veilstone node in its territory can
-                        // NEVER fill this pot — while the priority-1 hold
-                        // starves the 600-supply Hall claim that is the only
-                        // way to REACH a veilstone region. That circle held
-                        // every faction at one territory for entire matches.
-                        // Expansion first; the hold arms once the missing
-                        // resource is actually obtainable.
-                        if (FactionEconomy.TryGetBank(em, brain.Owner, out var aBank))
-                        {
-                            var res = em.GetComponentData<FactionResources>(aBank);
-                            if (res.Veilstone < stage.Veilstone
-                                && !OwnsVeilstoneNode(em, brain.Owner))
-                                return false;
-                        }
+                    // DO NOT SAVE FOR WHAT CANNOT BE FINISHED. The landmark
+                    // costs veilstone; a faction with none banked and no node
+                    // to mine it from can never fill the pot, and the hold
+                    // would starve everything else meanwhile. (Every start
+                    // territory carries veilstone, so this is a safety valve.)
+                    if (FactionEconomy.TryGetBank(em, brain.Owner, out var aBank))
+                    {
+                        var res = em.GetComponentData<FactionResources>(aBank);
+                        if (res.Veilstone < stage.Veilstone
+                            && !OwnsVeilstoneNode(em, brain.Owner))
+                            return false;
                     }
 
                     AIBudget.Reserve(brain.Owner, stage, now,

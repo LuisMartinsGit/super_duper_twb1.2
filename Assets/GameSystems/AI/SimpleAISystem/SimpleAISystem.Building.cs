@@ -73,6 +73,9 @@ namespace TheWaningBorder.AI
             string buildingId, out string reason, float3? anchorOverride = null)
         {
             reason = null;
+            // A build order naming a choice building (or the retired Shrine)
+            // means THIS faction's landmark (Age_0.md § Age-up by landmark).
+            buildingId = ResolveLandmarkId(em, faction, buildingId);
             if (!TechCatalog.IsReady) { reason = "catalog not ready"; return false; }
             if (!TechCatalog.TryGetBuilding(buildingId, out var def) || def == null)
             { reason = "no catalog def"; return false; }
@@ -106,6 +109,13 @@ namespace TheWaningBorder.AI
                 || buildingId == "Alanthor_WallTower"
                 || buildingId == "Alanthor_WallGate")
             { reason = "wall primitive"; return false; }
+
+            // The Temple costs a Religion Point (docs/Design/Religion.md §2);
+            // without one the executor refuses it, so do not even try.
+            if (buildingId == "TempleOfRidan"
+                && !TheWaningBorder.Economy.FactionReligionPointsHelper.CanAfford(em, faction,
+                       TheWaningBorder.Economy.FactionReligionPointsHelper.Cfg.templeRp))
+            { reason = "no Religion Point for the Temple"; return false; }
 
             // Choice-buildings are limited to one per faction.
             if (BuildingFactory.IsChoiceBuilding(buildingId))
@@ -196,10 +206,9 @@ namespace TheWaningBorder.AI
             // A HALL NEEDS ITS BUILDER ON SITE (Regions.md §2): walk a worker
             // there first and place on a later think, once it has arrived.
             // The worker then rides the command so the executor can re-check.
+            // (No builder rides the command any more: the Hall — the only
+            // building that needed one on site — is removed.)
             Entity claimBuilder = Entity.Null;
-            if (TheWaningBorder.World.Regions.TerritoryOwnership.NeedsBuilderNearby(buildingId)
-                && !EnsureClaimBuilderOnSite(em, faction, pos, out claimBuilder, out reason))
-                return false;
 
             bool queued = CommandRouter.IssuePlaceBuilding(em, buildingId, pos, faction,
                 claimBuilder, out Entity building, CommandSource.AI);

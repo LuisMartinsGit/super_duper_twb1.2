@@ -52,12 +52,50 @@ namespace TheWaningBorder.Systems.Border
         private EntityQuery _unitQuery;
         private EntityQuery _buildingQuery;
         private EntityQuery _hallQuery; // flee targets for exposed workers
+        private EntityQuery _nodeQuery; // curse nodes — the only source of cursed ground
+
+        /// <summary>
+        /// Cursed ground as a radius around every curse node (Territory_Claims.md
+        /// §6.3). Reads like the old veil field — a saturation byte per point —
+        /// so the debuff ladder, exposure DPS and crumble thresholds below are
+        /// unchanged: full saturation at the node, the crust threshold at the
+        /// edge of BorderSettings.nodeAuraRadius, nothing beyond it. The inner
+        /// ~43 % of the radius reads as DEEP.
+        /// </summary>
+        private struct CurseGround
+        {
+            public NativeArray<float3> Nodes;
+            public float Radius;
+
+            public byte SaturationAt(float3 p)
+            {
+                if (!Nodes.IsCreated || Nodes.Length == 0 || Radius <= 0f) return 0;
+                float best = float.MaxValue;
+                for (int i = 0; i < Nodes.Length; i++)
+                {
+                    float dx = Nodes[i].x - p.x, dz = Nodes[i].z - p.z;
+                    best = math.min(best, dx * dx + dz * dz);
+                }
+                float d = math.sqrt(best);
+                if (d > Radius) return 0;
+                float t = 1f - d / Radius;
+                return (byte)math.clamp(
+                    VeilField.CrustThreshold + t * (255 - VeilField.CrustThreshold), 0f, 255f);
+            }
+        }
 
         protected override void OnCreate()
         {
             Enabled = ExposureEnabled && !CrustPhysical;
             if (!Enabled) return;
-            RequireForUpdate<VeilField>();
+            // No VeilField requirement any more (Territory_Claims.md §6.3,
+            // 2026-09-29): the veil sheet was fed by wells, and there are
+            // none. Cursed ground is now a RADIUS around each curse node,
+            // measured directly — see CurseGround.
+
+            _nodeQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<SmallNodeTag, FactionTag, LocalTransform, Health>()
+                .Build(this);
 
             _unitQuery = GetEntityQuery(
                 ComponentType.ReadOnly<UnitTag>(),
@@ -91,12 +129,24 @@ namespace TheWaningBorder.Systems.Border
 
             if (!_acc.Due(SystemAPI.Time.DeltaTime, TickInterval)) return;
 
-            var field = SystemAPI.GetSingleton<VeilField>();
-            if (field.Initialised == 0 || !field.Saturation.IsCreated) return;
-
             var em = EntityManager;
+            using var nodeXfs = _nodeQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var nodeFacs = _nodeQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var nodeHps = _nodeQuery.ToComponentDataArray<Health>(Allocator.Temp);
+            var nodes = new NativeList<float3>(nodeXfs.Length, Allocator.Temp);
+            for (int i = 0; i < nodeXfs.Length; i++)
+                if (nodeFacs[i].Value == Faction.Border && nodeHps[i].Value > 0)
+                    nodes.Add(nodeXfs[i].Position);
+
+            var settings = TheWaningBorder.Data.Border.BorderSettings.Get();
+            var field = new CurseGround
+            {
+                Nodes = nodes.AsArray(),
+                Radius = settings != null ? settings.nodeAuraRadius : 20f,
+            };
             TickUnits(em, in field);
             TickBuildings(em, in field);
+            nodes.Dispose();
         }
 
         /// <summary>Exposure damage/s for a saturation value: linear from
@@ -108,7 +158,7 @@ namespace TheWaningBorder.Systems.Border
             return math.lerp(ExposureDpsMin, ExposureDpsMax, math.saturate(t));
         }
 
-        private void TickUnits(EntityManager em, in VeilField field)
+        private void TickUnits(EntityManager em, in CurseGround field)
         {
             using var ents = _unitQuery.ToEntityArray(Allocator.Temp);
             using var facs = _unitQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
@@ -244,7 +294,7 @@ namespace TheWaningBorder.Systems.Border
         /// <summary>Completed buildings standing in DEEP crust crumble slowly.
         /// Spread stops at structures (rule G), so this only fires when later
         /// growth/enclosure engulfed the ground — reclaim it to save them.</summary>
-        private void TickBuildings(EntityManager em, in VeilField field)
+        private void TickBuildings(EntityManager em, in CurseGround field)
         {
             using var ents = _buildingQuery.ToEntityArray(Allocator.Temp);
             using var xfs = _buildingQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);

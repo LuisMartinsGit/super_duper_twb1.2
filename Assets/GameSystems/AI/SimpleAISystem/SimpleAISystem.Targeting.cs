@@ -128,7 +128,7 @@ namespace TheWaningBorder.AI
 
         /// <summary>Nearest live SmallNode — the curse anchor a non-Feraldis
         /// army CAN kill (wells are Feraldis-only targets).</summary>
-        private static Entity FindNearestSmallNode(EntityManager em, float3 origin, out float3 pos)
+        private static Entity FindNearestSmallNode(EntityManager em, Faction faction, float3 origin, out float3 pos)
         {
             pos = default;
             var q = QC_SmallNodeTagHealthLocalTransform.Get(em, QT_SmallNodeTagHealthLocalTransform);
@@ -141,6 +141,7 @@ namespace TheWaningBorder.AI
             {
                 if (hps[i].Value <= 0) continue;
                 var p = xfs[i].Position;
+                if (!AICommon.IsKnownGround(faction, p)) continue;   // only curse it has SEEN
                 float dx = p.x - origin.x, dz = p.z - origin.z;
                 float d = dx * dx + dz * dz;
                 if (d < bestD) { bestD = d; best = ents[i]; pos = p; }

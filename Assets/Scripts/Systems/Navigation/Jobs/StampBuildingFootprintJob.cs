@@ -179,16 +179,22 @@ namespace TheWaningBorder.Systems.Navigation
         public float CellSize;
         public float3 Origin;
 
-        /// <summary>One build cell, in metres. Kept as a literal because
-        /// Burst jobs cannot read the managed BuildGrid constant.</summary>
-        private const float NodeFootprintMeters = 2f;
+        /// <summary>One build cell, in metres — obstacles with no
+        /// NodeFootprint (rocks, props). Kept as a literal because Burst jobs
+        /// cannot read the managed BuildGrid constant.</summary>
+        private const float DefaultFootprintMeters = 2f;
 
-        public void Execute(in ObstacleTag tag, in LocalTransform xf)
+        /// <summary>Resource nodes' own footprint (4 m, Build_Grid.md §3).</summary>
+        [Unity.Collections.ReadOnly] public ComponentLookup<NodeFootprint> Footprints;
+
+        public void Execute(Entity entity, in ObstacleTag tag, in LocalTransform xf)
         {
             float dx = xf.Position.x - Origin.x;
             float dz = xf.Position.z - Origin.z;
 
-            float half = NodeFootprintMeters * 0.5f;
+            float meters = Footprints.HasComponent(entity)
+                ? Footprints[entity].Meters : DefaultFootprintMeters;
+            float half = meters * 0.5f;
 
             int x0 = math.max(0, (int)math.floor((dx - half) / CellSize));
             int z0 = math.max(0, (int)math.floor((dz - half) / CellSize));

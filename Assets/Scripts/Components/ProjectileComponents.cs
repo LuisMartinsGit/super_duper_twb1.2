@@ -87,3 +87,24 @@ public struct PiercingProjectile : IComponentData
 /// launch burst, smoking arc in flight, and an impact blast on death.
 /// </summary>
 public struct CatapultShotTag : IComponentData { }
+
+/// <summary>
+/// A BALLISTA bolt — from the mobile Ballista, a wall-mounted Emplaced
+/// Ballista, a Keep's Ballista emplacement or a Watch Tower's L3 bolt.
+/// ProjectileVisualSystem renders it as the large procedural bolt
+/// (BallistaBoltVisual) instead of a scaled-up arrow.
+/// </summary>
+public struct BallistaBoltTag : IComponentData { }
+
+/// <summary>
+/// A TREBUCHET stone — from the mobile Trebuchet, a wall-mounted Emplaced
+/// Trebuchet or a Keep's Trebuchet emplacement. Rendered per entity as the
+/// Synty siege rock (SM_Wep_Rock_01), so the stone IS the damage carrier.
+/// </summary>
+public struct TrebuchetStoneTag : IComponentData { }
+
+/// <summary>Shooter marker: this unit fires BallistaBoltTag shots.</summary>
+public struct BallistaShooterTag : IComponentData { }
+
+/// <summary>Shooter marker: this unit fires TrebuchetStoneTag shots.</summary>
+public struct TrebuchetShooterTag : IComponentData { }

@@ -231,13 +231,21 @@ namespace TheWaningBorder.Systems.Border
             // kept intact behind the switch.
             if (borderSettings != null && borderSettings.livingCurse)
             {
+                // THE CURSE WANTS IT BACK (Territory_Claims.md §6.6): while a
+                // player holds the Shardroot, garrisons grow and spawn faster
+                // and expansion comes sooner — all of it aimed at the holder.
+                float bonus = TryShardrootHolder(em, out _, out _, out _)
+                    ? 1f + borderSettings.shardrootCurseBonus : 1f;
+
+                TickReseed(em, now, borderSettings);
                 if (_nextExpandAt < 0.0)
                     _nextExpandAt = now + borderSettings.expansionSeconds;
-                TickGarrisons(em, now, borderSettings);
+                TickGarrisons(em, now, borderSettings, bonus);
+                TickShardrootGuarantee(em, now, borderSettings);
                 if (now >= _nextExpandAt)
                 {
-                    TryExpand(em, now, borderSettings);
-                    _nextExpandAt = now + borderSettings.expansionSeconds;
+                    TryExpand(em, now, borderSettings, bonus);
+                    _nextExpandAt = now + borderSettings.expansionSeconds / bonus;
                 }
                 ShepherdLiving(em, now, borderSettings);
                 return;
@@ -341,6 +349,56 @@ namespace TheWaningBorder.Systems.Border
         /// next sync fails the Exists check, the territory drops out.
         /// </summary>
         private void SyncHoldings(EntityManager em)
+        {
+            // Territory_Claims.md §6 (2026-09-29): the curse holds exactly what
+            // the ownership METER says it holds — it claims by standing, like
+            // everyone else, and its nodes lock that ground. So the held set is
+            // read from the meter, and the anchors are whatever curse nodes
+            // stand in it now (a node the curse raised, or one seeded at start).
+            _held.Clear();
+            for (int t = 0; t < RegionMap.Count; t++)
+                if (TerritoryOwnership.OwnerOf(t) == TerritoryOwnership.Curse) _held.Add(t);
+
+            _scratchNodeAnchors.Clear();
+            var nodeQ = QueryFacXf<SmallNodeTag>(em);
+            using (var nEnts = nodeQ.ToEntityArray(Allocator.Temp))
+            using (var nXfs = nodeQ.ToComponentDataArray<LocalTransform>(Allocator.Temp))
+            using (var nFacs = nodeQ.ToComponentDataArray<FactionTag>(Allocator.Temp))
+                for (int i = 0; i < nEnts.Length; i++)
+                {
+                    if (nFacs[i].Value != Faction.Border) continue;
+                    if (em.HasComponent<Health>(nEnts[i]) && em.GetComponentData<Health>(nEnts[i]).Value <= 0)
+                        continue;
+                    int t = RegionMap.NearestRegion(nXfs[i].Position.x, nXfs[i].Position.z);
+                    if (t == RegionMap.None) continue;
+                    if (!_scratchNodeAnchors.TryGetValue(t, out var have) || nEnts[i].Index < have.Index)
+                        _scratchNodeAnchors[t] = nEnts[i];
+                }
+            _curseNodeCount = _scratchNodeAnchors.Count;
+
+            // Anchors that died: the territory loses its garrison source.
+            var gone = new List<int>();
+            foreach (var kv in _anchors)
+                if (!_scratchNodeAnchors.ContainsKey(kv.Key)) gone.Add(kv.Key);
+            for (int i = 0; i < gone.Count; i++)
+            {
+                _anchors.Remove(gone[i]);
+                _nextWaveAt.Remove(gone[i]);
+                UnityEngine.Debug.Log($"[CurseTerritory] curse node in territory {gone[i]} " +
+                    $"({RegionMap.NameOf(gone[i])}) destroyed — the ground is no longer locked.");
+            }
+            foreach (var kv in _scratchNodeAnchors) _anchors[kv.Key] = kv.Value;
+        }
+
+        private readonly Dictionary<int, Entity> _scratchNodeAnchors = new();
+        private int _curseNodeCount;
+
+        /// <summary>
+        /// Retired: the pre-meter holdings sync (wells and anchors stamped
+        /// straight into ownership). Kept only so the legacy wave model below
+        /// still compiles; SyncHoldings above replaced it.
+        /// </summary>
+        private void SyncHoldingsLegacy(EntityManager em)
         {
             _scratchHeld.Clear();
 

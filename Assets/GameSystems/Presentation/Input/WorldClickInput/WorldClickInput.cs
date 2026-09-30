@@ -86,11 +86,20 @@ namespace TheWaningBorder.Input
                 return;
             }
 
-            // ── Shift+Right-Click: queue waypoint instead of replacing command ──
+            // ── Shift+Right-Click: QUEUE what is clicked (2026-09-29) — an
+            //    enemy is a queued attack, a site a queued build / repair, a
+            //    wounded ally a queued heal, ground a queued move; an armed
+            //    attack-move or patrol queues as that. ──
             bool shift = UnityEngine.Input.GetKey(KeyCode.LeftShift) || UnityEngine.Input.GetKey(KeyCode.RightShift);
-            if (shift && !_modes.AnyArmed)
+            if (shift)
             {
-                _orders.QueueWaypointForSelection(clickWorld);
+                var qTarget = ScreenPick.EntityUnderMouse(_clickMask, _em);
+                var qType = _orders.DetermineTargetType(qTarget);
+                var armed = _modes.AttackMove ? QueuedCommandType.AttackMove
+                          : _modes.Patrol ? QueuedCommandType.Patrol
+                          : QueuedCommandType.Move;
+                _modes.Disarm();
+                _orders.QueueOrderForSelection(clickWorld, qTarget, qType, armed);
                 return;
             }
 

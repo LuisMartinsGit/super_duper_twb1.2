@@ -273,7 +273,8 @@ namespace TheWaningBorder.Entities
             return buildingId switch
             {
                 "Hall" => 20,
-                "Hut" => 10,
+                "Hut" => 3,
+                "Fortress" => 10,
                 "ThessarasBazaar" => 40,
                 "KingsCourt" => 10,
                 "Feraldis_HuntingLodge" => 10,
@@ -306,12 +307,14 @@ namespace TheWaningBorder.Entities
         }
 
         /// <summary>
-        /// The 3 mutually exclusive choice buildings.
+        /// The mutually exclusive LANDMARKS — building one IS the age-up
+        /// (docs/Design/Age_0.md § Age-up by landmark, 2026-09-29). The Shrine
+        /// of Ridan is cut: it is no longer a choice building. Thessara's
+        /// Crossing (Runai) joins when the building exists.
         /// </summary>
         private static readonly HashSet<string> ChoiceBuildingIds = new()
         {
-            "ShrineOfRidan", "VaultOfAlmierra", "FiendstoneKeep",
-            "ShrineOfAhridan", // legacy id alias (pre-rename callers)
+            "VaultOfAlmierra", "FiendstoneKeep",
         };
 
         /// <summary>
@@ -367,6 +370,25 @@ namespace TheWaningBorder.Entities
             }
             entities.Dispose();
             return result;
+        }
+
+        /// <summary>
+        /// Construction progress (0..1) of the faction's landmark while it is
+        /// being built — which IS the age-up progress (Age_0.md § Age-up by
+        /// landmark). -1 when the faction has no landmark under construction.
+        /// </summary>
+        public static float GetFactionChoiceBuildingProgress(EntityManager em, Faction faction)
+        {
+            var query = QC_ChoiceBuildingTagFactionTagBuildingTag.Get(em, QT_ChoiceBuildingTagFactionTagBuildingTag);
+            using var entities = query.ToEntityArray(Unity.Collections.Allocator.Temp);
+            for (int i = 0; i < entities.Length; i++)
+            {
+                if (em.GetComponentData<FactionTag>(entities[i]).Value != faction) continue;
+                if (!em.HasComponent<UnderConstruction>(entities[i])) continue;
+                var uc = em.GetComponentData<UnderConstruction>(entities[i]);
+                return uc.Total > 0f ? math.saturate(uc.Progress / uc.Total) : 0f;
+            }
+            return -1f;
         }
 
         /// <summary>

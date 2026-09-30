@@ -28,5 +28,20 @@ namespace TheWaningBorder.World.Regions
         /// starting Fortress. 0.5 = the first expansion Hall at base price,
         /// the second at 1.5x, the third at 2x.</summary>
         public float hallCostStep;
+
+        // ── The ownership meter (docs/Design/Territory_Claims.md §2, §8). ──
+
+        /// <summary>Meter points per second per unit of claim weight.</summary>
+        public float claimRate;
+
+        /// <summary>Exponent on a side's summed population in a territory:
+        /// 1 = linear, 0.5 = square root (flattens deathballs).</summary>
+        public float claimExponent;
+
+        /// <summary>Meter points lost per second by an empty, unbuilt territory.</summary>
+        public float decayRate;
+
+        /// <summary>The curse's claim weight multiplier (§6.1).</summary>
+        public float curseClaimMultiplier;
     }
 }

@@ -63,6 +63,15 @@ namespace TheWaningBorder.UI.Ingame
         private GameObject _placingInstance;
         private bool _placementIsPlaceholderCube;
 
+        /// <summary>The ONE Mine button is active: every frame the node under
+        /// the cursor picks the concrete extractor (_currentBuildId), and the
+        /// ghost follows it (TerritoryOwnership.ResolveExtractorAt).</summary>
+        private bool _genericMine;
+
+        /// <summary>The ghost is a procedural visual built at its final size —
+        /// not footprint-fitted.</summary>
+        private bool _placementIsExactProcedural;
+
         // Build type
         public enum BuildType
         {
@@ -193,6 +202,25 @@ namespace TheWaningBorder.UI.Ingame
 
                 if (TryGetMouseWorld(out Vector3 p))
                 {
+                    // ONE MINE BUTTON: the node under the cursor decides which
+                    // extractor this is. A change rebuilds the ghost as that
+                    // pithead; with no node in reach it stays "Mine" and the
+                    // ghost reads red with the node rule.
+                    if (_genericMine)
+                    {
+                        var mineEm = (_world ?? EntityWorld.DefaultGameObjectInjectionWorld).EntityManager;
+                        string resolved = TheWaningBorder.World.Regions.TerritoryOwnership.ResolveExtractorAt(
+                            mineEm, GameSettings.LocalPlayerFaction, (float3)p, out var mineId, out _)
+                            ? mineId : "Mine";
+                        if (resolved != _currentBuildId)
+                        {
+                            _currentBuildId = resolved;
+                            _currentBuild = BuildTypeFor(resolved);
+                            StartPlacement();
+                            if (_placingInstance == null) return;
+                        }
+                    }
+
                     // Snap the ghost to the 2 m build grid so the player sees
                     // the exact cells the building will take, not a free-float
                     // position that jumps when BuildingFactory snaps it later.
@@ -341,6 +369,7 @@ namespace TheWaningBorder.UI.Ingame
                 return;
             }
 
+            instance._genericMine = id == "Mine";
             instance._currentBuildId = id;
             instance._currentBuild = BuildTypeFor(id);
 
@@ -404,6 +433,7 @@ namespace TheWaningBorder.UI.Ingame
             // TriggerHubBuildWall) and is kept for a shift-click re-entry.
             if (string.IsNullOrEmpty(_currentBuildId)) return;
             _placementIsPlaceholderCube = false;
+            _placementIsExactProcedural = false;
             _placementRefusal = PlacementRefusal.None;
 
             // Culture for the preview: the COMPLETED culture only.
@@ -437,7 +467,14 @@ namespace TheWaningBorder.UI.Ingame
             // Preview uses the building's SO prefab (resolved by PresentationId). Null falls
             // through to the prefab switch / placeholder cube below.
             GameObject procPreview = null;
-            if (previewPid > 0 && TechCatalog.TryGetPrefab(previewPid, out var soPrev) && soPrev != null)
+            // The ore extractors preview as the pithead they will be (MineVisual).
+            var mineKind = TheWaningBorder.Rendering.MineVisual.KindFor(_currentBuildId);
+            if (mineKind != null)
+            {
+                procPreview = TheWaningBorder.Rendering.MineVisual.Build(0, mineKind.Value);
+                _placementIsExactProcedural = true;
+            }
+            else if (previewPid > 0 && TechCatalog.TryGetPrefab(previewPid, out var soPrev) && soPrev != null)
             {
                 procPreview = Instantiate(soPrev);
             }
@@ -483,7 +520,7 @@ namespace TheWaningBorder.UI.Ingame
 
             _placingInstance.name = "PlacementPreview";
 
-            if (!_placementIsPlaceholderCube)
+            if (!_placementIsPlaceholderCube && !_placementIsExactProcedural)
             {
                 // Scale the ghost exactly like the real spawn: the runtime
                 // multiplies every prefab visual by ComputeFootprintFit, so a
@@ -492,8 +529,16 @@ namespace TheWaningBorder.UI.Ingame
                 // spawn see the same set of active renderers.
                 var fitSize = BuildCommandHelper.GetBuildingSize(_currentBuildId);
                 float fit = PresentationSpawnSystem.ComputeFootprintFitForSize(
-                    _placingInstance, fitSize.x, fitSize.y);
+                    _placingInstance, fitSize.x, fitSize.y, out Vector3 fitOffset);
                 _placingInstance.transform.localScale *= fit;
+
+                // Stand the ghost on the ground like the real spawn does
+                // (ProceduralScaleTag.BaseOffset.y). Applied to the CHILDREN,
+                // in root-local units: the root's own position is the
+                // placement point that SpawnSelectedBuilding commits.
+                if (Mathf.Abs(fitOffset.y) > 0.001f)
+                    for (int c = 0; c < _placingInstance.transform.childCount; c++)
+                        _placingInstance.transform.GetChild(c).localPosition -= new Vector3(0f, fitOffset.y, 0f);
 
                 // Multi-variant prefabs author every culture branch active; the
                 // real spawn hides them via BuildingVariantVisual. Without the

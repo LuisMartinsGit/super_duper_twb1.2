@@ -91,14 +91,25 @@ namespace TheWaningBorder.AI
             public float3 Target;
             public float Since;
             public bool Fleeing;
-            /// <summary>Perch-and-bloom dwell: once arrived, the scout HOLDS
-            /// until this time so its Scout Sight vision ramp
-            /// (AbilityAuraSystem.TickScoutSight) builds up before the next
-            /// hop. 0 = not yet arrived.</summary>
-            public float DwellUntil;
+            /// <summary>Legs in the chained route (1 for a single move);
+            /// the timeout scales with it.</summary>
+            public int Legs = 1;
         }
 
-        private const float PlanArrivalRadiusSq = 6f * 6f;
+        /// <summary>Zones planned per decision and handed over as ONE chained
+        /// order (AICommon.IssueChain): the scout runs them back to back with
+        /// no idle tick between legs.</summary>
+        private const int ScoutChainLegs = 3;
+
+        /// <summary>
+        /// A SCOUT NEVER STOPS (2026-09-29). Its next target is handed over
+        /// this far BEFORE it reaches the current one, so the move order is
+        /// replaced while it is still travelling — with the director thinking
+        /// every tickInterval, an arrival radius of a few metres left scouts
+        /// standing idle for a whole tick at every waypoint. (The perch-and-
+        /// bloom dwell went with the changing Scout Sight vision it served.)
+        /// </summary>
+        private const float PlanArrivalRadiusSq = 18f * 18f;
 
         // Keyed by faction index / scout entity. AI runs host-only; this
         // state never replicates — everything flows out as movement orders.
@@ -299,36 +310,21 @@ namespace TheWaningBorder.AI
                         if (plan != null && plan.Fleeing) { _plans.Remove(scout); plan = null; }
                     }
 
-                    // Honor the existing commitment until arrival or timeout;
-                    // then PERCH: hold at the vantage until the Scout Sight
-                    // ramp has built vision up before the next hop.
+                    // Honor the existing commitment until it is nearly reached
+                    // (or times out), then re-task at once — no perch.
                     if (plan != null)
                     {
                         float dxp = plan.Target.x - pos.x, dzp = plan.Target.z - pos.z;
                         bool arrived = dxp * dxp + dzp * dzp <= PlanArrivalRadiusSq;
-                        bool timedOut = now - plan.Since > Cfg.planTimeoutSeconds;
+                        bool timedOut = now - plan.Since > Cfg.planTimeoutSeconds * math.max(1, plan.Legs);
                         if (!arrived && !timedOut)
                         {
-                            if (sDds[i].Has == 0)
+                            // Between legs of a chain the destination reads
+                            // empty for a frame while the queue hands over the
+                            // next one; re-ordering then would wipe the chain.
+                            if (sDds[i].Has == 0 && !em.HasComponent<CommandQueueActive>(scout))
                                 CommandRouter.IssueMove(em, scout, plan.Target, CommandSource.AI);
                             continue;
-                        }
-                        // A CAVALRY STAND-IN NEVER PERCHES (2026-09-12).
-                        // The perch exists to let the Scout's Oracle vision
-                        // bloom from 18 m to 55 m, and that bloom is a
-                        // Scout-class privilege. An Outrider's 34 m circle is
-                        // the same standing still as it is at 8.2 m/s, so
-                        // holding it in place buys nothing and costs the one
-                        // thing it is better at. It arrives, stamps the zone
-                        // and leaves for the next.
-                        if (arrived && !plan.Fleeing && !_standIns.Contains(scout))
-                        {
-                            if (plan.DwellUntil <= 0f)
-                            {
-                                plan.DwellUntil = now + Cfg.scoutDwellSeconds;
-                                continue; // start the perch
-                            }
-                            if (now < plan.DwellUntil) continue; // blooming
                         }
                         _plans.Remove(scout);
                     }
@@ -352,43 +348,66 @@ namespace TheWaningBorder.AI
                         }
                     }
 
-                    // Pick the best exploration zone.
-                    int bestZone = -1;
-                    float bestScore = float.MinValue;
-                    for (int z = 0; z < zs.LastVisit.Length; z++)
+                    // Plan a ROUTE: the best zone from here, then the best from
+                    // there, up to ScoutChainLegs, handed over as one chained
+                    // order. The director only re-plans near the route's end.
+                    var steps = new List<(QueuedCommandType, float3)>(ScoutChainLegs);
+                    float3 from = pos;
+                    for (int leg = 0; leg < ScoutChainLegs; leg++)
                     {
-                        if (now - zs.LastAssigned[z] < assignHold) continue;
-                        float3 center = ZoneCenter(zs, worldMin, worldSize, z);
-                        float staleness = zs.LastVisit[z] < 0f ? Cfg.neverVisitedBonus : (now - zs.LastVisit[z]);
-                        float score = staleness
-                            + (zs.EnemyBase[z] ? Cfg.enemyBaseBonus : 0f)
-                            - math.distance(new float2(center.x, center.z), new float2(pos.x, pos.z)) * Cfg.distancePenaltyPerMeter
-                            - ThreatMaps.Sample(owner, center) * Cfg.threatPenaltyFactor;
-                        if (score > bestScore) { bestScore = score; bestZone = z; }
+                        int bestZone = -1;
+                        float bestScore = float.MinValue;
+                        for (int z = 0; z < zs.LastVisit.Length; z++)
+                        {
+                            if (now - zs.LastAssigned[z] < assignHold) continue;
+                            float3 center = ZoneCenter(zs, worldMin, worldSize, z);
+                            float staleness = zs.LastVisit[z] < 0f ? Cfg.neverVisitedBonus : (now - zs.LastVisit[z]);
+                            float score = staleness
+                                + (zs.EnemyBase[z] ? Cfg.enemyBaseBonus : 0f)
+                                - math.distance(new float2(center.x, center.z), new float2(from.x, from.z)) * Cfg.distancePenaltyPerMeter
+                                - ThreatMaps.Sample(owner, center) * Cfg.threatPenaltyFactor;
+                            if (score > bestScore) { bestScore = score; bestZone = z; }
+                        }
+                        // Every zone recently assigned (small map, several
+                        // scouts): the first leg takes the stalest anyway
+                        // rather than let the scout idle.
+                        if (bestZone < 0 && leg == 0)
+                        {
+                            for (int z = 0; z < zs.LastVisit.Length; z++)
+                            {
+                                float3 c = ZoneCenter(zs, worldMin, worldSize, z);
+                                float dxz = c.x - from.x, dzz = c.z - from.z;
+                                if (dxz * dxz + dzz * dzz <= PlanArrivalRadiusSq) continue;   // not where it stands
+                                float stale = zs.LastVisit[z] < 0f ? float.MaxValue : now - zs.LastVisit[z];
+                                if (stale > bestScore) { bestScore = stale; bestZone = z; }
+                            }
+                        }
+                        if (bestZone < 0) break;
+
+                        zs.LastAssigned[bestZone] = now;
+                        float3 dest = ZoneCenter(zs, worldMin, worldSize, bestZone);
+
+                        // Snap the zone center onto the cost field. A center over
+                        // water/cliffs snaps to the nearest walkable cell (the
+                        // scout still surveys the zone from its edge); a zone with
+                        // NO walkable cell in snap range is stamped visited so it
+                        // stops winning the priority race.
+                        NavGridQuery.SnapToWalkable(dest, out float3 snapped, out bool ok);
+                        if (!ok)
+                        {
+                            zs.LastVisit[bestZone] = now;
+                            continue;
+                        }
+                        steps.Add((QueuedCommandType.Move, snapped));
+                        from = snapped;
                     }
-                    if (bestZone < 0) continue;
+                    if (steps.Count == 0) continue;
 
-                    zs.LastAssigned[bestZone] = now;
-                    float3 dest = ZoneCenter(zs, worldMin, worldSize, bestZone);
-
-                    // Snap the zone center onto the cost field. A center over
-                    // water/cliffs snaps to the nearest walkable cell (the
-                    // scout still surveys the zone from its edge); a zone with
-                    // NO walkable cell in snap range is stamped visited so it
-                    // stops winning the priority race.
-                    NavGridQuery.SnapToWalkable(dest, out float3 snapped, out bool ok);
-                    if (!ok)
-                    {
-                        zs.LastVisit[bestZone] = now;
-                        continue;
-                    }
-                    dest = snapped;
-
-                    _plans[scout] = new ScoutPlan { Target = dest, Since = now };
-                    CommandRouter.IssueMove(em, scout, dest, CommandSource.AI);
+                    var last = steps[steps.Count - 1].Item2;
+                    _plans[scout] = new ScoutPlan { Target = last, Since = now, Legs = steps.Count };
+                    AICommon.IssueChain(em, scout, steps);
                     TheWaningBorder.AI.AILogger.Log(owner, "SCOUT",
-                        $"explore zone ({dest.x:0},{dest.z:0}) — " +
-                        $"{(zs.LastVisit[bestZone] < 0f ? "never visited" : $"stale {(int)(now - zs.LastVisit[bestZone])}s")}");
+                        $"explore route of {steps.Count} zone(s), ending ({last.x:0},{last.z:0})");
                 }
 
                 if (stateChanged)

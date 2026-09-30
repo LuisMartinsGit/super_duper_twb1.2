@@ -16,10 +16,10 @@ MonoBehaviour:
   displayName: Fortress
   role: Capital / HQ / Research Era / Research Economy / Worker upgrades / resource
     drop-off / Supply generation / Objective
-  description: The capital. Every player starts the match with one Fortress - larger
-    and far tougher than a Hall, with a real garrison attack. Hosts everything the
-    Hall hosts (Workers, Scouts, the Hall research bench and the age-up) and claims
-    its home territory. Not buildable - expansion is the Hall's job.
+  description: The capital. Every player starts the match with one Fortress, and
+    more can be raised - one per territory, the most expensive building in the game.
+    Trains Workers and Scouts, hosts the capital's research, and LOCKS its territory
+    so no army can take it while it stands.
   hp: 3600
   armorType: structure_human
   defense:
@@ -30,7 +30,7 @@ MonoBehaviour:
   radius: 2
   lineOfSight: 30
   buildTime: 120
-  populationProvided: 40
+  populationProvided: 10
   suppliesPerTick: 50
   suppliesInterval: 15
   maxIron: 0
@@ -44,8 +44,8 @@ MonoBehaviour:
   minEra: 0
   cost:
     Supplies: 1200
-    Iron: 400
-    Veilstone: 0
+    Iron: 1200
+    Veilstone: 300
     Veilsteel: 0
   tags:
   - Building

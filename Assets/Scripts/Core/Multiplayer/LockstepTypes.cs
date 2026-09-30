@@ -86,6 +86,7 @@ namespace TheWaningBorder.Core.Multiplayer
         SetStance = 48,         // CommandRouter.IssueStance (unit in EntityNetworkId, UnitStanceMode byte in TargetEntityId) — docs/Design/Stances.md §7
         FormationOrder = 49,    // CommandRouter.IssueFormationMove/AttackMove (issuing faction in EntityNetworkId; BuildingId = unit network ids sorted ascending, delta-encoded base 36, ';'-separated; TargetEntityId = shape | attackMove<<8 | more-follows<<9; SecondaryTargetId = total unit count; destination in TargetPosition) — docs/Design/Navigation_And_Formations.md §2.12
         RangingShot = 51,       // CommandRouter.IssueRangingShot (faction in EntityNetworkId) — arms every planted siege engine and starts the faction cooldown on every peer; it was a UI button writing ECS on the clicking peer alone
+        ReligionPurchase = 52,  // CommandRouter.IssueReligionPurchase (faction in EntityNetworkId, ReligionPurchaseKind in TargetEntityId, sect id in BuildingId — "Tithe" for the Tithe) — docs/Design/Religion.md §1.1, §3.1: every RP purchase is spent on every peer at the same tick
         BuildingAttack = 50,    // CommandRouter.IssueBuildingAttack (shooting building in EntityNetworkId, forced target in TargetEntityId; 0 = clear the order, i.e. Stop) — docs/Design/Combat_Pacing.md § Directed building fire
     }
 

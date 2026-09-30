@@ -371,11 +371,10 @@ namespace TheWaningBorder.UI.Data
             // refusal message — every part except the one that shows it.
             "Mine", "VeilstoneMine",
             "TempleOfRidan",
-            // Additional Halls — culture-gated (post-age-up only) and capped at
-            // 6 per faction. The 6-cap and culture gate are enforced inside
-            // GetBuildingActions; the runtime cap fallback lives in
-            // BuilderCommandPanel.SpawnSelectedBuilding.
-            "Hall",
+            // The FORTRESS, not the Hall (Territory_Claims.md §4): the Hall is
+            // removed, and a Fortress is how ground with no resource node is
+            // locked. One per territory, enforced at placement.
+            "Fortress",
             "Alanthor_Wall", "Alanthor_Smelter",
             // Runai culture buildings
             "Runai_Outpost", "Runai_TradeHub", "Runai_TradingPost", "ThessarasBazaar", "Runai_SiegeWorkshop",
@@ -513,6 +512,12 @@ namespace TheWaningBorder.UI.Data
                     // Only show buildings the player can actually place
                     if (!BuildableBuildings.Contains(building.id)) continue;
 
+                    // ONE MINE BUTTON (2026-09-29): the Veilstone Mine and the
+                    // veilsteel extractor ride the "Mine" button, which raises
+                    // whichever the node under the cursor needs
+                    // (TerritoryOwnership.ResolveExtractorAt).
+                    if (building.id == "VeilstoneMine" || building.id == "Alanthor_Smelter") continue;
+
                     // Choice building exclusion: if one is built, hide the other two
                     if (BuildingFactory.IsChoiceBuilding(building.id) && existingChoice != null)
                         continue;
@@ -581,10 +586,25 @@ namespace TheWaningBorder.UI.Data
                     string requirement = eraLocked
                         ? string.Format(Loc.T("Requires: Era {0}"), building.minEra) : null;
 
+                    // The Temple also costs a Religion Point (Religion.md §2),
+                    // which is earned by killing the curse.
+                    if (building.id == "TempleOfRidan" && !em.Equals(default(EntityManager)))
+                    {
+                        int rpCost = FactionReligionPointsHelper.Cfg.templeRp;
+                        bool rpOk = FactionReligionPointsHelper.CanAfford(em, faction, rpCost);
+                        canAfford &= rpOk;
+                        requirement = string.Format(Loc.T("Costs {0} Religion Point — earned by killing curse units"), rpCost)
+                            + (requirement != null ? "\n" + requirement : "");
+                    }
+
                     string tooltip = BuildTooltip(
                         building.id == "Alanthor_Wall"
                             ? WallTiers.DisplayName(WallTiers.LevelFor(em, faction)) : building.name,
-                        building.role,
+                        building.id == "Mine"
+                            ? Loc.T("Built on a resource node — an iron deposit raises an Iron Mine, a " +
+                                    "veilstone outcropping a Veilstone Mine, a veilsteel deposit a Veilsteel " +
+                                    "Mine (Alanthor). Its first extractor locks the territory.")
+                            : building.role,
                         cost,
                         available,
                         requirement: requirement

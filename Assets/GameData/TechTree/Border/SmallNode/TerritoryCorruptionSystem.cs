@@ -75,6 +75,15 @@ namespace TheWaningBorder.Systems.Border
 
         private int _epoch = -1;
 
+        protected override void OnCreate()
+        {
+            // RETIRED 2026-09-29 (Territory_Claims.md §6.3): curse nodes come
+            // only from the curse — seeded at start, raised by its claim
+            // parties, reseeded when it has none. Tenure on veilstone ground
+            // no longer wakes a pocket.
+            Enabled = false;
+        }
+
         protected override void OnUpdate()
         {
             if (!RegionMap.Ready) return;

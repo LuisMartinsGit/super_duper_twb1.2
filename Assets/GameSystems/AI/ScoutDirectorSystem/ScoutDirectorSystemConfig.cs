@@ -35,9 +35,5 @@ namespace TheWaningBorder.AI
 
         public float planTimeoutSeconds;
 
-        // The Scout Sight ability ramps vision linearly over 25 s of standing
-        // still (AbilityAuraSystem.ScoutRampSeconds); dwell covers the full
-        // ramp plus the IntelSystem 1 s tick that records what it reveals.
-        public float scoutDwellSeconds;
     }
 }

@@ -54,6 +54,6 @@ MonoBehaviour:
   - vsTag: Cavalry
     amount: 15
   abilities: []
-  prefab: {fileID: 0}
+  prefab: {fileID: 7272246701288170288, guid: eb15e7657d9fa9347ab3798ee994cc1b, type: 3}
   presentationId: 368
-  animatorController: {fileID: 0}
+  animatorController: {fileID: 9100000, guid: 7936c927d36d3244d937bef2e6130c1d, type: 2}

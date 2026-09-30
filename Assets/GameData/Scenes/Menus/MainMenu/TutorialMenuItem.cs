@@ -80,7 +80,7 @@ namespace TheWaningBorder.UI.Menus
         /// <summary>
         /// Start the tutorial match: shipped map, Age 0 (the tutorial runs the
         /// full arc from the opening), fog off so the coach's landmarks are
-        /// visible, curse wells on because the last chapter is won on them,
+        /// visible, the curse on because two chapters are fought against it,
         /// one Easy AI opponent to make the map feel inhabited without
         /// pressuring a first-time player.
         /// </summary>
@@ -105,7 +105,7 @@ namespace TheWaningBorder.UI.Menus
             {
                 LobbyConfig.Slots[i].AIDifficulty = LobbyAIDifficulty.Easy;
                 // EcoBoom, not a rush personality: the coach walks a beginner
-                // through seven steps and should not be interrupted by an
+                // through eight chapters and should not be interrupted by an
                 // early attack.
                 LobbyConfig.Slots[i].AIStrategy = LobbyAIStrategy.EcoBoom;
             }

@@ -145,9 +145,10 @@ namespace TheWaningBorder.Systems.Combat
                 // those shots alone.
                 DamageType dmgType = MainDamageType(em, entity);
                 bool mainIsSiege = dmgType == DamageType.Siege;
-                bool keepSiege = isKeep && research != null
+                bool hasSiegeShot = em.HasComponent<BuildingSiegeShot>(entity);
+                bool keepSiege = hasSiegeShot || (isKeep && research != null
                     && (research.HasResearched(myFaction, "BallistaEmplacement")
-                        || research.HasResearched(myFaction, "TrebuchetEmplacement"));
+                        || research.HasResearched(myFaction, "TrebuchetEmplacement")));
                 bool haveWall = false;
                 var nearestWall = default(TargetCandidate);
 
@@ -336,6 +337,19 @@ namespace TheWaningBorder.Systems.Combat
                     // arcing siege shell with splash. With nothing else in
                     // range they take the nearest wall piece: siege is the
                     // one thing allowed to (the Wall Rule).
+                    // A levelled building's ballista bolt (BuildingSiegeShot —
+                    // the Watch Tower's L3): one siege bolt per volley at the
+                    // nearest target, on top of its arrows.
+                    if (hasSiegeShot)
+                    {
+                        var nearest = targets.Length > 0 ? targets[0] : nearestWall;
+                        CreateProjectile(ref ecb, myPos, nearest.Position,
+                            nearest.Distance, entity, myFaction,
+                            em.GetComponentData<BuildingSiegeShot>(entity).Damage, time,
+                            nearest.Entity, isLaser: false, DamageType.Siege, spawnYOffset,
+                            ballistaBolt: true);
+                    }
+
                     if (isKeep && research != null)
                     {
                         var nearest = targets.Length > 0 ? targets[0] : nearestWall;
@@ -344,7 +358,7 @@ namespace TheWaningBorder.Systems.Combat
                             CreateProjectile(ref ecb, myPos, nearest.Position,
                                 nearest.Distance, entity, myFaction,
                                 18, time, nearest.Entity, isLaser: false,
-                                DamageType.Siege, spawnYOffset);
+                                DamageType.Siege, spawnYOffset, ballistaBolt: true);
                         }
                         if (research.HasResearched(myFaction, "TrebuchetEmplacement"))
                         {
@@ -413,7 +427,8 @@ namespace TheWaningBorder.Systems.Combat
         private static void CreateProjectile(ref EntityCommandBuffer ecb,
             float3 start, float3 targetPos, float distance,
             Entity shooter, Faction faction, int damage, float time, Entity target,
-            bool isLaser = false, DamageType dmgType = DamageType.Ranged, float spawnYOffset = 1.5f)
+            bool isLaser = false, DamageType dmgType = DamageType.Ranged, float spawnYOffset = 1.5f,
+            bool ballistaBolt = false)
         {
             float speed = isLaser ? LaserSpeed : ArrowSpeed;
             var direction = math.normalize(targetPos - start);
@@ -468,6 +483,8 @@ namespace TheWaningBorder.Systems.Combat
             {
                 ecb.AddComponent<LaserProjectileTag>(projectile);
             }
+            if (ballistaBolt)
+                ecb.AddComponent<BallistaBoltTag>(projectile);
         }
 
         /// <summary>
@@ -510,6 +527,8 @@ namespace TheWaningBorder.Systems.Combat
             });
             ecb.AddComponent(shell, new AOEProjectile { Radius = 4f });
             ecb.AddComponent(shell, new HighArcProjectile { ArcFraction = 0.25f });
+            // Rendered as the Synty siege rock, like every trebuchet stone.
+            ecb.AddComponent<TrebuchetStoneTag>(shell);
         }
 
         private struct TargetCandidate

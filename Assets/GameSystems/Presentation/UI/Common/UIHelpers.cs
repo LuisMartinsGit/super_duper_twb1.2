@@ -107,19 +107,19 @@ namespace TheWaningBorder.UI.Common
         {
             var sb = new System.Text.StringBuilder(64);
             
-            void Add(string name, int value)
+            void Add(string resource, string letters, int value)
             {
                 if (value > 0)
                 {
                     if (sb.Length > 0) sb.Append("  ");
-                    sb.Append(name).Append(' ').Append(value);
+                    sb.Append(ResourceIcons.Tag(resource) ?? letters).Append(' ').Append(value);
                 }
             }
 
-            Add("S", cost.Supplies);
-            Add("Fe", cost.Iron);
-            Add("Cr", cost.Veilstone);
-            Add("Vs", cost.Veilsteel);
+            Add(ResourceIcons.Supplies, "S", cost.Supplies);
+            Add(ResourceIcons.Iron, "Fe", cost.Iron);
+            Add(ResourceIcons.Veilstone, "Cr", cost.Veilstone);
+            Add(ResourceIcons.Veilsteel, "Vs", cost.Veilsteel);
 
             return sb.Length == 0 ? "Free" : sb.ToString();
         }
@@ -134,18 +134,22 @@ namespace TheWaningBorder.UI.Common
 
             var sb = new System.Text.StringBuilder(128);
 
-            void Add(string name, int needed, int have)
+            // The resource panel's own icon in front of each amount (letters
+            // only until the panel has registered its sprites — ResourceIcons).
+            // The icon keeps its colours; the NUMBER turns red when short.
+            void Add(string resource, string letters, int needed, int have)
             {
                 if (needed <= 0) return;
                 if (sb.Length > 0) sb.Append("  ");
                 string hex = have >= needed ? affordHex : "#ff5555";
-                sb.Append($"<color={hex}>{name} {needed}</color>");
+                sb.Append(ResourceIcons.Tag(resource) ?? letters)
+                  .Append($"<color={hex}> {needed}</color>");
             }
 
-            Add("S", cost.Supplies, available.Supplies);
-            Add("Fe", cost.Iron, available.Iron);
-            Add("Cr", cost.Veilstone, available.Veilstone);
-            Add("Vs", cost.Veilsteel, available.Veilsteel);
+            Add(ResourceIcons.Supplies, "S", cost.Supplies, available.Supplies);
+            Add(ResourceIcons.Iron, "Fe", cost.Iron, available.Iron);
+            Add(ResourceIcons.Veilstone, "Cr", cost.Veilstone, available.Veilstone);
+            Add(ResourceIcons.Veilsteel, "Vs", cost.Veilsteel, available.Veilsteel);
 
             return sb.ToString();
         }

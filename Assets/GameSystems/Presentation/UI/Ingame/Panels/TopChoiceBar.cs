@@ -314,7 +314,10 @@ namespace TheWaningBorder.UI.Ingame
             foreach (var button in menu.GetComponentsInChildren<Button>(true))
                 buttons.Add(button);
 
-            var pending = new List<string> { "ShrineOfAhridan", "VaultOfAlmierra", "FiendstoneKeep" };
+            // The prefab's third radial slot was the Shrine of Ridan, which is
+            // cut (Age_0.md § Age-up by landmark). It now stands for Thessara's
+            // Crossing, the Runai landmark — shown, disabled until it exists.
+            var pending = new List<string> { ThessarasCrossingId, "VaultOfAlmierra", "FiendstoneKeep" };
             foreach (var button in buttons)
             {
                 string hint = button.gameObject.name.ToLowerInvariant();
@@ -322,7 +325,7 @@ namespace TheWaningBorder.UI.Ingame
                 if (text != null) hint += " " + text.text.ToLowerInvariant();
 
                 string id = null;
-                if (hint.Contains("shrine")) id = "ShrineOfAhridan";
+                if (hint.Contains("shrine") || hint.Contains("thessara")) id = ThessarasCrossingId;
                 else if (hint.Contains("vault")) id = "VaultOfAlmierra";
                 else if (hint.Contains("keep") || hint.Contains("fiendstone")) id = "FiendstoneKeep";
                 if (id == null || !pending.Remove(id)) continue;
@@ -362,6 +365,7 @@ namespace TheWaningBorder.UI.Ingame
         private void RegisterAuthoredSpecial(string id, Button button)
         {
             var entry = new AuthoredSpecialButton { Id = id, Button = button, Name = id };
+            if (id == ThessarasCrossingId) entry.Name = "Thessara's Crossing";
             if (TechCatalog.IsReady && TechCatalog.TryGetBuilding(id, out var def))
             {
                 entry.Name = def.name ?? id;
@@ -370,7 +374,7 @@ namespace TheWaningBorder.UI.Ingame
             }
             button.onClick.AddListener(() =>
             {
-                if (!BuilderCommandPanel.IsPlacingBuilding)
+                if (!BuilderCommandPanel.IsPlacingBuilding && LandmarkAvailable(entry.Id))
                     BuilderCommandPanel.TriggerBuildingPlacement(entry.Id);
             });
 
@@ -425,6 +429,16 @@ namespace TheWaningBorder.UI.Ingame
                 && !string.IsNullOrEmpty(def.description))
                 sb.Append('\n').Append(Loc.T(def.description));
 
+            byte landmarkCulture = TheWaningBorder.Systems.Work.LandmarkAgeUp.CultureOf(entry.Id);
+            if (landmarkCulture != Cultures.None)
+                sb.Append('\n').Append(string.Format(
+                    Loc.T("Building it ages you up to {0}."), CultureConfig.GetName(landmarkCulture)));
+            if (!LandmarkAvailable(entry.Id))
+            {
+                sb.Append('\n').Append(Loc.T("<color=#C08040>Unavailable in the demo.</color>"));
+                return sb.ToString();
+            }
+
             var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             if (world != null && world.IsCreated && !entry.Cost.IsZero)
             {
@@ -436,8 +450,23 @@ namespace TheWaningBorder.UI.Ingame
                     sb.Append('\n').Append(Loc.T("<color=#C08040>Not enough resources.</color>"));
             }
             sb.Append('\n').Append(
-                Loc.T("<i>One special building per faction — this choice is final.</i>"));
+                Loc.T("<i>One landmark per faction — this choice is final. " +
+                      "If it is destroyed before it is finished, everything spent is lost.</i>"));
             return sb.ToString();
+        }
+
+        /// <summary>Id of the Runai landmark's button. The building does not
+        /// exist yet, so the catalog never knows it and the button stays
+        /// disabled.</summary>
+        private const string ThessarasCrossingId = "ThessarasCrossing";
+
+        /// <summary>Can this landmark be placed in this build? It must age up
+        /// into a culture, and that culture must ship (the demo is Alanthor
+        /// only — CultureConfig.IsComingSoon). The executor re-checks.</summary>
+        private static bool LandmarkAvailable(string id)
+        {
+            byte c = TheWaningBorder.Systems.Work.LandmarkAgeUp.CultureOf(id);
+            return c != Cultures.None && !CultureConfig.IsComingSoon(c);
         }
 
         private void BindAuthoredCulture(GameObject menu)
@@ -784,6 +813,7 @@ namespace TheWaningBorder.UI.Ingame
                 foreach (var building in TechCatalog.GetAllBuildings())
                 {
                     if (!BuildingFactory.IsChoiceBuilding(building.id)) continue;
+                    if (!LandmarkAvailable(building.id)) continue;
                     if (used >= _specials.Length) break;
 
                     var b = _specials[used++];
@@ -840,7 +870,7 @@ namespace TheWaningBorder.UI.Ingame
                     if (b.Label != null) b.Label.text = Loc.T(b.Name);
                 }
                 bool canAfford = FactionEconomy.CanAfford(em, faction, b.Cost);
-                b.Button.interactable = canAfford && !placing;
+                b.Button.interactable = LandmarkAvailable(b.Id) && canAfford && !placing;
             }
         }
 
@@ -883,17 +913,16 @@ namespace TheWaningBorder.UI.Ingame
                 return;
             }
 
-            bool hasChoice = BuildingFactory.GetCompletedFactionChoiceBuilding(em, faction) != null;
-            bool canAfford = FactionEconomy.CanAfford(em, faction, CultureConfig.AgeUpCost);
-            _cultureReady = hasChoice && canAfford;
-
-            // Compare against the TRANSLATED pill text — comparing against the
-            // stored English would rewrite the label on every refresh.
-            string pillText = Loc.T(_authoredCultureButtonText);
-            if (_authoredCultureButtonLabel != null
-                && _authoredCultureButtonLabel.text != pillText)
-                _authoredCultureButtonLabel.text = pillText;
-            _authoredCultureButtonControl.interactable = _cultureReady;
+            // THE AGE-UP IS THE LANDMARK (Age_0.md § Age-up by landmark): the
+            // pill no longer opens a culture choice. It reports the landmark's
+            // construction, which IS the age-up progress.
+            _cultureReady = false;
+            _authoredCultureButtonControl.interactable = false;
+            float progress = BuildingFactory.GetFactionChoiceBuildingProgress(em, faction);
+            if (_authoredCultureButtonLabel != null)
+                _authoredCultureButtonLabel.text = progress >= 0f
+                    ? string.Format(Loc.T("Advancing {0}%"), (int)(progress * 100f))
+                    : Loc.T(_authoredCultureButtonText);
         }
 
         // ── Commit ─────────────────────────────────────────────────────────

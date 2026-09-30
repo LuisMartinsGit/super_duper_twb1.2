@@ -64,6 +64,13 @@ namespace TheWaningBorder.Core.Commands.Types
                             em, faction, unitId, TheWaningBorder.Data.UnitCosts.Get(unitId));
                         cost = WarSectCostHelper.ApplyPaidMultiplier(cost, item.PaidCostMultiplier);
                         if (!cost.IsZero) FactionEconomy.Add(em, faction, cost);
+                        // A sect hero's first recruit also took its RP
+                        // (Religion.md §4); it comes back while the hero has
+                        // never spawned — RpDue is the same test that charged it.
+                        string heroSect = TheWaningBorder.Systems.Sect.SectHeroes.SectIdForUnit(unitId);
+                        if (heroSect != null)
+                            FactionReligionPointsHelper.Refund(em, faction,
+                                TheWaningBorder.Systems.Sect.SectHeroes.RpDue(em, faction, heroSect));
                         break;
                     }
                     case ProductionKind.Research:

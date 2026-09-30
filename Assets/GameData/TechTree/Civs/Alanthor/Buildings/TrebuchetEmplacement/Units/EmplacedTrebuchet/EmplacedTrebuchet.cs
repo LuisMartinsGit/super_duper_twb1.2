@@ -38,6 +38,7 @@ namespace TheWaningBorder.Entities
             // Single-shot fire path + the CatapultVisual-driven projectile,
             // exactly as the mobile Trebuchet uses.
             em.AddComponent<CatapultTag>(entity);
+            em.AddComponent<TrebuchetShooterTag>(entity);
             em.AddComponent<EmplacedEngineTag>(entity);
             // Holds for ever: ClearAllCommands keeps this tag on an engine, so
             // no order can make it chase, retreat or return to a guard post.

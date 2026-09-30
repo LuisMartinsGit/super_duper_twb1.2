@@ -118,6 +118,8 @@ namespace TheWaningBorder.Systems.Work
                 TheWaningBorder.Core.Diagnostics.GameStatsTracker.RecordEvent(
                     em.GetComponentData<FactionTag>(site).Value,
                     TheWaningBorder.Core.Diagnostics.GameEventKind.SpecialBuilding);
+            // A finished landmark IS the age-up (Age_0.md § Age-up by landmark).
+            LandmarkAgeUp.OnConstructionComplete(em, site);
             if (em.HasComponent<Buildable>(site))
                 em.RemoveComponent<Buildable>(site);
 

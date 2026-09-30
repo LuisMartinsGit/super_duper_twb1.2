@@ -21,6 +21,7 @@ using TheWaningBorder.Data;
 using TheWaningBorder.Economy;
 using TheWaningBorder.World.Terrain;
 using TheWaningBorder.Core.Settings;
+using TheWaningBorder.Systems.Sect;
 
 namespace TheWaningBorder.AI
 {
@@ -308,9 +309,57 @@ namespace TheWaningBorder.AI
                     AILogger.Log(faction, "STRATEGY", $"adopting sect {sectId}");
                     return;
                 }
-                if (result == SectAdoptionResult.NotEnoughRP) return;   // wait for RP
+                if (result == SectAdoptionResult.NotEnoughRP)
+                {
+                    // Short of RP (docs/Design/Religion.md §1.1): a rich AI
+                    // buys one through the Tithe rather than waiting on the
+                    // curse — only with twice the price banked, so the Tithe
+                    // never eats the chapel's own materials.
+                    TryTithe(em, faction);
+                    return;
+                }
                 // slot full / already adopted -> try the next priority
             }
+
+            // Everything it wants is adopted: spend what RP is left on the
+            // sects it has (Religion.md §3.1) — the next active first (a new
+            // power beats a stronger one), then the chapel's level.
+            for (int i = 0; i < priority.Length; i++)
+            {
+                string sectId = priority[i];
+                if (!SectQuery.IsAdopted(em, faction, sectId)) continue;
+                if (ReligionPurchases.CanBuy(em, faction, ReligionPurchaseKind.UnlockActive, sectId, out _))
+                {
+                    CommandRouter.IssueReligionPurchase(em, faction, ReligionPurchaseKind.UnlockActive,
+                        sectId, CommandSource.AI);
+                    AILogger.Log(faction, "STRATEGY", $"unlocking the next power of {sectId}");
+                    return;
+                }
+            }
+            for (int i = 0; i < priority.Length; i++)
+            {
+                string sectId = priority[i];
+                if (!SectQuery.IsAdopted(em, faction, sectId)) continue;
+                if (ReligionPurchases.CanBuy(em, faction, ReligionPurchaseKind.ChapelLevel, sectId, out _))
+                {
+                    CommandRouter.IssueReligionPurchase(em, faction, ReligionPurchaseKind.ChapelLevel,
+                        sectId, CommandSource.AI);
+                    AILogger.Log(faction, "STRATEGY", $"raising the chapel of {sectId}");
+                    return;
+                }
+            }
+        }
+
+        /// <summary>Buy one RP through the Tithe when the bank holds twice
+        /// its price.</summary>
+        private static void TryTithe(EntityManager em, Faction faction)
+        {
+            var price = FactionReligionPointsHelper.TitheCost(em, faction);
+            var doubled = Cost.Of(price.Supplies * 2, price.Iron * 2, price.Veilstone * 2);
+            if (!FactionEconomy.CanAfford(em, faction, doubled)) return;
+            if (CommandRouter.IssueReligionPurchase(em, faction, ReligionPurchaseKind.Tithe, null,
+                    CommandSource.AI))
+                AILogger.Log(faction, "STRATEGY", "bought a Religion Point through the Tithe");
         }
 
         // ──────────────────────────────────────────────────────────────────

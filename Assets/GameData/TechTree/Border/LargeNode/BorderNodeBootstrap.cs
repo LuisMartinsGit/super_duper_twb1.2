@@ -56,7 +56,29 @@ namespace TheWaningBorder.Bootstrap
         private const float CornerInsetFraction = 0.12f;
 
         /// <summary>
+        /// The curse's faction state without any wells (Territory_Claims.md
+        /// §6, 2026-09-29: wells, verbs and well victory are removed). Only
+        /// the Faction.Border bank is created — NOT the extinction or victory
+        /// singletons, so BorderExtinctionSystem (which respawned WELLS) and
+        /// NodeVictorySystem (well domination) stay parked on their
+        /// RequireForUpdate for the whole match.
+        /// </summary>
+        public static void PrepareCurseFaction()
+        {
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (world == null || !world.IsCreated) return;
+            var em = world.EntityManager;
+            if (!FactionEconomy.TryGetBank(em, Faction.Border, out _))
+            {
+                var bankEntity = em.CreateEntity(typeof(FactionTag), typeof(FactionResources));
+                em.SetComponentData(bankEntity, new FactionTag { Value = Faction.Border });
+                em.SetComponentData(bankEntity, new FactionResources());
+            }
+        }
+
+        /// <summary>
         /// Spawn the map's wells. Returns the number of nodes spawned.
+        /// RETIRED 2026-09-29 — kept for the scenario tools that still call it.
         /// </summary>
         public static int SpawnBorderNodes()
         {

@@ -44,6 +44,14 @@ namespace TheWaningBorder.Entities
             // it — same-size footprints only line up if they snap with the
             // same parity.
             position = BuildGrid.Snap(position, new int2(4, 4));
+            // A legal site only: whole footprint on buildable ground, one
+            // clear cell from every other node (ResourceNodeSite, Build_Grid.md §3).
+            if (!ResourceNodeSite.TryResolve(em, position, out position))
+            {
+                UnityEngine.Debug.LogWarning($"[SupplyNode] no legal node site within " +
+                    $"{ResourceNodeSite.SearchRings} cells of ({position.x:F0},{position.z:F0}) — not spawned.");
+                return Entity.Null;
+            }
 
             var entity = em.CreateEntity(
                 typeof(SupplyNodeTag),

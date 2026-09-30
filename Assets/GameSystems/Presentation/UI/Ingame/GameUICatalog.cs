@@ -58,6 +58,24 @@ namespace TheWaningBorder.UI.Ingame
         /// </summary>
         public ChromeSet chrome;
 
+        /// <summary>
+        /// Synty sprites for the code-built HUD pieces that read the ownership
+        /// meter and the religion economy (Territory_Claims.md §2, Religion.md
+        /// §1): the territory-takeover bars stacked on the minimap, and the
+        /// Religion Point row of the resource panel with its round progress
+        /// ring. All from InterfaceFantasyWarriorHUD.
+        /// </summary>
+        public HudSet hud;
+
+        [System.Serializable]
+        public sealed class HudSet
+        {
+            public Sprite religionIcon;
+            public Sprite religionRing;
+            public Sprite claimBarFrame;
+            public Sprite claimBarFill;
+        }
+
         [System.Serializable]
         public sealed class ChromeSet
         {

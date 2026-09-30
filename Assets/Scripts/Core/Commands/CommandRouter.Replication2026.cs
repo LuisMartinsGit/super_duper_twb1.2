@@ -89,6 +89,42 @@ namespace TheWaningBorder.Core.Commands
         public static bool RangingShotDirect(EntityManager em, Faction faction)
             => TheWaningBorder.Abilities.AlanthorActiveHelper.TriggerRangingShot(em, faction);
 
+        // ═══════════════════════════════════════════════════════════════
+        // RELIGION PURCHASES (docs/Design/Religion.md §1.1, §3.1)
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Spend Religion Points (or, for the Tithe, resources for one RP).
+        /// The issuing peer checks affordability for feedback; every peer
+        /// spends and applies at the same tick in
+        /// <see cref="ReligionPurchaseDirect"/>, which re-checks.
+        /// </summary>
+        public static bool IssueReligionPurchase(EntityManager em, Faction faction,
+            ReligionPurchaseKind kind, string sectId, CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (ShouldDropCommand(source)) return false;
+            if (!ReligionPurchases.CanBuy(em, faction, kind, sectId, out _)) return false;
+            string payload = kind == ReligionPurchaseKind.Tithe ? "Tithe" : sectId;
+
+            if (ShouldQueueForLockstep(source))
+            {
+                LockstepServiceLocator.Instance.QueueCommand(new LockstepCommand
+                {
+                    Type = LockstepCommandType.ReligionPurchase,
+                    EntityNetworkId = (int)faction,   // no entity — the faction buys
+                    TargetEntityId = (int)kind,
+                    BuildingId = payload,
+                });
+                return true;
+            }
+            return ReligionPurchaseDirect(em, faction, kind, payload);
+        }
+
+        /// <summary>Post-lockstep application. Every peer runs this.</summary>
+        public static bool ReligionPurchaseDirect(EntityManager em, Faction faction,
+            ReligionPurchaseKind kind, string sectId)
+            => ReligionPurchases.TryBuy(em, faction, kind, sectId);
+
         /// <summary>Post-lockstep application. Every peer runs this.</summary>
         public static void SectPowerDirect(EntityManager em, Faction faction, string sectId,
             int tier, float3 targetPos)
@@ -957,16 +993,18 @@ namespace TheWaningBorder.Core.Commands
         /// </summary>
         public static void IssueQueuedWaypoint(EntityManager em, Entity unit,
             QueuedCommandType type, float3 targetPos, Entity targetEntity,
-            CommandSource source = CommandSource.LocalPlayer)
+            CommandSource source = CommandSource.LocalPlayer, byte shape = 0, int group = 0)
         {
             if (unit == Entity.Null || !em.Exists(unit)) return;
+            // Don't even send an order the executor will drop.
+            if (IsCommandQueueFull(em, unit)) return;
 
             if (ShouldQueueForLockstep(source))
             {
                 int networkId = GetNetworkId(em, unit);
                 if (networkId <= 0)
                 {
-                    QueuedWaypointDirect(em, unit, type, targetPos, targetEntity);
+                    QueuedWaypointDirect(em, unit, type, targetPos, targetEntity, shape, group);
                     return;
                 }
 
@@ -974,27 +1012,41 @@ namespace TheWaningBorder.Core.Commands
                 {
                     Type = LockstepCommandType.QueueWaypoint,
                     EntityNetworkId = networkId,
-                    TargetEntityId = (int)type,
+                    // type | shape << 8 | formation group << 16 (group < 32768)
+                    TargetEntityId = (int)type | (shape << 8) | ((group & 0x7FFF) << 16),
                     SecondaryTargetId = GetNetworkId(em, targetEntity),
                     TargetPosition = targetPos
                 });
             }
             else
             {
-                QueuedWaypointDirect(em, unit, type, targetPos, targetEntity);
+                QueuedWaypointDirect(em, unit, type, targetPos, targetEntity, shape, group);
             }
         }
 
+        /// <summary>True when this unit already holds the maximum queued
+        /// actions (CommandQueueLimits.MaxQueuedCommands).</summary>
+        public static bool IsCommandQueueFull(EntityManager em, Entity unit)
+            => unit != Entity.Null && em.Exists(unit) && em.HasBuffer<QueuedCommand>(unit)
+               && em.GetBuffer<QueuedCommand>(unit).Length >= CommandQueueLimits.MaxQueuedCommands;
+
         public static void QueuedWaypointDirect(EntityManager em, Entity unit,
-            QueuedCommandType type, float3 targetPos, Entity targetEntity)
+            QueuedCommandType type, float3 targetPos, Entity targetEntity,
+            byte shape = 0, int group = 0)
         {
             if (unit == Entity.Null || !em.Exists(unit)) return;
             if (!em.HasBuffer<QueuedCommand>(unit)) em.AddBuffer<QueuedCommand>(unit);
+            // At most 15 queued actions per unit, for humans and AI alike —
+            // checked here, on every peer, so a full queue drops the order
+            // identically everywhere.
+            if (em.GetBuffer<QueuedCommand>(unit).Length >= CommandQueueLimits.MaxQueuedCommands) return;
             em.GetBuffer<QueuedCommand>(unit).Add(new QueuedCommand
             {
                 Type = type,
                 TargetPosition = targetPos,
                 TargetEntity = targetEntity,
+                Shape = shape,
+                Group = group,
             });
 
             // The activation must travel WITH the payload: CommandQueueSystem

@@ -45,6 +45,9 @@ namespace TheWaningBorder.Data
             // takes a territory, so it is the largest single purchase in
             // the game — and the only one that grows the economy.
             { "Hall",           Cost.Of(supplies: 600, iron: 200) },
+            // The most expensive thing in the game (Territory_Claims.md §4).
+            // Synced from Fortress.asset like every other entry.
+            { "Fortress",       Cost.Of(supplies: 1200, iron: 1200, veilstone: 300) },
             { "Hut",            Cost.Of(supplies: 80) },                            // Population provider
             { "GatherersHut",   Cost.Of(supplies: 120, iron: 10) },                 // Gathering support building
             { "Barracks",       Cost.Of(supplies: 220, iron: 40) },                 // Military training

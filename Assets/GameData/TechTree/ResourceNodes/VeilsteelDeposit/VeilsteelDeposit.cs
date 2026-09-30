@@ -32,25 +32,33 @@ namespace TheWaningBorder.Entities
         public const int DefaultAmount = 1500;
 
         /// <summary>
-        /// ECS scale at which the shared gem-cluster prefab spans exactly one
-        /// 2 m build cell. Left at scale 1 the prefab rendered at its full x6
+        /// ECS scale at which the shared gem-cluster prefab spans exactly the
+        /// node's 2 x 2-cell (4 m) footprint (Build_Grid.md §3, 2026-09-29). Left at scale 1 the prefab rendered at its full x6
         /// base scale — roughly three times the ground the node occupies — and
         /// because the click collider is fitted to the node's CELL, right-click
         /// snapped to it from several metres outside. docs/Design/Build_Grid.md
         /// </summary>
         public static float ComputeScale()
-            => BuildGrid.CellSize / PresentationSpawnSystem.VeilsteelDepositVisualBaseScale;
+            => BuildGrid.ResourceNodeMeters / PresentationSpawnSystem.VeilsteelDepositVisualBaseScale;
 
         /// <summary>Sim radius: half a build cell. The node blocks exactly its
         /// own cell, so the circle the placement validator and obstacle
         /// avoidance test must be that cell — not the visual.</summary>
-        public static float ComputeRadius() => BuildGrid.HalfCell;
+        public static float ComputeRadius() => BuildGrid.ResourceNodeHalf;
 
         public static Entity Create(EntityManager em, float3 position, int amount)
         {
             // One deposit, one build cell, snapped to its centre.
             // docs/Design/Build_Grid.md
-            position = BuildGrid.SnapToCellCentre(position);
+            position = BuildGrid.SnapResourceNode(position);
+            // A legal site only: whole footprint on buildable ground, one
+            // clear cell from every other node (ResourceNodeSite, Build_Grid.md §3).
+            if (!ResourceNodeSite.TryResolve(em, position, out position))
+            {
+                UnityEngine.Debug.LogWarning($"[VeilsteelDeposit] no legal node site within " +
+                    $"{ResourceNodeSite.SearchRings} cells of ({position.x:F0},{position.z:F0}) — not spawned.");
+                return Entity.Null;
+            }
 
             var entity = em.CreateEntity(
                 typeof(VeilsteelDepositTag),
@@ -66,6 +74,7 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(
                 position, quaternion.identity, ComputeScale()));
             em.SetComponentData(entity, new Radius { Value = ComputeRadius() });
+            em.AddComponentData(entity, new NodeFootprint { Meters = BuildGrid.ResourceNodeMeters });
             em.SetComponentData(entity, new PresentationId { Id = PresentationID });
             em.SetComponentData(entity, new IronDepositState
             {
@@ -80,7 +89,7 @@ namespace TheWaningBorder.Entities
                 SpawnTick = 0
             });
 
-            PassabilityGrid.Instance?.BlockObstacle(position, BuildGrid.HalfCell);
+            PassabilityGrid.Instance?.BlockObstacle(position, BuildGrid.ResourceNodeBlockRadius);
 
             return entity;
         }
@@ -90,7 +99,7 @@ namespace TheWaningBorder.Entities
         /// directly.</summary>
         public static Entity Create(EntityCommandBuffer ecb, float3 position, int amount)
         {
-            position = BuildGrid.SnapToCellCentre(position);
+            position = BuildGrid.SnapResourceNode(position);
 
             var entity = ecb.CreateEntity();
             ecb.AddComponent<VeilsteelDepositTag>(entity);
@@ -98,6 +107,7 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(
                 position, quaternion.identity, ComputeScale()));
             ecb.AddComponent(entity, new Radius { Value = ComputeRadius() });
+            ecb.AddComponent(entity, new NodeFootprint { Meters = BuildGrid.ResourceNodeMeters });
             ecb.AddComponent(entity, new PresentationId { Id = PresentationID });
             ecb.AddComponent(entity, new IronDepositState
             {
@@ -111,7 +121,7 @@ namespace TheWaningBorder.Entities
                 SpawnTick = 0
             });
 
-            PassabilityGrid.Instance?.BlockObstacle(position, BuildGrid.HalfCell);
+            PassabilityGrid.Instance?.BlockObstacle(position, BuildGrid.ResourceNodeBlockRadius);
 
             return entity;
         }

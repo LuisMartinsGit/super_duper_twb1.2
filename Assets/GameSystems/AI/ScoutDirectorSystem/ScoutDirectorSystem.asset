@@ -20,4 +20,3 @@ MonoBehaviour:
   threatPenaltyFactor: 0.2
   assignmentHoldSeconds: 12
   planTimeoutSeconds: 60
-  scoutDwellSeconds: 26

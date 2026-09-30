@@ -65,9 +65,9 @@ Footprints are authored in **cells**, and the table below is the truth source.
 | Cells | Metres | Buildings |
 |---|---|---|
 | **1 x 1** | 2 x 2 | every Chapel — the statues docked in the Temple ring |
-| **2 x 2** | 4 x 4 | Hut, Gatherer's Hut, Alanthor Watch Tower, Feraldis Tower, War Totem, Runai Trading Post |
+| **2 x 2** | 4 x 4 | Hut, Alanthor Watch Tower, Feraldis Tower, War Totem, Runai Trading Post, **every resource building** — Gatherer's Hut, Iron Mine, Veilstone Mine, Veilsteel extractor (`Alanthor_Smelter`) (2026-09-29) |
 | **2 x 2** | 4 x 4 | Wall Hub — a round tower whose radius is 0.7 of a wall section (2.1 m, 30 % smaller since 2026-09-21); the curtain starts at its rim |
-| **4 x 4** | 8 x 8 | Hall, Archery Range, Shrine of Ridan, Temple of Ridan, Vault of Almierra, King's Court, Smelter, Siege Yards, Royal Stable, Runai Outpost / Trade Hub / Siege Workshop / Vault / Veilsteel Foundry, Feraldis Hunting Lodge / Logging Station / Longhouse / Foundry / Pasture, Mine, all four sect buildings |
+| **4 x 4** | 8 x 8 | Hall, Archery Range, Shrine of Ridan, Temple of Ridan, Vault of Almierra, King's Court, Siege Yards, Royal Stable, Runai Outpost / Trade Hub / Siege Workshop / Vault / Veilsteel Foundry, Feraldis Hunting Lodge / Logging Station / Longhouse / Foundry / Pasture, all four sect buildings |
 | **5 x 5** | 10 x 10 | Barracks |
 | **6 x 6** | 12 x 12 | Fiendstone Keep, Thessara's Bazaar, Border Main Node (the well) |
 
@@ -98,6 +98,16 @@ cells with no overhang and no gap.
 
 ---
 
+### Standing on the ground (2026-09-30)
+
+Every prefab building's model is placed so its **lowest point sits on the
+terrain**, whatever pivot it was exported with — the same measurement that
+centres it on its footprint (`ComputeFootprintFit`) records the pivot → lowest
+point drop, and the view and the placement ghost both apply it. A model
+authored with its base at the pivot does not move. A model meant to sink part
+of itself below ground (a foundation skirt for slopes) cannot do that any more
+— it is lifted too.
+
 ## 3. Resource nodes, curse nodes, trees and props
 
 Everything in this class occupies **exactly one cell (2 x 2 m)**, is snapped
@@ -106,9 +116,10 @@ exists**.
 
 | Thing | Rule |
 |---|---|
-| Veilstone outcropping | 3 x 3 cells, impassable, cleared when the node is exhausted |
-| Iron deposit | 3 x 3 cells, impassable, cleared when exhausted |
-| Veilsteel deposit | 1 cell, impassable, cleared when exhausted |
+| **Every resource node (2026-09-29)** | **2 x 2 cells (4 x 4 m), even parity (snapped to a cell boundary), the same footprint as the resource building that stands on it — so the extractor lands exactly on its node.** `BuildGrid.ResourceNode*` holds the rule; the nav cost field stamps the full 4 m (`NodeFootprint`), PassabilityGrid blocks exactly that square |
+| Veilstone outcropping | 2 x 2 cells, impassable, cleared when the node is exhausted |
+| Iron deposit | 2 x 2 cells, impassable, cleared when exhausted |
+| Veilsteel deposit | 2 x 2 cells, impassable, cleared when exhausted |
 | **Supply spot** | **2 x 2 cells — the Gatherer's Hut's own footprint — and PASSABLE: it is ground you build the hut ON, not a prop beside it. Snaps with even parity (cell boundary) so the hut centres on it exactly. (2026-08-29; was 1 cell)** |
 | Blight pocket / Small Node | 1 cell, impassable while alive |
 | Border Main Node (well) | **6 x 6 cells** — it is a structure, not a node |
@@ -117,6 +128,28 @@ exists**.
 "Impassable until mined" means the block is tied to the node's lifetime: the
 node is removed when depleted, and removal releases the cell on both the nav
 cost field and `PassabilityGrid`.
+
+### Where a node may stand, and what may stand on one (2026-09-29)
+
+- **A node site is legal only when its whole 4 x 4 m square is buildable
+  ground** — inside the map, no water, no slope over 15°, every passability
+  cell open (forests, cliffs, other obstacles), no building on it — **and it
+  keeps one clear cell (2 m) from every other node's square.** Nodes never
+  overlap.
+- Every node factory resolves its position through `ResourceNodeSite.TryResolve`,
+  so authored markers, fallback scatters, coverage passes and the curse's
+  veilstone precipitation all obey it. An illegal spot moves to the **nearest
+  legal grid site** (fixed nearest-first search, identical on every lockstep
+  peer, up to 12 cells / 24 m); with none in range the node is **not spawned**
+  and a warning is logged. A legal authored spot never moves.
+- Start Fortresses and the nature-region blocking run before any node spawns,
+  so nodes also keep off them.
+- **Nothing is built on a node except the extractor made for it** (Gatherer's
+  Hut on supply, Mine on iron, Veilstone Mine on veilstone, the veilsteel
+  extractor on veilsteel). The whole node square is tested — the supply spot
+  included, which is passable and no obstacle — by the placement ghost, the
+  AI's site search and the command executor. Refusal: *"Cannot build on a
+  resource node — only its own extractor may stand there"*.
 
 Trees are baked as Unity terrain tree instances rather than entities, so they
 get the same treatment through the map generator: scattered positions quantise

@@ -84,9 +84,10 @@ public partial class PresentationSpawnSystem
         // resource node is sized the same way AND stray colliders on the
         // wrapper prefab are cleared — the old GetComponent/AddComponent pair
         // only touched a root BoxCollider and left any child collider live to
-        // swallow clicks. Iron's ECS scale is always 1, so the visual's world
-        // scale is just the base scale. docs/Design/Build_Grid.md
-        FitCellBoxCollider(root, IronDepositVisualBaseScale);
+        // swallow clicks. The box is the node's 2 x 2-cell footprint
+        // (Build_Grid.md §3). docs/Design/Build_Grid.md
+        FitCellBoxCollider(root, IronDepositVisualBaseScale * BuildGrid.ResourceNodeCells,
+            cellsAcross: BuildGrid.ResourceNodeCells);
 
         var entityRef = root.GetComponent<EntityReference>();
         if (entityRef == null) entityRef = root.AddComponent<EntityReference>();

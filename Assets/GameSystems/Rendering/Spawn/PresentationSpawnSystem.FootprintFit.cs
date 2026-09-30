@@ -163,11 +163,15 @@ public partial class PresentationSpawnSystem : MonoBehaviour
 
         // Pivot -> bounds-centre delta, read while the root sits at scale 1 /
         // rotation identity, so the world-space delta IS the root-local one.
-        // XZ only: vertical anchoring belongs to the terrain snap.
+        // Y is the pivot -> LOWEST-POINT delta (2026-09-30): every building's
+        // model stands on the ground, whatever its export pivot. The new house
+        // FBX came out of Maya with its root 1.2 m above the floor and spawned
+        // with the plinth and yard wall buried; a model authored with its base
+        // at the pivot measures 0 here and does not move.
         if (any)
         {
             Vector3 c = combined.center - root.position;
-            centreOffset = new Vector3(c.x, 0f, c.z);
+            centreOffset = new Vector3(c.x, combined.min.y - root.position.y, c.z);
         }
 
         root.localScale = keepScale;

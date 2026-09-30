@@ -158,7 +158,7 @@ namespace TheWaningBorder.AI
 
             // A Mine only pays out next to ore, so search from the patches
             // rather than ringing the Hall.
-            if (!TryFindOrePatch(em, hallPos, out float3 patch)) return;
+            if (!TryFindOrePatch(em, faction, hallPos, out float3 patch)) return;
 
             var size = BuildingSizeConfig.GetSize("Mine");
             if (!TryFindSpot(em, patch, size, 4f, 14f, out float3 pos)) return;
@@ -194,15 +194,17 @@ namespace TheWaningBorder.AI
         /// So iron patches win outright, and veilstone is only a fallback
         /// when there is no reachable iron at all.
         /// </summary>
-        private static bool TryFindOrePatch(EntityManager em, float3 hallPos, out float3 patch)
+        private static bool TryFindOrePatch(EntityManager em, Faction faction, float3 hallPos, out float3 patch)
         {
             patch = default;
 
-            if (TryNearestOf<IronMineTag>(em, hallPos, out patch)) return true;
-            return TryNearestOf<VeilstoneOutcroppingTag>(em, hallPos, out patch);
+            if (TryNearestOf<IronMineTag>(em, faction, hallPos, out patch)) return true;
+            return TryNearestOf<VeilstoneOutcroppingTag>(em, faction, hallPos, out patch);
         }
 
-        private static bool TryNearestOf<T>(EntityManager em, float3 from, out float3 pos)
+        /// <summary>Nearest node of this kind the faction has SEEN
+        /// (AICommon.IsKnownGround).</summary>
+        private static bool TryNearestOf<T>(EntityManager em, Faction faction, float3 from, out float3 pos)
             where T : unmanaged, IComponentData
         {
             pos = default;
@@ -213,6 +215,7 @@ namespace TheWaningBorder.AI
             using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             for (int i = 0; i < xfs.Length; i++)
             {
+                if (!AICommon.IsKnownGround(faction, xfs[i].Position)) continue;
                 float d = math.distancesq(xfs[i].Position, from);
                 if (d < best) { best = d; pos = xfs[i].Position; found = true; }
             }

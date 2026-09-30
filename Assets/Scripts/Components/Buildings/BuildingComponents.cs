@@ -128,6 +128,17 @@ public struct BuildingRangedAttack : IComponentData
 }
 
 /// <summary>
+/// One extra BALLISTA bolt per volley, at the nearest target, on top of the
+/// building's normal arrows. Siege damage, so it may take a wall piece when
+/// nothing else is in range (the Wall Rule). Stamped by a level's
+/// BuildingAttack.siegeShotDamage (the Watch Tower's L3).
+/// </summary>
+public struct BuildingSiegeShot : IComponentData
+{
+    public int Damage;
+}
+
+/// <summary>
 /// A player-DIRECTED target for a shooting building
 /// (docs/Design/Combat_Pacing.md § Directed building fire). While the target
 /// is in range it takes the first of the building's MaxTargets slots; out of
@@ -173,6 +184,16 @@ public struct BuildingSize : IComponentData
 /// Pushed by UnitSeparationSystem like buildings, but not included in building queries.
 /// </summary>
 public struct ObstacleTag : IComponentData { }
+
+/// <summary>
+/// An obstacle's square footprint, in metres across, for the nav cost-field
+/// stamp. Resource nodes carry it (4 m — 2 x 2 cells, Build_Grid.md §3);
+/// obstacles without it (rocks, props) stamp one build cell.
+/// </summary>
+public struct NodeFootprint : IComponentData
+{
+    public float Meters;
+}
 
 // ===================================================================
 // PARKED — Runai / Feraldis / Sect / Era-2-shared content not yet

@@ -111,7 +111,7 @@ namespace TheWaningBorder.AI
                 // on it alone made the 15 s retry pick the same dead node
                 // forever while free ones sat a territory over.
                 _freeNodes.Clear();
-                CollectFreeNodes(em, buildingId, owned, _freeNodes);
+                CollectFreeNodes(em, faction, buildingId, owned, _freeNodes);
                 if (_freeNodes.Count == 0)
                 {
                     if (AILogger.Enabled) blocked += $" | {buildingId}: no free owned node";
@@ -210,7 +210,7 @@ namespace TheWaningBorder.AI
         /// Territory-gated on purpose: a node on somebody else's ground pays
         /// THEM, and the build gate would refuse the site anyway.
         /// </summary>
-        private void CollectFreeNodes(EntityManager em, string buildingId,
+        private void CollectFreeNodes(EntityManager em, Faction faction, string buildingId,
             HashSet<int> owned, List<float3> into)
         {
             var required = TerritoryOwnership.RequiredNodeFor(buildingId);
@@ -223,6 +223,10 @@ namespace TheWaningBorder.AI
 
             for (int i = 0; i < xfs.Length; i++)
             {
+                // Only a node it has SEEN — owning a territory does not reveal
+                // every corner of it (AICommon.IsKnownGround).
+                if (!AICommon.IsKnownGround(faction, xfs[i].Position)) continue;
+
                 // Where the building would stand, and — the same call — whether
                 // this node is free at all.
                 if (!snap.TrySnapToNode(em, buildingId, xfs[i].Position,

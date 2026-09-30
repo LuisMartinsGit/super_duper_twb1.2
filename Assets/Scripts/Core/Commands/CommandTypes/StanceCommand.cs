@@ -73,7 +73,7 @@ namespace TheWaningBorder.Core.Commands.Types
         {
             if (em.HasComponent<HoldPositionTag>(unit)) return UnitStanceMode.Hold;
             if (em.HasComponent<UnitStance>(unit)) return em.GetComponentData<UnitStance>(unit).Value;
-            return UnitStanceMode.Defensive;
+            return UnitStanceMode.Aggressive;   // the default for every unit (Stances.md §4)
         }
     }
 }

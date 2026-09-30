@@ -199,6 +199,48 @@ namespace TheWaningBorder.Systems.Buildings
                 }
             }
             // Hut + Barracks below lvl 3 — no attack changes.
+
+            ApplyAuthoredLevel(em, building, level);
+        }
+
+        /// <summary>
+        /// A level AUTHORED on the building's SO (BuildingDef.levels) — every
+        /// stat from data, absolute per level so re-applying is idempotent.
+        /// Today the Watch Tower's ladder (Age_1_Alanthor.md § Watch Tower
+        /// levels): range, fire rate and line of sight rise each level; the
+        /// last adds targets and a ballista bolt (BuildingSiegeShot).
+        /// Buildings with no authored level entry are untouched.
+        /// </summary>
+        private static void ApplyAuthoredLevel(EntityManager em, Entity building, byte level)
+        {
+            if (!em.HasComponent<BuildingRangedAttack>(building)) return;
+            string id = TheWaningBorder.Entities.BuildingIds.Of(building, em);
+            if (string.IsNullOrEmpty(id) || !TechCatalog.TryGetBuilding(id, out var def)
+                || def?.levels == null) return;
+
+            TheWaningBorder.Data.BuildingLevel entry = null;
+            foreach (var l in def.levels)
+                if (l != null && l.level == level) { entry = l; break; }
+            if (entry == null || entry.attack == null || !entry.attack.enabled) return;
+
+            var atk = em.GetComponentData<BuildingRangedAttack>(building);
+            atk.Range = entry.attack.range;
+            atk.Damage = (int)entry.attack.damage;
+            atk.Cooldown = entry.attack.cooldown;
+            atk.MaxTargets = entry.attack.maxTargets;
+            em.SetComponentData(building, atk);
+
+            if (entry.lineOfSight > 0f && em.HasComponent<LineOfSight>(building))
+                em.SetComponentData(building, new LineOfSight { Radius = entry.lineOfSight });
+
+            if (entry.attack.siegeShotDamage > 0)
+            {
+                var shot = new BuildingSiegeShot { Damage = entry.attack.siegeShotDamage };
+                if (em.HasComponent<BuildingSiegeShot>(building)) em.SetComponentData(building, shot);
+                else em.AddComponentData(building, shot);
+            }
+            else if (em.HasComponent<BuildingSiegeShot>(building))
+                em.RemoveComponent<BuildingSiegeShot>(building);
         }
     }
 }

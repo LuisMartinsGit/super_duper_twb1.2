@@ -332,14 +332,15 @@ Keep the information-driven `ScoutDirectorSystem` (zone staleness scoring,
 threat-aware flee, recon-then-strike). This already matches AoE4's
 post-Anniversary scout behavior.
 
-**Expanding scout vision (AoM Oracle model).** Scouts have a small LOS
-while moving (**18 m**) that, after **1.5 s** stationary, blooms at
-**4.5 m/s** up to **55 m**; moving snaps it back instantly. Applies to
-`UnitClass.Scout` only, player and AI alike. AI scouts therefore
-**perch-and-bloom**: travel to a vantage zone, hold ~12 s while the circle
-blooms (the intel pass records everything it reveals), then hop to the
-next zone. A perched scout is deliberately vulnerable — that is the
-counterplay.
+**Scouts never stop (2026-09-29, SUPERSEDES the expanding-vision
+perch-and-bloom model).** A Scout's line of sight is fixed at its authored
+maximum (Scout.asset, 40 m) — nothing shrinks it while moving. AI scouts are
+therefore always travelling: the director hands a scout its next zone
+**18 m before** it reaches the current one (it thinks every 2 s, so a
+tighter arrival radius left scouts standing idle at every waypoint), there
+is no dwell at a vantage, and when every zone is freshly assigned it takes
+the stalest one anyway rather than idle. The intel pass records everything
+the moving circle reveals.
 
 **The Outrider stands in when the scouts are dead (2026-09-12).**
 Scouting must never stop because the scouts died. When a faction has no

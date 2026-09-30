@@ -284,6 +284,7 @@ namespace TheWaningBorder.Systems.Navigation
                     ? SystemAPI.GetSingleton<NavGridSingleton>().CellSize : 1f,
                 Origin = SystemAPI.HasSingleton<NavGridSingleton>()
                     ? SystemAPI.GetSingleton<NavGridSingleton>().Origin : float3.zero,
+                Footprints = SystemAPI.GetComponentLookup<NodeFootprint>(true),
             };
             JobHandle prevHandle = serialStamps
                 ? obstacleStamp.Schedule(_obstacleQuery, sizedHandle)

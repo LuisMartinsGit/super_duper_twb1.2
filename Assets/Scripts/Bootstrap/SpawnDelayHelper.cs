@@ -145,13 +145,14 @@ namespace TheWaningBorder.Bootstrap
                 LoadingScreen.SetStatus("Seeding veilstone border…");
                 LoadingScreen.SetProgress(0.85f);
                 yield return null;
-                BorderNodeBootstrap.SpawnBorderNodes();
-                // §2.5b Age 0 blight pockets — near-spawn haze patches with
-                // SmallNode anchors. Needs the Halls (spawned above) and only
-                // makes sense with the curse on; the VeilField itself
-                // initialises later and BlightPocketSystem seeds the discs
-                // as soon as it exists.
-                BlightPocketBootstrap.SpawnBlightPockets();
+                // NO WELLS (docs/Design/Territory_Claims.md §6.4, 2026-09-29):
+                // the curse starts from nodes raised on random resource nodes,
+                // fair by distance to every player, never in a start
+                // territory. Blight pockets are retired with the wells — they
+                // put curse nodes beside a player's spawn, which the new model
+                // forbids.
+                BorderNodeBootstrap.PrepareCurseFaction();
+                SeedCurseNodes();
             }
 
             // Last sim-entity spawn is above this line. Prewarm below creates
@@ -180,6 +181,34 @@ namespace TheWaningBorder.Bootstrap
         /// so it can precompute the connected region every player shares.
         /// Resource bootstraps then place deposits only inside that region.
         /// </summary>
+        /// <summary>
+        /// Raise the initial curse nodes (Territory_Claims.md §6.4): one per
+        /// player unless BorderSettings.initialNodes says otherwise, fair by
+        /// distance from every start, seeded from the match seed so every
+        /// lockstep peer raises the same nodes.
+        /// </summary>
+        private static void SeedCurseNodes()
+        {
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (world == null || !world.IsCreated) return;
+
+            var starts = new System.Collections.Generic.List<Unity.Mathematics.float3>();
+            var factions = new System.Collections.Generic.List<Faction>(PlayerSpawnSystem.SpawnPositions.Keys);
+            factions.Sort();
+            foreach (var f in factions)
+            {
+                var p = PlayerSpawnSystem.SpawnPositions[f];
+                starts.Add(new Unity.Mathematics.float3(p.x, p.y, p.z));
+            }
+
+            var settings = TheWaningBorder.Data.Border.BorderSettings.Get();
+            int count = settings != null && settings.initialNodes > 0
+                ? settings.initialNodes
+                : Mathf.Max(1, starts.Count);
+            TheWaningBorder.Systems.Border.CurseNodeSeeding.SeedInitialNodes(
+                world.EntityManager, starts, count, (uint)(GameSettings.SpawnSeed ^ 0x5EEDC0DE));
+        }
+
         private static void ComputePlayerReachability()
         {
             var grid = PassabilityGrid.Instance;
