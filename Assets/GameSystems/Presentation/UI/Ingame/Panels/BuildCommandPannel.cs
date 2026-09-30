@@ -818,6 +818,14 @@ namespace TheWaningBorder.UI.Ingame
                 CancelPlacementPreviewOnly();
                 return;
             }
+            // The executor refuses a wall that leaves its owner's ground at any
+            // point (CommandRouter.WallLineOnOwnGround) — name the rule here.
+            if (!CommandRouter.WallLineOnOwnGround(_em, fac, tool.Points))
+            {
+                PlayerNotificationSystem.NotifyError(TerritoryRefusal("Alanthor_Wall"));
+                CancelPlacementPreviewOnly();
+                return;
+            }
             if (!BuildCosts.TryGet("Alanthor_Wall", out var hubCost)) hubCost = default;
             var total = new Cost
             {

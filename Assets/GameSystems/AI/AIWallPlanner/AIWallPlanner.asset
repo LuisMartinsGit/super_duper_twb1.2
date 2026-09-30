@@ -24,3 +24,8 @@ MonoBehaviour:
   perimeterHalfExtentMax: 68
   perimeterFootprintAllowance: 5
   perimeterGatherRadius: 60
+  borderBufferCellsMin: 4
+  borderBufferCellsPreferred: 5
+  borderBufferCellsMax: 6
+  borderScanMax: 320
+  borderMinRadius: 16

@@ -51,6 +51,17 @@ namespace TheWaningBorder.World.Roads
         public float Strength;
     }
 
+    /// <summary>A culture PAD: an axis-aligned, hard-edged square of full
+    /// coverage, marked plaza (and finished when its building is) — so the
+    /// shader's per-pixel culture rule paves it (Roads.md §4b).</summary>
+    public struct SquareCmd
+    {
+        public float2 Min;         // texels
+        public float2 Max;         // texels
+        public byte Finished;
+        public float Strength;
+    }
+
     public struct PolyCmd
     {
         public int Start;          // index into Points
@@ -69,6 +80,7 @@ namespace TheWaningBorder.World.Roads
         public NativeArray<Color32> Dir;
         public NativeArray<float> Nearest;
         [ReadOnly] public NativeArray<DiscCmd> Discs;
+        [ReadOnly] public NativeArray<SquareCmd> Squares;
         [ReadOnly] public NativeArray<PolyCmd> Polys;
         [ReadOnly] public NativeArray<float2> Points;
 
@@ -80,6 +92,7 @@ namespace TheWaningBorder.World.Roads
             for (int i = 0; i < n; i++) { Mask[i] = blank; Dir[i] = noDir; Nearest[i] = float.PositiveInfinity; }
 
             for (int d = 0; d < Discs.Length; d++) DrawDisc(Discs[d]);
+            for (int s = 0; s < Squares.Length; s++) DrawSquare(Squares[s]);
             for (int p = 0; p < Polys.Length; p++) DrawPolyline(Polys[p]);
         }
 
@@ -109,6 +122,29 @@ namespace TheWaningBorder.World.Roads
                     if (dist > r) continue;
                     float cov = 1f - math.smoothstep(c.FadeStart * r, r, dist);
                     WriteCoverage(y * Res + x, cov * c.Strength, c.Finished, c.Plaza);
+                }
+            }
+        }
+
+        /// <summary>A culture pad: full coverage inside the square, a
+        /// one-texel antialiased edge — deliberately NOT the plaza's lobed,
+        /// fading rim: the pad is laid stone, cut square.</summary>
+        void DrawSquare(in SquareCmd c)
+        {
+            if (c.Strength <= 0f) return;
+            int x0 = math.max(0, (int)math.floor(c.Min.x));
+            int x1 = math.min(Res - 1, (int)math.ceil(c.Max.x));
+            int y0 = math.max(0, (int)math.floor(c.Min.y));
+            int y1 = math.min(Res - 1, (int)math.ceil(c.Max.y));
+            for (int y = y0; y <= y1; y++)
+            {
+                float cy = math.saturate(math.min((y + 1f) - c.Min.y, c.Max.y - y));
+                for (int x = x0; x <= x1; x++)
+                {
+                    float cx = math.saturate(math.min((x + 1f) - c.Min.x, c.Max.x - x));
+                    float cov = cx * cy;
+                    if (cov <= 0f) continue;
+                    WriteCoverage(y * Res + x, cov * c.Strength, c.Finished, 1);
                 }
             }
         }

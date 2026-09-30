@@ -17,6 +17,11 @@ namespace TheWaningBorder.World.Roads
 
         /// <summary>Added to half a building's longer footprint side (metres).</summary>
         public float plazaMargin;
+
+        /// <summary>Build cells of Alanthor paving laid around an Alanthor
+        /// building's footprint on every side (a 3 x 3 building stands on a
+        /// 5 x 5 pad at 1).</summary>
+        public int alanthorPadMarginCells;
         /// <summary>Disc around a resource / curse node, metres.</summary>
         public float nodeDiscRadius;
         /// <summary>Full width of a road in a network that has buildings, metres.</summary>

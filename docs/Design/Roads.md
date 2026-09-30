@@ -116,6 +116,19 @@ into the moss instead of stopping at a line. Roads fade over their outer
 
 Widths: road **3 m**; trail (a network with no buildings at all) **2 m**.
 
+## 4b. The Alanthor pad (2026-09-30)
+
+Once a faction has chosen **Alanthor**, every one of its buildings stands on
+a **square of Alanthor paving**: its footprint plus **1 build cell (2 m) on
+every side** (`alanthorPadMarginCells`), so a 3 x 3-cell building gets a
+5 x 5-cell pad. Unlike a plaza it is cut square — hard edge, full
+coverage, no lobes or fade — and it sits inside the building's earthen
+plaza. It is paved by the same per-pixel rule as everything else (§5): it
+shows stone once the building is **finished** and the ground is Alanthor's,
+and earth while the building is under construction. Walls carry no pad
+(the network skips them). Appears when the culture is chosen, fades out with
+the building like a plaza.
+
 ## 5. The look
 
 Decided **per pixel in the shader**, never at raster time — so a territory

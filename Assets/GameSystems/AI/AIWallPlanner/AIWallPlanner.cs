@@ -37,6 +37,10 @@ namespace TheWaningBorder.AI
     {
         /// <summary>One of the AIWallPlanner.Mode* values.</summary>
         public byte Mode;
+        /// <summary>ModeBorder: the owned-territory set the plan was drawn
+        /// for (AIWallPlanner.TerritorySignature). A different set means the
+        /// border moved and the plan is redrawn.</summary>
+        public uint Territories;
     }
 
     /// <summary>One planned hub position. Buffer order IS chain order —
@@ -96,6 +100,10 @@ namespace TheWaningBorder.AI
         /// <summary>Open ground — enclose the important buildings in a
         /// large square-ish perimeter.</summary>
         public const byte ModePerimeter = 2;
+        /// <summary>The wall follows the owner's TERRITORY BORDER, a few
+        /// cells inside it, closed by terrain where terrain closes the way
+        /// (2026-09-30). The mode every AI plans on a partitioned map.</summary>
+        public const byte ModeBorder = 3;
 
         // ── Slot flags ────────────────────────────────────────────────────
         /// <summary>The segment from this slot to the NEXT slot of the same
@@ -370,6 +378,18 @@ namespace TheWaningBorder.AI
         public static byte BuildPlan(EntityManager em, Faction faction, float3 hallPos,
             NativeList<AIWallPlanSlot> slots, out string why)
         {
+            // Territories exist: the wall follows the border (a wall may only
+            // stand on its owner's ground — CommandRouter.WallLineOnOwnGround).
+            // The terrain-only square below is the fallback for maps with no
+            // partition, where the ownership gate is off.
+            if (TheWaningBorder.World.Regions.RegionMap.Ready
+                && TheWaningBorder.World.Regions.TerritoryOwnership.Ready
+                && TheWaningBorder.World.Regions.TerritoryOwnership.CountOf(faction) > 0)
+            {
+                EmitBorderLoop(em, faction, hallPos, slots, out why);
+                return ModeBorder;
+            }
+
             var corridors = new Corridor[MaxCorridors];
             if (TryAssess(hallPos, corridors, out int corridorCount, out _, out why))
             {
@@ -566,6 +586,186 @@ namespace TheWaningBorder.AI
                     });
                 }
             }
+        }
+
+        // ──────────────────────────────────────────────────────────────────
+        // BORDER LOOP
+        // ──────────────────────────────────────────────────────────────────
+
+        /// <summary>Order-independent signature of the territories this
+        /// faction owns — the plan is redrawn when it changes.</summary>
+        public static uint TerritorySignature(Faction faction)
+        {
+            if (!TheWaningBorder.World.Regions.TerritoryOwnership.Ready) return 0;
+            uint h = 2166136261u;
+            var owned = TheWaningBorder.World.Regions.TerritoryOwnership.TerritoriesOf(faction);
+            for (int i = 0; i < owned.Count; i++)
+                h = (h ^ (uint)(owned[i] + 1)) * 16777619u;
+            return h;
+        }
+
+        /// <summary>Owned by this faction, on the map, and not impassable
+        /// region kind — the ground a border wall stands inside.</summary>
+        private static bool OwnGround(Faction faction, float x, float z)
+        {
+            int t = TheWaningBorder.World.Regions.RegionMap.RegionAt(x, z);
+            if (t == TheWaningBorder.World.Regions.RegionMap.None) return false;
+            return TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(t) == (int)faction;
+        }
+
+        /// <summary>
+        /// THE WALL FOLLOWS THE BORDER (2026-09-30). One ray per bearing out of
+        /// the Fortress, marched until it leaves the faction's owned ground —
+        /// that distance is the border on that bearing. The wall point stands
+        /// <c>borderBufferCellsPreferred</c> build cells inside it, sliding
+        /// anywhere within the min..max band to find open ground. A bearing
+        /// where impassable TERRAIN comes before the border is the mountain's
+        /// to close: no wall point, and the stretch is marked terrain-sealed.
+        /// The points are resampled at <see cref="HubSpacing"/> into one
+        /// cyclic chain (chain 0), gates spread around it, towers at the gate
+        /// shoulders and every fourth hub. Fixed bearings and steps — every
+        /// lockstep peer draws the same wall.
+        /// </summary>
+        private static void EmitBorderLoop(EntityManager em, Faction faction, float3 hallPos,
+            NativeList<AIWallPlanSlot> slots, out string why)
+        {
+            float cell = BuildGrid.CellSize;
+            float bufPref = Cfg.borderBufferCellsPreferred * cell;
+            float bufMin = Cfg.borderBufferCellsMin * cell;
+            float bufMax = Cfg.borderBufferCellsMax * cell;
+            float step = Cfg.scanStep;
+
+            var pts = new float2[Bearings];
+            var open = new bool[Bearings];
+            int openCount = 0, terrainClosed = 0, tooNear = 0;
+            for (int b = 0; b < Bearings; b++)
+            {
+                float ang = (b / (float)Bearings) * 2f * math.PI;
+                float dx = math.cos(ang), dz = math.sin(ang);
+
+                // Walk out to the first sample off owned ground; a terrain
+                // run on the way means the mountain closes this bearing.
+                float border = -1f;
+                int run = 0;
+                bool terrain = false;
+                for (float r = step; r <= Cfg.borderScanMax; r += step)
+                {
+                    float x = hallPos.x + dx * r, z = hallPos.z + dz * r;
+                    if (!OwnGround(faction, x, z)) { border = r; break; }
+                    if (TerrainBlockedAt(x, z)) { if (++run >= ShelterRunSamples) { terrain = true; break; } }
+                    else run = 0;
+                }
+                if (terrain || border < 0f) { terrainClosed++; continue; }
+
+                // Preferred inset first, then outward/inward across the band.
+                float chosen = -1f;
+                for (int k = 0; k <= 4 && chosen < 0f; k++)
+                {
+                    float off = k == 0 ? bufPref
+                              : bufPref + ((k & 1) == 1 ? 1f : -1f) * ((k + 1) / 2) * cell;
+                    if (off < bufMin - 0.01f || off > bufMax + 0.01f) continue;
+                    float r = border - off;
+                    if (r < Cfg.borderMinRadius) continue;
+                    float x = hallPos.x + dx * r, z = hallPos.z + dz * r;
+                    if (TerrainBlockedAt(x, z) || !OwnGround(faction, x, z)) continue;
+                    chosen = r;
+                }
+                if (chosen < 0f)
+                {
+                    if (border - bufMin < Cfg.borderMinRadius) tooNear++; else terrainClosed++;
+                    continue;
+                }
+                pts[b] = new float2(hallPos.x + dx * chosen, hallPos.z + dz * chosen);
+                open[b] = true;
+                openCount++;
+            }
+
+            why = $"border loop: {openCount}/{Bearings} bearings walled, {terrainClosed} closed by terrain, " +
+                  $"{tooNear} too near the Fortress; inset {Cfg.borderBufferCellsMin}-{Cfg.borderBufferCellsMax} cells";
+            if (openCount < 2) return;
+
+            // Walk the bearings as runs of open ones, starting on a closed
+            // bearing so no run is split across the wrap (all open = one
+            // closed loop).
+            int start = -1;
+            for (int b = 0; b < Bearings; b++) if (!open[b]) { start = b; break; }
+            bool fullLoop = start < 0;
+            if (fullLoop) start = 0;
+
+            var run2 = new System.Collections.Generic.List<float2>(Bearings + 1);
+            int firstSlot = slots.Length;
+            for (int i = 0; i <= Bearings; i++)
+            {
+                int b = (start + i) % Bearings;
+                bool isOpen = i < Bearings && open[b];
+                if (isOpen) { run2.Add(pts[b]); continue; }
+                if (fullLoop && i == Bearings) run2.Add(pts[start]);   // close the ring
+                if (run2.Count == 0) continue;
+                EmitResampled(run2, slots, closesRing: fullLoop);
+                // The gap to the next run is the mountain's (or the map's).
+                if (!fullLoop && slots.Length > firstSlot)
+                {
+                    var last = slots[slots.Length - 1];
+                    last.Flags |= FlagTerrainSealed;
+                    slots[slots.Length - 1] = last;
+                }
+                run2.Clear();
+            }
+
+            // Gates spread evenly (one per ~quarter), towers on their
+            // shoulders and every fourth hub.
+            int n = slots.Length - firstSlot;
+            if (n < 2) return;
+            int gates = math.clamp(n / 4, 1, 4);
+            for (int g = 0; g < gates; g++)
+            {
+                int i = firstSlot + (int)((g + 0.5f) * n / gates);
+                if (i >= slots.Length - 1 && !fullLoop) i = slots.Length - 2;
+                var s = slots[i];
+                if ((s.Flags & FlagTerrainSealed) != 0) continue;
+                s.Flags |= (byte)(FlagGateAfter | FlagTower);
+                slots[i] = s;
+                int j = i + 1 < slots.Length ? i + 1 : firstSlot;
+                var t = slots[j]; t.Flags |= FlagTower; slots[j] = t;
+            }
+            for (int i = firstSlot; i < slots.Length; i += 4)
+            {
+                var s = slots[i]; s.Flags |= FlagTower; slots[i] = s;
+            }
+        }
+
+        /// <summary>Hubs along a polyline at up to <see cref="HubSpacing"/>:
+        /// the first point, then every spacing of arc length, then the last
+        /// point (unless it closes a ring back onto the first).</summary>
+        private static void EmitResampled(System.Collections.Generic.List<float2> line,
+            NativeList<AIWallPlanSlot> slots, bool closesRing)
+        {
+            void Add(float2 p) => slots.Add(new AIWallPlanSlot
+            {
+                Position = new float3(p.x, TerrainUtility.GetHeight(p.x, p.y), p.y),
+                Chain = 0,
+            });
+
+            Add(line[0]);
+            float since = 0f;
+            for (int i = 1; i < line.Count; i++)
+            {
+                float2 a = line[i - 1], b = line[i];
+                float seg = math.distance(a, b);
+                float along = 0f;
+                while (since + (seg - along) >= Cfg.hubSpacing)
+                {
+                    along += Cfg.hubSpacing - since;
+                    since = 0f;
+                    Add(math.lerp(a, b, along / seg));
+                }
+                since += seg - along;
+            }
+            if (!closesRing && since > Cfg.hubSpacing * 0.25f) Add(line[line.Count - 1]);
+            else if (closesRing && slots.Length > 0 && since < Cfg.hubSpacing * 0.25f
+                     && math.distance(new float2(slots[slots.Length - 1].Position.x,
+                                                 slots[slots.Length - 1].Position.z), line[0]) < 1f)
+                slots.RemoveAt(slots.Length - 1);   // the ring's closing point duplicates the first hub
         }
 
         /// <summary>

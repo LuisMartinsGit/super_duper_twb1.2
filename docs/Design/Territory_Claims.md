@@ -141,6 +141,12 @@ rule died with the Hall, and so did adjacency, the builder-inside rule and the
 escalating Hall price. Expansion is paid for in army time and in extractors,
 not in a claim building.
 
+**Walls included, every metre of them (2026-09-30).** A wall hub must stand on
+ground you own, and so must the whole curtain between two hubs: a wall between
+two of your hubs may not cut across a neighbour's corner. A drawn wall that
+leaves your ground anywhere is refused whole, before anything is paid. Checked
+where the order executes, for players and AI alike.
+
 The placement ghost and the command executor both check ownership at the tick
 the order runs (the same two-place enforcement Regions.md §2 established), and
 a refusal names the rule.

@@ -221,6 +221,40 @@ namespace TheWaningBorder.Core.Commands
         public static bool IsWallMountOnlyBuilding(string buildingId)
             => buildingId == BallistaEmplacement.Id || buildingId == TrebuchetEmplacement.Id;
 
+        /// <summary>Metres between ownership samples along a wall line.</summary>
+        private const float WallGroundSampleStep = 1f;
+
+        /// <summary>
+        /// A WALL STANDS ONLY ON GROUND ITS OWNER HOLDS (Territory_Claims.md §5,
+        /// 2026-09-30) — every hub AND every metre of curtain between them. The
+        /// player's wall tool checked this at the click; the executors did not,
+        /// so the AI (which calls them directly) raised walls on enemy ground,
+        /// and a curtain between two owned hubs could still cut across a
+        /// neighbour's corner. Checked here, before any spend, on every peer,
+        /// from replicated ownership. Fails open on a map with no partition,
+        /// exactly as the ordinary build gate does.
+        /// </summary>
+        public static bool WallLineOnOwnGround(EntityManager em, Faction faction,
+            System.Collections.Generic.IReadOnlyList<float3> line)
+        {
+            if (line == null || line.Count == 0) return true;
+            if (!WallPointOnOwnGround(em, faction, line[0])) return false;
+            for (int i = 1; i < line.Count; i++)
+            {
+                float3 a = line[i - 1], b = line[i];
+                float len = math.distance(a.xz, b.xz);
+                int steps = (int)math.ceil(len / WallGroundSampleStep);
+                for (int s = 1; s <= steps; s++)
+                    if (!WallPointOnOwnGround(em, faction, math.lerp(a, b, s / (float)steps)))
+                        return false;
+            }
+            return true;
+        }
+
+        public static bool WallPointOnOwnGround(EntityManager em, Faction faction, float3 p)
+            => TheWaningBorder.World.Regions.TerritoryOwnership.CanBuildAt(
+                   em, faction, "Alanthor_Wall", p.x, p.z);
+
         /// <summary>
         /// Re-arm an EMPTY emplacement: pay the engine SO's cost and start its
         /// restore timer (trainingTime). The engine is raised by

@@ -258,6 +258,18 @@ namespace TheWaningBorder.Rendering
         /// </summary>
         public static void FireSyntyStone(Vector3 origin, Vector3 target, float flightSeconds)
         {
+            // The ECS shot starts at the shooter's own position — ground level,
+            // inside the engine's collider. Launched from there, the stone's
+            // collision module hit the terrain / the trebuchet on its first
+            // frame and the impact burst played at the machine (2026-09-30).
+            // Lift it to a muzzle point, as SpawnShotFx's fallback does.
+            {
+                Vector3 toward = target - origin;
+                toward.y = 0f;
+                toward = toward.sqrMagnitude > 0.01f ? toward.normalized : Vector3.forward;
+                origin += Vector3.up * SharedMuzzleHeight + toward * SharedMuzzleForward;
+            }
+
             if (_sharedFx == null)
             {
                 _sharedFx = Resources.Load<GameObject>("Prefabs/Effects/FX_CatapultShot");
@@ -298,11 +310,18 @@ namespace TheWaningBorder.Rendering
 
             var fx = Instantiate(_sharedFx, origin, rot);
             fx.SetActive(true);
+            // The stone collides with the TERRAIN only: the engine's own
+            // selection collider (and any unit or building on the arc) must
+            // not end the flight early. It still bursts where it lands.
+            int terrainMask = Terrain.activeTerrain != null
+                ? 1 << Terrain.activeTerrain.gameObject.layer : ~0;
             foreach (var ps in fx.GetComponentsInChildren<ParticleSystem>(true))
             {
                 if (!ps.collision.enabled) continue;
                 var stoneMain = ps.main;
                 stoneMain.startSpeed = launchSpeed;
+                var col = ps.collision;
+                col.collidesWith = terrainMask;
                 break;
             }
             foreach (var ps in fx.GetComponentsInChildren<ParticleSystem>(true))
@@ -312,6 +331,11 @@ namespace TheWaningBorder.Rendering
             }
             Destroy(fx, 12f);
         }
+
+        /// <summary>Muzzle point for <see cref="FireSyntyStone"/>, above and
+        /// ahead of the shooter's position.</summary>
+        private const float SharedMuzzleHeight = 3f;
+        private const float SharedMuzzleForward = 1.5f;
 
         private static Transform FindDeep(Transform root, string childName)
         {

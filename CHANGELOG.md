@@ -13,6 +13,33 @@ build always name the same number.
 
 ---
 
+## [0.0.31] — 2026-09-30
+
+### Fixed
+
+- **Trebuchet stones fly again.** The stone launched from inside the machine
+  and burst on the spot; it now leaves from the arm, arcs through the air and
+  lands on the target (unit and wall emplacement).
+- **Walls only on your own ground.** Every wall hub, and every metre of wall
+  between two hubs, must stand in territory you own — for players and the AI.
+  A drawn wall that crosses anyone else's ground is refused whole, before you
+  pay for it. The AI used to build walls on enemy territory.
+
+### Changed
+
+- **The AI walls its border.** Instead of a square around its base, the AI's
+  wall now follows its own territory border, 4 to 6 cells inside it, and is
+  redrawn as it gains or loses territories. Mountains close the stretches
+  they already block.
+- **Alanthor paving under Alanthor buildings.** Once you choose Alanthor,
+  every finished building stands on a square of Alanthor stone one cell wider
+  than its footprint on every side.
+- **The new House model** has all its texture maps wired up (including the
+  roof's occlusion and height, its bushes and ground shadow) and renders both
+  sides of every face, so its construction rise no longer looks hollow.
+
+---
+
 ## [0.0.30] — 2026-09-30
 
 ### Changed — the new territory model

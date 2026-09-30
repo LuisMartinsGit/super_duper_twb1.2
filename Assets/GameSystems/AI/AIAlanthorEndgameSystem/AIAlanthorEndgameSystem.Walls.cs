@@ -92,7 +92,22 @@ namespace TheWaningBorder.AI
         private static void TryBuildWallDefenses(Faction faction, EntityManager em,
             Entity brainEntity, float3 hallPos)
         {
-            // ── Plan once, then execute forever. ──
+            // ── Plan, then execute. A BORDER plan is redrawn whenever the set
+            //    of territories this faction owns changes: the wall follows the
+            //    border, and a claim or a loss moves it. Standing hubs stay;
+            //    the executor matches slots to hubs by position. ──
+            uint signature = AIWallPlanner.TerritorySignature(faction);
+            if (em.HasComponent<AIWallPlan>(brainEntity))
+            {
+                var held = em.GetComponentData<AIWallPlan>(brainEntity);
+                if (held.Mode == AIWallPlanner.ModeBorder && held.Territories != signature)
+                {
+                    em.RemoveComponent<AIWallPlan>(brainEntity);
+                    if (em.HasBuffer<AIWallPlanSlot>(brainEntity))
+                        em.RemoveComponent<AIWallPlanSlot>(brainEntity);
+                    AILogger.Log(faction, "BUILDING", "Alanthor walls: territory changed — redrawing the border wall");
+                }
+            }
             if (!em.HasComponent<AIWallPlan>(brainEntity))
             {
                 var planned = new NativeList<AIWallPlanSlot>(Allocator.Temp);
@@ -104,7 +119,7 @@ namespace TheWaningBorder.AI
                     if ((planned[i].Flags & AIWallPlanner.FlagGateAfter) != 0) gates++;
                     if ((planned[i].Flags & AIWallPlanner.FlagTower) != 0) towers++;
                 }
-                em.AddComponentData(brainEntity, new AIWallPlan { Mode = mode });
+                em.AddComponentData(brainEntity, new AIWallPlan { Mode = mode, Territories = signature });
                 var buf = em.AddBuffer<AIWallPlanSlot>(brainEntity);
                 for (int i = 0; i < planned.Length; i++) buf.Add(planned[i]);
                 int slotCount = planned.Length;
@@ -114,6 +129,7 @@ namespace TheWaningBorder.AI
                 {
                     AIWallPlanner.ModeNone => "fully sheltered, no walls needed",
                     AIWallPlanner.ModeChokepoints => "seal chokepoints",
+                    AIWallPlanner.ModeBorder => "along the territory border",
                     _ => "perimeter around the base",
                 };
                 AILogger.Log(faction, "BUILDING",
@@ -267,6 +283,9 @@ namespace TheWaningBorder.AI
                     float3 pos = BuildGrid.Snap(slot.Position + nudges[n], hubSize);
                     pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
                     if (!BuildCommandHelper.IsValidBuildPosition(em, pos, hubSize)) continue;
+                    // A nudge must not carry the hub off its owner's ground —
+                    // the executor would refuse it (WallLineOnOwnGround).
+                    if (!CommandRouter.WallPointOnOwnGround(em, faction, pos)) continue;
 
                     // Affordability CHECK only — the SPEND and the hub
                     // creation live in PlaceWallHubDirect, which every peer
@@ -348,7 +367,8 @@ namespace TheWaningBorder.AI
             NativeList<Entity> hubEntities, NativeList<float3> hubPositions)
         {
             if (slots.Length < 2) return false;
-            bool cyclic = planMode == AIWallPlanner.ModePerimeter;
+            bool cyclic = planMode == AIWallPlanner.ModePerimeter
+                       || planMode == AIWallPlanner.ModeBorder;
 
             for (int i = 0; i < slots.Length; i++)
             {

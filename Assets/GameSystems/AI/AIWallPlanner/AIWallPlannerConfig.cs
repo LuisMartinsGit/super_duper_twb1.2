@@ -63,5 +63,21 @@ namespace TheWaningBorder.AI
         /// <summary>Buildings farther than this from the Hall are outlying
         /// expansion, not base — the perimeter does not chase them.</summary>
         public float perimeterGatherRadius;
+
+        // ── Border wall (2026-09-30) ─────────────────────────────────────
+        /// <summary>The wall stands this many BUILD CELLS inside its owner's
+        /// territory border: the preferred inset, then anywhere up to the max
+        /// to dodge blocked ground. Never closer than the min.</summary>
+        public int borderBufferCellsMin;
+        public int borderBufferCellsPreferred;
+        public int borderBufferCellsMax;
+
+        /// <summary>How far from the Fortress a bearing is marched looking
+        /// for the edge of owned ground, metres.</summary>
+        public float borderScanMax;
+
+        /// <summary>A wall point closer than this to the Fortress is dropped:
+        /// a border that near cannot be walled without walling the capital.</summary>
+        public float borderMinRadius;
     }
 }

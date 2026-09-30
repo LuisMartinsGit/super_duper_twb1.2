@@ -706,7 +706,8 @@ namespace TheWaningBorder.AI
             Entity brain = FindBrainEntity(em, faction);
             if (brain == Entity.Null || !em.HasComponent<AIWallPlan>(brain)
                 || !em.HasBuffer<AIWallPlanSlot>(brain)) return false;
-            if (em.GetComponentData<AIWallPlan>(brain).Mode != AIWallPlanner.ModePerimeter) return false;
+            byte wallMode = em.GetComponentData<AIWallPlan>(brain).Mode;
+            if (wallMode != AIWallPlanner.ModePerimeter && wallMode != AIWallPlanner.ModeBorder) return false;
             var slots = em.GetBuffer<AIWallPlanSlot>(brain, true);
             if (slots.Length < 3) return false;
             mn = new float2(float.MaxValue);

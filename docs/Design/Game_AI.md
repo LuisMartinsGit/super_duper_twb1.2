@@ -238,6 +238,19 @@ Exempt: **extractors** (Gatherer's Hut, Mine, Veilstone Mine, Smelter) stand
 on their node, and the node — map data — decides where they go; and the
 **Hall** when it claims new ground, which is sited on the target region.
 
+**The wall follows the border (2026-09-30).** On a map with territories the
+Alanthor wall doctrine no longer plans a square: it casts one ray per 7.5°
+out of the Fortress, finds where the faction's owned ground ends on each, and
+plans the wall **4-6 build cells inside that border** (5 preferred; the band
+lets a hub dodge blocked ground). A bearing where impassable terrain comes
+before the border is left to the mountain. Hubs are resampled every 30 m into
+one closed chain with up to four gates. The plan is **redrawn whenever the
+set of territories the AI owns changes** — the wall follows a claim or a loss;
+standing hubs stay. A hub nudge never leaves owned ground. The terrain-only
+square/chokepoint plan below remains only for maps with no partition.
+Numbers: `AIWallPlanner.asset` (borderBufferCellsMin/Preferred/Max,
+borderScanMax, borderMinRadius).
+
 **Inside the walls.** When the Alanthor wall doctrine has planned a PERIMETER
 wall around the base (AIWallPlanner, planned once), every later base building
 must fit inside the planned rectangle with 4 m to spare, so wider spacing can

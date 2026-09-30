@@ -209,6 +209,9 @@ namespace TheWaningBorder.Core.Commands
         public static Entity PlaceWallHubDirect(EntityManager em, float3 pos, Faction faction,
             bool autoBuild = false)
         {
+            // Own ground only — before the spend (WallLineOnOwnGround).
+            if (!WallPointOnOwnGround(em, faction, pos)) return Entity.Null;
+
             if (!BuildCosts.TryGet("Alanthor_Wall", out var cost)) cost = default;
             if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost))
                 return Entity.Null;
@@ -292,6 +295,15 @@ namespace TheWaningBorder.Core.Commands
             // wall level researches (docs/Design/Age_1_Alanthor.md § The four
             // wall levels).
             if (WallsLockedForUpgrade(em, faction)) return Entity.Null;
+
+            // The curtain from the source hub to its end — an existing hub or
+            // the new one — must run over the owner's ground the whole way.
+            {
+                float3 from = em.GetComponentData<Unity.Transforms.LocalTransform>(sourceHub).Position;
+                float3 to = snapHub != Entity.Null && em.Exists(snapHub)
+                    ? em.GetComponentData<Unity.Transforms.LocalTransform>(snapHub).Position : pos;
+                if (!WallLineOnOwnGround(em, faction, new[] { from, to })) return Entity.Null;
+            }
 
             Entity hub = snapHub;
             if (hub != Entity.Null && em.Exists(hub))
@@ -648,6 +660,10 @@ namespace TheWaningBorder.Core.Commands
             // it rises at the current level and is re-clad with the rest when
             // the research lands.
             if (touchesStanding && WallsLockedForUpgrade(em, faction)) return;
+
+            // A drawn wall is refused WHOLE if any of it leaves its owner's
+            // ground — before a single hub is paid for (WallLineOnOwnGround).
+            if (!WallLineOnOwnGround(em, faction, pts)) return;
 
             Entity prev = Entity.Null;
             float3 prevEnd = default;

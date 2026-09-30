@@ -65,6 +65,8 @@ namespace TheWaningBorder.World.Roads
             public bool IsBuilding;
             public Faction Faction;    // buildings only
             public int Region;         // RegionMap.RawRegionAt, or RegionMap.None
+            public Vector2 Size;       // buildings: footprint, metres
+            public bool Pad;           // buildings: owner has chosen Alanthor — lay a culture pad
         }
 
         /// <summary>A plaza with a life of its own: the last-known site data
@@ -143,6 +145,7 @@ namespace TheWaningBorder.World.Roads
         private bool _rasterPending;
         private bool _pendingDir;
         private NativeList<DiscCmd> _discCmds;
+        private NativeList<SquareCmd> _squareCmds;
         private NativeList<PolyCmd> _polyCmds;
         private NativeList<float2> _polyPoints;
         private int _res;
@@ -300,6 +303,13 @@ namespace TheWaningBorder.World.Roads
                     IsBuilding = true,
                     Faction = em.GetComponentData<FactionTag>(e).Value,
                     Region = RegionOf(e, pos),
+                    Size = new Vector2(sz.Width, sz.Height),
+                    // THE ALANTHOR PAD (Roads.md §4b, 2026-09-30): once its
+                    // owner has chosen Alanthor, every building stands on a
+                    // square of Alanthor paving, its footprint plus
+                    // alanthorPadMarginCells build cells on every side.
+                    Pad = CultureConfig.GetCompletedCulture(em,
+                              em.GetComponentData<FactionTag>(e).Value) == Cultures.Alanthor,
                 });
                 _siteHash += SiteHash(_sites[_sites.Count - 1]);
             }
@@ -312,7 +322,8 @@ namespace TheWaningBorder.World.Roads
             ulong h = NetMemberHash(s);
             h ^= (ulong)(uint)Mathf.RoundToInt(s.Disc * 10f) * 0xFF51AFD7ED558CCDUL;
             h ^= (ulong)(uint)(s.Region + 7) * 0xC4CEB9FE1A85EC53UL;
-            h ^= (s.Finished ? 1UL : 0UL) | (s.IsBuilding ? 2UL : 0UL) | ((ulong)(uint)(int)s.Faction << 2);
+            h ^= (s.Finished ? 1UL : 0UL) | (s.IsBuilding ? 2UL : 0UL) | ((ulong)(uint)(int)s.Faction << 2)
+               | (s.Pad ? 1UL << 40 : 0UL);
             h ^= h >> 31; h *= 0xBF58476D1CE4E5B9UL; h ^= h >> 29;
             return h;
         }
@@ -651,7 +662,8 @@ namespace TheWaningBorder.World.Roads
             EnsureMask();
             float texelsPerMetre = _res / _worldSize.x;
 
-            _discCmds.Clear(); _polyCmds.Clear(); _polyPoints.Clear();
+            _discCmds.Clear(); _polyCmds.Clear(); _polyPoints.Clear(); _squareCmds.Clear();
+            float padMargin = Cfg.alanthorPadMarginCells * BuildGrid.CellSize;
             foreach (var kv in _siteStates)
             {
                 var st = kv.Value; var s = st.Data;
@@ -663,6 +675,18 @@ namespace TheWaningBorder.World.Roads
                     Seed = s.Entity.Index, Finished = (byte)(s.Finished ? 1 : 0),
                     Plaza = (byte)(s.IsBuilding ? 1 : 0), Strength = Ease(st.Strength),
                 });
+                if (s.IsBuilding && s.Pad)
+                {
+                    var half = s.Size * 0.5f + new Vector2(padMargin, padMargin);
+                    var lo = ToTexel(s.Pos - half);
+                    var hi = ToTexel(s.Pos + half);
+                    _squareCmds.Add(new SquareCmd
+                    {
+                        Min = new float2(Mathf.Min(lo.x, hi.x), Mathf.Min(lo.y, hi.y)),
+                        Max = new float2(Mathf.Max(lo.x, hi.x), Mathf.Max(lo.y, hi.y)),
+                        Finished = (byte)(s.Finished ? 1 : 0), Strength = Ease(st.Strength),
+                    });
+                }
             }
             foreach (var kv in _edgeStates)
             {
@@ -690,6 +714,7 @@ namespace TheWaningBorder.World.Roads
                 Dir = _dirBuf,
                 Nearest = _nearest,
                 Discs = _discCmds.AsArray(),
+                Squares = _squareCmds.AsArray(),
                 Polys = _polyCmds.AsArray(),
                 Points = _polyPoints.AsArray(),
             };
@@ -753,6 +778,7 @@ namespace TheWaningBorder.World.Roads
             _maskBuf = new NativeArray<Color32>(res * res, Allocator.Persistent);
             _dirBuf = new NativeArray<Color32>(res * res, Allocator.Persistent);
             if (!_discCmds.IsCreated) _discCmds = new NativeList<DiscCmd>(256, Allocator.Persistent);
+            if (!_squareCmds.IsCreated) _squareCmds = new NativeList<SquareCmd>(256, Allocator.Persistent);
             if (!_polyCmds.IsCreated) _polyCmds = new NativeList<PolyCmd>(256, Allocator.Persistent);
             if (!_polyPoints.IsCreated) _polyPoints = new NativeList<float2>(8192, Allocator.Persistent);
             _globalsBound = false;
@@ -803,6 +829,7 @@ namespace TheWaningBorder.World.Roads
             if (_maskBuf.IsCreated) _maskBuf.Dispose();
             if (_dirBuf.IsCreated) _dirBuf.Dispose();
             if (_discCmds.IsCreated) _discCmds.Dispose();
+            if (_squareCmds.IsCreated) _squareCmds.Dispose();
             if (_polyCmds.IsCreated) _polyCmds.Dispose();
             if (_polyPoints.IsCreated) _polyPoints.Dispose();
         }
