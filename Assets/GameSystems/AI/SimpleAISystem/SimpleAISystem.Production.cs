@@ -228,7 +228,11 @@ namespace TheWaningBorder.AI
             // through three tuning rounds. The floor keeps the claim's
             // worker and the intel corps alive; it no longer eats the
             // army's population.
-            if (TheWaningBorder.AI.AIPivotalReserve.ShouldHold(em, faction))
+            // RESOURCE-AWARE (2026-10-03): only a unit that spends a resource
+            // the save is short on is held — a veilstone-short Fortress save
+            // no longer freezes supplies/iron infantry.
+            var cost = AICommon.ToCost(def.cost);
+            if (TheWaningBorder.AI.AIPivotalReserve.ShouldHold(em, faction, cost))
             {
                 bool essential =
                     (unitId == "Worker"
@@ -253,13 +257,17 @@ namespace TheWaningBorder.AI
                     essential = unitId == "Worker"
                         && CountAliveWorkers(em, faction) < WorkerFloorFor(em, faction);
                 if (!essential)
-                { blockReason = "pivotal hold (saving)"; return false; }
+                {
+                    blockReason = AILogger.Enabled
+                        ? $"pivotal hold (saving) short {TheWaningBorder.AI.AIPivotalReserve.ShortResources(em, faction)}"
+                        : "pivotal hold (saving)";
+                    return false;
+                }
             }
 
             // Affordability CHECK only — TrainCommandDirect spends on every
             // peer (docs/Multiplayer_LAN_Readiness.md); an AI-side Spend
             // here would double-charge the host and charge clients nothing.
-            var cost = AICommon.ToCost(def.cost);
             if (!FactionEconomy.CanAfford(em, faction, cost))
             { blockReason = "bank short"; return false; }
 
@@ -467,13 +475,15 @@ namespace TheWaningBorder.AI
             { blockReason = $"no ready {researchAt} host"; return false; }
 
             // PIVOTAL HOLD (2026-08-31): research spending waits out the
-            // savings window like army training and building placement do.
-            if (TheWaningBorder.AI.AIPivotalReserve.ShouldHold(em, faction))
+            // savings window like army training and building placement do —
+            // only when the tech spends a resource the save is short on
+            // (resource-aware, 2026-10-03).
+            var cost = AICommon.ToCost(def.cost);
+            if (TheWaningBorder.AI.AIPivotalReserve.ShouldHold(em, faction, cost))
             { blockReason = "pivotal hold (saving)"; return false; }
 
             // Affordability CHECK only — ResearchCommandDirect spends on
             // every peer (docs/Multiplayer_LAN_Readiness.md).
-            var cost = AICommon.ToCost(def.cost);
             if (!FactionEconomy.CanAfford(em, faction, cost))
             { blockReason = "bank short"; return false; }
 
@@ -554,7 +564,13 @@ namespace TheWaningBorder.AI
         private static readonly System.Collections.Generic.Dictionary<Faction, string> _lastMissingTrainer
             = new System.Collections.Generic.Dictionary<Faction, string>();
 
-        private static void ReplaceLostUnits(EntityManager em, Faction faction, ref SimpleAIState aiState)
+        /// <summary>Last "unaffordable, training X instead" pair logged, per
+        /// faction — the line repeats only when the pair changes.</summary>
+        private static readonly System.Collections.Generic.Dictionary<Faction, string> _lastAffordFallback
+            = new System.Collections.Generic.Dictionary<Faction, string>();
+
+        private static void ReplaceLostUnits(EntityManager em, Entity brainEntity, Faction faction,
+            ref SimpleAIState aiState, RoleBudget budget, float intelFreshness, float now)
         {
             // Military deficit
             if (aiState.DesiredMilitary > 0 && !aiState.LastMilitaryUnit.IsEmpty)
@@ -588,6 +604,54 @@ namespace TheWaningBorder.AI
                                 out floorBlock))
                             break;
                         trained++;
+                    }
+
+                    // THE BANK CANNOT PAY FOR THIS UNIT — TRAIN ONE IT CAN
+                    // (2026-10-03). The 0.0.33 60-minute batch: every Alanthor
+                    // AI held 100,000 supplies and 30,000 iron, 10-430
+                    // veilstone, an army of 2-80 against a 300 cap, and its
+                    // top military line (~800x) was "deficit N x
+                    // Alanthor_Catapult — Military budget short". The floor
+                    // re-asked for the same veilstone unit every think while
+                    // the Spearman and the Archer — no veilstone at all —
+                    // went unbought. TryTrainUnitBudgeted has now recorded the
+                    // refusal (the unit is passed over for
+                    // unaffordableUnitCooldownSeconds), so re-picking returns
+                    // the next-best unit the bank CAN pay for.
+                    // Each refused pick is recorded, so each re-pick steps one
+                    // unit further down; a few steps reach the veilstone-free
+                    // bottom of the ladder within the same think.
+                    string refused = aiState.LastMilitaryUnit.ToString();
+                    string tried = refused;
+                    const string BudgetShort = " budget short";
+                    const int MaxAffordRepicks = 4;   // loop bound, not tuning
+                    for (int attempt = 0; attempt < MaxAffordRepicks && trained == 0
+                         && floorBlock != null
+                         && floorBlock.StartsWith(AIBudgetCategory.Military + BudgetShort); attempt++)
+                    {
+                        string alt = PickCompositionUnit(em, brainEntity, faction, now,
+                            budget, intelFreshness);
+                        if (string.IsNullOrEmpty(alt) || alt == tried) break;
+                        tried = alt;
+                        for (int t = 0; t < refill; t++)
+                        {
+                            if (!TryTrainUnitBudgeted(em, faction, alt,
+                                    AIBudgetCategory.Military, out floorBlock))
+                                break;
+                            trained++;
+                        }
+                        if (trained == 0) continue;
+
+                        aiState.LastMilitaryUnit = new FixedString64Bytes(alt);
+                        string pair = refused + ">" + alt;
+                        if (!_lastAffordFallback.TryGetValue(faction, out string prevPair)
+                            || prevPair != pair)
+                        {
+                            _lastAffordFallback[faction] = pair;
+                            AILogger.Log(faction, "MILITARY",
+                                $"{refused} unaffordable ({ShortOf(em, faction, refused)}) — " +
+                                $"training {alt} instead (repeats suppressed until the pair changes)");
+                        }
                     }
 
                     // A silently blocked floor gets a log line about once a
@@ -908,9 +972,14 @@ namespace TheWaningBorder.AI
             // the army actually holds enough of them.
             if (rangedHeavy) cavFrac = math.max(cavFrac, 0.45f);
 
-            if (cavalry != null && totalArmy > 0 && ownCav < totalArmy * cavFrac)
+            // A unit the bank could not pay for a moment ago is passed over
+            // until the bank covers it again (RecordUnaffordable) — the next
+            // line takes the order instead of the same refusal repeating.
+            if (cavalry != null && totalArmy > 0 && ownCav < totalArmy * cavFrac
+                && !IsPassedOver(em, faction, cavalry))
                 return cavalry;
-            if (siege != null && totalArmy >= 4 && ownSiege < totalArmy * siegeFrac)
+            if (siege != null && totalArmy >= 4 && ownSiege < totalArmy * siegeFrac
+                && !IsPassedOver(em, faction, siege))
                 return siege;
 
             // ── TRAIN EVERY UNIT THE CULTURE OWNS. ──
@@ -929,7 +998,18 @@ namespace TheWaningBorder.AI
             // still leads (it carries the counter-composition read); this stops
             // the roster collapsing to two ids.
             string spread = c.Spread;
+            if (spread != null && IsPassedOver(em, faction, spread))
+                spread = LeastRepresentedTrainable(em, faction, skipPassedOver: true);
             if (spread != null) return spread;
+
+            // Each line steps DOWN its own ladder past a unit the bank cannot
+            // pay for: the Swordsman (veilstone) gives way to the Spearman,
+            // the Longbowman and Crossbowman (veilstone) to the Archer. The
+            // bottom rung of each line costs no veilstone at all.
+            melee = FirstUsable(em, faction, melee, "Spearman") ?? melee;
+            if (!c.RangedTrainerMissing)
+                ranged = FirstUsable(em, faction, ranged,
+                    "Alanthor_Crossbowman", "Alanthor_Archer") ?? ranged;
 
             // Ranged is an Age-1 unlock (2026-08-11): with no Archery Range
             // standing (era 1 cannot build one, or it was razed), the ranged
@@ -940,7 +1020,97 @@ namespace TheWaningBorder.AI
 
             int total = ownMelee + ownRanged;
             if (total == 0) return melee;
-            return ownRanged < total * desiredRangedFrac ? ranged : melee;
+            string pick = ownRanged < total * desiredRangedFrac ? ranged : melee;
+            // Both lines still refused: whichever the bank can pay for.
+            if (IsPassedOver(em, faction, pick))
+            {
+                string other = pick == ranged ? melee : ranged;
+                if (!IsPassedOver(em, faction, other)) pick = other;
+            }
+            return pick;
+        }
+
+        // ── UNAFFORDABLE-UNIT MEMORY (2026-10-03) ─────────────────────────
+        //
+        // The AI silent-failure pattern again: the military floor asked for a
+        // Catapult the bank could not pay for, nothing recorded the refusal,
+        // and the next think asked for the same Catapult — ~800 times in a
+        // 60-minute match while 100,000 supplies sat unspent. A refused unit
+        // is now remembered for unaffordableUnitCooldownSeconds, and the
+        // picker passes it over meanwhile — unless the bank covers it again
+        // first, in which case it is the right unit and is bought.
+        //
+        // Keyed lookups only (never iterated), simulated time: deterministic.
+
+        private static readonly Dictionary<(Faction faction, string unitId), float> _unitUnaffordableUntil
+            = new Dictionary<(Faction, string), float>();
+
+        /// <summary>The bank could not pay for this combat unit just now.</summary>
+        private static void RecordUnaffordable(Faction faction, string unitId)
+        {
+            if (string.IsNullOrEmpty(unitId)) return;
+            _unitUnaffordableUntil[(faction, unitId)] =
+                TheWaningBorder.Core.SimClock.Now + Cfg.unaffordableUnitCooldownSeconds;
+        }
+
+        /// <summary>True while the picker should skip this unit: refused
+        /// recently, and the bank still cannot pay for it — or it spends a
+        /// resource the pivotal savings hold is short on.</summary>
+        private static bool IsPassedOver(EntityManager em, Faction faction, string unitId)
+        {
+            if (string.IsNullOrEmpty(unitId)) return false;
+            // RESOURCE-AWARE HOLD (2026-10-03): while a save is short on, say,
+            // veilstone, a veilstone unit would only be refused by the hold
+            // in TryTrainUnitWithReason — and the roster spread favours the
+            // least-represented (usually the veilstone) units, so the army
+            // stalled on the same refusal. Pass it over so the line steps
+            // down to a unit the hold lets through.
+            if (TechCatalog.TryGetUnit(unitId, out var heldDef) && heldDef != null
+                && TheWaningBorder.AI.AIPivotalReserve.ShouldHold(em, faction,
+                       AICommon.ToCost(heldDef.cost)))
+                return true;
+            if (!_unitUnaffordableUntil.TryGetValue((faction, unitId), out float until)) return false;
+            if (TheWaningBorder.Core.SimClock.Now >= until)
+            {
+                _unitUnaffordableUntil.Remove((faction, unitId));
+                return false;
+            }
+            if (TechCatalog.TryGetUnit(unitId, out var def) && def != null
+                && FactionEconomy.CanAfford(em, faction, AICommon.ToCost(def.cost)))
+                return false;
+            return true;
+        }
+
+        /// <summary>The first candidate that is trainable now and not passed
+        /// over, or null.</summary>
+        private static string FirstUsable(EntityManager em, Faction faction, params string[] ids)
+        {
+            for (int i = 0; i < ids.Length; i++)
+            {
+                string id = ids[i];
+                if (string.IsNullOrEmpty(id) || IsPassedOver(em, faction, id)) continue;
+                if (!TechCatalog.TryGetUnit(id, out var def) || def == null) continue;
+                Entity trainer = FindTrainerForUnit(em, faction, id);
+                if (trainer == Entity.Null) continue;
+                if (em.HasComponent<UnderConstruction>(trainer)) continue;
+                if (!CommandRouter.CanTrainAtBuilding(em, trainer, id, out _, out _)) continue;
+                return id;
+            }
+            return null;
+        }
+
+        /// <summary>What the bank is short of for this unit, for the log.</summary>
+        private static string ShortOf(EntityManager em, Faction faction, string unitId)
+        {
+            if (!TechCatalog.TryGetUnit(unitId, out var def) || def == null) return "no def";
+            if (!FactionEconomy.TryGetResources(em, faction, out var res)) return "no bank";
+            var cost = AICommon.ToCost(def.cost);
+            string s = null;
+            if (res.Supplies  < cost.Supplies)  s += $", supplies {res.Supplies}/{cost.Supplies}";
+            if (res.Iron      < cost.Iron)      s += $", iron {res.Iron}/{cost.Iron}";
+            if (res.Veilstone < cost.Veilstone) s += $", veilstone {res.Veilstone}/{cost.Veilstone}";
+            if (res.Veilsteel < cost.Veilsteel) s += $", veilsteel {res.Veilsteel}/{cost.Veilsteel}";
+            return s != null ? "short of " + s.Substring(2) : "reserved savings";
         }
 
         /// <summary>
@@ -952,7 +1122,8 @@ namespace TheWaningBorder.AI
         /// skips heroes and uniques — HeroTrainLimit owns those, and a
         /// one-per-player unit can never reach an even share.
         /// </summary>
-        private static string LeastRepresentedTrainable(EntityManager em, Faction faction)
+        private static string LeastRepresentedTrainable(EntityManager em, Faction faction,
+            bool skipPassedOver = false)
         {
             var ids = TrainableCombatIds(em, faction);
             if (ids.Count < 2) return null;
@@ -985,6 +1156,7 @@ namespace TheWaningBorder.AI
             string worst = null; float worstGap = 0f;
             for (int k = 0; k < ids.Count; k++)
             {
+                if (skipPassedOver && IsPassedOver(em, faction, ids[k])) continue;
                 float gap = share - _rosterCounts[k];
                 if (gap > worstGap) { worstGap = gap; worst = ids[k]; }
             }

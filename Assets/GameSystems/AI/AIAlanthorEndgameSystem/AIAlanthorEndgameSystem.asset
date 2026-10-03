@@ -21,6 +21,9 @@ MonoBehaviour:
   unprotectedNodeRadius: 130
   hutCoverageRadius: 28
   maxWallHubs: 40
+  maxWallPiecesPerTerritory: 320
+  maxWallSlotRebuilds: 2
+  wallLogInterval: 60
   wallHubBuildSeconds: 30
   wallSlotOccupiedRadius: 7
   thinkInterval: 5

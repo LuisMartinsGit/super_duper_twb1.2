@@ -67,7 +67,16 @@ namespace TheWaningBorder.AI
             /// <summary>When the reservation lapses. A saving goal that never
             /// completes must not starve the faction forever.</summary>
             public float ReserveExpiry;
+
+            /// <summary>Per resource: the simulated time until which the
+            /// army counts as SHORT of it — refreshed by every military
+            /// purchase the bank could not cover (see NoteMilitaryShort).</summary>
+            public readonly float[] MilitaryShortUntil = new float[Resources];
         }
+
+        /// <summary>Resource indices for <see cref="IsMilitaryShort"/> — the
+        /// wallet column order.</summary>
+        public const int ResSupplies = 0, ResIron = 1, ResVeilstone = 2, ResVeilsteel = 3;
 
         private static readonly Dictionary<Faction, BrainBudget> _brains = new();
 
@@ -475,6 +484,47 @@ namespace TheWaningBorder.AI
             b.WindowSpends[3] += cost.Veilsteel;
             for (int r = 0; r < Resources; r++)
                 if (b.Wallets[c, r] < 0f) b.Wallets[c, r] = 0f;
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // MILITARY SHORTAGE — the signal other spenders yield to
+        // ─────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// A military purchase was refused: record WHICH resources the bank
+        /// could not cover, so the rest of the brain can act on it instead of
+        /// the refusal vanishing (docs: the AI silent-failure pattern).
+        ///
+        /// Measured 2026-10-03 (0.0.33, 60-minute batch): every Alanthor AI
+        /// sat on 100,000 supplies and 30,000 iron with 10-430 veilstone, its
+        /// army at 2-80 of 300, while the floor logged "Military budget short
+        /// for Alanthor_Catapult" ~800 times — and nothing else in the brain
+        /// knew veilstone was the wall. Readers: the wall doctrine (yields
+        /// while the army is short of supplies or iron), the Trading Outposts
+        /// (stay on Buy while it is short of veilstone) and the claim picker
+        /// (favours outcrops while it is short of veilstone).
+        ///
+        /// Simulated time (SimClock), so the record ticks with the match.
+        /// Host-side AI state only; nothing here touches the real bank.
+        /// </summary>
+        public static void NoteMilitaryShort(EntityManager em, Faction faction, Cost cost)
+        {
+            if (!FactionEconomy.TryGetResources(em, faction, out var res)) return;
+            var b = GetBrain(faction);
+            float until = SimClock.Now + Cfg.militaryShortHoldSeconds;
+            if (res.Supplies  < cost.Supplies)  b.MilitaryShortUntil[ResSupplies]  = until;
+            if (res.Iron      < cost.Iron)      b.MilitaryShortUntil[ResIron]      = until;
+            if (res.Veilstone < cost.Veilstone) b.MilitaryShortUntil[ResVeilstone] = until;
+            if (res.Veilsteel < cost.Veilsteel) b.MilitaryShortUntil[ResVeilsteel] = until;
+        }
+
+        /// <summary>True while the army's last refused purchases were short
+        /// of this resource (one of the Res* indices).</summary>
+        public static bool IsMilitaryShort(Faction faction, int resource)
+        {
+            if (resource < 0 || resource >= Resources) return false;
+            var b = GetBrain(faction);
+            return SimClock.Now < b.MilitaryShortUntil[resource];
         }
 
         private static BrainBudget GetBrain(Faction faction)

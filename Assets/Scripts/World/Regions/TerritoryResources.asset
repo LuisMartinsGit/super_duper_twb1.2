@@ -9,11 +9,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a2b3c4d5e6f708192a3b4c5d6e7f2002, type: 3}
-  m_Name: AIBudget
-  m_EditorClassIdentifier:
-  weightFloor: 0.10
-  walletCapSeconds: 120
-  walletCapMinimum: 500
-  logInterval: 15
-  militaryShortHoldSeconds: 45
+  m_Script: {fileID: 11500000, guid: d18c11580e114c28ab7c89aef59f18f6, type: 3}
+  m_Name: TerritoryResources
+  m_EditorClassIdentifier: 
+  normalWeight: 1
+  normalIronWeight: 2
+  normalVeilstoneWeight: 4
+  normalVeilstoneOutcropsMin: 1
+  normalVeilstoneOutcropsMax: 2

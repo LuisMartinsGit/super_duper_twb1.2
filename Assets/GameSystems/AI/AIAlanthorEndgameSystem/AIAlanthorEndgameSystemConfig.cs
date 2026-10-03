@@ -62,6 +62,25 @@ namespace TheWaningBorder.AI
         /// sized for a full max-extent perimeter (4 x 124 m / 12.5 m).</summary>
         public int maxWallHubs;
 
+        /// <summary>Hard cap on stone wall pieces (hubs + 3 m curtain
+        /// modules — what Metrics_Buildings counts as Alanthor_Wall) the
+        /// doctrine lets stand in ONE walled territory. Past it the doctrine
+        /// adds no hub and no curtain there; gate/tower conversions still
+        /// run. A backstop: the doctrine already stops once a territory's
+        /// ring is closed (docs/Design/Game_AI.md § Walls).</summary>
+        public int maxWallPiecesPerTerritory;
+
+        /// <summary>Times one plan slot's hub — or its link to the next slot
+        /// — is rebuilt after being LOST. Past it the slot is left dead (or
+        /// the link open): a wall on a contested line is not re-bought every
+        /// half minute.</summary>
+        public int maxWallSlotRebuilds;
+
+        /// <summary>Seconds (simulated) between repeats of one faction's
+        /// wall-doctrine hold notes (yielding to the army, piece cap reached,
+        /// a Fortress territory waiting for funds).</summary>
+        public float wallLogInterval;
+
         /// <summary>Hub / instance self-build time — mirrors
         /// WorkerCommandPanel.WallExtendBuildSeconds (30 s, AutoConstructTag,
         /// no worker dispatched).</summary>

@@ -266,7 +266,15 @@ namespace TheWaningBorder.AI
                 // Pivotal savings hold (AIPivotalReserve): while the faction
                 // saves toward a pivotal purchase, the discretionary passes
                 // below skip their spends. Sects and worker flee always run.
-                bool saving = AIPivotalReserve.ShouldHold(em, faction);
+                // RESOURCE-AWARE (2026-10-03): each pass tests the hold at
+                // its own spend point against THAT purchase's cost
+                // (TryBuildOnce holdable, TryQueueAt, the sect trainers and
+                // research, the tower), so a save short only on veilstone no
+                // longer freezes supplies/iron spending. The wall program is
+                // gated here on a stone hub's price.
+                bool wallsHeld = BuildCosts.TryGet("Alanthor_Wall", out var wallHubCost)
+                    ? AIPivotalReserve.ShouldHold(em, faction, wallHubCost)
+                    : AIPivotalReserve.ShouldHold(em, faction);
 
                 // ─── 4c/4d. Expansion targets ─────────────────────────
                 // Once the Age-2 core stands: Huts toward 8 Houses, one
@@ -274,7 +282,7 @@ namespace TheWaningBorder.AI
                 // each one unlocks a unit and a faction-wide research the
                 // AI cannot get any other way, whereas a Hut is only more
                 // of what it already has.
-                if (!saving && !ladderBusy
+                if (!ladderBusy
                     && !TryBuildSectBuildings(faction, em, hallPos)
                     )
                     TryBuildHouses(faction, em, hallPos);
@@ -282,8 +290,7 @@ namespace TheWaningBorder.AI
                 // ─── 4e. Sect research ────────────────────────────────
                 // One faction-wide effect per adopted sect, bought at that
                 // sect's own building (docs/Design/Sects.md section 1).
-                if (!saving)
-                    TryResearchSectTech(faction, em);
+                TryResearchSectTech(faction, em);
 
                 // ─── 6. Tower doctrine ────────────────────────────────
                 // Towers are BOTH Alanthor's territory claims (each projects
@@ -291,28 +298,23 @@ namespace TheWaningBorder.AI
                 // toward the known threat with chokepoint preference and
                 // anti-clump spacing — from era-2 start, budget by
                 // difficulty (no more 4-in-a-row ring spam at minute 5).
-                if (!saving)
-                    TryBuildDefensiveTower(faction, em, entity, brain.Difficulty, hallPos);
+                TryBuildDefensiveTower(faction, em, entity, brain.Difficulty, hallPos);
 
                 // ─── 6b. Wall doctrine ────────────────────────────────
                 // Terrain-aware plan execution — endgame only (the ladder
                 // keeps priority on the bank while it is building).
-                if (!saving && !ladderBusy)
+                if (!wallsHeld && !ladderBusy)
                     TryBuildWallDefenses(faction, em, entity, hallPos);
 
                 // ─── 7. Armoured-unit production ──────────────────────
-                if (!saving)
-                    TryQueueArmouredUnits(faction, em);
+                TryQueueArmouredUnits(faction, em);
 
                 // ─── 7b. Sect units ───────────────────────────────────
                 // Canon trains the sect unit at the SECT BUILDING; the chapel
                 // path stays for the sects that have no building yet
                 // (docs/Design/Sects.md section 1; cap 2 per sect).
-                if (!saving)
-                {
-                    TryTrainSectUnitsAtSectBuildings(faction, em);
-                    TryTrainSectUnits(faction, em);
-                }
+                TryTrainSectUnitsAtSectBuildings(faction, em);
+                TryTrainSectUnits(faction, em);
 
                 // ─── 8. Worker flee ───────────────────────────────────
                 HandleWorkerFlee(faction, em, hallPos, time);
@@ -347,6 +349,9 @@ namespace TheWaningBorder.AI
             // peer (docs/Multiplayer_LAN_Readiness.md).
             var cost = AICommon.ToCost(def.cost);
             if (!FactionEconomy.CanAfford(em, faction, cost)) return false;
+            // Pivotal savings hold, resource-aware (every caller of this is a
+            // discretionary army pass).
+            if (AIPivotalReserve.ShouldHold(em, faction, cost)) return false;
 
             // Through CommandRouter (CommandSource.AI) so host-AI training
             // replicates — a direct queue.Add spawned units on the host only.

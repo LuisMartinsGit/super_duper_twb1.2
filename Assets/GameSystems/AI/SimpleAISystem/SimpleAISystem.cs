@@ -49,6 +49,10 @@ namespace TheWaningBorder.AI
         {
             RequireForUpdate<AIBrain>();
             _missions.Clear();
+            // Static, keyed on simulated time: a previous match's entries
+            // would pass units over at the start of this one.
+            _unitUnaffordableUntil.Clear();
+            _lastAffordFallback.Clear();
 
             // Deterministic, match-specific RNG seed. Under the fixed-step
             // lockstep this stream advances identically on every client (same
@@ -165,7 +169,8 @@ namespace TheWaningBorder.AI
                 // Replace any military/workers that died since the build order
                 // queued them. Runs before the next step so replacements take
                 // priority on the train queue and resources.
-                ReplaceLostUnits(em, brain.Owner, ref aiState);
+                ReplaceLostUnits(em, brainEntity, brain.Owner, ref aiState,
+                    RoleBudget.For(personality.personality), profile.IntelFreshnessSeconds, now);
 
                 // Scout movement is owned by ScoutDirectorSystem (AI plan M3):
                 // zone-based exploration + recon requests replace the old
@@ -184,6 +189,12 @@ namespace TheWaningBorder.AI
                 // because it depends on the bank and on what ground is still
                 // free, neither of which a scripted build order can know.
                 EnsureTerritoryClaim(em, brain.Owner, now);
+
+                // …and RAISE THE LIMIT: the territory limit is the Fortress
+                // levels + 2 (Territory_Claims.md §10), so after age-up a
+                // Fortress in held ground is what lets the claims go on
+                // (Game_AI.md § Fortress expansion).
+                EnsureFortressExpansion(em, brain.Owner, now);
 
                 // …and INVEST in the ground already held. With nodes depleting,
                 // an unworked territory gets poorer whether or not anyone is

@@ -253,7 +253,8 @@ namespace TheWaningBorder.AI
                 armyCap = math.min(armyCap, 8);
 
             if (aiState.DesiredMilitary < armyCap
-                && CountAliveMilitary(em, faction) >= aiState.DesiredMilitary
+                && CountAliveMilitary(em, faction) >= aiState.DesiredMilitary)
+            {
                 // Pivotal savings hold: army GROWTH (beyond the floor) is
                 // discretionary — it was eating every supply the instant it
                 // arrived, so 500-supply lump sums never formed. BELOW the
@@ -261,9 +262,11 @@ namespace TheWaningBorder.AI
                 // thermostat note in Expansion.TickClaims — rebuilding to
                 // MinArmyForNextClaim proceeds THROUGH holds, or the two
                 // engines deadlock at gate-1 forever.
-                && (CountAliveMilitary(em, faction) < Cfg.minArmyForNextClaim
-                    || !AIPivotalReserve.ShouldHold(em, faction)))
-            {
+                // RESOURCE-AWARE (2026-10-03): the hold is tested per picked
+                // unit, against ITS cost — a save short only on veilstone
+                // no longer freezes supplies/iron infantry
+                // (TryTrainUnitWithReason applies the same test).
+                bool belowGate = CountAliveMilitary(em, faction) < Cfg.minArmyForNextClaim;
                 int trainers = CountFactionBuildings<BarracksTag>(em, faction)
                              + CountFactionBuildings<ArcheryRangeTag>(em, faction);
                 int burst = math.clamp(trainers, 1, 3);
@@ -271,6 +274,9 @@ namespace TheWaningBorder.AI
                 {
                     string unit = PickCompositionUnit(em, brainEntity, faction, now,
                         RoleBudget.For(personality.personality), profile.IntelFreshnessSeconds);
+                    if (!belowGate && TechCatalog.TryGetUnit(unit, out var unitDef) && unitDef != null
+                        && AIPivotalReserve.ShouldHold(em, faction, AICommon.ToCost(unitDef.cost)))
+                        break;
                     if (!TryTrainUnitBudgeted(em, faction, unit, AIBudgetCategory.Military)) break;
                     aiState.DesiredMilitary++;
                     aiState.LastMilitaryUnit = new FixedString64Bytes(unit);
@@ -716,8 +722,9 @@ namespace TheWaningBorder.AI
 
             // Pivotal savings hold: the sweep is a steady discretionary
             // drain (a tech every ~20 s) — it waits while the faction saves
-            // toward a capital unique.
-            if (AIPivotalReserve.ShouldHold(em, faction)) return;
+            // toward a capital unique. RESOURCE-AWARE (2026-10-03): tested
+            // per tech below, against that tech's cost, so a save short only
+            // on veilstone still lets supplies/iron research through.
 
             var research = FactionResearchState.Instance;
             byte culture = CultureConfig.GetCompletedCulture(em, faction);
@@ -765,8 +772,9 @@ namespace TheWaningBorder.AI
                     if (!FactionEconomy.CanAfford(em, faction, cost)) continue;
 
                     // PIVOTAL HOLD (2026-08-31): the research sweep is the
-                    // third bank drain — it waits its <=MaxHoldSeconds turn.
-                    if (TheWaningBorder.AI.AIPivotalReserve.ShouldHold(em, faction)) continue;
+                    // third bank drain — it waits its <=MaxHoldSeconds turn
+                    // when the tech spends a resource the save is short on.
+                    if (TheWaningBorder.AI.AIPivotalReserve.ShouldHold(em, faction, cost)) continue;
 
                     TheWaningBorder.Core.Commands.CommandRouter.IssueResearch(
                         em, building, techId,
@@ -879,7 +887,21 @@ namespace TheWaningBorder.AI
             { blockReason = "no catalog def for " + unitId; return false; }
             var cost = AICommon.ToCost(def.cost);
             if (!AIBudget.TryAfford(faction, cat, cost))
-            { blockReason = $"{cat} budget short for {unitId}"; return false; }
+            {
+                blockReason = $"{cat} budget short for {unitId}";
+                // RECORD THE REFUSAL (2026-10-03, the AI silent-failure
+                // pattern): the composition picker passes this unit over
+                // while the bank cannot pay for it, and the brain learns
+                // WHICH resource the army is short of (AIBudget readers:
+                // walls yield, Trading Outposts stay on Buy, claims favour
+                // outcrops).
+                if (cat == AIBudgetCategory.Military)
+                {
+                    RecordUnaffordable(faction, unitId);
+                    AIBudget.NoteMilitaryShort(em, faction, cost);
+                }
+                return false;
+            }
             if (!TryTrainUnitWithReason(em, faction, unitId, out blockReason)) return false;
             AIBudget.RecordSpend(faction, cat, cost);
             return true;

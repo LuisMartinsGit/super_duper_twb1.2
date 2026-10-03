@@ -99,6 +99,62 @@ namespace TheWaningBorder.AI
         /// for iron and supplies (once Veilsteel Export is researched).</summary>
         public int outpostSellAboveVeilsteel;
 
+        // ── Veilstone as the army's bottleneck (2026-10-03) ──────────────
+
+        /// <summary>Seconds (simulated) a combat unit the bank could not pay
+        /// for is passed over by the composition picker, unless the bank
+        /// covers it again sooner. The picker trains the next-best affordable
+        /// unit meanwhile instead of re-asking for the same one every think.</summary>
+        public float unaffordableUnitCooldownSeconds;
+        /// <summary>Extra claim score per uncursed veilstone outcrop in a
+        /// candidate territory, for an Alanthor faction whose army is short
+        /// of veilstone — each one is a Trading Outpost site. Added on top
+        /// of claimNodeBonus, which the outcrop already earns as a node.</summary>
+        public float claimVeilstoneNodeBonus;
+
+        // ── Conquering curse-held veilstone (2026-10-03) ─────────────────
+
+        /// <summary>Most free soldiers sent at once to clear the curse nodes
+        /// off a curse-held territory with veilstone outcrops in it.</summary>
+        public int claimCurseSquadMax;
+        /// <summary>Radius (m) around the target curse node AIEngagement
+        /// weighs the curse's garrison in before the assault launches.</summary>
+        public float claimCurseAssessRadius;
+        /// <summary>Score subtracted from a curse-held candidate (it is a
+        /// fight against a garrison, not free land).</summary>
+        public float claimCurseTargetPenalty;
+        /// <summary>Seconds a curse assault may run before it is abandoned
+        /// and the territory skipped for a while.</summary>
+        public float claimCurseTimeoutSeconds;
+
+        // ── Fortress expansion (2026-10-03, Game_AI.md § Fortress expansion)
+
+        /// <summary>Seconds between Fortress-expansion decisions.</summary>
+        public float fortressCheckInterval;
+        /// <summary>What the bank must still hold AFTER paying for the
+        /// Fortress, so the army is not starved by it.</summary>
+        public int fortressReserveSupplies;
+        public int fortressReserveIron;
+        public int fortressReserveVeilstone;
+        /// <summary>Most Fortresses (the capital included) one AI owns.</summary>
+        public int fortressMaxPerFaction;
+        /// <summary>Score per known veilstone outcrop inside the candidate.</summary>
+        public float fortressOutcropWeight;
+        /// <summary>Score per known outcrop in the candidate's neighbours the
+        /// faction does not hold — the ground the Fortress opens up.</summary>
+        public float fortressFrontierOutcropWeight;
+        /// <summary>Score when the candidate borders a rival's or the curse's
+        /// territory, or its meter is contested.</summary>
+        public float fortressBorderBonus;
+        /// <summary>Score when the candidate is cut off from every Fortress
+        /// (it is wearing down — a Fortress there reconnects it).</summary>
+        public float fortressDisconnectedBonus;
+        /// <summary>Score lost per metre from the home capital.</summary>
+        public float fortressDistanceWeight;
+        /// <summary>Seconds a territory whose Fortress could not be sited is
+        /// skipped.</summary>
+        public float fortressSiteRetrySeconds;
+
         // ── Think cost (2026-09-25 AI perf pass) ─────────────────────────
 
         /// <summary>Seconds a FAILED site search for one (faction, building,

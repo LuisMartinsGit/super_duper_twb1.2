@@ -71,19 +71,24 @@ namespace TheWaningBorder.AI
             // The house quarter: pack new Houses around the ones standing
             // (AICommon.TryHouseQuarterAnchor), the base ring only for the first.
             if (AICommon.TryHouseQuarterAnchor(em, faction, out float3 quarter, hallPos))
-                return TryBuildOnce(faction, em, quarter, "Hut", 0f, 12f, flush: true);
-            return TryBuildOnce(faction, em, hallPos, "Hut", 12f, 28f);
+                return TryBuildOnce(faction, em, quarter, "Hut", 0f, 12f, flush: true, holdable: true);
+            return TryBuildOnce(faction, em, hallPos, "Hut", 12f, 28f, holdable: true);
         }
 
         /// <summary>Returns true when the foundation was placed (or queued
         /// for lockstep) this tick — false on any pre-flight or placement
         /// failure (the cost is refunded on the rollback paths).</summary>
         private static bool TryBuildOnce(Faction faction, EntityManager em, float3 hallPos,
-            string buildingId, float ringMin, float ringMax, bool flush = false)
+            string buildingId, float ringMin, float ringMax, bool flush = false,
+            bool holdable = false)
         {
             if (!BuildCosts.Exists(buildingId)) return false;
             var cost = BuildCosts.For(em, faction, buildingId);
             if (!FactionEconomy.CanAfford(em, faction, cost)) return false;
+            // Discretionary callers (houses, sect buildings) yield to the
+            // pivotal savings hold when this building spends a resource the
+            // save is short on. The age-2 ladder is never held.
+            if (holdable && AIPivotalReserve.ShouldHold(em, faction, cost)) return false;
 
             // The Temple costs a Religion Point (docs/Design/Religion.md §2);
             // without one the executor refuses it, so do not try every think.

@@ -521,12 +521,26 @@ namespace TheWaningBorder.AI
             var query = AIQueryCache.TagFaction<TTag>(em);
             using var entities = query.ToEntityArray(Allocator.Temp);
             using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            // THE HOME CAPITAL, not whichever capital the chunk order serves
+            // first (2026-10-03). The AI now builds Fortresses in conquered
+            // territories (Game_AI.md § Fortress expansion), and every one of
+            // them carries HallTag — so "the Hall" (the anchor of the whole
+            // base layout, research host, worker trainer) would otherwise jump
+            // to whichever Fortress the archetype order lists first. The
+            // starting capital has the lowest NetworkId its faction owns, the
+            // same rule AIAlanthorEndgameSystem uses for its home anchor.
+            bool capital = typeof(TTag) == typeof(HallTag);
+            long bestNid = long.MaxValue;
             for (int i = 0; i < entities.Length; i++)
             {
                 if (factions[i].Value != faction) continue;
-                // Skip buildings still under construction unless caller checks itself.
+                if (!capital) { found = entities[i]; break; }
+                long nid = em.HasComponent<TheWaningBorder.Core.Multiplayer.NetworkedEntity>(entities[i])
+                    ? em.GetComponentData<TheWaningBorder.Core.Multiplayer.NetworkedEntity>(entities[i]).NetworkId
+                    : long.MaxValue - 1;
+                if (found != Entity.Null && nid >= bestNid) continue;
+                bestNid = nid;
                 found = entities[i];
-                break;
             }
             TagMemo<TTag>.FirstStamp = _memoStamp;
             TagMemo<TTag>.FirstF = faction;

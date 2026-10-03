@@ -105,9 +105,13 @@ namespace TheWaningBorder.AI
             // pipeline. The same skip is applied below in the existing-
             // building iteration so wall pieces never become target
             // candidates for AI repair/attack actions either.
+            // The Palisade too (2026-10-03): every AI wall goes through the
+            // endgame doctrine, which walls only the home territory and
+            // Fortress territories (docs/Design/Game_AI.md § Walls).
             if (buildingId == "Alanthor_Wall"
                 || buildingId == "Alanthor_WallTower"
-                || buildingId == "Alanthor_WallGate")
+                || buildingId == "Alanthor_WallGate"
+                || buildingId == "Palisade")
             { reason = "wall primitive"; return false; }
 
             // The Temple costs a Religion Point (docs/Design/Religion.md §2);
@@ -154,7 +158,7 @@ namespace TheWaningBorder.AI
             // "saving" or "5 sites open" first paid for a full ring scan of up
             // to ~3,000 candidates. Same gates, same verdicts; only the order
             // (and therefore which reason a double refusal reports) changed.
-            if (!PassesBuildPreflight(em, faction, buildingId, out reason)) return false;
+            if (!PassesBuildPreflight(em, faction, buildingId, cost, out reason)) return false;
 
             // AN EXTRACTOR WITH NO ANCHOR IS SITED ON ITS NODES (2026-10-03,
             // operator: "AI starves for supplies all game long"). The hut
@@ -271,7 +275,7 @@ namespace TheWaningBorder.AI
         /// search so a refusal costs nothing.
         /// </summary>
         private bool PassesBuildPreflight(EntityManager em, Faction faction,
-            string buildingId, out string reason)
+            string buildingId, Cost cost, out string reason)
         {
             reason = null;
 
@@ -334,7 +338,9 @@ namespace TheWaningBorder.AI
             // on 396 supplies and zero ore extractors while the human it was
             // playing had twelve. IsExtractor is the whole class, so a future
             // extractor cannot fall through the same hole.
-            if (TheWaningBorder.AI.AIPivotalReserve.ShouldHold(em, faction)
+            // RESOURCE-AWARE (2026-10-03): the hold applies only when the
+            // building spends a resource the save is short on.
+            if (TheWaningBorder.AI.AIPivotalReserve.ShouldHold(em, faction, cost)
                 && buildingId != "Fortress"
                 && buildingId != "VaultOfAlmierra"
                 && buildingId != "FiendstoneKeep"
@@ -610,6 +616,14 @@ namespace TheWaningBorder.AI
                         candidate.y = TerrainUtility.GetHeight(candidate.x, candidate.z);
 
                         nCand++;
+                        // A Fortress for a chosen territory stands IN it
+                        // (EnsureFortressExpansion sets the lock): a ring that
+                        // reaches over the border into other held ground would
+                        // otherwise place it where a Fortress already stands.
+                        if (_siteRegionLock != TheWaningBorder.World.Regions.RegionMap.None
+                            && TheWaningBorder.World.Regions.RegionMap.RegionAt(candidate.x, candidate.z)
+                               != _siteRegionLock)
+                        { nTerritory++; continue; }
                         if (requireCover && !IsCoveredGround(faction, candidate, anchor))
                         { nCover++; continue; }
 
@@ -739,15 +753,30 @@ namespace TheWaningBorder.AI
             if (wallMode != AIWallPlanner.ModePerimeter && wallMode != AIWallPlanner.ModeBorder) return false;
             var slots = em.GetBuffer<AIWallPlanSlot>(brain, true);
             if (slots.Length < 3) return false;
-            mn = new float2(float.MaxValue);
-            mx = new float2(float.MinValue);
-            for (int i = 0; i < slots.Length; i++)
+            // One ring per walled territory (2026-10-03: the home, plus any
+            // territory with its own Fortress), each its own chain and
+            // contiguous in the buffer — the box is the ring the anchor is in,
+            // never the box round every ring at once.
+            int start = 0;
+            while (start < slots.Length)
             {
-                var p = new float2(slots[i].Position.x, slots[i].Position.z);
-                mn = math.min(mn, p);
-                mx = math.max(mx, p);
+                byte chain = slots[start].Chain;
+                int end = start;
+                mn = new float2(float.MaxValue);
+                mx = new float2(float.MinValue);
+                while (end < slots.Length && slots[end].Chain == chain)
+                {
+                    var p = new float2(slots[end].Position.x, slots[end].Position.z);
+                    mn = math.min(mn, p);
+                    mx = math.max(mx, p);
+                    end++;
+                }
+                if (end - start >= 3
+                    && anchor.x > mn.x && anchor.x < mx.x && anchor.z > mn.y && anchor.z < mx.y)
+                    return true;
+                start = end;
             }
-            return anchor.x > mn.x && anchor.x < mx.x && anchor.z > mn.y && anchor.z < mx.y;
+            return false;
         }
 
         /// <summary>Why the last failed TryFindBuildPosition refused each

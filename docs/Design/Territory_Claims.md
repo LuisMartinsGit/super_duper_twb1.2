@@ -346,7 +346,7 @@ markers no longer decide anything; nodes are generated from the type.
 | **Start** (holds a player start) | 3 supply, **3 iron** (2 until 2026-10-02 — Veilstone_Economy.md §6), 1 veilstone |
 | Normal | 3 supply |
 | Normal + iron | 2 supply, 1 iron |
-| Normal + veilstone | 2 supply, 1 veilstone |
+| Normal + veilstone | 2 supply, **1-2 veilstone** (a seeded draw per territory; 1 until 2026-10-03) |
 | **Empty** | none — position and build space only |
 | **Veilstone rich** | 4 veilstone, **starts cursed** (a curse node on every outcrop) |
 | **Iron rich** | 3 iron |
@@ -367,6 +367,18 @@ Iron rich, Sanctum); the rest are the three Normal kinds. The type is authored
 on `RegionSeedMarker.Resources`; `Auto` (the default) is resolved from the
 match seed, filling the missing special types first. A map with too few
 non-start territories logs a warning.
+
+**The Normal kinds are dealt 1 : 2 : 4 (2026-10-03)** — of every seven filler
+territories, one is Normal, two are Normal + iron and four are Normal +
+veilstone (~57 % carry veilstone, was an even third each). Veilstone is what an
+aged-up army runs out of, and Alanthor gets it only from Trading Outposts on
+outcrops in held ground (Veilstone_Economy.md §3.1): a 0.0.33 batch on
+Veilmarch dealt 23 outcrops to 8 players and every faction held 1-3 of them.
+With the new deal and the 1-2 draw, Veilmarch's 33 fillers carry ~19
+veilstone territories and ~28 of their outcrops (was 11), ~40 on the map in
+all. The kinds are interleaved by a smooth weighted round-robin over the
+seed-shuffled territories, so small maps get their share too. The weights and
+the outcrop range are `TerritoryResources.asset` (beside `TerritoryResources.cs`).
 
 Implemented in `TerritoryResources` (resolve + generation), the
 `SpawnDelayHelper` resource step, `CurseNodeSeeding.CurseVeilstoneRich` and

@@ -5,7 +5,7 @@
 //   Start            3 supply, 2 iron, 1 veilstone
 //   Normal           3 supply
 //   Normal + iron    2 supply, 1 iron
-//   Normal + veil    2 supply, 1 veilstone
+//   Normal + veil    2 supply, 1-2 veilstone (seeded draw, 2026-10-03)
 //   Empty            nothing — position and build space
 //   Veilstone rich   4 veilstone, starts cursed
 //   Iron rich        3 iron
@@ -14,7 +14,9 @@
 // The TYPE comes from the territory's RegionSeedMarker; Auto (the default)
 // is resolved here from the match seed so that every map has at least one of
 // each special type (Empty, Veilstone rich, Iron rich, Sanctum) and the rest
-// are the three Normal kinds. A territory holding a player start is always
+// are the three Normal kinds, dealt in the weights TerritoryResources.asset
+// carries (2026-10-03: 1 Normal : 2 + iron : 4 + veilstone — veilstone is
+// what Alanthor armies run out of, so more of the map carries it). A territory holding a player start is always
 // Start. The scene's node MARKERS no longer decide anything — the nodes are
 // generated from the type, so every map conforms without hand-editing.
 //
@@ -45,6 +47,13 @@ namespace TheWaningBorder.World.Regions
         private const int RingSamples = 12;
         /// <summary>Generated nodes keep this far apart (centre to centre).</summary>
         private const float NodeSpacing = 9f;
+
+        private static TerritoryResourcesConfig _cfg;
+        /// <summary>The filler weights and outcrop range, from
+        /// TerritoryResources.asset (no code-side fallback, by design).</summary>
+        private static TerritoryResourcesConfig Cfg =>
+            _cfg != null ? _cfg
+            : (_cfg = TheWaningBorder.Core.Settings.ComponentConfig.Require<TerritoryResourcesConfig>());
 
         private static ResourceType[] _types = System.Array.Empty<ResourceType>();
         private static int _version = int.MinValue;
@@ -121,9 +130,33 @@ namespace TheWaningBorder.World.Regions
                 _types[auto[next++]] = special;
             }
 
+            // The fillers, dealt in the config's weights by a smooth weighted
+            // round-robin: the kinds interleave (V I V N V I V ...) instead of
+            // coming in blocks, so even a small map gets its share of each,
+            // and the deal is a pure function of the shuffled order — no RNG
+            // draw, nothing for lockstep peers to disagree on.
             var fillers = new[] { ResourceType.Normal, ResourceType.NormalIron, ResourceType.NormalVeilstone };
+            var cfg = Cfg;
+            var weights = new[]
+            {
+                math.max(0, cfg.normalWeight),
+                math.max(0, cfg.normalIronWeight),
+                math.max(0, cfg.normalVeilstoneWeight),
+            };
+            int total = weights[0] + weights[1] + weights[2];
+            if (total <= 0) { weights[0] = weights[1] = weights[2] = 1; total = 3; }
+            var current = new int[fillers.Length];
             for (int k = next; k < auto.Count; k++)
-                _types[auto[k]] = fillers[(k - next) % fillers.Length];
+            {
+                int pick = 0;
+                for (int f = 0; f < fillers.Length; f++)
+                {
+                    current[f] += weights[f];
+                    if (current[f] > current[pick]) pick = f;
+                }
+                current[pick] -= total;
+                _types[auto[k]] = fillers[pick];
+            }
 
             int specialsMissing = 0;
             foreach (var special in specials)
@@ -154,17 +187,17 @@ namespace TheWaningBorder.World.Regions
             int placed = 0, short_ = 0;
             for (int t = 0; t < n; t++)
             {
-                Counts(TypeOf(t), out int supply, out int iron, out int veil);
+                // One stream per territory: the same map and seed lay the same
+                // nodes on every peer, and adding a territory does not reshuffle
+                // every other one.
+                var rng = new Unity.Mathematics.Random((seed ^ (uint)(t * 0x9E3779B1u)) | 1u);
+                Counts(TypeOf(t), ref rng, out int supply, out int iron, out int veil);
                 if (supply + iron + veil == 0) continue;
 
                 bool home = homeCentre.TryGetValue(t, out var hc);
                 float3 centre = home ? hc : centres[t];
                 float minR = home ? HomeClearRadius : 0f;
                 var mine = new List<float3>();
-                // One stream per territory: the same map and seed lay the same
-                // nodes on every peer, and adding a territory does not reshuffle
-                // every other one.
-                var rng = new Unity.Mathematics.Random((seed ^ (uint)(t * 0x9E3779B1u)) | 1u);
 
                 for (int i = 0; i < veil; i++)
                     short_ += PlaceRandom(em, t, home, centre, boxMin[t], boxMax[t], mine, 2, ref rng) ? 0 : 1;
@@ -178,7 +211,8 @@ namespace TheWaningBorder.World.Regions
                       (short_ > 0 ? $"; {short_} could not find legal ground." : "."));
         }
 
-        private static void Counts(ResourceType type, out int supply, out int iron, out int veil)
+        private static void Counts(ResourceType type, ref Unity.Mathematics.Random rng,
+            out int supply, out int iron, out int veil)
         {
             supply = iron = veil = 0;
             switch (type)
@@ -186,7 +220,17 @@ namespace TheWaningBorder.World.Regions
                 case ResourceType.Start:           supply = 3; iron = 3; veil = 1; break;   // 3 iron since 2026-10-02 (Veilstone_Economy.md §6)
                 case ResourceType.Normal:          supply = 3; break;
                 case ResourceType.NormalIron:      supply = 2; iron = 1; break;
-                case ResourceType.NormalVeilstone: supply = 2; veil = 1; break;
+                case ResourceType.NormalVeilstone:
+                {
+                    // 1-2 outcrops since 2026-10-03 (TerritoryResources.asset),
+                    // drawn from the territory's own stream before any node is
+                    // laid, so the draw is the same on every peer.
+                    var cfg = Cfg;
+                    int lo = math.max(0, cfg.normalVeilstoneOutcropsMin);
+                    int hi = math.max(lo, cfg.normalVeilstoneOutcropsMax);
+                    supply = 2; veil = rng.NextInt(lo, hi + 1);
+                    break;
+                }
                 case ResourceType.VeilstoneRich:   veil = 4; break;
                 case ResourceType.IronRich:        iron = 3; break;
             }

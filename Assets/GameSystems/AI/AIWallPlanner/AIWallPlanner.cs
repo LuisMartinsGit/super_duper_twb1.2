@@ -60,6 +60,13 @@ namespace TheWaningBorder.AI
         /// <summary>Orders issued to link this slot to the NEXT live slot
         /// that have not (yet) connected the two.</summary>
         public byte LinkTries;
+        /// <summary>Times this slot's hub was raised again after one had
+        /// stood here and been lost. Capped (maxWallSlotRebuilds) so a hub
+        /// on a contested line is not re-bought every half minute.</summary>
+        public byte HubRebuilds;
+        /// <summary>Times the link to the NEXT live slot was re-ordered after
+        /// it had stood connected and been broken. Same cap.</summary>
+        public byte LinkRebuilds;
     }
 
     /// <summary>
@@ -130,6 +137,12 @@ namespace TheWaningBorder.AI
         /// (blocked, off its owner's ground, too long) and no detour exists —
         /// left open rather than re-issued forever (2026-10-02).</summary>
         public const byte FlagLinkRefused = 8;
+        /// <summary>A hub has stood at this slot (so a missing one now was
+        /// LOST, not refused) -- set by the executor when it sees one.</summary>
+        public const byte FlagHubBuilt = 16;
+        /// <summary>The link to the NEXT live slot has stood connected (so a
+        /// break now was a loss, not a refusal).</summary>
+        public const byte FlagLinked = 32;
         /// <summary>Orders a slot's hub or link may have outstanding before
         /// the AI decides the executor refused them.</summary>
         public const byte MaxWallTries = 3;
@@ -396,11 +409,35 @@ namespace TheWaningBorder.AI
             // stand on its owner's ground — CommandRouter.WallLineOnOwnGround).
             // The terrain-only square below is the fallback for maps with no
             // partition, where the ownership gate is off.
+            //
+            // ONLY FORTIFIED GROUND IS WALLED (2026-10-03, docs/Design/Game_AI.md
+            // § Walls): the home territory, plus any other held territory with
+            // one of the faction's own Fortresses in it. One loop per such
+            // territory, each its own chain, each traced round THAT territory
+            // alone -- never round the union of everything held, which is what
+            // walled conquered ground and left 2,803 wall pieces on Veilmarch.
             if (TheWaningBorder.World.Regions.RegionMap.Ready
                 && TheWaningBorder.World.Regions.TerritoryOwnership.Ready
                 && TheWaningBorder.World.Regions.TerritoryOwnership.CountOf(faction) > 0)
             {
-                EmitBorderLoop(em, faction, hallPos, slots, out why);
+                var regions = new System.Collections.Generic.List<int>(4);
+                var anchors = new System.Collections.Generic.List<float3>(4);
+                CollectWallTerritories(em, faction, hallPos, regions, anchors);
+                if (regions.Count == 0)
+                {
+                    why = "the home territory is not held and no other territory has a Fortress";
+                    return ModeBorder;
+                }
+                int home = HomeRegion(hallPos);
+                var sb = new System.Text.StringBuilder(96);
+                for (int i = 0; i < regions.Count && i < 255; i++)
+                {
+                    EmitBorderLoop(em, faction, regions[i], anchors[i], (byte)i, slots, out string part);
+                    if (i > 0) sb.Append("; ");
+                    sb.Append(regions[i] == home ? "home: " : $"territory {regions[i]} (Fortress): ");
+                    sb.Append(part);
+                }
+                why = sb.ToString();
                 return ModeBorder;
             }
 
@@ -606,16 +643,94 @@ namespace TheWaningBorder.AI
         // BORDER LOOP
         // ──────────────────────────────────────────────────────────────────
 
-        /// <summary>Order-independent signature of the territories this
-        /// faction owns — the plan is redrawn when it changes.</summary>
-        public static uint TerritorySignature(Faction faction)
+        /// <summary>Signature of the territories this faction may wall
+        /// (<see cref="CollectWallTerritories"/>) -- the plan is redrawn when
+        /// it changes. A claim or a loss of UNFORTIFIED ground no longer
+        /// redraws anything, because no wall stands there.</summary>
+        public static uint WallTerritorySignature(EntityManager em, Faction faction, float3 homePos)
         {
-            if (!TheWaningBorder.World.Regions.TerritoryOwnership.Ready) return 0;
+            if (!TheWaningBorder.World.Regions.RegionMap.Ready
+                || !TheWaningBorder.World.Regions.TerritoryOwnership.Ready) return 0;
+            CollectWallTerritories(em, faction, homePos, _sigRegions, _sigAnchors);
             uint h = 2166136261u;
-            var owned = TheWaningBorder.World.Regions.TerritoryOwnership.TerritoriesOf(faction);
-            for (int i = 0; i < owned.Count; i++)
-                h = (h ^ (uint)(owned[i] + 1)) * 16777619u;
+            for (int i = 0; i < _sigRegions.Count; i++)
+                h = (h ^ (uint)(_sigRegions[i] + 1)) * 16777619u;
             return h;
+        }
+
+        // Host scratch for the per-think signature (main thread only).
+        private static readonly System.Collections.Generic.List<int> _sigRegions
+            = new System.Collections.Generic.List<int>(4);
+        private static readonly System.Collections.Generic.List<float3> _sigAnchors
+            = new System.Collections.Generic.List<float3>(4);
+
+        /// <summary>The territory the home capital stands in.</summary>
+        public static int HomeRegion(float3 homePos)
+            => TheWaningBorder.World.Regions.RegionMap.Ready
+                ? TheWaningBorder.World.Regions.RegionMap.RegionAt(homePos.x, homePos.z)
+                : TheWaningBorder.World.Regions.RegionMap.None;
+
+        static readonly ComponentType[] QT_Fortresses =
+        {
+            ComponentType.ReadOnly<HallTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery QC_Fortresses;
+
+        /// <summary>
+        /// THE TERRITORIES THE AI MAY WALL (2026-10-03, docs/Design/Game_AI.md
+        /// § Walls), each with the point its border is traced from:
+        ///   * the HOME territory -- where <paramref name="homePos"/> (the
+        ///     starting capital, the endgame's home anchor) stands -- while
+        ///     the faction holds it;
+        ///   * every other territory it holds that has one of its OWN
+        ///     Fortresses in it, standing or under construction -- Fortress
+        ///     first, then walls; never walls on ground with no Fortress.
+        /// Home first, then by region id; the anchor of a non-home territory
+        /// is its Fortress (lowest x, then z, if somehow two). Deterministic:
+        /// a pure function of replicated state.
+        /// </summary>
+        public static void CollectWallTerritories(EntityManager em, Faction faction, float3 homePos,
+            System.Collections.Generic.List<int> regions, System.Collections.Generic.List<float3> anchors)
+        {
+            regions.Clear();
+            anchors.Clear();
+            if (!TheWaningBorder.World.Regions.RegionMap.Ready
+                || !TheWaningBorder.World.Regions.TerritoryOwnership.Ready) return;
+
+            int home = HomeRegion(homePos);
+            if (home != TheWaningBorder.World.Regions.RegionMap.None
+                && TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(home) == (int)faction)
+            {
+                regions.Add(home);
+                anchors.Add(homePos);
+            }
+
+            var q = QC_Fortresses.Get(em, QT_Fortresses);
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            int first = regions.Count;
+            for (int i = 0; i < facs.Length; i++)
+            {
+                if (facs[i].Value != faction) continue;
+                var p = xfs[i].Position;
+                int r = TheWaningBorder.World.Regions.RegionMap.RegionAt(p.x, p.z);
+                if (r == TheWaningBorder.World.Regions.RegionMap.None || r == home) continue;
+                if (TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(r) != (int)faction) continue;
+                int at = regions.IndexOf(r);
+                if (at >= 0)
+                {
+                    var a = anchors[at];
+                    if (p.x < a.x || (p.x == a.x && p.z < a.z)) anchors[at] = p;
+                    continue;
+                }
+                // Sorted by region id, after the home entry.
+                int k = first;
+                while (k < regions.Count && regions[k] < r) k++;
+                regions.Insert(k, r);
+                anchors.Insert(k, p);
+            }
         }
 
         /// <summary>Owned by this faction, on the map, and not impassable
@@ -654,8 +769,8 @@ namespace TheWaningBorder.AI
         /// Pure function of replicated state (region map, ownership, terrain):
         /// every lockstep peer draws the same wall.
         /// </summary>
-        private static void EmitBorderLoop(EntityManager em, Faction faction, float3 hallPos,
-            NativeList<AIWallPlanSlot> slots, out string why)
+        private static void EmitBorderLoop(EntityManager em, Faction faction, int region,
+            float3 hallPos, byte chain, NativeList<AIWallPlanSlot> slots, out string why)
         {
             const float cs = 1f;
             float R = Cfg.borderScanMax;
@@ -672,7 +787,11 @@ namespace TheWaningBorder.AI
                     float wx = ox + (x + 0.5f) * cs, wz = oz + (z + 0.5f) * cs;
                     int t = TheWaningBorder.World.Regions.RegionMap.RegionAt(wx, wz);
                     if (t == TheWaningBorder.World.Regions.RegionMap.None) continue;
-                    if (TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(t) == (int)faction)
+                    // THIS territory only (2026-10-03): the faction's other
+                    // territories count as foreign here, so the loop runs
+                    // along this territory's own border.
+                    if (t == region
+                        && TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(t) == (int)faction)
                         owned[z * n + x] = true;
                     else foreign[z * n + x] = true;
                 }
@@ -782,7 +901,7 @@ namespace TheWaningBorder.AI
                 if (fullLoop && i == m) run.Add(pts[start]);   // close the ring
                 if (run.Count >= 2)
                 {
-                    EmitFollowing(run, slots, closesRing: fullLoop);
+                    EmitFollowing(run, slots, closesRing: fullLoop, chain);
                     if (!fullLoop && slots.Length > firstSlot)
                     {
                         var last = slots[slots.Length - 1];
@@ -858,12 +977,12 @@ namespace TheWaningBorder.AI
         /// of cutting across them.
         /// </summary>
         private static void EmitFollowing(System.Collections.Generic.List<float2> line,
-            NativeList<AIWallPlanSlot> slots, bool closesRing)
+            NativeList<AIWallPlanSlot> slots, bool closesRing, byte chain)
         {
             void Add(float2 p) => slots.Add(new AIWallPlanSlot
             {
                 Position = new float3(p.x, TerrainUtility.GetHeight(p.x, p.y), p.y),
-                Chain = 0,
+                Chain = chain,
             });
 
             float tol = math.max(0.25f, Cfg.borderFollowTolerance);

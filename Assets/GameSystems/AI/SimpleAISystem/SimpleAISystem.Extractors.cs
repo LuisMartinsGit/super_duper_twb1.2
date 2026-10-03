@@ -72,6 +72,10 @@ namespace TheWaningBorder.AI
             _nextExtractorTime[key] = now + Cfg.extractorAttemptInterval;
 
             if (!TechCatalog.IsReady) return;
+            // The Outpost savings goal lasts only while the army is short of
+            // veilstone; it is re-armed below while it still is.
+            if (!AIBudget.IsMilitaryShort(faction, AIBudget.ResVeilstone))
+                AIPivotalReserve.Clear(faction, OutpostReserveKey);
             if (AICommon.CountIdleWorkers(em, faction) == 0)
             {
                 LogExtractBlocked(faction, now, "no idle worker");
@@ -121,6 +125,25 @@ namespace TheWaningBorder.AI
                 if (!FactionEconomy.CanAfford(em, faction, AICommon.ToCost(def.cost)))
                 {
                     if (AILogger.Enabled) blocked += $" | {buildingId}: bank short";
+                    // VEILSTONE IS THE ARMY'S WALL (2026-10-03): an Alanthor
+                    // army short of veilstone can only be fed by Outposts,
+                    // so a free outcrop the bank cannot yet pay for becomes
+                    // a savings goal — walls, houses and army growth hold
+                    // until it is raised (AIPivotalReserve).
+                    if (isOutpost && AIBudget.IsMilitaryShort(faction, AIBudget.ResVeilstone))
+                    {
+                        _freeNodes.Clear();
+                        CollectFreeNodes(em, faction, buildingId, owned, _freeNodes);
+                        if (_freeNodes.Count > 0)
+                        {
+                            if (!AIPivotalReserve.Has(faction, OutpostReserveKey))
+                                AILogger.Log(faction, "ECONOMY",
+                                    $"veilstone is the army's bottleneck — saving for a Trading Outpost " +
+                                    $"({_freeNodes.Count} free outcrop(s) in held ground)");
+                            AIPivotalReserve.Set(faction, OutpostReserveKey, AICommon.ToCost(def.cost));
+                        }
+                        else AIPivotalReserve.Clear(faction, OutpostReserveKey);
+                    }
                     continue;
                 }
 
@@ -134,6 +157,7 @@ namespace TheWaningBorder.AI
                 if (_freeNodes.Count == 0)
                 {
                     if (AILogger.Enabled) blocked += $" | {buildingId}: no free owned node";
+                    if (isOutpost) AIPivotalReserve.Clear(faction, OutpostReserveKey);
                     continue;
                 }
                 string reason = null;
@@ -144,6 +168,7 @@ namespace TheWaningBorder.AI
                     AILogger.Log(faction, "EXTRACT",
                         $"{buildingId} on a free node at " +
                         $"({_freeNodes[n].x:F0},{_freeNodes[n].z:F0})");
+                    if (isOutpost) AIPivotalReserve.Clear(faction, OutpostReserveKey);
                     return;   // one per attempt
                 }
                 if (AILogger.Enabled)
@@ -158,6 +183,10 @@ namespace TheWaningBorder.AI
                 LogExtractBlocked(faction, now, blocked.Substring(3));
             }
         }
+
+        /// <summary>AIPivotalReserve key for a Trading Outpost the army's
+        /// veilstone shortage is waiting on.</summary>
+        private const string OutpostReserveKey = "TradingOutpost";
 
         private readonly Dictionary<int, float> _nextOutpostModeTime = new Dictionary<int, float>();
 
@@ -209,6 +238,21 @@ namespace TheWaningBorder.AI
                 forgeWant = forging;   // inside the band: keep what is forging
             forgeWant = math.min(forgeWant, mine - sellWant);
 
+            // VEILSTONE IS THE ARMY'S BOTTLENECK (2026-10-03): while military
+            // purchases are being refused for want of veilstone, every Outpost
+            // BUYS it — forging turns the scarce veilstone into veilsteel, and
+            // an Outpost selling veilsteel is one not buying. Selling stays
+            // only while the bank is too poor in supplies or iron to run a
+            // Buy cycle, which the sale itself pays for.
+            bool veilstoneStarved = AIBudget.IsMilitaryShort(faction, AIBudget.ResVeilstone);
+            if (veilstoneStarved)
+            {
+                forgeWant = 0;
+                TheWaningBorder.Systems.Economy.TradingOutpostSystem.PerMinute(
+                    faction, TradeRecipe.BuyVeilstone, out var buyIn, out _);
+                if (bank.Supplies >= buyIn.Supplies && bank.Iron >= buyIn.Iron) sellWant = 0;
+            }
+
             int changed = 0, sells = 0, forges = 0;
             for (int i = 0; i < ents.Length; i++)
             {
@@ -225,7 +269,24 @@ namespace TheWaningBorder.AI
             if (changed > 0)
                 AILogger.Log(faction, "ECONOMY",
                     $"Trading Outposts: {sells} sell / {forges} forge / {mine - sells - forges} buy " +
-                    $"(veilstone {bank.Veilstone}, veilsteel {bank.Veilsteel})");
+                    $"(veilstone {bank.Veilstone}, veilsteel {bank.Veilsteel}" +
+                    (veilstoneStarved ? ", army short of veilstone)" : ")"));
+            else if (veilstoneStarved && AILogger.Enabled)
+                LogVeilstoneBottleneck(faction, now,
+                    $"{mine} Trading Outpost(s) all buying, veilstone {bank.Veilstone}, " +
+                    $"supplies {bank.Supplies}, iron {bank.Iron}");
+        }
+
+        private readonly Dictionary<int, float> _nextBottleneckLog = new Dictionary<int, float>();
+
+        /// <summary>Throttled (extractLogInterval) note that the army is held
+        /// back by veilstone — the reason a rich Alanthor bank is not an army.</summary>
+        private void LogVeilstoneBottleneck(Faction faction, float now, string state)
+        {
+            int key = (int)faction;
+            if (_nextBottleneckLog.TryGetValue(key, out float next) && now < next) return;
+            _nextBottleneckLog[key] = now + Cfg.extractLogInterval;
+            AILogger.Log(faction, "ECONOMY", $"veilstone is the army's bottleneck: {state}");
         }
 
         static readonly ComponentType[] QT_Outposts =

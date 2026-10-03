@@ -498,6 +498,11 @@ is never a patchwork of levels.
 
 ### The AI's wall (2026-10-02)
 
+**Which ground (2026-10-03):** only the AI's home territory, and any other
+territory where it has its own Fortress, is walled — one ring per territory,
+piece-capped, rebuild-capped and paid from the Economy wallet, yielding to the
+army. The full rule is [Game_AI.md § Walls](Game_AI.md).
+
 The Alanthor AI walls its **territory border**, and the wall stands close to
 it: its centre line a few metres inside the border (`AIWallPlanner.asset`
 `borderInset`), measured to FOREIGN ground — another faction's or neutral

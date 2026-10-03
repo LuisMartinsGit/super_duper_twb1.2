@@ -26,6 +26,23 @@ MonoBehaviour:
   outpostTradeBelowVeilstone: 120
   outpostVeilsteelTarget: 200
   outpostSellAboveVeilsteel: 300
+  unaffordableUnitCooldownSeconds: 60
+  claimVeilstoneNodeBonus: 400
+  claimCurseSquadMax: 24
+  claimCurseAssessRadius: 30
+  claimCurseTargetPenalty: 150
+  claimCurseTimeoutSeconds: 360
+  fortressCheckInterval: 10
+  fortressReserveSupplies: 800
+  fortressReserveIron: 600
+  fortressReserveVeilstone: 100
+  fortressMaxPerFaction: 8
+  fortressOutcropWeight: 200
+  fortressFrontierOutcropWeight: 80
+  fortressBorderBonus: 120
+  fortressDisconnectedBonus: 150
+  fortressDistanceWeight: 0.2
+  fortressSiteRetrySeconds: 90
   failedSiteSearchCooldown: 10
   siteSearchCandidateBudget: 4000
   siteSearchValidateBudget: 160

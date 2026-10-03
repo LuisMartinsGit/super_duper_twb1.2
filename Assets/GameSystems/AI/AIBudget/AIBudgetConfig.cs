@@ -28,5 +28,11 @@ namespace TheWaningBorder.AI
         public float walletCapMinimum;
 
         public float logInterval;
+
+        /// <summary>Seconds of simulated time a military shortage stays on
+        /// the record after the last refused purchase. Walls yield while the
+        /// army is short of what they cost; Trading Outposts stay on Buy and
+        /// claims favour outcrops while it is short of veilstone.</summary>
+        public float militaryShortHoldSeconds;
     }
 }

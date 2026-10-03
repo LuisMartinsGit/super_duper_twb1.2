@@ -522,6 +522,7 @@ namespace TheWaningBorder.AI
                 // every peer (docs/Multiplayer_LAN_Readiness.md).
                 var cost = AICommon.ToCost(def.cost);
                 if (!FactionEconomy.CanAfford(em, faction, cost)) continue;
+                if (AIPivotalReserve.ShouldHold(em, faction, cost)) continue;
                 CommandRouter.IssueTrain(em, chapel, unitId, CommandSource.AI);
                 AILogger.Log(faction, "MILITARY",
                     $"Alanthor: queued {unitId} at the {sectId.Substring(5)} chapel");
@@ -617,7 +618,7 @@ namespace TheWaningBorder.AI
                 if (CountSectBuildings(em, faction, buildingId) >= Cfg.sectBuildingTarget) continue;
                 if (AnySectBuildingUnderConstruction(em, faction, buildingId)) continue;
 
-                if (TryBuildOnce(faction, em, hallPos, buildingId, 14f, 26f))
+                if (TryBuildOnce(faction, em, hallPos, buildingId, 14f, 26f, holdable: true))
                 {
                     AILogger.Log(faction, "STRATEGY",
                         $"Alanthor: raising {buildingId} for the {sectId.Substring(5)} sect");
@@ -659,6 +660,7 @@ namespace TheWaningBorder.AI
                     // on every peer (docs/Multiplayer_LAN_Readiness.md).
                     var cost = AICommon.ToCost(tdef.cost);
                     if (!FactionEconomy.CanAfford(em, faction, cost)) continue;
+                    if (AIPivotalReserve.ShouldHold(em, faction, cost)) continue;
 
                     CommandRouter.IssueResearch(em, host, techId, CommandSource.AI);
                     AILogger.Log(faction, "STRATEGY",
@@ -730,6 +732,7 @@ namespace TheWaningBorder.AI
                 // every peer (docs/Multiplayer_LAN_Readiness.md).
                 var cost = AICommon.ToCost(def.cost);
                 if (!FactionEconomy.CanAfford(em, faction, cost)) continue;
+                if (AIPivotalReserve.ShouldHold(em, faction, cost)) continue;
 
                 CommandRouter.IssueTrain(em, host, unitId, CommandSource.AI);
                 AILogger.Log(faction, "MILITARY",

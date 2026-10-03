@@ -130,6 +130,8 @@ namespace TheWaningBorder.AI
             if (!BuildCosts.Exists(towerId)) return;
             var cost = BuildCosts.For(em, faction, towerId);
             if (!FactionEconomy.CanAfford(em, faction, cost)) return;
+            // Pivotal savings hold, resource-aware.
+            if (AIPivotalReserve.ShouldHold(em, faction, cost)) return;
             if (AICommon.CountIdleWorkers(em, faction) == 0) return;
 
             // Own tower positions — the anti-clump constraint.

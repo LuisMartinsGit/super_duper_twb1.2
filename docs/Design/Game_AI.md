@@ -158,6 +158,105 @@ weights (personality-scaled):
 Never float: if the top request is unaffordable and the treasury exceeds
 a float ceiling, take the next affordable request.
 
+### 5a. Veilstone is the Alanthor army's bottleneck (2026-10-03)
+
+Alanthor never mine veilstone; they buy it at Trading Outposts, one per
+uncursed outcrop in held ground (docs/Design/Veilstone_Economy.md §3.1), and
+every soldier past the Spearman and the Archer costs it. When a military
+purchase is refused, the brain records WHICH resource the bank lacked
+(`AIBudget.NoteMilitaryShort`, held `militaryShortHoldSeconds`) and acts on
+it instead of re-asking:
+
+- the composition picker passes the refused unit over for
+  `unaffordableUnitCooldownSeconds` (unless the bank covers it again sooner)
+  and trains the next-best unit it can pay for — each line steps down its own
+  ladder (Swordsman to Spearman, Longbowman / Crossbowman to Archer), so a
+  rich bank short of veilstone still fills the army;
+- while the army is short of veilstone every Trading Outpost BUYS (no forging;
+  selling veilsteel only while supplies or iron cannot fund a Buy cycle);
+- a free outcrop in held ground the bank cannot yet pay an Outpost for becomes
+  a savings goal (AIPivotalReserve), so walls and houses hold until it stands;
+- the claim picker scores each uncursed outcrop `claimVeilstoneNodeBonus` extra
+  (and goes after curse-held outcrops — § Veilstone-driven conquest below).
+
+Numbers: `SimpleAISystem.asset`, `AIBudget.asset`.
+
+### 5b. Veilstone-driven conquest (2026-10-03)
+
+**The territory limit comes first.** A faction may hold its Fortress levels
++ 2 once aged up (Territory_Claims.md §10) — an aged-up AI with only its L1
+capital stops at three territories. At the limit the claim loop sends no squad
+(it used to march one that claimed nothing, timed out and blacklisted the
+ground) and logs `no claim: territory limit h/c`; the way on is a Fortress
+(§ Fortress expansion) or a Fortress level (AIBuildingUpgradeSystem levels the
+lowest-level Fortress, extra ones included). Candidates must border held
+ground LINKED to one of its Fortresses — the rule TerritoryClaimSystem
+enforces — not merely any held ground.
+
+**Veilstone decides the target.** While an Alanthor army is short of
+veilstone (`AIBudget.IsMilitaryShort`), each known outcrop in a candidate is
+worth `claimNodeBonus` + `claimVeilstoneNodeBonus` (60 + 400), which outweighs
+the distance spread between neighbouring territories and any number of supply
+or iron nodes: the next territory taken is the one with the most veilstone.
+
+**Curse-held veilstone is a target.** Curse nodes lock their territory, so
+the claim picker used to skip it outright, and nothing else in the brain went
+after it — the first-RP hunt stops once a Temple stands, and the reclaim
+squad only answers curse within 110 m of the capital. Now, while the army is
+short of veilstone, a curse-held, locked territory with known outcrops (the
+cursed Veilstone-rich centre, any ground the curse spread onto) is a
+candidate: every outcrop counts (its node's fall pacifies it), less
+`claimCurseTargetPenalty` for the garrison. Picking one launches a **curse
+assault** instead of a 5-man squad: every free soldier up to
+`claimCurseSquadMax`, and only if AIEngagement judges that army the winner
+within `claimCurseAssessRadius` of the first node (too weak: logged, the
+ground skipped for a while, the runner-up tried). The assault walks from node
+to node; when the last one in the territory falls it becomes an ordinary
+claim on the same ground, clock restarted (`claimCurseTimeoutSeconds` bounds
+the assault itself). Members are claim-squad members, so waves never draft
+them mid-fight.
+
+### 5c. Fortress expansion (2026-10-03)
+
+**The AI builds Fortresses in conquered ground.** After age-up, every
+`fortressCheckInterval` it looks at its held, claimed, non-home territories
+with no Fortress in them (one per territory, §4 — anyone's counts) and scores
+each: `fortressOutcropWeight` per known outcrop inside, plus
+`fortressFrontierOutcropWeight` per known outcrop in neighbours it does not
+hold, plus `fortressBorderBonus` if it borders a hostile player or the curse
+(or its meter is contested), plus `fortressDisconnectedBonus` if it is cut off
+from every Fortress (a Fortress there re-links it and stops the wear-down),
+less `fortressDistanceWeight` per metre from the home capital.
+
+- **One in flight**: nothing new while one of its Fortresses is a plan or
+  under construction; at most `fortressMaxPerFaction` in all.
+- **Never starve the army**: it places one only when the bank covers the
+  Fortress price (`BuildCosts`, the SO) PLUS `fortressReserve*`. Short of that,
+  at the territory limit it SAVES (AIPivotalReserve `FortressExpansion`,
+  non-strict, so the hold breathes); below the limit it simply waits.
+- **The savings hold is resource-aware** (2026-10-03, every AIPivotalReserve
+  goal, not just this one): a purchase is held only if it spends a resource
+  the bank is short on against the summed reserves (+ pad), so a save short
+  only on veilstone keeps training, building and researching with supplies and
+  iron, and the composition picker steps past units the hold would refuse.
+  The duty cycle, strict reserves and exemptions apply unchanged on top.
+  Measured before it, 60-minute batch: the Fortress save never filled
+  (veilstone ~214 against 400) while supplies sat near the cap, and the median
+  army fell from 106 to 47.
+- **Sited inside the chosen territory** (the site search is locked to it),
+  anchored on the territory's seed; a refused site skips that territory for
+  `fortressSiteRetrySeconds`. Every decision is logged under `EXPANSION`
+  (`no Fortress: …`, `Fortress ordered in …`, `… refused: <reason>`).
+- **Walls follow**: once ground is broken the Fortress carries HallTag, so §
+  Walls lets that territory be walled (its bank gate still applies).
+- **The home capital stays the anchor**: a Fortress carries HallTag like the
+  capital, so "the Hall" the brain lays its base around is now the faction's
+  LOWEST-NetworkId capital (the starting one), not whichever capital the
+  chunk order lists first.
+
+Each extra Fortress raises the limit by its level (1-3), locks its territory
+and is a new link for §10 connection. Numbers: `SimpleAISystem.asset`.
+
 ## 6. Military manager
 
 - **Desired composition vector**: base mix per age (spear/archer/sword)
@@ -269,7 +368,7 @@ Exempt: **extractors** (Gatherer's Hut, Mine, Veilstone Mine, Smelter) stand
 on their node, and the node — map data — decides where they go; and the
 **Hall** when it claims new ground, which is sited on the target region.
 
-**The wall follows the border (2026-09-30).** On a map with territories the
+**The wall follows the border (2026-09-30; WHICH border is narrowed by § Walls below, 2026-10-03).** On a map with territories the
 Alanthor wall doctrine no longer plans a square: it casts one ray per 7.5°
 out of the Fortress, finds where the faction's owned ground ends on each, and
 plans the wall **4-6 build cells inside that border** (5 preferred; the band
@@ -281,6 +380,26 @@ standing hubs stay. A hub nudge never leaves owned ground. The terrain-only
 square/chokepoint plan below remains only for maps with no partition.
 Numbers: `AIWallPlanner.asset` (borderBufferCellsMin/Preferred/Max,
 borderScanMax, borderMinRadius).
+
+**§ Walls — only fortified ground is walled (2026-10-03).** The AI walls
+its STARTING (home) territory. It may fortify ANOTHER territory only if it
+has its own Fortress there (standing or under construction) — Fortress
+first, then walls, never walls on ground with no Fortress — and it only
+starts walling such a territory once its bank covers the Fortress price plus
+the whole ring it plans. Each walled territory is its own ring, traced along
+THAT territory's border (the faction's other territories count as foreign
+ground), and the plan is redrawn only when the set of walled territories
+changes — claiming or losing unfortified ground moves no wall. At most
+`maxWallPiecesPerTerritory` pieces (hubs + 3 m curtain modules) stand in one
+territory; a lost hub or link is rebuilt at most `maxWallSlotRebuilds` times,
+then left open; once a ring is closed (every slot hubbed, every link standing
+or refused) nothing more is added. Walls yield to the army: every wall
+purchase comes out of the Economy wallet without borrowing from the
+Military one, and the doctrine spends nothing while military purchases are
+being refused for supplies or iron. Numbers: `AIAlanthorEndgameSystem.asset`.
+Why: the 0.0.33 60-minute batch ended with 2,803 stone wall pieces on
+Veilmarch (one hub on a Hollow Table front was re-bought 94 times) while every
+army sat far below its cap.
 
 **Inside the walls.** When the Alanthor wall doctrine has planned a PERIMETER
 wall around the base (AIWallPlanner, planned once), every later base building
@@ -495,5 +614,4 @@ host-only through the lockstep command queue.
 
 - No machine learning (AoE4 shipped without it).
 - No vision or resource cheats on any tier.
-- No wall-building AI yet (deferred, same as AoE4 in practice).
 - No naval/water AI (no naval gameplay yet).

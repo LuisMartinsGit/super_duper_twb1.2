@@ -96,11 +96,24 @@ namespace TheWaningBorder.AI
         private static void TryBuildWallDefenses(Faction faction, EntityManager em,
             Entity brainEntity, float3 hallPos)
         {
+            // ── WALLS YIELD TO THE ARMY (2026-10-03, docs/Design/Game_AI.md
+            //    § Walls). Every wall action costs supplies and iron; while
+            //    military purchases are being refused for either, nothing is
+            //    spent on stone. ──
+            if (AIBudget.IsMilitaryShort(faction, AIBudget.ResSupplies)
+                || AIBudget.IsMilitaryShort(faction, AIBudget.ResIron))
+            {
+                LogWallsThrottled(faction, "Alanthor walls: holding — the army is short of supplies or iron");
+                return;
+            }
+
             // ── Plan, then execute. A BORDER plan is redrawn whenever the set
-            //    of territories this faction owns changes: the wall follows the
-            //    border, and a claim or a loss moves it. Standing hubs stay;
-            //    the executor matches slots to hubs by position. ──
-            uint signature = AIWallPlanner.TerritorySignature(faction);
+            //    of territories this faction may WALL changes — its home, and
+            //    any other held territory with its own Fortress in it
+            //    (AIWallPlanner.CollectWallTerritories). Claiming or losing
+            //    unfortified ground moves no wall. Standing hubs stay; the
+            //    executor matches slots to hubs by position. ──
+            uint signature = AIWallPlanner.WallTerritorySignature(em, faction, hallPos);
             if (em.HasComponent<AIWallPlan>(brainEntity))
             {
                 var held = em.GetComponentData<AIWallPlan>(brainEntity);
@@ -109,7 +122,7 @@ namespace TheWaningBorder.AI
                     em.RemoveComponent<AIWallPlan>(brainEntity);
                     if (em.HasBuffer<AIWallPlanSlot>(brainEntity))
                         em.RemoveComponent<AIWallPlanSlot>(brainEntity);
-                    AILogger.Log(faction, "BUILDING", "Alanthor walls: territory changed — redrawing the border wall");
+                    AILogger.Log(faction, "BUILDING", "Alanthor walls: walled territories changed — redrawing");
                 }
             }
             if (!em.HasComponent<AIWallPlan>(brainEntity))
@@ -133,7 +146,7 @@ namespace TheWaningBorder.AI
                 {
                     AIWallPlanner.ModeNone => "fully sheltered, no walls needed",
                     AIWallPlanner.ModeChokepoints => "seal chokepoints",
-                    AIWallPlanner.ModeBorder => "along the territory border",
+                    AIWallPlanner.ModeBorder => "along the home (and Fortress) territory border",
                     _ => "perimeter around the base",
                 };
                 AILogger.Log(faction, "BUILDING",
@@ -169,6 +182,15 @@ namespace TheWaningBorder.AI
 
             try
             {
+                // A hub seen standing at its slot marks the slot BUILT, so a
+                // later gap there reads as a loss (rebuild-capped), not as an
+                // order the executor refused.
+                MarkBuiltSlots(em, brainEntity, slots, hubPositions);
+
+                // Which chains (one per walled territory) may grow, and which
+                // may still convert gates and towers.
+                ComputeChainGates(em, faction, hallPos, slots, hubPositions);
+
                 // One action per think tick, in priority order.
                 //
                 // The cap counts the hubs ON THIS PLAN only. A border plan is
@@ -229,6 +251,207 @@ namespace TheWaningBorder.AI
             return -1;
         }
 
+        // ──────────────────────────────────────────────────────────────────
+        // WHERE AND WHEN THE AI MAY WALL (2026-10-03, docs/Design/Game_AI.md
+        // § Walls)
+        // ──────────────────────────────────────────────────────────────────
+        //
+        // The 0.0.33 60-minute batch ended with 2,803 stone wall pieces on
+        // Veilmarch, 822 on Sundered Reach and 702 on Twin Spans: the border
+        // plan walled the union of everything held, was redrawn (and a whole
+        // new ring added) whenever a territory changed hands, and re-bought
+        // hubs on a contested line every half minute (Hollow Table Blue
+        // raised the hub at (0,32) 94 times). Every one of those pieces was
+        // paid bank-direct, outside the budget the army draws on.
+        //
+        // The rule now, per plan chain (one chain = one walled territory):
+        //   * only the home territory, or a held territory with the
+        //     faction's own Fortress in it, is walled (the planner draws
+        //     nothing else; a chain whose territory stops qualifying is
+        //     frozen until the plan is redrawn);
+        //   * a non-home territory is only STARTED when the bank covers the
+        //     Fortress price plus the whole ring it plans;
+        //   * at most maxWallPiecesPerTerritory pieces stand in a territory;
+        //   * a lost hub or link is rebuilt at most maxWallSlotRebuilds times;
+        //   * every wall purchase comes out of the Economy wallet without
+        //     borrowing from the army's, and the whole doctrine holds while
+        //     the army is short of supplies or iron (TryBuildWallDefenses).
+        // Once a ring is closed — every live slot hubbed, every link standing
+        // or refused — the doctrine has nothing left to add.
+
+        /// <summary>Per chain id, this think: may the doctrine add hubs and
+        /// curtain? May it still convert gates and towers?</summary>
+        private static readonly bool[] _chainMayGrow = new bool[256];
+        private static readonly bool[] _chainMayConvert = new bool[256];
+        private static readonly int[] _chainRegion = new int[256];
+        private static readonly int[] _chainPieces = new int[256];
+        private static readonly System.Collections.Generic.List<int> _wallRegions
+            = new System.Collections.Generic.List<int>(4);
+        private static readonly System.Collections.Generic.List<float3> _wallAnchors
+            = new System.Collections.Generic.List<float3>(4);
+        private static readonly System.Collections.Generic.Dictionary<int, float> _nextWallLog
+            = new System.Collections.Generic.Dictionary<int, float>();
+
+        /// <summary>A wall-doctrine note, at most once per wallLogInterval per faction.</summary>
+        private static void LogWallsThrottled(Faction faction, string line)
+        {
+            int key = (int)faction;
+            float now = SimClock.Now;
+            if (_nextWallLog.TryGetValue(key, out float next) && now < next) return;
+            _nextWallLog[key] = now + Cfg.wallLogInterval;
+            AILogger.Log(faction, "BUILDING", line);
+        }
+
+        /// <summary>
+        /// May the doctrine spend <paramref name="cost"/> on stone? Out of the
+        /// ECONOMY wallet alone — CanSpend does not borrow, so a wall can
+        /// never take the army's share — and the bank must cover it.
+        /// </summary>
+        private static bool WallSpendAllowed(EntityManager em, Faction faction, Cost cost)
+            => AIBudget.CanSpend(faction, AIBudgetCategory.EconomyExpansion, cost)
+               && FactionEconomy.CanAfford(em, faction, cost);
+
+        /// <summary>Charge a wall order to the Economy wallet (the executor
+        /// spends the real bank).</summary>
+        private static void RecordWallSpend(Faction faction, Cost cost)
+            => AIBudget.RecordSpend(faction, AIBudgetCategory.EconomyExpansion, cost);
+
+        /// <summary>Set FlagHubBuilt on every live slot a hub stands at.</summary>
+        private static void MarkBuiltSlots(EntityManager em, Entity brainEntity,
+            NativeArray<AIWallPlanSlot> slots, NativeList<float3> hubPositions)
+        {
+            for (int i = 0; i < slots.Length; i++)
+            {
+                byte f = slots[i].Flags;
+                if ((f & (AIWallPlanner.FlagDead | AIWallPlanner.FlagHubBuilt)) != 0) continue;
+                if (FindHubNear(hubPositions, slots[i].Position, Cfg.wallSlotOccupiedRadius) < 0) continue;
+                UpdateSlot(em, brainEntity, slots, i, s => { s.Flags |= AIWallPlanner.FlagHubBuilt; return s; });
+            }
+        }
+
+        /// <summary>Fill <see cref="_chainMayGrow"/> / <see cref="_chainMayConvert"/>
+        /// for this think (see the rule above).</summary>
+        private static void ComputeChainGates(EntityManager em, Faction faction, float3 hallPos,
+            NativeArray<AIWallPlanSlot> slots, NativeList<float3> hubPositions)
+        {
+            System.Array.Clear(_chainMayGrow, 0, _chainMayGrow.Length);
+            System.Array.Clear(_chainMayConvert, 0, _chainMayConvert.Length);
+            System.Array.Clear(_chainPieces, 0, _chainPieces.Length);
+            for (int c = 0; c < _chainRegion.Length; c++)
+                _chainRegion[c] = TheWaningBorder.World.Regions.RegionMap.None;
+
+            // No partition (a map without regions): the terrain-only plans
+            // ring the home base and nothing else, so every chain qualifies.
+            bool regions = TheWaningBorder.World.Regions.RegionMap.Ready
+                        && TheWaningBorder.World.Regions.TerritoryOwnership.Ready;
+            if (!regions)
+            {
+                for (int i = 0; i < slots.Length; i++)
+                {
+                    _chainMayGrow[slots[i].Chain] = true;
+                    _chainMayConvert[slots[i].Chain] = true;
+                }
+                return;
+            }
+
+            // Each chain's territory: the region its slots stand in (a slot
+            // sits borderInset inside its own territory).
+            for (int i = 0; i < slots.Length; i++)
+            {
+                int ch = slots[i].Chain;
+                if (_chainRegion[ch] != TheWaningBorder.World.Regions.RegionMap.None) continue;
+                _chainRegion[ch] = TheWaningBorder.World.Regions.RegionMap.RegionAt(
+                    slots[i].Position.x, slots[i].Position.z);
+            }
+
+            // Pieces standing per chain territory: hubs + curtain modules.
+            for (int h = 0; h < hubPositions.Length; h++)
+                CountPieceAt(hubPositions[h]);
+            {
+                var q = QC_WallInstanceTagFactionTagLocalTransform.Get(em, QT_WallInstanceTagFactionTagLocalTransform);
+                using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+                using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+                for (int i = 0; i < facs.Length; i++)
+                    if (facs[i].Value == faction) CountPieceAt(xfs[i].Position);
+            }
+
+            AIWallPlanner.CollectWallTerritories(em, faction, hallPos, _wallRegions, _wallAnchors);
+            int home = AIWallPlanner.HomeRegion(hallPos);
+            BuildCosts.TryGet("Fortress", out var fortressCost);
+
+            for (int ch = 0; ch < _chainRegion.Length; ch++)
+            {
+                int r = _chainRegion[ch];
+                if (r == TheWaningBorder.World.Regions.RegionMap.None) continue;
+                // Home, or held with its own Fortress in it — re-checked
+                // every think, not only when the plan was drawn.
+                if (!_wallRegions.Contains(r)) continue;
+                _chainMayConvert[ch] = true;
+
+                if (_chainPieces[ch] >= Cfg.maxWallPiecesPerTerritory)
+                {
+                    LogWallsThrottled(faction,
+                        $"Alanthor walls: territory {r} holds {_chainPieces[ch]} pieces " +
+                        $"(cap {Cfg.maxWallPiecesPerTerritory}) — no more stone there");
+                    continue;
+                }
+
+                // A non-home territory is only STARTED when the bank covers
+                // the Fortress price plus everything its ring plans to buy.
+                if (r != home && !ChainStarted(slots, (byte)ch))
+                {
+                    var ring = EstimateChainCost(slots, (byte)ch);
+                    if (!FactionEconomy.CanAfford(em, faction, fortressCost + ring))
+                    {
+                        LogWallsThrottled(faction,
+                            $"Alanthor walls: territory {r} (Fortress) waits — the bank must cover the " +
+                            $"Fortress price plus its ring ({fortressCost.Supplies + ring.Supplies}s, " +
+                            $"{fortressCost.Iron + ring.Iron}i)");
+                        continue;
+                    }
+                }
+                _chainMayGrow[ch] = true;
+            }
+        }
+
+        private static void CountPieceAt(float3 p)
+        {
+            int r = TheWaningBorder.World.Regions.RegionMap.RegionAt(p.x, p.z);
+            if (r == TheWaningBorder.World.Regions.RegionMap.None) return;
+            for (int ch = 0; ch < _chainRegion.Length; ch++)
+            {
+                if (_chainRegion[ch] == TheWaningBorder.World.Regions.RegionMap.None) continue;
+                if (_chainRegion[ch] == r) _chainPieces[ch]++;
+            }
+        }
+
+        /// <summary>True once any slot of the chain has had a hub stand.</summary>
+        private static bool ChainStarted(NativeArray<AIWallPlanSlot> slots, byte chain)
+        {
+            for (int i = 0; i < slots.Length; i++)
+                if (slots[i].Chain == chain && (slots[i].Flags & AIWallPlanner.FlagHubBuilt) != 0)
+                    return true;
+            return false;
+        }
+
+        /// <summary>What a chain's whole ring would cost: a hub per live slot
+        /// and the curtain to its next live slot.</summary>
+        private static Cost EstimateChainCost(NativeArray<AIWallPlanSlot> slots, byte chain)
+        {
+            Cost total = default;
+            if (!BuildCosts.TryGet("Alanthor_Wall", out var hubCost)) return total;
+            for (int i = 0; i < slots.Length; i++)
+            {
+                if (slots[i].Chain != chain || (slots[i].Flags & AIWallPlanner.FlagDead) != 0) continue;
+                total = total + hubCost;
+                int j = NextLiveSlot(slots, i, cyclic: true);
+                if (j < 0 || (slots[i].Flags & AIWallPlanner.FlagTerrainSealed) != 0) continue;
+                total = total + CommandRouter.WallRunCost(false,
+                    math.distance(slots[i].Position.xz, slots[j].Position.xz));
+            }
+            return total;
+        }
+
         /// <summary>Unit direction along the plan chain at slot i — the
         /// nudge axis when the exact slot point is unbuildable.</summary>
         private static float3 ChainDirAt(NativeArray<AIWallPlanSlot> slots, int i)
@@ -267,8 +490,23 @@ namespace TheWaningBorder.AI
             {
                 var slot = slots[i];
                 if ((slot.Flags & AIWallPlanner.FlagDead) != 0) continue;
+                // Its territory may not grow (not walled ground, at the piece
+                // cap, or a Fortress territory the bank cannot yet fund).
+                if (!_chainMayGrow[slot.Chain]) continue;
                 if (FindHubNear(hubPositions, slot.Position,
                         Cfg.wallSlotOccupiedRadius) >= 0) continue;
+
+                // A hub STOOD here and was lost. Rebuilt a few times, then
+                // left dead — neighbours span the gap if they can.
+                bool rebuild = (slot.Flags & AIWallPlanner.FlagHubBuilt) != 0;
+                if (rebuild && slot.HubRebuilds >= Cfg.maxWallSlotRebuilds)
+                {
+                    AILogger.Log(faction, "BUILDING",
+                        $"Alanthor walls: hub at ({slot.Position.x:F0},{slot.Position.z:F0}) " +
+                        $"lost {slot.HubRebuilds + 1}x — not rebuilt again, marked dead");
+                    UpdateSlot(em, brainEntity, slots, i, s => { s.Flags |= AIWallPlanner.FlagDead; return s; });
+                    continue;
+                }
 
                 // Orders issued for this slot that never produced a hub: the
                 // executor refused them (under lockstep the AI never hears
@@ -283,9 +521,9 @@ namespace TheWaningBorder.AI
                     continue;
                 }
 
-                // Wait for the bank rather than skipping ahead — the wall
+                // Wait for the wallet rather than skipping ahead — the wall
                 // grows in chain order so partial lines stay contiguous.
-                if (!FactionEconomy.CanAfford(em, faction, hubCost)) return false;
+                if (!WallSpendAllowed(em, faction, hubCost)) return false;
 
                 // Nudge candidates: PERPENDICULAR slides lead (2026-08-11,
                 // Green's half wall: a rock on the line killed the middle
@@ -320,12 +558,23 @@ namespace TheWaningBorder.AI
                     // the host alone and shifted NetworkId allocation for
                     // every later entity in the tick.
                     // docs/Multiplayer_Desync_Sweep_2026-08-16.md
-                    if (!FactionEconomy.CanAfford(em, faction, hubCost)) return false;
+                    if (!WallSpendAllowed(em, faction, hubCost)) return false;
+
+                    // A rebuild is counted once, when ordered; the slot reads
+                    // as BUILT again once the new hub is seen standing.
+                    if (rebuild)
+                        UpdateSlot(em, brainEntity, slots, i, s =>
+                        {
+                            s.HubRebuilds++;
+                            s.Flags = (byte)(s.Flags & ~AIWallPlanner.FlagHubBuilt);
+                            return s;
+                        });
 
                     if (GameSettings.IsMultiplayer)
                     {
                         CommandRouter.IssuePlaceWallHub(em, pos, faction,
                             autoBuild: true, CommandSource.AI);
+                        RecordWallSpend(faction, hubCost);
                         UpdateSlot(em, brainEntity, slots, i, s => { s.HubTries++; return s; });
                         // The hub entity is created inside the replicated
                         // executor two ticks from now, so the proximity links
@@ -342,6 +591,7 @@ namespace TheWaningBorder.AI
                         UpdateSlot(em, brainEntity, slots, i, s => { s.HubTries++; return s; });
                         return false;
                     }
+                    RecordWallSpend(faction, hubCost);
                     // Link to the PLAN neighbours only (2026-10-02). Linking to
                     // every hub within reach pulled in an old ring's hubs and
                     // reached across mountain stretches the plan leaves open.
@@ -422,6 +672,8 @@ namespace TheWaningBorder.AI
                 if ((slots[i].Flags & AIWallPlanner.FlagTerrainSealed) != 0) continue;
                 // Already tried every way and refused: left open, not retried.
                 if ((slots[i].Flags & AIWallPlanner.FlagLinkRefused) != 0) continue;
+                // Its territory may not grow (see ComputeChainGates).
+                if (!_chainMayGrow[slots[i].Chain]) continue;
 
                 int j = NextLiveSlot(slots, i, cyclic);
                 if (j < 0) continue;
@@ -438,8 +690,23 @@ namespace TheWaningBorder.AI
                 if (!em.Exists(hubA) || !em.Exists(hubB)) continue;
                 if (AlanthorWall.AreHubsConnected(em, hubA, hubB))
                 {
-                    if (slots[i].LinkTries != 0)
-                        UpdateSlot(em, brainEntity, slots, i, s => { s.LinkTries = 0; return s; });
+                    if (slots[i].LinkTries != 0 || (slots[i].Flags & AIWallPlanner.FlagLinked) == 0)
+                        UpdateSlot(em, brainEntity, slots, i, s =>
+                        {
+                            s.LinkTries = 0;
+                            s.Flags |= AIWallPlanner.FlagLinked;
+                            return s;
+                        });
+                    continue;
+                }
+
+                // The link STOOD and was broken. Re-laid a few times, then
+                // left open.
+                bool relink = (slots[i].Flags & AIWallPlanner.FlagLinked) != 0;
+                if (relink && slots[i].LinkRebuilds >= Cfg.maxWallSlotRebuilds)
+                {
+                    MarkLinkRefused(faction, em, brainEntity, slots, i, j,
+                        $"lost {slots[i].LinkRebuilds + 1}x — not rebuilt again");
                     continue;
                 }
 
@@ -463,7 +730,16 @@ namespace TheWaningBorder.AI
                         "blocked straight and round both sides");
                     continue;
                 }
-                UpdateSlot(em, brainEntity, slots, i, s => { s.LinkTries++; return s; });
+                UpdateSlot(em, brainEntity, slots, i, s =>
+                {
+                    s.LinkTries++;
+                    if (relink)
+                    {
+                        s.LinkRebuilds++;
+                        s.Flags = (byte)(s.Flags & ~AIWallPlanner.FlagLinked);
+                    }
+                    return s;
+                });
                 AILogger.Log(faction, "BUILDING",
                     $"Alanthor walls: linking ({slots[i].Position.x:F0},{slots[i].Position.z:F0}) to " +
                     $"({slots[j].Position.x:F0},{slots[j].Position.z:F0})" +
@@ -495,9 +771,11 @@ namespace TheWaningBorder.AI
                 && CommandRouter.WallLineOnOwnGround(em, faction, joints)
                 && CommandRouter.WallLineClear(em, faction, joints, joints, palisade: false))
             {
-                if (!FactionEconomy.CanAfford(em, faction, CommandRouter.WallRunCost(false, gap)))
+                var runCost = CommandRouter.WallRunCost(false, gap);
+                if (!WallSpendAllowed(em, faction, runCost))
                     return LinkResult.Unaffordable;
                 CommandRouter.IssueWallExtend(em, hubA, hubB, pb, faction, CommandSource.AI);
+                RecordWallSpend(faction, runCost);
                 return LinkResult.Straight;
             }
 
@@ -526,9 +804,11 @@ namespace TheWaningBorder.AI
                 if (len > WallMaxGapSpan * 1.3f) continue;
                 if (!CommandRouter.WallLineOnOwnGround(em, faction, pts)) continue;
                 if (!CommandRouter.WallLineClear(em, faction, pts, joints, palisade: false)) continue;
-                if (!FactionEconomy.CanAfford(em, faction, CommandRouter.WallRunCost(false, len)))
+                var curveCost = CommandRouter.WallRunCost(false, len);
+                if (!WallSpendAllowed(em, faction, curveCost))
                     return LinkResult.Unaffordable;
                 CommandRouter.IssuePlaceWallPath(em, pts, kinds, faction, CommandSource.AI, palisade: false);
+                RecordWallSpend(faction, curveCost);
                 return LinkResult.Detoured;
             }
             return LinkResult.Refused;
@@ -642,6 +922,7 @@ namespace TheWaningBorder.AI
             {
                 if ((slots[i].Flags & AIWallPlanner.FlagGateAfter) == 0) continue;
                 if ((slots[i].Flags & AIWallPlanner.FlagDead) != 0) continue;
+                if (!_chainMayConvert[slots[i].Chain]) continue;
 
                 // Far hub = next live slot of the same chain.
                 int j = -1;
@@ -672,10 +953,11 @@ namespace TheWaningBorder.AI
                 if (SegmentHasGate(em, segment)) continue;                       // done
                 if (SegmentUnderConstruction(em, segment)) continue;             // still rising
 
-                if (!FactionEconomy.CanAfford(em, faction,
+                if (!WallSpendAllowed(em, faction,
                         ConvertSegmentToGateCommandHelper.ConversionCost)) return false;
                 CommandRouter.IssueConvertSegmentToGate(em, segment, Entity.Null,
                     CommandSource.AI);
+                RecordWallSpend(faction, ConvertSegmentToGateCommandHelper.ConversionCost);
                 AILogger.Log(faction, "BUILDING",
                     $"Alanthor walls: gate conversion at " +
                     $"({slots[i].Position.x:F0},{slots[i].Position.z:F0})");
@@ -738,6 +1020,7 @@ namespace TheWaningBorder.AI
                 {
                     if ((slots[i].Flags & AIWallPlanner.FlagTower) == 0) continue;
                     if ((slots[i].Flags & AIWallPlanner.FlagDead) != 0) continue;
+                    if (!_chainMayConvert[slots[i].Chain]) continue;
 
                     int best = -1;
                     float bestD2 = 8f * 8f;
@@ -757,7 +1040,7 @@ namespace TheWaningBorder.AI
                     if (em.HasComponent<WallGateRegionTag>(inst)) continue;
                     if (em.HasComponent<UnderConstruction>(inst)) continue; // still rising
 
-                    if (!FactionEconomy.CanAfford(em, faction, towerCost)) return;
+                    if (!WallSpendAllowed(em, faction, towerCost)) return;
                     // Spend + stamp through the charged executor: it
                     // validates again and charges the same bank on every
                     // peer, replacing the local Spend + AddComponentData
@@ -767,6 +1050,7 @@ namespace TheWaningBorder.AI
                     // conversion instead of stamping it locally.
                     CommandRouter.IssueWallUpgradeCharged(em, inst, 1, 10f,
                         TheWaningBorder.Core.Commands.CommandSource.AI);
+                    RecordWallSpend(faction, towerCost);
                     AILogger.Log(faction, "BUILDING",
                         $"Alanthor walls: tower conversion at " +
                         $"({slots[i].Position.x:F0},{slots[i].Position.z:F0})");

@@ -90,11 +90,69 @@ namespace TheWaningBorder.AI
         /// pivotal purchases — discretionary spenders skip their spend
         /// this tick. False as soon as the bank covers the summed
         /// reserves plus <see cref="Pad"/>, or once the hold has run
-        /// longer than <see cref="MaxHoldSeconds"/> without filling.</summary>
+        /// longer than <see cref="MaxHoldSeconds"/> without filling.
+        /// RESOURCE-BLIND: use the <see cref="Cost"/> overload wherever
+        /// the price of the purchase being gated is known.</summary>
         public static bool ShouldHold(EntityManager em, Faction faction)
+            => HoldActive(em, faction, out _);
+
+        /// <summary>
+        /// RESOURCE-AWARE hold (2026-10-03): true only while the hold is on
+        /// (same shortfall, strict and duty-cycle rules as the blind
+        /// overload) AND <paramref name="purchase"/> spends a resource that
+        /// is short against the pending reserves. The Fortress save made the
+        /// blind hold permanent: veilstone (the scarce resource) never
+        /// filled, so every spender froze while supplies and iron sat at the
+        /// bank cap — median army 106 to 47 over a 60-minute batch. A
+        /// purchase that touches none of the short resources cannot delay
+        /// the save, so it passes.
+        /// </summary>
+        public static bool ShouldHold(EntityManager em, Faction faction, Cost purchase)
         {
+            if (!HoldActive(em, faction, out var shortSet)) return false;
+            return (purchase.Supplies  > 0 && shortSet.Supplies)
+                || (purchase.Iron      > 0 && shortSet.Iron)
+                || (purchase.Veilstone > 0 && shortSet.Veilstone)
+                || (purchase.Veilsteel > 0 && shortSet.Veilsteel);
+        }
+
+        /// <summary>Which resources the bank is short on against this
+        /// faction's summed pending reserves.</summary>
+        public struct ShortSet
+        {
+            public bool Supplies, Iron, Veilstone, Veilsteel;
+            public bool Any => Supplies || Iron || Veilstone || Veilsteel;
+
+            /// <summary>Short resource names, for refusal logs.</summary>
+            public override string ToString()
+            {
+                string s = "";
+                if (Supplies)  s += "supplies ";
+                if (Iron)      s += "iron ";
+                if (Veilstone) s += "veilstone ";
+                if (Veilsteel) s += "veilsteel ";
+                return s.TrimEnd();
+            }
+        }
+
+        /// <summary>The resources currently short against the pending
+        /// reserves (no duty cycle applied) — for refusal logs.</summary>
+        public static ShortSet ShortResources(EntityManager em, Faction faction)
+        {
+            ComputeShort(em, faction, out var set, out _);
+            return set;
+        }
+
+        /// <summary>Summed reserves vs bank, per resource (veilsteel
+        /// without the pad). False when nothing is pending or the bank is
+        /// unreadable.</summary>
+        private static bool ComputeShort(EntityManager em, Faction faction,
+            out ShortSet set, out bool strict)
+        {
+            set = default;
+            strict = false;
             int s = 0, iron = 0, v = 0, vs = 0;
-            bool any = false, strict = false;
+            bool any = false;
             foreach (var kv in _pending)
             {
                 if (kv.Key.faction != faction) continue;
@@ -105,14 +163,27 @@ namespace TheWaningBorder.AI
                 v    += kv.Value.Veilstone;
                 vs   += kv.Value.Veilsteel;
             }
-            if (!any) { _holdSince.Remove(faction); return false; }
-
+            if (!any) return false;
             if (!FactionEconomy.TryGetResources(em, faction, out var res)) return false;
-            bool shortfall = res.Supplies < s + Cfg.pad
-                || res.Iron < iron + Cfg.pad
-                || res.Veilstone < v + Cfg.pad
-                || res.Veilsteel < vs;
-            if (!shortfall) { _holdSince.Remove(faction); return false; }
+            set.Supplies  = res.Supplies  < s + Cfg.pad;
+            set.Iron      = res.Iron      < iron + Cfg.pad;
+            set.Veilstone = res.Veilstone < v + Cfg.pad;
+            set.Veilsteel = res.Veilsteel < vs;
+            return true;
+        }
+
+        /// <summary>The hold verdict both overloads share: shortfall on any
+        /// resource, then strict / duty cycle. <paramref name="shortSet"/>
+        /// names the short resources.</summary>
+        private static bool HoldActive(EntityManager em, Faction faction, out ShortSet shortSet)
+        {
+            bool pendingAny = false;
+            foreach (var kv in _pending)
+                if (kv.Key.faction == faction) { pendingAny = true; break; }
+            if (!pendingAny) { _holdSince.Remove(faction); shortSet = default; return false; }
+
+            if (!ComputeShort(em, faction, out shortSet, out bool strict)) return false;
+            if (!shortSet.Any) { _holdSince.Remove(faction); return false; }
             if (strict) return true;   // no duty cycle while a strict goal is unpaid
 
             // Simulated time — this gates an AI spending decision, so it
