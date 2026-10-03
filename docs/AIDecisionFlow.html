@@ -56,35 +56,35 @@ const phases = [
 /* Strategy x Phase priority tables */
 const strategyPhases = {
   rush: [
-    { phase: 'Opening',  priorities: ['Barracks ASAP', '2 miners only', 'Skip GathererHut', 'Queue swords immediately'] },
-    { phase: 'Build-Up', priorities: ['2nd Barracks', 'Send first wave', 'Harass enemy miners', 'Crystal hunt near base'] },
+    { phase: 'Opening',  priorities: ['Barracks ASAP', '2 workers only', 'Skip GathererHut', 'Queue swords immediately'] },
+    { phase: 'Build-Up', priorities: ['2nd Barracks', 'Send first wave', 'Harass enemy workers', 'Crystal hunt near base'] },
     { phase: 'Age-Up',   priorities: ['Delay age-up', 'Keep pressure', 'If harass failed: pivot to Defensive', 'Build huts for pop'] },
     { phase: 'Mid-Game', priorities: ['Transition: Aggressive or Defensive', 'Age up (Feraldis preferred)', 'Mixed army composition'] },
     { phase: 'Late-Game',priorities: ['Full army push', 'Siege units', 'Target enemy economy', 'Rebuild if wiped'] },
   ],
   economy: [
-    { phase: 'Opening',  priorities: ['3 GathererHuts first', '4+ miners', 'Skip barracks until 4 min', 'Lure crystal for cadavers'] },
+    { phase: 'Opening',  priorities: ['3 GathererHuts first', '4+ workers', 'Skip barracks until 4 min', 'Lure crystal for cadavers'] },
     { phase: 'Build-Up', priorities: ['5+ GathererHuts', '1 Barracks (defense only)', 'Small standing army', 'Scout for deposits'] },
     { phase: 'Age-Up',   priorities: ['Choice building early', 'Age up ASAP (Runai preferred)', 'Trade Hub + Outpost', 'Crystal stockpile'] },
     { phase: 'Mid-Game', priorities: ['Transition: Tech or Aggressive', 'Trade routes active', '3+ Barracks', 'Continuous production'] },
     { phase: 'Late-Game',priorities: ['Economic superiority', 'Outproduce opponents', 'Multiple armies', 'Map control'] },
   ],
   tech: [
-    { phase: 'Opening',  priorities: ['2 miners, 2 GathererHuts', 'Mine crystal cadavers', 'Save crystal for choice building'] },
+    { phase: 'Opening',  priorities: ['2 workers, 2 GathererHuts', 'Mine crystal cadavers', 'Save crystal for choice building'] },
     { phase: 'Build-Up', priorities: ['Choice building ASAP', '1 Barracks minimum', 'Crystal priority over iron', 'Defend while teching'] },
     { phase: 'Age-Up',   priorities: ['Age up immediately', 'Culture buildings rush', 'Advanced unit unlock', 'Temple of Ridan'] },
     { phase: 'Mid-Game', priorities: ['Culture-specific army', 'Tech advantage push', 'Transition: Aggressive', 'Research upgrades'] },
     { phase: 'Late-Game',priorities: ['Full culture army', 'All upgrades complete', 'Overwhelming force', 'Multi-front attacks'] },
   ],
   aggressive: [
-    { phase: 'Opening',  priorities: ['Balanced: 2 GathererHuts + Barracks', '3 miners', 'Start training early', 'Scout enemy base'] },
+    { phase: 'Opening',  priorities: ['Balanced: 2 GathererHuts + Barracks', '3 workers', 'Start training early', 'Scout enemy base'] },
     { phase: 'Build-Up', priorities: ['2 Barracks', 'Continuous training', 'Form first army', 'Attack when army >= 2 battalions'] },
     { phase: 'Age-Up',   priorities: ['Age up when safe', 'Keep attacking while aging', 'Feraldis or Alanthor', 'Never stop producing'] },
     { phase: 'Mid-Game', priorities: ['Constant pressure', '3-4 armies rotating', 'Target weakest player', 'Expand if dominant'] },
     { phase: 'Late-Game',priorities: ['Siege + full army', 'Destroy enemy production', 'Map control', 'Final push'] },
   ],
   defensive: [
-    { phase: 'Opening',  priorities: ['3 GathererHuts', '3+ miners', 'Barracks for defense', 'Crystal hunt passive'] },
+    { phase: 'Opening',  priorities: ['3 GathererHuts', '3+ workers', 'Barracks for defense', 'Crystal hunt passive'] },
     { phase: 'Build-Up', priorities: ['Defend base perimeter', '2 Barracks', 'Standing army near base', 'Wall approach (if Alanthor)'] },
     { phase: 'Age-Up',   priorities: ['Alanthor preferred (walls)', 'Wall hubs around base', 'Towers at chokepoints', 'Age up safely'] },
     { phase: 'Mid-Game', priorities: ['Counter-attack opportunity', 'Transition: Aggressive if ahead', 'Fortify expansions', 'Mixed army'] },
@@ -394,7 +394,7 @@ function App() {
           {/* TIER 1: Systems */}
           {[
             { x: 30,  label: 'Economy',  sub: 'Gather | Mine | Build', color: '#16c79a' },
-            { x: 250, label: 'Building', sub: 'Builders | Construct',  color: '#2ec4b6' },
+            { x: 250, label: 'Building', sub: 'Workers | Construct',  color: '#2ec4b6' },
             { x: 450, label: 'Military', sub: 'Train | Form Army',     color: '#e94560' },
             { x: 640, label: 'Scouting', sub: 'Explore | Detect',      color: '#ffd460' },
             { x: 860, label: 'Defense',  sub: 'Threat | Rally',        color: '#e67e22' },
@@ -411,10 +411,10 @@ function App() {
           <line x1="115" y1="116" x2="115" y2="135" stroke="#16c79a44" strokeWidth="1" markerEnd="url(#ah)" />
           <rect x="20" y="135" width="190" height="70" rx="4" fill="#0a1a15" stroke="#16c79a44" strokeWidth="1" />
           <text x="30" y="150" fill="#16c79a" fontSize="9" fontWeight="bold" fontFamily="monospace">
-            {selectedStrategy === 'rush' ? 'MINIMAL (2 miners)' :
-             selectedStrategy === 'economy' ? 'PRIORITY (4+ miners)' :
+            {selectedStrategy === 'rush' ? 'MINIMAL (2 workers)' :
+             selectedStrategy === 'economy' ? 'PRIORITY (4+ workers)' :
              selectedStrategy === 'tech' ? 'CRYSTAL FOCUS' :
-             selectedStrategy === 'aggressive' ? 'BALANCED (3 miners)' : 'STABLE (3+ miners)'}
+             selectedStrategy === 'aggressive' ? 'BALANCED (3 workers)' : 'STABLE (3+ workers)'}
           </text>
           <text x="30" y="163" fill="#778" fontSize="8" fontFamily="monospace">
             {selectedStrategy === 'rush' ? 'Skip extra huts early' :
@@ -551,7 +551,7 @@ function App() {
           <div style={{ flex: 1, background: '#0a0a15', borderRadius: 6, padding: 12, borderLeft: '3px solid #e94560' }}>
             <div style={{ color: '#e94560', fontSize: 11, fontWeight: 'bold', marginBottom: 6 }}>Rush {'\u2192'} Defensive {'\u2192'} Alanthor</div>
             <div style={{ fontSize: 9, color: '#889', lineHeight: 1.6 }}>
-              AI starts <b style={{color:'#e94560'}}>Rush</b>. Builds barracks immediately, 2 miners only. Sends first battalion at 3 min to harass enemy miners.
+              AI starts <b style={{color:'#e94560'}}>Rush</b>. Builds barracks immediately, 2 workers only. Sends first battalion at 3 min to harass enemy workers.
               <br />Enemy defends well, AI loses 60% of army. Strategy evaluator triggers: <b style={{color:'#3498db'}}>pivot to Defensive</b>.
               <br />AI builds huts, trains standing army, ages up and picks <b style={{color:'#3498db'}}>Alanthor</b> for walls.
               <br />Walls go up, towers at chokepoints. Waits for full army before counter-attacking.
@@ -561,8 +561,8 @@ function App() {
           <div style={{ flex: 1, background: '#0a0a15', borderRadius: 6, padding: 12, borderLeft: '3px solid #16c79a' }}>
             <div style={{ color: '#16c79a', fontSize: 11, fontWeight: 'bold', marginBottom: 6 }}>Eco Boom {'\u2192'} Tech {'\u2192'} Aggressive</div>
             <div style={{ fontSize: 9, color: '#889', lineHeight: 1.6 }}>
-              AI starts <b style={{color:'#16c79a'}}>Eco Boom</b>. Builds 3 GathererHuts, 4 miners. Lures crystal wave near base for cadaver farming.
-              <br />Small guard force kills Crystallings, miners harvest 200+ crystal. Strategy evaluator: <b style={{color:'#c77dff'}}>switch to Tech</b>.
+              AI starts <b style={{color:'#16c79a'}}>Eco Boom</b>. Builds 3 GathererHuts, 4 workers. Lures crystal wave near base for cadaver farming.
+              <br />Small guard force kills Crystallings, workers harvest 200+ crystal. Strategy evaluator: <b style={{color:'#c77dff'}}>switch to Tech</b>.
               <br />Builds choice building, ages up to <b style={{color:'#f39c12'}}>Runai</b>. Trade Hub + caravans compound income.
               <br />At 15 min, trade income funds 3 barracks. <b style={{color:'#ff6b6b'}}>Transitions to Aggressive</b> with economic superiority.
             </div>

@@ -168,20 +168,20 @@ namespace TheWaningBorder.Systems.Combat
 
             // Single unified loop for all target-seeking units:
             // idle units, attack-move units, and patrol units.
-            // Builders and miners are excluded.
+            // Workers are excluded.
             foreach (var (transform, faction, lineOfSight, target, unitTag, damage, eng, entity) in SystemAPI
                 .Query<RefRO<LocalTransform>, RefRO<FactionTag>, RefRO<LineOfSight>, RefRO<Target>,
                        RefRO<UnitTag>, RefRO<Damage>, RefRW<UnitEngagement>>()
                 .WithNone<DeathAnimationState>()  // a corpse acquires nothing
                 .WithNone<TheWaningBorder.Entities.Launched>()  // neither does a unit in the air
                 .WithNone<AttackCommand>()
-                .WithNone<PassiveWorkerTag>()   // Builders are passive workers...
+                .WithNone<PassiveWorkerTag>()   // Workers are passive...
                                                 //   ...except Feraldis Workers, which are
                                                 //   light infantry that also build. The tag
                                                 //   (not CanBuild) is what marks a worker as
                                                 //   non-combatant; FeraldisCultureRetrofitSystem
                                                 //   strips it.
-                .WithNone<BuildCommand>()       // A COMMITTED BUILDER IS BUSY. Feraldis
+                .WithNone<BuildCommand>()       // A COMMITTED WORKER IS BUSY. Feraldis
                                                 //   Workers fight, so dropping PassiveWorkerTag
                                                 //   let this pass (and return-to-guard below)
                                                 //   grab them mid-build and fight the build
@@ -192,9 +192,9 @@ namespace TheWaningBorder.Systems.Combat
                 .WithNone<SectVeiled>()         // Stoneveil (Fortitude): a veiled unit may
                                                 //   move, and nothing else. It cannot attack,
                                                 //   gather, build or capture while veiled.
-                .WithNone<MinerTag>()           // Miners are handled by MiningSystem
+                .WithNone<WorkerTag>()           // Workers are handled by MiningSystem
                 .WithNone<RitualState>()        // A CHANNELLING RITUALIST IS BUSY — the same
-                                                //   rule as the committed builder above, added
+                                                //   rule as the committed worker above, added
                                                 //   for the same failure.
                                                 //
                                                 //   The killer is the return-to-guard branch
@@ -228,14 +228,14 @@ namespace TheWaningBorder.Systems.Combat
                 // them staying alive. Explicit class check guarantees this
                 // regardless of the damage value below.
                 //
-                // Economy units (workers / miners) NEVER auto-engage either. A
+                // Economy units (workers) NEVER auto-engage either. A
                 // worker standing on a deposit is mining, so its
                 // DesiredDestination.Has is 0 — which means the "skip units
                 // with a destination" gate below does NOT protect it, and it
                 // would auto-acquire a nearby enemy and wander off to chase it
                 // while still assigned to the deposit.
                 var cls = unitTag.ValueRO.Class;
-                if (cls == UnitClass.Scout || cls == UnitClass.Economy || cls == UnitClass.Miner)
+                if (cls == UnitClass.Scout || cls == UnitClass.Economy || cls == UnitClass.Worker)
                     continue;
 
                 // Damage gate — only units that actually deal damage
@@ -442,8 +442,8 @@ namespace TheWaningBorder.Systems.Combat
 
                             // Curse & Shardroot canon §2.1: BORDER units
                             // GUARD their wells — they don't hunt
-                            // harvesters. Worker-class targets (miners /
-                            // builders) are ignored unless they stray
+                            // harvesters. Worker-class targets (workers)
+                            // are ignored unless they stray
                             // right into the horde; military targets are
                             // engaged normally. Makes sneak-mining the
                             // crystal fields survivable.

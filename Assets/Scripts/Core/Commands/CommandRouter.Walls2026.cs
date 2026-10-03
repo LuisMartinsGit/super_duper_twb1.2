@@ -255,10 +255,142 @@ namespace TheWaningBorder.Core.Commands
             => TheWaningBorder.World.Regions.TerritoryOwnership.CanBuildAt(
                    em, faction, "Alanthor_Wall", p.x, p.z);
 
+        // ── A wall is collision-aware along its WHOLE length (2026-10-02) ──
+        //
+        // Only the new hub points used to be tested; the curtain between them
+        // was laid through buildings, nodes, other walls and cliffs. Every
+        // drawn or extended wall is now tested along its full length against
+        // the nav grid's occupancy (NavGridQuery.WallBlockedAt — the same
+        // cells building placement tests walls against), plus resource nodes
+        // and the owner's own plans, in the executor, before any spend, on
+        // every peer. docs/Design/Build_Grid.md § Walls on the grid.
+
+        // ── A wall is paid PER MODULE (2026-10-02) ────────────────────────
+        //
+        // The curtain used to be free: only hubs cost. Every 3 m module now
+        // has its price (the curtain SO's cost — Segment/WallSegment.asset for
+        // stone, Palisade/PalisadeSegment.asset for the fence), charged in
+        // the executor for exactly the modules it lays (AlanthorWall.ModuleCount,
+        // the factories' own rounding). docs/Design/Age_1_Alanthor.md § The
+        // stone wall, Age_0.md § Palisade.
+
+        /// <summary>The price of ONE curtain module of this kind.</summary>
+        public static Cost WallModuleCost(bool palisade)
+            => TheWaningBorder.Data.BuildCosts.TryGet(TheWaningBorder.Entities.AlanthorWall.SegmentIdFor(palisade), out var c) ? c : default;
+
+        /// <summary>The curtain price of a run <paramref name="length"/> m long.</summary>
+        public static Cost WallRunCost(bool palisade, float length)
+            => WallModuleCost(palisade) * TheWaningBorder.Entities.AlanthorWall.ModuleCount(length);
+
+        /// <summary>XZ length of a polyline.</summary>
+        public static float PolylineLength(System.Collections.Generic.IReadOnlyList<float3> pts)
+        {
+            float l = 0f;
+            for (int i = 1; i < pts.Count; i++) l += math.distance(pts[i - 1].xz, pts[i].xz);
+            return l;
+        }
+
+        /// <summary>
+        /// Everything a drawn wall will charge: its new hubs (NewHub points,
+        /// and wall cells it converts — CellHub) at the hub price, and every
+        /// curtain module of every run between two hub points. Split at the
+        /// hub points exactly as <see cref="PlaceWallPathDirect"/> lays it, so
+        /// the draw tool's price is the executor's.
+        /// </summary>
+        public static Cost WallPathCost(System.Collections.Generic.IReadOnlyList<float3> pts,
+            System.Collections.Generic.IReadOnlyList<WallPathKind> kinds, bool palisade)
+        {
+            if (!TheWaningBorder.Data.BuildCosts.TryGet(TheWaningBorder.Entities.AlanthorWall.HubIdFor(palisade), out var hub)) hub = default;
+            Cost total = default;
+            float run = 0f;
+            bool havePrev = false;
+            for (int i = 0; i < pts.Count; i++)
+            {
+                var k = i < kinds.Count ? kinds[i] : WallPathKind.Point;
+                if (havePrev) run += math.distance(pts[i - 1].xz, pts[i].xz);
+                if (k == WallPathKind.Point) continue;
+                if (k == WallPathKind.NewHub || k == WallPathKind.CellHub) total = total + hub;
+                if (havePrev && run > 0.01f) total = total + WallRunCost(palisade, run);
+                havePrev = true;
+                run = 0f;
+            }
+            return total;
+        }
+
+        /// <summary>Within this of a STANDING hub or wall cell the new wall
+        /// is joining, the line may touch wall: that is the joint.</summary>
+        public static float WallJunctionClearance => TheWaningBorder.Entities.AlanthorWall.HubRadius + 2.5f;
+
+        /// <summary>
+        /// True when the wall's cross-section at <paramref name="p"/> (heading
+        /// <paramref name="tangent"/>) is free on the grid: no building,
+        /// obstacle, wall or impassable terrain under the visible wall.
+        /// Grid-only, so the draw tool can ask it every frame.
+        /// </summary>
+        public static bool WallCrossSectionClear(float3 p, float3 tangent, bool palisade)
+        {
+            float3 t = new float3(tangent.x, 0f, tangent.z);
+            t = math.lengthsq(t) > 1e-6f ? math.normalize(t) : new float3(0f, 0f, 1f);
+            float3 right = new float3(t.z, 0f, -t.x);
+            float half = TheWaningBorder.Entities.AlanthorWall.DepthOf(palisade) * 0.5f;
+            for (float o = -half; o <= half + 1e-3f; o += 1f)
+                if (TheWaningBorder.Systems.Navigation.NavGridQuery.WallBlockedAt(p + right * o))
+                    return false;
+            return true;
+        }
+
+        /// <summary>
+        /// The whole-length test: every metre of <paramref name="line"/>
+        /// clear (<see cref="WallCrossSectionClear"/>), and — every two
+        /// metres — no resource node and none of the owner's plans under it.
+        /// Samples within <see cref="WallJunctionClearance"/> of a
+        /// <paramref name="junctions"/> point (a standing hub or cell the wall
+        /// attaches to) are exempt.
+        /// </summary>
+        public static bool WallLineClear(EntityManager em, Faction faction,
+            System.Collections.Generic.IReadOnlyList<float3> line,
+            System.Collections.Generic.IReadOnlyList<float3> junctions, bool palisade)
+        {
+            if (line == null || line.Count < 2) return true;
+            float jr = WallJunctionClearance;
+            float depth = TheWaningBorder.Entities.AlanthorWall.DepthOf(palisade);
+            var boxSize = new int2(math.max(1, (int)math.ceil(depth)), math.max(1, (int)math.ceil(depth)));
+            float sinceBox = 2f;
+            for (int i = 1; i < line.Count; i++)
+            {
+                float3 a = line[i - 1], b = line[i];
+                float len = math.distance(a.xz, b.xz);
+                if (len < 1e-4f) continue;
+                float3 tan = (b - a) / len;
+                int steps = math.max(1, (int)math.ceil(len / WallGroundSampleStep));
+                for (int s = 0; s <= steps; s++)
+                {
+                    float3 p = math.lerp(a, b, s / (float)steps);
+                    if (NearJunction(p, junctions, jr)) continue;
+                    if (!WallCrossSectionClear(p, tan, palisade)) return false;
+                    sinceBox += len / steps;
+                    if (sinceBox < 2f) continue;
+                    sinceBox = 0f;
+                    TheWaningBorder.Core.Commands.Types.BuildCommandHelper.FootprintAabb(p, boxSize, out float2 mn, out float2 mx);
+                    if (TheWaningBorder.Entities.ResourceNodeSite.OverlapsNode(em, mn, mx, null)) return false;
+                    if (TheWaningBorder.Entities.PlannedBuildings.OverlapsOwnPlan(em, faction, p, boxSize)) return false;
+                }
+            }
+            return true;
+        }
+
+        static bool NearJunction(float3 p, System.Collections.Generic.IReadOnlyList<float3> junctions, float r)
+        {
+            if (junctions == null) return false;
+            for (int i = 0; i < junctions.Count; i++)
+                if (math.distancesq(p.xz, junctions[i].xz) < r * r) return true;
+            return false;
+        }
+
         /// <summary>
         /// Re-arm an EMPTY emplacement: pay the engine SO's cost and start its
         /// restore timer (trainingTime). The engine is raised by
-        /// EmplacementCrewSystem when the timer ends; there is no builder.
+        /// EmplacementCrewSystem when the timer ends; there is no worker.
         /// Replicates — the spend and the timer happen in the executor on
         /// every peer, never at the click site.
         /// </summary>

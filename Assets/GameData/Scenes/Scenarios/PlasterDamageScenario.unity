@@ -314,7 +314,7 @@ GameObject:
   - component: {fileID: 402}
   - component: {fileID: 403}
   m_Layer: 0
-  m_Name: Builder
+  m_Name: Worker
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -433,12 +433,12 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier:
   building: {fileID: 0}
-  builder: {fileID: 401}
+  worker: {fileID: 401}
   damagePerSecond: 80
   repairPerSecond: 140
   firstPhaseHealthFloor: 0.1
   pauseBetweenPhases: 1.5
-  builderSpeed: 3.5
+  workerSpeed: 3.5
   repairDistance: 2.5
 --- !u!1001 &1001
 PrefabInstance:

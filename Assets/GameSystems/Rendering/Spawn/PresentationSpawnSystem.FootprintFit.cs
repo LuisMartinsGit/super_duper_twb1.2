@@ -38,7 +38,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
     {
         centreOffset = Vector3.zero;
         if (goInst == null || entity == Entity.Null) return 1f;
-        if (!_em.HasComponent<BuildingTag>(entity)) return 1f;
+        if (!IsBuildingLike(entity)) return 1f;
         if (!_em.HasComponent<BuildingSize>(entity)) return 1f;
 
         var size = _em.GetComponentData<BuildingSize>(entity);

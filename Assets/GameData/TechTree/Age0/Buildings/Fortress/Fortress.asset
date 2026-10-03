@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b98b52f4032a91549814ef127e8e0bff, type: 3}
   m_Name: Fortress
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: 
   id: Fortress
   displayName: Fortress
   role: Capital / HQ / Research Era / Research Economy / Worker upgrades / resource
@@ -56,3 +56,10 @@ MonoBehaviour:
     range: 34
     cooldown: 2
     maxTargets: 2
+    siegeShotDamage: 0
+  levels: []
+  unitUpgrades: []
+  prefab: {fileID: 4380024602605150918, guid: 2e5e1328e4b5e8f46bfce9c56e85f659, type: 3}
+  presentationId: 105
+  prefabPath: 
+  canUpgradeTo: []

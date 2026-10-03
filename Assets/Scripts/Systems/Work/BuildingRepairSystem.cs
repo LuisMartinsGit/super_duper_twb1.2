@@ -10,26 +10,26 @@ using TheWaningBorder.Data;
 namespace TheWaningBorder.Systems.Work
 {
     /// <summary>
-    /// Handles building repair by builder units.
+    /// Handles building repair by worker units.
     ///
     /// Repair workflow:
-    /// 1. Player right-clicks damaged building with builder selected
-    /// 2. Builder receives RepairOrder component pointing to damaged building
-    /// 3. Builder moves to building (within RepairRange)
+    /// 1. Player right-clicks damaged building with worker selected
+    /// 2. Worker receives RepairOrder component pointing to damaged building
+    /// 3. Worker moves to building (within RepairRange)
     /// 4. On arrival, resources are deducted:
     ///    Cost = (missingHP / maxHP) * originalBuildCost * RepairCostMultiplier
-    /// 5. Builder repairs at RepairRatePerBuilder HP/second
+    /// 5. Worker repairs at RepairRatePerWorker HP/second
     /// 6. When HP reaches max, RepairOrder is removed
     ///
-    /// Multiple builders can repair the same building simultaneously.
-    /// Resources are paid once per builder on arrival (proportional to remaining damage).
+    /// Multiple workers can repair the same building simultaneously.
+    /// Resources are paid once per worker on arrival (proportional to remaining damage).
     /// </summary>
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(BuildingConstructionSystem))]
     public partial struct BuildingRepairSystem : ISystem
     {
         private const float RepairRange = 4.0f;
-        private const float RepairRatePerBuilder = 15.0f; // HP per second per builder
+        private const float RepairRatePerWorker = 15.0f; // HP per second per worker
         private const float RepairCostMultiplier = 1.2f;  // 1.2x cost penalty
 
         public void OnCreate(ref SystemState state)
@@ -42,47 +42,47 @@ namespace TheWaningBorder.Systems.Work
             float dt = SystemAPI.Time.DeltaTime;
             var em = state.EntityManager;
 
-            // Snapshot all builders with repair orders
-            var builders = new NativeList<Entity>(Allocator.Temp);
-            var builderPositions = new NativeList<float3>(Allocator.Temp);
-            var builderOrders = new NativeList<RepairOrder>(Allocator.Temp);
+            // Snapshot all workers with repair orders
+            var workers = new NativeList<Entity>(Allocator.Temp);
+            var workerPositions = new NativeList<float3>(Allocator.Temp);
+            var workerOrders = new NativeList<RepairOrder>(Allocator.Temp);
 
             foreach (var (transform, order, entity) in SystemAPI
                 .Query<RefRO<LocalTransform>, RefRO<RepairOrder>>()
                 .WithAll<CanBuild>()
                 .WithEntityAccess())
             {
-                builders.Add(entity);
-                builderPositions.Add(transform.ValueRO.Position);
-                builderOrders.Add(order.ValueRO);
+                workers.Add(entity);
+                workerPositions.Add(transform.ValueRO.Position);
+                workerOrders.Add(order.ValueRO);
             }
 
-            // Process each builder
-            for (int i = 0; i < builders.Length; i++)
+            // Process each worker
+            for (int i = 0; i < workers.Length; i++)
             {
-                Entity builder = builders[i];
-                float3 bPos = builderPositions[i];
-                RepairOrder order = builderOrders[i];
+                Entity worker = workers[i];
+                float3 bPos = workerPositions[i];
+                RepairOrder order = workerOrders[i];
                 Entity site = order.Site;
 
                 // Validate building still exists
                 if (!em.Exists(site))
                 {
-                    em.RemoveComponent<RepairOrder>(builder);
+                    em.RemoveComponent<RepairOrder>(worker);
                     continue;
                 }
 
                 // Check if building is under construction (shouldn't repair, use BuildOrder instead)
                 if (em.HasComponent<UnderConstruction>(site))
                 {
-                    em.RemoveComponent<RepairOrder>(builder);
+                    em.RemoveComponent<RepairOrder>(worker);
                     continue;
                 }
 
                 // Check if building still needs repair
                 if (!em.HasComponent<Health>(site))
                 {
-                    em.RemoveComponent<RepairOrder>(builder);
+                    em.RemoveComponent<RepairOrder>(worker);
                     continue;
                 }
 
@@ -90,12 +90,12 @@ namespace TheWaningBorder.Systems.Work
                 if (hp.Value >= hp.Max)
                 {
                     // Fully repaired - clear order
-                    em.RemoveComponent<RepairOrder>(builder);
+                    em.RemoveComponent<RepairOrder>(worker);
 
                     // Update guard point
-                    if (em.HasComponent<GuardPoint>(builder))
+                    if (em.HasComponent<GuardPoint>(worker))
                     {
-                        em.SetComponentData(builder, new GuardPoint
+                        em.SetComponentData(worker, new GuardPoint
                         {
                             Position = bPos,
                             Has = 1
@@ -118,9 +118,9 @@ namespace TheWaningBorder.Systems.Work
                     float3 approach = extent.ApproachPoint(bPos, RepairRange * 0.5f);
                     approach.y = sitePos.y;
 
-                    if (em.HasComponent<DesiredDestination>(builder))
+                    if (em.HasComponent<DesiredDestination>(worker))
                     {
-                        em.SetComponentData(builder, new DesiredDestination
+                        em.SetComponentData(worker, new DesiredDestination
                         {
                             Position = approach,
                             Has = 1
@@ -128,7 +128,7 @@ namespace TheWaningBorder.Systems.Work
                     }
                     else
                     {
-                        em.AddComponentData(builder, new DesiredDestination
+                        em.AddComponentData(worker, new DesiredDestination
                         {
                             Position = approach,
                             Has = 1
@@ -138,15 +138,15 @@ namespace TheWaningBorder.Systems.Work
                 else
                 {
                     // In range - plant and face the building
-                    TargetGeometry.StopAndFace(em, builder, sitePos, dt);
+                    TargetGeometry.StopAndFace(em, worker, sitePos, dt);
 
                     // Pay repair cost on first arrival
                     if (order.CostPaid == 0)
                     {
-                        if (!TryPayRepairCost(em, builder, site, hp))
+                        if (!TryPayRepairCost(em, worker, site, hp))
                         {
                             // Can't afford repair - remove order
-                            em.RemoveComponent<RepairOrder>(builder);
+                            em.RemoveComponent<RepairOrder>(worker);
                             continue;
                         }
 
@@ -154,21 +154,21 @@ namespace TheWaningBorder.Systems.Work
                         order.CostPaid = 1;
                         order.StartHP = hp.Value;
                         order.TargetHP = hp.Max;
-                        em.SetComponentData(builder, order);
+                        em.SetComponentData(worker, order);
                     }
 
                     // Repair: add HP over time
-                    hp.Value = math.min(hp.Max, hp.Value + (int)math.ceil(RepairRatePerBuilder * dt));
+                    hp.Value = math.min(hp.Max, hp.Value + (int)math.ceil(RepairRatePerWorker * dt));
                     em.SetComponentData(site, hp);
 
                     if (hp.Value >= hp.Max)
                     {
                         // Repair complete
-                        em.RemoveComponent<RepairOrder>(builder);
+                        em.RemoveComponent<RepairOrder>(worker);
 
-                        if (em.HasComponent<GuardPoint>(builder))
+                        if (em.HasComponent<GuardPoint>(worker))
                         {
-                            em.SetComponentData(builder, new GuardPoint
+                            em.SetComponentData(worker, new GuardPoint
                             {
                                 Position = bPos,
                                 Has = 1
@@ -178,20 +178,20 @@ namespace TheWaningBorder.Systems.Work
                 }
             }
 
-            builders.Dispose();
-            builderPositions.Dispose();
-            builderOrders.Dispose();
+            workers.Dispose();
+            workerPositions.Dispose();
+            workerOrders.Dispose();
         }
 
         /// <summary>
         /// Calculate and deduct repair cost from faction resources.
         /// Cost = (missingHP / maxHP) * originalBuildCost * 1.2
         /// </summary>
-        private static bool TryPayRepairCost(EntityManager em, Entity builder, Entity building, Health hp)
+        private static bool TryPayRepairCost(EntityManager em, Entity worker, Entity building, Health hp)
         {
             // Get faction
-            if (!em.HasComponent<FactionTag>(builder)) return false;
-            var faction = em.GetComponentData<FactionTag>(builder).Value;
+            if (!em.HasComponent<FactionTag>(worker)) return false;
+            var faction = em.GetComponentData<FactionTag>(worker).Value;
 
             // Get building's TechTree ID to look up original cost
             string buildingId = GetBuildingId(em, building);

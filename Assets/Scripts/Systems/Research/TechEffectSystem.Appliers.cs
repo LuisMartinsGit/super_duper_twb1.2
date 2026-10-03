@@ -92,13 +92,13 @@ namespace TheWaningBorder.Systems.Research
         // CreateEntityQuery registers a NEW query with the world on every
         // call and this one was never disposed. See Core/CachedEntityQuery.cs.
 
-        static readonly ComponentType[] QT_MinerTagFactionTagMinerState =
+        static readonly ComponentType[] QT_WorkerTagFactionTagWorkerState =
         {
-            ComponentType.ReadOnly<MinerTag>(),
+            ComponentType.ReadOnly<WorkerTag>(),
             ComponentType.ReadOnly<FactionTag>(),
-            ComponentType.ReadOnly<MinerState>(),
+            ComponentType.ReadOnly<WorkerState>(),
         };
-        static CachedEntityQuery QC_MinerTagFactionTagMinerState;
+        static CachedEntityQuery QC_WorkerTagFactionTagWorkerState;
 
         #endregion
         // ═══════════════════════════════════════════════════════════════
@@ -106,27 +106,27 @@ namespace TheWaningBorder.Systems.Research
         // ═══════════════════════════════════════════════════════════════
 
         /// <summary>
-        /// Apply gather speed multiplier to all faction miners.
+        /// Apply gather speed multiplier to all faction workers.
         /// </summary>
-        private static void ApplyMinerEffects(EntityManager em, Faction faction, TechEffects effects)
+        private static void ApplyWorkerEffects(EntityManager em, Faction faction, TechEffects effects)
         {
-            var query = QC_MinerTagFactionTagMinerState.Get(em, QT_MinerTagFactionTagMinerState);
+            var query = QC_WorkerTagFactionTagWorkerState.Get(em, QT_WorkerTagFactionTagWorkerState);
 
             using var entities = query.ToEntityArray(Allocator.Temp);
             using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var minerStates = query.ToComponentDataArray<MinerState>(Allocator.Temp);
+            using var workerStates = query.ToComponentDataArray<WorkerState>(Allocator.Temp);
 
             int count = 0;
             for (int i = 0; i < entities.Length; i++)
             {
                 if (factions[i].Value != faction) continue;
 
-                var miner = minerStates[i];
+                var worker = workerStates[i];
 
                 if (effects.gatherSpeedMult != 0f)
-                    miner.GatherSpeedMultiplier *= effects.gatherSpeedMult;
+                    worker.GatherSpeedMultiplier *= effects.gatherSpeedMult;
 
-                em.SetComponentData(entities[i], miner);
+                em.SetComponentData(entities[i], worker);
                 count++;
             }
 

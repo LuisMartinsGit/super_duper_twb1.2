@@ -64,11 +64,59 @@ public partial class PresentationSpawnSystem
         WallModuleArt.ApplyOwnerColor(go, color);
     }
 
+    /// <summary>
+    /// Drop the level-authored art for a single-piece wall part (the wall
+    /// tower, the emplacement bastions) under <paramref name="root"/>, with its
+    /// pick box, owner colour and the entity's facing. With
+    /// <paramref name="deckY"/>, the art is shifted so its "Deck" marker lands
+    /// at that height. False when the part has no art at this level.
+    /// </summary>
+    private bool TryAuthoredWallPiece(GameObject root, Entity entity, WallModuleArt.WallPart part,
+        float fitLength, string name, float? deckY)
+    {
+        byte tier = WallTierOf(entity);
+        var art = WallModuleArt.ForTier(part, tier, 0, fitLength, orientAlongZ: true,
+                                        explicitScale: WallArtScale(tier));
+        var go = WallModuleArt.Instantiate(art, root.transform, name);
+        if (go == null) return false;
+
+        if (deckY.HasValue)
+        {
+            Transform deck = null;
+            foreach (var t in go.GetComponentsInChildren<Transform>(true))
+                if (t.name == "Deck") { deck = t; break; }
+            if (deck != null)
+            {
+                float dy = deckY.Value - (deck.position.y - root.transform.position.y);
+                go.transform.localPosition += new Vector3(0f, dy, 0f);
+            }
+            else Debug.LogWarning($"[Wall] {name} art has no 'Deck' marker — the engine may float.");
+        }
+
+        ApplyWallOwnerColor(go, entity);
+        float top = Mathf.Max(2.6f, art.Height + (deckY.HasValue ? 0.3f : 0f));
+        var col = root.AddComponent<BoxCollider>();
+        col.size = new Vector3(PickThick(entity) + 1.4f, top, fitLength + 0.1f);
+        col.center = Vector3.up * (top * 0.5f);
+        var er = root.AddComponent<EntityReference>();
+        er.Entity = entity;
+        if (_em.HasComponent<Unity.Transforms.LocalTransform>(entity))
+            root.transform.rotation = _em.GetComponentData<Unity.Transforms.LocalTransform>(entity).Rotation;
+        return true;
+    }
+
     /// <summary>The wall level this piece is clad at. Everything the wall
     /// draws branches on it — docs/Design/Age_1_Alanthor.md § The three wall
     /// levels.</summary>
     private byte WallTierOf(Entity entity)
         => TheWaningBorder.Entities.WallTiers.Of(_em, entity);
+
+    /// <summary>How thick a piece's pick box is: the wall's own depth — a
+    /// 1 m palisade, a 4 m stone wall (docs/Design/Age_1_Alanthor.md § The
+    /// stone wall) — so a click anywhere on the walk selects it.</summary>
+    private float PickThick(Entity entity)
+        => TheWaningBorder.Entities.AlanthorWall.DepthOf(
+               TheWaningBorder.Entities.AlanthorWall.IsPalisade(_em, entity));
 
     // Compact curtain-wall cross-section (meters). Values mirror
     // AlanthorWall.WallWidth / WallHeight / InstanceSpacing / HubWidth.
@@ -230,7 +278,7 @@ public partial class PresentationSpawnSystem
         var root = new GameObject($"WallCell_{entity.Index}");
         root.transform.position = center;
         var boxCol = root.AddComponent<BoxCollider>();
-        boxCol.size = new Vector3(WallThick + 0.3f, CrownTop, ModuleLen + 0.1f);
+        boxCol.size = new Vector3(PickThick(entity) + 0.3f, CrownTop, ModuleLen + 0.1f);
         boxCol.center = Vector3.up * (CrownTop * 0.5f);
         var entityRef = root.AddComponent<EntityReference>();
         entityRef.Entity = entity;
@@ -296,7 +344,7 @@ public partial class PresentationSpawnSystem
             module.transform.localScale = ms;
 
             var artCol = root.AddComponent<BoxCollider>();
-            artCol.size = new Vector3(WallThick + 0.3f, Mathf.Max(1f, art.Height), ModuleLen + 0.1f);
+            artCol.size = new Vector3(PickThick(entity) + 0.3f, Mathf.Max(1f, art.Height), ModuleLen + 0.1f);
             artCol.center = Vector3.up * (Mathf.Max(1f, art.Height) * 0.5f);
             var artRef = root.AddComponent<EntityReference>();
             artRef.Entity = entity;
@@ -380,7 +428,7 @@ public partial class PresentationSpawnSystem
             new Vector3(0.05f, 0.70f, 0.50f), Color.white);
 
         var boxCol = root.AddComponent<BoxCollider>();
-        boxCol.size = new Vector3(WallThick + 0.3f, CrownTop, ModuleLen + 0.1f);
+        boxCol.size = new Vector3(PickThick(entity) + 0.3f, CrownTop, ModuleLen + 0.1f);
         boxCol.center = Vector3.up * (CrownTop * 0.5f);
 
         var entityRef = root.AddComponent<EntityReference>();
@@ -405,6 +453,15 @@ public partial class PresentationSpawnSystem
     {
         var root = new GameObject($"WallEmplacement_{entity.Index}");
         root.transform.position = center;
+
+        // Authored bastion for the faction's wall level wins. Its "Deck"
+        // marker is lifted to EmplacementDeckHeight — the SAME number the
+        // engine's simulated Y is built from — so the engine stands on it.
+        if (TryAuthoredWallPiece(root, entity,
+                trebuchet ? WallModuleArt.WallPart.TrebuchetMount : WallModuleArt.WallPart.BallistaMount,
+                ModuleLen, trebuchet ? "TrebuchetMount" : "BallistaMount",
+                deckY: TheWaningBorder.Entities.AlanthorWall.EmplacementDeckHeight))
+            return root;
 
         byte tier = WallTierOf(entity);
         bool timber = tier <= TheWaningBorder.Entities.WallTiers.Palisade;
@@ -563,12 +620,14 @@ public partial class PresentationSpawnSystem
         // 3 m module, so hubs came out visibly bigger than the wall they
         // anchor. A hub is round, so it is not turned to face along the wall.
         // docs/Design/Age_1_Alanthor.md § The wall's art.
-        var hubArt = WallModuleArt.ForPart(
+        var hubArt = WallModuleArt.ForTier(WallModuleArt.WallPart.Hub, WallTierOf(entity),
             TheWaningBorder.Entities.AlanthorWall.HubPresentationID,
             TheWaningBorder.Entities.AlanthorWall.HubWidth, orientAlongZ: false,
             explicitScale: WallArtScale(WallTierOf(entity)));
-        if (WallModuleArt.Instantiate(hubArt, root.transform, "Hub") != null)
+        var hubGo = WallModuleArt.Instantiate(hubArt, root.transform, "Hub");
+        if (hubGo != null)
         {
+            ApplyWallOwnerColor(hubGo, entity);
             float top = Mathf.Max(2f, hubArt.Height);
             var hubCol = root.AddComponent<BoxCollider>();
             hubCol.size = new Vector3(TheWaningBorder.Entities.AlanthorWall.HubWidth, top,
@@ -695,6 +754,12 @@ public partial class PresentationSpawnSystem
     {
         var root = new GameObject($"WallTower_{entity.Index}");
         root.transform.position = center;
+
+        // Authored wall-tower art for the faction's wall level wins, at the
+        // curtain's scale and turned along the wall like a module.
+        if (TryAuthoredWallPiece(root, entity, WallModuleArt.WallPart.Tower, ModuleLen, "Tower",
+                                 deckY: null))
+            return root;
 
         // Curtain-continuity base (slightly bolder than a plain module).
         WallPrim(PrimitiveType.Cube, "1_Plinth", root.transform,
@@ -827,9 +892,13 @@ public partial class PresentationSpawnSystem
 
         // Authored gatehouse art wins, at the curtain's scale for the same
         // reason the hub is (see CreateProceduralWallHub).
-        var gateArt = WallModuleArt.ForPart(
+        // A level-authored gatehouse is a wall | gate | wall row built to be
+        // fitted to the full span; the timber gate keeps the curtain's scale.
+        byte gateTier = WallTierOf(entity);
+        bool tierGate = WallModuleArt.TierPrefab(WallModuleArt.WallPart.Gate, gateTier) != null;
+        var gateArt = WallModuleArt.ForTier(WallModuleArt.WallPart.Gate, gateTier,
             TheWaningBorder.Entities.AlanthorWall.GatePresentationID, span, orientAlongZ: true,
-            explicitScale: WallArtScale(WallTierOf(entity)));
+            explicitScale: tierGate ? (float?)null : WallArtScale(gateTier));
         if (WallModuleArt.Instantiate(gateArt, root.transform, "Gatehouse") != null)
         {
             // The doors are part of the authored model: any child whose name

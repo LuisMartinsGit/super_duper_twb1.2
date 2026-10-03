@@ -6,7 +6,7 @@ namespace TheWaningBorder.Entities
 {
     /// <summary>
     /// The Mine. Placement is gated on standing next to an ore patch
-    /// (BuilderCommandPanel.MeetsPatchRequirement); MineIncomeSystem then
+    /// (WorkerCommandPanel.MeetsPatchRequirement); MineIncomeSystem then
     /// works every node in range forever, without workers and without
     /// depleting them.
     ///
@@ -37,6 +37,11 @@ namespace TheWaningBorder.Entities
             em.AddComponentData(entity, new MineState());
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             em.AddComponentData(entity, defense);
+            // A RESEARCH HOST (2026-10-02): Deep Shafts and Rich Seams are
+            // bought here. The buffer is what the research executor accepts;
+            // ProductionState is the clock that runs it.
+            em.AddBuffer<ProductionQueueItem>(entity);
+            em.AddComponentData(entity, new ProductionState { Busy = 0, Remaining = 0 });
             return entity;
         }
 
@@ -59,6 +64,8 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new MineState());
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             ecb.AddComponent(entity, defense);
+            ecb.AddBuffer<ProductionQueueItem>(entity);
+            ecb.AddComponent(entity, new ProductionState { Busy = 0, Remaining = 0 });
             return entity;
         }
 

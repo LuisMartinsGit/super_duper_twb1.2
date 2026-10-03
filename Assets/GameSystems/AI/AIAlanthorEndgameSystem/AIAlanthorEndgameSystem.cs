@@ -16,7 +16,7 @@
 // are dead code. So this system bypasses those buffers entirely and
 // drives Era-2+ Alanthor behaviour with direct ECS calls — same pattern
 // SimpleAISystem uses for Age-1 buildings (CommandRouter.IssuePlaceBuilding
-// + DispatchBuildersTo, IssueTrain; every cost is charged inside the
+// + DispatchWorkersTo, IssueTrain; every cost is charged inside the
 // per-peer command executors, never AI-side —
 // docs/Multiplayer_LAN_Readiness.md).
 //
@@ -38,17 +38,17 @@
 //      position.
 //   4. Age-2 ladder + expansion — Temple / first Smelter / Stable /
 //      SiegeYard in order (CanAfford gate + CommandRouter
-//      placement + DispatchBuildersTo); every Smelter is levelled
+//      placement + DispatchWorkersTo); every Smelter is levelled
 //      lowest-first. Once the ladder stands: more Smelters toward the
 //      5-cap and Huts toward 8 Houses, one foundation per tick. The
-//      Forges generate veilsteel passively (no miner supply chain).
+//      Forges generate veilsteel passively (no worker supply chain).
 //   6. Defensive tower spam — late-game (>5 min) build extra Alanthor_Towers
 //      around the Hall up to a cap. Direct creation (was queueing into
 //      the dead BuildRequest buffer; never actually built anything).
 //   7. Armoured-unit production — when a Barracks / Alanthor_SiegeYard
 //      exists and its TrainQueue has room, push Cataphract / Ballista
 //      through IssueTrain (cost charged in the per-peer executor).
-//   8. Worker flee — for every miner / builder of this faction with an
+//   8. Worker flee — for every worker of this faction with an
 //      enemy unit within FleeRadius, issue a MoveCommand toward the
 //      nearest own Hall. Cooldowned per-worker so we don't spam orders.
 //
@@ -296,7 +296,7 @@ namespace TheWaningBorder.AI
                 // already has.
                 if (!saving && !ladderBusy
                     && !TryBuildSectBuildings(faction, em, hallPos)
-                    && !TryExpandSmelters(faction, em, hallPos))
+                    )
                     TryBuildHouses(faction, em, hallPos);
 
                 // ─── 4e. Sect research ────────────────────────────────
@@ -376,7 +376,7 @@ namespace TheWaningBorder.AI
         }
 
         // ──────────────────────────────────────────────────────────────────
-        // BUILDER / PLACEMENT HELPERS (mirrors SimpleAISystem private helpers)
+        // WORKER / PLACEMENT HELPERS (mirrors SimpleAISystem private helpers)
         // ──────────────────────────────────────────────────────────────────
 
 
@@ -428,7 +428,7 @@ namespace TheWaningBorder.AI
     }
 
     /// <summary>
-    /// Per-worker (miner / builder) flee throttle. Stamped by
+    /// Per-worker flee throttle. Stamped by
     /// AIAlanthorEndgameSystem.HandleWorkerFlee on first detection of a
     /// nearby threat; prevents the system from re-issuing MoveCommand
     /// every tick while the worker is already running home.

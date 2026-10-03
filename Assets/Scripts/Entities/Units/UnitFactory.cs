@@ -182,7 +182,7 @@ namespace TheWaningBorder.Entities
         /// Automatically loads stats from TechTreeDB if available.
         /// </summary>
         /// <param name="em">EntityManager</param>
-        /// <param name="unitId">Unit type: "Worker" (unified Builder+Miner), "Swordsman", "Archer", "Scout", "Litharch"</param>
+        /// <param name="unitId">Unit type: "Worker", "Swordsman", "Archer", "Scout", "Litharch"</param>
         /// <param name="position">World position to spawn at</param>
         /// <param name="faction">Faction the unit belongs to</param>
         /// <returns>Created entity</returns>

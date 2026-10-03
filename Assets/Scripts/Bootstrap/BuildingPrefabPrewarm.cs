@@ -130,7 +130,6 @@ namespace TheWaningBorder.Bootstrap
             paths.Add(root + "Hut");
             paths.Add(root + "GatherersHut");
             paths.Add(root + "House");
-            paths.Add(root + "ShrineOfRidan");
             paths.Add(root + "FiendstoneKeep");
             paths.Add(root + "VaultOfAlmiérra");
 

@@ -174,12 +174,12 @@ namespace TheWaningBorder.AI
                 var rec = buffer[i];
                 if (!em.Exists(rec.Enemy)) continue;
                 if (em.HasComponent<UnderConstruction>(rec.Enemy)) continue;
-                // Raid mode: economy targets only (miners + eco buildings).
-                if (ecoOnly && rec.Category != IntelCategory.Miner
+                // Raid mode: economy targets only (workers + eco buildings).
+                if (ecoOnly && rec.Category != IntelCategory.Worker
                             && rec.Category != IntelCategory.EcoBuilding) continue;
 
                 bool mobile = rec.Category == IntelCategory.MilitaryUnit
-                           || rec.Category == IntelCategory.Miner;
+                           || rec.Category == IntelCategory.Worker;
                 if (fogMgr != null)
                 {
                     Vector3 p = (Vector3)rec.Position;
@@ -216,7 +216,7 @@ namespace TheWaningBorder.AI
 
         /// <summary>
         /// Pick the closest enemy target by priority:
-        /// Miners → GathererHuts → Veilstone hives → Veilstone sub-nodes → Halls.
+        /// Workers → GathererHuts → Veilstone hives → Veilstone sub-nodes → Halls.
         /// Distance is measured from <paramref name="originPos"/> (the AI's
         /// Hall) so the army marches toward the nearest enemy first.
         ///
@@ -227,7 +227,7 @@ namespace TheWaningBorder.AI
         /// (killing a hive rolls back the border spread).
         ///
         /// Fog of war: AI must respect the same visibility rules the human
-        /// player has. Miners are mobile and require *current* visibility
+        /// player has. Workers are mobile and require *current* visibility
         /// (the AI can chase what its scouts / military see right now).
         /// Static targets (GHuts, Halls, Veilstone nodes) only need *revealed*
         /// visibility — once seen they're known targets (matches the "explored
@@ -236,8 +236,8 @@ namespace TheWaningBorder.AI
         /// </summary>
         private static Entity ChooseAttackTarget(EntityManager em, Faction myFaction, float3 originPos)
         {
-            // 1. Visible enemy miners — most actionable raid target.
-            Entity t = FindClosestEnemyOf<MinerTag>(em, myFaction, originPos, requireCurrentVisibility: true);
+            // 1. Visible enemy workers — most actionable raid target.
+            Entity t = FindClosestEnemyOf<WorkerTag>(em, myFaction, originPos, requireCurrentVisibility: true);
             if (t != Entity.Null) return t;
             // 2. Revealed enemy economy buildings.
             t = FindClosestEnemyOf<GathererHutTag>(em, myFaction, originPos, requireCurrentVisibility: false);

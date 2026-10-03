@@ -86,7 +86,7 @@ namespace TheWaningBorder.AI
             SectConfig.Fortitude,    // armor circle + melee armor — the wall behind the wall
             SectConfig.Justice,      // reveal + global damage lever
             SectConfig.Antiquity,    // Lorekeeper + Reliquary intel hub
-            SectConfig.Reclamation,  // miner armor + heal — the economy insurance
+            SectConfig.Reclamation,  // worker armor + heal — the economy insurance
             SectConfig.Veneration,   // damage circle on the garrison
             SectConfig.War,          // speed surge + Warbreaker shock elite
             SectConfig.Witness,      // wide reveal — scout redundancy

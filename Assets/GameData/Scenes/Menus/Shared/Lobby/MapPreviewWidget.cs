@@ -80,7 +80,9 @@ namespace TheWaningBorder.UI.Menus.Panels
             {
                 AddStartMarkers(info.PlayerStarts);
                 AddMarkerSet(info.VeilstoneNodes, VeilstoneColor, "VEILSTONE");
-                AddMarkerSet(info.VeilsteelNodes, VeilsteelColor, "VEILSTEEL");
+                // No veilsteel set: veilsteel deposits are no longer spawned
+                // (docs/Design/Veilstone_Economy.md), so the baked positions
+                // would advertise nodes that never appear.
                 AddMarkerSet(info.IronDeposits, IronColor, "IRON");
                 AddMarkerSet(info.CurseNodes, CurseColor, "CURSE");
             }

@@ -490,7 +490,7 @@ namespace TheWaningBorder.AI
     // ─────────────────────────────────────────────────────────────────
 
     public enum AIManagerId : byte { Economy, Advancement, Military, Defender, Attacker }
-    public enum AIRequestKind : byte { Resources, Housing, Builder, Troops, Production }
+    public enum AIRequestKind : byte { Resources, Housing, Worker, Troops, Production }
     public enum AIRequestPriority : byte { Normal = 0, High = 1, Critical = 2 }
 
     public struct AIRequest

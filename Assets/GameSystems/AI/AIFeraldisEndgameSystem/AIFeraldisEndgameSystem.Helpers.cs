@@ -1,5 +1,5 @@
 // AIFeraldisEndgameSystem.Helpers.cs
-// Queue guards, budgeted placement, spot search and builder dispatch.
+// Queue guards, budgeted placement, spot search and worker dispatch.
 // Partial of AIFeraldisEndgameSystem.cs -- split 2026-08-12 for readability.
 
 using Unity.Collections;
@@ -56,7 +56,7 @@ namespace TheWaningBorder.AI
         }
 
         /// <summary>
-        /// Place a building and get builders onto it.
+        /// Place a building and get workers onto it.
         ///
         /// CommandRouter.IssuePlaceBuilding has an inverted-looking contract
         /// and getting it wrong is silent: it returns TRUE when the placement
@@ -65,13 +65,13 @@ namespace TheWaningBorder.AI
         /// (`building` is the real entity). An earlier version of this method
         /// treated false as failure and returned — so in single player every
         /// Mine, Totem, Thrower Camp and Pasture WAS created and then
-        /// instantly abandoned with no builders, sitting at 1 HP under
+        /// instantly abandoned with no workers, sitting at 1 HP under
         /// construction forever. That is why three matches in a row showed a
         /// Feraldis AI with zero iron and no military buildings.
         ///
         /// The cost is charged inside PlaceBuildingDirect on every peer
         /// (docs/Multiplayer_LAN_Readiness.md) — the caller only CHECKS
-        /// affordability, then REFUNDS if no builder is available (the
+        /// affordability, then REFUNDS if no worker is available (the
         /// single-player branch), or the AI silently leaks its bank into
         /// foundations nobody will ever finish.
         /// </summary>
@@ -79,6 +79,12 @@ namespace TheWaningBorder.AI
             float3 anchor, float rmin, float rmax, AIBudgetCategory cat)
         {
             if (!BuildCosts.Exists(buildingId)) return;
+            // The Temple costs a Religion Point (docs/Design/Religion.md §2);
+            // without one the executor refuses it, so do not try every think.
+            if (buildingId == "TempleOfRidan"
+                && !TheWaningBorder.Economy.FactionReligionPointsHelper.CanAfford(em, faction,
+                       TheWaningBorder.Economy.FactionReligionPointsHelper.Cfg.templeRp))
+                return;
             var cost = BuildCosts.For(em, faction, buildingId);
             if (!AIBudget.CanSpend(faction, cat, cost)) return;
             if (!FactionEconomy.CanAfford(em, faction, cost)) return;
@@ -99,8 +105,8 @@ namespace TheWaningBorder.AI
                 out Entity building, CommandSource.AI);
             if (queued)
             {
-                // Lockstep will build it; send builders at the position.
-                DispatchBuilders(em, faction, Entity.Null, buildingId, pos);
+                // Lockstep will build it; send workers at the position.
+                DispatchWorkers(em, faction, Entity.Null, buildingId, pos);
                 AILogger.Log(faction, "BUILDING", $"{buildingId} queued at ({pos.x:0},{pos.z:0})");
                 return;
             }
@@ -111,14 +117,14 @@ namespace TheWaningBorder.AI
                 return;
             }
 
-            int dispatched = DispatchBuilders(em, faction, building, buildingId, pos);
+            int dispatched = DispatchWorkers(em, faction, building, buildingId, pos);
             if (dispatched == 0)
             {
                 // Nobody to build it — undo rather than leave a permanent
                 // 1 HP foundation blocking the count check forever.
                 FactionEconomy.Add(em, faction, cost);
                 em.DestroyEntity(building);
-                AILogger.Log(faction, "BUILDING", $"{buildingId}: no idle builder, cancelled");
+                AILogger.Log(faction, "BUILDING", $"{buildingId}: no idle worker, cancelled");
                 return;
             }
             AILogger.Log(faction, "BUILDING", $"{buildingId} placed at ({pos.x:0},{pos.z:0})");
@@ -132,9 +138,9 @@ namespace TheWaningBorder.AI
             => AIEndgameCommon.TryFindBuildSpotRing(em, anchor, size, rmin, rmax,
                 angleSamples: 12, radiusStep: 6f, seededStart: false, out pos);
 
-        /// <summary>Send up to two builders. Returns how many were sent so
+        /// <summary>Send up to two workers. Returns how many were sent so
         /// the caller can refund a placement nobody can finish.</summary>
-        private static int DispatchBuilders(EntityManager em, Faction faction,
+        private static int DispatchWorkers(EntityManager em, Faction faction,
             Entity site, string buildingId, float3 sitePos)
         {
             var q = QC_CanBuildFactionTagLocalTransform.Get(em, QT_CanBuildFactionTagLocalTransform);

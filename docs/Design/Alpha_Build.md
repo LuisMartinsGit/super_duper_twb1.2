@@ -92,6 +92,25 @@ the menu or during loading is recorded too — not just in-match ones. It writes
 through on every line rather than buffering, because the messages that matter
 most are the ones immediately before a hard crash.
 
+Every `AI_<Faction>.log` / `Player_<Faction>.log` also gets a **SNAPSHOT
+line once a minute** (banks, military, territories held), from
+`MatchSnapshotLog`. It used to be written by the Display 2 board; it was split
+out so it survives that board being stripped (next section).
+
+### The Display 2 debug board does not ship
+
+`StatsBoardHUD` — the second-monitor board with live charts, the per-faction
+economy table, FPS / entity count / lockstep tick and the curse summary — is a
+development tool. It compiles only under
+`UNITY_EDITOR || DEVELOPMENT_BUILD || TWB_DEBUG_DISPLAY`, and never when
+`TWB_NO_DEBUG_DISPLAY` is defined; `GameBootstrap` adds it under the same
+condition. Release builds (`PlayerBuild`, `BuildOptions.None`) are not
+development builds, so it is absent from them with no extra step.
+
+- Force it into a non-development build: add `TWB_DEBUG_DISPLAY` to the
+  player's scripting define symbols.
+- Remove it everywhere, the Editor included: add `TWB_NO_DEBUG_DISPLAY`.
+
 Nothing is uploaded. The files stay on the tester's machine until they choose
 to send them, and the shipped `README - please read.txt` in the folder says so.
 

@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b3ecc1043fa62454ebb9521a55d0673d, type: 3}
   m_Name: KingsCall
   m_EditorClassIdentifier: 
-  abilityName: "King's Call"
+  abilityName: King's Call
   activation: 1
   targeting: 3
   affects: 1
@@ -34,4 +34,4 @@ MonoBehaviour:
   damageType: 3
   aimedAtPoint: 0
   icon: {fileID: 0}
-  vfxPrefab: {fileID: 135593431368230, guid: 9ca66b060ab776732d746dd892e7d6c1, type: 3}
+  vfxPrefab: {fileID: 3676554860531327467, guid: 9ca66b060ab776732d746dd892e7d6c1, type: 3}

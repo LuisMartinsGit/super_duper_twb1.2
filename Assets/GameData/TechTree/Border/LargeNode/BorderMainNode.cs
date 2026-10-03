@@ -125,7 +125,7 @@ namespace TheWaningBorder.Entities
             em.AddComponentData(entity, new DamageTypeData { Value = DamageType.Magic });
 
             // Long construction window — drives the staggered rise animation.
-            // Border nodes have no builders; BorderConstructionSystem advances Progress.
+            // Border nodes have no workers; BorderConstructionSystem advances Progress.
             em.AddComponentData(entity, new UnderConstruction { Progress = 0f, Total = 240f });
 
             return entity;

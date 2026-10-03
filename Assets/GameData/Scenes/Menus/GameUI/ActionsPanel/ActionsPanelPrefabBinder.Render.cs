@@ -1,5 +1,5 @@
 ﻿// ActionsPanelPrefabBinder.Render.cs
-// What the 3x5 grid shows for the current selection: builder palette,
+// What the 3x5 grid shows for the current selection: worker palette,
 // unit formations, building actions, the upgrade slot and research rows.
 
 using System.Collections.Generic;
@@ -28,7 +28,7 @@ namespace TheWaningBorder.UI.Ingame
         /// hidden here, not greyed); missing resources grey a visible one.</summary>
         private int RenderBuilder(EntityManager em, List<ActionButton> actions)
         {
-            bool placing = BuilderCommandPanel.IsPlacingBuilding;
+            bool placing = WorkerCommandPanel.IsPlacingBuilding;
             int used = 0;
             for (int i = 0; i < actions.Count && used < _slots.Length; i++)
             {
@@ -38,7 +38,7 @@ namespace TheWaningBorder.UI.Ingame
                 string id = b.Id;
                 FillSlot(_slots[used++], b, BuildingCategory(id), null,
                     placing ? null
-                            : (System.Action)(() => BuilderCommandPanel.TriggerBuildingPlacement(id)),
+                            : (System.Action)(() => WorkerCommandPanel.TriggerBuildingPlacement(id)),
                     em);
             }
             for (int i = used; i < _slots.Length; i++) ClearSlot(_slots[i]);

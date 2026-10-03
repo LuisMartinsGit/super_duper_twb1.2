@@ -145,7 +145,7 @@ namespace TheWaningBorder.Systems.Sect
                 case UnitClass.Support: if (k.Support < cap) k.Support++; break;
                 case UnitClass.Magic:   if (k.Magic   < cap) k.Magic++;   break;
                 case UnitClass.Economy: if (k.Economy < cap) k.Economy++; break;
-                case UnitClass.Miner:   if (k.Miner   < cap) k.Miner++;   break;
+                case UnitClass.Worker:   if (k.Worker   < cap) k.Worker++;   break;
                 case UnitClass.Scout:   if (k.Scout   < cap) k.Scout++;   break;
             }
         }
@@ -165,7 +165,7 @@ namespace TheWaningBorder.Systems.Sect
                 case UnitClass.Support: return k.Support;
                 case UnitClass.Magic:   return k.Magic;
                 case UnitClass.Economy: return k.Economy;
-                case UnitClass.Miner:   return k.Miner;
+                case UnitClass.Worker:   return k.Worker;
                 case UnitClass.Scout:   return k.Scout;
                 default: return 0;
             }

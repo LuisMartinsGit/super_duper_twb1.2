@@ -79,7 +79,7 @@ namespace TheWaningBorder.AI
             }
 
             // Leave the build crew behind.
-            int conscript = idle.Length - Cfg.keepBuilders;
+            int conscript = idle.Length - Cfg.keepWorkers;
             if (conscript <= 0) { idle.Dispose(); return; }
 
             // Send them at whatever the AI is already fighting — the threat
@@ -143,86 +143,6 @@ namespace TheWaningBorder.AI
         }
 
         /// <summary>
-        /// MINES ARE THE ONLY FERALDIS ORE. Feraldis Workers cannot gather,
-        /// so without a Mine the faction's iron and veilstone stay at zero
-        /// forever — which is exactly what the 2026-08-05 match showed: both
-        /// Feraldis AIs ended on 13k-23k supplies and 0-1 iron, unable to
-        /// afford a single building. This runs FIRST for that reason.
-        /// </summary>
-        private static void TryBuildMine(EntityManager em, Faction faction, float3 hallPos)
-        {
-            const int TargetMines = 2;
-            if (CountFactionWith<MineTag>(em, faction) >= TargetMines) return;
-            if (!BuildCosts.TryGet("Mine", out var cost)) return;
-            if (!FactionEconomy.CanAfford(em, faction, cost)) return;
-
-            // A Mine only pays out next to ore, so search from the patches
-            // rather than ringing the Hall.
-            if (!TryFindOrePatch(em, faction, hallPos, out float3 patch)) return;
-
-            var size = BuildingSizeConfig.GetSize("Mine");
-            if (!TryFindSpot(em, patch, size, 4f, 14f, out float3 pos)) return;
-            // No AI-side Spend: PlaceBuildingDirect charges the cost on
-            // every peer (docs/Multiplayer_LAN_Readiness.md).
-            bool queued = CommandRouter.IssuePlaceBuilding(em, "Mine", pos, faction,
-                out Entity site, CommandSource.AI);
-            if (queued)
-            {
-                DispatchBuilders(em, faction, Entity.Null, "Mine", pos);
-                AILogger.Log(faction, "BUILDING", $"Mine queued on ore at ({pos.x:0},{pos.z:0})");
-                return;
-            }
-            // Null = the executor rejected — nothing spent, nothing to refund.
-            if (site == Entity.Null) return;
-            if (DispatchBuilders(em, faction, site, "Mine", pos) == 0)
-            {
-                FactionEconomy.Add(em, faction, cost);
-                em.DestroyEntity(site);
-                return;
-            }
-            AILogger.Log(faction, "BUILDING", $"Mine placed on ore at ({pos.x:0},{pos.z:0})");
-        }
-
-        /// <summary>
-        /// Nearest ore patch, IRON FIRST.
-        ///
-        /// The first version took whichever node was nearest of either kind,
-        /// and the Mine diagnostic caught the result immediately: both of
-        /// Blue's Mines reported "0 iron + 10 veilstone node(s) in range".
-        /// They worked — just not on the resource the faction was starving
-        /// for. Iron gates every building and unit; veilstone gates far less.
-        /// So iron patches win outright, and veilstone is only a fallback
-        /// when there is no reachable iron at all.
-        /// </summary>
-        private static bool TryFindOrePatch(EntityManager em, Faction faction, float3 hallPos, out float3 patch)
-        {
-            patch = default;
-
-            if (TryNearestOf<IronMineTag>(em, faction, hallPos, out patch)) return true;
-            return TryNearestOf<VeilstoneOutcroppingTag>(em, faction, hallPos, out patch);
-        }
-
-        /// <summary>Nearest node of this kind the faction has SEEN
-        /// (AICommon.IsKnownGround).</summary>
-        private static bool TryNearestOf<T>(EntityManager em, Faction faction, float3 from, out float3 pos)
-            where T : unmanaged, IComponentData
-        {
-            pos = default;
-            float best = float.MaxValue;
-            bool found = false;
-
-            var q = AIQueryCache.TagXf<T>(em);
-            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            for (int i = 0; i < xfs.Length; i++)
-            {
-                if (!AICommon.IsKnownGround(faction, xfs[i].Position)) continue;
-                float d = math.distancesq(xfs[i].Position, from);
-                if (d < best) { best = d; pos = xfs[i].Position; found = true; }
-            }
-            return found;
-        }
-
-        /// <summary>
         /// War Totems are Feraldis's ONLY territory — its ordinary buildings
         /// project no influence at all. The match log showed both Feraldis
         /// AIs at 0.0-2.1 % influence and the curse at 47 %: with no totems
@@ -247,13 +167,13 @@ namespace TheWaningBorder.AI
                 out Entity site, CommandSource.AI);
             if (tQueued)
             {
-                DispatchBuilders(em, faction, Entity.Null, "Feraldis_WarTotem", spot);
+                DispatchWorkers(em, faction, Entity.Null, "Feraldis_WarTotem", spot);
                 AILogger.Log(faction, "BUILDING", $"War Totem queued on blood at ({spot.x:0},{spot.z:0})");
                 return;
             }
             // Null = the executor rejected — nothing spent, nothing to refund.
             if (site == Entity.Null) return;
-            if (DispatchBuilders(em, faction, site, "Feraldis_WarTotem", spot) == 0)
+            if (DispatchWorkers(em, faction, site, "Feraldis_WarTotem", spot) == 0)
             {
                 FactionEconomy.Add(em, faction, cost);
                 em.DestroyEntity(site);
@@ -282,7 +202,7 @@ namespace TheWaningBorder.AI
             // Existing totems, so we don't stack. The 2026-08-06 match planted
             // TWENTY-SIX totems on the single cell (83,195): the scan returns
             // the global blood maximum, that maximum does not move, and every
-            // totem placed there died before its builders arrived — so the
+            // totem placed there died before its workers arrived — so the
             // count never rose, and the AI re-placed on the same corpse pile
             // forever.
             var existing = new NativeList<float3>(Allocator.Temp);
@@ -328,19 +248,6 @@ namespace TheWaningBorder.AI
             }
             existing.Dispose();
             return found;
-        }
-
-        /// <summary>
-        /// Raider Camps ARE the Feraldis economy — its huts gather nothing,
-        /// so camp count is the only thing that scales income. Keep building
-        /// Gatherer's Huts; they convert to camps automatically.
-        /// </summary>
-        private static void TryBuildEconomy(EntityManager em, Faction faction, float3 hallPos)
-        {
-            int camps = CountFactionWith<RaiderCampTag>(em, faction);
-            if (camps >= Cfg.targetRaiderCamps) return;
-            TryPlace(em, faction, "GatherersHut", hallPos, 24f, 90f,
-                AIBudgetCategory.EconomyExpansion);
         }
 
         private static void TryBuildAge2(EntityManager em, Faction faction, float3 hallPos)

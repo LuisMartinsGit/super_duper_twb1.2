@@ -35,6 +35,8 @@ namespace TheWaningBorder.EditorTools
     public static class WallArtBinder
     {
         const string Folder = "Assets/GameData/TechTree/Age0/Buildings/Wall";
+        /// <summary>The Stone Wall's own SOs (Alanthor; 2026-10-02).</summary>
+        const string StoneFolder = "Assets/GameData/TechTree/Civs/Alanthor/Buildings/Wall";
 
         /// <summary>One wall piece: the SO that owns it, its presentation id,
         /// and the words in a file name that mean "this is that piece".</summary>
@@ -52,13 +54,13 @@ namespace TheWaningBorder.EditorTools
         // has to be tested before the catch-all "wall".
         static readonly Piece[] Pieces =
         {
-            new Piece("Hub", Folder + "/Hub/WallHub.asset",
+            new Piece("Hub", StoneFolder + "/WallHub.asset",
                       AlanthorWall.HubPresentationID, "hub"),
             new Piece("Gate", Folder + "/Gate/WallGate.asset",
                       AlanthorWall.GatePresentationID, "gate"),
-            new Piece("Tower", Folder + "/Tower/WallTower.asset",
+            new Piece("Tower", StoneFolder + "/Tower/WallTower.asset",
                       AlanthorWall.TowerPresentationID, "tower"),
-            new Piece("Segment", Folder + "/Segment/WallSegment.asset",
+            new Piece("Segment", StoneFolder + "/WallSegment.asset",
                       AlanthorWall.InstancePresentationID, "segment", "curtain", "wall"),
         };
 

@@ -73,6 +73,7 @@ namespace TheWaningBorder.Abilities
                 Damage = damage,
                 DamageType = damageType,
                 AimedAtPoint = aimedAtPoint,
+                Vfx = vfxPrefab,
             };
         }
     }

@@ -15,6 +15,18 @@ using TheWaningBorder.World.Terrain;
 /// (0 = Ground, 1 = Wall deck), changing layers via a wall access point if
 /// needed. Consumed by <see cref="TheWaningBorder.Systems.Buildings.LayeredMoveSystem"/>.
 /// </summary>
+/// <summary>
+/// The rest of a unit's walk ALONG a wall-walk: the corner points of a path
+/// over the rampart layer, nearest first (docs/Design/Age_1_Alanthor.md
+/// § The stone wall). The integrator walks a deck unit in a straight line,
+/// which jams on the first bend of a curved wall; LayeredMoveSystem plans the
+/// path over the deck's cells and hands the unit one corner at a time.
+/// </summary>
+public struct DeckWaypoint : IBufferElementData
+{
+    public float3 Position;
+}
+
 public struct LayeredMoveOrder : IComponentData
 {
     public float3 FinalDest;

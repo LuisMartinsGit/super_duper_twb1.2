@@ -1,6 +1,6 @@
 ﻿// Loc.Pt.GameUI.cs
 // Portuguese (European) for the in-game UI binders: actions panels, spells
-// bar, top choice bar, objectives, formations, builder palette, unit roster,
+// bar, top choice bar, objectives, formations, worker palette, unit roster,
 // production queue, building upgrade action, religion panel, plus the
 // authored GameUI prefab labels the runtime localizer applies.
 // Keys are the ENGLISH source strings exactly as composed at the call sites.
@@ -239,7 +239,7 @@ namespace TheWaningBorder.Core.Localization
             t["<b>Stagger</b>\nOffset rows. Spreads the group out so area damage and siege hit fewer units at a time."] =
                 "<b>Escalonada</b>\nFilas desfasadas. Dispersa o grupo para que o dano de área e o cerco atinjam menos unidades de cada vez.";
 
-            // ── BuilderPanelBinder ─────────────────────────────────────────
+            // ── WorkerPanelBinder ─────────────────────────────────────────
             t["Build Structure"] = "Construir Estrutura";
             t["Left-click to place, Right/Esc to cancel"] =
                 "Clique esquerdo para colocar, Direito/Esc para cancelar";

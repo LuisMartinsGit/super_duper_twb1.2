@@ -40,11 +40,11 @@
 //   faction/resource/ritual blips, camera view rectangle, click-to-snap
 //   and right-click move orders (MinimapPanelBinder).
 // - ACTIONS PANEL: when GameUICatalog.actionsPanel is assigned, the AUTHORED
-//   3x5 grid (ActionsPanelPrefabBinder) serves the builder palette and the
+//   3x5 grid (ActionsPanelPrefabBinder) serves the worker palette and the
 //   building train/research rows; the code-built ActionsPanelBinder then only
 //   covers the special selections (vault, walls, hut age-up, bazaar wagon,
 //   temple upgrade lever). Unassigned -> the code-built actions panel and
-//   builder palette (BuilderPanelBinder) render everything as before.
+//   worker palette (WorkerPanelBinder) render everything as before.
 // - TOP CHOICE BAR: special-building choice buttons (Shrine / Vault /
 //   Keep, until one is started), plus the authored CultureSelection
 //   prefabs — the "SELECT CULTURE" pill and the culture selection menu
@@ -130,6 +130,8 @@ namespace TheWaningBorder.UI.Ingame
         // "Upgrade to Lv N" button on the selection header (single owned
         // upgradeable building selected). Routes UpgradeBuildingCommandHelper.
         private GameObject _upgradeButton;
+        private GameObject _deleteButton;
+        private string _deleteTooltip;
         private Image _upgradeButtonBg;
         private TMP_Text _upgradeButtonLabel;
         private Entity _upgradeTarget;
@@ -318,9 +320,13 @@ namespace TheWaningBorder.UI.Ingame
                     TWBLog.Log("[GameUI] GameUICatalog.hud claim-bar sprites unassigned — no takeover bars.");
             }
 
+            // Where the income comes from: hover a territory or a building
+            // for its resources per minute (docs/Design/Veilstone_Economy.md).
+            gameObject.AddComponent<TheWaningBorder.UI.World.IncomeOverlay>().Init(catalog.chrome);
+
             if (catalog.actionsPanel != null)
             {
-                // Authored 3x5 actions grid: builder palette + building
+                // Authored 3x5 actions grid: worker palette + building
                 // train/research rows (ActionsPanelPrefabBinder). The code-
                 // built panel stays alive for the selections the authored
                 // grid doesn't cover (vault, wall conversions, hut age-up,
@@ -338,7 +344,7 @@ namespace TheWaningBorder.UI.Ingame
                 // Code-built fallbacks (GameUIKit theme) while no authored
                 // actions panel is assigned in the catalog.
                 SpawnCodeBuilt<ActionsPanelBinder>("GameUI_ActionsPanel");
-                SpawnCodeBuilt<BuilderPanelBinder>("GameUI_BuilderPanel");
+                SpawnCodeBuilt<WorkerPanelBinder>("GameUI_WorkerPanel");
             }
             // Top-center choice flow: the controller is always code-spawned;
             // it drives the authored menus (special cluster, culture menu,
@@ -405,6 +411,7 @@ namespace TheWaningBorder.UI.Ingame
                     TWBLog.Log("[GameUI] SelectionHeader: no TMP label found.");
 
                 BuildUpgradeButton();
+                BuildDeleteButton();
                 _selectionHeader.SetActive(false);
             }
 
@@ -671,6 +678,9 @@ namespace TheWaningBorder.UI.Ingame
 
         private void Update()
         {
+            // DELETE: the same order as the header's delete button.
+            if (UnityEngine.Input.GetKeyDown(KeyCode.Delete) && !TypingInUi()) DeleteSelection();
+
             // 4 Hz for live data (bank amounts, HP) — but the selection
             // header/details must react the FRAME the selection changes, in
             // lockstep with the stats and roster panels' own detectors.
@@ -725,6 +735,16 @@ namespace TheWaningBorder.UI.Ingame
                 if (_iron != null)      _iron.text      = banks[i].Iron.ToString();
                 if (_veilstone != null) _veilstone.text = banks[i].Veilstone.ToString();
                 if (_veilsteel != null) _veilsteel.text = banks[i].Veilsteel.ToString();
+
+                // RED WHEN DRAINING (docs/Design/Veilstone_Economy.md §5): a
+                // resource the faction's trades consume faster than it is
+                // produced turns red, so a Trading Outpost eating the bank is
+                // visible before the bank is empty.
+                var net = TheWaningBorder.Systems.World.TerritoryIncomeSystem.FactionNetForDisplay(em, faction);
+                Tint(_supplies,  net.Supplies);
+                Tint(_iron,      net.Iron);
+                Tint(_veilstone, net.Veilstone);
+                Tint(_veilsteel, net.Veilsteel);
                 RefreshReligion(em, faction);
 
                 if (_housing != null
@@ -735,6 +755,23 @@ namespace TheWaningBorder.UI.Ingame
                 }
                 return;
             }
+        }
+
+        private static readonly Color DrainingRed = new Color(1f, 0.35f, 0.3f);
+        private readonly System.Collections.Generic.Dictionary<TMPro.TMP_Text, Color> _amountColor =
+            new System.Collections.Generic.Dictionary<TMPro.TMP_Text, Color>();
+
+        /// <summary>Red while the net rate is negative, the label's authored
+        /// colour otherwise.</summary>
+        private void Tint(TMPro.TMP_Text label, float netPerMinute)
+        {
+            if (label == null) return;
+            if (!_amountColor.TryGetValue(label, out var authored))
+            {
+                authored = label.color;
+                _amountColor[label] = authored;
+            }
+            label.color = netPerMinute < -0.5f ? DrainingRed : authored;
         }
 
         private void RefreshReligion(EntityManager em, Faction faction)
@@ -774,6 +811,98 @@ namespace TheWaningBorder.UI.Ingame
                 _upgradeButton.SetActive(false);
                 return;
             }
+        }
+
+        // ── Delete: cancel a plan or site, demolish a building, kill a unit ──
+        // docs/Design/Planned_Buildings.md §4. One button for all of it, in
+        // the selection header's top-right corner, Synty-framed.
+
+        private const float DeleteButtonSize = 34f;
+
+        private void BuildDeleteButton()
+        {
+            var go = new GameObject("DeleteButton", typeof(RectTransform), typeof(Button));
+            var rt = (RectTransform)go.transform;
+            rt.SetParent(_selectionHeader.transform, false);
+            rt.anchorMin = rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(1f, 1f);
+            rt.anchoredPosition = new Vector2(-6f, -6f);
+            rt.sizeDelta = new Vector2(DeleteButtonSize, DeleteButtonSize);
+            GameUIKit.IgnoreLayout(go);
+            var bg = GameUIKit.ButtonChrome(rt, raycast: true);
+            bg.color = new Color(0.45f, 0.10f, 0.08f, 1f);
+            var label = GameUIKit.Text(rt, "Label", "X", 20f, Color.white, TextAlignmentOptions.Center, wrap: false);
+            label.fontStyle = FontStyles.Bold;
+            label.raycastTarget = false;
+            var lrt = label.rectTransform;
+            lrt.anchorMin = Vector2.zero; lrt.anchorMax = Vector2.one;
+            lrt.offsetMin = lrt.offsetMax = Vector2.zero;
+            var button = go.GetComponent<Button>();
+            button.targetGraphic = bg;
+            button.onClick.AddListener(DeleteSelection);
+            UITooltip.Bind(go, () => _deleteTooltip);
+            _deleteButton = go;
+            go.SetActive(false);
+        }
+
+        /// <summary>Shown while the selection holds anything of yours the
+        /// button can remove; the tooltip names what it will do.</summary>
+        private void RefreshDeleteButton(EntityManager em, System.Collections.Generic.IReadOnlyList<Entity> selection)
+        {
+            if (_deleteButton == null) return;
+            bool plans = false, sites = false, buildings = false, units = false;
+            if (selection != null && !GameSettings.IsObserver)
+            {
+                var me = GameSettings.LocalPlayerFaction;
+                for (int i = 0; i < selection.Count; i++)
+                {
+                    var e = selection[i];
+                    if (!TheWaningBorder.Core.Commands.CommandRouter.CanDelete(em, e)) continue;
+                    if (em.GetComponentData<FactionTag>(e).Value != me) continue;
+                    if (em.HasComponent<PlannedBuilding>(e)) plans = true;
+                    else if (em.HasComponent<UnderConstruction>(e)) sites = true;
+                    else if (em.HasComponent<BuildingTag>(e)) buildings = true;
+                    else units = true;
+                }
+            }
+            bool show = plans || sites || buildings || units;
+            if (_deleteButton.activeSelf != show) _deleteButton.SetActive(show);
+            if (!show) return;
+            var sb = new System.Text.StringBuilder("<b>").Append(Loc.T("Delete")).Append("</b> (Del)");
+            if (plans || sites) sb.Append('\n').Append(Loc.T("Cancel construction — everything paid is refunded"));
+            if (buildings) sb.Append('\n').Append(Loc.T("Demolish the building — no refund"));
+            if (units) sb.Append('\n').Append(Loc.T("Kill the unit"));
+            _deleteTooltip = sb.ToString();
+        }
+
+        private void DeleteSelection()
+        {
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (world == null || !world.IsCreated || GameSettings.IsObserver) return;
+            var em = world.EntityManager;
+            var selection = TheWaningBorder.Input.SelectionSystem.CurrentSelection;
+            if (selection == null) return;
+            var me = GameSettings.LocalPlayerFaction;
+            // Copy first: a removal can change the selection under us.
+            var targets = new System.Collections.Generic.List<Entity>(selection.Count);
+            for (int i = 0; i < selection.Count; i++) targets.Add(selection[i]);
+            foreach (var e in targets)
+            {
+                if (!TheWaningBorder.Core.Commands.CommandRouter.CanDelete(em, e)) continue;
+                if (em.GetComponentData<FactionTag>(e).Value != me) continue;
+                TheWaningBorder.Core.Commands.CommandRouter.IssueDelete(em, e);
+            }
+            RefreshNow();
+        }
+
+        /// <summary>True while a text field has the keyboard (chat, lobby name)
+        /// — Delete there edits text, it does not destroy armies.</summary>
+        private static bool TypingInUi()
+        {
+            var es = UnityEngine.EventSystems.EventSystem.current;
+            var sel = es != null ? es.currentSelectedGameObject : null;
+            return sel != null && (sel.GetComponent<TMP_InputField>() != null
+                                   || sel.GetComponent<InputField>() != null);
         }
 
         private void ClickUpgrade()
@@ -846,6 +975,7 @@ namespace TheWaningBorder.UI.Ingame
 
             RefreshUnitDetails(em, count, uniform, firstEntity);
             RefreshUpgradeButton(em, count, firstEntity);
+            RefreshDeleteButton(em, selection);
 
             if (count == 0)
             {

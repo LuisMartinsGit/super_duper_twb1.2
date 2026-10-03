@@ -7,7 +7,7 @@ namespace TheWaningBorder.Entities
 {
     /// <summary>
     /// Hall building - main base structure.
-    /// Trains Builders, generates Supplies, provides population.
+    /// Trains Workers, generates Supplies, provides population.
     /// Fix #219: EM/ECB share a single generic CreateInternal via IEntityCreator.
     /// </summary>
     public static class Hall

@@ -20,7 +20,7 @@ namespace TheWaningBorder.World.Regions
         /// workers must stand for a Hall to be placed. Enforced by the
         /// placement ghost and, authoritatively, by the executor at the tick
         /// the order runs (the worker is named in the PlaceBuilding command).</summary>
-        public float hallBuilderRange;
+        public float hallWorkerRange;
 
         /// <summary>The Hall's escalation step (Regions.md §2 "No territory
         /// hopping"): a Hall costs its base price x (1 + step x N), where N is

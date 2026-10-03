@@ -18,9 +18,9 @@ namespace TheWaningBorder.AI
         public static AIFeraldisEndgameSystemConfig I
             => _i != null ? _i : (_i = ComponentConfig.Require<AIFeraldisEndgameSystemConfig>());
 
-        /// <summary>Builders a Feraldis AI keeps back for base expansion.
+        /// <summary>Workers a Feraldis AI keeps back for base expansion.
         /// Everyone else is a soldier.</summary>
-        public int keepBuilders;
+        public int keepWorkers;
 
         /// <summary>Totems must tile new ground, not stack on the bloodiest
         /// cell. Comfortably wider than a totem's own burn radius.</summary>
@@ -28,8 +28,6 @@ namespace TheWaningBorder.AI
 
         public float thinkInterval;
 
-        /// <summary>Raider Camps the AI wants standing — its entire economy.</summary>
-        public int targetRaiderCamps;
 
         /// <summary>Army it wants before committing to a well assault.</summary>
         public int assaultArmySize;

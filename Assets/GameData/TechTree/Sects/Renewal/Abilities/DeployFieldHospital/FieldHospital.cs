@@ -4,7 +4,7 @@
 // down after two minutes.
 //
 // Deliberately NOT a placeable building: it has no BuildCosts entry and no
-// builder-catalog row. It is spawned by the ability (see AbilityEffectExecutor
+// worker-catalog row. It is spawned by the ability (see AbilityEffectExecutor
 // -> DeployFieldHospital) at the caster's position, already finished — no
 // UnderConstruction phase, because a field hospital that takes 30 s to raise
 // would be useless in the fight it was cast for.

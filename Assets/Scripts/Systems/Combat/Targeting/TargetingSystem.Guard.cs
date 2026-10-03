@@ -31,13 +31,13 @@ namespace TheWaningBorder.Systems.Combat
                 .WithNone<AttackCommand>()
                 .WithNone<UserMoveOrder>()
                 .WithNone<HealCommand>()        // Healers actively healing should not snap back
-                .WithNone<PassiveWorkerTag>()   // Builders are passive workers...
+                .WithNone<PassiveWorkerTag>()   // Workers are passive...
                                                 //   ...except Feraldis Workers, which are
                                                 //   light infantry that also build. The tag
                                                 //   (not CanBuild) is what marks a worker as
                                                 //   non-combatant; FeraldisCultureRetrofitSystem
                                                 //   strips it.
-                .WithNone<BuildCommand>()       // A COMMITTED BUILDER IS BUSY. Feraldis
+                .WithNone<BuildCommand>()       // A COMMITTED WORKER IS BUSY. Feraldis
                                                 //   Workers fight, so dropping PassiveWorkerTag
                                                 //   let this pass (and return-to-guard below)
                                                 //   grab them mid-build and fight the build
@@ -45,9 +45,9 @@ namespace TheWaningBorder.Systems.Combat
                                                 //   frame — the visible worker "glitching"
                                                 //   reported 2026-08-06. Command follow-through:
                                                 //   a worker with a build order finishes it.
-                .WithNone<MinerTag>()           // Miners are handled by MiningSystem
+                .WithNone<WorkerTag>()           // Workers are handled by MiningSystem
                 .WithNone<RitualState>()        // A CHANNELLING RITUALIST IS BUSY — the same
-                                                //   rule as the committed builder above, added
+                                                //   rule as the committed worker above, added
                                                 //   for the same failure.
                                                 //
                                                 //   The killer is the return-to-guard branch
@@ -227,7 +227,7 @@ namespace TheWaningBorder.Systems.Combat
                         var cls = em.GetComponentData<UnitTag>(entity).Class;
                         bool hitRecently = clock - eng.ValueRO.HitAt <= settings.RetaliationWindow;
                         var rules = RulesFor(em, entity, cls, stance, false, los, hitRecently, in settings);
-                        if (cls != UnitClass.Economy && cls != UnitClass.Miner
+                        if (cls != UnitClass.Economy && cls != UnitClass.Worker
                             && rules.Acquire != 0
                             && (rules.Leash <= 0f || distToGuard <= rules.Leash))
                         {

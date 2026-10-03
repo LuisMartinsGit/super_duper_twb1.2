@@ -115,7 +115,7 @@ namespace TheWaningBorder.AI
                     if (!em.Exists(rec.Enemy)
                         || (maxMobileAge > 0f
                             && (rec.Category == IntelCategory.MilitaryUnit
-                                || rec.Category == IntelCategory.Miner)
+                                || rec.Category == IntelCategory.Worker)
                             && now - rec.LastSeenTime > maxMobileAge))
                         buffer.RemoveAt(i);
                 }
@@ -225,12 +225,12 @@ namespace TheWaningBorder.AI
                     // it stays readable next to the rest.
                     if (now - _lastIntelLog >= IntelLogInterval && AILogger.Enabled)
                     {
-                        int milUnits = 0, structures = 0, miners = 0;
+                        int milUnits = 0, structures = 0, workers = 0;
                         for (int i = 0; i < buffer.Length; i++)
                             switch (buffer[i].Category)
                             {
                                 case IntelCategory.MilitaryUnit: milUnits++; break;
-                                case IntelCategory.Miner: miners++; break;
+                                case IntelCategory.Worker: workers++; break;
                                 default: structures++; break;
                             }
                         // Threat where the enemy was last seen, not where the
@@ -240,7 +240,7 @@ namespace TheWaningBorder.AI
                         int threat = latest > float.MinValue
                             ? ThreatMaps.MaxInRadius(owner, latestPos, 60f) : 0;
                         AILogger.Log(owner, "INTEL",
-                            $"sightings {buffer.Length} (mil {milUnits}, eco {miners}, struct {structures}) " +
+                            $"sightings {buffer.Length} (mil {milUnits}, eco {workers}, struct {structures}) " +
                             $"enemyStrength {enemyStr} knownBases {bases} " +
                             $"lastSeen {(latest > float.MinValue ? (int)(now - latest) : -1)}s " +
                             $"threatAtContact {threat}");
@@ -262,11 +262,11 @@ namespace TheWaningBorder.AI
             // forever. Counting them as military made a raiding Feraldis
             // look like a doom-stack to every opponent's threat assessment,
             // and made its OWN army-strength reads meaningless.
-            if (em.HasComponent<PlundererTag>(e)) { cat = IntelCategory.Miner; isMilitary = false; return; }
+            if (em.HasComponent<PlundererTag>(e)) { cat = IntelCategory.Worker; isMilitary = false; return; }
             if (em.HasComponent<HallTag>(e)) { cat = IntelCategory.Hall; isMilitary = false; return; }
             if (em.HasComponent<BorderMainNodeTag>(e) || em.HasComponent<SmallNodeTag>(e))
             { cat = IntelCategory.BorderNode; isMilitary = false; return; }
-            if (em.HasComponent<MinerTag>(e)) { cat = IntelCategory.Miner; isMilitary = false; return; }
+            if (em.HasComponent<WorkerTag>(e)) { cat = IntelCategory.Worker; isMilitary = false; return; }
             if (em.HasComponent<BuildingTag>(e))
             {
                 bool mil = em.HasComponent<BarracksTag>(e) || em.HasComponent<ArcheryRangeTag>(e);

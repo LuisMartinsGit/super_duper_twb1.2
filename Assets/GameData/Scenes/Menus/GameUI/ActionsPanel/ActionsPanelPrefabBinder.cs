@@ -7,7 +7,7 @@
 // the special selections (vault, walls, hut age-up, temple upgrade lever).
 //
 // One panel, two selection modes (spec 2026-07-24):
-// - BUILDER: the build palette. Only buildings unlockable at the CURRENT
+// - WORKER: the build palette. Only buildings unlockable at the CURRENT
 //   age are visible (era-locked entries are hidden outright, not greyed);
 //   visible entries grey out when resources are missing. Special/choice
 //   buildings never appear here (they come pre-filtered from
@@ -71,17 +71,17 @@ namespace TheWaningBorder.UI.Ingame
 
         private static readonly HashSet<string> EconomyBuildings = new()
         {
-            "Hut", "GatherersHut", "Hall", "Alanthor_Smelter", "Mine", "VeilstoneMine",
+            "Hut", "GatherersHut", "Hall", "Mine", "VeilstoneMine",
             "Runai_Outpost", "Runai_TradeHub", "Runai_TradingPost", "ThessarasBazaar",
             "Feraldis_HuntingLodge", "Feraldis_LoggingStation",
         };
         private static readonly HashSet<string> DefenseBuildings = new()
         {
-            "Alanthor_Wall", "Alanthor_Tower", "Feraldis_Tower",
+            "Palisade", "Alanthor_Wall", "Alanthor_Tower", "Feraldis_Tower",
         };
         private static readonly HashSet<string> ReligionBuildings = new()
         {
-            "TempleOfRidan", "ShrineOfRidan", "FiendstoneKeep", "VaultOfAlmierra",
+            "TempleOfRidan", "FiendstoneKeep", "VaultOfAlmierra",
         };
         // Everything else placeable (Barracks, ranges, siege yards, stables,
         // Longhouse = cultured Barracks, ...) falls through to Military.
@@ -301,7 +301,7 @@ namespace TheWaningBorder.UI.Ingame
             // panel with blocksRaycasts off simply stops being hit.
         }
 
-        // ── Builder mode ───────────────────────────────────────────────────
+        // ── Worker mode ───────────────────────────────────────────────────
 
         // ── Unit mode: formations ──────────────────────────────────────────
 

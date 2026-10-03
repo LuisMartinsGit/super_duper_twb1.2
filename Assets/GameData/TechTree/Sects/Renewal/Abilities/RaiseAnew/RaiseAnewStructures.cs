@@ -6,7 +6,7 @@
 // read from that building's own BuildingDefSO in this folder.
 //
 // Like the Field Hospital these are conjured, not placeable: no BuildCosts
-// entry, no builder-catalog row, and they spawn already finished, with no
+// entry, no worker-catalog row, and they spawn already finished, with no
 // UnderConstruction phase, because a fortification raised mid-fight that
 // then takes a minute to build would be useless in the fight it was cast
 // for. Unlike the Field Hospital they are PERMANENT: no lifetime, no

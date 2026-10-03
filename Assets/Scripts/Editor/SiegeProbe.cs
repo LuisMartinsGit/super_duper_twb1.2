@@ -101,8 +101,12 @@ namespace TheWaningBorder.EditorTools
                     : TheWaningBorder.Core.Commands.CommandRouter.WallPathKind.Point);
             }
             var made = new List<Entity>();
+            // Whichever wall Blue may raise: the stone wall once it is
+            // Alanthor, the palisade before (docs/Design/Age_0.md § Palisade).
+            bool palisade = !TheWaningBorder.Entities.WallTiers.CanBuild(
+                world.EntityManager, Faction.Blue, palisade: false);
             TheWaningBorder.Core.Commands.CommandRouter.PlaceWallPathDirect(
-                world.EntityManager, pts, kinds, Faction.Blue, made);
+                world.EntityManager, pts, kinds, Faction.Blue, made, palisade);
             var em = world.EntityManager;
             int hubs = em.CreateEntityQuery(typeof(WallHubTag)).CalculateEntityCount();
             int segs = em.CreateEntityQuery(typeof(WallSegmentTag)).CalculateEntityCount();
@@ -110,7 +114,17 @@ namespace TheWaningBorder.EditorTools
             int curves = em.CreateEntityQuery(typeof(WallCurvePoint)).CalculateEntityCount();
             string where = made.Count > 0 && em.HasComponent<LocalTransform>(made[0])
                 ? em.GetComponentData<LocalTransform>(made[0]).Position.ToString() : "-";
-            Debug.Log($"[SiegeProbe] test arc placed: {pts.Count} samples; hubs made={made.Count} (first at {where}); " +
+            // Look at it: the camera starts wherever the scenario left it.
+            // CameraController lives in the Presentation assembly, which the
+            // editor assembly does not reference — reached by name.
+            foreach (var asm in System.AppDomain.CurrentDomain.GetAssemblies())
+            {
+                var cam = asm.GetType("TheWaningBorder.CameraRig.CameraController");
+                if (cam == null) continue;
+                cam.GetMethod("FocusOn")?.Invoke(null, new object[] { new Vector3(0f, 0f, R + 4f), true });
+                break;
+            }
+            Debug.Log($"[SiegeProbe] test arc placed ({(palisade ? "palisade" : "stone")}): {pts.Count} samples; hubs made={made.Count} (first at {where}); " +
                       $"world now hubs={hubs} segments={segs} curveCells={cells} curves={curves}");
         }
 

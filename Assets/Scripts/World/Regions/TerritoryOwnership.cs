@@ -1,4 +1,4 @@
-// TerritoryOwnership.cs
+﻿// TerritoryOwnership.cs
 // Who holds each territory.
 //
 // docs/Design/Territory_Claims.md (2026-09-29, FOURTH MODEL): ground belongs to
@@ -432,7 +432,7 @@ namespace TheWaningBorder.World.Regions
             return false;
         }
 
-        // ── Hall builder proximity (Regions.md §2, 2026-09-26) ───────────
+        // ── Hall worker proximity (Regions.md §2, 2026-09-26) ───────────
 
         private static TerritoryOwnershipConfig _cfg;
         private static TerritoryOwnershipConfig Cfg =>
@@ -442,36 +442,36 @@ namespace TheWaningBorder.World.Regions
         /// <summary>How close (metres, XZ) one of the placing faction's
         /// workers must stand to a Hall site for the claim to be accepted.
         /// Read from TerritoryOwnership.asset.</summary>
-        public static float HallBuilderRange => Cfg.hallBuilderRange;
+        public static float HallWorkerRange => Cfg.hallWorkerRange;
 
         /// <summary>
-        /// True when this building's placement must name a builder standing
+        /// True when this building's placement must name a worker standing
         /// near the site: the Hall, and only when the territory rules are on.
         /// A claim is the one purchase that takes ground, so it is the one
         /// that has to be MADE there — a player cannot drop a Hall on the far
         /// side of the map from a worker standing at home.
         /// </summary>
-        public static bool NeedsBuilderNearby(string buildingId)
+        public static bool NeedsWorkerNearby(string buildingId)
             => IsClaimStructure(buildingId) && !RulesOff && RegionMap.Ready;
 
         /// <summary>
-        /// Is <paramref name="builder"/> a live worker of <paramref name="faction"/>
-        /// within <see cref="HallBuilderRange"/> of the site AND standing
+        /// Is <paramref name="worker"/> a live worker of <paramref name="faction"/>
+        /// within <see cref="HallWorkerRange"/> of the site AND standing
         /// inside the territory the site is in (Regions.md §2, 2026-09-27)?
         /// Reads replicated simulation state only, so the lockstep executor
         /// reaches the same verdict on every peer at the execution tick.
         /// </summary>
-        public static PlacementRefusal CheckHallBuilder(EntityManager em, Faction faction,
-            Entity builder, float worldX, float worldZ)
+        public static PlacementRefusal CheckHallWorker(EntityManager em, Faction faction,
+            Entity worker, float worldX, float worldZ)
         {
-            if (!IsLiveBuilder(em, faction, builder)) return PlacementRefusal.NoBuilder;
-            var p = em.GetComponentData<LocalTransform>(builder).Position;
+            if (!IsLiveWorker(em, faction, worker)) return PlacementRefusal.NoWorker;
+            var p = em.GetComponentData<LocalTransform>(worker).Position;
             float dx = p.x - worldX, dz = p.z - worldZ;
-            float r = HallBuilderRange;
-            if (dx * dx + dz * dz > r * r) return PlacementRefusal.BuilderTooFar;
+            float r = HallWorkerRange;
+            if (dx * dx + dz * dz > r * r) return PlacementRefusal.WorkerTooFar;
             return IsInSiteTerritory(p.x, p.z, worldX, worldZ)
                 ? PlacementRefusal.None
-                : PlacementRefusal.BuilderOutsideTerritory;
+                : PlacementRefusal.WorkerOutsideTerritory;
         }
 
         /// <summary>
@@ -492,7 +492,7 @@ namespace TheWaningBorder.World.Regions
 
         /// <summary>A worker (CanBuild, not conscripted) owned by the
         /// faction, alive, with a transform.</summary>
-        public static bool IsLiveBuilder(EntityManager em, Faction faction, Entity e)
+        public static bool IsLiveWorker(EntityManager em, Faction faction, Entity e)
         {
             if (e == Entity.Null || !em.Exists(e)) return false;
             if (!em.HasComponent<CanBuild>(e) || !em.HasComponent<LocalTransform>(e)) return false;
@@ -507,13 +507,13 @@ namespace TheWaningBorder.World.Regions
         /// The worker of <paramref name="faction"/> among
         /// <paramref name="candidates"/> (the local player's selection) the
         /// Hall command should carry, or Entity.Null. The nearest worker that
-        /// PASSES <see cref="CheckHallBuilder"/> (in range and inside the
+        /// PASSES <see cref="CheckHallWorker"/> (in range and inside the
         /// site's territory) wins; failing that, the nearest live worker, so
         /// the refusal names the rule it broke. Distance ties break on list
         /// order — this is a UI helper; the chosen id then rides the command,
         /// so peers never pick.
         /// </summary>
-        public static Entity NearestBuilder(EntityManager em, Faction faction,
+        public static Entity NearestWorker(EntityManager em, Faction faction,
             System.Collections.Generic.IReadOnlyList<Entity> candidates, float worldX, float worldZ)
         {
             Entity best = Entity.Null, bestOk = Entity.Null;
@@ -522,13 +522,13 @@ namespace TheWaningBorder.World.Regions
             for (int i = 0; i < candidates.Count; i++)
             {
                 var e = candidates[i];
-                if (!IsLiveBuilder(em, faction, e)) continue;
+                if (!IsLiveWorker(em, faction, e)) continue;
                 var p = em.GetComponentData<LocalTransform>(e).Position;
                 float dx = p.x - worldX, dz = p.z - worldZ;
                 float d = dx * dx + dz * dz;
                 if (d < bestD) { bestD = d; best = e; }
                 if (d < bestOkD
-                    && CheckHallBuilder(em, faction, e, worldX, worldZ) == PlacementRefusal.None)
+                    && CheckHallWorker(em, faction, e, worldX, worldZ) == PlacementRefusal.None)
                 { bestOkD = d; bestOk = e; }
             }
             return bestOk != Entity.Null ? bestOk : best;
@@ -646,7 +646,9 @@ namespace TheWaningBorder.World.Regions
             "GatherersHut"     => (ComponentType?)ComponentType.ReadOnly<SupplyNodeTag>(),
             "Mine"             => (ComponentType?)ComponentType.ReadOnly<IronMineTag>(),
             "VeilstoneMine"    => (ComponentType?)ComponentType.ReadOnly<VeilstoneOutcroppingTag>(),
-            "Alanthor_Smelter" => (ComponentType?)ComponentType.ReadOnly<VeilsteelDepositTag>(),
+            // Alanthor's veilstone building stands ON the outcrop too
+            // (docs/Design/Veilstone_Economy.md §3.1, 2026-10-01).
+            "Alanthor_TradingOutpost" => (ComponentType?)ComponentType.ReadOnly<VeilstoneOutcroppingTag>(),
             _ => null,
         };
 
@@ -658,19 +660,18 @@ namespace TheWaningBorder.World.Regions
             "GatherersHut"     => (ComponentType?)ComponentType.ReadOnly<GathererHutTag>(),
             "Mine"             => (ComponentType?)ComponentType.ReadOnly<MineTag>(),
             "VeilstoneMine"    => (ComponentType?)ComponentType.ReadOnly<VeilstoneMineTag>(),
-            "Alanthor_Smelter" => (ComponentType?)ComponentType.ReadOnly<SmelterTag>(),
+            "Alanthor_TradingOutpost" => (ComponentType?)ComponentType.ReadOnly<TradingOutpostTag>(),
             _ => null,
         };
 
         /// <summary>
-        /// ONE MINE BUTTON (2026-09-29): the three ore extractors — iron Mine,
-        /// Veilstone Mine, the veilsteel extractor (Alanthor_Smelter) — are one
-        /// "Mine" in the build menu, and the node under the cursor decides
-        /// which is raised. Returns the concrete id whose free node is nearest
-        /// <paramref name="pos"/> (within snap reach), or false when none is.
-        /// The veilsteel extractor is offered only to an Alanthor faction under
-        /// its per-faction cap. UI-side: the AI and the executor always deal
-        /// in the concrete ids.
+        /// ONE MINE BUTTON (2026-09-29): the ore extractors — iron Mine and
+        /// Veilstone Mine — are one "Mine" in the build menu, and the node
+        /// under the cursor decides which is raised. Returns the concrete id
+        /// whose free node is nearest <paramref name="pos"/> (within snap
+        /// reach), or false when none is. The Veilstone Mine is not offered to
+        /// Alanthor, who trade for veilstone (docs/Design/Veilstone_Economy.md §3.1).
+        /// UI-side: the AI and the executor always deal in the concrete ids.
         /// </summary>
         public static bool ResolveExtractorAt(EntityManager em, Faction faction, float3 pos,
                                               out string buildingId, out float3 snapped)
@@ -681,10 +682,11 @@ namespace TheWaningBorder.World.Regions
             for (int i = 0; i < MineIds.Length; i++)
             {
                 string id = MineIds[i];
-                if (id == "Alanthor_Smelter"
-                    && (CultureConfig.GetCompletedCulture(em, faction) != Cultures.Alanthor
-                        || !TheWaningBorder.Core.Commands.CommandRouter.CanPlaceBuilding(em, id, faction)))
-                    continue;
+                if (!MayBuildMine(em, faction, id)) continue;
+                // The one Mine button raises Alanthor's Trading Outpost on a
+                // veilstone outcrop, and only Alanthor's.
+                if (id == "Alanthor_TradingOutpost"
+                    && CultureConfig.GetCompletedCulture(em, faction) != Cultures.Alanthor) continue;
                 if (!TrySnapToNode(em, id, pos, out var at)) continue;
                 float d = math.lengthsq(new float2(at.x - pos.x, at.z - pos.z));
                 if (d < best) { best = d; buildingId = id; snapped = at; }
@@ -693,7 +695,17 @@ namespace TheWaningBorder.World.Regions
         }
 
         /// <summary>The ids the one Mine button stands for.</summary>
-        public static readonly string[] MineIds = { "Mine", "VeilstoneMine", "Alanthor_Smelter" };
+        public static readonly string[] MineIds = { "Mine", "VeilstoneMine", "Alanthor_TradingOutpost" };
+
+        /// <summary>
+        /// False for a Veilstone Mine under an Alanthor faction: Alanthor do
+        /// not mine the curse's crystal, they trade beside it — and their Age 0
+        /// Veilstone Mines become Trading Outposts at age-up. The iron Mine is
+        /// every culture's (docs/Design/Veilstone_Economy.md §3.1).
+        /// </summary>
+        public static bool MayBuildMine(EntityManager em, Faction faction, string buildingId)
+            => buildingId != "VeilstoneMine"
+               || CultureConfig.GetCompletedCulture(em, faction) != Cultures.Alanthor;
 
         /// <summary>True when this building must be raised on a resource node.</summary>
         public static bool IsExtractor(string buildingId)
@@ -925,9 +937,9 @@ namespace TheWaningBorder.World.Regions
         /// <summary>A Hall must go next to a territory you hold.</summary>
         NotAdjacent,
         /// <summary>A Hall needs one of your workers within range.</summary>
-        BuilderTooFar,
+        WorkerTooFar,
         /// <summary>No live worker of yours was named for the Hall.</summary>
-        NoBuilder,
+        NoWorker,
         /// <summary>An extractor off a free node of its own kind.</summary>
         OffNode,
         /// <summary>A War Totem off blood.</summary>
@@ -938,7 +950,7 @@ namespace TheWaningBorder.World.Regions
         CapReached,
         /// <summary>The Hall's worker is in range but not standing inside
         /// the territory the Hall would claim.</summary>
-        BuilderOutsideTerritory,
+        WorkerOutsideTerritory,
         /// <summary>One Fortress per territory.</summary>
         FortressAlreadyHere,
         /// <summary>A building that can no longer be placed (the Hall).</summary>
@@ -946,6 +958,13 @@ namespace TheWaningBorder.World.Regions
         /// <summary>The footprint covers a resource node it was not made for
         /// (Build_Grid.md §3) — only a node's own extractor stands on it.</summary>
         OnResourceNode,
+        /// <summary>This culture may not raise this building (Alanthor and the
+        /// Veilstone Mine — Veilstone_Economy.md §3.1).</summary>
+        WrongCulture,
+        /// <summary>The veilstone outcrop is cursed or mined out.</summary>
+        OutcropUnavailable,
+        /// <summary>A Trading Outpost with no free, uncursed outcrop beside it.</summary>
+        NoOutcropNearby,
     }
 
     /// <summary>
@@ -969,17 +988,20 @@ namespace TheWaningBorder.World.Regions
                 PlacementRefusal.HeldByCurse      => "The curse holds this territory",
                 PlacementRefusal.HallAlreadyHere  => "This territory already has a Hall",
                 PlacementRefusal.NotAdjacent      => "A Hall must border a territory you hold",
-                PlacementRefusal.BuilderTooFar    => "Builder too far — a worker must stand near the Hall site",
-                PlacementRefusal.NoBuilder        => "Select a worker to place a Hall",
+                PlacementRefusal.WorkerTooFar    => "Worker too far from the Hall site",
+                PlacementRefusal.NoWorker        => "Select a worker to place a Hall",
                 PlacementRefusal.OffNode          => ExtractorLine(buildingId),
                 PlacementRefusal.NotOnBlood       => "War Totems must be planted on blood",
                 PlacementRefusal.NotByForest      => "Sawyers must be built against a forest",
                 PlacementRefusal.CapReached       => "You have the most of that building you may hold",
-                PlacementRefusal.BuilderOutsideTerritory
+                PlacementRefusal.WorkerOutsideTerritory
                     => "The worker must stand inside the territory the Hall will claim",
                 PlacementRefusal.FortressAlreadyHere => "This territory already has a Fortress",
                 PlacementRefusal.Retired          => "That building can no longer be built",
                 PlacementRefusal.OnResourceNode   => "Cannot build on a resource node — only its own extractor may stand there",
+                PlacementRefusal.WrongCulture     => "Alanthor do not mine veilstone — raise a Trading Outpost beside it",
+                PlacementRefusal.OutcropUnavailable => "This veilstone outcrop is cursed or mined out",
+                PlacementRefusal.NoOutcropNearby  => "Trading Outposts must stand on an uncursed veilstone outcrop",
                 _                                 => "Invalid placement",
             };
             return TheWaningBorder.Core.Localization.Loc.T(en);
@@ -991,9 +1013,9 @@ namespace TheWaningBorder.World.Regions
         private static string ExtractorLine(string buildingId) => buildingId switch
         {
             "GatherersHut"     => "Gatherer's Huts must be built on a free supply node",
-            "Mine"             => "Mines must be built on a free iron, veilstone or veilsteel node",
-            "VeilstoneMine"    => "Veilstone Mines must be built on a free veilstone outcropping",
-            "Alanthor_Smelter" => "Smelters must be built on a free veilsteel deposit",
+            "Mine"             => "Mines must be built on a free iron or veilstone node",
+            "VeilstoneMine"    => "Veilstone Mines must be built on a free, uncursed veilstone outcropping",
+            "Alanthor_TradingOutpost" => "Trading Outposts must be built on a free, uncursed veilstone outcrop",
             _                  => "This building must stand on a free resource node",
         };
     }

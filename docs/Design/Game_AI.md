@@ -61,7 +61,7 @@ The shipped assets had drifted far from the old table anyway (55 / 100 / 125 /
 Five personalities (Balanced / Aggressive / Defensive / Economic / Rush),
 assigned per faction (lobby-overridable later). Personality scales the
 utility weights and thresholds — it does not change code:
-attack threshold, military/miner floors, raid cadence, risk tolerance
+attack threshold, military/worker floors, raid cadence, risk tolerance
 (target scoring), defense budget. Strategy (the opening build order) and
 personality remain separate axes, but personality biases the deterministic
 strategy roll (Aggressive → Rush/Balanced openings, Economic → EcoBoom…).
@@ -99,13 +99,44 @@ an army means something.
 
 ## 4. Economy manager
 
-- **Worker target curve** per age per difficulty (table above); workers
-  are trained continuously toward the target, not only replaced.
+- **The worker rule** (2026-10-03, operator directive): **3 workers for
+  the home territory + 1 for every territory conquered**, the same for every
+  culture, age and difficulty (`economyWorkerFloor` 3 +
+  `workersPerConqueredTerritory` 1 in `SimpleAISystem.asset`). It is the
+  only worker target: the worker floor, the goal list's build crew and the
+  maintenance loop all read `WorkerFloorFor`, and it is assigned on every
+  pass rather than ratcheted, so losing a territory lowers it. It replaces
+  the per-age, per-difficulty worker curve.
 - **Gatherer allocation**: keep the existing iron/veilstone split solver;
   allocation prefers deposits in threat-safe areas (threat-map query).
 - ~~**Expansion**~~ *(removed 2026-07-20)*: mined resources credit the
   stockpile directly — there is no drop-off range, so the AI no longer
   plants GathererHuts near far deposits.
+- **The opening is Gatherer's Huts** (2026-10-03). Until the faction owns
+  `hutPipelineFreeCount` huts (4, never above the difficulty's hut cap), it
+  raises them straight from the bank, as many as it can afford in one
+  think, each on the free supply node nearest its Hall. While any are still
+  missing in Age 0, a savings reserve (`OpeningHuts`) holds research, army
+  growth, ore extractors, scouts, other non-essential buildings, workers
+  past the worker rule, and every house that is not nearly blocking
+  (headroom `openingHutHousingHeadroom` 2 instead of 8). It saves for ALL
+  the missing opening huts, and for the first `openingHutGraceSeconds` (45)
+  it is armed before any node has been seen. The reserve is not strict, so
+  it follows the usual hold/release duty cycle, and it
+  releases as soon as there is no free supply node. An extractor requested
+  without an explicit site is always placed on a free node of its kind,
+  never in the ring around the Hall.
+- **The first Religion Point is hunted** (2026-10-03). The Temple costs 1 RP,
+  and before a Temple exists only the curse pays RP: kills pay points, and a
+  destroyed curse node pays a whole RP (Religion.md). While a faction has no
+  Temple and no RP, from `religionHuntEarliestSeconds` (60) it picks the
+  nearest curse node it has seen, at any distance. It compares its free army
+  with what stands within `religionHuntAssessRadius` (40 m) of the node,
+  using the attack waves' assessment (`AIEngagement.AssessAssault`). If it
+  wins, it attacks with all of its free army, and units freed in the next
+  `religionHuntReinforceSeconds` (90) join that attack. If not, it raises
+  its army target and trains toward what the node needs. With no curse
+  node seen yet it waits for the scouts. Logged as `RELIGION`.
 - **Population headroom**: build a Hut when projected headroom < 4 (keep
   the existing anti-stall reflex, raised threshold).
 
@@ -323,7 +354,7 @@ each is now removed:
 - **The build crew.** Only `crew` sites may be open at once, and the crew was
   a flat three to five, so a faction with five sites in flight could not start
   a sixth however rich it was. The crew now grows with the work waiting:
-  `minerFloor + open sites`, capped at 12.
+  `workerFloor + open sites`, capped at 12.
 - **The savings hold.** A production line whose queues are all full is an
   essential purchase and spends past the claim reservation, exactly as housing
   and the first of each line already do.

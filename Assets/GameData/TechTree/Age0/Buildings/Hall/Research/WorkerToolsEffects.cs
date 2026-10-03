@@ -5,7 +5,7 @@
 //
 // -- Why this exists -------------------------------------------------------
 // Stone Tools was authored as `gatherSpeedMult: 1.15`, applied to
-// MinerState.GatherSpeedMultiplier. Workers no longer gather (Regions.md §4:
+// WorkerState.GatherSpeedMultiplier. Workers no longer gather (Regions.md §4:
 // income comes from territory ticks, forests and mines, and the one remaining
 // Worker only BUILDS), so the tech modified a multiplier nothing reads — a
 // research a player could buy that did precisely nothing.
@@ -47,7 +47,7 @@ namespace TheWaningBorder.Entities
         public const float VeilsteelToolsBuildSpeed = 1.75f;
 
         /// <summary>
-        /// Multiplier on a single builder's progress contribution. 1.0 when the
+        /// Multiplier on a single worker's progress contribution. 1.0 when the
         /// faction has researched nothing in the line.
         /// </summary>
         public static float BuildSpeedMultiplier(Faction faction)

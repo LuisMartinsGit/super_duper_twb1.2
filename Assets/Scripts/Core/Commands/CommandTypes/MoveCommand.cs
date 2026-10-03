@@ -57,26 +57,24 @@ namespace TheWaningBorder.Core.Commands.Types
             // An emplaced engine is bolted to its wall deck: no move takes it.
             if (em.HasComponent<EmplacedEngineTag>(unit)) return;
 
-            // A move order on a wall-garrisoning unit brings it back DOWN off
-            // the rampart so it can leave the wall: drop to the ground layer,
-            // snap y to terrain, and clear any garrison order/state.
-            if (em.HasComponent<NavLayerIndex>(unit))
+            // A move order on a unit standing on a wall-walk brings it DOWN
+            // the way it went up: it walks the deck to the nearest of its
+            // side's hubs, towers or gates (or a breach) and climbs down
+            // there (docs/Design/Age_1_Alanthor.md § The stone wall). It used
+            // to drop straight through the wall to the ground.
+            if (em.HasComponent<NavLayerIndex>(unit)
+                && em.GetComponentData<NavLayerIndex>(unit).Layer == NavLayerIndex.LayerRampart)
             {
-                var nli = em.GetComponentData<NavLayerIndex>(unit);
-                if (nli.Layer == NavLayerIndex.LayerRampart)
+                var down = new LayeredMoveOrder { FinalDest = destination, TargetLayer = 0, Phase = 0 };
+                if (em.HasComponent<LayeredMoveOrder>(unit))
                 {
-                    nli.Layer = 0;
-                    em.SetComponentData(unit, nli);
-                    if (em.HasComponent<LocalTransform>(unit))
-                    {
-                        var dxf = em.GetComponentData<LocalTransform>(unit);
-                        dxf.Position = new float3(
-                            dxf.Position.x,
-                            TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(dxf.Position.x, dxf.Position.z),
-                            dxf.Position.z);
-                        em.SetComponentData(unit, dxf);
-                    }
+                    // Mid-climb: let the climb finish; only the target changes.
+                    var cur = em.GetComponentData<LayeredMoveOrder>(unit);
+                    if (cur.Phase == 1) { cur.FinalDest = destination; cur.TargetLayer = 0; down = cur; }
+                    em.SetComponentData(unit, down);
                 }
+                else em.AddComponentData(unit, down);
+                return;
             }
             if (em.HasComponent<LayeredMoveOrder>(unit)) em.RemoveComponent<LayeredMoveOrder>(unit);
 

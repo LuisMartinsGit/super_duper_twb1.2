@@ -150,7 +150,7 @@ public struct AntiquityKills : IComponentData
     public byte Support;
     public byte Magic;
     public byte Economy;
-    public byte Miner;
+    public byte Worker;
     public byte Scout;
 }
 

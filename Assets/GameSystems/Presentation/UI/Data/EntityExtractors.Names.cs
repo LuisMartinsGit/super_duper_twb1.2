@@ -22,6 +22,47 @@ namespace TheWaningBorder.UI.Data
         /// </summary>
         public static string GetSelectionDisplayName(Entity entity, EntityManager em)
         {
+            string name = ResolveSelectionName(entity, em);
+            return em.HasComponent<BuildingTag>(entity) ? WithLevel(entity, em, name) : name;
+        }
+
+        /// <summary>
+        /// EVERY BUILDING NAMES ITS LEVEL (2026-10-02): level 0 is the bare Age 0
+        /// name ("Hut"); a levelled building reads "&lt;name&gt; - Lvl N", and when
+        /// its owner's culture authors that level (BuildingLevelDefSO) the name
+        /// is the level's own — the Hut becomes "House - Lvl 1". The level is
+        /// whichever ladder the building climbs: the upgrade ladder
+        /// (BuildingUpgradeState), the Temple's (TempleLevel), or a wall's
+        /// faction tier (WallTier, a stone wall only — a palisade has none).
+        /// </summary>
+        private static string WithLevel(Entity entity, EntityManager em, string name)
+        {
+            int level = 0;
+            if (em.HasComponent<BuildingUpgradeState>(entity))
+                level = em.GetComponentData<BuildingUpgradeState>(entity).Level;
+            else if (em.HasComponent<TempleLevel>(entity))
+                level = em.GetComponentData<TempleLevel>(entity).Level;
+            else if (em.HasComponent<WallTier>(entity) && !em.HasComponent<PalisadeTag>(entity))
+            {
+                level = em.GetComponentData<WallTier>(entity).Level;
+                if (level >= 1) name = TheWaningBorder.Entities.WallTiers.DisplayName(TheWaningBorder.Entities.WallTiers.Stone);
+            }
+            if (level <= 0) return name;
+
+            if (em.HasComponent<FactionTag>(entity))
+            {
+                byte culture = CultureConfig.GetCompletedCulture(em, em.GetComponentData<FactionTag>(entity).Value);
+                string ladderId = TheWaningBorder.Core.Commands.Types.UpgradeBuildingCommandHelper
+                    .ResolveBuildingId(em, entity);
+                if (TechCatalog.TryGetBuildingLevel(culture, ladderId, level, out var def)
+                    && !string.IsNullOrEmpty(def.displayName))
+                    name = def.displayName;
+            }
+            return string.Format(Loc.T("{0} - Lvl {1}"), name, level);
+        }
+
+        private static string ResolveSelectionName(Entity entity, EntityManager em)
+        {
             // Authoritative: stamped at creation from the id the caller asked
             // for (see UnitFactory / BuildingFactory). The tag-ladder and
             // PresentationId resolvers below are only reached by entities built
@@ -42,7 +83,7 @@ namespace TheWaningBorder.UI.Data
             // Resource nodes are neither buildings nor units and are built
             // outside the factories, so they carry no DisplayName. Without this
             // they fell all the way through GetUnitName's ladder — no
-            // PresentationId match, no CanBuild, no MinerTag, no UnitTag — and
+            // PresentationId match, no CanBuild, no WorkerTag, no UnitTag — and
             // the selection header labelled every one of them a bare "Unit".
             if (em.HasComponent<VeilsteelDepositTag>(entity)) return VeilsteelNodeName;
             if (em.HasComponent<IronMineTag>(entity)) return "Iron Deposit";
@@ -202,7 +243,6 @@ namespace TheWaningBorder.UI.Data
             if (em.HasComponent<HutTag>(entity)) return "Hut";
             if (em.HasComponent<DepotTag>(entity)) return "Depot";
             if (em.HasComponent<WorkshopTag>(entity)) return "Workshop";
-            if (em.HasComponent<ShrineTag>(entity)) return "Shrine of Ahridan";
             if (em.HasComponent<TempleOfRidanTag>(entity)) return "Temple of Ridan";
             if (em.HasComponent<VaultTag>(entity)) return "Vault of Almiérra";
             if (em.HasComponent<FiendstoneKeepTag>(entity)) return "Fiendstone Keep";
@@ -211,9 +251,9 @@ namespace TheWaningBorder.UI.Data
             // ForgeStorage/ForgeConversionSystem pipeline are all unchanged.
             if (em.HasComponent<SmelterTag>(entity)) return "Forge";
             if (em.HasComponent<ReliquaryTag>(entity)) return "The Reliquary";
-            // Wall pieces are named for their LEVEL: an Age 0 palisade is a
-            // "Wooden Wall", not "the Alanthor Wall"
-            // (docs/Design/Age_1_Alanthor.md § The three wall levels).
+            // Wall pieces are named for their LEVEL: a palisade is a
+            // "Palisade", a stone wall its level's name
+            // (docs/Design/Age_1_Alanthor.md § The stone wall).
             if (em.HasComponent<WallTag>(entity))
             {
                 string wallName = TheWaningBorder.Entities.WallTiers.DisplayName(
@@ -298,10 +338,10 @@ namespace TheWaningBorder.UI.Data
             }
 
             // Legacy fallback for units without PresentationId. Workers
-            // (formerly Builder + Miner) now share a single display name
+            // (one unit since the merge) now share a single display name
             // — the per-class branches just disambiguate combat units.
             if (em.HasComponent<CanBuild>(entity)) return "Worker";
-            if (em.HasComponent<MinerTag>(entity)) return "Worker";
+            if (em.HasComponent<WorkerTag>(entity)) return "Worker";
 
             if (em.HasComponent<UnitTag>(entity))
             {
@@ -314,7 +354,7 @@ namespace TheWaningBorder.UI.Data
                     UnitClass.Support => "Litharch",
                     UnitClass.Siege => "Siege Unit",
                     UnitClass.Economy => "Worker",
-                    UnitClass.Miner => "Worker",
+                    UnitClass.Worker => "Worker",
                     // UnitClass.Magic and any future class: name the class rather
                     // than returning a bare "Unit" (Scholar/Acolyte hit this before
                     // their PIDs were mapped).
@@ -333,9 +373,9 @@ namespace TheWaningBorder.UI.Data
         {
             return pid switch
             {
-                // Era 1 core units. PID 200 (former Builder) + 203
-                // (former Miner) both render as "Worker" now that the
-                // two specialists are unified — existing entities loaded
+                // Era 1 core units. PID 200 and the legacy PID 203
+                // both render as "Worker" now that there is one
+                // worker unit — existing entities loaded
                 // from older saves still display the new name.
                 200 => "Worker",
                 201 => "Swordsman",

@@ -105,7 +105,7 @@ namespace TheWaningBorder.Data
     [Serializable]
     public class TechEffects
     {
-        /// <summary>Multiplier for miner gather speed (e.g. 1.15 = 15% faster).</summary>
+        /// <summary>Multiplier for worker gather speed (e.g. 1.15 = 15% faster).</summary>
         public float gatherSpeedMult;
 
         /// <summary>Multiplier for melee attack speed (e.g. 1.1 = 10% faster attacks).</summary>

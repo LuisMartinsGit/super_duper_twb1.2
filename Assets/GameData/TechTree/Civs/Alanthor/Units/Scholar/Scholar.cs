@@ -47,7 +47,7 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new PopulationCost { Amount = 1 });
             // Bake DesiredDestination so PurificationRitualSystem can SetComponent
             // a move target without a structural change inside its query loop.
-            // Mirrors Miner.cs / Builder.cs.
+            // Mirrors Worker.cs.
             creator.AddComponent(entity, new DesiredDestination { Position = float3.zero, Has = 0 });
 
             // Combat type tags — Scholars take Ranged-class hits poorly so the

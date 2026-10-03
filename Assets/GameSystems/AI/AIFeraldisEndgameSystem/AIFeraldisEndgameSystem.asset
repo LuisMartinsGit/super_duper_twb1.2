@@ -12,10 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2b3c4d5e6f708192a3b4c5d6e7f2007, type: 3}
   m_Name: AIFeraldisEndgameSystem
   m_EditorClassIdentifier:
-  keepBuilders: 2
+  keepWorkers: 2
   minTotemSpacing: 36
   thinkInterval: 5
-  targetRaiderCamps: 4
   assaultArmySize: 12
   assaultRange: 200
   minEscortBeforeDispatch: 4

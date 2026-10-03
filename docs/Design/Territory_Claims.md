@@ -4,7 +4,7 @@
 > players and by the curse, and for how a match is won.** Supersedes:
 >
 > - [Regions.md](Regions.md) §2 (claiming by building a Hall, adjacency,
->   builder-in-territory, escalating Hall cost) and §3 (the curse's conquest
+>   worker-in-territory, escalating Hall cost) and §3 (the curse's conquest
 >   rule, pure nodes, anchors). Regions.md §1 (map structure, region kinds,
 >   where a border is), §4 node quotas and §7 (showing territories) STAND.
 > - [Curse_And_Shardroot.md](Curse_And_Shardroot.md): **wells, verbs, rites,
@@ -137,7 +137,7 @@ Hall) become the cultured Fortress — those docs follow in a later pass.
 
 **Every building may be placed only in a territory you own** (claimed, holder
 is you). No exceptions: the Hall's "may be built on ground you do not hold"
-rule died with the Hall, and so did adjacency, the builder-inside rule and the
+rule died with the Hall, and so did adjacency, the worker-inside rule and the
 escalating Hall price. Expansion is paid for in army time and in extractors,
 not in a claim building.
 
@@ -171,14 +171,22 @@ to flip ground too cheaply, the same rule applies to them.)*
 
 ### 6.3 Curse nodes (a.k.a. pylons)
 
+> **2026-10-01:** veilsteel deposits are removed from the map, and what a
+> veilstone outcrop under a curse node means (Cursed state, replenished
+> reserve, pacified when the node dies) is canon in
+> [Veilstone_Economy.md](Veilstone_Economy.md) §2.
+
 - **Built on any resource node** — supply, iron, veilstone or veilsteel.
   The curse builds a node only in a territory it has **claimed**, by the units
   standing there; the node takes `nodeBuildSeconds` and does not lock while
   under construction.
 - **Locks** the territory (§3), and **is destructible**. There are no
   indestructible pure nodes any more.
-- **Fields the garrison** of its territory — the §2.13 army: whole-spawn every
-  `armySpawnSeconds`, growing ×`armyGrowth` per spawn.
+- **Fields its own garrison** — the §2.13 army: whole-spawn every
+  `armySpawnSeconds`, growing ×`armyGrowth` per spawn. **Every node spawns
+  (2026-10-03)**, not one per territory: a territory with four curse nodes
+  fields four garrisons of `garrisonCap` each, and each garrison guards the
+  node it rose from (§6.7).
 - **Cursed ground is a RADIUS, not a territory.** The existing hostile-ground
   effect (speed debuff, damage-over-time, cursed texture — Curse_And_Shardroot.md
   §2.5b) applies within `nodeAuraRadius` of each curse node, not across the
@@ -209,9 +217,11 @@ party). There the party **stands** and claims by the meter:
 
 - **Unclaimed, or claimed but not locked** — it drains and claims, then builds
   a node on a resource node in it (if the territory has one).
-- **Locked** — it raids: resource buildings first, then any building, then
-  walks home after `raidSeconds`. Razing the last locking structure unlocks the
-  ground and the party can then claim it.
+- **Locked** — ~~it raids~~ **not a target (2026-10-03).** The curse only
+  advances on ground it means to take, and locked ground cannot be taken, so
+  a locked territory is never picked. A claim party whose target is locked
+  under it while it stands there gives up and walks home to its garrison.
+  There are no raids.
 
 **If the curse holds no node at all**, it re-seeds one after `reseedSeconds`
 (default 180 s) under the §6.4 rules. The curse can be driven back, never out:
@@ -237,6 +247,23 @@ There are no wells, so there is no host well and no Maw backstop.
   - garrisons still defend their own territory against any intruder — the
     curse ignores non-holders, it does not let them walk in.
 
+### 6.7 The curse defends; it advances only to take (2026-10-03)
+
+The curse is a **defensive** force that spreads, not an army that hunts.
+
+- **Garrisons guard their node.** A garrison unit engages only hostiles
+  within `guardRadius` of the node it guards, and never chases past
+  `guardLeashRadius` from it: past that it drops the fight and walks back.
+  It no longer sweeps its whole territory for intruders. A unit whose node
+  dies adopts the nearest live node in its territory.
+- **Only claim parties leave home**, and only for an adjacent, unlocked
+  territory it can take (§6.5), or to fill a free node in ground it holds.
+- **The Shardroot hunt is unchanged** (§6.6): while a player holds it,
+  offensive parties go for the holder.
+- Why: the curse is the only source of religion points (Religion.md), and a
+  curse that roams and raids punishes everyone at random. A curse that sits
+  on its nodes is a target players choose to attack, and the reward is theirs.
+
 ## 7. Winning
 
 **Elimination is the only victory.** Last player — or last team (Teams.md) —
@@ -253,8 +280,10 @@ All in `TerritoryOwnership.asset` / `BorderSettings.asset`:
 `claimRate` 1, `claimExponent` 1.0, `decayRate` 3, `curseClaimMultiplier` 2,
 `nodeBuildSeconds`, `nodeAuraRadius`, `initialNodes`, `reseedSeconds` 180,
 `shardrootGuaranteeSeconds` 720, `shardrootCurseBonus` 0.5, plus the existing
-`armySpawnSeconds`, `armyGrowth`, `garrisonCap`, `expansionSeconds`,
-`mergePartySize`, `raidSeconds`, `shardrootChance`.
+`armySpawnSeconds` (120 since 2026-10-03, was 180), `armyGrowth`,
+`garrisonCap` (now **per node**), `expansionSeconds`, `mergePartySize`,
+`shardrootChance`, and (2026-10-03) `guardRadius` 30, `guardLeashRadius` 45.
+`raidSeconds` is retired with the raids.
 
 ## 9. Known risks (to watch in playtest, not to fix in advance)
 
@@ -267,3 +296,79 @@ All in `TerritoryOwnership.asset` / `BorderSettings.asset`:
 - **Collapse is brutal.** Losing ownership deletes every building in the
   territory. That is intended; it is also what makes a lone unguarded extractor
   the most important building on the map.
+
+## 10. Fortresses bound the empire (2026-10-01)
+
+**How many territories you may hold** = the sum of your Fortresses' levels,
+**+2 once you have aged up**.
+
+| | Limit |
+|---|---|
+| Age 0, the starting Fortress at L1 | 1 — your start territory only |
+| Aged up | +2 |
+| Each Fortress level beyond L1 | +1 |
+| Each further Fortress | +1 (its own L1) |
+
+A claim already under way counts toward the limit. At the limit your army
+standing on new ground claims nothing (frozen, with a notice).
+
+**Connection.** You may only take ground that **borders** territory linked to
+one of your Fortresses through ground you hold. Held ground that **loses** that
+link wears down: every one of your buildings there loses its full health over
+**240 s**, so the lot is gone in about four minutes unless the link is restored.
+The curse is bound by neither rule.
+
+Implemented in `TerritoryClaimSystem` (`ComputeReach`, `MayTake`,
+`WearDisconnected`).
+
+## 11. Territory types (2026-10-01)
+
+Every territory has up to five nodes, set by its TYPE — the scene's node
+markers no longer decide anything; nodes are generated from the type.
+
+| Type | Nodes |
+|---|---|
+| **Start** (holds a player start) | 3 supply, **3 iron** (2 until 2026-10-02 — Veilstone_Economy.md §6), 1 veilstone |
+| Normal | 3 supply |
+| Normal + iron | 2 supply, 1 iron |
+| Normal + veilstone | 2 supply, 1 veilstone |
+| **Empty** | none — position and build space only |
+| **Veilstone rich** | 4 veilstone, **starts cursed** (a curse node on every outcrop) |
+| **Iron rich** | 3 iron |
+| **Sanctum** | none — its holder earns **1 Religion Point a minute** |
+
+**Placement is random inside the territory** (2026-10-01): each node lands on
+a random legal spot, 9 m from the territory's other nodes and, in a home,
+20 m clear of the start — from a per-territory seeded stream, so every peer
+lays the same map. **Never in the restriction zone (2026-10-02):** a node's
+whole 4 m footprint keeps **10 m** clear of any OTHER territory — covering
+the band inside every border where the border wall runs and no AI building
+stands (5 m, Age_1_Alanthor.md § The AI's wall) — and its centre stays 8 m from impassable
+ground (lake, mountain, map edge). A territory too thin to fit a node under
+those rules comes up short, and the generator logs it.
+
+**Every map has at least one of each special type** (Empty, Veilstone rich,
+Iron rich, Sanctum); the rest are the three Normal kinds. The type is authored
+on `RegionSeedMarker.Resources`; `Auto` (the default) is resolved from the
+match seed, filling the missing special types first. A map with too few
+non-start territories logs a warning.
+
+Implemented in `TerritoryResources` (resolve + generation), the
+`SpawnDelayHelper` resource step, `CurseNodeSeeding.CurseVeilstoneRich` and
+`SanctumSystem`. The territory hover overlay shows a Sanctum's +1 RP/min.
+
+### 11.1 Map review (2026-10-01)
+
+| Map | Territories | Homes | Free for types | Verdict |
+|---|---|---|---|---|
+| Hollow Table | 5 | 2 | 3 | **Redraw** — needs at least 4 non-start territories for the four special types (Empty is missing) and has no room for any Normal filler |
+| Sundered Crown | 17 | 4 | 13 | OK |
+| Sundered Reach | 13 | 3 | 10 | OK |
+| Twin Spans | 25 | 6 | 19 | OK |
+| Veilmarch | 45 | 8 | 37 | OK |
+
+With node generation, no map needs its node markers moved: the old authored
+layouts (homes with 6-8 nodes, territories with no ore, 4-veilstone centres)
+are simply ignored. The supply/iron/veilstone/veilsteel/well/blight-pocket
+markers in the scenes are now inert and can be stripped on the next re-bake.
+None of the five maps authors a region `Kind` other than Normal.

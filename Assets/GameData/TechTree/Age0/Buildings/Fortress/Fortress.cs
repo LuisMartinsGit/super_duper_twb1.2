@@ -26,13 +26,14 @@ namespace TheWaningBorder.Entities
 {
     public static class Fortress
     {
-        /// <summary>Reuses the Hall's art (same silhouette language); the
-        /// footprint and the visual scale below are what read as "bigger".</summary>
-        public const int PresentationID = Hall.PresentationID;
+        /// <summary>The Fortress's OWN art (2026-10-01): Fortress.prefab beside
+        /// this file, authored by Waning Border > Art > Author Castle Prefabs.
+        /// It borrowed the Hall's hand-made prefab before.</summary>
+        public const int PresentationID = 105;
 
-        /// <summary>Uniform visual scale over the Hall prefab — the model
-        /// grows with its 10x10 footprint (Hall is 8x8).</summary>
-        private const float VisualScale = 1.25f;
+        /// <summary>No extra scale: the authored prefab is fitted to the 10x10
+        /// footprint by the spawner, as every authored building is.</summary>
+        private const float VisualScale = 1f;
 
         public static Entity Create(EntityManager em, float3 position, Faction faction)
             => CreateInternal(new EmCreator(em), position, faction);

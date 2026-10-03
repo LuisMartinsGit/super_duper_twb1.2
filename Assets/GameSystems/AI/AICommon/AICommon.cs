@@ -6,7 +6,7 @@
 // them, so they cannot live there.
 //
 // Each of these was a copy-paste pair before 2026-09-03, and every pair had
-// drifted. The worst was DispatchBuildersTo: the endgame copy called a worker
+// drifted. The worst was DispatchWorkersTo: the endgame copy called a worker
 // "idle" when it had no BuildOrder, while SimpleAISystem also excluded workers
 // carrying an in-flight BuildCommand or a RepairOrder. Since the endgame
 // systems run [UpdateAfter(SimpleAISystem)] in the SAME frame on the SAME
@@ -80,13 +80,13 @@ namespace TheWaningBorder.AI
                 || fog.IsRevealed(faction, new UnityEngine.Vector3(pos.x, 0f, pos.z));
         }
 
-        static readonly ComponentType[] BuilderTypes =
+        static readonly ComponentType[] WorkerTypes =
         {
             ComponentType.ReadOnly<CanBuild>(),
             ComponentType.ReadOnly<FactionTag>(),
             ComponentType.ReadOnly<LocalTransform>(),
         };
-        static CachedEntityQuery _builderQuery;
+        static CachedEntityQuery _workerQuery;
 
         static readonly ComponentType[] TrainQueueTypes =
         {
@@ -110,14 +110,38 @@ namespace TheWaningBorder.AI
             || em.HasComponent<BuildOrder>(worker)
             || em.HasComponent<RepairOrder>(worker);
 
-        /// <summary>
-        /// Count the faction's idle builders. Cheap O(N) snapshot used as a
-        /// pre-flight gate so a caller doesn't spend resources on a foundation
-        /// that no builder will ever pick up. (task-062 G-2)
-        /// </summary>
-        public static int CountIdleBuilders(EntityManager em, Faction faction)
+        /// <summary>THE HOUSE QUARTER (2026-10-02): the centre of the faction's Houses (finished or rising);
+        /// false — anchor left as <paramref name="fallback"/> — while it has
+        /// none.</summary>
+        public static bool TryHouseQuarterAnchor(EntityManager em, Faction faction,
+            out float3 anchor, float3 fallback)
         {
-            var query = _builderQuery.Get(em, BuilderTypes);
+            anchor = fallback;
+            var q = AIQueryCache.TagFactionXf<HutTag>(em);
+            if (q.IsEmptyIgnoreFilter) return false;
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            float3 sum = float3.zero;
+            int n = 0;
+            for (int i = 0; i < facs.Length; i++)
+            {
+                if (facs[i].Value != faction) continue;
+                sum += xfs[i].Position;
+                n++;
+            }
+            if (n == 0) return false;
+            anchor = sum / n;
+            return true;
+        }
+
+        /// <summary>
+        /// Count the faction's idle workers. Cheap O(N) snapshot used as a
+        /// pre-flight gate so a caller doesn't spend resources on a foundation
+        /// that no worker will ever pick up. (task-062 G-2)
+        /// </summary>
+        public static int CountIdleWorkers(EntityManager em, Faction faction)
+        {
+            var query = _workerQuery.Get(em, WorkerTypes);
             using var ents = query.ToEntityArray(Allocator.Temp);
             using var facs = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
 
@@ -132,15 +156,15 @@ namespace TheWaningBorder.AI
         }
 
         /// <summary>
-        /// Find up to <paramref name="maxBuilders"/> idle builders of the given
+        /// Find up to <paramref name="maxWorkers"/> idle workers of the given
         /// faction and issue BuildCommand on each, pointing at
         /// <paramref name="site"/>, nearest first.
         /// </summary>
-        /// <returns>Number of builders actually dispatched (0 = nobody available).</returns>
-        public static int DispatchBuildersTo(EntityManager em, Faction faction, Entity site,
-            string buildingId, float3 sitePos, int maxBuilders)
+        /// <returns>Number of workers actually dispatched (0 = nobody available).</returns>
+        public static int DispatchWorkersTo(EntityManager em, Faction faction, Entity site,
+            string buildingId, float3 sitePos, int maxWorkers)
         {
-            var query = _builderQuery.Get(em, BuilderTypes);
+            var query = _workerQuery.Get(em, WorkerTypes);
             using var ents = query.ToEntityArray(Allocator.Temp);
             using var facs = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var xfs  = query.ToComponentDataArray<LocalTransform>(Allocator.Temp);
@@ -158,7 +182,7 @@ namespace TheWaningBorder.AI
             idle.Sort((a, c) => a.DistSq.CompareTo(c.DistSq));
 
             int dispatched = 0;
-            for (int i = 0; i < idle.Count && dispatched < maxBuilders; i++)
+            for (int i = 0; i < idle.Count && dispatched < maxWorkers; i++)
             {
                 // CommandSource.AI, not the LocalPlayer default — mislabeled
                 // AI orders ride the player's command stream. (audit F20)

@@ -324,7 +324,7 @@ namespace TheWaningBorder.Economy
                  0 => Loc.T("Your melee units gain "),
                  1 => Loc.T("Your ranged units gain "),
                  2 => Loc.T("Your siege units gain "),
-                 6 => Loc.T("Your miners / workers gain "),
+                 6 => Loc.T("Your workers gain "),
                  7 => Loc.T("Your scouts gain "),
                  _ => Loc.T("Your select units gain "),
             };

@@ -85,9 +85,71 @@ namespace TheWaningBorder.Rendering
         /// callers do not change.
         /// </summary>
         public static WallModuleArt For(byte tier)
-            => ForPart(TheWaningBorder.Entities.AlanthorWall.InstancePresentationID,
-                       TheWaningBorder.Entities.AlanthorWall.InstanceSpacing,
-                       orientAlongZ: true);
+            => ForTier(WallPart.Curtain, tier,
+                       TheWaningBorder.Entities.AlanthorWall.InstancePresentationID,
+                       TheWaningBorder.Entities.AlanthorWall.InstanceSpacing, orientAlongZ: true);
+
+        /// <summary>The wall parts that carry per-level art.</summary>
+        public enum WallPart { Curtain, Hub, Gate, Tower, BallistaMount, TrebuchetMount }
+
+        private static WallModuleArtConfig _cfg;
+        private static bool _cfgLoaded;
+        private static WallModuleArtConfig Cfg
+        {
+            get
+            {
+                if (!_cfgLoaded)
+                {
+                    _cfg = TheWaningBorder.Core.Settings.ComponentConfig.Find<WallModuleArtConfig>();
+                    _cfgLoaded = true;
+                }
+                return _cfg;
+            }
+        }
+
+        /// <summary>
+        /// The authored prefab for <paramref name="part"/> at wall level
+        /// <paramref name="tier"/> (WallModuleArt.asset): that level's slot, or
+        /// the nearest LOWER authored level from Stone up — a level with no art
+        /// of its own still draws in stone rather than dropping back to timber.
+        /// Null when nothing is authored for it.
+        /// </summary>
+        public static GameObject TierPrefab(WallPart part, byte tier)
+        {
+            var cfg = Cfg;
+            if (cfg == null) return null;
+            var slots = part switch
+            {
+                WallPart.Curtain => cfg.curtain,
+                WallPart.Hub => cfg.hub,
+                WallPart.Gate => cfg.gate,
+                WallPart.Tower => cfg.tower,
+                WallPart.BallistaMount => cfg.ballistaMount,
+                _ => cfg.trebuchetMount,
+            };
+            if (slots == null || slots.Length == 0) return null;
+            if (tier == 0) return slots[0];
+            // Stone and up fall back DOWN to Stone, never to the palisade slot.
+            for (int t = System.Math.Min(tier, slots.Length - 1); t >= 1; t--)
+                if (slots[t] != null) return slots[t];
+            return null;
+        }
+
+        /// <summary>
+        /// A wall part's art at a wall level: the level's authored prefab when
+        /// there is one, else the part's own SO prefab by
+        /// <paramref name="fallbackPresentationId"/> (0 = none). Fitted exactly
+        /// as <see cref="ForPart"/> fits.
+        /// </summary>
+        public static WallModuleArt ForTier(WallPart part, byte tier, int fallbackPresentationId,
+            float fitLength, bool orientAlongZ, float? explicitScale = null)
+        {
+            var prefab = TierPrefab(part, tier);
+            if (prefab != null) return ForPrefab(prefab, fitLength, orientAlongZ, explicitScale);
+            return fallbackPresentationId != 0
+                ? ForPart(fallbackPresentationId, fitLength, orientAlongZ, explicitScale)
+                : null;
+        }
 
         /// <summary>
         /// Any authored wall part — hub, curtain module, gatehouse — measured
@@ -113,6 +175,14 @@ namespace TheWaningBorder.Rendering
                                             float? explicitScale = null)
         {
             if (!TechCatalog.TryGetPrefab(presentationId, out var prefab) || prefab == null) return null;
+            return ForPrefab(prefab, fitLength, orientAlongZ, explicitScale);
+        }
+
+        /// <summary><see cref="ForPart"/> for a prefab already in hand.</summary>
+        public static WallModuleArt ForPrefab(GameObject prefab, float fitLength, bool orientAlongZ,
+                                              float? explicitScale = null)
+        {
+            if (prefab == null) return null;
             var key = (prefab, explicitScale ?? fitLength, orientAlongZ);
             if (_cache.TryGetValue(key, out var cached))
                 return cached != null && cached.IsValid ? cached : null;
@@ -236,14 +306,36 @@ namespace TheWaningBorder.Rendering
             // ── Normalise: base to y = 0, the defining part's long horizontal
             //    axis to the size the sim uses, and (for a run) turned to +Z ──
             bool alongX = pitchBounds.size.x > pitchBounds.size.z;
-            float rawLength = math.max(pitchBounds.size.x, pitchBounds.size.z);
+            // An explicit "Along" marker (an empty child) says which way the
+            // module runs, whatever its proportions: the stone module is 4 m
+            // deep and 3 m long, so "the longer side" picks the wrong axis.
+            // Its local +Z points along the wall. (CastleArtAuthor adds it.)
+            foreach (var t in prefab.GetComponentsInChildren<Transform>(true))
+            {
+                if (t.name != "Along") continue;
+                var d = rootInv.MultiplyVector(t.forward);
+                alongX = Mathf.Abs(d.x) > Mathf.Abs(d.z);
+                break;
+            }
+            float rawLength = alongX ? pitchBounds.size.x : pitchBounds.size.z;
             if (rawLength <= 1e-4f) return null;
 
             float scale = explicitScale ?? (fitLength / rawLength);
 
-            // Centred on the DEFINING part, so copies line up on the timbers
-            // and the overlap hangs off both ends evenly.
+            // ALONG the wall: centred on the DEFINING part, so copies line up
+            // on the timbers and the overlap hangs off both ends evenly.
+            // ACROSS the wall: centred on the WHOLE module. The defining part
+            // is one face of a stone wall ("Curtain" sits on its -Z face), and
+            // centring on it drew the whole 4 m wall 2 m to one side of its
+            // line — every run missed its hub centre (2026-10-02).
+            // A free-standing piece (a hub, orientAlongZ false) has no run to
+            // line up with: it is centred on its pivot, which the authored
+            // round towers put at the drum's centre — its tallest part is one
+            // quarter of the drum and sat ~1.6 m off.
             var centre = pitchBounds.center;
+            if (!orientAlongZ) centre = Vector3.zero;
+            else if (alongX) centre.z = total.center.z;
+            else centre.x = total.center.x;
             var toOrigin = Matrix4x4.Translate(new Vector3(-centre.x, -total.min.y, -centre.z));
             var turn = (orientAlongZ && alongX)
                 ? Matrix4x4.Rotate(Quaternion.Euler(0f, 90f, 0f)) : Matrix4x4.identity;
@@ -308,6 +400,11 @@ namespace TheWaningBorder.Rendering
         public static bool IsOwnershipPart(string nodeName, string materialName, Color color)
         {
             if (NameSaysOwnership(nodeName) || NameSaysOwnership(materialName)) return true;
+            // ROOFING takes the player's colour too (2026-10-02): the castle
+            // kit's slate roof is its own MATERIAL (Castle_Roof_01) on its own
+            // sub-mesh, so a hoarding's roof is tinted and its timber is not.
+            // By material only — a node merely NAMED roof may carry a finial.
+            if (IsRoofMaterial(materialName)) return true;
 
             // Faction blue, saturated. Not "anything bluish": a grey-blue
             // slate roof must not become the player's colour.
@@ -317,6 +414,12 @@ namespace TheWaningBorder.Rendering
             float dh = Mathf.Abs(Mathf.DeltaAngle(h * 360f, bh * 360f));
             return dh <= 22f && sv >= 0.55f && v >= 0.35f;
         }
+
+        /// <summary>A roof's material — the castle kit's slate
+        /// (Castle_Roof_01) or any material named for a roof.</summary>
+        public static bool IsRoofMaterial(string materialName)
+            => !string.IsNullOrEmpty(materialName)
+               && materialName.IndexOf("roof", System.StringComparison.OrdinalIgnoreCase) >= 0;
 
         static bool NameSaysOwnership(string n)
         {
@@ -360,18 +463,40 @@ namespace TheWaningBorder.Rendering
             {
                 if (rend == null) continue;
                 if (rend is ParticleSystemRenderer || rend is TrailRenderer || rend is LineRenderer) continue;
-                var mat = rend.sharedMaterial;
-                if (!IsOwnershipPart(rend.gameObject.name, mat != null ? mat.name : null,
-                                     BaseColorOf(mat))) continue;
+                var mats = rend.sharedMaterials;
+                if (mats == null || mats.Length <= 1)
+                {
+                    var mat = rend.sharedMaterial;
+                    if (!IsOwnershipPart(rend.gameObject.name, mat != null ? mat.name : null,
+                                         BaseColorOf(mat))) continue;
 
-                // Read first: the procedural pieces already carry a block with
-                // their colour, metallic and smoothness in it.
-                rend.GetPropertyBlock(_tintBlock);
-                _tintBlock.SetColor("_BaseColor", owner);
-                _tintBlock.SetColor("_Color", owner);
-                if (mat != null && mat.HasProperty("_StripeColor"))
-                    _tintBlock.SetColor("_StripeColor", owner);
-                rend.SetPropertyBlock(_tintBlock);
+                    // Read first: the procedural pieces already carry a block with
+                    // their colour, metallic and smoothness in it.
+                    rend.GetPropertyBlock(_tintBlock);
+                    _tintBlock.SetColor("_BaseColor", owner);
+                    _tintBlock.SetColor("_Color", owner);
+                    if (mat != null && mat.HasProperty("_StripeColor"))
+                        _tintBlock.SetColor("_StripeColor", owner);
+                    rend.SetPropertyBlock(_tintBlock);
+                    continue;
+                }
+
+                // Several materials (a kit hoarding: timber, stone, slate):
+                // tint each ownership / roof SLOT on its own, so the timber
+                // under a roof keeps its colour.
+                bool nodeOwns = NameSaysOwnership(rend.gameObject.name);
+                for (int i = 0; i < mats.Length; i++)
+                {
+                    var m = mats[i];
+                    if (!nodeOwns && !IsOwnershipPart(null, m != null ? m.name : null, BaseColorOf(m)))
+                        continue;
+                    rend.GetPropertyBlock(_tintBlock, i);
+                    _tintBlock.SetColor("_BaseColor", owner);
+                    _tintBlock.SetColor("_Color", owner);
+                    if (m != null && m.HasProperty("_StripeColor"))
+                        _tintBlock.SetColor("_StripeColor", owner);
+                    rend.SetPropertyBlock(_tintBlock, i);
+                }
             }
         }
 

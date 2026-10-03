@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 89f73f7b44f749c18cebc0310fdb0b58, type: 3}
   m_Name: TerritoryOwnership
   m_EditorClassIdentifier: 
-  hallBuilderRange: 30
+  hallWorkerRange: 30
   hallCostStep: 0.5
   claimRate: 1
   claimExponent: 1

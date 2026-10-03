@@ -71,11 +71,11 @@ are in the desync checksum.
 
 - **AI order routing DONE** — 22 sites across 8 files now go through
   `CommandRouter.Issue*(..., CommandSource.AI)`: all attack waves/formation
-  moves (`SimpleAISystem.Military/Posture`), all miner tasking
+  moves (`SimpleAISystem.Military/Posture`), all worker tasking
   (`SimpleAISystem.Mining`), scout steering (`ScoutDirectorSystem`), endgame
   escort/flee/conscript moves. Plus `ShouldDropCommand`: AI-source commands
   on a non-host peer hard-drop instead of executing locally.
-- **Wall placement replicated** — new opcodes `PlaceWallHub = 36` (builder
+- **Wall placement replicated** — new opcodes `PlaceWallHub = 36` (worker
   5 s, or autoBuild 30 s flavour in `TargetEntityId`) and `WallExtend = 37`
   (segment to a snap hub, or new auto-build hub + segment). Player path
   (`BuildCommandPannel`) and AI wall doctrine (`AIAlanthorEndgameSystem.Walls`
@@ -100,7 +100,7 @@ are in the desync checksum.
    footprint/nav stamp ever reads rotation), ability ground-aim point
    (`AbilityAimPoint` stamped before the lockstep branch and not carried in
    the Ability payload — ground-aimed casts land differently on remote
-   peers), `FleeWorkers` MinerState reset / `BuildOrder` removal (host-only
+   peers), `FleeWorkers` WorkerState reset / `BuildOrder` removal (host-only
    clears of work state that exists on every peer; consider `IssueStop`).
 2. **Culture statics timing** — `FactionColors.SetFactionCulture` fires at
    CLICK time on the choosing peer but at command-execution time elsewhere:

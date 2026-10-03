@@ -90,15 +90,15 @@ public struct VeilField : IComponentData
 public struct VeilDebuffTag : IComponentData, IEnableableComponent { }
 
 /// <summary>
-/// Miner-infection accumulator (curse canon: neglect a villager digging at
+/// Worker-infection accumulator (curse canon: neglect a villager digging at
 /// the veil and it takes root in them). <see cref="Progress"/> counts seconds
-/// of cumulative exposure to veil haze near the miner; it climbs while the
-/// miner stands in haze and recovers while it's clear. When it reaches
-/// <c>VeilCrustConstants.InfectionSeconds</c> the miner is consumed and a
+/// of cumulative exposure to veil haze near the worker; it climbs while the
+/// worker stands in haze and recovers while it's clear. When it reaches
+/// <c>VeilCrustConstants.InfectionSeconds</c> the worker is consumed and a
 /// hostile curse creature erupts in its place — its tier scaling with how
 /// late in the match the eruption happens (Crystalling → Veilstinger →
-/// Godsplinter). Added lazily by VeilFieldSystem the first time a miner is
-/// exposed; never removed (it simply idles at 0 once the miner walks clear).
+/// Godsplinter). Added lazily by VeilFieldSystem the first time a worker is
+/// exposed; never removed (it simply idles at 0 once the worker walks clear).
 /// </summary>
 public struct InfectionState : IComponentData
 {
@@ -106,7 +106,7 @@ public struct InfectionState : IComponentData
 }
 
 // NOTE: the Veil has NO deposit entities of any kind. Mining it is
-// position-targeted (GatherVeilCommand + VeilMiningSystem): the miner digs
+// position-targeted (GatherVeilCommand + VeilMiningSystem): the worker digs
 // at the closest crusted vertex of this grid and the field drains under
 // the pick. The former VeilCrystalCluster harvest-anchor lattice was
 // removed with that change.

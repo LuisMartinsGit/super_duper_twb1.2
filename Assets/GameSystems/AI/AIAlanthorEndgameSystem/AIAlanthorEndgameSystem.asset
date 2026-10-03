@@ -17,7 +17,7 @@ MonoBehaviour:
   wellOwnedBonus: 60
   wellAdjacentBonus: 30
   wellAdjacencyProbeRadius: 35
-  smelterTarget: 5
+  smelterTarget: 1
   houseTarget: 8
   fleeRadius: 14
   sectUnitCap: 1

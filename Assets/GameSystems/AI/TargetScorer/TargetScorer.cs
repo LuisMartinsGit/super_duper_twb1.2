@@ -8,7 +8,7 @@
 //         - sighting age * staleness   (how much do we trust the intel)
 //
 // Consumed by SimpleAISystem.ChooseAttackTarget (replacing the fixed
-// miners > huts > nodes > halls ladder) and, in weakest-player form, by
+// workers > huts > nodes > halls ladder) and, in weakest-player form, by
 // BorderArmyAISystem.PickTarget.
 
 using Unity.Entities;

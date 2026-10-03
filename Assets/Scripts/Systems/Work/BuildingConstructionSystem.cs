@@ -11,24 +11,24 @@ using TheWaningBorder.Economy;
 namespace TheWaningBorder.Systems.Work
 {
     /// <summary>
-    /// Handles building construction by builder units.
+    /// Handles building construction by worker units.
     /// 
     /// Construction workflow:
     /// 1. Player places building ghost (UnderConstruction component, low HP)
-    /// 2. Builder receives BuildOrder component pointing to construction site
-    /// 3. Builder moves to site and contributes build progress
+    /// 2. Worker receives BuildOrder component pointing to construction site
+    /// 3. Worker moves to site and contributes build progress
     /// 4. When Progress >= Total, building completes:
     ///    - UnderConstruction removed
     ///    - Health set to max
     ///    - DeferredDefense applied as Defense component
     /// 
-    /// Multiple builders can work on the same building simultaneously.
+    /// Multiple workers can work on the same building simultaneously.
     /// </summary>
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct BuildingConstructionSystem : ISystem
     {
         private const float BuildRange = 4.0f;
-        private const float BuildRatePerBuilder = 1.0f; // Progress per second per builder
+        private const float BuildRatePerWorker = 1.0f; // Progress per second per worker
 
         // Cached EntityQueries — initialized in OnCreate()
         private EntityQuery _unfinishedBuildingQuery;
@@ -59,37 +59,37 @@ namespace TheWaningBorder.Systems.Work
             float dt = SystemAPI.Time.DeltaTime;
             var em = state.EntityManager;
 
-            // Snapshot all builders with orders
-            var builderQuery = SystemAPI.QueryBuilder()
+            // Snapshot all workers with orders
+            var workerQuery = SystemAPI.QueryBuilder()
                 .WithAll<CanBuild, LocalTransform, BuildOrder>()
                 .Build();
 
-            var builders = new NativeList<Entity>(Allocator.Temp);
-            var builderPositions = new NativeList<float3>(Allocator.Temp);
-            var builderOrders = new NativeList<BuildOrder>(Allocator.Temp);
+            var workers = new NativeList<Entity>(Allocator.Temp);
+            var workerPositions = new NativeList<float3>(Allocator.Temp);
+            var workerOrders = new NativeList<BuildOrder>(Allocator.Temp);
 
             foreach (var (transform, order, entity) in SystemAPI
                 .Query<RefRO<LocalTransform>, RefRO<BuildOrder>>()
                 .WithAll<CanBuild>()
                 .WithEntityAccess())
             {
-                builders.Add(entity);
-                builderPositions.Add(transform.ValueRO.Position);
-                builderOrders.Add(order.ValueRO);
+                workers.Add(entity);
+                workerPositions.Add(transform.ValueRO.Position);
+                workerOrders.Add(order.ValueRO);
             }
 
-            // Process each builder
-            for (int i = 0; i < builders.Length; i++)
+            // Process each worker
+            for (int i = 0; i < workers.Length; i++)
             {
-                Entity builder = builders[i];
-                float3 bPos = builderPositions[i];
-                Entity site = builderOrders[i].Site;
+                Entity worker = workers[i];
+                float3 bPos = workerPositions[i];
+                Entity site = workerOrders[i].Site;
 
                 // Validate construction site exists
                 if (!em.Exists(site))
                 {
                     // Site destroyed - clear order
-                    em.RemoveComponent<BuildOrder>(builder);
+                    em.RemoveComponent<BuildOrder>(worker);
                     continue;
                 }
 
@@ -97,13 +97,13 @@ namespace TheWaningBorder.Systems.Work
                 if (!em.HasComponent<UnderConstruction>(site))
                 {
                     // Already finished - clear order
-                    em.RemoveComponent<BuildOrder>(builder);
+                    em.RemoveComponent<BuildOrder>(worker);
                     continue;
                 }
 
                 // Get site position
                 float3 sitePos = em.GetComponentData<LocalTransform>(site).Position;
-                // Measure to the building's edge, not its centre, so builders can
+                // Measure to the building's edge, not its centre, so workers can
                 // construct large footprints (e.g. the 9 m wall hub, which blocks the
                 // navmesh well beyond BuildRange of the centre). Sized buildings use
                 // their exact rect rather than the inscribed legacy Radius, which
@@ -119,9 +119,9 @@ namespace TheWaningBorder.Systems.Work
                     float3 approach = extent.ApproachPoint(bPos, BuildRange * 0.5f);
                     approach.y = sitePos.y;
 
-                    if (em.HasComponent<DesiredDestination>(builder))
+                    if (em.HasComponent<DesiredDestination>(worker))
                     {
-                        em.SetComponentData(builder, new DesiredDestination
+                        em.SetComponentData(worker, new DesiredDestination
                         {
                             Position = approach,
                             Has = 1
@@ -129,7 +129,7 @@ namespace TheWaningBorder.Systems.Work
                     }
                     else
                     {
-                        em.AddComponentData(builder, new DesiredDestination
+                        em.AddComponentData(worker, new DesiredDestination
                         {
                             Position = approach,
                             Has = 1
@@ -139,18 +139,18 @@ namespace TheWaningBorder.Systems.Work
                 else
                 {
                     // In range - plant, face the site, and contribute to construction
-                    TargetGeometry.StopAndFace(em, builder, sitePos, dt);
+                    TargetGeometry.StopAndFace(em, worker, sitePos, dt);
 
                     // Add build progress
                     var uc = em.GetComponentData<UnderConstruction>(site);
-                    float buildRate = BuildRatePerBuilder;
+                    float buildRate = BuildRatePerWorker;
 
                     // Self-constructing sites (choice buildings, wall extensions)
-                    // already tick at 1.0/s via AutoConstructionSystem; builders
+                    // already tick at 1.0/s via AutoConstructionSystem; workers
                     // only ACCELERATE them, each adding +25 % of the base rate
                     // (design: 4 workers halve the 90 s choice-building timer).
                     if (em.HasComponent<AutoConstructTag>(site))
-                        buildRate = BuildRatePerBuilder * 0.25f;
+                        buildRate = BuildRatePerWorker * 0.25f;
 
                     // Deep Foundations (Fortitude) speeds construction of
                     // defensive structures. It is the only sect research that
@@ -175,23 +175,23 @@ namespace TheWaningBorder.Systems.Work
                     {
                         // Construction complete!
                         CompleteConstruction(em, site);
-                        em.RemoveComponent<BuildOrder>(builder);
+                        em.RemoveComponent<BuildOrder>(worker);
 
                         // Auto-build nearby unfinished structures within LOS
-                        Entity nextSite = FindNearbyUnfinishedBuilding(em, builder, bPos);
+                        Entity nextSite = FindNearbyUnfinishedBuilding(em, worker, bPos);
                         if (nextSite != Entity.Null)
                         {
-                            if (!em.HasComponent<BuildOrder>(builder))
-                                em.AddComponentData(builder, new BuildOrder { Site = nextSite });
+                            if (!em.HasComponent<BuildOrder>(worker))
+                                em.AddComponentData(worker, new BuildOrder { Site = nextSite });
                                 else
-                                    em.SetComponentData(builder, new BuildOrder { Site = nextSite });
+                                    em.SetComponentData(worker, new BuildOrder { Site = nextSite });
                         }
                         else
                         {
-                            // No nearby sites — update guard point so builder stays here
-                            if (em.HasComponent<GuardPoint>(builder))
+                            // No nearby sites — update guard point so worker stays here
+                            if (em.HasComponent<GuardPoint>(worker))
                             {
-                                em.SetComponentData(builder, new GuardPoint
+                                em.SetComponentData(worker, new GuardPoint
                                 {
                                     Position = bPos,
                                     Has = 1
@@ -224,27 +224,27 @@ namespace TheWaningBorder.Systems.Work
                 }
             }
 
-            builders.Dispose();
-            builderPositions.Dispose();
-            builderOrders.Dispose();
+            workers.Dispose();
+            workerPositions.Dispose();
+            workerOrders.Dispose();
 
             AdoptAbandonedSites(ref state, em);
         }
 
         /// <summary>
-        /// Give idle builders a nearby unfinished structure to resume.
+        /// Give idle workers a nearby unfinished structure to resume.
         ///
-        /// CLAUDE.md documents "builders auto-chain to nearby unfinished
+        /// CLAUDE.md documents "workers auto-chain to nearby unfinished
         /// structures within LOS", but the chain only ever ran in the
-        /// completion branch above — at the instant a builder FINISHED
-        /// something. A builder the player walked away mid-job (a plain move
+        /// completion branch above — at the instant a worker FINISHED
+        /// something. A worker the player walked away mid-job (a plain move
         /// order strips BuildOrder, see CommandCleanup.ClearWorkOrders) was
         /// therefore never offered the site again, and the foundation sat
         /// half-built forever with no in-game way to resume it. That is the
         /// reported bug: resources spent, nothing to show, no recourse.
         ///
-        /// Deliberately does NOT touch builders under an explicit
-        /// UserMoveOrder — if the player is walking a builder somewhere, it
+        /// Deliberately does NOT touch workers under an explicit
+        /// UserMoveOrder — if the player is walking a worker somewhere, it
         /// should walk there, not get captured by the first foundation it
         /// passes. Idleness is judged by the absence of work orders, never by
         /// DesiredDestination (movement consumes that flag, so reading it as
@@ -252,7 +252,7 @@ namespace TheWaningBorder.Systems.Work
         /// </summary>
         private void AdoptAbandonedSites(ref SystemState state, EntityManager em)
         {
-            // Throttled: this is an O(builders x sites) proximity scan and the
+            // Throttled: this is an O(workers x sites) proximity scan and the
             // answer cannot change meaningfully between frames.
             if (_adoptTimer.DueStep(SystemAPI.Time.DeltaTime, AdoptScanInterval) <= 0f) return;
 
@@ -261,9 +261,9 @@ namespace TheWaningBorder.Systems.Work
             var idle = new NativeList<Entity>(Allocator.Temp);
             var idlePos = new NativeList<float3>(Allocator.Temp);
 
-            // BuildCommand is in the exclusion list because a builder WALKING
+            // BuildCommand is in the exclusion list because a worker WALKING
             // to its site has BuildCommand but not yet BuildOrder — without it
-            // this pass would treat a builder mid-journey as idle and hand it a
+            // this pass would treat a worker mid-journey as idle and hand it a
             // different site every second.
             foreach (var (transform, entity) in SystemAPI
                 .Query<RefRO<LocalTransform>>()
@@ -278,10 +278,10 @@ namespace TheWaningBorder.Systems.Work
 
                 // A VILLAGER MID-JOB IS NOT IDLE. A worker that is mining
                 // carries none of the build-order components excluded above —
-                // its job lives in MinerState / GatherCommand — so this pass
-                // read every working miner as free labour and adopted it onto
+                // its job lives in WorkerState / GatherCommand — so this pass
+                // read every working worker as free labour and adopted it onto
                 // the nearest foundation. MiningSystem then sees the BuildOrder,
-                // drops the miner to Idle, and the gathering job is silently
+                // drops the worker to Idle, and the gathering job is silently
                 // lost: the player watches their economy wander off to a
                 // building site they never sent anyone to.
                 //
@@ -318,18 +318,18 @@ namespace TheWaningBorder.Systems.Work
         /// <summary>
         /// Is this worker busy gathering? Covers both the order that was issued
         /// (GatherCommand / GatherVeilCommand, still pending) and the job it is
-        /// already running (MinerState past Idle — walking to a deposit counts,
+        /// already running (WorkerState past Idle — walking to a deposit counts,
         /// or a worker would be poached during the walk out).
         /// </summary>
         private static bool IsGathering(EntityManager em, Entity worker)
         {
             // Gathering was removed with the territory economy
             // (docs/Design/Regions.md §4): the Worker only builds, so there is
-            // no gather order to be busy with. The MinerState check below is
+            // no gather order to be busy with. The WorkerState check below is
             // kept rather than deleted -- it is now always false, and leaving
             // it means this reads correctly if a work state is ever added back.
-            if (em.HasComponent<MinerState>(worker)
-                && em.GetComponentData<MinerState>(worker).State != MinerWorkState.Idle)
+            if (em.HasComponent<WorkerState>(worker)
+                && em.GetComponentData<WorkerState>(worker).State != WorkerActivity.Idle)
                 return true;
             return false;
         }
@@ -367,7 +367,7 @@ namespace TheWaningBorder.Systems.Work
             // Also remove Buildable if present (leftover from CreateUnderConstruction)
             if (em.HasComponent<Buildable>(building))
                 em.RemoveComponent<Buildable>(building);
-            // A builder can finish a self-constructing site (choice building /
+            // A worker can finish a self-constructing site (choice building /
             // wall extension) before AutoConstructionSystem does — drop the
             // auto tag so it doesn't linger on the completed building.
             if (em.HasComponent<AutoConstructTag>(building))
@@ -439,20 +439,6 @@ namespace TheWaningBorder.Systems.Work
                 em.RemoveComponent<DeferredDefense>(building);
             }
 
-            // Shrine RP bonus: grant +1 RP (latched, one-time) when the Shrine of
-            // Ahridan completes. The new design (task-063) routes this through
-            // FactionReligionPointsHelper rather than the legacy
-            // ReligionPoints { Value } singleton path.
-            //
-            // BuildingFactory tags Shrine entities with ShrineTag (not the
-            // earlier-design ChapelSmallTag marker), so gate the bonus on
-            // ShrineTag — the previous check matched nothing on real Shrines
-            // and never awarded the +1 RP grant.
-            if (em.HasComponent<ShrineTag>(building) && em.HasComponent<FactionTag>(building))
-            {
-                var faction = em.GetComponentData<FactionTag>(building).Value;
-                FactionReligionPointsHelper.TryAwardShrineBonus(em, faction);
-            }
 
             // task-066 Phase 3 / design §5.3: Feraldis Houses spawn raiders on
             // construction completion (L1 = 1 raider). Upgrade ticks (L2/L3) are
@@ -491,16 +477,16 @@ namespace TheWaningBorder.Systems.Work
         }
 
         /// <summary>
-        /// Find the nearest friendly unfinished building within the builder's line of sight.
+        /// Find the nearest friendly unfinished building within the worker's line of sight.
         /// </summary>
-        private Entity FindNearbyUnfinishedBuilding(EntityManager em, Entity builder, float3 builderPos)
+        private Entity FindNearbyUnfinishedBuilding(EntityManager em, Entity worker, float3 workerPos)
         {
-            float los = em.HasComponent<LineOfSight>(builder)
-                ? em.GetComponentData<LineOfSight>(builder).Radius
+            float los = em.HasComponent<LineOfSight>(worker)
+                ? em.GetComponentData<LineOfSight>(worker).Radius
                 : 12f;
 
-            Faction builderFaction = em.HasComponent<FactionTag>(builder)
-                ? em.GetComponentData<FactionTag>(builder).Value
+            Faction workerFaction = em.HasComponent<FactionTag>(worker)
+                ? em.GetComponentData<FactionTag>(worker).Value
                 : Faction.Blue;
 
             using var buildings = _unfinishedBuildingQuery.ToEntityArray(Allocator.Temp);
@@ -512,9 +498,9 @@ namespace TheWaningBorder.Systems.Work
 
             for (int i = 0; i < buildings.Length; i++)
             {
-                if (factions[i].Value != builderFaction) continue;
+                if (factions[i].Value != workerFaction) continue;
 
-                float dist = DistXZ(builderPos, transforms[i].Position);
+                float dist = DistXZ(workerPos, transforms[i].Position);
                 if (dist < nearestDist && dist <= los)
                 {
                     nearest = buildings[i];
@@ -529,7 +515,7 @@ namespace TheWaningBorder.Systems.Work
 
     /// <summary>
     /// Processes BuildCommand components issued through CommandGateway.
-    /// Moves builders to construction sites and manages the build workflow.
+    /// Moves workers to construction sites and manages the build workflow.
     /// </summary>
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateBefore(typeof(BuildingConstructionSystem))]
@@ -569,7 +555,7 @@ namespace TheWaningBorder.Systems.Work
                 var targetPos = buildCmd.ValueRO.Position;
                 var targetBuilding = buildCmd.ValueRO.TargetBuilding;
                 // Reach to the building edge so large footprints (9 m wall hub) are
-                // buildable from where the navmesh lets a builder stand. Falls back
+                // buildable from where the navmesh lets a worker stand. Falls back
                 // to plain centre distance for a bare ground position (no target
                 // entity yet — the site hasn't been placed).
                 float dist = targetBuilding != Entity.Null && em.Exists(targetBuilding)
@@ -604,7 +590,11 @@ namespace TheWaningBorder.Systems.Work
                     // Convert BuildCommand to BuildOrder if target building exists
                     if (targetBuilding != Entity.Null && em.Exists(targetBuilding))
                     {
-                        if (em.HasComponent<UnderConstruction>(targetBuilding))
+                        // A PLAN is PlannedBuildingSystem's: it breaks ground
+                        // and re-points this order at the real site. Never read
+                        // it as "already complete" (docs/Design/Planned_Buildings.md).
+                        if (em.HasComponent<PlannedBuilding>(targetBuilding)) { }
+                        else if (em.HasComponent<UnderConstruction>(targetBuilding))
                         {
                             // Add BuildOrder and remove BuildCommand
                             if (!em.HasComponent<BuildOrder>(entity))
@@ -629,7 +619,9 @@ namespace TheWaningBorder.Systems.Work
                         // Target building is null or destroyed — find nearest UnderConstruction
                         // building at the build position. This handles the multiplayer case where
                         // the building is created via lockstep AFTER the build command was issued.
-                        Entity nearest = FindNearestUnderConstruction(em, targetPos, BuildRange * 2f);
+                        Entity nearest = FindNearestUnderConstruction(em, targetPos, BuildRange * 2f,
+                            em.HasComponent<FactionTag>(entity)
+                                ? em.GetComponentData<FactionTag>(entity).Value : Faction.Border);
                         if (nearest != Entity.Null)
                         {
                             if (!em.HasComponent<BuildOrder>(entity))
@@ -649,7 +641,8 @@ namespace TheWaningBorder.Systems.Work
         /// Find the nearest building with UnderConstruction within searchRadius of position.
         /// Used when a BuildCommand has no target entity (multiplayer: building created via lockstep).
         /// </summary>
-        private Entity FindNearestUnderConstruction(EntityManager em, float3 position, float searchRadius)
+        private Entity FindNearestUnderConstruction(EntityManager em, float3 position, float searchRadius,
+            Faction faction)
         {
             using var entities = _underConstructionQuery.ToEntityArray(Allocator.Temp);
             using var transforms = _underConstructionQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
@@ -659,6 +652,10 @@ namespace TheWaningBorder.Systems.Work
 
             for (int i = 0; i < entities.Length; i++)
             {
+                // Only the worker's OWN faction's sites — a worker sent to an
+                // empty spot used to adopt an enemy foundation within 8 m.
+                if (em.HasComponent<FactionTag>(entities[i])
+                    && em.GetComponentData<FactionTag>(entities[i]).Value != faction) continue;
                 float dist = DistXZ(position, transforms[i].Position);
                 if (dist < bestDist)
                 {

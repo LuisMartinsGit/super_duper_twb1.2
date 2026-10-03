@@ -17,8 +17,8 @@
 // spending (queue caps, population, cost) and route through CommandRouter
 // so orders replicate in multiplayer.
 //
-// Builder placement (ActionType.BuildingPlacement) is deliberately NOT
-// rendered here — BuilderPanelBinder owns the build palette.
+// Worker placement (ActionType.BuildingPlacement) is deliberately NOT
+// rendered here — WorkerPanelBinder owns the build palette.
 
 using System.Collections.Generic;
 using TMPro;
@@ -314,7 +314,7 @@ namespace TheWaningBorder.UI.Ingame
             var info = EntityActionExtractor.GetActionInfo(_entity, em);
             bool hasLayout = BuildingActionLayouts.TryResolve(_entity, em, out var layoutSlots);
 
-            // The builder palette panel owns placement; nothing else to show.
+            // The worker palette panel owns placement; nothing else to show.
             if (!hasLayout && (info.Type == ActionType.None
                 || info.Type == ActionType.BuildingPlacement)) { Hide(); return; }
 
@@ -374,7 +374,7 @@ namespace TheWaningBorder.UI.Ingame
                         break;
 
                     case ActionType.HubBuildWall:
-                        _title.text = BuilderCommandPanel.IsPlacingBuilding
+                        _title.text = WorkerCommandPanel.IsPlacingBuilding
                             ? Loc.T("Left-click to place hub, Right/Esc to cancel")
                             : Loc.T("Extend Wall");
                         RenderClassicActions(em, info.Actions, treatAsTraining: false);
@@ -602,7 +602,7 @@ namespace TheWaningBorder.UI.Ingame
                     return;
                 }
                 case "BuildWall":
-                    BuilderCommandPanel.TriggerHubBuildWall(entity);
+                    WorkerCommandPanel.TriggerHubBuildWall(entity);
                     return;
                 case "CancelWallLevel":
                 {
@@ -617,6 +617,13 @@ namespace TheWaningBorder.UI.Ingame
                     _timer = RefreshInterval;
                     return;
                 }
+                case "OutpostMode_0":
+                case "OutpostMode_1":
+                case "OutpostMode_2":
+                    TheWaningBorder.Core.Commands.CommandRouter.IssueSetOutpostMode(
+                        em, entity, (TradeRecipe)(b.Id[b.Id.Length - 1] - '0'));
+                    _timer = RefreshInterval;
+                    return;
                 case "GateClose":
                     TheWaningBorder.Core.Commands.CommandRouter.IssueSetGateLock(em, entity, true);
                     return;

@@ -31,14 +31,6 @@ public static class ChoiceUpgradeQuery
     // CreateEntityQuery registers a NEW query with the world on every call and
     // none of these were disposed. See Core/CachedEntityQuery.cs.
 
-    static readonly ComponentType[] QT_ShrineTagFactionTagBuildingUpgradeState =
-    {
-        ComponentType.ReadOnly<ShrineTag>(),
-        ComponentType.ReadOnly<FactionTag>(),
-        ComponentType.ReadOnly<BuildingUpgradeState>(),
-    };
-    static CachedEntityQuery QC_ShrineTagFactionTagBuildingUpgradeState;
-
     static readonly ComponentType[] QT_TempleOfRidanTagFactionTagBuildingUpgradeState =
     {
         ComponentType.ReadOnly<TempleOfRidanTag>(),
@@ -64,12 +56,11 @@ public static class ChoiceUpgradeQuery
 
     #endregion
 
-    /// <summary>Highest BuildingUpgradeState.Level across the faction's Shrines/Temples (0 when none).</summary>
+    /// <summary>Highest BuildingUpgradeState.Level across the faction's Temples (0 when none).
+    /// Named for the cut Shrine of Ridan, whose role the Temple took.</summary>
     public static int MaxShrineLevel(EntityManager em, Faction faction)
     {
         int best = 0;
-        var q = QC_ShrineTagFactionTagBuildingUpgradeState.Get(em, QT_ShrineTagFactionTagBuildingUpgradeState);
-        Best(em, q, faction, ref best);
         var qt = QC_TempleOfRidanTagFactionTagBuildingUpgradeState.Get(em, QT_TempleOfRidanTagFactionTagBuildingUpgradeState);
         Best(em, qt, faction, ref best);
         return best;

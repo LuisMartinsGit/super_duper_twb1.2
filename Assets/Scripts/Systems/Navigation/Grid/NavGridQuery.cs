@@ -263,6 +263,64 @@ namespace TheWaningBorder.Systems.Navigation
             return new int2(cx, cz);
         }
 
+        // ── Occupancy: the ONE wall-vs-building truth (2026-10-02) ────────
+        //
+        // Walls are stamped onto this grid turned to their own heading — a
+        // diagonal wall occupies the stair-stepped cells it crosses, the way
+        // Age of Empires IV rasterises its walls onto a square grid — and
+        // buildings and obstacles stamp their footprints too. Building
+        // placement and wall placement both test these cells, so neither can
+        // be laid through the other (docs/Design/Build_Grid.md § Walls on the
+        // grid). Deterministic: the field is lockstep sim state.
+
+        /// <summary>Any wall piece's ground flags: curtain, hub, gate.</summary>
+        public const byte WallCellFlags =
+            NavCostField.FlagStaticWall | NavCostField.FlagClimbAccess | NavCostField.FlagGate;
+
+        /// <summary>True when any ground cell whose CENTRE lies inside the
+        /// XZ rectangle [min, max] is a wall cell. False when the field is not
+        /// built (menus, early boot) — the box checks still run.</summary>
+        public static bool AnyWallCellIn(float2 min, float2 max)
+        {
+            if (!EnsureCache() || !_cachedCost.Flags.IsCreated) return false;
+            float cs = _cachedGrid.CellSize;
+            int x0 = math.max(0, (int)math.ceil((min.x - _cachedGrid.Origin.x) / cs - 0.5f));
+            int z0 = math.max(0, (int)math.ceil((min.y - _cachedGrid.Origin.z) / cs - 0.5f));
+            int x1 = math.min(_cachedGrid.Width - 1, (int)math.floor((max.x - _cachedGrid.Origin.x) / cs - 0.5f));
+            int z1 = math.min(_cachedGrid.Height - 1, (int)math.floor((max.y - _cachedGrid.Origin.z) / cs - 0.5f));
+            for (int z = z0; z <= z1; z++)
+                for (int x = x0; x <= x1; x++)
+                    if ((_cachedCost.Flags[z * _cachedCost.Width + x] & WallCellFlags) != 0) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// True when the ground cell under <paramref name="world"/> cannot
+        /// take a wall: a building, obstacle or wall already stands there
+        /// (its footprint flag), or the terrain itself is impassable. Off the
+        /// grid counts as blocked.
+        /// </summary>
+        public static bool WallBlockedAt(float3 world)
+        {
+            if (!EnsureCache() || !_cachedCost.Flags.IsCreated) return false;
+            int2 c = WorldToCellInt2(world);
+            if (c.x < 0 || c.y < 0 || c.x >= _cachedGrid.Width || c.y >= _cachedGrid.Height) return true;
+            int i = c.y * _cachedCost.Width + c.x;
+            if (_cachedCost.Cost[i] == NavCostField.CostImpassable) return true;
+            return (_cachedCost.Flags[i] & (NavCostField.FlagBuildingFootprint | WallCellFlags)) != 0;
+        }
+
+        /// <summary>World centre of a cell from the cached grid — the cheap
+        /// form of <see cref="GetCellWorldCenter"/> for per-step callers.</summary>
+        public static float3 CellCenter(int2 cell)
+        {
+            if (!EnsureCache()) return float3.zero;
+            return new float3(
+                _cachedGrid.Origin.x + (cell.x + 0.5f) * _cachedGrid.CellSize,
+                0f,
+                _cachedGrid.Origin.z + (cell.y + 0.5f) * _cachedGrid.CellSize);
+        }
+
         // ── M4 API surface (architecture section 4.5 -- 13 PassabilityGrid sites) ────
 
         /// <summary>

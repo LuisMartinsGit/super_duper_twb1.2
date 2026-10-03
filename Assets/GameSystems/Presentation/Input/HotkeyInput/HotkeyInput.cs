@@ -1,5 +1,5 @@
 // HotkeyInput.cs
-// The keyboard: mode keys, stop, stances, idle-builder cycle, formation cycle,
+// The keyboard: mode keys, stop, stances, idle-worker cycle, formation cycle,
 // planning mode, control groups. Every binding comes from HotkeyInput.asset.
 // Part of: Input/ — split out of RTSInputManager.
 
@@ -28,20 +28,20 @@ namespace TheWaningBorder.Input
     /// </summary>
     public sealed class HotkeyInput
     {
-        // Cached — CycleIdleBuilders created an undisposed query on every
-        // press of the idle-builder key.
-        private static readonly ComponentType[] IdleBuilderQueryTypes =
+        // Cached — CycleIdleWorkers created an undisposed query on every
+        // press of the idle-worker key.
+        private static readonly ComponentType[] IdleWorkerQueryTypes =
         {
             ComponentType.ReadOnly<UnitTag>(),
             ComponentType.ReadOnly<CanBuild>(),
             ComponentType.ReadOnly<FactionTag>(),
             ComponentType.ReadOnly<LocalTransform>(),
         };
-        private TheWaningBorder.Core.CachedEntityQuery _idleBuilderQuery;
+        private TheWaningBorder.Core.CachedEntityQuery _idleWorkerQuery;
 
-        // Last-cycled builder, so subsequent presses advance through the list
+        // Last-cycled worker, so subsequent presses advance through the list
         // instead of re-selecting the same unit.
-        private int _builderCycleIndex = -1;
+        private int _workerCycleIndex = -1;
 
         private readonly EntityManager _em;
         private readonly SelectionOrders _orders;
@@ -98,9 +98,9 @@ namespace TheWaningBorder.Input
             if (UnityEngine.Input.GetKeyDown(cfg.defensiveStance))
                 _orders.IssueStanceToSelection(UnitStanceMode.Defensive);
 
-            // Cycle through idle builders (workers with no BuildOrder/RepairOrder)
-            if (UnityEngine.Input.GetKeyDown(cfg.cycleIdleBuilders))
-                CycleIdleBuilders();
+            // Cycle through idle workers (workers with no BuildOrder/RepairOrder)
+            if (UnityEngine.Input.GetKeyDown(cfg.cycleIdleWorkers))
+                CycleIdleWorkers();
 
             // Toggle planning mode (BFME2); the execute key also fires it
             if (UnityEngine.Input.GetKeyDown(cfg.planningMode))
@@ -141,14 +141,14 @@ namespace TheWaningBorder.Input
         }
 
         /// <summary>
-        /// Selects the next idle builder of the local player faction (and
-        /// centers the camera on it). An "idle" builder is one with the
+        /// Selects the next idle worker of the local player faction (and
+        /// centers the camera on it). An "idle" worker is one with the
         /// CanBuild component and no active BuildOrder or RepairOrder.
-        /// Press repeatedly to cycle. (Spec: 'b' cycles through idle builders.)
+        /// Press repeatedly to cycle. (Spec: 'b' cycles through idle workers.)
         /// </summary>
-        private void CycleIdleBuilders()
+        private void CycleIdleWorkers()
         {
-            var query = _idleBuilderQuery.Get(_em, IdleBuilderQueryTypes);
+            var query = _idleWorkerQuery.Get(_em, IdleWorkerQueryTypes);
             using var entities = query.ToEntityArray(Allocator.Temp);
 
             var idle = new List<Entity>();
@@ -163,8 +163,8 @@ namespace TheWaningBorder.Input
 
             if (idle.Count == 0) return;
 
-            _builderCycleIndex = (_builderCycleIndex + 1) % idle.Count;
-            var pick = idle[_builderCycleIndex];
+            _workerCycleIndex = (_workerCycleIndex + 1) % idle.Count;
+            var pick = idle[_workerCycleIndex];
 
             SelectionSystem.ClearSelection();
             SelectionSystem.AddToSelection(pick);

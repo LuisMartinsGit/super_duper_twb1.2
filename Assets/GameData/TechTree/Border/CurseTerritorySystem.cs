@@ -360,6 +360,10 @@ namespace TheWaningBorder.Systems.Border
                 if (TerritoryOwnership.OwnerOf(t) == TerritoryOwnership.Curse) _held.Add(t);
 
             _scratchNodeAnchors.Clear();
+            // Every live curse node, by territory, in entity order — each one
+            // fields its own garrison (Territory_Claims.md §6.3, 2026-10-03).
+            foreach (var kv in _nodesByTerritory) kv.Value.Clear();
+            _scratchNodeOrder.Clear();
             var nodeQ = QueryFacXf<SmallNodeTag>(em);
             using (var nEnts = nodeQ.ToEntityArray(Allocator.Temp))
             using (var nXfs = nodeQ.ToComponentDataArray<LocalTransform>(Allocator.Temp))
@@ -373,7 +377,16 @@ namespace TheWaningBorder.Systems.Border
                     if (t == RegionMap.None) continue;
                     if (!_scratchNodeAnchors.TryGetValue(t, out var have) || nEnts[i].Index < have.Index)
                         _scratchNodeAnchors[t] = nEnts[i];
+                    _scratchNodeOrder.Add((nEnts[i].Index, t, nXfs[i].Position));
                 }
+            _scratchNodeOrder.Sort((a, b) => a.index.CompareTo(b.index));
+            for (int i = 0; i < _scratchNodeOrder.Count; i++)
+            {
+                var (_, t, pos) = _scratchNodeOrder[i];
+                if (!_nodesByTerritory.TryGetValue(t, out var list))
+                    _nodesByTerritory[t] = list = new List<float3>();
+                list.Add(pos);
+            }
             _curseNodeCount = _scratchNodeAnchors.Count;
 
             // Anchors that died: the territory loses its garrison source.
@@ -391,6 +404,11 @@ namespace TheWaningBorder.Systems.Border
         }
 
         private readonly Dictionary<int, Entity> _scratchNodeAnchors = new();
+
+        /// <summary>Territory -> position of every live curse node in it, in
+        /// entity order (rebuilt each sync; lists are emptied, never dropped).</summary>
+        private readonly Dictionary<int, List<float3>> _nodesByTerritory = new();
+        private readonly List<(int index, int territory, float3 pos)> _scratchNodeOrder = new();
         private int _curseNodeCount;
 
         /// <summary>

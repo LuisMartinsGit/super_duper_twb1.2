@@ -183,7 +183,7 @@ const UNITS = [
     armor: "infantry_light", def: [0, 0, 0, 0], cd: 0, range: 1, los: 14,
     cost: { Supplies: 50 }, pop: 1,
     extra: "Build 1.0 · Gather 1.0 · Carry 1 (+5 Wheel Cart)",
-    notes: "Unified Builder + Miner.",
+    notes: "The one worker unit.",
   },
   {
     id: "Scout", name: "Scout", cls: "human_scout", type: "economy", source: "SO", pid: 206,

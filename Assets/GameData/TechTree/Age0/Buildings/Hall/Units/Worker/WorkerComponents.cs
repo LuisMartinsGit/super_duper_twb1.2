@@ -8,7 +8,7 @@ using Unity.Collections;
 using Unity.Mathematics;
 
 /// <summary>
-/// Build order assigned to a builder unit.
+/// Build order assigned to a worker unit.
 /// </summary>
 public struct BuildOrder : IComponentData
 {
@@ -16,11 +16,11 @@ public struct BuildOrder : IComponentData
 }
 
 /// <summary>
-/// A build the builder should start once it finishes its current one.
+/// A build the worker should start once it finishes its current one.
 ///
 /// BuildCommand and BuildOrder are both SINGLE components, so every new build
 /// assignment overwrote the previous one: placing several buildings in a row
-/// left the builder with only the LAST, and every earlier foundation sat
+/// left the worker with only the LAST, and every earlier foundation sat
 /// untouched forever. The LOS auto-chain hid this whenever the sites happened
 /// to be close together, which is why it read as "only far-apart builds are
 /// ignored" — proximity was doing the queueing by accident.
@@ -38,8 +38,8 @@ public struct QueuedBuildSite : IBufferElementData
 }
 
 /// <summary>
-/// Repair order assigned to a builder unit.
-/// Builder walks to damaged building and repairs it, consuming resources.
+/// Repair order assigned to a worker unit.
+/// Worker walks to damaged building and repairs it, consuming resources.
 /// Cost = (missingHP / maxHP) * originalBuildCost * 1.2 penalty.
 /// </summary>
 public struct RepairOrder : IComponentData
@@ -57,13 +57,13 @@ public struct CanBuild : IComponentData
 }
 
 /// <summary>Marker tag for units that can mine (every Worker carries it).</summary>
-public struct MinerTag : IComponentData { }
+public struct WorkerTag : IComponentData { }
 
 /// <summary>
-/// Miner work state enumeration. Mined resources are credited straight to
+/// Worker activity enumeration. Mined resources are credited straight to
 /// the faction bank on every gather tick — there is no carry/dropoff loop.
 /// </summary>
-public enum MinerWorkState : byte
+public enum WorkerActivity : byte
 {
     Idle = 0,
     MovingToDeposit = 1,
@@ -73,11 +73,11 @@ public enum MinerWorkState : byte
 /// <summary>
 /// Mining behavior and state tracking.
 /// </summary>
-public struct MinerState : IComponentData
+public struct WorkerState : IComponentData
 {
     public Entity AssignedDeposit;   // Which deposit to mine
     public float GatherTimer;        // Time accumulator for gathering
-    public MinerWorkState State;     // Current work state
+    public WorkerActivity State;     // Current work state
     public byte GatheringResource;   // 0=Iron, 1=Veilstone, 2=Veilsteel
 
     // Last known position of a depleted node — used to auto-find a same-type

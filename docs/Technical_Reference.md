@@ -126,7 +126,7 @@ Input Systems
 | Resource | Weight | Cap | Primary Sources |
 |----------|--------|-----|-----------------|
 | **Supplies** | 1x | 100,000 | Hall (50/15s), Gatherer Hut (area-based ~60/min), trade caravans, wall compartments (Alanthor) |
-| **Iron** | 2x | 100,000 | Iron deposits (mined by miners), passive building income |
+| **Iron** | 2x | 100,000 | Iron deposits (mined by workers), passive building income |
 | **Veilstone** | 3x | 100,000 | Creature cadavers (mined), Veilstone Shrine income |
 | **Veilsteel** | 5x | 100,000 | Smelter conversion (5 Iron + 3 Veilstone = 1 Veilsteel / 5s) |
 | **Glow** | 4x | 100,000 | Ley Line Nexus, special buildings |
@@ -142,9 +142,9 @@ Input Systems
 | Gather range | 5.0 units |
 | Auto-find radius | 10 units |
 
-**Miner State Machine**: Idle -> MovingToDeposit -> Gathering -> (loop)
+**Worker State Machine**: Idle -> MovingToDeposit -> Gathering -> (loop)
 
-Mined resources are credited directly to the faction bank on each gather tick — miners never carry resources and there are no dropoff buildings. Miners auto-find new deposits near the depleted node. Player miners require explicit GatherCommand; AI miners auto-find.
+Mined resources are credited directly to the faction bank on each gather tick — workers never carry resources and there are no dropoff buildings. Workers auto-find new deposits near the depleted node. Player workers require explicit GatherCommand; AI workers auto-find.
 
 ### Veilstone Mining (Cadavers)
 
@@ -166,7 +166,7 @@ Cadavers spawn when The Border creatures die. **Cadavers are destroyed when depl
 | Local storage | 100 Iron, 50 Veilstone max |
 | Loss factor | 20% (Foundry/Crucible buildings) |
 
-Miners with ForgeSupplyOrder fetch resources from Hall/GathererHut and deliver to the Smelter's ForgeStorage.
+Workers with ForgeSupplyOrder fetch resources from Hall/GathererHut and deliver to the Smelter's ForgeStorage.
 
 ### Passive Income Buildings
 
@@ -254,18 +254,17 @@ Additional lobby colors: Pink, Brown, Black, Maroon (12-color pool total).
 | 0 | Melee | Swordsman, Spearman, Sentinel, Berserker |
 | 1 | Ranged | Archer, Crossbowman, Skirmisher |
 | 2 | Siege | Catapult, Ballista, Siege Ram |
-| 3 | Support | Litharch, Builder |
+| 3 | Support | Litharch |
 | 4 | Magic | Golem Autark, Archivist Adept, Glassmark Arcanist |
-| 5 | Economy | Miner, Builder, Caravan |
-| 6 | Miner | Resource gatherers |
+| 5 | Economy | Worker, Caravan |
+| 6 | Worker | Resource gatherers |
 | 7 | Scout | Fast reconnaissance |
 
 ### Era 1 Units (Universal)
 
 | Unit | HP | Speed | Damage | Range | LoS | Cost | Pop | Cooldown | Armor | Special |
 |------|----|-------|--------|-------|-----|------|-----|----------|-------|---------|
-| Builder | 60 | 4.0 | 2 | Melee | 12 | 50S | 1 | - | Infantry Light | CanBuild |
-| Miner | 50 | 3.5 | 2 | Melee | 10 | 50S | 1 | - | Infantry Light | Gathers Iron/Veilstone |
+| Worker | 60 | 4.0 | 2 | Melee | 12 | 50S | 1 | - | Infantry Light | CanBuild |
 | Scout | 40 | 6.0 | 3 | Melee | 20 | 55S | 1 | - | Infantry Light | Extended LoS |
 | Swordsman | 120 | 3.5 | 12 | Melee | 10 | 140S | 1 | 1.2s | Infantry Heavy | Melee Def +1 |
 | Archer | 60 | 4.0 | 8 | 10-25 | 25 | 75S | 1 | 1.5s | Ranged | Retreats at min range, Ranged Def +1 |
@@ -339,7 +338,7 @@ Additional lobby colors: Pink, Brown, Black, Maroon (12-color pool total).
 
 | Building | HP | Cost | Pop | LoS | Trains | Researches | Special |
 |----------|----|------|-----|-----|--------|------------|---------|
-| Hall | 2400 | Starting | +20 | 24 | Builder, Miner, Scout | Research_Era2, ImprovedTools, StorageCarts | Ranged attack (12 dmg, range 20, 2.5s cd). 50 Supplies/15s |
+| Hall | 2400 | Starting | +20 | 24 | Worker, Scout | Research_Era2, ImprovedTools, StorageCarts | Ranged attack (12 dmg, range 20, 2.5s cd). 50 Supplies/15s |
 | Hut | 350 | 50S | +5 | 12 | - | - | Housing only |
 | Gatherer Hut | 400 | 120S | - | 16 | - | - | Area-based 60 Supplies/min (12-unit radius). Auto-despawns Era 2 (except Feraldis) |
 | Barracks | 800 | 150S+70I | - | 18 | Swordsman, Archer | BasicDrills, WoodenArmor | Single training queue |
@@ -597,7 +596,7 @@ AIBrain {
 
 | Manager | Responsibilities |
 |---------|-----------------|
-| **AIEconomyManager** | Tracks gatherer huts, miners, resource levels. Builds huts, assigns miners, manages economy |
+| **AIEconomyManager** | Tracks gatherer huts, workers, resource levels. Builds huts, assigns workers, manages economy |
 | **AIBuildingManager** | Places buildings based on needs. Prioritizes Halls, Barracks, defenses. Respects passability |
 | **AIMilitaryManager** | Spawns units by economic capacity. Organizes attack waves |
 | **AITacticalManager** | Identifies threats. Plans attack routes. Attack vs defend decisions |
@@ -741,9 +740,9 @@ All units spawn simultaneously when timer expires. Pop check: total_pop_cost * b
 | Parameter | Value |
 |-----------|-------|
 | BuildRange | 4 units |
-| BuildRatePerBuilder | 1 progress/second |
+| BuildRatePerWorker | 1 progress/second |
 
-Multiple builders can work simultaneously. On completion: remove UnderConstruction tag, set Health to max, apply DeferredDefense as Defense component.
+Multiple workers can work simultaneously. On completion: remove UnderConstruction tag, set Health to max, apply DeferredDefense as Defense component.
 
 ### Building Placement Validation
 
@@ -859,12 +858,12 @@ Destroying a temple destroys all attached chapels (TempleCascadeDestroySystem).
 | Attack | Right-click enemy | Sets Target. Clears UserMoveOrder. Sets GuardPoint |
 | AttackMove | Hotkey + right-click | Move with auto-acquire (no UserMoveOrder -> TargetingSystem can engage) |
 | Patrol | Ctrl + right-click | Waypoint cycling between start and destination. Auto-acquires targets |
-| Build | Builder + click building | Moves builder to site, starts construction |
+| Build | Worker + click building | Moves worker to site, starts construction |
 | Gather | Right-click resource | Sets GatherCommand with deposit entity |
 | Heal | Right-click friendly | Validates friendly + needs healing. Moves healer toward target |
 | HoldPosition | Hotkey | Clears all commands. Adds HoldPositionTag. GuardPoint = current pos |
-| Repair | Right-click damaged building | Moves builder to building, starts repair |
-| Convert | Right-click Keep with miner | Miner -> Berserker conversion at Fiendstone Keep |
+| Repair | Right-click damaged building | Moves worker to building, starts repair |
+| Convert | Right-click Keep with worker | Worker -> Berserker conversion at Fiendstone Keep |
 
 ### Selection System
 
@@ -962,7 +961,7 @@ Each entity has NetworkId (unique int, assigned at spawn) + SpawnTick. Thread-sa
 
 | ActionType | Trigger | Content |
 |------------|---------|---------|
-| BuildingPlacement | Builder selected | Building placement buttons by era/culture |
+| BuildingPlacement | Worker selected | Building placement buttons by era/culture |
 | UnitTraining | Barracks/etc selected | Training queue (max 5), unit buttons |
 | UnitTrainingAndResearch | Hall/Barracks selected | Training + tech tree buttons |
 | VaultManagement | Vault selected | Deposit/withdraw interface |
@@ -999,7 +998,7 @@ Battalion leaders use average member position as line origin. Battalion members 
 
 | Category | Scale | IDs |
 |----------|-------|-----|
-| Era 1 | 3.5x | Builder (200), Swordsman (201), Archer (202), Miner (203), Scout (206), Litharch (207), Berserker (210) |
+| Era 1 | 3.5x | Worker (200), Swordsman (201), Archer (202), legacy worker id (203), Scout (206), Litharch (207), Berserker (210) |
 | Runai | 3.5x | Spearman (330), Skirmisher (331), Raider (332), Catapult (333) |
 | Alanthor | 3.5x | Sentinel (334), Crossbowman (335), Cataphract (336), Ballista (337) |
 | Feraldis | 3.5x | Hunter (338), Warboar Rider (339), Siege Ram (340) |
@@ -1229,7 +1228,7 @@ Buildings emerge from ground (rising animation) during construction phase.
 
     Siege Yard --------> Siege Ram (300 HP battering ram)
 
-    Keep + Miner ------> Berserker (conversion, no cost)
+    Keep + Worker ------> Berserker (conversion, no cost)
 
     Keep + Hunters ----> Hunter (close-range axe thrower)
 ```
@@ -1325,7 +1324,7 @@ G
     (500 iron each)                  (300 veilstone each)
     12-20 per map                    Spawn on creature death
          |                                |
-         | Miners (1/2s)                  | Miners (1/1.5s)
+         | Workers (1/2s)                  | Workers (1/1.5s)
          v                                v
     +----------+    +----------+    +----------+
     |   IRON   |    | SUPPLIES |    | CRYSTAL  |
@@ -1466,7 +1465,7 @@ MonoBehaviour singleton, event-driven. Subscribes to `FactionResearchState.OnTec
 
 | Effect | Target | Formula |
 |--------|--------|---------|
-| gatherSpeedMult | Miners (MinerTag) | MinerState.GatherSpeedMultiplier *= value |
+| gatherSpeedMult | Workers (WorkerTag) | WorkerState.GatherSpeedMultiplier *= value |
 | meleeAttackSpeedMult | Melee units | AttackCooldown.Cooldown /= value (shorter = faster) |
 | meleeDefenseAdd | Units with Defense | Defense.Melee += value |
 
@@ -1479,7 +1478,7 @@ Effects apply to existing units on tech completion. Newly spawned units get effe
 | Parameter | Value |
 |-----------|-------|
 | RepairRange | 4.0 units (XZ distance) |
-| RepairRatePerBuilder | 15 HP/second |
+| RepairRatePerWorker | 15 HP/second |
 | RepairCostMultiplier | 1.2x (20% surcharge) |
 
 ### Repair Cost Formula
@@ -1491,10 +1490,10 @@ repairCost = originalBuildCost * damageRatio * 1.2
 
 ### Workflow
 
-1. Player right-clicks damaged building with builder -> RepairOrder assigned
-2. Builder moves to building (within 4.0 units)
+1. Player right-clicks damaged building with worker -> RepairOrder assigned
+2. Worker moves to building (within 4.0 units)
 3. On arrival: cost paid once (CostPaid flag), resources deducted
-4. During repair: HP increases at 15 HP/s per builder (additive with multiple builders)
+4. During repair: HP increases at 15 HP/s per worker (additive with multiple workers)
 5. On full HP: RepairOrder removed
 
 Edge cases: under-construction buildings rejected, destroyed during repair -> order removed, can't afford -> order removed without repair.

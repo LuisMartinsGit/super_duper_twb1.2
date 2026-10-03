@@ -129,6 +129,9 @@ namespace TheWaningBorder.Systems.Work
                 //    the huts simply persist across age-up — no auto-destruction.
                 TransformGathererHutsForCulture(em, faction, culture);
                 TransformHutsForCulture(em, faction, culture);
+                // Alanthor do not mine veilstone: every Veilstone Mine becomes a Trading Outpost
+                // (docs/Design/Veilstone_Economy.md §3.1).
+                TheWaningBorder.Entities.TradingOutpost.ConvertMinesForCulture(em, faction, culture);
 
                 // 4b. Runai: instant 200-pop override (Houses don't apply; wagon-burst is task-066 Phase 2).
                 if (culture == Cultures.Runai)
@@ -154,14 +157,11 @@ namespace TheWaningBorder.Systems.Work
                 // 5. Register culture with FactionColors (idempotent — may already be set by UI popup)
                 FactionColors.SetFactionCulture(faction, culture);
 
-                // 5b. The Alanthor pick IS the stone wall, and it is free:
-                // Lv0 timber -> Lv1 stone, the same shape as every other
-                // building taking its culture form. What the player BUYS is
-                // Lv2 and Lv3, at the Wall Hub (TechEffectSystem).
-                // docs/Design/Age_1_Alanthor.md § The four wall levels.
-                if (culture == Cultures.Alanthor)
-                    TheWaningBorder.Entities.AlanthorWall.PromoteFactionWalls(
-                        em, faction, TheWaningBorder.Entities.WallTiers.Stone);
+                // 5b. NO wall promotion (2026-10-02). The Alanthor pick
+                // unlocks the Stone Wall as a NEW building; the palisades the
+                // faction raised in Age 0 are a different building and stay
+                // timber (docs/Design/Age_0.md § Palisade). Lv2 and Lv3 are
+                // bought at the Wall Hub (TechEffectSystem).
 
                 // 6. Rebuild building visuals with culture tone
                 if (PresentationSpawnSystem.Instance != null)

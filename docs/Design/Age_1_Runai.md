@@ -42,7 +42,7 @@
 At age-up, **each Gatherer's Hut the player built in Age 0 transforms into a
 mobile caravan-wagon**. These wagons are Runai's **one and only free
 trade-post deployment burst** — every Trade Post built after age-up costs
-builders + resources at the normal rate. *(Possible future expansion: allow
+workers + resources at the normal rate. *(Possible future expansion: allow
 infantry to build Trade Posts as well, so Runai can fight their way into
 contested zones late-game.)*
 
@@ -63,7 +63,7 @@ get rewarded with sustained higher income through clever re-routing — the
 "nomadic master traders" fantasy.
 
 **Wagon-death cost** = (a) one Gatherer's Hut worth of material, plus (b)
-the **tempo cost** of having to send a builder out the slow way to
+the **tempo cost** of having to send a worker out the slow way to
 re-establish that trade post manually. The trade post can still be built —
 the player just lost the free shortcut. This is harsh enough to make
 **escorting wagons matter** but soft enough to keep the game going if a
@@ -292,7 +292,7 @@ age-up. The huts the player invested in during Age 0 become the wagons of
 Age 1 — placement matters in both ages.
 
 The wagon-burst is the **only** free Trade Post deployment the player ever
-gets in the match. Every Trade Post after age-up costs builders + supplies
+gets in the match. Every Trade Post after age-up costs workers + supplies
 + iron at the normal rate.
 
 ---

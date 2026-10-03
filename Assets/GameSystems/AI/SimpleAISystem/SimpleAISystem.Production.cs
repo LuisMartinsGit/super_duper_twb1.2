@@ -76,14 +76,15 @@ namespace TheWaningBorder.AI
                 if (cls != UnitClass.Support && cls != UnitClass.Magic)
                     aiState.LastMilitaryUnit = new FixedString64Bytes(unitId);
             }
-            else if (cls == UnitClass.Miner || cls == UnitClass.Economy)
+            else if (cls == UnitClass.Worker || cls == UnitClass.Economy)
             {
                 // Worker unification: the Worker trains as UnitClass.Economy but
-                // carries MinerTag and acts as a miner. Without counting Economy
-                // here, DesiredMiners never increments — ReplaceLostUnits would
+                // carries WorkerTag and acts as a worker. Without counting Economy
+                // here, DesiredWorkers never increments — ReplaceLostUnits would
                 // see deficit=0 and stop replacing dead workers, gutting the
                 // post-fight economy. (worker-unification fix)
-                aiState.DesiredMiners++;
+                // (No ++ any more: DesiredWorkers is THE WORKER RULE, assigned
+                // every maintenance pass — a ratchet here hired past it.)
             }
             // Scout/Support not auto-replaced for now — none of the current
             // build orders rely on them surviving in the same way.
@@ -91,17 +92,17 @@ namespace TheWaningBorder.AI
 
         /// <summary>
         /// Apply a SetVeilstoneTarget build-order step. Just clamps and writes the
-        /// target on the AI brain's SimpleAIState — AssignIdleMiners reads it on
+        /// target on the AI brain's SimpleAIState — AssignIdleWorkers reads it on
         /// the next think tick. Always succeeds so the build order advances.
         /// </summary>
         private static bool SetVeilstoneTarget(ref SimpleAIState aiState, int count)
         {
             // Clamp at the system cap (4) so a typo in a build order can't
-            // request 50 veilstone miners and starve iron entirely.
+            // request 50 veilstone workers and starve iron entirely.
             // Cap held locally now that the mining allocator (which owned
-            // MaxVeilstoneMiners) is gone. The field is vestigial and is kept
+            // MaxVeilstoneWorkers) is gone. The field is vestigial and is kept
             // only so existing build orders still parse.
-            aiState.VeilstoneMinerTarget = math.clamp(count, 0, 4);
+            aiState.VeilstoneWorkerTarget = math.clamp(count, 0, 4);
             return true;
         }
 
@@ -111,6 +112,31 @@ namespace TheWaningBorder.AI
 
         private static bool TryTrainUnit(EntityManager em, Faction faction, string unitId)
             => TryTrainUnitWithReason(em, faction, unitId, out _);
+
+        private static readonly System.Collections.Generic.Dictionary<int, float> _nextWorkerRefusalLog
+            = new System.Collections.Generic.Dictionary<int, float>();
+
+        /// <summary>About once a minute per faction, name the method that
+        /// asked for a Worker past the worker rule. The stack walk runs only
+        /// when a line is actually written.</summary>
+        private static void LogWorkerRefusal(Faction faction)
+        {
+            if (!AILogger.Enabled) return;
+            float now = TheWaningBorder.Core.SimClock.Now;
+            if (_nextWorkerRefusalLog.TryGetValue((int)faction, out float next) && now < next) return;
+            _nextWorkerRefusalLog[(int)faction] = now + 60f;
+            var frames = new System.Diagnostics.StackTrace(false).GetFrames();
+            string caller = "?";
+            if (frames != null)
+                foreach (var f in frames)
+                {
+                    var m = f.GetMethod();
+                    if (m == null || m.Name.StartsWith("TryTrainUnit") || m.Name == "LogWorkerRefusal") continue;
+                    caller = m.Name;
+                    break;
+                }
+            AILogger.Log(faction, "ECONOMY", $"extra Worker refused (worker rule) — asked by {caller}");
+        }
 
         /// <summary>Training pre-flight + issue, reporting WHICH gate blocked
         /// on failure — every gate here is silent by design (next tick
@@ -124,6 +150,21 @@ namespace TheWaningBorder.AI
             if (!TechCatalog.IsReady) { blockReason = "catalog not ready"; return false; }
             if (!TechCatalog.TryGetUnit(unitId, out var def) || def == null)
             { blockReason = "no catalog def"; return false; }
+
+            // THE WORKER RULE IS A CEILING, ENFORCED HERE (2026-10-03). Every
+            // AI training request funnels through this method, so no caller
+            // can hire past 3 + 1 per conquered territory. Batch round 3
+            // measured factions at 17 workers on 3 territories after age-up
+            // with every target-setting path already on the rule — the
+            // refusal log names the caller so the stray path shows itself.
+            if (unitId == "Worker"
+                && CountAliveWorkers(em, faction)
+                   + CountQueuedByPredicate(em, faction, isWorker: true) >= WorkerFloorFor(em, faction))
+            {
+                blockReason = "worker rule reached";
+                LogWorkerRefusal(faction);
+                return false;
+            }
 
             // Find the right training building for this unit.
             Entity trainer = FindTrainerForUnit(em, faction, unitId);
@@ -185,13 +226,13 @@ namespace TheWaningBorder.AI
             // for twenty straight minutes), which locked the army-first
             // claim gate and pinned every faction at exactly 3 territories
             // through three tuning rounds. The floor keeps the claim's
-            // builder and the intel corps alive; it no longer eats the
+            // worker and the intel corps alive; it no longer eats the
             // army's population.
             if (TheWaningBorder.AI.AIPivotalReserve.ShouldHold(em, faction))
             {
                 bool essential =
                     (unitId == "Worker"
-                        && CountAliveMiners(em, faction) < WorkerFloorFor(em, faction))
+                        && CountAliveWorkers(em, faction) < WorkerFloorFor(em, faction))
                     // Two scouts keep the intel corps alive through a save;
                     // the old flat 6 let 180 supplies of scouts eat the very
                     // pot the hold was protecting.
@@ -203,6 +244,14 @@ namespace TheWaningBorder.AI
                     // Expansion.TickClaims.
                     || (unitId != "Worker" && unitId != "Scout"
                         && CountAliveMilitary(em, faction) < Cfg.minArmyForNextClaim);
+                // THE OPENING HUTS OUTRANK ALL OF THAT (2026-10-03): the
+                // second scout and the claim-gate spearman were buying
+                // themselves out of the starting bank ahead of the huts.
+                // While the opening reserve is armed only the build crew
+                // that raises the huts is essential.
+                if (OpeningHutsPending(faction))
+                    essential = unitId == "Worker"
+                        && CountAliveWorkers(em, faction) < WorkerFloorFor(em, faction);
                 if (!essential)
                 { blockReason = "pivotal hold (saving)"; return false; }
             }
@@ -402,12 +451,12 @@ namespace TheWaningBorder.AI
                 "KingsCourt"           => FindResearchHost<KingsCourtTag>(em, faction),
                 "ArcheryRange"         => FindResearchHost<ArcheryRangeTag>(em, faction),
                 "GatherersHut"         => FindResearchHost<GathererHutTag>(em, faction),
+                "Mine"                 => FindResearchHost<MineTag>(em, faction),
                 "Hut"                  => FindResearchHost<HutTag>(em, faction),
                 // Alanthor Age-1 research hosts (Wave 2 military tree).
                 "Alanthor_RoyalStable" => FindResearchHost<RoyalStableTag>(em, faction),
                 "Alanthor_SiegeYard"   => FindResearchHost<SiegeYardTag>(em, faction),
                 "Alanthor_Smelter"     => FindResearchHost<SmelterTag>(em, faction),
-                "ShrineOfRidan"        => FindResearchHost<ShrineTag>(em, faction),
                 // The Shrine is cut; its research is the Temple's now
                 // (docs/Design/Religion.md §2).
                 "TempleOfRidan"        => FindResearchHost<TempleOfRidanTag>(em, faction),
@@ -502,7 +551,7 @@ namespace TheWaningBorder.AI
         // ─────────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Re-queue training for any military/miner units that died after the
+        /// Re-queue training for any military/worker units that died after the
         /// build order originally trained them. The deficit = DesiredX - (alive
         /// of that type + already queued of that type). Queues at most one
         /// replacement per category per think tick — replacements pile up over
@@ -638,17 +687,17 @@ namespace TheWaningBorder.AI
                 }
             }
 
-            // Miner deficit
-            if (aiState.DesiredMiners > 0)
+            // Worker deficit
+            if (aiState.DesiredWorkers > 0)
             {
-                int aliveMin = CountAliveMiners(em, faction);
-                int queuedMin = CountQueuedByPredicate(em, faction, isMiner: true);
-                int deficit = aiState.DesiredMiners - (aliveMin + queuedMin);
+                int aliveMin = CountAliveWorkers(em, faction);
+                int queuedMin = CountQueuedByPredicate(em, faction, isWorker: true);
+                int deficit = aiState.DesiredWorkers - (aliveMin + queuedMin);
                 if (deficit > 0)
                 {
                     // Worker handles both build + mine since the merge —
                     // train "Worker" (the unified factory), it carries
-                    // MinerTag too so it'll auto-find deposits.
+                    // WorkerTag too so it'll auto-find deposits.
                     TryTrainUnitBudgeted(em, faction, "Worker", AIBudgetCategory.EconomyExpansion);
                 }
             }

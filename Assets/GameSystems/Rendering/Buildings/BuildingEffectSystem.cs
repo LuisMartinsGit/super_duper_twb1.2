@@ -1,6 +1,8 @@
 ﻿// BuildingEffectSystem.cs
-// Handles visual effects for building construction (dust particles)
-// and building destruction (inward collapse + dust cloud).
+// Handles visual effects for building construction (a continuous Hovl dust loop),
+// damaged buildings (Hovl smoke plume) and building destruction (inward
+// collapse + dust cloud). The Hovl prefabs and their URP materials come from
+// BuildingEffectSystem.asset beside this file.
 
 using System.Collections.Generic;
 using UnityEngine;
@@ -13,7 +15,8 @@ namespace TheWaningBorder.Rendering
 {
     /// <summary>
     /// MonoBehaviour system that drives:
-    /// 1. Construction dust particles — emitted when construction progress increases
+    /// 1. Construction dust — a looping Hovl dust cloud while workers raise a site
+    /// 1b. Damage smoke — a Hovl plume on finished buildings below a health fraction
     /// 2. Destruction collapse — children fall inward + dust cloud when BuildingCollapseState present
     /// </summary>
     public class BuildingEffectSystem : MonoBehaviour
@@ -22,16 +25,23 @@ namespace TheWaningBorder.Rendering
 
         // ── Construction dust tracking ──
         private readonly Dictionary<Entity, float> _lastProgress = new();
-        private readonly Dictionary<Entity, ParticleSystem> _constructionDust = new();
+        private readonly List<Entity> _scratch = new();
+        private readonly Dictionary<Entity, GameObject> _constructionDust = new();
+        private readonly Dictionary<Entity, float> _lastBuiltAt = new();
+
+        // ── Damage smoke ──
+        private readonly Dictionary<Entity, GameObject> _damageSmoke = new();
+        private float _nextSmokePoll;
+
+        private static BuildingEffectSystemConfig _cfg;
+        private static BuildingEffectSystemConfig Cfg
+            => _cfg != null ? _cfg : (_cfg = TheWaningBorder.Core.Settings.ComponentConfig.Require<BuildingEffectSystemConfig>());
 
         // ── Collapse tracking ──
         private readonly Dictionary<Entity, CollapseData> _collapsingBuildings = new();
 
         // ── Train-complete tracking (Busy 1→0 edge fires the sparkle) ──
         private readonly Dictionary<Entity, byte> _lastBusy = new();
-
-        // ── Constants ──
-        private const float DustBurstInterval = 0.05f; // Minimum progress change to emit dust
 
         // ── Cached queries — CreateEntityQuery per frame leaks into the world's query registry. ──
         private static readonly ComponentType[] TrainedSparkleQueryTypes = {
@@ -41,14 +51,19 @@ namespace TheWaningBorder.Rendering
             ComponentType.ReadOnly<BuildingTag>() };
         private static readonly ComponentType[] ConstructionDustQueryTypes = {
             ComponentType.ReadOnly<UnderConstruction>(),
-            ComponentType.ReadOnly<LocalTransform>(),
             ComponentType.ReadOnly<BuildingTag>() };
+        private static readonly ComponentType[] DamageSmokeQueryTypes = {
+            ComponentType.ReadOnly<Health>(),
+            ComponentType.ReadOnly<BuildingTag>(),
+            ComponentType.Exclude<UnderConstruction>(),
+            ComponentType.Exclude<BuildingCollapseState>() };
         private static readonly ComponentType[] CollapseQueryTypes = {
             ComponentType.ReadOnly<BuildingCollapseState>(),
             ComponentType.ReadOnly<BuildingTag>() };
         private TheWaningBorder.Core.CachedEntityQuery _trainedSparkleQuery;
         private TheWaningBorder.Core.CachedEntityQuery _constructionDustQuery;
         private TheWaningBorder.Core.CachedEntityQuery _collapseQuery;
+        private TheWaningBorder.Core.CachedEntityQuery _damageSmokeQuery;
 
         private struct CollapseData
         {
@@ -73,8 +88,11 @@ namespace TheWaningBorder.Rendering
             if (Instance == this) Instance = null;
 
             // Cleanup any active particles
-            foreach (var ps in _constructionDust.Values)
-                if (ps != null) Destroy(ps.gameObject);
+            foreach (var fx in _damageSmoke.Values)
+                if (fx != null) Destroy(fx);
+            _damageSmoke.Clear();
+            foreach (var fx in _constructionDust.Values)
+                if (fx != null) Destroy(fx);
             _constructionDust.Clear();
 
             foreach (var data in _collapsingBuildings.Values)
@@ -95,6 +113,7 @@ namespace TheWaningBorder.Rendering
             float dt = Time.deltaTime;
 
             UpdateConstructionDust(em);
+            UpdateDamageSmoke(em);
             UpdateCollapseAnimations(em, dt);
             UpdateTrainedSparkles(em);
         }
@@ -174,105 +193,191 @@ namespace TheWaningBorder.Rendering
 
         private void UpdateConstructionDust(EntityManager em)
         {
-            // Query all entities under construction
+            var cfg = Cfg;
             var query = _constructionDustQuery.Get(em, ConstructionDustQueryTypes);
 
             using var entities = query.ToEntityArray(Unity.Collections.Allocator.Temp);
             using var constructions = query.ToComponentDataArray<UnderConstruction>(Unity.Collections.Allocator.Temp);
-            using var transforms = query.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
 
-            // Track which entities are still under construction for cleanup
-            var activeEntities = new HashSet<Entity>();
-
+            var active = new HashSet<Entity>();
             for (int i = 0; i < entities.Length; i++)
             {
                 var entity = entities[i];
                 var uc = constructions[i];
                 float ratio = uc.Total > 0 ? Mathf.Clamp01(uc.Progress / uc.Total) : 1f;
-                activeEntities.Add(entity);
+                active.Add(entity);
 
-                // Check if progress increased enough to emit dust
-                if (_lastProgress.TryGetValue(entity, out float lastRatio))
+                // "Being built" = progress moved since last frame. The dust
+                // keeps going for constructionDustIdleSeconds after the last
+                // movement, so the tick-stepped progress does not flicker it.
+                if (_lastProgress.TryGetValue(entity, out float lastRatio) && ratio > lastRatio)
+                    _lastBuiltAt[entity] = Time.time;
+                _lastProgress[entity] = ratio;
+                if (cfg == null || cfg.constructionDustPrefab == null) continue;
+
+                bool building = _lastBuiltAt.TryGetValue(entity, out var at) && Time.time - at < cfg.constructionDustIdleSeconds;
+                _constructionDust.TryGetValue(entity, out var dust);
+                if (!building)
                 {
-                    if (ratio - lastRatio >= DustBurstInterval)
-                    {
-                        // Emit dust burst centered on building
-                        if (EntityViewManager.Instance.TryGetView(entity, out var bgo) && bgo != null)
-                        {
-                            EnsureConstructionDust(entity, bgo);
-                            var ps = _constructionDust[entity];
-                            if (ps != null)
-                            {
-                                // Re-center on building bounds each burst (building is rising)
-                                var cRenderers = bgo.GetComponentsInChildren<Renderer>();
-                                if (cRenderers.Length > 0)
-                                {
-                                    var cBounds = cRenderers[0].bounds;
-                                    for (int r = 1; r < cRenderers.Length; r++)
-                                        cBounds.Encapsulate(cRenderers[r].bounds);
-                                    ps.transform.position = cBounds.center;
-                                }
-                                else
-                                {
-                                    var pos = (Vector3)transforms[i].Position;
-                                    pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
-                                    ps.transform.position = pos;
-                                }
-                                ps.Emit(Random.Range(15, 30));
-                            }
-                        }
-                        _lastProgress[entity] = ratio;
-                    }
+                    if (dust != null) { FadeOut(dust, cfg.constructionDustFadeSeconds); _constructionDust.Remove(entity); }
+                    continue;
                 }
-                else
-                {
-                    _lastProgress[entity] = ratio;
-                }
+                if (!EntityViewManager.Instance.TryGetView(entity, out var bgo) || bgo == null) continue;
+                if (dust != null && dust.transform.parent == bgo.transform) continue;
+                if (dust != null) Destroy(dust);
+                _constructionDust[entity] = SpawnEffect(cfg.constructionDustPrefab, cfg.constructionDustMaterial,
+                    bgo.transform, bgo.transform.position, FootprintRadius(bgo) * cfg.constructionDustScalePerMetre,
+                    loop: true);
             }
 
-            // Cleanup dust for completed buildings
-            var toRemove = new List<Entity>();
-            foreach (var kvp in _constructionDust)
+            // Finished / cancelled sites: stop their dust, forget them.
+            _scratch.Clear();
+            foreach (var e in _lastProgress.Keys)
+                if (!active.Contains(e)) _scratch.Add(e);
+            foreach (var e in _scratch)
             {
-                if (!activeEntities.Contains(kvp.Key))
-                {
-                    if (kvp.Value != null) Destroy(kvp.Value.gameObject);
-                    toRemove.Add(kvp.Key);
-                }
-            }
-            foreach (var e in toRemove)
-            {
-                _constructionDust.Remove(e);
                 _lastProgress.Remove(e);
+                _lastBuiltAt.Remove(e);
+                if (_constructionDust.TryGetValue(e, out var dust))
+                {
+                    if (dust != null) FadeOut(dust, cfg != null ? cfg.constructionDustFadeSeconds : 1f);
+                    _constructionDust.Remove(e);
+                }
             }
         }
 
-        private void EnsureConstructionDust(Entity entity, GameObject buildingGO)
+        // ═══════════════════════════════════════════════════════════════
+        // DAMAGE SMOKE
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// A looping Hovl smoke plume on every finished building below
+        /// damageSmokeStartHealth, growing as health falls; it stops (and fades
+        /// out) once repaired above damageSmokeStopHealth, or when the building
+        /// starts to collapse — the collapse has its own dust. Polled, not per
+        /// frame: health moves in hits, and the plume only changes size.
+        /// </summary>
+        private void UpdateDamageSmoke(EntityManager em)
         {
-            if (_constructionDust.ContainsKey(entity)) return;
+            var cfg = Cfg;
+            if (cfg == null || cfg.damageSmokePrefab == null) return;
+            if (Time.time < _nextSmokePoll) return;
+            _nextSmokePoll = Time.time + cfg.damageSmokePollSeconds;
 
-            // Compute building footprint radius from visual bounds.
-            // MESH renderers only (2026-08-04: a world-space particle child —
-            // the construction wave band — has near-map-sized bounds, and
-            // encapsulating it scaled the dust to cover the whole map), and
-            // clamped to a sane footprint regardless.
-            float buildingRadius = 2f; // fallback
-            bool any = false;
-            var cBounds = new Bounds();
-            foreach (var r in buildingGO.GetComponentsInChildren<Renderer>())
+            var query = _damageSmokeQuery.Get(em, DamageSmokeQueryTypes);
+            using var entities = query.ToEntityArray(Unity.Collections.Allocator.Temp);
+            using var healths = query.ToComponentDataArray<Health>(Unity.Collections.Allocator.Temp);
+
+            var alive = new HashSet<Entity>();
+            for (int i = 0; i < entities.Length; i++)
             {
-                if (r is ParticleSystemRenderer || r is TrailRenderer || r is LineRenderer)
-                    continue;
-                if (!any) { cBounds = r.bounds; any = true; }
-                else cBounds.Encapsulate(r.bounds);
-            }
-            if (any)
-                buildingRadius = Mathf.Min(10f,
-                    Mathf.Max(cBounds.extents.x, cBounds.extents.z));
+                var e = entities[i];
+                var h = healths[i];
+                if (h.Max <= 0) continue;
+                float frac = Mathf.Clamp01((float)h.Value / h.Max);
+                bool has = _damageSmoke.TryGetValue(e, out var plume) && plume != null;
 
-            var ps = CreateDustParticleSystem("ConstructionDust", 3.0f, 4.0f, 200, buildingRadius);
-            ps.transform.position = buildingGO.transform.position;
-            _constructionDust[entity] = ps;
+                bool want = has ? frac < cfg.damageSmokeStopHealth : frac < cfg.damageSmokeStartHealth;
+                if (!want) continue;
+                if (!EntityViewManager.Instance.TryGetView(e, out var bgo) || bgo == null) continue;
+                alive.Add(e);
+
+                float radius = FootprintRadius(bgo);
+                float hurt = 1f - frac / Mathf.Max(0.0001f, cfg.damageSmokeStartHealth);   // 0 at start, 1 at zero HP
+                float scale = radius * cfg.damageSmokeScalePerMetre * (1f + cfg.damageSmokeExtraScaleAtZero * Mathf.Clamp01(hurt));
+
+                // A level-up swaps the visual, destroying a plume parented to
+                // the old one; a plume on a different parent is rebuilt too.
+                if (!has || plume.transform.parent != bgo.transform)
+                {
+                    if (has) FadeOut(plume, cfg.damageSmokeFadeSeconds);
+                    plume = SpawnEffect(cfg.damageSmokePrefab, cfg.damageSmokeMaterial, bgo.transform,
+                                        RoofPoint(bgo), scale, loop: true);
+                    _damageSmoke[e] = plume;
+                }
+                else SetWorldScale(plume.transform, scale);
+            }
+
+            _scratch.Clear();
+            foreach (var kv in _damageSmoke)
+                if (!alive.Contains(kv.Key)) _scratch.Add(kv.Key);
+            foreach (var e in _scratch)
+            {
+                if (_damageSmoke[e] != null) FadeOut(_damageSmoke[e], cfg.damageSmokeFadeSeconds);
+                _damageSmoke.Remove(e);
+            }
+        }
+
+        /// <summary>Stop emitting, keep the live particles drifting, then
+        /// destroy. Unparented first so a building that is being torn down
+        /// does not take its smoke with it mid-air.</summary>
+        private static void FadeOut(GameObject fx, float seconds)
+        {
+            if (fx == null) return;
+            fx.transform.SetParent(null, true);
+            foreach (var ps in fx.GetComponentsInChildren<ParticleSystem>())
+                ps.Stop(false, ParticleSystemStopBehavior.StopEmitting);
+            Destroy(fx, seconds);
+        }
+
+        // ── Shared helpers for the Hovl effects ──
+
+        private static GameObject SpawnEffect(GameObject prefab, Material urpMaterial, Transform parent,
+                                              Vector3 position, float worldScale, bool loop)
+        {
+            var fx = Instantiate(prefab, position, Quaternion.identity, parent);
+            fx.name = prefab.name;
+            SetWorldScale(fx.transform, worldScale);
+            foreach (var ps in fx.GetComponentsInChildren<ParticleSystem>())
+            {
+                var main = ps.main;
+                main.loop = loop;
+                main.scalingMode = ParticleSystemScalingMode.Hierarchy;
+                main.simulationSpace = ParticleSystemSimulationSpace.World;   // smoke drifts off, it is not dragged along
+            }
+            if (urpMaterial != null)
+                foreach (var r in fx.GetComponentsInChildren<ParticleSystemRenderer>())
+                    r.sharedMaterial = urpMaterial;
+            return fx;
+        }
+
+        /// <summary>Scale a child so its WORLD size is <paramref name="s"/>,
+        /// whatever scale the building visual itself carries.</summary>
+        private static void SetWorldScale(Transform t, float s)
+        {
+            var p = t.parent != null ? t.parent.lossyScale : Vector3.one;
+            t.localScale = new Vector3(s / Mathf.Max(1e-4f, Mathf.Abs(p.x)),
+                                       s / Mathf.Max(1e-4f, Mathf.Abs(p.y)),
+                                       s / Mathf.Max(1e-4f, Mathf.Abs(p.z)));
+        }
+
+        /// <summary>Mesh bounds of a building visual — mesh renderers only (a
+        /// world-space particle child such as the construction wave band has
+        /// near-map-sized bounds, 2026-08-04).</summary>
+        private static bool MeshBounds(GameObject go, out Bounds b)
+        {
+            b = default;
+            bool any = false;
+            foreach (var r in go.GetComponentsInChildren<Renderer>())
+            {
+                if (r is ParticleSystemRenderer || r is TrailRenderer || r is LineRenderer) continue;
+                if (!any) { b = r.bounds; any = true; }
+                else b.Encapsulate(r.bounds);
+            }
+            return any;
+        }
+
+        /// <summary>Half the footprint's longer side, metres, clamped sane.</summary>
+        private static float FootprintRadius(GameObject go)
+            => MeshBounds(go, out var b) ? Mathf.Clamp(Mathf.Max(b.extents.x, b.extents.z), 1f, 10f) : 2f;
+
+        /// <summary>Where a plume rises from: the top of the building, a
+        /// little off centre so it reads as a broken roof, not a chimney.</summary>
+        private static Vector3 RoofPoint(GameObject go)
+        {
+            if (!MeshBounds(go, out var b)) return go.transform.position + Vector3.up * 3f;
+            return new Vector3(b.center.x + b.extents.x * 0.25f, b.max.y * 0.85f + b.min.y * 0.15f,
+                               b.center.z - b.extents.z * 0.2f);
         }
 
         // ═══════════════════════════════════════════════════════════════

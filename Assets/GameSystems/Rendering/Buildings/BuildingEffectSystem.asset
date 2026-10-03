@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c56a5a2018f8cc348b431a726dae846f, type: 3}
+  m_Name: BuildingEffectSystem
+  m_EditorClassIdentifier: 
+  constructionDustPrefab: {fileID: 3789122199548263463, guid: 64e23e807e446a241bda7c7470d8509d, type: 3}
+  constructionDustMaterial: {fileID: 0}
+  constructionDustScalePerMetre: 0.3
+  constructionDustIdleSeconds: 1.5
+  constructionDustFadeSeconds: 2
+  damageSmokePrefab: {fileID: 4318940320840401929, guid: 6c4dd535aae3ef041893978b5285faf2, type: 3}
+  damageSmokeMaterial: {fileID: 0}
+  damageSmokeStartHealth: 0.5
+  damageSmokeStopHealth: 0.6
+  damageSmokeScalePerMetre: 0.3
+  damageSmokeExtraScaleAtZero: 0.75
+  damageSmokeFadeSeconds: 4
+  damageSmokePollSeconds: 0.5

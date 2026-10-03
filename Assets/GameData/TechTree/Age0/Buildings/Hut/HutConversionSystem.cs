@@ -10,7 +10,7 @@
 //
 // The two new entities spawn fully-built (no UnderConstruction) so the
 // conversion reads as a one-shot transformation rather than a build order.
-// This matches the canonical design (Phase 1 / Age_1_Alanthor.md: "no builder
+// This matches the canonical design (Phase 1 / Age_1_Alanthor.md: "no worker
 // required").
 
 using Unity.Entities;

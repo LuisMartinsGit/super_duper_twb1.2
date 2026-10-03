@@ -43,16 +43,16 @@ MonoBehaviour:
     - field: "building"
       header: 
       tooltip: "Building under test. Left empty, the first ScenarioBuilding in the scene is used."
-    - field: "builder"
+    - field: "worker"
       header: 
-      tooltip: "Builder proxy that walks in to repair the building."
+      tooltip: "Worker proxy that walks in to repair the building."
     - field: "damagePerSecond"
       header: "Pacing"
       tooltip: 
     - field: "firstPhaseHealthFloor"
       header: 
       tooltip: "HP fraction where the first damage phase stops (0.10 = 90% damage)."
-    - field: "builderSpeed"
+    - field: "workerSpeed"
       header: "Worker"
       tooltip: 
   - typeName: "TheWaningBorder.Scenarios.ScenarioBuilding"

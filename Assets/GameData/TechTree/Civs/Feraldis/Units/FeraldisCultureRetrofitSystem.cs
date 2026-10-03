@@ -59,7 +59,7 @@ namespace TheWaningBorder.Systems.Combat
         protected override void OnCreate()
         {
             _workerQuery = new EntityQueryBuilder(Allocator.Temp)
-                .WithAll<CanBuild, FactionTag, MinerTag>()
+                .WithAll<CanBuild, FactionTag, WorkerTag>()
                 .WithNone<FeraldisWorkerTag>()
                 .Build(this);
 
@@ -102,7 +102,7 @@ namespace TheWaningBorder.Systems.Combat
                 if (em.HasComponent<PlunderPurse>(ents[i])) continue;
                 var c = tags[i].Class;
                 if (c != UnitClass.Melee && c != UnitClass.Ranged && c != UnitClass.Siege) continue;
-                if (em.HasComponent<CanBuild>(ents[i])) continue;   // workers stay builders
+                if (em.HasComponent<CanBuild>(ents[i])) continue;   // workers stay workers
                 if (CultureConfig.GetCompletedCulture(em, facs[i].Value) != Cultures.Feraldis) continue;
                 targets.Add(ents[i]);
             }
@@ -129,13 +129,13 @@ namespace TheWaningBorder.Systems.Combat
                 var e = targets[i];
 
                 // Build only — drop the gatherer half outright.
-                if (em.HasComponent<MinerState>(e)) em.RemoveComponent<MinerState>(e);
-                em.RemoveComponent<MinerTag>(e);
+                if (em.HasComponent<WorkerState>(e)) em.RemoveComponent<WorkerState>(e);
+                em.RemoveComponent<WorkerTag>(e);
 
                 // ...and make the fighter half real. Ordered onto an enemy a
                 // Feraldis worker is light infantry, not a victim. It still
                 // does NOT auto-acquire (TargetingSystem excludes CanBuild),
-                // which is deliberate — builders that wandered off to fight
+                // which is deliberate — workers that wandered off to fight
                 // on their own would be a disaster.
                 if (em.HasComponent<Health>(e))
                 {

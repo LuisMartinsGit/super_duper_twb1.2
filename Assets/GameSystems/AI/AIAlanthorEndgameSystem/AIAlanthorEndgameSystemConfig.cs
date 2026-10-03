@@ -40,9 +40,10 @@ namespace TheWaningBorder.AI
         /// territory next to it.</summary>
         public float wellAdjacencyProbeRadius;
 
-        /// <summary>Endgame Smelter fleet target — matches
-        /// CommandRouter.MaxSmeltersPerFaction. Five L3 Forges = 15
-        /// veilsteel / 10 s, the ceiling of the veilsteel economy.</summary>
+        /// <summary>Endgame Smelter count. One: the Smelter no longer makes
+        /// veilsteel (docs/Design/Veilstone_Economy.md — Trading Outposts in
+        /// Forge mode do), so a second only buys a second armour-research
+        /// queue.</summary>
         public int smelterTarget;
 
         /// <summary>Endgame housing target: 8 Huts. They auto-level to House
@@ -50,7 +51,7 @@ namespace TheWaningBorder.AI
         /// AIBuildingUpgradeSystem rotation takes them on to L3.</summary>
         public int houseTarget;
 
-        // Worker flee tuning. Miners and builders run home if any enemy
+        // Worker flee tuning. Workers run home if any enemy
         // unit is within FleeRadius. Throttled per worker so we don't
         // spam MoveCommands every tick once a threat is committed.
         public float fleeRadius;
@@ -90,8 +91,8 @@ namespace TheWaningBorder.AI
         public int maxWallHubs;
 
         /// <summary>Hub / instance self-build time — mirrors
-        /// BuilderCommandPanel.WallExtendBuildSeconds (30 s, AutoConstructTag,
-        /// no builder dispatched).</summary>
+        /// WorkerCommandPanel.WallExtendBuildSeconds (30 s, AutoConstructTag,
+        /// no worker dispatched).</summary>
         public float wallHubBuildSeconds;
 
         /// <summary>A plan slot with a friendly hub within this range counts

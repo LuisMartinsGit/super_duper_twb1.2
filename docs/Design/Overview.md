@@ -174,13 +174,13 @@ decisions stay relevant.
 | **Runai** | A **mobile caravan-wagon** the player deploys outward to plant the first trade post | Wagons output **full income while in transit** — age-up is Runai's peak income moment |
 
 These transformations are the *only* free-territory bursts each faction
-gets. Every trade post / wall / raid party built after age-up costs builders
+gets. Every trade post / wall / raid party built after age-up costs workers
 + resources at the normal rate. Lose a transformation (e.g. a Runai wagon
 killed in transit) and the player loses both:
 
 - **Material cost** — equivalent to one Gatherer's Hut.
 - **Tempo cost** — they must now establish that piece of map the slow way
-  (send a builder, build a wall, recruit a unit manually).
+  (send a worker, build a wall, recruit a unit manually).
 
 > **Playtest heuristic** for tuning Feraldis vs Runai aggression: in a 1v1,
 > the Runai player should land roughly **70–80 %** of their age-up wagons

@@ -479,7 +479,7 @@ escalation gives 95–160 s windows — still faster than today's *un*-escalated
 
 This matters more than the rate. The curse's economic effect is binary:
 
-- Miners auto-flee crust at `ExposureFleeSeconds = 3 s`. While clean ground
+- Workers auto-flee crust at `ExposureFleeSeconds = 3 s`. While clean ground
   exists the curse costs **tempo**. The moment it doesn't, income is
   **exactly zero** — and a deposit that got crusted while unattended is
   permanently unreachable, because the worker flees on arrival, every time.

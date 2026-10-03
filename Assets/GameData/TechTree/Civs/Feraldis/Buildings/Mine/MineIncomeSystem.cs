@@ -1,4 +1,4 @@
-// The Mine's yield. Canon: docs/Design/Age_0.md § Mine.
+﻿// The Mine's yield. Canon: docs/Design/Age_0.md § Mine.
 //
 // A Mine works EVERY iron and veilstone node inside MineConstants.PatchRadius
 // with no workers, and — the whole point — WITHOUT DEPLETING THEM. Nothing
@@ -66,6 +66,12 @@ namespace TheWaningBorder.Systems.Economy
         protected override void OnCreate()
         {
             RequireForUpdate<MineTag>();
+
+            // RETIRED 2026-10-01 (docs/Design/Veilstone_Economy.md §5): a Mine
+            // pays only through its slot in TerritoryIncomeSystem (50/min, or
+            // Alanthor's 70/100/200). This patch income paid a second, hidden
+            // iron line on top — part of why a fresh start showed 365 iron/min.
+            Enabled = false;
         }
 
         protected override void OnUpdate()
@@ -93,7 +99,10 @@ namespace TheWaningBorder.Systems.Economy
                 {
                     ms.RescanTimer = MineConstants.RescanInterval;
                     ms.IronNodes = CountInRange(ironXfs, p.x, p.z, r2);
-                    ms.VeilstoneNodes = CountInRange(veilXfs, p.x, p.z, r2);
+                    // Veilstone is mined only by a Veilstone Mine standing on
+                    // an inactive outcrop (docs/Design/Veilstone_Economy.md);
+                    // an iron Mine beside a veilstone node no longer leaks it.
+                    ms.VeilstoneNodes = 0;
 
                     // Say exactly what this Mine can see, once. A Mine that
                     // reaches here is BUILT (the query excludes

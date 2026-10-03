@@ -13,7 +13,7 @@
 //               (Cleansed) well clamps a sanctified circle to zero.
 //   * MINING   — the Veil is an INFINITE veilstone source, dug DIRECTLY
 //               (no deposit entities of any kind): VeilMiningSystem walks
-//               miners to crusted vertices of this grid, credits veilstone
+//               workers to crusted vertices of this grid, credits veilstone
 //               per pick-swing, and drains saturation under the pick — the
 //               sheet RECEDES exactly where the villager is digging.
 //               The Veil's only visual body is the terrain overlay

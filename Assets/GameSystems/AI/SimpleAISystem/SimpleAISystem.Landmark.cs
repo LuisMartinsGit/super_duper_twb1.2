@@ -56,12 +56,12 @@ namespace TheWaningBorder.AI
             => BuildingFactory.GetFactionChoiceBuilding(em, faction) != null;
 
         /// <summary>
-        /// Any choice-building id an authored build order still names (the
-        /// retired Shrine included) means "this faction's landmark".
+        /// Any choice-building id an authored build order names means "this
+        /// faction's landmark".
         /// </summary>
         private string ResolveLandmarkId(EntityManager em, Faction faction, string buildingId)
         {
-            if (buildingId == "ShrineOfRidan" || BuildingFactory.IsChoiceBuilding(buildingId))
+            if (BuildingFactory.IsChoiceBuilding(buildingId))
                 return AgeUpLandmark(em, faction);
             return buildingId;
         }

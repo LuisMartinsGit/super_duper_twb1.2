@@ -71,7 +71,7 @@ namespace TheWaningBorder.UI.Ingame
         /// True while the sandbox owns the mouse -- either something is armed
         /// for placement, or the cursor is over one of the panels.
         /// RTSInputManager checks this in its "should I ignore this click"
-        /// guard, exactly as it does for BuilderCommandPanel.IsPlacingBuilding.
+        /// guard, exactly as it does for WorkerCommandPanel.IsPlacingBuilding.
         ///
         /// The pointer-over-panel half matters as much as the armed half: these
         /// are IMGUI panels, and RTSInputManager's normal "pointer is over UI"

@@ -80,8 +80,8 @@ namespace TheWaningBorder.AI
     /// </summary>
     public struct AIBuildingState : IComponentData
     {
-        public int ActiveBuilders;
-        public int DesiredBuilders;
+        public int ActiveWorkers;
+        public int DesiredWorkers;
         public int QueuedConstructions;
         public float LastBuildCheck;
         public float BuildCheckInterval;
@@ -95,8 +95,8 @@ namespace TheWaningBorder.AI
         public FixedString64Bytes BuildingType;
         public float3 DesiredPosition;
         public int Priority;
-        public byte Assigned;           // 0 = pending, 1 = assigned to builder
-        public Entity AssignedBuilder;
+        public byte Assigned;           // 0 = pending, 1 = assigned to worker
+        public Entity AssignedWorker;
     }
     // ═══════════════════════════════════════════════════════════════════════
     // ECONOMY STATE
@@ -107,8 +107,8 @@ namespace TheWaningBorder.AI
     /// </summary>
     public struct AIEconomyState : IComponentData
     {
-        public int AssignedMiners;
-        public int DesiredMiners;
+        public int AssignedWorkers;
+        public int DesiredWorkers;
         public int ActiveGatherersHuts;
         public int DesiredGatherersHuts;
         public float LastMineAssignmentCheck;
@@ -146,10 +146,10 @@ public struct MineAssignment : IBufferElementData
     /// <summary>Position of the mine</summary>
     public float3 Position;
     
-    /// <summary>Number of miners assigned to this mine</summary>
-    public int AssignedMiners;
+    /// <summary>Number of workers assigned to this mine</summary>
+    public int AssignedWorkers;
     
-    /// <summary>Target number of miners for this mine</summary>
-    public int DesiredMiners;
+    /// <summary>Target number of workers for this mine</summary>
+    public int DesiredWorkers;
 }
 }

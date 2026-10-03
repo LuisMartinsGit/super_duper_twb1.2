@@ -4,14 +4,13 @@
 // docs/Design/Regions.md §4: income comes from the ground you hold, not from
 // workers gathering. Per owned territory:
 //
-//   * a base SUPPLY trickle — a bare-ground floor plus a share per SUPPLY
-//     NODE standing in the territory, so the base correlates with the map
-//   * plus supplies for each FOREST inside it (a Sawyer multiplies that)
-//   * plus 50/min of supplies for each GATHERER'S HUT — and a hut may only
-//     stand on a supply node, so how many a territory supports is map data
-//   * plus 190/min of IRON / VEILSTONE (95/min of VEILSTEEL) for each
-//     resource NODE in it
-//   * plus 25/min per MINE LEVEL built on one of those nodes
+//   * 50/min of supplies from a FORTRESS standing in it
+//   * every resource node is a SLOT (supply, iron, veilstone): EMPTY it pays
+//     10/min of its resource; with its extractor on it (Gatherer's Hut,
+//     Mine, Veilstone Mine) it pays 50/min, doubling per level (50/100/200).
+//     An ALANTHOR faction's huts and iron Mines run 70/100/200 instead.
+//   * a cursed or depleted veilstone outcrop pays nothing, and there is no
+//     veilsteel node at all (docs/Design/Veilstone_Economy.md, 2026-10-01)
 //
 // A player's economy is therefore a map position. Losing a territory is losing
 // income, immediately and visibly, which is what makes the claim game the game.
@@ -54,89 +53,77 @@ namespace TheWaningBorder.Systems.World
         // ── rates, PER MINUTE (docs/Design/Regions.md §4) ────────────────
         /// <summary>Seconds between income ticks. Presentation only — it
         /// decides how lumpy the bank looks, not how much is paid.</summary>
-        private const float TickInterval = 5f;
-
-        /// <summary>Supplies a held territory pays for its bare ground, before
-        /// its least-developed slot multiplies it (see ComputeYield).</summary>
-        // TERRITORY CONTENTS HAVE TO MATTER MORE THAN TERRITORY COUNT.
-        //
-        // The base used to be a flat 72/min on every territory, whether it
-        // held anything or not — restored to that number after 52 starved the
-        // AI of building money ("nothing affordable" 60 times in a 15-minute
-        // match while veilstone banked past 5,000). The flat number had the
-        // same flaw at a smaller scale that the original 72 had at 63% of all
-        // demand: every region fed you identically, so no region was worth
-        // taking in particular.
-        //
-        // The base now CORRELATES WITH THE SUPPLY NODES standing in the
-        // territory (Regions.md §4, 2026-08-29): bare ground pays this floor —
-        // holding it is never pointless — and each supply node adds its own
-        // share. Every territory is guaranteed 2 supply nodes and a home 4
-        // (the node-quota rule), so a standard territory pays 20 + 2x26 = 72,
-        // exactly the old flat base, and a home pays 124. Nothing got poorer;
-        // stocked ground got visibly richer.
-        private const float BareSuppliesPerMinute = 20f;
+        // EVERY SECOND (2026-10-01): every income source — territory and
+        // Trading Outposts alike — lands once a second, so the bank moves
+        // smoothly and the per-minute readouts can be watched happening.
+        private const float TickInterval = 1f;
 
         /// <summary>
-        /// Supplies a supply slot pays at Gatherer's Hut LEVEL 1. An EMPTY
-        /// slot pays nothing at all.
-        ///
-        /// AREA USED TO BE THE ECONOMY (superseded 2026-09-08). A supply node
-        /// paid 26/min for merely being inside your border, built on or not,
-        /// so the optimal play was to claim as much ground as possible and
-        /// develop none of it — and a match ended with everyone holding wide,
-        /// shallow empires and no reason to invest in any one of them.
-        /// Ground is now worth what you have BUILT on it.
+        /// Supplies a FORTRESS pays its territory (docs/Design/Veilstone_Economy.md
+        /// §5, 2026-10-01). Ground without one pays only its slots and forests.
         /// </summary>
-        private const float SuppliesPerHutPerMinute = 50f;
+        private const float FortressSuppliesPerMinute = 50f;
 
         /// <summary>
-        /// Every level doubles what a slot, the base, and the whole territory
-        /// pay — so a slot runs 0 / 50 / 100 / 200 and a Hall multiplies the
-        /// territory by 1 / 2 / 4.
-        ///
-        /// Doubling rather than a gentler curve is the point: two levels of
-        /// investment must beat a second territory, or "go wide" stays the
-        /// only strategy and the choice is not a choice.
+        /// What an EMPTY slot pays — a supply, iron or uncursed veilstone node
+        /// in held ground with no extractor on it. Small on purpose: holding a
+        /// node is worth something, building on it is worth five times more.
         /// </summary>
-        private const int LevelDoubling = 2;
-
-        /// <summary>Supplies per forest inside a held territory.</summary>
-        private const float SuppliesPerForestPerMinute = 60f;
+        private const float EmptySlotPerMinute = 10f;
 
         /// <summary>
-        /// What a Sawyer does to its territory's forest output. The Sawyer earns
-        /// nothing itself -- it is a multiplier on the forests already there,
-        /// which is what makes a FORESTED territory worth taking rather than
-        /// just worth holding.
+        /// What a slot pays with its extractor on it at LEVEL 1 (Gatherer's
+        /// Hut, Mine, Veilstone Mine). Each level doubles it: 50 / 100 / 200.
         /// </summary>
-        private const float SawyerMultiplier = 2f;
+        private const float ExtractorSlotPerMinute = 50f;
 
-        /// <summary>One Sawyer per territory counts. A second would stack a
-        /// pure multiplier with no counterplay, and the interesting decision is
-        /// WHICH forested territory to invest in, not how many yards to pile
-        /// into the best one.</summary>
-        private const int MaxSawyersPerTerritory = 1;
+        /// <summary>
+        /// An ALANTHOR faction's Gatherer's Huts and iron Mines, by level
+        /// (Veilstone_Economy.md §5): the culture that will not mine veilstone
+        /// works its supply and iron slots harder.
+        /// </summary>
+        private static readonly float[] AlanthorSlotLadder = { 70f, 100f, 200f };
 
-        /// <summary>What one resource node pays its territory's owner, whether
-        /// or not anything is built on it. Holding the ground is what pays; the
-        /// node is the reason the ground is worth holding.</summary>
-        // Raised against the lowered supply base above: a node-bearing
-        // territory should be visibly worth more than an empty one, because
-        // that difference is the whole reason to contest a particular region.
-        //
-        // IRON AND VEILSTONE DOUBLED (2026-08-30 directive, Regions.md §4):
-        // armies were trained but rarely replaced fast enough to fight with —
-        // the ore trickle was the bottleneck. Veilsteel keeps the base rate;
-        // its scarcity is the design, not its rate. The doubled trickle also
-        // drains NodeReserve twice as fast, which is intended pressure.
-        private const float IronYieldPerMinute = 190f;
-        private const float VeilstoneYieldPerMinute = 190f;
-        private const float VeilsteelYieldPerMinute = 95f;
+        /// <summary>
+        /// MINES PAY DOUBLE (2026-10-01): a Mine or Veilstone Mine on its slot
+        /// pays twice the hut ladder — 100 / 200 / 400, Alanthor's iron Mines
+        /// 140 / 200 / 400. An empty ore slot still pays 10.
+        /// </summary>
+        private const float MineYieldMultiplier = 2f;
 
-        /// <summary>Added per MINE LEVEL standing on a node. A fresh mine is
-        /// level 1 (+25); upgrading it adds another 25 each time.</summary>
-        private const float MineYieldPerMinutePerLevel = 25f;
+        /// <summary>
+        /// EVERY IRON SOURCE PAYS 20 % MORE (2026-10-02, Veilstone_Economy.md
+        /// §6): empty iron slots and Mines alike. Iron was the resource every
+        /// faction starved on — 8-AI batches ended on ~10k unspent supplies
+        /// and under 60 iron each.
+        /// </summary>
+        private const float IronYieldMultiplier = 1.2f;
+
+        /// <summary>
+        /// The MINE's own research ladder (2026-10-02): Deep Shafts makes every
+        /// iron slot a Mine works pay +50 %, Rich Seams +100 % (they do not
+        /// stack — Rich Seams replaces Deep Shafts). Mine-worked slots only:
+        /// an empty slot is not mined.
+        /// </summary>
+        private const string DeepShaftsTech = "DeepShafts";
+        private const string RichSeamsTech = "RichSeams";
+        private const float DeepShaftsMultiplier = 1.5f;
+        private const float RichSeamsMultiplier = 2f;
+
+        /// <summary>The Mine-tech multiplier this faction's Mines earn on iron.</summary>
+        private static float MineTechMultiplier(Faction faction)
+        {
+            var research = FactionResearchState.Instance;
+            if (research == null) return 1f;
+            if (research.HasResearched(faction, RichSeamsTech)) return RichSeamsMultiplier;
+            if (research.HasResearched(faction, DeepShaftsTech)) return DeepShaftsMultiplier;
+            return 1f;
+        }
+
+        /// <summary>Feraldis mine fast and burn the outcrop out
+        /// (Veilstone_Economy.md §3.2). Every unit paid is drawn from the
+        /// reserve, so the multiplier is also how much faster they deplete it.</summary>
+        private const float FeraldisVeilstoneMultiplier = 1.5f;
 
         /// <summary>How close a Mine must be to a node to count as built ON it.
         /// Generous by a build cell: the mine is placed against the node, not
@@ -319,6 +306,199 @@ namespace TheWaningBorder.Systems.World
             return Yield(em, _displayCensus, territory, owner, 0f);
         }
 
+        // ── Per-building readout (the income overlay) ───────────────────
+
+        /// <summary>
+        /// What ONE building adds to its faction's income, per minute, for the
+        /// world-space income overlay. Negative entries are what it spends (a
+        /// Trading Outpost's inputs). Presentation only: it shares the display
+        /// census window, so never call it from the simulation.
+        ///
+        /// It is the territory tick's own arithmetic split by building (a
+        /// slot's full built rate, the Fortress's supplies) plus the Trading
+        /// Outpost's cycle, so the overlay names where each resource comes
+        /// from. Empty slots and forests belong to the TERRITORY overlay
+        /// (ComputeYieldForDisplay).
+        /// </summary>
+        public static TerritoryYield BuildingYieldForDisplay(EntityManager em, Entity building)
+        {
+            var y = new TerritoryYield();
+            if (!RegionMap.Ready || !em.Exists(building)) return y;
+            if (em.HasComponent<UnderConstruction>(building)) return y;
+            if (!em.HasComponent<FactionTag>(building) || !em.HasComponent<LocalTransform>(building)) return y;
+
+            var owner = em.GetComponentData<FactionTag>(building).Value;
+            var p = em.GetComponentData<LocalTransform>(building).Position;
+
+            // Paid straight to the faction, wherever it stands.
+            if (em.HasComponent<TradingOutpostTag>(building))
+            {
+                if (!TheWaningBorder.Entities.TradingOutpost.HasLiveOutcrop(em, p.x, p.z)) return y;
+                var recipe = TheWaningBorder.Entities.TradingOutpost.RecipeOf(em, building);
+                if (!TheWaningBorder.Systems.Economy.TradingOutpostSystem.IsUnlocked(owner, recipe))
+                    recipe = TradeRecipe.BuyVeilstone;
+                TheWaningBorder.Systems.Economy.TradingOutpostSystem.PerMinute(owner, recipe,
+                    out var spend, out var earn);
+                y.Supplies = earn.Supplies - spend.Supplies;
+                y.Iron = earn.Iron - spend.Iron;
+                y.Veilstone = earn.Veilstone - spend.Veilstone;
+                y.Veilsteel = earn.Veilsteel - spend.Veilsteel;
+                return y;
+            }
+            // Territory-paid: only while its faction holds the ground.
+            int territory = RegionMap.RegionAt(p.x, p.z);
+            if (territory < 0 || TerritoryOwnership.OwnerOf(territory) != (int)owner) return y;
+
+            double now = UnityEngine.Time.realtimeSinceStartupAsDouble;
+            if (_displayCensus == null || !ReferenceEquals(_displayCensusWorld, em.World)
+                || now - _displayCensusAt > DisplayCensusSeconds || now < _displayCensusAt)
+            {
+                if (_displayCensus == null) _displayCensus = new Census();
+                _displayCensus.Build(em);
+                _displayCensusAt = now;
+                _displayCensusWorld = em.World;
+            }
+            var c = _displayCensus;
+            float hall = HallMultiplier(c, territory);
+            int level = LevelOf(em, building);
+            float r2 = MineToNodeRange * MineToNodeRange;
+
+            bool alanthor = CultureConfig.GetCompletedCulture(em, owner) == Cultures.Alanthor;
+            if (em.HasComponent<FortressTag>(building))
+            {
+                y.Supplies += FortressSuppliesPerMinute * hall;
+            }
+            else if (em.HasComponent<GathererHutTag>(building) && !em.HasComponent<RaiderCampTag>(building))
+            {
+                if (NearAny(em, QC_Supply.Get(em, QT_Supply), p, r2))
+                    y.Supplies += SlotRate(level, alanthor) * hall;
+            }
+            else if (em.HasComponent<MineTag>(building))
+            {
+                y.Iron += NodeLevelYield(em, c.Ore[0], p, r2, level, alanthor) * hall
+                          * SurveyMultiplier(owner, IronSurveyLadder)
+                          * IronYieldMultiplier
+                          * (level > 0 ? MineTechMultiplier(owner) : 1f);
+            }
+            else if (em.HasComponent<VeilstoneMineTag>(building))
+            {
+                float mult = CultureConfig.GetCompletedCulture(em, owner) == Cultures.Feraldis
+                    ? FeraldisVeilstoneMultiplier : 1f;
+                var o = c.Ore[1];
+                for (int i = 0; i < o.Node.Count; i++)
+                {
+                    var np = em.GetComponentData<LocalTransform>(o.Node[i]).Position;
+                    float dx = np.x - p.x, dz = np.z - p.z;
+                    if (dx * dx + dz * dz > r2) continue;
+                    if (TheWaningBorder.Systems.Economy.VeilstoneNodeStateSystem.KindOf(em, o.Node[i])
+                        != VeilstoneNodeKind.Inactive) continue;
+                    if (em.HasComponent<NodeReserve>(o.Node[i])
+                        && em.GetComponentData<NodeReserve>(o.Node[i]).Remaining <= 0f) continue;
+                    y.Veilstone += MineRate(level, false) * mult * hall
+                                   * SurveyMultiplier(owner, VeilstoneSurveyLadder);
+                }
+            }
+            return y;
+        }
+
+        /// <summary>The Hall multiplier on a territory: x1 / x2 / x4 by level.</summary>
+        private static float HallMultiplier(Census c, int territory)
+        {
+            int hallLevel = 0;
+            for (int i = 0; i < c.HallRegion.Count; i++)
+                if (c.HallRegion[i] == territory && c.HallLevel[i] > hallLevel)
+                    hallLevel = c.HallLevel[i];
+            return hallLevel > 1 ? Pow2(hallLevel - 1) : 1f;
+        }
+
+        /// <summary>One extractor's slot rate on the ore nodes it stands on,
+        /// scaled by what is left in each (the same scale the tick pays).</summary>
+        private static float NodeLevelYield(EntityManager em, OreCensus o, Unity.Mathematics.float3 p,
+            float r2, int level, bool alanthor)
+        {
+            float total = 0f;
+            for (int i = 0; i < o.Node.Count; i++)
+            {
+                var node = o.Node[i];
+                var np = em.GetComponentData<LocalTransform>(node).Position;
+                float dx = np.x - p.x, dz = np.z - p.z;
+                if (dx * dx + dz * dz > r2) continue;
+                float scale = 1f;
+                if (em.HasComponent<NodeReserve>(node))
+                {
+                    var res = em.GetComponentData<NodeReserve>(node);
+                    if (res.Initial > 0f) scale = Mathf.Max(DepletionFloor, res.Remaining / res.Initial);
+                }
+                total += MineRate(level, alanthor) * scale;
+            }
+            return total;
+        }
+
+        private static bool NearAny(EntityManager em, EntityQuery q, Unity.Mathematics.float3 p, float r2)
+        {
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
+            for (int i = 0; i < xfs.Length; i++)
+            {
+                float dx = xfs[i].Position.x - p.x, dz = xfs[i].Position.z - p.z;
+                if (dx * dx + dz * dz <= r2) return true;
+            }
+            return false;
+        }
+
+        // ── Faction net rate (the resource bar's red numbers) ────────────
+
+        static readonly ComponentType[] QT_Outposts =
+        {
+            ComponentType.ReadOnly<TradingOutpostTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_Outposts;
+
+        private static TerritoryYield _netCache;
+        private static Faction _netCacheFaction;
+        private static double _netCacheAt = double.NegativeInfinity;
+
+        /// <summary>
+        /// The faction's NET income per minute across every source: each
+        /// territory it holds plus every Trading Outpost's spend and earn. A
+        /// negative line means its trades consume more of that resource than
+        /// it produces — the resource bar turns that number red. Presentation
+        /// only (cached for half a second of real time).
+        /// </summary>
+        public static TerritoryYield FactionNetForDisplay(EntityManager em, Faction faction)
+        {
+            double now = UnityEngine.Time.realtimeSinceStartupAsDouble;
+            if (_netCacheFaction == faction && now - _netCacheAt <= DisplayCensusSeconds && now >= _netCacheAt)
+                return _netCache;
+
+            var net = new TerritoryYield();
+            if (RegionMap.Ready)
+            {
+                for (int t = 0; t < RegionMap.Count; t++)
+                {
+                    if (TerritoryOwnership.OwnerOf(t) != (int)faction) continue;
+                    var y = ComputeYieldForDisplay(em, t, faction);
+                    net.Supplies += y.Supplies; net.Iron += y.Iron;
+                    net.Veilstone += y.Veilstone; net.Veilsteel += y.Veilsteel;
+                }
+            }
+            var q = QC_Outposts.Get(em, QT_Outposts);
+            using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (facs[i].Value != faction) continue;
+                var y = BuildingYieldForDisplay(em, ents[i]);
+                net.Supplies += y.Supplies; net.Iron += y.Iron;
+                net.Veilstone += y.Veilstone; net.Veilsteel += y.Veilsteel;
+            }
+
+            _netCache = net;
+            _netCacheFaction = faction;
+            _netCacheAt = now;
+            return net;
+        }
+
         private readonly Census _tickCensus = new Census();
 
         /// <summary>The yield computation proper, over a census. Every sum
@@ -331,55 +511,25 @@ namespace TheWaningBorder.Systems.World
             var y = new TerritoryYield();
             if (territory < 0 || !RegionMap.Ready) return y;
 
-            // ── The slots, and what the WEAKEST one says about the base ──
-            //
-            // Each supply node is a slot: empty it pays nothing, and with a
-            // Gatherer's Hut on it it pays 50 doubled per hut level (50 /
-            // 100 / 200). The base then scales with the LEAST developed slot,
-            // so a territory pays its bare-ground floor until every slot has
-            // been raised — finishing a territory is what lifts it, and one
-            // neglected slot holds the whole base back.
-            //
-            // Level 0 (any slot still empty, or a territory with no slots at
-            // all) leaves the base exactly where it was, so freshly claimed
-            // ground is never worth literally nothing.
-            int minSlotLevel = int.MaxValue;
-            int slotsSeen = 0;
+            bool alanthor = CultureConfig.GetCompletedCulture(em, owner) == Cultures.Alanthor;
+
+            // The Fortress's own supplies.
+            y.Supplies += FortressSuppliesPerMinute * Census.CountAt(c.FortressRegion, territory);
+
+            // Supply slots: 10 empty, the hut's ladder with one on it.
             for (int i = 0; i < c.SupplyRegion.Count; i++)
-            {
-                if (c.SupplyRegion[i] != territory) continue;
-                slotsSeen++;
-                int lvl = c.SupplyHutLevel[i];
-                if (lvl < minSlotLevel) minSlotLevel = lvl;
-                if (lvl > 0)
-                    y.Supplies += SuppliesPerHutPerMinute * Pow2(lvl - 1);
-            }
-            if (slotsSeen == 0 || minSlotLevel == int.MaxValue) minSlotLevel = 0;
-            y.Supplies += BareSuppliesPerMinute * Pow2(minSlotLevel);
+                if (c.SupplyRegion[i] == territory)
+                    y.Supplies += SlotRate(c.SupplyHutLevel[i], alanthor);
 
-            // Forests are scene markers, not entities.
-            int forests = Census.CountAt(c.ForestRegion, territory);
-            if (forests > 0)
-            {
-                float forestPay = forests * SuppliesPerForestPerMinute;
-                int sawyers = Census.CountAt(c.SawyerRegion, territory);
-                if (sawyers > 0)
-                    forestPay *= Mathf.Pow(SawyerMultiplier,
-                                           Mathf.Min(sawyers, MaxSawyersPerTerritory));
-                y.Supplies += forestPay;
-            }
-
-            // Resource nodes, and whatever mines are standing on them. Survey
-            // research scales the lot: it is the only remaining consumer of the
-            // Guild survey ladder now that the hut's area model is gone.
-            y.Iron      = NodeAndMineYield(em, c.Ore[0], territory, drainMinutes,
-                              IronYieldPerMinute)
-                          * SurveyMultiplier(owner, IronSurveyLadder);
-            y.Veilstone = NodeAndMineYield(em, c.Ore[1], territory, drainMinutes,
-                              VeilstoneYieldPerMinute)
-                          * SurveyMultiplier(owner, VeilstoneSurveyLadder);
-            y.Veilsteel = NodeAndMineYield(em, c.Ore[2], territory, drainMinutes,
-                              VeilsteelYieldPerMinute)
+            // Ore slots. Survey research scales each line. There is no
+            // veilsteel line — veilsteel is MADE (the Trading Outpost), never
+            // mined.
+            y.Iron = OreSlotYield(em, c.Ore[0], territory, drainMinutes, alanthor, IronYieldMultiplier, false,
+                                  MineTechMultiplier(owner))
+                     * SurveyMultiplier(owner, IronSurveyLadder);
+            float veilMult = CultureConfig.GetCompletedCulture(em, owner) == Cultures.Feraldis
+                ? FeraldisVeilstoneMultiplier : 1f;
+            y.Veilstone = OreSlotYield(em, c.Ore[1], territory, drainMinutes, false, veilMult, true)
                           * SurveyMultiplier(owner, VeilstoneSurveyLadder);
 
             // ── The Hall doubles everything the territory earns ──────────
@@ -412,19 +562,15 @@ namespace TheWaningBorder.Systems.World
         static readonly ComponentType[] QT_Supply = { ComponentType.ReadOnly<SupplyNodeTag>(), ComponentType.ReadOnly<LocalTransform>() };
         static readonly ComponentType[] QT_Hut = { ComponentType.ReadOnly<GathererHutTag>(), ComponentType.ReadOnly<LocalTransform>() };
         static readonly ComponentType[] QT_Hall = { ComponentType.ReadOnly<HallTag>(), ComponentType.ReadOnly<LocalTransform>() };
-        static readonly ComponentType[] QT_Sawyer = { ComponentType.ReadOnly<SawyerTag>(), ComponentType.ReadOnly<LocalTransform>() };
         static readonly ComponentType[] QT_Iron = { ComponentType.ReadOnly<IronMineTag>(), ComponentType.ReadOnly<LocalTransform>() };
         static readonly ComponentType[] QT_Veilstone = { ComponentType.ReadOnly<VeilstoneOutcroppingTag>(), ComponentType.ReadOnly<LocalTransform>() };
-        static readonly ComponentType[] QT_Veilsteel = { ComponentType.ReadOnly<VeilsteelDepositTag>(), ComponentType.ReadOnly<LocalTransform>() };
         static readonly ComponentType[] QT_Mine = { ComponentType.ReadOnly<MineTag>(), ComponentType.ReadOnly<LocalTransform>() };
         static readonly ComponentType[] QT_VeilstoneMine = { ComponentType.ReadOnly<VeilstoneMineTag>(), ComponentType.ReadOnly<LocalTransform>() };
-        static readonly ComponentType[] QT_Smelter = { ComponentType.ReadOnly<SmelterTag>(), ComponentType.ReadOnly<LocalTransform>() };
         static readonly ComponentType[] QT_MissingIron = { ComponentType.ReadOnly<IronMineTag>(), ComponentType.ReadOnly<LocalTransform>(), ComponentType.Exclude<NodeReserve>() };
         static readonly ComponentType[] QT_MissingVeilstone = { ComponentType.ReadOnly<VeilstoneOutcroppingTag>(), ComponentType.ReadOnly<LocalTransform>(), ComponentType.Exclude<NodeReserve>() };
-        static readonly ComponentType[] QT_MissingVeilsteel = { ComponentType.ReadOnly<VeilsteelDepositTag>(), ComponentType.ReadOnly<LocalTransform>(), ComponentType.Exclude<NodeReserve>() };
-        static CachedEntityQuery QC_Supply, QC_Hut, QC_Hall, QC_Sawyer, QC_Iron, QC_Veilstone, QC_Veilsteel,
-                                 QC_Mine, QC_VeilstoneMine, QC_Smelter,
-                                 QC_MissingIron, QC_MissingVeilstone, QC_MissingVeilsteel;
+        static CachedEntityQuery QC_Supply, QC_Hut, QC_Hall, QC_Iron, QC_Veilstone,
+                                 QC_Mine, QC_VeilstoneMine,
+                                 QC_MissingIron, QC_MissingVeilstone;
 
         // Nodes and buildings never move, so each one's territory is asked
         // once per partition (RegionMap.Version), not once per tick per
@@ -467,11 +613,10 @@ namespace TheWaningBorder.Systems.World
         {
             public readonly List<int> SupplyRegion = new List<int>();
             public readonly List<int> SupplyHutLevel = new List<int>();
-            public readonly List<int> ForestRegion = new List<int>();
-            public readonly List<int> SawyerRegion = new List<int>();
             public readonly List<int> HallRegion = new List<int>();
             public readonly List<int> HallLevel = new List<int>();
-            public readonly OreCensus[] Ore = { new OreCensus(), new OreCensus(), new OreCensus() };
+            public readonly List<int> FortressRegion = new List<int>();
+            public readonly OreCensus[] Ore = { new OreCensus(), new OreCensus() };
             private readonly List<Vector3> _built = new List<Vector3>();   // x, z, level
 
             public static int CountAt(List<int> regions, int territory)
@@ -483,8 +628,8 @@ namespace TheWaningBorder.Systems.World
 
             public void Build(EntityManager em)
             {
-                SupplyRegion.Clear(); SupplyHutLevel.Clear(); ForestRegion.Clear();
-                SawyerRegion.Clear(); HallRegion.Clear(); HallLevel.Clear();
+                SupplyRegion.Clear(); SupplyHutLevel.Clear();
+                HallRegion.Clear(); HallLevel.Clear(); FortressRegion.Clear();
 
                 // Gatherer's Huts, built, not Raider Camps (converted huts that
                 // KEEP GathererHutTag — AgeUpSystem adds RaiderCampTag to the
@@ -513,26 +658,6 @@ namespace TheWaningBorder.Systems.World
                     }
                 }
 
-                var stands = MapMarkerRegistry.NatureRegions;
-                for (int i = 0; i < stands.Count; i++)
-                {
-                    var fm = stands[i];
-                    if (fm == null || fm.Kind != NatureRegionMarker.NatureKind.Forest) continue;
-                    var p = fm.WorldPosition;
-                    ForestRegion.Add(RegionMap.RegionAt(p.x, p.z));
-                }
-
-                {
-                    var q = QC_Sawyer.Get(em, QT_Sawyer);
-                    using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
-                    for (int i = 0; i < ents.Length; i++)
-                    {
-                        if (em.HasComponent<UnderConstruction>(ents[i])) continue;
-                        var p = em.GetComponentData<LocalTransform>(ents[i]).Position;
-                        SawyerRegion.Add(RegionOfStatic(ents[i], p.x, p.z));
-                    }
-                }
-
                 {
                     var q = QC_Hall.Get(em, QT_Hall);
                     using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
@@ -542,16 +667,17 @@ namespace TheWaningBorder.Systems.World
                         var p = em.GetComponentData<LocalTransform>(ents[i]).Position;
                         HallRegion.Add(RegionOfStatic(ents[i], p.x, p.z));
                         HallLevel.Add(LevelOf(em, ents[i]));
+                        if (em.HasComponent<FortressTag>(ents[i]))
+                            FortressRegion.Add(RegionOfStatic(ents[i], p.x, p.z));
                     }
                 }
 
                 BuildOre(em, Ore[0], QC_Iron.Get(em, QT_Iron), QC_Mine.Get(em, QT_Mine));
                 BuildOre(em, Ore[1], QC_Veilstone.Get(em, QT_Veilstone), QC_VeilstoneMine.Get(em, QT_VeilstoneMine));
-                BuildOre(em, Ore[2], QC_Veilsteel.Get(em, QT_Veilsteel), QC_Smelter.Get(em, QT_Smelter));
             }
 
             /// <summary>One building per resource: a Mine on iron, a Veilstone
-            /// Mine on veilstone, a Smelter on veilsteel. (This used to be one
+            /// Mine on veilstone. (This used to be one
             /// generic Mine counted for all three ore kinds, so a single
             /// building near a cluster boosted everything at once.) Levels are
             /// summed per node.</summary>
@@ -628,44 +754,72 @@ namespace TheWaningBorder.Systems.World
         }
 
         /// <summary>
-        /// Per-minute output of every node of one kind in a territory: the
-        /// node's own trickle plus 25 per level of the extractor built on it.
+        /// What one slot pays per minute: 10 empty, else its extractor's
+        /// ladder — 50 / 100 / 200, or Alanthor's 70 / 100 / 200.
         /// </summary>
-        private static float NodeAndMineYield(EntityManager em, OreCensus o, int territory,
-            float drainMinutes, float nodeYieldPerMinute)
+        private static float MineRate(int extractorLevel, bool alanthor)
+            => extractorLevel <= 0 ? EmptySlotPerMinute
+                                   : SlotRate(extractorLevel, alanthor) * MineYieldMultiplier;
+
+        private static float SlotRate(int extractorLevel, bool alanthor)
+        {
+            if (extractorLevel <= 0) return EmptySlotPerMinute;
+            if (alanthor)
+                return AlanthorSlotLadder[Mathf.Clamp(extractorLevel, 1, AlanthorSlotLadder.Length) - 1];
+            return ExtractorSlotPerMinute * Pow2(extractorLevel - 1);
+        }
+
+        /// <summary>
+        /// Per-minute output of every ore slot of one kind in a territory.
+        ///
+        /// IRON keeps the depletion curve: yield scales by what is left, down
+        /// to <see cref="DepletionFloor"/>. VEILSTONE is fast and finite: an
+        /// outcrop pays only while Inactive, at its full rate until its reserve
+        /// is gone, then it is Depleted and pays nothing (Veilstone_Economy.md
+        /// §2). Every unit paid is drawn from the reserve on the paying call.
+        /// </summary>
+        private static float OreSlotYield(EntityManager em, OreCensus o, int territory,
+            float drainMinutes, bool alanthor, float multiplier, bool veilstone,
+            float extractorMultiplier = 1f)
         {
             float total = 0f;
             for (int i = 0; i < o.Node.Count; i++)
             {
                 if (o.Region[i] != territory) continue;
                 var node = o.Node[i];
+                if (veilstone && TheWaningBorder.Systems.Economy.VeilstoneNodeStateSystem.KindOf(em, node)
+                                 != VeilstoneNodeKind.Inactive) continue;
 
-                // Fresh rate: the node's own trickle plus every level of the
-                // extraction building standing on it.
-                float fresh = nodeYieldPerMinute
-                            + o.ExtractorLevels[i] * MineYieldPerMinutePerLevel;
-
-                // Scaled by how much is left in the ground.
-                float scale = 1f;
+                float rate = MineRate(o.ExtractorLevels[i], alanthor) * multiplier;
+                // A slot with its extractor on it earns that extractor's
+                // research (the Mine ladder); an empty slot does not.
+                if (o.ExtractorLevels[i] > 0) rate *= extractorMultiplier;
                 if (em.HasComponent<NodeReserve>(node))
                 {
                     var res = em.GetComponentData<NodeReserve>(node);
-                    if (res.Initial > 0f)
-                        scale = Mathf.Max(DepletionFloor, res.Remaining / res.Initial);
-
-                    if (drainMinutes > 0f && res.Remaining > 0f)
+                    if (veilstone)
                     {
-                        // Take out exactly what is being paid. Extraction
-                        // buildings therefore consume the node faster than the
-                        // bare trickle does — upgrading is a choice to spend it
-                        // sooner, which is the whole tension.
-                        res.Remaining = Mathf.Max(0f,
-                            res.Remaining - fresh * scale * drainMinutes);
-                        em.SetComponentData(node, res);
+                        if (res.Remaining <= 0f) continue;
+                        if (drainMinutes > 0f)
+                        {
+                            float take = Mathf.Min(res.Remaining, rate * drainMinutes);
+                            res.Remaining -= take;
+                            em.SetComponentData(node, res);
+                            rate = take / drainMinutes;
+                        }
+                    }
+                    else
+                    {
+                        if (res.Initial > 0f)
+                            rate *= Mathf.Max(DepletionFloor, res.Remaining / res.Initial);
+                        if (drainMinutes > 0f && res.Remaining > 0f)
+                        {
+                            res.Remaining = Mathf.Max(0f, res.Remaining - rate * drainMinutes);
+                            em.SetComponentData(node, res);
+                        }
                     }
                 }
-
-                total += fresh * scale;
+                total += rate;
             }
             return total;
         }
@@ -683,7 +837,6 @@ namespace TheWaningBorder.Systems.World
         {
             AddMissingReserves(em, QC_MissingIron.Get(em, QT_MissingIron));
             AddMissingReserves(em, QC_MissingVeilstone.Get(em, QT_MissingVeilstone));
-            AddMissingReserves(em, QC_MissingVeilsteel.Get(em, QT_MissingVeilsteel));
         }
 
         private static void AddMissingReserves(EntityManager em, EntityQuery q)

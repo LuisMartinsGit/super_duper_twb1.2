@@ -111,7 +111,7 @@ pre-culture lvl 0 form exists.
 
 | Unit | Train time | Cost | Pop | Notes |
 |------|-----------|------|-----|-------|
-| **Worker** | 5 s | 50 Supplies | 1 | Unified Builder + Miner (see Units section). |
+| **Worker** | 5 s | 50 Supplies | 1 | The one worker unit (see Units section). |
 | **Scout** | 4 s | 55 Supplies | 1 | Moved from Barracks to Hall per overview. |
 
 #### Researchable techs
@@ -356,6 +356,23 @@ No level-up path. No trainable units.
 > +0 / +2 / +5 / +7). The **Fortress provides 10**, flat — its levels do not
 > raise it. A match opens on 9 of 10 (3 Workers, 3 Spearmen, 2 Archers, a
 > Scout), so the first House is the first thing any army needs.
+>
+> **DOUBLED 2026-10-01:** a House provides **6 / 10 / 16 / 20** at levels
+> 0-3 (`Hut.asset` base 6 + HutBonusPop +0 / +4 / +10 / +14), and the
+> population cap is **300** (was 200, `FactionPopulation.AbsoluteMax`) — the
+> AI was building Houses endlessly to reach a cap that cost too many of them.
+
+> **LIMIT 20 (2026-10-02):** a faction may own at most **20 Houses** at once —
+> finished, rising or still a plan (`Hut.asset` `maxPerFaction`, enforced for
+> every player at the command layer by `BuildingFactory.AtFactionCap`). Twenty
+> level-3 Houses are 400 population, so the 300 cap stays reachable.
+>
+> **The AI keeps them in one quarter (2026-10-02):** its first House goes in
+> the normal base ring; every later one is placed outward from the centre of
+> the Houses it already has, with no centre spacing and no lane — Houses may
+> stand wall to wall (the lane elsewhere is only a look),
+> so its housing is one residential block rather than huts dotted through
+> the base.
 
 Provides population in Age 0. At age-up the per-culture behavior splits
 three ways (see [Â§ Age-up transitions](#age-up-transitions) for details):
@@ -382,28 +399,33 @@ No trainable units. No tech (population is its product).
 
 ---
 
-### Wooden Wall — the Age 0 wall (2026-09-21, NEW)
+### Palisade — the Age 0 wall (2026-10-02 — supersedes "Wooden Wall", 2026-09-21)
 
-The wall is no longer an Alanthor building that appears at age-up. Its
-**first level — a timber palisade — is an Age 0 building every culture can
-place**, from the first minute. The player sees it called a **Wooden Wall**
-everywhere; the internal id is still `Alanthor_Wall`, which nothing
-player-facing ever shows. Everything above level 1 stays Alanthor's: the
-stone cladding (granted by the age-up itself), the shields and the garrison
-slots.
+> **The palisade is its OWN building, not level 0 of the stone wall.** Until
+> 2026-10-02 the timber fence was `Alanthor_Wall` at level 0 and the Alanthor
+> age-up re-clad it in stone. That is retired: a palisade is a palisade for its
+> whole life, and the Stone Wall is a different building Alanthor gains at
+> age-up ([Age_1_Alanthor.md § The stone wall](Age_1_Alanthor.md#the-stone-wall-2026-10-02--canonical-supersedes-the-wall-tiers-below)).
+
+Every culture can draw a palisade from the first minute. **At age-up, Alanthor
+and Runai lose it** — the build button is gone, and nothing new can be added
+to a palisade they already own (no Build Wall from a palisade hub, no Convert to
+Hub on a palisade section). What they built **stays timber**: it keeps its HP,
+it can still be turned into a gate, and it can be deleted. **Feraldis keep
+building palisades for the whole game** — they never leave timber.
 
 | Stat | Value |
 |------|-------|
-| Cost | 50 S + 20 I per hub; the curtain between hubs is free |
-| HP | hub 600, curtain module 200 |
-| Footprint | hub 2 × 2 cells (4 × 4 m), but **not grid-snapped** — the hub is the one building exempt from the build grid, so a drawn wall runs exactly where it was drawn ([Build_Grid.md § 5](Build_Grid.md)). The curtain is freeform |
-| Look | authored art — `Wall_segment.fbx` in the wall's own folder (`Age0/Buildings/Wall/`), tiled along the drawn curve. See [Age_1_Alanthor.md § The wall's art](Age_1_Alanthor.md#the-walls-art-2026-09-21) |
-| Conversions | **Gate and Hub only** (2026-09-24). A timber section converts to a gatehouse or to a wall hub (so the fence can branch). **No tower and no mounted engine** — both are masonry work. The panel shows no disabled "No tower" placeholder; the cards are simply absent |
-| Level | **Lv0** — the culture-less wall, exactly as every other building's Lv0. Picking Alanthor grants Lv1 (stone) free; Lv2 and Lv3 are bought **at the Wall Hub**. See [Age_1_Alanthor.md § The four wall levels](Age_1_Alanthor.md#the-four-wall-levels-2026-09-24--supersedes-the-three-wall-levels) |
+| Id | `Palisade` (hub). Its curtain sections, gates and seals are the shared wall pieces, carrying `PalisadeTag` |
+| Who | **every culture in Age 0; Feraldis only after age-up** |
+| Cost | **50 S** per hub (supplies only since 2026-10-02), **plus 6 S per 3 m curtain module** (`Palisade/PalisadeSegment.asset`), charged for the whole length when the fence is laid (2026-10-02 — the curtain used to be free) |
+| HP | hub 600, curtain module 200 (the shared `WallSegment.asset`), never scaled — a palisade has no levels |
+| Footprint | hub 2 × 2 cells (4 × 4 m), **not grid-snapped** (the wall hubs are the buildings exempt from the build grid, [Build_Grid.md § 5](Build_Grid.md)). The curtain is freeform and **thin** — it blocks a 3-cell band on the nav grid |
+| Walkable | **no.** A fence has no wall-walk; only the stone wall has a deck |
+| Look | authored timber art — `Wall_segment.fbx` / `Wall_hub.fbx` in `Age0/Buildings/Wall/`, the palisade slot (0) of `WallModuleArt.asset` |
+| Conversions | **Gate and Hub only.** No tower and no mounted engine. No placeholder cards |
+| Joins | **palisade to palisade only.** A palisade never snaps to, auto-connects with, or is branched from a stone wall, and the reverse — they are different buildings |
 | Placement | drawn, exactly as [Age_1_Alanthor.md § Drawing walls](Age_1_Alanthor.md#drawing-walls-2026-09-18) describes |
-
-Full tier table, the gate, garrison and the two wall-mounted emplacements (masonry levels only):
-[Age_1_Alanthor.md § Wall levels, the gate structure and emplacements](Age_1_Alanthor.md#wall-levels-the-gate-structure-and-emplacements-2026-09-21).
 
 ## Age-up by landmark (2026-09-29 — SUPERSEDES the section below and the Advance to Era II research)
 
@@ -434,6 +456,23 @@ and no culture-choice dialog: the landmark you build decides the culture.
 - The landmarks' own properties (Vault interest, Keep volleys) are unchanged
   for now; the Vault is due a rework.
 
+### The AI and the age-up (2026-10-02)
+
+**Age 0 is for the age-up, not the war.** Before it has aged up an AI does not
+attack and SAVES for its landmark:
+
+- **Aggressive and Rush** send out exactly **one** attack wave in Age 0, then
+  stop attacking and save. Their Age 0 army is the 8 units that wave needs. If
+  that wave cannot launch, they start saving 5 minutes past their usual
+  age-up push anyway — a rusher is never stuck in Age 0.
+- **Every other personality** (Balanced, Defensive, Economic, TechBoom, Turtle)
+  launches **no** wave in Age 0 and saves from the start; it keeps only a
+  defensive garrison of 4.
+- **Saving is strict.** While an AI saves for the landmark, its savings hold
+  does not lapse (the usual 4-minute duty cycle does not apply): only workers,
+  houses, supply huts and the garrison floor may spend until the landmark is
+  paid for.
+
 **The Shrine of Ridan is cut** — it is no longer a choice building. The
 Litharch and the Shrine's research move to the Temple of Ridan, which is now an
 Age 0 building ([Religion.md](Religion.md) §2).
@@ -453,7 +492,7 @@ form).
 
 **Placement & construction (decided 2026-07-06):**
 
-- Choice buildings are **not** placed through a Builder's build menu. Three
+- Choice buildings are **not** placed through a Worker's build menu. Three
   dedicated buttons sit at the **top of the game window**; each becomes
   active when the player can afford that building.
 - After the player places one, all three buttons disappear (mutual
@@ -578,12 +617,12 @@ that culture's Era 2 unlock, not Age 0.
 
 Combat math: `finalDamage = baseDamage Ã— dmgTypeVsArmor Ã— (1 âˆ’ defense / (defense + 100))`. Armor / damage type matrix is in [TechTree.json](../../Assets/Resources/TechTree.json#L28).
 
-### Worker â€” unified Builder + Miner
+### Worker
 
-> Combines the two Age 0 economy units. AI workers continue to auto-find
+> The one Age 0 economy unit. AI workers continue to auto-find
 > deposits / building sites; player workers require an explicit command except
 > for auto-chain on depletion within Line of Sight (preserved from current
-> Miner / Builder behavior).
+> worker behavior).
 
 | Field | Value |
 |------|-------|
@@ -715,7 +754,7 @@ map so the Age 0 build order can be planned forward.
 > said "despawns 2 min after age-up with full refund" â€” that model is
 > retired.) Each transformation is the **only** free-territory burst the
 > faction ever gets; every subsequent trade-post / wall / raider after
-> age-up costs builders + resources at the normal rate.
+> age-up costs workers + resources at the normal rate.
 
 **Feraldis special case:** in addition to *also* gaining Hunting Lodge /
 Logging Station upgrade paths from the persistent Gatherer's Hut, the user

@@ -228,13 +228,13 @@ namespace TheWaningBorder.Systems.Combat
 
                     // Curse & Shardroot canon §2.1: BORDER emplacements
                     // (well turrets, Turret sub-nodes) GUARD the well — they
-                    // don't hunt harvesters. Worker-class units (miners /
-                    // builders) are only fired on when they press right up
+                    // don't hunt harvesters. Worker-class units (workers)
+                    // are only fired on when they press right up
                     // to the structure; military targets are engaged
                     // normally. This is what makes sneak-mining the crystal
                     // fields survivable.
                     if (myFaction == Faction.Border && dist > BorderWorkerGraceRange
-                        && (em.HasComponent<MinerTag>(tgtEntities[i])
+                        && (em.HasComponent<WorkerTag>(tgtEntities[i])
                             || em.HasComponent<CanBuild>(tgtEntities[i])))
                         continue;
 

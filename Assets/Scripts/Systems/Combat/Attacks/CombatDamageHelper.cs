@@ -209,7 +209,8 @@ namespace TheWaningBorder.Systems.Combat
         }
 
         public static int ApplyBonusDamageOnHit(EntityManager em, EntityCommandBuffer ecb,
-            Entity attacker, Entity target, int baseDamage)
+            Entity attacker, Entity target, int baseDamage,
+            TheWaningBorder.Core.HitSource source = TheWaningBorder.Core.HitSource.Melee)
         {
             // Last line of defence for the no-allied-damage rule. Hostility is
             // decided upstream (target acquisition, attack orders, AoE filters)
@@ -225,6 +226,14 @@ namespace TheWaningBorder.Systems.Combat
             }
 
             int final = baseDamage;
+
+            // Presentation: a hit effect on the struck UNIT (the charge impact
+            // when the attacker is charging). Both melee and projectile hits
+            // come through here. A queue the sim only writes — never read back.
+            if (em.HasComponent<UnitTag>(target))
+                TheWaningBorder.Core.CombatVfxSignals.Post(target, source,
+                    em.HasComponent<TheWaningBorder.Abilities.Charging>(attacker),
+                    em.HasComponent<FactionTag>(attacker) ? em.GetComponentData<FactionTag>(attacker).Value : default);
 
             // SpellBuff.DamageMultiplier on attacker (Empower-style timed buff)
             if (TransientState.Active<SpellBuff>(em, attacker))

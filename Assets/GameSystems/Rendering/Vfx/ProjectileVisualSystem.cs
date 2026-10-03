@@ -215,7 +215,16 @@ namespace TheWaningBorder.Rendering
                         _liveImpacts.Add(new PendingImpact { Visual = impact, ReturnAt = Time.time + ImpactLifetime });
                     }
 
-                    Return(pv);
+                    // An arrow that landed keeps its trails and tip alive long
+                    // enough to fade where it stopped, instead of vanishing.
+                    // It stays out of the pool meanwhile, so the archer's next
+                    // shot (even while this one is still fading) rents a
+                    // different visual.
+                    float fade = pv != null && pv.Template == _arrowTemplate ? ArrowTrailTiers.BeginFade(go) : 0f;
+                    if (fade > 0f)
+                        _liveImpacts.Add(new PendingImpact { Visual = pv, ReturnAt = Time.time + fade });
+                    else
+                        Return(pv);
                 }
                 _visuals.Remove(entity);
                 _impactScales.Remove(entity);
@@ -307,6 +316,7 @@ namespace TheWaningBorder.Rendering
                 // naming only, dropped.)
                 var pooled = Rent(template);
                 var go = pooled.Go;
+                if (template == _arrowTemplate) ArrowTrailTiers.ResetAfterFade(go);   // meshes hidden by a previous landing
                 go.transform.SetPositionAndRotation((Vector3)transforms[i].Position, transforms[i].Rotation);
                 go.SetActive(true);
 
@@ -326,12 +336,24 @@ namespace TheWaningBorder.Rendering
                 // bolts share this template and so share the look: they are
                 // shot from the same racks by the same army, and giving them a
                 // separate rule would be inventing one the design does not have.
-                if (isPlainArrow && spawnTrail != null)
+                if (isPlainArrow)
                 {
-                    var shooter = _em.HasComponent<Projectile>(entity)
-                        ? _em.GetComponentData<Projectile>(entity).Faction
-                        : Faction.Blue;
-                    ArrowTrailTiers.Apply(spawnTrail, ArrowTrailTiers.Of(shooter));
+                    bool hasProj = _em.HasComponent<Projectile>(entity);
+                    var projData = hasProj ? _em.GetComponentData<Projectile>(entity) : default;
+                    var shooter = hasProj ? projData.Faction : Faction.Blue;
+                    var tier = ArrowTrailTiers.Of(shooter);
+                    // Ballista bolts (siege damage on the arrow template) keep
+                    // the original trail ladder; arrows get the arrow look —
+                    // white / blue trail, or a projectile effect for a head.
+                    if (hasProj && projData.DmgType == DamageType.Siege)
+                    {
+                        if (spawnTrail != null) ArrowTrailTiers.Apply(spawnTrail, tier);
+                        ArrowTrailTiers.ApplyArrow(go, null, ArrowTrailTier.None);   // plain head back on a recycled arrow
+                    }
+                    else ArrowTrailTiers.ApplyArrow(go, spawnTrail, tier);
+                    // Dressed for this flight; now hide the trail + tip for the
+                    // spawn frame so the jump back to the bow draws nothing.
+                    ArrowTrailTiers.HideForOneFrame(go, spawnTrail);
                 }
                 if (bolt) go.transform.localScale = Vector3.one;
                 if (isPlainArrow && _em.HasComponent<Projectile>(entity))

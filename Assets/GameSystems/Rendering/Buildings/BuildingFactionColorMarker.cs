@@ -204,6 +204,14 @@ namespace TheWaningBorder.Rendering
                     // a player-colour trim. Instances read "Playercolor (Instance)".
                     if (IsPlayerColorMaterial(mat)) { PaintSolid(mat, factionColor); continue; }
 
+                    // The castle kit's SLATE (Castle_Roof_01 — cone and pyramid
+                    // roofs, hoarding galleries) takes the player's colour,
+                    // tinted so the slate texture survives (2026-10-02;
+                    // supersedes "roofs are dark slate" for the castle set —
+                    // docs/Design/Art_Direction.md §4). By MATERIAL, so the
+                    // gallery's timber and the roof's finial are untouched.
+                    if (IsCastleRoofMaterial(mat)) { SetTint(mat, factionColor); continue; }
+
                     // Name-tagged parts are a flat solid faction color. They must
                     // NOT also run the atlas swap: the roof rule assigns
                     // Texture2D.whiteTexture, which the swap would then try to
@@ -242,6 +250,10 @@ namespace TheWaningBorder.Rendering
             Apply(stamp.gameObject, stamp.Value);
             return true;
         }
+
+        /// <summary>The castle kit's slate roof material (Castle_Roof_01; instances read "(Instance)").</summary>
+        private static bool IsCastleRoofMaterial(Material mat)
+            => mat.name.IndexOf("Castle_Roof", System.StringComparison.OrdinalIgnoreCase) >= 0;
 
         /// <summary>A material the artist named as the player-colour slot (e.g. the Hut's "Playercolor").</summary>
         private static bool IsPlayerColorMaterial(Material mat)

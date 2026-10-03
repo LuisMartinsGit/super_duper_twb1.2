@@ -85,6 +85,14 @@ namespace TheWaningBorder.Systems.Buildings
         {
             if (!em.HasComponent<BuildingUpgradeState>(building)) return;
 
+            // Every per-level table is MaxLevel + 1 long: a level past the top
+            // is a caller bug, but never an out-of-range crash.
+            if (level > BuildingUpgradeConfig.MaxLevel)
+            {
+                UnityEngine.Debug.LogWarning($"[Upgrade] level {level} past MaxLevel {BuildingUpgradeConfig.MaxLevel} — clamped");
+                level = BuildingUpgradeConfig.MaxLevel;
+            }
+
             var ups = em.GetComponentData<BuildingUpgradeState>(building);
             ups.Level = level;
             em.SetComponentData(building, ups);
@@ -102,12 +110,22 @@ namespace TheWaningBorder.Systems.Buildings
                 + (em.HasComponent<FactionTag>(building)
                     ? $" ({em.GetComponentData<FactionTag>(building).Value})" : ""));
 
+            // The level's numbers: its BuildingLevelDefSO when the owner's
+            // culture authors one (Alanthor), else the code tables.
+            byte culture = em.HasComponent<FactionTag>(building)
+                ? CultureConfig.GetCompletedCulture(em, em.GetComponentData<FactionTag>(building).Value)
+                : Cultures.None;
+            string ladderId = TheWaningBorder.Core.Commands.Types.UpgradeBuildingCommandHelper
+                .ResolveBuildingId(em, building);
+            var stats = BuildingUpgradeConfig.StatsFor(culture, ladderId, level,
+                ups.BasePopulationProvider, em.HasComponent<HutTag>(building), em.HasComponent<HallTag>(building));
+
             // Health: scale Max from base, scale current proportionally so
             // the visual HP bar stays at the same percentage. (Mid-combat
             // upgrades don't suddenly heal or kill the building.)
             if (em.HasComponent<Health>(building) && ups.BaseHpMax > 0)
             {
-                int newMax = (int)(ups.BaseHpMax * BuildingUpgradeConfig.HpMultiplier[level]);
+                int newMax = (int)(ups.BaseHpMax * stats.HpMultiplier);
                 var hp = em.GetComponentData<Health>(building);
                 float pct = hp.Max > 0 ? (float)hp.Value / hp.Max : 1f;
                 hp.Max = newMax;
@@ -117,13 +135,13 @@ namespace TheWaningBorder.Systems.Buildings
 
             // Attack: cooldown scales by AttackCooldownMultiplier. Hall +
             // Barracks-at-lvl-3 also pull from HallMaxTargets where applicable.
-            ApplyAttackChanges(em, building, level, ups.BaseAttackCooldown);
+            ApplyAttackChanges(em, building, level, ups.BaseAttackCooldown, stats);
 
-            // Hut: +5 pop per level.
-            if (em.HasComponent<HutTag>(building) && em.HasComponent<PopulationProvider>(building))
+            // Population (the House ladder): absolute per level.
+            if (stats.Population >= 0 && em.HasComponent<PopulationProvider>(building))
             {
                 var pp = em.GetComponentData<PopulationProvider>(building);
-                pp.Amount = ups.BasePopulationProvider + BuildingUpgradeConfig.HutBonusPop[level];
+                pp.Amount = stats.Population;
                 em.SetComponentData(building, pp);
             }
         }
@@ -149,7 +167,7 @@ namespace TheWaningBorder.Systems.Buildings
         }
 
         private static void ApplyAttackChanges(EntityManager em, Entity building,
-            byte level, float baseAttackCooldown)
+            byte level, float baseAttackCooldown, BuildingUpgradeConfig.LevelStats stats)
         {
             bool isHall     = em.HasComponent<HallTag>(building);
             bool isBarracks = em.HasComponent<BarracksTag>(building);
@@ -158,18 +176,19 @@ namespace TheWaningBorder.Systems.Buildings
             {
                 // Already attacks — scale cooldown, set MaxTargets per level.
                 var atk = em.GetComponentData<BuildingRangedAttack>(building);
-                atk.Cooldown = baseAttackCooldown * BuildingUpgradeConfig.AttackCooldownMultiplier[level];
-                atk.MaxTargets = BuildingUpgradeConfig.HallMaxTargets[level];
+                atk.Cooldown = baseAttackCooldown * stats.AttackCooldownMultiplier;
+                if (stats.MaxTargets > 0) atk.MaxTargets = stats.MaxTargets;
                 em.SetComponentData(building, atk);
             }
-            else if (isBarracks && level >= 3)
+            // A level SO authors the Barracks' level-3 arrows itself
+            // (ApplyAuthoredLevel below); the constants are the code-table path.
+            else if (isBarracks && level >= 3 && stats.Def == null)
             {
                 // L3 Barracks gains a ranged attack. Apply the L3 attack-rate
                 // multiplier to its cooldown for symmetry with Hall — a fully
                 // upgraded Barracks fires at the same cadence as a fully
                 // upgraded Hall.
-                float scaledCooldown = BarracksAttackCooldown
-                    * BuildingUpgradeConfig.AttackCooldownMultiplier[level];
+                float scaledCooldown = BarracksAttackCooldown * stats.AttackCooldownMultiplier;
 
                 // Gain ranged attack on first arrival at lvl 3. Idempotent —
                 // we set the same fields whether the component is new or old.
@@ -200,7 +219,7 @@ namespace TheWaningBorder.Systems.Buildings
             }
             // Hut + Barracks below lvl 3 — no attack changes.
 
-            ApplyAuthoredLevel(em, building, level);
+            ApplyAuthoredLevel(em, building, level, stats.Def);
         }
 
         /// <summary>
@@ -211,31 +230,51 @@ namespace TheWaningBorder.Systems.Buildings
         /// last adds targets and a ballista bolt (BuildingSiegeShot).
         /// Buildings with no authored level entry are untouched.
         /// </summary>
-        private static void ApplyAuthoredLevel(EntityManager em, Entity building, byte level)
+        private static void ApplyAuthoredLevel(EntityManager em, Entity building, byte level,
+            TheWaningBorder.Data.BuildingLevelDefSO levelDef)
         {
-            if (!em.HasComponent<BuildingRangedAttack>(building)) return;
-            string id = TheWaningBorder.Entities.BuildingIds.Of(building, em);
-            if (string.IsNullOrEmpty(id) || !TechCatalog.TryGetBuilding(id, out var def)
-                || def?.levels == null) return;
-
-            TheWaningBorder.Data.BuildingLevel entry = null;
-            foreach (var l in def.levels)
-                if (l != null && l.level == level) { entry = l; break; }
-            if (entry == null || entry.attack == null || !entry.attack.enabled) return;
-
-            var atk = em.GetComponentData<BuildingRangedAttack>(building);
-            atk.Range = entry.attack.range;
-            atk.Damage = (int)entry.attack.damage;
-            atk.Cooldown = entry.attack.cooldown;
-            atk.MaxTargets = entry.attack.maxTargets;
-            em.SetComponentData(building, atk);
-
-            if (entry.lineOfSight > 0f && em.HasComponent<LineOfSight>(building))
-                em.SetComponentData(building, new LineOfSight { Radius = entry.lineOfSight });
-
-            if (entry.attack.siegeShotDamage > 0)
+            // The level SO first (it may GRANT an attack the building lacked —
+            // the Garrison's level-3 arrows), else the BuildingDef.levels entry
+            // of a culture still on the old model.
+            TheWaningBorder.Data.BuildingAttack attack = null;
+            float lineOfSight = 0f;
+            if (levelDef != null)
             {
-                var shot = new BuildingSiegeShot { Damage = entry.attack.siegeShotDamage };
+                attack = levelDef.attack;
+                lineOfSight = levelDef.lineOfSight;
+            }
+            else
+            {
+                if (!em.HasComponent<BuildingRangedAttack>(building)) return;
+                string id = TheWaningBorder.Entities.BuildingIds.Of(building, em);
+                if (string.IsNullOrEmpty(id) || !TechCatalog.TryGetBuilding(id, out var def)
+                    || def?.levels == null) return;
+                foreach (var l in def.levels)
+                    if (l != null && l.level == level) { attack = l.attack; lineOfSight = l.lineOfSight; break; }
+            }
+
+            if (lineOfSight > 0f && em.HasComponent<LineOfSight>(building))
+                em.SetComponentData(building, new LineOfSight { Radius = lineOfSight });
+
+            if (attack == null || !attack.enabled) return;
+
+            var atk = em.HasComponent<BuildingRangedAttack>(building)
+                ? em.GetComponentData<BuildingRangedAttack>(building) : default;
+            atk.Range = attack.range;
+            atk.Damage = (int)attack.damage;
+            atk.Cooldown = attack.cooldown;
+            atk.MaxTargets = attack.maxTargets;
+            if (em.HasComponent<BuildingRangedAttack>(building)) em.SetComponentData(building, atk);
+            else
+            {
+                em.AddComponentData(building, atk);
+                if (!em.HasComponent<DamageTypeData>(building))
+                    em.AddComponentData(building, new DamageTypeData { Value = DamageType.Ranged });
+            }
+
+            if (attack.siegeShotDamage > 0)
+            {
+                var shot = new BuildingSiegeShot { Damage = attack.siegeShotDamage };
                 if (em.HasComponent<BuildingSiegeShot>(building)) em.SetComponentData(building, shot);
                 else em.AddComponentData(building, shot);
             }

@@ -15,7 +15,7 @@ namespace TheWaningBorder.Bootstrap
 {
     /// <summary>
     /// Spawns iron deposits in patches from scene markers. Each patch = a tight
-    /// cluster of N deposits players can mine without ferrying miners across the
+    /// cluster of N deposits players can mine without ferrying workers across the
     /// map. Placement is fully marker-driven (hand-authored maps only).
     /// </summary>
     public static class IronDepositBootstrap

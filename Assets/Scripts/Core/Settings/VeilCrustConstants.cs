@@ -107,7 +107,7 @@ namespace TheWaningBorder.Core.Config
         // ~1.6x too fast, so the windows are scaled by 60/38 ≈ 1.58.
         //
         // Why that mattered more than the number suggests: the curse's effect
-        // on the economy is a CLIFF, not a slope. Miners auto-flee crust at
+        // on the economy is a CLIFF, not a slope. Workers auto-flee crust at
         // ExposureFleeSeconds (3 s), so while there is clean ground the tax is
         // tempo, and the moment there isn't, income is exactly zero. In that
         // match three of four factions hit `emaS=0.0/s emaI=0.0/s` between
@@ -210,26 +210,26 @@ namespace TheWaningBorder.Core.Config
 
         // ==================== Worker ward ====================
         /// <summary>The veil never GROWS into cells within this world radius of
-        /// a worker (MinerTag). Diggers at the face can't be enveloped by a
+        /// a worker (WorkerTag). Diggers at the face can't be enveloped by a
         /// burst and sealed inside the wall. Existing crust/haze is unaffected
         /// (infection still ticks); military units get no ward — the wall
         /// catches them (see catch-conversion). 2 cells wide, comfortably
         /// covering worker drift between ward refreshes.</summary>
         public const float WorkerWardRadius = 8f;
 
-        // ==================== Miner infection ====================
-        // Neglect a miner digging at the veil edge and the curse takes root:
+        // ==================== Worker infection ====================
+        // Neglect a worker digging at the veil edge and the curse takes root:
         // after a sustained exposure it erupts into a hostile curse creature.
-        /// <summary>Veil saturation at/above which a miner's cell counts as
+        /// <summary>Veil saturation at/above which a worker's cell counts as
         /// "near the curse" for infection. Below CrustThreshold (80) because the
-        /// crust is impassable now — miners dig from the HAZE just outside it,
+        /// crust is impassable now — workers dig from the HAZE just outside it,
         /// so infection reads that haze, not the solid crust they can't stand on.</summary>
         public const byte InfectionNearThreshold = 30;
-        /// <summary>Cumulative seconds of haze exposure before a miner turns.</summary>
+        /// <summary>Cumulative seconds of haze exposure before a worker turns.</summary>
         public const float InfectionSeconds = 120f;
-        /// <summary>Recovery rate multiplier while a miner is clear of haze
+        /// <summary>Recovery rate multiplier while a worker is clear of haze
         /// (× the exposure step). 1 = sheds a full charge in the same 2 min it
-        /// took to build — walking away in time saves the miner.</summary>
+        /// took to build — walking away in time saves the worker.</summary>
         public const float InfectionRecoverMul = 1f;
         /// <summary>Match-elapsed seconds below which an eruption is a Crystalling
         /// (early game). Between this and <see cref="InfectionMidMaxSeconds"/> it
@@ -264,7 +264,7 @@ namespace TheWaningBorder.Core.Config
         /// <summary>Off-crust recovery rate (× accrual) — leave and you shed
         /// exposure twice as fast as you gained it.</summary>
         public const float ExposureRecoverMul = 2f;
-        /// <summary>Workers (MinerTag) auto-flee toward their nearest Hall
+        /// <summary>Workers (WorkerTag) auto-flee toward their nearest Hall
         /// once their exposure crosses this — BEFORE the damage grace ends,
         /// so an unattended worker never dies to haze (the §2.5b promise:
         /// early neglect costs tempo, not corpses).</summary>

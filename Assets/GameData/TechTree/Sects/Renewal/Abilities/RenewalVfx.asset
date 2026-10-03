@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 07e0eeacbfe373c47a95b30e49bc8ae0, type: 3}
+  m_Name: RenewalVfx
+  m_EditorClassIdentifier: 
+  regenTailPrefab: {fileID: 2979407750726019859, guid: 50b63ef96f2c555478c12b1cc58454d4, type: 3}
+  deathWardPrefab: {fileID: 5966243932138495114, guid: 06e26e1e3fd61be4bb46d8de7d98d44f, type: 3}
+  fieldHospitalAuraPrefab: {fileID: 4369787680043664565, guid: 5895bedeb3957ab419c1228be5a58383, type: 3}
+  unitScalePerMetre: 0.5
+  hospitalAuthoredRadius: 4
+  hospitalHealRadius: 15
+  fadeSeconds: 1.5
+  pollSeconds: 0.5

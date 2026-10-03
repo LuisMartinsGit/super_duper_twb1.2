@@ -18,10 +18,10 @@ now replicate via LockstepCommandType.BuildingUpgrade=26 —
 UpgradeBuildingCommandHelper split into Execute [validate+spend, issuer]
 and ApplyDirect [mutation, every peer], all four callers route through it);
 F4 (AI placement now uses the IssuePlaceBuilding out-param overload; queued
-case dispatches builders at the position with a null target, human-MP
+case dispatches workers at the position with a null target, human-MP
 pattern); F5 (AI training routes through IssueTrain with CommandSource.AI,
 level-gated BEFORE the spend); F13 (ActionPanelRegion research append);
-F20 (both AI DispatchBuildersTo now pass CommandSource.AI). Perf item D1
+F20 (both AI DispatchWorkersTo now pass CommandSource.AI). Perf item D1
 fixed: LockstepManager caches one NetworkedEntity query (disposed in
 OnDestroy) and resolves ids through a per-tick Dictionary rebuilt once per
 tick; PlaceBuilding registers its entity into the map for same-tick
@@ -130,13 +130,13 @@ below has a command type, so none has any replication path.
 | F14 | Unit promotion (`UnitRankCommandHelper.Execute`) | EntityActionPanel.cs:2248 |
 | F15 | Vault deposit/withdraw (bank + `VaultStorage`) | EntityActionPanel.cs:1988-2006 |
 | F16 | Bazaar pack/unpack command tags | EntityActionPanel.cs:396, 2070 |
-| F17 | ~~Miner drop-off right-click~~ (obsolete — the drop-off mechanic was removed 2026-07-20; mined resources credit the bank directly) | — |
+| F17 | ~~Worker drop-off right-click~~ (obsolete — the drop-off mechanic was removed 2026-07-20; mined resources credit the bank directly) | — |
 | F18 | Shift-queued waypoints (`QueuedCommand` buffer) | RTSInputManager.cs:956-979 |
 | F19 | AI worker-flee retasking | AIAlanthorEndgameSystem.cs:992-1011 |
 
 ### Low — semantic
 
-- F20: AI builder dispatch omits `CommandSource.AI` (defaults LocalPlayer) —
+- F20: AI worker dispatch omits `CommandSource.AI` (defaults LocalPlayer) —
   SimpleAISystem.cs:584, AIAlanthorEndgameSystem.cs:1083. Queues by luck, but
   attributes AI orders to the player stream and pairs with F4 targets that
   do not exist on clients.

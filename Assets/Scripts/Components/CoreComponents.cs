@@ -33,7 +33,7 @@ public enum DragSelectionPriority : byte
     /// <summary>Keep the workers, drop the soldiers.</summary>
     Economy = 0,
     /// <summary>Keep the soldiers, drop the workers. The genre default: you
-    /// drag over your base to grab the army, not the miners.</summary>
+    /// drag over your base to grab the army, not the workers.</summary>
     Military = 1,
     /// <summary>Keep everything the rectangle covered.</summary>
     Off = 2,
@@ -229,7 +229,7 @@ public struct StuckState : IComponentData
 /// <summary>
 /// Rally point for newly trained units. Position is where the unit walks
 /// to after spawning; TargetEntity is an optional follow-up action target
-/// (currently used to point newly-trained miners at a specific resource
+/// (currently used to point newly-trained workers at a specific resource
 /// node so they auto-gather without a click). Entity.Null for plain
 /// "walk here" rallies.
 /// </summary>

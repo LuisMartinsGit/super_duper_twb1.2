@@ -33,7 +33,7 @@ behaviour), `MISSING` (stub / unimplemented / deferred), `DEAD` (unused / legacy
 | MED | BUG | UI/Web/HudWebController.cs:288 | `LoadUrl` wrapped in an empty catch ("will retry never") → one throw leaves the web HUD permanently blank with no recovery. |
 | LOW | BUG | AI/SimpleAISystem.cs:1556 | `EnsurePopulationHeadroom` calls `TryBuildBuilding("Hut")` every think-tick with no "Hut already under construction" guard → the AI can stack multiple simultaneous Hut foundations. |
 | LOW | BUG | AI/SimpleAISystem.cs:2182 | A single `_rngState` is shared across all AI factions despite per-faction seeding claim → correlated placement angles / step-skip rolls across factions. |
-| LOW | BUG | AI/IntelSystem.cs:177 | Classify falls through to `MilitaryUnit` for any non-miner/non-building enemy → lone enemy Scouts stamp the ThreatMap as military pressure, biasing routing/risk. |
+| LOW | BUG | AI/IntelSystem.cs:177 | Classify falls through to `MilitaryUnit` for any non-worker/non-building enemy → lone enemy Scouts stamp the ThreatMap as military pressure, biasing routing/risk. |
 | LOW | BUG | Navigation/SteeringSystem.cs:226 | `selfFactionIdx` cast with no 0..7 clamp / 0xFF sentinel (unlike Flow/GoalFlow) → factionless/out-of-range units get inconsistent gate-owner comparisons. |
 | LOW | BUG | Combat/ProjectileSystem.cs:216 | `TerrainUtility.GetHeight` called with no `IsReady()` guard (laser path guards) → returns 0 before terrain loads, sinking the bolt. |
 | LOW | BUG | Combat/EquipmentTierSystem.cs:108 (+ UnitRankSystem.cs:118) | Tier stat diffs use cumulative int truncation `(int)(value*diff)` on up/down changes → Damage/Defense erode over repeated re-applies. |
@@ -91,7 +91,7 @@ Cultures are hard-blocked "COMING SOON" (CulturePopupRegion.cs:100 / CultureChoi
 | Border/BorderArmyAISystem.cs, BorderHordeSystem.cs, RitualDefenseSystem.cs | Disabled via `CurseFieldsArmies=false` — full army/horde/ritual-defence subsystem retained but inert. |
 | Presentation/VeilSheetRenderer.cs, Systems/Creatures/BorderSpreadSystem.cs | Disabled via `UseBakedCrystalRenderer=true`. |
 | Data/TechTree/CombatModifiers.cs:54/80 | The 5×6 damage matrix (`GetModifier`) and `GlobalDamageMultiplier` have **zero callers** (matrix "kept for UI" but nothing reads it). Several system headers still claim it's live (MeleeCombatSystem.cs:15). |
-| Entities/Units/Miner.cs | Legacy `Miner.Create` — zero callers (UnitFactory aliases Miner→Builder). |
+| Entities/Units/ (legacy factory) | A legacy duplicate worker factory — zero callers (UnitFactory aliases it to the Worker). |
 | Components/NodeStateComponents.cs:82/88 | `NodeInvulnerabilityState` self-documented as unused; archetype slot kept for compat. |
 | Components/AI/AIScoutingComponents.cs, AIManagerComponents.cs | `ExplorationZone`/`CombatPower`/`AIScoutingState`/`ScoutAssignment`/`EnemySighting`, `BuildRequest`/`RecruitmentRequest` allocated per brain but no live reader (consumers were the `[DisableAutoCreation]` AI managers). |
 | Systems/AI/AIAlanthorEndgameSystem.cs:12 + AIMilitaryManager/AIStrategyEvaluator/AIBuildingManager/AIEconomyManager | `[DisableAutoCreation]` — superseded by SimpleAISystem. |

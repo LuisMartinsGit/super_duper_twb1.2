@@ -1,6 +1,6 @@
 // GameUIKit.cs
 // Shared uGUI construction helpers for the CODE-BUILT game panels (special
-// actions, spells, top choice bar, builder palette, pause, victory). These
+// actions, spells, top choice bar, worker palette, pause, victory). These
 // panels have no authored prefab yet — they are assembled at runtime, but
 // since 2026-09-18 they wear the AUTHORED Synty frames (GameUICatalog.chrome,
 // bound through Bind) so they read as one family with the prefab panels;

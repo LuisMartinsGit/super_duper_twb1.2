@@ -13,6 +13,8 @@
 // completes. Only L2 and L3 are paid manual upgrades.
 
 using TheWaningBorder.Core;
+using TheWaningBorder.Data;
+using Unity.Entities;
 
 namespace TheWaningBorder.Core.Settings
 {
@@ -27,6 +29,97 @@ namespace TheWaningBorder.Core.Settings
         public const byte MaxLevel = 3;
 
         // ──────────────────────────────────────────────────────────────────
+        // LEVEL SOs FIRST (2026-10-02). A culture whose ladders are authored
+        // as BuildingLevelDefSO assets (Alanthor) reads EVERY number below
+        // from them; the code tables further down remain only for the
+        // cultures not yet migrated (Runai, Feraldis). An Alanthor rung with
+        // a table row but no asset is a data bug — logged once, and the
+        // table stands in so the match does not break.
+        // docs/Design/Age_1_Alanthor.md § Building levels
+        // ──────────────────────────────────────────────────────────────────
+
+        /// <summary>The authored level for this owner, or null (no culture yet,
+        /// level 0, or a culture still on the code tables).</summary>
+        public static BuildingLevelDefSO LevelDef(EntityManager em, Faction faction,
+            string buildingId, byte level)
+            => LevelDef(CultureConfig.GetCompletedCulture(em, faction), buildingId, level);
+
+        public static BuildingLevelDefSO LevelDef(byte culture, string buildingId, byte level)
+        {
+            if (TechCatalog.TryGetBuildingLevel(culture, buildingId, level, out var def)) return def;
+            if (culture == Cultures.Alanthor && level >= 1 && TryGetCost(buildingId, level, out _)
+                && _missingWarned.Add(buildingId + "|" + level))
+                UnityEngine.Debug.LogError(
+                    $"[BuildingLevels] Alanthor has no BuildingLevelDefSO for {buildingId} level {level} " +
+                    "— using the code table. Author it in Civs/Alanthor/Buildings/ and add it to TechTreeCatalog.");
+            return null;
+        }
+
+        private static readonly System.Collections.Generic.HashSet<string> _missingWarned
+            = new System.Collections.Generic.HashSet<string>();
+
+        /// <summary>Upgrade price into <paramref name="targetLevel"/> for this owner.</summary>
+        public static bool TryGetCost(EntityManager em, Faction faction, string buildingId,
+            byte targetLevel, out Cost cost)
+        {
+            var def = LevelDef(em, faction, buildingId, targetLevel);
+            if (def != null)
+            {
+                var c = def.upgradeCost;
+                cost = c == null ? default : new Cost
+                    { Supplies = c.Supplies, Iron = c.Iron, Veilstone = c.Veilstone, Veilsteel = c.Veilsteel };
+                return true;
+            }
+            return TryGetCost(buildingId, targetLevel, out cost);
+        }
+
+        /// <summary>Upgrade time into <paramref name="targetLevel"/> for this owner.</summary>
+        public static float GetUpgradeDuration(EntityManager em, Faction faction, string buildingId,
+            byte targetLevel)
+        {
+            var def = LevelDef(em, faction, buildingId, targetLevel);
+            return def != null ? def.upgradeSeconds : GetUpgradeDuration(buildingId, targetLevel);
+        }
+
+        /// <summary>The stats a level applies, from its SO or the code tables.</summary>
+        public struct LevelStats
+        {
+            public float HpMultiplier;
+            public float AttackCooldownMultiplier;
+            /// <summary>0 = leave the building's own.</summary>
+            public int MaxTargets;
+            /// <summary>-1 = not a population provider at this level.</summary>
+            public int Population;
+            public BuildingLevelDefSO Def;
+        }
+
+        public static LevelStats StatsFor(byte culture, string buildingId, byte level,
+            int basePopulation, bool isHut, bool isHall)
+        {
+            var def = LevelDef(culture, buildingId, level);
+            if (def != null)
+                return new LevelStats
+                {
+                    HpMultiplier = def.hpMultiplier,
+                    AttackCooldownMultiplier = def.attackCooldownMultiplier,
+                    MaxTargets = def.maxTargets,
+                    Population = def.populationProvided > 0 ? def.populationProvided : -1,
+                    Def = def,
+                };
+            return new LevelStats
+            {
+                HpMultiplier = HpMultiplier[level],
+                AttackCooldownMultiplier = AttackCooldownMultiplier[level],
+                MaxTargets = isHall ? HallMaxTargets[level] : 0,
+                Population = isHut ? basePopulation + HutBonusPop[level] : -1,
+            };
+        }
+
+        // ──────────────────────────────────────────────────────────────────
+        // CODE TABLES — Runai / Feraldis only until their level SOs exist.
+        // Alanthor's copies of these numbers live in its BuildingLevelDefSOs;
+        // change them THERE.
+        //
         // STAT MULTIPLIERS (level 0..3 — index 0 = base, 1..3 = cultured)
         // ──────────────────────────────────────────────────────────────────
 
@@ -51,9 +144,9 @@ namespace TheWaningBorder.Core.Settings
         /// (calculator: 1 at Lv1, 3 at Lv2, 6 at Lv3).</summary>
         public static readonly int[] HallMaxTargets = { 1, 1, 3, 6 };
 
-        /// <summary>House +pop per level past its base 3 (Hut.asset): 3 -> 5 -> 8 -> 10
-        /// across levels 0-3 (2026-09-29).</summary>
-        public static readonly int[] HutBonusPop = { 0, 2, 5, 7 };
+        /// <summary>House +pop per level past its base 6 (Hut.asset): 6 -> 10 -> 16 -> 20
+        /// across levels 0-3 — doubled 2026-10-01 with the 300 population cap.</summary>
+        public static readonly int[] HutBonusPop = { 0, 4, 10, 14 };
 
         // ──────────────────────────────────────────────────────────────────
         // UPGRADE DURATIONS (seconds; index 1..3 corresponds to TARGET level)
@@ -72,7 +165,7 @@ namespace TheWaningBorder.Core.Settings
         /// the global <see cref="UpgradeDuration"/> curve for buildings the
         /// calculator doesn't override.
         /// </summary>
-        public static float GetUpgradeDuration(string buildingId, byte targetLevel)
+        private static float GetUpgradeDuration(string buildingId, byte targetLevel)
         {
             if (targetLevel < 1 || targetLevel > MaxLevel)
                 return 0f;
@@ -82,8 +175,8 @@ namespace TheWaningBorder.Core.Settings
                 ("Hall" or "KingsCourt", 3)       => 90f,
                 ("Hut", 2)                        => 45f,
                 ("Hut", 3)                        => 60f,
-                ("VaultOfAlmierra" or "ShrineOfRidan", 2) => 30f,
-                ("VaultOfAlmierra" or "ShrineOfRidan", 3) => 45f,
+                ("VaultOfAlmierra", 2)            => 30f,
+                ("VaultOfAlmierra", 3)            => 45f,
                 ("Alanthor_RoyalStable", 2)       => 30f,
                 ("Alanthor_RoyalStable", 3)       => 45f,
                 ("Alanthor_Wall", 2)              => 20f,
@@ -119,7 +212,7 @@ namespace TheWaningBorder.Core.Settings
         /// larger one, because an army is lost continuously and a building is
         /// bought once.
         /// </summary>
-        public static bool TryGetCost(string buildingId, byte targetLevel, out Cost cost)
+        private static bool TryGetCost(string buildingId, byte targetLevel, out Cost cost)
         {
             cost = default;
             if (targetLevel < 1 || targetLevel > MaxLevel) return false;
@@ -153,11 +246,13 @@ namespace TheWaningBorder.Core.Settings
                     return true;
                 case "Hut":
                     // Hut/House ladder (calculator): L1 free at age-up.
+                    // SUPPLIES ONLY since 2026-10-02 — housing never
+                    // competes for iron (Veilstone_Economy.md §6).
                     cost = targetLevel switch
                     {
                         1 => default,
-                        2 => new Cost { Supplies = 270, Iron = 50 },
-                        3 => new Cost { Supplies = 533, Iron = 75 },
+                        2 => new Cost { Supplies = 270 },
+                        3 => new Cost { Supplies = 533 },
                         _ => default,
                     };
                     return true;
@@ -199,7 +294,6 @@ namespace TheWaningBorder.Core.Settings
                     };
                     return true;
                 case "VaultOfAlmierra":
-                case "ShrineOfRidan":
                     cost = targetLevel switch
                     {
                         1 => default,

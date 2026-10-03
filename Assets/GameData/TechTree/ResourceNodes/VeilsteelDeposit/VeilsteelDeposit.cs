@@ -12,7 +12,7 @@
 // node per marker holding the marker's full amount (design default 1500) —
 // docs/Design/Overview.md. Mining behaviour is iron's: the node carries
 // VeilsteelDepositTag + the shared IronDepositState, and MiningSystem credits
-// Veilsteel instead of Iron off MinerState.GatheringResource == 2.
+// Veilsteel instead of Iron off WorkerState.GatheringResource == 2.
 
 using Unity.Entities;
 using Unity.Mathematics;

@@ -1,7 +1,7 @@
 // The Tinker — Sect of Renewal's unit lever (task-063 spec, Lv I:
 // "field repair worker (slow), cannot fight"). Implemented as a Worker
 // variant: keeps CanBuild so the existing construction/repair systems
-// drive it, drops MinerTag so it never mines, and never receives a
+// drive it, drops WorkerTag so it never mines, and never receives a
 // Damage component so combat systems ignore it. Trained at the Temple
 // of Ridan once Renewal is adopted.
 
@@ -20,7 +20,7 @@ namespace TheWaningBorder.Entities
             var e = Worker.Create(em, position, faction);
             em.SetComponentData(e, new PresentationId { Id = PresentationID });
             em.SetComponentData(e, new Health { Value = HP, Max = HP });
-            if (em.HasComponent<MinerTag>(e)) em.RemoveComponent<MinerTag>(e);
+            if (em.HasComponent<WorkerTag>(e)) em.RemoveComponent<WorkerTag>(e);
             return e;
         }
 
@@ -29,7 +29,7 @@ namespace TheWaningBorder.Entities
             var e = Worker.Create(ecb, position, faction);
             ecb.SetComponent(e, new PresentationId { Id = PresentationID });
             ecb.SetComponent(e, new Health { Value = HP, Max = HP });
-            ecb.RemoveComponent<MinerTag>(e);
+            ecb.RemoveComponent<WorkerTag>(e);
             return e;
         }
     }

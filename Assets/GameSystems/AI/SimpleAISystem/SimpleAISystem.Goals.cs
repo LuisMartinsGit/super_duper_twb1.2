@@ -103,7 +103,12 @@ namespace TheWaningBorder.AI
             bool aged = era >= 2;
 
             PopulationHelper.TryGetFactionPopulation(faction, out int pop, out int popMax);
-            int workers = CountAliveMiners(em, faction);   // Workers; the name predates gathering being removed
+            // Alive PLUS queued (2026-10-03). Counting only the living let
+            // the goal re-queue a Worker every think while one was still in
+            // training — batch round 3 had factions at 17 workers against a
+            // worker rule of 5. The refusal log named this goal (TryPursue).
+            int workers = CountAliveWorkers(em, faction)
+                        + CountQueuedByPredicate(em, faction, isWorker: true);
             int army = CountAliveMilitary(em, faction);
 
             // THE CAP IS THE CAP (2026-09-12, operator: "army cap should always
@@ -120,15 +125,10 @@ namespace TheWaningBorder.AI
             int armyWant = math.clamp(
                 (int)math.round(profile.SustainArmyCap * plan.ArmyScale),
                 1, math.min(profile.SustainArmyCap, FactionPopulation.AbsoluteMax));
-            // THE CREW GROWS WITH THE WORK (2026-09-12, Game_AI.md 6c). Only
-            // `crew` sites may be open at once, so a flat crew of 3-5 was a
-            // hard ceiling on how fast the base could expand -- logged nine
-            // times in one match as "5 sites open, crew 5" while the faction
-            // held 20,505 iron. Wanting more builders whenever the crew is
-            // fully committed lets the build program actually finish; the cap
-            // of 12 keeps a build crew from becoming an economy again.
-            int openSites = CountFactionBuildingsUnderConstruction(em, faction);
-            int workerWant = math.clamp(personality.minerFloor + openSites, 2, 12);
+            // THE WORKER RULE (2026-10-03): 3 + 1 per conquered territory
+            // (WorkerFloorFor). It replaced the crew that grew with open
+            // sites, which hired past the operator's rule.
+            int workerWant = WorkerFloorFor(em, faction);   // THE WORKER RULE
             int perKind = math.max(2, personality.productionBuildingTarget / (aged ? 4 : 2));
 
             var goals = _goals;   // pooled: one list per think used to be allocated
@@ -137,7 +137,10 @@ namespace TheWaningBorder.AI
             // ── 1. NEVER BE POPULATION-BLOCKED. ──
             // Housing first when it is actually about to stop production;
             // everything else is worthless if nothing can be trained.
-            if (popMax < FactionPopulation.AbsoluteMax && popMax - pop <= Cfg.populationHeadroomFloor)
+            // While the opening huts are still being saved for, "about to"
+            // means nearly out: the normal floor (8) fires at the starting
+            // 9/16, and that house was the first thing to eat the hut money.
+            if (popMax < FactionPopulation.AbsoluteMax && popMax - pop <= HousingHeadroomFloor(faction))
                 goals.Add(new Goal(GoalKind.Build, "Hut", 1, 0,
                     AIBudgetCategory.EconomyExpansion, "population blocked"));
 
@@ -178,6 +181,12 @@ namespace TheWaningBorder.AI
             // garrison buy a longer identical spear age instead of the age-up
             // that ends it. Leaving it at 8 is the point, not an oversight.
             if (!aged) militaryFloor = math.min(militaryFloor, 8);
+            // SAVING FOR THE AGE-UP (2026-10-02, Age_0.md § The AI and the
+            // age-up): an AI that does not attack in Age 0 — every personality
+            // but Aggressive / Rush, and those two once their one wave has
+            // gone — keeps only a defensive garrison of 4.
+            if (!aged && SavingForAgeUp(brain.Personality, aiState, now, personality.ageUpPushSeconds))
+                militaryFloor = math.min(militaryFloor, 4);
             goals.Add(new Goal(GoalKind.Train, "@military", militaryFloor, army,
                 AIBudgetCategory.Military, "army floor"));
 
@@ -252,7 +261,7 @@ namespace TheWaningBorder.AI
             //
             // Housing is 80 supplies for 30 population and it is what every
             // later unit is bought WITH. It goes first.
-            if (popMax < FactionPopulation.AbsoluteMax)
+            if (popMax < FactionPopulation.AbsoluteMax && !OpeningHutsPending(faction))
                 goals.Add(new Goal(GoalKind.Build, "Hut", HousingTarget(pop), CountFactionBuildings<HutTag>(em, faction),
                     AIBudgetCategory.EconomyExpansion, "housing ahead"));
 
@@ -374,8 +383,8 @@ namespace TheWaningBorder.AI
                         return true;
                     }
                     if (!TryTrainUnitBudgeted(em, brain.Owner, g.Id, g.Cat)) return false;
-                    if (g.Id == "Worker" && aiState.DesiredMiners < g.Want)
-                        aiState.DesiredMiners = g.Want;
+                    if (g.Id == "Worker" && aiState.DesiredWorkers < g.Want)
+                        aiState.DesiredWorkers = g.Want;
                     return true;
 
                 case GoalKind.AgeUp:
@@ -456,6 +465,8 @@ namespace TheWaningBorder.AI
             int fromHuts = math.max(0, wantMax - HallProvides);
             int need = (fromHuts + PerHut - 1) / PerHut;
             int ceiling = (FactionPopulation.AbsoluteMax - HallProvides + PerHut - 1) / PerHut;
+            int cap = TechCatalog.Building("Hut").maxPerFaction;   // Houses: 20
+            if (cap > 0) ceiling = math.min(ceiling, cap);
             return math.clamp(need, 1, ceiling);
         }
 
@@ -485,5 +496,28 @@ namespace TheWaningBorder.AI
                 return em.GetComponentData<FactionEra>(bank).Value;
             return 1;
         }
+
+        /// <summary>Has this faction aged up (era 2+)?</summary>
+        private static bool HasAgedUp(EntityManager em, Faction faction) => FactionEra(em, faction) >= 2;
+
+        /// <summary>Only Aggressive and Rush attack before the age-up — and
+        /// only once (docs/Design/Age_0.md § The AI and the age-up).</summary>
+        private static bool AttacksInAge0(AIPersonality p)
+            => p == AIPersonality.Aggressive || p == AIPersonality.Rush;
+
+        /// <summary>
+        /// Is this AI in its Age 0 SAVING phase? Every personality that does
+        /// not attack in Age 0 saves from the start; Aggressive / Rush save
+        /// once their one wave has gone out — or, if that wave never manages
+        /// to launch, <see cref="RushSaveFallbackSeconds"/> past the usual
+        /// age-up push, so a rusher can never be stuck in Age 0 for good.
+        /// </summary>
+        private static bool SavingForAgeUp(AIPersonality p, in SimpleAIState s, float now, float pushSeconds)
+            => !AttacksInAge0(p) || s.WaveNumber >= 1 || now > pushSeconds + RushSaveFallbackSeconds;
+
+        /// <summary>How long past its age-up push a rusher waits for its one
+        /// Age 0 wave before saving anyway (loop resolution of the rule, not a
+        /// balance number).</summary>
+        private const float RushSaveFallbackSeconds = 300f;
     }
 }

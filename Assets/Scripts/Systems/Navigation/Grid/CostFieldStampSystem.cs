@@ -100,9 +100,12 @@ namespace TheWaningBorder.Systems.Navigation
             // Plain walls + tower walls: ground=impassable, rampart=walkable.
             // FactionTag is required because StampWallLayersJob.Execute reads
             // it to encode the gate-owner faction in the cell flags.
+            // Segments are excluded: a segment is a graph edge whose cells
+            // carry the wall's passability, and its midpoint stamp kept a
+            // breach blocked whenever the dead cell sat mid-run.
             _wallQuery = SystemAPI.QueryBuilder()
                 .WithAll<WallTag, LocalTransform, FactionTag>()
-                .WithNone<WallGateTag>()
+                .WithNone<WallGateTag, WallSegmentTag>()
                 .Build();
             // Gates: ground=conditional (254), rampart=walkable.
             _wallGateQuery = SystemAPI.QueryBuilder()
@@ -315,6 +318,9 @@ namespace TheWaningBorder.Systems.Navigation
                     HasBuildingSizeFootprint = 0,
                     IsGate = 0,
                     IsClimbAccess = 0,
+                    Palisade = SystemAPI.GetComponentLookup<PalisadeTag>(true),
+                    Hub = SystemAPI.GetComponentLookup<WallHubTag>(true),
+                    GateSpan = SystemAPI.GetComponentLookup<WallGateSpan>(true),
                 };
                 prevHandle = serialStamps
                     ? stampWall.Schedule(_wallQuery, prevHandle)
@@ -333,6 +339,9 @@ namespace TheWaningBorder.Systems.Navigation
                     HasBuildingSizeFootprint = 0,
                     IsGate = 1,
                     IsClimbAccess = 0,
+                    Palisade = SystemAPI.GetComponentLookup<PalisadeTag>(true),
+                    Hub = SystemAPI.GetComponentLookup<WallHubTag>(true),
+                    GateSpan = SystemAPI.GetComponentLookup<WallGateSpan>(true),
                 };
                 prevHandle = serialStamps
                     ? stampGate.Schedule(_wallGateQuery, prevHandle)
@@ -357,6 +366,9 @@ namespace TheWaningBorder.Systems.Navigation
                     HasBuildingSizeFootprint = 0,
                     IsGate = 0,
                     IsClimbAccess = 1,
+                    Palisade = SystemAPI.GetComponentLookup<PalisadeTag>(true),
+                    Hub = SystemAPI.GetComponentLookup<WallHubTag>(true),
+                    GateSpan = SystemAPI.GetComponentLookup<WallGateSpan>(true),
                 };
                 prevHandle = serialStamps
                     ? stampClimb.Schedule(_wallClimbQuery, prevHandle)

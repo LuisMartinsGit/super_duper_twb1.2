@@ -24,6 +24,10 @@ namespace TheWaningBorder.Data
 
         public List<TechDefSO> technologies = new List<TechDefSO>();
 
+        /// <summary>Every cultured building level (BuildingLevelDefSO) — the
+        /// assets live in the culture's building folders.</summary>
+        public List<BuildingLevelDefSO> buildingLevels = new List<BuildingLevelDefSO>();
+
         /// <summary>True if this catalog actually carries data (used to decide SO-vs-JSON mode).</summary>
         public bool HasEntries => (units != null && units.Count > 0) ||
                                   (buildings != null && buildings.Count > 0);

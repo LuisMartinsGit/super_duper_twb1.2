@@ -8,7 +8,7 @@
 //   Fiendstone Keep     -> Feraldis
 //   (Thessara's Crossing -> Runai, once the building exists)
 //
-// Called from BOTH construction-completion paths (a builder's finishing tick
+// Called from BOTH construction-completion paths (a worker's finishing tick
 // in BuildingConstructionSystem, the self-build tick in AutoConstructionSystem).
 // Only one of them can fire per site — each removes UnderConstruction first.
 //

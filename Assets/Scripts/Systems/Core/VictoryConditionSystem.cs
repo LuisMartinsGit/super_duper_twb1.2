@@ -15,7 +15,7 @@ namespace TheWaningBorder.Systems.Core
     /// <summary>
     /// Periodically checks whether each faction can still REBUILD. A faction
     /// is retired the moment it has no Hall, no military building and no
-    /// builder unit — the three lifelines back into a match. When only one
+    /// worker unit — the three lifelines back into a match. When only one
     /// faction remains, the game ends with a victory/defeat outcome.
     /// </summary>
     public class VictoryConditionSystem : MonoBehaviour
@@ -46,7 +46,7 @@ namespace TheWaningBorder.Systems.Core
         private static TheWaningBorder.Core.CachedEntityQuery QC_MatchVerdict;
 
         private EntityQuery _buildingsQuery;
-        private EntityQuery _buildersQuery;
+        private EntityQuery _workersQuery;
         private float _lastCheckAt;
         private float _gameStartTime;
         private bool _initialized;
@@ -84,12 +84,12 @@ namespace TheWaningBorder.Systems.Core
             _buildingsQuery = _em.CreateEntityQuery(
                 ComponentType.ReadOnly<BuildingTag>(),
                 ComponentType.ReadOnly<FactionTag>());
-            // Builders — any unit that can raise a structure. CanBuild is the
+            // Workers — any unit that can raise a structure. CanBuild is the
             // build capability itself, so this covers Workers and anything
             // else that gains it. Conscripted Feraldis Workers are deliberately
             // INCLUDED: they keep CanBuild and can be pulled back off the front
             // to rebuild, so they are a live lifeline even while soldiering.
-            _buildersQuery = _em.CreateEntityQuery(
+            _workersQuery = _em.CreateEntityQuery(
                 ComponentType.ReadOnly<CanBuild>(),
                 ComponentType.ReadOnly<FactionTag>());
 
@@ -205,7 +205,7 @@ namespace TheWaningBorder.Systems.Core
             //
             //   Hall              → can train Workers → can rebuild anything
             //   Military building → can train an army
-            //   A builder unit    → can raise a new Hall or Barracks
+            //   A worker unit    → can raise a new Hall or Barracks
             //
             // Lose all three and there is no path back, so the faction is
             // retired immediately.
@@ -221,7 +221,7 @@ namespace TheWaningBorder.Systems.Core
             const int MaxFactions = 9;   // Blue..White + Border
             var hasHall = new bool[MaxFactions];
             var hasMilitaryBuilding = new bool[MaxFactions];
-            var hasBuilder = new bool[MaxFactions];
+            var hasWorker = new bool[MaxFactions];
 
             using (var entities = _buildingsQuery.ToEntityArray(Allocator.Temp))
             using (var factionTags = _buildingsQuery.ToComponentDataArray<FactionTag>(Allocator.Temp))
@@ -233,7 +233,7 @@ namespace TheWaningBorder.Systems.Core
                     if (fi < 0 || fi >= MaxFactions) continue;
                     if (!_aliveFactions.Contains(faction)) continue;
 
-                    // A foundation is not a lifeline — but the builder raising
+                    // A foundation is not a lifeline — but the worker raising
                     // it is, and that is counted separately below.
                     if (_em.HasComponent<UnderConstruction>(entities[i])) continue;
 
@@ -243,18 +243,18 @@ namespace TheWaningBorder.Systems.Core
                 }
             }
 
-            using (var builders = _buildersQuery.ToEntityArray(Allocator.Temp))
-            using (var builderFactions = _buildersQuery.ToComponentDataArray<FactionTag>(Allocator.Temp))
+            using (var workers = _workersQuery.ToEntityArray(Allocator.Temp))
+            using (var workerFactions = _workersQuery.ToComponentDataArray<FactionTag>(Allocator.Temp))
             {
-                for (int i = 0; i < builders.Length; i++)
+                for (int i = 0; i < workers.Length; i++)
                 {
-                    int fi = (int)builderFactions[i].Value;
+                    int fi = (int)workerFactions[i].Value;
                     if (fi < 0 || fi >= MaxFactions) continue;
-                    if (hasBuilder[fi]) continue;
-                    // A corpse mid-cleanup is not a builder.
-                    if (_em.HasComponent<Health>(builders[i])
-                        && _em.GetComponentData<Health>(builders[i]).Value <= 0) continue;
-                    hasBuilder[fi] = true;
+                    if (hasWorker[fi]) continue;
+                    // A corpse mid-cleanup is not a worker.
+                    if (_em.HasComponent<Health>(workers[i])
+                        && _em.GetComponentData<Health>(workers[i]).Value <= 0) continue;
+                    hasWorker[fi] = true;
                 }
             }
 
@@ -267,7 +267,7 @@ namespace TheWaningBorder.Systems.Core
                 int fi = (int)faction;
                 if (fi < 0 || fi >= MaxFactions) continue;
 
-                bool canRebuild = hasHall[fi] || hasMilitaryBuilding[fi] || hasBuilder[fi];
+                bool canRebuild = hasHall[fi] || hasMilitaryBuilding[fi] || hasWorker[fi];
                 if (canRebuild)
                 {
                     _everSeenAlive.Add(faction);
@@ -289,9 +289,9 @@ namespace TheWaningBorder.Systems.Core
                 // the single most important event in a match — was invisible
                 // in every postmortem. This lands in AI_<Faction>.log.
                 TheWaningBorder.AI.AILogger.Log(faction, "VICTORY",
-                    $"ELIMINATED at {gameTime:0}s — no Hall, no military building, no builders.");
+                    $"ELIMINATED at {gameTime:0}s — no Hall, no military building, no workers.");
                 TWBLog.Log($"[Victory] {faction} eliminated at {gameTime:0}s — " +
-                           "no Hall, no military building, no builders.");
+                           "no Hall, no military building, no workers.");
             }
 
             // Deterministic order: newlyEliminated is filled from a query
@@ -611,7 +611,6 @@ namespace TheWaningBorder.Systems.Core
                 case "worker":
                 case "villager":
                 case "economy":
-                case "miner":
                 case "support":
                 case "scout":
                 case "caravan":

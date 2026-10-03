@@ -156,12 +156,12 @@ wave on a production building existing plus N units *trained since spawn*.
 every time:
 
 ```
-[44:39.8] STUCK: BuildBuilding:ShrineOfAhridan blocked 1980s at 2751s (afford=False, idleBuilders=0)
+[44:39.8] STUCK: BuildBuilding:ShrineOfAhridan blocked 1980s at 2751s (afford=False, idleWorkers=0)
 ```
 
 A step blocked for **33 minutes** with no fallback. Three of the four
 worst-STUCK factions are also the three earliest deaths. The anti-stagnation
-path exists but is not catching `afford=False && idleBuilders=0`.
+path exists but is not catching `afford=False && idleWorkers=0`.
 
 Also still present from the last report: `step 0 SKIPPED (no trainer for
 Worker)` at 00:00 on Yellow, plus `no trainer for Spearman/Archer` skips —
@@ -201,7 +201,7 @@ signal — the curse work moved the bottleneck rather than hiding it.
 3. **Victory/defeat UI** (report #2). The game still cannot tell anyone it
    ended.
 4. **Un-stick build orders** (§3.3) — fallback when `afford=False &&
-   idleBuilders=0` persists.
+   idleWorkers=0` persists.
 5. **Investigate the supply economy** (§3.5) — new bottleneck, no diagnosis yet.
 6. Re-run with **all eight on the same difficulty** before drawing any
    balance conclusion from an FFA.

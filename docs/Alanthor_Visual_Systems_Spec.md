@@ -237,9 +237,9 @@ These are authoring rules, not code. They live in a short doc inside the prefab 
 
 ### 6.1 Scale calibration
 
-- **Reference unit:** Alanthor Miner. Snapshot in `Assets/Art/Reference/Alanthor_ScaleReference.png`.
+- **Reference unit:** Alanthor Worker. Snapshot in `Assets/Art/Reference/Alanthor_ScaleReference.png`.
 - **Reference building:** Alanthor Hall.
-- A miner's head should reach ~⅓ of the Hall's wall height.
+- A worker's head should reach ~⅓ of the Hall's wall height.
 - All other Alanthor buildings scale relative to the Hall, not to footprint tile count.
 - Building footprints are set in code to match the visual, not the other way around. Adjust `BuildingConstructionSystem.cs` placement footprints if the visual demands it.
 

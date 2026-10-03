@@ -119,7 +119,7 @@ namespace TheWaningBorder.Data
             float aoe = 1f + Math.Max(0f, def.aoeRadius) / AoeDivisor;
 
             // Support output on the same scale as damage: a point of healing is
-            // a point of damage undone, and a builder's throughput is what it
+            // a point of damage undone, and a worker's throughput is what it
             // contributes to the fight it is not in.
             float utility = Math.Max(0f, def.healsPerSecond)
                           + Math.Max(0f, def.buildSpeed) * 0.5f;

@@ -27,7 +27,7 @@ public enum UnitClass : byte
     Support = 3,
     Magic = 4,
     Economy = 5,
-    Miner = 6,
+    Worker = 6,
     Scout = 7
 }
 
@@ -116,7 +116,7 @@ public struct CatapultTag : IComponentData { }
 
 /// <summary>
 /// Marks a worker as a NON-COMBATANT. TargetingSystem's auto-acquire and
-/// return-to-guard passes skip it, so builders never wander off to pick
+/// return-to-guard passes skip it, so workers never wander off to pick
 /// fights on their own.
 ///
 /// This is a tag rather than the old `WithNone&lt;CanBuild&gt;` filter because
@@ -140,5 +140,5 @@ public struct UnhealableTag : IComponentData { }
 /// <summary>Unique sect-specific unit type.</summary>
 public struct SectUniqueUnitTag : IComponentData { }
 
-/// <summary>Marker tag for Berserker units (converted from miners at Fiendstone Keep).</summary>
+/// <summary>Marker tag for Berserker units (converted from workers at Fiendstone Keep).</summary>
 public struct BerserkerTag : IComponentData { }

@@ -46,7 +46,7 @@
 //
 // IT HAS BROKEN TWICE, and both times the same way: a mechanic was deleted and
 // the step that taught it kept compiling. 2026-09-07 it was worker gathering
-// (a dead MinerState nothing wrote any more). 2026-09-29 it was the Hall
+// (a dead WorkerState nothing wrote any more). 2026-09-29 it was the Hall
 // claim, the era-paid RP, the Temple levels, the scripted blight pocket and
 // the wells — the whole second half of the old coach. When a mechanic is
 // deleted, grep this file for what fed it.

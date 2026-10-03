@@ -5,10 +5,17 @@
 // site, same result shape: one mesh, one sub-mesh per material, spans whose
 // sim cell is gone or has become a gate left open.
 //
-// One copy of the module per cell, turned to the local tangent and dropped
-// on the terrain, with the pitch stretched to divide the run exactly so
-// consecutive copies butt rather than overlap or gap. A wall of 11 modules
-// is still one draw call per material.
+// One copy of the module per pitch, BENT along the curve (2026-10-02): every
+// vertex is placed by its own position along the module — its point on the
+// curve, offset across by the curve's own sideways direction there, lifted
+// from the ground blended between the module's two seams. Consecutive copies
+// therefore share their seam EXACTLY. They used to be rigid copies turned to
+// the tangent at their centre: on a bend the outside of each joint opened a
+// wedge gap and the inside overlapped, and on a straight run the kit's pieces
+// (which reach a little past their module) overlapped their neighbours
+// coplanar and z-fought. Anything past the module's ends is clamped onto its
+// seam for the same reason. A wall of 11 modules is still one draw call per
+// material.
 
 using System.Collections.Generic;
 using Unity.Mathematics;
@@ -94,13 +101,9 @@ namespace TheWaningBorder.Rendering
 
             // Divide the run into whole modules and stretch the pitch to fit
             // exactly — a fraction of a module at the end would read as a gap.
-            // Then stretch a little FURTHER so neighbours interpenetrate: art
-            // rarely fills its own bounding box end to end, and whatever is
-            // short shows a seam at every joint (AlanthorWall.ModuleOverlap).
             int copies = Mathf.Max(1, Mathf.RoundToInt(span / art.Length));
             float pitch = span / copies;
-            float stretch = pitch / art.Length
-                            * (1f + TheWaningBorder.Entities.AlanthorWall.ModuleOverlap);
+            float halfLen = art.Length * 0.5f;
 
             _verts.Clear(); _norms.Clear(); _uvs.Clear();
             while (_subs.Count < art.Materials.Count) _subs.Add(new List<int>());
@@ -112,20 +115,28 @@ namespace TheWaningBorder.Rendering
 
             for (int c = 0; c < copies; c++)
             {
-                float sAt = s0 + pitch * (c + 0.5f);
+                float sA = s0 + pitch * c;
+                float sAt = sA + pitch * 0.5f;
                 if (cellCount > 0 && cellSolid != null && !cellSolid(NearestCellSorted(cellArcs, sAt))) continue;
 
-                float3 p = TheWaningBorder.Entities.AlanthorWall.SampleCurve(curve, cum, sAt, out float3 tan);
-                var pos = new Vector3(p.x, TerrainUtility.GetHeight(p.x, p.z), p.z);
-                var rot = Quaternion.LookRotation(new Vector3(tan.x, 0f, tan.z), Vector3.up);
-                // +Z runs along the wall, so the stretch lands on Z and the
-                // construction squash on Y.
-                var place = Matrix4x4.TRS(pos, rot, new Vector3(1f, hs, stretch));
+                // The module's frame along the curve, sampled finely enough
+                // that a bent face reads smooth; the ground blended between
+                // the two seams, so neighbours meet at the same height.
+                float hA = SeamHeight(curve, cum, sA), hB = SeamHeight(curve, cum, sA + pitch);
+                for (int k = 0; k <= BendSteps; k++)
+                {
+                    float3 p = TheWaningBorder.Entities.AlanthorWall.SampleCurve(
+                        curve, cum, sA + pitch * k / (float)BendSteps, out float3 tan);
+                    _framePos[k] = new Vector3(p.x, 0f, p.z);
+                    var f = new Vector3(tan.x, 0f, tan.z).normalized;
+                    _frameFwd[k] = f;
+                    _frameRight[k] = new Vector3(f.z, 0f, -f.x);
+                }
 
                 for (int i = 0; i < art.Pieces.Count; i++)
                 {
                     var piece = art.Pieces[i];
-                    Append(piece, toLocal * place * piece.Local, _subs[piece.MaterialSlot]);
+                    AppendBent(piece, piece.Local, halfLen, hA, hB, hs, toLocal, _subs[piece.MaterialSlot]);
                 }
             }
 
@@ -139,6 +150,63 @@ namespace TheWaningBorder.Rendering
             for (int i = 0; i < art.Materials.Count; i++) mesh.SetTriangles(_subs[i], i);
             mesh.RecalculateBounds();
             return mesh;
+        }
+
+        /// <summary>Frame samples along one module: enough that a 3 m module
+        /// on the tightest legal bend (12 m radius) reads as a curve.</summary>
+        const int BendSteps = 8;
+        static readonly Vector3[] _framePos = new Vector3[BendSteps + 1];
+        static readonly Vector3[] _frameFwd = new Vector3[BendSteps + 1];
+        static readonly Vector3[] _frameRight = new Vector3[BendSteps + 1];
+
+        static float SeamHeight(IReadOnlyList<float3> curve, float[] cum, float s)
+        {
+            float3 p = TheWaningBorder.Entities.AlanthorWall.SampleCurve(curve, cum, s, out _);
+            return TerrainUtility.GetHeight(p.x, p.z);
+        }
+
+        /// <summary>
+        /// Append one piece of one module, bent: a vertex at module-space
+        /// (x across, y up, z along in [-halfLen, halfLen]) lands at the
+        /// curve point for z, x along that point's sideways direction, y over
+        /// the ground blended between the seams. z is clamped to the module,
+        /// so nothing reaches into the neighbour's span.
+        /// </summary>
+        static void AppendBent(in WallModuleArt.Piece piece, Matrix4x4 local, float halfLen,
+            float hA, float hB, float hs, Matrix4x4 toLocal, List<int> tris)
+        {
+            if (piece.Mesh == null) return;
+            var src = SourceOf(piece.Mesh, piece.SubMesh);
+            if (src.Tris.Length == 0) return;
+
+            int baseIndex = _verts.Count;
+            var verts = src.Verts; var norms = src.Norms; var uvs = src.Uvs;
+            float inv = halfLen > 1e-4f ? 0.5f / halfLen : 0f;
+            for (int i = 0; i < verts.Length; i++)
+            {
+                Vector3 v = local.MultiplyPoint3x4(verts[i]);
+                float t = Mathf.Clamp01((Mathf.Clamp(v.z, -halfLen, halfLen) + halfLen) * inv);
+                float ft = t * BendSteps;
+                int k = Mathf.Min(BendSteps - 1, (int)ft);
+                float w = ft - k;
+                Vector3 pos = Vector3.Lerp(_framePos[k], _framePos[k + 1], w);
+                Vector3 right = Vector3.Lerp(_frameRight[k], _frameRight[k + 1], w).normalized;
+                Vector3 fwd = Vector3.Lerp(_frameFwd[k], _frameFwd[k + 1], w).normalized;
+                float ground = Mathf.Lerp(hA, hB, t);
+                Vector3 world = pos + right * v.x + Vector3.up * (ground + v.y * hs);
+                _verts.Add(toLocal.MultiplyPoint3x4(world));
+
+                if (norms != null)
+                {
+                    Vector3 n = local.MultiplyVector(norms[i]);
+                    Vector3 wn = right * n.x + Vector3.up * (n.y / Mathf.Max(hs, 0.02f)) + fwd * n.z;
+                    _norms.Add(toLocal.MultiplyVector(wn).normalized);
+                }
+                else _norms.Add(Vector3.up);
+                _uvs.Add(uvs != null ? uvs[i] : Vector2.zero);
+            }
+            var srcTris = src.Tris;
+            for (int i = 0; i < srcTris.Length; i++) tris.Add(baseIndex + srcTris[i]);
         }
 
         static void Append(in WallModuleArt.Piece piece, Matrix4x4 m, List<int> tris)

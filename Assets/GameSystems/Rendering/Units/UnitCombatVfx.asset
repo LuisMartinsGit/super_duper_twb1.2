@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23352ae9ff3fa6e44b1684ed6de44e41, type: 3}
+  m_Name: UnitCombatVfx
+  m_EditorClassIdentifier: 
+  hitPrefab: {fileID: 2944396702758532163, guid: f623ff3d4ada3c0428fed81190c7d8f3, type: 3}
+  chargeHitPrefab: {fileID: 1758473627833946668, guid: baed46c4a81cda947afc0c280eec0a31, type: 3}
+  arrowVeilstoneHitPrefab: {fileID: 5724093481334579524, guid: 488cb057c622f9140a080ccf20ebd527, type: 3}
+  arrowVeilsteelHitPrefab: {fileID: 934617562227915448, guid: 909c9d5c374d6434e80eb3d63e6a05be, type: 3}
+  speedUpPrefab: {fileID: 3871730096559169797, guid: 8f52337c441cac54c9841230ebfce63d, type: 3}
+  slowDownPrefab: {fileID: 6690736211316310120, guid: 13bad7ef4039fb541b047cadaa155b42, type: 3}
+  attackUpPrefab: {fileID: 7042460137364555477, guid: 9c5255fe92a3b05408397f04563af965, type: 3}
+  scalePerMetre: 0.5
+  hitHeightFraction: 0.55
+  hitCooldownSeconds: 0.35
+  maxHitsPerFrame: 12
+  buffPollSeconds: 0.25
+  buffThreshold: 0.02
+  fadeSeconds: 1

@@ -6,7 +6,7 @@ using TheWaningBorder.Economy;
 namespace TheWaningBorder.Entities
 {
     /// <summary>
-    /// Berserker unit — converted from miners at Fiendstone Keep.
+    /// Berserker unit — converted from workers at Fiendstone Keep.
     /// High attack and speed, no armor, low HP, impossible to heal.
     /// Fix #219: EM/ECB share a single generic CreateInternal via IEntityCreator.
     /// </summary>
@@ -47,7 +47,7 @@ namespace TheWaningBorder.Entities
             creator.AddComponent<UnhealableTag>(entity);
             // Frenzies on blood like the rest of the Feraldis roster
             // (docs/Design/Age_1_Feraldis.md). Also applies to Berserkers
-            // converted from miners at the Fiendstone Keep — they come
+            // converted from workers at the Fiendstone Keep — they come
             // through this same factory.
             creator.AddComponent<FeraldisUnitTag>(entity);
 

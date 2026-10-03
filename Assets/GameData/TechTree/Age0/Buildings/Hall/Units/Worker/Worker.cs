@@ -7,9 +7,9 @@ namespace TheWaningBorder.Entities
 {
     /// <summary>
     /// Worker unit — can both construct buildings and mine resource
-    /// deposits. Per docs/Design/Complete.md §2.2 "Worker — Unified
-    /// Builder + Miner", every Worker carries <see cref="CanBuild"/>,
-    /// <see cref="MinerTag"/>, and <see cref="MinerState"/> so the same
+    /// deposits. Per docs/Design/Complete.md §2.2 ("Worker"), every
+    /// Worker carries <see cref="CanBuild"/>,
+    /// <see cref="WorkerTag"/>, and <see cref="WorkerState"/> so the same
     /// entity swaps between gather orders and build orders without
     /// re-training.
     /// </summary>
@@ -50,23 +50,23 @@ namespace TheWaningBorder.Entities
             // dispatch. (task-062 G-3)
             creator.AddComponent(entity, new DesiredDestination { Position = float3.zero, Has = 0 });
 
-            // Worker = Builder + Miner. Add MinerTag + MinerState so the
+            // Add WorkerTag + WorkerState so the
             // same entity can be issued a gather order and MiningSystem
             // picks it up. Without these, gather right-clicks on a deposit
             // would no-op because the targeting/mining systems filter on
-            // MinerTag.
+            // WorkerTag.
             // (declared in UnitComponents.cs)
             // Marks this worker a NON-COMBATANT: TargetingSystem skips
             // PassiveWorkerTag for auto-acquire and return-to-guard, so
-            // builders never wander off to fight. Feraldis strips it —
+            // workers never wander off to fight. Feraldis strips it —
             // their Workers are light infantry that also build.
             creator.AddComponent<PassiveWorkerTag>(entity);
-            creator.AddComponent<MinerTag>(entity);
-            creator.AddComponent(entity, new MinerState
+            creator.AddComponent<WorkerTag>(entity);
+            creator.AddComponent(entity, new WorkerState
             {
                 AssignedDeposit = Entity.Null,
                 GatherTimer = 0f,
-                State = MinerWorkState.Idle,
+                State = WorkerActivity.Idle,
                 GatheringResource = 0,
                 GatherSpeedMultiplier = 1.0f
             });

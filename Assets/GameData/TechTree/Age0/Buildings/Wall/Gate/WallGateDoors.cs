@@ -39,6 +39,13 @@ namespace TheWaningBorder.Rendering
         /// <summary>A leaf: the pivot that turns, and which way it turns.</summary>
         private readonly List<(Transform Pivot, float Sign)> _leaves
             = new List<(Transform, float)>();
+        /// <summary>Each hinge's SHUT local rotation. The swing is applied ON
+        /// TOP of it: a hinge sits under the art's own node, which is turned
+        /// relative to the gate (an authored gate is rotated to run along the
+        /// wall), so writing the swing as the whole local rotation threw every
+        /// leaf 90 degrees off — one leaf read open at rest, and opening swapped
+        /// which one looked shut.</summary>
+        private readonly List<Quaternion> _shut = new List<Quaternion>();
 
         const float PollSeconds = 0.2f;
         float _nextPoll;
@@ -87,7 +94,7 @@ namespace TheWaningBorder.Rendering
                 // on its -Z end by convention.
                 float side = localZ < centreZ ? -1f : (localZ > centreZ ? 1f : -1f);
                 var pivot = MakePivot(leaf, root, side);
-                if (pivot != null) _leaves.Add((pivot, side));
+                if (pivot != null) { _leaves.Add((pivot, side)); _shut.Add(pivot.localRotation); }
             }
             return _leaves.Count;
         }
@@ -96,7 +103,7 @@ namespace TheWaningBorder.Rendering
         /// gatehouse builds its own pivots.</summary>
         public void AddLeaf(Transform pivot, float sign)
         {
-            if (pivot != null) _leaves.Add((pivot, sign));
+            if (pivot != null) { _leaves.Add((pivot, sign)); _shut.Add(pivot.localRotation); }
         }
 
         /// <summary>
@@ -185,7 +192,9 @@ namespace TheWaningBorder.Rendering
                 if (pivot == null) continue;
                 // Sign follows the side the leaf sits on, so both leaves swing
                 // toward -X whichever end they hinge from.
-                pivot.localRotation = Quaternion.Euler(0f, sign * a, 0f);
+                // Swing about the GATE's vertical axis, from the shut pose.
+                var shut = i < _shut.Count ? _shut[i] : Quaternion.identity;
+                pivot.localRotation = shut * Quaternion.Euler(0f, sign * a, 0f);
             }
         }
 

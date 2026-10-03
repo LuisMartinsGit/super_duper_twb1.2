@@ -15,6 +15,15 @@ public struct WallHubTag : IComponentData { }
 /// <summary>Marks a wall segment (the connector between two hubs).</summary>
 public struct WallSegmentTag : IComponentData { }
 
+/// <summary>
+/// Marks every piece of a PALISADE — hub, segment, cell, gate — as opposed to
+/// the Alanthor stone wall (docs/Design/Age_0.md § Palisade). The two are
+/// different buildings on the same hub/segment/cell machinery, so this tag is
+/// what keeps them apart: a palisade is never promoted, never walkable, and
+/// never joins a stone wall. Test it through AlanthorWall.IsPalisade.
+/// </summary>
+public struct PalisadeTag : IComponentData { }
+
 /// <summary>Links a wall segment to its two hub endpoints.</summary>
 public struct WallConnection : IComponentData
 {

@@ -35,6 +35,7 @@ namespace TheWaningBorder.Data
         public int populationProvided;
         public float suppliesPerTick;
         public float suppliesInterval;
+        public int maxPerFaction;
 
         public int maxIron;
         public int maxVeilstone;
@@ -94,6 +95,7 @@ namespace TheWaningBorder.Data
             def.populationProvided = populationProvided;
             def.suppliesPerTick    = suppliesPerTick;
             def.suppliesInterval   = suppliesInterval;
+            def.maxPerFaction      = maxPerFaction;
             def.maxIron            = maxIron;
             def.maxVeilstone       = maxVeilstone;
             def.segmentHp          = segmentHp;
@@ -126,6 +128,7 @@ namespace TheWaningBorder.Data
             populationProvided = def.populationProvided;
             suppliesPerTick    = def.suppliesPerTick;
             suppliesInterval   = def.suppliesInterval;
+            maxPerFaction      = def.maxPerFaction;
             maxIron            = def.maxIron;
             maxVeilstone       = def.maxVeilstone;
             segmentHp          = def.segmentHp;

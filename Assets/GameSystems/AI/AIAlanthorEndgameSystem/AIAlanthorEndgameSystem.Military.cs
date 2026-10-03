@@ -63,7 +63,7 @@ namespace TheWaningBorder.AI
         // 8. WORKER FLEE
         // ──────────────────────────────────────────────────────────────────
 
-        // For every miner / builder of this faction, scan for an enemy unit
+        // For every worker of this faction, scan for an enemy unit
         // within FleeRadius and — if found — issue a MoveCommand toward
         // the Hall. Throttled per-worker via FleeCooldownState so we don't
         // override a fresh order on the same tick.
@@ -94,9 +94,9 @@ namespace TheWaningBorder.AI
 
             float fleeRadiusSq = Cfg.fleeRadius * Cfg.fleeRadius;
 
-            // Process miners.
-            FleeWorkers<MinerTag>(em, faction, enemyPositions, hallPos, fleeRadiusSq, time);
-            // Process builders (CanBuild marker is what SimpleAISystem queries).
+            // Process workers.
+            FleeWorkers<WorkerTag>(em, faction, enemyPositions, hallPos, fleeRadiusSq, time);
+            // Process workers (CanBuild marker is what SimpleAISystem queries).
             FleeWorkers<CanBuild>(em, faction, enemyPositions, hallPos, fleeRadiusSq, time);
 
             enemyPositions.Dispose();
@@ -151,7 +151,7 @@ namespace TheWaningBorder.AI
                 _fleeRetryAt[worker] = time + FleeReissueInterval;
 
                 // NO DIRECT STATE SURGERY (catch #13, the fork itself). This
-                // host-gated system cleared MinerState and REMOVED BuildOrder
+                // host-gated system cleared WorkerState and REMOVED BuildOrder
                 // directly — on the host alone. The clients kept building for
                 // the ticks until the routed move below executed, so the
                 // construction site's progress forked permanently (tick

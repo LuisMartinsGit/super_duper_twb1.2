@@ -183,7 +183,7 @@ veilstone**. A map-wide **saturation field** (the Veil) makes it terrain:
   crust (with sparse crystal spikes) that procedurally **grows where the
   field advances and recedes where it drains**. It is an **infinite
   veilstone source dug DIRECTLY, Astroneer-style (2D)**: right-click the
-  crust and the miner walks to the **closest crusted vertex** of the
+  crust and the worker walks to the **closest crusted vertex** of the
   field grid and picks at it — every swing banks veilstone AND drains the
   field under the pick, so **the mesh visibly recedes exactly where that
   villager is digging**; when the vertex breaks through, the digger
@@ -269,7 +269,7 @@ other.
 **Pathfinding & AI.** Crust stamps **impassable** into the nav cost field;
 armies and caravans **path around it for free** (the flow-field stack
 handles dynamic obstacles — no AI code). Isolation is a real, legible
-consequence: a sealed unit needs a **miner to dig it out** or dies
+consequence: a sealed unit needs a **worker to dig it out** or dies
 (telegraphed). AI is staged so the design ships without heroic AI:
 
 - **AI v1** — treat crust as impassable, path around, and **retarget to a
@@ -281,7 +281,7 @@ consequence: a sealed unit needs a **miner to dig it out** or dies
 
 **Latest decision — supersedes both extremes tested before it:** the
 §2.5 absolute wall (falsified in playtests: the reforming crust stranded
-and killed diggers, and miner-spam trivialised the threat) and the
+and killed diggers, and worker-spam trivialised the threat) and the
 same-morning influence-only revert (no pressure at all — the theme
 "players must address the curse to progress" had no mechanical body).
 Both poles failed for the same two reasons: the threat was aimed at
@@ -295,7 +295,7 @@ determinism of terrain.
 (`CurseFieldsArmies = false` stays), buildings block spread (rule G),
 wells as neutral verb objectives, the influence interaction (§2.6), the
 tendril heartbeat, victory by domination.
-**Retired:** catch-death, worker ward, miner infection eruptions (may
+**Retired:** catch-death, worker ward, worker infection eruptions (may
 return as a late-game knob — open item), dig-the-sheet mining, and the
 impassable nav stamp.
 
@@ -377,7 +377,7 @@ impassable nav stamp.
   are **off for the first 5 minutes** — the opening beat is securing,
   not fighting spawners; (c) **workers auto-flee** toward their Hall at
   ~3 s of exposure, before damage starts; (d) **auto-assignment never
-  targets hazed nodes** — neither the AI's miner allocator nor the
+  targets hazed nodes** — neither the AI's worker allocator nor the
   depletion auto-find will send a worker onto crusted ground (a manual
   player order still can — explicit greed); (e) the AI's dig-the-sheet
   fallback is retired with the wall model (it marched workers into the
@@ -403,7 +403,7 @@ only exist where the curse touched ground:
 > hold.
 
 Throughput is capped by node count and spacing, not worker count —
-miner spam buys nothing. Curse-independent free deposits (the morning's
+worker spam buys nothing. Curse-independent free deposits (the morning's
 stopgap) are **removed**; a player who never engages the curse has no
 veilstone income, by design.
 
@@ -565,20 +565,20 @@ Nothing here puts a unit *on* the crust: fighting, dying, and influence
 sources are all on walkable ground; the field only *reaches* onto the
 adjacent wall.
 
-### 2.7 Miner infection — the curse's only creatures (implemented 2026-07-12)
+### 2.7 Worker infection — the curse's only creatures (implemented 2026-07-12)
 
 The curse is a **force, not a faction**, so it fields no armies (§2.5, F2).
-Its *one* source of hostile creatures is **neglect**: a miner left working
+Its *one* source of hostile creatures is **neglect**: a worker left working
 the veil edge too long is taken by it.
 
-- **Exposure, not standing on crust.** The crust is impassable — miners can't
+- **Exposure, not standing on crust.** The crust is impassable — workers can't
   stand on it. Infection reads the **haze** just outside the wall
-  (`InfectionNearThreshold` = 30, below `CrustThreshold` = 80) where miners
+  (`InfectionNearThreshold` = 30, below `CrustThreshold` = 80) where workers
   actually dig. Exposure (`InfectionState.Progress`, in seconds) climbs while a
-  miner is in haze and **recovers while it's clear** — pull a miner out in time
+  worker is in haze and **recovers while it's clear** — pull a worker out in time
   and it's saved.
 - **Eruption at ~2 minutes.** At `InfectionSeconds` (120 s) of cumulative
-  exposure the miner is consumed and a **hostile curse creature erupts in its
+  exposure the worker is consumed and a **hostile curse creature erupts in its
   place** (`Faction.Border`).
 - **Tier scales with the match clock** — the map left to rot spawns worse
   things: **Crystalling** (< 15 min) → **Veilstinger** (< 30 min) →
@@ -610,7 +610,7 @@ gated by `CurseFieldsArmies` — it is always on.
   `WorkerWardRadius` (8 m) of a worker, and enclosure snap-fill never fills a
   pocket a worker stands in — a digger cannot be sealed inside the wall. The
   ward blocks **growth only**: existing haze stays, so infection (above) still
-  ticks on a neglected miner. Refreshed from live positions before every CA
+  ticks on a neglected worker. Refreshed from live positions before every CA
   step, including mid-burst substeps.
 - **Military units get no ward — the wall takes them.** Any non-worker unit
   standing on a cell that reaches crust (the wall grew over it) is consumed
@@ -1142,7 +1142,7 @@ GPU-instanced crystals) are **already built** (`Components/VeilField`,
   spawners, ritual-defence spawns, or `BorderAISystem` brain (all gated off by
   `BorderConstants.CurseFieldsArmies = false`); wells become passive
   spread-drivers + neutral verb objectives. **REVISED 2026-07-12 — curse
-  creatures are RETAINED, but only as MINER-INFECTION eruptions** (see §2.7),
+  creatures are RETAINED, but only as WORKER-INFECTION eruptions** (see §2.7),
   not faction-spawned armies. The Crystalling/Veilstinger/Godsplinter factories
   stay for that one source.
 - **F3 — Catch-death + telegraph:** pre-burst tell on cells about to crust;

@@ -87,7 +87,7 @@ namespace TheWaningBorder.Data.Border
         /// <summary>Seconds between whole-army spawns in one territory
         /// (2.13 rule 1). Between spawns nothing regrows: defeat the army
         /// and the territory is vulnerable until this timer fires.</summary>
-        [Min(10f)] public float armySpawnSeconds = 180f;
+        [Min(10f)] public float armySpawnSeconds = 120f;
 
         /// <summary>Compounding growth of the garrison army per spawn
         /// (2.13 rule 3): 1.12 doubles the army roughly every six spawns.</summary>
@@ -129,9 +129,13 @@ namespace TheWaningBorder.Data.Border
         /// with nothing to fight before it walks home (§2.11 rule 3).</summary>
         [Min(1f)] public float leashSeconds = 25f;
 
-        /// <summary>Seconds a raid on a node-less territory lasts before the
-        /// raiders walk home and rejoin the garrison.</summary>
-        [Min(10f)] public float raidSeconds = 60f;
+        /// <summary>A garrison unit engages only hostiles within this many
+        /// metres of the curse node it guards (Territory_Claims.md §6.7).</summary>
+        [Min(1f)] public float guardRadius = 30f;
+
+        /// <summary>A garrison unit fighting farther than this from its node
+        /// drops the fight and walks back (Territory_Claims.md §6.7).</summary>
+        [Min(1f)] public float guardLeashRadius = 45f;
 
         // ── Territory_Claims.md §6 (2026-09-29): the curse as a claimant ──
 
@@ -155,6 +159,11 @@ namespace TheWaningBorder.Data.Border
         /// size and spawn rate rise by this fraction (§6.6): 0.5 = size x1.5,
         /// interval / 1.5.</summary>
         [Min(0f)] public float shardrootCurseBonus = 0.5f;
+
+        /// <summary>Veilsteel a FERALDIS faction is paid for landing the last
+        /// hit on a curse node (docs/Design/Veilstone_Economy.md §3.2).
+        /// Veilsteel is never mined; this is how Feraldis get theirs.</summary>
+        [Min(0)] public int feraldisNodeVeilsteel = 40;
 
         /// <summary>Which army tier the garrisons and merge parties draw from
         /// at a given match minute: tier index = minute / this. Clamped to
@@ -344,7 +353,7 @@ namespace TheWaningBorder.Data.Border
             wrathCoolSeconds = 180f;
             livingCurse = true;
             garrisonCap = 8;
-            armySpawnSeconds = 180f;
+            armySpawnSeconds = 120f;
             armyGrowth = 1.12f;
             expansionSeconds = 150f;
             shardrootChance = 0.04f;
@@ -353,12 +362,14 @@ namespace TheWaningBorder.Data.Border
             mergePartySize = 6;
             mergeDefendRadius = 30f;
             leashSeconds = 25f;
-            raidSeconds = 60f;
+            guardRadius = 30f;
+            guardLeashRadius = 45f;
             initialNodes = 0;
             reseedSeconds = 180f;
             nodeAuraRadius = 20f;
             shardrootGuaranteeSeconds = 720f;
             shardrootCurseBonus = 0.5f;
+            feraldisNodeVeilsteel = 40;
             minutesPerTier = 8f;
             tiers = BuildDefaultTiers();
             waves = BuildDefaultWaves();

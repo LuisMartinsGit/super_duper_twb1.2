@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b3ecc1043fa62454ebb9521a55d0673d, type: 3}
   m_Name: LifeCling
   m_EditorClassIdentifier: 
-  abilityName: "Life Cling"
+  abilityName: Life Cling
   activation: 0
   targeting: 0
   affects: 0
@@ -30,4 +30,4 @@ MonoBehaviour:
   damageType: 3
   aimedAtPoint: 0
   icon: {fileID: 0}
-  vfxPrefab: {fileID: 56827610595701, guid: 162370cc96ff2a214dc9084cb318667f, type: 3}
+  vfxPrefab: {fileID: 3015954096008161746, guid: 162370cc96ff2a214dc9084cb318667f, type: 3}

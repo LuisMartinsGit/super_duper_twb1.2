@@ -95,7 +95,7 @@ namespace TheWaningBorder.Systems.Economy
                     }
                     else
                     {
-                        // Non-military unit (worker/miner): +15 Supplies, +1 Iron
+                        // Non-military unit (worker): +15 Supplies, +1 Iron
                         FactionEconomy.Add(em, killerFaction,
                             Cost.Of(supplies: UnitKillSupplies_NonMilitary,
                                     iron: UnitKillIron_NonMilitary));

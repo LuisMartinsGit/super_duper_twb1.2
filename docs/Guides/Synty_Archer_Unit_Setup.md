@@ -68,7 +68,7 @@ parameters from ECS state — **names are matched by hash, so spelling is exact*
 | `IsAttacking` | bool | `ArcherState.IsFiring == 1` (combat system sets it) |
 | `IsDead` | trigger | health hit 0 |
 | `AttackSpeed` | float | attack-rate multiplier |
-| `IsWorking`, `IsHealing` | bool | miner/builder/litharch only — ignore |
+| `IsWorking`, `IsHealing` | bool | worker/litharch only — ignore |
 
 ---
 

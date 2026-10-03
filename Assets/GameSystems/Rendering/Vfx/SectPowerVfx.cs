@@ -35,6 +35,25 @@ namespace TheWaningBorder.Rendering
         // the pattern is fully drawn rather than mid-build when it locks.
         private const float FreezeSnapshotTime = 1.2f;
 
+        /// <summary>
+        /// The landing effect for one power: the per-power override authored in
+        /// SectPowerVfx.asset when there is one (Renewal's three powers each
+        /// have their own, 2026-10-02), otherwise the sect-wide effect below.
+        /// </summary>
+        public static void SpawnForPower(string sectId, byte kind, float3 pos, float radius)
+        {
+            var cfg = TheWaningBorder.Core.Settings.ComponentConfig.Require<SectPowerVfxConfig>();
+            if (cfg != null && cfg.landings != null)
+                foreach (var l in cfg.landings)
+                    if (l != null && l.prefab != null && l.sectId == sectId && (byte)l.kind == kind)
+                    {
+                        float s = Mathf.Clamp(radius / Mathf.Max(0.1f, l.authoredRadius), l.minScale, l.maxScale);
+                        VfxSpawn.OneShot(l.prefab, null, (Vector3)pos, s);
+                        return;
+                    }
+            SpawnForSect(sectId, pos, radius);
+        }
+
         public static void SpawnForSect(string sectId, float3 pos, float radius)
         {
             string path = sectId switch

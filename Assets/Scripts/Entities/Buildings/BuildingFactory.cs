@@ -88,20 +88,18 @@ namespace TheWaningBorder.Entities
                 ["Hall"]            = new BuildingRecipe(Hall.Create, Hall.Create, 100),
                 // The capital — start-of-match only (PlayerSpawnSystem); no
                 // build menu lists it. Shares the Hall's presentation id.
-                ["Fortress"]        = new BuildingRecipe(Fortress.Create, Fortress.Create, 100),
+                ["Fortress"]        = new BuildingRecipe(Fortress.Create, Fortress.Create, Fortress.PresentationID),
                 ["Hut"]             = new BuildingRecipe(Hut.Create, Hut.Create, 102),
                 ["GatherersHut"]    = new BuildingRecipe(GatherersHut.Create, GatherersHut.Create, 101),
                 ["Barracks"]        = new BuildingRecipe(Barracks.Create, Barracks.Create, 510),
                 ["ArcheryRange"]    = new BuildingRecipe(ArcheryRange.Create, ArcheryRange.Create, 511),
-                ["ShrineOfRidan"]   = new BuildingRecipe(ShrineOfRidan.Create, ShrineOfRidan.Create, 520),
-                // Legacy id alias — pre-rename build orders / saves still say
-                // "ShrineOfAhridan"; keep them routing to the same creator.
-                ["ShrineOfAhridan"] = new BuildingRecipe(ShrineOfRidan.Create, ShrineOfRidan.Create, 520),
                 ["TempleOfRidan"]   = new BuildingRecipe(TempleOfRidan.Create, TempleOfRidan.Create, 521),
                 ["VaultOfAlmierra"] = new BuildingRecipe(VaultOfAlmierra.Create, VaultOfAlmierra.Create, 530),
                 ["FiendstoneKeep"]  = new BuildingRecipe(FiendstoneKeep.Create, FiendstoneKeep.Create, 540),
                 ["Alanthor_Wall"]   = new BuildingRecipe(AlanthorWall.CreateHub, null, AlanthorWall.HubPresentationID),
-                ["Alanthor_Smelter"] = new BuildingRecipe(Smelter.Create, Smelter.Create, Smelter.PresentationID),
+                // The palisade: its own building since 2026-10-02 (Age_0.md
+                // § Palisade), on the same hub/segment machinery.
+                ["Palisade"]        = new BuildingRecipe(AlanthorWall.CreatePalisadeHub, null, AlanthorWall.HubPresentationID),
 
                 // Runai culture buildings
                 ["Runai_Outpost"]      = new BuildingRecipe(RunaiOutpost.Create, RunaiOutpost.Create, 350),
@@ -142,7 +140,9 @@ namespace TheWaningBorder.Entities
                 // Mine, veilsteel has the Smelter; without this, veilstone
                 // was the one territory resource with no way to invest in it.
                 ["VeilstoneMine"]           = new BuildingRecipe(VeilstoneMine.Create, VeilstoneMine.Create, VeilstoneMine.PresentationID),
-                ["Alanthor_Sawyer"]         = new BuildingRecipe(Sawyer.Create, Sawyer.Create, Sawyer.PresentationID),
+                // Alanthor trade for veilstone instead of mining it
+                // (docs/Design/Veilstone_Economy.md §3.1).
+                ["Alanthor_TradingOutpost"] = new BuildingRecipe(TradingOutpost.Create, TradingOutpost.Create, TradingOutpost.PresentationID),
 
                 // Sect buildings — one per sect, capped at 5 per faction
                 // (SectBuilding.CapPerFaction). Each trains its sect's unit and
@@ -156,7 +156,7 @@ namespace TheWaningBorder.Entities
 
                 // Raise Anew (Sect of Renewal active power) — three PERMANENT
                 // conjured fortifications, one per power level. Not placeable
-                // (no BuildCosts / builder row) and never under construction;
+                // (no BuildCosts / worker row) and never under construction;
                 // they file with the ability, not under Buildings/. Routed
                 // through this dispatcher so every peer agrees on the
                 // NetworkedEntity id (MP harness catch #9).
@@ -292,7 +292,6 @@ namespace TheWaningBorder.Entities
             {
                 "Hall" => true,
                 "Barracks" => true,
-                "ShrineOfRidan" or "ShrineOfAhridan" => true,
                 "TempleOfRidan" => true,
                 "Runai_TradeHub" => true,
                 "ThessarasBazaar" => true,
@@ -408,9 +407,34 @@ namespace TheWaningBorder.Entities
             return count;
         }
 
+        /// <summary>
+        /// True when the faction already owns its <c>maxPerFaction</c> of this
+        /// building — finished, under construction or still a plan. Ids with
+        /// no cap (0) never are. The count needs the building's tag, so a cap
+        /// on an id missing from the switch below is a data bug, logged once.
+        /// </summary>
+        public static bool AtFactionCap(EntityManager em, Faction faction, string buildingId)
+        {
+            int max = TechCatalog.Building(buildingId).maxPerFaction;
+            if (max <= 0) return false;
+            int built;
+            switch (buildingId)
+            {
+                case "Hut": built = GetFactionBuildingCount<HutTag>(em, faction); break;
+                default:
+                    if (_uncountedCapWarned.Add(buildingId))
+                        UnityEngine.Debug.LogError(
+                            $"[BuildingFactory] {buildingId} has maxPerFaction {max} but no tag to count it by — cap ignored.");
+                    return false;
+            }
+            return built + PlannedBuildings.CountOf(em, faction, buildingId) >= max;
+        }
+
+        private static readonly System.Collections.Generic.HashSet<string> _uncountedCapWarned
+            = new System.Collections.Generic.HashSet<string>();
+
         private static string GetBuildingIdFromEntity(EntityManager em, Entity entity)
         {
-            if (em.HasComponent<ShrineTag>(entity)) return "ShrineOfRidan";
             if (em.HasComponent<VaultTag>(entity)) return "VaultOfAlmierra";
             if (em.HasComponent<FiendstoneKeepTag>(entity)) return "FiendstoneKeep";
             return null;

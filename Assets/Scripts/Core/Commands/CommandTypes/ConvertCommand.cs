@@ -1,5 +1,5 @@
 // ConvertCommand.cs
-// Command to convert a miner into a berserker at a Fiendstone Keep
+// Command to convert a worker into a berserker at a Fiendstone Keep
 
 using Unity.Entities;
 using Unity.Transforms;
@@ -7,8 +7,8 @@ using Unity.Transforms;
 namespace TheWaningBorder.Core.Commands.Types
 {
     /// <summary>
-    /// ECS Component representing a convert command for a miner unit.
-    /// When attached to a miner, BerserkerConversionSystem will process it.
+    /// ECS Component representing a convert command for a worker unit.
+    /// When attached to a worker, BerserkerConversionSystem will process it.
     /// </summary>
     public struct ConvertCommand : IComponentData
     {
@@ -22,43 +22,43 @@ namespace TheWaningBorder.Core.Commands.Types
     public static class ConvertCommandHelper
     {
         /// <summary>
-        /// Execute a convert command on a miner unit.
+        /// Execute a convert command on a worker unit.
         /// Clears conflicting commands and sets up conversion state.
         /// </summary>
-        public static void Execute(EntityManager em, Entity miner, Entity keep)
+        public static void Execute(EntityManager em, Entity worker, Entity keep)
         {
-            if (!em.Exists(miner) || !em.Exists(keep)) return;
+            if (!em.Exists(worker) || !em.Exists(keep)) return;
 
-            // Verify miner is actually a miner
-            if (!em.HasComponent<MinerTag>(miner)) return;
+            // Verify worker is actually a worker
+            if (!em.HasComponent<WorkerTag>(worker)) return;
 
             // Verify keep is a Fiendstone Keep and not under construction
             if (!em.HasComponent<FiendstoneKeepTag>(keep)) return;
             if (em.HasComponent<UnderConstruction>(keep)) return;
 
             // Verify same faction
-            if (!em.HasComponent<FactionTag>(miner) || !em.HasComponent<FactionTag>(keep)) return;
-            if (em.GetComponentData<FactionTag>(miner).Value != em.GetComponentData<FactionTag>(keep).Value) return;
+            if (!em.HasComponent<FactionTag>(worker) || !em.HasComponent<FactionTag>(keep)) return;
+            if (em.GetComponentData<FactionTag>(worker).Value != em.GetComponentData<FactionTag>(keep).Value) return;
 
             // Clear conflicting commands
-            CommandHelper.ClearAllCommands(em, miner);
+            CommandHelper.ClearAllCommands(em, worker);
 
             // Set up convert command
             var cmd = new ConvertCommand { TargetKeep = keep };
 
-            if (!em.HasComponent<ConvertCommand>(miner))
-                em.AddComponentData(miner, cmd);
+            if (!em.HasComponent<ConvertCommand>(worker))
+                em.AddComponentData(worker, cmd);
                 else
-                    em.SetComponentData(miner, cmd);
+                    em.SetComponentData(worker, cmd);
 
             // Move toward keep
             if (em.HasComponent<LocalTransform>(keep))
             {
                 var keepPos = em.GetComponentData<LocalTransform>(keep).Position;
 
-                if (em.HasComponent<DesiredDestination>(miner))
+                if (em.HasComponent<DesiredDestination>(worker))
                 {
-                    em.SetComponentData(miner, new DesiredDestination
+                    em.SetComponentData(worker, new DesiredDestination
                     {
                         Position = keepPos,
                         Has = 1
@@ -66,7 +66,7 @@ namespace TheWaningBorder.Core.Commands.Types
                 }
                 else
                 {
-                    em.AddComponentData(miner, new DesiredDestination
+                    em.AddComponentData(worker, new DesiredDestination
                     {
                         Position = keepPos,
                         Has = 1

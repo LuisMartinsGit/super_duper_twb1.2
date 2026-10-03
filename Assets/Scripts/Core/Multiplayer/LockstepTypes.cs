@@ -87,6 +87,8 @@ namespace TheWaningBorder.Core.Multiplayer
         FormationOrder = 49,    // CommandRouter.IssueFormationMove/AttackMove (issuing faction in EntityNetworkId; BuildingId = unit network ids sorted ascending, delta-encoded base 36, ';'-separated; TargetEntityId = shape | attackMove<<8 | more-follows<<9; SecondaryTargetId = total unit count; destination in TargetPosition) — docs/Design/Navigation_And_Formations.md §2.12
         RangingShot = 51,       // CommandRouter.IssueRangingShot (faction in EntityNetworkId) — arms every planted siege engine and starts the faction cooldown on every peer; it was a UI button writing ECS on the clicking peer alone
         ReligionPurchase = 52,  // CommandRouter.IssueReligionPurchase (faction in EntityNetworkId, ReligionPurchaseKind in TargetEntityId, sect id in BuildingId — "Tithe" for the Tithe) — docs/Design/Religion.md §1.1, §3.1: every RP purchase is spent on every peer at the same tick
+        SetOutpostMode = 53,
+        DeleteEntity = 54,      // CommandRouter.IssueDelete (the entity in EntityNetworkId) — cancels a plan or a construction site with a full refund, demolishes a finished building, kills a unit; docs/Design/Planned_Buildings.md §4    // CommandRouter.IssueSetOutpostMode (Trading Outpost in EntityNetworkId; the TradeRecipe byte in TargetEntityId) — it changes what the faction spends and earns every cycle, so every peer must flip it on the same tick; docs/Design/Veilstone_Economy.md §3.1
         BuildingAttack = 50,    // CommandRouter.IssueBuildingAttack (shooting building in EntityNetworkId, forced target in TargetEntityId; 0 = clear the order, i.e. Stop) — docs/Design/Combat_Pacing.md § Directed building fire
     }
 

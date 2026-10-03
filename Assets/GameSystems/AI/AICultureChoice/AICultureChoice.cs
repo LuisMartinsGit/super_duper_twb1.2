@@ -145,7 +145,7 @@ namespace TheWaningBorder.AI
             {
                 switch (buf[i].Category)
                 {
-                    case IntelCategory.Miner:
+                    case IntelCategory.Worker:
                     case IntelCategory.EcoBuilding:
                         eco++;
                         break;

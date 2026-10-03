@@ -58,7 +58,7 @@ namespace TheWaningBorder.Systems.Combat
             {
                 // The tag alone is not enough. The Fiendstone Keep is an
                 // Age 0 building available to EVERY culture, and its
-                // miner-conversion produces real Berserkers — so an Alanthor
+                // worker-conversion produces real Berserkers — so an Alanthor
                 // or Runai player could otherwise field units carrying the
                 // Feraldis culture signature. Frenzy is Feraldis-only.
                 if (CultureConfig.GetCompletedCulture(EntityManager, faction.ValueRO.Value)

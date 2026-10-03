@@ -1,5 +1,5 @@
 ﻿// EntityExtractors.Buildings.cs
-// Building-placement actions (builder palette, icons, culture/era/cap gating)
+// Building-placement actions (worker palette, icons, culture/era/cap gating)
 // plus hut age-up and wall-segment conversion action cells.
 
 using System.Collections.Generic;
@@ -157,12 +157,14 @@ namespace TheWaningBorder.UI.Data
             bool roomForFitting = freeRun >= AlanthorWall.FreeRunForTower;
             bool roomForGate = freeRun >= AlanthorWall.FreeRunForGate;
             byte tier = WallTiers.Of(em, entity);
-            // A timber palisade is a fence: it converts to a GATE (you have to
-            // be able to walk through your own wall) and to a HUB (so a fence
-            // can still branch), and to nothing else. A tower and a mounted
-            // engine are both masonry work. 2026-09-24,
-            // docs/Design/Age_0.md § Wooden Wall.
-            bool masonry = WallTiers.AllowsTowers(tier);
+            bool palisade = AlanthorWall.IsPalisade(em, entity);
+            // A palisade is a fence: it converts to a GATE (you have to be
+            // able to walk through your own wall) and to a HUB (so a fence can
+            // still branch), and to nothing else. On the stone wall the level
+            // decides the fittings: towers from Stone, a Ballista from
+            // Battlemented, a Trebuchet from Shielded
+            // (docs/Design/Age_1_Alanthor.md § The stone wall).
+            bool masonry = !palisade && WallTiers.AllowsTowers(tier);
 
             // Gate cell — segment-level conversion. Drops out while the
             // segment is mid-conversion (no double-charge / double-stack).
@@ -228,17 +230,16 @@ namespace TheWaningBorder.UI.Data
             // The platform and the engine standing on it stay two entities
             // (docs/Design/Age_1_Alanthor.md § Ballista and Trebuchet
             // emplacements); the module itself is still wall.
-            if (masonry && roomForFitting)
-            {
+            if (masonry && roomForFitting && WallTiers.AllowsBallista(tier))
                 AddEmplacementAction(actions, em, faction, available,
                     "WallToBallista", "Alanthor_BallistaEmplacement",
                     Loc.T("Mount Ballista"),
                     Loc.T("A bolt thrower on the wall: single targets, heavy against buildings. If the engine is destroyed the platform stays, and a new one can be bought with Replace Equipment."));
+            if (masonry && roomForFitting && WallTiers.AllowsTrebuchet(tier))
                 AddEmplacementAction(actions, em, faction, available,
                     "WallToTrebuchet", "Alanthor_TrebuchetEmplacement",
                     Loc.T("Mount Trebuchet"),
                     Loc.T("A counterweight engine on the wall: long range, splash, slow. If the engine is destroyed the platform stays, and a new one can be bought with Replace Equipment."));
-            }
 
             // NO PLACEHOLDER CELLS (2026-09-24). The panel used to fill the
             // gap with disabled "No room" / "No tower" cards explaining the
@@ -249,8 +250,11 @@ namespace TheWaningBorder.UI.Data
 
             // Hub cell — the cell becomes a hub and its segment splits there,
             // so a new wall can be drawn off it (T / X junctions). Costs a hub.
+            // A hub of the wall's own kind — so not on a palisade its owner
+            // can no longer build (Alanthor / Runai after age-up).
             if (AlanthorWall.CanConvertInstanceToHub(em, entity)
-                && TheWaningBorder.Data.BuildCosts.TryGet("Alanthor_Wall", out var hubCost))
+                && WallTiers.CanBuild(em, faction, palisade)
+                && TheWaningBorder.Data.BuildCosts.TryGet(AlanthorWall.HubIdFor(palisade), out var hubCost))
             {
                 bool canAffordHub = !em.Equals(default(EntityManager))
                     ? FactionEconomy.CanAfford(em, faction, hubCost)
@@ -340,7 +344,7 @@ namespace TheWaningBorder.UI.Data
                 Id = "ReplaceEquipment",
                 Label = label,
                 Tooltip = BuildTooltip(label,
-                    string.Format(Loc.T("The {0} on this platform was destroyed. The crew raises a new one when the timer ends; no builder needed."),
+                    string.Format(Loc.T("The {0} on this platform was destroyed. The crew raises a new one when the timer ends; no worker needed."),
                         Loc.T(engineName)),
                     cost, available, trainingTime: seconds),
                 Cost = cost,
@@ -350,7 +354,7 @@ namespace TheWaningBorder.UI.Data
             });
         }
 
-        // Buildings the player can place via builder (excludes starting buildings and other-faction variants)
+        // Buildings the player can place via worker (excludes starting buildings and other-faction variants)
         //
         // task-109: Alanthor wall primitives — only "Alanthor_Wall" (hub) and "Alanthor_Tower"
         //           (standalone watch tower) are placeable. "Alanthor_WallTower" and
@@ -360,8 +364,8 @@ namespace TheWaningBorder.UI.Data
         //           and the static-ctor Debug.Assert guard below.
         private static readonly HashSet<string> BuildableBuildings = new()
         {
-            // Choice buildings (ShrineOfRidan / VaultOfAlmierra /
-            // FiendstoneKeep) are NOT builder-placeable: they are placed from
+            // Choice buildings (VaultOfAlmierra /
+            // FiendstoneKeep) are NOT worker-placeable: they are placed from
             // the top-bar special-building buttons and self-construct
             // (design: Age_0.md § Special buildings).
             "Hut", "GatherersHut", "Barracks", "ArcheryRange",
@@ -375,14 +379,18 @@ namespace TheWaningBorder.UI.Data
             // removed, and a Fortress is how ground with no resource node is
             // locked. One per territory, enforced at placement.
             "Fortress",
-            "Alanthor_Wall", "Alanthor_Smelter",
+            // The two walls are different buildings (2026-10-02): the
+            // Palisade is every culture's in Age 0 and Feraldis's after; the
+            // Stone Wall (Alanthor_Wall) is Alanthor's from the age-up.
+            "Palisade",
+            "Alanthor_Wall",
             // Runai culture buildings
             "Runai_Outpost", "Runai_TradeHub", "Runai_TradingPost", "ThessarasBazaar", "Runai_SiegeWorkshop",
             // Alanthor culture buildings. Alanthor_PracticeRange retired (it is
             // the LEVELED Archery Range) and Alanthor_Crucible deleted (the
             // Smelter absorbs its veilsteel role) — calculator 2026-08.
             "Alanthor_Tower", "Alanthor_SiegeYard", "Alanthor_RoyalStable",
-            "Alanthor_Sawyer",
+            "Alanthor_TradingOutpost",
             // NO emplacement platforms (2026-09-25): emplacements are
             // WALL-MOUNT ONLY — Mount Ballista / Mount Trebuchet on a masonry
             // curtain module's panel. The free-standing platforms are
@@ -433,7 +441,7 @@ namespace TheWaningBorder.UI.Data
         // "Alanthor_WallTower" or "Alanthor_WallGate" to BuildableBuildings, this
         // static constructor will fire a Debug.Assert at first class touch (which
         // happens during the first build-action extraction on the local player
-        // builder). Keeping the assertion close to the HashSet declaration makes
+        // worker). Keeping the assertion close to the HashSet declaration makes
         // the contract self-documenting.
         static EntityActionExtractor()
         {
@@ -512,11 +520,12 @@ namespace TheWaningBorder.UI.Data
                     // Only show buildings the player can actually place
                     if (!BuildableBuildings.Contains(building.id)) continue;
 
-                    // ONE MINE BUTTON (2026-09-29): the Veilstone Mine and the
-                    // veilsteel extractor ride the "Mine" button, which raises
-                    // whichever the node under the cursor needs
-                    // (TerritoryOwnership.ResolveExtractorAt).
-                    if (building.id == "VeilstoneMine" || building.id == "Alanthor_Smelter") continue;
+                    // ONE MINE BUTTON (2026-09-29): the Veilstone Mine rides the
+                    // "Mine" button, which raises whichever the node under the
+                    // cursor needs (TerritoryOwnership.ResolveExtractorAt). The
+                    // Smelter left it on 2026-10-01: with veilsteel deposits
+                    // gone it is an ordinary placed building.
+                    if (building.id == "VeilstoneMine") continue;
 
                     // Choice building exclusion: if one is built, hide the other two
                     if (BuildingFactory.IsChoiceBuilding(building.id) && existingChoice != null)
@@ -548,6 +557,14 @@ namespace TheWaningBorder.UI.Data
                         if (SectBuildingCount(em, building.id, faction)
                             >= TheWaningBorder.Entities.SectBuilding.CapPerFaction) continue;
                     }
+
+                    // The Palisade is not culture-prefixed but is still gated:
+                    // Alanthor and Runai lose it at age-up, Feraldis keep it
+                    // (docs/Design/Age_0.md § Palisade). Same test the
+                    // executors apply.
+                    if (building.id == AlanthorWall.PalisadeHubId
+                        && (em.Equals(default(EntityManager)) || !WallTiers.CanBuild(em, faction, palisade: true)))
+                        continue;
 
                     // Data-driven culture gating: buildings with culture prefix require that culture
                     byte requiredCulture = GetRequiredCulture(building.id);
@@ -597,6 +614,19 @@ namespace TheWaningBorder.UI.Data
                             + (requirement != null ? "\n" + requirement : "");
                     }
 
+                    // A wall is paid per 3 m module on top of its hubs: say so,
+                    // with the module's own price.
+                    if (AlanthorWall.IsWallHubId(building.id))
+                    {
+                        var mod = TheWaningBorder.Core.Commands.CommandRouter.WallModuleCost(
+                            building.id == AlanthorWall.PalisadeHubId);
+                        string modText = mod.Iron > 0
+                            ? string.Format("{0} S + {1} I", mod.Supplies, mod.Iron)
+                            : string.Format("{0} S", mod.Supplies);
+                        requirement = string.Format(Loc.T("Price shown is per hub. Each 3 m of wall costs {0} more."), modText)
+                            + (requirement != null ? "\n" + requirement : "");
+                    }
+
                     string tooltip = BuildTooltip(
                         building.id == "Alanthor_Wall"
                             ? WallTiers.DisplayName(WallTiers.LevelFor(em, faction)) : building.name,
@@ -610,10 +640,9 @@ namespace TheWaningBorder.UI.Data
                         requirement: requirement
                     );
 
-                    // The wall is named for what this faction would actually
-                    // raise: a timber palisade in Age 0, stone once Alanthor
-                    // ages up. One id, three names
-                    // (docs/Design/Age_1_Alanthor.md § The three wall levels).
+                    // The stone wall is named for the level this faction's wall
+                    // stands at: Stone, Battlemented or Shielded
+                    // (docs/Design/Age_1_Alanthor.md § The stone wall).
                     string label = building.id == "Alanthor_Wall"
                         ? WallTiers.DisplayName(WallTiers.LevelFor(em, faction))
                         : building.name;
@@ -641,15 +670,10 @@ namespace TheWaningBorder.UI.Data
         /// </summary>
         private static byte GetRequiredCulture(string buildingId)
         {
-            // The WALL is the one Alanthor_-prefixed id that is NOT
-            // Alanthor's: its first level is a timber palisade every culture
-            // can raise from Age 0 (docs/Design/Age_0.md § Palisade). What
-            // stays Alanthor's is everything above level 1 — the stone, the
-            // shields and the two Hall techs that grant them. The id keeps
-            // its prefix for the same reason the Mine keeps none: renaming it
-            // ripples through the recipe table, sizes, costs, build times,
-            // the name resolver and the AI.
-            if (buildingId == "Alanthor_Wall") return Cultures.None;
+            // The Stone Wall (Alanthor_Wall) is Alanthor's again since
+            // 2026-10-02: the timber fence every culture raises in Age 0 is
+            // its own building, the Palisade (docs/Design/Age_0.md
+            // § Palisade), which carries its own gate above.
             if (buildingId.StartsWith("Alanthor_")) return Cultures.Alanthor;
             if (buildingId.StartsWith("Feraldis_")) return Cultures.Feraldis;
             if (buildingId.StartsWith("Runai_")) return Cultures.Runai;

@@ -24,7 +24,7 @@ namespace TheWaningBorder.Systems.Border
         /// but are absolutely out on the map doing this work).
         ///
         /// Excludes a worker still on build duty — a conscripted one counts,
-        /// a builder pottering around the base does not. Free home ground is
+        /// a worker pottering around the base does not. Free home ground is
         /// Alanthor's identity, not Feraldis's.
         /// </summary>
         public static bool Is(EntityManager em, Entity e, Faction owner)
@@ -32,7 +32,7 @@ namespace TheWaningBorder.Systems.Border
             if (CultureConfig.GetCompletedCulture(em, owner) != Cultures.Feraldis) return false;
             if (TransientState.Active<DeathAnimationState>(em, e)) return false;
 
-            // Builders on build duty claim and clear nothing.
+            // Workers on build duty claim and clear nothing.
             if (em.HasComponent<FeraldisWorkerTag>(e)
                 && !em.HasComponent<ConscriptedTag>(e)) return false;
 

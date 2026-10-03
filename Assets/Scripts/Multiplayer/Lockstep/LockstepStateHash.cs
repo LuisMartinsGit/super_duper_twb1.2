@@ -554,9 +554,9 @@ namespace TheWaningBorder.Multiplayer
             }
             // (WorkKind 2 was TrainingState. Training is a production item
             // now and is hashed by CaptureTech with the rest of the queue.)
-            else if (em.HasComponent<MinerState>(e))
+            else if (em.HasComponent<WorkerState>(e))
             {
-                var ms = em.GetComponentData<MinerState>(e);
+                var ms = em.GetComponentData<WorkerState>(e);
                 snap.WorkKind = 3;
                 snap.WorkA = math.asuint(ms.GatherTimer);
                 snap.WorkB = ms.GatheringResource;

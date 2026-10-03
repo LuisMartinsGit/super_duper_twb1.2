@@ -37,7 +37,6 @@ namespace TheWaningBorder.Entities
             if (em.HasComponent<ArcheryRangeTag>(entity)) return "ArcheryRange";
             if (em.HasComponent<GathererHutTag>(entity)) return "GatherersHut";
             if (em.HasComponent<HutTag>(entity)) return "Hut";
-            if (em.HasComponent<ShrineTag>(entity)) return "ShrineOfRidan";
             if (em.HasComponent<TempleOfRidanTag>(entity)) return "TempleOfRidan";
             if (em.HasComponent<VaultTag>(entity)) return "VaultOfAlmierra";
             if (em.HasComponent<FiendstoneKeepTag>(entity)) return "FiendstoneKeep";
@@ -71,7 +70,7 @@ namespace TheWaningBorder.Entities
             if (em.HasComponent<PastureTag>(entity)) return "Feraldis_Pasture";
             if (em.HasComponent<MineTag>(entity)) return "Mine";
             if (em.HasComponent<VeilstoneMineTag>(entity)) return "VeilstoneMine";
-            if (em.HasComponent<SawyerTag>(entity)) return "Alanthor_Sawyer";
+            if (em.HasComponent<TradingOutpostTag>(entity)) return "Alanthor_TradingOutpost";
             // Wall pieces — same mapping BuildCosts.IdOf uses for refunds.
             // These were MISSING here, and a to-completion batch made every
             // building ledger read "unknown 165" per faction: the endgame
@@ -84,7 +83,8 @@ namespace TheWaningBorder.Entities
             if (em.HasComponent<WallInstanceTag>(entity)
                 || em.HasComponent<WallTag>(entity)
                 || em.HasComponent<WallHubTag>(entity)
-                || em.HasComponent<WallSegmentTag>(entity)) return "Alanthor_Wall";
+                || em.HasComponent<WallSegmentTag>(entity))
+                return em.HasComponent<PalisadeTag>(entity) ? "Palisade" : "Alanthor_Wall";
             // Sect chapels — dynamic building ID based on sect
             if (em.HasComponent<ChapelTag>(entity))
             {

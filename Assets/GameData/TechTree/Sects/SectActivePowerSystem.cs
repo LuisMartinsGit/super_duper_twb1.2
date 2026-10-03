@@ -88,8 +88,8 @@ namespace TheWaningBorder.Systems.Sect
                 SectActivePowerHelper.DispatchEffect(em, s.Caster,
                     (SectActivePowerKind)s.Kind, s.Position, s.Radius,
                     s.Magnitude, s.Duration, s.Level, s.Secondary, s.DamageKind);
-                TheWaningBorder.Rendering.SectPowerVfx.SpawnForSect(
-                    SectConfig.IdAt(s.SectIndex), s.Position, s.Radius);
+                TheWaningBorder.Rendering.SectPowerVfx.SpawnForPower(
+                    SectConfig.IdAt(s.SectIndex), s.Kind, s.Position, s.Radius);
             }
             landed.Dispose();
         }

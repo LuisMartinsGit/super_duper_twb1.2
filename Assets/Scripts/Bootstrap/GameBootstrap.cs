@@ -613,7 +613,15 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<PresentationSpawnSystem>();
             managersGO.AddComponent<TheWaningBorder.Rendering.BuildingPrefabSwapSystem>();
             managersGO.AddComponent<TheWaningBorder.Rendering.NodeRubbleVisualSystem>(); // node rubble / rebuild visual
-            managersGO.AddComponent<TheWaningBorder.Rendering.LedgerAutomationVfx>();   // Ledger ability: building aura + cast burst
+            // Ability effects: each ability's own <Name>_Effect prefab (the Ledger's
+            // buff, King Lexor, the Field Hospital), every unit heal, the Sect of
+            // Renewal's lasting effects and the Shardroot's loot states (2026-10-02;
+            // replaced LedgerAutomationVfx's procedural aura).
+            managersGO.AddComponent<TheWaningBorder.Rendering.AbilityVfxPlayer>();
+            managersGO.AddComponent<TheWaningBorder.Rendering.UnitHealVfx>();
+            managersGO.AddComponent<TheWaningBorder.Rendering.UnitCombatVfx>();   // hits, charge impacts, speed / attack buffs
+            managersGO.AddComponent<TheWaningBorder.Rendering.RenewalVfx>();
+            managersGO.AddComponent<TheWaningBorder.Rendering.ShardrootVfx>();
             managersGO.AddComponent<SelectionSystem>();          // Click + box select
             managersGO.AddComponent<RTSInputManager>();          // Right-click command routing
 
@@ -623,19 +631,22 @@ namespace TheWaningBorder.Bootstrap
             // old stacks — UnifiedUIManager panel spawner, UI Toolkit jade
             // HUD, IMGUI ResourceHUD/ReligionHUD/VictoryProgressHUD/minimap/
             // ESC menu/post-game — were removed at the user's request.
-            // Non-painting runtime pieces stay: BuilderCommandPanel (drives
+            // Non-painting runtime pieces stay: WorkerCommandPanel (drives
             // building placement), FloatingHealthBars (worldspace HP bars),
             // PlayerNotificationSystem (transient feedback toasts until the
             // final UI covers messaging).
             managersGO.AddComponent<TheWaningBorder.UI.Ingame.GameUIManager>();
-            managersGO.AddComponent<BuilderCommandPanel>();      // Building placement runtime (no painting)
+            managersGO.AddComponent<WorkerCommandPanel>();      // Building placement runtime (no painting)
             managersGO.AddComponent<FloatingHealthBars>();       // Worldspace HP bars
             // Floating damage/heal numbers. Lost its mount in the old-UI
             // teardown (nothing referenced it) — restored 2026-08-03; same
             // pool-on-private-canvas pattern as FloatingHealthBars.
             managersGO.AddComponent<TheWaningBorder.UI.Ingame.DamageNumbersUI>();
             managersGO.AddComponent<TheWaningBorder.UI.Ingame.GameClockHUD>(); // match-time readout (sim time)
-            managersGO.AddComponent<TheWaningBorder.UI.Ingame.StatsBoardHUD>(); // live AoE-style charts on Display 2
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD || TWB_DEBUG_DISPLAY) && !TWB_NO_DEBUG_DISPLAY
+            managersGO.AddComponent<TheWaningBorder.UI.Ingame.StatsBoardHUD>(); // debug board on Display 2 (never in releases)
+#endif
+            managersGO.AddComponent<TheWaningBorder.UI.Ingame.MatchSnapshotLog>(); // per-minute faction snapshot into the match logs
             managersGO.AddComponent<TheWaningBorder.Rendering.CurseBeaconVfx>(); // curse-node beacons + emergence pulses
             managersGO.AddComponent<TheWaningBorder.Rendering.ChapelSiteDecals>();
 

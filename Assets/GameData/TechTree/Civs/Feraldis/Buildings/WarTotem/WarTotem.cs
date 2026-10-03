@@ -12,7 +12,7 @@ namespace TheWaningBorder.Entities
     /// Cheap, unarmed, and fragile by design: the totem is an investment in
     /// ground you have already bled on, and killing one is how an opponent
     /// answers Feraldis expansion. Placement is blood-gated in
-    /// BuilderCommandPanel / BuildCommandHelper.
+    /// WorkerCommandPanel / BuildCommandHelper.
     ///
     /// Design: docs/Design/Age_1_Feraldis.md (2026-08-05).
     /// </summary>

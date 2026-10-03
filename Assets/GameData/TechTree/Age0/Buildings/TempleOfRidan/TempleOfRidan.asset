@@ -33,7 +33,8 @@ MonoBehaviour:
   maxVeilstone: 0
   segmentHp: 0
   segmentLineOfSight: 0
-  trains: []
+  trains:
+  - Litharch
   research: []
   minEra: 0
   cost:

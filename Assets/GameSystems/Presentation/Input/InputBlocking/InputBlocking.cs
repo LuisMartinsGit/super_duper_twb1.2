@@ -31,9 +31,9 @@ namespace TheWaningBorder.Input
                 return true;
 
             // One-frame suppression (after GUI button clicks)
-            if (BuilderCommandPanel.SuppressClicksThisFrame)
+            if (WorkerCommandPanel.SuppressClicksThisFrame)
             {
-                BuilderCommandPanel.SuppressClicksThisFrame = false;
+                WorkerCommandPanel.SuppressClicksThisFrame = false;
                 return true;
             }
 

@@ -89,7 +89,7 @@ see [docs/Design/Age_0.md](docs/Design/Age_0.md).
 
 ## 3. Controls & Interface
 
-**Walls (Alanthor):** pick the Wall Hub in the builder palette, then **press and drag** on the ground to draw the wall — it follows the cursor as a curve (minimum bend 12 m), places a hub every 12 m, and **retracing over the path erases it** back to that point. Release to build the whole line; a plain click still places a single hub. Right-click / Esc cancels.
+**Walls (Alanthor):** pick the Wall Hub in the worker palette, then **press and drag** on the ground to draw the wall — it follows the cursor as a curve (minimum bend 12 m), places a hub every 12 m, and **retracing over the path erases it** back to that point. Release to build the whole line; a plain click still places a single hub. Right-click / Esc cancels.
 
 ### Selection
 
@@ -143,7 +143,7 @@ military units over economy units when both are inside the box.
 | **D** | Stance: **Defensive** (the default for your units) — returns fire on whatever attacks it, if it can reach it from where it stands; never pursues. |
 | **G** | Stance: **Aggressive** — engages anything it can see and pursues it up to 30 m from its post, then walks back. |
 | **X** | Cycle formation shape: Box → Line → Wedge → Staggered. Re-slots the current selection immediately (AoE4-style). |
-| **B** | Cycle through idle Builders and center the camera. |
+| **B** | Cycle through idle Workers and center the camera. |
 | **Z** | Enter / exit Planning Mode (queue commands visually, execute on confirm). |
 | **Esc** | Cascading: close menu → exit mode → clear selection → open menu. |
 | **1–9** | Recall control group. |
@@ -160,8 +160,8 @@ Right-click does whatever makes sense for the target:
 | Ground | Move (in formation: units hold their shape en route — melee front, ranged back — at the slowest member's speed, slows included, with a +40% catch-up boost for stragglers; workers and far-away outliers path independently). The rear ranks keep formation right up to their own slots after the front has arrived. On an attack-move a unit that steps out of rank to fight falls back in once its fight is over. Formations hold their shape in multiplayer too. |
 | Overpass bridge deck | Send the selection OVER the bridge — any unit type; they climb a ramp, cross the deck, and descend the far side. Units not ordered onto the deck simply walk UNDER the span. |
 | Enemy unit / building | Attack. |
-| Friendly damaged building | Repair (with builders). |
-| Friendly under-construction building | Resume building (with builders). |
+| Friendly damaged building | Repair (with workers). |
+| Friendly under-construction building | Resume building (with workers). |
 | Friendly unit (Litharch selected) | Heal. |
 | Resource node / Cadaver (Worker selected) | Gather (resources go straight to your stockpile). |
 | Smelter (Worker selected) | Supply the Smelter with iron and veilstone. |
@@ -223,7 +223,7 @@ When you queue a building it follows the cursor as a ghost:
 
 - **Green** = valid placement; **Red** = blocked. Clicking a red ghost tells you
   **why** — not your territory, held by another player or the curse, this
-  territory already has a Hall, not adjacent, builder too far, no worker
+  territory already has a Hall, not adjacent, worker too far, no worker
   selected, unsuitable ground, something already built there, or the building's
   own rule (a free node, blood, a forest).
 - **Claiming territory with a Hall** (450 supplies, 450 iron): the Hall is the

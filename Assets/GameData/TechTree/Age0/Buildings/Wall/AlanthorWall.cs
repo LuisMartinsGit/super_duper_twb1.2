@@ -1,4 +1,7 @@
-// Alanthor wall system: hub (round tower) + segment (data-only graph edge) +
+// The wall system — the Alanthor STONE wall and the PALISADE, two buildings on
+// one machinery (docs/Design/Age_1_Alanthor.md § The stone wall, Age_0.md
+// § Palisade); every palisade piece carries PalisadeTag.
+// Hub (round tower) + segment (data-only graph edge) +
 // instances (3 m curtain modules). The curtain runs hub CENTRE to hub CENTRE
 // and the hub stands on top of its ends, so a wall cannot have a gap.
 // Each segment spawns multiple small wall instances that block the passability grid.
@@ -31,6 +34,10 @@ namespace TheWaningBorder.Entities
         /// radius, a line of sight or a prefab of its own.
         /// </summary>
         public const string HubId = "Alanthor_Wall";
+        /// <summary>The PALISADE's hub — a separate building since 2026-10-02
+        /// (docs/Design/Age_0.md § Palisade). Its curtain, gates and seals are
+        /// the shared pieces below, carrying <see cref="PalisadeTag"/>.</summary>
+        public const string PalisadeHubId = "Palisade";
         public const string SegmentId = "Alanthor_WallSegment";
         public const string GateId = "Alanthor_WallGate";
         public const string TowerId = "Alanthor_WallTower";
@@ -70,8 +77,56 @@ namespace TheWaningBorder.Entities
         public const float ModuleOverlap = 0f;
 
         /// <summary>Compact curtain-wall cross-section, in meters.</summary>
-        public const float WallWidth = 1f;     // masonry thickness across the wall (X)
-        public const float WallHeight = 2.6f;  // parapet crown top (solid curtain, no deck)
+        public const float WallWidth = 1f;     // palisade thickness across the wall (X)
+        public const float WallHeight = 2.6f;  // palisade crown top
+
+        /// <summary>
+        /// The STONE wall's depth across the wall, in metres — the same at
+        /// every level (docs/Design/Age_1_Alanthor.md § The stone wall), and
+        /// equal to the hub's 2 x 2 cells so the walk lands flush on it.
+        /// </summary>
+        public const float StoneWallDepth = 4f;
+
+        /// <summary>
+        /// Height of the stone wall-walk above the ground the wall stands on:
+        /// where a unit on the rampart layer stands, and the top of the
+        /// authored curtain body (the kit's 5 m wall at the shared 0.6 scale).
+        /// Read by the rampart layer's surface height, the deck click and the
+        /// emplacement deck, so the three cannot drift apart.
+        /// </summary>
+        public const float DeckHeight = 3f;
+
+        /// <summary>Thickness of a wall piece of this kind across the wall.</summary>
+        public static float DepthOf(bool palisade) => palisade ? WallWidth : StoneWallDepth;
+
+        /// <summary>The hub building id of this kind of wall.</summary>
+        public static string HubIdFor(bool palisade) => palisade ? PalisadeHubId : HubId;
+
+        /// <summary>True for any piece of a palisade (hub, segment, cell,
+        /// gate). THE test that keeps the two walls apart.</summary>
+        public static bool IsPalisade(EntityManager em, Entity piece)
+            => piece != Entity.Null && em.Exists(piece) && em.HasComponent<PalisadeTag>(piece);
+
+        /// <summary>True for either wall hub id.</summary>
+        public static bool IsWallHubId(string id) => id == HubId || id == PalisadeHubId;
+
+        /// <summary>The palisade's curtain module — its own SO, for its own
+        /// per-module price (docs/Design/Age_0.md § Palisade).</summary>
+        public const string PalisadeSegmentId = "PalisadeSegment";
+
+        /// <summary>The curtain-module building id of this kind of wall: its
+        /// HP and its PER-MODULE PRICE.</summary>
+        public static string SegmentIdFor(bool palisade) => palisade ? PalisadeSegmentId : SegmentId;
+
+        /// <summary>
+        /// How many curtain modules a run of <paramref name="length"/> metres
+        /// is laid as — the SAME rounding the segment factories use
+        /// (SpawnInstances / CreateSegmentAlong), so what is paid for is
+        /// exactly what is built. Walls are paid PER MODULE (2026-10-02;
+        /// docs/Design/Age_1_Alanthor.md § The stone wall).
+        /// </summary>
+        public static int ModuleCount(float length)
+            => math.max(1, (int)math.ceil((length - 2f * HubInset) / InstanceSpacing));
 
         /// <summary>
         /// Top of the planked fighting deck a mounted module carries, above
@@ -85,7 +140,7 @@ namespace TheWaningBorder.Entities
         /// (Stone / Battlemented / Shielded merlons top out at 2.60 / 2.80 /
         /// 2.90 m, all at or under it), and palisades cannot mount.
         /// </summary>
-        public const float EmplacementDeckHeight = WallHeight + 0.3f;
+        public const float EmplacementDeckHeight = DeckHeight;
 
         /// <summary>
         /// Hub radius, in metres: 0.7 of a wall section (2026-09-21 — 30 %
@@ -139,13 +194,23 @@ namespace TheWaningBorder.Entities
         /// <summary>HubInset for the presentation (the swept mesh starts here).</summary>
         public const float HubInsetMetres = HubInset;
 
-        /// <summary>
-        /// Create a wall hub entity (the round connection tower).
-        /// </summary>
+        /// <summary>Create a STONE wall hub (`Alanthor_Wall`).</summary>
         public static Entity CreateHub(EntityManager em, float3 position, Faction faction)
+            => CreateHubOfKind(em, position, faction, palisade: false);
+
+        /// <summary>Create a PALISADE hub (`Palisade`).</summary>
+        public static Entity CreatePalisadeHub(EntityManager em, float3 position, Faction faction)
+            => CreateHubOfKind(em, position, faction, palisade: true);
+
+        /// <summary>
+        /// Create a wall hub of either kind. A palisade hub stays level 0 for
+        /// its whole life; a stone hub is raised at the faction's current
+        /// stone level and, at Shielded, is a tower from the start.
+        /// </summary>
+        public static Entity CreateHubOfKind(EntityManager em, float3 position, Faction faction, bool palisade)
         {
-            var def = TechCatalog.Building(HubId);
-            byte tier = WallTiers.LevelFor(em, faction);
+            var def = TechCatalog.Building(HubIdFor(palisade));
+            byte tier = WallTiers.LevelFor(em, faction, palisade);
             int hp = WallTiers.ScaleHp(def.hp, tier);
             float los = def.lineOfSight;
             float radius = def.radius;
@@ -172,6 +237,7 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new Health { Value = hp, Max = hp });
             em.SetComponentData(entity, new LineOfSight { Radius = los });
             em.AddComponentData(entity, new WallTier { Level = tier });
+            if (palisade) em.AddComponent<PalisadeTag>(entity);
             // 2 x 2-cell footprint (HubWidth) so build-range / selection /
             // passability use the real size. The presentation draws the tower
             // at HubRadius and the curtain starts at HubInset, so the three
@@ -191,6 +257,9 @@ namespace TheWaningBorder.Entities
             // building without this buffer -- silently, which is exactly how
             // a button that looks fine does nothing at all.
             // docs/Design/Age_1_Alanthor.md § The four wall levels
+            // A palisade has no levels, so its hub is no research host.
+            if (!palisade)
+            {
             em.AddBuffer<ProductionQueueItem>(entity);
             // ...and the CLOCK that runs it. ProductionQueueSystem only ticks
             // entities carrying ProductionState, so a hub with the buffer
@@ -198,8 +267,12 @@ namespace TheWaningBorder.Entities
             // (2026-09-27). The research executor also back-fills this onto
             // hubs raised before the fix.
             em.AddComponentData(entity, new ProductionState { Busy = 0, Remaining = 0 });
+            }
 
-            AdoptOrphanedSegments(em, entity, position, faction);
+            // A Shielded wall's hubs are towers (§ The stone wall).
+            if (WallTiers.HubIsTower(tier)) GiveHubTowerAttack(em, entity);
+
+            AdoptOrphanedSegments(em, entity, position, faction, palisade);
 
             return entity;
         }
@@ -225,7 +298,8 @@ namespace TheWaningBorder.Entities
         /// (self-segment) re-attaches the same way, which is also what keeps
         /// SealToTerrain from throwing a second seal.
         /// </summary>
-        static void AdoptOrphanedSegments(EntityManager em, Entity hub, float3 position, Faction faction)
+        static void AdoptOrphanedSegments(EntityManager em, Entity hub, float3 position, Faction faction,
+            bool palisade)
         {
             var q = QC_Segments.Get(em, QT_Segments);
             if (q.IsEmptyIgnoreFilter) return;
@@ -236,20 +310,41 @@ namespace TheWaningBorder.Entities
             {
                 var seg = segments[i];
                 if (em.GetComponentData<FactionTag>(seg).Value != faction) continue;
+                // A palisade never adopts stone, nor the reverse.
+                if (em.HasComponent<PalisadeTag>(seg) != palisade) continue;
 
                 var conn = em.GetComponentData<WallConnection>(seg);
                 bool adopted = false;
+                bool endA = false, endB = false;
                 if (!em.Exists(conn.HubA) && InsideFootprint(conn.PosA, position, half))
                 {
-                    conn.HubA = hub; adopted = true;
+                    conn.HubA = hub; conn.PosA = position; adopted = endA = true;
                 }
                 if (!em.Exists(conn.HubB) && InsideFootprint(conn.PosB, position, half))
                 {
-                    conn.HubB = hub; adopted = true;
+                    conn.HubB = hub; conn.PosB = position; adopted = endB = true;
                 }
                 if (!adopted) continue;
 
                 em.SetComponentData(seg, conn);
+                // Re-aim the wall's end at the NEW hub's centre: a rebuilt hub
+                // rarely stands exactly where the dead one did (the AI nudges
+                // and snaps its refill), and a segment left ending at the old
+                // centre misses the new drum (2026-10-02, "segments must be
+                // radially aligned with the hub centre").
+                List<float3> curve = null;
+                if (em.HasBuffer<WallCurvePoint>(seg))
+                {
+                    var cb = em.GetBuffer<WallCurvePoint>(seg);
+                    if (cb.Length >= 2)
+                    {
+                        curve = new List<float3>(cb.Length);
+                        for (int c = 0; c < cb.Length; c++) curve.Add(cb[c].Position);
+                        if (endA) curve[0] = position;
+                        if (endB) curve[curve.Count - 1] = position;
+                    }
+                }
+                RetargetSegment(em, seg, curve, conn.PosA, conn.PosB);
 
                 // Self-segment (a terrain seal): other == hub, a self-link.
                 Entity other = conn.HubA == hub ? conn.HubB : conn.HubA;
@@ -312,7 +407,12 @@ namespace TheWaningBorder.Entities
             // deals damage or picks targets can match it; it lives exactly as
             // long as one of its cells (WallSegmentCleanupSystem).
             // docs/Design/Age_1_Alanthor.md § One mesh, invisible cells
-            em.AddComponentData(entity, new WallTier { Level = WallTiers.LevelFor(em, faction) });
+            // The segment is the kind of the hub it starts at: a palisade
+            // hub only ever links to palisade hubs (every finder takes the
+            // kind), so either end would answer the same.
+            bool palisade = IsPalisade(em, hubA);
+            em.AddComponentData(entity, new WallTier { Level = WallTiers.LevelFor(em, faction, palisade) });
+            if (palisade) em.AddComponent<PalisadeTag>(entity);
             em.SetComponentData(entity, new WallConnection { HubA = hubA, HubB = hubB, PosA = posA, PosB = posB });
 
             if (curve != null)
@@ -380,20 +480,14 @@ namespace TheWaningBorder.Entities
         /// </summary>
         public static Entity CreateSegment(EntityManager em, Entity hubA, Entity hubB, Faction faction)
         {
+            // A straight wall is a drawn wall of two points (2026-10-02). It
+            // used to draw one GameObject module per cell, laid at the cell
+            // pitch — shorter than the module, so neighbours overlapped
+            // coplanar and z-fought. As a curve it takes the one baked mesh
+            // whose modules share their seams exactly (WallArtMesh).
             var posA = em.GetComponentData<LocalTransform>(hubA).Position;
             var posB = em.GetComponentData<LocalTransform>(hubB).Position;
-
-            float3 midpoint = (posA + posB) * 0.5f;
-            float3 diff = posB - posA;
-            float3 dirFlat = math.normalize(new float3(diff.x, 0f, diff.z));
-            quaternion rotation = quaternion.LookRotationSafe(dirFlat, math.up());
-
-            var entity = CreateSegmentEntity(em, hubA, hubB, posA, posB, midpoint, rotation, null, faction);
-
-            // Spawn wall instances along the line
-            SpawnInstances(em, entity, posA, posB, dirFlat, rotation, faction);
-
-            return entity;
+            return CreateSegmentAlong(em, hubA, hubB, new List<float3> { posA, posB }, faction);
         }
 
         /// <summary>
@@ -522,57 +616,6 @@ namespace TheWaningBorder.Entities
         }
 
         /// <summary>
-        /// Spawn wall instance entities evenly along the line between two hubs.
-        /// Each instance is a 1x1 building that blocks the passability grid.
-        /// </summary>
-        private static void SpawnInstances(
-            EntityManager em, Entity segment,
-            float3 posA, float3 posB,
-            float3 direction, quaternion rotation,
-            Faction faction)
-        {
-            float distance = math.distance(
-                new float2(posA.x, posA.z),
-                new float2(posB.x, posB.z));
-
-            float usable = distance - 2f * HubInset;
-            if (usable < 0.5f)
-            {
-                // Hubs too close — spawn one instance at midpoint
-                float3 mid = (posA + posB) * 0.5f;
-                var inst = CreateInstance(em, mid, rotation, faction, segment);
-                var buf = em.GetBuffer<WallInstanceRef>(segment);
-                buf.Add(new WallInstanceRef { Instance = inst, Position = mid });
-                return;
-            }
-
-            // Use ceil so actualSpacing never exceeds InstanceSpacing — each
-            // module's masonry is InstanceSpacing (3 m) long, so spacing > 3 m
-            // would leave a visible gap. Ceil guarantees touch-or-overlap.
-            int count = math.max(1, (int)math.ceil(usable / InstanceSpacing));
-            float actualSpacing = usable / count;
-
-            // Collect all instances first, then add to buffer in one go.
-            // Each CreateInstance calls em.CreateEntity which is a structural change
-            // that invalidates any live buffer handles.
-            var instances = new Entity[count];
-            var positions = new float3[count];
-            for (int i = 0; i < count; i++)
-            {
-                float t = HubInset + actualSpacing * (i + 0.5f);
-                positions[i] = posA + direction * t;
-                instances[i] = CreateInstance(em, positions[i], rotation, faction, segment);
-            }
-
-            // Now safe to get buffer and populate it (no more structural changes)
-            var buffer = em.GetBuffer<WallInstanceRef>(segment);
-            for (int i = 0; i < count; i++)
-            {
-                buffer.Add(new WallInstanceRef { Instance = instances[i], Position = positions[i] });
-            }
-        }
-
-        /// <summary>
         /// Create a single wall instance entity at the given position.
         /// </summary>
         public static Entity CreateInstance(
@@ -584,8 +627,10 @@ namespace TheWaningBorder.Entities
             // segmentLineOfSight (docs: one wall, two spawn shapes).
             // The curtain module's own def — not the hub's, and not the
             // hub's `segmentHp` field, which is retired.
-            var def = TechCatalog.Building(SegmentId);
-            byte tier = WallTiers.LevelFor(em, faction);
+            // A cell is the kind of the segment it stands on.
+            bool palisade = IsPalisade(em, parentSegment);
+            var def = TechCatalog.Building(SegmentIdFor(palisade));
+            byte tier = WallTiers.LevelFor(em, faction, palisade);
             int cellHp = WallTiers.ScaleHp(def.hp, tier);
 
             var entity = em.CreateEntity(
@@ -610,17 +655,12 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new Health { Value = cellHp, Max = cellHp });
             em.SetComponentData(entity, new LineOfSight { Radius = def.lineOfSight });
             em.AddComponentData(entity, new WallTier { Level = tier });
-            // Level 3 curtain: two garrison slots per module
-            // (docs/Design/Age_1_Alanthor.md § Garrison slots).
-            int slots = WallTiers.GarrisonSlots(tier);
-            if (slots > 0)
-            {
-                var slotBuf = em.AddBuffer<WallGarrisonSlot>(entity);
-                for (int i = 0; i < slots; i++) slotBuf.Add(new WallGarrisonSlot { Occupant = Entity.Null });
-            }
-            // Compact curtain footprint: 1 m thick across the wall, one 3 m
-            // module long. Solid obstacle on the passability grid.
-            em.SetComponentData(entity, new BuildingSize { Width = (int)WallWidth, Height = (int)InstanceSpacing });
+            if (palisade) em.AddComponent<PalisadeTag>(entity);
+            // No garrison slots (retired 2026-10-02): a stone wall's men stand
+            // on its deck. Footprint: as thick as the wall is deep (a 1 m
+            // fence, a 4 m stone wall), one 3 m module long. The nav grid is
+            // stamped from the same depth (StampWallLayersJob).
+            em.SetComponentData(entity, new BuildingSize { Width = (int)DepthOf(palisade), Height = (int)InstanceSpacing });
             em.SetComponentData(entity, new Radius { Value = def.radius > 0f ? def.radius : InstanceSpacing * 0.5f });
             em.SetComponentData(entity, new WallInstanceParent { Segment = parentSegment });
 
@@ -747,7 +787,9 @@ namespace TheWaningBorder.Entities
             RemoveHubLink(em, conn.HubA, segment);
             RemoveHubLink(em, conn.HubB, segment);
 
-            var hub = CreateHub(em, hubPos, faction);
+            // The hub is the kind of the wall it interrupts.
+            bool palisadeHub = IsPalisade(em, instance);
+            var hub = CreateHubOfKind(em, hubPos, faction, palisadeHub);
 
             // A hub raised THIS way never went through BuildingFactory, so it
             // had neither a NetworkId nor a DisplayName -- which meant every
@@ -764,7 +806,7 @@ namespace TheWaningBorder.Entities
             if (!em.HasComponent<DisplayName>(hub))
                 em.AddComponentData(hub, new DisplayName
                 {
-                    Value = TheWaningBorder.Core.DisplayNames.ForBuildingFixed(HubId),
+                    Value = TheWaningBorder.Core.DisplayNames.ForBuildingFixed(HubIdFor(palisadeHub)),
                 });
 
             if (before.Count == 0 && after.Count == 0)
@@ -877,14 +919,6 @@ namespace TheWaningBorder.Entities
             if (!grid.IsMaskReady) return;
             if (!em.Exists(hub) || !em.HasComponent<LocalTransform>(hub)) return;
 
-            // Already sealed? (self-link in the hub's link buffer)
-            if (em.HasBuffer<WallHubLink>(hub))
-            {
-                var existing = em.GetBuffer<WallHubLink>(hub);
-                for (int i = 0; i < existing.Length; i++)
-                    if (existing[i].ConnectedHub == hub) return;
-            }
-
             float3 hubPos = em.GetComponentData<LocalTransform>(hub).Position;
             Faction faction = em.HasComponent<FactionTag>(hub)
                 ? em.GetComponentData<FactionTag>(hub).Value : Faction.Blue;
@@ -907,18 +941,78 @@ namespace TheWaningBorder.Entities
                     break; // first sheltering sample decides this bearing
                 }
             }
-            if (bestDist == float.MaxValue) return;
+            // THE MAP EDGE IS A SEAL TARGET TOO (2026-10-02). Units walk right
+            // up to the last cell of the map, so the gap between a hub and the
+            // edge is a flanking path exactly as a gap to a rock face is. The
+            // edge is measured from the grid's own bounds — square to it, one
+            // seal per edge in range (two in a corner) — never through
+            // GetCell's "off-grid is blocked", which is what once sealed hubs
+            // to the void on every bearing. docs/Design/Build_Grid.md § The
+            // terrain seal.
+            if (bestDist != float.MaxValue)
+                TrySeal(em, hub, hubPos, faction, bestDir, bestDist + 1f, autoConstruct);   // overlap into the rock cell
 
+            float minX = grid.Origin.x, minZ = grid.Origin.z;
+            float maxX = minX + grid.Width * grid.CellSize, maxZ = minZ + grid.Height * grid.CellSize;
+            TryEdgeSeal(em, hub, hubPos, faction, new float3(-1f, 0f, 0f), hubPos.x - minX, autoConstruct);
+            TryEdgeSeal(em, hub, hubPos, faction, new float3(1f, 0f, 0f), maxX - hubPos.x, autoConstruct);
+            TryEdgeSeal(em, hub, hubPos, faction, new float3(0f, 0f, -1f), hubPos.z - minZ, autoConstruct);
+            TryEdgeSeal(em, hub, hubPos, faction, new float3(0f, 0f, 1f), maxZ - hubPos.z, autoConstruct);
+        }
+
+        static void TryEdgeSeal(EntityManager em, Entity hub, float3 hubPos, Faction faction,
+            float3 dir, float dist, bool autoConstruct)
+        {
+            if (dist <= 0f || dist > TerrainSealRange) return;
+            TrySeal(em, hub, hubPos, faction, dir, dist + 0.5f, autoConstruct);
+        }
+
+        /// <summary>
+        /// One seal from the hub along <paramref name="dir"/> to
+        /// <paramref name="end"/> metres. Skipped when the hub already carries
+        /// a seal on (about) that bearing, when the gap is already closed by
+        /// the footprint, or when the curtain would run into something — a
+        /// seal is laid by the executor on every peer and must obey the
+        /// whole-length rule like any other wall (CommandRouter.WallLineClear).
+        /// </summary>
+        static void TrySeal(EntityManager em, Entity hub, float3 hubPos, Faction faction,
+            float3 dir, float end, bool autoConstruct)
+        {
             float start = HubInset;
-            float end = bestDist + 1f;         // overlap into the rock cell
             float span = end - start;
             if (span < 0.5f) return;           // footprint already touches
 
+            // Already sealed this way? (a self-link whose curtain heads the
+            // same way — a corner hub may carry two seals, never two alike)
+            if (em.HasBuffer<WallHubLink>(hub))
+            {
+                var existing = em.GetBuffer<WallHubLink>(hub);
+                for (int i = 0; i < existing.Length; i++)
+                {
+                    if (existing[i].ConnectedHub != hub || !em.Exists(existing[i].Segment)) continue;
+                    float3 m = em.GetComponentData<LocalTransform>(existing[i].Segment).Position - hubPos;
+                    m.y = 0f;
+                    if (math.lengthsq(m) > 1e-4f && math.dot(math.normalize(m), dir) > 0.86f) return;
+                }
+            }
+
+            // Clear along the curtain, from beyond the hub's drum to short of
+            // the target (the last stretch laps into the rock / the edge).
+            bool palisade = IsPalisade(em, hub);
+            float clearFrom = TheWaningBorder.Core.Commands.CommandRouter.WallJunctionClearance, clearTo = end - 1.5f;
+            for (float s = clearFrom; s <= clearTo; s += 1f)
+                if (!TheWaningBorder.Core.Commands.CommandRouter.WallCrossSectionClear(hubPos + dir * s, dir, palisade))
+                    return;
+
+            float3 bestDir = dir;
             quaternion rot = quaternion.LookRotationSafe(bestDir, math.up());
             float3 mid = hubPos + bestDir * (start + span * 0.5f);
 
-            // Self-segment — both endpoints the placing hub.
-            var segment = CreateSegmentEntity(em, hub, hub, hubPos, hubPos, mid, rot, null, faction);
+            // Self-segment — both endpoints the placing hub — drawn as a
+            // two-point curve so the seal bakes into one seamless mesh like
+            // every other wall (WallArtMesh), instead of per-cell modules.
+            var sealCurve = new List<float3> { hubPos, hubPos + bestDir * end };
+            var segment = CreateSegmentEntity(em, hub, hub, hubPos, hubPos, mid, rot, sealCurve, faction);
 
             // Curtain modules across the gap — collect first (CreateInstance
             // is structural), then fill the buffer.
@@ -930,7 +1024,9 @@ namespace TheWaningBorder.Entities
             {
                 float t = start + spacing * (i + 0.5f);
                 positions[i] = hubPos + bestDir * t;
+                positions[i].y = TerrainUtility.GetHeight(positions[i].x, positions[i].z);
                 made[i] = CreateInstance(em, positions[i], rot, faction, segment);
+                MakeCurveCell(em, made[i]);
             }
             var buf = em.GetBuffer<WallInstanceRef>(segment);
             for (int i = 0; i < count; i++)
@@ -1077,16 +1173,20 @@ namespace TheWaningBorder.Entities
 
         /// <summary>A tower needs masonry under it and a clear run around it.</summary>
         public static bool CanConvertToTower(EntityManager em, Entity cell)
-            => WallTiers.AllowsTowers(WallTiers.Of(em, cell))
+            => WallTiers.AllowsTowers(WallTiers.Of(em, cell)) && !IsPalisade(em, cell)
                && FreeRunAround(em, cell) >= FreeRunForTower;
 
-        /// <summary>An emplacement needs masonry under it and the same clear
-        /// run a tower does: a timber palisade cannot carry a war engine
-        /// (docs/Design/Age_1_Alanthor.md § A palisade is a fence). Re-checked
-        /// by the executor, not just the panel.</summary>
-        public static bool CanConvertToEmplacement(EntityManager em, Entity cell)
-            => WallTiers.AllowsTowers(WallTiers.Of(em, cell))
-               && FreeRunAround(em, cell) >= FreeRunForTower;
+        /// <summary>An emplacement needs the wall level its engine asks for —
+        /// Battlemented for a Ballista, Shielded for a Trebuchet
+        /// (docs/Design/Age_1_Alanthor.md § The stone wall) — and the same
+        /// clear run a tower does. A palisade is level 0 and carries neither.
+        /// Re-checked by the executor, not just the panel.</summary>
+        public static bool CanConvertToEmplacement(EntityManager em, Entity cell, bool trebuchet)
+        {
+            byte lvl = WallTiers.Of(em, cell);
+            bool levelOk = trebuchet ? WallTiers.AllowsTrebuchet(lvl) : WallTiers.AllowsBallista(lvl);
+            return levelOk && !IsPalisade(em, cell) && FreeRunAround(em, cell) >= FreeRunForTower;
+        }
 
         /// <summary>A gate needs a longer clear run — see FreeRunForGate.</summary>
         public static bool CanConvertToGate(EntityManager em, Entity cell)
@@ -1131,12 +1231,6 @@ namespace TheWaningBorder.Entities
             {
                 var los = em.GetComponentData<LineOfSight>(cell);
                 if (los.Radius < 20f) em.SetComponentData(cell, new LineOfSight { Radius = 20f });
-            }
-            // An engine needs the whole crown: no garrison shares it.
-            if (em.HasBuffer<WallGarrisonSlot>(cell))
-            {
-                WallGarrison.EmptyModule(em, cell);
-                em.RemoveComponent<WallGarrisonSlot>(cell);
             }
             if (em.HasComponent<PresentationId>(cell))
                 em.SetComponentData(cell, new PresentationId
@@ -1192,7 +1286,7 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(focus, new Health { Value = hp, Max = hp });
             em.SetComponentData(focus, new BuildingSize
             {
-                Width = (int)WallWidth,
+                Width = (int)DepthOf(IsPalisade(em, focus)),
                 Height = math.max(1, (int)math.round(span)),
             });
             em.SetComponentData(focus, new Radius { Value = span * 0.5f });
@@ -1200,9 +1294,6 @@ namespace TheWaningBorder.Entities
                 em.SetComponentData(focus, new LineOfSight { Radius = gateDef.lineOfSight });
             if (em.HasComponent<PresentationId>(focus))
                 em.SetComponentData(focus, new PresentationId { Id = GatePresentationID });
-            // A gate is never a garrison position - the men stand on curtain.
-            if (em.HasBuffer<WallGarrisonSlot>(focus))
-                em.RemoveComponent<WallGarrisonSlot>(focus);
 
             // The flanks go. Their WallInstanceRef entries stay on the
             // segment (the entry outlives the cell by design), so the swept
@@ -1224,13 +1315,14 @@ namespace TheWaningBorder.Entities
         static TheWaningBorder.Core.CachedEntityQuery QC_AllWalls;
 
         /// <summary>
-        /// Raise every wall piece a faction owns to <paramref name="level"/>
-        /// (docs/Design/Age_1_Alanthor.md § The three wall levels): HP scales
-        /// off the SO's level-1 numbers, the tier is re-stamped so the visuals
-        /// re-clad, and reinforced curtain modules gain their garrison slots.
-        /// A wall is never a patchwork of levels, so this runs over the whole
-        /// faction the moment a tech lands. Structural: call outside any query
-        /// iteration. Returns how many pieces were promoted.
+        /// Raise every STONE wall piece a faction owns to <paramref name="level"/>
+        /// (docs/Design/Age_1_Alanthor.md § The stone wall): HP scales off
+        /// the SO's numbers, the tier is re-stamped so the visuals re-clad,
+        /// and at Shielded every hub becomes a tower. Palisades are a
+        /// different building and are never touched. A wall is never a
+        /// patchwork of levels, so this runs over the whole faction the moment
+        /// a tech lands. Structural: call outside any query iteration.
+        /// Returns how many pieces were promoted.
         /// </summary>
         public static int PromoteFactionWalls(EntityManager em, Faction faction, byte level)
         {
@@ -1244,17 +1336,18 @@ namespace TheWaningBorder.Entities
             var pieces = q.ToEntityArray(Allocator.Temp);
             var touched = new List<Entity>();
             // Structural adds are batched: one AddComponent over every piece
-            // that still lacks a WallTier (and one for the new garrison
-            // buffers) instead of an archetype move per piece, which on a
-            // late-game wall was hundreds of chunk moves in one frame.
+            // that still lacks a WallTier instead of an archetype move per
+            // piece, which on a late-game wall was hundreds of chunk moves in
+            // one frame.
             var needTier = new NativeList<Entity>(pieces.Length, Allocator.Temp);
-            var needSlots = new NativeList<Entity>(16, Allocator.Temp);
+            var newTowerHubs = new List<Entity>();
             int promoted = 0;
             for (int i = 0; i < pieces.Length; i++)
             {
                 var e = pieces[i];
                 if (!em.Exists(e)) continue;
                 if (em.GetComponentData<FactionTag>(e).Value != faction) continue;
+                if (em.HasComponent<PalisadeTag>(e)) continue;
                 if (WallTiers.Of(em, e) >= level) continue;
                 // A piece already dead or collapsing is DeathSystem's. The HP
                 // rescale below floors at 1, so promoting it would revive it
@@ -1295,12 +1388,10 @@ namespace TheWaningBorder.Entities
                     });
                 }
 
-                // Reinforced curtain modules gain their slots (a gate and a
-                // hub never do).
-                int slots = WallTiers.GarrisonSlots(level);
-                if (slots > 0 && em.HasComponent<WallInstanceTag>(e)
-                    && !em.HasComponent<WallGateTag>(e) && !em.HasBuffer<WallGarrisonSlot>(e))
-                    needSlots.Add(e);
+                // A Shielded wall's hubs are towers.
+                if (WallTiers.HubIsTower(level) && em.HasComponent<WallHubTag>(e)
+                    && !em.HasComponent<BuildingRangedAttack>(e))
+                    newTowerHubs.Add(e);
             }
             pieces.Dispose();
 
@@ -1310,18 +1401,9 @@ namespace TheWaningBorder.Entities
                 for (int i = 0; i < needTier.Length; i++)
                     em.SetComponentData(needTier[i], new WallTier { Level = level });
             }
-            if (needSlots.Length > 0)
-            {
-                int slots = WallTiers.GarrisonSlots(level);
-                em.AddComponent(needSlots.AsArray(), ComponentType.ReadWrite<WallGarrisonSlot>());
-                for (int i = 0; i < needSlots.Length; i++)
-                {
-                    var buf = em.GetBuffer<WallGarrisonSlot>(needSlots[i]);
-                    for (int k = 0; k < slots; k++) buf.Add(new WallGarrisonSlot { Occupant = Entity.Null });
-                }
-            }
             needTier.Dispose();
-            needSlots.Dispose();
+            for (int i = 0; i < newTowerHubs.Count; i++)
+                if (em.Exists(newTowerHubs[i])) GiveHubTowerAttack(em, newTowerHubs[i]);
 
             // Re-clad: the visuals read WallTier when they are built.
             var spawn = PresentationSpawnSystem.Instance;
@@ -1329,6 +1411,32 @@ namespace TheWaningBorder.Entities
                 for (int i = 0; i < touched.Count; i++)
                     if (em.Exists(touched[i])) spawn.ForceRespawn(touched[i]);
             return promoted;
+        }
+
+        /// <summary>
+        /// A Shielded hub's tower: the same attack a converted wall tower
+        /// gets (WallUpgradeSystem), so "a tower on every hub" means exactly
+        /// that (docs/Design/Age_1_Alanthor.md § The stone wall). Its LoS
+        /// rises to the wall tower's own. Structural.
+        /// </summary>
+        public static void GiveHubTowerAttack(EntityManager em, Entity hub)
+        {
+            if (hub == Entity.Null || !em.Exists(hub)) return;
+            if (!em.HasComponent<BuildingRangedAttack>(hub))
+                em.AddComponentData(hub, new BuildingRangedAttack
+                {
+                    Range = 16f,
+                    Damage = 12,
+                    Cooldown = 2.5f,
+                    Timer = 0f,
+                    MaxTargets = 1,
+                });
+            if (!em.HasComponent<DamageTypeData>(hub))
+                em.AddComponentData(hub, new DamageTypeData { Value = DamageType.Ranged });
+            float towerLos = TechCatalog.Building(TowerId).lineOfSight;
+            if (em.HasComponent<LineOfSight>(hub)
+                && em.GetComponentData<LineOfSight>(hub).Radius < towerLos)
+                em.SetComponentData(hub, new LineOfSight { Radius = towerLos });
         }
 
         /// <summary>At 0 HP, collapsing, or in its death animation.</summary>

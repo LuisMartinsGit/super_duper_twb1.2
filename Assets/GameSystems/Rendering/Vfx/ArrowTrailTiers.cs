@@ -1,12 +1,17 @@
 // ArrowTrailTiers.cs
-// The flight trail an arrow leaves is the READOUT for a faction's arrow-tip
-// research. Four techs, four looks, and nothing at all before the first one:
+// How an arrow looks in flight is the READOUT for a faction's arrow-tip
+// research (docs/Design/Vfx_Assignments.md). For ARROWS (ApplyArrow):
 //
-//   (no research)          no trail
-//   StoneTippedArrows      faint grey
-//   IronTippedArrows       grey
-//   VeilstoneTippedArrows  blue, emissive
-//   ShardTippedArrows      golden, emissive   (the Veilsteel tier)
+//   (no research)          nothing
+//   StoneTippedArrows      white trail
+//   IronTippedArrows       blue trail
+//   VeilstoneTippedArrows  no trail — the arrowhead is replaced by the Lana
+//                          dark-magic projectile effect, scaled small
+//   ShardTippedArrows      same, with the Lana electric projectile (Veilsteel)
+//
+// Their hits follow the same ladder (UnitCombatVfx): nothing below Veilstone.
+// Ballista bolts are not arrows and keep the original trail ladder (Apply):
+// faint grey / grey / blue emissive / golden emissive.
 //
 // Every arrow used to leave the same white streak, so a fully-upgraded army
 // looked exactly like a starting one — the ladder was invisible on the field,
@@ -117,9 +122,205 @@ namespace TheWaningBorder.Rendering
 
         private static readonly Material[] _mats = new Material[5];
 
+        private static ArrowTrailTiersConfig _cfg;
+        private static ArrowTrailTiersConfig Cfg
+            => _cfg != null ? _cfg : (_cfg = TheWaningBorder.Core.Settings.ComponentConfig.Require<ArrowTrailTiersConfig>());
+
+        /// <summary>Stone / Iron ribbon width multiplier (1 when the config is missing).</summary>
+        private static float RibbonWidth(ArrowTrailTier tier)
+        {
+            var c = Cfg;
+            if (c == null) return 1f;
+            float w = tier == ArrowTrailTier.Stone ? c.stoneTrailWidth : c.ironTrailWidth;
+            return w > 0f ? w : 1f;
+        }
+
+        /// <summary>World scale of a tier's arrow HIT effect (UnitCombatVfx);
+        /// 0 for tiers with no hit.</summary>
+        public static float HitScale(ArrowTrailTier tier)
+        {
+            var look = Cfg?.LookFor(tier);
+            return look != null ? look.hitScale : 0f;
+        }
+
+        private const string TipName = "Tip";
+        private const string TierTipName = "TierTip";
+
         /// <summary>
-        /// Dress one arrow's trail for a tier, or switch it off entirely at
-        /// <see cref="ArrowTrailTier.None"/>.
+        /// Dress one ARROW for a tier: its trail (white / blue at Stone /
+        /// Iron) or, at Veilstone and Veilsteel, no trail and the projectile
+        /// effect in place of the arrowhead. Pooled arrows are re-dressed on
+        /// every spawn, so a lower tier puts the plain head back.
+        /// </summary>
+        public static void ApplyArrow(GameObject arrow, TrailRenderer trail, ArrowTrailTier tier)
+        {
+            bool fxTip = tier >= ArrowTrailTier.Veilstone;
+            if (trail != null)
+            {
+                if (tier == ArrowTrailTier.None || fxTip) { trail.Clear(); trail.enabled = false; }
+                else
+                {
+                    trail.enabled = true;
+                    trail.sharedMaterial = MaterialFor(tier);
+                    trail.colorGradient = ArrowGradient(tier);
+                    trail.time = tier == ArrowTrailTier.Stone ? 0.18f : 0.25f;
+                    trail.startWidth = (tier == ArrowTrailTier.Stone ? 0.05f : 0.06f) * RibbonWidth(tier);
+                    trail.endWidth = 0f;
+                    trail.Clear();
+                }
+            }
+            if (arrow != null) DressTip(arrow.transform, fxTip ? tier : ArrowTrailTier.None);
+        }
+
+        private static void DressTip(Transform arrow, ArrowTrailTier tier)
+        {
+            var head = arrow.Find(TipName);
+            var existing = arrow.Find(TierTipName);
+            var look = Cfg?.LookFor(tier);
+            var prefab = look?.tipPrefab;
+
+            if (head != null && head.TryGetComponent<Renderer>(out var headR)) headR.enabled = prefab == null;
+
+            // Keep a matching tip copied from the CURRENT prefab; a different
+            // tier, or a prefab edited since (Inspector, live), is rebuilt.
+            if (existing != null)
+            {
+                var tag = existing.GetComponent<ArrowTipTier>();
+                if (prefab != null && tag != null && tag.Tier == tier && tag.PrefabVersion == PrefabEdits)
+                {
+                    PlaceTip(arrow, existing, look);
+                    foreach (var ps in existing.GetComponentsInChildren<ParticleSystem>(true))
+                    { ps.Clear(true); ps.Play(true); }    // a recycled arrow must not streak from its last flight
+                    foreach (var tr in existing.GetComponentsInChildren<TrailRenderer>(true))
+                        tr.Clear();
+                    return;
+                }
+                Object.Destroy(existing.gameObject);
+            }
+            if (prefab == null) return;
+
+            // Everything about the tip's look is the prefab's own Particle
+            // System settings; only its loop and hierarchy scaling are forced,
+            // so it keeps running for the whole flight at the arrow's scale.
+            var fx = Object.Instantiate(prefab, arrow);
+            fx.name = TierTipName;
+            foreach (var ps in fx.GetComponentsInChildren<ParticleSystem>(true))
+            {
+                var main = ps.main;
+                main.loop = true;
+                main.scalingMode = ParticleSystemScalingMode.Hierarchy;
+            }
+            var tipTag = fx.AddComponent<ArrowTipTier>();
+            tipTag.Tier = tier;
+            tipTag.PrefabVersion = PrefabEdits;
+            PlaceTip(arrow, fx.transform, look);
+        }
+
+        /// <summary>At the arrowhead, at the configured world size (re-read
+        /// every spawn, so the panel's tip slider shows on the next shot).</summary>
+        private static void PlaceTip(Transform arrow, Transform fx, ArrowTrailTiersConfig.TipLook look)
+        {
+            var head = arrow.Find(TipName);
+            fx.localPosition = head != null ? head.localPosition : new Vector3(0f, 0f, 0.25f);
+            fx.localRotation = Quaternion.Euler(0f, look.tipYaw, 0f);
+            var lossy = arrow.lossyScale;
+            float k = look.tipScale;
+            fx.localScale = new Vector3(k / Mathf.Max(1e-4f, lossy.x), k / Mathf.Max(1e-4f, lossy.y), k / Mathf.Max(1e-4f, lossy.z));
+        }
+
+        /// <summary>
+        /// Counts edits to any asset while the Editor runs, so a tip copied
+        /// before an Inspector edit to its prefab is rebuilt on the next arrow
+        /// (live tuning). Always 0 in a player build — prefabs never change there.
+        /// </summary>
+        private static int PrefabEdits
+        {
+            get
+            {
+#if UNITY_EDITOR
+                if (!_watching)
+                {
+                    UnityEditor.ObjectChangeEvents.changesPublished += (ref UnityEditor.ObjectChangeEventStream stream) => _edits++;
+                    _watching = true;
+                }
+#endif
+                return _edits;
+            }
+        }
+        private static int _edits;
+#if UNITY_EDITOR
+        private static bool _watching;
+#endif
+
+        /// <summary>Longest an arrow may linger after landing (a safety cap on
+        /// a mis-authored trail time / particle lifetime).</summary>
+        private const float MaxFadeSeconds = 4f;
+
+        /// <summary>
+        /// The arrow has landed: stop every trail and particle from emitting so
+        /// what is already drawn fades out over its own time / lifetime, and
+        /// hide the shaft and head meshes. Returns how long to keep the visual
+        /// before recycling it — the longest trail time or particle lifetime
+        /// on it, 0 when there is nothing to fade. The visual stays out of the
+        /// pool meanwhile, so a fresh arrow never inherits a fading one.
+        /// </summary>
+        public static float BeginFade(GameObject arrow)
+        {
+            if (arrow == null) return 0f;
+            float linger = 0f;
+            foreach (var t in arrow.GetComponentsInChildren<TrailRenderer>(false))
+            {
+                if (!t.enabled) continue;
+                t.emitting = false;
+                linger = Mathf.Max(linger, t.time);
+            }
+            foreach (var ps in arrow.GetComponentsInChildren<ParticleSystem>(false))
+            {
+                ps.Stop(false, ParticleSystemStopBehavior.StopEmitting);
+                if (ps.particleCount > 0) linger = Mathf.Max(linger, ps.main.startLifetime.constantMax);
+            }
+            if (linger <= 0f) return 0f;
+            foreach (var r in arrow.GetComponentsInChildren<MeshRenderer>(false)) r.enabled = false;
+            return Mathf.Min(linger, MaxFadeSeconds);
+        }
+
+        /// <summary>Undo BeginFade on a recycled arrow before it is dressed
+        /// again: the shaft and head meshes back on (DressTip then hides the
+        /// head where a tip effect replaces it).</summary>
+        public static void ResetAfterFade(GameObject arrow)
+        {
+            if (arrow == null) return;
+            foreach (var r in arrow.GetComponentsInChildren<MeshRenderer>(true)) r.enabled = true;
+        }
+
+        /// <summary>
+        /// Hide an arrow's trail and tip particles for the frame it is
+        /// (re)spawned on: a pooled arrow teleported back to the bow would
+        /// otherwise draw one streak from its last impact point.
+        /// </summary>
+        public static void HideForOneFrame(GameObject arrow, TrailRenderer trail)
+        {
+            if (arrow == null) return;
+            if (!arrow.TryGetComponent<ArrowSpawnHide>(out var hide)) hide = arrow.AddComponent<ArrowSpawnHide>();
+            hide.Begin(trail);
+        }
+
+        private static Gradient ArrowGradient(ArrowTrailTier tier)
+        {
+            Color c; float head, mid;
+            if (tier == ArrowTrailTier.Stone) { c = new Color(0.96f, 0.96f, 0.96f); head = 0.55f; mid = 0.2f; }
+            else { c = new Color(0.36f, 0.62f, 1.00f); head = 0.8f; mid = 0.32f; }
+            var g = new Gradient();
+            g.SetKeys(
+                new[] { new GradientColorKey(c, 0f), new GradientColorKey(c, 1f) },
+                new[] { new GradientAlphaKey(head, 0f), new GradientAlphaKey(mid, 0.5f), new GradientAlphaKey(0f, 1f) });
+            return g;
+        }
+
+        /// <summary>
+        /// Dress one BALLISTA BOLT's trail for a tier (the original ladder),
+        /// or switch it off entirely at <see cref="ArrowTrailTier.None"/>.
+        /// Arrows use <see cref="ApplyArrow"/>.
         /// </summary>
         public static void Apply(TrailRenderer trail, ArrowTrailTier tier)
         {
@@ -225,4 +426,5 @@ namespace TheWaningBorder.Rendering
             return mat;
         }
     }
+
 }

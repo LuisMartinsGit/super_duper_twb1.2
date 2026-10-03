@@ -24,7 +24,7 @@ namespace TheWaningBorder.AI
         EcoBuilding      = 2,
         Hall             = 3,
         BorderNode        = 4,
-        Miner            = 5,
+        Worker            = 5,
     }
 
     /// <summary>

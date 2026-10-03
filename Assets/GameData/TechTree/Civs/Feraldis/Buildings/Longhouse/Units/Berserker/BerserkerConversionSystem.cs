@@ -1,5 +1,5 @@
-// Processes miner-to-berserker conversion at Fiendstone Keep.
-// Miners with ConvertCommand walk to the Keep and are destroyed/replaced with Berserkers.
+// Processes worker-to-berserker conversion at Fiendstone Keep.
+// Workers with ConvertCommand walk to the Keep and are destroyed/replaced with Berserkers.
 
 using Unity.Collections;
 using Unity.Entities;
@@ -17,7 +17,7 @@ namespace TheWaningBorder.Systems.Training
 
         private struct DeferredConversion
         {
-            public Entity Miner;
+            public Entity Worker;
             public float3 Position;
             public Faction Faction;
         }
@@ -33,12 +33,12 @@ namespace TheWaningBorder.Systems.Training
             var ecb = new EntityCommandBuffer(Allocator.Temp);
             var conversions = new NativeList<DeferredConversion>(4, Allocator.Temp);
 
-            // Dead or dying miners are DeathSystem's property — converting one
+            // Dead or dying workers are DeathSystem's property — converting one
             // sync-destroys an entity that DeathSystem's EndSimulation buffer
             // already holds commands for, which throws at playback.
             foreach (var (convertCmd, transform, factionTag, entity) in SystemAPI
                          .Query<RefRO<ConvertCommand>, RefRO<LocalTransform>, RefRO<FactionTag>>()
-                         .WithAll<MinerTag>()
+                         .WithAll<WorkerTag>()
                          .WithNone<DeathAnimationState>()
                          .WithEntityAccess())
             {
@@ -56,9 +56,9 @@ namespace TheWaningBorder.Systems.Training
                 }
 
                 var keepPos = em.GetComponentData<LocalTransform>(keep).Position;
-                var minerPos = transform.ValueRO.Position;
+                var workerPos = transform.ValueRO.Position;
                 float dist = math.distance(
-                    new float2(minerPos.x, minerPos.z),
+                    new float2(workerPos.x, workerPos.z),
                     new float2(keepPos.x, keepPos.z));
 
                 if (dist <= ConversionRange)
@@ -66,8 +66,8 @@ namespace TheWaningBorder.Systems.Training
                     // In range — queue conversion (deferred to avoid structural changes during iteration)
                     conversions.Add(new DeferredConversion
                     {
-                        Miner = entity,
-                        Position = minerPos,
+                        Worker = entity,
+                        Position = workerPos,
                         Faction = factionTag.ValueRO.Value
                     });
                 }
@@ -94,8 +94,8 @@ namespace TheWaningBorder.Systems.Training
             {
                 var conv = conversions[i];
 
-                // Destroy the miner
-                ecb.DestroyEntity(conv.Miner);
+                // Destroy the worker
+                ecb.DestroyEntity(conv.Worker);
 
                 // Spawn berserker at the same position
                 Berserker.Create(ecb, conv.Position, conv.Faction);

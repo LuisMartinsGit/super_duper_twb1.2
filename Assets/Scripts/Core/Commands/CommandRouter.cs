@@ -363,22 +363,22 @@ namespace TheWaningBorder.Core.Commands
         // ═══════════════════════════════════════════════════════════════
 
         /// <summary>
-        /// Issue a build command to a builder unit.
+        /// Issue a build command to a worker unit.
         /// </summary>
-        public static void IssueBuild(EntityManager em, Entity builder, Entity targetBuilding,
+        public static void IssueBuild(EntityManager em, Entity worker, Entity targetBuilding,
             string buildingId, float3 position, CommandSource source = CommandSource.LocalPlayer)
         {
             if (ShouldDropCommand(source)) return;
-            if (builder == Entity.Null || !em.Exists(builder)) return;
-            if (IsBlockedByNotControllable(em, builder, source)) return;
+            if (worker == Entity.Null || !em.Exists(worker)) return;
+            if (IsBlockedByNotControllable(em, worker, source)) return;
 
             if (ShouldQueueForLockstep(source))
             {
-                QueueBuildForLockstep(em, builder, targetBuilding, buildingId, position);
+                QueueBuildForLockstep(em, worker, targetBuilding, buildingId, position);
             }
             else
             {
-                BuildCommandHelper.Execute(em, builder, targetBuilding, buildingId, position);
+                BuildCommandHelper.Execute(em, worker, targetBuilding, buildingId, position);
             }
         }
 
@@ -408,27 +408,27 @@ namespace TheWaningBorder.Core.Commands
         }
 
         // ═══════════════════════════════════════════════════════════════
-        // CONVERT COMMANDS (Miner → Berserker at Fiendstone Keep)
+        // CONVERT COMMANDS (Worker → Berserker at Fiendstone Keep)
         // ═══════════════════════════════════════════════════════════════
 
         /// <summary>
-        /// Issue a convert command to a miner unit targeting a Fiendstone Keep.
+        /// Issue a convert command to a worker unit targeting a Fiendstone Keep.
         /// </summary>
-        public static void IssueConvert(EntityManager em, Entity miner, Entity keep,
+        public static void IssueConvert(EntityManager em, Entity worker, Entity keep,
             CommandSource source = CommandSource.LocalPlayer)
         {
             if (ShouldDropCommand(source)) return;
-            if (miner == Entity.Null || !em.Exists(miner)) return;
-            if (IsBlockedByNotControllable(em, miner, source)) return;
+            if (worker == Entity.Null || !em.Exists(worker)) return;
+            if (IsBlockedByNotControllable(em, worker, source)) return;
             if (keep == Entity.Null || !em.Exists(keep)) return;
 
             if (ShouldQueueForLockstep(source))
             {
-                QueueConvertForLockstep(em, miner, keep);
+                QueueConvertForLockstep(em, worker, keep);
             }
             else
             {
-                ConvertCommandHelper.Execute(em, miner, keep);
+                ConvertCommandHelper.Execute(em, worker, keep);
             }
         }
 
@@ -437,23 +437,23 @@ namespace TheWaningBorder.Core.Commands
         // ═══════════════════════════════════════════════════════════════
 
         /// <summary>
-        /// Issue a repair command to a builder unit targeting a damaged building.
+        /// Issue a repair command to a worker unit targeting a damaged building.
         /// </summary>
-        public static void IssueRepair(EntityManager em, Entity builder, Entity building,
+        public static void IssueRepair(EntityManager em, Entity worker, Entity building,
             CommandSource source = CommandSource.LocalPlayer)
         {
             if (ShouldDropCommand(source)) return;
-            if (builder == Entity.Null || !em.Exists(builder)) return;
-            if (IsBlockedByNotControllable(em, builder, source)) return;
+            if (worker == Entity.Null || !em.Exists(worker)) return;
+            if (IsBlockedByNotControllable(em, worker, source)) return;
             if (building == Entity.Null || !em.Exists(building)) return;
 
             if (ShouldQueueForLockstep(source))
             {
-                QueueRepairForLockstep(em, builder, building);
+                QueueRepairForLockstep(em, worker, building);
             }
             else
             {
-                RepairCommandHelper.Execute(em, builder, building);
+                RepairCommandHelper.Execute(em, worker, building);
             }
         }
 
@@ -465,7 +465,7 @@ namespace TheWaningBorder.Core.Commands
         /// Set rally point for a building. <paramref name="targetEntity"/>
         /// is an optional follow-up target (e.g. a resource node) that
         /// post-spawn handlers may use — TrainingSystem auto-issues a
-        /// gather command on miners when this points at an iron / veilstone
+        /// gather command on workers when this points at an iron / veilstone
         /// deposit. Pass Entity.Null for plain "walk here" rallies.
         /// </summary>
         public static void SetRallyPoint(EntityManager em, Entity building, float3 position,
@@ -567,7 +567,7 @@ namespace TheWaningBorder.Core.Commands
                 case UnitClass.Siege:   tiers.Siege   = targetTier; break;
                 case UnitClass.Magic:   tiers.Magic   = targetTier; break;
                 case UnitClass.Support: tiers.Support = targetTier; break;
-                default: return false;  // Economy / Miner / Scout don't take equipment
+                default: return false;  // Economy / Worker / Scout don't take equipment
             }
             em.SetComponentData(tierEntity, tiers);
             return true;
@@ -1469,7 +1469,8 @@ namespace TheWaningBorder.Core.Commands
             var cost = upgradeType switch
             {
                 1 => TheWaningBorder.Data.BuildCosts.Get("Alanthor_WallTower"),
-                3 => TheWaningBorder.Data.BuildCosts.Get("Alanthor_Wall"),
+                3 => TheWaningBorder.Data.BuildCosts.Get(TheWaningBorder.Entities.AlanthorWall.HubIdFor(
+                         TheWaningBorder.Entities.AlanthorWall.IsPalisade(em, wall))),
                 4 => TheWaningBorder.Data.BuildCosts.Get("Alanthor_BallistaEmplacement"),
                 5 => TheWaningBorder.Data.BuildCosts.Get("Alanthor_TrebuchetEmplacement"),
                 _ => default,
@@ -1479,6 +1480,13 @@ namespace TheWaningBorder.Core.Commands
                 return false;
             if (upgradeType == 3 && !TheWaningBorder.Entities.AlanthorWall.CanConvertInstanceToHub(em, wall))
                 return false;
+            // Branching a wall raises a hub of ITS kind, so it needs that
+            // kind to be buildable: Alanthor and Runai cannot grow a palisade
+            // after age-up (docs/Design/Age_0.md § Palisade).
+            if (upgradeType == 3 && !TheWaningBorder.Entities.WallTiers.CanBuild(em,
+                    em.GetComponentData<FactionTag>(wall).Value,
+                    TheWaningBorder.Entities.AlanthorWall.IsPalisade(em, wall)))
+                return false;
             // The placement rule is re-checked HERE, not just in the UI: it is
             // what stops two peers from disagreeing about whether a fitting
             // was legal, and what stops a stale panel from studding a wall
@@ -1486,7 +1494,7 @@ namespace TheWaningBorder.Core.Commands
             if (upgradeType == 1 && !TheWaningBorder.Entities.AlanthorWall.CanConvertToTower(em, wall))
                 return false;
             if ((upgradeType == 4 || upgradeType == 5)
-                && !TheWaningBorder.Entities.AlanthorWall.CanConvertToEmplacement(em, wall))
+                && !TheWaningBorder.Entities.AlanthorWall.CanConvertToEmplacement(em, wall, trebuchet: upgradeType == 5))
                 return false;
             var faction = em.GetComponentData<FactionTag>(wall).Value;
             if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost))
@@ -1846,7 +1854,9 @@ namespace TheWaningBorder.Core.Commands
         public static bool CanPlaceBuilding(EntityManager em, string buildingId, Faction faction)
         {
             if (buildingId == "Alanthor_Smelter")
-                return CountFactionSmelters(em, faction) < MaxSmeltersPerFaction;
+                return CountFactionSmelters(em, faction)
+                       + TheWaningBorder.Entities.PlannedBuildings.CountOf(em, faction, buildingId)
+                       < MaxSmeltersPerFaction;
             return !SectBuildingCapReached(em, buildingId, faction);
         }
 
@@ -1857,7 +1867,8 @@ namespace TheWaningBorder.Core.Commands
         /// </summary>
         private static bool SectBuildingCapReached(EntityManager em, string buildingId, Faction faction)
         {
-            int cap = TheWaningBorder.Entities.SectBuilding.CapPerFaction;
+            int cap = TheWaningBorder.Entities.SectBuilding.CapPerFaction
+                      - TheWaningBorder.Entities.PlannedBuildings.CountOf(em, faction, buildingId);
             switch (buildingId)
             {
                 case "Sect_Reliquary":   return CountFactionBuildings<ReliquaryTag>(em, faction)   >= cap;
@@ -1896,7 +1907,7 @@ namespace TheWaningBorder.Core.Commands
         /// first failing one refused: wall-mount-only, the per-faction caps,
         /// the territory gate (including the Hall's adjacency rule), the
         /// extractor node gate, one Hall per territory, and — for a Hall — the
-        /// named builder standing within range of the site.
+        /// named worker standing within range of the site.
         ///
         /// Public so the placement ghost asks THIS rather than a copy of it:
         /// the preview and the router cannot disagree about a click.
@@ -1905,7 +1916,7 @@ namespace TheWaningBorder.Core.Commands
         /// Reads replicated state only.
         /// </summary>
         public static TheWaningBorder.World.Regions.PlacementRefusal CheckPlaceBuilding(
-            EntityManager em, string buildingId, ref float3 position, Faction faction, Entity builder)
+            EntityManager em, string buildingId, ref float3 position, Faction faction, Entity worker)
         {
             const TheWaningBorder.World.Regions.PlacementRefusal Ok =
                 TheWaningBorder.World.Regions.PlacementRefusal.None;
@@ -1962,6 +1973,36 @@ namespace TheWaningBorder.Core.Commands
                     em, buildingId, position.x, position.z))
                 return TheWaningBorder.World.Regions.PlacementRefusal.OffNode;
 
+            // VEILSTONE (docs/Design/Veilstone_Economy.md §3). Alanthor do not
+            // mine it (the iron Mine is still theirs); a Veilstone Mine needs an INACTIVE outcrop (a cursed one
+            // is the curse's, a depleted one is spent); a Trading Outpost needs
+            // an uncursed outcrop beside it that no other Outpost serves. Here,
+            // not only in the ghost, so the AI and the lockstep replay obey it.
+            if (!TheWaningBorder.World.Regions.TerritoryOwnership.MayBuildMine(em, faction, buildingId))
+                return TheWaningBorder.World.Regions.PlacementRefusal.WrongCulture;
+            if (buildingId == "VeilstoneMine")
+            {
+                if (TheWaningBorder.Systems.Economy.VeilstoneNodeStateSystem.TryGetOutcropAt(
+                        em, position.x, position.z, 4f, out _, out var kind)
+                    && kind != VeilstoneNodeKind.Inactive)
+                    return TheWaningBorder.World.Regions.PlacementRefusal.OutcropUnavailable;
+            }
+            // The Trading Outpost stands ON an uncursed outcrop — Inactive or
+            // Depleted (a spent outcrop trades as well as a fresh one).
+            if (buildingId == TheWaningBorder.Entities.TradingOutpost.BuildingId
+                && TheWaningBorder.Systems.Economy.VeilstoneNodeStateSystem.TryGetOutcropAt(
+                       em, position.x, position.z, 4f, out _, out var outpostKind)
+                && outpostKind == VeilstoneNodeKind.Cursed)
+                return TheWaningBorder.World.Regions.PlacementRefusal.OutcropUnavailable;
+
+            // The faction's own plans reserve their tiles
+            // (docs/Design/Planned_Buildings.md).
+            if (TheWaningBorder.Entities.PlannedBuildings.UsesPlan(buildingId)
+                && TheWaningBorder.Entities.PlannedBuildings.OverlapsOwnPlan(
+                       em, faction, BuildGrid.Snap(position, buildingId),
+                       BuildingSizeConfig.GetSize(buildingId)))
+                return TheWaningBorder.World.Regions.PlacementRefusal.Overlap;
+
             // One Fortress per territory (Territory_Claims.md §4). A second
             // locks nothing the first does not already lock.
             if (buildingId == "Fortress"
@@ -1969,38 +2010,43 @@ namespace TheWaningBorder.Core.Commands
                        em, position.x, position.z))
                 return TheWaningBorder.World.Regions.PlacementRefusal.FortressAlreadyHere;
 
-            // THE BUILDER HAS TO BE THERE (Regions.md §2, 2026-09-26). A claim
+            // THE WORKER HAS TO BE THERE (Regions.md §2, 2026-09-26). A claim
             // is made on the ground, by a worker standing on it — not dropped
             // across the map from the home base. Within range of the site AND
             // inside the territory it claims (2026-09-27) — not reaching over
             // the border from the faction's own ground.
-            if (TheWaningBorder.World.Regions.TerritoryOwnership.NeedsBuilderNearby(buildingId))
+            if (TheWaningBorder.World.Regions.TerritoryOwnership.NeedsWorkerNearby(buildingId))
             {
-                var near = TheWaningBorder.World.Regions.TerritoryOwnership.CheckHallBuilder(
-                    em, faction, builder, position.x, position.z);
+                var near = TheWaningBorder.World.Regions.TerritoryOwnership.CheckHallWorker(
+                    em, faction, worker, position.x, position.z);
                 if (near != Ok) return near;
             }
             return Ok;
         }
 
         /// <summary>
-        /// Place-building with the BUILDER that makes the placement. Only a
+        /// Place-building with the WORKER that makes the placement. Only a
         /// Hall reads it (it must stand within
-        /// <see cref="TheWaningBorder.World.Regions.TerritoryOwnership.HallBuilderRange"/>
+        /// <see cref="TheWaningBorder.World.Regions.TerritoryOwnership.HallWorkerRange"/>
         /// of the site); every other building ignores it. In lockstep the
-        /// builder's NetworkId rides the command's TargetEntityId, and the
+        /// worker's NetworkId rides the command's TargetEntityId, and the
         /// executor re-checks it at the execution tick.
         /// </summary>
         public static bool IssuePlaceBuilding(EntityManager em, string buildingId, float3 position,
-            Faction faction, Entity builder, out Entity created,
+            Faction faction, Entity worker, out Entity created,
             CommandSource source = CommandSource.LocalPlayer, float yawDegrees = 0f)
         {
             created = Entity.Null;
             if (ShouldDropCommand(source)) return false;
 
-            if (CheckPlaceBuilding(em, buildingId, ref position, faction, builder)
+            if (CheckPlaceBuilding(em, buildingId, ref position, faction, worker)
                 != TheWaningBorder.World.Regions.PlacementRefusal.None)
                 return false;
+
+            // The AI turns what it builds, so its bases are not rows of
+            // identical buildings all facing south.
+            if (source == CommandSource.AI && yawDegrees == 0f)
+                yawDegrees = AiPlacementYaw(buildingId, position);
 
             if (source == CommandSource.LocalPlayer)
                 TheWaningBorder.AI.AILogger.LogPlayer(faction, "BUILD",
@@ -2011,13 +2057,13 @@ namespace TheWaningBorder.Core.Commands
 
             if (ShouldQueueForLockstep(source))
             {
-                // TargetEntityId carries the BUILDER's NetworkId (0 = none).
+                // TargetEntityId carries the WORKER's NetworkId (0 = none).
                 // It was an unused field on this command, so older commands
-                // decode as "no builder" — accepted for every building except
+                // decode as "no worker" — accepted for every building except
                 // a Hall, which the executor refuses without one.
-                int builderId = builder != Entity.Null && em.Exists(builder)
-                                && em.HasComponent<NetworkedEntity>(builder)
-                    ? em.GetComponentData<NetworkedEntity>(builder).NetworkId
+                int workerId = worker != Entity.Null && em.Exists(worker)
+                                && em.HasComponent<NetworkedEntity>(worker)
+                    ? em.GetComponentData<NetworkedEntity>(worker).NetworkId
                     : 0;
                 var cmd = new LockstepCommand
                 {
@@ -2025,7 +2071,7 @@ namespace TheWaningBorder.Core.Commands
                     BuildingId = buildingId,
                     TargetPosition = position,
                     EntityNetworkId = (int)faction, // Carry faction in EntityNetworkId
-                    TargetEntityId = builderId,
+                    TargetEntityId = workerId,
                     // The placement ghost's rotation, in tenths of a degree
                     // (0 = unrotated, which is also how older commands decode).
                     SecondaryTargetId = YawToWire(yawDegrees),
@@ -2036,7 +2082,7 @@ namespace TheWaningBorder.Core.Commands
             else
             {
                 // Single player — create immediately
-                created = PlaceBuildingDirect(em, buildingId, position, faction, builder,
+                created = PlaceBuildingDirect(em, buildingId, position, faction, worker,
                                               YawFromWire(YawToWire(yawDegrees)));
                 return false; // Created locally — caller can proceed
             }
@@ -2044,8 +2090,8 @@ namespace TheWaningBorder.Core.Commands
 
         /// <summary>
         /// <see cref="PlaceBuildingDirect(EntityManager, string, float3, Faction, Entity)"/>
-        /// with no builder. Every building but a Hall places exactly as before;
-        /// a Hall is refused (it needs its builder on site).
+        /// with no worker. Every building but a Hall places exactly as before;
+        /// a Hall is refused (it needs its worker on site).
         /// </summary>
         public static Entity PlaceBuildingDirect(EntityManager em, string buildingId, float3 position, Faction faction)
             => PlaceBuildingDirect(em, buildingId, position, faction, Entity.Null);
@@ -2055,14 +2101,14 @@ namespace TheWaningBorder.Core.Commands
         /// executes ticks after it was issued, and on a remote peer the issue
         /// gates never ran, so the rules that depend on a changing world are
         /// asked again here, against replicated state: the territory gate with
-        /// its adjacency rule, one Hall per territory, and the named builder
+        /// its adjacency rule, one Hall per territory, and the named worker
         /// alive, owned, a worker, within range, and inside the site's
         /// territory. Ownership is re-derived
         /// first so every peer answers from the same live Halls rather than
         /// from whenever its own income tick last ran.
         /// </summary>
         private static TheWaningBorder.World.Regions.PlacementRefusal CheckClaimAtExecution(
-            EntityManager em, string buildingId, float3 position, Faction faction, Entity builder)
+            EntityManager em, string buildingId, float3 position, Faction faction, Entity worker)
         {
             // Territory_Claims.md §5: EVERY placement is re-checked against
             // ownership at the tick it executes. Ground changes hands on the
@@ -2080,9 +2126,9 @@ namespace TheWaningBorder.Core.Commands
                 && TheWaningBorder.World.Regions.TerritoryOwnership.FortressCapReached(em, position.x, position.z))
                 return TheWaningBorder.World.Regions.PlacementRefusal.FortressAlreadyHere;
             // In range AND standing inside the territory being claimed.
-            if (TheWaningBorder.World.Regions.TerritoryOwnership.NeedsBuilderNearby(buildingId))
-                return TheWaningBorder.World.Regions.TerritoryOwnership.CheckHallBuilder(
-                    em, faction, builder, position.x, position.z);
+            if (TheWaningBorder.World.Regions.TerritoryOwnership.NeedsWorkerNearby(buildingId))
+                return TheWaningBorder.World.Regions.TerritoryOwnership.CheckHallWorker(
+                    em, faction, worker, position.x, position.z);
             return TheWaningBorder.World.Regions.PlacementRefusal.None;
         }
 
@@ -2127,8 +2173,28 @@ namespace TheWaningBorder.Core.Commands
 
         public static float YawFromWire(int tenths) => tenths / 10f;
 
+        /// <summary>
+        /// The rotation the AI gives a building it places, for visual variety.
+        /// Right angles only, so the footprint the placement checks validated
+        /// is still the one the building covers: a square footprint may face
+        /// any of the four ways, a rectangular one only its two lengthwise
+        /// ways. Picked from the site and the id, not a random stream — the
+        /// same site always gets the same facing, and nothing here touches
+        /// state another peer would have to reproduce (the yaw rides the
+        /// placement order).
+        /// </summary>
+        private static float AiPlacementYaw(string buildingId, float3 position)
+        {
+            var size = BuildingSizeConfig.GetSize(buildingId);
+            int idHash = 17;
+            if (buildingId != null)
+                for (int i = 0; i < buildingId.Length; i++) idHash = idHash * 31 + buildingId[i];
+            uint h = math.hash(new int3((int)math.round(position.x), (int)math.round(position.z), idHash));
+            return size.x == size.y ? (h % 4u) * 90f : (h % 2u) * 180f;
+        }
+
         public static Entity PlaceBuildingDirect(EntityManager em, string buildingId, float3 position,
-            Faction faction, Entity builder, float yawDegrees = 0f)
+            Faction faction, Entity worker, float yawDegrees = 0f)
         {
             LastPlacementRefusal = TheWaningBorder.World.Regions.PlacementRefusal.None;
 
@@ -2138,7 +2204,7 @@ namespace TheWaningBorder.Core.Commands
 
             // A CLAIM is re-checked against the world as it is NOW, before the
             // spend, identically on every peer (see CheckClaimAtExecution).
-            var claim = CheckClaimAtExecution(em, buildingId, position, faction, builder);
+            var claim = CheckClaimAtExecution(em, buildingId, position, faction, worker);
             if (claim != TheWaningBorder.World.Regions.PlacementRefusal.None)
             {
                 LastPlacementRefusal = claim;
@@ -2184,6 +2250,17 @@ namespace TheWaningBorder.Core.Commands
                 return Entity.Null;
             }
 
+            // ONE PLAN PER TILE, PER PLAYER (docs/Design/Planned_Buildings.md):
+            // a faction's own plans reserve their cells against its own later
+            // orders. Another faction's plan never blocks — two opposing plans
+            // may share a spot; the first to break ground keeps it.
+            if (TheWaningBorder.Entities.PlannedBuildings.OverlapsOwnPlan(
+                    em, faction, snappedPos, BuildingSizeConfig.GetSize(buildingId)))
+            {
+                LastPlacementRefusal = TheWaningBorder.World.Regions.PlacementRefusal.Overlap;
+                return Entity.Null;
+            }
+
             // Nothing on a resource node but its own extractor (Build_Grid.md
             // §3) — the same geometry-only kind of invariant as the overlap
             // above, from replicated node positions, so every peer agrees.
@@ -2216,11 +2293,21 @@ namespace TheWaningBorder.Core.Commands
             {
                 templeRp = TheWaningBorder.Economy.FactionReligionPointsHelper.Cfg.templeRp;
                 if (TheWaningBorder.Entities.BuildingFactory.GetFactionBuildingCount<TempleOfRidanTag>(em, faction) > 0
+                    || TheWaningBorder.Entities.PlannedBuildings.CountOf(em, faction, buildingId) > 0
                     || !TheWaningBorder.Economy.FactionReligionPointsHelper.CanAfford(em, faction, templeRp))
                 {
                     LastPlacementRefusal = TheWaningBorder.World.Regions.PlacementRefusal.CapReached;
                     return Entity.Null;
                 }
+            }
+
+            // PER-FACTION CAPS (BuildingDef.maxPerFaction — Houses 20,
+            // docs/Design/Age_0.md § Hut). Plans count, so queued orders
+            // cannot sneak past it.
+            if (TheWaningBorder.Entities.BuildingFactory.AtFactionCap(em, faction, buildingId))
+            {
+                LastPlacementRefusal = TheWaningBorder.World.Regions.PlacementRefusal.CapReached;
+                return Entity.Null;
             }
 
             var cost = TheWaningBorder.Data.BuildCosts.For(em, faction, buildingId);
@@ -2229,6 +2316,44 @@ namespace TheWaningBorder.Core.Commands
             if (temple)
                 TheWaningBorder.Economy.FactionReligionPointsHelper.TrySpend(em, faction, templeRp);
 
+            // A worker-raised building starts as a PLAN: paid, owner-only, no
+            // footprint in the world. PlannedBuildingSystem breaks ground when
+            // a worker arrives (docs/Design/Planned_Buildings.md).
+            if (TheWaningBorder.Entities.PlannedBuildings.UsesPlan(buildingId))
+                return TheWaningBorder.Entities.PlannedBuildings.Create(
+                    em, buildingId, position, faction, yawDegrees, cost, temple ? templeRp : 0);
+
+            return CreateConstructionSite(em, buildingId, position, faction, yawDegrees, cost);
+        }
+
+        /// <summary>
+        /// The world re-check a plan gets when a worker breaks ground: the
+        /// ground is still held, no real building and no resource node now
+        /// covers the footprint. Replicated state only.
+        /// </summary>
+        public static TheWaningBorder.World.Regions.PlacementRefusal CheckBreakGround(
+            EntityManager em, string buildingId, float3 position, Faction faction, Entity worker)
+        {
+            var claim = CheckClaimAtExecution(em, buildingId, position, faction, worker);
+            if (claim != TheWaningBorder.World.Regions.PlacementRefusal.None) return claim;
+            var size = BuildingSizeConfig.GetSize(buildingId);
+            if (BuildCommandHelper.OverlapsExistingBuilding(em, position, size))
+                return TheWaningBorder.World.Regions.PlacementRefusal.Overlap;
+            BuildCommandHelper.FootprintAabb(position, size, out float2 nodeMin, out float2 nodeMax);
+            if (TheWaningBorder.Entities.ResourceNodeSite.OverlapsNode(em, nodeMin, nodeMax,
+                    TheWaningBorder.World.Regions.TerritoryOwnership.RequiredNodeFor(buildingId)))
+                return TheWaningBorder.World.Regions.PlacementRefusal.OnResourceNode;
+            return TheWaningBorder.World.Regions.PlacementRefusal.None;
+        }
+
+        /// <summary>
+        /// Raise the real under-construction site, already PAID
+        /// (<paramref name="cost"/> is recorded for refunds). Shared by a direct
+        /// placement and by a plan breaking ground.
+        /// </summary>
+        public static Entity CreateConstructionSite(EntityManager em, string buildingId, float3 position,
+            Faction faction, float yawDegrees, Cost cost)
+        {
             Entity building = TheWaningBorder.Entities.BuildingFactory.Create(em, buildingId, position, faction);
 
             // THE PLACEMENT ROTATION (2026-09-30). Applied here, by the
@@ -2271,8 +2396,8 @@ namespace TheWaningBorder.Core.Commands
             }
 
             // Choice buildings (Shrine / Vault / Keep) self-construct with no
-            // builder over 90 s (design: Age_0.md § Special buildings).
-            // Builders can still be sent to accelerate — each contributes
+            // worker over 90 s (design: Age_0.md § Special buildings).
+            // Workers can still be sent to accelerate — each contributes
             // +25 % build rate in BuildingConstructionSystem, so 4 workers
             // halve the time. Deterministic across lockstep peers (this
             // method runs on every client).
@@ -2282,7 +2407,7 @@ namespace TheWaningBorder.Core.Commands
                 em.AddComponent<AutoConstructTag>(building);
             }
 
-            // Builder-placed Halls (expansion claims, one per territory) inherit
+            // Worker-placed Halls (expansion claims, one per territory) inherit
             // the faction's current culture so culture-driven queries that
             // pick "the first hall" stay consistent — EntityActionExtractor and
             // CultureChoicePopup both read FactionProgress off whichever Hall
@@ -2330,19 +2455,16 @@ namespace TheWaningBorder.Core.Commands
                 "Hall" => 50f,
                 "Barracks" or "ArcheryRange" => 30f,
                 "TempleOfRidan" => 40f,
-                // Choice buildings: 90 s self-build (no builder needed —
+                // Choice buildings: 90 s self-build (no worker needed —
                 // AutoConstructTag is added in PlaceBuildingDirect).
-                // "ShrineOfAhridan" is the legacy pre-rename id alias.
-                "ShrineOfRidan" or "ShrineOfAhridan"
-                    or "VaultOfAlmierra" or "FiendstoneKeep" => 90f,
-                "Alanthor_Smelter" => 30f,
+                "VaultOfAlmierra" or "FiendstoneKeep" => 90f,
                 "Alanthor_RoyalStable" => 30f,
                 "Alanthor_Tower" or "Feraldis_HuntingLodge" or "Feraldis_LoggingStation"
                     or "Feraldis_Tower" or "Runai_Outpost" => 25f,
                 "Feraldis_WarTotem" => 15f,
                 "Feraldis_Pasture" => 30f,
                 "Mine" => 25f,
-                "Alanthor_Sawyer" => 22f,
+                "Alanthor_TradingOutpost" => 30f,
                 "Feraldis_Longhouse" or "Runai_TradeHub" => 30f,
                 "Alanthor_SiegeYard" or "Runai_SiegeWorkshop"
                     or "Feraldis_SiegeYard" => 35f,

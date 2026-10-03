@@ -13,7 +13,7 @@ namespace TheWaningBorder.Data.AI
     [CreateAssetMenu(fileName = "AISettings", menuName = "Waning Border/AI Settings", order = 10)]
     public class AISettingsSO : ScriptableObject
     {
-        public float weightMiner = 120f;
+        public float weightWorker = 120f;
         public float weightEcoBuilding = 100f;
         public float weightMilitaryBuilding = 70f;
         public float weightHall = 60f;
@@ -52,7 +52,7 @@ namespace TheWaningBorder.Data.AI
             public int militaryFloor = 16;
             /// <summary>Workers to keep. They only BUILD now (Regions.md §4 removed
             /// gathering), so this is a build crew, not an economy.</summary>
-            public int minerFloor = 3;
+            public int workerFloor = 3;
             public float riskMultiplier = 1f;
 
             // ── Economy / tech priorities (moved off the difficulty profile) ──
@@ -99,22 +99,22 @@ namespace TheWaningBorder.Data.AI
         /// </summary>
         public static PersonalityBlock[] DefaultPersonalities() => new[]
         {
-            new PersonalityBlock { personality = AIPersonality.Balanced,   attackThreshold = 3, militaryFloor = 16,  minerFloor = 3, riskMultiplier = 1.0f,
+            new PersonalityBlock { personality = AIPersonality.Balanced,   attackThreshold = 3, militaryFloor = 16,  workerFloor = 3, riskMultiplier = 1.0f,
                                    workerTargetAge0 = 3, workerTargetAge1 = 5, gathererHutTarget = 14, productionBuildingTarget = 24, ageUpPushSeconds = 90f,  raidingEnabled = true,  forwardStaging = false },
-            new PersonalityBlock { personality = AIPersonality.Aggressive, attackThreshold = 2, militaryFloor = 20, minerFloor = 2, riskMultiplier = 0.6f,
+            new PersonalityBlock { personality = AIPersonality.Aggressive, attackThreshold = 2, militaryFloor = 20, workerFloor = 2, riskMultiplier = 0.6f,
                                    workerTargetAge0 = 3, workerTargetAge1 = 5, gathererHutTarget = 11, productionBuildingTarget = 28, ageUpPushSeconds = 110f, raidingEnabled = true,  forwardStaging = true  },
-            new PersonalityBlock { personality = AIPersonality.Defensive,  attackThreshold = 5, militaryFloor = 24, minerFloor = 4, riskMultiplier = 1.5f,
+            new PersonalityBlock { personality = AIPersonality.Defensive,  attackThreshold = 5, militaryFloor = 24, workerFloor = 4, riskMultiplier = 1.5f,
                                    workerTargetAge0 = 4, workerTargetAge1 = 6, gathererHutTarget = 16, productionBuildingTarget = 22, ageUpPushSeconds = 90f,  raidingEnabled = false, forwardStaging = false },
-            new PersonalityBlock { personality = AIPersonality.Economic,   attackThreshold = 4, militaryFloor = 12,  minerFloor = 5, riskMultiplier = 1.2f,
+            new PersonalityBlock { personality = AIPersonality.Economic,   attackThreshold = 4, militaryFloor = 12,  workerFloor = 5, riskMultiplier = 1.2f,
                                    workerTargetAge0 = 5, workerTargetAge1 = 8, gathererHutTarget = 20, productionBuildingTarget = 18, ageUpPushSeconds = 75f,  raidingEnabled = false, forwardStaging = false },
-            new PersonalityBlock { personality = AIPersonality.Rush,       attackThreshold = 2, militaryFloor = 20, minerFloor = 2, riskMultiplier = 0.5f,
+            new PersonalityBlock { personality = AIPersonality.Rush,       attackThreshold = 2, militaryFloor = 20, workerFloor = 2, riskMultiplier = 0.5f,
                                    workerTargetAge0 = 2, workerTargetAge1 = 4, gathererHutTarget = 9,  productionBuildingTarget = 30, ageUpPushSeconds = 120f, raidingEnabled = true,  forwardStaging = true  },
             // Absorbed from the retired AIStrategy enum: the tech and turtle
             // openings had no personality to belong to, so Yellow was filed
             // as "Balanced" and carried its identity in the build order alone.
-            new PersonalityBlock { personality = AIPersonality.TechBoom,   attackThreshold = 4, militaryFloor = 14,  minerFloor = 4, riskMultiplier = 1.2f,
+            new PersonalityBlock { personality = AIPersonality.TechBoom,   attackThreshold = 4, militaryFloor = 14,  workerFloor = 4, riskMultiplier = 1.2f,
                                    workerTargetAge0 = 4, workerTargetAge1 = 7, gathererHutTarget = 17, productionBuildingTarget = 20, ageUpPushSeconds = 60f,  raidingEnabled = false, forwardStaging = false },
-            new PersonalityBlock { personality = AIPersonality.Turtle,     attackThreshold = 6, militaryFloor = 28, minerFloor = 5, riskMultiplier = 1.8f,
+            new PersonalityBlock { personality = AIPersonality.Turtle,     attackThreshold = 6, militaryFloor = 28, workerFloor = 5, riskMultiplier = 1.8f,
                                    workerTargetAge0 = 4, workerTargetAge1 = 7, gathererHutTarget = 18, productionBuildingTarget = 20, ageUpPushSeconds = 105f, raidingEnabled = false, forwardStaging = false },
         };
 
@@ -134,7 +134,7 @@ namespace TheWaningBorder.Data.AI
 
         public float CategoryWeight(IntelCategory c) => c switch
         {
-            IntelCategory.Miner            => weightMiner,
+            IntelCategory.Worker            => weightWorker,
             IntelCategory.EcoBuilding      => weightEcoBuilding,
             IntelCategory.MilitaryBuilding => weightMilitaryBuilding,
             IntelCategory.Hall             => weightHall,

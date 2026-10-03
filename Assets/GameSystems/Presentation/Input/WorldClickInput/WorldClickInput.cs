@@ -126,11 +126,11 @@ namespace TheWaningBorder.Input
                 return;
             }
 
-            // ── Right-click on THE VEIL: selected miners dig the crust at
+            // ── Right-click on THE VEIL: selected workers dig the crust at
             //    the closest crusted vertex (Astroneer-style — the sheet
             //    itself is the deposit). DISABLED while the veil is
             //    influence-only (VeilCrustConstants.CrustPhysical false):
-            //    veilstone comes from discrete deposits, and routing miners
+            //    veilstone comes from discrete deposits, and routing workers
             //    into the reforming crust stranded and killed them. ──
 
             // Attack-move mode: A + right-click
@@ -180,7 +180,7 @@ namespace TheWaningBorder.Input
             }
 
             // Same flow but with a resource as the rally target — newly
-            // trained miners auto-gather it on spawn (TrainingSystem reads
+            // trained workers auto-gather it on spawn (TrainingSystem reads
             // RallyPoint.TargetEntity). Lets the player point a Hall at a
             // veilstone / iron deposit and walk away.
             if (targetType == SelectionOrders.TargetType.Resource && _orders.HasOnlyOwnedBuildings())
@@ -340,13 +340,23 @@ namespace TheWaningBorder.Input
             var cam = TheWaningBorder.Core.PresentationState.GameplayCamera;
             if (!cam) return false;
 
-            float deckY = Nav.LayerTransitionSystem.DeckY;
             Ray ray = cam.ScreenPointToRay(UnityEngine.Input.mousePosition);
             if (Mathf.Abs(ray.direction.y) < Cfg.rampartRayEpsilon) return false;
-            float t = (deckY - ray.origin.y) / ray.direction.y;
-            if (t <= 0f) return false; // deck plane is behind the camera
 
-            Vector3 hit = ray.origin + ray.direction * t;
+            // The wall-walk follows the ground under the wall
+            // (LayerTransitionSystem.DeckYAt), so there is no single plane to
+            // hit: start from the ground-level deck under the camera's aim and
+            // settle onto the surface in a few steps — terrain under a wall is
+            // gentle, so this converges at once.
+            float deckY = Nav.LayerTransitionSystem.DeckYAt(ray.origin.x, ray.origin.z);
+            Vector3 hit = default;
+            for (int i = 0; i < 4; i++)
+            {
+                float t = (deckY - ray.origin.y) / ray.direction.y;
+                if (t <= 0f) return false; // deck surface is behind the camera
+                hit = ray.origin + ray.direction * t;
+                deckY = Nav.LayerTransitionSystem.DeckYAt(hit.x, hit.z);
+            }
             var cell = Nav.NavGridQuery.WorldToCellInt2(new float3(hit.x, deckY, hit.z));
             if (cell.x == int.MinValue) return false;
             // Only a real wall-top cell is passable on the deck layer.

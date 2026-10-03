@@ -131,7 +131,7 @@ namespace TheWaningBorder.Economy
             });
 
             em.SetComponentData(bank, new FactionEra { Value = 1 });
-            em.SetComponentData(bank, new FactionReligionPoints { Balance = 0, ShrineBonusAwarded = 0, CurrentAge = 1 });
+            em.SetComponentData(bank, new FactionReligionPoints { Balance = 0, CurrentAge = 1 });
             em.SetComponentData(bank, default(SectAdoptionState));
             em.SetComponentData(bank, default(FactionEquipmentTier));
             em.SetComponentData(bank, new GodPowerState
@@ -211,9 +211,9 @@ namespace TheWaningBorder.Economy
 
                     // task-063: reset RP balance + Shrine-bonus latch + per-sect adoption state.
                     if (em.HasComponent<FactionReligionPoints>(bank))
-                        em.SetComponentData(bank, new FactionReligionPoints { Balance = 0, ShrineBonusAwarded = 0, CurrentAge = 1 });
+                        em.SetComponentData(bank, new FactionReligionPoints { Balance = 0, CurrentAge = 1 });
                     else
-                        em.AddComponentData(bank, new FactionReligionPoints { Balance = 0, ShrineBonusAwarded = 0, CurrentAge = 1 });
+                        em.AddComponentData(bank, new FactionReligionPoints { Balance = 0, CurrentAge = 1 });
 
                     if (em.HasComponent<SectAdoptionState>(bank))
                         em.SetComponentData(bank, default(SectAdoptionState));
@@ -282,7 +282,7 @@ namespace TheWaningBorder.Economy
             });
 
             em.SetComponentData(bank, new FactionEra { Value = 1 });
-            em.SetComponentData(bank, new FactionReligionPoints { Balance = 0, ShrineBonusAwarded = 0, CurrentAge = 1 });
+            em.SetComponentData(bank, new FactionReligionPoints { Balance = 0, CurrentAge = 1 });
             em.SetComponentData(bank, default(SectAdoptionState));
             em.SetComponentData(bank, default(FactionEquipmentTier));  // all classes start at Base
             em.SetComponentData(bank, new GodPowerState

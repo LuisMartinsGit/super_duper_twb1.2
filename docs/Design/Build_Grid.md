@@ -199,6 +199,31 @@ patch of ground, and because its footprint is still declared — `BuildingSize`
 2 x 2, stamped on the passability grid at whatever offset it lands, exactly as
 a moving obstacle would be.
 
+### Walls on the grid (2026-10-02)
+
+> **How a freeform wall and a square grid share ground** — the Age of Empires
+> IV answer. The wall is DRAWN smooth, but on the grid it OCCUPIES the
+> stair-stepped cells it actually crosses, and buildings and walls are both
+> tested against those cells. Neither can be laid through the other.
+
+- **One occupancy truth: the nav grid (1 m cells).** Every wall piece is
+  stamped onto it turned to its own heading — a stone curtain blocks a 5 m
+  band (its 4 m plus a margin), a palisade 3 m, a hub a 5 m square — the
+  moment it is placed, under construction or not. Buildings and obstacles
+  stamp their footprints there too.
+- **A building may not cover a wall cell.** Its footprint is tested against
+  those cells (`BuildCommandHelper.OverlapsWall`) in the placement check, the
+  executor's last-line re-check, a plan breaking ground, and the AI's site
+  search. A wall piece's own box was axis-aligned while the wall was not, so a
+  diagonal or curved wall left notches that building corners slotted into.
+- **A wall is clear along its WHOLE length** (`CommandRouter.WallLineClear`).
+  Every metre of the curtain's cross-section must be free of buildings,
+  obstacles, other walls and impassable ground, and every two metres free of
+  resource nodes and the owner's own plans. Within one hub radius + 2.5 m of a
+  standing hub or wall cell the new wall JOINS, it may touch that wall. The
+  draw tool marks the blocked stretch red; the executor refuses the whole wall,
+  before any spend, on every peer. It used to check the new hub spots only.
+
 ### The terrain seal (2026-09-24)
 
 A new hub throws a short stub of curtain at the nearest **impassable
@@ -212,8 +237,16 @@ and it must fire **only against a real obstacle**:
   sealing to one puts a stub of wall at an angle the player never asked for.
   That, not the feature, was the "wall hubs sprout segments in random
   directions" bug.
-- **The map edge is not terrain.** `PassabilityGrid.GetCell` answers
-  `TerrainBlocked` for anything off the grid, so a hub near the border would
-  seal to the void on every bearing that runs off the map.
+- **The map edge is not terrain — but it IS a seal target (2026-10-02).**
+  `PassabilityGrid.GetCell` answers `TerrainBlocked` for anything off the
+  grid, so the terrain scan must never read off-grid samples (that sealed hubs
+  to the void on every bearing). The edge is handled on its own: units walk to
+  the last cell, so a hub within the seal range (9 m) of an edge throws a
+  curtain straight to it, square to the edge, measured from the grid's bounds —
+  one seal per edge in range, two in a corner.
+- **A seal obeys the whole-length rule.** Its curtain must be clear (no
+  building, node, wall or impassable ground) from past the hub's joint to just
+  short of the rock or edge it laps into, or it is not laid. A hub may carry
+  several seals, never two on the same bearing.
 - **Nothing seals before the mask is baked.** Gate on
   `PassabilityGrid.IsMaskReady`, never on `Cells.IsCreated`.

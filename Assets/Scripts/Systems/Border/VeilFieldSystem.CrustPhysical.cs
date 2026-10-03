@@ -1,7 +1,7 @@
 // VeilFieldSystem.CrustPhysical.cs
 // PHYSICAL-CRUST MODEL -- gated off by VeilCrustConstants.CrustPhysical (false).
 // Unreachable today and kept deliberately as the flip-back design: debuffs,
-// worker ward, miner infection and iron swallowing. Quarantined here so the
+// worker ward, worker infection and iron swallowing. Quarantined here so the
 // live veil code stays readable. Do not delete without retiring the flag.
 // Partial of VeilFieldSystem.cs -- split 2026-08-12 for readability.
 
@@ -38,21 +38,21 @@ namespace TheWaningBorder.Systems.Border
         };
         static CachedEntityQuery QC_UnitTagFactionTagLocalTransformHealth;
 
-        static readonly ComponentType[] QT_MinerTagLocalTransform =
+        static readonly ComponentType[] QT_WorkerTagLocalTransform =
         {
-            ComponentType.ReadOnly<MinerTag>(),
+            ComponentType.ReadOnly<WorkerTag>(),
             ComponentType.ReadOnly<LocalTransform>(),
         };
-        static CachedEntityQuery QC_MinerTagLocalTransform;
+        static CachedEntityQuery QC_WorkerTagLocalTransform;
 
-        static readonly ComponentType[] QT_MinerTagFactionTagLocalTransformHealth =
+        static readonly ComponentType[] QT_WorkerTagFactionTagLocalTransformHealth =
         {
-            ComponentType.ReadOnly<MinerTag>(),
+            ComponentType.ReadOnly<WorkerTag>(),
             ComponentType.ReadOnly<FactionTag>(),
             ComponentType.ReadOnly<LocalTransform>(),
             ComponentType.ReadOnly<Health>(),
         };
-        static CachedEntityQuery QC_MinerTagFactionTagLocalTransformHealth;
+        static CachedEntityQuery QC_WorkerTagFactionTagLocalTransformHealth;
 
         #endregion
 
@@ -92,7 +92,7 @@ namespace TheWaningBorder.Systems.Border
                 // destroy makes the EndSimulation playback throw "entity does
                 // not exist" and corrupts the whole world (2026-07-12 crash).
                 var cls = tags[i].Class;
-                if (onCrust && cls != UnitClass.Economy && cls != UnitClass.Miner)
+                if (onCrust && cls != UnitClass.Economy && cls != UnitClass.Worker)
                 {
                     var hp = hps[i];
                     hp.Value = 0;
@@ -122,7 +122,7 @@ namespace TheWaningBorder.Systems.Border
         }
 
         /// <summary>Stamp a small "no growth" disc around every worker
-        /// (MinerTag — the unified Worker carries it from both factories) so a
+        /// (WorkerTag — the unified Worker carries it from both factories) so a
         /// burst can never crystallize the ground under a digger and seal it
         /// inside the wall. Cleared and re-stamped from live positions before
         /// every CA step. Military units get NO ward — the wall catches them
@@ -131,7 +131,7 @@ namespace TheWaningBorder.Systems.Border
         {
             for (int i = 0; i < _workerWard.Length; i++) _workerWard[i] = 0;
 
-            var wq = QC_MinerTagLocalTransform.Get(em, QT_MinerTagLocalTransform);
+            var wq = QC_WorkerTagLocalTransform.Get(em, QT_WorkerTagLocalTransform);
             using var xfs = wq.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
             int r = (int)math.ceil(WorkerWardRadius / field.CellSize);
@@ -151,10 +151,10 @@ namespace TheWaningBorder.Systems.Border
         }
 
         // ─────────────────────────────────────────────────────────────
-        // MINER INFECTION  (neglected miners near the veil turn to curse)
+        // WORKER INFECTION  (neglected workers near the veil turn to curse)
         // ─────────────────────────────────────────────────────────────
 
-        /// <summary>Accrue veil exposure on miners standing in haze; when a miner
+        /// <summary>Accrue veil exposure on workers standing in haze; when a worker
         /// crosses <see cref="InfectionSeconds"/> it is consumed and a hostile
         /// curse creature erupts in its place. The creature tier scales with how
         /// late the eruption is (Crystalling → Veilstinger → Godsplinter), so a
@@ -163,13 +163,13 @@ namespace TheWaningBorder.Systems.Border
         /// so it is NOT gated by BorderConstants.CurseFieldsArmies.</summary>
         private void ProcessInfection(EntityManager em, in VeilField field, double matchTime)
         {
-            var mq = QC_MinerTagFactionTagLocalTransformHealth.Get(em, QT_MinerTagFactionTagLocalTransformHealth);
+            var mq = QC_WorkerTagFactionTagLocalTransformHealth.Get(em, QT_WorkerTagFactionTagLocalTransformHealth);
             using var ents = mq.ToEntityArray(Allocator.Temp);
             using var facs = mq.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var xfs = mq.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             using var hps = mq.ToComponentDataArray<Health>(Allocator.Temp);
 
-            // Eruptions collected during the scan, spawned after it. The miner
+            // Eruptions collected during the scan, spawned after it. The worker
             // itself is killed through the NORMAL death pipeline (Health -> 0,
             // DeathSystem destroys next update) — NEVER DestroyEntity here:
             // other systems queue ECB ops against the entity in the same

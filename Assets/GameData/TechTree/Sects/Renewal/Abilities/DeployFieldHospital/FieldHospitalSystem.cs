@@ -2,7 +2,7 @@
 // Runs the deployed Field Hospital: a 1 s heal pulse over allied units in
 // radius, and the two-minute countdown to its own demolition.
 //
-// Heal loop follows ShrineHealSystem (cached queries in OnCreate, XZ distance,
+// Heal loop follows TempleHealSystem (cached queries in OnCreate, XZ distance,
 // direct Health writes). Expiry follows the unit-death contract: set Health to
 // 0 and let DeathSystem destroy the entity — never DestroyEntity from here.
 
@@ -19,7 +19,7 @@ namespace TheWaningBorder.Systems.Buildings
         private const float TickInterval = 1f;
 
         // SimCadence, not a bare float — see SimCadence.cs. Same shape as
-        // ShrineHealSystem: both the heal amount and the TimeToLive decrement
+        // TempleHealSystem: both the heal amount and the TimeToLive decrement
         // are scaled by the accumulator, so a machine-dependent starting phase
         // wrote different HP on the first fire rather than merely later.
         private SimCadence.Periodic _cadence;

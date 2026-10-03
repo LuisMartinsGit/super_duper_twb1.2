@@ -48,7 +48,7 @@ public struct FactionEquipmentTier : IComponentData
 
     /// <summary>
     /// Look up the current tier for a unit class. Returns Base for classes
-    /// that don't carry equipment (Economy, Miner, Scout).
+    /// that don't carry equipment (Economy, Worker, Scout).
     /// </summary>
     public EquipmentTier Get(UnitClass cls) => cls switch
     {

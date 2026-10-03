@@ -182,6 +182,15 @@ colour there, so the rungs cannot drift apart across files.
 
 ### 4.1 The decision
 
+> **Exception, 2026-10-02 — the castle set's roofs carry the player colour.**
+> The stone wall's hoarding galleries, its hub and tower cones, and the
+> Fortress's galleries, cones and inner-keep pyramid are tinted with the owner's
+> colour: the kit's slate texture (`Castle_Roof_01`) multiplied by it, so the
+> roof still reads as slate, in the player's hue. Tinted by MATERIAL — the
+> gallery timber and the cone finials keep their own colours.
+> (`WallModuleArt.IsRoofMaterial`, `BuildingFactionColorMarker.IsCastleRoofMaterial`.)
+> Every other building keeps the rule below.
+
 Roofs are **dark slate** (`#3B3E46` Alanthor; the culture roof material
 otherwise). The player colour is carried by:
 
@@ -343,6 +352,14 @@ each one must carry information, or it is noise at zoom:
 | Warm windows | any complete building (dark = under construction / abandoned) | §4.3 |
 | Earthen trails and plazas | sites joined within one territory; someone builds or walks here | Roads.md |
 | Stone roads and paved plazas | an Age 1 culture holds this ground and the buildings are finished | Roads.md §5 |
+| Dust puffs at a building's foot | construction progressed (one Hovl puff per 5 % built) | `BuildingEffectSystem.asset` |
+| Grey smoke plume from a roof | a finished building below half health; it grows as health falls and fades once repaired above 60 % (Hovl "Smoke loop", URP material in `GameData/Art/Vfx/`) | `BuildingEffectSystem.asset` |
+| Green rising crosses on a unit | that unit was just healed — any heal source, never building repair (Lana `Regeneration_health`) | `UnitHealVfx.asset` |
+| An ability's own effect on its target | the ability landed; timed ones loop for their duration, passive auras loop on the carrier (each ability's `<Name>_Effect.prefab`, `AbilityDefSO.vfxPrefab`) | `AbilityVfxPlayer.asset` |
+| Speed fog on an economy building | the Ledger has automated it (+30 % yield, 30 s) | Ledger `AutomateFacility_Effect` |
+| Gold orbs / gold dome / hearts / slowing fog on King Lexor | King's Call aura / Liquid Courage / Life Cling / Veilshift Withdrawal | KingLexor `Abilities/` |
+| Green healing ring / green dome / leaf poof | Renewal: Hands of Plenty landing (+ regen loop at III) / Second Wind ward / Raise Anew; Field Hospital keeps a healing-area loop | `SectPowerVfx.asset`, `RenewalVfx.asset` |
+| Loot glow on the ground / flicker on a unit | the Shardroot lies here / this unit carries it (drop and pick-up bursts mark the change) | `ShardrootVfx.asset` |
 
 ### 6.4 The curse veil (2026-09-18)
 

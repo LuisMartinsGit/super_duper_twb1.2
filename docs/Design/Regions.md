@@ -162,9 +162,9 @@ a stale click all obey them):
   map, so an authored outline neighbours exactly the outlines it touches, and
   two territories separated by a Mountain or Water region are NOT neighbours.
   The curse's conquest (§3) uses the same graph.
-- **The builder has to be there — inside the territory.** A Hall can be placed
+- **The worker has to be there — inside the territory.** A Hall can be placed
   only while one of the faction's workers stands within **30 m** of the site
-  (`hallBuilderRange` in `Scripts/World/Regions/TerritoryOwnership.asset`)
+  (`hallWorkerRange` in `Scripts/World/Regions/TerritoryOwnership.asset`)
   **and inside the territory the Hall would claim** (the region the site is
   in, `RegionMap.RegionAt` — 2026-09-27). A worker across the border on the
   faction's own ground is in range but is not on the ground it is claiming, so
@@ -202,7 +202,7 @@ a stale click all obey them):
 
 A refused placement always says which rule it broke — not your territory,
 held by another player or the curse, one Hall per territory, not adjacent,
-builder too far / worker outside the territory / no worker selected, terrain,
+worker too far / worker outside the territory / no worker selected, terrain,
 overlap — instead of a generic "invalid placement". (Not enough resources is
 the ordinary affordability notice, at the escalated price.)
 
@@ -564,7 +564,7 @@ infer by watching their bank.
 
 ### One unit: the Worker
 
-**The Miner and the Builder are gone. There is a single Worker unit, and it only
+**There is one unit, the Worker, and it only
 builds.** Workers are much more expensive than the units they replace.
 
 This is the largest change in the document. Gathering as an activity no longer
@@ -624,6 +624,8 @@ either would be silently mistaken for a gather order by a peer on an old build.
 - **Runai and Feraldis economies.** Deliberately deferred — the pass is Alanthor
   only.
 - ~~The Sawyer and the mine do not exist.~~ **Both exist now (2026-08-28).**
+  **The Sawyer was removed again (2026-10-01), and forests no longer pay any
+  income** — see Veilstone_Economy.md §5.
 
   **Mine** — `Mine`, 220 supplies, 4x4 m (2 x 2 cells since 2026-09-29, on its node). It already existed as a Feraldis
   building doing exactly what §4 describes ("workerless ore extraction; works
@@ -659,11 +661,11 @@ either would be silently mistaken for a gather order by a peer on an old build.
   deposit placed by angle alone can silently land next door. `PlaceInHome` walks
   each deposit toward the home seed until the partition itself agrees, and
   `ValidateHomeResources` fails the build loudly if any home lacks either.
-- **`MinerTag` and `MinerState` survive on the Worker and must.** `MinerTag` is
+- **`WorkerTag` and `WorkerState` survive on the Worker and must.** `WorkerTag` is
   the game's de-facto "this unit is a villager" discriminator — 20+ non-economy
   sites test it (combat auto-acquire exclusion, veil infection, auto-flee,
   wall-garrison ban, formation exclusion, Feraldis Berserker conversion, AI
-  worker counting, unit naming). `MinerState` is read by the animator, the info
+  worker counting, unit naming). `WorkerState` is read by the animator, the info
   panel and the lockstep hash. They are vestigial names, not vestigial code.
 - **Resource nodes never deplete now.** Depletion bars will render permanently
   full, and the `gatherSpeedMult` tech effect plus
@@ -708,12 +710,12 @@ the whole 512² divided 25 ways.
 | Regions.md 2nd pass — curse as an influence channel | §3: Nodes send waves |
 | [Overview.md](Overview.md) — "Alanthor players cannot build outside their own influence" | superseded, now by territory rather than influence |
 | [Overview.md](Overview.md) — mined resources credited per gather tick by workers | §4: workers no longer gather |
-| [CLAUDE.md](../../CLAUDE.md) "Do Not Change" — direct-credit mining, miner auto-find | §4: the Miner no longer exists |
+| [CLAUDE.md](../../CLAUDE.md) "Do Not Change" — direct-credit mining, worker auto-find | §4: units no longer mine |
 | Map size conventions (352 / 704 m) | §5: 512 x 512 m |
 
 The bottom three are the heavy ones. Worker gathering is wired through
 `MiningSystem`, `VeilstoneMiningSystem`, the AI economy manager and the
-Gatherer's Hut area income; the Miner is a unit with factories, SOs, AI
+Gatherer's Hut area income; unit mining has factories, SOs, AI
 behaviour and UI. Removing it is a deletion pass across the codebase, not a
 tuning change — and CLAUDE.md's "Key Design Decisions (Do Not Change)" list
 needs rewriting to match, since it currently asserts the opposite.

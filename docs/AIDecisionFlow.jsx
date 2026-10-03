@@ -90,20 +90,20 @@ const panels = {
     title: '💰 Economy Manager',
     items: [
       { label: 'GathererHuts (P8)', detail: 'Build if activeHuts < target', threshold: 'Target: 5 huts' },
-      { label: 'Miners (P7)', detail: 'Train if miners < desired, max 3/cycle', threshold: 'Cap: 10 miners, 2 per mine' },
-      { label: 'Barracks Request (P6)', detail: 'Request if barracks < target AND has miners', threshold: 'Target: 4 barracks' },
+      { label: 'Workers (P7)', detail: 'Train if workers < desired, max 3/cycle', threshold: 'Cap: 10 workers, 2 per mine' },
+      { label: 'Barracks Request (P6)', detail: 'Request if barracks < target AND has workers', threshold: 'Target: 4 barracks' },
       { label: 'Choice Building (P4)', detail: 'Aggressive→Keep, Defensive→Shrine, Economic→Vault', threshold: 'Requires crystal ≥ threshold' },
       { label: 'Age-Up (P4)', detail: 'After choice building complete + can afford', threshold: 'Culture by personality' },
       { label: 'Culture Buildings (P5)', detail: 'Sequential build order per culture after Era 2', threshold: 'Runai/Alanthor/Feraldis specific' },
       { label: 'Vault Deposits', detail: 'Deposit surplus resources into vault', threshold: 'Surplus > 500, deposit 200/cycle' },
-      { label: 'Smelter Staffing', detail: 'Assign idle miners to smelter', threshold: '2 miners per smelter' },
+      { label: 'Smelter Staffing', detail: 'Assign idle workers to smelter', threshold: '2 workers per smelter' },
     ]
   },
   building: {
     title: '🏗️ Building Manager',
     items: [
-      { label: 'Builder Count', detail: 'Target 3, +1 if queue>3, max 5', threshold: 'MaxBuilders: 5' },
-      { label: 'Process Requests', detail: 'Priority queue → affordability → assign builder → construct', threshold: 'Deduct cost on start' },
+      { label: 'Worker Count', detail: 'Target 3, +1 if queue>3, max 5', threshold: 'MaxWorkers: 5' },
+      { label: 'Process Requests', detail: 'Priority queue → affordability → assign worker → construct', threshold: 'Deduct cost on start' },
       { label: 'Culture Queue', detail: '1 building per tick, duplicate-aware', threshold: 'Era 2+ required' },
     ]
   },
@@ -224,11 +224,11 @@ export default function AIDecisionFlow() {
           {/* TIER 1: MANAGERS (row 1) */}
           {/* ══════════════════════════════════════════════ */}
           <Node x={30} y={95} w={180} h={40} color={colors.economy}
-            label="Economy Manager" sublabel="Huts · Miners · Buildings"
+            label="Economy Manager" sublabel="Huts · Workers · Buildings"
             onClick={() => setSelected('economy')} highlight={selected === 'economy'} />
 
           <Node x={250} y={95} w={180} h={40} color={colors.building}
-            label="Building Manager" sublabel="Builders · Construction"
+            label="Building Manager" sublabel="Workers · Construction"
             onClick={() => setSelected('building')} highlight={selected === 'building'} />
 
           <Node x={465} y={95} w={180} h={40} color={colors.military}
@@ -255,10 +255,10 @@ export default function AIDecisionFlow() {
             label="→ Request Hut" sublabel="Priority 8" />
 
           <Arrow x1={135} y1={178} x2={200} y2={178} label="✓" dashed />
-          <Diamond x={230} y={178} size={30} color={colors.decision} label="miners?" />
+          <Diamond x={230} y={178} size={30} color={colors.decision} label="workers?" />
           <Arrow x1={230} y1={193} x2={230} y2={215} label="< desired" />
           <Node x={170} y={250} w={120} h={28} color={colors.action}
-            label="→ Train Miner" sublabel="Priority 7" />
+            label="→ Train Worker" sublabel="Priority 7" />
 
           <Arrow x1={245} y1={178} x2={310} y2={178} label="✓" dashed />
           <Diamond x={340} y={178} size={30} color={colors.decision} label="choice?" />

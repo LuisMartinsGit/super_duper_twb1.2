@@ -10,7 +10,7 @@
 // wants a canned cycle, but nothing drives it while this component is present.
 //
 // Namespace matches the other entity-visual files in this folder
-// (LedgerVisual, LedgerAutomationVfx) per CLAUDE.md's co-location rule: the
+// (LedgerVisual; its buff effect is AutomateFacility_Effect) per CLAUDE.md's co-location rule: the
 // file lives with its entity, and declares TheWaningBorder.Rendering from
 // inside GameData/TechTree.
 

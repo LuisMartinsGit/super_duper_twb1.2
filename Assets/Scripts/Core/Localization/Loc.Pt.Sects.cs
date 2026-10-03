@@ -342,7 +342,7 @@ namespace TheWaningBorder.Core.Localization
             t["Your melee units gain "]     = "As tuas unidades corpo a corpo ganham ";
             t["Your ranged units gain "]    = "As tuas unidades à distância ganham ";
             t["Your siege units gain "]     = "As tuas unidades de cerco ganham ";
-            t["Your miners / workers gain "] = "Os teus mineiros / trabalhadores ganham ";
+            t["Your workers gain "] = "Os teus trabalhadores ganham ";
             t["Your scouts gain "]          = "Os teus batedores ganham ";
             t["Your select units gain "]    = "Certas unidades tuas ganham ";
             t["+{0}% HP"]         = "+{0}% de HP";

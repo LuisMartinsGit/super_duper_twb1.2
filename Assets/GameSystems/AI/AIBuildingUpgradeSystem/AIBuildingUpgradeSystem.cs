@@ -123,14 +123,6 @@ namespace TheWaningBorder.AI
         };
         static CachedEntityQuery QC_VaultTagBuildingUpgradeableFactionTag;
 
-        static readonly ComponentType[] QT_ShrineTagBuildingUpgradeableFactionTag =
-        {
-            ComponentType.ReadOnly<ShrineTag>(),
-            ComponentType.ReadOnly<BuildingUpgradeable>(),
-            ComponentType.ReadOnly<FactionTag>(),
-        };
-        static CachedEntityQuery QC_ShrineTagBuildingUpgradeableFactionTag;
-
         static readonly ComponentType[] QT_WallHubTagBuildingUpgradeableFactionTag =
         {
             ComponentType.ReadOnly<WallHubTag>(),
@@ -190,7 +182,7 @@ namespace TheWaningBorder.AI
         // compounds), then a ROUND-ROBIN start index across the rest so every
         // line gets a turn.
         // 2026-08-10 (endgame completeness): the choice buildings
-        // (VaultOfAlmierra / ShrineOfRidan — both carry BuildingUpgradeable
+        // (VaultOfAlmierra — carries BuildingUpgradeable
         // and have cost rows) and the Wall hub line join the rotation so the
         // AI eventually levels EVERYTHING it owns. The wall entry is
         // forward-wired: hubs don't carry BuildingUpgradeable or a
@@ -200,7 +192,7 @@ namespace TheWaningBorder.AI
         private static readonly string[] PriorityOrder =
             { "GatherersHut", "Hall", "Barracks", "Hut", "ArcheryRange",
               "Alanthor_RoyalStable", "Alanthor_SiegeYard", "Alanthor_Tower",
-              "VaultOfAlmierra", "ShrineOfRidan", "Alanthor_Wall" };
+              "VaultOfAlmierra", "Alanthor_Wall" };
 
 
         public void OnCreate(ref SystemState state)
@@ -396,9 +388,6 @@ namespace TheWaningBorder.AI
                 case "VaultOfAlmierra":
                     query = QC_VaultTagBuildingUpgradeableFactionTag.Get(em, QT_VaultTagBuildingUpgradeableFactionTag);
                     break;
-                case "ShrineOfRidan":
-                    query = QC_ShrineTagBuildingUpgradeableFactionTag.Get(em, QT_ShrineTagBuildingUpgradeableFactionTag);
-                    break;
                 case "Alanthor_Wall":
                     // Wall hubs: many instances, lowest-level-first (default
                     // direction below). Matches nothing until hubs carry
@@ -453,7 +442,7 @@ namespace TheWaningBorder.AI
             // reserve untouched (L2+L3 need 90 total; the L1 drip is 6/min).
             // The Smelter's own upgrade is exempt — it IS the reserve's purpose.
             if (buildingId != "Alanthor_Smelter"
-                && BuildingUpgradeConfig.TryGetCost(buildingId, (byte)(bestLevel + 1), out var nextCost)
+                && BuildingUpgradeConfig.TryGetCost(em, faction, buildingId, (byte)(bestLevel + 1), out var nextCost)
                 && nextCost.Veilsteel > 0
                 && SmelterBelowMax(em, faction)
                 && FactionEconomy.TryGetResources(em, faction, out var vsRes)

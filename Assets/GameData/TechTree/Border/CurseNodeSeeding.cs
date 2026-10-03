@@ -41,6 +41,31 @@ namespace TheWaningBorder.Systems.Border
         }
 
         /// <summary>
+        /// VEILSTONE-RICH TERRITORIES START CURSED (docs/Design/Territory_Claims.md
+        /// §9): a curse node rises on every veilstone outcrop in each of them.
+        /// Returns how many were raised (0 when the map has no such territory).
+        /// </summary>
+        public static int CurseVeilstoneRich(EntityManager em)
+        {
+            var rich = TheWaningBorder.World.Regions.TerritoryResources.TerritoriesOf(
+                TheWaningBorder.World.MapMarkers.RegionSeedMarker.ResourceType.VeilstoneRich);
+            if (rich.Count == 0) return 0;
+            var q = em.CreateEntityQuery(ComponentType.ReadOnly<VeilstoneOutcroppingTag>(),
+                                         ComponentType.ReadOnly<Unity.Transforms.LocalTransform>());
+            using var xfs = q.ToComponentDataArray<Unity.Transforms.LocalTransform>(Unity.Collections.Allocator.Temp);
+            q.Dispose();
+            int raised = 0;
+            for (int i = 0; i < xfs.Length; i++)
+            {
+                var p = xfs[i].Position;
+                if (!rich.Contains(RegionMap.NearestRegion(p.x, p.z))) continue;
+                TheWaningBorder.Entities.SmallNode.Create(em, p);
+                raised++;
+            }
+            return raised;
+        }
+
+        /// <summary>
         /// Raise the match's initial curse nodes. <paramref name="starts"/>
         /// are the players' base positions (their start territories are
         /// excluded and fairness is measured from them). Returns the number

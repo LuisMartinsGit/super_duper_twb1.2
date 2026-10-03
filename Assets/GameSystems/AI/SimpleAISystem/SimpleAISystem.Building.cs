@@ -1,5 +1,5 @@
 ﻿// SimpleAISystem.Building.cs
-// Building placement: siting rules, spacing, builder dispatch, pop headroom.
+// Building placement: siting rules, spacing, worker dispatch, pop headroom.
 // Partial of SimpleAISystem.cs -- split 2026-08-12 for readability.
 
 using Unity.Collections;
@@ -48,7 +48,7 @@ namespace TheWaningBorder.AI
         // ─────────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Place + dispatch builders for <paramref name="buildingId"/>. The
+        /// Place + dispatch workers for <paramref name="buildingId"/>. The
         /// placement ring is anchored on the faction Hall.
         /// </summary>
         /// <param name="anchorOverride">Where to centre the site search. Null
@@ -66,7 +66,7 @@ namespace TheWaningBorder.AI
         ///
         /// Every refusal in here used to be a bare `return false`. Two separate
         /// blockers were then diagnosed by inference from match metrics — the
-        /// idle-builder gate among them — and one of those inferences was
+        /// idle-worker gate among them — and one of those inferences was
         /// wrong. A build path this load-bearing states its own cause.
         /// </summary>
         private bool TryBuildBuildingWithReason(EntityManager em, Faction faction,
@@ -156,6 +156,20 @@ namespace TheWaningBorder.AI
             // (and therefore which reason a double refusal reports) changed.
             if (!PassesBuildPreflight(em, faction, buildingId, out reason)) return false;
 
+            // AN EXTRACTOR WITH NO ANCHOR IS SITED ON ITS NODES (2026-10-03,
+            // operator: "AI starves for supplies all game long"). The hut
+            // pipeline and the goal list both asked for a Gatherer's Hut with
+            // no anchor, so the search ringed the Hall — and the node gate
+            // accepts only a candidate on a free supply node, which the Hall
+            // never stands on. Every one of those requests failed ("territory
+            // 144" / "nodegate 144" in the Veilmarch logs), leaving the 15 s
+            // extractor walk, which buys veilstone and iron extractors first,
+            // as the only thing that ever raised a hut: one hut in two
+            // minutes, supplies starved for the whole match.
+            if (anchorOverride == null
+                && TheWaningBorder.World.Regions.TerritoryOwnership.IsExtractor(buildingId))
+                return TryBuildOnFreeNode(em, faction, buildingId, size, hallPos, out reason);
+
             // A search that just failed here, for this building, on this
             // ground, is not re-run until something that could change the
             // answer has changed — see SiteSearchRemembered.
@@ -199,19 +213,19 @@ namespace TheWaningBorder.AI
             // PlaceBuildingDirect — the direct call is the post-lockstep
             // executor, so every AI building existed on the host only and
             // clients watched an empty AI base. In multiplayer the foundation
-            // is created on every peer two ticks later, so builders are
+            // is created on every peer two ticks later, so workers are
             // dispatched at the POSITION with a null target and auto-find the
             // site on arrival (same pattern as the human MP flow in
             // BuildCommandPannel).
-            // A HALL NEEDS ITS BUILDER ON SITE (Regions.md §2): walk a worker
+            // A HALL NEEDS ITS WORKER ON SITE (Regions.md §2): walk a worker
             // there first and place on a later think, once it has arrived.
             // The worker then rides the command so the executor can re-check.
-            // (No builder rides the command any more: the Hall — the only
+            // (No worker rides the command any more: the Hall — the only
             // building that needed one on site — is removed.)
-            Entity claimBuilder = Entity.Null;
+            Entity claimWorker = Entity.Null;
 
             bool queued = CommandRouter.IssuePlaceBuilding(em, buildingId, pos, faction,
-                claimBuilder, out Entity building, CommandSource.AI);
+                claimWorker, out Entity building, CommandSource.AI);
             // Whatever happened, buildings / the bank may have changed: every
             // memoised count is stale, and the site is taken for the rest of
             // this tick (in lockstep the foundation appears two ticks later).
@@ -220,23 +234,23 @@ namespace TheWaningBorder.AI
                 BuildSiteSnapshot.Current(em).NotePlaced(em, buildingId, pos, size);
             if (queued)
             {
-                AICommon.DispatchBuildersTo(em, faction, Entity.Null, buildingId, pos, maxBuilders: 2);
+                AICommon.DispatchWorkersTo(em, faction, Entity.Null, buildingId, pos, maxWorkers: 2);
                 // No rollback path here: the placement command is already
-                // queued on every peer. Past the idle-builder pre-flight a
-                // zero dispatch is a rare race; builders auto-chain to nearby
+                // queued on every peer. Past the idle-worker pre-flight a
+                // zero dispatch is a rare race; workers auto-chain to nearby
                 // unfinished structures, so the site still gets picked up.
                 return true;
             }
             if (building == Entity.Null) return false;
 
-            // Dispatch idle builders to actually construct the thing — without
+            // Dispatch idle workers to actually construct the thing — without
             // this the building is created with HP=1 and UnderConstruction but
             // never gains progress. The human player flow does the same step
-            // explicitly via BuildCommandPanel.AssignBuildersToConstruction.
-            int dispatched = AICommon.DispatchBuildersTo(em, faction, building, buildingId, pos, maxBuilders: 2);
+            // explicitly via BuildCommandPanel.AssignWorkersToConstruction.
+            int dispatched = AICommon.DispatchWorkersTo(em, faction, building, buildingId, pos, maxWorkers: 2);
             if (dispatched == 0)
             {
-                // Race: a builder went busy between the pre-flight check and
+                // Race: a worker went busy between the pre-flight check and
                 // dispatch. Refund + destroy the orphan foundation rather
                 // than advancing the step on a stalled site. Refund the
                 // amount PlaceBuildingDirect actually charged (stamped on the
@@ -264,9 +278,9 @@ namespace TheWaningBorder.AI
             // Pre-flight: the faction must have a build crew, and not already
             // have more sites open than that crew can work.
             //
-            // THIS USED TO DEMAND AN *IDLE* BUILDER, and that was fatal once the
+            // THIS USED TO DEMAND AN *IDLE* WORKER, and that was fatal once the
             // crew shrank. Workers only build now (Regions.md §4), so the target
-            // dropped from 14-45 to 3-5 — and since two builders are dispatched
+            // dropped from 14-45 to 3-5 — and since two workers are dispatched
             // per site, ONE building in flight left zero idle and every
             // subsequent request returned false. Silently: no log, no reason,
             // just a goal list that looked unaffordable.
@@ -278,9 +292,9 @@ namespace TheWaningBorder.AI
             // affordable" 57 times while holding 3,352 iron and 8,229 veilstone.
             //
             // The original concern — an orphan foundation nobody ever works —
-            // is handled without the idle test: builders auto-chain to nearby
+            // is handled without the idle test: workers auto-chain to nearby
             // unfinished structures within line of sight, so a queued site gets
-            // picked up as soon as a builder frees. What actually has to be
+            // picked up as soon as a worker frees. What actually has to be
             // bounded is how many sites are open at once, which is what the
             // crew size means.
             // PIVOTAL HOLD (2026-08-31, round 2): pausing army TRAINING was
@@ -322,7 +336,6 @@ namespace TheWaningBorder.AI
             // extractor cannot fall through the same hole.
             if (TheWaningBorder.AI.AIPivotalReserve.ShouldHold(em, faction)
                 && buildingId != "Hall"
-                && buildingId != "ShrineOfRidan"
                 && buildingId != "VaultOfAlmierra"
                 && buildingId != "FiendstoneKeep"
                 && buildingId != "TempleOfRidan"
@@ -339,7 +352,7 @@ namespace TheWaningBorder.AI
                 && !ProductionLineSaturated(em, faction, buildingId))
             { reason = "pivotal hold (saving)"; return false; }
 
-            int crew = CountAliveMiners(em, faction);
+            int crew = CountAliveWorkers(em, faction);
             if (crew == 0) { reason = "no build crew"; return false; }
             int openSites = CountFactionBuildingsUnderConstruction(em, faction);
             if (openSites >= math.max(2, crew))
@@ -428,6 +441,15 @@ namespace TheWaningBorder.AI
 
             bool placingGHut = buildingId == "GatherersHut";
 
+            // THE HOUSE QUARTER (2026-10-02, operator: "AI should clump all
+            // the houses together"). Once a faction has one House, every
+            // later one is searched outward from the middle of the ones it
+            // has, packed wall to wall with no centre spacing —
+            // a single residential block instead of huts dotted through the
+            // base. The first House still goes in the normal base ring.
+            bool houseQuarter = buildingId == "Hut"
+                && AICommon.TryHouseQuarterAnchor(em, faction, out anchor, anchor);
+
             // Resource keep-out: never wall off a patch's approach ring.
             // (Two copies per SEARCH, not per candidate.)
             var veilNodeQuery = QC_VeilstoneOutcroppingTagLocalTransform.Get(em, QT_VeilstoneOutcroppingTagLocalTransform);
@@ -465,7 +487,7 @@ namespace TheWaningBorder.AI
             bool isClaim = TheWaningBorder.World.Regions.TerritoryOwnership
                                .IsClaimStructure(buildingId);
             bool onTarget = isClaim || isExtractor;
-            float ringMin = onTarget ? 0f : Cfg.buildRingDistanceMin;
+            float ringMin = onTarget || houseQuarter ? 0f : Cfg.buildRingDistanceMin;
 
             // AN EXTRACTOR IS SITED BY THE MAP, NOT BY LAYOUT PREFERENCE. It
             // must stand within 4 m of its node (OnFreeNodeFor below), and its
@@ -551,9 +573,10 @@ namespace TheWaningBorder.AI
             for (int pass = 0; pass < passes; pass++)
             {
                 bool requireCover = placingGHut && pass == 0;
-                bool centreSpacing = pass < normalPasses;
+                bool centreSpacing = pass < normalPasses && !houseQuarter;
                 bool lastResort = pass == normalPasses + 1;
-                float gap = lastResort ? gapRelaxed : gapNormal;
+                // Houses in their quarter may touch: the lane is only a look.
+                float gap = houseQuarter ? 0f : lastResort ? gapRelaxed : gapNormal;
                 float passMax = lastResort
                     ? math.max(maxRadius, Cfg.relaxedBuildRingDistanceMax) : maxRadius;
 
@@ -592,6 +615,12 @@ namespace TheWaningBorder.AI
 
                         if (!isExtractor)
                         {
+                            // THE BORDER BAND: keep the strip the border wall
+                            // will run along clear (AIWallPlanner). Claims
+                            // are sited by the map and exempt.
+                            if (!onTarget && !AIWallPlanner.FootprintClearOfBorder(candidate, size))
+                            { nWall++; continue; }
+
                             if (centreSpacing && snap.AnyCentreWithin(candidate,
                                     Cfg.minBuildingSpacing, placingGHut ? Cfg.minGHutToGHutSpacing : 0f))
                             { nSpacing++; continue; }
@@ -615,7 +644,7 @@ namespace TheWaningBorder.AI
                         }
 
                         // Never place on crusted ground (2026-08-04): the
-                        // curse crumbles the foundation before builders
+                        // curse crumbles the foundation before workers
                         // arrive — money in, nothing out, forever.
                         if (IsCursedGround(em, candidate))
                         { nCurse++; continue; }
@@ -779,7 +808,7 @@ namespace TheWaningBorder.AI
         /// tight (and the absolute cap isn't reached). Runs every think tick —
         /// both during the build order and in maintenance — because the train
         /// pop-gate in TryTrainUnit depends on headroom eventually appearing.
-        /// TryBuildBuilding's own pre-flights (cost, idle builder, valid spot)
+        /// TryBuildBuilding's own pre-flights (cost, idle worker, valid spot)
         /// make the retry safe.
         /// </summary>
         private void EnsurePopulationHeadroom(EntityManager em, Faction faction)
@@ -817,7 +846,9 @@ namespace TheWaningBorder.AI
             // otherwise only when the wallet still covers a worker and a
             // gatherer's hut afterwards. The ceiling is still the target; it is
             // just no longer paid for out of the build order's pocket.
-            bool blocking = max - current <= Cfg.populationHeadroomFloor;
+            if (TheWaningBorder.Entities.BuildingFactory.AtFactionCap(em, faction, "Hut")) return;
+            bool blocking = max - current <= HousingHeadroomFloor(faction);
+            if (!blocking && OpeningHutsPending(faction)) return;   // the huts come first
             if (!blocking)
             {
                 int spare = AIBudget.WalletSupplies(faction, AIBudgetCategory.EconomyExpansion);

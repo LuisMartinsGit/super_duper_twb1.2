@@ -8,7 +8,7 @@ namespace TheWaningBorder.UI.World
     /// <summary>
     /// Switches a URP Lit/Unlit material to the Transparent surface so colour
     /// alpha actually blends. URP materials default to Opaque and silently
-    /// discard alpha — the same dance BuilderCommandPanel does for the ghost
+    /// discard alpha — the same dance WorkerCommandPanel does for the ghost
     /// mesh, applied here to the grid and footprint line overlays.
     /// </summary>
     internal static class PlacementOverlayMaterial

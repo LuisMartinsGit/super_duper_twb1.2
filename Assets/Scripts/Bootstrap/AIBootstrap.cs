@@ -255,17 +255,17 @@ namespace TheWaningBorder.AI
                 // "AIThink brains 4" frame spikes). ~0.4s apart per faction.
                 ThinkTimer = 0.1f + 0.37f * (int)faction,
                 AgeUpIssued = ageUpIssued,
-                VeilstoneMinerTarget = 0,    // raised by SetVeilstoneTarget steps in the build order
+                VeilstoneWorkerTarget = 0,    // raised by SetVeilstoneTarget steps in the build order
                 DesiredMilitary = 0,       // bumped by each successful military Train step
-                DesiredMiners = 0,         // bumped by each successful Miner Train step
+                DesiredWorkers = 0,         // bumped by each successful Worker Train step
                 LastMilitaryUnit = default,// e.g. "Swordsman" — used to refill losses
             });
 
             // Economy Manager State
             em.AddComponentData(brainEntity, new AIEconomyState
             {
-                AssignedMiners = 0,
-                DesiredMiners = 0,
+                AssignedWorkers = 0,
+                DesiredWorkers = 0,
                 ActiveGatherersHuts = 0,
                 DesiredGatherersHuts = 0,
                 LastMineAssignmentCheck = 0,
@@ -277,8 +277,8 @@ namespace TheWaningBorder.AI
             // Building Manager State
             em.AddComponentData(brainEntity, new AIBuildingState
             {
-                ActiveBuilders = 0,
-                DesiredBuilders = 2,
+                ActiveWorkers = 0,
+                DesiredWorkers = 2,
                 QueuedConstructions = 0,
                 LastBuildCheck = 0,
                 BuildCheckInterval = BuildCheckInterval

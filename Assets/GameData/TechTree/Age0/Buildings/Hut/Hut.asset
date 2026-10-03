@@ -27,9 +27,10 @@ MonoBehaviour:
   radius: 1.6
   lineOfSight: 6
   buildTime: 15
-  populationProvided: 3
+  populationProvided: 6
   suppliesPerTick: 0
   suppliesInterval: 0
+  maxPerFaction: 20
   maxIron: 0
   maxVeilstone: 0
   segmentHp: 0
@@ -55,7 +56,7 @@ MonoBehaviour:
     siegeShotDamage: 0
   levels: []
   unitUpgrades: []
-  prefab: {fileID: 919132149155446097, guid: 2ea038245d021da4795a067e0c21445c, type: 3}
+  prefab: {fileID: 919132149155446097, guid: a7ad9b126ac39de43873a8c8caea14fa, type: 3}
   presentationId: 102
   prefabPath: 
   canUpgradeTo: []

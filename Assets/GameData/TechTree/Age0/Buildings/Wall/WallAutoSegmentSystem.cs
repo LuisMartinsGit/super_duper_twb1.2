@@ -121,6 +121,8 @@ namespace TheWaningBorder.Systems.Buildings
                     // Same-faction filter (per R4 / Edge Cases: cross-faction hubs
                     // never auto-connect).
                     if (factionIds[i] != factionIds[j]) continue;
+                    // Same-KIND filter: a palisade never joins a stone wall.
+                    if (AlanthorWall.IsPalisade(em, hubs[i]) != AlanthorWall.IsPalisade(em, hubs[j])) continue;
 
                     // Distance filter (XZ-plane, squared — avoids a sqrt per pair).
                     float dx = positions[i].x - positions[j].x;

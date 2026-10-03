@@ -44,8 +44,8 @@ namespace TheWaningBorder.Core.Localization
 
             // ── Entity action buttons ──
             t["Build Wall"] = "Construir Muralha";
-            t["Place a connected wall hub. Auto-builds in 30s with no builder."] =
-                "Coloca um nó de muralha ligado. Constrói-se sozinho em 30s, sem construtor.";
+            t["Place a connected wall hub. Auto-builds in 30s with no worker."] =
+                "Coloca um nó de muralha ligado. Constrói-se sozinho em 30s, sem trabalhador.";
             t["Unpack"] = "Montar";
             t["Unpack wagon back into Thessara's Bazaar"] =
                 "Monta a carroça de volta no Bazar de Thessara";
@@ -82,8 +82,8 @@ namespace TheWaningBorder.Core.Localization
             t["Restoring ({0}s)"] = "A restaurar ({0}s)";
             t["The crew is raising a new engine on this platform."] =
                 "A guarnição está a erguer uma nova máquina nesta plataforma.";
-            t["The {0} on this platform was destroyed. The crew raises a new one when the timer ends; no builder needed."] =
-                "A {0} desta plataforma foi destruída. A guarnição ergue uma nova quando o tempo terminar; não é preciso construtor.";
+            t["The {0} on this platform was destroyed. The crew raises a new one when the timer ends; no worker needed."] =
+                "A {0} desta plataforma foi destruída. A guarnição ergue uma nova quando o tempo terminar; não é preciso trabalhador.";
 
             // ── Armor types + bonus-vs text (stat chips) ──
             t["Light Infantry"] = "Infantaria Ligeira";

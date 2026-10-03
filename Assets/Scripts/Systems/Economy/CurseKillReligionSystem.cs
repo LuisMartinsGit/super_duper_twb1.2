@@ -173,6 +173,19 @@ namespace TheWaningBorder.Systems.Economy
                 if (killer == GameSettings.LocalPlayerFaction)
                     SimSignals.Notify(TheWaningBorder.Core.Localization.Loc.T(
                         "+1 Religion Point — a curse node destroyed"));
+
+                // FERALDIS TAKE VEILSTEEL FROM THE CURSE (Veilstone_Economy.md
+                // §3.2): veilsteel is never mined, and breaking a curse node is
+                // how the culture that wants the curse gone gets its own. The
+                // outcrop under it is pacified for everyone by
+                // VeilstoneNodeStateSystem on its next pass.
+                if (CultureConfig.GetCompletedCulture(em, killer) == Cultures.Feraldis)
+                {
+                    var border = TheWaningBorder.Data.Border.BorderSettings.Get();
+                    int steel = border != null ? border.feraldisNodeVeilsteel : 0;
+                    if (steel > 0)
+                        FactionEconomy.Add(em, killer, Cost.Of(veilsteel: steel));
+                }
             }
         }
     }

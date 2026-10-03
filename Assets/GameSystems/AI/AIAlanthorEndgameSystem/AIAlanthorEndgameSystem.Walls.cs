@@ -29,6 +29,9 @@ namespace TheWaningBorder.AI
             ComponentType.ReadOnly<WallHubTag>(),
             ComponentType.ReadOnly<FactionTag>(),
             ComponentType.ReadOnly<LocalTransform>(),
+            // The doctrine builds the STONE wall; a palisade the faction
+            // raised in Age 0 is a different building and never part of it.
+            ComponentType.Exclude<PalisadeTag>(),
         };
         static CachedEntityQuery QC_WallHubTagFactionTagLocalTransform;
 
@@ -37,6 +40,7 @@ namespace TheWaningBorder.AI
             ComponentType.ReadOnly<WallInstanceTag>(),
             ComponentType.ReadOnly<FactionTag>(),
             ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.Exclude<PalisadeTag>(),
         };
         static CachedEntityQuery QC_WallInstanceTagFactionTagLocalTransform;
 
@@ -166,7 +170,19 @@ namespace TheWaningBorder.AI
             try
             {
                 // One action per think tick, in priority order.
-                if (hubEntities.Length < Cfg.maxWallHubs
+                //
+                // The cap counts the hubs ON THIS PLAN only. A border plan is
+                // redrawn when the territory changes and standing hubs stay;
+                // counting every hub let an old, smaller inner ring use up the
+                // cap so the wall at the real border was never built
+                // (2026-10-02).
+                int planHubs = 0;
+                for (int h = 0; h < hubPositions.Length; h++)
+                    for (int i = 0; i < slots.Length; i++)
+                        if (math.distancesq(hubPositions[h].xz, slots[i].Position.xz)
+                            <= Cfg.wallSlotOccupiedRadius * Cfg.wallSlotOccupiedRadius)
+                        { planHubs++; break; }
+                if (planHubs < Cfg.maxWallHubs
                     && TryPlacePlannedHub(faction, em, brainEntity, slots,
                         hubEntities, hubPositions))
                     return;
@@ -182,7 +198,7 @@ namespace TheWaningBorder.AI
                 // Close any hole BEFORE spending on gates and towers — an
                 // unbroken wall with no gate beats a decorated one with a
                 // doorway in it.
-                if (TryCloseWallGaps(faction, em, plan.Mode, slots,
+                if (TryCloseWallGaps(faction, em, brainEntity, plan.Mode, slots,
                         hubEntities, hubPositions))
                     return;
 
@@ -226,19 +242,17 @@ namespace TheWaningBorder.AI
             return len > 0.01f ? d / len : new float3(1f, 0f, 0f);
         }
 
-        /// <summary>Place the first missing plan hub and link it to every
-        /// friendly hub within <see cref="WallLinkRadius"/> (plan neighbours
-        /// sit at HubSpacing, so the chain stitches itself and the perimeter
-        /// loop closes on the last slot). Slots that fail placement even
-        /// after nudging are marked dead. Returns true when a hub was placed
-        /// this tick.</summary>
+        /// <summary>Place the first missing plan hub and link it to its PLAN
+        /// neighbours (pre-checked, detoured round a blocker if needed).
+        /// Slots that fail placement even after nudging — or whose orders
+        /// never produce a hub — are marked dead. Returns true when a hub was
+        /// placed this tick.</summary>
         private static bool TryPlacePlannedHub(Faction faction, EntityManager em,
             Entity brainEntity, NativeArray<AIWallPlanSlot> slots,
             NativeList<Entity> hubEntities, NativeList<float3> hubPositions)
         {
             if (!BuildCosts.TryGet("Alanthor_Wall", out var hubCost)) return false;
             int2 hubSize = BuildingSizeConfig.GetSize("Alanthor_Wall");
-            float maxLink = WallLinkRadius;
 
             int live = 0, filled = 0;
             for (int i = 0; i < slots.Length; i++)
@@ -255,6 +269,19 @@ namespace TheWaningBorder.AI
                 if ((slot.Flags & AIWallPlanner.FlagDead) != 0) continue;
                 if (FindHubNear(hubPositions, slot.Position,
                         Cfg.wallSlotOccupiedRadius) >= 0) continue;
+
+                // Orders issued for this slot that never produced a hub: the
+                // executor refused them (under lockstep the AI never hears
+                // so). Kill the slot so its neighbours span it, instead of
+                // re-issuing the same refused hub forever (2026-10-02).
+                if (slot.HubTries >= AIWallPlanner.MaxWallTries)
+                {
+                    AILogger.Log(faction, "BUILDING",
+                        $"Alanthor walls: hub at ({slot.Position.x:F0},{slot.Position.z:F0}) " +
+                        $"ordered {slot.HubTries}x and never raised — marked dead");
+                    UpdateSlot(em, brainEntity, slots, i, s => { s.Flags |= AIWallPlanner.FlagDead; return s; });
+                    continue;
+                }
 
                 // Wait for the bank rather than skipping ahead — the wall
                 // grows in chain order so partial lines stay contiguous.
@@ -299,6 +326,7 @@ namespace TheWaningBorder.AI
                     {
                         CommandRouter.IssuePlaceWallHub(em, pos, faction,
                             autoBuild: true, CommandSource.AI);
+                        UpdateSlot(em, brainEntity, slots, i, s => { s.HubTries++; return s; });
                         // The hub entity is created inside the replicated
                         // executor two ticks from now, so the proximity links
                         // cannot be wired this call — TryCloseWallGaps links
@@ -309,16 +337,33 @@ namespace TheWaningBorder.AI
                     }
 
                     Entity hub = CommandRouter.PlaceWallHubDirect(em, pos, faction, autoBuild: true);
-                    if (hub == Entity.Null) return false;
-                    for (int h = 0; h < hubEntities.Length; h++)
+                    if (hub == Entity.Null)
                     {
-                        float dx = hubPositions[h].x - pos.x;
-                        float dz = hubPositions[h].z - pos.z;
-                        if (dx * dx + dz * dz > maxLink * maxLink) continue;
-                        if (!em.Exists(hubEntities[h])) continue;
+                        UpdateSlot(em, brainEntity, slots, i, s => { s.HubTries++; return s; });
+                        return false;
+                    }
+                    // Link to the PLAN neighbours only (2026-10-02). Linking to
+                    // every hub within reach pulled in an old ring's hubs and
+                    // reached across mountain stretches the plan leaves open.
+                    // Each link is pre-checked, detoured round a blocker if it
+                    // must be; TryCloseWallGaps retries what is left.
+                    byte mode = em.HasComponent<AIWallPlan>(brainEntity)
+                        ? em.GetComponentData<AIWallPlan>(brainEntity).Mode : AIWallPlanner.ModeNone;
+                    bool cyc = mode == AIWallPlanner.ModePerimeter || mode == AIWallPlanner.ModeBorder;
+                    int[] nb = { PrevLiveSlot(slots, i, cyc), NextLiveSlot(slots, i, cyc) };
+                    for (int q = 0; q < nb.Length; q++)
+                    {
+                        int k = nb[q];
+                        if (k < 0) continue;
+                        // The stretch from -> to is the mountain's when its
+                        // FIRST slot (or a dead one inside it) is a seal.
+                        int from = q == 0 ? k : i, to = q == 0 ? i : k;
+                        if ((slots[from].Flags & AIWallPlanner.FlagTerrainSealed) != 0) continue;
+                        if (SealedBetween(slots, from, to)) continue;
+                        int h = FindHubNearest(hubPositions, slots[k].Position, Cfg.wallSlotOccupiedRadius);
+                        if (h < 0 || !em.Exists(hubEntities[h])) continue;
                         if (AlanthorWall.AreHubsConnected(em, hub, hubEntities[h])) continue;
-                        CommandRouter.IssueWallExtend(em, hub, hubEntities[h], pos, faction,
-                            CommandSource.AI);
+                        TryLinkHubs(em, faction, hub, hubEntities[h], pos, hubPositions[h]);
                     }
                     AILogger.Log(faction, "BUILDING",
                         $"Alanthor walls: hub {filled + 1}/{live} at ({pos.x:F0},{pos.z:F0})");
@@ -363,7 +408,7 @@ namespace TheWaningBorder.AI
         /// lines and terminate at their ends.
         /// </summary>
         private static bool TryCloseWallGaps(Faction faction, EntityManager em,
-            byte planMode, NativeArray<AIWallPlanSlot> slots,
+            Entity brainEntity, byte planMode, NativeArray<AIWallPlanSlot> slots,
             NativeList<Entity> hubEntities, NativeList<float3> hubPositions)
         {
             if (slots.Length < 2) return false;
@@ -375,46 +420,189 @@ namespace TheWaningBorder.AI
                 if ((slots[i].Flags & AIWallPlanner.FlagDead) != 0) continue;
                 // Mountain closes this stretch — no curtain wanted.
                 if ((slots[i].Flags & AIWallPlanner.FlagTerrainSealed) != 0) continue;
+                // Already tried every way and refused: left open, not retried.
+                if ((slots[i].Flags & AIWallPlanner.FlagLinkRefused) != 0) continue;
 
                 int j = NextLiveSlot(slots, i, cyclic);
                 if (j < 0) continue;
+                // A DEAD slot that was the end of a terrain-sealed run still
+                // means "the mountain closes this": never bridge across it.
+                if (SealedBetween(slots, i, j)) continue;
 
-                int ha = FindHubNear(hubPositions, slots[i].Position, Cfg.wallSlotOccupiedRadius);
-                int hb = FindHubNear(hubPositions, slots[j].Position, Cfg.wallSlotOccupiedRadius);
+                int ha = FindHubNearest(hubPositions, slots[i].Position, Cfg.wallSlotOccupiedRadius);
+                int hb = FindHubNearest(hubPositions, slots[j].Position, Cfg.wallSlotOccupiedRadius);
                 if (ha < 0 || hb < 0) continue;          // not built yet
                 if (ha == hb) continue;                  // one hub fills both
 
                 Entity hubA = hubEntities[ha], hubB = hubEntities[hb];
                 if (!em.Exists(hubA) || !em.Exists(hubB)) continue;
-                if (AlanthorWall.AreHubsConnected(em, hubA, hubB)) continue;
-
-                float dx = hubPositions[ha].x - hubPositions[hb].x;
-                float dz = hubPositions[ha].z - hubPositions[hb].z;
-                float gap = math.sqrt(dx * dx + dz * dz);
-                if (gap > WallMaxGapSpan)
+                if (AlanthorWall.AreHubsConnected(em, hubA, hubB))
                 {
-                    // Too wide to be one curtain run. Say so once per pair
-                    // rather than silently leaving the enclosure open — a
-                    // silent hole is the exact failure this pass exists for.
-                    AILogger.Log(faction, "BUILDING",
-                        $"Alanthor walls: {gap:F0} m gap between " +
-                        $"({slots[i].Position.x:F0},{slots[i].Position.z:F0}) and " +
-                        $"({slots[j].Position.x:F0},{slots[j].Position.z:F0}) " +
-                        "exceeds the single-span limit — enclosure still OPEN here");
+                    if (slots[i].LinkTries != 0)
+                        UpdateSlot(em, brainEntity, slots, i, s => { s.LinkTries = 0; return s; });
                     continue;
                 }
 
-                // Routed: segment creation replicates to every peer (the old
-                // direct call built it on the host alone).
-                CommandRouter.IssueWallExtend(em, hubA, hubB,
-                    hubPositions[hb], faction, CommandSource.AI);
+                // Ordered before and still not linked: the executor refused it
+                // (blocked since, out of money at the tick, another order got
+                // there first). Give up on this pair rather than re-issuing it
+                // every think tick forever — which also starved every gate and
+                // tower behind it (2026-10-02).
+                if (slots[i].LinkTries >= AIWallPlanner.MaxWallTries)
+                {
+                    MarkLinkRefused(faction, em, brainEntity, slots, i, j,
+                        $"ordered {slots[i].LinkTries}x and never connected");
+                    continue;
+                }
+
+                var result = TryLinkHubs(em, faction, hubA, hubB, hubPositions[ha], hubPositions[hb]);
+                if (result == LinkResult.Unaffordable) return false;   // wait for the bank
+                if (result == LinkResult.Refused)
+                {
+                    MarkLinkRefused(faction, em, brainEntity, slots, i, j,
+                        "blocked straight and round both sides");
+                    continue;
+                }
+                UpdateSlot(em, brainEntity, slots, i, s => { s.LinkTries++; return s; });
                 AILogger.Log(faction, "BUILDING",
-                    $"Alanthor walls: closed a {gap:F0} m gap between " +
-                    $"({slots[i].Position.x:F0},{slots[i].Position.z:F0}) and " +
-                    $"({slots[j].Position.x:F0},{slots[j].Position.z:F0})");
+                    $"Alanthor walls: linking ({slots[i].Position.x:F0},{slots[i].Position.z:F0}) to " +
+                    $"({slots[j].Position.x:F0},{slots[j].Position.z:F0})" +
+                    (result == LinkResult.Detoured ? " — detouring round a blocker" : ""));
                 return true;
             }
             return false;
+        }
+
+        private enum LinkResult { Straight, Detoured, Unaffordable, Refused }
+
+        /// <summary>
+        /// Link two standing hubs with a wall that the executor will ACCEPT —
+        /// checked here first with the executor's own rules (own ground the
+        /// whole way, clear the whole length, affordable), so the AI never
+        /// sends an order it knows will be refused. The straight run first;
+        /// if something stands in it, a curved run bulging round it — left
+        /// and right, wider each try — sent as one drawn-wall order between
+        /// the two hubs (docs/Design/Age_1_Alanthor.md § The AI's wall).
+        /// </summary>
+        private static LinkResult TryLinkHubs(EntityManager em, Faction faction,
+            Entity hubA, Entity hubB, float3 pa, float3 pb)
+        {
+            var joints = new[] { pa, pb };
+            float gap = math.distance(pa.xz, pb.xz);
+            if (gap < 0.5f) return LinkResult.Refused;
+
+            if (gap <= WallMaxGapSpan
+                && CommandRouter.WallLineOnOwnGround(em, faction, joints)
+                && CommandRouter.WallLineClear(em, faction, joints, joints, palisade: false))
+            {
+                if (!FactionEconomy.CanAfford(em, faction, CommandRouter.WallRunCost(false, gap)))
+                    return LinkResult.Unaffordable;
+                CommandRouter.IssueWallExtend(em, hubA, hubB, pb, faction, CommandSource.AI);
+                return LinkResult.Straight;
+            }
+
+            float3 dir = new float3(pb.x - pa.x, 0f, pb.z - pa.z) / gap;
+            float3 perp = new float3(-dir.z, 0f, dir.x);
+            float3 mid = (pa + pb) * 0.5f;
+            float[] bulges = { 4f, -4f, 8f, -8f, 12f, -12f, 16f, -16f };
+            var pts = new System.Collections.Generic.List<float3>(64);
+            var kinds = new System.Collections.Generic.List<CommandRouter.WallPathKind>(64);
+            for (int b = 0; b < bulges.Length; b++)
+            {
+                // Quadratic curve whose middle stands `bulge` off the chord.
+                float3 ctrl = mid + perp * (bulges[b] * 2f);
+                int n = math.max(4, (int)math.ceil((gap + 2f * math.abs(bulges[b])) / 1.5f));
+                pts.Clear(); kinds.Clear();
+                for (int s = 0; s <= n; s++)
+                {
+                    float t = s / (float)n;
+                    float3 p = (1 - t) * (1 - t) * pa + 2 * (1 - t) * t * ctrl + t * t * pb;
+                    if (s > 0 && s < n) p.y = TerrainUtility.GetHeight(p.x, p.z);
+                    pts.Add(s == 0 ? pa : s == n ? pb : p);
+                    kinds.Add(s == 0 || s == n ? CommandRouter.WallPathKind.ExistingHub
+                                               : CommandRouter.WallPathKind.Point);
+                }
+                float len = CommandRouter.PolylineLength(pts);
+                if (len > WallMaxGapSpan * 1.3f) continue;
+                if (!CommandRouter.WallLineOnOwnGround(em, faction, pts)) continue;
+                if (!CommandRouter.WallLineClear(em, faction, pts, joints, palisade: false)) continue;
+                if (!FactionEconomy.CanAfford(em, faction, CommandRouter.WallRunCost(false, len)))
+                    return LinkResult.Unaffordable;
+                CommandRouter.IssuePlaceWallPath(em, pts, kinds, faction, CommandSource.AI, palisade: false);
+                return LinkResult.Detoured;
+            }
+            return LinkResult.Refused;
+        }
+
+        private static void MarkLinkRefused(Faction faction, EntityManager em, Entity brainEntity,
+            NativeArray<AIWallPlanSlot> slots, int i, int j, string why)
+        {
+            AILogger.Log(faction, "BUILDING",
+                $"Alanthor walls: link ({slots[i].Position.x:F0},{slots[i].Position.z:F0}) to " +
+                $"({slots[j].Position.x:F0},{slots[j].Position.z:F0}) refused — {why}; left open");
+            UpdateSlot(em, brainEntity, slots, i, s => { s.Flags |= AIWallPlanner.FlagLinkRefused; return s; });
+        }
+
+        /// <summary>Change slot <paramref name="i"/> in BOTH the live plan
+        /// buffer and this tick's snapshot. Fetches the buffer fresh: callers
+        /// may have made structural changes since the snapshot.</summary>
+        private static void UpdateSlot(EntityManager em, Entity brainEntity,
+            NativeArray<AIWallPlanSlot> slots, int i, System.Func<AIWallPlanSlot, AIWallPlanSlot> change)
+        {
+            if (!em.Exists(brainEntity) || !em.HasBuffer<AIWallPlanSlot>(brainEntity)) return;
+            var buf = em.GetBuffer<AIWallPlanSlot>(brainEntity);
+            if (i < 0 || i >= buf.Length) return;
+            var s = change(buf[i]);
+            buf[i] = s;
+            slots[i] = s;
+        }
+
+        /// <summary>True when a slot strictly after <paramref name="i"/> up to
+        /// (not including) <paramref name="j"/> — wrapping — is a terrain
+        /// seal: the plan leaves that stretch to the mountain.</summary>
+        private static bool SealedBetween(NativeArray<AIWallPlanSlot> slots, int i, int j)
+        {
+            int n = slots.Length;
+            for (int k = (i + 1) % n, guard = 0; k != j && guard < n; k = (k + 1) % n, guard++)
+                if ((slots[k].Flags & AIWallPlanner.FlagTerrainSealed) != 0) return true;
+            return false;
+        }
+
+        /// <summary>The NEAREST hub within <paramref name="radius"/> of
+        /// <paramref name="pos"/> (FindHubNear returns the first, which can be
+        /// an old ring's hub), or -1. Ties by index, so peers agree.</summary>
+        private static int FindHubNearest(NativeList<float3> hubPositions, float3 pos, float radius)
+        {
+            int best = -1;
+            float bestD = radius * radius;
+            for (int h = 0; h < hubPositions.Length; h++)
+            {
+                float dx = hubPositions[h].x - pos.x, dz = hubPositions[h].z - pos.z;
+                float d = dx * dx + dz * dz;
+                if (d <= bestD && (best < 0 || d < bestD)) { bestD = d; best = h; }
+            }
+            return best;
+        }
+
+        /// <summary>The previous live slot of the same chain (wrapping when
+        /// <paramref name="cyclic"/>), or -1.</summary>
+        private static int PrevLiveSlot(NativeArray<AIWallPlanSlot> slots, int i, bool cyclic)
+        {
+            byte chain = slots[i].Chain;
+            for (int k = i - 1; k >= 0; k--)
+            {
+                if (slots[k].Chain != chain) break;
+                if ((slots[k].Flags & AIWallPlanner.FlagDead) != 0) continue;
+                return k;
+            }
+            if (!cyclic) return -1;
+            for (int k = slots.Length - 1; k > i; k--)
+            {
+                if (slots[k].Chain != chain) continue;
+                if ((slots[k].Flags & AIWallPlanner.FlagDead) != 0) continue;
+                return k;
+            }
+            return -1;
         }
 
         /// <summary>Index of the next non-dead slot after <paramref name="i"/>

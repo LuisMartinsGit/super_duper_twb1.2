@@ -27,8 +27,9 @@ namespace TheWaningBorder.Economy
         /// <summary>Maximum population available from buildings (capped at AbsoluteMax)</summary>
         public int Max;
         
-        /// <summary>Hard cap on population - cannot exceed this value (200)</summary>
-        public const int AbsoluteMax = 200;
+        /// <summary>Hard cap on population - cannot exceed this value. 300
+        /// since 2026-10-01 (was 200), alongside doubled House population.</summary>
+        public const int AbsoluteMax = 300;
         
         // ==================== Helpers ====================
         
@@ -288,7 +289,7 @@ namespace TheWaningBorder.Economy
                 // a measured match ever got there — caps sat at 20-75 while the
                 // AI logged "nothing affordable; top want = Hut" 27 times.
                 "Hall" => 30,
-                "Hut" => 3,
+                "Hut" => 6,
                 "Fortress" => 10,
                 "FiendstoneKeep" => 25,
                 "KingsCourt" => 30,

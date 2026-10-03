@@ -82,7 +82,7 @@ MonoBehaviour:
       tooltip: "All scenarios, in list order. Rebuilt from Assets/GameData/Scenarios/ by the editor tool."
   - typeName: "TheWaningBorder.Data.AI.AISettingsSO"
     fields:
-    - field: "weightMiner"
+    - field: "weightWorker"
       header: "Target scoring (M2) \u2014 base value per target category"
       tooltip: 
     - field: "riskPerDefenseStrength"

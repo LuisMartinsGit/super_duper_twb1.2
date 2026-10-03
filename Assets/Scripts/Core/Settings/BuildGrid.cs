@@ -95,15 +95,17 @@ public static class BuildGrid
     ///
     /// The exemption lives HERE, in the one place every placement path funnels
     /// through (BuildingFactory.Create, CommandRouter's placement executor,
-    /// the builder panel's ghost, the wall draw tool), because an exemption
+    /// the worker panel's ghost, the wall draw tool), because an exemption
     /// applied at four call sites is an exemption that will be three next
     /// month.
     /// </summary>
     public const string GridExemptBuildingId = "Alanthor_Wall";
+    /// <summary>The palisade hub is a wall hub too (docs/Design/Age_0.md § Palisade).</summary>
+    public const string GridExemptPalisadeId = "Palisade";
 
     /// <summary>True when this building is placed off-grid.</summary>
     public static bool IsGridExempt(string buildingId)
-        => buildingId == GridExemptBuildingId;
+        => buildingId == GridExemptBuildingId || buildingId == GridExemptPalisadeId;
 
     /// <summary>
     /// Snap using the footprint registered for <paramref name="buildingId"/>,

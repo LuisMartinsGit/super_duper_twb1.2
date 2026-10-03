@@ -1,6 +1,6 @@
 // PlayerStartMarker.cs
 // Place one in the scene per faction you want to spawn at a designed
-// position. PlayerSpawnSystem will spawn that faction's Hall + 3 Builders
+// position. PlayerSpawnSystem will spawn that faction's Hall + 3 Workers
 // here instead of using the procedural radial layout.
 //
 // Lobby slots whose faction has no marker fall back to procedural placement
@@ -16,7 +16,7 @@ namespace TheWaningBorder.World.MapMarkers
         public Faction Faction = Faction.Blue;
 
         // Hall footprint is ~4×4 cells (≈8 m square); a 6 m ring gives a
-        // realistic preview of where the Hall + Builders will land.
+        // realistic preview of where the Hall + Workers will land.
         protected override float GizmoRadius => 6f;
 
         protected override Color GizmoColor => FactionColors.Get(Faction);

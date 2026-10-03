@@ -183,10 +183,10 @@ namespace TheWaningBorder.Systems.Research
 
             var effects = tech.effects;
 
-            // Apply gather speed to miners
+            // Apply gather speed to workers
             if (effects.gatherSpeedMult != 0f)
             {
-                ApplyMinerEffects(em, faction, effects);
+                ApplyWorkerEffects(em, faction, effects);
             }
 
             // Apply melee attack speed to melee combat units

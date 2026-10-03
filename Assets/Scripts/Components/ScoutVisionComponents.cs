@@ -9,7 +9,7 @@
 // The live radius is written into LineOfSight.Radius, so fog stamping,
 // minimap, and the AI's IntelSystem all inherit the behavior untouched.
 // Applied to UnitClass.Scout only (LineOfSight also gates worker auto-find
-// and builder auto-chain on other classes — scouts have neither).
+// and worker auto-chain on other classes — scouts have neither).
 //
 // Deterministic: fixed-step dt integration + position-delta test, no
 // wall-clock, lockstep-safe.

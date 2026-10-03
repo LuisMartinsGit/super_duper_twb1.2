@@ -54,7 +54,7 @@ Why each piece is shaped that way:
 - **Range is survivability you do not pay for in HP.** A longbow that never gets
   hit is worth more than its health bar says.
 - **Support output is on the damage scale.** A point of healing is a point of
-  damage undone; a builder's throughput is what it contributes to the fight it
+  damage undone; a worker's throughput is what it contributes to the fight it
   is not in.
 - **Resource weights double per tier.** A territory pays supplies for free and
   iron / veilstone only where the map put a node (Regions.md §4); veilsteel is
@@ -122,5 +122,5 @@ Read these as questions, not as a to-do list.
   8 ranged armor means an Archer does 1 to it. Before the pass every one of
   these numbers was a rounding error.
 - **The Worker's 69 still comes entirely from its 2 damage**, because
-  `buildSpeed` is 0 in its SO. A builder whose build speed is unset is worth
+  `buildSpeed` is 0 in its SO. A worker whose build speed is unset is worth
   checking — it is the one hole this pass did not close.

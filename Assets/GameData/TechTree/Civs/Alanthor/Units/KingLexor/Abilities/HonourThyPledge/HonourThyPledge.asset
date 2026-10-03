@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b3ecc1043fa62454ebb9521a55d0673d, type: 3}
   m_Name: HonourThyPledge
   m_EditorClassIdentifier: 
-  abilityName: "Honour thy Pledge"
+  abilityName: Honour thy Pledge
   activation: 0
   targeting: 2
   affects: 0
@@ -30,4 +30,4 @@ MonoBehaviour:
   damageType: 3
   aimedAtPoint: 0
   icon: {fileID: 0}
-  vfxPrefab: {fileID: 0}
+  vfxPrefab: {fileID: 4557073698510574151, guid: f12b800e50111974fa26ab45230c1f6a, type: 3}

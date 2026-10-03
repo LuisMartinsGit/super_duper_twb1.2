@@ -143,7 +143,7 @@ namespace TheWaningBorder.AI
                 {
                     if (facs[i].Value != owner || !em.Exists(ents[i])) continue;
                     var cls = tags[i].Class;
-                    if (cls == UnitClass.Economy || cls == UnitClass.Miner
+                    if (cls == UnitClass.Economy || cls == UnitClass.Worker
                         || cls == UnitClass.Scout) continue;
                     if (em.HasComponent<UnderConstruction>(ents[i])) continue;
                     // Hurt units are no use out alone.

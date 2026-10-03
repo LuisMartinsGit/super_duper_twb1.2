@@ -435,7 +435,15 @@ namespace TheWaningBorder.Systems.Combat
             // passives, and Ignite/VoidStrike charge consumption). This was
             // melee-only — ProjectileSystem never called it, so ranged silently
             // ignored all of them.
-            impactDamage = CombatDamageHelper.ApplyBonusDamageOnHit(em, ecb, shooter, targetEntity, impactDamage);
+            // Plain arrows get their arrow-tip tier's hit effect; ballista
+            // bolts and the special projectiles get the generic one.
+            bool special = projectileEntity != Entity.Null && em.Exists(projectileEntity)
+                && (em.HasComponent<LaserProjectileTag>(projectileEntity)
+                    || em.HasComponent<VeilstingerProjectileTag>(projectileEntity)
+                    || em.HasComponent<GodsplinterProjectileTag>(projectileEntity));
+            var hitSource = special || proj.DmgType == DamageType.Siege
+                ? TheWaningBorder.Core.HitSource.Bolt : TheWaningBorder.Core.HitSource.Arrow;
+            impactDamage = CombatDamageHelper.ApplyBonusDamageOnHit(em, ecb, shooter, targetEntity, impactDamage, hitSource);
 
             // Balance: arrows & bolts only CHIP structures — siege is what
             // demolishes them. (The old damage-type×armor matrix used to do this

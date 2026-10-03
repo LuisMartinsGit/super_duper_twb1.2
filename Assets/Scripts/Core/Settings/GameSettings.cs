@@ -139,7 +139,7 @@ public enum ScenarioType
     // minimap beacon, carrier death and re-drop, the Hall choice (Shardbound
     // Hero) versus the Temple choice (enshrine), and the detonation.
     ShardrootTrial = 30,
-    // Wall drawing test: an Alanthor Age 1 Hall with three builders on open
+    // Wall drawing test: an Alanthor Age 1 Hall with three workers on open
     // flat ground and a full bank, so the drawn-wall tool (press, drag,
     // curvature limit, backtrack, release) can be exercised without a match
     // around it. docs/Design/Age_1_Alanthor.md § Drawing walls.
@@ -321,7 +321,7 @@ public static class GameSettings
     /// to a chosen age before play starts, so the player can demo mid-game
     /// strategy without grinding through the early build order each time.
     ///
-    ///   Age0  — current default: bare Hall + builders, no age-up applied.
+    ///   Age0  — current default: bare Hall + workers, no age-up applied.
     ///   Age1  — Alanthor L1: Hall L1, Temple of Ridan L1, one random choice
     ///           building (Shrine of Ahridan / Vault of Almiérra / Fiendstone
     ///           Keep) placed nearby. +200 supplies +50 iron pre-stocked.

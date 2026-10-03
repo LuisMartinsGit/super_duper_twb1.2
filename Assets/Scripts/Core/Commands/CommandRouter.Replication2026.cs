@@ -180,11 +180,14 @@ namespace TheWaningBorder.Core.Commands
         // docs/Multiplayer_Desync_Sweep_2026-08-16.md
         // ═══════════════════════════════════════════════════════════════
 
-        /// <summary>Wall hub. Builder-driven 5 s construction by default;
+        /// <summary>Wall hub. Worker-driven 5 s construction by default;
         /// <paramref name="autoBuild"/> = the AI/extend flavour that
-        /// self-builds in 30 s with no builder.</summary>
+        /// self-builds in 30 s with no worker. <paramref name="palisade"/>
+        /// raises a Palisade hub instead of a stone one — they are different
+        /// buildings (docs/Design/Age_0.md § Palisade).</summary>
         public static void IssuePlaceWallHub(EntityManager em, float3 pos, Faction faction,
-            bool autoBuild = false, CommandSource source = CommandSource.LocalPlayer)
+            bool autoBuild = false, CommandSource source = CommandSource.LocalPlayer,
+            bool palisade = false)
         {
             if (ShouldDropCommand(source)) return;
 
@@ -194,25 +197,30 @@ namespace TheWaningBorder.Core.Commands
                 {
                     Type = LockstepCommandType.PlaceWallHub,
                     EntityNetworkId = (int)faction,
-                    TargetEntityId = autoBuild ? 1 : 0,
+                    // bit 0 autoBuild, bit 1 palisade.
+                    TargetEntityId = (autoBuild ? 1 : 0) | (palisade ? 2 : 0),
                     TargetPosition = pos
                 });
             }
             else
             {
-                PlaceWallHubDirect(em, pos, faction, autoBuild);
+                PlaceWallHubDirect(em, pos, faction, autoBuild, palisade);
             }
         }
 
         /// <summary>Executor — every peer. Validates + spends, then creates
         /// the hub exactly as the old click handler did.</summary>
         public static Entity PlaceWallHubDirect(EntityManager em, float3 pos, Faction faction,
-            bool autoBuild = false)
+            bool autoBuild = false, bool palisade = false)
         {
+            // Only a faction that may raise this kind of wall (palisade: Age 0
+            // and Feraldis; stone: Alanthor) — before the spend, every peer.
+            if (!TheWaningBorder.Entities.WallTiers.CanBuild(em, faction, palisade)) return Entity.Null;
             // Own ground only — before the spend (WallLineOnOwnGround).
             if (!WallPointOnOwnGround(em, faction, pos)) return Entity.Null;
 
-            if (!BuildCosts.TryGet("Alanthor_Wall", out var cost)) cost = default;
+            string hubId = TheWaningBorder.Entities.AlanthorWall.HubIdFor(palisade);
+            if (!BuildCosts.TryGet(hubId, out var cost)) cost = default;
             if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost))
                 return Entity.Null;
 
@@ -228,7 +236,7 @@ namespace TheWaningBorder.Core.Commands
 
             // Dispatcher, not AlanthorWall.CreateHub direct -- see the same
             // note in the WallExtend executor below (2026-09-13).
-            Entity hub = TheWaningBorder.Entities.BuildingFactory.Create(em, "Alanthor_Wall", pos, faction);
+            Entity hub = TheWaningBorder.Entities.BuildingFactory.Create(em, hubId, pos, faction);
 
             float total = autoBuild ? 30f : 5f;
             if (!em.HasComponent<UnderConstruction>(hub))
@@ -296,6 +304,16 @@ namespace TheWaningBorder.Core.Commands
             // wall levels).
             if (WallsLockedForUpgrade(em, faction)) return Entity.Null;
 
+            // The wall grows in its OWN kind: a palisade hub extends palisade,
+            // a stone hub stone, and neither ever joins the other. A faction
+            // that has lost the palisade (Alanthor / Runai after age-up)
+            // cannot grow one it still owns (docs/Design/Age_0.md § Palisade).
+            bool palisade = TheWaningBorder.Entities.AlanthorWall.IsPalisade(em, sourceHub);
+            if (!TheWaningBorder.Entities.WallTiers.CanBuild(em, faction, palisade)) return Entity.Null;
+            if (snapHub != Entity.Null && em.Exists(snapHub)
+                && TheWaningBorder.Entities.AlanthorWall.IsPalisade(em, snapHub) != palisade)
+                return Entity.Null;
+
             // The curtain from the source hub to its end — an existing hub or
             // the new one — must run over the owner's ground the whole way.
             {
@@ -303,18 +321,34 @@ namespace TheWaningBorder.Core.Commands
                 float3 to = snapHub != Entity.Null && em.Exists(snapHub)
                     ? em.GetComponentData<Unity.Transforms.LocalTransform>(snapHub).Position : pos;
                 if (!WallLineOnOwnGround(em, faction, new[] { from, to })) return Entity.Null;
+                // Clear along its whole length, except where it joins the
+                // standing hub(s) at its ends.
+                var joints = snapHub != Entity.Null && em.Exists(snapHub)
+                    ? new[] { from, to } : new[] { from };
+                if (!WallLineClear(em, faction, new[] { from, to }, joints, palisade)) return Entity.Null;
             }
 
             Entity hub = snapHub;
+            // The curtain is paid per module (WallRunCost).
+            Cost runCost;
+            {
+                float3 from = em.GetComponentData<Unity.Transforms.LocalTransform>(sourceHub).Position;
+                float3 to = hub != Entity.Null && em.Exists(hub)
+                    ? em.GetComponentData<Unity.Transforms.LocalTransform>(hub).Position : pos;
+                runCost = WallRunCost(palisade, math.distance(from.xz, to.xz));
+            }
             if (hub != Entity.Null && em.Exists(hub))
             {
                 if (TheWaningBorder.Entities.AlanthorWall.AreHubsConnected(em, sourceHub, hub))
                     return hub; // identical no-op on every peer
+                if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, runCost))
+                    return Entity.Null;
             }
             else
             {
-                if (!BuildCosts.TryGet("Alanthor_Wall", out var cost)) cost = default;
-                if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost))
+                string hubId = TheWaningBorder.Entities.AlanthorWall.HubIdFor(palisade);
+                if (!BuildCosts.TryGet(hubId, out var cost)) cost = default;
+                if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost + runCost))
                     return Entity.Null;
 
                 // Through the dispatcher, never AlanthorWall.CreateHub direct:
@@ -324,7 +358,7 @@ namespace TheWaningBorder.Core.Commands
                 // every order aimed at it was dropped by the router guard.
                 // Unsnapped, as above: the hub is grid-exempt.
                 pos.y = TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(pos.x, pos.z);
-                hub = TheWaningBorder.Entities.BuildingFactory.Create(em, "Alanthor_Wall", pos, faction);
+                hub = TheWaningBorder.Entities.BuildingFactory.Create(em, hubId, pos, faction);
                 em.AddComponentData(hub,
                     new UnderConstruction { Progress = 0f, Total = BuildSeconds });
                 em.AddComponent<AutoConstructTag>(hub);
@@ -452,9 +486,12 @@ namespace TheWaningBorder.Core.Commands
         /// now refuses any command whose text carries the outer delimiter.
         /// </summary>
         public static string EncodeWallPath(System.Collections.Generic.IReadOnlyList<float3> pts,
-            System.Collections.Generic.IReadOnlyList<WallPathKind> kinds)
+            System.Collections.Generic.IReadOnlyList<WallPathKind> kinds, bool palisade = false)
         {
-            var sb = new System.Text.StringBuilder(pts.Count * 16);
+            var sb = new System.Text.StringBuilder(pts.Count * 16 + 1);
+            // A leading '#' marks a PALISADE path (docs/Design/Age_0.md
+            // § Palisade). Not a '|' or a ',' — see above.
+            if (palisade) sb.Append(PalisadePathMark);
             var c = System.Globalization.CultureInfo.InvariantCulture;
             for (int i = 0; i < pts.Count; i++)
             {
@@ -468,11 +505,25 @@ namespace TheWaningBorder.Core.Commands
             return sb.ToString();
         }
 
+        const char PalisadePathMark = '#';
+
         public static bool DecodeWallPath(string encoded,
             System.Collections.Generic.List<float3> pts, System.Collections.Generic.List<WallPathKind> kinds)
+            => DecodeWallPath(encoded, pts, kinds, out _);
+
+        public static bool DecodeWallPath(string encoded,
+            System.Collections.Generic.List<float3> pts, System.Collections.Generic.List<WallPathKind> kinds,
+            out bool palisade)
         {
             pts.Clear(); kinds.Clear();
+            palisade = false;
             if (string.IsNullOrEmpty(encoded)) return false;
+            if (encoded[0] == PalisadePathMark)
+            {
+                palisade = true;
+                encoded = encoded.Substring(1);
+                if (encoded.Length == 0) return false;
+            }
             var c = System.Globalization.CultureInfo.InvariantCulture;
             foreach (var raw in encoded.Split(';'))
             {
@@ -501,7 +552,7 @@ namespace TheWaningBorder.Core.Commands
         public static void IssuePlaceWallPath(EntityManager em,
             System.Collections.Generic.IReadOnlyList<float3> pts,
             System.Collections.Generic.IReadOnlyList<WallPathKind> kinds,
-            Faction faction, CommandSource source = CommandSource.LocalPlayer)
+            Faction faction, CommandSource source = CommandSource.LocalPlayer, bool palisade = false)
         {
             if (ShouldDropCommand(source)) return;
             if (pts == null || pts.Count == 0) return;
@@ -512,12 +563,12 @@ namespace TheWaningBorder.Core.Commands
                 {
                     Type = LockstepCommandType.PlaceWallPath,
                     EntityNetworkId = (int)faction,
-                    BuildingId = EncodeWallPath(pts, kinds),
+                    BuildingId = EncodeWallPath(pts, kinds, palisade),
                 });
             }
             else
             {
-                PlaceWallPathDirect(em, pts, kinds, faction, null);
+                PlaceWallPathDirect(em, pts, kinds, faction, null, palisade);
             }
         }
 
@@ -535,7 +586,9 @@ namespace TheWaningBorder.Core.Commands
         };
         static TheWaningBorder.Core.CachedEntityQuery QC_WallHubs;
 
-        static Entity FindWallHubNear(EntityManager em, float3 pos, Faction faction)
+        /// <summary>Nearest friendly hub of the given KIND — a palisade
+        /// path never snaps to a stone hub, nor the reverse.</summary>
+        static Entity FindWallHubNear(EntityManager em, float3 pos, Faction faction, bool palisade)
         {
             var q = QC_WallHubs.Get(em, QT_WallHubs);
             using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
@@ -544,6 +597,7 @@ namespace TheWaningBorder.Core.Commands
             for (int i = 0; i < ents.Length; i++)
             {
                 if (em.GetComponentData<FactionTag>(ents[i]).Value != faction) continue;
+                if (em.HasComponent<PalisadeTag>(ents[i]) != palisade) continue;
                 var hp = em.GetComponentData<Unity.Transforms.LocalTransform>(ents[i]).Position;
                 float dx = pos.x - hp.x, dz = pos.z - hp.z;
                 float d = dx * dx + dz * dz;
@@ -567,10 +621,10 @@ namespace TheWaningBorder.Core.Commands
         static TheWaningBorder.Core.CachedEntityQuery QC_WallCells;
 
         /// <summary>Nearest friendly wall cell to <paramref name="pos"/> that
-        /// can become a hub (plain, finished, not a gate or tower). Ties
-        /// broken by index so every peer picks the same cell.</summary>
+        /// can become a hub (plain, finished, not a gate or tower), of the
+        /// given KIND. Ties broken by index so every peer picks the same cell.</summary>
         public static Entity FindWallCellNear(EntityManager em, float3 pos, Faction faction,
-            float radius = WallPathCellSnap)
+            float radius = WallPathCellSnap, bool palisade = false)
         {
             var q = QC_WallCells.Get(em, QT_WallCells);
             using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
@@ -579,6 +633,7 @@ namespace TheWaningBorder.Core.Commands
             for (int i = 0; i < ents.Length; i++)
             {
                 if (em.GetComponentData<FactionTag>(ents[i]).Value != faction) continue;
+                if (em.HasComponent<PalisadeTag>(ents[i]) != palisade) continue;
                 var cp = em.GetComponentData<Unity.Transforms.LocalTransform>(ents[i]).Position;
                 float dx = pos.x - cp.x, dz = pos.z - cp.z;
                 float d = dx * dx + dz * dz;
@@ -596,14 +651,16 @@ namespace TheWaningBorder.Core.Commands
         /// joins is already built. Entity.Null when there is no such cell
         /// or the bank is short.
         /// </summary>
-        public static Entity ConvertWallCellToHubDirect(EntityManager em, float3 pos, Faction faction)
+        public static Entity ConvertWallCellToHubDirect(EntityManager em, float3 pos, Faction faction,
+            bool palisade = false)
         {
             // The wall lock: a standing cell is not converted while a wall
             // level researches.
             if (WallsLockedForUpgrade(em, faction)) return Entity.Null;
-            Entity cell = FindWallCellNear(em, pos, faction);
+            if (!TheWaningBorder.Entities.WallTiers.CanBuild(em, faction, palisade)) return Entity.Null;
+            Entity cell = FindWallCellNear(em, pos, faction, WallPathCellSnap, palisade);
             if (cell == Entity.Null) return Entity.Null;
-            if (!BuildCosts.TryGet("Alanthor_Wall", out var cost)) cost = default;
+            if (!BuildCosts.TryGet(TheWaningBorder.Entities.AlanthorWall.HubIdFor(palisade), out var cost)) cost = default;
             if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost))
                 return Entity.Null;
             return TheWaningBorder.Entities.AlanthorWall.ConvertInstanceToHub(em, cell);
@@ -633,7 +690,7 @@ namespace TheWaningBorder.Core.Commands
         /// Executor — every peer. Walks the samples; at each hub point it
         /// raises (or finds, or converts a wall cell into) the hub and, if
         /// there is a previous hub, lays a curved segment along the samples
-        /// since it. A lone new hub with no path is the old builder-built
+        /// since it. A lone new hub with no path is the old worker-built
         /// click; everything else self-builds. Stops, identically on every
         /// peer, when the bank runs dry.
         /// <paramref name="created"/> receives every hub made; may be null.
@@ -641,9 +698,12 @@ namespace TheWaningBorder.Core.Commands
         public static void PlaceWallPathDirect(EntityManager em,
             System.Collections.Generic.IReadOnlyList<float3> pts,
             System.Collections.Generic.IReadOnlyList<WallPathKind> kinds,
-            Faction faction, System.Collections.Generic.List<Entity> created)
+            Faction faction, System.Collections.Generic.List<Entity> created, bool palisade = false)
         {
             const float BuildSeconds = 30f;
+            // The whole drawn wall is ONE kind; a faction that may not raise
+            // it is refused whole, before any spend, on every peer.
+            if (!TheWaningBorder.Entities.WallTiers.CanBuild(em, faction, palisade)) return;
             int hubCount = 0;
             bool touchesStanding = false;
             for (int i = 0; i < kinds.Count; i++)
@@ -665,6 +725,22 @@ namespace TheWaningBorder.Core.Commands
             // ground — before a single hub is paid for (WallLineOnOwnGround).
             if (!WallLineOnOwnGround(em, faction, pts)) return;
 
+            // ...or if any of it runs into a building, node, plan, another
+            // wall or impassable ground — along its WHOLE length, not just at
+            // its hubs. Where it joins a standing hub or cell it may touch.
+            {
+                var joints = new System.Collections.Generic.List<float3>(2);
+                for (int i = 0; i < pts.Count && i < kinds.Count; i++)
+                    if (kinds[i] == WallPathKind.ExistingHub || kinds[i] == WallPathKind.CellHub)
+                        joints.Add(pts[i]);
+                if (!WallLineClear(em, faction, pts, joints, palisade)) return;
+            }
+
+            // The whole wall must be affordable — hubs AND every curtain
+            // module — before any of it is laid: a wall is not half-bought.
+            if (!TheWaningBorder.Economy.FactionEconomy.CanAfford(em, faction,
+                    WallPathCost(pts, kinds, palisade))) return;
+
             Entity prev = Entity.Null;
             float3 prevEnd = default;
             var sub = new System.Collections.Generic.List<float3>();
@@ -676,22 +752,22 @@ namespace TheWaningBorder.Core.Commands
                 Entity hub;
                 if (k == WallPathKind.ExistingHub)
                 {
-                    hub = FindWallHubNear(em, pts[i], faction);
+                    hub = FindWallHubNear(em, pts[i], faction, palisade);
                     if (hub == Entity.Null) return;      // the hub is gone: the order dies here, everywhere
                 }
                 else if (k == WallPathKind.CellHub)
                 {
-                    hub = ConvertWallCellToHubDirect(em, pts[i], faction);
+                    hub = ConvertWallCellToHubDirect(em, pts[i], faction, palisade);
                     if (hub == Entity.Null) return;      // the cell is gone (or a hub already stands there)
                     created?.Add(hub);
                 }
                 else if (prev == Entity.Null && hubCount == 1 && pts.Count == 1)
                 {
-                    hub = PlaceWallHubDirect(em, pts[i], faction, autoBuild: false);   // the old single click
+                    hub = PlaceWallHubDirect(em, pts[i], faction, autoBuild: false, palisade);   // the old single click
                 }
                 else
                 {
-                    hub = PlaceWallHubDirect(em, pts[i], faction, autoBuild: true);
+                    hub = PlaceWallHubDirect(em, pts[i], faction, autoBuild: true, palisade);
                 }
                 if (hub == Entity.Null) return;
                 if (k == WallPathKind.NewHub) created?.Add(hub);
@@ -715,6 +791,9 @@ namespace TheWaningBorder.Core.Commands
                     curve.Add(prevEnd);
                     curve.AddRange(sub);
                     curve.Add(CurveEndFor(em, hub, k, pts[i]));
+                    // Pay for this run's modules (checked affordable above).
+                    if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction,
+                            WallRunCost(palisade, PolylineLength(curve)))) return;
                     var segment = TheWaningBorder.Entities.AlanthorWall.CreateSegmentAlong(em, prev, hub, curve, faction);
                     TagSegmentAutoConstruct(em, segment, BuildSeconds);
                 }

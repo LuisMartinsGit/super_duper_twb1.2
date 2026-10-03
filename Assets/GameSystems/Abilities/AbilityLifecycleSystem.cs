@@ -6,7 +6,7 @@
 // cooldowns).
 //
 // Managed SystemBase (structural changes + managed AbilityCatalog lookups),
-// mirroring UnitAbilitySystem / ShrineHealSystem. Auto-registers via
+// mirroring UnitAbilitySystem / TempleHealSystem. Auto-registers via
 // [UpdateInGroup]; ordered before combat so buffs apply the same frame.
 
 using Unity.Collections;

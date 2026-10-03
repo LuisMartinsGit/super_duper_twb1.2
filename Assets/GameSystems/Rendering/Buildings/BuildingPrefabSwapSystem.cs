@@ -387,6 +387,18 @@ namespace TheWaningBorder.Rendering
             out string resolvedPath)
         {
             resolvedPath = null;
+
+            // The level's own model, authored on its BuildingLevelDefSO
+            // (Civs/<Culture>/Buildings/<Cultured>/), wins over the Resources
+            // naming ladder below — which remains for cultures whose levels are
+            // still on the code tables.
+            if (global::TechCatalog.TryGetBuildingLevel(CultureByte(cultureCode), buildingId, level,
+                    out var levelDef) && levelDef.prefab != null)
+            {
+                resolvedPath = levelDef.name;
+                return levelDef.prefab;
+            }
+
             var paths = BuildCandidatePaths(buildingId, cultureCode, level, variant);
             for (int i = 0; i < paths.Count; i++)
             {
@@ -435,6 +447,14 @@ namespace TheWaningBorder.Rendering
             }
             return list;
         }
+
+        private static byte CultureByte(string code) => code switch
+        {
+            "al" => Cultures.Alanthor,
+            "ru" => Cultures.Runai,
+            "fe" => Cultures.Feraldis,
+            _    => Cultures.None,
+        };
 
         private static string CultureFolder(string code) => code switch
         {

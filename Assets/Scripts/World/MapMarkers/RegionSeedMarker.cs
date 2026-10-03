@@ -58,6 +58,35 @@ namespace TheWaningBorder.World.MapMarkers
 
         public RegionKind Kind = RegionKind.Normal;
 
+        /// <summary>
+        /// What resources this territory carries (docs/Design/Territory_Claims.md
+        /// §9). Auto lets the match pick, from its seed, so that every map has
+        /// at least one of each special type; a start territory is always Start.
+        /// The node MARKERS in the scene no longer decide this.
+        /// </summary>
+        public enum ResourceType
+        {
+            Auto = 0,
+            /// <summary>3 supply, 2 iron, 1 veilstone.</summary>
+            Start = 1,
+            /// <summary>3 supply.</summary>
+            Normal = 2,
+            /// <summary>2 supply + 1 iron.</summary>
+            NormalIron = 3,
+            /// <summary>2 supply + 1 veilstone.</summary>
+            NormalVeilstone = 4,
+            /// <summary>Nothing but its position and build space.</summary>
+            Empty = 5,
+            /// <summary>4 veilstone; starts cursed.</summary>
+            VeilstoneRich = 6,
+            /// <summary>3 iron.</summary>
+            IronRich = 7,
+            /// <summary>No nodes; its holder earns 1 Religion Point a minute.</summary>
+            Sanctum = 8,
+        }
+
+        public ResourceType Resources = ResourceType.Auto;
+
         // Seeds have no footprint of their own — the gizmo is a locator, and
         // the real extent is wherever this seed is the nearest one. Kept large
         // enough to find at a zoomed-out map view.

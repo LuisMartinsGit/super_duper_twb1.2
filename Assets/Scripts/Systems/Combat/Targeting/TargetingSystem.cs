@@ -118,7 +118,7 @@ namespace TheWaningBorder.Systems.Combat
         // ── Per-enemy snapshot flags (cached with the enemy set) ─────────
         private const byte FlagBuilding = 1;
         private const byte FlagWall = 2;
-        private const byte FlagWorker = 4;   // MinerTag or CanBuild (Border's guard rule)
+        private const byte FlagWorker = 4;   // WorkerTag or CanBuild (Border's guard rule)
 
         // ── Cross-frame cache of the enemy set's peer-stable order ────────
         // Rebuilding the order needs a NetworkedEntity lookup per enemy plus
@@ -380,7 +380,7 @@ namespace TheWaningBorder.Systems.Combat
                 byte flags = 0;
                 if (em.HasComponent<BuildingTag>(e)) flags |= FlagBuilding;
                 if (em.HasComponent<WallTag>(e)) flags |= FlagWall;
-                if (em.HasComponent<MinerTag>(e) || em.HasComponent<CanBuild>(e)) flags |= FlagWorker;
+                if (em.HasComponent<WorkerTag>(e) || em.HasComponent<CanBuild>(e)) flags |= FlagWorker;
                 _cacheFlags[i] = flags;
 
                 // M2 (AI plan): tactical target priority per candidate. Within a

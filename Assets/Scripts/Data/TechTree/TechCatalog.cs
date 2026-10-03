@@ -27,6 +27,8 @@ public static class TechCatalog
     // that is what makes Inspector edits apply to the next-spawned entity ("on the fly").
     private static readonly Dictionary<string, UnitDefSO> _unitSOsById = new();
     private static readonly Dictionary<string, BuildingDefSO> _buildingSOsById = new();
+    /// <summary>Cultured building levels, keyed "Culture|buildingId|level".</summary>
+    private static readonly Dictionary<string, BuildingLevelDefSO> _buildingLevels = new();
     private static readonly Dictionary<string, TechDefSO> _techSOsById = new();
     // presentationId -> prefab (for the prefab-based spawn path). null prefab = primitive fallback.
     private static readonly Dictionary<int, GameObject> _prefabByPid = new();
@@ -91,7 +93,7 @@ public static class TechCatalog
     private static void Build()
     {
         _unitsById.Clear(); _buildingsById.Clear(); _technologiesById.Clear(); _sectsById.Clear();
-        _unitSOsById.Clear(); _buildingSOsById.Clear(); _techSOsById.Clear();
+        _unitSOsById.Clear(); _buildingSOsById.Clear(); _techSOsById.Clear(); _buildingLevels.Clear();
         _prefabByPid.Clear(); _controllerByPid.Clear();
         _eraOverrides.Clear(); _derivedResearch.Clear();
 
@@ -270,8 +272,8 @@ public static class TechCatalog
         var aiHosts = new HashSet<string>
         {
             "Barracks", "Hall", "ArcheryRange", "GatherersHut", "Hut",
-            "Alanthor_RoyalStable", "Alanthor_SiegeYard", "Alanthor_Smelter",
-            "ShrineOfRidan",
+            "Alanthor_RoyalStable", "Alanthor_SiegeYard",
+            "TempleOfRidan",
         };
 
         // Techs reachable through building research lists (the sweep path).
@@ -411,6 +413,43 @@ public static class TechCatalog
                 if (so.prefab != null && so.presentationId != 0) _prefabByPid[so.presentationId] = so.prefab;
             }
         }
+        if (catalog.buildingLevels != null)
+        {
+            foreach (var so in catalog.buildingLevels)
+            {
+                if (so == null || string.IsNullOrEmpty(so.buildingId) || string.IsNullOrEmpty(so.culture))
+                    continue;
+                _buildingLevels[LevelKey(so.culture, so.buildingId, so.level)] = so;
+            }
+        }
+    }
+
+    private static string LevelKey(string culture, string buildingId, int level)
+        => culture + "|" + buildingId + "|" + level;
+
+    /// <summary>
+    /// The cultured level of a building (BuildingLevelDefSO): <paramref name="culture"/>
+    /// is the Cultures byte, <paramref name="buildingId"/> the ladder's Age 0 id.
+    /// False for level 0, no culture, or a level nobody authored.
+    /// </summary>
+    public static bool TryGetBuildingLevel(byte culture, string buildingId, int level,
+        out BuildingLevelDefSO def)
+    {
+        def = null;
+        if (level <= 0 || culture == Cultures.None || string.IsNullOrEmpty(buildingId)) return false;
+        EnsureLoaded();
+        if (culture >= CultureConfig.Names.Length) return false;
+        return _buildingLevels.TryGetValue(LevelKey(CultureConfig.Names[culture], buildingId, level), out def)
+               && def != null;
+    }
+
+    /// <summary>True when this culture has ANY authored level for the building —
+    /// i.e. its ladder is data, so a missing rung is a data bug.</summary>
+    public static bool HasBuildingLevels(byte culture, string buildingId)
+    {
+        for (int l = 1; l <= 3; l++)
+            if (TryGetBuildingLevel(culture, buildingId, l, out _)) return true;
+        return false;
     }
 
     // ─── lookups (mirror the old TechTreeDB instance API) ────────────────────
@@ -428,7 +467,6 @@ public static class TechCatalog
     public static bool TryGetBuilding(string id, out BuildingDef def)
     {
         EnsureLoaded();
-        if (id == "ShrineOfAhridan") id = "ShrineOfRidan"; // legacy id alias (pre-rename callers / saves)
         if (_buildingSOsById.TryGetValue(id, out var so) && so != null &&
             _buildingsById.TryGetValue(id, out var cached))
         {
@@ -523,10 +561,9 @@ public static class TechCatalog
 
     // ─── helpers (ported from TechTreeDB) ────────────────────────────────────
 
-    // Age 0 Shrine tech ladder — also carried by the Temple of Ridan (the
-    // Shrine's age-up form) so the heal ladder stays researchable after
-    // age-up.
-    private static readonly string[] ShrineResearch =
+    // The Temple of Ridan's heal ladder (inherited from the cut Shrine of
+    // Ridan, docs/Design/Religion.md §2).
+    private static readonly string[] TempleResearch =
         { "HeightenedMasses", "WarriorPriests", "PiousMasses", "FervoredMasses" };
 
     private static void ApplyBuildingDefaults()
@@ -539,8 +576,6 @@ public static class TechCatalog
             range.minEra = 2;
         _eraOverrides["ArcheryRange"] = 2;
 
-        EnsureBuildingDefault("ShrineOfRidan", "Shrine of Ridan", "Trains Litharchs, +1 RP", 800, 16, 1.8f, 1, new[] { "Litharch" }, ShrineResearch);
-
         // The veilstone extractor. Seeded for the same reason the sect
         // buildings are: its BuildingDefSO is authored but a new asset is not
         // in Resources/TechTreeCatalog until Unity imports it and someone adds
@@ -551,6 +586,11 @@ public static class TechCatalog
             "Veilstone extraction - built on a veilstone outcropping",
             700, 12, 1.5f, 1, System.Array.Empty<string>(), System.Array.Empty<string>());
 
+        // Same gap-closer for the Trading Outpost (Veilstone_Economy.md §3.1).
+        EnsureBuildingDefault("Alanthor_TradingOutpost", "Trading Outpost",
+            "Trade post beside a veilstone outcrop",
+            650, 14, 1.0f, 2, System.Array.Empty<string>(), System.Array.Empty<string>());
+
         // THE TEMPLE IS AN AGE 0 BUILDING (docs/Design/Religion.md §2,
         // 2026-09-29). It costs a Religion Point, and the first one comes from
         // fighting the curse — that, not the age, is its gate. The Shrine of
@@ -558,7 +598,7 @@ public static class TechCatalog
         _eraOverrides["TempleOfRidan"] = 0;
         if (!_buildingsById.ContainsKey("TempleOfRidan"))
         {
-            EnsureBuildingDefault("TempleOfRidan", "Temple of Ridan", "Sect expansion, training, research", 1500, 18, 2.5f, 2, new[] { "Litharch" }, ShrineResearch);
+            EnsureBuildingDefault("TempleOfRidan", "Temple of Ridan", "Sect expansion, training, research", 1500, 18, 2.5f, 2, new[] { "Litharch" }, TempleResearch);
         }
         else
         {
@@ -569,7 +609,7 @@ public static class TechCatalog
             if (existing.trains == null || existing.trains.Length == 0)
                 existing.trains = new[] { "Litharch" };
             if (existing.research == null || existing.research.Length == 0)
-                existing.research = ShrineResearch;
+                existing.research = TempleResearch;
             _buildingsById["TempleOfRidan"] = existing;
         }
 

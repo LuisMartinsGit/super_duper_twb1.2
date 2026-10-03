@@ -39,8 +39,8 @@ namespace TheWaningBorder.Data
             // Era 1 - Core Buildings
             // Starting Hall is spawned for free by PlayerSpawnSystem (doesn't
             // consult this table). Cost applies only to additional Halls a
-            // builder places post-age-up — capped at 6 per faction in
-            // BuilderCommandPanel.SpawnSelectedBuilding.
+            // worker places post-age-up — capped at 6 per faction in
+            // WorkerCommandPanel.SpawnSelectedBuilding.
             // The claim price (docs/Design/Regions.md §2). A Hall is what
             // takes a territory, so it is the largest single purchase in
             // the game — and the only one that grows the economy.
@@ -57,9 +57,6 @@ namespace TheWaningBorder.Data
             // Balance 2026-07: choice-building costs reduced 30% (were
             // 300/100) alongside the age-up cost cut — docs/Design/Age_0.md.
             // 2026-07-25 techtree pass: 70 Veilstone restored (210 S + 70 V).
-            { "Shrine",            Cost.Of(supplies: 210, veilstone: 70) }, // Shrine of Ridan (alias)
-            { "ShrineOfRidan",     Cost.Of(supplies: 210, veilstone: 70) }, // Shrine of Ridan (choice building)
-            { "ShrineOfAhridan",   Cost.Of(supplies: 210, veilstone: 70) }, // legacy id alias (pre-rename saves/build orders)
             { "TempleOfRidan",     Cost.Of(supplies: 210, veilstone: 70) }, // Temple of Ridan (choice building)
             { "Vault",          Cost.Of(supplies: 210, veilstone: 70) }, // Vault of Almiérra (alias)
             { "VaultOfAlmierra",Cost.Of(supplies: 210, veilstone: 70) }, // Vault of Almiérra
@@ -99,13 +96,19 @@ namespace TheWaningBorder.Data
             // 2026-08-30): supply-priced they duelled the 600-supply Hall for
             // the famine currency and expansion stopped — six of eight batch
             // matches with zero claims. Iron is the currency that piles up.
-            { "Mine",                    Cost.Of(supplies: 90, iron: 140) },
-            { "VeilstoneMine",           Cost.Of(supplies: 90, iron: 160) },
-            { "Alanthor_Sawyer",         Cost.Of(supplies: 150, iron: 40) },
+            { "Mine",                    Cost.Of(supplies: 100, veilstone: 10) },   // no iron since 2026-10-02
+            { "VeilstoneMine",           Cost.Of(supplies: 100, veilstone: 10) },
+            // docs/Design/Veilstone_Economy.md §3.1.
+            { "Alanthor_TradingOutpost", Cost.Of(supplies: 160, iron: 80) },
 
             // Alanthor Culture Buildings
             { "KingsCourt",              Cost.Of(supplies: 500, iron: 150, veilstone: 50) },
             { "Alanthor_Wall",           Cost.Of(supplies: 50, iron: 20) },
+            { "Palisade",                Cost.Of(supplies: 50) },   // supplies only since 2026-10-02
+            // Per CURTAIN MODULE (3 m), charged on the whole length when a
+            // wall is laid; the SO's cost overrides these at load.
+            { "Alanthor_WallSegment",    Cost.Of(supplies: 10, iron: 5) },
+            { "PalisadeSegment",         Cost.Of(supplies: 6) },
             { "Alanthor_WallTower",      Cost.Of(supplies: 60, iron: 30) },
             { "Alanthor_WallGate",       Cost.Of(supplies: 40, iron: 15) },
             { "Alanthor_Tower",     Cost.Of(supplies: 140, iron: 70) },
@@ -121,7 +124,6 @@ namespace TheWaningBorder.Data
             // no inputs and is build-limited to 1 per faction (directive 2026-07-04).
             // The Crucible was deleted (calculator 2026-08); the Smelter absorbs
             // its veilsteel-engine role via the Lv1-3 upgrade ladder.
-            { "Alanthor_Smelter",        Cost.Of(supplies: 240, iron: 320) },
             { "Alanthor_RoyalStable",    Cost.Of(supplies: 220, iron: 80) },
 
             // Sect buildings — one per sect, unlocked by adopting that sect,
@@ -309,7 +311,6 @@ namespace TheWaningBorder.Data
             if (em.HasComponent<BarracksTag>(entity)) return "Barracks";
 
             // Era 1 choice
-            if (em.HasComponent<ShrineTag>(entity)) return "ShrineOfRidan";
             if (em.HasComponent<TempleOfRidanTag>(entity)
                 || em.HasComponent<TempleTag>(entity)) return "TempleOfRidan";
             if (em.HasComponent<VaultTag>(entity)) return "VaultOfAlmierra";
@@ -346,7 +347,7 @@ namespace TheWaningBorder.Data
             if (em.HasComponent<PastureTag>(entity)) return "Feraldis_Pasture";
             if (em.HasComponent<MineTag>(entity)) return "Mine";
             if (em.HasComponent<VeilstoneMineTag>(entity)) return "VeilstoneMine";
-            if (em.HasComponent<SawyerTag>(entity)) return "Alanthor_Sawyer";
+            if (em.HasComponent<TradingOutpostTag>(entity)) return "Alanthor_TradingOutpost";
 
             // Walls / wall instances — map to the generic Alanthor wall ID; refund
             // here is small and identical across cultures, so a per-culture branch
@@ -356,7 +357,8 @@ namespace TheWaningBorder.Data
             if (em.HasComponent<WallInstanceTag>(entity)
                 || em.HasComponent<WallTag>(entity)
                 || em.HasComponent<WallHubTag>(entity)
-                || em.HasComponent<WallSegmentTag>(entity)) return "Alanthor_Wall";
+                || em.HasComponent<WallSegmentTag>(entity))
+                return em.HasComponent<PalisadeTag>(entity) ? "Palisade" : "Alanthor_Wall";
 
             // Chapels: SectConfig owns their ids; resolve via ChapelTag.SectId.
             if (em.HasComponent<ChapelTag>(entity))

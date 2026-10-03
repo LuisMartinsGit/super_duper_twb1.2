@@ -51,16 +51,30 @@ namespace TheWaningBorder.AI
         {
             _pending.Clear();
             _holdSince.Clear();
+            _strict.Clear();
         }
 
-        /// <summary>Register (or refresh) a pending pivotal purchase.</summary>
-        public static void Set(Faction faction, string key, Cost cost)
-            => _pending[(faction, key)] = cost;
+        /// <summary>Reserves that do not breathe: while one is unfunded the
+        /// hold stays on, with no release window (the age-up landmark,
+        /// docs/Design/Age_0.md § The AI and the age-up).</summary>
+        private static readonly HashSet<(Faction faction, string key)> _strict
+            = new HashSet<(Faction, string)>();
+
+        /// <summary>Register (or refresh) a pending pivotal purchase.
+        /// <paramref name="strict"/> keeps the hold on until it is funded.</summary>
+        public static void Set(Faction faction, string key, Cost cost, bool strict = false)
+        {
+            _pending[(faction, key)] = cost;
+            if (strict) _strict.Add((faction, key)); else _strict.Remove((faction, key));
+        }
 
         /// <summary>Withdraw a pending purchase — call on success or when
         /// the goal no longer exists (unit alive, temple maxed...).</summary>
         public static void Clear(Faction faction, string key)
-            => _pending.Remove((faction, key));
+        {
+            _pending.Remove((faction, key));
+            _strict.Remove((faction, key));
+        }
 
         /// <summary>Is this exact reserve armed? Lets a spender yield to one
         /// SPECIFIC savings goal — the hut pipeline yields to the Hall claim
@@ -81,11 +95,12 @@ namespace TheWaningBorder.AI
         public static bool ShouldHold(EntityManager em, Faction faction)
         {
             int s = 0, iron = 0, v = 0, vs = 0;
-            bool any = false;
+            bool any = false, strict = false;
             foreach (var kv in _pending)
             {
                 if (kv.Key.faction != faction) continue;
                 any = true;
+                if (_strict.Contains(kv.Key)) strict = true;
                 s    += kv.Value.Supplies;
                 iron += kv.Value.Iron;
                 v    += kv.Value.Veilstone;
@@ -99,6 +114,7 @@ namespace TheWaningBorder.AI
                 || res.Veilstone < v + Cfg.pad
                 || res.Veilsteel < vs;
             if (!shortfall) { _holdSince.Remove(faction); return false; }
+            if (strict) return true;   // no duty cycle while a strict goal is unpaid
 
             // Simulated time — this gates an AI spending decision, so it
             // must tick with the simulation, not the render loop.

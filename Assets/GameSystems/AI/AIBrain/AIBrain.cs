@@ -88,14 +88,14 @@ namespace TheWaningBorder.AI
         /// (latches so it never places a second one).</summary>
         public byte OpportunisticChoiceStarted;
         /// <summary>
-        /// Veilstone-miner FLOOR. The runtime allocation is
-        /// <c>max(this, totalMiners / 2)</c> whenever outcroppings are reachable —
+        /// Veilstone-worker FLOOR. The runtime allocation is
+        /// <c>max(this, totalWorkers / 2)</c> whenever outcroppings are reachable —
         /// 50/50 is the default, this field only matters if a strategy wants
         /// to front-load more veilstone earlier (e.g. TechBoom asking for 2
-        /// veilstone miners while only 4 total exist). Set by SetVeilstoneTarget
+        /// veilstone workers while only 4 total exist). Set by SetVeilstoneTarget
         /// build-order steps; 0 = use the 50/50 floor only.
         /// </summary>
-        public int VeilstoneMinerTarget;
+        public int VeilstoneWorkerTarget;
 
         // ───── Replace-lost-units bookkeeping ─────
         // Cumulative count of units the build order has queued so far. Each tick
@@ -105,8 +105,8 @@ namespace TheWaningBorder.AI
         // appears. So the build order never has to rewind StepIndex.
         /// <summary>How many combat-class units the build order has queued.</summary>
         public int DesiredMilitary;
-        /// <summary>How many miners the build order has queued.</summary>
-        public int DesiredMiners;
+        /// <summary>How many workers the build order has queued.</summary>
+        public int DesiredWorkers;
         /// <summary>Most recently queued combat unit type — used as the
         /// replacement template (e.g. "Swordsman" for Rush).</summary>
         public Unity.Collections.FixedString64Bytes LastMilitaryUnit;

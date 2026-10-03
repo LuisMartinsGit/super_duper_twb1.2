@@ -77,8 +77,11 @@ namespace TheWaningBorder.Core.Commands.Issuing
         {
             if (!_em.Exists(e) || !IsOwnedByLocalPlayer(e)) return false;
             if (_em.HasComponent<BuildingTag>(e) || !_em.HasComponent<UnitTag>(e)) return false;
-            if (_em.HasComponent<CanBuild>(e) || _em.HasComponent<MinerTag>(e)) return false;
+            if (_em.HasComponent<CanBuild>(e) || _em.HasComponent<WorkerTag>(e)) return false;
             if (_em.HasComponent<CavalryTag>(e)) return false;
+            // Heroes stay on the ground (docs/Design/Age_1_Alanthor.md § The
+            // stone wall).
+            if (_em.HasComponent<HeroLevel>(e)) return false;
             var cls = _em.GetComponentData<UnitTag>(e).Class;
             if (cls == UnitClass.Siege || cls == UnitClass.Scout) return false;
             return true;
@@ -139,6 +142,13 @@ namespace TheWaningBorder.Core.Commands.Issuing
             {
                 float off = (i - (n - 1) * 0.5f) * FormationSpacing;
                 float3 dest = wallTopPoint + along * off;
+                // The spread is laid on a grid axis, and a wall can run at any
+                // bearing: a slot that falls off the walk takes the clicked
+                // point instead, or the unit would be routed to thin air.
+                var slotCell = TheWaningBorder.Systems.Navigation.NavGridQuery.WorldToCellInt2(dest);
+                if (slotCell.x == int.MinValue
+                    || !TheWaningBorder.Systems.Navigation.NavGridQuery.IsCellPassable(slotCell, NavLayerIndex.LayerRampart))
+                    dest = wallTopPoint;
                 CommandRouter.IssueLayeredMove(_em, units[i], dest,
                     NavLayerIndex.LayerRampart, CommandSource.LocalPlayer);
             }
@@ -465,7 +475,7 @@ namespace TheWaningBorder.Core.Commands.Issuing
             {
                 if (!_em.Exists(e)) continue;
                 if (!IsOwnedByLocalPlayer(e)) continue;
-                if (!_em.HasComponent<MinerTag>(e)) continue;
+                if (!_em.HasComponent<WorkerTag>(e)) continue;
 
                 CommandRouter.IssueConvert(_em, e, keep, CommandSource.LocalPlayer);
             }
@@ -760,15 +770,15 @@ namespace TheWaningBorder.Core.Commands.Issuing
                 if (_em.HasComponent<Damage>(e))
                     caps.CanAttack = true;
 
-                // Can gather if is a miner
-                if (_em.HasComponent<MinerTag>(e))
+                // Can gather if is a worker
+                if (_em.HasComponent<WorkerTag>(e))
                     caps.CanGather = true;
 
                 // Can heal if has heal capability (Litharch, etc.)
                 if (CanHeal(e))
                     caps.CanHeal = true;
 
-                // Can build/repair if is a builder
+                // Can build/repair if is a worker
                 if (_em.HasComponent<CanBuild>(e))
                     caps.CanBuildRepair = true;
 

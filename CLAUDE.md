@@ -22,7 +22,9 @@ without updating the Design folder first.
 |-----|-------|
 | [docs/Design/Overview.md](docs/Design/Overview.md) | Cross-faction framing — two-age structure, movement axis, age-up transformations, per-battalion upgrades, religious-unit tier, population model, caravan-death rule, Petriarchy. (Glow economy: **superseded** — see Curse_And_Shardroot.md) |
 | [docs/Design/Curse_And_Shardroot.md](docs/Design/Curse_And_Shardroot.md) | **The curse & Shardroot loop** (replaces the old Border design AND the Glow economy): N wells, per-culture verbs (destroy/pacify/purify) with 10-min holds + tempo refresh, **well-domination victory** (all N wells yours at once), veilstone-only-from-curse, the Shardroot power artifact (One-Ring model, three Shardbound Heroes, first verb on the host well claims it) |
-| [docs/Design/Territory_Claims.md](docs/Design/Territory_Claims.md) | **Territory & the curse, fourth model (2026-09-29)** — one ownership meter per territory filled by standing military units (population-weighted), frozen while hostiles share it, decaying 3/s when empty and unbuilt; buildings HOLD, node buildings and Fortresses LOCK, everything collapses when ownership is lost; build only on owned ground. **No Hall** (the Fortress inherits it and is buildable). The curse claims at double weight while standing, builds destructible nodes on any resource node, cursed ground is a radius around nodes, and it hunts only the Shardroot holder. **No wells, verbs or well victory — elimination only.** Supersedes Regions.md §2-3 and most of Curse_And_Shardroot.md |
+| [docs/Design/Territory_Claims.md](docs/Design/Territory_Claims.md) | **Territory & the curse, fourth model (2026-09-29)** — one ownership meter per territory filled by standing military units (population-weighted), frozen while hostiles share it, decaying 3/s when empty and unbuilt; buildings HOLD, node buildings and Fortresses LOCK, everything collapses when ownership is lost; build only on owned ground. **No Hall** (the Fortress inherits it and is buildable). The curse claims at double weight while standing, builds destructible nodes on any resource node, cursed ground is a radius around nodes, and it hunts only the Shardroot holder. **No wells, verbs or well victory — elimination only.** **§10 (2026-10-01): territory limit = Fortress levels + 2 once aged up; only ground bordering Fortress-connected territory may be taken; cut-off ground wears down in ~4 min. §11: territory TYPES (Start / Normal / +iron / +veilstone / Empty / Veilstone rich (cursed) / Iron rich / Sanctum +1 RP/min) generate the nodes — scene node markers are inert.** Supersedes Regions.md §2-3 and most of Curse_And_Shardroot.md |
+| [docs/Design/Veilstone_Economy.md](docs/Design/Veilstone_Economy.md) | **Where veilstone and veilsteel come from (2026-10-01)** — veilstone outcrops are Inactive / Cursed / Depleted; a held node pays nothing by itself; Feraldis and Runai mine Inactive outcrops (Feraldis fast and finite), **Alanthor never mine veilstone (iron Mines stay; their Age 0 Veilstone Mines become Trading Outposts at age-up) — the Trading Outpost beside an outcrop buys veilstone with supplies + iron or (toggled) forges veilstone into veilsteel**; veilsteel is made, never mined (no veilsteel nodes, the Smelter generates nothing); destroying a curse node pacifies its outcrop and pays Feraldis veilsteel; the curse refills depleted outcrops. Runai Sanctuary / Feraldis raiding not yet implemented |
+| [docs/Design/Planned_Buildings.md](docs/Design/Planned_Buildings.md) | **Build orders create PLANS (2026-10-01)** — a white owner-only preview, paid, with no BuildingTag/Health (invisible to enemies, no collision role, does nothing) that reserves only its owner's tiles; it becomes the real site when a worker breaks ground, cancelling and refunding any other faction's overlapping plan. The **Delete** button/key cancels plans and sites (full refund), demolishes buildings, kills units |
 | [docs/Design/Religion.md](docs/Design/Religion.md) | **Religion points (2026-09-29)** — pts from curse kills (last hit is paid, escalating pts-per-RP), Tithe buys RP, Age 0 Temple for 1 RP (Shrine of Ridan cut, Litharch trains there), chapels 2 / 3 RP, powers and chapel levels bought with RP, sect units are heroes (limit 1, 1 RP). Supersedes Sects.md §3 and Overview's RP rules |
 | [docs/Design/Tech_Tree.md](docs/Design/Tech_Tree.md) | At-a-glance Mermaid charts of every building, unit, and tech across Age 0 and the three cultures |
 | [docs/Design/Combat_Pacing.md](docs/Design/Combat_Pacing.md) | Match pacing — the five meta beats, the unit counter table (bonusVsTags truth source), the siege-only wall rule |
@@ -59,7 +61,7 @@ the code currently does, often pre-design-pass) lives in
   TechTree/
     Age0/Buildings/<Building>/{Research,Units,Abilities}/   ArcheryRange, Barracks,
     Age0/Units/                                             Hall, Hut, GatherersHut,
-                                                            ShrineOfRidan, TempleOfRidan,
+                                                            TempleOfRidan, Palisade,
                                                             VaultOfAlmierra, FiendstoneKeep
     Civs/<Culture>/Buildings/<Building>/{Research,Units,Abilities}/
     Civs/<Culture>/Units/<Unit>/{Abilities}/   units no building trains
@@ -73,6 +75,23 @@ the code currently does, often pre-design-pass) lives in
   building's `trains[]` — never hand-placed. Where a unit has two trainers the
   first wins (`Feraldis_Berserker` is under WarHall, not Longhouse). Units no
   building trains sit in `Civs/<Culture>/Units/`.
+- **Age0/ holds only what exists in Age 0** (2026-10-02). A post-age-up tech,
+  level or piece of a cultured building files under that culture, even when
+  the entity it acts on is an Age 0 one: the Alanthor-gated Barracks techs
+  are in `Civs/Alanthor/Buildings/Garrison/Research/` (still `researchAt:
+  Barracks` — the Garrison IS the Barracks).
+- **Building LEVELS are assets** (2026-10-02): one `BuildingLevelDefSO` per
+  level, in the culture's folder under the cultured name
+  (`Civs/Alanthor/Buildings/House/House_Lvl1..3.asset` for the `Hut`), listed
+  in `TechTreeCatalog.buildingLevels`. They carry the level's name, upgrade
+  cost/time, stat multipliers, population, authored attack and model;
+  `BuildingUpgradeConfig` reads them first and keeps its code tables only for
+  cultures not yet migrated (Runai, Feraldis). The HUD shows
+  `<name> - Lvl N`. docs/Design/Age_1_Alanthor.md § Building levels.
+- **The Shrine of Ridan is gone** (2026-10-02; cut by Religion.md). Its
+  Litharch trains at the Temple (`Age0/Buildings/TempleOfRidan/Units/Litharch/`),
+  its heal aura is `TempleHealSystem`, and its materials (used by the Temple
+  and chapel prefabs) live in `TempleOfRidan/Materials/`.
 - **A cultured building is the SAME entity renamed, so its folder is the
   CULTURED name.** Alanthor units trained at the Age 0 `ArcheryRange` live under
   `Civs/Alanthor/Buildings/PracticeRange/Units/`, because for an Alanthor player
@@ -114,6 +133,18 @@ the code currently does, often pre-design-pass) lives in
   class stays `AlanthorWall`: renaming either ripples through the recipe
   table, BuildingSizeConfig, BuildCosts, build times, the name resolver and
   the AI, and `Wall` as a type name would shadow far too much.
+  **2026-10-02: the palisade is its own building, `Palisade`** (its hub SO in
+  `Age0/Buildings/Palisade/`), running on the SAME hub/segment/cell machinery —
+  every palisade piece carries `PalisadeTag`, and `AlanthorWall.IsPalisade` is
+  the one test. `Alanthor_Wall` is now the Alanthor-only Stone Wall. The two
+  never join (snap, auto-segment, branch) — every hub/cell finder takes the
+  kind. docs/Design/Age_1_Alanthor.md § The stone wall.
+  **2026-10-02, the Stone Wall's CONTENT moved to `Civs/Alanthor/Buildings/Wall/`**
+  (`WallHub.asset`, `WallSegment.asset`, `Tower/`, the `Stone/` kit prefabs
+  and the `Battlements` / `ShieldedRamparts` research), because Age0/ holds
+  only what exists in Age 0. The shared hub/segment CODE, the Gate (a
+  palisade takes gates too), the timber art and `WallModuleArt` stay in
+  `Age0/Buildings/Wall/` — one machine, two kinds of content.
   `Civs/Alanthor/Buildings/Tower/` is NOT part of the set: the watch tower is
   a stand-alone building from the Age 0 hut conversion.
 - **Cross-domain components** (CoreComponents, CombatComponents, etc.) stay in `Scripts/Components/`; **cross-domain systems** (Combat, Navigation, Work, Training, AI, Border) stay in `Scripts/Systems/` by domain.
@@ -182,7 +213,7 @@ the code currently does, often pre-design-pass) lives in
 
   **`AICommon/` is the AI's shared toolbox** (2026-09-03) — what SimpleAISystem
   shares with the endgame systems, one level above `AIEndgameCommon` (which is
-  only what the two ENDGAME systems share). It holds the builder dispatch and
+  only what the two ENDGAME systems share). It holds the worker dispatch and
   idle-worker test, `IsUnitQueued`, `ToCost`, and `AIQueryCache` for the
   generic and runtime-typed query shapes. Every one of those was a copy-paste
   pair that had drifted; the worst had the endgame calling a worker "idle"
@@ -490,7 +521,7 @@ the code currently does, often pre-design-pass) lives in
 
   **`UI/Ingame/Panels/` now holds only panels with NO authored prefab yet**
   (TopChoiceBar, ActionsPanelBinder, SpellsPanelBinder, PauseMenuPanel,
-  VictoryPanel, BuilderPanelBinder). A panel graduates out of `UI/` the moment
+  VictoryPanel, WorkerPanelBinder). A panel graduates out of `UI/` the moment
   its prefab exists. `UI/Data`, `UI/Common` and `UI/World` are NOT panels and
   stay put.
 
@@ -545,7 +576,7 @@ builds stop.
 - Global namespace - ECS components (CoreComponents, UnitComponents, etc.)
 
 ## Naming Conventions
-- ECS marker components: `XxxTag` (e.g., `HallTag`, `MinerTag`)
+- ECS marker components: `XxxTag` (e.g., `HallTag`, `WorkerTag`)
 - ECS stateful components: `XxxState` (e.g., `MiningState`)
 - Commands: `XxxCommand` (ECS component) + `XxxCommandHelper` (static helper)
 - Building tags: `HallTag`, `BarracksTag`, `GathererHutTag`, `HutTag`
@@ -557,7 +588,7 @@ builds stop.
 > **SUPERSEDED BY DESIGN, NOT YET BY CODE (2026-08-27).**
 > [docs/Design/Regions.md](docs/Design/Regions.md) §4 removes worker gathering
 > outright: income comes from territory ticks, forests and mines, and there is
-> ONE unit — the Worker — which only builds. The Miner and the Builder are gone.
+> ONE unit — the Worker — which only builds.
 > The four mining/worker bullets below describe what the code does TODAY and are
 > accurate for it; they are no longer the design. Do not "fix" code toward them.
 
@@ -581,7 +612,7 @@ builds stop.
 - **Screen facts are read from `PresentationState`, never up out of a panel.**
   This is written down twice already and was still being violated:
   `CameraController`, `RTSInputManager` and `SelectionSystem` each read
-  `BuilderCommandPanel.IsPlacingBuilding` directly, while
+  `WorkerCommandPanel.IsPlacingBuilding` directly, while
   `PresentationState.PlacingBuilding` — written faithfully by that same panel —
   had zero readers. All three now read the published fact. `RTSInput.cs` held a
   third copy of the same flag and is deleted: 8 of its 11 members had no callers.
@@ -598,9 +629,9 @@ builds stop.
 - Player color does NOT change on culture selection
 - Mined resources are credited straight to the faction bank on each gather
   tick — there are NO carrying workers and NO dropoff buildings
-- Miners: local player miners require explicit GatherCommand; AI miners auto-find
-- Miners auto-find new deposits only on depletion and only within LineOfSight range
-- Builders auto-chain to nearby unfinished structures within LOS
+- Workers: local player workers require explicit GatherCommand; AI workers auto-find
+- Workers auto-find new deposits only on depletion and only within LineOfSight range
+- Workers auto-chain to nearby unfinished structures within LOS
 - Shift+click stays in building placement mode for repeated placement
 
 ## Development Workflow

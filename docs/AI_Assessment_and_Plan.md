@@ -36,7 +36,7 @@ What works well today:
 Hard gaps (verbatim from the audit):
 - Strategy locked at spawn; `AIPersonality` enum exists but is read by nothing.
 - Scouting is random wandering; sightings never feed back into decisions.
-- Attack target choice is a fixed priority ladder (miners > gatherer huts >
+- Attack target choice is a fixed priority ladder (workers > gatherer huts >
   border nodes > halls), nearest-first — no value scoring, no risk term.
 - No threat assessment, no defense response, no retreat, no focus fire, no
   counter-composition, no walls (task-109), no post-Age-1 research breadth.
@@ -142,7 +142,7 @@ debug flag. No behavior change yet. Est. 3-5 sessions.
 
     score = TypeValue(category)            // data-driven per personality
           + Opportunity                    // low defense: -StrengthInRadius(target)
-          + EconomicDamage                 // miners/eco buildings while contested
+          + EconomicDamage                 // workers/eco buildings while contested
           - Risk                           // ThreatMap sample on approach corridor
           - TravelCost                     // path distance (portal-graph estimate)
           - IntelAge penalty               // stale sightings score low

@@ -130,7 +130,7 @@ namespace TheWaningBorder.AI
             if (!BuildCosts.Exists(towerId)) return;
             var cost = BuildCosts.For(em, faction, towerId);
             if (!FactionEconomy.CanAfford(em, faction, cost)) return;
-            if (AICommon.CountIdleBuilders(em, faction) == 0) return;
+            if (AICommon.CountIdleWorkers(em, faction) == 0) return;
 
             // Own tower positions — the anti-clump constraint.
             var ownTowers = new NativeList<float3>(Allocator.Temp);
@@ -171,7 +171,7 @@ namespace TheWaningBorder.AI
                 out Entity building, CommandSource.AI);
             if (queuedPlacement)
             {
-                AICommon.DispatchBuildersTo(em, faction, Entity.Null, towerId, pos, maxBuilders: 1);
+                AICommon.DispatchWorkersTo(em, faction, Entity.Null, towerId, pos, maxWorkers: 1);
                 AILogger.Log(faction, "BUILDING",
                     $"Alanthor towers: {existing + 1}/{TowerBudget(difficulty)} toward " +
                     $"({threatHint.x:F0},{threatHint.z:F0})");
@@ -180,7 +180,7 @@ namespace TheWaningBorder.AI
             // Null = the executor rejected — nothing spent, nothing to refund.
             if (building == Entity.Null) return;
 
-            int dispatched = AICommon.DispatchBuildersTo(em, faction, building, towerId, pos, maxBuilders: 1);
+            int dispatched = AICommon.DispatchWorkersTo(em, faction, building, towerId, pos, maxWorkers: 1);
             if (dispatched == 0)
             {
                 FactionEconomy.Add(em, faction, cost);
@@ -318,6 +318,8 @@ namespace TheWaningBorder.AI
                 float dz = pos.z - ownTowers[i].z;
                 if (dx * dx + dz * dz < Cfg.minTowerSpacing * Cfg.minTowerSpacing) return false;
             }
+            // The border band the wall runs along stays clear.
+            if (!AIWallPlanner.FootprintClearOfBorder(pos, size)) return false;
             return BuildCommandHelper.IsValidBuildPosition(em, pos, size);
         }
 

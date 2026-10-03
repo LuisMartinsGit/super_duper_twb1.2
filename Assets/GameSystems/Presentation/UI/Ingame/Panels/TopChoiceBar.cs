@@ -374,8 +374,8 @@ namespace TheWaningBorder.UI.Ingame
             }
             button.onClick.AddListener(() =>
             {
-                if (!BuilderCommandPanel.IsPlacingBuilding && LandmarkAvailable(entry.Id))
-                    BuilderCommandPanel.TriggerBuildingPlacement(entry.Id);
+                if (!WorkerCommandPanel.IsPlacingBuilding && LandmarkAvailable(entry.Id))
+                    WorkerCommandPanel.TriggerBuildingPlacement(entry.Id);
             });
 
             // This button's OWN permanent label. Prefer a TMP_Text that belongs
@@ -821,7 +821,7 @@ namespace TheWaningBorder.UI.Ingame
                         ? Cost.Of(building.cost.Supplies, building.cost.Iron, building.cost.Veilstone)
                         : default;
                     bool canAfford = FactionEconomy.CanAfford(em, faction, cost);
-                    bool placing = BuilderCommandPanel.IsPlacingBuilding;
+                    bool placing = WorkerCommandPanel.IsPlacingBuilding;
 
                     b.Root.SetActive(true);
                     b.Id = building.id;
@@ -832,7 +832,7 @@ namespace TheWaningBorder.UI.Ingame
 
                     string id = building.id;
                     b.Click = (canAfford && !placing)
-                        ? (System.Action)(() => BuilderCommandPanel.TriggerBuildingPlacement(id))
+                        ? (System.Action)(() => WorkerCommandPanel.TriggerBuildingPlacement(id))
                         : null;
                 }
             }
@@ -851,7 +851,7 @@ namespace TheWaningBorder.UI.Ingame
                 _specialPinned = GameUIKit.PinTopCenter(
                     (RectTransform)_authoredSpecial.transform, SpecialClusterTopMargin);
 
-            bool placing = BuilderCommandPanel.IsPlacingBuilding;
+            bool placing = WorkerCommandPanel.IsPlacingBuilding;
             foreach (var b in _authoredSpecialButtons)
             {
                 // Refresh cost from the catalog once it finishes loading

@@ -47,7 +47,6 @@ public static class BuildingSizeConfig
             // ── 4 x 4 cells (8 x 8 m) ───────────────────────────────────
             "Hall"              => new int2(8, 8),
             "ArcheryRange"      => new int2(8, 8),
-            "ShrineOfRidan"     => new int2(8, 8),
             "VaultOfAlmierra"   => new int2(8, 8),
 
             // ── 5 x 5 cells (10 x 10 m) ─────────────────────────────────
@@ -74,6 +73,7 @@ public static class BuildingSizeConfig
             // in AlanthorWall.CreateInstance. Keep in step with
             // AlanthorWall.HubWidth ((int)4.2 = 4).
             "Alanthor_Wall"     => new int2(4, 4),
+            "Palisade"          => new int2(4, 4),
 
             // Emplacements (docs/Design/Age_1_Alanthor.md § Ballista and
             // Trebuchet emplacements). The platform is what is placed; the
@@ -82,7 +82,6 @@ public static class BuildingSizeConfig
             "Alanthor_TrebuchetEmplacement" => new int2(6, 6),
 
             // Alanthor culture
-            "Alanthor_Smelter"  => new int2(4, 4),   // 2 x 2 cells, on its node (Build_Grid.md §3)
             "Alanthor_Tower"    => new int2(4, 4),
             "Alanthor_SiegeYard"=> new int2(8, 8),
             "KingsCourt"        => new int2(8, 8),
@@ -109,7 +108,7 @@ public static class BuildingSizeConfig
             "Feraldis_HallOfAxes"     => new int2(8, 8),
             "Mine"                    => new int2(4, 4),   // 2 x 2 cells, on its node
             "VeilstoneMine"           => new int2(4, 4),   // 2 x 2 cells, on its node
-            "Alanthor_Sawyer"         => new int2(4, 4),
+            "Alanthor_TradingOutpost" => new int2(4, 4),   // 2 x 2 cells, BESIDE its outcrop
 
             // Sect buildings — one per sect, capped at 5 per faction.
             "Sect_Reliquary"          => new int2(8, 8),

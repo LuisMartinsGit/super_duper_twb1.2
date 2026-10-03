@@ -1,5 +1,5 @@
 //
-// Border buildings (the Large node) have no builders —
+// Border buildings (the Large node) have no workers —
 // they self-construct over time. This system advances UnderConstruction.Progress
 // on any entity with BorderTag at 1 second per real second, then strips the
 // component so PresentationSpawnSystem.SyncTransforms fires the completion

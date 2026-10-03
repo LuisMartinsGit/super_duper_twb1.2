@@ -39,6 +39,9 @@ namespace TheWaningBorder.Data
         public float suppliesPerTick;
         /// <summary>Seconds between supply ticks. 0 = building generates no supplies.</summary>
         public float suppliesInterval;
+        /// <summary>Most a faction may own at once, plans and sites included.
+        /// 0 = unlimited. Enforced by <c>BuildingFactory.AtFactionCap</c>.</summary>
+        public int maxPerFaction;
 
         // ==================== Storage (Smelter) ====================
         public int maxIron;

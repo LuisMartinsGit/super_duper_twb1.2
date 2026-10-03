@@ -208,10 +208,10 @@ namespace TheWaningBorder.UI.Ingame
                 return;
             }
 
-            // Modes that own Esc themselves — BuilderCommandPanel cancels
+            // Modes that own Esc themselves — WorkerCommandPanel cancels
             // placement, GroundTargeting cancels the aim ring. Both run their
             // own key check this frame, so this must not also fire.
-            if (BuilderCommandPanel.IsPlacingBuilding) return;
+            if (WorkerCommandPanel.IsPlacingBuilding) return;
             if (GroundTargeting.IsActive) return;
 
             if (PlanningModeOverlay.IsActive) { PlanningModeOverlay.Cancel(); return; }

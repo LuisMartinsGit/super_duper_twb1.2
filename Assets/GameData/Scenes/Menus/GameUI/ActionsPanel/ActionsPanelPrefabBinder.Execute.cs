@@ -149,6 +149,14 @@ namespace TheWaningBorder.UI.Ingame
                     return;
             }
 
+            // Trading Outpost trades (docs/Design/Veilstone_Economy.md §3.1).
+            if (b.Id.StartsWith("OutpostMode_", System.StringComparison.Ordinal)
+                && int.TryParse(b.Id.Substring("OutpostMode_".Length), out int recipe))
+            {
+                CommandRouter.IssueSetOutpostMode(em, entity, (TradeRecipe)recipe);
+                return;
+            }
+
             if (b.Id.StartsWith("KeepWing_", System.StringComparison.Ordinal))
             {
                 ExecuteKeepWing(em, entity, b);

@@ -273,6 +273,7 @@ namespace TheWaningBorder.Systems.Visibility
             var ltHandle = GetComponentTypeHandle<LocalTransform>(true);
             var factionHandle = GetComponentTypeHandle<FactionTag>(true);
             var buildingHandle = GetComponentTypeHandle<BuildingTag>(true);
+            var planHandle = GetComponentTypeHandle<PlannedBuilding>(true);
             var unitHandle = GetComponentTypeHandle<UnitTag>(true);
             var stealthHandle = GetComponentTypeHandle<StealthTag>(true);
 
@@ -287,6 +288,7 @@ namespace TheWaningBorder.Systems.Visibility
                 bool hasFaction = chunk.Has(ref factionHandle);
                 var factions = hasFaction ? chunk.GetNativeArray(ref factionHandle) : default;
                 bool isBuilding = chunk.Has(ref buildingHandle);
+                bool isPlan = chunk.Has(ref planHandle);
                 bool isUnit = chunk.Has(ref unitHandle);
                 bool isStealth = chunk.Has(ref stealthHandle);
                 bool mobile = isUnit && !isBuilding;
@@ -300,6 +302,14 @@ namespace TheWaningBorder.Systems.Visibility
                     if (hasFaction && factions[i].Value == humanFaction)
                     {
                         if (!gameObject.activeSelf) gameObject.SetActive(true);
+                        continue;
+                    }
+
+                    // Another player's PLAN is never seen, fog or not
+                    // (docs/Design/Planned_Buildings.md).
+                    if (isPlan)
+                    {
+                        if (gameObject.activeSelf) gameObject.SetActive(false);
                         continue;
                     }
 

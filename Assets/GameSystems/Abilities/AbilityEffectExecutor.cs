@@ -53,6 +53,7 @@ namespace TheWaningBorder.Abilities
             if (card == null || caster == Entity.Null || !em.Exists(caster)) return;
             float dur = durationOverride > 0f ? durationOverride : math.max(0f, card.Duration);
             var effTarget = (target != Entity.Null && em.Exists(target)) ? target : caster;
+            AbilityVfxSignals.Post(card, caster, effTarget, dur);
 
             // Accumulate the SpellBuff/SpellDebuff so multiple stat effects on one
             // ability produce a single component.

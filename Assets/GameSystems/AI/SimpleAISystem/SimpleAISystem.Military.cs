@@ -376,6 +376,16 @@ namespace TheWaningBorder.AI
             // has a real enemy that fights back when the player attacks it.
             if (GameSettings.TutorialActive) return false;
 
+            // AGE 0 IS FOR THE AGE-UP (2026-10-02, docs/Design/Age_0.md § The
+            // AI and the age-up): before it has aged up, only an Aggressive or
+            // Rush AI attacks, and only ONCE — then it saves for its landmark
+            // like everyone else.
+            if (!HasAgedUp(em, faction))
+            {
+                var p = em.GetComponentData<AIBrain>(brainEntity).Personality;
+                if (!AttacksInAge0(p) || aiState.WaveNumber >= 1) return false;
+            }
+
             // Difficulty knob: no offensive missions before the tier's first-
             // attack time (AoE4: first Hardest attack ≈ 8 min, later on lower
             // tiers). Defense (posture engine) is unaffected.
@@ -603,7 +613,7 @@ namespace TheWaningBorder.AI
                     {
                         // FINISH ANYWAY (2026-09-03). In the closeout, "no
                         // sighting" used to fall through to the generic target
-                        // ladder — whose first rung is enemy MINERS — so the
+                        // ladder — whose first rung is enemy WORKERS — so the
                         // "kill the weakest" wave marched at a random midfield
                         // worker while Blue logged "want Red but no Hall
                         // sighting — scouts first" seven times and never
@@ -732,7 +742,7 @@ namespace TheWaningBorder.AI
             // ── Raid split (AoE4-style harass encounter) ──
             // With enough surplus beyond the wave threshold, peel off the
             // fastest few units as a raid party aimed at the enemy ECONOMY
-            // (miners / eco buildings) while the main army takes the scored
+            // (workers / eco buildings) while the main army takes the scored
             // objective. Two simultaneous pressure points instead of one blob.
             var missions = MissionsFor(faction);
             if (!rerouted && personality.raidingEnabled
@@ -1157,10 +1167,10 @@ namespace TheWaningBorder.AI
                     // and still ended 4-alive: the chain only follows Halls
                     // and military buildings, while VictoryConditionSystem
                     // keeps a faction alive on ANY hall OR military building
-                    // OR builder — so the rebuild loop (territory income ->
+                    // OR worker — so the rebuild loop (territory income ->
                     // new Hall -> razed -> repeat) never terminated. In the
                     // closeout, the chain therefore also accepts the WEAKEST
-                    // victim's ECO BUILDINGS and MINERS from the sighting
+                    // victim's ECO BUILDINGS and WORKERS from the sighting
                     // buffer — deny the rebuild, then take the last lifeline.
                     // Sightings only: no omniscient worker hunt.
                     bool chainCloseout = now > Cfg.closeoutAfterSeconds;
@@ -1179,7 +1189,7 @@ namespace TheWaningBorder.AI
                             bool finisher = chainCloseout
                                 && sg.OwnerFaction == chainVictim
                                 && (sg.Category == IntelCategory.EcoBuilding
-                                    || sg.Category == IntelCategory.Miner);
+                                    || sg.Category == IntelCategory.Worker);
                             if (!lifeline && !finisher) continue;
                             float sdx = sg.Position.x - mission.TargetPos.x;
                             float sdz = sg.Position.z - mission.TargetPos.z;
@@ -1478,6 +1488,137 @@ namespace TheWaningBorder.AI
         // Host-only heartbeat throttle (see TickAttackWaves).
         private readonly System.Collections.Generic.Dictionary<int, float> _waveHeartbeat
             = new System.Collections.Generic.Dictionary<int, float>();
+
+        /// <summary>Per faction: the curse node the first-RP hunt is on, and
+        /// when it launched (units freed later reinforce it until then +
+        /// religionHuntReinforceSeconds).</summary>
+        private readonly System.Collections.Generic.Dictionary<int, (float3 Node, float LaunchedAt)> _religionHunt
+            = new System.Collections.Generic.Dictionary<int, (float3, float)>();
+        private readonly System.Collections.Generic.Dictionary<int, float> _nextReligionHuntLog
+            = new System.Collections.Generic.Dictionary<int, float>();
+        private readonly System.Collections.Generic.List<Entity> _religionHuntArmy
+            = new System.Collections.Generic.List<Entity>();
+
+        /// <summary>
+        /// THE FIRST RELIGION POINT COMES FROM THE CURSE (2026-10-03,
+        /// operator: "make sure AI actually chases the curse in order to get
+        /// the first religion point"). The Temple costs 1 RP, and before a
+        /// Temple exists the only RP source is the curse: kills pay points,
+        /// a destroyed node pays a whole RP (docs/Design/Religion.md §1-2).
+        /// Nothing used to plan for it — the reclaim squad only looked
+        /// within 110 m of the Fortress, where curse nodes are never seeded.
+        ///
+        /// While the faction has no Temple and no RP: take the nearest curse
+        /// node it has SEEN (any distance), judge its free army against what
+        /// stands there (AIEngagement.AssessAssault — the curse now guards
+        /// its nodes, Territory_Claims.md §6.7, so that is the fight), and
+        /// attack with all of it when it wins. Too weak: raise the army
+        /// target so the maintenance loop trains toward it.
+        /// Returns true while the hunt owns the decision (the reclaim squad
+        /// stands down).
+        /// </summary>
+        private bool TryHuntFirstReligionPoint(EntityManager em, Faction faction,
+            ref SimpleAIState aiState, float now)
+        {
+            int key = (int)faction;
+            int templeRp = TheWaningBorder.Economy.FactionReligionPointsHelper.Cfg.templeRp;
+            if (CountFactionBuildings<TempleOfRidanTag>(em, faction) > 0
+                || TheWaningBorder.Economy.FactionReligionPointsHelper.CanAfford(em, faction, templeRp))
+            {
+                _religionHunt.Remove(key);
+                return false;
+            }
+            if (now < Cfg.religionHuntEarliestSeconds) return false;
+
+            Entity hall = FindFactionBuilding<HallTag>(em, faction);
+            if (hall == Entity.Null || !em.HasComponent<LocalTransform>(hall)) return false;
+            float3 hallPos = em.GetComponentData<LocalTransform>(hall).Position;
+
+            // Nearest live curse node this faction has seen.
+            var nq = QC_SmallNodeTagLocalTransformHealth.Get(em, QT_SmallNodeTagLocalTransformHealth);
+            using var nXfs = nq.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var nHps = nq.ToComponentDataArray<Health>(Allocator.Temp);
+            float bestD2 = float.MaxValue; float3 node = default; bool found = false;
+            for (int i = 0; i < nXfs.Length; i++)
+            {
+                if (nHps[i].Value <= 0) continue;
+                if (!IsKnownGround(faction, nXfs[i].Position)) continue;
+                float d2 = math.distancesq(nXfs[i].Position, hallPos);
+                if (d2 < bestD2) { bestD2 = d2; node = nXfs[i].Position; found = true; }
+            }
+            if (!found)
+            {
+                _religionHunt.Remove(key);
+                LogReligionHunt(faction, now, "no curse node seen yet — the scouts have to find one");
+                return false;
+            }
+
+            // Free combat units (the reclaim squad's eligibility rules).
+            _religionHuntArmy.Clear();
+            var mq = QC_UnitTagFactionTagLocalTransform.Get(em, QT_UnitTagFactionTagLocalTransform);
+            using (var ents = mq.ToEntityArray(Allocator.Temp))
+            using (var tags = mq.ToComponentDataArray<UnitTag>(Allocator.Temp))
+            using (var facs = mq.ToComponentDataArray<FactionTag>(Allocator.Temp))
+                for (int i = 0; i < ents.Length; i++)
+                {
+                    if (facs[i].Value != faction) continue;
+                    if (!IsCombatClass(tags[i].Class)) continue;
+                    Entity e = ents[i];
+                    if (em.HasComponent<UnderConstruction>(e)) continue;
+                    if (IsVerbUnit(em, e)) continue;
+                    if (IsClaimSquadMember(e)) continue;
+                    if (TransientState.Active<AttackMoveTag>(em, e)) continue;
+                    if (TransientState.Active<MoveCommand>(em, e)) continue;
+                    if (TransientState.Active<AttackCommand>(em, e)) continue;
+                    if (TransientState.Active<UserMoveOrder>(em, e)) continue;
+                    _religionHuntArmy.Add(e);
+                }
+
+            // A hunt already under way on this node: reinforce it, no gate.
+            if (_religionHunt.TryGetValue(key, out var hunt)
+                && math.distancesq(hunt.Node, node) < 4f
+                && now - hunt.LaunchedAt < Cfg.religionHuntReinforceSeconds)
+            {
+                for (int i = 0; i < _religionHuntArmy.Count; i++)
+                    CommandRouter.IssueAttackMove(em, _religionHuntArmy[i], node, CommandSource.AI);
+                return true;
+            }
+            if (_religionHuntArmy.Count == 0)
+            {
+                LogReligionHunt(faction, now, "no free army to send");
+                return true;
+            }
+
+            var a = AIEngagement.AssessAssault(em, faction, _religionHuntArmy, node,
+                Cfg.religionHuntAssessRadius);
+            if (!a.ShouldFight)
+            {
+                // Too weak: grow the army toward what the node needs.
+                int need = (int)math.ceil(_religionHuntArmy.Count * a.Ratio / math.max(0.1f, AIEngagement.DefaultCommitRatio));
+                int want = CountAliveMilitary(em, faction) + math.max(1, need - _religionHuntArmy.Count);
+                if (aiState.DesiredMilitary < want) aiState.DesiredMilitary = want;
+                LogReligionHunt(faction, now,
+                    $"saving an army for the curse node at ({node.x:0},{node.z:0}): " +
+                    $"power {a.MyPower} vs {a.EnemyPower}, want {want} military");
+                return true;
+            }
+
+            for (int i = 0; i < _religionHuntArmy.Count; i++)
+                CommandRouter.IssueAttackMove(em, _religionHuntArmy[i], node, CommandSource.AI);
+            _religionHunt[key] = (node, now);
+            AILogger.Log(faction, "RELIGION",
+                $"first Religion Point: {_religionHuntArmy.Count} units attack the curse node at " +
+                $"({node.x:0},{node.z:0}) — power {a.MyPower} vs {a.EnemyPower}");
+            return true;
+        }
+
+        private void LogReligionHunt(Faction faction, float now, string why)
+        {
+            int key = (int)faction;
+            if (_nextReligionHuntLog.TryGetValue(key, out float next) && now < next) return;
+            _nextReligionHuntLog[key] = now + 60f;
+            AILogger.Log(faction, "RELIGION", $"first Religion Point: {why}");
+        }
 
         /// <summary>When veilstone-poor, attack-move a small squad onto the
         /// nearest live SmallNode near the base — the military reclaim the

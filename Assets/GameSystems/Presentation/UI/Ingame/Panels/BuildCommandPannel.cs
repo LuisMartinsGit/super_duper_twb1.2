@@ -27,7 +27,7 @@ namespace TheWaningBorder.UI.Ingame
     /// Handles building placement preview and spawning.
     /// Works with EntityActionPanel for UI integration.
     /// </summary>
-    public class BuilderCommandPanel : MonoBehaviour
+    public class WorkerCommandPanel : MonoBehaviour
     {
         // Shared state for RTSInput and other systems
         public static bool PanelVisible;
@@ -41,7 +41,7 @@ namespace TheWaningBorder.UI.Ingame
         /// <summary>Whether the current placement position is valid.</summary>
         public static bool PlacementIsValid => _activeInstance != null ? _activeInstance._placementValid : true;
 
-        private static BuilderCommandPanel _activeInstance;
+        private static WorkerCommandPanel _activeInstance;
         private string _currentBuildId;
 
         private EntityWorld _world;
@@ -87,9 +87,9 @@ namespace TheWaningBorder.UI.Ingame
             FeraldisHuntingLodge, FeraldisLoggingStation, FeraldisLonghouse, FeraldisTotemTower, FeraldisSiegeYard,
             FeraldisWarTotem, FeraldisPasture, Mine, VeilstoneMine, AlanthorSawyer,
             // Per-hub "Build Wall" action: anchors a new hub + connecting
-            // segment onto an existing wall hub. Placed without a builder;
+            // segment onto an existing wall hub. Placed without a worker;
             // auto-builds in 30 s. Entered via
-            // BuilderCommandPanel.TriggerHubBuildWall(sourceHub).
+            // WorkerCommandPanel.TriggerHubBuildWall(sourceHub).
             WallExtend,
             // Any other catalog building. NOT a fallback to some default
             // building — the placed id is _currentBuildId, always.
@@ -127,7 +127,7 @@ namespace TheWaningBorder.UI.Ingame
         private Entity _drawStartHub;
 
         /// <summary>Self-build timer (seconds) for hubs + instances placed via
-        /// the per-hub "Build Wall" action. No builder is dispatched; the
+        /// the per-hub "Build Wall" action. No worker is dispatched; the
         /// AutoConstructionSystem ticks Progress at 1.0/s.</summary>
         private const float WallExtendBuildSeconds = 30f;
 
@@ -140,6 +140,15 @@ namespace TheWaningBorder.UI.Ingame
         /// what the executor re-resolves the snap against.</summary>
         private static float HubSnapRadius
             => TheWaningBorder.Entities.AlanthorWall.HubRadius * 2f;
+
+        /// <summary>True while the wall being placed is a Palisade rather than
+        /// the Alanthor Stone Wall — two buildings on one tool
+        /// (docs/Design/Age_0.md § Palisade). Every snap, cost and order
+        /// below asks it, so a palisade never joins stone.</summary>
+        private bool PlacingPalisade => _currentBuildId == AlanthorWall.PalisadeHubId;
+
+        /// <summary>The hub id of the wall being placed.</summary>
+        private string WallHubId => AlanthorWall.HubIdFor(PlacingPalisade);
 
         // Placement validity
         private bool _placementValid = true;
@@ -269,7 +278,7 @@ namespace TheWaningBorder.UI.Ingame
                         // ONE evaluation, with its REASON, shared with the
                         // click guard in SpawnSelectedBuilding — the router's
                         // own gates (caps, territory + Hall adjacency, node,
-                        // one Hall per territory, builder on site), then the
+                        // one Hall per territory, worker on site), then the
                         // geometry, then the blood / forest rules.
                         _placementRefusal = EvaluatePlacement(
                             (float3)_placingInstance.transform.position, _currentBuildId,
@@ -347,7 +356,7 @@ namespace TheWaningBorder.UI.Ingame
         {
             if (GameSettings.IsObserver) return;
 
-            var instance = FindFirstObjectByType<BuilderCommandPanel>();
+            var instance = FindFirstObjectByType<WorkerCommandPanel>();
             if (instance == null) return;
 
             // THE DATA-DRIVEN ID IS WHAT GETS PLACED (2026-09-26). This used to
@@ -358,11 +367,11 @@ namespace TheWaningBorder.UI.Ingame
             // the sect cap and the Veilworks crust exception on the way. The
             // enum now only flags the few ids with special handling (walls,
             // preview prefabs); the id itself is carried straight through.
-            string id = buildingId == "ShrineOfAhridan" ? "ShrineOfRidan" : buildingId;
+            string id = buildingId;
             if (!IsPlaceableId(id))
             {
                 // Refuse loudly. An unknown id is a data bug — never a Hut.
-                Debug.LogError($"[BuilderCommandPanel] Refused placement of unknown building id " +
+                Debug.LogError($"[WorkerCommandPanel] Refused placement of unknown building id " +
                                $"'{buildingId}' — it is not in the TechCatalog.");
                 PlayerNotificationSystem.NotifyError(
                     PlacementRefusalText.Of(PlacementRefusal.UnknownBuilding));
@@ -395,12 +404,10 @@ namespace TheWaningBorder.UI.Ingame
                 "GatherersHut" => BuildType.GatherersHut,
                 "Barracks" => BuildType.Barracks,
                 "ArcheryRange" => BuildType.ArcheryRange,
-                "ShrineOfRidan" or "ShrineOfAhridan" => BuildType.Shrine,
                 "TempleOfRidan" => BuildType.Temple,
                 "VaultOfAlmierra" => BuildType.Vault,
                 "FiendstoneKeep" => BuildType.Keep,
-                "Alanthor_Wall" => BuildType.Wall,
-                "Alanthor_Smelter" => BuildType.Smelter,
+                "Alanthor_Wall" or "Palisade" => BuildType.Wall,
                 "VeilstoneMine" => BuildType.VeilstoneMine,
                 // Runai culture buildings
                 "Runai_Outpost" => BuildType.RunaiOutpost,
@@ -422,7 +429,6 @@ namespace TheWaningBorder.UI.Ingame
                 "Feraldis_WarTotem" => BuildType.FeraldisWarTotem,
                 "Feraldis_Pasture" => BuildType.FeraldisPasture,
                 "Mine" => BuildType.Mine,
-                "Alanthor_Sawyer" => BuildType.AlanthorSawyer,
                 _ => BuildType.Other
             };
 
@@ -773,9 +779,29 @@ namespace TheWaningBorder.UI.Ingame
                     if (d2 > 0.01f && d2 < HubSnapRadius * HubSnapRadius) return false;
                 }
                 return BuildCommandHelper.IsValidBuildPosition(_em, p,
-                        BuildCommandHelper.GetBuildingSize("Alanthor_Wall"), "Alanthor_Wall")
-                    && MeetsTerritoryRequirement(fac, p, "Alanthor_Wall");
+                        BuildCommandHelper.GetBuildingSize(WallHubId), WallHubId)
+                    && MeetsTerritoryRequirement(fac, p, WallHubId);
             });
+            // The whole length must be clear — buildings, obstacles, other
+            // walls, impassable ground — not just the hub spots. Where the
+            // stroke joins a standing hub or cell it may touch that wall.
+            // Same cross-section test the executor applies
+            // (CommandRouter.WallLineClear); docs/Design/Build_Grid.md.
+            {
+                var joints = new System.Collections.Generic.List<float3>(2);
+                Entity startAnchor = _drawStartHub != Entity.Null ? _drawStartHub : _drawStartCell;
+                if (startAnchor != Entity.Null && _em.Exists(startAnchor))
+                    joints.Add(_em.GetComponentData<Unity.Transforms.LocalTransform>(startAnchor).Position);
+                if (endSnap.HasValue) joints.Add(endSnap.Value);
+                float jr = CommandRouter.WallJunctionClearance;
+                bool pal = PlacingPalisade;
+                tool.MarkBlocked((p, tan) =>
+                {
+                    for (int j = 0; j < joints.Count; j++)
+                        if (math.distancesq(p.xz, joints[j].xz) < jr * jr) return false;
+                    return !CommandRouter.WallCrossSectionClear(p, tan, pal);
+                });
+            }
             tool.ShowPreview();
 
             if (!UnityEngine.Input.GetMouseButtonUp(0)) return;
@@ -796,8 +822,10 @@ namespace TheWaningBorder.UI.Ingame
             }
             if (tool.Problem != WallDrawTool.PathProblem.None)
             {
-                PlayerNotificationSystem.NotifyError(Loc.T(tool.Problem == WallDrawTool.PathProblem.TooTight
-                    ? "Wall bends too sharply" : "Wall runs back over itself"));
+                PlayerNotificationSystem.NotifyError(Loc.T(
+                    tool.Problem == WallDrawTool.PathProblem.TooTight ? "Wall bends too sharply"
+                    : tool.Problem == WallDrawTool.PathProblem.Blocked ? "Wall runs into something in its way"
+                    : "Wall runs back over itself"));
                 CancelPlacementPreviewOnly();
                 return;
             }
@@ -822,17 +850,14 @@ namespace TheWaningBorder.UI.Ingame
             // point (CommandRouter.WallLineOnOwnGround) — name the rule here.
             if (!CommandRouter.WallLineOnOwnGround(_em, fac, tool.Points))
             {
-                PlayerNotificationSystem.NotifyError(TerritoryRefusal("Alanthor_Wall"));
+                PlayerNotificationSystem.NotifyError(TerritoryRefusal(WallHubId));
                 CancelPlacementPreviewOnly();
                 return;
             }
-            if (!BuildCosts.TryGet("Alanthor_Wall", out var hubCost)) hubCost = default;
-            var total = new Cost
-            {
-                Supplies = hubCost.Supplies * newHubs, Iron = hubCost.Iron * newHubs,
-                Veilstone = hubCost.Veilstone * newHubs, Veilsteel = hubCost.Veilsteel * newHubs,
-            };
-            if (newHubs > 0 && !FactionEconomy.CanAfford(_em, fac, total))
+            // Hubs AND every curtain module — the executor's own price
+            // (CommandRouter.WallPathCost; walls are paid per module).
+            var total = CommandRouter.WallPathCost(tool.Points, tool.Kinds, PlacingPalisade);
+            if (!FactionEconomy.CanAfford(_em, fac, total))
             {
                 PlayerNotificationSystem.NotifyError(Loc.T("Not enough resources"));
                 CancelPlacementPreviewOnly();
@@ -841,17 +866,17 @@ namespace TheWaningBorder.UI.Ingame
 
             var pts = new System.Collections.Generic.List<float3>(tool.Points);
             var kinds = new System.Collections.Generic.List<CommandRouter.WallPathKind>(tool.Kinds);
-            CommandRouter.IssuePlaceWallPath(_em, pts, kinds, fac);
+            CommandRouter.IssuePlaceWallPath(_em, pts, kinds, fac, palisade: PlacingPalisade);
 
-            // A lone first hub is builder-built (the executor keeps that
-            // behaviour); send the selected builders to it as before.
+            // A lone first hub is worker-built (the executor keeps that
+            // behaviour); send the selected workers to it as before.
             if (!startsOnHub && _drawStartCell == Entity.Null && pts.Count == 1)
             {
                 var sel = SelectionSystem.CurrentSelection;
                 if (sel != null)
                     foreach (var b in sel)
                         if (_em.Exists(b) && _em.HasComponent<CanBuild>(b))
-                            CommandRouter.IssueBuild(_em, b, Entity.Null, "Alanthor_Wall", pts[0]);
+                            CommandRouter.IssueBuild(_em, b, Entity.Null, WallHubId, pts[0]);
             }
             SuppressClicksThisFrame = true;
             CancelPlacementPreviewOnly();
@@ -890,7 +915,7 @@ namespace TheWaningBorder.UI.Ingame
             var id = _currentBuildId;
             if (!IsPlaceableId(id))
             {
-                Debug.LogError($"[BuilderCommandPanel] Refused placement of unknown building id '{id}'.");
+                Debug.LogError($"[WorkerCommandPanel] Refused placement of unknown building id '{id}'.");
                 PlayerNotificationSystem.NotifyError(
                     PlacementRefusalText.Of(PlacementRefusal.UnknownBuilding));
                 return;
@@ -907,6 +932,14 @@ namespace TheWaningBorder.UI.Ingame
                     PlayerNotificationSystem.Notify(Loc.T("Maximum 10 Trading Posts"));
                     return;
                 }
+            }
+
+            // Per-faction caps from the SO (Houses: 20).
+            if (BuildingFactory.AtFactionCap(_em, fac, id))
+            {
+                PlayerNotificationSystem.Notify(string.Format(Loc.T("Limit reached: {0} per faction"),
+                    TechCatalog.Building(id).maxPerFaction));
+                return;
             }
 
             // Block additional Temples of Ridan — only one per faction.
@@ -940,7 +973,7 @@ namespace TheWaningBorder.UI.Ingame
             // and the blood / forest rules — each refusal named. Extractors
             // come back snapped onto their node, the position the router
             // queues.
-            var refusal = EvaluatePlacement(pos, id, fac, out Entity hallBuilder, out pos);
+            var refusal = EvaluatePlacement(pos, id, fac, out Entity hallWorker, out pos);
             if (refusal != PlacementRefusal.None)
             {
                 PlayerNotificationSystem.NotifyError(PlacementRefusalText.Of(refusal, id));
@@ -967,13 +1000,13 @@ namespace TheWaningBorder.UI.Ingame
                 // Multiplayer: queue via lockstep — building created on all
                 // clients at same tick. A Hall carries the worker standing at
                 // its site; the executor re-checks that worker at that tick.
-                CommandRouter.IssuePlaceBuilding(_em, id, pos, fac, hallBuilder, out _,
+                CommandRouter.IssuePlaceBuilding(_em, id, pos, fac, hallWorker, out _,
                     CommandSource.LocalPlayer, yawDegrees);
 
-                // Send selected builders to the build position — the building entity doesn't
+                // Send selected workers to the build position — the building entity doesn't
                 // exist yet (created 2 ticks later), so we issue Build with Entity.Null target.
                 // BuildCommandHelper handles null target by moving to position and auto-finding
-                // the nearest UnderConstruction building when the builder arrives.
+                // the nearest UnderConstruction building when the worker arrives.
                 var sel = SelectionSystem.CurrentSelection;
                 if (sel != null)
                 {
@@ -987,11 +1020,11 @@ namespace TheWaningBorder.UI.Ingame
                 return;
             }
 
-            // Single player: create building directly and assign builders.
+            // Single player: create building directly and assign workers.
             // PlaceBuildingDirect re-checks a claim and spends; Entity.Null
             // means a claim rule refused it (LastPlacementRefusal says which)
             // or the bank came up short between the CanAfford check and now.
-            Entity building = CommandRouter.PlaceBuildingDirect(_em, id, pos, fac, hallBuilder,
+            Entity building = CommandRouter.PlaceBuildingDirect(_em, id, pos, fac, hallWorker,
                 CommandRouter.YawFromWire(CommandRouter.YawToWire(yawDegrees)));
             if (building == Entity.Null)
             {
@@ -1012,13 +1045,13 @@ namespace TheWaningBorder.UI.Ingame
             var pt = TheWaningBorder.World.Terrain.ProceduralTerrain.Instance;
             if (pt != null) pt.FlattenAt(new Vector3(pos.x, 0f, pos.z), halfExtent);
 
-            AssignBuildersToConstruction(building, id, pos);
+            AssignWorkersToConstruction(building, id, pos);
         }
 
         /// <summary>
-        /// Assigns selected builder units to construct the given building.
+        /// Assigns selected worker units to construct the given building.
         /// </summary>
-        private void AssignBuildersToConstruction(Entity building, string buildingId, float3 pos)
+        private void AssignWorkersToConstruction(Entity building, string buildingId, float3 pos)
         {
             var sel = SelectionSystem.CurrentSelection;
             if (sel == null || sel.Count == 0) return;
@@ -1045,8 +1078,8 @@ namespace TheWaningBorder.UI.Ingame
                 : GetSelectedFactionOrDefault();
 
         private PlacementRefusal EvaluatePlacement(float3 pos, string buildingId, Faction fac,
-            out Entity hallBuilder)
-            => EvaluatePlacement(pos, buildingId, fac, out hallBuilder, out _);
+            out Entity hallWorker)
+            => EvaluatePlacement(pos, buildingId, fac, out hallWorker, out _);
 
         /// <summary>
         /// Every rule a placement answers to, in one place, with the REASON
@@ -1057,33 +1090,33 @@ namespace TheWaningBorder.UI.Ingame
         ///    per-faction caps, the territory gate with the Hall's ADJACENCY
         ///    rule, the extractor node, one Hall per territory, and — for a
         ///    Hall — one of the selected workers within
-        ///    <see cref="TerritoryOwnership.HallBuilderRange"/> of the site.
+        ///    <see cref="TerritoryOwnership.HallWorkerRange"/> of the site.
         ///    Asked, not copied, so the ghost cannot go white on a click the
         ///    router refuses.
         /// 2. The geometry (crust, terrain, overlap).
         /// 3. The ghost-only terrain rules: blood for a War Totem, a forest
         ///    for a Sawyer.
         ///
-        /// <paramref name="hallBuilder"/> is the worker the Hall command
+        /// <paramref name="hallWorker"/> is the worker the Hall command
         /// will carry (Entity.Null for anything else); <paramref name="placedPos"/>
         /// is the position the router will queue (an extractor snapped onto
         /// its node).
         /// </summary>
         private PlacementRefusal EvaluatePlacement(float3 pos, string buildingId, Faction fac,
-            out Entity hallBuilder, out float3 placedPos)
+            out Entity hallWorker, out float3 placedPos)
         {
-            hallBuilder = Entity.Null;
+            hallWorker = Entity.Null;
             placedPos = pos;
             var w = EntityWorld.DefaultGameObjectInjectionWorld;
             if (w == null || !w.IsCreated) return PlacementRefusal.None;
             var em = w.EntityManager;
             if (!IsPlaceableId(buildingId)) return PlacementRefusal.UnknownBuilding;
 
-            if (TerritoryOwnership.NeedsBuilderNearby(buildingId))
-                hallBuilder = TerritoryOwnership.NearestBuilder(
+            if (TerritoryOwnership.NeedsWorkerNearby(buildingId))
+                hallWorker = TerritoryOwnership.NearestWorker(
                     em, fac, SelectionSystem.CurrentSelection, pos.x, pos.z);
 
-            var r = CommandRouter.CheckPlaceBuilding(em, buildingId, ref placedPos, fac, hallBuilder);
+            var r = CommandRouter.CheckPlaceBuilding(em, buildingId, ref placedPos, fac, hallWorker);
             if (r != PlacementRefusal.None) return r;
 
             // The id goes in so the crust rule can make its one exception:
@@ -1146,29 +1179,8 @@ namespace TheWaningBorder.UI.Ingame
         /// </summary>
         private static bool MeetsPatchRequirement(EntityManager em, float3 pos, string buildingId)
         {
-            // A Sawyer may only be raised beside a FOREST, for the same reason
-            // the Mine is gated to a patch: without it the building is placeable
-            // anywhere and simply earns nothing, which reads as broken rather
-            // than as a rule. Forests are scene markers rather than entities
-            // (NatureRegionMarker), so this asks the registry, not a query.
-            if (buildingId == "Alanthor_Sawyer")
-            {
-                var forests = TheWaningBorder.World.MapMarkers.MapMarkerRegistry.NatureRegions;
-                for (int i = 0; i < forests.Count; i++)
-                {
-                    var f = forests[i];
-                    if (f == null ||
-                        f.Kind != TheWaningBorder.World.MapMarkers.NatureRegionMarker.NatureKind.Forest)
-                        continue;
-                    var fp = f.WorldPosition;
-                    float dx = fp.x - pos.x, dz = fp.z - pos.z;
-                    // Reach the forest EDGE, not its centre: a stand is a disc
-                    // of Radius metres and a yard sits against its treeline.
-                    float reach = f.Radius + SawyerForestReach;
-                    if (dx * dx + dz * dz <= reach * reach) return true;
-                }
-                return false;
-            }
+            // (The Sawyer and its forest rule are gone with the forest
+            // resource, 2026-10-01.)
 
             // The Mine's own patch check USED to live here, over an 18 m
             // radius that accepted an iron node OR a veilstone one. Both halves
@@ -1269,10 +1281,10 @@ namespace TheWaningBorder.UI.Ingame
         //           § Wall System (BFME2 hub-and-segment) and the static-ctor
         //           Debug.Assert guard in EntityExtractors.cs / EntityActionExtractor.
         /// <summary>
-        /// Place the FIRST wall hub. Standard builder-driven construction (5s).
+        /// Place the FIRST wall hub. Standard worker-driven construction (5s).
         /// No chaining — subsequent hubs use the per-hub Build Wall action
         /// (TriggerHubBuildWall / SpawnExtendedWallHub) which auto-connects
-        /// with a segment and self-builds in 30s without a builder.
+        /// with a segment and self-builds in 30s without a worker.
         /// </summary>
         private void SpawnFirstWallHub(float3 pos)
         {
@@ -1281,9 +1293,9 @@ namespace TheWaningBorder.UI.Ingame
 
             // The territorial rule applies to wall hubs too — a wall fortifies
             // ground you hold, it does not take new ground.
-            if (!MeetsTerritoryRequirement(fac, pos, "Alanthor_Wall"))
+            if (!MeetsTerritoryRequirement(fac, pos, WallHubId))
             {
-                PlayerNotificationSystem.NotifyError(TerritoryRefusal("Alanthor_Wall"));
+                PlayerNotificationSystem.NotifyError(TerritoryRefusal(WallHubId));
                 return;
             }
 
@@ -1293,7 +1305,7 @@ namespace TheWaningBorder.UI.Ingame
             // so in MP the wall existed on this machine alone AND its off-tick
             // NetworkId consumption shifted every later id assigned that tick.
             // docs/Multiplayer_Desync_Sweep_2026-08-16.md
-            if (!BuildCosts.TryGet("Alanthor_Wall", out var cost)) cost = default;
+            if (!BuildCosts.TryGet(WallHubId, out var cost)) cost = default;
             if (!FactionEconomy.CanAfford(_em, fac, cost))
             {
                 PlayerNotificationSystem.NotifyError(Loc.T("Not enough resources"));
@@ -1302,9 +1314,9 @@ namespace TheWaningBorder.UI.Ingame
 
             if (GameSettings.IsMultiplayer)
             {
-                CommandRouter.IssuePlaceWallHub(_em, pos, fac);
+                CommandRouter.IssuePlaceWallHub(_em, pos, fac, palisade: PlacingPalisade);
 
-                // Builders head for the position now; the hub entity is
+                // Workers head for the position now; the hub entity is
                 // created two ticks later, so Build rides Entity.Null and
                 // auto-finds the foundation on arrival — same pattern as
                 // ordinary MP placement above.
@@ -1314,27 +1326,27 @@ namespace TheWaningBorder.UI.Ingame
                     foreach (var b in sel)
                     {
                         if (!_em.Exists(b) || !_em.HasComponent<CanBuild>(b)) continue;
-                        CommandRouter.IssueBuild(_em, b, Entity.Null, "Alanthor_Wall", pos);
+                        CommandRouter.IssueBuild(_em, b, Entity.Null, WallHubId, pos);
                     }
                 }
                 return;
             }
 
-            Entity hub = CommandRouter.PlaceWallHubDirect(_em, pos, fac);
+            Entity hub = CommandRouter.PlaceWallHubDirect(_em, pos, fac, palisade: PlacingPalisade);
             if (hub == Entity.Null)
             {
                 PlayerNotificationSystem.NotifyError(Loc.T("Not enough resources"));
                 return;
             }
 
-            AssignBuildersToConstruction(hub, "Alanthor_Wall", pos);
+            AssignWorkersToConstruction(hub, WallHubId, pos);
         }
 
         /// <summary>
         /// Per-hub "Build Wall" placement: drop a new wall hub at <paramref name="pos"/>
         /// AND a connecting segment back to <see cref="_wallExtendSourceHub"/>.
         /// The new hub + every wall instance along the segment are tagged
-        /// <see cref="AutoConstructTag"/> and self-build in 30s — no builder
+        /// <see cref="AutoConstructTag"/> and self-build in 30s — no worker
         /// is dispatched. Pays the standard Alanthor_Wall cost once for the
         /// new hub; the segment + instances ride for free (matches the
         /// previous chain-mode behaviour where the segment was bundled with
@@ -1372,14 +1384,16 @@ namespace TheWaningBorder.UI.Ingame
             {
                 // Territorial rule — the NEW hub must sit in territory you
                 // hold, same as the first one.
-                if (!MeetsTerritoryRequirement(fac, pos, "Alanthor_Wall"))
+                if (!MeetsTerritoryRequirement(fac, pos, WallHubId))
                 {
-                    PlayerNotificationSystem.NotifyError(TerritoryRefusal("Alanthor_Wall"));
+                    PlayerNotificationSystem.NotifyError(TerritoryRefusal(WallHubId));
                     _wallExtendSourceHub = Entity.Null;
                     return;
                 }
 
-                if (!BuildCosts.TryGet("Alanthor_Wall", out var cost)) cost = default;
+                if (!BuildCosts.TryGet(WallHubId, out var cost)) cost = default;
+                var srcPos = _em.GetComponentData<Unity.Transforms.LocalTransform>(_wallExtendSourceHub).Position;
+                cost = cost + CommandRouter.WallRunCost(PlacingPalisade, math.distance(srcPos.xz, pos.xz));
                 if (!FactionEconomy.CanAfford(_em, fac, cost))
                 {
                     PlayerNotificationSystem.NotifyError(Loc.T("Not enough resources"));
@@ -1410,6 +1424,8 @@ namespace TheWaningBorder.UI.Ingame
                 var e = ents[i];
                 if (e == exclude) continue;
                 if (_em.GetComponentData<FactionTag>(e).Value != fac) continue;
+                // A palisade never snaps to a stone hub, nor the reverse.
+                if (_em.HasComponent<PalisadeTag>(e) != PlacingPalisade) continue;
                 var hpos = _em.GetComponentData<Unity.Transforms.LocalTransform>(e).Position;
                 float dx = pos.x - hpos.x, dz = pos.z - hpos.z;
                 float d = dx * dx + dz * dz;
@@ -1429,7 +1445,7 @@ namespace TheWaningBorder.UI.Ingame
         /// finished, not a gate or tower). Null when none.
         /// </summary>
         private Entity FindNearestCellForSnap(float3 pos, Faction fac)
-            => CommandRouter.FindWallCellNear(_em, pos, fac, CellSnapRadius);
+            => CommandRouter.FindWallCellNear(_em, pos, fac, CellSnapRadius, PlacingPalisade);
 
         /// <summary>
         /// Enter hub-anchored placement mode for the per-hub "Build Wall"
@@ -1441,7 +1457,7 @@ namespace TheWaningBorder.UI.Ingame
         public static void TriggerHubBuildWall(Entity sourceHub)
         {
             if (GameSettings.IsObserver) return;
-            var instance = FindFirstObjectByType<BuilderCommandPanel>();
+            var instance = FindFirstObjectByType<WorkerCommandPanel>();
             if (instance == null) return;
 
             // Order matters: StartPlacement() calls CancelPlacement(), which resets
@@ -1449,7 +1465,9 @@ namespace TheWaningBorder.UI.Ingame
             // survives — otherwise the click commit sees a null source and bails
             // ("Source hub no longer exists"), clearing the preview without building.
             instance._currentBuild = BuildType.WallExtend;
-            instance._currentBuildId = "Alanthor_Wall"; // per-hub Build Wall — same preview as a base hub
+            // Per-hub Build Wall extends the hub's OWN kind of wall.
+            var hubEm = EntityWorld.DefaultGameObjectInjectionWorld.EntityManager;
+            instance._currentBuildId = AlanthorWall.HubIdFor(AlanthorWall.IsPalisade(hubEm, sourceHub));
             instance.StartPlacement();
             instance._wallExtendSourceHub = sourceHub;
             SuppressClicksThisFrame = true;

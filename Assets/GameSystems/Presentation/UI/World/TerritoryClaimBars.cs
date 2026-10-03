@@ -19,10 +19,8 @@
 // player is part of are drawn, so it reveals nothing the fog hides.
 // Presentation only.
 //
-// The anchor is the territory's CENTRE — the centroid of its ground, sampled
-// once from RegionMap — not its Voronoi seed, which can sit near an edge.
-// A concave territory whose centroid falls outside it anchors on its own
-// sample nearest the centroid instead.
+// The anchor is the territory's CENTRE (TerritoryCentres — shared with the
+// IncomeOverlay), not its Voronoi seed, which can sit near an edge.
 
 using System.Collections.Generic;
 using TMPro;
@@ -42,10 +40,6 @@ namespace TheWaningBorder.UI.World
         private const float BarWidth = 340f;
         private const float BarHeight = 56f;
         private const float ReferenceHeight = 1080f;
-        /// <summary>Metres above the ground the bar floats.</summary>
-        private const float AnchorHeight = 6f;
-        /// <summary>Region sampling step for the centroids, metres.</summary>
-        private const float SampleStep = 4f;
         /// <summary>Under the floating health bars (50).</summary>
         private const int CanvasSortingOrder = 45;
 
@@ -77,7 +71,6 @@ namespace TheWaningBorder.UI.World
         private readonly Dictionary<int, Bar> _bars = new Dictionary<int, Bar>();
         private readonly List<Entry> _entries = new List<Entry>();
         private readonly HashSet<int> _live = new HashSet<int>();
-        private Vector3[] _centres;
         private Sprite _frame, _fill;
         private RectTransform _canvasRoot;
         private float _next;
@@ -184,8 +177,6 @@ namespace TheWaningBorder.UI.World
         {
             var cam = Camera.main;
             if (cam == null || _bars.Count == 0) return;
-            EnsureCentres();
-            if (_centres == null) return;
 
             float scale = Mathf.Max(0.5f, Screen.height / ReferenceHeight);
             foreach (var kv in _bars)
@@ -193,9 +184,9 @@ namespace TheWaningBorder.UI.World
                 var root = kv.Value.Root;
                 if (!root.gameObject.activeSelf) continue;
                 int t = kv.Key;
-                if (t < 0 || t >= _centres.Length) continue;
+                if (!TerritoryCentres.TryGet(t, out var centre)) continue;
 
-                Vector3 sp = cam.WorldToScreenPoint(_centres[t]);
+                Vector3 sp = cam.WorldToScreenPoint(centre);
                 bool visible = sp.z > 0f && sp.x > -BarWidth && sp.x < Screen.width + BarWidth
                                && sp.y > -BarHeight && sp.y < Screen.height + BarHeight;
                 var cg = root.GetComponent<CanvasGroup>();
@@ -203,54 +194,6 @@ namespace TheWaningBorder.UI.World
                 if (!visible) continue;
                 root.position = new Vector3(sp.x, sp.y, 0f);
                 root.localScale = Vector3.one * scale;
-            }
-        }
-
-        /// <summary>
-        /// Territory centres, once RegionMap is ready: the centroid of each
-        /// region's sampled ground, or — when a concave region's centroid
-        /// lies outside it — its own sample nearest that centroid.
-        /// </summary>
-        private void EnsureCentres()
-        {
-            if (_centres != null || !RegionMap.Ready) return;
-            int n = RegionMap.Count;
-            var sum = new Vector2[n];
-            var count = new int[n];
-
-            TerrainUtility.GetPlayableBounds(out var min, out var max);
-            for (float z = min.y + SampleStep * 0.5f; z < max.y; z += SampleStep)
-                for (float x = min.x + SampleStep * 0.5f; x < max.x; x += SampleStep)
-                {
-                    int r = RegionMap.RegionAt(x, z);
-                    if (r < 0 || r >= n) continue;
-                    sum[r] += new Vector2(x, z);
-                    count[r]++;
-                }
-
-            var best = new Vector2[n];
-            var bestD = new float[n];
-            var mean = new Vector2[n];
-            for (int r = 0; r < n; r++)
-            {
-                mean[r] = count[r] > 0 ? sum[r] / count[r] : RegionMap.SeedOf(r);
-                best[r] = mean[r];
-                bestD[r] = float.MaxValue;
-            }
-            for (float z = min.y + SampleStep * 0.5f; z < max.y; z += SampleStep)
-                for (float x = min.x + SampleStep * 0.5f; x < max.x; x += SampleStep)
-                {
-                    int r = RegionMap.RegionAt(x, z);
-                    if (r < 0 || r >= n) continue;
-                    float d = (new Vector2(x, z) - mean[r]).sqrMagnitude;
-                    if (d < bestD[r]) { bestD[r] = d; best[r] = new Vector2(x, z); }
-                }
-
-            _centres = new Vector3[n];
-            for (int r = 0; r < n; r++)
-            {
-                Vector2 c = RegionMap.RegionAt(mean[r].x, mean[r].y) == r ? mean[r] : best[r];
-                _centres[r] = new Vector3(c.x, TerrainUtility.GetHeight(c.x, c.y) + AnchorHeight, c.y);
             }
         }
 

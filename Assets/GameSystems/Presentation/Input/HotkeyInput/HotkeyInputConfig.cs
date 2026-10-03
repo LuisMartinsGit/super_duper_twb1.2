@@ -42,8 +42,8 @@ namespace TheWaningBorder.Input
         /// or attacking, short chase.</summary>
         public KeyCode defensiveStance;
 
-        /// <summary>Selects and centres on the next idle builder.</summary>
-        public KeyCode cycleIdleBuilders;
+        /// <summary>Selects and centres on the next idle worker.</summary>
+        public KeyCode cycleIdleWorkers;
 
         /// <summary>Toggles planning mode; pressed again it executes the plan.</summary>
         public KeyCode planningMode;

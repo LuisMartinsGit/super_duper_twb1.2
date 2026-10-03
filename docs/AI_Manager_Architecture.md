@@ -137,9 +137,9 @@ request bus, and the perception context (posture, threat, intel).
 - **EconomyManager** — owns: Gatherer's Hut pipeline, worker floor +
   growth targets, housing (pop headroom), GH research line
   (the Guild Surveys), expansion placement (covered-ground
-  rule), miner allocation (absorbs `AssignIdleMiners`), reclaim triggers
+  rule), worker allocation (absorbs `AssignIdleWorkers`), reclaim triggers
   for corrupted patches (it owns the patches). Fulfills: resource &
-  housing & builder requests.
+  housing & worker requests.
 - **AdvancementManager** — owns: choice building, age-up, non-GH
   research ladders, Temple/sect adoption, King's Court uniques,
   Crucible/Smelter veilsteel engine, building level-ups (with the
@@ -154,7 +154,7 @@ request bus, and the perception context (posture, threat, intel).
 
 ```
 struct AIRequest {
-  RequestKind Kind;      // Resources, Housing, Builder, Troops, Production
+  RequestKind Kind;      // Resources, Housing, Worker, Troops, Production
   Faction Owner; ManagerId From, To;
   int Amount; FixedString64 What;   // e.g. unit id, resource type
   byte Priority;         // Critical / High / Normal
@@ -170,8 +170,8 @@ struct AIRequest {
   wallet* — a Military "need housing" request costs the EconomyManager's
   budget: that is the negotiation.
 - Canonical flows: Military→Economy (resources, housing),
-  Advancement→Economy (resources), Economy→others (**builders**: a
-  requested builder is released from mining and tagged reserved — the
+  Advancement→Economy (resources), Economy→others (**workers**: a
+  requested worker is released from mining and tagged reserved — the
   workers-are-shared rule with explicit ownership transfer),
   Defender/Attacker→Military (troops), Defender↔Attacker (troop transfer).
 - **Anti-deadlock rules** (the lesson of this whole week): every request
@@ -218,7 +218,7 @@ this week.
   ticks the allocator but managers are empty shells: pure observation
   match to validate income tracking.
 - **M-B (EconomyManager)**: move TickEconomy contents (worker floor, hut
-  pipeline, GH research), AssignIdleMiners, EnsurePopulationHeadroom,
+  pipeline, GH research), AssignIdleWorkers, EnsurePopulationHeadroom,
   reclaim triggers. All spends gated by the Economy wallet. The
   `savingForGate` hack dies here (BudgetPolicy covers it).
 - **M-C (MilitaryManager + pool)**: move production-building growth,
@@ -230,7 +230,7 @@ this week.
 - **M-E (AdvancementManager)**: move age-up/choice/research/uniques/
   upgrade ladder + endgame-system building duties (AIAlanthorEndgame
   keeps culture-specific verbs/sects, requests buildings via the bus).
-- **M-F (request completeness + tuning)**: housing/builder/troop request
+- **M-F (request completeness + tuning)**: housing/worker/troop request
   flows exercised end-to-end; weight-table tuning from match logs.
 - Per-manager **build orders as data** (M-B onward): strategy files
   become three short lists (economy opener / military opener / tech

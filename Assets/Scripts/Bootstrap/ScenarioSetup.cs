@@ -365,7 +365,7 @@ namespace TheWaningBorder.Bootstrap
 
             // Worker-less construction: the auto-construct tag makes
             // BuildingConstructionSystem/AutoConstructionSystem advance the
-            // site at 1.0 progress/s with zero builders.
+            // site at 1.0 progress/s with zero workers.
             var uc = new UnderConstruction { Progress = 0f, Total = 10f };
             if (em.HasComponent<UnderConstruction>(hut)) em.SetComponentData(hut, uc);
             else em.AddComponentData(hut, uc);
@@ -603,7 +603,7 @@ namespace TheWaningBorder.Bootstrap
         /// <summary>
         /// Wall drawing test (docs/Design/Age_1_Alanthor.md § Drawing walls):
         /// Blue is an Alanthor Age 1 faction — a Hall stamped with the culture
-        /// so the builder palette offers the Wall Hub — with three Workers
+        /// so the worker palette offers the Wall Hub — with three Workers
         /// beside it on flat open ground. The bank is maxed by
         /// ScenarioCatalog.Prepare. Nothing else: the point is the tool.
         /// </summary>
@@ -1021,7 +1021,7 @@ namespace TheWaningBorder.Bootstrap
 
             // ── Age 0 section (X = -150): true Lv0 states ────────────────
             string[] age0 = { "Hall", "Hut", "GatherersHut", "Barracks",
-                              "ShrineOfRidan", "VaultOfAlmierra" };
+                              "TempleOfRidan", "VaultOfAlmierra" };
             for (int i = 0; i < age0.Length; i++)
                 PlaceShowcaseBuilding(em, age0[i], Faction.Blue,
                     new float3(-150f, 0f, TopZ - i * Row), level: 0);
@@ -1069,7 +1069,7 @@ namespace TheWaningBorder.Bootstrap
             {
                 (Faction.Red, -100f, new[] {
                     "Hall", "Hut", "GatherersHut", "Barracks",
-                    "KingsCourt", "Alanthor_Tower", "Alanthor_SiegeYard", "Alanthor_Smelter" }),
+                    "KingsCourt", "Alanthor_Tower", "Alanthor_SiegeYard" }),
                 (Faction.Green, -22f, new[] {
                     "Hall", "Hut", "GatherersHut", "Barracks",
                     "ThessarasBazaar", "Runai_Outpost", "Runai_TradeHub",
@@ -1174,7 +1174,7 @@ namespace TheWaningBorder.Bootstrap
             var buildings = new[]
             {
                 "Hall", "Barracks", "Alanthor_Tower",
-                "Alanthor_SiegeYard", "Alanthor_Smelter", "KingsCourt",
+                "Alanthor_SiegeYard", "KingsCourt",
             };
 
             const float ColSpacing = 16f;
@@ -1216,7 +1216,7 @@ namespace TheWaningBorder.Bootstrap
                 (Faction.Blue,   new[] { "Hall", "Hut", "GatherersHut", "Barracks" }),
                 (Faction.Green,  new[] { "Runai_Outpost", "Runai_TradeHub", "ThessarasBazaar", "Runai_Vault" }),
                 (Faction.Yellow, new[] { "Feraldis_HuntingLodge", "Feraldis_Longhouse", "Feraldis_Tower", "Feraldis_Foundry" }),
-                (Faction.Red,    new[] { "Alanthor_Tower", "Alanthor_SiegeYard", "Alanthor_Smelter", "KingsCourt" }),
+                (Faction.Red,    new[] { "Alanthor_Tower", "Alanthor_SiegeYard", "KingsCourt" }),
             };
 
             float startZ = -((rows.Length - 1) * 0.5f) * RowZSpacing;
@@ -1296,6 +1296,22 @@ namespace TheWaningBorder.Bootstrap
         /// no visual is ever spawned — the explosion VFX has an unobstructed
         /// stage. HP is 1 × 10⁹ so it can't die in any practical session.
         /// </summary>
+        /// <summary>
+        /// A target that is a real unit (a Swordsman) so hit effects have a
+        /// body to land on, but cannot die, cannot move and cannot fight back:
+        /// a billion HP, held in place, no damage. Not Invulnerable — that
+        /// skips the hit path, and the hit is the point.
+        /// </summary>
+        private static Entity CreateInvincibleUnitDummy(EntityManager em, float3 position, Faction faction)
+        {
+            var e = UnitFactory.Create(em, "Alanthor_Swordsman", position, faction);
+            if (e == Entity.Null) return CreateInvincibleDummy(em, position, faction);
+            em.SetComponentData(e, new Health { Value = 1_000_000_000, Max = 1_000_000_000 });
+            if (em.HasComponent<Damage>(e)) em.SetComponentData(e, new Damage { Value = 0 });
+            if (!em.HasComponent<HoldPositionTag>(e)) em.AddComponent<HoldPositionTag>(e);
+            return e;
+        }
+
         private static Entity CreateInvincibleDummy(EntityManager em, float3 position, Faction faction)
         {
             var entity = em.CreateEntity(
@@ -2072,18 +2088,22 @@ namespace TheWaningBorder.Bootstrap
             // which is what keeps the lanes from crossing; the camera has no
             // public zoom, so the layout is what has to give.
             const float LaneGap = 10f;
-            const float Shot = 13f;       // inside attack range (20)
+            const float Shot = 13f;       // the near row: inside attack range (20)
+            // Three rows per lane, at 1x / 2x / 3x the shot, so the trails are
+            // seen over a long flight too. The far rows' range is lifted to
+            // reach — this is a look-at-the-arrows bench, not a balance test.
+            float[] rowDistances = { Shot, Shot * 2f, Shot * 3f };
 
             var lanes = new (Faction Shooter, string Tech, string Title, string Detail, Color Tint)[]
             {
                 (Faction.Blue,   "StoneTippedArrows",
-                 "Stone-tipped", "faint grey", new Color(0.80f, 0.80f, 0.78f)),
+                 "Stone-tipped", "white trail, no hit", new Color(0.80f, 0.80f, 0.78f)),
                 (Faction.Red,    "IronTippedArrows",
-                 "Iron-tipped", "grey", new Color(0.86f, 0.88f, 0.92f)),
+                 "Iron-tipped", "blue trail, no hit", new Color(0.86f, 0.88f, 0.92f)),
                 (Faction.Green,  "VeilstoneTippedArrows",
-                 "Veilstone-tipped", "blue, emissive", new Color(0.45f, 0.72f, 1.00f)),
+                 "Veilstone-tipped", "dark-magic tip + hit", new Color(0.45f, 0.72f, 1.00f)),
                 (Faction.Yellow, "ShardTippedArrows",
-                 "Shard-tipped (Veilsteel)", "golden, emissive", new Color(1.00f, 0.85f, 0.40f)),
+                 "Shard-tipped (Veilsteel)", "electric tip + hit", new Color(1.00f, 0.85f, 0.40f)),
             };
 
             // Shooters together, dummies opposite. Alliances.AreHostile is the
@@ -2114,16 +2134,23 @@ namespace TheWaningBorder.Bootstrap
                 // identical, which is the bug this exists to make visible.
                 research?.CompleteResearch(lane.Shooter, lane.Tech);
 
-                float3 shooter = new float3(x, 0f, -Shot * 0.5f);
                 float3 target = new float3(x, 0f, Shot * 0.5f);
-                shooter.y = TerrainUtility.GetHeight(shooter.x, shooter.z);
                 target.y = TerrainUtility.GetHeight(target.x, target.z);
 
-                var dummy = CreateInvincibleDummy(em, target, DummyFaction);
-                var bow = UnitFactory.Create(em, "Alanthor_Longbowman", shooter, lane.Shooter);
+                // The target is a UNIT: hit effects play only on units, and
+                // need a body to land on (the old building-tagged dummy had
+                // neither, so no hit ever showed).
+                var dummy = CreateInvincibleUnitDummy(em, target, DummyFaction);
 
-                if (bow != Entity.Null)
+                float3 nearShooter = default;
+                for (int r = 0; r < rowDistances.Length; r++)
                 {
+                    float3 shooter = new float3(x, 0f, target.z - rowDistances[r]);
+                    shooter.y = TerrainUtility.GetHeight(shooter.x, shooter.z);
+                    if (r == 0) nearShooter = shooter;
+                    var bow = UnitFactory.Create(em, "Alanthor_Longbowman", shooter, lane.Shooter);
+                    if (bow == Entity.Null) continue;
+
                     // Plant it and hand it its target outright. Left to
                     // acquire on its own a Longbowman walks to its preferred
                     // range first, and four lanes drifting at slightly
@@ -2137,15 +2164,23 @@ namespace TheWaningBorder.Bootstrap
                         em.AddComponent<StationaryAutoFire>(bow);
                     if (em.HasComponent<Target>(bow))
                         em.SetComponentData(bow, new Target { Value = dummy });
+                    // Far rows: reach their own lane's target.
+                    if (em.HasComponent<ArcherState>(bow))
+                    {
+                        var a = em.GetComponentData<ArcherState>(bow);
+                        a.MaxRange = math.max(a.MaxRange, rowDistances[r] + 5f);
+                        em.SetComponentData(bow, a);
+                    }
                 }
 
                 labels.AddLane(
-                    new Vector3(x, shooter.y + 3.5f, shooter.z - 3f),
+                    new Vector3(x, nearShooter.y + 3.5f, nearShooter.z - 3f),
                     lane.Title, lane.Detail, lane.Tint);
             }
 
-            Debug.Log("[ArrowTrails] 4 lanes: Stone / Iron / Veilstone / Shard(Veilsteel). " +
-                      "An un-upgraded arrow leaves no trail — that is the baseline, not a bug.");
+            Debug.Log("[ArrowTrails] 4 lanes: Stone / Iron / Veilstone / Shard(Veilsteel), shooters at " +
+                      "1x / 2x / 3x the shot. Hits show on the Veilstone and Veilsteel lanes only — " +
+                      "Stone and Iron arrows have no hit effect by design.");
         }
 
         /// <summary>

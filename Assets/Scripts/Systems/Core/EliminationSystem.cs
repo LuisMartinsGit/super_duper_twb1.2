@@ -116,13 +116,13 @@ namespace TheWaningBorder.Systems.Core
                 if (!eliminated.Contains(f)) alive.Add(f);
             }
 
-            // ── Lifelines: Hall OR military building OR builder — the same
+            // ── Lifelines: Hall OR military building OR worker — the same
             // survival rule the Mono computed (2026-08-07 rewrite), read at
             // an identical tick on every peer now. ──
             const int MaxFactions = 9;
             var hasHall = new bool[MaxFactions];
             var hasMilitary = new bool[MaxFactions];
-            var hasBuilder = new bool[MaxFactions];
+            var hasWorker = new bool[MaxFactions];
 
             var bq = SystemAPI.QueryBuilder()
                 .WithAll<BuildingTag, FactionTag>().Build();
@@ -148,10 +148,10 @@ namespace TheWaningBorder.Systems.Core
                 for (int i = 0; i < ents.Length; i++)
                 {
                     int fi = (int)facs[i].Value;
-                    if (fi < 0 || fi >= MaxFactions || hasBuilder[fi]) continue;
+                    if (fi < 0 || fi >= MaxFactions || hasWorker[fi]) continue;
                     if (em.HasComponent<Health>(ents[i])
                         && em.GetComponentData<Health>(ents[i]).Value <= 0) continue;
-                    hasBuilder[fi] = true;
+                    hasWorker[fi] = true;
                 }
             }
 
@@ -160,7 +160,7 @@ namespace TheWaningBorder.Systems.Core
             foreach (var f in alive)
             {
                 int fi = (int)f;
-                bool canRebuild = hasHall[fi] || hasMilitary[fi] || hasBuilder[fi];
+                bool canRebuild = hasHall[fi] || hasMilitary[fi] || hasWorker[fi];
                 if (canRebuild) { _everSeenAlive.Add(f); continue; }
                 if (!_everSeenAlive.Contains(f)) continue;  // never spawned yet
                 newly.Add(f);
@@ -174,7 +174,7 @@ namespace TheWaningBorder.Systems.Core
                   .Add(new EliminatedFactionRecord { Value = f, AtSimSeconds = _matchSeconds });
                 SelfDestructFactionAssets(em, f);
                 TheWaningBorder.AI.AILogger.Log(f, "VICTORY",
-                    $"ELIMINATED at {_matchSeconds:0}s - no Hall, no military building, no builders.");
+                    $"ELIMINATED at {_matchSeconds:0}s - no Hall, no military building, no workers.");
             }
 
             // ── Decided when no hostile pair remains among the living. ──
@@ -235,7 +235,6 @@ namespace TheWaningBorder.Systems.Core
                 case "worker":
                 case "villager":
                 case "economy":
-                case "miner":
                 case "support":
                 case "scout":
                 case "caravan":

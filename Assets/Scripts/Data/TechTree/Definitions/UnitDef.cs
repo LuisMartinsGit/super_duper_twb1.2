@@ -61,8 +61,8 @@ namespace TheWaningBorder.Data
         public int minBuildingLevel;
 
         // ==================== Support Unit Fields ====================
-        public float buildSpeed;        // for builders
-        public float gatheringSpeed;    // for miners/gatherers
+        public float buildSpeed;        // for workers
+        public float gatheringSpeed;    // for workers/gatherers
         public float healsPerSecond;    // for healers
         public float healRange;         // reach of the heal (Litharch)
 
@@ -102,7 +102,7 @@ namespace TheWaningBorder.Data
                                 string.Equals(damageType, "ranged", StringComparison.OrdinalIgnoreCase);
         
         /// <summary>
-        /// Returns true if this is a support unit (builder, healer, etc).
+        /// Returns true if this is a support unit (worker, healer, etc).
         /// </summary>
         public bool IsSupport => string.Equals(unitClass, "support", StringComparison.OrdinalIgnoreCase) ||
                                  buildSpeed > 0 || gatheringSpeed > 0 || healsPerSecond > 0;

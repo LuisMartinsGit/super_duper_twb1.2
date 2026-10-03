@@ -16,7 +16,7 @@ namespace TheWaningBorder.Bootstrap
     /// <summary>
     /// Spawns outcropping-based veilstone patches at game start from scene markers.
     /// Each patch = a cluster of outcroppings with veilstone in them, mineable by
-    /// Miners via GatherCommand (VeilstoneMiningSystem handles the gathering
+    /// Workers via GatherCommand (VeilstoneMiningSystem handles the gathering
     /// loop). Independent of BorderNodeBootstrap (which spawns the border main
     /// nodes that grow Crystallings).
     /// </summary>

@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b3ecc1043fa62454ebb9521a55d0673d, type: 3}
   m_Name: VeilshiftWithdrawal
   m_EditorClassIdentifier: 
-  abilityName: "Veilshift Withdrawal"
+  abilityName: Veilshift Withdrawal
   activation: 0
   targeting: 0
   affects: 0

@@ -267,7 +267,7 @@ namespace TheWaningBorder.Economy
                 case SectConfig.Antiquity:   return new SectUnitLeverSpec { AppliesToClass = -1, DamageMultiplier = 1.04f };
                 case SectConfig.Renewal:     return new SectUnitLeverSpec { AppliesToClass = -1, HpMultiplier = 1.05f };
                 case SectConfig.Fortitude:   return new SectUnitLeverSpec { AppliesToClass = 0,  ArmorBonus = 3 };  // melee +armor
-                case SectConfig.Reclamation: return new SectUnitLeverSpec { AppliesToClass = 6,  ArmorBonus = 5 };  // miners +armor
+                case SectConfig.Reclamation: return new SectUnitLeverSpec { AppliesToClass = 6,  ArmorBonus = 5 };  // workers +armor
                 case SectConfig.Silence:     return new SectUnitLeverSpec { AppliesToClass = 1,  DamageMultiplier = 1.06f }; // ranged
                 case SectConfig.Justice:     return new SectUnitLeverSpec { AppliesToClass = -1, DamageMultiplier = 1.04f };
                 case SectConfig.Veneration:  return new SectUnitLeverSpec { AppliesToClass = 0,  DamageMultiplier = 1.05f };

@@ -50,7 +50,7 @@ namespace TheWaningBorder.UI.Ingame
 
         /// <summary>
         /// The authored frame vocabulary, so the CODE-BUILT panels (special
-        /// actions, spells, top choice bar, builder palette, pause, victory)
+        /// actions, spells, top choice bar, worker palette, pause, victory)
         /// wear the same Synty frames as the prefab panels instead of the old
         /// flat navy + gold strips. Filled from the same sprites the authored
         /// prefabs use: Frame_Box_Medium_05 (+ mask) for a panel, the roster's

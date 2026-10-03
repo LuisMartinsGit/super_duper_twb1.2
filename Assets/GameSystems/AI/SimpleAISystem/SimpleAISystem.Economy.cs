@@ -51,23 +51,20 @@ namespace TheWaningBorder.AI
         #endregion
 
         /// <summary>
-        /// Worker floor for this faction. Feraldis Workers cannot gather at
-        /// all — ore comes from Mines and supplies from raiding — so a full
-        /// economy crew is pure waste. It keeps a builder pair and turns the
-        /// rest of its population into soldiers.
+        /// THE WORKER RULE (2026-10-03, operator directive): three workers
+        /// for the home territory plus one for every territory conquered —
+        /// every culture, every age, every difficulty. Workers only build
+        /// (Regions.md §4), and each held territory is more to build on.
+        /// This is the ONE worker target: the worker floor, the goal list's
+        /// build crew and the maintenance loop's DesiredWorkers all read it,
+        /// so no path can hire past it. (It replaced economyWorkerFloor 6 +
+        /// one per territory, the Feraldis floor, the per-age difficulty
+        /// curve and an open-site-driven crew, which disagreed.)
         /// </summary>
         private static int WorkerFloorFor(EntityManager em, Faction faction)
-            => CultureConfig.GetCompletedCulture(em, faction) == Cultures.Feraldis
-                ? Cfg.feraldisWorkerFloor
-                // ONE EXTRA BUILDER PER CONTROLLED TERRITORY (2026-08-31
-                // directive). Workers only build now (Regions.md §4), and
-                // every territory is more construction to do — its Hall to
-                // repair, extractors on its nodes, huts on its supply sites.
-                // A flat floor meant a six-territory empire ran the same
-                // two-hands crew as a cornered rump and its ground sat
-                // unworked.
-                : Cfg.economyWorkerFloor
-                  + TheWaningBorder.World.Regions.TerritoryOwnership.CountOf(faction);
+            => Cfg.economyWorkerFloor
+               + Cfg.workersPerConqueredTerritory * math.max(0,
+                   TheWaningBorder.World.Regions.TerritoryOwnership.CountOf(faction) - 1);
 
 
 
@@ -88,7 +85,7 @@ namespace TheWaningBorder.AI
         ///
         /// ReplaceLostUnits already trains <c>LastMilitaryUnit</c> when the
         /// army falls short of <c>DesiredMilitary</c>, and "Worker" when
-        /// miners are short of <c>DesiredMiners</c>. We just bump those
+        /// workers are short of <c>DesiredWorkers</c>. We just bump those
         /// targets and steer <c>LastMilitaryUnit</c>.
         /// </summary>
         private void RunMaintenanceLoop(EntityManager em, Entity brainEntity, AIBrain brain,
@@ -116,10 +113,9 @@ namespace TheWaningBorder.AI
                 (int)math.round(personality.militaryFloor * PlanProfileOf(faction).ArmyScale));
             if (aiState.DesiredMilitary < floorWanted)
                 aiState.DesiredMilitary = floorWanted;
-            int workerTarget = math.max(personality.minerFloor,
-                aiState.AgeUpIssued != 0 ? personality.workerTargetAge1 : personality.workerTargetAge0);
-            if (aiState.DesiredMiners < workerTarget)
-                aiState.DesiredMiners = workerTarget;
+            // Workers follow THE WORKER RULE exactly (WorkerFloorFor) — set,
+            // not ratcheted, so conquest raises it and losing ground lowers it.
+            aiState.DesiredWorkers = WorkerFloorFor(em, faction);
 
             // PRODUCTION BUILDINGS (2026-08-04): grow toward the difficulty
             // target, alternating Barracks / Archery Range so the melee and
@@ -384,17 +380,19 @@ namespace TheWaningBorder.AI
         {
             "StoneTools",                        // Hall — gather speed (cheap opener)
             "IronSurveying1",                    // Gatherer's Hut — iron drip
+            "DeepShafts",                        // Mine — +50% iron from worked slots
             "VeilstoneSurvey1",                  // Gatherer's Hut — veilstone drip
             "ArmedScouts",                       // Hall — arms scouts (attack gate)
             "Conscription", "StoneWeapons",      // Barracks — train speed / T1
-            "Fletching", "StoneTippedArrows",    // Archery Range — range / T1
-            "IronTools", "MasonGuild",           // Hall — T2 eco + building HP
+            "Fletching", "StoneTippedArrows",    // Archery Range (Age 1) — range / T1
+            "IronTools", "MasonGuild",           // King's Court (Alanthor) — T2 eco + building HP
             "IronSurveying2",                    // Gatherer's Hut — iron drip II
+            "RichSeams",                         // Mine — +100% iron from worked slots
             "VeilstoneSurvey2",                  // Gatherer's Hut — veilstone drip II
             "VeilsteelSurvey",                   // Gatherer's Hut — veilsteel (maxed huts only)
             "IronSurveying3",                    // Gatherer's Hut — iron drip III
-            "ScoutingCelestarii",                // Hall — scout tech
-            "VeilstoneTools",                    // Hall — T3 eco
+            "ScoutingCelestarii",                // King's Court (Alanthor) — scout tech
+            "VeilstoneTools",                    // King's Court (Alanthor) — T3 eco
         };
 
         /// <summary>
@@ -410,16 +408,18 @@ namespace TheWaningBorder.AI
             "StoneTools",                        // Hall — gather speed (cheap opener)
             "Raiding1",                          // Raider Camp — bigger take
             "IronPlunder",                       // Raider Camp — steal iron too
+            "DeepShafts",                        // Mine — +50% iron from worked slots
             "ArmedScouts",                       // Hall — arms scouts (attack gate)
             "Conscription", "StoneWeapons",      // Barracks — train speed / T1
             "Fletching", "StoneTippedArrows",    // Thrower Camp — range / T1
-            "IronTools",                         // Hall — T2 eco
             "Raiding2",                          // Raider Camp — bigger take II
+            "RichSeams",                         // Mine — +100% iron from worked slots
             "VeilstonePlunder",                  // Raider Camp — steal veilstone
             "Raiding3",                          // Raider Camp — bigger take III
             "VeilsteelPlunder",                  // Raider Camp — steal veilsteel
-            "ScoutingCelestarii",                // Hall — scout tech
-            "VeilstoneTools",                    // Hall — T3 eco
+            // No King's Court techs (IronTools, ScoutingCelestarii,
+            // VeilstoneTools): the King's Court is Alanthor-only, so a Feraldis
+            // faction can never research them (audit 2026-10-03).
         };
 
         /// <summary>Ladder for this faction's culture (see above).</summary>
@@ -432,27 +432,6 @@ namespace TheWaningBorder.AI
             ref SimpleAIState aiState, AISettingsSO.PersonalityBlock personality,
             AIDifficultyProfile profile, float now)
         {
-            // (1) Worker floor (EconomyExpansion wallet).
-            //
-            // The LAST unheld drain (2026-08-18). Income was never the
-            // problem: Expert earns ~14.5 supplies/SECOND and still sat at
-            // 20-76 banked for five straight minutes, because it converts
-            // every supply into workers on arrival (its floor is 20). With
-            // hut founding paused and army growth + the research sweep
-            // already held, worker hiring was the one thing left spending the
-            // age-up out from under itself. It pauses while the pivotal
-            // reserve is armed — a 60-90 s window that AIPivotalReserve
-            // releases by itself (MaxHoldSeconds), so this can never deadlock
-            // the economy, and a BOOTSTRAP MINIMUM is always hired regardless
-            // so a young faction still gets its first workers.
-            const int WorkerSaveFloor = 6;
-            int alive = CountAliveMiners(em, faction);
-            int queued = CountQueuedByPredicate(em, faction, isMiner: true);
-            bool workerHold = AIPivotalReserve.ShouldHold(em, faction)
-                           && alive + queued >= WorkerSaveFloor;
-            if (!workerHold && alive + queued < WorkerFloorFor(em, faction))
-                TryTrainUnitBudgeted(em, faction, "Worker", AIBudgetCategory.EconomyExpansion);
-
             // (2) Hut pipeline — one in flight at all times. The first few
             // huts are unconditional bootstrap; past that the ECONOMY WALLET
             // is the constraint (replaces the flat supplies reserve AND the
@@ -510,6 +489,9 @@ namespace TheWaningBorder.AI
                 // spending on its own: huts are bought from the surplus ABOVE
                 // the floor, so the economy keeps growing while the age-up
                 // money is untouchable.
+                // The opening huts: the bootstrap count, never past the cap.
+                int openingHuts = math.min(Cfg.hutPipelineFreeCount, hutCap);
+
                 if (ghTotal >= hutCap) { /* at the difficulty's target */ }
                 // THE HALL OUTRANKS THE NEXT HUT (2026-08-31, equal-win-rate
                 // directive). The pipeline is exempt from the pivotal hold by
@@ -525,17 +507,75 @@ namespace TheWaningBorder.AI
                          && AIPivotalReserve.Has(faction,
                              TheWaningBorder.AI.SimpleAISystem.ClaimReserveKey))
                 { /* saving for a Hall — the claim comes first */ }
+                // THE OPENING IS HUTS (2026-10-03, operator: "in the
+                // beginning of the match, AI should prioritize the gatherer's
+                // huts. it starves for supplies all game long"). The
+                // bootstrap huts are bought straight from the bank, as many
+                // as it covers in one think — the starting 400 supplies are
+                // three huts, not three sites queued one at a time behind a
+                // research tech, a Mine and the army floor.
+                else if (ghTotal < openingHuts)
+                {
+                    int want = openingHuts - ghTotal;
+                    for (int i = 0; i < want && TryBuildBuilding(em, faction, "GatherersHut"); i++)
+                        started = true;
+                }
                 else if (CountFactionBuildingsUnderConstruction<GathererHutTag>(em, faction) == 0)
                 {
-                    started = ghTotal < Cfg.hutPipelineFreeCount
-                        ? TryBuildBuilding(em, faction, "GatherersHut")
-                        : TryBuildBuildingBudgeted(em, faction, "GatherersHut",
-                            AIBudgetCategory.EconomyExpansion);
+                    started = TryBuildBuildingBudgeted(em, faction, "GatherersHut",
+                        AIBudgetCategory.EconomyExpansion);
                 }
                 if (started)
                     AILogger.Log(faction, "ECONOMY",
                         $"GatherersHut started (total {CountFactionBuildings<GathererHutTag>(em, faction)}, " +
                         $"inflight {CountFactionBuildingsUnderConstruction<GathererHutTag>(em, faction)})");
+
+                // …AND THE BANK WAITS FOR THEM. Until the bootstrap huts are
+                // placed, a savings reserve for the next one holds every
+                // discretionary spender (research, army growth, ore
+                // extractors, non-essential buildings), so the supplies trickle
+                // in toward a hut instead of being spent the moment they land.
+                // Not strict: the hold breathes on AIPivotalReserve's duty
+                // cycle, so a faction that cannot reach a node never freezes.
+                // Released the moment there is no free supply node to build on,
+                // and Age 0 only — it is the opening, not a standing rule.
+                //
+                // The reserve is EVERY missing opening hut, not the next one
+                // (batch 2026-10-03): a one-hut reserve is 120 against a
+                // 400-supply start, so the hold never engaged and a house and
+                // StoneTools went first. And it is armed for the first
+                // openingHutGraceSeconds even before a node is visible — the
+                // home nodes are under fog for the first think, which is
+                // exactly when the starting bank used to go.
+                int missingHuts = openingHuts - CountFactionBuildings<GathererHutTag>(em, faction);
+                if (missingHuts > 0
+                    && FactionEra(em, faction) < 2
+                    && (now < Cfg.openingHutGraceSeconds || HasFreeHutSite(em, faction))
+                    && TechCatalog.TryGetBuilding("GatherersHut", out var hutDef) && hutDef != null)
+                {
+                    var c = AICommon.ToCost(hutDef.cost);
+                    AIPivotalReserve.Set(faction, HutBootstrapReserveKey, new Cost
+                    {
+                        Supplies = c.Supplies * missingHuts,
+                        Iron = c.Iron * missingHuts,
+                        Veilstone = c.Veilstone * missingHuts,
+                        Veilsteel = c.Veilsteel * missingHuts,
+                    });
+                }
+                else
+                    AIPivotalReserve.Clear(faction, HutBootstrapReserveKey);
+            }
+
+            // (1) Worker floor — THE WORKER RULE (WorkerFloorFor): hire up
+            // to it, never past it. Runs after the hut pipeline so the
+            // opening huts are bought first. No savings hold applies: the
+            // target is three workers plus one per conquered territory, a
+            // build crew, not a spending sink.
+            {
+                int alive = CountAliveWorkers(em, faction);
+                int queued = CountQueuedByPredicate(em, faction, isWorker: true);
+                if (alive + queued < WorkerFloorFor(em, faction))
+                    TryTrainUnitBudgeted(em, faction, "Worker", AIBudgetCategory.EconomyExpansion);
             }
 
             // (3) MILITARY INFRASTRUCTURE + FLOOR (Military wallet).
@@ -575,6 +615,12 @@ namespace TheWaningBorder.AI
                 if (research != null && research.HasResearched(faction, techId))
                     continue;
                 if (IsResearchInFlight(em, faction, techId))
+                    continue;
+                // The Survey line is the Alanthor Guild's, post-culture only
+                // (Age_0.md: in Age 0 the hut hosts no research). The tech data
+                // carries no culture gate, so the AI keeps to the design here.
+                if (techId.Contains("Survey")
+                    && CultureConfig.GetCompletedCulture(em, faction) != Cultures.Alanthor)
                     continue;
                 // Hut/camp resource techs are economy spends; the rest advance.
                 var cat = techId.Contains("Survey")

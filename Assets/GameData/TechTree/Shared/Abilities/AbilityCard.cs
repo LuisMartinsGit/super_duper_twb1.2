@@ -134,6 +134,16 @@ namespace TheWaningBorder.Abilities
         /// </summary>
         public int UnlocksAtLevel = 1;
 
+        /// <summary>
+        /// The effect played when this ability lands (AbilityDefSO.vfxPrefab,
+        /// the <c>&lt;Name&gt;_Effect</c> prefab in the ability's own folder).
+        /// Presentation only — AbilityVfxPlayer spawns it on the affected
+        /// entity for the ability's duration, or once for an instant one, and
+        /// keeps it on the caster for a passive aura. Null on the code-seed
+        /// fallback cards.
+        /// </summary>
+        public UnityEngine.GameObject Vfx;
+
         public bool IsPassive => Activation == AbilityActivation.Passive;
         public bool IsPermanent => Duration < 0f;
 

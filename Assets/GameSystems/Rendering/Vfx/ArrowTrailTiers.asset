@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b34abadf4d1581148b484c8230745d1f, type: 3}
+  m_Name: ArrowTrailTiers
+  m_EditorClassIdentifier: 
+  stoneTrailWidth: 2
+  ironTrailWidth: 2
+  veilstone:
+    tipPrefab: {fileID: 3995925170779068658, guid: f192611e5b4f12241be0d2a2d288cd93, type: 3}
+    tipScale: 0.25794187
+    hitScale: 0.4770622
+    tipYaw: -90
+  veilsteel:
+    tipPrefab: {fileID: 7653787099927154482, guid: d8c720bf795e1fb468c5e33a68270bc6, type: 3}
+    tipScale: 0.5906575
+    hitScale: 0.9086436
+    tipYaw: 0

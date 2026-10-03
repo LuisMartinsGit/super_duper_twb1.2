@@ -392,7 +392,7 @@ sim is deterministic: the command log *is* the replay.
    waypoints now route through `CommandRouter` with command types 30-35.
    **Still open:** vault deposit/withdraw, bazaar pack/unpack, and wall
    hub/segment placement — the first two are economy-local, the third needs
-   `BuilderCommandPanel`'s hub spawn split into validate/apply first.
+   `WorkerCommandPanel`'s hub spawn split into validate/apply first.
 10. **DONE — runtime-terrain maps are refused for multiplayer.** All three
     shipping maps bake their `TerrainData`, so this is a guard rather than a
     filter today.

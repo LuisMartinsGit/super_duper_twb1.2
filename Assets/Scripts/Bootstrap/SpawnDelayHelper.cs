@@ -110,6 +110,28 @@ namespace TheWaningBorder.Bootstrap
             yield return null;
             ComputePlayerReachability();
 
+            // TERRITORY TYPES DECIDE THE NODES (docs/Design/Territory_Claims.md
+            // §9, 2026-10-01): every territory is Start / Normal / Normal+iron /
+            // Normal+veilstone / Empty / Veilstone rich / Iron rich / Sanctum,
+            // and its nodes are generated from that — the scene's node markers
+            // are ignored. A map with no territories keeps the marker path.
+            bool typedTerritories = TheWaningBorder.World.Regions.RegionMap.Ready
+                                    && TheWaningBorder.World.Regions.RegionMap.Count > 0;
+            if (typedTerritories)
+            {
+                LoadingScreen.SetStatus("Laying out territory resources…");
+                LoadingScreen.SetProgress(0.78f);
+                yield return null;
+                var tw = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+                var starts = StartPositions();
+                TheWaningBorder.World.Regions.TerritoryResources.Resolve(
+                    starts, (uint)(GameSettings.SpawnSeed ^ 0x7E4417u));
+                if (tw != null && tw.IsCreated)
+                    TheWaningBorder.World.Regions.TerritoryResources.Spawn(tw.EntityManager, starts,
+                        (uint)(GameSettings.SpawnSeed ^ 0x40DE5u));
+            }
+            else
+            {
             LoadingScreen.SetStatus("Placing iron deposits…");
             LoadingScreen.SetProgress(0.78f);
             yield return null;
@@ -119,7 +141,11 @@ namespace TheWaningBorder.Bootstrap
             LoadingScreen.SetProgress(0.82f);
             yield return null;
             VeilstoneOutcroppingBootstrap.SpawnVeilstoneOutcroppings();
-            VeilsteelDepositBootstrap.SpawnVeilsteelDeposits();
+            // NO VEILSTEEL DEPOSITS (docs/Design/Veilstone_Economy.md,
+            // 2026-10-01): veilsteel is made — at an Alanthor Trading Outpost,
+            // a Runai Sanctuary — never mined. Authored VeilsteelDepositMarkers
+            // still in five map scenes are inert; strip them on the next
+            // re-bake.
 
             // Veilstone coverage (Regions.md §3, 2026-08-31): every starter
             // territory carries veilstone, and half of ALL territories do —
@@ -139,6 +165,7 @@ namespace TheWaningBorder.Bootstrap
             // needs the partition (built above) rather than the marker list
             // alone. docs/Design/Regions.md §4.
             SupplyNodeBootstrap.SpawnSupplyNodes();
+            }
 
             if (GameSettings.BorderEnabled)
             {
@@ -201,12 +228,32 @@ namespace TheWaningBorder.Bootstrap
                 starts.Add(new Unity.Mathematics.float3(p.x, p.y, p.z));
             }
 
+            // VEILSTONE-RICH TERRITORIES START CURSED (Territory_Claims.md §9):
+            // the curse rises on every outcrop there. Only a map with none
+            // falls back to the fair random draw.
+            if (TheWaningBorder.Systems.Border.CurseNodeSeeding.CurseVeilstoneRich(world.EntityManager) > 0)
+                return;
+
             var settings = TheWaningBorder.Data.Border.BorderSettings.Get();
             int count = settings != null && settings.initialNodes > 0
                 ? settings.initialNodes
                 : Mathf.Max(1, starts.Count);
             TheWaningBorder.Systems.Border.CurseNodeSeeding.SeedInitialNodes(
                 world.EntityManager, starts, count, (uint)(GameSettings.SpawnSeed ^ 0x5EEDC0DE));
+        }
+
+        /// <summary>The players' start positions, sorted by faction.</summary>
+        private static System.Collections.Generic.List<Unity.Mathematics.float3> StartPositions()
+        {
+            var starts = new System.Collections.Generic.List<Unity.Mathematics.float3>();
+            var factions = new System.Collections.Generic.List<Faction>(PlayerSpawnSystem.SpawnPositions.Keys);
+            factions.Sort();
+            foreach (var f in factions)
+            {
+                var p = PlayerSpawnSystem.SpawnPositions[f];
+                starts.Add(new Unity.Mathematics.float3(p.x, p.y, p.z));
+            }
+            return starts;
         }
 
         private static void ComputePlayerReachability()

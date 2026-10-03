@@ -30,10 +30,10 @@
 // must pass the router's CheckPlaceBuilding in the same order: the territory
 // gate WITH the adjacency rule (TerritoryOwnership.TerritoryRefusal — cheap,
 // static arrays, so read live rather than copied here), one Hall per
-// territory (HallCapReached below, one Hall scan per tick), then the builder
-// rule. The builder rule is not a property of the SITE — it is satisfied by
+// territory (HallCapReached below, one Hall scan per tick), then the worker
+// rule. The worker rule is not a property of the SITE — it is satisfied by
 // walking a worker there — so it is the caller's job (SimpleAISystem's
-// EnsureClaimBuilderOnSite), not this snapshot's.
+// EnsureClaimWorkerOnSite), not this snapshot's.
 //
 // Host-side decision helper: it reads replicated state only, and nothing it
 // returns is ever written into the simulation except through CommandRouter.
@@ -373,6 +373,9 @@ namespace TheWaningBorder.Core.Commands.Types
             if (!BuildCommandHelper.InsideMapBounds(mn, mx)) return false;
 
             if (OverlapsAabb(mn, mx, ignoreWalls: false)) return false;
+            // Walls at their real, rotated footprint — the live validator's
+            // stage 1a (BuildCommandHelper.OverlapsWall).
+            if (BuildCommandHelper.OverlapsWall(mn, mx)) return false;
 
             var ownNode = buildingId != null ? TerritoryOwnership.RequiredNodeFor(buildingId) : null;
 

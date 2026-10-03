@@ -11,7 +11,7 @@ using TheWaningBorder.World.Terrain;
 namespace TheWaningBorder.Core.Commands.Types
 {
     /// <summary>
-    /// ECS Component representing a build command for a builder unit.
+    /// ECS Component representing a build command for a worker unit.
     /// When attached to an entity, construction systems will process it.
     /// </summary>
     public struct BuildCommand : IComponentData
@@ -62,21 +62,21 @@ namespace TheWaningBorder.Core.Commands.Types
         #endregion
 
         /// <summary>
-        /// Execute a build command on a builder unit.
+        /// Execute a build command on a worker unit.
         /// Clears conflicting commands and sets up construction state.
         /// </summary>
-        public static void Execute(EntityManager em, Entity builder, Entity targetBuilding,
+        public static void Execute(EntityManager em, Entity worker, Entity targetBuilding,
             string buildingId, float3 position)
         {
-            if (!em.Exists(builder)) return;
+            if (!em.Exists(worker)) return;
 
-            // Verify builder can build
-            if (!em.HasComponent<CanBuild>(builder)) return;
+            // Verify worker can build
+            if (!em.HasComponent<CanBuild>(worker)) return;
 
-            // A BUSY builder gets the new site QUEUED, not substituted.
+            // A BUSY worker gets the new site QUEUED, not substituted.
             //
             // BuildCommand and BuildOrder are single components, so this method
-            // used to overwrite whatever the builder was already doing. Placing
+            // used to overwrite whatever the worker was already doing. Placing
             // several buildings in a row therefore kept only the LAST one and
             // silently dropped the rest — resources spent, foundations never
             // touched. It only looked intermittent because the LOS auto-chain
@@ -84,14 +84,14 @@ namespace TheWaningBorder.Core.Commands.Types
             // were lost.
             //
             // Queuing (rather than replacing) is right for this game because
-            // placement is not "order this builder somewhere" — the player
-            // places a BUILDING and the system picks a builder. Cancelling the
-            // builder's current job was never the intent of that click.
-            if (IsBusy(em, builder))
+            // placement is not "order this worker somewhere" — the player
+            // places a BUILDING and the system picks a worker. Cancelling the
+            // worker's current job was never the intent of that click.
+            if (IsBusy(em, worker))
             {
-                var queue = em.HasBuffer<QueuedBuildSite>(builder)
-                    ? em.GetBuffer<QueuedBuildSite>(builder)
-                    : em.AddBuffer<QueuedBuildSite>(builder);
+                var queue = em.HasBuffer<QueuedBuildSite>(worker)
+                    ? em.GetBuffer<QueuedBuildSite>(worker)
+                    : em.AddBuffer<QueuedBuildSite>(worker);
 
                 queue.Add(new QueuedBuildSite
                 {
@@ -103,36 +103,36 @@ namespace TheWaningBorder.Core.Commands.Types
             }
 
             // Clear conflicting commands
-            CommandHelper.ClearAllCommands(em, builder);
+            CommandHelper.ClearAllCommands(em, worker);
 
             // A drafted mining worker must LEAVE the mining state machine —
-            // ClearAllCommands strips the GatherCommand but MinerState.State
+            // ClearAllCommands strips the GatherCommand but WorkerState.State
             // kept running, so MiningSystem steered the worker toward its
             // deposit every tick while the construction mover steered it
             // toward the site (workers visibly walking away from their own
             // destination line).
-            if (em.HasComponent<MinerState>(builder))
+            if (em.HasComponent<WorkerState>(worker))
             {
-                var ms = em.GetComponentData<MinerState>(builder);
-                if (ms.State != MinerWorkState.Idle)
+                var ms = em.GetComponentData<WorkerState>(worker);
+                if (ms.State != WorkerActivity.Idle)
                 {
-                    ms.State = MinerWorkState.Idle;
+                    ms.State = WorkerActivity.Idle;
                     ms.AssignedDeposit = Entity.Null;
-                    em.SetComponentData(builder, ms);
+                    em.SetComponentData(worker, ms);
                 }
             }
 
             // Set up build command
-            SetupBuild(em, builder, targetBuilding, buildingId, position);
+            SetupBuild(em, worker, targetBuilding, buildingId, position);
         }
 
         /// <summary>
         /// Check if a build command can be executed
         /// </summary>
-        public static bool CanExecute(EntityManager em, Entity builder, string buildingId)
+        public static bool CanExecute(EntityManager em, Entity worker, string buildingId)
         {
-            if (!em.Exists(builder)) return false;
-            if (!em.HasComponent<CanBuild>(builder)) return false;
+            if (!em.Exists(worker)) return false;
+            if (!em.HasComponent<CanBuild>(worker)) return false;
             if (string.IsNullOrEmpty(buildingId)) return false;
 
             // Could add resource checking here
@@ -192,8 +192,20 @@ namespace TheWaningBorder.Core.Commands.Types
                     newMin.y < otherMax.y && newMax.y > otherMin.y)
                     return true;
             }
-            return false;
+            return OverlapsWall(newMin, newMax);
         }
+
+        /// <summary>
+        /// True when the footprint covers a WALL cell. A wall piece's own box
+        /// cannot answer this: it is axis-aligned and the wall is not, so a
+        /// diagonal or curved wall left staircase notches that building
+        /// corners slotted into. The nav grid holds every wall piece stamped
+        /// to its own heading — the stair-stepped cells it really crosses —
+        /// so that is what a building is tested against
+        /// (docs/Design/Build_Grid.md § Walls on the grid).
+        /// </summary>
+        public static bool OverlapsWall(float2 min, float2 max)
+            => TheWaningBorder.Systems.Navigation.NavGridQuery.AnyWallCellIn(min, max);
 
         /// <summary>
         /// Placement test, with the building id so the crust rule can make its
@@ -248,6 +260,9 @@ namespace TheWaningBorder.Core.Commands.Types
                     newMin.y < otherMax.y && newMax.y > otherMin.y)
                     return TheWaningBorder.World.Regions.PlacementRefusal.Overlap;
             }
+            // 1a. Walls, at their real (rotated) footprint.
+            if (OverlapsWall(newMin, newMax))
+                return TheWaningBorder.World.Regions.PlacementRefusal.Overlap;
 
             // AN EXTRACTOR STANDS ON ITS NODE (docs/Design/Regions.md §4) —
             // and the iron / veilstone / veilsteel nodes are ObstacleTag
@@ -456,23 +471,23 @@ namespace TheWaningBorder.Core.Commands.Types
         // collision is footprint-based (BuildingSizeConfig), not circle-radius.
 
         /// <summary>
-        /// True while the builder is already walking to a site (BuildCommand)
+        /// True while the worker is already walking to a site (BuildCommand)
         /// or actively constructing one (BuildOrder).
         /// </summary>
-        private static bool IsBusy(EntityManager em, Entity builder)
-            => em.HasComponent<BuildCommand>(builder)
-            || em.HasComponent<BuildOrder>(builder);
+        private static bool IsBusy(EntityManager em, Entity worker)
+            => em.HasComponent<BuildCommand>(worker)
+            || em.HasComponent<BuildOrder>(worker);
 
         /// <summary>
         /// Start the next queued site, if any. Returns true when one was
-        /// issued. Called when a builder finishes or loses its current job so
+        /// issued. Called when a worker finishes or loses its current job so
         /// the queued plan continues on its own.
         /// </summary>
-        public static bool TryStartNextQueued(EntityManager em, Entity builder)
+        public static bool TryStartNextQueued(EntityManager em, Entity worker)
         {
-            if (!em.Exists(builder) || !em.HasBuffer<QueuedBuildSite>(builder)) return false;
+            if (!em.Exists(worker) || !em.HasBuffer<QueuedBuildSite>(worker)) return false;
 
-            var queue = em.GetBuffer<QueuedBuildSite>(builder);
+            var queue = em.GetBuffer<QueuedBuildSite>(worker);
             while (queue.Length > 0)
             {
                 var next = queue[0];
@@ -483,14 +498,14 @@ namespace TheWaningBorder.Core.Commands.Types
                 if (next.TargetBuilding != Entity.Null && !em.Exists(next.TargetBuilding))
                     continue;
 
-                SetupBuild(em, builder, next.TargetBuilding,
+                SetupBuild(em, worker, next.TargetBuilding,
                            next.BuildingId.ToString(), next.Position);
                 return true;
             }
             return false;
         }
 
-        private static void SetupBuild(EntityManager em, Entity builder, Entity targetBuilding,
+        private static void SetupBuild(EntityManager em, Entity worker, Entity targetBuilding,
             string buildingId, float3 position)
         {
             var cmd = new BuildCommand
@@ -500,15 +515,15 @@ namespace TheWaningBorder.Core.Commands.Types
                 TargetBuilding = targetBuilding
             };
 
-            if (!em.HasComponent<BuildCommand>(builder))
-                em.AddComponentData(builder, cmd);
+            if (!em.HasComponent<BuildCommand>(worker))
+                em.AddComponentData(worker, cmd);
                 else
-                    em.SetComponentData(builder, cmd);
+                    em.SetComponentData(worker, cmd);
 
             // Set destination to build position
-            if (em.HasComponent<DesiredDestination>(builder))
+            if (em.HasComponent<DesiredDestination>(worker))
             {
-                em.SetComponentData(builder, new DesiredDestination
+                em.SetComponentData(worker, new DesiredDestination
                 {
                     Position = position,
                     Has = 1
@@ -516,7 +531,7 @@ namespace TheWaningBorder.Core.Commands.Types
             }
             else
             {
-                em.AddComponentData(builder, new DesiredDestination
+                em.AddComponentData(worker, new DesiredDestination
                 {
                     Position = position,
                     Has = 1

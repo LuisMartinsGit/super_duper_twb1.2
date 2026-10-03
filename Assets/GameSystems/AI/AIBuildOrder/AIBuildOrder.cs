@@ -11,7 +11,7 @@ namespace TheWaningBorder.AI
         BuildBuilding,     // place a building near the Hall (uses idle Worker)
         Research,          // queue a tech at the Barracks (or Hall, etc.)
         AgeUp,             // trigger AgeUp on the Hall (60 s wait)
-        SetVeilstoneTarget,  // set the AI's target veilstone-miner count (IntArg)
+        SetVeilstoneTarget,  // set the AI's target veilstone-worker count (IntArg)
         LaunchAttack,      // send all idle military to attack closest enemy (IntArg = min units)
     }
 
@@ -52,12 +52,12 @@ namespace TheWaningBorder.AI
             new() { Kind = BuildStepKind.AgeUp, Id = string.Empty, Optional = false };
 
         /// <summary>
-        /// Set the FLOOR for veilstone-miner allocation. The AI normally splits
-        /// idle miners 50/50 between iron and veilstone whenever outcroppings are
+        /// Set the FLOOR for veilstone-worker allocation. The AI normally splits
+        /// idle workers 50/50 between iron and veilstone whenever outcroppings are
         /// reachable; this step lets a strategy push the floor higher (e.g.
-        /// TechBoom asking for 2 veilstone miners with only 4 total miners,
+        /// TechBoom asking for 2 veilstone workers with only 4 total workers,
         /// front-loading veilstone income). The effective target each tick is
-        /// max(this floor, totalMiners / 2). Capped at 16.
+        /// max(this floor, totalWorkers / 2). Capped at 16.
         /// </summary>
         public static BuildOrderStep SetVeilstoneTarget(int count) =>
             new() { Kind = BuildStepKind.SetVeilstoneTarget, Id = string.Empty, IntArg = count };
@@ -65,7 +65,7 @@ namespace TheWaningBorder.AI
         /// <summary>
         /// Send every idle military unit (Melee/Ranged/Siege/Magic, plus
         /// battalion leaders) to attack-move toward the closest enemy economy
-        /// target. Priority: enemy Miners â†’ GathererHuts â†’ Halls.
+        /// target. Priority: enemy Workers â†’ GathererHuts â†’ Halls.
         ///
         /// Blocks the build order until at least <paramref name="minUnits"/>
         /// idle military are available â€” so a "wait for the army to assemble,
@@ -86,7 +86,7 @@ namespace TheWaningBorder.AI
         // 1. ECONOMY BOOM â€” fastest age-up via heavy economy infrastructure
         //    3Mn â†’ 4 GHut â†’ 3Mn â†’ Vault â†’ AgeUp (4 Mn during 60s wait)
         //    Choice: Vault. Culture: Runai or Alanthor.
-        //    Veilstone: ramps to 2 once 6 miners exist (heavy iron focus for the
+        //    Veilstone: ramps to 2 once 6 workers exist (heavy iron focus for the
         //    Vault + age-up cost; veilstone needed only for age-up).
         // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         public static readonly BuildOrderStep[] EcoBoom =
@@ -102,7 +102,7 @@ namespace TheWaningBorder.AI
             BuildOrderStep.Train(UnitRole.Worker),
             BuildOrderStep.Train(UnitRole.Worker),
             BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.SetVeilstoneTarget(2),  // 6 miners â†’ 2 on veilstone for age-up
+            BuildOrderStep.SetVeilstoneTarget(2),  // 6 workers â†’ 2 on veilstone for age-up
             BuildOrderStep.Build("VaultOfAlmierra"),
             BuildOrderStep.AgeUpStep(),
             BuildOrderStep.Train(UnitRole.Worker),  // during ageup wait
@@ -114,7 +114,7 @@ namespace TheWaningBorder.AI
 
         // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         // 2. BALANCED â€” token military + Shrine
-        //    Choice: ShrineOfRidan. Culture: Random.
+        //    Choice: the age-up landmark. Culture: Random.
         //    Veilstone: 2 from mid-eco onward (steady drip for Shrine + age-up).
         // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         public static readonly BuildOrderStep[] Balanced =
@@ -129,14 +129,14 @@ namespace TheWaningBorder.AI
             BuildOrderStep.Train(UnitRole.Worker),
             BuildOrderStep.Train(UnitRole.Worker),
             BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.SetVeilstoneTarget(2),  // 6 miners â†’ 2 on veilstone
+            BuildOrderStep.SetVeilstoneTarget(2),  // 6 workers â†’ 2 on veilstone
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Build("Barracks"),
             BuildOrderStep.Train(UnitRole.Military),
             BuildOrderStep.Train(UnitRole.Military),   // was Archer — ranged is an Age-1 unlock (2026-08-11)
-            BuildOrderStep.Build("ShrineOfRidan"),
+            BuildOrderStep.Build("VaultOfAlmierra"),   // any choice id = "my landmark" (ResolveLandmarkId)
             BuildOrderStep.AgeUpStep(),
             // The wall's own upgrade, researched at a Wall Hub. Optional
             // twice over: a non-Alanthor pick makes it unavailable, and a
@@ -160,7 +160,7 @@ namespace TheWaningBorder.AI
 
         // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         // 3. TECH BOOM â€” research both Barracks techs before age up
-        //    Choice: ShrineOfRidan. Culture: Runai.
+        //    Choice: the age-up landmark. Culture: Runai.
         //    Veilstone: 3 â€” heaviest veilstone demand of any strategy because both
         //    techs and the Shrine cost veilstone on top of age-up.
         // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -178,7 +178,7 @@ namespace TheWaningBorder.AI
             BuildOrderStep.Train(UnitRole.Worker),
             BuildOrderStep.Train(UnitRole.Worker),
             BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.SetVeilstoneTarget(3),  // 6 miners â†’ ramp to 3 on veilstone
+            BuildOrderStep.SetVeilstoneTarget(3),  // 6 workers â†’ ramp to 3 on veilstone
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Build("Hut"),
@@ -187,7 +187,7 @@ namespace TheWaningBorder.AI
             BuildOrderStep.ResearchTech("StoneWeapons"),
             BuildOrderStep.Train(UnitRole.Military),
             BuildOrderStep.Train(UnitRole.Military),
-            BuildOrderStep.Build("ShrineOfRidan"),
+            BuildOrderStep.Build("VaultOfAlmierra"),   // any choice id = "my landmark" (ResolveLandmarkId)
             BuildOrderStep.AgeUpStep(),
             // The wall's own upgrade, researched at a Wall Hub. Optional
             // twice over: a non-Alanthor pick makes it unavailable, and a
@@ -209,8 +209,8 @@ namespace TheWaningBorder.AI
 
         // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         // 4. RUSH â€” three attack waves (1 / 2 / 4 battalions)
-        //    Choice: ShrineOfRidan. Culture: Feraldis.
-        //    Veilstone: 1, late â€” every miner is needed on iron for the army
+        //    Choice: the age-up landmark. Culture: Feraldis.
+        //    Veilstone: 1, late â€” every worker is needed on iron for the army
         //    rush; only switch on veilstone when the Shrine + age-up draw near.
         //    Attacks: a LaunchAttack(N) step after each wave blocks the build
         //    order until N idle battalions exist, then sends them to harass
@@ -225,7 +225,7 @@ namespace TheWaningBorder.AI
             BuildOrderStep.Build("Barracks"),
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Train(UnitRole.Military),    // Wave #1 (1 battalion)
-            BuildOrderStep.LaunchAttack(1),       // â†’ harass enemy miners
+            BuildOrderStep.LaunchAttack(1),       // â†’ harass enemy workers
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Build("GatherersHut"),
             BuildOrderStep.Train(UnitRole.Worker),
@@ -248,7 +248,7 @@ namespace TheWaningBorder.AI
             BuildOrderStep.Build("GatherersHut"),
             BuildOrderStep.Build("GatherersHut"),
             BuildOrderStep.SetVeilstoneTarget(1),   // late switch â€” just enough for Shrine + age-up
-            BuildOrderStep.Build("ShrineOfRidan"),
+            BuildOrderStep.Build("VaultOfAlmierra"),   // any choice id = "my landmark" (ResolveLandmarkId)
             BuildOrderStep.AgeUpStep(),
             BuildOrderStep.Train(UnitRole.Worker),
             BuildOrderStep.Train(UnitRole.Worker),
@@ -271,7 +271,7 @@ namespace TheWaningBorder.AI
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Build("GatherersHut"),
             BuildOrderStep.Train(UnitRole.Military),
-            BuildOrderStep.SetVeilstoneTarget(2),  // 4 miners â†’ 2 on veilstone
+            BuildOrderStep.SetVeilstoneTarget(2),  // 4 workers â†’ 2 on veilstone
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Build("GatherersHut"),
             BuildOrderStep.Train(UnitRole.Military),   // was Archer — ranged is an Age-1 unlock (2026-08-11)
@@ -314,7 +314,7 @@ namespace TheWaningBorder.AI
             BuildOrderStep.Train(UnitRole.Worker),
             BuildOrderStep.Train(UnitRole.Worker),
             BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.SetVeilstoneTarget(2),  // 6 miners â†’ 2 on veilstone for techs + Vault
+            BuildOrderStep.SetVeilstoneTarget(2),  // 6 workers â†’ 2 on veilstone for techs + Vault
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Build("Hut"),
             BuildOrderStep.Build("Hut"),

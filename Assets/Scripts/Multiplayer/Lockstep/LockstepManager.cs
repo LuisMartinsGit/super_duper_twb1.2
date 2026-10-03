@@ -1428,10 +1428,11 @@ namespace TheWaningBorder.Multiplayer
                     {
                         // EntityNetworkId carries the FACTION (no entity exists
                         // until the executor creates the hub); TargetEntityId
-                        // is the autoBuild flag.
+                        // bit 0 is the autoBuild flag, bit 1 the palisade kind.
                         var hub = CommandRouter.PlaceWallHubDirect(
                             em, cmd.TargetPosition, (Faction)cmd.EntityNetworkId,
-                            autoBuild: cmd.TargetEntityId != 0);
+                            autoBuild: (cmd.TargetEntityId & 1) != 0,
+                            palisade: (cmd.TargetEntityId & 2) != 0);
                         if (hub != Entity.Null && em.HasComponent<NetworkedEntity>(hub))
                             _networkIdLookup[em.GetComponentData<NetworkedEntity>(hub).NetworkId] = hub;
                         if (LogCommands) TWBLog.Log($"[Lockstep] Executed PlaceWallHub from player {cmd.PlayerIndex}");
@@ -1444,11 +1445,11 @@ namespace TheWaningBorder.Multiplayer
                         // with its hub points (H new / E existing).
                         var path = new System.Collections.Generic.List<Unity.Mathematics.float3>();
                         var kinds = new System.Collections.Generic.List<CommandRouter.WallPathKind>();
-                        if (CommandRouter.DecodeWallPath(cmd.BuildingId, path, kinds))
+                        if (CommandRouter.DecodeWallPath(cmd.BuildingId, path, kinds, out bool palisadePath))
                         {
                             var made = new System.Collections.Generic.List<Entity>();
                             CommandRouter.PlaceWallPathDirect(em, path, kinds,
-                                (Faction)cmd.EntityNetworkId, made);
+                                (Faction)cmd.EntityNetworkId, made, palisadePath);
                             foreach (var hub in made)
                                 if (em.HasComponent<NetworkedEntity>(hub))
                                     _networkIdLookup[em.GetComponentData<NetworkedEntity>(hub).NetworkId] = hub;
@@ -1461,6 +1462,18 @@ namespace TheWaningBorder.Multiplayer
                     // EntityNetworkId: the gate. TargetEntityId: 1 = sealed.
                     CommandRouter.SetGateLockDirect(em, entity, cmd.TargetEntityId != 0);
                     if (LogCommands) TWBLog.Log($"[Lockstep] Executed SetGateLock({cmd.TargetEntityId}) from player {cmd.PlayerIndex}");
+                    break;
+
+                case LockstepCommandType.DeleteEntity:
+                    // EntityNetworkId: the plan, site, building or unit.
+                    CommandRouter.DeleteDirect(em, entity);
+                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed DeleteEntity from player {cmd.PlayerIndex}");
+                    break;
+
+                case LockstepCommandType.SetOutpostMode:
+                    // EntityNetworkId: the Trading Outpost. TargetEntityId: the TradeRecipe.
+                    CommandRouter.SetOutpostModeDirect(em, entity, (TradeRecipe)cmd.TargetEntityId);
+                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed SetOutpostMode({cmd.TargetEntityId}) from player {cmd.PlayerIndex}");
                     break;
 
                 case LockstepCommandType.GarrisonWall:
@@ -1519,9 +1532,9 @@ namespace TheWaningBorder.Multiplayer
                 case LockstepCommandType.PlaceBuilding:
                     {
                         Faction buildFaction = (Faction)cmd.EntityNetworkId;
-                        // TargetEntityId = the BUILDER's NetworkId (0 = none),
+                        // TargetEntityId = the WORKER's NetworkId (0 = none),
                         // resolved into targetEntity above. Only a Hall reads
-                        // it: the executor refuses a claim whose builder is
+                        // it: the executor refuses a claim whose worker is
                         // missing, dead, not ours, or out of range at THIS tick.
                         var placed = CommandRouter.PlaceBuildingDirect(em, cmd.BuildingId,
                             cmd.TargetPosition, buildFaction, targetEntity,

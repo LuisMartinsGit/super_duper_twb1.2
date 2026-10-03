@@ -224,7 +224,7 @@ namespace TheWaningBorder.Systems.Border
                     // UserMoveOrder it adds also makes the mining state
                     // machines release the worker (their interrupt path).
                     if (prev < ExposureFleeSeconds && seconds >= ExposureFleeSeconds
-                        && em.HasComponent<MinerTag>(ents[i])
+                        && em.HasComponent<WorkerTag>(ents[i])
                         && TryNearestHall(facs[i].Value, xfs[i].Position, out float3 hall))
                     {
                         TheWaningBorder.Core.Commands.Types.MoveCommandHelper

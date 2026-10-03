@@ -5,7 +5,7 @@ namespace TheWaningBorder.Scenarios
     /// <summary>
     /// Scripted demo loop for the plaster-damage building:
     ///   1. Damage the intact building down to 10% HP (90% damage).
-    ///   2. A builder walks over and repairs it back to 100%.
+    ///   2. A worker walks over and repairs it back to 100%.
     ///   3. The building is damaged again until it is destroyed and collapses.
     /// The Painted Plaster substance reacts to HP in real time throughout.
     /// </summary>
@@ -15,28 +15,28 @@ namespace TheWaningBorder.Scenarios
         {
             Warmup,
             FirstDamage,
-            BuilderApproach,
+            WorkerApproach,
             Repairing,
-            BuilderReturn,
+            WorkerReturn,
             FinalDamage,
             Destroyed
         }
 
         public ScenarioBuilding building;
-        public Transform builder;
+        public Transform worker;
 
         [Min(1f)] public float damagePerSecond = 80f;
         [Min(1f)] public float repairPerSecond = 140f;
         [Range(0.01f, 0.99f)] public float firstPhaseHealthFloor = 0.10f;
         [Min(0f)] public float pauseBetweenPhases = 1.5f;
 
-        [Min(0.1f)] public float builderSpeed = 3.5f;
+        [Min(0.1f)] public float workerSpeed = 3.5f;
         [Min(0.5f)] public float repairDistance = 2.5f;
 
         public Phase CurrentPhase { get; private set; } = Phase.Warmup;
 
-        private Vector3 _builderHome;
-        private float _builderBaseY;
+        private Vector3 _workerHome;
+        private float _workerBaseY;
         private float _pauseUntil;
 
         private void Start()
@@ -52,10 +52,10 @@ namespace TheWaningBorder.Scenarios
 
             building.Destroyed += OnBuildingDestroyed;
 
-            if (builder != null)
+            if (worker != null)
             {
-                _builderHome = builder.position;
-                _builderBaseY = builder.position.y;
+                _workerHome = worker.position;
+                _workerBaseY = worker.position.y;
             }
 
             _pauseUntil = Time.time + pauseBetweenPhases;
@@ -86,11 +86,11 @@ namespace TheWaningBorder.Scenarios
                 case Phase.FirstDamage:
                     building.Damage(damagePerSecond * Time.deltaTime);
                     if (building.Health01 <= firstPhaseHealthFloor)
-                        Advance(builder != null ? Phase.BuilderApproach : Phase.Repairing);
+                        Advance(worker != null ? Phase.WorkerApproach : Phase.Repairing);
                     break;
 
-                case Phase.BuilderApproach:
-                    if (MoveBuilderTowards(RepairSpot()))
+                case Phase.WorkerApproach:
+                    if (MoveWorkerTowards(RepairSpot()))
                         Advance(Phase.Repairing);
                     break;
 
@@ -98,11 +98,11 @@ namespace TheWaningBorder.Scenarios
                     AnimateHammering();
                     building.Repair(repairPerSecond * Time.deltaTime);
                     if (building.Health01 >= 1f)
-                        Advance(builder != null ? Phase.BuilderReturn : Phase.FinalDamage);
+                        Advance(worker != null ? Phase.WorkerReturn : Phase.FinalDamage);
                     break;
 
-                case Phase.BuilderReturn:
-                    if (MoveBuilderTowards(_builderHome))
+                case Phase.WorkerReturn:
+                    if (MoveWorkerTowards(_workerHome))
                         Advance(Phase.FinalDamage);
                     break;
 
@@ -119,48 +119,48 @@ namespace TheWaningBorder.Scenarios
         {
             CurrentPhase = next;
             _pauseUntil = Time.time + pauseBetweenPhases;
-            if (builder != null)
+            if (worker != null)
             {
-                Vector3 p = builder.position;
-                builder.position = new Vector3(p.x, _builderBaseY, p.z);
+                Vector3 p = worker.position;
+                worker.position = new Vector3(p.x, _workerBaseY, p.z);
             }
         }
 
         private Vector3 RepairSpot()
         {
             Vector3 buildingPos = building.transform.position;
-            Vector3 toBuilder = _builderHome - buildingPos;
-            toBuilder.y = 0f;
-            if (toBuilder.sqrMagnitude < 0.001f)
-                toBuilder = Vector3.forward;
-            return buildingPos + toBuilder.normalized * repairDistance;
+            Vector3 toWorker = _workerHome - buildingPos;
+            toWorker.y = 0f;
+            if (toWorker.sqrMagnitude < 0.001f)
+                toWorker = Vector3.forward;
+            return buildingPos + toWorker.normalized * repairDistance;
         }
 
-        /// <summary>Moves the builder on the XZ plane. Returns true once it arrived.</summary>
-        private bool MoveBuilderTowards(Vector3 target)
+        /// <summary>Moves the worker on the XZ plane. Returns true once it arrived.</summary>
+        private bool MoveWorkerTowards(Vector3 target)
         {
-            if (builder == null)
+            if (worker == null)
                 return true;
 
-            target.y = _builderBaseY;
-            builder.position = Vector3.MoveTowards(builder.position, target, builderSpeed * Time.deltaTime);
+            target.y = _workerBaseY;
+            worker.position = Vector3.MoveTowards(worker.position, target, workerSpeed * Time.deltaTime);
 
-            Vector3 look = building.transform.position - builder.position;
+            Vector3 look = building.transform.position - worker.position;
             look.y = 0f;
             if (look.sqrMagnitude > 0.001f)
-                builder.rotation = Quaternion.LookRotation(look);
+                worker.rotation = Quaternion.LookRotation(look);
 
-            return (builder.position - target).sqrMagnitude < 0.01f;
+            return (worker.position - target).sqrMagnitude < 0.01f;
         }
 
         private void AnimateHammering()
         {
-            if (builder == null)
+            if (worker == null)
                 return;
 
-            Vector3 p = builder.position;
-            p.y = _builderBaseY + Mathf.Abs(Mathf.Sin(Time.time * 8f)) * 0.25f;
-            builder.position = p;
+            Vector3 p = worker.position;
+            p.y = _workerBaseY + Mathf.Abs(Mathf.Sin(Time.time * 8f)) * 0.25f;
+            worker.position = p;
         }
 
         private void OnGUI()
@@ -188,9 +188,9 @@ namespace TheWaningBorder.Scenarios
             {
                 case Phase.Warmup: return "Intact";
                 case Phase.FirstDamage: return "Taking damage";
-                case Phase.BuilderApproach: return "Builder incoming";
+                case Phase.WorkerApproach: return "Worker incoming";
                 case Phase.Repairing: return "Repairing";
-                case Phase.BuilderReturn: return "Builder leaving";
+                case Phase.WorkerReturn: return "Worker leaving";
                 case Phase.FinalDamage: return "Final assault";
                 case Phase.Destroyed: return "Destroyed";
                 default: return CurrentPhase.ToString();

@@ -199,7 +199,7 @@ MonoBehaviour:
       tooltip: "Minimap frame; its \"Map\" Image is filled at runtime with an elevation image generated from the loaded map's terrain (MinimapPanelBinder)."
     - field: "actionsPanel"
       header: 
-      tooltip: "Actions panel: 3x5 authored button grid (\"Actions\" node). Builder = build palette; building = top row units, lower rows research (ActionsPanelPrefabBinder). When assigned it replaces the code-built builder palette and train/research grids."
+      tooltip: "Actions panel: 3x5 authored button grid (\"Actions\" node). Worker = build palette; building = top row units, lower rows research (ActionsPanelPrefabBinder). When assigned it replaces the code-built worker palette and train/research grids."
     - field: "specialBuildingMenu"
       header: 
       tooltip: "Special-building choice menu (Shrine / Vault / Keep radial buttons). Shown top-center until a choice building is started; driven by TopChoiceBar, which hides its code-built buttons when this is assigned."
@@ -218,7 +218,7 @@ MonoBehaviour:
     - field: "entitySymbols"
       header: 
       tooltip: "Symbol sprite per entity display name (\"Archer\", \"Hall\", ...). Key \"Mixed\" is used for mixed multi-selections; keys \"Unit\" and \"Building\" are the fallbacks."
-  - typeName: "TheWaningBorder.UI.Ingame.BuilderCommandPanel"
+  - typeName: "TheWaningBorder.UI.Ingame.WorkerCommandPanel"
     fields:
     - field: "placementMask"
       header: "Placement"

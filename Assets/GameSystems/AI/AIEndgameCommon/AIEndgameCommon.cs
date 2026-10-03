@@ -423,7 +423,9 @@ namespace TheWaningBorder.AI
                     angleSamples, radiusStep, seededStart, gapRelaxed, out pos);
         }
 
-        private static bool TryFindBuildSpotRingGap(EntityManager em, float3 anchor,
+        /// <summary>The ring search with an explicit edge-to-edge gap — 0 lets
+        /// footprints touch (the House quarter, docs/Design/Age_0.md § House).</summary>
+        public static bool TryFindBuildSpotRingGap(EntityManager em, float3 anchor,
             int2 buildingSize, float rmin, float rmax,
             int angleSamples, float radiusStep, bool seededStart, float gap, out float3 pos)
         {
@@ -460,6 +462,9 @@ namespace TheWaningBorder.AI
                     candidate.y = TerrainUtility.GetHeight(candidate.x, candidate.z);
 
                     if (gap > 0f && snap.Overlaps(candidate, buildingSize, gap, ignoreWalls: true))
+                        continue;
+                    // The border band the wall runs along stays clear.
+                    if (!AIWallPlanner.FootprintClearOfBorder(candidate, buildingSize))
                         continue;
                     if (snap.IsValidBuildPosition(em, candidate, buildingSize, null))
                     {

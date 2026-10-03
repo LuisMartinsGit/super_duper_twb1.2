@@ -20,6 +20,13 @@
 // collapses every building the loser had in it (Health -> 0; DeathSystem owns
 // destruction).
 //
+// FORTRESSES BOUND THE EMPIRE (Territory_Claims.md §8, 2026-10-01). A player
+// may hold at most (sum of its Fortresses' levels) + 2 once aged up
+// territories, and may only START a claim on ground that borders the ground
+// connected to one of its Fortresses. Held ground that loses that connection
+// wears down: every building of the holder there loses its full health over
+// DisconnectSeconds (about four minutes).
+//
 // Every input is replicated simulation state and every step runs on the
 // lockstep clock, so every peer moves every meter identically. The meter is
 // stored as integer thousandths (TerritoryOwnership.MeterMax) and hashed.
@@ -51,6 +58,41 @@ namespace TheWaningBorder.Systems.World
         private EntityQuery _unitQuery;
         private EntityQuery _buildingQuery;
 
+        /// <summary>Seconds a building on ground cut off from every Fortress
+        /// takes to wear down from full health (Territory_Claims.md §8).</summary>
+        private const float DisconnectSeconds = 240f;
+
+        /// <summary>Territories an aged-up player may hold on top of its
+        /// Fortress levels (Territory_Claims.md §8).</summary>
+        private const int AgeUpTerritories = 2;
+
+        private EntityQuery _fortressQuery;
+        // Static so read-only displays (the debug board) can read the last
+        // tick's answer; only this system writes them.
+        private static readonly int[] _cap = new int[Sides];
+        private static readonly int[] _held = new int[Sides];
+        /// <summary>[t * Sides + side] = 1 when t is held by side AND linked to
+        /// one of its Fortresses through ground it holds.</summary>
+        private static byte[] _connected = System.Array.Empty<byte>();
+
+        /// <summary>The faction's territory limit as of the last tick
+        /// (Fortress levels + 2 once aged up).</summary>
+        public static int TerritoryCapOf(Faction f)
+            => (int)f >= 0 && (int)f < CurseSide ? _cap[(int)f] : 0;
+
+        /// <summary>Territories the faction holds or is mid-claim on, as of the last tick.</summary>
+        public static int TerritoriesHeldBy(Faction f)
+            => (int)f >= 0 && (int)f < CurseSide ? _held[(int)f] : 0;
+
+        /// <summary>True when territory <paramref name="t"/> is held by
+        /// <paramref name="f"/> and linked to one of its Fortresses.</summary>
+        public static bool IsConnected(int t, Faction f)
+        {
+            int i = t * Sides + (int)f;
+            return t >= 0 && (int)f >= 0 && (int)f < CurseSide && i < _connected.Length && _connected[i] != 0;
+        }
+        private readonly float[] _nextLimitNotice = new float[Sides];
+
         // Per-tick scratch, sized territories x sides.
         private int[] _pop = System.Array.Empty<int>();
         private byte[] _hasBuilding = System.Array.Empty<byte>();
@@ -73,6 +115,12 @@ namespace TheWaningBorder.Systems.World
                 ComponentType.ReadOnly<FactionTag>(),
                 ComponentType.ReadOnly<LocalTransform>(),
                 ComponentType.ReadOnly<Health>());
+            _fortressQuery = GetEntityQuery(
+                ComponentType.ReadOnly<FortressTag>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<LocalTransform>(),
+                ComponentType.ReadOnly<Health>(),
+                ComponentType.Exclude<UnderConstruction>());
         }
 
         protected override void OnUpdate()
@@ -128,6 +176,7 @@ namespace TheWaningBorder.Systems.World
 
             GatherUnits(em);
             GatherBuildings(em);
+            ComputeReach(em, count);
 
             var cfg = Cfg;
             float rate = cfg.claimRate * dt * 1000f;   // thousandths per weight unit
@@ -195,10 +244,24 @@ namespace TheWaningBorder.Systems.World
                     // One side, or several mutually allied ones. The holder
                     // fills if it is here; otherwise the heaviest challenger
                     // (lowest side on a tie) is the one taking the ground.
-                    int gainer = holderSide >= 0 && weight[holderSide] > 0f ? holderSide : firstPresent;
-                    for (int s = 0; s < Sides; s++)
-                        if (weight[s] > weight[gainer]) gainer = s;
+                    // Only a side ALLOWED to take this ground may gain on it
+                    // (Territory_Claims.md §8): within its territory limit and
+                    // bordering its Fortress-connected ground. The holder
+                    // filling its own ground is always allowed.
+                    int gainer = -1;
                     if (holderSide >= 0 && weight[holderSide] > 0f) gainer = holderSide;
+                    else
+                        for (int s = 0; s < Sides; s++)
+                            if (weight[s] > 0f && MayTake(t, s)
+                                && (gainer < 0 || weight[s] > weight[gainer])) gainer = s;
+                    if (gainer < 0)
+                    {
+                        NoticeLimit(t, firstPresent);
+                        TerritoryOwnership.SetMeter(t, holder, value, claimed,
+                            claimed && holderSide >= 0 && _hasLock[t * Sides + holderSide] != 0,
+                            false, TerritoryOwnership.Natural);
+                        continue;
+                    }
 
                     int step = (int)math.round(weight[gainer] * rate);
                     if (holderSide >= 0 && gainer != holderSide) challenger = HolderValue(gainer);
@@ -249,6 +312,154 @@ namespace TheWaningBorder.Systems.World
 
             TerritoryOwnership.Publish();
             if (anyLoss) UnityEngine.Debug.Log("[TerritoryClaim] ownership lost — buildings collapsed.");
+
+            WearDisconnected(em, count, dt);
+        }
+
+        // ── Fortress reach (Territory_Claims.md §8) ─────────────────────
+
+        /// <summary>
+        /// Per player side: its territory LIMIT (Fortress levels + 2 once aged
+        /// up), how many territories it holds or is mid-claim on, and which of
+        /// the territories it holds are linked to one of its Fortresses through
+        /// ground it holds.
+        /// </summary>
+        private void ComputeReach(EntityManager em, int count)
+        {
+            int cells = count * Sides;
+            if (_connected.Length != cells) _connected = new byte[cells];
+            System.Array.Clear(_connected, 0, cells);
+            System.Array.Clear(_cap, 0, Sides);
+            System.Array.Clear(_held, 0, Sides);
+
+            for (int t = 0; t < count; t++)
+            {
+                int side = SideOf(TerritoryOwnership.HolderOf(t));
+                if (side >= 0 && side < CurseSide) _held[side]++;
+            }
+
+            var queue = new NativeList<int>(count, Allocator.Temp);
+            using (var ents = _fortressQuery.ToEntityArray(Allocator.Temp))
+            using (var facs = _fortressQuery.ToComponentDataArray<FactionTag>(Allocator.Temp))
+            using (var xfs = _fortressQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp))
+            using (var hps = _fortressQuery.ToComponentDataArray<Health>(Allocator.Temp))
+            {
+                for (int i = 0; i < ents.Length; i++)
+                {
+                    if (hps[i].Value <= 0) continue;
+                    int side = (int)facs[i].Value;
+                    if (side < 0 || side >= CurseSide) continue;
+                    _cap[side] += em.HasComponent<BuildingUpgradeState>(ents[i])
+                        ? math.max(1, em.GetComponentData<BuildingUpgradeState>(ents[i]).Level) : 1;
+
+                    int t = RegionMap.NearestRegion(xfs[i].Position.x, xfs[i].Position.z);
+                    if (t == RegionMap.None || !TerritoryOwnership.IsClaimed(t)
+                        || SideOf(TerritoryOwnership.HolderOf(t)) != side) continue;
+                    if (_connected[t * Sides + side] != 0) continue;
+                    _connected[t * Sides + side] = 1;
+                    queue.Add(t * Sides + side);
+                }
+            }
+
+            // Flood out through ground the same side holds.
+            for (int q = 0; q < queue.Length; q++)
+            {
+                int t = queue[q] / Sides, side = queue[q] % Sides;
+                for (int o = 0; o < count; o++)
+                {
+                    if (_connected[o * Sides + side] != 0 || !RegionMap.AreAdjacent(t, o)) continue;
+                    if (!TerritoryOwnership.IsClaimed(o) || SideOf(TerritoryOwnership.HolderOf(o)) != side) continue;
+                    _connected[o * Sides + side] = 1;
+                    queue.Add(o * Sides + side);
+                }
+            }
+            queue.Dispose();
+
+            for (int s = 0; s < CurseSide; s++)
+                if (AgedUp(em, (Faction)s)) _cap[s] += AgeUpTerritories;
+        }
+
+        private static bool AgedUp(EntityManager em, Faction faction)
+            => FactionEconomy.TryGetBank(em, faction, out var bank)
+               && em.HasComponent<FactionEra>(bank)
+               && em.GetComponentData<FactionEra>(bank).Value >= 2;
+
+        /// <summary>
+        /// May <paramref name="side"/> START (or continue) taking territory
+        /// <paramref name="t"/>? The curse always may. A player needs room under
+        /// its limit (a claim already under way counts toward it) and ground
+        /// that borders — or holds — its Fortress-connected territory.
+        /// </summary>
+        private bool MayTake(int t, int side)
+        {
+            if (side == CurseSide) return true;
+            if (side < 0 || side >= CurseSide) return false;
+            bool alreadyMine = SideOf(TerritoryOwnership.HolderOf(t)) == side;
+            if (!alreadyMine && _held[side] >= _cap[side]) return false;
+            return Borders(t, side);
+        }
+
+        private bool Borders(int t, int side)
+        {
+            if (_connected[t * Sides + side] != 0) return true;
+            int count = RegionMap.Count;
+            for (int o = 0; o < count; o++)
+                if (_connected[o * Sides + side] != 0 && RegionMap.AreAdjacent(t, o)) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// Ground a player holds but has lost the link to every Fortress on
+        /// wears down: each of its buildings there loses its full health over
+        /// <see cref="DisconnectSeconds"/>, so the lot is gone in about four
+        /// minutes unless the link is restored.
+        /// </summary>
+        private void WearDisconnected(EntityManager em, int count, float dt)
+        {
+            bool any = false;
+            for (int t = 0; t < count && !any; t++)
+            {
+                int side = SideOf(TerritoryOwnership.HolderOf(t));
+                any = side >= 0 && side < CurseSide && TerritoryOwnership.IsClaimed(t)
+                      && _connected[t * Sides + side] == 0;
+            }
+            if (!any) return;
+
+            using var ents = _buildingQuery.ToEntityArray(Allocator.Temp);
+            using var facs = _buildingQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var xfs = _buildingQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            for (int i = 0; i < ents.Length; i++)
+            {
+                int side = (int)facs[i].Value;
+                if (side < 0 || side >= CurseSide) continue;
+                int t = RegionMap.NearestRegion(xfs[i].Position.x, xfs[i].Position.z);
+                if (t == RegionMap.None || !TerritoryOwnership.IsClaimed(t)) continue;
+                if (SideOf(TerritoryOwnership.HolderOf(t)) != side) continue;
+                if (_connected[t * Sides + side] != 0) continue;
+                var hp = em.GetComponentData<Health>(ents[i]);
+                if (hp.Value <= 0) continue;
+                int wear = math.max(1, (int)math.ceil(hp.Max * dt / DisconnectSeconds));
+                hp.Value = math.max(0, hp.Value - wear);
+                em.SetComponentData(ents[i], hp);
+            }
+        }
+
+        /// <summary>Tell the local player, at most every 20 s, why its army
+        /// standing on ground is not claiming it. Presentation only.</summary>
+        private void NoticeLimit(int t, int side)
+        {
+            int local = (int)GameSettings.LocalPlayerFaction;
+            if (side != local || side < 0 || side >= CurseSide) return;
+            float now = UnityEngine.Time.unscaledTime;
+            if (now < _nextLimitNotice[side]) return;
+            _nextLimitNotice[side] = now + 20f;
+            var L = (System.Func<string, string>)TheWaningBorder.Core.Localization.Loc.T;
+            if (SideOf(TerritoryOwnership.HolderOf(t)) != side && _held[side] >= _cap[side])
+                SimSignals.NotifyError(string.Format(
+                    L("Territory limit reached ({0}/{1}) — level or build a Fortress to hold more"),
+                    _held[side], _cap[side]));
+            else
+                SimSignals.NotifyError(L("Too far — you can only take ground that borders your Fortress's territories"));
         }
 
         // ── Inputs ──────────────────────────────────────────────────────
@@ -285,7 +496,7 @@ namespace TheWaningBorder.Systems.World
         /// </summary>
         private static bool Counts(EntityManager em, Entity e, UnitClass cls)
         {
-            if (cls == UnitClass.Economy || cls == UnitClass.Miner || cls == UnitClass.Scout) return false;
+            if (cls == UnitClass.Economy || cls == UnitClass.Worker || cls == UnitClass.Scout) return false;
             if (em.HasComponent<CaravanTag>(e)) return false;
             if (em.HasComponent<TemporarySummon>(e)) return false;
             if (em.HasComponent<ConscriptedTag>(e)) return false;
@@ -355,14 +566,18 @@ namespace TheWaningBorder.Systems.World
 
         /// <summary>
         /// Structures that LOCK a territory (Territory_Claims.md §3): a
-        /// building on a resource node, a Fortress, a curse node.
+        /// building on a resource node, a Fortress, a curse node — and the
+        /// Alanthor Trading Outpost, which stands beside its outcrop rather than
+        /// on it but is that culture's node building
+        /// (docs/Design/Veilstone_Economy.md §3.1). The Smelter no longer locks:
+        /// it left the veilsteel node when veilsteel nodes were removed.
         /// </summary>
         public static bool IsLocking(EntityManager em, Entity e)
             => em.HasComponent<FortressTag>(e)
             || em.HasComponent<GathererHutTag>(e)
             || em.HasComponent<MineTag>(e)
             || em.HasComponent<VeilstoneMineTag>(e)
-            || em.HasComponent<SmelterTag>(e)
+            || em.HasComponent<TradingOutpostTag>(e)
             || em.HasComponent<SmallNodeTag>(e);
 
         // ── Tick-0 seeding ──────────────────────────────────────────────

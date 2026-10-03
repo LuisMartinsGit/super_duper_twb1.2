@@ -54,10 +54,21 @@ namespace TheWaningBorder.Systems.Navigation
         /// matches the legacy door teleport's perceived duration but
         /// animated.</summary>
         public const float TransitionRate = 1.6666666f;
-        /// <summary>Deck Y elevation (m). Layer-1 (rampart) units stand
-        /// at this world Y; copied from
-        /// <see cref="WallDoorAccessSystem"/> for parity.</summary>
+        /// <summary>LEGACY flat deck elevation (m). The wall-walk is no
+        /// longer at a fixed world Y — it follows the ground the wall stands
+        /// on: see <see cref="DeckYAt"/>. Kept for the wall-climb test rig.</summary>
         public const float DeckY = 4.0f;
+
+        /// <summary>
+        /// World Y of the stone wall-walk over (x, z): the ground the wall
+        /// stands on plus <c>AlanthorWall.DeckHeight</c>
+        /// (docs/Design/Age_1_Alanthor.md § The stone wall). A flat 4 m
+        /// world plane put a unit on a wall built on a hill INSIDE it, and one
+        /// on a wall in a valley floating above it.
+        /// </summary>
+        public static float DeckYAt(float x, float z)
+            => TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(x, z)
+               + TheWaningBorder.Entities.AlanthorWall.DeckHeight;
 
         private EntityQuery _unitWithPathQuery;
 
@@ -342,11 +353,12 @@ namespace TheWaningBorder.Systems.Navigation
         {
             int cx = cellIndex % grid.Width;
             int cz = cellIndex / grid.Width;
-            float y = layer == 1 ? DeckY : 0f;
-            return new float3(
-                grid.Origin.x + (cx + 0.5f) * grid.CellSize,
-                y,
-                grid.Origin.z + (cz + 0.5f) * grid.CellSize);
+            float wx = grid.Origin.x + (cx + 0.5f) * grid.CellSize;
+            float wz = grid.Origin.z + (cz + 0.5f) * grid.CellSize;
+            float y = layer == 1
+                ? DeckYAt(wx, wz)
+                : TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(wx, wz);
+            return new float3(wx, y, wz);
         }
     }
 }

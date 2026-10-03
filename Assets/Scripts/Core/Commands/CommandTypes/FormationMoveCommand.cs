@@ -1003,7 +1003,7 @@ namespace TheWaningBorder.Core.Commands.Types
                     case UnitClass.Support:
                     case UnitClass.Magic: return RankSupport;
                     case UnitClass.Economy:
-                    case UnitClass.Miner: return RankEconomy;
+                    case UnitClass.Worker: return RankEconomy;
                 }
             }
             return RankMelee;
@@ -1023,12 +1023,12 @@ namespace TheWaningBorder.Core.Commands.Types
         /// they still receive their slot destination, just no membership.</summary>
         internal static bool IsWorker(EntityManager em, Entity e)
         {
-            if (em.HasComponent<MinerTag>(e)) return true;
+            if (em.HasComponent<WorkerTag>(e)) return true;
             if (em.HasComponent<CanBuild>(e)) return true;
             if (em.HasComponent<UnitTag>(e))
             {
                 var c = em.GetComponentData<UnitTag>(e).Class;
-                if (c == UnitClass.Economy || c == UnitClass.Miner) return true;
+                if (c == UnitClass.Economy || c == UnitClass.Worker) return true;
             }
             return false;
         }

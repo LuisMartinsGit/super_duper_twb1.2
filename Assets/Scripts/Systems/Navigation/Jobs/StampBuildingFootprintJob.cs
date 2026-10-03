@@ -277,14 +277,32 @@ namespace TheWaningBorder.Systems.Navigation
     /// task-112 M5 -- per-wall stamp pass. Reads <see cref="WallTag"/>
     /// entities with a <see cref="LocalTransform"/> and writes the wall
     /// footprint into BOTH the Ground (layer 0 = impassable, sentinel
-    /// 254 at gate cells) and the Rampart (layer 1 = walkable cost 1)
+    /// 254 at the gate's opening) and the Rampart (layer 1 = walkable cost 1)
     /// cost slabs.
     ///
-    /// Determinism: writes are idempotent for overlapping wall
-    /// footprints (every wall picks 255 / 254 for ground, 1 for
-    /// rampart). The companion flag bits
-    /// (<see cref="NavCostField.FlagStaticWall"/>,
-    /// <see cref="NavCostField.FlagGate"/>) are set by OR.
+    /// THE FOOTPRINT FOLLOWS THE WALL (2026-10-02). Every piece used to stamp
+    /// the same 7 x 7 square around its centre, whatever it was — a 7 m
+    /// block for a 1 m palisade, a 7 m deck for a wall with no walk at all.
+    /// Each piece now stamps a rectangle turned to its own heading
+    /// (docs/Design/Age_1_Alanthor.md § The stone wall):
+    ///
+    ///   * along the wall: the 3 m module plus a 0.5 m lap each end, so the
+    ///     pieces of a curved run overlap and the line has no seam — and a
+    ///     dead module leaves a 2 m breach between its neighbours.
+    ///   * across the wall: the STONE wall blocks 5 m of ground (its 4 m plus
+    ///     a margin) and is walkable on the rampart layer over its ~3.2 m
+    ///     walkway; a PALISADE blocks a 3 m band and has no deck.
+    ///   * a hub is a 5 m square (its 4.2 m drum), walkable on top when stone.
+    ///   * a gate blocks its whole span except the middle third — the
+    ///     opening — which is the conditional (owner-only) cell; its deck
+    ///     runs over the passage roof.
+    ///
+    /// A cell counts when its CENTRE is inside the rectangle, which for a
+    /// band at least 3 cells wide leaves no diagonal gap to slip through.
+    ///
+    /// Determinism: writes are idempotent for overlapping wall footprints
+    /// (every wall picks 255 / 254 for ground, 1 for rampart); the companion
+    /// flag bits are set by OR. Runs serial under lockstep (see the caller).
     /// </summary>
     [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
     internal partial struct StampWallLayersJob : IJobEntity
@@ -300,97 +318,122 @@ namespace TheWaningBorder.Systems.Navigation
         public byte IsGate;
         public byte IsClimbAccess;
 
-        /// <summary>Side of the square every wall instance stamps, in
-        /// cells. Public so the input layer can tell WHICH wall a deck cell
-        /// belongs to (SelectionOrders.IsFriendlyRampartDeck) with the same
-        /// footprint the stamp used.</summary>
-        public const int FootprintCells = 7;
+        [ReadOnly] public ComponentLookup<PalisadeTag> Palisade;
+        [ReadOnly] public ComponentLookup<WallHubTag> Hub;
+        [ReadOnly] public ComponentLookup<WallGateSpan> GateSpan;
 
-        public void Execute(in WallTag wall, in LocalTransform xf, in FactionTag faction)
+        /// <summary>Side of the square that bounds what any wall piece
+        /// stamps, in cells. Public so the input layer can tell WHICH wall a
+        /// deck cell belongs to (SelectionOrders.IsFriendlyRampartDeck).</summary>
+        public const int FootprintCells = 5;
+
+        /// <summary>Half the ground band a STONE wall blocks across itself:
+        /// its 4 m depth plus half a metre each side.</summary>
+        public const float StoneHalfAcross = 2.5f;
+        /// <summary>Half the walkable deck across a stone wall: the walkway
+        /// between its two parapets.</summary>
+        public const float DeckHalfAcross = 1.6f;
+        /// <summary>Half the ground band a PALISADE blocks: 3 cells.</summary>
+        public const float PalisadeHalfAcross = 1.5f;
+        /// <summary>Half a module along the wall plus the 0.5 m lap.</summary>
+        public const float ModuleHalfAlong = 2f;
+        /// <summary>Half a hub's square (its 4.2 m drum, rounded up).</summary>
+        public const float HubHalf = 2.5f;
+        /// <summary>Half the gate's opening along the wall — the middle
+        /// third of a three-module gatehouse, plus the lap.</summary>
+        public const float GateOpeningHalf = 2f;
+
+        public void Execute(Entity e, in WallTag wall, in LocalTransform xf, in FactionTag faction)
         {
-            // Wall instance footprint: 7x7. See history above for the
-            // sealing math (3 cells of overlap between 4 m-spaced cubes,
-            // blocks Bresenham diagonal tunneling).
-            int w = FootprintCells;
-            int h = FootprintCells;
-            // Gate cells encode owner faction in the low 3 bits of Flags
-            // so faction-aware LOS / obstacle-avoidance probes can tell
-            // who is allowed through. Owner faction value is the Faction
-            // enum index (Blue=0..White=7).
+            bool palisade = Palisade.HasComponent(e);
+            bool hub = Hub.HasComponent(e);
+
+            // The piece's own frame: its forward runs along the wall (cells
+            // and gates are spawned facing the wall's tangent); a hub is
+            // round, so its square is laid on the world axes.
+            float3 fwd = math.mul(xf.Rotation, new float3(0f, 0f, 1f));
+            fwd.y = 0f;
+            fwd = math.lengthsq(fwd) > 1e-6f ? math.normalize(fwd) : new float3(0f, 0f, 1f);
+            if (hub) fwd = new float3(0f, 0f, 1f);
+
+            float halfAlong, halfAcross;
+            if (hub)
+            {
+                halfAlong = HubHalf;
+                halfAcross = HubHalf;
+            }
+            else
+            {
+                halfAlong = ModuleHalfAlong;
+                if (IsGate != 0 && GateSpan.HasComponent(e))
+                    halfAlong = GateSpan[e].Metres * 0.5f + 0.5f;
+                halfAcross = palisade ? PalisadeHalfAcross : StoneHalfAcross;
+            }
+
+            // Only the stone wall has a wall-walk.
+            float deckAlong = hub ? HubHalf : halfAlong;
+            float deckAcross = palisade ? -1f : (hub ? HubHalf : DeckHalfAcross);
+
             byte ownerBits = (byte)((byte)faction.Value & NavCostField.FlagOwnerMask);
-            StampFootprint(xf.Position, w, h, ownerBits);
+            StampFootprint(xf.Position, fwd, halfAlong, halfAcross, deckAlong, deckAcross,
+                           ownerBits, climb: IsClimbAccess != 0 && !palisade);
         }
 
-        private void StampFootprint(float3 pos, int w, int h, byte ownerBits)
+        private void StampFootprint(float3 pos, float3 fwd, float halfAlong, float halfAcross,
+            float deckAlong, float deckAcross, byte ownerBits, bool climb)
         {
-            float dx = pos.x - Origin.x;
-            float dz = pos.z - Origin.z;
-            int cx = (int)math.floor(dx / CellSize);
-            int cz = (int)math.floor(dz / CellSize);
-            int halfW = w / 2;
-            int halfH = h / 2;
-            int x0 = math.max(0, cx - halfW);
-            int z0 = math.max(0, cz - halfH);
-            int x1 = math.min(Width - 1, cx + halfW);
-            int z1 = math.min(Height - 1, cz + halfH);
+            float3 right = new float3(fwd.z, 0f, -fwd.x);
+            float reach = math.sqrt(halfAlong * halfAlong + halfAcross * halfAcross);
 
-            byte groundCost = IsGate != 0
-                ? NavCostField.CostConditional
-                : NavCostField.CostImpassable;
-            byte flagBit = IsGate != 0
-                ? NavCostField.FlagGate
-                : (IsClimbAccess != 0
-                    ? NavCostField.FlagClimbAccess
-                    : NavCostField.FlagStaticWall);
+            int x0 = math.max(0, (int)math.floor((pos.x - reach - Origin.x) / CellSize));
+            int z0 = math.max(0, (int)math.floor((pos.z - reach - Origin.z) / CellSize));
+            int x1 = math.min(Width - 1, (int)math.floor((pos.x + reach - Origin.x) / CellSize));
+            int z1 = math.min(Height - 1, (int)math.floor((pos.z + reach - Origin.z) / CellSize));
 
             for (int z = z0; z <= z1; z++)
             {
                 int rowG = z * Width;
                 int rowR = LayerArea + z * Width;
+                float cz = Origin.z + (z + 0.5f) * CellSize - pos.z;
                 for (int x = x0; x <= x1; x++)
                 {
+                    float cx = Origin.x + (x + 0.5f) * CellSize - pos.x;
+                    float along = cx * fwd.x + cz * fwd.z;
+                    float across = cx * right.x + cz * right.z;
+                    if (math.abs(along) > halfAlong || math.abs(across) > halfAcross) continue;
+
                     int idxG = rowG + x;
                     int idxR = rowR + x;
 
-                    // Ground layer: impassable wall (255), conditional at
-                    // gate (254).
+                    // Ground: impassable wall (255); a gate's opening is the
+                    // conditional cell (254) that only its owner passes.
                     //
-                    // Hubs (IsClimbAccess) are IMPASSABLE too. They used to
-                    // stamp cost 1 here — "walkable approach to the stair" —
-                    // back when walls carried a walkable rampart deck and the
-                    // hub was its stair core. The compact-wall rework
-                    // (2026-08-09) made walls solid curtain walls with NO
-                    // deck, but this carve stayed: running AFTER the plain-
-                    // wall pass, it re-opened the hub's whole 7x7 footprint,
-                    // punching a ~7 m walkable corridor clean through the
-                    // wall line at every bastion — including over the first
-                    // curtain module on each side. That is the "units slip
-                    // through the wall where it meets the hub" leak: the join
-                    // between segments was the one place the wall was open.
-                    // The FlagClimbAccess bit is still written below so
-                    // WallPortalDetectionSystem keeps emitting its layer-0/1
-                    // climb portal; only the ground hole is gone.
-                    Cost[idxG] = groundCost;
-                    // Preserve any existing flag bits / owner bits, then
-                    // overlay this stamp's flag + owner. For gates we
-                    // write owner bits; for plain walls / climbs we
-                    // leave them at 0 (irrelevant for non-gate cells).
+                    // Hubs are IMPASSABLE too — see the 2026-08-09 history:
+                    // the climb pass used to re-open the hub's footprint to
+                    // cost 1 and was the hole every wall had at its bastions.
+                    // FlagClimbAccess is still written so
+                    // WallPortalDetectionSystem keeps emitting its climb
+                    // portal; only the ground hole is gone.
+                    bool opening = IsGate != 0 && math.abs(along) <= GateOpeningHalf;
+                    byte flagBit = opening ? NavCostField.FlagGate
+                                 : climb ? NavCostField.FlagClimbAccess
+                                 : NavCostField.FlagStaticWall;
+                    Cost[idxG] = opening ? NavCostField.CostConditional : NavCostField.CostImpassable;
                     byte newFlags = (byte)(Flags[idxG] | flagBit | NavCostField.FlagBuildingFootprint);
-                    if (IsGate != 0)
+                    if (opening)
                     {
-                        // Clear any prior owner bits in this cell first,
-                        // then OR in our owner. This handles the case where
-                        // a previous tick's stamp wrote a different owner
-                        // (or where a wall stamped 0 then the gate stamps
-                        // here -- gate wins).
+                        // The gate wins the cell: clear any prior owner bits,
+                        // then OR in its owner.
                         newFlags = (byte)((newFlags & ~NavCostField.FlagOwnerMask) | ownerBits);
                     }
                     Flags[idxG] = newFlags;
 
-                    // Rampart layer: walkable wall-top (cost 1) for every
-                    // wall footprint cell -- units can patrol the parapet.
-                    Cost[idxR] = 1;
-                    Flags[idxR] = (byte)(Flags[idxR] | NavCostField.FlagStaticWall);
+                    // Rampart: walkable over the wall-walk only.
+                    if (math.abs(along) <= deckAlong && math.abs(across) <= deckAcross)
+                    {
+                        Cost[idxR] = 1;
+                        Flags[idxR] = (byte)(Flags[idxR] | NavCostField.FlagStaticWall);
+                    }
                 }
             }
         }

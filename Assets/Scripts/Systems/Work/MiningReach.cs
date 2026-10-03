@@ -7,7 +7,7 @@
 //
 // 1. THE RANGES DISAGREED. GatheringSystem used 5 m measured CENTRE-to-centre;
 //    the two mining systems used 2.5 m measured to the node SURFACE. Gathering
-//    runs first and flips the miner straight to Gathering, so its 5 m won —
+//    runs first and flips the worker straight to Gathering, so its 5 m won —
 //    a worker already within 2.5 build cells of a node never took a step and
 //    mined from there. That is the "they mine from about 2 squares away".
 //

@@ -28,7 +28,7 @@ namespace TheWaningBorder.AI
         /// economy to raid. Scored toward Feraldis.</summary>
         public float enemyBaseWeight;
 
-        /// <summary>Scouted enemy ECONOMY (miners, eco buildings) with little
+        /// <summary>Scouted enemy ECONOMY (workers, eco buildings) with little
         /// military cover is the classic raid invitation.</summary>
         public float exposedEconomyWeight;
 

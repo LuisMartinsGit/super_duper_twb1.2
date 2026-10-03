@@ -144,7 +144,7 @@ namespace TheWaningBorder.Bootstrap
                 // In observer mode the watcher's slot is SlotType.Observer; we
                 // still spawn it so the AI brain (created by AIBootstrap because
                 // IsFactionHumanControlled returns false for everyone in
-                // observer mode) has a Hall + builders + miners to play with.
+                // observer mode) has a Hall + workers to play with.
                 // Skip Observer only when we're NOT in observer mode (that
                 // means a real spectator with no faction to play, an edge case
                 // we don't currently use but kept here for safety).
@@ -262,20 +262,20 @@ namespace TheWaningBorder.Bootstrap
             // is the one that decides which region the player is standing in.
             _spawnPositions[faction] = new Vector3(spawnPos.x, spawnPos.y, spawnPos.z);
 
-            // Spawn starting Builders just outside the Hall's inflated
+            // Spawn starting Workers just outside the Hall's inflated
             // footprint. The Hall is 8 x 8 m (4 x 4 build cells) + 1 cell of
             // padding, so it blocks out to +/-5 m — the old 6 m offset left
             // one metre of clearance and dropped workers and the whole
             // starting army on top of their own Hall's blocked cells.
             // Doubled with the footprints (2026-08-13).
             float offset = 12f;
-            float3 builderPos1 = EnsureValidSpawnPosition(spawnPos + new float3(offset, 0, 0));
-            float3 builderPos2 = EnsureValidSpawnPosition(spawnPos + new float3(-offset, 0, 0));
-            float3 builderPos3 = EnsureValidSpawnPosition(spawnPos + new float3(0, 0, offset));
+            float3 workerPos1 = EnsureValidSpawnPosition(spawnPos + new float3(offset, 0, 0));
+            float3 workerPos2 = EnsureValidSpawnPosition(spawnPos + new float3(-offset, 0, 0));
+            float3 workerPos3 = EnsureValidSpawnPosition(spawnPos + new float3(0, 0, offset));
 
-            UnitFactory.Create(em, "Worker", builderPos1, faction);
-            UnitFactory.Create(em, "Worker", builderPos2, faction);
-            UnitFactory.Create(em, "Worker", builderPos3, faction);
+            UnitFactory.Create(em, "Worker", workerPos1, faction);
+            UnitFactory.Create(em, "Worker", workerPos2, faction);
+            UnitFactory.Create(em, "Worker", workerPos3, faction);
 
             // Starting army south of the Hall (workers occupy E/W/N): a front
             // row of three Swordsmen, two Archers behind, and a Scout on the

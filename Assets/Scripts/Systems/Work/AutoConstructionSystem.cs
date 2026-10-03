@@ -1,12 +1,12 @@
 //
 // Ticks UnderConstruction.Progress on buildings flagged with AutoConstructTag
 // at 1 progress / real second, so they self-build without needing an idle
-// builder on site. Consumers:
+// worker on site. Consumers:
 //   - the per-hub "Build Wall" action: the second (and onward) wall hubs and
 //     the wall instances along the segment are spawned with AutoConstructTag
 //     + UnderConstruction { Total = 30 } and finish ~30 s later.
 //   - the three choice buildings (Shrine / Vault / Keep): placed from the
-//     top-bar special-building buttons with Total = 90. Builders sent to the
+//     top-bar special-building buttons with Total = 90. Workers sent to the
 //     site ACCELERATE the build (+0.25 progress/s each on top of this
 //     system's 1.0/s — see BuildingConstructionSystem), so 4 workers halve
 //     the timer.
@@ -17,7 +17,7 @@
 //   - restore Health to Max
 //   - apply DeferredDefense if present
 // Wall hubs / segments don't trigger any of the BuildingConstructionSystem
-// special-case finalisers (ShrineTag RP grant, GathererHut income setup,
+// special-case finalisers (GathererHut income setup,
 // Feraldis raider spawn), so we don't need to duplicate that branch.
 
 using Unity.Burst;
@@ -122,18 +122,6 @@ namespace TheWaningBorder.Systems.Work
             LandmarkAgeUp.OnConstructionComplete(em, site);
             if (em.HasComponent<Buildable>(site))
                 em.RemoveComponent<Buildable>(site);
-
-            // Choice buildings self-build through this system, so the Shrine's
-            // one-time +1 Religion Point grant must fire here too — the
-            // BuildingConstructionSystem path only runs when a builder lands
-            // the finishing tick. (Mirrors CompleteConstruction's ShrineTag
-            // branch; TryAwardShrineBonus latches per faction, so a builder
-            // finish followed by this path can't double-grant.)
-            if (em.HasComponent<ShrineTag>(site) && em.HasComponent<FactionTag>(site))
-            {
-                var faction = em.GetComponentData<FactionTag>(site).Value;
-                FactionReligionPointsHelper.TryAwardShrineBonus(em, faction);
-            }
 
             // Finish the HP ramp WITHOUT healing combat damage — add only the
             // progress still owed. Slamming to Max here undid the per-tick

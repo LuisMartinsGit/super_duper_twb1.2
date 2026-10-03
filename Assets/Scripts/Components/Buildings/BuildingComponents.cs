@@ -46,15 +46,15 @@ public struct UnderConstruction : IComponentData
 }
 
 /// <summary>
-/// Marker added to a building that should self-construct without a builder.
+/// Marker added to a building that should self-construct without a worker.
 /// AutoConstructionSystem ticks <see cref="UnderConstruction.Progress"/> at
 /// 1.0 progress / real second on entities carrying this tag, so the build
-/// completes after <c>Total</c> seconds with no idle-builder dispatch.
+/// completes after <c>Total</c> seconds with no idle-worker dispatch.
 ///
 /// Currently used by the per-hub "Build Wall" action: a selected wall hub
 /// surfaces an action that places a connected hub (and its segment + wall
-/// instances) at no builder cost, with a 30 s self-build timer. The first
-/// hub is still placed via a builder and uses the normal
+/// instances) at no worker cost, with a 30 s self-build timer. The first
+/// hub is still placed via a worker and uses the normal
 /// BuildingConstructionSystem path.
 /// </summary>
 public struct AutoConstructTag : IComponentData { }

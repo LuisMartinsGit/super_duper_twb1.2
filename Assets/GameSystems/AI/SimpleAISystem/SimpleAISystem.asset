@@ -22,6 +22,10 @@ MonoBehaviour:
   relaxedBuildRingDistanceMax: 52
   wallInteriorClearance: 4
   extractorSearchRadius: 8
+  outpostForgeAboveVeilstone: 300
+  outpostTradeBelowVeilstone: 120
+  outpostVeilsteelTarget: 200
+  outpostSellAboveVeilsteel: 300
   failedSiteSearchCooldown: 10
   siteSearchCandidateBudget: 4000
   siteSearchValidateBudget: 160
@@ -39,19 +43,25 @@ MonoBehaviour:
   emergencyRetrySeconds: 25
   siegeTrainFloor: 6
   siegeTrainRetrySeconds: 20
-  economyWorkerFloor: 6
+  economyWorkerFloor: 3
   hutPipelineFreeCount: 4
+  openingHutGraceSeconds: 45
+  openingHutHousingHeadroom: 2
+  workersPerConqueredTerritory: 1
   researchSweepInterval: 20
   claimAttemptInterval: 12
   claimSquadSize: 5
   reclaimReligionBelow: 3
+  religionHuntEarliestSeconds: 60
+  religionHuntAssessRadius: 40
+  religionHuntReinforceSeconds: 90
   claimSquadTimeoutSeconds: 180
   claimSaveSeconds: 120
   claimSuccessCooldown: 30
   minArmyForNextClaim: 6
   claimLogInterval: 60
-  claimBuilderRewalkSeconds: 20
-  claimBuilderStandOff: 3
+  claimWorkerRewalkSeconds: 20
+  claimWorkerStandOff: 3
   claimNodeBonus: 60
   extractorAttemptInterval: 15
   extractLogInterval: 60

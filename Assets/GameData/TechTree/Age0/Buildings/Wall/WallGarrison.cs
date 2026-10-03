@@ -66,7 +66,7 @@ namespace TheWaningBorder.Entities
         {
             if (unit == Entity.Null || !em.Exists(unit)) return false;
             if (!em.HasComponent<UnitTag>(unit) || em.HasComponent<BuildingTag>(unit)) return false;
-            if (em.HasComponent<CanBuild>(unit) || em.HasComponent<MinerTag>(unit)) return false;
+            if (em.HasComponent<CanBuild>(unit) || em.HasComponent<WorkerTag>(unit)) return false;
             if (em.HasComponent<CavalryTag>(unit)) return false;
             if (em.HasComponent<EmplacedEngineTag>(unit)) return false;
             var cls = em.GetComponentData<UnitTag>(unit).Class;

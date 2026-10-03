@@ -58,7 +58,6 @@ namespace TheWaningBorder.Data
                 ParseBuilding(json, "GatherersHut", result);
                 ParseBuilding(json, "Barracks", result);
                 ParseBuilding(json, "ArcheryRange", result);
-                ParseBuilding(json, "ShrineOfRidan", result);
                 ParseBuilding(json, "TempleOfRidan", result);
                 ParseBuilding(json, "VaultOfAlmierra", result);
 

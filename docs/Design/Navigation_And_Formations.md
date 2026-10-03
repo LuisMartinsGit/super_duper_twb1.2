@@ -191,7 +191,7 @@ direction. Base spacing: **2.0 m between unit centers** (existing value).
 | 3 | Ranged | |
 | 4 | **Support / magic** (healers) | Between the line and the siege, so they can reach the line without standing in it |
 | 5 | **Siege** | Rearmost, at **2× spacing** — a catapult is not a spearman with more health |
-| 6 | Economy / miners | |
+| 6 | Economy / workers | |
 
 Siege used to sit *ahead* of support, which put engines in front of the
 people everything else exists to protect.

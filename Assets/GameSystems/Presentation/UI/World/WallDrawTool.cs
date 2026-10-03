@@ -52,7 +52,7 @@ namespace TheWaningBorder.UI.World
         private readonly List<bool> _hubValid = new List<bool>();
 
         /// <summary>Why a path is refused, or None.</summary>
-        public enum PathProblem { None, TooTight, CrossesItself }
+        public enum PathProblem { None, TooTight, CrossesItself, Blocked }
 
         public bool Drawing { get; private set; }
         public IReadOnlyList<float3> Hubs => _hubs;
@@ -427,6 +427,35 @@ namespace TheWaningBorder.UI.World
                 }
             }
             return PathProblem.None;
+        }
+
+        /// <summary>
+        /// The whole-length collision rule (docs/Design/Build_Grid.md § Walls
+        /// on the grid): run <paramref name="blockedAt"/> (a path point and
+        /// its heading) over the laid-out path and mark the stretch that runs
+        /// into something. Call after <see cref="ComputeLayout"/>; a shape
+        /// problem already found wins. The executor applies the same test, so
+        /// what shows red here is what would be refused.
+        /// </summary>
+        public void MarkBlocked(System.Func<float3, float3, bool> blockedAt)
+        {
+            if (Problem != PathProblem.None || blockedAt == null) return;
+            int n = _pts.Count;
+            if (n < 2) return;
+            int from = -1, to = -1;
+            for (int i = 0; i < n; i++)
+            {
+                Vector2 a = _pts[i > 0 ? i - 1 : i], b = _pts[i < n - 1 ? i + 1 : i];
+                var tan = new float3(b.x - a.x, 0f, b.y - a.y);
+                var p = new float3(_pts[i].x, TerrainUtility.GetHeight(_pts[i].x, _pts[i].y), _pts[i].y);
+                if (!blockedAt(p, tan)) continue;
+                if (from < 0) from = i;
+                to = i;
+            }
+            if (from < 0) return;
+            Problem = PathProblem.Blocked;
+            _badFrom = Mathf.Max(0, from - 1);
+            _badTo = Mathf.Min(n - 1, Mathf.Max(to + 1, _badFrom + 1));
         }
 
         // ── Layout: the curve and its hubs ────────────────────────────────

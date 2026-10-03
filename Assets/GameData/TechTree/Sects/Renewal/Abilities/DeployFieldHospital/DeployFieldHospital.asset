@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b3ecc1043fa62454ebb9521a55d0673d, type: 3}
   m_Name: DeployFieldHospital
   m_EditorClassIdentifier: 
-  abilityName: "Deploy Field Hospital"
+  abilityName: Deploy Field Hospital
   activation: 0
   targeting: 0
   affects: 0
@@ -30,4 +30,4 @@ MonoBehaviour:
   damageType: 3
   aimedAtPoint: 0
   icon: {fileID: 0}
-  vfxPrefab: {fileID: 11165556360237, guid: 5c24f675fc47bb1e2447de147eae14a2, type: 3}
+  vfxPrefab: {fileID: 5640737727654945505, guid: 5c24f675fc47bb1e2447de147eae14a2, type: 3}

@@ -278,7 +278,7 @@ namespace TheWaningBorder.Systems.Research
                     em, unit, faction, em.GetComponentData<UnitTypeId>(unit).Value.ToString());
             }
 
-            bool hasMinerState = em.HasComponent<MinerState>(unit);
+            bool hasWorkerState = em.HasComponent<WorkerState>(unit);
             bool hasAttackCooldown = em.HasComponent<AttackCooldown>(unit);
             bool hasDefense = em.HasComponent<Defense>(unit);
             bool hasDamage = em.HasComponent<Damage>(unit);
@@ -321,12 +321,12 @@ namespace TheWaningBorder.Systems.Research
                     em.SetComponentData(unit, ast);
                 }
 
-                // Miner effects
-                if (hasMinerState && effects.gatherSpeedMult != 0f)
+                // Worker effects
+                if (hasWorkerState && effects.gatherSpeedMult != 0f)
                 {
-                    var miner = em.GetComponentData<MinerState>(unit);
-                    miner.GatherSpeedMultiplier *= effects.gatherSpeedMult;
-                    em.SetComponentData(unit, miner);
+                    var worker = em.GetComponentData<WorkerState>(unit);
+                    worker.GatherSpeedMultiplier *= effects.gatherSpeedMult;
+                    em.SetComponentData(unit, worker);
                 }
 
                 // Melee attack speed

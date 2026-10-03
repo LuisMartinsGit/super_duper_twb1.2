@@ -291,7 +291,7 @@ def's trains list, culture-gated by the `Feraldis_` id prefix.
 | Upgrade duration | (at age-up L0 → L1 automatic) | 30 s | 45 s |
 
 > **Berserker removed from the War Hall, 2026-08-27.** The War Hall does not
-> train Berserkers. The unit is **conversion-only** — the existing miner→Berserker
+> train Berserkers. The unit is **conversion-only** — the existing worker→Berserker
 > path at the Fiendstone Keep (`BerserkerConversionSystem`) — plus the Longhouse,
 > which is now its only training host. The War Hall roster is therefore
 > **Spearman / Bloodletter / Suicidal**.
@@ -312,7 +312,7 @@ def's trains list, culture-gated by the `Feraldis_` id prefix.
 > **Parked from the first pass (not deleted — awaiting user decision):**
 > Swordsman / Royal Guard line-infantry ladder, **Warboar Rider** (was the
 > Longhouse-trained cavalry), and the batch-training [5,10] discount UI.
-> The existing miner→Berserker conversion at the Fiendstone Keep
+> The existing worker→Berserker conversion at the Fiendstone Keep
 > (`BerserkerConversionSystem`) is unchanged and now feeds the same
 > re-specced Berserker.
 
@@ -799,7 +799,7 @@ each. Excellent blood-farmer: mass bleed-out deaths pool on one spot.
 ### Feraldis Berserker — heavy melee, Death Frenzy *(re-specced 2026-08-05)*
 
 Trains at War Hall L3; also produced by the Fiendstone Keep
-miner-conversion (`BerserkerConversionSystem`, unchanged).
+worker-conversion (`BerserkerConversionSystem`, unchanged).
 
 **Death Frenzy:** when damage would drop the Berserker below 1 HP, it
 locks at 1 HP, becomes unkillable, and gains **+50 % attack and +50 %

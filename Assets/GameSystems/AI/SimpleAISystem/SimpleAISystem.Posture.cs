@@ -60,7 +60,7 @@ namespace TheWaningBorder.AI
         /// <summary>
         /// Evaluate and act on the AI's posture each think tick:
         ///   Defend  — ThreatMap spike near the Hall: recall the fielded army,
-        ///             dispatch an idle builder to repair damaged buildings.
+        ///             dispatch an idle worker to repair damaged buildings.
         ///   Rebuild — army below half its desired size: hold attacks.
         ///   Pressure— army at/above desired size: attack with smaller waves.
         ///   Develop — everything else.
@@ -202,7 +202,7 @@ namespace TheWaningBorder.AI
         /// <summary>
         /// Defend response (M4): recall every fielded military unit that is
         /// outside the defend radius back to the Hall (attack-move, so it
-        /// fights through), and put an idle builder on the most-damaged
+        /// fights through), and put an idle worker on the most-damaged
         /// completed building.
         /// </summary>
         // Instance, not static: registering the defence as a mission needs
@@ -321,7 +321,7 @@ namespace TheWaningBorder.AI
                 MissionsFor(faction).Add(defence);
             }
 
-            // Repair: most-damaged completed building gets one idle builder.
+            // Repair: most-damaged completed building gets one idle worker.
             Entity worst = Entity.Null;
             float worstFrac = 0.85f; // only bother below 85% HP
             var bq = QC_BuildingTagFactionTagHealth.Get(em, QT_BuildingTagFactionTagHealth);

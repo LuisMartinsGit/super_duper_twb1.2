@@ -1,16 +1,32 @@
 // StatsBoardHUD.cs
-// Always-on match statistics board (user request 2026-08-04): AoE-postgame
-// style charts, but LIVE, rendered to DISPLAY 2 — in the editor, set a
-// second Game view to "Display 2"; in a player build a second monitor is
-// activated automatically. Never touches the main display's UI.
+// DEBUG BOARD ON DISPLAY 2 — live match diagnostics for development. In the
+// editor, set a second Game view to "Display 2"; in a development player build
+// a second monitor is activated automatically. Never touches the main display.
 //
-// Content, per faction with a resource bank (banner-colored series):
-//   * six time-series charts — Supplies, Iron, Veilstone, Veilsteel,
-//     Military count, Influence area % (the influence chart also carries a
-//     purple CURSE series — the map-domination race at a glance)
-//   * a live table of current bank values + worker/military counts
-// Sampled every 5 s into a ring buffer (2 h window), charts redrawn on
-// sample — presentation-only, reads sim state, writes nothing.
+// NOT SHIPPED IN RELEASES. The whole class compiles only when
+//   UNITY_EDITOR || DEVELOPMENT_BUILD || TWB_DEBUG_DISPLAY
+// and never when TWB_NO_DEBUG_DISPLAY is defined. Release builds
+// (PlayerBuild, BuildOptions.None) are not development builds, so it is
+// stripped from them automatically; add TWB_DEBUG_DISPLAY to the scripting
+// defines to force it into one, TWB_NO_DEBUG_DISPLAY to remove it even from the
+// editor. GameBootstrap adds it under the same condition. (The once-a-minute
+// faction snapshot in the match logs is MatchSnapshotLog, which does ship.)
+//
+// Content:
+//   * a header — match clock, FPS (average and worst frame), frame time,
+//     entity count, single/multiplayer + lockstep tick, the curse (nodes,
+//     territories held, wrath per faction);
+//   * one row per faction — culture/era, human/AI, banks with NET income per
+//     minute (Trading Outposts included, red when draining), population,
+//     territories held / limit and how many are cut off from a Fortress,
+//     military / economy units, buildings, plans waiting for a worker,
+//     Trading Outposts by trade, Religion Points;
+//   * twelve charts (5 s samples, 2 h window): the four banks, the four net
+//     incomes per minute, military units, population, territories held (with
+//     the curse as a purple series) and Religion Points.
+// Presentation only — reads sim state, writes nothing.
+
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD || TWB_DEBUG_DISPLAY) && !TWB_NO_DEBUG_DISPLAY
 
 using System.Text;
 using Unity.Collections;
@@ -18,6 +34,8 @@ using Unity.Entities;
 using UnityEngine;
 using UnityEngine.UI;
 using TheWaningBorder.Economy;
+using TheWaningBorder.Systems.World;
+using TheWaningBorder.World.Regions;
 using EntityWorld = Unity.Entities.World;
 using TheWaningBorder.UI.Common;
 
@@ -27,117 +45,99 @@ namespace TheWaningBorder.UI.Ingame
     {
         private const int TargetDisplay = 1;      // Unity display index (Display 2)
         private const float SampleInterval = 5f;
+        private const float TableInterval = 1f;
         private const int MaxSamples = 1440;      // 2 h at 5 s
-        // 3 x 3 grid (was 2 x 3 for six charts). Narrower so three fit
-        // across the 1280 reference width.
-        private const int ChartW = 300;
-        private const int ChartH = 120;
-        private const int ChartCols = 3;
+        private const int ChartW = 270;
+        private const int ChartH = 96;
+        private const int ChartCols = 4;
         private const int MaxFactions = 8;
-        private const int ChartCount = 9;
-        private const int ChartMilitary = 4;      // series index for the military chart
-        private const int ChartInfluence = 5;     // series index for the influence-% chart
-        private const int ChartIncome = 6;        // total resource income per minute
-        private const int ChartEconomy = 7;       // economy units (workers/miners)
-        private const int ChartTotalUnits = 8;    // every living unit, army + economy
+
+        private enum Chart
+        {
+            Supplies, Iron, Veilstone, Veilsteel,
+            SuppliesPerMin, IronPerMin, VeilstonePerMin, VeilsteelPerMin,
+            Military, Population, Territories, Religion,
+        }
+        private const int ChartCount = 12;
 
         private static readonly string[] ChartTitles =
-            { "Supplies", "Iron", "Veilstone", "Veilsteel", "Military", "Influence %",
-              "Income /min", "Economy units", "Total units" };
+        {
+            "Supplies (bank)", "Iron (bank)", "Veilstone (bank)", "Veilsteel (bank)",
+            "Supplies net /min", "Iron net /min", "Veilstone net /min", "Veilsteel net /min",
+            "Military units", "Population", "Territories held  (purple = curse)", "Religion Points",
+        };
 
-        /// <summary>Bank totals at the previous sample, per faction — the
-        /// income chart is the delta between samples, scaled to a per-minute
-        /// rate. Resources are weighted the same way FactionResources.TotalValue
-        /// weights them (iron x2, veilstone x3, veilsteel x5) so one line means
-        /// "economic output", not "supplies happened to tick".</summary>
-        private readonly float[] _prevWealth = new float[MaxFactions];
-        private bool _haveWealthBaseline;
+        private static bool Signed(int c) => c >= (int)Chart.SuppliesPerMin && c <= (int)Chart.VeilsteelPerMin;
 
-        private readonly float[][,] _series = new float[ChartCount][,]; // [chart][faction, sample]
-        private readonly float[] _curseInf = new float[MaxSamples];     // curse territory %, purple series
+        private readonly float[][,] _series = new float[ChartCount][,];
+        private readonly float[] _curseTerritories = new float[MaxSamples];
         private readonly bool[] _factionLive = new bool[MaxFactions];
         private int _sampleCount;
-        private float _nextSample;
+        private float _nextSample, _nextTable;
 
         private Texture2D[] _chartTex;
-        // One pixel buffer per chart, reused: every redraw overwrites every
-        // pixel, so reading the texture back (nine 36k-element allocations
-        // per sample) bought nothing but garbage.
         private Color32[][] _chartPx;
-        private Text _table;
-        private EntityQuery _unitQuery;
+        private Text _header, _table;
+
+        // Frame timing.
+        private float _fpsAccum;
+        private int _fpsFrames;
+        private float _fps, _worstMs, _worstWindowMs;
+        private float _fpsWindowStart, _worstWindowStart;
+
+        private EntityQuery _unitQuery, _buildingQuery, _outpostQuery, _brainQuery, _curseNodeQuery;
         private bool _queriesReady;
 
         private void Start()
         {
-            // Activate the physical second display in player builds; in the
-            // editor the Game view's "Display 2" dropdown shows this canvas.
             if (Display.displays.Length > TargetDisplay && !Display.displays[TargetDisplay].active)
                 Display.displays[TargetDisplay].Activate();
-
             for (int c = 0; c < ChartCount; c++)
                 _series[c] = new float[MaxFactions, MaxSamples];
-
             BuildUi();
         }
 
+        // ── UI ──────────────────────────────────────────────────────────
+
         private void BuildUi()
         {
-            var canvasGo = new GameObject("[Stats Board Canvas]");
+            var canvasGo = new GameObject("[Debug Board Canvas]");
             canvasGo.transform.SetParent(transform, false);
             var canvas = canvasGo.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.targetDisplay = TargetDisplay;
-            // Authored against 720p. Expand rather than Unity's default
-            // match-width, or a 32:9 screen keeps the 1280 units of width and
-            // loses half the 720 units of height the board is laid out in.
-            HudCanvas.Configure(
-                canvasGo.AddComponent<CanvasScaler>(), new Vector2(1280f, 720f));
+            HudCanvas.Configure(canvasGo.AddComponent<CanvasScaler>(), new Vector2(1280f, 720f));
 
-            // Dark backdrop.
             var bg = new GameObject("Backdrop").AddComponent<Image>();
             bg.transform.SetParent(canvasGo.transform, false);
-            bg.color = new Color(0.07f, 0.07f, 0.09f, 1f);
-            var bgRt = bg.rectTransform;
-            bgRt.anchorMin = Vector2.zero; bgRt.anchorMax = Vector2.one;
-            bgRt.offsetMin = Vector2.zero; bgRt.offsetMax = Vector2.zero;
+            bg.color = new Color(0.06f, 0.06f, 0.08f, 1f);
+            Stretch(bg.rectTransform);
 
             var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            _header = MakeText(canvasGo.transform, "Header", font, 12, new Vector2(0f, -6f), 34f);
+            _header.color = new Color(1f, 0.86f, 0.55f, 1f);
+            _table = MakeText(canvasGo.transform, "Table", font, 11, new Vector2(0f, -40f), 150f);
 
-            // Live table across the top.
-            var tableGo = new GameObject("Table");
-            tableGo.transform.SetParent(canvasGo.transform, false);
-            _table = tableGo.AddComponent<Text>();
-            _table.font = font;
-            _table.fontSize = 13;
-            _table.alignment = TextAnchor.UpperLeft;
-            _table.color = new Color(0.92f, 0.92f, 0.92f, 1f);
-            var tRt = _table.rectTransform;
-            tRt.anchorMin = new Vector2(0f, 1f); tRt.anchorMax = new Vector2(1f, 1f);
-            tRt.pivot = new Vector2(0.5f, 1f);
-            tRt.anchoredPosition = new Vector2(0f, -8f);
-            tRt.sizeDelta = new Vector2(-24f, 150f);
-
-            // 3x3 chart grid below the table.
             _chartTex = new Texture2D[ChartCount];
+            _chartPx = new Color32[ChartCount][];
             for (int c = 0; c < ChartCount; c++)
             {
-                _chartTex[c] = new Texture2D(ChartW, ChartH, TextureFormat.RGBA32, false)
-                { filterMode = FilterMode.Point };
-
+                _chartTex[c] = new Texture2D(ChartW, ChartH, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point };
+                _chartPx[c] = new Color32[ChartW * ChartH];
                 int col = c % ChartCols, row = c / ChartCols;
-                float x = 0.18f + col * 0.32f;
-                float yLabel = 0.72f - row * 0.245f;
-                float yChart = 0.62f - row * 0.245f;
+                float x = 0.13f + col * 0.245f;
+                float yLabel = 0.665f - row * 0.215f;
+                float yChart = 0.58f - row * 0.215f;
 
                 var label = new GameObject($"Label{c}").AddComponent<Text>();
                 label.transform.SetParent(canvasGo.transform, false);
-                label.font = font; label.fontSize = 13; label.fontStyle = FontStyle.Bold;
+                label.font = font; label.fontSize = 11; label.fontStyle = FontStyle.Bold;
                 label.text = ChartTitles[c];
                 label.color = new Color(0.85f, 0.85f, 0.9f, 1f);
+                label.horizontalOverflow = HorizontalWrapMode.Overflow;
                 var lRt = label.rectTransform;
                 lRt.anchorMin = lRt.anchorMax = new Vector2(x, yLabel);
-                lRt.sizeDelta = new Vector2(200f, 20f);
+                lRt.sizeDelta = new Vector2(ChartW, 16f);
 
                 var img = new GameObject($"Chart{c}").AddComponent<RawImage>();
                 img.transform.SetParent(canvasGo.transform, false);
@@ -148,62 +148,186 @@ namespace TheWaningBorder.UI.Ingame
             }
         }
 
+        private static Text MakeText(Transform parent, string name, Font font, int size, Vector2 pos, float height)
+        {
+            var t = new GameObject(name).AddComponent<Text>();
+            t.transform.SetParent(parent, false);
+            t.font = font; t.fontSize = size;
+            t.alignment = TextAnchor.UpperLeft;
+            t.color = new Color(0.92f, 0.92f, 0.92f, 1f);
+            t.supportRichText = true;
+            t.horizontalOverflow = HorizontalWrapMode.Overflow;
+            var rt = t.rectTransform;
+            rt.anchorMin = new Vector2(0f, 1f); rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = new Vector2(-24f, height);
+            return t;
+        }
+
+        private static void Stretch(RectTransform rt)
+        {
+            rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
+        }
+
+        // ── Loop ────────────────────────────────────────────────────────
+
         private void Update()
         {
-            if (Time.unscaledTime < _nextSample) return;
-            _nextSample = Time.unscaledTime + SampleInterval;
+            TrackFrameTime();
 
             var world = EntityWorld.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated) return;
             var em = world.EntityManager;
+            EnsureQueries(em);
 
-            if (!_queriesReady)
+            if (Time.unscaledTime >= _nextSample)
             {
-                // Plunderers are excluded from the military chart: they are
-                // free, uncontrollable 45 HP tax collectors that stream out
-                // of Raider Camps continuously, so counting them made a
-                // Feraldis "military" line that said nothing about the army
-                // the player could actually fight with.
-                _unitQuery = new EntityQueryBuilder(Allocator.Temp)
-                    .WithAll<UnitTag, FactionTag>()
-                    .WithNone<PlundererTag>()
-                    .Build(em);
-                _queriesReady = true;
+                _nextSample = Time.unscaledTime + SampleInterval;
+                Sample(em);
+                RedrawCharts();
             }
-
-            Sample(em);
-            RedrawCharts();
-            RedrawTable(em);
-
-            // Once a minute, drop a bank snapshot into each faction's log —
-            // the human's into Player_*.log, AIs into AI_*.log — so a human
-            // match and an AI match compare line-for-line.
-            if (_sampleCount % 12 == 0)
-                WriteSnapshots(em);
+            if (Time.unscaledTime >= _nextTable)
+            {
+                _nextTable = Time.unscaledTime + TableInterval;
+                RedrawHeader(em);
+                RedrawTable(em);
+            }
         }
 
-        private void WriteSnapshots(EntityManager em)
+        private void TrackFrameTime()
         {
-            var localFaction = GameSettings.LocalPlayerFaction;
-            int idx = Mathf.Max(0, _sampleCount - 1);
+            float dt = Time.unscaledDeltaTime;
+            float now = Time.unscaledTime;
+            _fpsAccum += dt; _fpsFrames++;
+            if (now - _fpsWindowStart >= 1f)
+            {
+                _fps = _fpsFrames / Mathf.Max(0.0001f, _fpsAccum);
+                _fpsAccum = 0f; _fpsFrames = 0; _fpsWindowStart = now;
+            }
+            _worstWindowMs = Mathf.Max(_worstWindowMs, dt * 1000f);
+            if (now - _worstWindowStart >= 5f)
+            {
+                _worstMs = _worstWindowMs;
+                _worstWindowMs = 0f; _worstWindowStart = now;
+            }
+        }
+
+        private void EnsureQueries(EntityManager em)
+        {
+            if (_queriesReady) return;
+            // Plunderers are free, uncontrollable Raider-Camp bodies — not an
+            // army — and would swamp the Feraldis military line.
+            _unitQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<UnitTag, FactionTag>().WithNone<PlundererTag>().Build(em);
+            _buildingQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<BuildingTag, FactionTag>().Build(em);
+            _outpostQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<TradingOutpostTag, TradingOutpostMode, FactionTag>().Build(em);
+            _brainQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<TheWaningBorder.AI.AIBrain>().Build(em);
+            _curseNodeQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<SmallNodeTag, FactionTag>().WithNone<BuildingCollapseState>().Build(em);
+            _queriesReady = true;
+        }
+
+        // ── Per-faction snapshot (shared by the table and the samples) ──
+
+        private struct Row
+        {
+            public bool Live, Ai;
+            public FactionResources Bank;
+            public TerritoryYield Net;
+            public int PopCur, PopMax, Military, Economy, Buildings, UnderConstruction, Plans;
+            public int Held, Cap, Disconnected;
+            public int OutBuy, OutForge, OutSell;
+            public int Rp, RpHave, RpNeed, Era;
+            public byte Culture;
+        }
+
+        private readonly Row[] _rows = new Row[MaxFactions];
+
+        private void Collect(EntityManager em)
+        {
+            for (int f = 0; f < MaxFactions; f++) _rows[f] = default;
+
+            using (var tags = _unitQuery.ToComponentDataArray<UnitTag>(Allocator.Temp))
+            using (var facs = _unitQuery.ToComponentDataArray<FactionTag>(Allocator.Temp))
+                for (int i = 0; i < tags.Length; i++)
+                {
+                    int f = (int)facs[i].Value;
+                    if (f < 0 || f >= MaxFactions) continue;
+                    var cls = tags[i].Class;
+                    if (cls == UnitClass.Melee || cls == UnitClass.Ranged || cls == UnitClass.Siege || cls == UnitClass.Magic)
+                        _rows[f].Military++;
+                    else if (cls == UnitClass.Economy || cls == UnitClass.Worker)
+                        _rows[f].Economy++;
+                }
+
+            using (var ents = _buildingQuery.ToEntityArray(Allocator.Temp))
+            using (var facs = _buildingQuery.ToComponentDataArray<FactionTag>(Allocator.Temp))
+                for (int i = 0; i < ents.Length; i++)
+                {
+                    int f = (int)facs[i].Value;
+                    if (f < 0 || f >= MaxFactions) continue;
+                    _rows[f].Buildings++;
+                    if (em.HasComponent<UnderConstruction>(ents[i])) _rows[f].UnderConstruction++;
+                }
+
+            using (var modes = _outpostQuery.ToComponentDataArray<TradingOutpostMode>(Allocator.Temp))
+            using (var facs = _outpostQuery.ToComponentDataArray<FactionTag>(Allocator.Temp))
+                for (int i = 0; i < modes.Length; i++)
+                {
+                    int f = (int)facs[i].Value;
+                    if (f < 0 || f >= MaxFactions) continue;
+                    switch (modes[i].Recipe)
+                    {
+                        case TradeRecipe.ForgeVeilsteel: _rows[f].OutForge++; break;
+                        case TradeRecipe.SellVeilsteel: _rows[f].OutSell++; break;
+                        default: _rows[f].OutBuy++; break;
+                    }
+                }
+
+            using (var brains = _brainQuery.ToComponentDataArray<TheWaningBorder.AI.AIBrain>(Allocator.Temp))
+                for (int i = 0; i < brains.Length; i++)
+                {
+                    int f = (int)brains[i].Owner;
+                    if (f >= 0 && f < MaxFactions) _rows[f].Ai = true;
+                }
+
             for (int f = 0; f < MaxFactions; f++)
             {
-                if (!_factionLive[f]) continue;
-                if (!FactionEconomy.TryGetBank(em, (Faction)f, out var bank)) continue;
-                var res = em.GetComponentData<FactionResources>(bank);
-                string msg = $"supplies {res.Supplies} iron {res.Iron} veilstone {res.Veilstone} " +
-                             $"veilsteel {res.Veilsteel} military {(int)_series[ChartMilitary][f, idx]} " +
-                             $"influence {_series[ChartInfluence][f, idx]:0.0}% curse {_curseInf[idx]:0.0}%";
-                if ((Faction)f == localFaction && !GameSettings.IsObserver)
-                    TheWaningBorder.AI.AILogger.LogPlayer((Faction)f, "SNAPSHOT", msg);
-                else
-                    TheWaningBorder.AI.AILogger.Log((Faction)f, "SNAPSHOT", msg);
+                var fac = (Faction)f;
+                if (!FactionEconomy.TryGetBank(em, fac, out var bank)) continue;
+                ref var r = ref _rows[f];
+                r.Live = true;
+                r.Bank = em.GetComponentData<FactionResources>(bank);
+                r.Net = TerritoryIncomeSystem.FactionNetForDisplay(em, fac);
+                if (em.HasComponent<FactionPopulation>(bank))
+                {
+                    var pop = em.GetComponentData<FactionPopulation>(bank);
+                    r.PopCur = pop.Current; r.PopMax = pop.Max;
+                }
+                if (em.HasComponent<FactionEra>(bank)) r.Era = em.GetComponentData<FactionEra>(bank).Value;
+                r.Culture = CultureConfig.GetCompletedCulture(em, fac);
+                r.Plans = TheWaningBorder.Entities.PlannedBuildings.CountAll(em, fac);
+                r.Held = TerritoryClaimSystem.TerritoriesHeldBy(fac);
+                r.Cap = TerritoryClaimSystem.TerritoryCapOf(fac);
+                if (RegionMap.Ready && TerritoryOwnership.Ready)
+                    for (int t = 0; t < RegionMap.Count; t++)
+                        if (TerritoryOwnership.OwnerOf(t) == f && !TerritoryClaimSystem.IsConnected(t, fac))
+                            r.Disconnected++;
+                r.Rp = FactionReligionPointsHelper.GetBalance(em, fac);
+                (r.RpHave, r.RpNeed) = FactionReligionPointsHelper.PtsProgress(em, fac);
             }
         }
+
+        // ── Samples & charts ────────────────────────────────────────────
 
         private void Sample(EntityManager em)
         {
-            // Ring behavior: past capacity, shift left (rare — every 2 h).
+            Collect(em);
             int idx = _sampleCount;
             if (idx >= MaxSamples)
             {
@@ -211,211 +335,92 @@ namespace TheWaningBorder.UI.Ingame
                     for (int f = 0; f < MaxFactions; f++)
                         for (int s = 1; s < MaxSamples; s++)
                             _series[c][f, s - 1] = _series[c][f, s];
-                for (int s = 1; s < MaxSamples; s++)
-                    _curseInf[s - 1] = _curseInf[s];
+                for (int s = 1; s < MaxSamples; s++) _curseTerritories[s - 1] = _curseTerritories[s];
                 idx = MaxSamples - 1;
             }
-            else
-                _sampleCount++;
-
-            // Unit tallies per faction: military, economy, and everything.
-            // NOTE the query already excludes Plunderers (see _unitQuery) —
-            // free Raider-Camp bodies are not an army and would swamp both
-            // the military and total lines for Feraldis.
-            var mil = new int[MaxFactions];
-            var eco = new int[MaxFactions];
-            var tot = new int[MaxFactions];
-            using (var tags = _unitQuery.ToComponentDataArray<UnitTag>(Allocator.Temp))
-            using (var facs = _unitQuery.ToComponentDataArray<FactionTag>(Allocator.Temp))
-            {
-                for (int i = 0; i < tags.Length; i++)
-                {
-                    int f = (int)facs[i].Value;
-                    if (f < 0 || f >= MaxFactions) continue;
-                    tot[f]++;
-                    var cls = tags[i].Class;
-                    if (cls == UnitClass.Melee || cls == UnitClass.Ranged
-                        || cls == UnitClass.Siege || cls == UnitClass.Magic)
-                        mil[f]++;
-                    else if (cls == UnitClass.Economy || cls == UnitClass.Miner)
-                        eco[f]++;
-                }
-            }
-
-            // TERRITORY %: the share of the map's territories each faction
-            // HOLDS. Counted in territories, not influence cells.
-            //
-            // It used to be the share of influence cells over 0.5, which is a
-            // different quantity entirely now that ground is claimed a
-            // territory at a time (docs/Design/Regions.md §2): influence is an
-            // Age 1 thing that nobody has in the opening, so the chart read
-            // flat zero for every player through the whole early game while
-            // they were visibly holding ground — and once it did move, it
-            // measured a bubble around buildings rather than anything owned.
-            //
-            // Weighted by each territory's CLAIMABLE area, not by a flat count,
-            // so holding one big territory outscores three slivers — otherwise
-            // the chart says a player is winning the map for taking the three
-            // smallest corners of it.
-            var infCells = new int[MaxFactions];
-            int curseCells = 0;
-            if (TheWaningBorder.World.Regions.RegionMap.Ready
-                && TheWaningBorder.World.Regions.TerritoryOwnership.Ready
-                && TheWaningBorder.Influence.PlayerInfluenceMap.Ready)
-            {
-                const int res = TheWaningBorder.Influence.PlayerInfluenceMap.Resolution;
-                // Region per cell comes from the influence map's cache, not
-                // from 16k live RegionAt calls: on a map with authored
-                // outlines that loop was a 58 ms hitch every sample (2026-09-16).
-                var regionOf = TheWaningBorder.Influence.PlayerInfluenceMap.RegionOfCell();
-                int claimable = 0;
-                for (int i = 0; i < res * res; i++)
-                {
-                    int t = regionOf[i];
-                    if (t == TheWaningBorder.World.Regions.RegionMap.None) continue;
-                    claimable++;
-                    int owner = TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(t);
-                    if (owner >= 0 && owner < MaxFactions) infCells[owner]++;
-                }
-                if (claimable > 0)
-                {
-                    // The curse holds no territories yet (Regions.md §3 is
-                    // unimplemented), so its share still comes from its field —
-                    // the one channel for which influence IS the statement.
-                    for (int y = 0; y < res; y++)
-                        for (int x = 0; x < res; x++)
-                            if (TheWaningBorder.Influence.PlayerInfluenceMap.CellValue(
-                                    x, y, TheWaningBorder.Influence.PlayerInfluenceMap.CurseChannel) >= 0.5f)
-                                curseCells++;
-                    _curseInf[idx] = curseCells / (float)(res * res) * 100f;
-                    for (int f = 0; f < MaxFactions; f++)
-                        infCells[f] = Mathf.RoundToInt(infCells[f] / (float)claimable * 10000f); // % x100
-                }
-            }
+            else _sampleCount++;
 
             for (int f = 0; f < MaxFactions; f++)
             {
-                if (!FactionEconomy.TryGetBank(em, (Faction)f, out var bank))
-                { _factionLive[f] = false; continue; }
-                _factionLive[f] = true;
-                var res = em.GetComponentData<FactionResources>(bank);
-                _series[0][f, idx] = res.Supplies;
-                _series[1][f, idx] = res.Iron;
-                _series[2][f, idx] = res.Veilstone;
-                _series[3][f, idx] = res.Veilsteel;
-                _series[ChartMilitary][f, idx] = mil[f];
-                _series[ChartInfluence][f, idx] = infCells[f] / 100f;
-                _series[ChartEconomy][f, idx] = eco[f];
-                _series[ChartTotalUnits][f, idx] = tot[f];
-
-                // Income per minute = weighted bank delta since the last
-                // sample. First sample has no baseline, so it reads 0 rather
-                // than reporting the entire starting bank as one minute of
-                // income. Spending shows as a dip, which is intentional: this
-                // is NET economic flow, the number that actually says whether
-                // a faction is converting resources into anything.
-                float wealth = res.Supplies + res.Iron * 2f
-                             + res.Veilstone * 3f + res.Veilsteel * 5f;
-                if (_haveWealthBaseline && SampleInterval > 0f)
-                    _series[ChartIncome][f, idx] =
-                        (wealth - _prevWealth[f]) * (60f / SampleInterval);
-                _prevWealth[f] = wealth;
+                var r = _rows[f];
+                _factionLive[f] = r.Live;
+                if (!r.Live) continue;
+                _series[(int)Chart.Supplies][f, idx] = r.Bank.Supplies;
+                _series[(int)Chart.Iron][f, idx] = r.Bank.Iron;
+                _series[(int)Chart.Veilstone][f, idx] = r.Bank.Veilstone;
+                _series[(int)Chart.Veilsteel][f, idx] = r.Bank.Veilsteel;
+                _series[(int)Chart.SuppliesPerMin][f, idx] = r.Net.Supplies;
+                _series[(int)Chart.IronPerMin][f, idx] = r.Net.Iron;
+                _series[(int)Chart.VeilstonePerMin][f, idx] = r.Net.Veilstone;
+                _series[(int)Chart.VeilsteelPerMin][f, idx] = r.Net.Veilsteel;
+                _series[(int)Chart.Military][f, idx] = r.Military;
+                _series[(int)Chart.Population][f, idx] = r.PopCur;
+                _series[(int)Chart.Territories][f, idx] = r.Held;
+                _series[(int)Chart.Religion][f, idx] = r.Rp;
             }
-            _haveWealthBaseline = true;
+            _curseTerritories[idx] = CurseTerritoryCount();
+        }
+
+        private static int CurseTerritoryCount()
+        {
+            if (!RegionMap.Ready || !TerritoryOwnership.Ready) return 0;
+            int n = 0;
+            for (int t = 0; t < RegionMap.Count; t++)
+                if (TerritoryOwnership.OwnerOf(t) == TerritoryOwnership.Curse) n++;
+            return n;
         }
 
         private void RedrawCharts()
         {
             var bgCol = new Color32(16, 16, 20, 255);
-            var gridCol = new Color32(38, 38, 46, 255);
-
+            var gridCol = new Color32(36, 36, 44, 255);
             for (int c = 0; c < ChartCount; c++)
             {
-                _chartPx ??= new Color32[ChartCount][];
-                var px = _chartPx[c] ??= new Color32[ChartW * ChartH];
+                var px = _chartPx[c];
                 for (int i = 0; i < px.Length; i++) px[i] = bgCol;
-                for (int gy = 1; gy < 4; gy++) // horizontal quarter grid
+                for (int gy = 1; gy < 4; gy++)
                 {
                     int y = gy * ChartH / 4;
                     for (int x = 0; x < ChartW; x++) px[y * ChartW + x] = gridCol;
                 }
 
+                bool signed = Signed(c);
                 float max = 1f;
                 for (int f = 0; f < MaxFactions; f++)
                 {
                     if (!_factionLive[f]) continue;
                     for (int s = 0; s < _sampleCount; s++)
-                        if (_series[c][f, s] > max) max = _series[c][f, s];
+                        max = Mathf.Max(max, signed ? Mathf.Abs(_series[c][f, s]) : _series[c][f, s]);
                 }
-                if (c == ChartInfluence)
-                    for (int s = 0; s < _sampleCount; s++)
-                        if (_curseInf[s] > max) max = _curseInf[s];
-
-                // The income chart is the only SIGNED series — spending shows
-                // as a dip below zero, and that is the interesting half (a
-                // faction banking 20k while spending nothing is the exact
-                // failure mode these charts exist to expose). Give it a
-                // symmetric scale around a mid-height zero line.
-                bool signed = c == ChartIncome;
+                if (c == (int)Chart.Territories)
+                    for (int s = 0; s < _sampleCount; s++) max = Mathf.Max(max, _curseTerritories[s]);
                 if (signed)
-                {
-                    float mag = 1f;
-                    for (int f = 0; f < MaxFactions; f++)
-                    {
-                        if (!_factionLive[f]) continue;
-                        for (int s = 0; s < _sampleCount; s++)
-                        {
-                            float v = _series[c][f, s];
-                            if (v < 0f) v = -v;
-                            if (v > mag) mag = v;
-                        }
-                    }
-                    max = mag;
-                    int zeroY = ChartH / 2;
-                    for (int x = 0; x < ChartW; x++)
-                        px[zeroY * ChartW + x] = new Color32(70, 70, 84, 255);
-                }
+                    for (int x = 0; x < ChartW; x++) px[(ChartH / 2) * ChartW + x] = new Color32(70, 70, 84, 255);
 
                 for (int f = 0; f < MaxFactions; f++)
                 {
                     if (!_factionLive[f]) continue;
-                    Color32 col = FactionColors.Get((Faction)f);
-                    DrawSeriesLine(px, f, c, max, col, signed);
+                    DrawLine(px, s => _series[c][f, s], max, FactionColors.Get((Faction)f), signed);
                 }
-
-                // The influence chart carries the CURSE as its own purple
-                // series — the three-way map race in one picture.
-                if (c == ChartInfluence)
-                {
-                    Color32 purple = TheWaningBorder.Influence.PlayerInfluenceMap.CurseColor;
-                    int prevX = -1, prevY = 0;
-                    for (int s = 0; s < _sampleCount; s++)
-                    {
-                        int x = _sampleCount <= 1 ? 0 : s * (ChartW - 1) / (_sampleCount - 1);
-                        int y = Mathf.Clamp((int)(_curseInf[s] / max * (ChartH - 2)), 0, ChartH - 1);
-                        if (prevX >= 0) DrawSegment(px, prevX, prevY, x, y, purple);
-                        prevX = x; prevY = y;
-                    }
-                }
+                if (c == (int)Chart.Territories)
+                    DrawLine(px, s => _curseTerritories[s], max,
+                             TheWaningBorder.Influence.PlayerInfluenceMap.CurseColor, false);
 
                 _chartTex[c].SetPixels32(px);
                 _chartTex[c].Apply(false, false);
             }
         }
 
-        private void DrawSeriesLine(Color32[] px, int f, int c, float max, Color32 col,
-            bool signed = false)
+        private void DrawLine(Color32[] px, System.Func<int, float> value, float max, Color32 col, bool signed)
         {
             int prevX = -1, prevY = 0;
             for (int s = 0; s < _sampleCount; s++)
             {
                 int x = _sampleCount <= 1 ? 0 : s * (ChartW - 1) / (_sampleCount - 1);
-                // Signed series plot around a mid-height zero line; unsigned
-                // ones keep the original bottom-anchored scale.
+                float v = value(s);
                 int y = signed
-                    ? Mathf.Clamp((int)(ChartH / 2f + _series[c][f, s] / max * (ChartH / 2f - 2f)),
-                                  0, ChartH - 1)
-                    : Mathf.Clamp((int)(_series[c][f, s] / max * (ChartH - 2)), 0, ChartH - 1);
+                    ? Mathf.Clamp((int)(ChartH / 2f + v / max * (ChartH / 2f - 2f)), 0, ChartH - 1)
+                    : Mathf.Clamp((int)(v / max * (ChartH - 2)), 0, ChartH - 1);
                 if (prevX >= 0) DrawSegment(px, prevX, prevY, x, y, col);
                 prevX = x; prevY = y;
             }
@@ -423,38 +428,94 @@ namespace TheWaningBorder.UI.Ingame
 
         private static void DrawSegment(Color32[] px, int x0, int y0, int x1, int y1, Color32 col)
         {
-            int steps = Mathf.Max(Mathf.Abs(x1 - x0), Mathf.Abs(y1 - y0));
-            if (steps == 0) steps = 1;
+            int steps = Mathf.Max(Mathf.Abs(x1 - x0), Mathf.Abs(y1 - y0), 1);
             for (int i = 0; i <= steps; i++)
             {
                 int x = x0 + (x1 - x0) * i / steps;
                 int y = y0 + (y1 - y0) * i / steps;
                 if (x < 0 || x >= ChartW || y < 0 || y >= ChartH) continue;
                 px[y * ChartW + x] = col;
-                if (y + 1 < ChartH) px[(y + 1) * ChartW + x] = col; // 2px line
+                if (y + 1 < ChartH) px[(y + 1) * ChartW + x] = col;
             }
+        }
+
+        // ── Text ────────────────────────────────────────────────────────
+
+        private void RedrawHeader(EntityManager em)
+        {
+            var sb = new StringBuilder(256);
+            double t = EntityWorld.DefaultGameObjectInjectionWorld.Time.ElapsedTime;
+            sb.Append($"DEBUG BOARD   match {((int)t) / 60:00}:{((int)t) % 60:00}   ");
+            sb.Append($"{_fps:0} fps ({1000f / Mathf.Max(1f, _fps):0.0} ms), worst frame {_worstMs:0} ms   ");
+            sb.Append($"entities {em.UniversalQuery.CalculateEntityCountWithoutFiltering()}   ");
+            var ls = TheWaningBorder.Multiplayer.LockstepManager.Instance;
+            sb.Append(GameSettings.IsMultiplayer
+                ? $"MULTIPLAYER tick {(ls != null ? ls.CurrentTick : 0)}" + (ls != null && ls.DesyncTick > 0 ? $"  <color=#FF5050>DESYNC @ {ls.DesyncTick}</color>" : "")
+                : "single player");
+            sb.AppendLine();
+
+            int nodes = _curseNodeQuery.CalculateEntityCount();
+            sb.Append($"<color=#C9A8FF>CURSE</color>  nodes {nodes}   territories {CurseTerritoryCount()}/{(RegionMap.Ready ? RegionMap.Count : 0)}   wrath ");
+            bool any = false;
+            for (int f = 0; f < MaxFactions; f++)
+            {
+                if (!_rows[f].Live) continue;
+                int w = TheWaningBorder.Systems.Border.CurseWrath.LevelOf((Faction)f);
+                sb.Append($"{ColorTag((Faction)f)}{(Faction)f}</color> {w}  ");
+                any = true;
+            }
+            if (!any) sb.Append("-");
+            _header.text = sb.ToString();
         }
 
         private void RedrawTable(EntityManager em)
         {
-            var sb = new StringBuilder(512);
-            double t = EntityWorld.DefaultGameObjectInjectionWorld.Time.ElapsedTime;
-            sb.AppendLine($"MATCH {((int)t) / 60:00}:{((int)t) % 60:00}    (5 s samples, {_sampleCount} points)");
-            sb.AppendLine("Faction     Supplies     Iron    Veilstone  Veilsteel   Military  Influence");
-
-            int idx = Mathf.Max(0, _sampleCount - 1);
+            Collect(em);
+            var sb = new StringBuilder(1024);
+            sb.AppendLine("<b>Faction        Age/Cult  Supplies         Iron             Veilstone        Veilsteel        Pop       Terr(cut)  Mil/Eco  Bld(+site/plan)  Outposts b/f/s  RP (pts)</b>");
             for (int f = 0; f < MaxFactions; f++)
             {
-                if (!_factionLive[f]) continue;
-                if (!FactionEconomy.TryGetBank(em, (Faction)f, out var bank)) continue;
-                var res = em.GetComponentData<FactionResources>(bank);
-                sb.AppendLine($"{(Faction)f,-10} {res.Supplies,9} {res.Iron,8} {res.Veilstone,10} " +
-                              $"{res.Veilsteel,10} {(int)_series[ChartMilitary][f, idx],9} " +
-                              $"{_series[ChartInfluence][f, idx],8:0.0}%");
+                var r = _rows[f];
+                if (!r.Live) continue;
+                var fac = (Faction)f;
+                string who = r.Ai ? "AI" : (fac == GameSettings.LocalPlayerFaction ? "You" : "Human");
+                sb.Append($"{ColorTag(fac)}{fac,-7}</color>{who,-6} ");
+                sb.Append($"{r.Era - 1}/{CultureLetter(r.Culture),-6} ");
+                sb.Append(Res(r.Bank.Supplies, r.Net.Supplies));
+                sb.Append(Res(r.Bank.Iron, r.Net.Iron));
+                sb.Append(Res(r.Bank.Veilstone, r.Net.Veilstone));
+                sb.Append(Res(r.Bank.Veilsteel, r.Net.Veilsteel));
+                sb.Append($"{r.PopCur,3}/{r.PopMax,-5} ");
+                string cut = r.Disconnected > 0 ? $"<color=#FF5050>({r.Disconnected})</color>" : "   ";
+                string terr = r.Held >= r.Cap && r.Cap > 0 ? $"<color=#FFC040>{r.Held}/{r.Cap}</color>" : $"{r.Held}/{r.Cap}";
+                sb.Append($"{terr,-4}{cut}  ");
+                sb.Append($"{r.Military,3}/{r.Economy,-4} ");
+                sb.Append($"{r.Buildings,3}(+{r.UnderConstruction}/{r.Plans})      ");
+                sb.Append($"{r.OutBuy}/{r.OutForge}/{r.OutSell}            ");
+                sb.Append($"{r.Rp} ({r.RpHave}/{r.RpNeed})");
+                sb.AppendLine();
             }
-            sb.AppendLine($"{"Curse",-10} {"",9} {"",8} {"",10} {"",10} {"",9} {_curseInf[idx],8:0.0}%");
             _table.text = sb.ToString();
         }
+
+        /// <summary>"1234 +190" — bank and net per minute, red when draining.</summary>
+        private static string Res(int bank, float netPerMin)
+        {
+            int n = Mathf.RoundToInt(netPerMin);
+            string net = n < 0 ? $"<color=#FF5050>{n}</color>" : n > 0 ? $"<color=#8CE878>+{n}</color>" : "±0";
+            return $"{bank,6} {net,-6}   ";
+        }
+
+        private static string CultureLetter(byte c) => c switch
+        {
+            Cultures.Alanthor => "Alan",
+            Cultures.Runai => "Runai",
+            Cultures.Feraldis => "Fer",
+            _ => "-",
+        };
+
+        private static string ColorTag(Faction f)
+            => $"<color=#{ColorUtility.ToHtmlStringRGB(FactionColors.Get(f))}>";
 
         private void OnDestroy()
         {
@@ -464,3 +525,5 @@ namespace TheWaningBorder.UI.Ingame
         }
     }
 }
+
+#endif

@@ -29,11 +29,6 @@ namespace TheWaningBorder.Economy
         /// <summary>Current spendable RP balance.</summary>
         public int Balance;
 
-        /// <summary>1 = Shrine bonus already awarded (latched), 0 = not yet.
-        /// Prevents the +1 Shrine reward from firing more than once if the
-        /// player happens to rebuild a Shrine.</summary>
-        public byte ShrineBonusAwarded;
-
         /// <summary>
         /// The age the faction is currently in (1/2/3/4). Stored here so age-up
         /// hooks can detect transitions and apply the carryover formula.
@@ -133,26 +128,6 @@ namespace TheWaningBorder.Economy
             em.SetComponentData(bank, rp);
             return true;
         }
-        /// <summary>
-        /// Award the +1 Shrine bonus exactly once per faction. Idempotent —
-        /// safe to call from BuildingConstructionSystem on every Shrine
-        /// completion event; the latch flag suppresses duplicates.
-        /// Returns true if RP was actually awarded this call.
-        /// </summary>
-        public static bool TryAwardShrineBonus(EntityManager em, Faction faction)
-        {
-            if (!FactionEconomy.TryGetBank(em, faction, out var bank)) return false;
-            if (!em.HasComponent<FactionReligionPoints>(bank)) return false;
-
-            var rp = em.GetComponentData<FactionReligionPoints>(bank);
-            if (rp.ShrineBonusAwarded != 0) return false;
-
-            rp.Balance += SectConfig.RpAwardShrine;
-            rp.ShrineBonusAwarded = 1;
-            em.SetComponentData(bank, rp);
-            return true;
-        }
-
         /// <summary>
         /// Award the per-age bonus for the given age (2/3/4). Applies the 2:1
         /// carryover rule on the *previous* balance: floor(leftover / 2) is

@@ -86,6 +86,19 @@ namespace TheWaningBorder.AI
         /// node, so anything beyond this is candidates that cannot pass.</summary>
         public float extractorSearchRadius;
 
+        // ── Trading Outposts (docs/Design/Veilstone_Economy.md §3.1) ──────
+
+        /// <summary>Veilstone banked at or above which half the faction's
+        /// Trading Outposts switch to Forge (while veilsteel is short).</summary>
+        public int outpostForgeAboveVeilstone;
+        /// <summary>Veilstone below which every Outpost goes back to Trade.</summary>
+        public int outpostTradeBelowVeilstone;
+        /// <summary>Veilsteel banked at or above which no Outpost forges.</summary>
+        public int outpostVeilsteelTarget;
+        /// <summary>Veilsteel banked at or above which one Outpost sells it
+        /// for iron and supplies (once Veilsteel Export is researched).</summary>
+        public int outpostSellAboveVeilsteel;
+
         // ── Think cost (2026-09-25 AI perf pass) ─────────────────────────
 
         /// <summary>Seconds a FAILED site search for one (faction, building,
@@ -144,7 +157,7 @@ namespace TheWaningBorder.AI
         /// take its turn.</summary>
         public int economyWorkingFloor;
 
-        /// <summary>Builders a Feraldis faction keeps for base expansion.</summary>
+        /// <summary>Workers a Feraldis faction keeps for base expansion.</summary>
         public int feraldisWorkerFloor;
 
         /// <summary>Max Gatherer's Huts (= Raider Camps) a Feraldis AI builds.
@@ -187,7 +200,7 @@ namespace TheWaningBorder.AI
 
         /// <summary>Always-on economy layer (2026-08-04 rev.2). Not a budget
         /// system — a PRIORITY ladder the build order cannot override:
-        ///   1. WORKER FLOOR — a stalled opener must still grow its miners.
+        ///   1. WORKER FLOOR — a stalled opener must still grow its workers.
         ///   2. HUT PIPELINE — "lack of supplies means build more huts":
         ///      whenever no Gatherer's Hut is under construction and the
         ///      cost is affordable, start the next one. Huts repay fast
@@ -196,13 +209,32 @@ namespace TheWaningBorder.AI
         ///      is irrelevant here — one is simply ALWAYS in flight.
         /// If the pipeline model still lets openers hoard, the escalation is
         /// true per-purpose income budgets (economy/research/expansion/
-        /// building/military) — deferred until observed necessary.</summary>
+        /// building/military) — deferred until observed necessary.
+        /// NOW (2026-10-03): the home-territory crew of THE WORKER RULE —
+        /// workers = this + workersPerConqueredTerritory per territory beyond
+        /// home (SimpleAISystem.WorkerFloorFor).</summary>
         public int economyWorkerFloor;
 
         /// <summary>Huts below this count build unconditionally (bootstrap);
         /// past it the ECONOMY WALLET is the pipeline's constraint (M-A —
         /// the flat supplies reserve this replaced lives on in git).</summary>
         public int hutPipelineFreeCount;
+
+        /// <summary>Seconds at match start the opening-hut savings hold is
+        /// armed even before a free supply node has been SEEN — the home
+        /// nodes sit under fog for the first moments, and that is exactly
+        /// when the starting bank used to be spent on everything but huts.</summary>
+        public float openingHutGraceSeconds;
+
+        /// <summary>While the opening huts are still pending, the housing
+        /// reflex waits until population headroom is down to this — the
+        /// normal populationHeadroomFloor fires on the very first think.</summary>
+        public int openingHutHousingHeadroom;
+
+        /// <summary>THE WORKER RULE's second term: workers added for every
+        /// territory held beyond the home one (economyWorkerFloor is the
+        /// home crew). SimpleAISystem.WorkerFloorFor.</summary>
+        public int workersPerConqueredTerritory;
 
         /// <summary>Sweep cadence (seconds). Slow mop-up loop — research
         /// takes 30-90 s per tech, so 20 s keeps every host busy without
@@ -223,6 +255,18 @@ namespace TheWaningBorder.AI
         /// squad against the nearest curse node within reclaimRadius, even
         /// when not threatened: curse kills are where RP come from.</summary>
         public int reclaimReligionBelow;
+
+        /// <summary>The first-Religion-Point hunt (TryHuntFirstReligionPoint)
+        /// waits this long into the match before judging a curse node.</summary>
+        public float religionHuntEarliestSeconds;
+
+        /// <summary>Radius around the target curse node the hunt assesses —
+        /// a little past the curse's guardRadius (BorderSettings).</summary>
+        public float religionHuntAssessRadius;
+
+        /// <summary>After a launch, newly free units join the attack on the
+        /// same node for this long, without re-judging the fight.</summary>
+        public float religionHuntReinforceSeconds;
 
         /// <summary>Seconds a claim squad may hold before the attempt is
         /// abandoned and the territory skipped for a while.</summary>
@@ -282,14 +326,14 @@ namespace TheWaningBorder.AI
         // the distance cap approximated.
 
         /// <summary>A Hall needs one of the faction's workers within
-        /// TerritoryOwnership.HallBuilderRange of its site. When none is, the
+        /// TerritoryOwnership.HallWorkerRange of its site. When none is, the
         /// AI walks one there first; this is how long (seconds) before the
         /// walk order is re-issued, in case something else overrode it.</summary>
-        public float claimBuilderRewalkSeconds;
+        public float claimWorkerRewalkSeconds;
 
         /// <summary>The walking worker's stand-off from the Hall's footprint
         /// edge, metres — it waits beside the site, not on it.</summary>
-        public float claimBuilderStandOff;
+        public float claimWorkerStandOff;
 
         /// <summary>A region with resources is worth more than empty ground —
         /// territory income comes from the nodes standing in it

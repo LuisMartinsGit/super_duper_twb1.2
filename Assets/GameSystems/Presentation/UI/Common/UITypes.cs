@@ -74,11 +74,11 @@ public struct EntityDisplayInfo
     /// </summary>
     public float? PowerRating;
 
-    // Miner info
-    public bool HasMinerInfo;
-    public string MinerResourceType;      // "Iron" or "Veilstone"
-    public string MinerExtractionRate;    // e.g. "1 iron / 2s" or "1 veilstone / 1.5s"
-    public string MinerState;             // e.g. "Idle", "Gathering"
+    // Worker info
+    public bool HasWorkerInfo;
+    public string WorkerResourceType;      // "Iron" or "Veilstone"
+    public string WorkerExtractionRate;    // e.g. "1 iron / 2s" or "1 veilstone / 1.5s"
+    public string WorkerState;             // e.g. "Idle", "Gathering"
 
     // Resource deposit info (iron mines, outcroppings)
     public bool HasResourceInfo;
@@ -169,10 +169,10 @@ public struct EntityQueueSlot
         /// <summary>
         /// Per-hub "Build Wall" action surfaced on a completed wall hub of
         /// the local faction. Clicking enters a hub-anchored placement mode
-        /// (BuilderCommandPanel.TriggerHubBuildWall) that drops a new hub +
+        /// (WorkerCommandPanel.TriggerHubBuildWall) that drops a new hub +
         /// auto-connecting segment, both self-constructing in 30 s with no
-        /// builder dispatch. The first hub itself is still placed via a
-        /// builder using the regular BuildingPlacement path.
+        /// worker dispatch. The first hub itself is still placed via a
+        /// worker using the regular BuildingPlacement path.
         /// </summary>
         HubBuildWall
     }

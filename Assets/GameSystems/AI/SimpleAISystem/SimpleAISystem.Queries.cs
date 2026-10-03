@@ -62,7 +62,7 @@ namespace TheWaningBorder.AI
         // THINK-SCOPED MEMO (2026-09-25 AI perf pass)
         //
         // One think asked the same questions over and over — CountAliveMilitary
-        // ~8 times, CountAliveMiners 4, the building counts once per goal —
+        // ~8 times, CountAliveWorkers 4, the building counts once per goal —
         // and each answer was a full copy of every unit or building out of the
         // world. The answers cannot change inside a think except through this
         // brain's own orders, so they are memoised against a STAMP that is
@@ -104,7 +104,7 @@ namespace TheWaningBorder.AI
             return v;
         }
 
-        private static IntMemo _mAliveMilitary, _mAliveMiners, _mUnderConstruction;
+        private static IntMemo _mAliveMilitary, _mAliveWorkers, _mUnderConstruction;
 
         /// <summary>Per-tag memo slots (statics in a generic class are
         /// per-T, the AIQueryCache pattern).</summary>
@@ -179,7 +179,8 @@ namespace TheWaningBorder.AI
         {
             var q = AIQueryCache.TagFactionUnderConstruction<T>(em);
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            int n = 0;
+            // Plans are sites that have not broken ground (Planned_Buildings.md).
+            int n = TheWaningBorder.Entities.PlannedBuildings.CountOf(em, faction, TheWaningBorder.Entities.PlannedBuildings.IdsFor<T>());
             for (int i = 0; i < facs.Length; i++)
                 if (facs[i].Value == faction) n++;
             return n;
@@ -194,7 +195,7 @@ namespace TheWaningBorder.AI
             if (MemoHit(ref _mUnderConstruction, faction, out int memo)) return memo;
             var q = QC_BuildingTagFactionTagUnderConstruction.Get(em, QT_BuildingTagFactionTagUnderConstruction);
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            int n = 0;
+            int n = TheWaningBorder.Entities.PlannedBuildings.CountAll(em, faction);
             for (int i = 0; i < facs.Length; i++)
                 if (facs[i].Value == faction) n++;
             return MemoSet(ref _mUnderConstruction, faction, n);
@@ -209,7 +210,7 @@ namespace TheWaningBorder.AI
             if (MemoHit(ref TagMemo<T>.Count, faction, out int memo)) return memo;
             var q = AIQueryCache.TagFaction<T>(em);
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            int n = 0;
+            int n = TheWaningBorder.Entities.PlannedBuildings.CountOf(em, faction, TheWaningBorder.Entities.PlannedBuildings.IdsFor<T>());
             for (int i = 0; i < facs.Length; i++)
                 if (facs[i].Value == faction) n++;
             return MemoSet(ref TagMemo<T>.Count, faction, n);
@@ -395,15 +396,15 @@ namespace TheWaningBorder.AI
         }
 
         /// <summary>
-        /// Living workers. Counts CanBuild, NOT MinerTag: Feraldis Workers
-        /// have the mining half stripped at age-up, so a MinerTag count read
+        /// Living workers. Counts CanBuild, NOT WorkerTag: Feraldis Workers
+        /// have the mining half stripped at age-up, so a WorkerTag count read
         /// zero for them forever and the worker floor retrained endlessly —
         /// the 2026-08-05 match ended with a yard full of idle Feraldis
         /// workers and no army.
         /// </summary>
-        private static int CountAliveMiners(EntityManager em, Faction faction)
+        private static int CountAliveWorkers(EntityManager em, Faction faction)
         {
-            if (MemoHit(ref _mAliveMiners, faction, out int memo)) return memo;
+            if (MemoHit(ref _mAliveWorkers, faction, out int memo)) return memo;
             var q = QC_CanBuildFactionTag.Get(em, QT_CanBuildFactionTag);
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
@@ -412,25 +413,25 @@ namespace TheWaningBorder.AI
             {
                 if (facs[i].Value != faction) continue;
                 // A conscripted Feraldis Worker is a soldier now, not a
-                // builder — counting it kept the floor "satisfied" by troops
+                // worker — counting it kept the floor "satisfied" by troops
                 // out on the map, so a faction that sent everyone to war
                 // never rebuilt its build crew. Excluding them makes the
-                // floor maintain exactly WorkerFloorFor() real builders.
+                // floor maintain exactly WorkerFloorFor() real workers.
                 if (em.HasComponent<ConscriptedTag>(ents[i])) continue;
                 n++;
             }
-            return MemoSet(ref _mAliveMiners, faction, n);
+            return MemoSet(ref _mAliveWorkers, faction, n);
         }
         /// <summary>
         /// Count items in this faction's training queues that match either the
-        /// combat-class predicate or the miner predicate. Either flag may be
+        /// combat-class predicate or the worker predicate. Either flag may be
         /// set; both unset returns 0. Avoids walking the queues twice for
         /// callers that need both counts.
         /// </summary>
         private static int CountQueuedByPredicate(
-            EntityManager em, Faction faction, bool isCombat = false, bool isMiner = false)
+            EntityManager em, Faction faction, bool isCombat = false, bool isWorker = false)
         {
-            if (!isCombat && !isMiner) return 0;
+            if (!isCombat && !isWorker) return 0;
 
             var q = QC_FactionTagProductionQueueItem.Get(em, QT_FactionTagProductionQueueItem);
             using var ents = q.ToEntityArray(Allocator.Temp);
@@ -446,12 +447,10 @@ namespace TheWaningBorder.AI
                     if (buffer[j].Kind != ProductionKind.Train) continue;
                     UnitClass cls = ClassOf(buffer[j].Id);   // no string per slot
                     if (isCombat && IsCombatClass(cls)) n++;
-                    // Worker (formerly Builder + Miner) is UnitClass.Economy
-                    // since the merge but still counts as a miner slot —
-                    // every Worker carries MinerTag and can auto-find a
-                    // deposit. Without this branch the AI would chase
-                    // miners forever after training the unified unit.
-                    else if (isMiner && (cls == UnitClass.Miner || cls == UnitClass.Economy)) n++;
+                    // The Worker trains as UnitClass.Economy. Without this
+                    // branch a queued Worker would not count, and the AI
+                    // would keep queuing past the worker rule.
+                    else if (isWorker && (cls == UnitClass.Worker || cls == UnitClass.Economy)) n++;
                 }
             }
             return n;
@@ -538,7 +537,7 @@ namespace TheWaningBorder.AI
         private static bool FactionHasChoiceBuilding(EntityManager em, Faction faction)
         {
             // Choice buildings carry ChoiceBuildingTag (set by BuildingFactory for
-            // ShrineOfRidan / VaultOfAlmierra / FiendstoneKeep). The AI age-up
+            // VaultOfAlmierra / FiendstoneKeep). The AI age-up
             // gate must require a COMPLETED choice building — the canonical
             // helper that excludes UnderConstruction is
             // GetCompletedFactionChoiceBuilding. (Player + AI gates were both

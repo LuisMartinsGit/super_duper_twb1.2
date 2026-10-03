@@ -54,7 +54,7 @@ namespace TheWaningBorder.Bootstrap
         // it still runs so the RNG stream is unchanged (see PromoteFaction).
         private static readonly string[] ChoiceBuildings =
         {
-            "ShrineOfRidan",
+            "TempleOfRidan",   // was the cut Shrine of Ridan — content unused, length kept
             "VaultOfAlmierra",
             "FiendstoneKeep",
         };
@@ -158,8 +158,12 @@ namespace TheWaningBorder.Bootstrap
             // player-driven upgrade. (BuildingUpgradeSystem.ApplyLevel reads
             // BuildingUpgradeState.{BaseHpMax, BaseAttackCooldown,
             // BasePopulationProvider} which we stamp here.)
+            // Capped at the building ladder's top: the lobby offers ages past
+            // the last building level (Age 4 against a max of L3), and an
+            // uncapped loop read past the end of the level tables.
             EnsureUpgradeStateBase(em, hall);
-            for (int lvl = 1; lvl <= targetLevel; lvl++)
+            int hallLevel = math.min(targetLevel, TheWaningBorder.Core.Settings.BuildingUpgradeConfig.MaxLevel);
+            for (int lvl = 1; lvl <= hallLevel; lvl++)
                 BuildingUpgradeSystem.ApplyLevel(em, hall, (byte)lvl);
 
             // Bump faction era. Age N → Era N+1, mirroring the in-game ladder
@@ -189,6 +193,7 @@ namespace TheWaningBorder.Bootstrap
                 .TransformGathererHutsForCulture(em, faction, culture);
             TheWaningBorder.Systems.Work.AgeUpSystem
                 .TransformHutsForCulture(em, faction, culture);
+            TheWaningBorder.Entities.TradingOutpost.ConvertMinesForCulture(em, faction, culture);
             // The Hall is the culture-less form; a faction that starts in
             // Age 1 has already passed the moment it becomes the cultured HQ,
             // so it must be renamed here too or its own research is hostless.
@@ -234,7 +239,7 @@ namespace TheWaningBorder.Bootstrap
             FactionEconomy.Add(em, faction, ResourceBonusForAge(targetLevel));
 
             // Refresh culture visuals on every owned building (Hall + new
-            // Temple + new choice + the starting builders' tone).
+            // Temple + new choice + the starting workers' tone).
             if (PresentationSpawnSystem.Instance != null)
                 PresentationSpawnSystem.Instance.RefreshFactionVisuals(faction);
 
@@ -243,10 +248,10 @@ namespace TheWaningBorder.Bootstrap
             // at?" was unanswerable from a postmortem.
             TheWaningBorder.AI.AILogger.Log(faction, "STARTAGE",
                 $"promoted to Age {targetLevel} ({CultureConfig.GetName(culture)}) — " +
-                $"Hall L{targetLevel}, Temple L{templeLevel}, Era {targetLevel + 1}, " +
+                $"Hall L{hallLevel}, Temple L{templeLevel}, Era {targetLevel + 1}, " +
                 $"Barracks, choice {chosen}");
             TWBLog.Log($"[StartAgePromoter] Faction {faction} promoted to Age {targetLevel} " +
-                      $"({CultureConfig.GetName(culture)}). Hall L{targetLevel}, " +
+                      $"({CultureConfig.GetName(culture)}). Hall L{hallLevel}, " +
                       $"Temple L{templeLevel}, choice: {chosen}");
         }
 

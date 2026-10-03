@@ -1,12 +1,12 @@
 // WallTiers.cs
-// The FOUR wall levels (docs/Design/Age_1_Alanthor.md § The four wall
-// levels): 0 timber palisade — every culture, from Age 0; 1 stone — granted
-// free by the Alanthor culture pick; 2 battlemented and 3 shielded —
-// Alanthor only, bought AT THE WALL HUB.
+// The wall levels (docs/Design/Age_1_Alanthor.md § The stone wall). Level 0
+// is the PALISADE — a separate building since 2026-10-02 (`Palisade`,
+// docs/Design/Age_0.md § Palisade), which never changes level. The stone
+// wall (`Alanthor_Wall`, Alanthor only) is 1 stone — granted free by the
+// culture pick; 2 battlemented and 3 shielded — bought AT THE WALL HUB.
 //
-// The ladder is deliberately the one every other building uses (Lv0 is the
-// culture-less form, the culture pick grants Lv1, Lv2 and Lv3 are bought),
-// which is why it is numbered from ZERO and not from one.
+// Every stone level is the SAME wall (4 m deep, walkable, symmetrical): a
+// level changes the wall's HP and what may be fitted to it, never its size.
 //
 // A wall's level is a FACTION fact, not a per-wall one: everything the
 // faction owns is re-clad the moment a tech lands, so there is never a
@@ -57,9 +57,15 @@ namespace TheWaningBorder.Entities
         /// <summary>Old name for <see cref="ShieldedTechId"/>.</summary>
         public const string ReinforcedTechId = ShieldedTechId;
 
-        /// <summary>Garrison slots a CURTAIN MODULE offers at this level.
-        /// Hubs and gates take none — the men stand on the curtain.</summary>
-        public const int ReinforcedGarrisonSlots = 2;
+        /// <summary>RETIRED 2026-10-02: the deck is walkable at every stone
+        /// level, so units stand on the wall instead of vanishing into it.
+        /// Kept at 0 so nothing creates a WallGarrisonSlot.</summary>
+        public const int ReinforcedGarrisonSlots = 0;
+
+        /// <summary>Armour a foot unit gains on a Shielded deck — melee and
+        /// ranged both (docs/Design/Age_1_Alanthor.md § The stone wall).
+        /// Playtest placeholder.</summary>
+        public const int DeckArmorBonus = 3;
 
         /// <summary>HP multiplier over the SO's level-1 numbers.</summary>
         public static float HpMultiplier(byte level) => level switch
@@ -70,15 +76,15 @@ namespace TheWaningBorder.Entities
             _ => 1f,
         };
 
-        /// <summary>Garrison slots a curtain module of this level offers.</summary>
-        public static int GarrisonSlots(byte level)
-            => level >= Shielded ? ReinforcedGarrisonSlots : 0;
+        /// <summary>Garrison slots a curtain module of this level offers —
+        /// none, at any level (retired 2026-10-02).</summary>
+        public static int GarrisonSlots(byte level) => 0;
 
         /// <summary>
-        /// The level <paramref name="faction"/> builds at right now — the
-        /// highest wall tech it has researched. Falls back to the palisade,
-        /// which is every Age 0 faction of any culture, and every Age 1
-        /// faction that has not bought the upgrade yet.
+        /// The level <paramref name="faction"/>'s STONE wall stands at right
+        /// now — the highest wall tech it has researched, and never below
+        /// Stone. A palisade does not ask: it is level 0 for its whole life
+        /// (AlanthorWall reads the kind off the piece, not the faction).
         /// </summary>
         public static byte LevelFor(EntityManager em, Faction faction)
         {
@@ -88,11 +94,26 @@ namespace TheWaningBorder.Entities
                 if (research.HasResearched(faction, ShieldedTechId)) return Shielded;
                 if (research.HasResearched(faction, BattlementsTechId)) return Battlemented;
             }
-            // Lv1 comes from the CULTURE, not from research: picking Alanthor
-            // re-clads the whole wall in stone for free, the same way every
-            // other building takes its Lv1 form at the culture pick.
-            if (CultureConfig.GetCompletedCulture(em, faction) == Cultures.Alanthor) return Stone;
-            return Palisade;
+            return Stone;
+        }
+
+        /// <summary>The level a NEW piece of this kind is raised at.</summary>
+        public static byte LevelFor(EntityManager em, Faction faction, bool palisade)
+            => palisade ? Palisade : LevelFor(em, faction);
+
+        /// <summary>
+        /// May <paramref name="faction"/> raise NEW wall of this kind
+        /// (docs/Design/Age_0.md § Palisade, Age_1_Alanthor.md § The stone
+        /// wall)? The palisade is every culture's in Age 0 and Feraldis's
+        /// after; Alanthor and Runai lose it at age-up. The stone wall is
+        /// Alanthor's from the age-up on. Read by the build panel AND every
+        /// wall executor, so a stale panel cannot raise the wrong wall.
+        /// </summary>
+        public static bool CanBuild(EntityManager em, Faction faction, bool palisade)
+        {
+            byte culture = CultureConfig.GetCompletedCulture(em, faction);
+            if (palisade) return culture == Cultures.None || culture == Cultures.Feraldis;
+            return culture == Cultures.Alanthor;
         }
 
         /// <summary>
@@ -107,12 +128,25 @@ namespace TheWaningBorder.Entities
             Shielded => "Shielded Wall",
             Battlemented => "Battlemented Wall",
             Stone => "Stone Wall",
-            _ => "Wooden Wall",
+            _ => "Palisade",
         };
 
-        /// <summary>Towers are masonry: a timber palisade cannot carry one
-        /// (docs/Design/Age_1_Alanthor.md § The three wall levels).</summary>
+        /// <summary>Towers are masonry: a timber palisade cannot carry one;
+        /// every stone level can (docs/Design/Age_1_Alanthor.md § The stone
+        /// wall).</summary>
         public static bool AllowsTowers(byte level) => level >= Stone;
+
+        /// <summary>A Ballista mount needs the Battlemented wall.</summary>
+        public static bool AllowsBallista(byte level) => level >= Battlemented;
+
+        /// <summary>A Trebuchet mount needs the Shielded wall.</summary>
+        public static bool AllowsTrebuchet(byte level) => level >= Shielded;
+
+        /// <summary>A Shielded wall's hubs are towers (they shoot).</summary>
+        public static bool HubIsTower(byte level) => level >= Shielded;
+
+        /// <summary>Only the stone wall has a wall-walk.</summary>
+        public static bool IsWalkable(byte level) => level >= Stone;
 
         /// <summary>The level a standing wall piece was clad at (1 when it
         /// carries no tier, which is every pre-2026-09-21 save).</summary>

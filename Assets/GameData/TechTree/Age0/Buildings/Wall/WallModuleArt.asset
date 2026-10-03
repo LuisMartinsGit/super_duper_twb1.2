@@ -1,0 +1,44 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 786a47fb30c99b449b3d6709bd6c02db, type: 3}
+  m_Name: WallModuleArt
+  m_EditorClassIdentifier: 
+  curtain:
+  - {fileID: 0}
+  - {fileID: 2608391721731102963, guid: c3544bc612514164695ed2294818f568, type: 3}
+  - {fileID: 7030076399210304768, guid: 82aa2e97c95935942ad470a65840bb0d, type: 3}
+  - {fileID: 5019228665270646114, guid: 8105b4231604ee445bea9d346af850c7, type: 3}
+  hub:
+  - {fileID: 0}
+  - {fileID: 6690902069422906699, guid: f657ef6e4c01a174693e33c64c97755c, type: 3}
+  - {fileID: 4934793544453245058, guid: d32202a90567633428eabf04de6a08e0, type: 3}
+  - {fileID: 342437952924739369, guid: 85c5beb852e84a941bcac3e1edebb581, type: 3}
+  gate:
+  - {fileID: 0}
+  - {fileID: 7833458049490045918, guid: 70e001e2d94a2164faafefe43383768d, type: 3}
+  - {fileID: 4566081393432490955, guid: b752f74e06c29c24583cb5e58de9a103, type: 3}
+  - {fileID: 7048491618342549018, guid: 3434e5cf9bdb9f34ba4d8be1fb115082, type: 3}
+  tower:
+  - {fileID: 0}
+  - {fileID: 1709646571690381428, guid: 8e63b605276d8d844801c0b1f6e0879a, type: 3}
+  - {fileID: 8860791109564132017, guid: 07dd8fa6a630734418e9dbd507caaf56, type: 3}
+  - {fileID: 5975977022004829226, guid: 7b817c9a635970a4c84549405aad1a9d, type: 3}
+  ballistaMount:
+  - {fileID: 0}
+  - {fileID: 43762122179221550, guid: 6fce9bb271ab8f44083f881762d76a60, type: 3}
+  - {fileID: 8859035990456395400, guid: d3efa76dd76be20478c8ec38d7186790, type: 3}
+  - {fileID: 2566322791993599314, guid: fcb0d2f6a04dc404e84c665697a555da, type: 3}
+  trebuchetMount:
+  - {fileID: 0}
+  - {fileID: 43762122179221550, guid: 6fce9bb271ab8f44083f881762d76a60, type: 3}
+  - {fileID: 8859035990456395400, guid: d3efa76dd76be20478c8ec38d7186790, type: 3}
+  - {fileID: 2566322791993599314, guid: fcb0d2f6a04dc404e84c665697a555da, type: 3}

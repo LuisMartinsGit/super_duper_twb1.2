@@ -195,7 +195,7 @@ namespace TheWaningBorder.Input
         private bool ShouldBlockSelection()
         {
             // Block if suppressed by GUI
-            if (BuilderCommandPanel.SuppressClicksThisFrame)
+            if (WorkerCommandPanel.SuppressClicksThisFrame)
                 return true;
 
             // Final game UI (uGUI): standard EventSystem hover check covers
@@ -497,7 +497,7 @@ namespace TheWaningBorder.Input
             // every entity the rectangle covered.
             // Ctrl (or Alt) held = "select literally everything in the box",
             // the genre convention. The military-wins rule is right by default
-            // — you drag over your base to grab the army, not the miners — but
+            // — you drag over your base to grab the army, not the workers — but
             // it had NO override, so a player who wanted the workers simply
             // could not get them whenever a single soldier stood in the
             // rectangle. That is the reported bug: the rule itself is fine,
@@ -522,7 +522,7 @@ namespace TheWaningBorder.Input
                     // economic unit was also added to `military` and the
                     // priority filter never dropped them. (task-060 F-1
                     // claimed a fix that didn't actually land — fixed now.)
-                    if (cls == UnitClass.Economy || cls == UnitClass.Miner)
+                    if (cls == UnitClass.Economy || cls == UnitClass.Worker)
                         economic.Add(e);
                     else
                         military.Add(e);
@@ -557,6 +557,11 @@ namespace TheWaningBorder.Input
             if (!_em.HasComponent<FactionTag>(e))
                 return false;
 
+            // Your own PLAN is selectable, so it can be cancelled
+            // (docs/Design/Planned_Buildings.md); nobody else ever sees one.
+            if (_em.HasComponent<PlannedBuilding>(e))
+                return _em.GetComponentData<FactionTag>(e).Value == GameSettings.ViewFactionOrLocal;
+
             // Must be a unit or building
             if (!_em.HasComponent<UnitTag>(e) && !_em.HasComponent<BuildingTag>(e))
                 return false;
@@ -584,7 +589,8 @@ namespace TheWaningBorder.Input
             // select-all-of-type operate on that player's units.
             if (_em.GetComponentData<FactionTag>(e).Value != GameSettings.ViewFactionOrLocal)
                 return false;
-            if (!_em.HasComponent<UnitTag>(e) && !_em.HasComponent<BuildingTag>(e))
+            if (!_em.HasComponent<UnitTag>(e) && !_em.HasComponent<BuildingTag>(e)
+                && !_em.HasComponent<PlannedBuilding>(e))
                 return false;
             return true;
         }

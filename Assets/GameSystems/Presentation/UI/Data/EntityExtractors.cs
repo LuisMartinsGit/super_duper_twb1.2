@@ -387,20 +387,6 @@ namespace TheWaningBorder.UI.Data
                 }
             }
 
-            // Shrine RP info
-            if (em.HasComponent<ShrineTag>(entity))
-            {
-                info.Description += (info.Description.Length > 0 ? "\n" : "")
-                    + "Shrine of Ahridan — trains Litharchs, +1 RP";
-                if (em.HasComponent<FactionTag>(entity))
-                {
-                    var faction = em.GetComponentData<FactionTag>(entity).Value;
-                    int rp = GetFactionReligionPoints(em, faction);
-                    if (rp > 0)
-                        info.Description += $"\nReligion Points: {rp}";
-                }
-            }
-
             // Temple level and era info
             if (em.HasComponent<TempleOfRidanTag>(entity) && em.HasComponent<TempleLevel>(entity))
             {
@@ -422,20 +408,19 @@ namespace TheWaningBorder.UI.Data
                 }
             }
 
-            // Forge passive generation info — output scales with the
-            // Smelter's upgrade level (mirrors ForgeConversionSystem).
-            if (em.HasComponent<ForgeStorage>(entity))
+            // Trading Outpost: the trade it runs, per minute
+            // (docs/Design/Veilstone_Economy.md §3.1).
+            if (em.HasComponent<TradingOutpostTag>(entity) && em.HasComponent<FactionTag>(entity))
             {
-                int interval = (int)TheWaningBorder.Systems.Economy.ForgeConversionSystem.GenerationInterval;
-                int perTick = TheWaningBorder.Systems.Economy.ForgeConversionSystem.VeilsteelPerTick;
-                int level = 1;
-                if (em.HasComponent<BuildingUpgradeState>(entity))
-                {
-                    int lvl = em.GetComponentData<BuildingUpgradeState>(entity).Level;
-                    if (lvl > 1) level = lvl;
-                }
-                info.Description += (info.Description.Length > 0 ? "\n" : "")
-                    + $"Generating {level * perTick} veilsteel / {interval}s";
+                var of = em.GetComponentData<FactionTag>(entity).Value;
+                var recipe = TheWaningBorder.Entities.TradingOutpost.RecipeOf(em, entity);
+                TheWaningBorder.Systems.Economy.TradingOutpostSystem.PerMinute(of, recipe, out var spend, out var earn);
+                string line = EntityActionExtractor.PerMinuteLine(spend, "-") + "  ->  "
+                              + EntityActionExtractor.PerMinuteLine(earn, "+") + " /min";
+                var op = em.GetComponentData<Unity.Transforms.LocalTransform>(entity).Position;
+                if (!TheWaningBorder.Entities.TradingOutpost.HasLiveOutcrop(em, op.x, op.z))
+                    line += "\n" + Loc.T("Idle — its outcrop is cursed. Destroy the curse node to trade again.");
+                info.Description += (info.Description.Length > 0 ? "\n" : "") + line;
             }
 
             // Self-destruct timer
@@ -448,33 +433,33 @@ namespace TheWaningBorder.UI.Data
                     + $"Self-destructing in {minutes}m {seconds:D2}s";
             }
 
-            // Miner info
-            if (em.HasComponent<MinerTag>(entity) && em.HasComponent<MinerState>(entity))
+            // Worker info
+            if (em.HasComponent<WorkerTag>(entity) && em.HasComponent<WorkerState>(entity))
             {
-                var miner = em.GetComponentData<MinerState>(entity);
-                info.HasMinerInfo = true;
+                var worker = em.GetComponentData<WorkerState>(entity);
+                info.HasWorkerInfo = true;
 
-                if (miner.GatheringResource == 1)
+                if (worker.GatheringResource == 1)
                 {
-                    info.MinerResourceType = "Veilstone";
-                    info.MinerExtractionRate = "1 veilstone / 1.5s";
+                    info.WorkerResourceType = "Veilstone";
+                    info.WorkerExtractionRate = "1 veilstone / 1.5s";
                 }
-                else if (miner.GatheringResource == 2)
+                else if (worker.GatheringResource == 2)
                 {
-                    info.MinerResourceType = "Veilsteel";
-                    info.MinerExtractionRate = "1 veilsteel / 2s";
+                    info.WorkerResourceType = "Veilsteel";
+                    info.WorkerExtractionRate = "1 veilsteel / 2s";
                 }
                 else
                 {
-                    info.MinerResourceType = "Iron";
-                    info.MinerExtractionRate = "1 iron / 2s";
+                    info.WorkerResourceType = "Iron";
+                    info.WorkerExtractionRate = "1 iron / 2s";
                 }
 
-                info.MinerState = miner.State switch
+                info.WorkerState = worker.State switch
                 {
-                    MinerWorkState.Idle => "Idle",
-                    MinerWorkState.MovingToDeposit => "Moving to resource",
-                    MinerWorkState.Gathering => "Gathering",
+                    WorkerActivity.Idle => "Idle",
+                    WorkerActivity.MovingToDeposit => "Moving to resource",
+                    WorkerActivity.Gathering => "Gathering",
                     _ => "Unknown"
                 };
             }
@@ -653,8 +638,8 @@ namespace TheWaningBorder.UI.Data
 
             // Per-hub "Build Wall" action — surfaces on any completed wall
             // hub of the local faction. Clicking enters a hub-anchored
-            // placement mode (BuilderCommandPanel.TriggerHubBuildWall) that
-            // drops a new hub + auto-connecting segment with no builder
+            // placement mode (WorkerCommandPanel.TriggerHubBuildWall) that
+            // drops a new hub + auto-connecting segment with no worker
             // and a 30 s self-build timer. Cost is paid up-front when the
             // second hub is placed (not when the action button is shown),
             // so the button stays enabled regardless of current resources;
@@ -665,26 +650,31 @@ namespace TheWaningBorder.UI.Data
                 && em.HasComponent<FactionTag>(entity)
                 && em.GetComponentData<FactionTag>(entity).Value == GameSettings.LocalPlayerFaction)
             {
+                // The hub extends its OWN kind of wall. A palisade its owner
+                // can no longer build (Alanthor / Runai after age-up) offers no
+                // Build Wall; a palisade hub has no levels to research.
+                // docs/Design/Age_0.md § Palisade
+                bool palisadeHub = TheWaningBorder.Entities.AlanthorWall.IsPalisade(em, entity);
                 Cost hubCost = default;
-                BuildCosts.TryGet("Alanthor_Wall", out hubCost);
+                BuildCosts.TryGet(TheWaningBorder.Entities.AlanthorWall.HubIdFor(palisadeHub), out hubCost);
                 bool canAfford = FactionEconomy.CanAfford(em,
                     GameSettings.LocalPlayerFaction, hubCost);
 
                 info.Type = ActionType.HubBuildWall;
-                info.Actions = new List<ActionButton>
-                {
-                    new ActionButton
+                info.Actions = new List<ActionButton>();
+                if (TheWaningBorder.Entities.WallTiers.CanBuild(em, GameSettings.LocalPlayerFaction, palisadeHub))
+                    info.Actions.Add(new ActionButton
                     {
                         Id = "BuildWall",
                         Label = Loc.T("Build Wall"),
-                        Tooltip = Loc.T("Place a connected wall hub. Auto-builds in 30s with no builder."),
+                        Tooltip = Loc.T("Place a connected wall hub. Auto-builds in 30s with no worker."),
                         Enabled = true,
                         Cost = hubCost,
                         CanAfford = canAfford,
-                    }
-                };
-                AddWallLevelAction(info.Actions, entity, em,
-                                   GameSettings.LocalPlayerFaction);
+                    });
+                if (!palisadeHub)
+                    AddWallLevelAction(info.Actions, entity, em,
+                                       GameSettings.LocalPlayerFaction);
                 ApplyWallLock(ref info, entity, em, GameSettings.LocalPlayerFaction);
                 return info;
             }
@@ -715,6 +705,30 @@ namespace TheWaningBorder.UI.Data
                     }
                 };
                 ApplyWallLock(ref info, entity, em, GameSettings.LocalPlayerFaction);
+                return info;
+            }
+
+            // A TRADING OUTPOST: its three trades in the top row, its research
+            // (the two trade unlocks and the discount ladder) in the rows below.
+            // docs/Design/Veilstone_Economy.md §3.1.
+            if (em.HasComponent<TradingOutpostTag>(entity)
+                && !em.HasComponent<UnderConstruction>(entity)
+                && em.HasComponent<FactionTag>(entity)
+                && em.GetComponentData<FactionTag>(entity).Value == GameSettings.LocalPlayerFaction)
+            {
+                var me = GameSettings.LocalPlayerFaction;
+                var active = TheWaningBorder.Entities.TradingOutpost.RecipeOf(em, entity);
+                info.Type = ActionType.UnitTrainingAndResearch;
+                info.ProductionState = em.HasComponent<ProductionState>(entity)
+                    ? GetProductionInfo(entity, em) : null;
+                info.Actions = new List<ActionButton>
+                {
+                    OutpostRecipeButton(me, TradeRecipe.BuyVeilstone, active, Loc.T("Buy Veilstone"), null),
+                    OutpostRecipeButton(me, TradeRecipe.ForgeVeilsteel, active, Loc.T("Forge Veilsteel"),
+                        TheWaningBorder.Systems.Economy.TradingOutpostSystem.Cfg?.forgeTech),
+                    OutpostRecipeButton(me, TradeRecipe.SellVeilsteel, active, Loc.T("Sell Veilsteel"),
+                        TheWaningBorder.Systems.Economy.TradingOutpostSystem.Cfg?.sellTech),
+                };
                 return info;
             }
 
@@ -801,7 +815,7 @@ namespace TheWaningBorder.UI.Data
                 return info;
             }
 
-            // Check if this is a builder (can place buildings)
+            // Check if this is a worker (can place buildings)
             if (em.HasComponent<CanBuild>(entity))
             {
                 info.Type = ActionType.BuildingPlacement;
@@ -813,15 +827,6 @@ namespace TheWaningBorder.UI.Data
             if (em.HasComponent<VaultTag>(entity) && em.HasComponent<VaultStorage>(entity))
             {
                 info.Type = ActionType.VaultManagement;
-                return info;
-            }
-
-            // Check if this is a shrine (simple training — litharchs only)
-            if (em.HasComponent<ShrineTag>(entity) && em.HasComponent<ProductionState>(entity))
-            {
-                info.Type = ActionType.UnitTraining;
-                info.Actions = GetTrainingActions(entity, em);
-                info.ProductionState = GetProductionInfo(entity, em);
                 return info;
             }
 
@@ -888,6 +893,53 @@ namespace TheWaningBorder.UI.Data
             }
 
             return info;
+        }
+
+        /// <summary>One Trading Outpost trade as a top-row button: its per-minute
+        /// exchange in the tooltip, greyed while its research is missing, and
+        /// marked (not clickable) while it is the trade being run.</summary>
+        private static ActionButton OutpostRecipeButton(Faction me, TradeRecipe recipe,
+            TradeRecipe active, string label, string requiredTech)
+        {
+            TheWaningBorder.Systems.Economy.TradingOutpostSystem.PerMinute(
+                me, recipe, out var spend, out var earn);
+            bool unlocked = TheWaningBorder.Systems.Economy.TradingOutpostSystem.IsUnlocked(me, recipe);
+            bool isActive = recipe == active;
+            string tip = label + "\n" + PerMinuteLine(spend, "-") + "  ->  " + PerMinuteLine(earn, "+")
+                         + " " + Loc.T("per minute");
+            if (!unlocked && !string.IsNullOrEmpty(requiredTech))
+            {
+                string techName = TechCatalog.TryGetTechnology(requiredTech, out var t) && t != null
+                    ? (t.name ?? requiredTech) : requiredTech;
+                tip += "\n" + string.Format(Loc.T("Requires research: {0}"), techName);
+            }
+            else if (isActive) tip += "\n" + Loc.T("This Outpost is running this trade.");
+            return new ActionButton
+            {
+                Id = "OutpostMode_" + (int)recipe,
+                Label = isActive ? "> " + label : label,
+                Tooltip = tip,
+                Enabled = unlocked && !isActive,
+                CanAfford = true,
+            };
+        }
+
+        /// <summary>"-50 supplies, -50 iron" — one side of a per-minute exchange.</summary>
+        internal static string PerMinuteLine(TheWaningBorder.Systems.World.TerritoryYield y, string sign)
+        {
+            var sb = new System.Text.StringBuilder();
+            void Add(float v, string name)
+            {
+                int n = UnityEngine.Mathf.RoundToInt(v);
+                if (n == 0) return;
+                if (sb.Length > 0) sb.Append(", ");
+                sb.Append(sign).Append(n).Append(' ').Append(name);
+            }
+            Add(y.Supplies, Loc.T("supplies"));
+            Add(y.Iron, Loc.T("iron"));
+            Add(y.Veilstone, Loc.T("veilstone"));
+            Add(y.Veilsteel, Loc.T("veilsteel"));
+            return sb.ToString();
         }
 
         /// <summary>

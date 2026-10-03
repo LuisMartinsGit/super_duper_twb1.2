@@ -72,7 +72,7 @@ public struct FeraldisSpearmanTag : IComponentData { }
 /// A Worker converted to its Feraldis form: build-only (mining stripped),
 /// but with real light-infantry stats AND real combat behaviour — the
 /// retrofit strips <see cref="PassiveWorkerTag"/>, so unlike every other
-/// culture's builders these auto-acquire, hold a guard point and fight.
+/// culture's workers these auto-acquire, hold a guard point and fight.
 /// Also the "already retrofitted" latch for FeraldisCultureRetrofitSystem.
 /// </summary>
 public struct FeraldisWorkerTag : IComponentData { }

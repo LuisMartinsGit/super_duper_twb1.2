@@ -150,12 +150,12 @@ decisions stay relevant.
 
 These transformations are the *only* free-territory bursts each faction
 gets. Every trade post / wall / raid party built after age-up costs
-builders + resources at the normal rate. Lose a transformation (e.g. a
+workers + resources at the normal rate. Lose a transformation (e.g. a
 Runai wagon killed in transit) and the player loses both:
 
 - **Material cost** â€” equivalent to one Gatherer's Hut.
 - **Tempo cost** â€” they must now establish that piece of map the slow way
-  (send a builder, build a wall, recruit a unit manually).
+  (send a worker, build a wall, recruit a unit manually).
 
 > **Playtest heuristic** for tuning Feraldis vs Runai aggression: in a 1v1,
 > the Runai player should land roughly **70â€“80 %** of their age-up wagons
@@ -430,7 +430,7 @@ its cultured form (`Town Hall` / `Trader's Hall` / `War Hall`).
 
 | Unit | Train time | Cost | Pop | Notes |
 |------|-----------|------|-----|-------|
-| **Worker** | 5 s | 50 Supplies | 1 | Unified Builder + Miner. |
+| **Worker** | 5 s | 50 Supplies | 1 | The one worker unit. |
 | **Scout** | 4 s | 55 Supplies | 1 | Moved from Barracks to Hall. |
 
 #### Researchable techs
@@ -660,7 +660,7 @@ Cataphract).
 
 ## 2.4 Units
 
-### Worker â€” unified Builder + Miner
+### Worker
 
 | Field | Value |
 |------|-------|
@@ -1175,7 +1175,7 @@ names TBD).
 At age-up, **each Gatherer's Hut the player built in Age 0 transforms
 into a mobile caravan-wagon**. These wagons are Runai's **one and only
 free trade-post deployment burst** â€” every Trade Post built after age-up
-costs builders + resources at the normal rate.
+costs workers + resources at the normal rate.
 
 **Wagons output their full income while in transit.** This makes age-up
 Runai's **peak income spike** of the entire match. Every wagon is briefly
@@ -1193,7 +1193,7 @@ The wagon mechanic is *recurring*: any future wagon (or repositioning of
 an existing trade post) is a mini-spike.
 
 **Wagon-death cost:** (a) one Gatherer's Hut worth of material, plus
-(b) **tempo cost** of having to send a builder out the slow way to
+(b) **tempo cost** of having to send a worker out the slow way to
 re-establish that trade post. The trade post can still be built â€” the
 player just lost the free shortcut.
 

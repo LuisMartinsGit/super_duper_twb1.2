@@ -16,10 +16,10 @@
 //     vertex from where the unit actually stands (a different, reachable
 //     face); if that resolves to the same blocked spot, drop the command so
 //     the AI economy managers reassign the worker.
-//   * Deposit miner (MinerState)       -> unassign + Idle. AI miners
-//     auto-find a new deposit; a player miner idles visibly (it provably
+//   * Deposit worker (WorkerState)       -> unassign + Idle. AI workers
+//     auto-find a new deposit; a player worker idles visibly (it provably
 //     could not reach the ordered deposit).
-//   * Builder (BuildCommand/BuildOrder/RepairOrder) and plain movers -> first
+//   * Worker (BuildCommand/BuildOrder/RepairOrder) and plain movers -> first
 //     a DETOUR: a short perpendicular leg so the flow field is re-sampled
 //     from a different cell (routes around the blocker in the common case);
 //     after MaxSoftKicks failed detours, cancel the order — stopped beats
@@ -87,11 +87,11 @@ public struct GuardSuppressed : IComponentData, IEnableableComponent
     public const float Epsilon = 0.5f;
 }
 
-/// <summary>Stamped on a DEPOSIT entity when a miner provably could not
-/// reach it (no-progress redirect fired). The miner pickers (AI allocator
+/// <summary>Stamped on a DEPOSIT entity when a worker provably could not
+/// reach it (no-progress redirect fired). The worker pickers (AI allocator
 /// + depletion auto-find) skip marked nodes until <see cref="Until"/>, so
 /// the economy layer stops bouncing workers against the same blocked node
-/// forever — the redirect used to unassign the miner only for the AI to
+/// forever — the redirect used to unassign the worker only for the AI to
 /// re-issue the exact same unreachable node, an infinite circling loop.
 /// Sim-time based, so it self-heals: when the blocking structure is gone,
 /// the mark expires and the node is minable again.</summary>
@@ -131,7 +131,7 @@ namespace TheWaningBorder.Systems.Navigation
         /// <summary>Search radius for re-targeting a veil digger.</summary>
         private const float VeilRetargetRadius = 16f;
         /// <summary>How long an unreachable deposit stays skipped by the
-        /// miner pickers. Long enough that workers stop orbiting it, short
+        /// worker pickers. Long enough that workers stop orbiting it, short
         /// enough to retry after the map changes (blocker razed, crust
         /// receded).</summary>
         private const float UnreachableMarkSeconds = 45f;
@@ -268,9 +268,9 @@ namespace TheWaningBorder.Systems.Navigation
                 Entity e = nearStuck[i];
                 if (!em.Exists(e)) continue;
 
-                // A MINER that stalled within arm's reach of its deposit is
+                // A WORKER that stalled within arm's reach of its deposit is
                 // almost always just contending for a stand slot with another
-                // worker — not facing an unreachable node. The full miner
+                // worker — not facing an unreachable node. The full worker
                 // redirect is far too heavy for that: it unassigns the worker
                 // AND marks the deposit unreachable for 45 s, so the worker
                 // visibly gives up a step from the ore.
@@ -280,8 +280,8 @@ namespace TheWaningBorder.Systems.Navigation
                 // another side of the node (see MiningReach). If that fails
                 // too, the worker goes Idle by its own route and the next fuse
                 // — the far-from-goal one — still has the harsh path.
-                if (em.HasComponent<MinerState>(e)
-                    && em.GetComponentData<MinerState>(e).State == MinerWorkState.MovingToDeposit)
+                if (em.HasComponent<WorkerState>(e)
+                    && em.GetComponentData<WorkerState>(e).State == WorkerActivity.MovingToDeposit)
                 {
                     ClearDest(em, e);
                     continue;
@@ -323,12 +323,12 @@ namespace TheWaningBorder.Systems.Navigation
             if (!em.Exists(entity)) return;
             float3 pos = em.GetComponentData<LocalTransform>(entity).Position;
 
-            // The veil-digger retarget and the deposit-miner unassign lived
+            // The veil-digger retarget and the deposit-worker unassign lived
             // here. Both are unreachable now that worker gathering is gone
             // (docs/Design/Regions.md §4): nothing issues GatherVeilCommand and
-            // MinerState never leaves Idle, so neither branch could ever be
+            // WorkerState never leaves Idle, so neither branch could ever be
             // entered. Removed rather than left as dead weight -- but note
-            // ClearMiner survives, it is still called from the stuck path above.
+            // ClearWorker survives, it is still called from the stuck path above.
 
             // ── Combat chaser ──
             if (em.HasComponent<Target>(entity)
@@ -365,7 +365,7 @@ namespace TheWaningBorder.Systems.Navigation
                 return;
             }
 
-            // ── Builder / plain mover: detour first, cancel after ──
+            // ── Worker / plain mover: detour first, cancel after ──
             var tracker = em.GetComponentData<StuckTracker>(entity);
             if (tracker.SoftKicks < MaxSoftKicks)
             {
@@ -434,11 +434,11 @@ namespace TheWaningBorder.Systems.Navigation
             TransientState.Set(em, entity, new GuardSuppressed { Point = gp.Position });
         }
 
-        private static void ClearMiner(EntityManager em, Entity entity)
+        private static void ClearWorker(EntityManager em, Entity entity)
         {
-            if (!em.HasComponent<MinerState>(entity)) return;
-            var ms = em.GetComponentData<MinerState>(entity);
-            ms.State = MinerWorkState.Idle;
+            if (!em.HasComponent<WorkerState>(entity)) return;
+            var ms = em.GetComponentData<WorkerState>(entity);
+            ms.State = WorkerActivity.Idle;
             ms.AssignedDeposit = Entity.Null;
             em.SetComponentData(entity, ms);
         }

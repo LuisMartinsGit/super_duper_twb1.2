@@ -35,7 +35,6 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         { 510, "Procedural/Barracks" },                    // Barracks.PresentationID = 510
 
         // Buildings - Era 1 Advanced
-        { 520, "Prefabs/Buildings/ShrineOfRidan" },      // ShrineOfRidan.PresentationID = 520 — bearded-man-with-crystal statue (WireTempleAndChapelVisuals)
         { 521, "Prefabs/Buildings/TempleOfRidan" },      // TempleOfRidan.PresentationID = 521
         { 530, "Procedural/Vault" },                     // VaultOfAlmierra.PresentationID = 530 — intercepted by the authored-visuals switch (CreateProceduralVault); never loaded
         { 540, "Prefabs/Buildings/FiendstoneKeep" },     // FiendstoneKeep.PresentationID = 540 — intercepted by the authored-visuals switch (FiendstoneKeepVisual); never loaded
@@ -44,7 +43,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         { 200, "Prefabs/Units/SK_Character_Human_Peasant" }, // Worker (PresentationID 200) — single-character Humanoid peasant (auto-avatar, no duplicate bones)
         { 201, "Prefabs/Units/Swordsman" },              // Swordsman.PresentationID = 201
         { 202, "Prefabs/Units/Archer" },                 // Archer.PresentationID = 202
-        { 203, "Prefabs/Units/Miner" },                  // Miner.PresentationID = 203
+        { 203, "Prefabs/Units/Worker" },                  // legacy worker PID 203 (no prefab; the Worker is PID 200)
         { 206, "Prefabs/Units/Scout" },                  // Scout.PresentationID = 206
         { 207, "Prefabs/Units/Litharch" },               // Litharch.PresentationID = 207
         { 250, "Prefabs/Units/Ledger" },                 // Ledger.PresentationID = 250 — floating automaton (built by WireLedgerVisuals)
@@ -235,9 +234,15 @@ public partial class PresentationSpawnSystem : MonoBehaviour
     /// Apply the +180° Y visual offset for any entity with BuildingTag.
     /// Units pass through unchanged.
     /// </summary>
+    /// <summary>A building, or a PLAN of one (docs/Design/Planned_Buildings.md):
+    /// a plan has no BuildingTag on purpose, but it must pick, fit and face its
+    /// visual exactly as the building it will become.</summary>
+    private bool IsBuildingLike(Entity entity)
+        => _em.HasComponent<BuildingTag>(entity) || _em.HasComponent<PlannedBuilding>(entity);
+
     private Quaternion VisualRotation(Entity entity, Quaternion entityRot)
     {
-        if (_em.HasComponent<BuildingTag>(entity))
+        if (IsBuildingLike(entity))
             return entityRot * BuildingVisualOffsetY180;
         return entityRot;
     }
@@ -713,7 +718,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             // layout, so every future building supersedes its own placeholder
             // the moment its art lands — no per-id edit here.
             bool authoredPrefabWins =
-                _em.HasComponent<BuildingTag>(entity)
+                IsBuildingLike(entity)
                 && TechCatalog.TryGetPrefab(presentationId, out var supersedingPrefab)
                 && supersedingPrefab != null
                 && TheWaningBorder.Rendering.BuildingVariantVisual.HasVariantLayout(supersedingPrefab);
@@ -740,9 +745,6 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                 case TheWaningBorder.Entities.VeilstoneMine.PresentationID:
                     authored = TheWaningBorder.Rendering.MineVisual.Build(entity.Index + 566,
                         TheWaningBorder.Rendering.MineKind.Veilstone); authoredIsBuilding = true; break;
-                case TheWaningBorder.Entities.Smelter.PresentationID:
-                    authored = TheWaningBorder.Rendering.MineVisual.Build(entity.Index + 560,
-                        TheWaningBorder.Rendering.MineKind.Veilsteel); authoredIsBuilding = true; break;
                 // The Ballista — mobile and wall-mounted — is procedural
                 // (2026-09-29); it used to render as the Hunter's human model.
                 case TheWaningBorder.Entities.Ballista.PresentationID:
@@ -915,7 +917,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             // (the Royal Stable, and anything given multi-variant art later)
             // would spawn with no rise, no variant setup and no transition.
             // Any building whose SO prefab carries the layout belongs here.
-            if (_em.HasComponent<BuildingTag>(entity)
+            if (IsBuildingLike(entity)
                 && TechCatalog.TryGetPrefab(presentationId, out var soVariantPrefab)
                 && soVariantPrefab != null
                 && TheWaningBorder.Rendering.BuildingVariantVisual.HasVariantLayout(soVariantPrefab))
@@ -960,7 +962,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             // "buildings" with no animations. Units must fall through to the
             // generic tail below.
             if (buildingPrefab == null
-                && _em.HasComponent<BuildingTag>(entity)
+                && IsBuildingLike(entity)
                 && TechCatalog.TryGetPrefab(presentationId, out var soBuildingPrefab)
                 && soBuildingPrefab != null)
             {
@@ -1053,7 +1055,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         {
             if (_em.HasComponent<UnitTag>(entity))
                 prefab = _fallbackUnitPrefab;
-            else if (_em.HasComponent<BuildingTag>(entity))
+            else if (IsBuildingLike(entity))
                 prefab = _fallbackBuildingPrefab;
             else if (presentationId >= 200 && presentationId < 500)
                 prefab = _fallbackUnitPrefab;

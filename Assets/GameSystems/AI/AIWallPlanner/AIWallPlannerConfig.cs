@@ -65,15 +65,25 @@ namespace TheWaningBorder.AI
         public float perimeterGatherRadius;
 
         // ── Border wall (2026-09-30) ─────────────────────────────────────
-        /// <summary>The wall stands this many BUILD CELLS inside its owner's
-        /// territory border: the preferred inset, then anywhere up to the max
-        /// to dodge blocked ground. Never closer than the min.</summary>
-        public int borderBufferCellsMin;
-        public int borderBufferCellsPreferred;
-        public int borderBufferCellsMax;
+        /// <summary>The wall's centre line stands this many METRES inside its
+        /// owner's territory border — measured to foreign ground, so an inner
+        /// lake or mountain does not pull it in (2026-10-02: 3-5 m, was
+        /// 8-12 m and drifted much further). docs/Design/Age_1_Alanthor.md
+        /// § The AI's wall.</summary>
+        public float borderInset;
 
-        /// <summary>How far from the Fortress a bearing is marched looking
-        /// for the edge of owned ground, metres.</summary>
+        /// <summary>How far the straight run between two planned hubs may
+        /// stray from the traced border line before another hub is put in,
+        /// metres. Smaller follows a ragged border more closely, with more hubs.</summary>
+        public float borderFollowTolerance;
+
+        /// <summary>Every AI building keeps at least this clear between its
+        /// EDGE and its territory border, metres — the band the border wall
+        /// will run along, kept free from the first minute.</summary>
+        public float buildingBorderClearance;
+
+        /// <summary>Half the side of the square around the Fortress the border
+        /// is traced in, metres.</summary>
         public float borderScanMax;
 
         /// <summary>A wall point closer than this to the Fortress is dropped:

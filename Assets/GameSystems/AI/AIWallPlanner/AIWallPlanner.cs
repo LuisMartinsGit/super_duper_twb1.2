@@ -53,6 +53,13 @@ namespace TheWaningBorder.AI
         public byte Chain;
         /// <summary>AIWallPlanner.Flag* bits.</summary>
         public byte Flags;
+        /// <summary>Orders issued for this slot's hub that have not (yet)
+        /// produced one — a refusal the AI only learns of by its absence
+        /// (under lockstep the executor's answer never comes back).</summary>
+        public byte HubTries;
+        /// <summary>Orders issued to link this slot to the NEXT live slot
+        /// that have not (yet) connected the two.</summary>
+        public byte LinkTries;
     }
 
     /// <summary>
@@ -119,6 +126,13 @@ namespace TheWaningBorder.AI
         /// executor's gap-closing pass so it bridges real holes but leaves
         /// terrain-sealed stretches alone.</summary>
         public const byte FlagTerrainSealed = 4;
+        /// <summary>The link from this slot to the NEXT live slot was refused
+        /// (blocked, off its owner's ground, too long) and no detour exists —
+        /// left open rather than re-issued forever (2026-10-02).</summary>
+        public const byte FlagLinkRefused = 8;
+        /// <summary>Orders a slot's hub or link may have outstanding before
+        /// the AI decides the executor refused them.</summary>
+        public const byte MaxWallTries = 3;
         /// <summary>Slot proved unplaceable at execution time — skip it
         /// forever.</summary>
         public const byte FlagDead = 128;
@@ -614,112 +628,179 @@ namespace TheWaningBorder.AI
         }
 
         /// <summary>
-        /// THE WALL FOLLOWS THE BORDER (2026-09-30). One ray per bearing out of
-        /// the Fortress, marched until it leaves the faction's owned ground —
-        /// that distance is the border on that bearing. The wall point stands
-        /// <c>borderBufferCellsPreferred</c> build cells inside it, sliding
-        /// anywhere within the min..max band to find open ground. A bearing
-        /// where impassable TERRAIN comes before the border is the mountain's
-        /// to close: no wall point, and the stretch is marked terrain-sealed.
-        /// The points are resampled at <see cref="HubSpacing"/> into one
-        /// cyclic chain (chain 0), gates spread around it, towers at the gate
-        /// shoulders and every fourth hub. Fixed bearings and steps — every
-        /// lockstep peer draws the same wall.
+        /// THE WALL FOLLOWS THE BORDER — traced, not ray-cast (2026-10-02;
+        /// docs/Design/Age_1_Alanthor.md § The AI's wall).
+        ///
+        /// The 2026-09-30 version marched 48 rays out of the Hall and walled
+        /// the FIRST point each left owned ground. An inner lake or mountain
+        /// ended a ray, a notch in the border ended it early, territory not in
+        /// a straight line of sight from the Hall was never walled, and the
+        /// 8-12 m inset plus inward nudges finished the job: the AI's wall
+        /// stood far inside its border.
+        ///
+        /// Now, on a 1 m grid around the Fortress:
+        ///   1. the faction's owned ground connected to the Hall;
+        ///   2. every cell's distance to FOREIGN ground (someone else's or
+        ///      neutral territory — a lake or mountain is not foreign, so it
+        ///      does not push the wall in);
+        ///   3. the ground at least <c>borderInset</c> inside, holes filled
+        ///      (the wall runs round the outside, never round a lake);
+        ///   4. its outline traced as one loop (Moore neighbour tracing);
+        ///   5. outline points far from any foreign ground run along
+        ///      impassable ground the map closes — no wall there;
+        ///   6. hubs wherever the outline bends away from a straight run by
+        ///      more than <c>borderFollowTolerance</c>, and at least every
+        ///      <see cref="HubSpacing"/>.
+        /// Pure function of replicated state (region map, ownership, terrain):
+        /// every lockstep peer draws the same wall.
         /// </summary>
         private static void EmitBorderLoop(EntityManager em, Faction faction, float3 hallPos,
             NativeList<AIWallPlanSlot> slots, out string why)
         {
-            float cell = BuildGrid.CellSize;
-            float bufPref = Cfg.borderBufferCellsPreferred * cell;
-            float bufMin = Cfg.borderBufferCellsMin * cell;
-            float bufMax = Cfg.borderBufferCellsMax * cell;
-            float step = Cfg.scanStep;
+            const float cs = 1f;
+            float R = Cfg.borderScanMax;
+            int n = math.max(8, (int)math.ceil(2f * R / cs));
+            float ox = hallPos.x - n * cs * 0.5f, oz = hallPos.z - n * cs * 0.5f;
+            int N = n * n;
 
-            var pts = new float2[Bearings];
-            var open = new bool[Bearings];
-            int openCount = 0, terrainClosed = 0, tooNear = 0;
-            for (int b = 0; b < Bearings; b++)
+            // 1. Owned and foreign ground.
+            var owned = new bool[N];
+            var foreign = new bool[N];
+            for (int z = 0; z < n; z++)
+                for (int x = 0; x < n; x++)
+                {
+                    float wx = ox + (x + 0.5f) * cs, wz = oz + (z + 0.5f) * cs;
+                    int t = TheWaningBorder.World.Regions.RegionMap.RegionAt(wx, wz);
+                    if (t == TheWaningBorder.World.Regions.RegionMap.None) continue;
+                    if (TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(t) == (int)faction)
+                        owned[z * n + x] = true;
+                    else foreign[z * n + x] = true;
+                }
+
+            int hx = n / 2, hz = n / 2;
+            if (!owned[hz * n + hx])
             {
-                float ang = (b / (float)Bearings) * 2f * math.PI;
-                float dx = math.cos(ang), dz = math.sin(ang);
-
-                // Walk out to the first sample off owned ground; a terrain
-                // run on the way means the mountain closes this bearing.
-                float border = -1f;
-                int run = 0;
-                bool terrain = false;
-                for (float r = step; r <= Cfg.borderScanMax; r += step)
-                {
-                    float x = hallPos.x + dx * r, z = hallPos.z + dz * r;
-                    if (!OwnGround(faction, x, z)) { border = r; break; }
-                    if (TerrainBlockedAt(x, z)) { if (++run >= ShelterRunSamples) { terrain = true; break; } }
-                    else run = 0;
-                }
-                if (terrain || border < 0f) { terrainClosed++; continue; }
-
-                // Preferred inset first, then outward/inward across the band.
-                float chosen = -1f;
-                for (int k = 0; k <= 4 && chosen < 0f; k++)
-                {
-                    float off = k == 0 ? bufPref
-                              : bufPref + ((k & 1) == 1 ? 1f : -1f) * ((k + 1) / 2) * cell;
-                    if (off < bufMin - 0.01f || off > bufMax + 0.01f) continue;
-                    float r = border - off;
-                    if (r < Cfg.borderMinRadius) continue;
-                    float x = hallPos.x + dx * r, z = hallPos.z + dz * r;
-                    if (TerrainBlockedAt(x, z) || !OwnGround(faction, x, z)) continue;
-                    chosen = r;
-                }
-                if (chosen < 0f)
-                {
-                    if (border - bufMin < Cfg.borderMinRadius) tooNear++; else terrainClosed++;
-                    continue;
-                }
-                pts[b] = new float2(hallPos.x + dx * chosen, hallPos.z + dz * chosen);
-                open[b] = true;
-                openCount++;
+                why = "border trace: the Hall does not stand on its own ground";
+                return;
             }
 
-            why = $"border loop: {openCount}/{Bearings} bearings walled, {terrainClosed} closed by terrain, " +
-                  $"{tooNear} too near the Fortress; inset {Cfg.borderBufferCellsMin}-{Cfg.borderBufferCellsMax} cells";
+            // 2. Distance to foreign ground: two-pass chamfer transform.
+            var dist = new float[N];
+            const float Far = 1e9f, D1 = cs, D2 = cs * 1.41421356f;
+            for (int i = 0; i < N; i++) dist[i] = foreign[i] ? 0f : Far;
+            for (int z = 0; z < n; z++)
+                for (int x = 0; x < n; x++)
+                {
+                    int i = z * n + x;
+                    float d = dist[i];
+                    if (x > 0) d = math.min(d, dist[i - 1] + D1);
+                    if (z > 0)
+                    {
+                        d = math.min(d, dist[i - n] + D1);
+                        if (x > 0) d = math.min(d, dist[i - n - 1] + D2);
+                        if (x < n - 1) d = math.min(d, dist[i - n + 1] + D2);
+                    }
+                    dist[i] = d;
+                }
+            for (int z = n - 1; z >= 0; z--)
+                for (int x = n - 1; x >= 0; x--)
+                {
+                    int i = z * n + x;
+                    float d = dist[i];
+                    if (x < n - 1) d = math.min(d, dist[i + 1] + D1);
+                    if (z < n - 1)
+                    {
+                        d = math.min(d, dist[i + n] + D1);
+                        if (x < n - 1) d = math.min(d, dist[i + n + 1] + D2);
+                        if (x > 0) d = math.min(d, dist[i + n - 1] + D2);
+                    }
+                    dist[i] = d;
+                }
+
+            // 3. Inside the inset, connected to the Hall, holes filled.
+            float inset = Cfg.borderInset;
+            var inside = new bool[N];
+            for (int i = 0; i < N; i++) inside[i] = owned[i] && dist[i] >= inset;
+            if (!inside[hz * n + hx])
+            {
+                why = "border trace: the Hall stands within the wall inset of its border";
+                return;
+            }
+            var mask = Flood(inside, n, hx, hz, eight: true);
+            FillHoles(mask, n);
+
+            // 4. Trace the outline, starting east of the Hall.
+            int sx = hx;
+            while (sx + 1 < n && mask[hz * n + sx + 1]) sx++;
+            var loop = TraceOutline(mask, n, sx, hz);
+            if (loop.Count < 8)
+            {
+                why = $"border trace: outline too short ({loop.Count} cells)";
+                return;
+            }
+
+            // Cell centres, lightly smoothed (the outline is a staircase).
+            int m = loop.Count;
+            var pts = new float2[m];
+            var open = new bool[m];
+            float openReach = inset + 3f * cs;
+            int openCount = 0;
+            for (int k = 0; k < m; k++)
+            {
+                float2 sum = float2.zero;
+                for (int w = -2; w <= 2; w++)
+                {
+                    int c = loop[(k + w + m) % m];
+                    sum += new float2(ox + (c % n + 0.5f) * cs, oz + (c / n + 0.5f) * cs);
+                }
+                pts[k] = sum / 5f;
+                int ck = loop[k];
+                // 5. Near foreign ground: this stretch is a border to wall.
+                // Far from it, the outline is running along a lake shore or a
+                // mountain the map closes. Too near the Hall: never walled.
+                open[k] = dist[ck] <= openReach
+                          && math.distance(pts[k], hallPos.xz) >= Cfg.borderMinRadius;
+                if (open[k]) openCount++;
+            }
+
+            why = $"border trace: outline {m} m, {openCount} m walled, inset {inset:F1} m";
             if (openCount < 2) return;
 
-            // Walk the bearings as runs of open ones, starting on a closed
-            // bearing so no run is split across the wrap (all open = one
-            // closed loop).
+            // 6. Runs of open outline -> hubs at bends and every HubSpacing.
             int start = -1;
-            for (int b = 0; b < Bearings; b++) if (!open[b]) { start = b; break; }
+            for (int k = 0; k < m; k++) if (!open[k]) { start = k; break; }
             bool fullLoop = start < 0;
             if (fullLoop) start = 0;
 
-            var run2 = new System.Collections.Generic.List<float2>(Bearings + 1);
             int firstSlot = slots.Length;
-            for (int i = 0; i <= Bearings; i++)
+            var run = new System.Collections.Generic.List<float2>(m + 1);
+            for (int i = 0; i <= m; i++)
             {
-                int b = (start + i) % Bearings;
-                bool isOpen = i < Bearings && open[b];
-                if (isOpen) { run2.Add(pts[b]); continue; }
-                if (fullLoop && i == Bearings) run2.Add(pts[start]);   // close the ring
-                if (run2.Count == 0) continue;
-                EmitResampled(run2, slots, closesRing: fullLoop);
-                // The gap to the next run is the mountain's (or the map's).
-                if (!fullLoop && slots.Length > firstSlot)
+                int k = (start + i) % m;
+                bool isOpen = i < m && open[k];
+                if (isOpen) { run.Add(pts[k]); continue; }
+                if (fullLoop && i == m) run.Add(pts[start]);   // close the ring
+                if (run.Count >= 2)
                 {
-                    var last = slots[slots.Length - 1];
-                    last.Flags |= FlagTerrainSealed;
-                    slots[slots.Length - 1] = last;
+                    EmitFollowing(run, slots, closesRing: fullLoop);
+                    if (!fullLoop && slots.Length > firstSlot)
+                    {
+                        var last = slots[slots.Length - 1];
+                        last.Flags |= FlagTerrainSealed;
+                        slots[slots.Length - 1] = last;
+                    }
                 }
-                run2.Clear();
+                run.Clear();
             }
 
             // Gates spread evenly (one per ~quarter), towers on their
             // shoulders and every fourth hub.
-            int n = slots.Length - firstSlot;
-            if (n < 2) return;
-            int gates = math.clamp(n / 4, 1, 4);
+            int count = slots.Length - firstSlot;
+            if (count < 2) return;
+            int gates = math.clamp(count / 4, 1, 4);
             for (int g = 0; g < gates; g++)
             {
-                int i = firstSlot + (int)((g + 0.5f) * n / gates);
+                int i = firstSlot + (int)((g + 0.5f) * count / gates);
                 if (i >= slots.Length - 1 && !fullLoop) i = slots.Length - 2;
                 var s = slots[i];
                 if ((s.Flags & FlagTerrainSealed) != 0) continue;
@@ -732,6 +813,182 @@ namespace TheWaningBorder.AI
             {
                 var s = slots[i]; s.Flags |= FlagTower; slots[i] = s;
             }
+        }
+
+        /// <summary>
+        /// THE BORDER BAND (2026-10-02, docs/Design/Age_1_Alanthor.md § The
+        /// AI's wall): an AI building keeps <c>buildingBorderClearance</c>
+        /// metres between its EDGE and its territory border, so the band the
+        /// border wall will run along is free from the first minute — long
+        /// before the wall plan exists (it is drawn after age-up, when most of
+        /// the base already stands). True when the footprint grown by the
+        /// clearance touches no ground owned by anyone else, nor neutral
+        /// territory. The owner is whoever holds the footprint's centre, so
+        /// any placer can ask without knowing the faction. Lakes, mountains
+        /// and the map edge (region None) are not borders. Fails open before
+        /// the region map exists.
+        /// </summary>
+        public static bool FootprintClearOfBorder(float3 centre, int2 size)
+        {
+            if (!TheWaningBorder.World.Regions.RegionMap.Ready
+                || !TheWaningBorder.World.Regions.TerritoryOwnership.Ready) return true;
+            int home = TheWaningBorder.World.Regions.RegionMap.RegionAt(centre.x, centre.z);
+            if (home == TheWaningBorder.World.Regions.RegionMap.None) return true;
+            int owner = TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(home);
+
+            float c = Cfg.buildingBorderClearance;
+            float hx = size.x * 0.5f + c, hz = size.y * 0.5f + c;
+            const float Step = 2f;
+            for (float x = -hx; x <= hx + 1e-3f; x += Step)
+                for (float z = -hz; z <= hz + 1e-3f; z += Step)
+                {
+                    int t = TheWaningBorder.World.Regions.RegionMap.RegionAt(centre.x + x, centre.z + z);
+                    if (t == TheWaningBorder.World.Regions.RegionMap.None || t == home) continue;
+                    if (TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(t) != owner) return false;
+                }
+            return true;
+        }
+
+        /// <summary>
+        /// Hubs along a traced outline: one at the start, then — walking on —
+        /// a new hub at the last point the straight run from the previous hub
+        /// still stays within <c>borderFollowTolerance</c> of the outline, or
+        /// at <see cref="HubSpacing"/> of arc, whichever comes first. So the
+        /// straight wall between two hubs follows the border's bends instead
+        /// of cutting across them.
+        /// </summary>
+        private static void EmitFollowing(System.Collections.Generic.List<float2> line,
+            NativeList<AIWallPlanSlot> slots, bool closesRing)
+        {
+            void Add(float2 p) => slots.Add(new AIWallPlanSlot
+            {
+                Position = new float3(p.x, TerrainUtility.GetHeight(p.x, p.y), p.y),
+                Chain = 0,
+            });
+
+            float tol = math.max(0.25f, Cfg.borderFollowTolerance);
+            int a = 0;
+            Add(line[0]);
+            float arc = 0f;
+            for (int j = 1; j < line.Count; j++)
+            {
+                arc += math.distance(line[j - 1], line[j]);
+                bool bends = false;
+                for (int k = a + 1; k < j && !bends; k++)
+                    bends = DistToSegment(line[k], line[a], line[j]) > tol;
+                if (!bends && arc < Cfg.hubSpacing) continue;
+                int at = bends ? j - 1 : j;
+                if (at <= a) at = j;
+                Add(line[at]);
+                a = at;
+                arc = 0f;
+                for (int k = a + 1; k <= j; k++) arc += math.distance(line[k - 1], line[k]);
+            }
+            int last = line.Count - 1;
+            if (a == last) { if (closesRing && slots.Length > 1) slots.RemoveAt(slots.Length - 1); return; }
+            if (!closesRing) Add(line[last]);
+        }
+
+        static float DistToSegment(float2 p, float2 a, float2 b)
+        {
+            float2 ab = b - a;
+            float l2 = math.lengthsq(ab);
+            float t = l2 > 1e-8f ? math.saturate(math.dot(p - a, ab) / l2) : 0f;
+            return math.distance(p, a + ab * t);
+        }
+
+        static readonly int[] Ox = { 0, 1, 1, 1, 0, -1, -1, -1 };   // clockwise from north
+        static readonly int[] Oz = { 1, 1, 0, -1, -1, -1, 0, 1 };
+
+        /// <summary>The cells of <paramref name="src"/> connected to (x, z).</summary>
+        static bool[] Flood(bool[] src, int n, int x, int z, bool eight)
+        {
+            var o = new bool[src.Length];
+            var q = new System.Collections.Generic.Queue<int>();
+            o[z * n + x] = true;
+            q.Enqueue(z * n + x);
+            while (q.Count > 0)
+            {
+                int c = q.Dequeue();
+                int cx = c % n, cz = c / n;
+                for (int d = 0; d < 8; d++)
+                {
+                    if (!eight && (d & 1) == 1) continue;
+                    int nx = cx + Ox[d], nz = cz + Oz[d];
+                    if (nx < 0 || nz < 0 || nx >= n || nz >= n) continue;
+                    int ni = nz * n + nx;
+                    if (o[ni] || !src[ni]) continue;
+                    o[ni] = true;
+                    q.Enqueue(ni);
+                }
+            }
+            return o;
+        }
+
+        /// <summary>Set every cell of <paramref name="mask"/> that the grid's
+        /// edge cannot reach through unset cells: the holes.</summary>
+        static void FillHoles(bool[] mask, int n)
+        {
+            var outside = new bool[mask.Length];
+            var q = new System.Collections.Generic.Queue<int>();
+            for (int i = 0; i < n; i++)
+            {
+                foreach (int c in new[] { i, (n - 1) * n + i, i * n, i * n + n - 1 })
+                    if (!mask[c] && !outside[c]) { outside[c] = true; q.Enqueue(c); }
+            }
+            while (q.Count > 0)
+            {
+                int c = q.Dequeue();
+                int cx = c % n, cz = c / n;
+                for (int d = 0; d < 8; d += 2)
+                {
+                    int nx = cx + Ox[d], nz = cz + Oz[d];
+                    if (nx < 0 || nz < 0 || nx >= n || nz >= n) continue;
+                    int ni = nz * n + nx;
+                    if (outside[ni] || mask[ni]) continue;
+                    outside[ni] = true;
+                    q.Enqueue(ni);
+                }
+            }
+            for (int i = 0; i < mask.Length; i++) if (!outside[i]) mask[i] = true;
+        }
+
+        /// <summary>
+        /// Moore-neighbour trace of the outline through (sx, sz), a set cell
+        /// whose east neighbour is unset, with Jacob's stopping rule. Returns
+        /// cell indices in walking order.
+        /// </summary>
+        static System.Collections.Generic.List<int> TraceOutline(bool[] mask, int n, int sx, int sz)
+        {
+            bool In(int x, int z) => x >= 0 && z >= 0 && x < n && z < n && mask[z * n + x];
+            var outl = new System.Collections.Generic.List<int>();
+            int cx = sx, cz = sz;
+            int back = 2;                       // the unset cell we came from: east
+            int startBack = back;
+            int limit = 8 * n;                  // an outline in an n x n box is far shorter
+            int startVisits = 0;
+            for (int step = 0; step < limit * 4; step++)
+            {
+                if (cx == sx && cz == sz && ++startVisits > 2) break;
+                outl.Add(cz * n + cx);
+                bool found = false;
+                for (int k = 1; k <= 8; k++)
+                {
+                    int d = (back + k) % 8;
+                    int nx = cx + Ox[d], nz = cz + Oz[d];
+                    if (!In(nx, nz)) continue;
+                    int prev = (d + 7) % 8;
+                    int bx = cx + Ox[prev] - nx, bz = cz + Oz[prev] - nz;
+                    int nb = 0;
+                    for (int e = 0; e < 8; e++) if (Ox[e] == bx && Oz[e] == bz) { nb = e; break; }
+                    cx = nx; cz = nz; back = nb;
+                    found = true;
+                    break;
+                }
+                if (!found) break;                               // a lone cell
+                if (cx == sx && cz == sz && back == startBack) break;
+            }
+            return outl;
         }
 
         /// <summary>Hubs along a polyline at up to <see cref="HubSpacing"/>:

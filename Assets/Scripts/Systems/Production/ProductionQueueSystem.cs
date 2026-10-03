@@ -228,6 +228,7 @@ namespace TheWaningBorder.Systems.Production
                     }
 
                     float duration = BuildingUpgradeConfig.GetUpgradeDuration(
+                        em, em.GetComponentData<FactionTag>(e).Value,
                         TheWaningBorder.Core.Commands.Types.UpgradeBuildingCommandHelper.ResolveBuildingId(em, e),
                         item.Level);
 

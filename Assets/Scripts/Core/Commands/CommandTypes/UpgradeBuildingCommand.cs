@@ -79,7 +79,7 @@ namespace TheWaningBorder.Core.Commands.Types
             // ApplyDirect, the path every peer executes. Spending here (on
             // the issuing peer alone) forked the faction banks, which feed
             // the desync checksum (docs/Multiplayer_LAN_Readiness.md).
-            if (!BuildingUpgradeConfig.TryGetCost(buildingId, targetLevel, out var cost))
+            if (!BuildingUpgradeConfig.TryGetCost(em, faction, buildingId, targetLevel, out var cost))
                 return UpgradeBuildingResult.NotUpgradeable;
             if (!FactionEconomy.CanAfford(em, faction, cost)) return UpgradeBuildingResult.CannotAfford;
 
@@ -135,9 +135,9 @@ namespace TheWaningBorder.Core.Commands.Types
             // duplicate command can never double-charge.
             string buildingId = ResolveBuildingId(em, building);
             if (string.IsNullOrEmpty(buildingId)) return;
-            if (!BuildingUpgradeConfig.TryGetCost(buildingId, targetLevel, out var cost)) return;
             if (!em.HasComponent<FactionTag>(building)) return;
             var faction = em.GetComponentData<FactionTag>(building).Value;
+            if (!BuildingUpgradeConfig.TryGetCost(em, faction, buildingId, targetLevel, out var cost)) return;
             if (!FactionEconomy.Spend(em, faction, cost)) return;
 
             // Capture base stats once. After this they NEVER change — the
@@ -200,8 +200,9 @@ namespace TheWaningBorder.Core.Commands.Types
             if (!em.Exists(building) || !em.HasComponent<FactionTag>(building)) return;
             string id = ResolveBuildingId(em, building);
             if (string.IsNullOrEmpty(id)) return;
-            if (!BuildingUpgradeConfig.TryGetCost(id, pricedLevel, out var cost)) return;
-            FactionEconomy.Add(em, em.GetComponentData<FactionTag>(building).Value, cost);
+            var owner = em.GetComponentData<FactionTag>(building).Value;
+            if (!BuildingUpgradeConfig.TryGetCost(em, owner, id, pricedLevel, out var cost)) return;
+            FactionEconomy.Add(em, owner, cost);
         }
 
         // ──────────────────────────────────────────────────────────────────
@@ -223,7 +224,6 @@ namespace TheWaningBorder.Core.Commands.Types
             // Choice-building simple upgrades (design 2026-07-04). The Keep is
             // NOT here — it levels via wings (KeepWingSystem), not this ladder.
             if (em.HasComponent<VaultTag>(e))        return "VaultOfAlmierra";
-            if (em.HasComponent<ShrineTag>(e))       return "ShrineOfRidan";
             // Alanthor culture ladders (calculator 2026-08).
             if (em.HasComponent<RoyalStableTag>(e))  return "Alanthor_RoyalStable";
             if (em.HasComponent<WatchTowerTag>(e))   return "Alanthor_Tower";
@@ -265,7 +265,9 @@ namespace TheWaningBorder.Core.Commands.Types
 
             nextLevel = (byte)(current + 1);
             string id = ResolveBuildingId(em, building);
-            return BuildingUpgradeConfig.TryGetCost(id, nextLevel, out cost);
+            if (!em.HasComponent<FactionTag>(building)) return false;
+            return BuildingUpgradeConfig.TryGetCost(em, em.GetComponentData<FactionTag>(building).Value,
+                id, nextLevel, out cost);
         }
     }
 }

@@ -14,7 +14,7 @@ namespace TheWaningBorder.Rendering
     /// Standardized Animator Parameters:
     ///   IsMoving (bool)    — unit has an active movement destination
     ///   IsAttacking (bool) — unit is attacking (melee or ranged)
-    ///   IsWorking (bool)   — builder constructing or miner gathering (generic)
+    ///   IsWorking (bool)   — worker constructing or worker gathering (generic)
     ///   IsBuilding (bool)  — Worker constructing/repairing at a site
     ///   IsMining (bool)    — Worker gathering at a deposit
     ///   IsHealing (bool)   — litharch healing a target
@@ -210,8 +210,15 @@ namespace TheWaningBorder.Rendering
                     isAttacking = archer.IsFiring == 1;
                 }
 
-                // Melee: check Target
-                if (!isAttacking && _em.HasComponent<Target>(LinkedEntity))
+                // Melee: check Target — but only for a unit that can swing. A
+                // DISARMED unit (Damage 0: the Scout before Armed Scouts, the
+                // Litharch before Warrior Priests) keeps a target an attack
+                // order gave it, yet MeleeCombatSystem skips it outright, so
+                // reading the target alone played the attack clip in place
+                // forever. It idles instead.
+                if (!isAttacking && _em.HasComponent<Target>(LinkedEntity)
+                    && !(_em.HasComponent<Damage>(LinkedEntity)
+                         && _em.GetComponentData<Damage>(LinkedEntity).Value <= 0))
                 {
                     var target = _em.GetComponentData<Target>(LinkedEntity);
                     isAttacking = target.Value != Entity.Null;
@@ -220,19 +227,19 @@ namespace TheWaningBorder.Rendering
                 _animator.SetBool(IsAttackingHash, isAttacking);
             }
 
-            // ── Working (miner gathering or builder constructing) ──
+            // ── Working (worker gathering or worker constructing) ──
             if (_hasIsWorking)
             {
                 bool isWorking = false;
 
-                // Miner: check MinerState == Gathering
-                if (_em.HasComponent<MinerState>(LinkedEntity))
+                // Worker: check WorkerState == Gathering
+                if (_em.HasComponent<WorkerState>(LinkedEntity))
                 {
-                    var miner = _em.GetComponentData<MinerState>(LinkedEntity);
-                    isWorking = miner.State == MinerWorkState.Gathering;
+                    var worker = _em.GetComponentData<WorkerState>(LinkedEntity);
+                    isWorking = worker.State == WorkerActivity.Gathering;
                 }
 
-                // Builder: check active BuildOrder
+                // Worker: check active BuildOrder
                 if (!isWorking && _em.HasComponent<BuildOrder>(LinkedEntity))
                 {
                     var order = _em.GetComponentData<BuildOrder>(LinkedEntity);
@@ -243,9 +250,9 @@ namespace TheWaningBorder.Rendering
             }
 
             // ── Worker granular work states (build / mine) ──
-            // The Worker (unified Builder + Miner) splits the generic IsWorking
+            // The Worker splits the generic IsWorking
             // flag into mutually-exclusive animations. Build/repair wins (the
-            // unit is at a construction site); otherwise the MinerState says
+            // unit is at a construction site); otherwise the WorkerState says
             // whether it is gathering at a deposit. At most one bool is ever true.
             if (_hasIsBuilding || _hasIsMining)
             {
@@ -256,10 +263,10 @@ namespace TheWaningBorder.Rendering
                 if (!building && _em.HasComponent<RepairOrder>(LinkedEntity))
                     building = _em.GetComponentData<RepairOrder>(LinkedEntity).Site != Entity.Null;
 
-                if (!building && _em.HasComponent<MinerState>(LinkedEntity))
+                if (!building && _em.HasComponent<WorkerState>(LinkedEntity))
                 {
-                    var miner = _em.GetComponentData<MinerState>(LinkedEntity);
-                    mining = miner.State == MinerWorkState.Gathering;
+                    var worker = _em.GetComponentData<WorkerState>(LinkedEntity);
+                    mining = worker.State == WorkerActivity.Gathering;
                 }
 
                 if (_hasIsBuilding) _animator.SetBool(IsBuildingHash, building);

@@ -118,17 +118,26 @@ namespace TheWaningBorder.UI.Ingame
         /// </summary>
         private static string NextLevelStats(EntityManager em, Entity building, byte nextLevel)
         {
-            string id = TheWaningBorder.Entities.BuildingIds.Of(building, em);
-            if (string.IsNullOrEmpty(id) || !TechCatalog.TryGetBuilding(id, out var def)
-                || def?.levels == null) return null;
-            TheWaningBorder.Data.BuildingLevel entry = null;
-            foreach (var l in def.levels) if (l != null && l.level == nextLevel) { entry = l; break; }
-            if (entry == null || entry.attack == null || !entry.attack.enabled) return null;
+            // The level SO first (Alanthor), else BuildingDef.levels.
+            TheWaningBorder.Data.BuildingAttack a = null;
+            float sight = 0f;
+            var faction = em.GetComponentData<FactionTag>(building).Value;
+            var levelDef = TheWaningBorder.Core.Settings.BuildingUpgradeConfig.LevelDef(em, faction,
+                UpgradeBuildingCommandHelper.ResolveBuildingId(em, building), nextLevel);
+            if (levelDef != null) { a = levelDef.attack; sight = levelDef.lineOfSight; }
+            else
+            {
+                string id = TheWaningBorder.Entities.BuildingIds.Of(building, em);
+                if (string.IsNullOrEmpty(id) || !TechCatalog.TryGetBuilding(id, out var def)
+                    || def?.levels == null) return null;
+                foreach (var l in def.levels)
+                    if (l != null && l.level == nextLevel) { a = l.attack; sight = l.lineOfSight; break; }
+            }
+            if (a == null || !a.enabled) return null;
 
-            var a = entry.attack;
             string line = string.Format(Loc.T("Range {0:0} m, fires every {1:0.0} s"), a.range, a.cooldown);
-            if (entry.lineOfSight > 0f)
-                line += ", " + string.Format(Loc.T("sight {0:0} m"), entry.lineOfSight);
+            if (sight > 0f)
+                line += ", " + string.Format(Loc.T("sight {0:0} m"), sight);
             line += "\n" + (a.maxTargets > 1
                 ? string.Format(Loc.T("Shoots {0} targets at once"), a.maxTargets)
                 : Loc.T("Shoots one target"));

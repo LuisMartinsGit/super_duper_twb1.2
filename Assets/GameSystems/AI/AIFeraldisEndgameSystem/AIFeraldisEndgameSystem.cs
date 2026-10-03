@@ -144,8 +144,11 @@ namespace TheWaningBorder.AI
                 }
 
                 ConscriptSurplusWorkers(em, faction, hallPos);
-                TryBuildMine(em, faction, hallPos);
-                TryBuildEconomy(em, faction, hallPos);
+                // Mines and Raider Camps (Gatherer's Huts) are NOT built here
+                // (2026-10-03): this system searched a ring beside the ore and
+                // around the Hall, and an extractor must stand ON its node, so
+                // every placement was refused. SimpleAISystem's extractor walk
+                // and hut pipeline place both on free nodes for every culture.
                 TryPlantTotem(em, faction, hallPos);
                 TryBuildAge2(em, faction, hallPos);
                 TryLevelTemple(em, faction);

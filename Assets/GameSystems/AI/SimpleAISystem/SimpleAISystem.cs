@@ -4,7 +4,7 @@
 // One AIBrain entity per AI faction. Each think tick, the AI looks at the next
 // step of its assigned build order and tries to issue it (queue a unit, place
 // a building, queue a research, or trigger age-up). On success, it advances to
-// the next step. On failure (resource shortfall, no idle builder, queue full),
+// the next step. On failure (resource shortfall, no idle worker, queue full),
 // it waits for the next tick.
 //
 // Replaces the old AIBrain / Manager / Behavior multi-system architecture.
@@ -157,12 +157,12 @@ namespace TheWaningBorder.AI
                 float now = (float)SystemAPI.Time.ElapsedTime - _matchTimeAnchor;
                 _thinkNow = now;
 
-                // Miner tasking is gone: income comes from held territory, not
+                // Worker tasking is gone: income comes from held territory, not
                 // from workers on deposits (Regions.md §4). The AI's economic
                 // decision is now WHERE TO CLAIM, which belongs in the build
                 // order rather than here.
 
-                // Replace any military/miners that died since the build order
+                // Replace any military/workers that died since the build order
                 // queued them. Runs before the next step so replacements take
                 // priority on the train queue and resources.
                 ReplaceLostUnits(em, brain.Owner, ref aiState);
@@ -190,6 +190,7 @@ namespace TheWaningBorder.AI
                 // extracting from it, so the extraction buildings are not a
                 // late-game optimisation any more.
                 EnsureExtractors(em, brain.Owner, now);
+                ManageTradingOutposts(em, brain.Owner, now);
 
                 // Army missions: prune the dead, regroup finished armies,
                 // retreat outmatched ones (per mission, not globally).
@@ -220,7 +221,11 @@ namespace TheWaningBorder.AI
                 // military answer, corruption bleeds the AI's veilstone
                 // income out patch by patch until the non-skippable
                 // choice-building gate freezes the whole build order.
-                TryReclaimCorruptedPatches(em, brain.Owner, now);
+                // THE FIRST RELIGION POINT (2026-10-03): with no Temple and
+                // no RP the faction hunts a curse node for it; while that
+                // hunt owns the army the reclaim squad stands down.
+                if (!TryHuntFirstReligionPoint(em, brain.Owner, ref aiState, now))
+                    TryReclaimCorruptedPatches(em, brain.Owner, now);
 
                 // ALWAYS-ON ECONOMY (2026-08-04 rev.2): the worker floor and
                 // the Gatherer's Hut pipeline run in BOTH phases — observed
@@ -245,7 +250,11 @@ namespace TheWaningBorder.AI
                 // wallet tilt the economy spends supplies as fast as they
                 // arrive — the AIs sat on 1500 iron/veilstone for whole
                 // matches while never banking the one resource that gates.
-                if (now > personality.ageUpPushSeconds && aiState.AgeUpIssued == 0)
+                // Aggressive / Rush push their ONE Age 0 wave first, and only
+                // then save (Age_0.md § The AI and the age-up).
+                bool ageUpPush = now > personality.ageUpPushSeconds && aiState.AgeUpIssued == 0
+                                 && SavingForAgeUp(brain.Personality, aiState, now, personality.ageUpPushSeconds);
+                if (ageUpPush)
                     advancementGate = true;
                 // ── STRATEGY FIRST: pick (or keep) a committed plan, then let
                 //    that plan set the budget. ──
@@ -291,7 +300,7 @@ namespace TheWaningBorder.AI
                 // Shrine and bank 700 supplies. Now Expert pushes at 90 s and
                 // Easy at 200 s, so the whole ladder lands in its intended
                 // window (see AIDifficultyProfile.AgeUpPushSeconds).
-                if (now > personality.ageUpPushSeconds && aiState.AgeUpIssued == 0)
+                if (ageUpPush)
                 {
                     // ARM THE SAVINGS HOLD. Weight-tilting alone does not
                     // work here (2026-08-18): the wallets are accounting over
@@ -312,8 +321,11 @@ namespace TheWaningBorder.AI
                     {
                         aiState.OpportunisticChoiceStarted = 0;
                         string landmark = AgeUpLandmark(em, brain.Owner);
+                        // STRICT: the hold does not breathe open every four
+                        // minutes while the landmark is unpaid — the release
+                        // window was exactly when the supplies drained away.
                         if (TheWaningBorder.Data.BuildCosts.TryGet(landmark, out var choiceCost))
-                            AIPivotalReserve.Set(brain.Owner, "AgeUpChoice", choiceCost);
+                            AIPivotalReserve.Set(brain.Owner, "AgeUpChoice", choiceCost, strict: true);
                         // BANK-DIRECT, not wallet-budgeted (2026-08-18,
                         // log-proven): this is the OVERRIDE path — its whole
                         // job is "age up the moment the requirements hold,

@@ -321,23 +321,23 @@ namespace TheWaningBorder.Core.Commands
             LockstepServiceLocator.Instance.QueueCommand(cmd);
         }
 
-        private static void QueueBuildForLockstep(EntityManager em, Entity builder, Entity targetBuilding,
+        private static void QueueBuildForLockstep(EntityManager em, Entity worker, Entity targetBuilding,
             string buildingId, float3 position)
         {
-            int builderId = GetNetworkId(em, builder);
+            int workerId = GetNetworkId(em, worker);
             int targetId = targetBuilding != Entity.Null ? GetNetworkId(em, targetBuilding) : 0;
 
-            if (builderId <= 0)
+            if (workerId <= 0)
             {
-                if (!MayExecuteLocally(em, builder, "Build")) return;
-                BuildCommandHelper.Execute(em, builder, targetBuilding, buildingId, position);
+                if (!MayExecuteLocally(em, worker, "Build")) return;
+                BuildCommandHelper.Execute(em, worker, targetBuilding, buildingId, position);
                 return;
             }
 
             var cmd = new LockstepCommand
             {
                 Type = LockstepCommandType.Build,
-                EntityNetworkId = builderId,
+                EntityNetworkId = workerId,
                 TargetEntityId = targetId,
                 TargetPosition = position,
                 BuildingId = buildingId
@@ -386,22 +386,22 @@ namespace TheWaningBorder.Core.Commands
             LockstepServiceLocator.Instance.QueueCommand(cmd);
         }
 
-        private static void QueueRepairForLockstep(EntityManager em, Entity builder, Entity building)
+        private static void QueueRepairForLockstep(EntityManager em, Entity worker, Entity building)
         {
-            int builderId = GetNetworkId(em, builder);
+            int workerId = GetNetworkId(em, worker);
             int buildingId = GetNetworkId(em, building);
 
-            if (builderId <= 0 || buildingId <= 0)
+            if (workerId <= 0 || buildingId <= 0)
             {
-                if (!MayExecuteLocally(em, builder, "Repair", building)) return;
-                RepairCommandHelper.Execute(em, builder, building);
+                if (!MayExecuteLocally(em, worker, "Repair", building)) return;
+                RepairCommandHelper.Execute(em, worker, building);
                 return;
             }
 
             var cmd = new LockstepCommand
             {
                 Type = LockstepCommandType.Repair,
-                EntityNetworkId = builderId,
+                EntityNetworkId = workerId,
                 TargetEntityId = buildingId
             };
             LockstepServiceLocator.Instance.QueueCommand(cmd);
@@ -426,22 +426,22 @@ namespace TheWaningBorder.Core.Commands
             LockstepServiceLocator.Instance.QueueCommand(cmd);
         }
 
-        private static void QueueConvertForLockstep(EntityManager em, Entity miner, Entity keep)
+        private static void QueueConvertForLockstep(EntityManager em, Entity worker, Entity keep)
         {
-            int minerId = GetNetworkId(em, miner);
+            int workerId = GetNetworkId(em, worker);
             int keepId = GetNetworkId(em, keep);
 
-            if (minerId <= 0 || keepId <= 0)
+            if (workerId <= 0 || keepId <= 0)
             {
-                if (!MayExecuteLocally(em, miner, "Convert", keep)) return;
-                ConvertCommandHelper.Execute(em, miner, keep);
+                if (!MayExecuteLocally(em, worker, "Convert", keep)) return;
+                ConvertCommandHelper.Execute(em, worker, keep);
                 return;
             }
 
             var cmd = new LockstepCommand
             {
                 Type = LockstepCommandType.Convert,
-                EntityNetworkId = minerId,
+                EntityNetworkId = workerId,
                 TargetEntityId = keepId
             };
             LockstepServiceLocator.Instance.QueueCommand(cmd);

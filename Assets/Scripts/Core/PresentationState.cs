@@ -41,7 +41,7 @@ namespace TheWaningBorder.Core
 
         /// <summary>
         /// True while the player is dragging a building ghost around. Written
-        /// ONLY by BuilderCommandPanel; read by the few in-world displays that
+        /// ONLY by WorkerCommandPanel; read by the few in-world displays that
         /// only appear during placement (the GathererHut coverage ring).
         ///
         /// Those displays live in GameData beside their building, so without
