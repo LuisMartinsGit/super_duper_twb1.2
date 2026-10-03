@@ -41,7 +41,7 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new MoveSpeed { Value = speed });
             creator.AddComponent(entity, new LineOfSight { Radius = los });
             creator.AddComponent(entity, new Radius { Value = def.radius });
-            creator.AddComponent(entity, new PopulationCost { Amount = 1 });
+            creator.AddComponent(entity, new PopulationCost { Amount = def.populationCost });
 
             creator.AddComponent(entity, new ArmorTypeData { Value = ArmorType.InfantryLight });
             creator.AddComponent(entity, new Defense { Melee = 0, Ranged = 0, Siege = 0, Magic = 2 });

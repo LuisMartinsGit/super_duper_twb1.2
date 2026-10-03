@@ -148,13 +148,9 @@ namespace TheWaningBorder.Economy
         // ECONOMY CONSTANTS — design spec §2 Adoption Economy
         // ═══════════════════════════════════════════════════════════════════
 
-        /// <summary>One-time RP award when the Age-1 Shrine completes.</summary>
-        public const int RpAwardShrine = 1;
-
         /// <summary>RP awarded on Age II / III / IV up. Reduced (design
         /// 2026-07-05): lever upgrades are now automatic with temple level,
-        /// so RP only pays for adoption — with the Shrine bonus the campaign
-        /// total is 11, enough for 4-5 adoptions out of the 6 slots.</summary>
+        /// so RP only pays for adoption.</summary>
         public const int RpAwardAge2 = 3;
         public const int RpAwardAge3 = 3;
         public const int RpAwardAge4 = 4;
@@ -213,8 +209,6 @@ namespace TheWaningBorder.Economy
 
         /// <summary>
         /// RP awarded on entering the given age (2/3/4). 0 otherwise.
-        /// The Age-1 Shrine bonus is a separate one-time award handled by
-        /// BuildingConstructionSystem.GrantShrineRPBonus → see RpAwardShrine.
         /// </summary>
         public static int RpAwardForAge(int age)
         {

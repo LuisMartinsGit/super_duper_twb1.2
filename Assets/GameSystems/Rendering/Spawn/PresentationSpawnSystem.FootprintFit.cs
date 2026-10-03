@@ -28,7 +28,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
     /// footprints.
     ///
     /// Only the prefab-instantiation paths call this. Procedural builders
-    /// (Smelter, Vault of Almierra, Border LargeNode, the wall set) construct
+    /// (Vault of Almierra, Border LargeNode, the wall set) construct
     /// their geometry at explicit sizes and must not be second-guessed.
     /// </summary>
     private float ComputeFootprintFit(GameObject goInst, Entity entity)

@@ -85,9 +85,7 @@ namespace TheWaningBorder.Entities
         {
             return new Dictionary<string, BuildingRecipe>
             {
-                ["Hall"]            = new BuildingRecipe(Hall.Create, Hall.Create, 100),
-                // The capital — start-of-match only (PlayerSpawnSystem); no
-                // build menu lists it. Shares the Hall's presentation id.
+                // The capital: the Shelter in Age 0, the Fortress from age-up.
                 ["Fortress"]        = new BuildingRecipe(Fortress.Create, Fortress.Create, Fortress.PresentationID),
                 ["Hut"]             = new BuildingRecipe(Hut.Create, Hut.Create, 102),
                 ["GatherersHut"]    = new BuildingRecipe(GatherersHut.Create, GatherersHut.Create, 101),
@@ -112,9 +110,7 @@ namespace TheWaningBorder.Entities
                 ["Runai_VeilsteelFoundry"] = new BuildingRecipe(VeilsteelFoundry.Create, VeilsteelFoundry.Create, 366),
 
                 // Alanthor culture buildings. The Practice Range is the LEVELED
-                // Archery Range (not a placeable building) and the Crucible was
-                // deleted (the Smelter absorbs its veilsteel role) — calculator
-                // consolidation 2026-08.
+                // Archery Range (not a placeable building).
                 ["Alanthor_Tower"]         = new BuildingRecipe(WatchTower.Create, WatchTower.Create, 354),
                 ["Alanthor_SiegeYard"]     = new BuildingRecipe(AlanthorSiegeYard.Create, AlanthorSiegeYard.Create, 357),
                 // The emplacement pair: the platform is the building, the
@@ -122,7 +118,6 @@ namespace TheWaningBorder.Entities
                 // by EmplacementCrewSystem (docs/Design/Age_1_Alanthor.md).
                 ["Alanthor_BallistaEmplacement"]  = new BuildingRecipe(BallistaEmplacement.Create, BallistaEmplacement.Create, BallistaEmplacement.PresentationID),
                 ["Alanthor_TrebuchetEmplacement"] = new BuildingRecipe(TrebuchetEmplacement.Create, TrebuchetEmplacement.Create, TrebuchetEmplacement.PresentationID),
-                ["KingsCourt"]             = new BuildingRecipe(KingsCourt.Create, KingsCourt.Create, 363),
                 ["Alanthor_RoyalStable"]   = new BuildingRecipe(RoyalStable.Create, RoyalStable.Create, RoyalStable.PresentationID),
 
                 // Feraldis culture buildings
@@ -136,9 +131,9 @@ namespace TheWaningBorder.Entities
                 ["Feraldis_Pasture"]        = new BuildingRecipe(Pasture.Create, Pasture.Create, Pasture.PresentationID),
                 ["Feraldis_HallOfAxes"]     = new BuildingRecipe(HallOfAxes.Create, HallOfAxes.Create, HallOfAxes.PresentationID),
                 ["Mine"]                    = new BuildingRecipe(Mine.Create, Mine.Create, Mine.PresentationID),
-                // The veilstone half of the extraction pair. Iron has the
-                // Mine, veilsteel has the Smelter; without this, veilstone
-                // was the one territory resource with no way to invest in it.
+                // The veilstone half of the extraction pair (iron has the
+                // Mine); without this, veilstone was the one territory
+                // resource with no way to invest in it.
                 ["VeilstoneMine"]           = new BuildingRecipe(VeilstoneMine.Create, VeilstoneMine.Create, VeilstoneMine.PresentationID),
                 // Alanthor trade for veilstone instead of mining it
                 // (docs/Design/Veilstone_Economy.md §3.1).
@@ -171,7 +166,7 @@ namespace TheWaningBorder.Entities
         /// Automatically loads stats from TechTreeDB if available.
         /// </summary>
         /// <param name="em">EntityManager</param>
-        /// <param name="buildingId">Building type: "Hall", "Barracks", "Hut", "GatherersHut", etc.</param>
+        /// <param name="buildingId">Building type: "Fortress", "Barracks", "Hut", "GatherersHut", etc.</param>
         /// <param name="position">World position to spawn at</param>
         /// <param name="faction">Faction the building belongs to</param>
         /// <returns>Created entity</returns>
@@ -213,9 +208,8 @@ namespace TheWaningBorder.Entities
         /// <summary>
         /// Record the exact name of what was asked for. The selection UI used to
         /// re-derive this from a tag-component ladder, which several buildings
-        /// never appear in — KingsCourt carries no distinguishing tag at all, and
-        /// all 12 chapels share one ChapelTag — so they displayed as bare
-        /// "Building". The id the caller passed is unambiguous.
+        /// never appear in — all 12 chapels share one ChapelTag, for one — so
+        /// they displayed as bare "Building". The id the caller passed is unambiguous.
         /// </summary>
         private static DisplayName MakeDisplayName(string buildingId)
             => new DisplayName { Value = TheWaningBorder.Core.DisplayNames.ForBuildingFixed(buildingId) };
@@ -266,31 +260,13 @@ namespace TheWaningBorder.Entities
         }
 
         /// <summary>
-        /// Get population provided by a building type.
-        /// </summary>
-        public static int GetPopulationProvided(string buildingId)
-        {
-            return buildingId switch
-            {
-                "Hall" => 20,
-                "Hut" => 3,
-                "Fortress" => 10,
-                "ThessarasBazaar" => 40,
-                "KingsCourt" => 10,
-                "Feraldis_HuntingLodge" => 10,
-                "Feraldis_LoggingStation" => 10,
-                _ => 0
-            };
-        }
-
-        /// <summary>
         /// Check if building type can train units.
         /// </summary>
         public static bool CanTrainUnits(string buildingId)
         {
             return buildingId switch
             {
-                "Hall" => true,
+                "Fortress" => true,
                 "Barracks" => true,
                 "TempleOfRidan" => true,
                 "Runai_TradeHub" => true,
@@ -307,8 +283,7 @@ namespace TheWaningBorder.Entities
 
         /// <summary>
         /// The mutually exclusive LANDMARKS — building one IS the age-up
-        /// (docs/Design/Age_0.md § Age-up by landmark, 2026-09-29). The Shrine
-        /// of Ridan is cut: it is no longer a choice building. Thessara's
+        /// (docs/Design/Age_0.md § Age-up by landmark, 2026-09-29). Thessara's
         /// Crossing (Runai) joins when the building exists.
         /// </summary>
         private static readonly HashSet<string> ChoiceBuildingIds = new()
@@ -351,7 +326,7 @@ namespace TheWaningBorder.Entities
         /// non-null result if the choice building is COMPLETED (no
         /// UnderConstruction component). Used by the age-up gate so players
         /// (and AI) can't research culture choice / advance era while the
-        /// Shrine / Vault / Keep is still being built.
+        /// Vault / Keep is still being built.
         /// </summary>
         public static string GetCompletedFactionChoiceBuilding(EntityManager em, Faction faction)
         {
@@ -421,6 +396,7 @@ namespace TheWaningBorder.Entities
             switch (buildingId)
             {
                 case "Hut": built = GetFactionBuildingCount<HutTag>(em, faction); break;
+                case "TempleOfRidan": built = GetFactionBuildingCount<TempleOfRidanTag>(em, faction); break;
                 default:
                     if (_uncountedCapWarned.Add(buildingId))
                         UnityEngine.Debug.LogError(

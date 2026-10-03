@@ -526,12 +526,6 @@ namespace TheWaningBorder.UI.Ingame
             ComponentType.ReadOnly<FactionTag>(),
             ComponentType.Exclude<UnderConstruction>(),
         };
-        private static readonly ComponentType[] SmelterQueryTypes =
-        {
-            ComponentType.ReadOnly<SmelterTag>(),
-            ComponentType.ReadOnly<FactionTag>(),
-            ComponentType.Exclude<UnderConstruction>(),
-        };
         private static readonly ComponentType[] BarracksQueryTypes =
         {
             ComponentType.ReadOnly<BarracksTag>(),
@@ -590,7 +584,7 @@ namespace TheWaningBorder.UI.Ingame
         };
 
         private CachedEntityQuery _bankQuery, _hutQuery, _unitQuery,
-                                  _gathererQuery, _mineQuery, _veilstoneMineQuery, _smelterQuery,
+                                  _gathererQuery, _mineQuery, _veilstoneMineQuery,
                                   _barracksQuery, _spearmanQuery, _militaryQuery, _queuedQuery,
                                   _hallQuery, _templeQuery, _curseNodeQuery,
                                   _dyingCurseQuery, _razedNodeQuery;
@@ -1006,8 +1000,7 @@ namespace TheWaningBorder.UI.Ingame
         /// raises whichever the node asks for.</summary>
         private int MinesBuilt(EntityManager em, Faction faction)
             => CountOwned(em, faction, MineQueryTypes, ref _mineQuery)
-             + CountOwned(em, faction, VeilstoneMineQueryTypes, ref _veilstoneMineQuery)
-             + CountOwned(em, faction, SmelterQueryTypes, ref _smelterQuery);
+             + CountOwned(em, faction, VeilstoneMineQueryTypes, ref _veilstoneMineQuery);
 
         private bool MilitaryHasEnemyTarget(EntityManager em, Faction faction)
         {

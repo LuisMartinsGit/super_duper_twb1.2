@@ -16,12 +16,17 @@ namespace TheWaningBorder.Abilities
     /// <summary>
     /// Garrison "Charge" tech (and the Royal Stable's cavalry version).
     ///
-    /// Three phases, not one. The unit ARMS after ChargeRearmSeconds with no
+    /// Three phases, not one. The unit ARMS after RearmSeconds with no
     /// target; arming alone does nothing. It ACTIVATES the moment it engages —
-    /// gaining +ChargeSpeedPct% move speed for a ChargeWindowSeconds window —
-    /// and it SPENDS the window on the first blow it lands, which deals +Pct%.
-    /// A charge that closes on nothing expires: the speed comes off and the
-    /// unit must spend another ChargeRearmSeconds out of combat to arm again.
+    /// gaining +SpeedPct% move speed for a WindowSeconds window — and it
+    /// SPENDS the window on the first blow it lands, which deals +Pct%. A
+    /// charge that closes on nothing expires: the speed comes off and the
+    /// unit must spend another RearmSeconds out of combat to arm again.
+    ///
+    /// Every number is the granting tech's (Charge / CavalryCharge
+    /// effectsList), stamped here by AlanthorActiveHelper.ChargeFromTech so
+    /// the Burst-compiled arming system reads data, not constants
+    /// (2026-10-03, unification item 29).
     ///
     /// Ready alone used to be the whole model — armed forever once out of
     /// combat, with no speed and no window — so the tech read as a flat damage
@@ -30,6 +35,9 @@ namespace TheWaningBorder.Abilities
     public struct FirstStrike : IComponentData, IEnableableComponent
     {
         public float Pct;              // 30 = +30% on the opening blow
+        public float SpeedPct;         // 50 = +50% move speed while charging
+        public float WindowSeconds;    // to land the blow once the charge goes in
+        public float RearmSeconds;     // out of combat before it arms again
         public byte Ready;             // 1 = armed or mid-charge (see Window)
         public float OutOfCombatTimer; // seconds since this unit last dealt damage
         public float WindowRemaining;  // >0 = charging; the blow must land inside it
@@ -97,9 +105,6 @@ namespace TheWaningBorder.Abilities
     /// <summary>Shared tuning for the passives above.</summary>
     public static class AlanthorPassiveTuning
     {
-        public const float ChargeRearmSeconds = 5f;      // out of combat before it arms
-        public const float ChargeWindowSeconds = 2f;     // to land the blow once activated
-        public const float ChargeSpeedPct = 50f;         // move speed while charging
         public const float ShieldWallStillSeconds = 3f;  // stationary
         public const float StakesRefreshSeconds = 20f;   // between charges answered
         public const float StakesReflectPct = 50f;       // of what lands, paid back

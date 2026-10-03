@@ -1,27 +1,37 @@
 ﻿// BuildingActionLayouts.cs
 // Fixed 3x5 ACTIONS-panel layouts for buildings that want an authored grid
-// (Hall/King's Court, Hut/House, Gatherer's Hut/Guild — Alanthor). Each
-// building gets 15 slots (3 rows x 5 cols, row-major), matching the authored
+// (Fortress, Hut/House, Gatherer's Hut/Guild — Alanthor). Each building
+// gets 15 slots (3 rows x 5 cols, row-major), matching the authored
 // ActionsPanel prefab. The top row is EXCLUSIVELY the training row; rows 2-3
 // hold research (a building that trains no units leaves the top row blank).
 //
-// TWO independent gates (spec 2026-07-12, revised):
-//   * APPEAR AGE — the faction age at which the slot ENTERS the grid. Below it
-//     the slot is BLANK (absent, not greyed). Base buttons appear at Age 0; the
-//     culture-specific ones appear at Age 1 (the culture pick). "Age" is
-//     FactionEra.Value - 1 (Era 1 = pre-culture = Age 0; culture -> Age 1;
-//     Temple eras -> Age 2/3).
-//   * AVAILABILITY — once shown, a slot is clickable only when its building
-//     LEVEL requirement is met (BuildingUpgradeState.Level) and, for chain
-//     tiers, its per-tier AGE is met. Building level tracks age (Lv N is
-//     reachable at Age N via the stats-panel Upgrade button), so a "needs
-//     Lv 2" button lights up exactly at Age 2. Un-met slots stay in place,
-//     greyed, with a "Requires Lv N / Age N" note.
+// THE TRAINING ROW IS NOT AUTHORED HERE (2026-10-03). It is the building
+// SO's trains[], culture-gated by CultureGate and level-gated by each unit's
+// minBuildingLevel — the SO is the one list of who trains where. The Ledger
+// and King Lexor used to be injected into the capital's row by this file;
+// they are on the Fortress SO now.
 //
-// CHAINS pin a tech ladder to ONE slot and show the current un-consumed tier;
-// each tier is age-gated. STARTING research (queuing) — not just completing it
-// — CONSUMES the tech: a single tech's slot goes blank, a chain advances to the
-// next tier. Cancelling a queued tech un-consumes it, so the button returns.
+// THE GATES ARE THE TECH SO's (2026-10-03, unification item 21). This file
+// only says WHERE a tech sits in the grid; whether it shows and whether it is
+// clickable is read from the tech's own TechDefSO:
+//   * CULTURE — a tech whose `culture` the faction does not have is BLANK
+//     (absent, not greyed). Pre-culture that hides every Alanthor tech; the
+//     culture pick reveals them (TechCatalog.CultureAllows, the same test the
+//     AI uses).
+//   * LEVEL — `minBuildingLevel` against the host's BuildingUpgradeState.Level.
+//     Un-met, the slot stays in place, greyed, with a "Requires Lv N" note.
+//   * PREREQUISITES — the tech's `prerequisites`; the first un-researched one
+//     greys the slot with a "Requires <tech>" note.
+// There used to be a SECOND gate here, a per-slot faction AGE 0-3 read as
+// FactionEra - 1. Nothing ever raises a faction past Age 1, so every slot
+// pinned to Age 2/3 (the upper tool tiers, the surveys, Veilstone Walls,
+// Veilsteel Pylons) was invisible to players while the AI — which reads
+// researchAt and minBuildingLevel — researched them freely. It is gone.
+//
+// CHAINS pin a tech ladder to ONE slot and show the current un-consumed tier.
+// STARTING research (queuing) — not just completing it — CONSUMES the tech: a
+// single tech's slot goes blank, a chain advances to the next tier. Cancelling
+// a queued tech un-consumes it, so the button returns.
 //
 // Layouts apply to Alanthor culture (and culture-None pre-culture, where only
 // the Age-0 slots show). Other cultures fall back to the classic panel.
@@ -37,37 +47,26 @@ namespace TheWaningBorder.UI.Data
 {
     public enum ActionSlotKind : byte { Empty, Train, Tech, Chain }
 
-    /// <summary>One tier of a chain slot: a tech id plus the Age it unlocks at.</summary>
-    public readonly struct ActionTier
-    {
-        public readonly string Id;
-        public readonly int Age;
-        public ActionTier(string id, int age) { Id = id; Age = age; }
-    }
-
-    /// <summary>One authored grid cell.</summary>
+    /// <summary>One authored grid cell. Placement only — every gate is the
+    /// unit's or the tech's SO (see the header).</summary>
     public readonly struct ActionSlot
     {
         public readonly ActionSlotKind Kind;
         public readonly string Id;        // Train unit id / single Tech id
-        public readonly int AppearAge;    // faction age at which the slot shows
-        public readonly int MinLevel;     // required BuildingUpgradeState.Level (0 = none)
-        public readonly string Prereq;    // tech id that must be researched first (null = none)
-        public readonly ActionTier[] Chain;
+        public readonly int MinLevel;     // Train only: the unit SO's minBuildingLevel
+        public readonly string[] Chain;   // Chain only: the tech ids, lowest tier first
 
-        private ActionSlot(ActionSlotKind kind, string id, int appearAge, int minLevel,
-            string prereq, ActionTier[] chain)
-        { Kind = kind; Id = id; AppearAge = appearAge; MinLevel = minLevel; Prereq = prereq; Chain = chain; }
+        private ActionSlot(ActionSlotKind kind, string id, int minLevel, string[] chain)
+        { Kind = kind; Id = id; MinLevel = minLevel; Chain = chain; }
 
         public static readonly ActionSlot Empty =
-            new ActionSlot(ActionSlotKind.Empty, null, 0, 0, null, null);
-        public static ActionSlot Train(string id, int appearAge, int minLevel = 0) =>
-            new ActionSlot(ActionSlotKind.Train, id, appearAge, minLevel, null, null);
-        public static ActionSlot Tech(string id, int appearAge, int minLevel = 0, string prereq = null) =>
-            new ActionSlot(ActionSlotKind.Tech, id, appearAge, minLevel, prereq, null);
-        public static ActionSlot ChainOf(int minLevel, params ActionTier[] tiers) =>
-            new ActionSlot(ActionSlotKind.Chain, null,
-                tiers.Length > 0 ? tiers[0].Age : 0, minLevel, null, tiers);
+            new ActionSlot(ActionSlotKind.Empty, null, 0, null);
+        public static ActionSlot Train(string id, int minLevel) =>
+            new ActionSlot(ActionSlotKind.Train, id, minLevel, null);
+        public static ActionSlot Tech(string id) =>
+            new ActionSlot(ActionSlotKind.Tech, id, 0, null);
+        public static ActionSlot ChainOf(params string[] tiers) =>
+            new ActionSlot(ActionSlotKind.Chain, null, 0, tiers);
     }
 
     /// <summary>A slot resolved against live state, ready to render.</summary>
@@ -92,26 +91,19 @@ namespace TheWaningBorder.UI.Data
         // Row-major 3x5: slots 0-4 = training row, 5-14 = research rows.
         private static readonly Dictionary<string, ActionSlot[]> _layouts = new()
         {
-            // HALL -> King's Court (Alanthor)
-            //  base (Age 0): Worker, Scout / Stone-tools chain
-            //  King's Court (Age 1+): + Ledger(Lv2), King Lexor(Lv3),
-            //                          Scouting Celestarii, Mason Guild(Lv2)
-            ["Hall"] = new[]
+            // FORTRESS — the capital (the Shelter in Age 0).
+            //  Age 0: Stone-tools chain, Armed Scouts
+            //  Alanthor (culture-gated on the SOs): the upper tool tiers,
+            //  Scouting Celestarii, Mason Guild
+            //  Training row: from the Fortress SO (see the header).
+            ["Fortress"] = new[]
             {
-                ActionSlot.Train("Worker", appearAge: 0),
-                ActionSlot.Train("Scout", appearAge: 0),
-                ActionSlot.Train("Ledger", appearAge: 1, minLevel: 2),
-                ActionSlot.Train("King Lexor", appearAge: 1, minLevel: 3),
-                ActionSlot.Empty,
+                ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
 
-                ActionSlot.ChainOf(0,
-                    new ActionTier("StoneTools", 0),
-                    new ActionTier("IronTools", 1),
-                    new ActionTier("VeilstoneTools", 2),
-                    new ActionTier("VeilsteelTools", 3)),
-                ActionSlot.Tech("ArmedScouts", appearAge: 0),
-                ActionSlot.Tech("ScoutingCelestarii", appearAge: 1),
-                ActionSlot.Tech("MasonGuild", appearAge: 1, minLevel: 2),
+                ActionSlot.ChainOf("StoneTools", "IronTools", "VeilstoneTools", "VeilsteelTools"),
+                ActionSlot.Tech("ArmedScouts"),
+                ActionSlot.Tech("ScoutingCelestarii"),
+                ActionSlot.Tech("MasonGuild"),
                 // NO wall tech here (2026-09-24). Battlements and Shielded
                 // Ramparts are researched AT THE WALL HUB: masonry is not the
                 // wall's progression, and a building's own ladder belongs on
@@ -122,33 +114,25 @@ namespace TheWaningBorder.UI.Data
                 ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
             },
 
-            // HUT -> House (Alanthor) — trains nothing, so the top row stays
-            // blank and the single tech sits in the first research slot.
+            // HUT -> House (Alanthor) — trains nothing and researches nothing
+            // (population is its product); the grid stays blank.
             ["Hut"] = new[]
             {
                 ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
-                ActionSlot.Tech("RetaliatoryMeasures", appearAge: 1, minLevel: 2),
-                ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
+                ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
                 ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
             },
 
             // GATHERER'S HUT -> Guild (Alanthor) — three research chains + one
-            // single. Each chain slot appears at its first tier's age.
+            // single, all Alanthor-gated on their SOs (the hut has no research
+            // in Age 0).
             ["GatherersHut"] = new[]
             {
                 ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
-                ActionSlot.ChainOf(0,
-                    new ActionTier("IronSurveying1", 1),
-                    new ActionTier("IronSurveying2", 2),
-                    new ActionTier("IronSurveying3", 3)),
-                ActionSlot.ChainOf(2,
-                    new ActionTier("VeilstoneSurvey1", 2),
-                    new ActionTier("VeilstoneSurvey2", 3)),
-                ActionSlot.Tech("VeilsteelSurvey", appearAge: 3, minLevel: 3, prereq: "VeilstoneSurvey2"),
-                ActionSlot.ChainOf(0,
-                    new ActionTier("IronReinforcements", 1),
-                    new ActionTier("VeilstoneWalls", 2),
-                    new ActionTier("VeilsteelPylons", 3)),
+                ActionSlot.ChainOf("IronSurveying1", "IronSurveying2", "IronSurveying3"),
+                ActionSlot.ChainOf("VeilstoneSurvey1", "VeilstoneSurvey2"),
+                ActionSlot.Tech("VeilsteelSurvey"),
+                ActionSlot.ChainOf("IronReinforcements", "VeilstoneWalls", "VeilsteelPylons"),
                 ActionSlot.Empty,
                 ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
             },
@@ -157,17 +141,9 @@ namespace TheWaningBorder.UI.Data
         public static bool HasLayout(string buildingId) =>
             buildingId != null && _layouts.ContainsKey(buildingId);
 
-        /// <summary>
-        /// The FORTRESS runs the Hall's grid (Territory_Claims.md §4): the Hall
-        /// is removed and the Fortress hosts its roster and research, so the
-        /// capital — starting or built — shows the same slots.
-        /// </summary>
-        static BuildingActionLayouts()
-        {
-            _layouts["Fortress"] = _layouts["Hall"];
-        }
-
-        /// <summary>Faction age = FactionEra.Value - 1, clamped 0..3.</summary>
+        /// <summary>Faction age = FactionEra.Value - 1, clamped 0..3. NOT a
+        /// research gate (see the header); the stats panel's Upgrade button
+        /// reads it to know whether the faction has a culture yet.</summary>
         public static int FactionAge(EntityManager em, Faction faction) =>
             System.Math.Max(0, System.Math.Min(3, EntityInfoExtractor.GetFactionEra(em, faction) - 1));
 
@@ -190,7 +166,6 @@ namespace TheWaningBorder.UI.Data
             byte culture = GetFactionCulture(em, faction);
             if (culture != Cultures.None && culture != Cultures.Alanthor) return false;
 
-            int factionAge = FactionAge(em, faction);
             int buildingLevel = 1;
             if (em.HasComponent<BuildingUpgradeState>(entity))
                 buildingLevel = System.Math.Max(1, (int)em.GetComponentData<BuildingUpgradeState>(entity).Level);
@@ -200,9 +175,34 @@ namespace TheWaningBorder.UI.Data
 
             resolved = new ResolvedSlot[SlotCount];
             for (int i = 0; i < SlotCount && i < slots.Length; i++)
-                resolved[i] = ResolveSlot(slots[i], entity, em, faction, factionAge, buildingLevel,
+                resolved[i] = ResolveSlot(slots[i], entity, em, faction, culture, buildingLevel,
                     research, available);
+            ResolveTrainingRow(buildingId, entity, em, faction, culture, buildingLevel, available, resolved);
             return true;
+        }
+
+        /// <summary>
+        /// Fill the top row from the building SO's trains[], in order: units
+        /// this culture may not field are skipped (CultureGate), and a unit's
+        /// minBuildingLevel locks its slot with a "Requires Lv N" note.
+        /// </summary>
+        private static void ResolveTrainingRow(string buildingId, Entity entity, EntityManager em,
+            Faction faction, byte culture, int buildingLevel, Cost available, ResolvedSlot[] resolved)
+        {
+            for (int c = 0; c < Cols; c++) resolved[c] = Blank;
+            if (!TechCatalog.TryGetBuilding(buildingId, out var def) || def.trains == null) return;
+
+            int col = 0;
+            foreach (var unitId in def.trains)
+            {
+                if (col >= Cols) break;
+                if (string.IsNullOrEmpty(unitId)) continue;
+                if (!CultureGate.CanFactionTrain(unitId, culture)) continue;
+                if (CultureGate.IsSupersededByCulture(unitId, culture)) continue;
+                int minLevel = TechCatalog.TryGetUnit(unitId, out var unit) ? unit.minBuildingLevel : 0;
+                resolved[col++] = ResolveTrain(ActionSlot.Train(unitId, minLevel),
+                    entity, em, faction, buildingLevel, available);
+            }
         }
 
         // ── Slot resolution ────────────────────────────────────────────────
@@ -211,23 +211,21 @@ namespace TheWaningBorder.UI.Data
 
         private static ResolvedSlot ResolveSlot(ActionSlot slot, Entity building, EntityManager em,
             Faction faction,
-            int factionAge, int buildingLevel, FactionResearchState research, Cost available)
+            byte culture, int buildingLevel, FactionResearchState research, Cost available)
         {
             switch (slot.Kind)
             {
                 case ActionSlotKind.Train:
-                    if (factionAge < slot.AppearAge) return Blank;
                     return ResolveTrain(slot, building, em, faction, buildingLevel, available);
 
                 case ActionSlotKind.Tech:
-                    if (factionAge < slot.AppearAge) return Blank;
+                    if (!CultureShows(slot.Id, culture)) return Blank;
                     // Started (queued) or done -> the single slot goes blank.
                     if (Consumed(slot.Id, em, faction, research)) return Blank;
-                    return ResolveTech(slot.Id, slot.MinLevel, slot.Prereq, /*tierAge*/ 0,
-                        em, faction, factionAge, buildingLevel, research, available);
+                    return ResolveTech(slot.Id, em, faction, buildingLevel, research, available);
 
                 case ActionSlotKind.Chain:
-                    return ResolveChain(slot, em, faction, factionAge, buildingLevel, research, available);
+                    return ResolveChain(slot, em, faction, culture, buildingLevel, research, available);
 
                 default:
                     return Blank;
@@ -277,9 +275,8 @@ namespace TheWaningBorder.UI.Data
             };
         }
 
-        private static ResolvedSlot ResolveTech(string techId, int minLevel, string prereq,
-            int tierAge, EntityManager em, Faction faction, int factionAge, int buildingLevel,
-            FactionResearchState research, Cost available)
+        private static ResolvedSlot ResolveTech(string techId, EntityManager em, Faction faction,
+            int buildingLevel, FactionResearchState research, Cost available)
         {
             TechCatalog.TryGetTechnology(techId, out var tech);
             string name = tech != null ? tech.name : techId;
@@ -291,13 +288,20 @@ namespace TheWaningBorder.UI.Data
                 Veilstone = tech.cost.Veilstone, Veilsteel = tech.cost.Veilsteel,
             } : default;
 
+            // The SO's gates, in the order a player can act on them.
             string req = null;
-            if (factionAge < tierAge) req = $"Requires Age {tierAge}";
-            else if (buildingLevel < minLevel) req = $"Requires Lv {minLevel}";
-            else if (prereq != null && !(research != null && research.HasResearched(faction, prereq)))
+            int minLevel = tech != null ? tech.minBuildingLevel : 0;
+            if (buildingLevel < minLevel) req = $"Requires Lv {minLevel}";
+            else if (tech?.prerequisites != null)
             {
-                TechCatalog.TryGetTechnology(prereq, out var pre);
-                req = $"Requires {(pre != null ? pre.name : prereq)}";
+                foreach (var prereq in tech.prerequisites)
+                {
+                    if (string.IsNullOrEmpty(prereq)) continue;
+                    if (research != null && research.HasResearched(faction, prereq)) continue;
+                    TechCatalog.TryGetTechnology(prereq, out var pre);
+                    req = $"Requires {(pre != null ? pre.name : prereq)}";
+                    break;
+                }
             }
 
             bool locked = req != null;
@@ -316,28 +320,33 @@ namespace TheWaningBorder.UI.Data
         }
 
         private static ResolvedSlot ResolveChain(ActionSlot slot, EntityManager em, Faction faction,
-            int factionAge, int buildingLevel, FactionResearchState research, Cost available)
+            byte culture, int buildingLevel, FactionResearchState research, Cost available)
         {
-            // The slot appears once the faction reaches the first tier's age.
-            if (factionAge < slot.Chain[0].Age) return Blank;
-
             // Active tier = first not yet consumed (researched OR queued). Once
             // every tier is consumed the slot goes blank.
             int idx = -1;
             for (int i = 0; i < slot.Chain.Length; i++)
-                if (!Consumed(slot.Chain[i].Id, em, faction, research)) { idx = i; break; }
+                if (!Consumed(slot.Chain[i], em, faction, research)) { idx = i; break; }
             if (idx < 0) return Blank;
 
-            var tier = slot.Chain[idx];
-            var resolved = ResolveTech(tier.Id, slot.MinLevel, /*prereq*/ null, tier.Age,
-                em, faction, factionAge, buildingLevel, research, available);
-            resolved.ChainIds = new string[slot.Chain.Length];
-            for (int i = 0; i < slot.Chain.Length; i++)
-                resolved.ChainIds[i] = slot.Chain[i].Id;
+            // A tier this culture cannot research ends the chain there (the
+            // Alanthor tool tiers after Stone Tools, for anyone else).
+            string tier = slot.Chain[idx];
+            if (!CultureShows(tier, culture)) return Blank;
+
+            var resolved = ResolveTech(tier, em, faction, buildingLevel, research, available);
+            resolved.ChainIds = (string[])slot.Chain.Clone();
             return resolved;
         }
 
         // ── Helpers ────────────────────────────────────────────────────────
+
+        /// <summary>The tech SO's culture gate — the same test the AI uses.
+        /// An unknown id shows (its button then reads as a bare id, which is
+        /// louder than a silently missing slot).</summary>
+        private static bool CultureShows(string techId, byte culture)
+            => !TechCatalog.TryGetTechnology(techId, out var tech)
+               || TechCatalog.CultureAllows(tech, culture);
 
         /// <summary>A tech is "consumed" once it is researched OR merely queued
         /// (started). Cancelling a queued tech un-consumes it.</summary>

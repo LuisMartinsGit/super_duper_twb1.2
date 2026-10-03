@@ -4,7 +4,7 @@
 //
 // Layout contract (node names in the prefab):
 //   RP          — TMP: religion point balance
-//   TempleInfo  — TMP: temple level / upgrade status
+//   TempleInfo  — TMP: the Temple header (it has no levels)
 //   Slot1..6    — chapel slot buttons (Button + child "label" TMP):
 //                   empty    -> opens the sect picker
 //                   building -> chapel build progress (disabled)
@@ -247,22 +247,9 @@ namespace TheWaningBorder.UI.Ingame
         private void RefreshTempleInfo(EntityManager em, Entity temple)
         {
             if (_templeInfo == null) return;
-            int level = em.HasComponent<TempleLevel>(temple)
-                ? em.GetComponentData<TempleLevel>(temple).Level : 1;
-            string text;
-            if (em.HasComponent<TempleUpgradeState>(temple))
-            {
-                var up = em.GetComponentData<TempleUpgradeState>(temple);
-                float pct = up.Duration > 0f
-                    ? Mathf.Clamp01((up.Duration - up.Remaining) / up.Duration) : 0f;
-                text = string.Format(Loc.T("Temple Lv {0} - upgrading {1}%"),
-                    level, (int)(pct * 100f));
-            }
-            else
-            {
-                text = string.Format(Loc.T("Temple Lv {0} - power tier {1}"),
-                    level, Mathf.Clamp(level, 1, 3));
-            }
+            // The Temple has no levels (docs/Design/Religion.md); chapel
+            // levels are bought with RP on each chapel slot.
+            string text = Loc.T("Temple of Ridan");
             if (_templeInfo.text != text) _templeInfo.text = text;
         }
 

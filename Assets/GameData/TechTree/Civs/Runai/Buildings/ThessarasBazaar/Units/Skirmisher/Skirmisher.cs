@@ -45,7 +45,7 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new Target { Value = Entity.Null });
             creator.AddComponent(entity, new Radius { Value = def.radius });
             creator.AddComponent(entity, new AttackCooldown { Cooldown = cooldown, Timer = 0f });
-            creator.AddComponent(entity, new PopulationCost { Amount = 1 });
+            creator.AddComponent(entity, new PopulationCost { Amount = def.populationCost });
 
             // Archer-specific state for ranged behavior
             creator.AddComponent(entity, new ArcherState

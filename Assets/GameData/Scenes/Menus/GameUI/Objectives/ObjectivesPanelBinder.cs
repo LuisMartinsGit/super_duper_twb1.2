@@ -1,7 +1,7 @@
 // ObjectivesPanelBinder.cs
 // Binds the authored ObjectivesPanel prefab (GameUICatalog.objectivesPanel,
 // top-left) to live match state. Four fixed step rows, found by node name:
-//   Step_Special  — build a choice building (Shrine / Vault / Keep)
+//   Step_Special  — build a choice building (Vault / Keep)
 //   Step_Culture  — select a culture and age up (Era 2)
 //   Step_Temple   — 3A: build the Temple, upgrade it through the ages,
 //                   then claim every curse node with the culture's verb
@@ -128,7 +128,7 @@ namespace TheWaningBorder.UI.Ingame
             else if (started)
                 Set(_stepSpecial, Loc.T("1. Build a special building - under construction"), Active);
             else
-                Set(_stepSpecial, Loc.T("1. Build a special building (Shrine / Vault / Keep)"), Active);
+                Set(_stepSpecial, Loc.T("1. Build a special building (Vault / Keep)"), Active);
         }
 
         // ── Step 2: culture + age up ───────────────────────────────────────
@@ -221,32 +221,7 @@ namespace TheWaningBorder.UI.Ingame
             }
             sb.Append(Loc.T("<s>3A. Build the Temple of Ridan</s>")).Append('\n');
 
-            // Phase 2: upgrade the Temple through the ages (L1..L4 = Era 2..5).
-            int level = em.HasComponent<TempleLevel>(temple)
-                ? em.GetComponentData<TempleLevel>(temple).Level : 1;
-            if (level < TempleLevelConfig.MaxLevel)
-            {
-                if (em.HasComponent<TempleUpgradeState>(temple))
-                {
-                    var up = em.GetComponentData<TempleUpgradeState>(temple);
-                    float pct = up.Duration > 0f
-                        ? Mathf.Clamp01((up.Duration - up.Remaining) / up.Duration) : 0f;
-                    sb.Append(string.Format(
-                        Loc.T("     Upgrade the Temple (Lv {0}, upgrading {1}%)"),
-                        level, (int)(pct * 100f)));
-                }
-                else
-                {
-                    sb.Append(string.Format(
-                        Loc.T("     Upgrade the Temple to age up (Lv {0} of {1})"),
-                        level, TempleLevelConfig.MaxLevel));
-                }
-                Set(_stepTemple, sb.ToString(), Active);
-                return;
-            }
-            sb.Append(Loc.T("<s>     Upgrade the Temple to age up</s>")).Append('\n');
-
-            // Phase 3: claim every curse node with the culture verb.
+            // Phase 2: claim every curse node with the culture verb.
             CountWells(em, faction, culture, out int claimed, out int total);
             if (total > 0 && claimed >= total)
             {

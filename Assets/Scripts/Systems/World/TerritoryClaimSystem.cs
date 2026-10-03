@@ -569,8 +569,7 @@ namespace TheWaningBorder.Systems.World
         /// building on a resource node, a Fortress, a curse node — and the
         /// Alanthor Trading Outpost, which stands beside its outcrop rather than
         /// on it but is that culture's node building
-        /// (docs/Design/Veilstone_Economy.md §3.1). The Smelter no longer locks:
-        /// it left the veilsteel node when veilsteel nodes were removed.
+        /// (docs/Design/Veilstone_Economy.md §3.1).
         /// </summary>
         public static bool IsLocking(EntityManager em, Entity e)
             => em.HasComponent<FortressTag>(e)

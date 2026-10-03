@@ -8,6 +8,13 @@
 >
 > Marked **(new — not yet in code)** throughout. §7 is the exception:
 > it describes shipped rendering that survives the redesign.
+>
+> **Numbers (2026-10-03).** Entity values — prices, income rates, footprints,
+> train times — were stripped from this doc; they live on the SOs under
+> `Assets/GameData/TechTree/` (readable in the generated calculator
+> `tools/calculator/TechTree.html`). What stays are map-structure numbers,
+> node quotas, the resource-domain exchange rates (§4, the pricing RULE the SO
+> prices were built from) and historical measurements quoted as reasons.
 
 ---
 
@@ -118,6 +125,9 @@ save whenever the markers have changed since the last bake.
 > **SUPERSEDED 2026-09-29 by [Territory_Claims.md](Territory_Claims.md).**
 > Territory is now claimed by standing military units on it (an ownership
 > meter), not by building a Hall; the Hall is removed. Kept for history.
+>
+> **The Hall is deleted (2026-10-03):** the capital is the Shelter, which
+> becomes the Fortress at age-up ([Territory_Claims.md](Territory_Claims.md) §4).
 
 **Claiming is an ACTION, not a threshold.** This reverses the second pass, which
 had a territory flip to whoever dominated it on the influence map.
@@ -131,9 +141,9 @@ question with a different answer per culture.
 A Hall is the ONLY building that may be raised on ground you do not hold.
 Everything else, towers included, goes inside territory that is already yours.
 
-**A Hall is expensive on purpose** — **450 supplies and 450 iron** (the Hall
-SO; rebalanced from 600/200 on 2026-08-31, see §3). Taking ground is the
-largest single purchase in the game, because it is the only purchase that grows
+**A Hall was expensive on purpose** (its price was on the Hall SO, split
+across supplies and iron from 2026-08-31, see §3). Taking ground was the
+largest single purchase in the game, because it was the only purchase that grew
 the economy.
 
 **One Hall per territory.** A second claims nothing, so there is no reason to
@@ -183,10 +193,8 @@ a stale click all obey them):
   `price = base Hall cost × (1 + step × N)`
 
   where **N** is the faction's live **and under-construction** Halls, **not
-  counting the starting Fortress**, and **step = 0.5** (`hallCostStep` in
-  `TerritoryOwnership.asset`). With the Hall's base of 450 Supplies + 450 Iron:
-  the 1st expansion Hall costs 450 / 450, the 2nd 675 / 675, the 3rd
-  900 / 900, the 4th 1 125 / 1 125. Each resource is rounded to the nearest
+  counting the starting Fortress**, and **step** is `hallCostStep` in
+  `TerritoryOwnership.asset`. Each resource is rounded to the nearest
   whole unit. An under-construction Hall counts, so queuing several claims at
   once does not dodge the step; a Hall that is destroyed stops counting, so
   losing ground makes re-claiming it cheaper again. The price is computed from
@@ -234,6 +242,9 @@ front line is a row of structures somebody has to keep alive.
 > No pure nodes: the curse claims by the same meter (double weight), builds
 > destructible nodes on any resource node, and those nodes lock its ground.
 > The "not a full player" scope rule still stands.
+>
+> **The Hall is deleted (2026-10-03):** the capital is the Shelter, which
+> becomes the Fortress at age-up ([Territory_Claims.md](Territory_Claims.md) §4).
 
 **The curse expands exactly the way a player does: it takes whole territories,
 instantly, by the same ownership rules.** No influence, no gradient, no
@@ -244,16 +255,16 @@ orders, no AI brain. It does exactly two things: it takes territory (the
 expansion rule below) and it spawns armies that attack players. Do not give
 it any other player system.
 
-**The FORTRESS (2026-08-31, see Age_0.md):** every player's STARTING
-building is now a Fortress — the capital, larger and far tougher than a
-Hall. It claims its home territory under the same rule as the Hall
-(mechanically it carries the Hall's claim), while the buildable Hall
-remains the one and only expansion claim structure of §2.
+**The capital (2026-08-31, renamed 2026-10-03, see Age_0.md):** every
+player's STARTING building is the capital, id `Fortress` — shown as the
+**Shelter** in Age 0, it becomes the **Fortress** automatically at age-up. It
+claims its home territory (mechanically it carries `HallTag`, the old Hall's
+claim). The buildable Hall this section describes is deleted.
 
-**Hall cost rebalanced 600s/200i → 450s/450i (2026-08-31, batch 8):**
+**Hall price split across supplies and iron (2026-08-31, batch 8):**
 supplies were both the army's fuel and the claim's price, so the two
-engines fought over one resource while iron sat idle past 1,500. Splitting
-the price across both lets a faction save a claim pot and rebuild its army
+engines fought over one resource while iron sat idle. Splitting
+the price across both let a faction save a claim pot and rebuild its army
 at the same time — expansion pace and army size stop trading off
 one-for-one.
 
@@ -314,6 +325,11 @@ coverage sampling, hut "covered ground" preference) is retired with it.
 
 ## 4. Economy (Alanthor) — the territory turn
 
+> **The Hall is deleted (2026-10-03):** the capital is the Shelter, which
+> becomes the Fortress at age-up ([Territory_Claims.md](Territory_Claims.md) §4). Read "Hall"
+> below as history. The Alanthor Smelter is removed and veilsteel deposits are
+> gone ([Veilstone_Economy.md](Veilstone_Economy.md)).
+
 Territory, not workers, is the engine.
 
 ### Resource domains (2026-08-28, rev. 2)
@@ -338,8 +354,8 @@ The domains match demand to supply: the resource that is always spent buys the
 thing you always build, and the resource that piles up buys the thing you
 continuously lose.
 
-**Tiers come from the prerequisite graph, not from names.** Depth 0 is early
-(49 techs), depth 1 mid (21), depth 2+ late (20). The weapon ladder falls out
+**Tiers come from the prerequisite graph, not from names.** Depth 0 is early,
+depth 1 mid, depth 2+ late. The weapon ladder falls out
 of it exactly: Stone -> Iron -> Veilstone -> ShardInfused.
 
 **Entry units stay on supplies.** Spearman, Archer, Scout, Worker and Litharch
@@ -354,20 +370,24 @@ costs MORE per unit of value (1.5x supplies); veilsteel is scarce so it costs
 LESS (a quarter). Resulting demand share: Supplies 36%, Veilstone 41%, Iron
 20%, Veilsteel 3% - against 61/12/25/3 before.
 
-**Army prices are sized to the 200-population ceiling** (2026-08-29). The cap
-should be something every player reaches inside twenty minutes, which is
-roughly 35 workers and 160 soldiers. Against measured income over 1,200 s
-(~12,000 supplies, ~9,600 iron, ~8,400 veilstone), and after paying for workers
-and ~18 Huts of housing, that leaves about 55 veilstone and 25 iron per
-soldier — so military costs were cut to hit it (soldiers: veilstone x0.35,
-iron x0.55; entry units x0.55).
+These two rates — **1 veilsteel = 4 supply-value, 1 supply-value = 1.5
+veilstone** — are kept on purpose: they are the pricing RULE the SO prices
+were built from, not a price (Unification decision 37 converts Fervored
+Masses' veilsteel to veilstone with them). The prices themselves are on the
+SOs.
+
+**Army prices are sized to the population ceiling** (2026-08-29). The cap
+should be something every player reaches inside twenty minutes. Against
+measured income over that span, and after paying for workers and housing,
+that leaves a per-soldier budget — and military costs were cut to fit it.
+The resulting prices are on the unit SOs.
 
 Three things had to move together, because each alone is a hard ceiling:
-the PRICE (above), the AI's `SustainArmyCap` (10/20/24/32 across the ladder was
-an order of magnitude below 200 pop, so the AI stopped wanting soldiers long
-before it ran out of money), and `PopulationHeadroomFloor` (at 2, housing
-trailed production and stalled every trainer while a hut went up; at 16 it
-leads).
+the PRICE (above), the AI's `SustainArmyCap` (it was an order of magnitude
+below the population cap, so the AI stopped wanting soldiers long before it
+ran out of money), and `PopulationHeadroomFloor` (too low, housing trailed
+production and stalled every trainer while a hut went up). Both are AI config
+values in `Assets/GameSystems/AI/`.
 
 **Watch**: supplies are now a pure infrastructure currency. Buildings are
 bought once where soldiers are lost continuously, so if supplies start piling
@@ -377,15 +397,24 @@ pushes that way), not moving soldiers back onto them.
 Everything below is authored **per minute**, because that is the unit the player
 is shown (see *Reading a territory* at the end of this section).
 
+> **Where the rates are (2026-10-03).** Each extractor pays its slot through
+> the `slotIncomePerMinute` ladder on its SO (`GatherersHut.asset`,
+> `Mine.asset`, `VeilstoneMine.asset` and the culture level SOs); the
+> capital's income is on its own SO; the empty-slot rate, the node reserve and
+> the depletion floor are constants in `TerritoryIncomeSystem`. The current
+> model is [Territory_Claims.md](Territory_Claims.md) and
+> [Veilstone_Economy.md](Veilstone_Economy.md); the bullets below are this
+> pass's reasoning, with their numbers removed.
+
 - **DEVELOPMENT IS THE ECONOMY, NOT AREA (2026-09-08 — supersedes the
-  26/min-per-node base below it).** Ground pays for what you have BUILT on it:
+  flat per-node base below it).** Ground pays for what you have BUILT on it:
 
   | | pays |
   |---|---|
-  | Supply slot, empty | **0** |
-  | Supply slot, Gatherer's Hut L1 / L2 / L3 | **50 / 100 / 200** per minute |
-  | Bare ground | **20/min**, doubled per level of the territory's *least developed* slot (x1 / x2 / x4 / x8) |
-  | The territory's Hall, L1 / L2 / L3 | **x1 / x2 / x4 on everything the territory earns** — supplies and ore alike |
+  | Supply slot, empty | little or nothing |
+  | Supply slot with a Gatherer's Hut | the hut's slot-income ladder, rising with each level |
+  | Bare ground | a small base, raised by the level of the territory's *least developed* slot |
+  | The territory's Hall level | multiplied everything the territory earned *(the Hall is deleted)* |
 
   Three rules, one intent: **one deeply developed territory should beat a wide
   shallow empire.** A slot pays nothing until something stands on it, so
@@ -395,28 +424,23 @@ is shown (see *Reading a territory* at the end of this section).
   with a windfall is claim a fifth region instead of levelling the Hall you
   have.
 
-  The old model paid **26/min per supply node whether or not anything stood on
+  The old model paid **a flat rate per supply node whether or not anything stood on
   it**, which made the optimal opening "claim everything, develop nothing" and
   ended matches with everyone holding wide, shallow empires and no reason to
   invest in any of them.
 
-  Worked example — a home territory (4 slots, 1 iron node, 1 veilstone node),
-  fully developed: slots 4 x 200 = 800, base 20 x 8 = 160, Hall L3 x4 →
-  **3,840 supplies/min and 760/min of each ore**. The same territory
-  undeveloped pays 20 supplies and 190 of each ore. Level 0 leaves the base at
-  its 20 floor, so freshly claimed ground is never worth literally nothing.
+  Freshly claimed ground is never worth literally nothing: the base keeps a
+  floor.
 
   A Fortress carries `HallTag`, so a capital scales its home territory exactly
   as an expansion Hall scales its own.
 - **A territory containing a resource node produces a trickle of that
-  resource — iron and veilstone 190/min per node, veilsteel 95/min**
-  (2026-08-30: iron/veilstone doubled from the flat 95 — armies were being
-  trained but not replaced fast enough to fight with, and the ore economy
-  was the bottleneck), whether or not anything is built on it. Holding the
+  resource** whether or not anything is built on it (2026-08-30: the ore
+  trickle was doubled — armies were being trained but not replaced fast
+  enough to fight with, and the ore economy was the bottleneck). Holding the
   ground is what pays; the node is the reason the ground is worth holding.
-  Doubled yield drains the node's reserve twice as fast — a fresh 4,000-unit
-  seam now runs to its 25% floor in roughly 21 undisturbed minutes, which
-  sharpens the expand-or-decline pressure rather than blunting it.
+  A higher yield drains the node's reserve faster, which sharpens the
+  expand-or-decline pressure rather than blunting it.
 - **Every resource has its OWN extraction building, and it stands ON the node.**
   One per node — the node count is what limits how many a territory supports,
   which is the whole reason nodes replaced area-based caps.
@@ -426,59 +450,55 @@ is shown (see *Reading a territory* at the end of this section).
   | Supplies | Gatherer's Hut | Supply site |
   | Iron | Mine | Iron deposit |
   | Veilstone | **Veilstone Mine** | Veilstone outcropping |
-  | Veilsteel | **Smelter** (Alanthor) | Veilsteel deposit |
 
-  Before this, one generic Mine counted toward *any* node within 12 m, so a
+  Before this, one generic Mine counted toward *any* node nearby, so a
   single building extracted all three ores and there was no decision about
   what to invest in. Veilsteel had no building at all.
 
-- **An extraction building adds 25/min per level.** All four are upgradeable,
-  and the ladders for the two mines are priced in **veilstone and veilsteel** —
-  the currencies a territory-holding faction accumulates and previously could
-  not spend.
+- **An extraction building pays more with each level** (its SO's slot-income
+  ladder). All of them are upgradeable; the level prices are on the level SOs.
 
-- **One Mine button** (2026-09-29): the three ore extractors are ONE entry in
+- **One Mine button** (2026-09-29): the ore extractors are ONE entry in
   the build menu. The node under the cursor decides which is raised — an iron
-  deposit an Iron Mine, a veilstone outcropping a Veilstone Mine, a veilsteel
-  deposit the veilsteel extractor (`Alanthor_Smelter`, Alanthor only, cap 5) —
-  and the ghost shows that pithead. All three share one procedural pithead
+  deposit an Iron Mine, a veilstone outcropping a Veilstone Mine — and the
+  ghost shows that pithead. Both share one procedural pithead
   (`MineVisual`) and differ by their ore: rust iron, glowing cyan veilstone
-  crystal, dark blue-steel veilsteel. The ids stay separate underneath; the AI
+  crystal. The ids stay separate underneath; the AI
   and the command stream use them directly.
 
-- **Ore extractors are priced in IRON first** (2026-08-30): Mine 90 supplies +
-  140 iron, Veilstone Mine 90 + 160 iron, Smelter 240 + 320 iron. They were
+- **Ore extractors were moved off a pure supply price** (2026-08-30). They were
   supply-priced, and the measured result — the moment on-node placement
   actually worked — was a straight duel with the Hall for the one currency
   everything needs: six of eight batch matches ended with ZERO expansions,
-  every 600-supply claim starving behind a queue of 198-supply mines. Iron is
-  the currency a territory-holding faction banks and barely spends, so paying
-  iron to dig ore is the resource-domain rule (Infrastructure = Supplies +
-  Iron) applied *inside* the domain. The Gatherer's Hut stays supply-priced.
+  every claim starving behind a queue of supply-priced mines. The current
+  prices are on the `Mine` and `VeilstoneMine` SOs (both Age 0 buildings for
+  everyone, Unification decision 15). The Gatherer's Hut stays supply-priced.
 
-- **NODES DEPLETE.** A fresh node holds ~4,000 units; yield scales with what is
-  left, down to a **25% floor** so a spent node still trickles rather than
-  turning its territory into dead ground nobody contests.
+- **NODES DEPLETE.** A fresh node holds a finite reserve; yield scales with
+  what is left, down to a **floor** so a spent node still trickles rather than
+  turning its territory into dead ground nobody contests (`NodeReserveUnits`
+  and `DepletionFloor` in `TerritoryIncomeSystem`).
 
-  At the base 95/min trickle that is roughly 42 minutes of undisturbed
-  extraction — about **53% yield by minute 25**, and sooner where a building is
-  drawing on it. Extraction draws faster than the bare trickle, so **upgrading
-  is a decision to spend the seam sooner**: it raises income now and shortens
-  the node's life.
+  A node is still paying at the end of a long match, but visibly poorer, and
+  sooner where a building is drawing on it. Extraction draws faster than the
+  bare trickle, so **upgrading is a decision to spend the seam sooner**: it
+  raises income now and shortens the node's life.
 
   This is what stops the opening land grab from being the entire economy. A
   node that never runs down fixes income the moment the map is divided and
   removes any reason to take more ground or invest in what you hold; it also
   let banks run away (one logged AI reached 15,242 unspent veilstone).
 
-- **Veilsteel is scarce: about one territory in three carries a deposit**, and
+- *(Superseded: there are no veilsteel nodes — veilsteel is made, never
+  mined, [Veilstone_Economy.md](Veilstone_Economy.md).)*
+  **Veilsteel is scarce: about one territory in three carries a deposit**, and
   no territory carries two. Authored markers are honoured first and only the
   shortfall is seeded, so a hand-built map keeps its composition; the seeding
   is deterministic (regions walked in index order, strided) so lockstep peers
   agree. Scarcity is what makes veilsteel ground worth taking — before this it
   was a single node on the whole map, which is an objective, not an economy.
-- **A Gatherer's Hut pays its slot 50/min at L1 and doubles per level**
-  (50 / 100 / 200) — and a hut may only be built **on a supply node**. An
+- **A Gatherer's Hut pays its slot by its SO's income ladder, rising with each
+  level** — and a hut may only be built **on a supply node**. An
   empty slot pays nothing; see the development table at the top of this
   section.
 
@@ -503,6 +523,10 @@ before it:
   ground before placing.
 
 ### Node quotas (2026-08-29)
+
+> Territory TYPES now generate the nodes ([Territory_Claims.md](Territory_Claims.md)
+> §11). The counts below are the rule this pass set; they are map rules, not
+> entity stats, so they stay.
 
 Every territory is guaranteed a working economy, and a home is guaranteed a
 bigger one:
@@ -551,7 +575,7 @@ decides what stands there, and the runtime top-up passes add nothing to it —
 no iron, no supply nodes, no veilstone coverage. Hollow Table's single well
 sits on its territory's seed at the map centre, and every quota pass seats
 from the seed, so the passes were putting an iron node on the well and two
-supply nodes in a ring around it. Nothing seats a node on a well's 12 x 12 m
+supply nodes in a ring around it. Nothing seats a node on a well's
 footprint anywhere, either.
 
 ### Reading a territory
@@ -581,10 +605,11 @@ a map position, not a worker count.
 | Curse escalation, re-triggered on territory tenure | `TechTree/Border/SmallNode/TerritoryCorruptionSystem.cs` |
 | Worker gathering | **deleted** — 4 systems, 2 commands, the AI allocator, the input paths |
 
-Rates are all `const` at the top of `TerritoryIncomeSystem`, authored per
-minute: 20 supplies base + 26 per supply node, +50 per hut, +60 per forest
-(Sawyer x2), 95 per ore node + 25 per extractor level, survey ladders x1.5 a
-tier. Node quotas are enforced by the generator validators and by the runtime
+Rates were all `const` at the top of `TerritoryIncomeSystem` in this pass.
+Since 2026-10-03 the extractor income ladders and the capital income are SO
+fields (Unification decision 34) and only engine-side constants stay in the
+system (the empty-slot rate, node reserve, depletion floor and research
+multipliers). Node quotas are enforced by the generator validators and by the runtime
 top-up passes (`SupplyNodeBootstrap`, `ResourceNodeCoverage`,
 `VeilsteelDepositBootstrap`).
 
@@ -595,10 +620,11 @@ the count that is paid for cannot drift apart. A hut also earns nothing on its
 own any more: the BFME2-style area model — a gather circle, a coverage
 percentage, first-come-first-served splitting of overlaps — is deleted, along
 with the placement circle and the yield readout that displayed it. Where a hut
-sits inside its territory no longer matters, only which territory it is in. Worker: 50 -> **140** supplies,
-25 -> **32 s** train time.
+sits inside its territory no longer matters, only which territory it is in. The
+Worker's price and train time rose with it (values on the Worker SO).
 
-**The Hall claims its own territory.** Every culture claim structure is Age 1,
+**The capital claims its own territory** (written for the Hall; the capital
+is the Shelter / Fortress since 2026-10-03). Every culture claim structure is Age 1,
 so ownership derived purely from them would pay NOTHING for the whole of Age 0 —
 no territory bonus, no economy at all, in the exact age the Gatherer's Hut
 belongs to. §2's "you begin holding the region your start sits in" is what fixes
@@ -611,7 +637,7 @@ it, and the Hall is what marks that ground.
 mid-game curse loop with it — pocket, purple telegraph ping and announcement —
 and produced no compile error at all. It now triggers on TENURE instead of
 depletion: holding a veilstone territory that is not your home ground wakes its
-pocket after 120 s. That keeps the original intent intact — "a curse players
+pocket after a tenure delay. That keeps the original intent intact — "a curse players
 CHOOSE to create", home immune, the risk out on the contested ground you had to
 leave home for.
 
@@ -627,29 +653,24 @@ either would be silently mistaken for a gather order by a peer on an old build.
   **The Sawyer was removed again (2026-10-01), and forests no longer pay any
   income** — see Veilstone_Economy.md §5.
 
-  **Mine** — `Mine`, 220 supplies, 4x4 m (2 x 2 cells since 2026-09-29, on its node). It already existed as a Feraldis
-  building doing exactly what §4 describes ("workerless ore extraction; works
-  every iron and veilstone node in range with no workers at all"), so it was
-  made **universal** rather than duplicated per culture: §4's trickle-plus-mine
-  rule is for everybody, not a Feraldis perk. Two fixes went with that — its
-  `minEra` was **1 (Age 0)** despite CLAUDE.md calling it an Age 1 building, now
-  **2**; and the Feraldis culture gate in `EntityExtractors.GetRequiredCulture`
-  is removed. It keeps its unprefixed id for the reasons CLAUDE.md gives.
+  **Mine** — `Mine`, stands on its node (SO in `Age0/Buildings/Mine/`). It
+  already existed as a Feraldis building doing exactly what §4 describes
+  ("workerless ore extraction"), so it was made **universal** rather than
+  duplicated per culture: §4's trickle-plus-mine rule is for everybody, not a
+  Feraldis perk, and the Feraldis culture gate in
+  `EntityExtractors.GetRequiredCulture` is removed. **The Mine and the
+  Veilstone Mine are Age 0 buildings for everyone** (Unification decision 15);
+  Alanthor's Veilstone Mines become Trading Outposts at age-up. It keeps its
+  unprefixed id for the reasons CLAUDE.md gives.
 
-  It does **not** double-count with the territory trickle: the Mine touches no
-  node state and pays 0.25 iron/s and 0.15 veilstone/s *per worked node* within
-  18 m, on top of the territory's flat 2 iron / 1 veilstone per tick. Trickle is
-  the passive baseline, the Mine is the investment — which is the rule as
-  written.
+  It does **not** double-count with the territory trickle: the trickle is the
+  passive baseline, the Mine is the investment — which is the rule as written.
+  Its income is its SO's slot-income ladder.
 
-  **Sawyer** — `Alanthor_Sawyer`, 150 supplies + 40 iron, 4x4, Age 1
-  (`minEra: 2`). Earns nothing itself: it **doubles the forest supply of the
-  territory it stands in**, capped at one per territory (a second would stack a
-  pure multiplier with no counterplay, and the interesting decision is *which*
-  forested territory to invest in). Placement is gated to within 14 m of a
-  forest's edge, mirroring the Mine's patch gate — an ungated Sawyer would be
-  placeable anywhere and earn nothing, which reads as broken rather than as a
-  rule.
+  **Sawyer** — `Alanthor_Sawyer` (removed 2026-10-01). It earned nothing
+  itself: it **doubled the forest supply of the territory it stood in**, capped
+  at one per territory (a second would stack a pure multiplier with no
+  counterplay), and its placement was gated to a forest's edge.
 
 - **Every home territory is guaranteed iron AND veilstone.** Under §2 an Age 0
   player is confined to their start, and under §4 income is the territory tick,
@@ -667,7 +688,8 @@ either would be silently mistaken for a gather order by a peer on an old build.
   wall-garrison ban, formation exclusion, Feraldis Berserker conversion, AI
   worker counting, unit naming). `WorkerState` is read by the animator, the info
   panel and the lockstep hash. They are vestigial names, not vestigial code.
-- **Resource nodes never deplete now.** Depletion bars will render permanently
+- *(Superseded: nodes deplete again — see "NODES DEPLETE" above.)*
+  **Resource nodes never deplete now.** Depletion bars will render permanently
   full, and the `gatherSpeedMult` tech effect plus
   `SectResearchEffects.VeilstoneYieldMultiplier` are dead levers that need
   re-pointing at the territory tick or removing from the design.

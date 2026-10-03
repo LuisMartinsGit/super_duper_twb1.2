@@ -59,7 +59,7 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new Radius { Value = def.radius });
             // FREE in every sense — costs no population, so camps can run at
             // full cap without competing with the player's real army.
-            creator.AddComponent(entity, new PopulationCost { Amount = 0 });
+            creator.AddComponent(entity, new PopulationCost { Amount = def.populationCost });
 
             creator.AddComponent(entity, new DamageTypeData { Value = DamageType.Melee });
             creator.AddComponent(entity, new ArmorTypeData { Value = ArmorType.InfantryLight });

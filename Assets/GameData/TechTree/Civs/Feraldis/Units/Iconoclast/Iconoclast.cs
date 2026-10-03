@@ -4,7 +4,7 @@
 // Iconoclast attack is the only path to Destroyed.
 //
 // Slow + hard-hitting + heavy HP. Trained at a fully-leveled Feraldis
-// Longhouse (minBuildingLevel: 3 in TechTree.json). 4 pop slots.
+// Longhouse (minBuildingLevel: 3 on its UnitDefSO). 4 pop slots.
 
 using Unity.Entities;
 using Unity.Mathematics;
@@ -65,7 +65,7 @@ namespace TheWaningBorder.Entities
             // 4, matching PopulationHelper.GetUnitPopulationCost — the two
             // disagreed (factory 1 vs table 4), and this is a game-ender unit
             // that is meant to be scarce.
-            creator.AddComponent(entity, new PopulationCost { Amount = 4 });
+            creator.AddComponent(entity, new PopulationCost { Amount = def.populationCost });
             creator.AddComponent(entity, new DesiredDestination { Position = float3.zero, Has = 0 });
 
             creator.AddComponent(entity, new DamageTypeData { Value = DamageType.Melee });

@@ -11,6 +11,14 @@
 // position per occupant. It still costs population (PopulationSyncSystem
 // counts disabled units for exactly this reason) and its damage is added to
 // the module's own fire.
+//
+// THE WATCH TOWER uses the same machinery (2026-10-03, unification item 24):
+// it carries `garrisonSlots` WallGarrisonSlots from its SO, so the same
+// right-click, Empty button, lockstep command and orphan sweep serve it. Its
+// rule differs in one place — the tower already shoots, so its men do not
+// REPLACE its fire; each adds `garrisonArrowsPerOccupant` arrows (targets)
+// to the tower's own volley (Age_1_Alanthor.md § Watch Tower: "Garrison
+// slots / arrow-fire 4 / yes"). See RefreshTowerFire.
 
 using System.Collections.Generic;
 using Unity.Entities;
@@ -112,9 +120,11 @@ namespace TheWaningBorder.Entities
         }
 
         /// <summary>The module draws one manned position per occupant, so a
-        /// garrison change means its view is rebuilt.</summary>
+        /// garrison change means its view is rebuilt. A Watch Tower draws no
+        /// occupants, so its view is left alone.</summary>
         static void Reclad(EntityManager em, Entity module)
         {
+            if (em.Exists(module) && em.HasComponent<WatchTowerTag>(module)) return;
             var spawn = PresentationSpawnSystem.Instance;
             if (spawn != null && em.Exists(module)) spawn.ForceRespawn(module);
         }
@@ -187,6 +197,12 @@ namespace TheWaningBorder.Entities
                 damage += em.HasComponent<Damage>(occ) ? em.GetComponentData<Damage>(occ).Value : 8;
             }
 
+            if (em.HasComponent<WatchTowerTag>(module))
+            {
+                RefreshTowerFire(em, module, manned);
+                return;
+            }
+
             if (manned == 0)
             {
                 if (em.HasComponent<BuildingRangedAttack>(module))
@@ -212,6 +228,42 @@ namespace TheWaningBorder.Entities
                 if (los.Radius < MannedLineOfSight)
                     em.SetComponentData(module, new LineOfSight { Radius = MannedLineOfSight });
             }
+        }
+
+        /// <summary>The Watch Tower's building id (Tower.asset).</summary>
+        private const string WatchTowerId = "Alanthor_Tower";
+
+        /// <summary>
+        /// A Watch Tower's volley with <paramref name="manned"/> men inside:
+        /// its OWN attack (range, damage, cooldown untouched) firing at
+        /// (level targets + manned x garrisonArrowsPerOccupant) targets. The
+        /// level's targets are its BuildingLevelDefSO's authored attack when
+        /// it has one, else the tower SO's attack — the same source
+        /// BuildingUpgradeSystem applies, so a level-up that resets MaxTargets
+        /// is corrected on the next WallGarrisonSystem sweep. Absolute, so
+        /// re-applying is idempotent.
+        /// </summary>
+        private static void RefreshTowerFire(EntityManager em, Entity tower, int manned)
+        {
+            if (!em.HasComponent<BuildingRangedAttack>(tower)) return;
+            if (!TechCatalog.TryGetBuildingSO(WatchTowerId, out var so)) return;
+
+            int targets = so.attack != null ? so.attack.maxTargets : 1;
+            int level = em.HasComponent<BuildingUpgradeState>(tower)
+                ? em.GetComponentData<BuildingUpgradeState>(tower).Level : 0;
+            if (level > 0 && em.HasComponent<FactionTag>(tower))
+            {
+                byte culture = CultureConfig.GetCompletedCulture(em, em.GetComponentData<FactionTag>(tower).Value);
+                if (TechCatalog.TryGetBuildingLevel(culture, WatchTowerId, level, out var lvl)
+                    && lvl.attack != null && lvl.attack.enabled)
+                    targets = lvl.attack.maxTargets;
+            }
+
+            var atk = em.GetComponentData<BuildingRangedAttack>(tower);
+            int wanted = targets + manned * so.garrisonArrowsPerOccupant;
+            if (atk.MaxTargets == wanted) return;
+            atk.MaxTargets = wanted;
+            em.SetComponentData(tower, atk);
         }
     }
 }

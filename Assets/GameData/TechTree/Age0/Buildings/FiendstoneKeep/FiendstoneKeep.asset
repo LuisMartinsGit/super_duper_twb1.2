@@ -27,6 +27,13 @@ MonoBehaviour:
     magic: 3
   radius: 2.4
   lineOfSight: 18
+  footprintCells: {x: 6, y: 6}
+  buildTime: 90
+  slotIncomePerMinute: []
+  interestPerMinute: 0
+  minWallLevel: 0
+  garrisonSlots: 0
+  garrisonArrowsPerOccupant: 0
   trains:
   - Spearman
   research:

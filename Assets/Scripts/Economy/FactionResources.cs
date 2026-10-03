@@ -117,8 +117,8 @@ namespace TheWaningBorder.Economy
 
     // The old `ReligionPoints { int Value }` component was removed in
     // task-063 phase 1. Religion Points now live on FactionReligionPoints
-    // (see Economy/FactionReligionPoints.cs) which carries the Shrine-bonus
-    // latch and CurrentAge needed for the age-gated upgrade rules. All
+    // (see Economy/FactionReligionPoints.cs) which carries the RP balance
+    // and CurrentAge needed for the age-gated upgrade rules. All
     // callers were migrated; readers of RP balance go through
     // FactionReligionPointsHelper.GetBalance.
 
@@ -182,7 +182,7 @@ namespace TheWaningBorder.Economy
 
     /// <summary>
     /// Attach to any building that provides passive Veilstone income.
-    /// Example: Veilstone Shrine generates veilstone over time.
+    /// Example: a building that generates veilstone over time.
     /// </summary>
     public struct VeilstoneIncome : IComponentData
     {
@@ -195,7 +195,7 @@ namespace TheWaningBorder.Economy
 
     /// <summary>
     /// Attach to any building that provides passive Veilsteel income.
-    /// Example: Advanced smeltery with veilsteel processing.
+    /// Example: a building that processes veilsteel.
     /// </summary>
     public struct VeilsteelIncome : IComponentData
     {

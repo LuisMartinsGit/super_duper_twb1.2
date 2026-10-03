@@ -50,6 +50,10 @@ namespace TheWaningBorder.Entities
             em.AddComponentData(entity, new DamageTypeData { Value = DamageType.Ranged });
             // Lv1-3 ladder (BuildingUpgradeConfig "Alanthor_Tower").
             em.AddComponent<BuildingUpgradeable>(entity);
+            // The garrison (Tower.asset garrisonSlots): foot units go inside
+            // and each adds arrows to the tower's volley (WallGarrison).
+            var slots = em.AddBuffer<WallGarrisonSlot>(entity);
+            for (int i = 0; i < def.garrisonSlots; i++) slots.Add(new WallGarrisonSlot { Occupant = Entity.Null });
             return entity;
         }
 
@@ -80,6 +84,9 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Ranged });
             // Lv1-3 ladder (BuildingUpgradeConfig "Alanthor_Tower").
             ecb.AddComponent<BuildingUpgradeable>(entity);
+            // The garrison (Tower.asset garrisonSlots) — see the EM overload.
+            var slots = ecb.AddBuffer<WallGarrisonSlot>(entity);
+            for (int i = 0; i < def.garrisonSlots; i++) slots.Add(new WallGarrisonSlot { Occupant = Entity.Null });
             return entity;
         }
     }

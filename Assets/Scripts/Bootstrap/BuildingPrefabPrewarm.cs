@@ -135,7 +135,7 @@ namespace TheWaningBorder.Bootstrap
 
             #endregion
             #region ALANTHOR BUILDINGS LIST
-            // Alanthor Hall
+            // Alanthor capital (legacy Hall_al_N art)
 
             paths.Add(root+"Hall_al_1");
             paths.Add(root+"Hall_al_2");

@@ -1,11 +1,10 @@
 // AIPivotalReserve.cs
-// Savings ledger for the AI's pivotal one-off purchases (Temple levels,
-// King's Court uniques). 2026-08-11 log-proven failure: banks held 9,700
+// Savings ledger for the AI's pivotal one-off purchases (capital uniques,
+// territory claims). 2026-08-11 log-proven failure: banks held 9,700
 // iron / 8,300 veilstone while SUPPLIES never exceeded ~250 — every
 // trickle was instantly consumed by discretionary spending (sustained
 // army growth, research sweeps, expansion buildings), so a 500-supply
-// lump sum never formed. The Temple sat at L1 all match, no Scholar ever
-// trained, and the entire ritual / victory path stayed locked.
+// lump sum never formed.
 //
 // Contract: a blocked pivotal purchase registers its cost here; while any
 // reserve is unfunded, discretionary spenders hold their spend for the

@@ -202,7 +202,7 @@ MonoBehaviour:
       tooltip: "Actions panel: 3x5 authored button grid (\"Actions\" node). Worker = build palette; building = top row units, lower rows research (ActionsPanelPrefabBinder). When assigned it replaces the code-built worker palette and train/research grids."
     - field: "specialBuildingMenu"
       header: 
-      tooltip: "Special-building choice menu (Shrine / Vault / Keep radial buttons). Shown top-center until a choice building is started; driven by TopChoiceBar, which hides its code-built buttons when this is assigned."
+      tooltip: "Special-building choice menu (Vault / Keep radial buttons). Shown top-center until a choice building is started; driven by TopChoiceBar, which hides its code-built buttons when this is assigned."
     - field: "cultureSelectionMenu"
       header: 
       tooltip: "Culture selection menu (Panel_Alanthor / Panel_Feraldis / Panel_Runai). Opened by the culture selection button; driven by TopChoiceBar."
@@ -217,7 +217,7 @@ MonoBehaviour:
       tooltip: "Religion panel (mid-right): RP + TempleInfo labels, chapel Slot1-6 buttons and the hidden sect Picker, driven by ReligionPanelBinder. Shown once the faction owns a completed Temple of Ridan."
     - field: "entitySymbols"
       header: 
-      tooltip: "Symbol sprite per entity display name (\"Archer\", \"Hall\", ...). Key \"Mixed\" is used for mixed multi-selections; keys \"Unit\" and \"Building\" are the fallbacks."
+      tooltip: "Symbol sprite per entity display name (\"Archer\", \"Fortress\", ...). Key \"Mixed\" is used for mixed multi-selections; keys \"Unit\" and \"Building\" are the fallbacks."
   - typeName: "TheWaningBorder.UI.Ingame.WorkerCommandPanel"
     fields:
     - field: "placementMask"

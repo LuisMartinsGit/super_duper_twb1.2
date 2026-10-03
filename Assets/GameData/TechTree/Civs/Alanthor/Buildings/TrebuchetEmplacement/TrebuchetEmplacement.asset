@@ -24,7 +24,13 @@ MonoBehaviour:
     magic: 4
   radius: 3.0
   lineOfSight: 26
+  footprintCells: {x: 3, y: 3}
   buildTime: 55
+  slotIncomePerMinute: []
+  interestPerMinute: 0
+  minWallLevel: 3
+  garrisonSlots: 0
+  garrisonArrowsPerOccupant: 0
   trains: []
   research: []
   minEra: 1

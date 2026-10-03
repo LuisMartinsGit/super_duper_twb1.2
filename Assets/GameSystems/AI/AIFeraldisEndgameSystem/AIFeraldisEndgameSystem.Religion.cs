@@ -42,13 +42,5 @@ namespace TheWaningBorder.AI
             SectConfig.Ruin,
             SectConfig.Wrath,
         };
-        /// <summary>The Corruptor is gated at Temple Lv 3, so the Temple has
-        /// to climb before the verb is even available.</summary>
-        /// <summary>Climb the Temple toward L3 (the Corruptor gate).
-        /// FIXED 2026-08-12: this used to re-issue the upgrade command every
-        /// 5 s tick with no cost check, no in-progress guard and no
-        /// UnderConstruction guard. It now shares Alanthor's guarded ladder.</summary>
-        private static void TryLevelTemple(EntityManager em, Faction faction)
-            => AIEndgameCommon.TryLevelTemple(em, faction);
     }
 }

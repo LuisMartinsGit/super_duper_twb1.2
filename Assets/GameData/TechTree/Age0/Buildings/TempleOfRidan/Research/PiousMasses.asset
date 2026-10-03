@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Pious Masses
   role: Religion
   effect: 
-  desc: Shrine healing aura rises from 3 to 6 percent of Max HP per second.
+  desc: Temple healing aura rises from 3 to 6 percent of Max HP per second.
   researchAt: TempleOfRidan
   minBuildingLevel: 0
   researchTime: 40

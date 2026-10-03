@@ -50,7 +50,7 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new LineOfSight { Radius = los });
             creator.AddComponent(entity, new Target { Value = Entity.Null });
             creator.AddComponent(entity, new Radius { Value = def.radius });
-            creator.AddComponent(entity, new PopulationCost { Amount = 2 });
+            creator.AddComponent(entity, new PopulationCost { Amount = def.populationCost });
 
             // Combat type tags - very high defense
             creator.AddComponent(entity, new DamageTypeData { Value = DamageType.Melee });

@@ -14,7 +14,7 @@
 // tick and Slow stays armed). Cooldowns live in GathererHutWardState.
 //
 // All three are faction-wide research flags read live from FactionResearchState
-// (same "read live" model as the Shrine heal ladder / Vault banking).
+// (same "read live" model as the Temple heal ladder / Vault banking).
 //
 // Auto-repair mirrors SectRenewalAutoRepairSystem; the burst mirrors
 // UnitAbilitySystem.ApplyAoeSlow (SpellDebuff, ticked down + removed by

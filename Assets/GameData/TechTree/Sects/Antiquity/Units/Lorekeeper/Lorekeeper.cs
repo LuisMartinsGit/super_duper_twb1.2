@@ -44,7 +44,7 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new MoveSpeed { Value = speed });
             creator.AddComponent(entity, new LineOfSight { Radius = los });
             creator.AddComponent(entity, new Radius { Value = def.radius });
-            creator.AddComponent(entity, new PopulationCost { Amount = 1 });
+            creator.AddComponent(entity, new PopulationCost { Amount = def.populationCost });
 
             // Armor identity: unarmored support (no Damage — never fights).
             creator.AddComponent(entity, new ArmorTypeData { Value = ArmorType.InfantryLight });

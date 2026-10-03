@@ -45,7 +45,7 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new LineOfSight { Radius = los });
             creator.AddComponent(entity, new Target { Value = Entity.Null });
             creator.AddComponent(entity, new Radius { Value = radius });
-            creator.AddComponent(entity, new PopulationCost { Amount = 1 });
+            creator.AddComponent(entity, new PopulationCost { Amount = def.populationCost });
 
             creator.AddComponent(entity, new DamageTypeData { Value = DamageType.Melee });
             creator.AddComponent(entity, new ArmorTypeData { Value = ArmorType.InfantryHeavy });

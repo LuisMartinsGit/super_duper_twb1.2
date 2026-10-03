@@ -21,18 +21,10 @@ namespace TheWaningBorder.Entities
         /// carries no known building tag.</summary>
         public static string Of(Entity entity, EntityManager em)
         {
-            // KingsCourtTag BEFORE FortressTag, which is before HallTag.
-            //
-            // The ladder is oldest-name-last: a capital is a Hall
-            // mechanically, is NAMED a Fortress, and once its faction ages up
-            // into Alanthor it IS the King's Court. Each tag marks a later
-            // state than the one below it, so the latest present wins.
-            //
-            // KingsCourtTag is only ever stamped by the age-up, so this line
-            // cannot affect a pre-age-up capital.
-            if (em.HasComponent<KingsCourtTag>(entity)) return "KingsCourt";
-            if (em.HasComponent<FortressTag>(entity)) return "Fortress";
-            if (em.HasComponent<HallTag>(entity)) return "Hall";
+            // The capital is "Fortress" in both ages (the Shelter is only its
+            // Age 0 NAME). It carries HallTag and FortressTag; either answers.
+            if (em.HasComponent<FortressTag>(entity)
+                || em.HasComponent<HallTag>(entity)) return "Fortress";
             if (em.HasComponent<BarracksTag>(entity)) return "Barracks";
             if (em.HasComponent<ArcheryRangeTag>(entity)) return "ArcheryRange";
             if (em.HasComponent<GathererHutTag>(entity)) return "GatherersHut";
@@ -40,7 +32,6 @@ namespace TheWaningBorder.Entities
             if (em.HasComponent<TempleOfRidanTag>(entity)) return "TempleOfRidan";
             if (em.HasComponent<VaultTag>(entity)) return "VaultOfAlmierra";
             if (em.HasComponent<FiendstoneKeepTag>(entity)) return "FiendstoneKeep";
-            if (em.HasComponent<SmelterTag>(entity)) return "Alanthor_Smelter";
             if (em.HasComponent<ReliquaryTag>(entity)) return "Sect_Reliquary";
             if (em.HasComponent<MendingHallTag>(entity)) return "Sect_MendingHall";
             if (em.HasComponent<StoneholdTag>(entity)) return "Sect_Stonehold";
@@ -52,6 +43,9 @@ namespace TheWaningBorder.Entities
             if (em.HasComponent<TradingPostTag>(entity)) return "Runai_TradingPost";
             if (em.HasComponent<BazaarTag>(entity)) return "ThessarasBazaar";
             if (em.HasComponent<SiegeWorkshopTag>(entity)) return "Runai_SiegeWorkshop";
+            // SmelterTag is the Runai Veilsteel Foundry's marker (the Alanthor
+            // Smelter is gone).
+            if (em.HasComponent<SmelterTag>(entity)) return "Runai_VeilsteelFoundry";
             // Alanthor culture buildings
             if (em.HasComponent<EmplacementTag>(entity))
                 return em.HasComponent<EmplacementCrew>(entity)

@@ -151,7 +151,6 @@ namespace TheWaningBorder.AI
                 // and hut pipeline place both on free nodes for every culture.
                 TryPlantTotem(em, faction, hallPos);
                 TryBuildAge2(em, faction, hallPos);
-                TryLevelTemple(em, faction);
                 TryAdoptSect(em, faction);
                 TryRunTheVerb(em, brainEntity, faction, hallPos, now);
             }

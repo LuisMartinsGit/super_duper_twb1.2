@@ -76,51 +76,29 @@ Units with no combat or support output at all report **n/a** rather than 0. A
 Scout is not a weak fighter; it is not a fighter. Reporting 0 would be a lie
 dressed as a number.
 
-## The roster (2026-08-28, after the armor pass)
+## Reading the roster
 
-| Unit | Class | DPS | Armor m/r/s/mg | Eff. HP | Combat | Investment | **Power** |
-|---|---|--:|:--:|--:|--:|--:|--:|
-| Scout | human_scout | 0.0 | 0/1/0/0 | 61 | — | 107 | n/a |
-| Ledger | support | 0.0 | 0/0/0/2 | 146 | — | 370 | n/a |
-| Litharch | human_support | 6.7 | 0/0/0/3 | 128 | 50 | 198 | **208** |
-| Swordsman | human_melee | 10.0 | 4/2/0/1 | 170 | 42 | 243 | **142** |
-| Spearman | human_melee | 6.7 | 1/1/0/0 | 125 | 30 | 184 | **133** |
-| Longbowman | human_ranged | 6.2 | 0/1/0/0 | 56 | 28 | 174 | **132** |
-| Sentinel | human_melee | 6.7 | 7/5/0/2 | 296 | 46 | 298 | **127** |
-| Nobleman | human_melee | 13.8 | 5/3/0/2 | 221 | 57 | 396 | **118** |
-| Archer | human_ranged | 4.0 | 0/1/0/0 | 61 | 20 | 140 | **114** |
-| Catapult | machinery_siege | 5.6 | 0/6/0/0 | 229 | 71 | 576 | **101** |
-| Outrider | human_cavalry | 8.6 | 2/2/0/0 | 104 | 31 | 254 | **100** |
-| Ballista | machinery_siege | 8.0 | 0/6/0/0 | 251 | 70 | 576 | **99** |
-| Crossbowman | human_ranged | 5.4 | 1/2/0/0 | 75 | 26 | 234 | **91** |
-| BatteringRam | machinery_siege | 12.0 | 2/8/0/0 | 429 | 74 | 692 | **87** |
-| KingLexor | melee | 32.1 | 6/5/0/3 | 918 | 176 | 1680 | **86** |
-| Trebuchet | machinery_siege | 8.6 | 0/5/0/0 | 223 | 135 | 1340 | **82** |
-| Worker | human_support | 4.0 | 0/0/0/0 | 70 | 17 | 204 | **69** |
-| Cataphract | human_cavalry | 11.2 | 5/4/0/1 | 202 | 50 | 880 | **46** |
-| Scholar | human_magic | 20.0 | 0/1/0/4 | 100 | 47 | 1376 | **28** |
+There is deliberately **no roster table here.** A table of per-unit Power
+values restates SO stats (damage, cooldowns, armour, hp, prices, train times)
+and goes stale the moment any of them is retuned — which is exactly the drift
+this number exists to avoid. Read a unit's live Power on its training button
+or in the selected-unit panel; the stats it is computed from are on the unit
+SOs (and in the generated calculator `tools/calculator/TechTree.html`, which
+does not compute Power itself). The SO is always right; anything written down
+elsewhere is illustrative at best.
 
-Median 100, range 28-208.
+What the 2026-08-28 pass taught, as questions rather than verdicts:
 
-### What this table says
-
-Read these as questions, not as a to-do list.
-
-- **The Litharch at 208 is the biggest outlier.** 6 heal/s counts fully as
-  offence, which is generous — healing needs a body to heal, and the metric
-  assumes one is always there. Some of the gap is that assumption; the rest is
-  that a 100/25 healer is genuinely cheap for what it does.
-- **The Scholar at 28 and the Cataphract at 46** are the two units paying far
-  above the roster rate. The Scholar is a well ritualist whose value is
-  unlocking a victory condition, so a low combat score is not automatically
-  wrong. The Cataphract has no such excuse — 320/120/60 for a unit the Spearman
-  and Crossbowman both hard-counter.
-- **King Lexor at 86 is expected.** A hero is bought for what it does to a map,
-  not for its stat line.
-- **Armor now does real work.** The Sentinel's 7/5/0/2 is worth +37% effective
-  HP against the median attack and moved it from 114 to 127; the Battering Ram's
-  8 ranged armor means an Archer does 1 to it. Before the pass every one of
-  these numbers was a rounding error.
-- **The Worker's 69 still comes entirely from its 2 damage**, because
-  `buildSpeed` is 0 in its SO. A worker whose build speed is unset is worth
-  checking — it is the one hole this pass did not close.
+- **Healers score high.** Healing counts fully as offence, which is generous —
+  healing needs a body to heal, and the metric assumes one is always there.
+  Part of a healer's lead is that assumption.
+- **A unit far below par is a pricing question.** A unit whose value lies
+  elsewhere (a hero, a ritualist, a counter-piece) may legitimately score low;
+  a plain line unit that scores low and is hard-countered has no such excuse.
+- **Heroes scoring below par is expected.** A hero is bought for what it does
+  to a map, not for its stat line.
+- **Armour does real work.** Because armour is measured against the reference
+  hit, heavy armour moves a unit's effective HP substantially; before the
+  armour pass these differences were rounding errors.
+- **A support unit with `buildSpeed` unset scores from its attack alone.** A
+  worker whose build speed is 0 in its SO is worth checking.

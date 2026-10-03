@@ -9,7 +9,7 @@
 // building the investment: a node trickles on its own, and the building
 // standing on it adds its level to the yield. Every resource has one —
 // Gatherer's Hut on a supply site, Mine on iron, Veilstone Mine on a veilstone
-// outcropping, Smelter on a veilsteel deposit.
+// outcropping.
 //
 // The AI only ever built the hut. It had no reason to raise the others,
 // because the generic Mine was worth building anywhere and nothing told it

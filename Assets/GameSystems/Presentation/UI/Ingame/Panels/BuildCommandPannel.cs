@@ -75,11 +75,11 @@ namespace TheWaningBorder.UI.Ingame
         // Build type
         public enum BuildType
         {
-            Hut, GatherersHut, Barracks, ArcheryRange, Shrine, Vault, Keep, Wall, Smelter, Temple, Hall,
+            Hut, GatherersHut, Barracks, ArcheryRange, Vault, Keep, Wall, Temple,
             // Runai culture buildings
             RunaiOutpost, RunaiTradeHub, RunaiBazaar, RunaiSiegeWorkshop,
             // Alanthor culture buildings (PracticeRange retired — it is the
-            // leveled Archery Range; Crucible deleted — Smelter absorbs it)
+            // leveled Archery Range)
             AlanthorWatchTower, AlanthorSiegeYard, AlanthorRoyalStable,
             // The emplacement pair (docs/Design/Age_1_Alanthor.md).
             AlanthorBallistaEmplacement, AlanthorTrebuchetEmplacement,
@@ -165,7 +165,6 @@ namespace TheWaningBorder.UI.Ingame
         private GameObject _prefabGatherersHut;
         private GameObject _prefabHut;
         private GameObject _prefabBarracks;
-        private GameObject _prefabShrine;
         private GameObject _prefabTemple;
         private GameObject _prefabVault;
         private GameObject _prefabKeep;
@@ -185,8 +184,7 @@ namespace TheWaningBorder.UI.Ingame
             _prefabGatherersHut = Resources.Load<GameObject>("Prefabs/Buildings/GatherersHut");
             _prefabHut = Resources.Load<GameObject>("Prefabs/Buildings/Hut");
             _prefabBarracks = Resources.Load<GameObject>("Prefabs/Buildings/Barracks");
-            _prefabShrine = Resources.Load<GameObject>("Prefabs/Buildings/TempleOfRidan");
-            _prefabTemple = Resources.Load<GameObject>("Prefabs/Buildings/TempleOfRidan"); // Reuses same prefab for now
+            _prefabTemple = Resources.Load<GameObject>("Prefabs/Buildings/TempleOfRidan");
             _prefabVault = Resources.Load<GameObject>("Prefabs/Runai/Buildings/VaultOfAlmierra");
             _prefabKeep = Resources.Load<GameObject>("Prefabs/Feraldis/Buildings/FiendstoneKeep");
         }
@@ -399,7 +397,6 @@ namespace TheWaningBorder.UI.Ingame
         private static BuildType BuildTypeFor(string buildingId)
             => buildingId switch
             {
-                "Hall" => BuildType.Hall,
                 "Hut" => BuildType.Hut,
                 "GatherersHut" => BuildType.GatherersHut,
                 "Barracks" => BuildType.Barracks,
@@ -497,7 +494,6 @@ namespace TheWaningBorder.UI.Ingame
                     BuildType.GatherersHut => _prefabGatherersHut,
                     BuildType.Hut => _prefabHut,
                     BuildType.Barracks => _prefabBarracks,
-                    BuildType.Shrine => _prefabShrine,
                     BuildType.Vault => _prefabVault,
                     BuildType.Keep => _prefabKeep,
                     _ => null
@@ -1224,7 +1220,7 @@ namespace TheWaningBorder.UI.Ingame
         /// </summary>
         private GameObject TryLoadUpgradePreviewPrefab(BuildType bt, byte culture)
         {
-            // Hall / Barracks / Hut participate in the upgrade system. GatherersHut
+            // Barracks / Hut participate in the upgrade system. GatherersHut
             // uses a single prefab regardless of culture (no _al_1, no _ru_1 etc.) —
             // we route it through here too so the placement preview matches the
             // real spawn instead of falling back to the procedural model.
@@ -1233,7 +1229,6 @@ namespace TheWaningBorder.UI.Ingame
                 BuildType.Hut          => "Hut",
                 BuildType.Barracks     => "Barracks",
                 BuildType.GatherersHut => "GatherersHut",
-                BuildType.Hall         => "Hall",
                 _                      => null,
             };
             if (baseName == null) return null;
@@ -1263,14 +1258,12 @@ namespace TheWaningBorder.UI.Ingame
         /// building's own recipe (BuildingFactory.GetPresentationId), the same
         /// number the real spawn uses — the old per-BuildType table ended in
         /// `_ => 102`, so every building it did not list (sect buildings, the
-        /// Temple) previewed as a Hut. Walls and the Smelter are procedural
-        /// and answer 0.
+        /// Temple) previewed as a Hut. Walls are procedural and answer 0.
         /// </summary>
         private static int GetPreviewPresentationId(BuildType t, string buildingId) => t switch
         {
             BuildType.Wall => 0,       // Procedural wall handled separately
             BuildType.WallExtend => 0, // Same procedural hub mesh as Wall
-            BuildType.Smelter => 0,    // Procedural smelter handled separately
             _ => BuildingFactory.GetPresentationId(buildingId),
         };
 

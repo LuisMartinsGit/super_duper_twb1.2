@@ -705,12 +705,49 @@ def world_and_footprints(host_dir):
     return world, foot
 
 
+# Trace line shapes. Fields are only ever APPENDED (MapTrace.cs header), so
+# the optional tails below are what a 2026-10-03+ trace adds; an older trace
+# simply leaves those groups empty.
+#   B t id faction name x z w h [type cx cz cw ch yaw site]
+#   U t id faction name [cls fl]
+#   L t id level          C t id
 TR_R = re.compile(r"^R (\d+) (\S+) (-?[\d.]+) (-?[\d.]+)")
 TR_N = re.compile(r"^N (\S+) (\S+) (-?[\d.]+) (-?[\d.]+)")
-TR_B = re.compile(r"^B ([\d.]+) (\S+) (\S+) (\S+) (-?[\d.]+) (-?[\d.]+) ([\d.]+) ([\d.]+)")
-TR_U = re.compile(r"^U ([\d.]+) (\S+) (\S+) (\S+)")
+TR_B = re.compile(r"^B ([\d.]+) (\S+) (\S+) (\S+) (-?[\d.]+) (-?[\d.]+) ([\d.]+) ([\d.]+)"
+                  r"(?: (\S+) (-?\d+|\*) (-?\d+|\*) (\d+) (\d+) (-?\d+) (\d+))?")
+TR_U = re.compile(r"^U ([\d.]+) (\S+) (\S+) (\S+)(?: (-?\d+) (\d+))?")
 TR_P = re.compile(r"^P ([\d.]+) (\S+) (-?[\d.]+) (-?[\d.]+) (\d+)")
 TR_D = re.compile(r"^D ([\d.]+) (\S+)")
+TR_L = re.compile(r"^L ([\d.]+) (\S+) (-?\d+)")
+TR_C = re.compile(r"^C ([\d.]+) (\S+)")
+
+# -- the 2 m build grid ------------------------------------------------------
+# BuildGrid.cs: CellSize 2 m, anchored at the WORLD ORIGIN; a footprint of an
+# odd cell count is centred on a cell centre, an even one on a cell boundary.
+# Mirrored here so a trace written before MapTrace recorded its cells (and the
+# sampled path, which never had them) can still be placed on the grid -- but
+# only when the recorded position really IS the snapped one. A wall is drawn,
+# not snapped (Build_Grid.md 5), and must never be forced onto cells.
+GRID = 2.0
+WALLISH = re.compile(r"wall|palisade|gate", re.I)
+
+
+def grid_cells(x, z, w, h):
+    """[minCellX, minCellZ, cellsX, cellsZ] when (x, z) is exactly where
+    BuildGrid.Snap would put a w x h metre footprint, else None."""
+    import math
+    cw = max(1, int(math.ceil(w / GRID - 1e-6)))
+    ch = max(1, int(math.ceil(h / GRID - 1e-6)))
+
+    def snap(c, n):
+        if n & 1:
+            return math.floor(c / GRID) * GRID + GRID / 2
+        return round(c / GRID) * GRID
+
+    if abs(snap(x, cw) - x) > 0.15 or abs(snap(z, ch) - z) > 0.15:
+        return None
+    return [int(round((x - cw * GRID / 2) / GRID)),
+            int(round((z - ch * GRID / 2) / GRID)), cw, ch]
 
 
 def read_trace(host_dir):
@@ -723,6 +760,8 @@ def read_trace(host_dir):
     regions, nodes, blds, units = [], [], {}, {}
     frames = defaultdict(list)
     deaths = []
+    levels = defaultdict(list)      # id -> [[t, level], ...]   (L lines)
+    built = {}                      # id -> t construction completed (C lines)
     for line in read_lines(path):
         m = TR_P.match(line)
         if m:
@@ -730,15 +769,33 @@ def read_trace(host_dir):
                 [m.group(2), int(round(f(m.group(3)))), int(round(f(m.group(4)))),
                  int(m.group(5))])
             continue
+        m = TR_L.match(line)
+        if m:
+            levels[m.group(2)].append([round(f(m.group(1)), 1), int(m.group(3))])
+            continue
         m = TR_U.match(line)
         if m:
-            units[m.group(2)] = dict(f=m.group(3), name=m.group(4), t0=f(m.group(1)))
+            units[m.group(2)] = dict(f=m.group(3), name=m.group(4), t0=f(m.group(1)),
+                                     cls=(int(m.group(5)) if m.group(5) else None),
+                                     fl=(int(m.group(6)) if m.group(6) else 0))
             continue
         m = TR_B.match(line)
         if m:
-            blds[m.group(2)] = dict(t0=f(m.group(1)), f=m.group(3), name=m.group(4),
-                                    x=f(m.group(5)), z=f(m.group(6)),
-                                    w=f(m.group(7)), h=f(m.group(8)))
+            rec = dict(t0=f(m.group(1)), f=m.group(3), name=m.group(4),
+                       x=f(m.group(5)), z=f(m.group(6)),
+                       w=f(m.group(7)), h=f(m.group(8)))
+            if m.group(9):
+                rec["type"] = m.group(9)
+                rec["cells"] = (None if m.group(10) == "*" else
+                                [int(m.group(10)), int(m.group(11)),
+                                 int(m.group(12)), int(m.group(13))])
+                rec["yaw"] = int(m.group(14))
+                rec["site"] = int(m.group(15))
+            blds[m.group(2)] = rec
+            continue
+        m = TR_C.match(line)
+        if m:
+            built[m.group(2)] = round(f(m.group(1)), 1)
             continue
         m = TR_D.match(line)
         if m:
@@ -755,7 +812,57 @@ def read_trace(host_dir):
     if not frames:
         return None
     return dict(regions=regions, nodes=nodes, buildings=blds, units=units,
-                frames=frames, deaths=deaths)
+                frames=frames, deaths=deaths, levels=dict(levels), built=built)
+
+
+def roster_of(hd):
+    """Every faction's full roll -- each unit id and building id with its
+    count -- at every 15 s metrics sample, as CHANGE EVENTS.
+
+    Metrics_Units.csv / Metrics_Buildings.csv write a row per (sample,
+    faction, id) with a positive count; a 3 h match is tens of thousands of
+    rows that mostly repeat the previous sample. Only the changes are kept:
+    [t, idIndex, newCount], with a 0 when an id drops out (or the faction is
+    gone), so the page can rebuild the roll at any replay time by walking the
+    list once. Ids share one string table across units and buildings."""
+    ids, idx = [], {}
+
+    def iid(s):
+        if s not in idx:
+            idx[s] = len(ids)
+            ids.append(s)
+        return idx[s]
+
+    out = dict(ids=ids, ts=[], u={}, b={})
+    for kind, fname, col in (("u", "Metrics_Units.csv", "unitId"),
+                             ("b", "Metrics_Buildings.csv", "buildingId")):
+        rows = read_csv(os.path.join(hd, fname))
+        if not rows:
+            continue
+        per = defaultdict(lambda: defaultdict(dict))   # faction -> t -> {id: n}
+        times = set()
+        for r in rows:
+            t = i_(r.get("t"))
+            times.add(t)
+            n = i_(r.get("count"))
+            if n > 0:
+                per[r.get("faction", "?")][t][r.get(col) or "unknown"] = n
+        times = sorted(times)
+        if len(times) > len(out["ts"]):
+            out["ts"] = times
+        for fa, by_t in per.items():
+            prev, ch = {}, []
+            for t in times:
+                cur = by_t.get(t, {})
+                for k, n in cur.items():
+                    if prev.get(k) != n:
+                        ch.append([t, iid(k), n])
+                for k in prev:
+                    if k not in cur:
+                        ch.append([t, iid(k), 0])
+                prev = cur
+            out[kind][fa] = ch
+    return out
 
 
 # -- the curse's own story ---------------------------------------------------
@@ -917,6 +1024,7 @@ def build(match):
         world = ext                      # fall back to what moved
     nodes = trace["nodes"] if trace else map_nodes(match["map"], world)
     regions = trace["regions"] if trace else []
+    utypes, utype, ulv = [], {}, {}
 
     if trace:
         # Full fidelity: identity, state, real footprints, per-second frames.
@@ -1008,10 +1116,57 @@ def build(match):
                         fr["u"][fa] = pts[:cap]
         while len(frames) > FRAME_FLOOR and _pts(frames) > TRACE_POINT_BUDGET:
             frames = frames[::2]
-        blds = [dict(t0=round(b["t0"], 1), t1=round(died[k], 1) if k in died else None,
-                     f=b["f"], id=b["name"], x=int(b["x"]), z=int(b["z"]),
-                     w=int(b["w"]), h=int(b["h"]))
-                for k, b in trace["buildings"].items()]
+
+        # UNIT TYPES, AS A PER-MATCH DICTIONARY (2026-10-03). A frame point
+        # stays [nid, x, z, flags]; the type rides beside the frames once per
+        # unit, as a small index into `utypes` ([name, class, flags] -- class
+        # and flags are null/0 in a trace written before MapTrace recorded
+        # them, and the page then infers the shape from the name alone).
+        # Only units that survived the point budget are listed.
+        kept = set()
+        for fr in frames:
+            for pts in fr["u"].values():
+                for p in pts:
+                    kept.add(p[0])
+        utypes, tix, utype, ulv = [], {}, {}, {}
+        lv_all = trace.get("levels", {})
+        for uid, n in seq.items():
+            if n not in kept:
+                continue
+            u = who.get(uid, {})
+            key = (u.get("name", "?"), u.get("cls"), u.get("fl", 0))
+            if key not in tix:
+                tix[key] = len(utypes)
+                utypes.append(list(key))
+            utype[n] = tix[key]
+            if uid in lv_all:
+                ulv[n] = lv_all[uid][:40]
+
+        built = trace.get("built", {})
+        blds = []
+        for k, b in trace["buildings"].items():
+            rec = dict(t0=round(b["t0"], 1), t1=round(died[k], 1) if k in died else None,
+                       f=b["f"], id=b["name"],
+                       x=round(b["x"], 1), z=round(b["z"], 1),
+                       w=int(b["w"]), h=int(b["h"]))
+            if "type" in b:
+                rec["ty"] = b["type"]
+                rec["yaw"] = b["yaw"]
+                if b["cells"]:
+                    rec["g"] = b["cells"]
+                if b["site"]:
+                    # first seen as a site: when it completed (None = never)
+                    rec["tc"] = built.get(k)
+            elif not (WALLISH.search(b["name"]) or
+                      (b["name"] == "building" and b["f"] != "Border")):
+                # An old trace: derive the cells, but only where the recorded
+                # position is exactly the snapped one.
+                g = grid_cells(b["x"], b["z"], b["w"], b["h"])
+                if g:
+                    rec["g"] = g
+            if k in lv_all:
+                rec["lv"] = lv_all[k][:40]
+            blds.append(rec)
         fidelity = "trace"
     else:
         # Reconstructed: 15 s position samples, no identity, no state, but
@@ -1028,8 +1183,14 @@ def build(match):
             key = (b["f"], b["id"], b["x"], b["z"])
             if b["e"] == "add":
                 wh = foot.get(b["id"], [4, 4])
-                rec = dict(t0=b["t"], t1=None, f=b["f"], id=b["id"],
+                rec = dict(t0=b["t"], t1=None, f=b["f"], id=b["id"], ty=b["id"],
                            x=b["x"], z=b["z"], w=wh[0], h=wh[1])
+                # Metrics_BuildingEvents truncates to whole metres, and a
+                # snapped centre always IS a whole metre, so the test is exact.
+                if not WALLISH.search(b["id"]):
+                    g = grid_cells(b["x"], b["z"], wh[0], wh[1])
+                    if g:
+                        rec["g"] = g
                 live[key] = rec
                 blds.append(rec)
             elif key in live:
@@ -1172,6 +1333,7 @@ def build(match):
         # unlimited run walks into the build script's overflow guard and
         # starts discarding whole matches to fit.
         builds=builds, deaths=deaths, eliminated=eliminated,
+        utypes=utypes, utype=utype, ulv=ulv, roster=roster_of(hd), grid=GRID,
         curse=curse_story(hd, deaths))
 
 

@@ -92,19 +92,10 @@ namespace TheWaningBorder.Systems.Economy
                 float rate = HealRateFor(research, faction);
                 if (rate <= 0f) continue;
 
-                // Shrine simple upgrade (design 2026-07-04): the aura itself
-                // strengthens with the building level — +25% / +50%.
-                if (em.HasComponent<BuildingUpgradeState>(bEntities[b]))
-                {
-                    int lv = em.GetComponentData<BuildingUpgradeState>(bEntities[b]).Level;
-                    if (lv >= 2) rate *= 1.5f;
-                    else if (lv == 1) rate *= 1.25f;
-                }
-
                 var pos = bXf[b].Position;
                 for (int i = 0; i < units.Length; i++)
                 {
-                    // Shrines heal allies too. docs/Design/Teams.md
+                    // The Temple heals allies too. docs/Design/Teams.md
                     if (!Alliances.AreAllied(faction, unitFactions[i].Value)) continue;
 
                     var hp = em.GetComponentData<Health>(units[i]);

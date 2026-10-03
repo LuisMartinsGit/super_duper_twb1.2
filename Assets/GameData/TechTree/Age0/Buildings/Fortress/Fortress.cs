@@ -1,25 +1,28 @@
 ﻿// Fortress.cs
-// THE CAPITAL (docs/Design/Age_0.md, 2026-08-31): every player's starting
-// building. Larger and far more formidable than a Hall, and NOT buildable —
-// PlayerSpawnSystem places exactly one per player at match start; expansion
-// stays the Hall's job.
+// THE CAPITAL (docs/Design/Age_0.md § The Shelter, 2026-10-03): every
+// player's starting building. In Age 0 it is called the SHELTER (the SO's
+// displayName); at age-up it becomes the FORTRESS for every culture, and
+// from Age 1 it levels L1-L3 (the culture's BuildingLevelDefSOs, "Fortress
+// - Lvl N"). The id stays "Fortress" in both ages — only the name changes.
+// There is no Hall, King's Court or Town Hall any more.
 //
-// Mechanically the Fortress IS a Hall plus more: it carries HallTag on
-// purpose, so every Hall-driven rule works on it unchanged — the territory
-// claim (TerritoryOwnership.Claim<HallTag>), the one-claim-per-territory
-// cap, curse conquest immunity for its region, AI home anchoring and army
-// targeting, and the victory bookkeeping. FortressTag on top is what names
-// it (BuildingIds checks it FIRST) and lets anything treat the capital
-// specially. Its Hall research bench is inherited at catalog load — see
-// TechCatalog.RebuildResearchLists.
+// It carries HallTag on purpose, so every capital rule keyed on that tag
+// works on it unchanged — the territory claim (TerritoryOwnership.Claim<HallTag>),
+// the one-claim-per-territory cap, curse conquest immunity for its region,
+// AI home anchoring and army targeting, and the victory bookkeeping.
+// FortressTag on top is what names it (BuildingIds). It trains Workers and
+// Scouts (plus Alanthor's Ledger and King Lexor, culture-gated) and hosts
+// the capital research — both straight from its SO (trains[] and every
+// tech whose researchAt is "Fortress").
 
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Economy;
 
-/// <summary>Marks the capital. Always accompanied by <see cref="HallTag"/> —
-/// the Fortress is a Hall with more, never instead.</summary>
+/// <summary>Marks the capital (the Shelter / Fortress). Always accompanied
+/// by <see cref="HallTag"/>, the capital marker every capital rule reads.</summary>
 public struct FortressTag : IComponentData { }
 
 namespace TheWaningBorder.Entities
@@ -34,6 +37,21 @@ namespace TheWaningBorder.Entities
         /// <summary>No extra scale: the authored prefab is fitted to the 10x10
         /// footprint by the spawner, as every authored building is.</summary>
         private const float VisualScale = 1f;
+
+        /// <summary>The capital's name from age-up on. Its Age 0 name, the
+        /// Shelter, is the SO's displayName.</summary>
+        public const string AgedName = "Fortress";
+
+        /// <summary>Rename a capital to <see cref="AgedName"/> — at age-up
+        /// and for a capital raised after its owner aged up (both through
+        /// AgeUpSystem.TransformCapitalForCulture).</summary>
+        public static void ApplyAgedName(EntityManager em, Entity capital)
+        {
+            var name = new DisplayName();
+            name.Value.CopyFromTruncated(AgedName);
+            if (em.HasComponent<DisplayName>(capital)) em.SetComponentData(capital, name);
+            else em.AddComponentData(capital, name);
+        }
 
         public static Entity Create(EntityManager em, float3 position, Faction faction)
             => CreateInternal(new EmCreator(em), position, faction);

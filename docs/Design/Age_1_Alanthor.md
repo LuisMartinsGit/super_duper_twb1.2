@@ -1,19 +1,23 @@
 # Age 1 — Alanthor
 
 > Defensive culture. Stone / medieval aesthetic. Strength comes from walls,
-> long-range archery, and steady building HP / repair scaling. Territorial
-> identity: fortifications project **Alanthor influence** on the shared
-> influence map ([Overview.md § The influence map](Overview.md)). The old
-> closed-wall-compartment supply income was removed 2026-07-06.
+> long-range archery, and steady building toughness.
 >
 > **See also:** [Overview.md](Overview.md) (two-age framing), [Age_0.md](Age_0.md)
-> (pre-culture starting buildings), and the cross-age [Petriarchy doc TBD] for sects.
+> (pre-culture starting buildings), [Territory_Claims.md](Territory_Claims.md)
+> (how ground is owned), [Sects.md](Sects.md) / [Religion.md](Religion.md).
 >
-> Doc version: 2026-05-19 — **first-pass extract from code**. Numbers below
-> come from [TechTree.json](../../Assets/Resources/TechTree.json) era 2 / Alanthor + [BuildingUpgradeConfig.cs](../../Assets/Scripts/Core/Settings/BuildingUpgradeConfig.cs)
-> + [BuildCosts.cs](../../Assets/Scripts/Data/TechTree/BuildingCosts.cs). Items marked **(new — not yet in
-> code)** come from the design draft and need to land in code. Items marked
-> **(code only — confirm)** are in code but not in the design draft.
+> **Data lives on the SOs (2026-10-03, [Unification decisions](Unification_Decisions_2026-10-03.md)).**
+> This doc keeps the RULES and the REASONS: what each building and unit is
+> for, what unlocks what, which level gates which tech or unit. Every number
+> — cost, HP, damage, armour, range, line of sight, speed, train / build /
+> research / upgrade time, population, footprint, income, multiplier — is on
+> the SOs under `Assets/GameData/TechTree/Civs/Alanthor/` (and the Age 0
+> entity SOs the cultured buildings extend), and **on a conflict the SO
+> wins**. Read the numbers in the generated calculator
+> `tools/calculator/TechTree.html` (built from the SOs by
+> `tools/gen_calculator.py`). The SO roster is canonical (decision 30): an
+> entity that exists only in a doc does not exist.
 
 ---
 
@@ -23,766 +27,375 @@
 |--------|----------|
 | Focus | **Defense** (walls, towers, long-range archery, building HP) |
 | Style | Stone / Medieval |
-| Economy | Gathering, doubled inside the border: **ground inside Alanthor influence (≥0.5) produces 2× resources**. The old walled-compartment supply income was removed (2026-07-06). |
-| Territory | Every Alanthor building except Gatherer's Huts grants influence — the **Hall is the potent anchor** (r32 @ 16/s, claims a buildable bubble within seconds; a fresh Age 1 start owns nothing else), fortifications are strong (hubs r18 / instances r9 / towers r22 @ 9/s), everything else weak (r16 @ 4.5/s). Influence **decays back to neutral** (5 %/s proportional) once its source dies. **Alanthor cannot build outside its own influence border** — except **Gatherer's Huts** and **Watch Towers**, which may be placed anywhere (huts harvest beyond the border; towers are forward claims that project influence into new ground). Claimed ground also repaints the terrain itself via the `AlanthorInfluence` terrain layer (see [Overview.md § The influence map](Overview.md)). |
-| Vault yield modifier | **+30 %** (best of the three cultures) |
-| Shrine heal modifier | neutral (0 %) |
-| Fiendstone Keep HP/arrows | **−50 %** (worst of the three) |
-| Main upgrade hooks | `KingsCourt` global aura: **+10 % building HP**, **+15 % repair rate** |
+| Economy | Huts (the Guild) and Mines on territory slots, the **Trading Outpost** for veilstone (Alanthor never mine veilstone — [Veilstone_Economy.md](Veilstone_Economy.md)), the **Vault** for interest, and the Guild **Surveys** as the deliberate exception that lets huts produce iron, veilstone and veilsteel |
+| Territory | Ground is owned by standing on it ([Territory_Claims.md](Territory_Claims.md)); the Fortress and extractors lock it. Alanthor builds only on owned ground, walls included |
+| Main upgrade hooks | the **Fortress** (capital, L1-L3) — the tool ladder and the **Mason Guild** building-HP passive; the **Wall Hub** — the wall levels |
+| Techs | **faction-wide.** A tech applies to every unit or building it names, standing and future; there is no per-battalion upgrade (decision 31) |
 
 ---
 
 ## Conventions
 
-- **Building levels** in Age 1 are **L1 / L2 / L3** (lvl 0 was the pre-culture
-  Age 0 form, which no longer exists once the building reskins at age-up).
-- HP / train-time / attack-cooldown multipliers come from
-  [BuildingUpgradeConfig.cs:27-41](../../Assets/Scripts/Core/Settings/BuildingUpgradeConfig.cs#L27)
-  — absolute over base, not cumulative (so L2 HP = base × 1.15, not L1 × 1.15).
-- Upgrade durations (from [BuildingUpgradeConfig.cs:57](../../Assets/Scripts/Core/Settings/BuildingUpgradeConfig.cs#L57)): L1 → L2 = 30 s, L2 → L3 = 45 s. (L0 → L1 happens at age-up automatically — no manual upgrade.)
-- "Base HP" is the **uncultured Age 0 HP** carried forward (Hall = 2 400,
-  Barracks = 800, Archery Range = 600, Hut = 600). Cultured renames keep the
-  same base — only the multiplier ladder applies.
-- **Pop / cost columns** are L1 build cost (one-time) → L2 / L3 upgrade costs.
-- Damage formula is unchanged from Age 0.
+- **Building levels** in Age 1 are **L1 / L2 / L3**. Level 0 is the
+  pre-culture Age 0 form; **L1 is free and automatic at age-up** for every
+  cultured building — Garrison, Archery Range and Guild included (decision 27).
+  L2 and L3 are bought; their prices, times and multipliers are on the level
+  SOs.
+- **The only tech level gate is the tech SO's `minBuildingLevel`** (decision
+  21). The gates listed in this doc are those values (they are rules, so the
+  doc states them); prices never.
+- **A unit's level gate is the unit SO's `minBuildingLevel`** on its trainer.
+- **Every trainer lists its units in its SO's `trains[]`** (decision 33); a
+  unit no building trains is not trainable.
+- Damage formula and counters: [Combat_Pacing.md](Combat_Pacing.md).
 
 ---
 
 ## Cultured carryover buildings
 
-These four buildings exist in Age 0 in their pre-culture form and become the
-following on age-up. Stats below cover their **Alanthor L1 → L3** form only;
-the pre-culture lvl 0 stats live in [Age_0.md](Age_0.md).
+These buildings exist in Age 0 in their pre-culture form and become the
+following on age-up.
 
 ### Building levels (2026-10-02 — CANONICAL for where level numbers live)
 
 **Every Alanthor level is its own asset.** A cultured building is the same
-entity as its Age 0 form, so the Age 0 form keeps its `BuildingDefSO` in
-`Age0/` and each level the culture gives it is a `BuildingLevelDefSO` in the
-Alanthor folder, under the cultured name:
+entity as its Age 0 form, so the Age 0 form keeps its `BuildingDefSO` and each
+level the culture gives it is a `BuildingLevelDefSO` in the Alanthor folder,
+under the cultured name:
 
-| Age 0 id (level 0) | Alanthor levels 1-3 | Folder |
+| Age 0 id (level 0) | Alanthor levels 1-3 | Folder (`Civs/Alanthor/Buildings/`) |
 |---|---|---|
-| `Hut` — Hut | House | `Civs/Alanthor/Buildings/House/House_Lvl1..3` |
-| `Hall` (the Fortress carries it) — Fortress | Town Hall | `TownHall/TownHall_Lvl1..3` |
-| `Barracks` — Barracks | Garrison | `Garrison/Garrison_Lvl1..3` |
-| `ArcheryRange` | Archery Range | `ArcheryRange/ArcheryRange_Lvl1..3` |
-| `GatherersHut` — Gatherer's Hut | Guild | `Guild/Guild_Lvl1..3` |
+| `Hut` — House | House | `House/House_Lvl1..3` |
+| `Fortress` — the Shelter, renamed at age-up | Fortress | `Fortress/Fortress_Lvl1..3` |
+| `Barracks` | Garrison | `Garrison/Garrison_Lvl1..3` |
+| `ArcheryRange` (Age 1 only) | Archery Range | `ArcheryRange/ArcheryRange_Lvl1..3` |
+| `GatherersHut` | Guild | `Guild/Guild_Lvl1..3` |
 | `Mine` | Mine | `Mine/Mine_Lvl1..3` |
 | `VaultOfAlmierra` | Vault of Almiérra | `VaultOfAlmierra/VaultOfAlmierra_Lvl1..3` |
 | `Alanthor_RoyalStable` | Royal Stable | `RoyalStable/RoyalStable_Lvl1..3` |
 | `Alanthor_Tower` | Watch Tower | `Tower/WatchTower_Lvl1..3` |
 | `Alanthor_SiegeYard` | Siege Yard | `SiegeYard/SiegeYard_Lvl1..3` |
+| `Alanthor_Wall` — Stone Wall | Stone / Battlemented / Shielded | `Wall/Wall_Lvl1..3` |
 
 Each level carries its **name, upgrade cost and time, HP / train-time /
-attack-cooldown multipliers over the Age 0 base, targets per volley,
-population, an authored attack and sight (the Watch Tower's ladder, the
-Garrison's level-3 arrows) and its model**. `BuildingUpgradeConfig` reads them
-first; its code tables are kept only for Runai and Feraldis until their levels
-get the same treatment. The Watch Tower's old embedded `BuildingDef.levels`
-ladder moved into its level assets.
+attack-cooldown multipliers over the base, targets per volley, population,
+slot income, interest multiplier, an authored attack and sight, and its
+model**. `BuildingUpgradeConfig` reads them first; its code tables are kept
+only for Runai and Feraldis until their levels get the same treatment.
 
 **The HUD names the level.** Level 0 is the bare Age 0 name; every levelled
-building reads `<name> - Lvl N`, using the level asset's name when one exists
-— the Hut becomes **House - Lvl 1 / 2 / 3**. The same rule covers the
-Temple (`TempleLevel`) and the stone wall (its `WallTier`; the palisade has
-no level).
+building reads `<name> - Lvl N`, using the level asset's name — the Hut
+becomes **House - Lvl 1 / 2 / 3**. The **stone wall's levels are level SOs
+too** (`Wall_Lvl1..3`: the level name and the wall's HP multiplier, decision
+34); the palisade has no levels. **The Temple has no levels** (decision 20).
 
-Not migrated: the stone wall levels (faction-wide `WallTiers`, bought at the
-hub), and Mines cannot be levelled yet (`UpgradeBuildingCommandHelper.ResolveBuildingId`
-has no Mine row), so `Mine_Lvl1..3` are data waiting for that switch.
+### Fortress — the capital (L1-L3)
 
-### Town Hall — cultured Hall
+**Code id:** `Fortress` (SO `Age0/Buildings/Fortress/Fortress.asset`; levels
+`Civs/Alanthor/Buildings/Fortress/Fortress_Lvl1..3.asset`, named
+"Fortress - Lvl N").
 
-**Code id:** `KingsCourt` ([BuildingFactory CreateKingsCourt](../../Assets/Scripts/Entities/Buildings/BuildingFactory.cs)).
-**Doc id:** Town Hall.
+> **2026-10-03 (decisions 4, 5, 5b-5d):** there is no Hall, no King's Court
+> and no Town Hall. Every faction starts Age 0 with the **Shelter**, and at
+> age-up the Shelter **automatically becomes the Fortress** for every culture
+> — the same entity, renamed. The Fortress keeps **levels L1-L3**, and
+> [Territory_Claims.md §10](Territory_Claims.md)'s territory limit counts
+> Fortress levels. It earns its own SO supply income and carries its own
+> defence block on its SO.
 
-> Open question: the in-code main building is `KingsCourt` ([TechTree.json:1238](../../Assets/Resources/TechTree.json#L1238)) — design wants it renamed to `AlanthorTownHall` / `TownHall` to match the draft. The visual/aesthetic identity (king's-court motifs) can stay; only the id needs renaming.
+#### Trainable units
 
-| Stat | L1 | L2 | L3 |
-|------|----|----|----|
-| HP (vs Age 0 base 2 400) | 2 640 | 2 760 | 2 880 |
-| Line of Sight | 26 | 26 | 26 |
-| Auto-fire max targets | 1 | 2 | 4 |
-| Provides population | 10 *(code value — design draft is silent)* | 10 | 10 |
-| Train-time multiplier | ×0.870 | ×0.800 | ×0.714 |
-| Build / upgrade cost | 360 S + 80 I (at age-up — already standing) | 200 S + 50 I + 15 C | 400 S + 100 I + 40 C + 5 Vs |
-| Upgrade duration | — | 30 s | 45 s |
-
-**Global aura** (from any built Town Hall): +10 % HP and +15 % repair rate
-to all friendly buildings within faction. ([TechTree.json:1250-1253](../../Assets/Resources/TechTree.json#L1250))
-
-#### Trainable units (carryover)
-
-> **Restored in data 2026-09-12.** `KingsCourt.asset` shipped with an EMPTY
-> `trains` list, so the carryover this table describes did not exist in the
-> game. Age-up renames the Hall into the King's Court, and the Hall is the
-> only Worker and Scout trainer — so the moment any Alanthor faction aged up
-> it permanently lost the ability to make workers or scouts. Log-proven,
-> Hollow Table 2026-09-12: Red aged up at minute 7, fell to ONE worker after
-> losing 23 units, and could then never clear its open build sites, never
-> raise a Barracks, and never field an army; it ended holding 8,168 iron with
-> two units alive. It also explains factions going permanently blind mid-match
-> once their scouts died, which is what the Outrider stand-in rule in
-> Game_AI.md 7 was written to paper over.
-
-| Unit | Train time | Cost | Pop |
-|------|-----------|------|-----|
-| **Worker** | 5 s | 50 Supplies | 1 |
-| **Scout** | 4 s | 55 Supplies | 1 |
+| Unit | Notes |
+|------|-------|
+| **Worker** | every culture — the only builder |
+| **Scout** | every culture |
+| **Ledger** | Alanthor — court automaton, one per player ([§ Ledger](#ledger--court-automaton)); level gate on the unit SO (L2) |
+| **King Lexor** | Alanthor — the culture's hero ([Heroes.md](Heroes.md)); level gate on the unit SO (L3) |
 
 #### Researchable techs
 
-The 4-tier **Tools** ladder uses the **per-battalion / per-unit upgrade**
-model defined in [Overview.md § Per-battalion upgrades](Overview.md#per-battalion-military-upgrades-cross-faction-rule):
-the research **unlocks** the next tier of upgrade for **each individual
-Worker** (Workers are single units, not battalions, but the same
-unlock-then-pay-per-unit pattern applies). Workers must be paid for and
-upgraded individually after the research lands.
+Every capital tech is `researchAt: Fortress`. The Age 0 pair is available to
+everyone; the Alanthor ones are Alanthor-gated and filed in
+`Civs/Alanthor/Buildings/Fortress/Research/`.
 
-The **Wheel cart / Cranes / Mason Guild** track is a separate faction-wide
-passive set (no per-unit upgrade — they apply automatically when researched).
+| Tech | Culture | Gate | Effect (rule) |
+|------|---------|------|---------------|
+| **Stone Tools** | Age 0, all | — | workers build faster (tool tier 1) |
+| **Armed Scouts** | Age 0, all | — | arms Scouts, standing and newly trained |
+| **Iron Tools** | Alanthor | Fortress L2 | build speed, tier 2 |
+| **Veilstone Tools** | Alanthor | Fortress L3 | build speed, tier 3 |
+| **Veilsteel Tools** | Alanthor | Fortress L3 | build speed, tier 4 |
+| **Mason Guild** | Alanthor | Fortress L2 | faction-wide building HP |
+| **Scouting Celestarii** | Alanthor | — | Use Celestar on Scouts + full Scout vision |
 
-| Tech (tier) | Building lvl req. | Effect (unlock) | Status |
-|-------------|-------------------|------------------|--------|
-| **Stone tools** (T1) | L1 | **Unlocks** tier-1 Worker upgrade (gather-speed bump, per-Worker cost when applied) | Currently `ImprovedTools` in code — needs rewire to per-unit unlock model *(new)* |
-| **Iron tools** (T2) | L2 | **Unlocks** tier-2 Worker upgrade | *(new)* |
-| **Veilstone tools** (T3) | L3 | **Unlocks** tier-3 Worker upgrade | *(new)* |
-| **Veilsteel tools** (T4) | L3 + post-research of T3 | **Unlocks** tier-4 Worker upgrade (consumes Veilsteel per Worker when applied) | *(new — verify L4 fits in the L3 cap)* |
-| **Wheel cart** | L1 | +20 % worker move speed *(faction-wide passive)* | *(new — the old carry-capacity effect is gone: mined resources credit the stockpile directly, 2026-07-20)* |
-| ~~**Cranes**~~ | — | *(removed 2026-07-20 — carry capacity no longer exists; workers never carry resources)* | — |
-| **Mason Guild** | L2 | +20 % HP to all friendly buildings *(faction-wide passive)* | **Replaces and renames** the old `Alanthor_MasonGuild` code tech (was "+15 % HP / +20 % repair"). The "Masonry" name from the draft is dropped — final canonical name is **Mason Guild**. |
-| **Advance from Age 0** | — | already triggered to enter Age 1 | (paid in Age 0) | Hooked, see `Research_Era2` |
+**The tool ladder is build speed** — Alanthor builds its walls and towers
+faster as it climbs it; it does not touch gathering (nobody gathers).
 
-#### Existing code techs that need re-homing or removal
-
-| Code id | Current effect | Action |
-|---------|----------------|--------|
-| `Alanthor_StoneLedgers` ([TechTree.json:1576](../../Assets/Resources/TechTree.json#L1576)) | +8 Supplies per 10u² closed compartment / min | **Keep** — folds into the wall-economy mechanic; researchedAt `KingsCourt`. *(Final yield number is a placeholder pending playtest, per Q#8 below.)* |
-| `Alanthor_MasonGuild` ([TechTree.json:1586](../../Assets/Resources/TechTree.json#L1586)) | +15 % building HP, +20 % repair | **Keep as canonical "Mason Guild"** — rebalance the effect numbers to match the +20 % HP figure in the Mason Guild row above (currently +15 % HP). |
+The age-up itself is the landmark — there is no "Advance from Age 0"
+research.
 
 ---
 
 ### Garrison — cultured Barracks
 
-**Code id:** `Barracks` (no Alanthor-specific tag in [BuildingFactory](../../Assets/Scripts/Entities/Buildings/BuildingFactory.cs); the Alanthor Barracks is a visual reskin of the same entity, per [Alanthor_Visual_Systems_Spec.md](../Alanthor_Visual_Systems_Spec.md)).
-**Doc id:** Garrison.
-
-| Stat | L1 | L2 | L3 |
-|------|----|----|----|
-| HP (vs base 800) | 880 | 920 | 960 |
-| Line of Sight | 18 | 18 | 18 |
-| Train-time multiplier | ×0.870 | ×0.800 | ×0.714 |
-| Upgrade cost | 80 S + 20 I | 160 S + 40 I + 10 C | 320 S + 80 I + 30 C |
-| Upgrade duration | 20 s (at age-up the L0 → L1 swap is automatic; manual L2/L3 only) | 30 s | 45 s |
+**Code id:** `Barracks` — the Alanthor Garrison is the same entity as the
+Age 0 Barracks, renamed and reskinned. Its research files under
+`Civs/Alanthor/Buildings/Garrison/Research/` (still `researchAt: Barracks`).
 
 #### Trainable units
 
-The Garrison trains a **3-tier infantry ladder** (Spearman → Swordsman →
-Royal Guard) plus the **Sentinel** as a parallel late-game damage-sponge /
-siege-melee unit. **Cataphract has been moved out of Garrison into a new
-Royal Stable building** (see [§ Royal Stable](#royal-stable--cataphract-host-new) below).
+| Unit | Gate | Role |
+|------|------|------|
+| **Spearman** | — | the Age 0 line unit; the anti-cavalry leg of the triangle |
+| **Swordsman** (`Alanthor_Swordsman`) | L1 | mid-game line infantry; bonus vs Siege — infantry is how a siege line dies |
+| **Nobleman** (`Alanthor_Nobleman`) | L2 | the all-rounder — **no bonus vs anything**, so it never wins an exchange on type advantage and never loses one either. Prices the flexibility |
+| **Sentinel** (`Alanthor_Sentinel`) | L3 | the damage sponge — the heaviest foot armour, bonus vs Heavy |
 
-| Doc name | Role / window | Building lvl unlock | Mapped to code id | Stats (from code, where available) |
-|----------|--------------|--------------------|-------------------|-------------------|
-| **Spearman** | early-mid game line infantry | L1 | `Spearman` (renamed from `Swordsman` per [Age_0.md](Age_0.md)) | HP 120 / 7 s train / 80 S + 30 I / pop 1 |
-| **Swordsman** | mid-late game line infantry | L2 | **(new — no code entry; design draft only)** | TBD (place between Spearman and Royal Guard on the damage / HP curve) |
-| **Royal Guard** | late-game line infantry (Spearman apex) | L3 | **(new — no code entry; design draft only)** | TBD |
-| **Nobleman** | all-rounder — no bonus vs anything, expensive | L2 | `Alanthor_Nobleman` *(shipped)* | Confirmed 2026-08-27 as a deliberate fourth Garrison trainable. It is **not** the Royal Guard: the Nobleman's identity is having no counter-matchup at all, so it never wins an exchange on type advantage and never loses one either. Prices the flexibility. |
-| **Sentinel** | late game **damage-sponge / siege-melee** *(parallel to the line-infantry tier, not on it)* | L2 | `Alanthor_Sentinel` ([TechTree.json:1442](../../Assets/Resources/TechTree.json#L1442)) | HP 160 / spd 5.0 / 18 s train / dmg 12 melee / def 3/2/0/1 / range 1.7 / cost 90 S + 20 Vs / pop 1 |
-
-> **Battalion unit** per [Overview.md § Unit granularity](Overview.md#unit-granularity--single-units-vs-battalions) —
-> each of the four Garrison trainables is a battalion. Battalion sizes
-> still TBD. Stats above are battalion-total values pending verification.
+Cavalry is not trained here — it is the Royal Stable's.
 
 #### Researchable techs
 
-Researching a weapon-tier tech **unlocks the next tier of per-battalion
-upgrade** for units trained at the Garrison — it does **not** auto-upgrade
-existing battalions. See [Overview.md § Per-battalion military upgrades](Overview.md#per-battalion-military-upgrades-cross-faction-rule)
-for the full pattern; the per-battalion upgrade cost is separate from the
-research cost listed below.
+All faction-wide. Gates are the tech SOs' `minBuildingLevel` on the Garrison.
 
-| Tech | Building lvl req. | Effect (unlock) | Status |
-|------|-------------------|-----------------|--------|
-| **Conscription** | L1 | +20 % training speed at the Garrison (faction-wide passive — not per-battalion) | *(new — replaces `BasicDrills`, see Age 0 doc)* |
-| **Academy** | L2 | TBD — design draft only | *(new)* |
-| **Stone weapons** (T1) | L1 | **Unlocks** tier-1 weapon upgrade for Garrison battalions (Spearman / Swordsman / Royal Guard / Sentinel) | *(new — replaces `WoodenArmor`)* |
-| **Iron weapons** (T2) | L2 | **Unlocks** tier-2 weapon upgrade | *(new)* |
-| **Veilstone weapons** (T3) | L3 | **Unlocks** tier-3 weapon upgrade | *(new)* |
-| **Glow-infused weapons** (T4) | L3 + Glow available | **Unlocks** tier-4 weapon upgrade (consumes Glow per battalion when applied) | *(new — Glow availability is now defined: see [Overview.md § The Glow economy](Overview.md#the-glow-economy-cross-faction))* |
+| Tech | Gate | Effect (rule) | Requires |
+|------|------|---------------|----------|
+| **Conscription** | — | faster training at any Barracks | |
+| **Stone Weapons** | — | melee weapon tier 1 | |
+| **Iron Weapons** | L1 | melee weapon tier 2 | Stone Weapons |
+| **Veilstone Weapons** | L2 | melee weapon tier 3 | Iron Weapons |
+| **Shard-infused Weapons** | L3 | melee weapon tier 4 (needs veilsteel) | Veilstone Weapons |
+| **Iron Plate** | L1 | melee armour tier 1 | |
+| **Veilstone Plate** | L2 | melee armour tier 2 | Iron Plate |
+| **Shard Plate** | L3 | melee armour tier 3 | Veilstone Plate |
+| **Seasoned Infantry** | L1 | veterancy tier 1 for the line infantry | |
+| **Veteran Infantry** | L2 | veterancy tier 2 | Seasoned Infantry |
+| **Elite Infantry** | L3 | veterancy tier 3 | Veteran Infantry |
+| **Charge** | L2 | after a spell out of combat, a soldier closes with a **speed burst** and his **first strike** in that window hits harder; miss the window and it resets. The burst, the bonus and the timings are on the tech SO | |
+| **Shield Wall** | L3 | a stationary-defence passive for the line infantry | Charge |
 
 ---
 
-### Archery Range — era 2, no cultured rename
+### Archery Range — Age 1, no cultured rename
 
-> **Renamed back, 2026-08-27.** This section was "Practice Range — cultured
-> Archery Range". The Archery Range is `minEra: 2` and never appears in Age 0,
-> so for Alanthor there is nothing to rename: it is the Archery Range in both
-> ages. Every "Practice Range" below should be read as "Archery Range".
-> Its roster is settled as **Archer / Crossbowman / Longbowman**, and the
-> Archer's canonical id is now `Alanthor_Archer` (the bare `Archer` id survives
-> only as a factory alias for old scenarios and saves).
+The Archery Range is `minEra: 2` and never appears in Age 0, so for Alanthor
+there is nothing to rename: it is the Archery Range (SO
+`Civs/Alanthor/Buildings/ArcheryRange/ArcheryRange.asset`). Its roster is
+**Archer / Crossbowman / Longbowman**; the Archer's canonical id is
+`Alanthor_Archer` (the bare `Archer` id survives only as a factory alias for
+old scenarios and saves). It reads its **own** footprint (decision 11 note in
+[Build_Grid.md](Build_Grid.md)).
 
-**Code id:** `Alanthor_PracticeRange` ([TechTree.json:1351](../../Assets/Resources/TechTree.json#L1351)).
-**Doc id:** Archery Range *(the user's draft still calls it "Archery Range" — match design name; code id `Alanthor_PracticeRange` is fine internally).*
+#### Trainable units — the bow ladder
 
-| Stat | L1 | L2 | L3 |
-|------|----|----|----|
-| HP (vs base 600) | 660 | 690 | 720 |
-| Line of Sight | 22 | 22 | 22 |
-| Train-time multiplier | ×0.870 | ×0.800 | ×0.714 |
-| Provides population | 0 | 0 | 0 |
-| Garrison slots / arrow-fire | 6 / yes ([TechTree.json:1370](../../Assets/Resources/TechTree.json#L1370)) | 6 | 6 |
-| Upgrade cost | (at age-up — already standing as Archery Range) | 160 S + 40 I + 10 C | 320 S + 80 I + 30 C |
+| Unit | Gate | Role |
+|------|------|------|
+| **Archer** (`Alanthor_Archer`) | L1 | the generalist bow; bonus vs Infantry closes the triangle |
+| **Crossbowman** (`Alanthor_Crossbowman`) | L2 | the heavy bolt; bonus vs Cavalry — the cataphract answer |
+| **Longbowman** (`Alanthor_Longbowman`) | L3 | the top of the ladder in damage and reach; no bonus |
 
-> The TechTree.json over-tuned numbers (1 500 HP, +8 pop) are **rejected
-> per design Q#3 review** — Practice Range follows the standard cultured-
-> building HP path (660 / 690 / 720) and provides 0 population. Code values
-> need to drop to match.
-
-#### Trainable units
-
-The Practice Range trains a **3-tier ranged ladder** in parallel to
-Garrison's infantry ladder (per the per-battalion upgrade pattern). Code
-today defines only Archer + Crossbowman; the L3 apex is new.
-
-| Doc name | Role / window | Building lvl unlock | Mapped to code id | Stats |
-|----------|---------------|--------------------|-------------------|-------|
-| **Archer** | early-mid game ranged | L1 | `Archer` | HP 90 / 15 s train / 50 S + 25 I / range 25 / pop 1 |
-| **Crossbowman** | mid-late game ranged | L2 | `Alanthor_Crossbowman` ([TechTree.json:1468](../../Assets/Resources/TechTree.json#L1468)) | HP 100 / spd 5.0 / 22 s train / dmg 13 ranged / def 0/2/0/0 / range 13 / min 4 / cost 70 S + 15 Vs / pop 1 |
-| **L3 apex ranged** *(name TBD — "Longbowman"?)* | late-game ranged | L3 | **(new — no code entry)** | TBD |
-
-> **Battalion units.** Stats above are battalion totals pending size
-> finalization per [Overview.md § Unit granularity](Overview.md#unit-granularity--single-units-vs-battalions).
+The ladder's rules (range rises with tier, range never exceeds sight, no
+minimum range) are in [Combat_Pacing.md § The ranged ladder](Combat_Pacing.md).
 
 #### Researchable techs
 
-Three faction-wide / building-passive techs **plus** a 4-tier arrow ladder
-that uses the same per-battalion upgrade model as Garrison's weapon ladder
-(per design Q#7).
+| Tech | Gate | Effect (rule) | Requires |
+|------|------|---------------|----------|
+| **Choreographed Volleys** | — | a unit active carried by every ranged unit: nearby allied ranged units fire faster for a few seconds ([Spells.md](Spells.md) §9) | |
+| **Fletching** | — | more attack range for every ranged unit | |
+| **Stone-Tipped Arrows** | — | arrow tier 1 | |
+| **Iron-Tipped Arrows** | L1 | arrow tier 2 | Stone-Tipped |
+| **Veilstone-Tipped Arrows** | L2 | arrow tier 3 | Iron-Tipped |
+| **Shard-Tipped Arrows** | L3 | arrow tier 4 (needs veilsteel) | Veilstone-Tipped |
+| **Iron / Veilstone / Shard Brigandine** | L1 / L2 / L3 | ranged armour tiers 1-3, each requiring the previous | |
+| **Seasoned / Veteran / Elite Archers** | L1 / L2 / L3 | veterancy tiers, each requiring the previous | |
+| **Arrow Volley** | — | permanent faster fire for every ranged unit | |
+| **Arrow Shower** | L2 | faster still | Arrow Volley |
+| **Deploy Stakes** | L3 | the first cavalry charge against an archer is blunted and partly reflected; the stakes re-plant | |
 
-| Tech | Building lvl req. | Effect (unlock) | Status |
-|------|-------------------|------------------|--------|
-| **Choreographed volleys** | L1 | Unit active carried by every ranged unit: 2× fire rate for 5 s on allied ranged units within 15 m, 60 s cd ([Spells.md](Spells.md) §9) | *(new)* |
-| **Fletching** | L2 | +15 % attack range for all Archer-class units *(faction-wide passive)* | *(new)* |
-| **Stone-tipped arrows** (T1) | L1 | **Unlocks** tier-1 arrow upgrade for Practice Range battalions (per-battalion cost when applied) | *(new — replaces the old "single tech" model)* |
-| **Iron-tipped arrows** (T2) | L2 | **Unlocks** tier-2 arrow upgrade | *(new)* |
-| **Veilstone-tipped arrows** (T3) | L3 | **Unlocks** tier-3 arrow upgrade | *(new)* |
-| **Glow-tipped arrows** (T4) | L3 + Glow available | **Unlocks** tier-4 arrow upgrade (consumes Glow per battalion when applied) | *(new — same Glow path as [Overview.md § The Glow economy](Overview.md#the-glow-economy-cross-faction))* |
+The arrow tiers are visible in flight ([Combat_Pacing.md § Arrow tips](Combat_Pacing.md)).
 
 ---
 
 ### House — cultured Hut
 
-**Code id:** `Hut` (visual reskin only, per [Alanthor_Visual_Systems_Spec.md:150](../Alanthor_Visual_Systems_Spec.md#L150) — `BDP_Alanthor_Hut`).
-**Doc id:** House.
-
-Numbers live in `House_Lvl1..3.asset` (Building levels, above); this table
-mirrors them (2026-10-02).
-
-| Stat | L1 | L2 | L3 |
-|------|----|----|----|
-| HP (×1.10 / ×1.15 / ×1.20 of the Hut's) | ×1.10 | ×1.15 | ×1.20 |
-| Line of Sight | 14 | 14 | 14 |
-| Provides population | 10 | 16 | 20 |
-| Upgrade cost | free at age-up | 270 S | 533 S |
-| Upgrade duration | 20 s | 45 s | 60 s |
-| Model | `House_1` | `House_2` | `House_2` |
-
-No trainable units or tech.
+**Code id:** `Hut`. Levels in `House_Lvl1..3.asset`: housing, HP multiplier,
+upgrade price (supplies only) and model per level. Level 1 is free at age-up.
+No trainable units and no tech.
 
 ---
 
-### Gatherer's Hut (Age 0 carryover) → the **Guild** (canonical 2026-07-08)
+### Guild — cultured Gatherer's Hut (canonical 2026-07-08)
 
-> **Superseded by the tech-tree calculator canon ([tools/calculator/techtree.json](../../tools/calculator/techtree.json), 2026-07-08).** The Alanthor
-> Gatherer's Hut **no longer converts** to a Wall Hub or Watch Tower at age-up.
-> Instead it **becomes the Guild** — it keeps generating Supplies and gains a
-> per-building **level ladder (L1–L3)** plus two faction-wide research tracks:
-> a **resource Survey** track and a **defensive reinforcement** track. Walls and
-> Watch Towers remain **directly buildable** primitives (see [§ Wall System](#wall-system-bfme2-hub-and-segment)); they are simply
-> no longer sourced from a hut conversion. The per-hut Wall Hub / Watch Tower
-> conversion prompt described below is **retired**.
->
-> **Guild — level ladder** (per building, via the standard `BuildingUpgradeable`
-> path; auto-bumps to L1 at age-up, L2/L3 manual):
->
-> | Level | Cost | Effect |
-> |-------|------|--------|
-> | **L1** | 120 S + 25 I + 5 Vs | +5 Supplies/tick, +10% HP, +gather radius |
-> | **L2** | 240 S + 50 I + 15 V + 5 Vs | +10 Supplies/tick (cumulative), +15% HP |
-> | **L3** | 360 S + 75 I + 40 V + 20 Vs | +20 Supplies/tick (cumulative), +20% HP |
->
-> **Guild — Survey track** (faction-wide research; the hut also generates the
-> resource, doubled inside the owner's influence border). The old single
-> `DeepGathering` tech is **removed outright** (2026-08-04) — the Surveys are
-> the only hut drips:
->
-> | Tech | Yield |
-> |------|-------|
-> | Iron Surveying I / II / III | +12 / +24 / +42 Iron / min |
-> | Veilstone Survey I / II | +6 / +18 Veilstone / min |
-> | Veilsteel Survey | +6 Veilsteel / min — **max-level (L4) huts only** |
->
-> **Level scaling (2026-08-11 — "fully developed huts are the late-game
-> mine"):** the Iron / Veilstone survey drips scale with the hut's Guild
-> level — **L2 ×1.5, L3 ×2** (before the influence doubling). Map iron
-> deposits are finite and run dry around mid-game (67-min playtest:
-> map-wide iron extinction at minute 30 froze every faction); a maxed hut
-> ring with Iron Surveying III is DESIGNED to carry the whole iron economy
-> from there — e.g. an L3 hut inside influence yields 42 × 2 × 2 =
-> 168 Iron / min.
->
-> **Guild — Reinforcement track** (faction-wide research; behaviour-by-id):
->
-> | Tech | Effect |
-> |------|--------|
-> | Iron reinforcements | Hut auto-repairs 5 HP/s once out of combat ≥ 10 s |
-> | Veilstone walls | Below 50% HP, **casts** a **Slow** burst (−50% speed for 7.5 s) on every enemy in the hut's **gather radius** (~19.5) — one-shot, **90 s cooldown**; repair → 10 HP/s |
-> | Veilsteel Pylons | The low-HP cast becomes a **Stop** burst (−100% speed for 10 s, same gather-radius area, 90 s cooldown); repair → 20 HP/s |
->
-> Implemented in: `GathererHutIncomeSystem` (surveys + level supplies),
-> `GathererHutReinforcementSystem` (auto-repair + slow/stop), `BuildingUpgradeConfig`
-> (level ladder), and `Assets/Resources/TechTree.json` (tech defs).
+The Alanthor Gatherer's Hut **becomes the Guild** at age-up (id still
+`GatherersHut`; levels `Guild/Guild_Lvl1..3`). It keeps paying its territory
+slot income — the Alanthor level SOs carry their own ladder — and gains a
+**level ladder (L1 free, L2-L3 bought)** plus two faction-wide research
+tracks hosted on it (`researchAt: GatherersHut`, filed in
+`Civs/Alanthor/Buildings/Guild/Research/`, Alanthor-gated; decision 16). The
+old per-hut Wall Hub / Watch Tower conversion at age-up is **retired** — walls
+and Watch Towers are built directly.
 
-> **Historical — retired [task-wall-system-bfme2-rework-109](../../.deft/tasks/task-wall-system-bfme2-rework-109/task.md) (2026-05-21).** The text below described the earlier per-hut Wall Hub / Watch Tower conversion prompt, itself a replacement for an even older "wall-segment anchor" model. Both are **retired** by the Guild canon above; the section is kept for provenance only.
+**Survey track** — the huts also produce a resource. This is the deliberate
+exception to the veilstone rule ([Veilstone_Economy.md §5.1](Veilstone_Economy.md),
+decision 17): a developed hut ring is Alanthor's late-game mine.
 
-At age-up for **Alanthor**, each Gatherer's Hut owned by the player gains
-a `GathererHutAgeUpChoice` marker (no automatic transformation, no
-auto-fortify radius). Selecting the hut surfaces a 2-button **Convert**
-action cluster in the ACTIONS panel:
+| Tech | Gate | Effect (rule) | Requires |
+|------|------|---------------|----------|
+| **Iron Surveying I** | — | every Guild also produces iron | |
+| **Iron Survey II** | Guild L2 | more iron | Iron Surveying I |
+| **Iron Survey III** | Guild L3 | more iron | Iron Survey II |
+| **Veilstone Survey I** | Guild L2 | every Guild also produces veilstone | Iron Surveying I |
+| **Veilstone Survey II** | Guild L3 | more veilstone | Veilstone Survey I |
+| **Veilsteel Survey** | Guild L3 | every Guild also produces veilsteel | Veilstone Survey II |
 
-| Choice | Glyph | Result | Cost (supplies / iron) | Conversion time |
-|--------|-------|--------|------------------------|------------------|
-| **Convert to Wall Hub** | `castle` | Hut entity is destroyed; a fresh **Wall Hub** (`Alanthor_Wall`) is spawned at the hut's footprint. The hub immediately auto-forms segments to any other completed friendly hubs within `MaxAutoSegmentDistance` (see [§ Wall System](#wall-system-bfme2-hub-and-segment)). | **60 S + 40 I** | **5 s** |
-| **Convert to Watch Tower** | `eye` | Hut entity is destroyed; a fresh **Watch Tower** (`Alanthor_Tower`) is spawned at the hut's footprint. | **40 S + 30 I** *(discount vs the 140 S + 70 I fresh-build cost — the hut is being re-used)* | **5 s** |
+The survey drips **scale with the hut's Guild level** (2026-08-11, "fully
+developed huts are the late-game mine"): map iron deposits are finite and run
+dry around mid-game, and a maxed hut ring with the top survey is designed to
+carry the iron economy from there. Rates and the level scaling are on the
+tech and level SOs.
 
-The conversion is **paid up-front, timed, no worker required** (matches
-the existing "instant-paid timer" pattern used elsewhere in the codebase).
-The hut continues generating its Age-0 gathering income **for the duration
-of the timer**; once the timer elapses, the hut entity is replaced by the
-chosen building.
+**Reinforcement track** — the hut defends itself.
 
-**The choice is per-hut, not faction-wide.** A typical Alanthor player ends
-up with a mix — three or four huts on the wall perimeter become Wall Hubs
-to anchor the compartment, one or two on inner / high-ground spots become
-Watch Towers for arrow coverage and far-LoS scouting.
+| Tech | Gate | Effect (rule) | Requires |
+|------|------|---------------|----------|
+| **Iron Reinforcements** | — | the hut auto-repairs once out of combat | |
+| **Veilstone Walls** | Guild L2 | below half HP the hut casts a one-shot **Slow** burst on enemies in its gather radius (long cooldown); faster repair | Iron Reinforcements |
+| **Veilsteel Pylons** | Guild L3 | the burst becomes a **Stop**; faster repair still | Veilstone Walls |
 
-**If the player never picks** — the hut keeps the marker and continues
-generating Age-0 income indefinitely. There is **no timeout, no auto-
-default**. This is intentional: Alanthor's age-up does not force a
-re-planning beat; the player commits each hut on their own schedule.
-
-**Huts never despawn and stay buildable** (directive 2026-07-04) —
-Alanthor Gatherer's Huts do not self-destruct at age-up, and **new
-Gatherer's Huts remain buildable throughout the whole game** (the old
-"Alanthor cannot build Gatherer's Huts after culture selection" rule is
-retired). Conversion to Wall Hub / Watch Tower stays a purely optional
-per-hut choice.
-
-**Cancel** — once the timer starts, the conversion cannot be cancelled
-in v1 (matches the existing structure-construction model). The
-`GathererHutAgeUpChoice` marker disappears on click; the hut is in
-"converting" state until the timer elapses.
-
-**AI behaviour** — Alanthor AI in v1 does **not** convert its own huts to
-Wall Hubs (the AI wall-building path is deferred). AI huts retain their
-Age-0 gathering behaviour. See [§ Wall System / AI Behaviour](#ai-behaviour) for the rationale.
+Implemented in `GathererHutIncomeSystem` (surveys), `GathererHutReinforcementSystem`
+(repair + slow/stop) and the level SOs.
 
 ---
 
-## Special / choice buildings (carried from Age 0)
+### Mine
 
-Vault / Shrine / Fiendstone Keep are built at lvl 1 in Age 0 and persist
-across age-up unchanged in structure. Only the **culture modifier** applies
-when Alanthor is picked:
+Every culture's iron Mine (Age 0 building, `Age0/Buildings/Mine/`). Alanthor
+levels are `Mine/Mine_Lvl1..3` with their own slot-income ladder. The Mine
+hosts **Deep Shafts** and **Rich Seams** ([Veilstone_Economy.md §6](Veilstone_Economy.md)).
+Note: until `UpgradeBuildingCommandHelper.ResolveBuildingId` gains a Mine row,
+Mines cannot be levelled and `Mine_Lvl1..3` are data waiting for that switch.
 
-| Building | Alanthor modifier | Source |
-|----------|-------------------|--------|
-| Vault of Almiérra | **+30 %** yield on interest | [Age_0.md § Vault](Age_0.md) |
-| Shrine of Ridan | **0 %** (neutral) heal rate | [Age_0.md § Shrine](Age_0.md) |
-| Fiendstone Keep | **−50 %** HP and arrow count | [Age_0.md § Fiendstone Keep](Age_0.md) |
+---
 
-Their L1 → L3 stats, tech tables, and trainables are in
-[Age_0.md](Age_0.md) — no Alanthor-specific overrides beyond the modifier.
+### Vault of Almiérra — the Alanthor landmark
+
+Built in Age 0 as the landmark that ages the faction up
+([Age_0.md § Vault](Age_0.md)). Its Alanthor levels
+(`VaultOfAlmierra/VaultOfAlmierra_Lvl1..3`) carry the interest multiplier:
+**interest applies from L1 and grows with level** (decision 12). Its research
+gates: Veilstone Monetization at **Vault L2**, Veilsteel Bonds at **Vault L3**.
 
 ---
 
 ## Alanthor-unique buildings (new in Age 1)
 
-These exist only after the player picks Alanthor at age-up. All present in
-[TechTree.json](../../Assets/Resources/TechTree.json) era 2 / Alanthor and
-[BuildCosts.cs](../../Assets/Scripts/Data/TechTree/BuildingCosts.cs).
+These exist only after the player picks Alanthor at age-up.
 
-> **Cost source:** all build costs in this section are taken from
-> [BuildCosts.cs](../../Assets/Scripts/Data/TechTree/BuildingCosts.cs)
-> (runtime authoritative). Where TechTree.json gave different numbers,
-> the JSON entry needs to be updated to match — flagged in the
-> implementation backlog.
+### Royal Stable — `Alanthor_RoyalStable`
 
-### Royal Stable — Cataphract host *(new)*
-
-> **(new — no code entry)** — added per design Q#2 review to move
-> Cataphract out of the Garrison roster. The Royal Stable is Alanthor's
-> dedicated cavalry trainer; same level ladder as the other military
-> buildings (L1 → L3, ×0.870 / ×0.800 / ×0.714 train-time multipliers).
-
-| Stat | L1 | L2 | L3 |
-|------|----|----|----|
-| HP | TBD (suggest ≈1 000 base) | base × 1.10 | base × 1.20 |
-| LoS | TBD (suggest 18) | 18 | 18 |
-| Defense (M/R/S/Mg) | TBD | | |
-| Train-time multiplier | ×0.870 | ×0.800 | ×0.714 |
-| Build cost (L1, at age-up or later) | TBD (suggest 220 S + 80 I, mid-tier military) | 160 S + 40 I + 10 C | 320 S + 80 I + 30 C |
+Alanthor's cavalry trainer (cavalry left the Garrison for it). Levels
+`RoyalStable/RoyalStable_Lvl1..3`.
 
 #### Trainable units
 
-| Doc name | Building lvl unlock | Mapped to code id | Stats (from code) |
-|----------|---------------------|-------------------|-------------------|
-| **Outrider** *(new 2026-08-04)* | L1 | `Alanthor_Outrider` | Cheap, fast LIGHT cavalry — the raid/screen slot under the Cataphract. HP 95 / spd 8.2 / **LOS 34** / 22 s train / dmg 12 melee / def 1/1/0/0 / cost 130 S + 40 I / pop 1 |
+| Unit | Gate | Role |
+|------|------|------|
+| **Outrider** (`Alanthor_Outrider`) | L1 | cheap, fast **light** cavalry — the raid / screen slot, and the **cavalry scout** |
+| **Cataphract** (`Alanthor_Cataphract`) | **L3** (decision 22) | the **heavy** barded cavalry that runs down bow lines |
 
-**The Outrider is the cavalry scout (2026-09-12).** Its line of sight went
-22 -> **34 m** so that riding IS its scouting method. It has no vision bloom
-and never perches: the Scout's Oracle model trades standing still for a 55 m
-circle, and the Outrider trades a smaller circle for covering ground at 8.2
-m/s. Sweep rate is speed times width, so 8.2 x 68 m beats a moving scout's
-6 x 36 m by nearly three to one while a perched scout sees more of one spot
-and nothing else.
-
-This is also what the AI drafts when its scouts are dead (Game_AI.md 7).
-The wider sight is a real combat buff as well as a scouting one - light
-cavalry now spots trouble before it rides into it, which suits the raid and
-screen slot it already fills.
-| **Cataphract** | L1 | `Alanthor_Cataphract` | **Rebalanced 2026-08-04 (substantially pricier, slightly weaker):** HP 160 / spd 6.6 / 40 s train / dmg 18 melee / def 2/1/0/0 / range 1.6 / **cost 320 S + 120 I + 60 C** / pop 2 |
-| *(L2 / L3 cavalry tiers)* | TBD | **(new)** | TBD |
+**The Outrider is the cavalry scout (2026-09-12).** Its line of sight is wide
+enough that riding IS its scouting method. It has no vision bloom and never
+perches: the Scout trades standing still for a bigger circle, the Outrider
+trades a smaller circle for covering ground fast — sweep rate is speed times
+width, so a riding Outrider out-sweeps a moving Scout while a perched Scout
+sees more of one spot and nothing else. This is also what the AI drafts when
+its scouts are dead ([Game_AI.md](Game_AI.md) §7).
 
 #### Researchable techs
 
-The same 4-tier per-battalion upgrade pattern as Garrison / Practice Range
-applies — exact tech names TBD (suggest **Barding** / **Iron barding** /
-**Veilstone barding** / **Glow-bonded barding**).
-
-### Wall primitives (`Alanthor_Wall`, `Alanthor_WallTower`, `Alanthor_WallGate`, `Alanthor_Tower`)
-
-> **Superseded by [task-wall-system-bfme2-rework-109](../../.deft/tasks/task-wall-system-bfme2-rework-109/task.md) (2026-05-21).** The four flat "build a Wall / Wall Tower / Wall Gate / Watch Tower" entries previously listed here are now organised under the canonical BFME2 hub-and-segment model. The **worker catalog** for Alanthor exposes only **two** of these directly: `Alanthor_Wall` (the **Wall Hub**) and `Alanthor_Tower` (the **Watch Tower**). `Alanthor_WallTower` and `Alanthor_WallGate` are **conversion-only**, never directly placeable — they are obtained by converting an existing wall instance / segment from its action panel. See the full spec in [§ Wall System (BFME2 hub-and-segment)](#wall-system-bfme2-hub-and-segment).
-
-### Watch Tower — `Alanthor_Tower` (canonical stat block)
-
-> **Watch Tower levels (2026-09-29, SUPERSEDES the attack / LoS rows below).**
-> The tower has **three levels**; each upgrade raises its **fire rate, range and
-> line of sight**, and the last adds targets and a ballista:
->
-> | Level | Range | Cooldown | LoS | Targets |
-> |---|---|---|---|---|
-> | I | 24 | 1.8 s | 28 | 1 arrow |
-> | II | 28 | 1.5 s | 32 | 1 arrow |
-> | III | 32 | 1.2 s | 36 | **3 arrows + 1 ballista bolt** (30 siege) |
->
-> Authored as `levels` in `Tower.asset` (every number from the SO; the
-> factory no longer hard-codes 18 / 14 / 2.0) and applied by
-> `BuildingUpgradeSystem` when the level lands. The L3 bolt is a
-> `BuildingSiegeShot`, the same one-bolt-per-volley rule as the Fiendstone
-> Keep's Ballista emplacement, so it may take a wall piece (siege fire).
-> Level prices and times stay in `BuildingUpgradeConfig`.
-
-| Stat | Value |
-|------|-------|
-| HP | **250** |
-| LoS | **28** (longest in the Alanthor roster) |
-| Defense (M/R/S/Mg) | 2 / 3 / 0 / 0 |
-| Garrison slots / arrow-fire | 4 / yes |
-| Build cost (fresh build via worker catalog) | 140 S + 70 I |
-| Build cost (via hut conversion — see Gatherer's Hut) | **40 S + 30 I** |
-| Conversion timer (from hut) | **5 s** |
-| Role | Stand-alone defensive tower (not anchored to a wall). The "field of view / arrow coverage" leg of the hut age-up choice. |
-
-> The earlier 950 HP value for Watch Tower is **rejected** — it overlapped the Wall Hub's defensive role and made towers tankier than walls. Watch Towers are now **soft long-range eyes** (28 LoS, 250 HP) — fragile but far-seeing.
+| Tech | Gate | Effect (rule) | Requires |
+|------|------|---------------|----------|
+| **Stone-Barded Lances** | — | cavalry weapon tier 1 | |
+| **Iron-Barded Lances** | L1 | tier 2 | Stone-Barded |
+| **Veilstone Lances** | L2 | tier 3 | Iron-Barded |
+| **Shard-infused Lances** | L3 | tier 4 (needs veilsteel) | Veilstone Lances |
+| **Iron / Veilstone / Shard Barding** | L1 / L2 / L3 | cavalry armour tiers 1-3, each requiring the previous | |
+| **Seasoned / Veteran / Elite Cavalry** | L1 / L2 / L3 | veterancy tiers, each requiring the previous | |
+| **Charge** (`CavalryCharge`) | L1 | the cavalry version of the Garrison's Charge: speed burst + harder first strike, values on the tech SO | |
+| **War Horn** | L2 | unlocks the War Horn active for cavalry (`RoyalStable/Abilities/WarHorn/`) | |
+| **Full Gallop** | L3 | unlocks the Full Gallop active (a speed burst during which the riders cannot attack) | War Horn |
 
 ### Siege Yard — `Alanthor_SiegeYard`
 
-| Stat | Value |
-|------|-------|
-| HP | 1 300 |
-| LoS | 20 |
-| Defense | 1 / 1 / 0 / 0 |
-| Build cost | 260 S + 100 I + 60 C |
-| Trains | Alanthor_Ballista, Alanthor_BatteringRam, **Alanthor_Catapult**, Alanthor_Trebuchet *(all four — settled 2026-08-27; the 2026-08-02 "Catapult replaced Ballista" swap is reversed, they now coexist as opposite halves of the tier: the Ballista is the flat single-target +30 vs Building bolt, the Catapult is the lobbed AOE r3 anti-INFANTRY stone)* |
+Levels `SiegeYard/SiegeYard_Lvl1..3`. **All four engines coexist** (decision
+32; settled 2026-08-27 — the 2026-08-02 "Catapult replaced Ballista" swap is
+reversed):
 
-### Smelter (Forge) — `Alanthor_Smelter`
+| Unit | Gate | Role |
+|------|------|------|
+| **Ballista** (`Alanthor_Ballista`) | L1 | the flat single-target bolt, bonus vs Building — the hard-target cracker |
+| **Catapult** (`Alanthor_Catapult`) | L1 | the lobbed splash stone, bonus vs Building and Infantry — the anti-mass answer |
+| **Battering Ram** (`Alanthor_BatteringRam`) | L2 | buildings-only attacker, an armoured shell |
+| **Trebuchet** (`Alanthor_Trebuchet`) | L3 | long-range area siege, the wall-line killer |
 
-> **REMOVED 2026-10-01: there is no Smelter.** Its armour research moved to
-> the Barracks (Plate), Archery Range (Brigandine), Royal Stable (Barding) and
-> Siege Yard (Plating). The text below is history.
->
-> **SUPERSEDED IN PART 2026-10-01 by [Veilstone_Economy.md](Veilstone_Economy.md):**
-> the Smelter no longer generates veilsteel and no longer stands on a veilsteel
-> deposit (there are none). It is an ordinary placed building that keeps its
-> armour research. Alanthor veilstone and veilsteel come from the **Trading
-> Outpost** (Veilstone_Economy.md §3.1).
+**Artillery doctrine (2026-08-02):** an engine may outrange its own sight; it
+auto-engages only inside its line of sight, and firing at the far band needs
+a spotter (scout or ally vision) plus an explicit attack order. The Catapult's
+launch angle is solved ballistically so the stone lands where the target is
+(Synty `SM_Wep_Catapult_01`, `FX_Catapult_Single_01`).
 
-> Reworked by directive 2026-07-04: the Forge no longer converts iron +
-> veilstone (the worker supply chain was removed). It **passively generates
-> Veilsteel** — 1 Veilsteel / 10 s, no inputs — is **much more expensive**,
-> and is **build-limited to 1 per faction**. It is the slow, infinite
-> complement to mining the Veilsteel Mine map node.
+#### Researchable techs
 
-| Stat | Value |
-|------|-------|
-| HP | 1 200 |
-| LoS | 18 |
-| Defense | 1 / 1 / 0 / 0 |
-| Build cost | 800 S + 400 I + 100 Veilstone |
-| Build limit | **1 per faction** |
-| Role | Passive Veilsteel generation (1 / 10 s). |
+| Tech | Gate | Effect (rule) | Requires |
+|------|------|---------------|----------|
+| **Stone / Iron / Veilstone / Shard-infused Shot** | — / L1 / L2 / L3 | munition tiers 1-4 (tier 4 needs veilsteel), each requiring the previous | |
+| **Iron / Veilstone / Shard Plating** | L1 / L2 / L3 | siege armour tiers 1-3, each requiring the previous | |
+| **Seasoned / Veteran / Elite Crews** | L1 / L2 / L3 | veterancy tiers, each requiring the previous | |
+| **Reinforced Bolts** | L1 | the Ballista hits harder | |
+| **Iron-Shod Ram** | L2 | the Ram survives the approach | |
+| **Ranging Shot** | L2 | an active: after standing still, the next shot hits much harder | |
+| **Counterweight Tuning** | L3 | the Trebuchet reaches further | |
+| **Siege Screens** | L3 | a stationary ranged-defence passive for engines | Ranging Shot |
 
-### Crucible — `Alanthor_Crucible`
+### Watch Tower — `Alanthor_Tower`
 
-| Stat | Value |
-|------|-------|
-| HP | 1 200 |
-| LoS | 18 |
-| Defense | 1 / 1 / 0 / 0 |
-| Loss factor on craft | 20 % |
-| Build cost | 300 S + 80 Veilstone + 30 Veilsteel ⚠ |
-| Role | **Veilsteel GENERATOR (2026-08-04):** each completed Crucible passively produces **1 Veilsteel per 10 s**. **Hard cap: 5 per player** (enforced at placement, players and AI alike). Building Crucibles is THE veilsteel engine — the AI builds toward the cap in its Age-2 ladder. |
+A stand-alone defensive tower, built directly from the worker palette (no
+hut conversion). Levels `Tower/WatchTower_Lvl1..3`: each level raises its
+fire rate, range and sight, and the top level adds targets and a ballista
+bolt (a `BuildingSiegeShot`, so it may hit a wall piece). Every number is on
+`Tower.asset` and the level SOs.
 
-> ⚠ The 30 Veilsteel build cost in [BuildCosts.cs](../../Assets/Scripts/Data/TechTree/BuildingCosts.cs) creates a
-> **chicken-and-egg problem** — you need a Crucible to forge Veilsteel,
-> but you need Veilsteel to build a Crucible. Likely a code bug.
-> TechTree.json's 200 S + 60 I + 40 C cost makes more sense for the first
-> Crucible. Flag for fixing before this rule lands.
+**Garrison (decision 24).** The Watch Tower has **4 garrison slots**
+(`garrisonSlots`). Only **foot units** may enter — infantry and archers; not
+cavalry, siege, workers or heroes. **Each occupant adds one target to the
+tower's volley** (`garrisonArrowsPerOccupant`): a full tower shoots at more
+enemies at once. Occupants are safe inside while the tower stands and step
+out beside it when ordered out; if the tower falls they die with it.
+
+### Trading Outpost — `Alanthor_TradingOutpost` (decision 28)
+
+Alanthor's veilstone source: **Alanthor never mine veilstone**, and at age-up
+every Veilstone Mine the faction owns becomes a Trading Outpost
+([Veilstone_Economy.md §3.1](Veilstone_Economy.md)).
+
+- **Placement:** it **snaps ON an Inactive or Depleted veilstone outcrop**,
+  like a mine, one per outcrop, never on a Cursed one. Its **art must read as
+  standing BESIDE the outcrop** — an art requirement; the on-outcrop placement
+  stays for now. It locks its territory like an extractor.
+- **Trades** (toggled on the building, one at a time): Buy Veilstone (the
+  default), Forge Veilsteel (after Veilsteel Forging), Sell Veilsteel (after
+  Veilsteel Export). It never drains the outcrop.
+- **Cycle:** the trade pays on a short fixed cycle (1 s since 2026-10-03) —
+  the cycle and every rate are in `TradingOutpostSystem.asset`.
+- **Research** (hosted by the Outpost, `TradingOutpost/Research/`): Trade
+  Agreements I-III (chained, cheaper inputs), Veilsteel Forging, Veilsteel
+  Export.
 
 ---
 
-## Wall System (BFME2 hub-and-segment)
+## The stone wall (2026-10-02 — CANONICAL)
 
-> Canonicalised by [task-wall-system-bfme2-rework-109](../../.deft/tasks/task-wall-system-bfme2-rework-109/task.md) (2026-05-21). This is the **single canonical truth source** for the Alanthor wall mechanic. The previous "wall-segment anchor that auto-fortifies a small radius" and the per-instance "build a Wall / build a Wall Gate / build a Wall Tower" listings are retired (see the [Gatherer's Hut](#gatherers-hut-age-0-carryover--per-hut-age-up-choice-wall-hub-or-watch-tower) and [Wall primitives](#wall-primitives-alanthor_wall-alanthor_walltower-alanthor_wallgate-alanthor_tower) sections above for the superseded callouts).
-
-### Overview
-
-Alanthor walls follow the **Battle for Middle-earth II model**: the player
-places **Wall Hubs** (the only directly-buildable wall primitive), and the
-game **auto-forms segments** between any two friendly completed hubs whose
-world-space distance is below `MaxAutoSegmentDistance`. A segment is
-composed of N **wall instances** at fixed 2 m spacing (one tile each).
-**Gates** are obtained by **converting a segment** in-place: the conversion
-swaps 5 contiguous instances of the segment to gate cells (or all of them
-if the segment is shorter than 5). **Watch Towers** are a separate
-primitive — they can be built directly via the worker catalog, **or**
-obtained per-hut at age-up via the Gatherer's Hut conversion choice.
-
-This is the player-facing trade triangle:
-
-| Primitive | Built how | Role |
-|-----------|-----------|------|
-| **Wall Hub** | Directly via worker (catalog id `Alanthor_Wall`) OR via Gatherer's Hut conversion at age-up. Auto-forms segments to nearby completed hubs. | Compartment corner / wall anchor / boundary node. |
-| **Wall Segment** | **Auto-spawned** between two hubs within `MaxAutoSegmentDistance`. **Never directly placed.** | Composite entity owning the chain of instances; selectable for Convert-to-Gate / Convert-to-Tower. |
-| **Wall Instance** | **Auto-spawned** as part of a segment, one per 2 m. **Never directly placed.** | The individual 1×1-tile wall piece. Carries its own HP and presentation. |
-| **Wall Gate** | **Conversion-only** from a segment's action panel (5 contiguous instances become gate cells). **Never directly placed.** | Auto-passable for owning faction; auto-closed otherwise. |
-| **Wall Tower** | **Conversion-only** from a single wall instance's action panel. **Never directly placed.** | Ranged anti-infantry on a wall — taller LoS, garrison-fire. |
-| **Watch Tower** | Directly via worker (catalog id `Alanthor_Tower`) OR via Gatherer's Hut conversion at age-up. | Stand-alone, off-wall variant of the wall-tower idea. |
-
-> **Worker catalog contract.** Alanthor's Era-2 worker palette exposes
-> **only** `Alanthor_Wall` (rendered as "Wall Hub" with glyph `castle`)
-> and `Alanthor_Tower` (rendered as "Watch Tower" with glyph `eye`) as
-> wall-related primitives. `Alanthor_WallTower` and `Alanthor_WallGate`
-> are deliberately **omitted** from `BuildableBuildings` — a boot-time
-> assertion verifies this in code.
-
-### Drawing walls (2026-09-18)
-
-> **Canonical for HOW the player places walls.** The hub-and-segment
-> topology above is unchanged — this is the input on top of it. Supersedes
-> the one-click-per-hub placement (`SpawnFirstWallHub`) and the per-hub
-> "Build Wall" click (`SpawnExtendedWallHub`) as the player's way of laying
-> a wall; both survive as the degenerate case of a drawn path with one hub.
-
-A wall is **drawn, not clicked**. With the Wall Hub selected in the worker
-palette:
-
-| Step | What happens |
-|---|---|
-| **Press** on the ground | the path starts there — or, within the hub snap radius of a friendly hub, *at that hub* (so a wall can be extended from the per-hub Build Wall action the same way) — or, within one wall section of a friendly **wall cell**, *at that cell*, which **becomes a hub** when the order lands (see § Branching walls) |
-| **Drag** | the path **follows the drag** — the cursor's own track, sampled every metre and lightly smoothed; it never grows faster than the cursor moves and never steers on its own. Hubs go up at the stroke's **two ends** — and, once the stroke passes the run cap, at **evenly spaced points between**, so everything between two hubs is ONE continuous swept wall |
-| **Turn too sharply** | a path that bends tighter than a **12 m radius** anywhere (measured over a 4 m window, so hand jitter does not count) turns **red** and is refused on release. A wall of 3 m modules has no business kinking. *(2026-09-25 — supersedes the path "running at maximum curvature and catching up": that steering law orbited any cursor inside its 12 m turning circle, and an orbit that snapped shut became a ring)* |
-| **Run back over itself** | a path that crosses, doubles back onto or spirals within one module (3 m) of an earlier part of itself is **red** and refused |
-| **Retrace** over the path | **backtracking** — moving the cursor back along the path, or onto any earlier part of it, erases everything drawn after that point |
-| **Release** | every hub and the segments between them are placed as **one order**; a press-and-release with no drag places a single hub as before. The **end snaps** the same way the start does — judged at the PATH's end, not the cursor's: onto a friendly hub (joining an older wall) or onto a friendly wall cell, which becomes a hub — a T-junction into a standing wall. The last stretch of the path is **bent smoothly onto** whatever it snapped to, never a straight chord to it |
-| **Close a loop** | bring the end back to the stroke's own start (hub snap radius) once the stroke is at least three snap radii long. The start may be an existing hub, a new one or a converted cell. A closed loop always gets **at least three runs** (two inserted hubs), because a one-run loop would join a hub to itself and a two-run one would join the same pair of hubs twice |
-| Right-click / Esc | cancels the drawing |
-
-Hubs snap to the 2 m build grid as every building does. Each hub ghost is
-green or red on the usual placement rules (footprint free, own territory);
-a path with any red hub is refused on release, as is one the bank cannot
-pay for (hub cost × hubs — segments stay free). The path is capped at
-**24 hubs**.
-
-**One mesh, invisible cells.** Between two hubs the presentation sweeps a
-single `WallCurveMesh` along the drawn curve — plinth, body, coping and a
-crenellated crown, terrain-following, re-clad per wall level. The sim still
-works in **modules**: invisible cells every 3 m along the same arc carry the
-HP, the passability and the gate / tower / hub conversions, and a dead
-cell's span is simply left open by the mesh, so a breach shows as a breach.
-Presentation ids: `555` the swept segment, `556` a cell's pick collider.
-
-**The segment itself carries no HP (2026-09-25).** It is the graph edge
-between two hubs and the owner of the swept mesh, nothing more: no
-`Health`, so no attack, splash or auto-acquire can find it. It lives
-exactly as long as one of its cells does. (It used to carry a 1/1
-placeholder at the curve's midpoint; one splashed point of damage killed
-it, the whole mesh collapsed with it, and the cells stood on invisible and
-at full HP.) As a safety net, a hub link to a segment that no longer exists
-is pruned and connects nothing, and an invisible cell whose segment is gone
-is destroyed. A cell killed mid-construction, or before a wall-level
-promotion lands, stays dead — neither the self-build tick nor the re-clad
-revives it.
-
-**The run cap: 11 modules.** A single wall run is capped at **11 modules
-(33 m)**. A longer stroke is cut into the fewest runs that all fit under the
-cap, with the hubs at **equal arc intervals** — so a stroke needing one extra
-hub gets it exactly at the midpoint, two get them at the thirds, and a drawn
-wall is symmetrical rather than "full runs plus a stub at the end". The cap
-lives in `WallDrawTool.asset` as `maxModulesPerSegment`.
-
-**An inserted hub never bends the wall (2026-09-24).** A hub is a building
-and snaps to the 2 m build grid; the drawn curve does not. So an
-automatically inserted run-cap hub lands up to ~1.4 m off the line the player
-drew. The curve used to be dragged onto that snapped centre, which kinked
-BOTH neighbouring runs toward it — the wall visibly veered at every inserted
-hub. It no longer is: **the two runs meet at the point the player drew**, dead
-straight through, and the hub drum stands wherever the grid put it.
-
-**The accepted failure mode is that the hub CLIPS the curtain.** The drum can
-overlap a module by up to a metre, and that is the cheaper of the two errors
-by a wide margin — a straight wall with a tower sunk slightly into it reads as
-a wall; a wall that kinks at every third tower reads as broken geometry. This
-is also exactly why a wall piece **cannot be a prefab variant**: the pieces
-have to interpenetrate freely, so the art is swept and tiled at runtime
-(`WallCurveMesh` / `WallModuleArt`), never assembled from fitted variants that
-would need their joints to line up.
-
-**Why not a hub every few modules.** Intermediate hubs at one module's
-spacing left a single 3 m module per chord: the wall read as a row of towers
-with trim between them, which is the opposite of a curtain wall. Hubs are
-structure, not decoration — they appear when a run would otherwise be too
-long to be one piece.
-
-**Lockstep.** The whole path rides one `PlaceWallPath` command (positions
-in the command's string field, 2 dp), executed hub → segment → hub on
-every peer through the same `PlaceWallHubDirect` / `WallExtendDirect`
-executors a click uses, so a drawn wall cannot desync where a clicked one
-would not. The AI wall planner is unchanged — it still places hubs.
-(`PlaceWallPath` packs the FACTION in `EntityNetworkId`, not an entity:
-until 2026-09-21 it was missing from `LockstepManager`'s skip list, so the
-entity lookup failed and every drawn wall was dropped on remote peers.)
-
-Numbers live in `WallDrawTool.asset` beside `WallDrawTool.cs`
-(`Assets/GameSystems/Presentation/UI/World/`). Test scenario: **Wall
-Drawing** (Scenarios menu) — an Alanthor Age 1 Hall, three workers, a
-full bank, open ground.
-
-### Walkable Ramparts, Doors & Garrison (2026-05-29 rework)
-
-> **This subsection is canonical and supersedes the *geometry* and
-> *walkability* of the thin-wall model below.** Walls are no longer a
-> 1-tile-thick impassable line: they are **battalion-wide walkable
-> ramparts** that owned units can march along, climb via hub/tower/gate
-> doors, and garrison. The **hub-and-segment topology, HP, cascade, gate
-> open/close, compartment-economy, and conversion rules are unchanged** —
-> only the dimensions and the new "on-wall" movement layer are added here.
-> All numbers are **playtest placeholders**.
-
-#### Dimensions
-
-| Property | Old (thin wall) | **New (rampart)** | Notes |
-|----------|-----------------|-------------------|-------|
-| Deck **walkable width** (across the wall) | ~0.8 m | **8 m** | Battalion corridor is 7 m (`BattalionAgentRadius` 3.5 m); 8 m leaves clearance for the outer garrison rank inside the parapets. |
-| Total footprint width (incl. parapets) | ~1.1 m | **~9 m** | 8 m deck + ~0.5 m parapet each side. Widens the passability/obstacle footprint → re-check placement spacing. |
-| Module length (along the wall) | 2 m | **4 m** | Fewer, longer modules ("segments longer and wider"). `AlanthorWall.InstanceSpacing` 2 m → 4 m. |
-| Deck surface height (where units stand) | n/a | **4 m** | **Symmetrical** crenellated parapets to ~5.4 m on **both** edges — no inner/outer face. |
-| Hub footprint | ~2.4 m drum | **~9 m** square w/ doors | Must be ≥ deck width so the deck lands flush on the hub. |
-| Access | n/a | **doors** (ground + deck) | On hubs / towers / gates only; see Doors below. Plain instances have no access. |
-
-#### Walkability & the navmesh
-
-- The **deck top is baked as a walkable navmesh surface at y≈4**, instead of
-  the current "every wall piece is an obstacle box" treatment in
-  `NavMeshManager`. The ground navmesh is unchanged.
-- The deck is its **own navmesh island**: vertical faces are cliffs (rejected
-  by the slope budget), so enemies can't walk up the side and there is **no
-  foot route from the ground to the deck except through a door**.
-
-#### Getting on / off the wall — doors (2026-05-30)
-
-> **Supersedes the earlier navmesh-ramp idea.** A walkable ramp could not be
-> made to reliably connect the ground and deck navmesh islands — units
-> bee-lined into the wall base instead of climbing — so access is now via
-> **doors** with a deterministic teleport bridging the two islands.
-
-- **Hubs, wall towers, and wall gates each have two doors:** a **ground door**
-  on the inner face and a **deck door** on the deck above it. Plain wall
-  instances have no door (no access point).
-- **Ascend on order.** A move order whose destination is on a deck routes the
-  unit (ground navmesh) to the nearest structure's **ground door**; on arrival
-  it **emerges from that structure's deck door** and continues along the deck.
-- **Descend on order.** A move order to the ground routes an on-wall unit to
-  the nearest **deck door**; it emerges at the **ground door** and proceeds.
-- The ground↔deck transition is a **deterministic teleport** through the
-  structure (lockstep-safe: structures + units visited in entity-id order).
-  `WallDoorAccessSystem` owns this.
-- On the deck, `MovementSystem` **follows the navmesh path's Y** instead of
-  snapping to terrain, so units stand at deck height (deterministic sampling).
-- Hostiles never gain wall access in v1 (gates closed; no enemy door routing).
-
-> **Optional, not yet built: buildable access ramps.** A separate ramp
-> *building* placeable only when snapped to a wall, giving an easy on-foot
-> route to the deck (BFME2 fortress-wall style) as an alternative to doors.
-
-#### Garrison ranks
-
-- On reaching the deck, a battalion **forms ranks along the *outer* parapet
-  edge**, facing outward, so it reads as manning the wall.
-- Rank spacing ≈ 1.2 m; the battalion fills the outer rank first along the
-  deck, then steps inward by rank as needed to fit. Placement is computed
-  **deterministically** from the segment's local axis + the unit count.
-- Leaving (a ground move order) dissolves the garrison formation and routes
-  units down.
-
-#### Implementation pointers
-
-| Concern | File |
-|---------|------|
-| Instance/hub/gate footprint + module length | [`AlanthorWall.cs`](../../Assets/Scripts/Entities/Buildings/AlanthorWall.cs) (`InstanceSpacing`, `BuildingSize`, hub footprint) |
-| Deck + symmetrical parapets + door geometry | [`PresentationSpawnSystem.Walls.cs`](../../Assets/GameData/TechTree/Age0/Buildings/Wall/PresentationSpawnSystem.Walls.cs) |
-| Deck baked **walkable** as its own island (no ramp sources) | [`NavMeshManager.cs`](../../Assets/Scripts/Systems/Movement/NavMeshManager.cs) |
-| Door routing + ground↔deck teleport | [`WallDoorAccessSystem.cs`](../../Assets/Scripts/Systems/Movement/WallDoorAccessSystem.cs) |
-| On-deck path-Y following | [`MovementSystem.cs`](../../Assets/Scripts/Systems/Movement/MovementSystem.cs) |
-| Garrison-rank placement | [`WallGarrisonSystem.cs`](../../Assets/Scripts/Systems/Buildings/WallGarrisonSystem.cs) |
-
-> **Verification is editor-only.** Geometry (deck width, door placement,
-> parapet height), the deck navmesh island, the door teleport (units reach
-> the deck via a door and not the open face), and on-wall steering all require Unity
-> play-testing — they cannot be validated from source review.
-
-### Wall levels, the gate structure and emplacements (2026-09-21)
-
-> **Canonical for wall TIERS, the gate as a structure, wall garrison and the
-> two wall-mounted emplacements.** Supersedes, in the sections below: the Wall
-> Hub's `3 x 3 cells (6 x 6 m)` footprint, the "Gate (5-instance composite)"
-> section in full (a gate is now ONE entity, not a tagged run of cells), and
-> the "no manual open/close in v1" line in it. Everything else about the
-> hub-and-segment topology and § Drawing walls stands.
-
-#### The stone wall (2026-10-02 — CANONICAL; supersedes the wall tiers below)
-
-> **Read this first.** It replaces, in the subsections that follow: the
-> palisade as "level 0" of this wall, the per-level wall depth (2 / 3 / 4 m),
-> the solid no-deck curtain, the level-3 garrison slots, the one-sided
-> (outer/inner) dressing, and which level unlocks which fitting. What still
-> stands below: the faction-wide promotion, the research at the Wall Hub, the
-> wall lock, the HP multipliers, the gate, the emplacements' engines and
-> Replace Equipment.
+### The stone wall
 
 **The Stone Wall is Alanthor's building, and only Alanthor's.** It is
 `Alanthor_Wall`, it appears in the worker panel **at age-up**, and its first
@@ -792,38 +405,41 @@ level is Stone. The timber fence is a different building — the
 re-clad in stone**: what an Alanthor player fenced in Age 0 stays timber, and a
 stone wall can neither snap to it nor branch from it.
 
-**A wall is paid per module (2026-10-02).** Hubs keep their price (50 S +
-20 I); every 3 m curtain module costs **10 S + 5 I** (`Segment/WallSegment.asset`
-`cost`), charged in the executor for exactly the modules it lays — the whole
-drawn wall must be affordable before any of it is built. The draw tool shows
-the full price. (The curtain used to be free: only the hubs cost.)
+The wall is one hub-and-segment machine: **hubs** are the only placed piece;
+the **curtain** between two hubs is a chain of invisible **modules** that carry
+the HP, the passability and the conversions; a **gate**, a **wall tower** or
+an **emplacement** is a conversion of a module. The SOs:
+`Civs/Alanthor/Buildings/Wall/WallHub.asset` (hub), `WallSegment.asset` (one
+curtain module), `Tower/WallTower.asset`, `Age0/Buildings/Wall/Gate/WallGate.asset`
+(shared with the palisade), and the level SOs `Wall_Lvl1..3`.
 
-**Every level is the same wall.** One cross-section for all three: **4 m deep
-(the hub's 2 × 2 cells), a wall-walk 3 m above the ground (`AlanthorWall.DeckHeight`)
-with a ~3.2 m walkway between its two parapets**. A level changes the wall's
+**A wall is paid per module (2026-10-02).** Hubs have their price, and every
+curtain module has its own (`WallSegment.asset` `cost`), charged in the
+executor for exactly the modules it lays — the whole drawn wall must be
+affordable before any of it is built. The draw tool shows the full price.
+
+**Every level is the same wall.** One cross-section for all three: as deep as
+the hub's footprint (`AlanthorWall.StoneWallDepth`), with a wall-walk at
+`AlanthorWall.DeckHeight` between two parapets. A level changes the wall's
 toughness, its dressing and what may be fitted to it — never its size.
 
-**A wall has no inside.** Both faces are identical at every level: the same
-masonry, the same parapet, the same fittings. A wall drawn left-to-right and one
-drawn right-to-left are the same wall, so there is no "inside out" — for the
-player or for the AI.
+**A wall has no inside.** Both faces are identical at every level. A wall
+drawn left-to-right and one drawn right-to-left are the same wall.
 
-| Lv | Name | Reached by | HP (× SO) | May fit | Look (both faces) |
-|----|------|-----------|-----------|---------|------|
-| **1** | **Stone Wall** | the Alanthor culture pick — free | medium (×1.6) | **gate, wall tower** | dressed stone, a low parapet on both edges; hubs are square bastions flush with the walk |
-| **2** | **Battlemented Wall** | `Battlements`, at the Wall Hub | high (×2.3) | + **Ballista** | arrow-slit faces, full battlements on both edges |
-| **3** | **Shielded Wall** | `ShieldedRamparts`, at the Wall Hub, after `Battlements` | very high (×3.0) | + **Trebuchet** | rough-coursed faces, battlements both edges, a **roofed hoarding gallery along both faces**; every hub becomes a round tower under a slate cone |
+| Lv | Name | Reached by | May fit | Look (both faces) |
+|----|------|-----------|---------|------|
+| **1** | **Stone Wall** | the Alanthor culture pick — free | **gate, wall tower** | dressed stone, a low parapet on both edges; hubs are square bastions flush with the walk |
+| **2** | **Battlemented Wall** | `Battlements`, at the Wall Hub | + **Ballista emplacement** | arrow-slit faces, full battlements on both edges |
+| **3** | **Shielded Wall** | `ShieldedRamparts`, at the Wall Hub, after `Battlements` | + **Trebuchet emplacement** | rough-coursed faces, battlements both edges, a **roofed hoarding gallery along both faces**; every hub becomes a round tower under a slate cone |
 
-Level 3 also:
+Each level's HP multiplier is on its level SO (`Wall_Lvl1..3`). Level 3 also:
 
 - **Hardens the men on it.** A foot unit standing on its own (or an ally's)
-  Shielded wall takes **+3 melee and +3 ranged armour** (`WallTiers.DeckArmorBonus`,
-  a playtest placeholder). It is gained on the deck and lost the moment the unit
-  steps off it.
-- **Puts a tower on every hub.** A Shielded hub fires like a wall tower (same
-  attack as a converted module: 16 m, 12 ranged damage, 2.5 s). Hubs raised
-  after the research are towers from the start; standing hubs gain it with the
-  promotion.
+  Shielded wall gains melee and ranged armour (`WallTiers.DeckArmorBonus`). It
+  is gained on the deck and lost the moment the unit steps off it.
+- **Puts a tower on every hub.** A Shielded hub fires like a wall tower. Hubs
+  raised after the research are towers from the start; standing hubs gain it
+  with the promotion.
 
 **The wall is walkable.** The walk is a second nav layer (the rampart layer).
 Right-click a friendly or allied stone wall with **foot units** selected and
@@ -831,122 +447,24 @@ they walk to the nearest of their side's **hubs, wall towers or gates**, climb,
 and walk the deck to the clicked spot. Order them to the ground and they come
 down the same way. A **breach** — a dead module — turns the modules either
 side of it into ramps **anyone** can climb, enemies included. Palisades have no
-deck. Cavalry, siege, workers and heroes stay on the ground.
+deck. Cavalry, siege, workers and heroes stay on the ground. **Wall garrison
+slots are retired:** units stand on the deck, visibly, fighting from it.
 
-**Garrison slots are retired.** Units no longer disappear into a module: the
-deck is where they stand, visibly, fighting from it. Nothing creates a
-`WallGarrisonSlot` any more.
+### Promotion, research and the wall lock
 
-#### The AI's wall (2026-10-02)
-
-The Alanthor AI walls its **territory border**, and the wall stands close to
-it: its centre line **3-5 m inside** the border (`AIWallPlanner.asset`
-`borderInset` 4 m), measured to FOREIGN ground — another faction's or neutral
-territory. A lake or mountain inside the territory is not a border and does not
-pull the wall in; a stretch of border that runs along impassable ground is left
-to the map. The plan is traced from the territory's real outline (not rays from
-the Hall), and a hub goes in wherever that outline bends, so the straight wall
-between two hubs follows the border instead of cutting across it.
-
-**The band is kept clear from the first minute.** Every AI building — except
-claims and extractors, which the map sites — keeps **5 m** between its EDGE
-and its territory border (`buildingBorderClearance`; 10 m until 2026-10-02,
-when it left no legal Vault spot in small start territories and 8 of 27 AIs
-never aged up). The wall is planned
-after age-up, long after most of the base stands; without the band the base
-was built exactly where the wall later had to go.
-
-**A refused link is repaired, then abandoned — never retried forever.**
-Before linking two hubs the AI checks the run with the executor's own rules
-(own ground, clear along its whole length, affordable). If the straight run is
-blocked it lays a CURVED run bulging round the blocker, left and right, wider
-each try; if nothing fits, the link is marked refused and left open, and the AI
-moves on to the next link, its gates and its towers. An order that was sent but
-never produced its hub or link after 3 think ticks counts as refused too (under
-lockstep the AI never hears the executor's answer). A new hub links only to its
-plan neighbours, never to every hub in reach.
-
-When the territory changes the plan is redrawn. The hub cap counts only hubs
-on the CURRENT plan, so an older inner ring left standing never stops the wall
-at the real border from being built.
-
-#### The four wall levels (2026-09-24 — supersedes "the three wall levels")
-
-> **Partly superseded 2026-10-02** by § The stone wall above: level 0 is now
-> the separate Palisade building, all levels share one 4 m walkable
-> cross-section, Ballista needs level 2 and Trebuchet level 3, and the
-> garrison slots are retired. The promotion, research and wall-lock rules
-> below still stand.
-
-A wall is not one building that gets tougher — it is four visually distinct
-walls, and which one a faction raises is decided by its progression, not by
-the placement. Every hub, curtain and gate the faction owns is **re-clad the
-moment the level lands**; there is no per-wall upgrade click and nothing to
-re-place.
-
-**The ladder is the one every other building uses:** Lv0 is the culture-less
-form, the culture pick grants Lv1, and Lv2 and Lv3 are bought. Walls now
-follow it exactly — and the two purchases are made **at the Wall Hub**, not
-at the Hall.
-
-| Lv | Player-facing name | Reached by | Look | Towers? | Curtain HP | Hub HP |
-|----|--------------------|-----------|------|---------|-----------:|-------:|
-| **0** | **Wooden Wall** | **every culture, from Age 0** — it is simply the wall you can build | Split logs driven into a timber sill, sharpened tops, a lashed walk-rail. Timber hub with a conical shingle roof. | **no** | 200 | 600 |
-| **1** | **Stone Wall** | **the Alanthor culture pick, free and at once** | Rough-coursed limestone, a coping ledge and the merlon crown. | yes | 320 (×1.6) | 960 |
-| **2** | **Battlemented Wall** | **Alanthor only** — `Battlements`, researched **at the Wall Hub** | Level 1 plus a full merlon crown, arrow loops and timber hoardings along the outer face. | yes | 460 (×2.3) | 1 380 |
-| **3** | **Shielded Wall** | **Alanthor only** — `ShieldedRamparts` at the Wall Hub, after `Battlements` | Level 2 plus an **iron band** at the coping and **large metallic shields hung along the outer face**, one per module, under the merlons. Each curtain module carries **two garrison slots**. | yes | 600 (×3.0) | 1 800 |
-
-**The name follows the level, the id does not.** Everything — the build
-button, the selection panel, the tooltips — calls it a **Wooden Wall**, a
-**Stone Wall**, a **Battlemented Wall** or a **Shielded Wall**. The internal id stays
-`Alanthor_Wall` (renaming it ripples through the recipe table, footprints,
-costs, build times, the name resolver and the AI), but nothing a player sees
-ever says "Alanthor Wall" for a fence a Runai player put up in Age 0.
-
-**A palisade is a fence, and offers only what a fence can (2026-09-24).**
-Selecting a timber curtain module offers exactly two things — **Convert to
-Gate** (you have to be able to walk through your own wall) and **Convert to
-Hub** (so a timber wall can still branch). **No tower and no mounted engine:**
-timber will not hold a tower, and a war engine is masonry work too. Both cards
-are simply ABSENT at level 0.
-
-**No placeholder buttons, ever.** The panel used to fill the empty space with
-disabled cells reading "No tower" and "No room" to explain the absence. They
-are gone: a card the player cannot press is not information, it is clutter, and
-the tooltip nobody hovers is the wrong place for a rule. An empty action panel
-on a fence is the correct reading. (Supersedes the earlier "the panel says
-why" line.)
-
-**The palisade is an Age 0 building.** Walls stop being an Alanthor-only
-toy: any faction can fence its start region in from the first minute, at
-the Age 0 wall cost. What Alanthor keeps is everything above level 0 — the
-stone, the battlements, the shields and the garrison slots.
-
-**The wall's upgrades live at the WALL HUB (2026-09-24).** They used to sit
-on the Hall, beside `MasonGuild`. That was wrong twice over: masonry is not
-the wall's progression — walls merely benefit from it like everything else
-built of stone — and a building's own ladder belongs on that building.
-Select any finished Wall Hub and the next level is the button on it. The
-Hall keeps `MasonGuild` and has no wall tech at all.
-
-| Tech | Researched at | Cost | Time | Effect |
-|------|---------------|------|------|--------|
-| `Battlements` | **Wall Hub** | 300 S + 180 I + 20 V | 45 s | level 2: HP ×2.3 over timber, merlons and hoardings |
-| `ShieldedRamparts` | **Wall Hub** | 400 S + 250 I + 60 V | 60 s | level 3: HP ×3.0, hung shields, **2 garrison slots per curtain module**. Requires `Battlements` |
-
-**Level 1 is not bought.** Committing to Alanthor at age-up IS the stone
-wall: `AgeUpSystem` promotes the faction's whole wall the moment the culture
-lands. Runai build no walls at all and Feraldis never leave timber —
-everything above Lv0 is Alanthor's, which is the point of the building.
+**Level 1 is not bought.** Committing to Alanthor at age-up IS the stone wall:
+`AgeUpSystem` gives the faction the stone wall at level 1. **Levels 2 and 3
+are researched at the Wall Hub** (`Battlements`, then `ShieldedRamparts`;
+`researchAt: Alanthor_Wall`, prices on the tech SOs) — a building's own ladder
+belongs on that building; the Fortress keeps `MasonGuild` and has no wall
+tech.
 
 **One hub's button upgrades EVERY wall you own.** A wall is never a patchwork
 of levels, so the purchase is faction-wide: `PromoteFactionWalls` re-clads
 every hub, curtain, gate and tower at once. Which hub you clicked does not
 matter, and the button disappears from all of them the moment it is queued
 anywhere. A hub therefore carries a `ProductionQueueItem` buffer **and a
-`ProductionState`** like any other research host — the buffer alone took the
-money and never started the clock (fixed 2026-09-27; the research executor
-back-fills `ProductionState` onto older hubs).
+`ProductionState`** like any other research host.
 
 **The walls are LOCKED while a level researches (2026-09-27).** From the
 moment `Battlements` or `ShieldedRamparts` is queued anywhere until it lands
@@ -957,762 +475,402 @@ or is cancelled:
   Ballista / Trebuchet on a module. A drawn wall that **attaches to a standing
   hub or cell** is refused whole; a free-standing new wall may still be drawn
   (it rises at the current level and is re-clad with the rest when the
-  research lands). Gate Open / Close, Empty (ungarrison) and Replace Equipment
-  stay live — they change no wall.
+  research lands). Gate Open / Close and Replace Equipment stay live — they
+  change no wall.
 - **the level button becomes its progress**: an *"Upgrading: <tech> (N%)"*
   cell stands where it was, and the panel's progress bar follows the research
-  on whichever hub is running it — shown on that hub, on every other hub and
-  on any selected wall module.
+  on whichever hub is running it.
 - **a Cancel Upgrade cell** (on any of the faction's wall pieces, and the
-  running slot in the hub's queue strip) stops it and refunds the full price;
-  everything unlocks again on the next refresh. A running tech's queue slot is
-  now cancellable everywhere — a running UNIT's still is not.
+  running slot in the hub's queue strip) stops it and refunds the full price.
 - The lock is enforced by the **executors**, not just the panel
   (`CommandRouter.WallsLockedForUpgrade`, read from `WallTiers.LevelResearchActive`),
   so a stale panel or an order already in flight is refused identically on
-  every lockstep peer. The AI's wall doctrine waits the lock out instead of
-  re-issuing refused orders.
+  every lockstep peer. The AI's wall doctrine waits the lock out.
 - **A tech is one-shot per faction.** The research executor refuses a tech
   already researched or already queued in ANY of the faction's queues before
-  charging — the old path charged a double-click twice for one effect.
+  charging.
 
 A wall raised **after** the promotion starts at that level; HP is read from
-the tier at creation (its own SO's `hp` × the tier
-multiplier), never patched afterwards. A wall raised **before** it is
-promoted in place (HP scaled proportionally, so a breached wall stays
-breached, `WallTier` bumped, visual respawned), so a faction's wall is never
-a patchwork of levels.
+the level at creation (the piece's own SO `hp` × the level SO's multiplier),
+never patched afterwards. A wall raised **before** it is promoted in place (HP
+scaled proportionally, so a breached wall stays breached), so a faction's wall
+is never a patchwork of levels.
 
-#### The wall's art (2026-09-21)
+### The AI's wall (2026-10-02)
 
-> **REAUTHORED 2026-10-02** (§ The stone wall): every level is 4 m deep and
-> symmetrical — both faces carry the same masonry and parapet, and level 3's
-> roofed hoarding gallery runs along BOTH faces. Hubs are square bastions
-> flush with the walk at levels 1-2 and round towers under a slate cone at
-> level 3. The Fortress carries the same roofed galleries along its keep from
-> Alanthor level 1, the corner towers are coned from level 1, and the inner
-> keep is roofed at levels 2 and 3. The table below is the 2026-10-01 state.
->
-> **STONE LEVELS AUTHORED 2026-10-01.** `Waning Border > Art > Author Castle
-> Prefabs` (`Scripts/Editor/CastleArtAuthor.cs`) builds the stone set from the
-> Synty POLYGON Fantasy Kingdom castle kit into `Wall/Stone/` and binds it per
-> level in `Wall/WallModuleArt.asset` (curtain, hub, gate, wall tower, ballista
-> and trebuchet bastions; slot 0 = the timber palisade, unchanged):
->
-> | Level | Wall (depth across) | Hub | Gate | Wall tower | Bastion |
-> |---|---|---|---|---|---|
-> | 1 Stone | **2 m**, solid body, dressed faces, low parapet | crowned round tower, 4 m | deep flanks, gate, passage roof | crowned round turret astride the wall | block + low parapets |
-> | 2 Battlemented | **3 m**, arrow-slit faces, battlements both edges | 4.6 m, + banner | + inner gate | larger turret | + battlements |
-> | 3 Shielded | **4 m — as deep as the hub (2x2 cells): a ~3.4 m walkway, three infantry abreast** — outer battlements, inner parapet, roofed hoarding gallery | 5.4 m, slate cone | + banners | + slate cone | + banners |
->
-> Round towers are built from the kit's quarter-round `Wall_Corner` pieces;
-> the `Wall_Tower_*` pieces are bartizans (they hang off a wall top) and are
-> no longer used. Wall gates hide the kit's portcullis; their door leaves swing
-> from their shut pose (`WallGateDoors`, fixed 2026-10-01: the leaves used to
-> rest 90 degrees off, one open and one shut).
->
-> The wall tower and the bastions gained art hooks (they were procedural
-> only); a bastion's `Deck` marker is lifted to `EmplacementDeckHeight` so
-> mounted engines stand on it. The kit is authored at its 5 m module and drawn
-> at the shared 0.6 scale. The same tool authors the **watch tower** (Alanthor
-> Lv1-3, `Tower/WatchTower.prefab`) and the **Fortress** (`Fortress/Fortress.prefab`,
-> its own presentation id 105 — it no longer borrows the hand-made Hall prefab):
-> Lv0 is the Age 0 Fortress, Alanthor Lv1-3 grow the keep, corner towers and
-> spires — one solid keep (3x3 blocks) with round towers fused into its corners
-> and, from L2, an inner keep two blocks wide under a slate pyramid.
-> `Preview Castle Prefabs` renders all of it (plus a whole wall run per level and
-> the gate shut/open) to `Temp/castle_preview/`.
+The Alanthor AI walls its **territory border**, and the wall stands close to
+it: its centre line a few metres inside the border (`AIWallPlanner.asset`
+`borderInset`), measured to FOREIGN ground — another faction's or neutral
+territory. A lake or mountain inside the territory is not a border and does not
+pull the wall in; a stretch of border that runs along impassable ground is left
+to the map. The plan is traced from the territory's real outline, and a hub
+goes in wherever that outline bends, so the straight wall between two hubs
+follows the border instead of cutting across it.
 
-The wall follows the same shape every other building does: **one folder, with
-the FBX, the SO and the prefab in it** —
-`Assets/GameData/TechTree/Age0/Buildings/Wall/`. It is an **Age 0** folder,
-not an Alanthor one, because the wall's first level is every culture's
-(docs/Design/Age_0.md § Wooden Wall); what stays Alanthor's is the level, not
-the building. `Gate/` and `Tower/` sit inside it — they are conversions of a
-wall module, not buildings of their own.
+**The band is kept clear from the first minute.** Every AI building — except
+claims and extractors, which the map sites — keeps a clearance between its
+EDGE and its territory border (`buildingBorderClearance`; halved on 2026-10-02
+when the larger value left no legal Vault spot in small start territories).
+The wall is planned after age-up, long after most of the base stands; without
+the band the base was built exactly where the wall later had to go.
 
-**Every wall PIECE has its own SO**, because every piece has its own stats
-and its own art. They were one `BuildingDefSO` with the curtain's numbers
-bolted onto the hub's as `segmentHp` / `segmentLineOfSight`, which left the
-curtain with nowhere to put a defence block, a radius, a line of sight or a
-prefab of its own. Split 2026-09-21:
+**A refused link is repaired, then abandoned — never retried forever.**
+Before linking two hubs the AI checks the run with the executor's own rules
+(own ground, clear along its whole length, affordable). If the straight run is
+blocked it lays a CURVED run bulging round the blocker, left and right, wider
+each try; if nothing fits, the link is marked refused and left open, and the AI
+moves on to the next link, its gates and its towers. An order that was sent but
+never produced its hub or link within a few think ticks counts as refused too
+(under lockstep the AI never hears the executor's answer). A new hub links only
+to its plan neighbours, never to every hub in reach.
 
-| SO | Id | Pid | Is | Level-1 HP |
-|----|----|----:|----|-----------:|
-| `Hub/WallHub.asset` | `Alanthor_Wall` | 550 | the hub — the only directly placeable wall piece | 600 |
-| `Segment/WallSegment.asset` | `Alanthor_WallSegment` | 552 | one 3 m curtain module | 200 |
-| `Tower/WallTower.asset` | `Alanthor_WallTower` | 553 | a module converted to a ranged tower | 900 |
-| `Gate/WallGate.asset` | `Alanthor_WallGate` | 554 | the gatehouse, three modules wide | 500 |
+When the territory changes the plan is redrawn. The hub cap counts only hubs
+on the CURRENT plan, so an older inner ring left standing never stops the wall
+at the real border from being built.
 
-Each carries its own `prefab` + `presentationId`, so each piece's art binds
-independently and a piece with no art keeps its procedural visual. The level
-multipliers in § The three wall levels apply to whichever def the piece reads,
-so promoting a wall rescales each piece off its own number. `Wall.asset`'s
-`segmentHp` and `segmentLineOfSight` are **retired** — zeroed, and read by
-nothing.
+### Drawing walls (2026-09-18)
 
-Art files sit beside the SO that owns them: the model, its prefab and its
-baked textures in the piece's folder.
+> **Canonical for HOW the player places walls** (stone wall and palisade
+> alike). Supersedes one-click-per-hub placement; a press-and-release with no
+> drag still places a single hub.
 
-**Textures do not travel in the FBX, and must not.** Blender writes a texture
-link into an FBX only from one exact node setup, and re-exporting the mesh
-wipes Unity's importer settings every time — a pipeline that breaks whenever
-the artist touches the model. Instead the FBX carries **geometry, UVs and
-material NAMES**, and each name is remapped to a `.mat` asset in this folder:
+A wall is **drawn, not clicked**. With the Wall Hub (or Palisade) selected in
+the worker palette:
 
-| FBX material | Unity material | Carries |
-|---|---|---|
-| `Wooden_Stakes` | `Wooden_Stakes.mat` | the wall's timber — baked albedo in `_BaseMap`, normal in `_BumpMap` |
-| `Player_cloth` | `Player_cloth.mat` | the ownership cloth. Base colour stays **white**: the player's colour is applied on top, and a tinted base would colour it twice |
-| `GroundMaterial` | `GroundMaterial.mat` | the foundation the wall stands on |
+| Step | What happens |
+|---|---|
+| **Press** on the ground | the path starts there — or, within the **hub snap radius** of a friendly hub of the same kind, *at that hub* — or, within **one wall module** of a friendly **wall cell**, *at that cell*, which **becomes a hub** when the order lands (see § Branching walls) |
+| **Drag** | the path **follows the drag** — the cursor's own track, sampled and lightly smoothed; it never grows faster than the cursor moves and never steers on its own. Hubs go up at the stroke's **two ends** — and, once the stroke passes the run cap, at **evenly spaced points between**, so everything between two hubs is ONE continuous swept wall |
+| **Turn too sharply** | a path that bends tighter than the minimum bend radius anywhere (measured over a short window, so hand jitter does not count) turns **red** and is refused on release |
+| **Run back over itself** | a path that crosses, doubles back onto or spirals within one module of an earlier part of itself is **red** and refused |
+| **Retrace** over the path | **backtracking** — moving the cursor back along the path erases everything drawn after that point |
+| **Release** | every hub and the segments between them are placed as **one order**. The **end snaps** the same way the start does — judged at the PATH's end: onto a friendly hub (joining an older wall) or onto a friendly wall cell, which becomes a hub — a T-junction into a standing wall. The last stretch is **bent smoothly onto** whatever it snapped to |
+| **Close a loop** | bring the end back to the stroke's own start once the stroke is at least three snap radii long. A closed loop always gets **at least three runs**, because a one-run loop would join a hub to itself and a two-run one would join the same pair of hubs twice |
+| Right-click / Esc | cancels the drawing |
 
-Baked maps are dropped into those three materials and stay there. Re-exporting
-the mesh cannot disturb them, because the link is by name.
+**The snap distances, as the code has them:** a hub snaps to a friendly hub
+of the same kind within **twice the hub's radius** (`AlanthorWall.HubRadius`
+× 2 — about 4.2 m; `BuildCommandPannel.HubSnapRadius` and
+`CommandRouter.WallPathHubSnap` must stay equal) and to a friendly wall cell
+within **one module** (`AlanthorWall.InstanceSpacing`, 3 m). Hubs do **not**
+snap to the build grid ([Build_Grid.md § 5](Build_Grid.md)). Each hub ghost is
+green or red on the usual placement rules (footprint free, own territory,
+whole curtain on owned ground); a path with any red hub, or one the bank
+cannot pay for, is refused on release.
 
-**The folder binds the art.** Each piece owns a folder — `Hub/`, `Segment/`,
-`Gate/`, `Tower/` — holding its SO, its model, its prefab and its textures.
-The binder reads the folder to know which piece a model is, falling back to
-the file name (`*_hub`, `*_segment`, `*_gate`, `*_tower`) for a model sitting
-loose. Dropping gate art into `Gate/` and re-running is the whole of adding it.
+The draw tool's tunables — minimum bend radius, run cap
+(`maxModulesPerSegment`), hub cap (`maxHubs`), sampling — are in
+`WallDrawTool.asset` beside `WallDrawTool.cs`
+(`Assets/GameSystems/Presentation/UI/World/`).
 
-**Step-by-step for the artist** — baking the procedural materials, the exact
-FBX export settings and what to do on the Unity side:
-[docs/Art_Pipeline_FBX.md](../Art_Pipeline_FBX.md).
+**One mesh, invisible cells.** Between two hubs the presentation sweeps a
+single mesh along the drawn curve, terrain-following, re-clad per wall level.
+The sim works in **modules** (`AlanthorWall.InstanceSpacing` apart along the
+same arc): invisible cells carrying the HP, the passability and the
+conversions, and a dead cell's span is simply left open by the mesh, so a
+breach shows as a breach. Presentation ids: `555` the swept segment, `556` a
+cell's pick collider.
 
-**Binding.** Run **`Waning Border > Walls > Bind Wall Art`** once after adding
-or replacing the FBX. It also re-applies the importer settings and the
-material remap, both of which a Blender re-export resets. It sets the importer flags the runtime needs (Read/Write
-on — the combine reads vertices — and no cameras, lights or rig), builds
-`Wall.prefab` with the Blender export's default camera, lamp and ground plane
-dropped, and writes it into `Wall.asset`. A prefab's internal object ids only
-exist after Unity has imported the model, which is why this one step needs the
-Editor rather than being a file on disk.
+**The segment itself carries no HP (2026-09-25).** It is the graph edge
+between two hubs and the owner of the swept mesh, nothing more: no
+`Health`, so no attack, splash or auto-acquire can find it. It lives exactly
+as long as one of its cells does. A hub link to a segment that no longer
+exists is pruned, and an invisible cell whose segment is gone is destroyed. A
+cell killed mid-construction, or before a wall-level promotion lands, stays
+dead.
 
-**How it is drawn.** Still **one mesh per segment** — that has not changed and
-must not. What changed is where the geometry comes from:
+**The run cap.** A single wall run is capped at `maxModulesPerSegment`
+modules. A longer stroke is cut into the fewest runs that all fit under the
+cap, with the hubs at **equal arc intervals** — so a stroke needing one extra
+hub gets it exactly at the midpoint, two at the thirds, and a drawn wall is
+symmetrical rather than "full runs plus a stub at the end".
 
-| | Source | Path |
-|---|--------|------|
-| prefab bound | the authored module, baked along the curve, one copy per sim cell | `WallArtMesh` |
-| nothing bound | the procedural cross-section, swept along the curve | `WallCurveMesh` |
+**An inserted hub never bends the wall (2026-09-24).** **The two runs meet at
+the point the player drew**, dead straight through, and the hub drum stands
+there. **The accepted failure mode is that the hub CLIPS the curtain** — a
+straight wall with a tower sunk slightly into it reads as a wall; a wall that
+kinks at every third tower reads as broken geometry. This is also exactly why
+a wall piece **cannot be a prefab variant**: the pieces have to interpenetrate
+freely, so the art is swept and tiled at runtime (`WallCurveMesh` /
+`WallModuleArt`), never assembled from fitted variants.
 
-`WallModuleArt` prepares the module once: it measures what the FBX actually
-contains, turns its long horizontal axis to run along the wall, puts its base
-at ground level and **fits its length to the 3 m sim pitch**. So the art does
-not have to be authored to the game's numbers — it is fitted to them, and a
-re-export at a different scale keeps working. Copies butt end to end because
-the pitch is stretched to divide the run exactly.
+**Why not a hub every few modules.** Intermediate hubs at one module's
+spacing left a single module per chord: the wall read as a row of towers with
+trim between them, the opposite of a curtain wall. Hubs are structure, not
+decoration — they appear when a run would otherwise be too long to be one
+piece.
 
-**Ownership.** EVERY wall piece takes the owner's colour on its ownership
-parts — procedural prims named `Stripe_*` and authored models alike — through
-`WallModuleArt.ApplyOwnerColor`, called on each piece as it spawns. Walls
-deliberately do NOT go through `BuildingFactionColorMarker`: that path uses
-`renderer.materials`, which clones a material per renderer, and a finished
-perimeter is hundreds of pieces — the exact batching collapse the wall's
-procedural builders were cleaned up to stop causing. The tint rides a
-MaterialPropertyBlock instead.
+**Lockstep.** The whole path rides one `PlaceWallPath` command (positions in
+the command's string field, 2 dp), executed hub → segment → hub on every peer
+through the same `PlaceWallHubDirect` / `WallExtendDirect` executors a click
+uses, so a drawn wall cannot desync where a clicked one would not.
+(`PlaceWallPath` packs the FACTION in `EntityNetworkId`, not an entity; it is
+in `LockstepManager`'s skip list.)
 
-The module's blue posts are the owner's colour, not blue: the
-binder renames them `Stripe_Ownership_*`, which is the project-wide rule
-`BuildingFactionColorMarker` already follows, and the baked wall finds the
-same parts (by that name, or by a saturated-blue material) and tints their
-sub-mesh per renderer. One shared material, every faction's walls, and the
-single-draw-call batching the one-mesh wall exists for is untouched. To move
-the marker to a different part of the model, either name it `Stripe_*` or
-give it the saturated blue — no code changes either way.
+Test scenario: **Wall Drawing** (Scenarios menu) — an Alanthor Age 1
+Fortress, workers, a full bank, open ground.
 
-Hubs, gates and towers draw their authored prefab when one is bound and fall
-back to their procedural builder when it is not, so the set can be replaced
-one piece at a time. Only the curtain module has art today. The emplacements
-(wall mounts) are still procedural throughout.
-
-#### What a module may become, and where
+### What a module may become, and where
 
 A wall is a wall, not a rack for fittings. Every conversion — tower, gate,
 ballista, trebuchet — needs **a clear run of untouched modules around the one
-you clicked**, and the rule is checked twice: the action panel hides the card
-and says why, and the executor re-checks it on every peer before it spends.
+you clicked**, and the rule is checked twice: the action panel hides the card,
+and the executor re-checks it on every peer before it spends.
 
-| Fitting | Needs a clear run of | Why |
+| Fitting | Needs a clear run of | Wall level |
 |---------|---------------------:|-----|
-| **Tower** | **3** modules (one clear either side) | any stone level (1+); never a palisade |
-| **Ballista emplacement** | **3** modules | level **2+** (Battlemented) — 2026-10-02 |
-| **Trebuchet emplacement** | **3** modules | level **3** (Shielded) — 2026-10-02 |
-| **Gate** | **4** modules | the gatehouse eats three of them; the fourth keeps it off the next fitting |
+| **Wall tower** | **3** modules (one clear either side) | any stone level (1+); never a palisade |
+| **Ballista emplacement** | **3** modules | **2+** (Battlemented) — `minWallLevel` on its SO |
+| **Trebuchet emplacement** | **3** modules | **3** (Shielded) — `minWallLevel` on its SO |
+| **Gate** | **4** modules | any; a palisade too. The gatehouse eats three, the fourth keeps it off the next fitting |
 
 "Clear" means alive, finished, and not already a gate, a tower, an
 emplacement or mid-conversion. **A dead module is not clear either** — a
-breach is not building space, so you cannot hang a tower on the edge of a
-hole. `AlanthorWall.FreeRunAround` walks the segment both ways from the
-clicked module and returns the run's length; that single number is the whole
-rule.
+breach is not building space. `AlanthorWall.FreeRunAround` walks the segment
+both ways from the clicked module and returns the run's length; that single
+number is the whole rule.
 
-#### Garrison slots (level 3 only)
+### The gate is one structure, three modules wide
 
-> **RETIRED 2026-10-02** — see § The stone wall: the deck is walkable at
-> every level and units stand on it; nothing creates garrison slots any more.
+Converting a wall replaces **three contiguous modules with a single gate
+entity** (`AlanthorWall.GateRegionSpan`): the module the player converted
+becomes the gatehouse, and **the module on each side is destroyed** — the
+gatehouse's own masonry occupies that ground. The curtain mesh leaves the
+whole span open so nothing is drawn through it.
 
-A reinforced curtain module holds **two** infantry or archers. Right-click
-a reinforced wall with foot units selected and the nearest module with a
-free slot takes them; they disappear into the wall and appear as manned
-shield positions on its crown.
-
-| Rule | Value |
-|------|-------|
-| Who may garrison | any **foot** unit — infantry or archers. Not cavalry, not siege, not workers, not heroes |
-| Slots | **2 per curtain module**, level 3 only. Hubs and gates take none |
-| What it gives | the module gains a ranged attack: **range 18 m**, damage = the sum of its occupants' own damage, one target per occupant, 2.0 s cooldown. LoS rises to 14 |
-| Ungarrison | the module's action panel has an **Empty** card; the occupants step back out beside it |
-| Module dies | its occupants die with it. A wall that falls takes the men on it |
-
-#### The gate is one structure, three modules wide
-
-A gate is **no longer a run of tagged cells**. Converting a wall replaces
-**three contiguous modules with a single gate entity**: the module the
-player converted becomes the gatehouse, and **the module on each side is
-destroyed** — the gatehouse's own masonry occupies that ground. The curtain
-mesh leaves the whole 9 m span open so nothing is drawn through it.
-
-| Property | Value |
+| Property | Rule |
 |----------|-------|
-| Width | **9 m** = 3 curtain modules (`AlanthorWall.GateRegionSpan`) |
-| Entity count | **one** — with `WallGateTag`, a 1 × 9 m footprint and its own Health |
-| HP | 3 × the curtain module's HP at the faction's wall level (600 at level 1, 960 at 2, 1 380 at 3) |
-| Cost / timer | **80 S** flat / **8 s**, unchanged |
+| Entity count | **one** — with `WallGateTag` and its own Health |
+| HP | three curtain modules' worth at the faction's wall level |
+| Cost / timer | on `WallGate.asset` — the same for the palisade's gate (decision 36) |
 | Short segment | a segment with fewer than 3 live modules converts the modules it has; the gatehouse is built to the span it actually got |
-| Doors | **two leaves that swing**, driven by the gate's open state — 1.2 s to swing, always drawn, never teleported |
-| Opening | the centre third (≈3 m). The flanking thirds are solid masonry |
+| Doors | **two leaves that swing**, driven by the gate's open state — always drawn, never teleported |
+| Opening | the centre third; the flanking thirds are solid masonry |
 
-#### Opening and closing it
-
-The gate's default is what it always was: it opens when a friendly comes
-within 6 m and closes behind them, and it never opens for a hostile. What
-is new is that the player can override it.
+**Opening and closing it.** By default it opens when a friendly comes near and
+closes behind them, and it never opens for a hostile. The player can override:
 
 | Mode | Behaviour | UI |
 |------|-----------|-----|
-| **Auto** (default) | opens for friendlies within 6 m, closes when they leave | the gate's action panel shows **Close Gate** |
-| **Sealed** | stays shut, *including to friendlies* — the garrison locks its own people out | the panel shows **Open Gate**; the doors close on the spot |
+| **Auto** (default) | opens for nearby friendlies, closes when they leave | the gate's action panel shows **Close Gate** |
+| **Sealed** | stays shut, *including to friendlies* | the panel shows **Open Gate**; the doors close on the spot |
 
-The toggle is one order (`SetGateLock`, lockstep type 44) so both peers
-flip the same gate on the same tick. Sealing does not make the gate tougher
-— it is a pathing decision, not a defensive one: it stops your own army
-from routing through a gate you would rather keep shut.
+The toggle is one order (`SetGateLock`, lockstep type 44). Sealing does not
+make the gate tougher — it is a pathing decision, not a defensive one.
 
-#### Ballista and Trebuchet emplacements
+### Wall towers
 
-Two engines, in both cases **the emplacement and the engine are separate
-entities**: the emplacement is the platform (the thing the player mounts,
-the thing that is repaired, the thing that holds the ground) and the engine
-is a unit standing on it that **never moves**.
+A **wall tower** is a single module converted to a ranged tower astride the
+wall (`Alanthor_WallTower`, SO `Wall/Tower/WallTower.asset`; unrelated to the
+stand-alone Watch Tower). Stone levels only, the clear run of 3, a conversion
+price and timer on its SO, no worker.
 
-**Emplacements are WALL-MOUNT ONLY (2026-09-25).** There is no free-standing
-ground platform any more: it is in no build list, and the placement command
-refuses its id on every peer. The one route is:
+### Ballista and Trebuchet emplacements (decision 26, 2026-10-03)
 
-- **On a wall.** Select a **masonry** curtain module (Stone, Battlemented or
-  Shielded — a timber palisade cannot carry an engine) and its action panel
-  offers **Mount Ballista** / **Mount Trebuchet**, subject to the clear run
-  above. The module stays wall (its HP, its footprint, its place in the
-  segment); it gains corbels out to a planked fighting deck, a mantlet and
-  the engine's pintle ring, and 50 % more HP to carry the weight. A module
-  with an engine on it takes no garrison — the crew needs the whole crown.
+In both cases **the emplacement and the engine are separate entities**: the
+emplacement is the platform (the thing that is built, repaired and holds the
+ground) and the engine is a unit standing on it that **never moves**.
 
-The engine **stands on that deck**: its simulated height is the module's
-ground height plus the deck height (`AlanthorWall.EmplacementDeckHeight`,
-2.9 m — the crown plus 0.3 m), and the deck the module draws reads the same
-number, so the two cannot drift apart. The deck is identical at every
-masonry level; the Stone / Battlemented / Shielded merlons top out at
-2.60 / 2.80 / 2.90 m, at or under it. Standing 2.9 m up gives the engine the
-normal high-ground range and damage bonus.
-
-**A destroyed engine is not rebuilt for free (2026-09-25 — supersedes the
-45 s / 60 s free crew rebuild).** When the engine dies the platform stays,
-**empty**: the module keeps its deck and its extra HP but shoots nothing.
-Its action panel then offers **Replace Equipment** for a price, with a
-restore timer and **no worker**; when the timer ends the crew raises a new
-engine. While the restore runs, that card shows the countdown instead. The
-price and the timer are the ENGINE's own SO numbers (`cost` and
-`trainingTime` on `EmplacedBallista.asset` / `EmplacedTrebuchet.asset`) —
-about half the mount price, since the deck is already built. The order is one
-lockstep command (`ReplaceEquipment`, type 47) so every peer pays and starts
-the timer on the same tick. The FIRST engine still comes with the mount: it
-is raised the moment the mount completes.
+- **Wall-mount only.** Select a **masonry** curtain module and its action
+  panel offers **Mount Ballista** (wall **level 2+**) / **Mount Trebuchet**
+  (wall **level 3**), subject to the clear run of 3. A palisade cannot carry
+  an engine, and there is no free-standing platform.
+- **Worker-built.** Mounting places the emplacement as a construction site on
+  the module that **workers build**, over the emplacement SO's `buildTime` —
+  there is no worker-less self-mount timer any more. The module stays wall
+  (its HP, its footprint, its place in the segment); it gains corbels out to a
+  planked fighting deck, a mantlet and the engine's pintle ring, and extra HP
+  to carry the weight. The **first engine is raised when the mount
+  completes**.
+- **The engine stands on the deck** (`AlanthorWall.EmplacementDeckHeight` —
+  the same number the deck visual reads, so the two cannot drift apart),
+  which gives it the normal high-ground bonus.
+- **A destroyed engine is not rebuilt for free.** The platform stays,
+  **empty**, and its action panel offers **Replace Equipment** for the
+  ENGINE's own SO price and `trainingTime` (`EmplacedBallista.asset` /
+  `EmplacedTrebuchet.asset`), no worker. One lockstep command
+  (`ReplaceEquipment`, type 47).
+- **Movement: none.** No move speed, no destination; the engine never chases,
+  never backs off out of its minimum range, never returns to a guard post. A
+  target outside its band is dropped.
+- **Platform destroyed:** the module dies as wall; its engine dies with it.
+- The engines carry **0 siege armour** and the **Heavy** tag
+  ([Combat_Pacing.md](Combat_Pacing.md), decision 35), cost no population, and
+  are deliberately *stronger per shot and slower* than the mobile Siege Yard
+  versions: an emplacement is ground you have decided to hold, not an army you
+  can move.
 
 | | **Wall Ballista** | **Wall Trebuchet** |
 |---|---|---|
-| Id (mount price SO) | `Alanthor_BallistaEmplacement` | `Alanthor_TrebuchetEmplacement` |
-| Mounting cost / timer | **140 S + 80 I**, 12 s, no worker | **260 S + 140 I + 40 V**, 12 s, no worker |
-| Engine | `Alanthor_EmplacedBallista` — 260 HP, 46 dmg, 3.5 s, range 8–26 | `Alanthor_EmplacedTrebuchet` — 320 HP, 120 dmg, 8 s, range 14–48, 4 m splash |
-| Against | single targets, **+30 vs Building** | massed infantry and siege lines, **+45 vs Building** |
-| Movement | **none.** No move speed, no destination; it holds position permanently — it never chases, never backs off out of its minimum range, never returns to a guard post. A target outside its range band is simply dropped | same |
-| Engine destroyed | the platform stays **empty**; its panel offers **Replace Equipment** | same |
-| Replace Equipment | **70 S + 40 I**, **15 s** restore, no worker | **130 S + 70 I + 20 V**, **20 s** restore, no worker |
-| Platform destroyed | the module dies as wall; its engine dies with it | same |
-| Where | a **masonry** curtain module only (level 1+), with the clear run of 3. Never on a palisade, never free-standing | same |
-
-The engines are deliberately *stronger per shot and slower* than the mobile
-Siege Yard versions and cost no population: an emplacement is ground you
-have decided to hold, not an army you can move.
-
-### Wall Hub
-
-| Stat | Value |
-|------|-------|
-| HP | **400** |
-| LoS | 10 |
-| Defense (M/R/S/Mg) | 2 / 2 / 0 / 0 |
-| Build cost (direct, via worker) | **60 S + 40 I** |
-| Build cost (via hut conversion) | **60 S + 40 I** (same as direct) |
-| Conversion timer (from hut) | **5 s** |
-| Reach | **The curtain runs hub CENTRE to hub CENTRE** (`AlanthorWall.HubInset` = 0, 2026-09-21). A wall drawn from A to B runs from A to B, and the hub stands on top of that end. It used to start at the tower's rim, which made every hub a plug in a hole: right only while the hub's art was exactly as wide as the inset, and a hub's death exposed a hub-wide gap that read as "the wall beside it died too". |
-| Footprint | **2 x 2 cells (4 x 4 m)** — [Build_Grid.md](Build_Grid.md) § 2. Shrunk 30 % on 2026-09-21: at 6 m the tower read as the wall's main event and the curtain as trim between towers. The hub is a **round tower** (domed in stone, shingle-roofed in timber), radius `AlanthorWall.HubRadius` = **0.7 wall sections (2.1 m)**; the curtain starts at the drum's rim (`HubInset` = the radius — the spacing is derived from the hub, never tuned on its own), and the selection ring is drawn at that radius. |
-| Construction | Requires workers, standard `AssignWorkersToConstruction` flow (direct build only — conversion path is instant-paid + timer). |
-| Hub-to-hub snap radius (`WallHubSnapDistance`) | **2 m** — placing a hub within 2 m of an existing hub reuses the existing hub instead of creating a degenerate overlapping pair. |
-| Auto-segment range (`MaxAutoSegmentDistance`) | **16 m** (8 tiles) — see [§ Wall Segment](#wall-segment). |
-| Role | The **only directly-placeable wall primitive**. Wall Hubs are the focal defensive structure: tankier than a tower, anchor for auto-formed segments, and the only way to seed a closed compartment. |
-
-> **Why 400 HP?** Hubs are the anchor of any wall siege — killing one opens a 6 m breach where the tower stood (see § Walls fall in sections). 400 HP positions the hub as roughly 2× a Watch Tower in toughness, while still well below a Hall (~2 400 HP). Concrete value finalises after playtest.
-
-### Wall Segment
-
-A wall segment is an **ECS entity in its own right** that owns a chain of
-wall-instance children. It carries no HP (its HP is the live sum of its
-instances' HP — see [§ Health bar treatment](#health-bar-treatment-segments-and-gates)), but it is the
-**selection target for the Convert-to-Gate action**.
-
-| Property | Value |
-|----------|-------|
-| Spawn rule | Auto-formed by `WallAutoSegmentSystem` (polled at **0.5 s**) when two friendly **completed** hubs are within `MaxAutoSegmentDistance` (= 16 m) and **not already connected** (via the `WallHubLink` buffer guard). |
-| Owning faction | Inherited from the two endpoint hubs (must match — auto-segments **never cross factions**). |
-| Endpoint hubs | Stored in the segment's components. A hub's death does **not** take the segment with it — the segment stands on its own cells until the last of them dies (see § Walls fall in sections). |
-| Selection behaviour | Clicking any **instance** of the segment resolves the selection to the **segment entity** (per [task-109 § E. Wall Network Selection](../../.deft/tasks/task-wall-system-bfme2-rework-109/task.md)). Clicking a **hub** selects the hub. |
-| Visual | Composite — rendered as the sum of its individual instance presentations. The segment entity itself has no presentation prefab. |
-| Determinism | Auto-formation iterates hub pairs in deterministic sort order (sort key: `(Entity.Index, Entity.Version)` of each endpoint) to keep lockstep clients in sync. |
-
-### Wall Instance
-
-A wall instance is the **2 m × 1 tile piece** that makes up a segment.
-Each instance is its own ECS entity with its own Health and presentation
-(presentation IDs 551 = wall, 553 = tower, 554 = gate).
-
-| Stat | Value |
-|------|-------|
-| HP | **80** |
-| LoS | 0 (inherits from the parent hub for selection-panel rollup; instances themselves do not see) |
-| Defense (M/R/S/Mg) | 2 / 2 / 0 / 0 (inherited from the hub line) |
-| Cost | **None — auto-spawned with the segment.** The player pays no per-instance cost; the gameplay cost is the hub placement itself. |
-| Spacing | **2 m** (one tile) — fixed by `AlanthorWall.InstanceSpacing`. |
-| Instance count per segment | `ceil((distance - 2 × HubInset) / 2)` — **linear with hub distance**, capped only by `MaxAutoSegmentDistance` (16 m → max 8 instances per segment). |
-| Selection behaviour | Click resolves to **parent segment**. Drag-select selects the instance individually. |
-| Conversion options | An instance can be **converted to a Wall Tower** individually (per-instance conversion), or **converted to a Hub** (per-instance, costs a hub, 10 s) — the cell becomes a hub and its segment **splits** there, so walls can be drawn off it (see § Branching walls). A run of 3 contiguous instances can be **converted to a Gate region** via the parent segment's action panel. |
-
-### Gate (5-instance composite)
-
-> **SUPERSEDED 2026-09-21** by § Wall levels, the gate structure and
-> emplacements above: a gate is ONE entity three modules wide, the two
-> modules beside the converted one are destroyed, the doors swing, and
-> the player can seal it. The table below is the pre-2026-09-21 model
-> and is kept only to explain `WallGateGroup` on old saves.
-
-A gate is **not its own primitive** — it is a state applied to **5
-contiguous wall instances** of a segment. Conversion swaps each
-underlying instance's presentation from `551` (wall) to `554` (gate) and
-flags it with `WallGateTag`. A shared `WallGateGroup` component links the
-5 instances so they open and close in unison.
-
-| Property | Value |
-|----------|-------|
-| Width | **5 instances = 10 m** — wide enough for a battalion-formation traversal. |
-| HP (total) | **400** = 5 × 80 (computed from instances; gate is **not** a separate Health-bearing entity). |
-| Cost (single conversion) | **80 S** *flat* — single payment, not per-instance. (Resolves Open Q3: prefer flat over 5× per-instance for cost-clarity. PLAYTEST PLACEHOLDER: revisit if the gate ends up too cheap relative to a fresh wall ring.) |
-| Conversion timer | **8 s** (segment-level `WallSegmentUpgradeState`; matches the legacy per-instance gate timer from `EntityActionPanel.cs:1677`, kept canonical until playtest demands a change). |
-| Conversion worker | **None required** — conversion is instant-paid + timer, same as the hut → hub / tower flow. |
-| Short-segment behaviour | If the segment has **< 5 instances**, the gate becomes a **full-segment gate** (e.g. 3 instances → 3-cell gate). UI marks the card with an amber warning glyph: "Short segment — gate will span the full segment (N instances). Battalions wider than N may not fit." |
-| Owner-faction passability | **Always-open** for the owning faction (gate auto-opens when a friendly unit enters `WallGatePassabilitySystem.RegionDetectRadius = 6.0 m`, auto-closes when no friendlies are inside). **No manual open/close in v1.** |
-| Hostile passability | Hostiles cannot pass — the gate cells block pathing just like a wall instance when closed; the gate stays **closed for hostiles** regardless of approach distance. |
-| Region detection | All 5 gate cells share the same open/closed state via the `WallGateGroup` leader pattern — approaching from either end opens the whole region. Legacy 1-instance gates (no `WallGateGroup`) continue with the original 3.0 m radius for backward compatibility. |
-| Visual | 5 tiled `Alanthor_WallGate` (presentation 554) cells for now — a custom 5-cell wide-gate prefab can replace this later without spec churn (PLAYTEST PLACEHOLDER on visual identity). |
-
-> **Gate state UX in v1.** Gates are **always-passable for the owner**
-> when a friendly approaches; **always-closed otherwise.** There is **no
-> manual toggle button** in the action panel — the selection panel shows
-> a read-only `OPEN` / `CLOSED` pip in the eyebrow row. Manual toggle is
-> deferred (see [§ Open Items / Playtest Placeholders](#open-items--playtest-placeholders)).
-
-### Wall Tower
-
-A wall tower is **not its own primitive** — it is a state applied to a
-**single wall instance** that converts it into a ranged-attack tower
-sitting on top of the wall. (Unrelated to `Alanthor_Tower`, the stand-alone
-Watch Tower — see [§ Watch Tower](#watch-tower) below.)
-
-| Stat | Value |
-|------|-------|
-| HP | **500** (the converted instance jumps from 80 to 500 on completion) |
-| LoS | 16 |
-| Defense (M/R/S/Mg) | 2 / 3 / 0 / 0 |
-| Conversion cost | **60 S + 30 I** (single instance) |
-| Conversion timer | **10 s** (per-instance `WallUpgradeState`; matches legacy value, kept canonical) |
-| Conversion worker | **None required.** |
-| Visual | Presentation 553 (`Alanthor_WallTower`). |
-| Source | Per-instance action panel — click a wall instance, the action panel surfaces a "Convert to Tower" card. |
-
-### Watch Tower
-
-Same entity as the **stand-alone Watch Tower** primitive — defined in full
-in the [Watch Tower section](#watch-tower--alanthor_tower-canonical-stat-block) above. Key facts in the wall-system context:
-
-- Built **directly via the worker catalog** (`Alanthor_Tower`, cost 140 S + 70 I) — the standard route.
-- Built **via Gatherer's Hut conversion** at age-up (cost 40 S + 30 I, 5 s timer) — the discounted, hut-replacement route.
-- **Independent of walls.** A Watch Tower placed adjacent to a Wall Hub does **not** auto-merge with the wall — it stays a free-standing structure with its own footprint.
-
-### Gatherer's Hut Age-Up Choice (summary cross-link)
-
-Each owned Gatherer's Hut surfaces a 2-button **Convert** prompt at
-age-up (see [§ Gatherer's Hut](#gatherers-hut-age-0-carryover--per-hut-age-up-choice-wall-hub-or-watch-tower) above for the full spec):
-
-| Choice | Cost | Timer | Result |
-|--------|------|-------|--------|
-| **Convert to Wall Hub** | 60 S + 40 I | 5 s | Hut → Wall Hub at the same footprint |
-| **Convert to Watch Tower** | 40 S + 30 I | 5 s | Hut → Watch Tower at the same footprint |
-
-If the player ignores the prompt, the hut continues generating Age-0
-income indefinitely. No timeout, no auto-default.
+| Platform SO | `Alanthor_BallistaEmplacement` | `Alanthor_TrebuchetEmplacement` |
+| Engine SO | `Alanthor_EmplacedBallista` | `Alanthor_EmplacedTrebuchet` |
+| Wall level | 2+ | 3 |
+| Against | single targets, bonus vs Building | massed infantry and siege lines (splash), bonus vs Building |
 
 ### Walls fall in sections
 
-> **Supersedes the hub-death cascade (2026-09-19).** Until now a Wall Hub's
-> death cascade-destroyed every segment attached to it, and each cascaded
-> segment destroyed all of its cells. With a drawn wall being ONE segment
-> from its first hub to its last (`WallDrawTool.asset` `hubSpacing: 0`), a
-> single hub kill erased the entire stroke — a 100 m wall vanished because
-> one 400 HP bastion fell. That is retired.
+> **Supersedes the hub-death cascade (2026-09-19).** A hub's death used to
+> cascade-destroy every segment attached to it; with a drawn wall being ONE
+> segment from its first hub to its last, a single hub kill erased a whole
+> stroke. That is retired.
 
 Every piece of a wall dies **on its own HP and only itself**:
 
 | Piece dies | What collapses |
 |------------|----------------|
-| **Wall cell** (a curtain module / curve cell) | That cell. The swept mesh opens a breach at its span; its neighbours stand. |
-| **Wall Hub** | That hub. A 6 m breach opens where the tower stood. Every segment attached to it keeps standing on its own cells, ending at the hub's empty footprint. |
-| **Wall Segment** | Only when its **last cell** dies — it is a graph edge with no HP of its own, and `WallSegmentCleanupSystem` retires it (and its hub links) once nothing is left standing on it. |
+| **Wall cell** (a curtain module) | That cell. The swept mesh opens a breach at its span; its neighbours stand. |
+| **Wall Hub** | That hub. A breach opens where the tower stood. Every segment attached to it keeps standing on its own cells. |
+| **Wall Segment** | Only when its **last cell** dies — it is a graph edge with no HP of its own, and `WallSegmentCleanupSystem` retires it once nothing is left standing on it. |
 
 Rationale: a wall should have to be **breached**, and the breach should be
-exactly as wide as what was knocked down. Sieges pick a section and grind it;
-they do not one-shot a bastion to erase a perimeter. The hub is still the
-worthwhile target — it is the widest breach for one kill and it stops
-anchoring further wall — but it is no longer a hidden kill switch.
-
-A segment whose hub has died keeps its `WallConnection` pointing at the dead
-entity (every reader tolerates that — `em.Exists` guards). **Rebuilding the
-hub repairs the line:** a same-faction hub built with the dead hub's centre
-inside its footprint adopts every orphaned segment that ended there
-(`AlanthorWall.AdoptOrphanedSegments`, run from the hub factory), so the
-standing cells become its wall again and "Build Wall" / the AI's plan refill
-does not lay a second segment of cells on top of them.
-
-Compartment income no longer exists (removed 2026-07-06 with
-`WallEnclosureIncomeSystem`) — the territorial consequence of losing wall
-pieces is that the destroyed fortifications stop granting Alanthor influence,
-and the area slowly decays back to neutral on the influence map.
+exactly as wide as what was knocked down. The hub is still the worthwhile
+target — the widest breach for one kill — but it is no longer a hidden kill
+switch. **Rebuilding the hub repairs the line:** a same-faction hub built with
+the dead hub's centre inside its footprint adopts every orphaned segment that
+ended there (`AlanthorWall.AdoptOrphanedSegments`).
 
 ### Branching walls (2026-09-19)
 
-A wall can be joined from any point of any other wall, not only at its
-hubs — that is what makes **T- and X-shaped** layouts possible.
-
-**Any standing wall cell can become a hub.** Two ways in:
+A wall can be joined from any point of any other wall, not only at its hubs —
+that is what makes **T- and X-shaped** layouts possible. **Any standing wall
+cell can become a hub**:
 
 | How | What happens |
 |-----|--------------|
-| **Convert to Hub** on a selected wall cell | Costs a hub, 10 s timer (`WallUpgradeState` type 3). On completion the cell is replaced by a hub. |
-| **Drawing a wall onto a wall** | With the Wall Hub tool, pressing within one wall section of a friendly cell starts the stroke *on that cell*; releasing within one section of a friendly cell ends it there. Each such cell is converted as part of the order (`WallPathKind.CellHub`, costed as a hub, instant — the wall it joins is already built) and the new wall attaches to the hub it became. Starting on a cell and dragging off it is an X or T; ending on a cell is a T into a standing wall. |
+| **Convert to Hub** on a selected wall cell | Costs a hub, with a short timer (`WallUpgradeState` type 3). On completion the cell is replaced by a hub. |
+| **Drawing a wall onto a wall** | Pressing within one module of a friendly cell starts the stroke *on that cell*; releasing within one module of a friendly cell ends it there. Each such cell is converted as part of the order (`WallPathKind.CellHub`, costed as a hub, instant) and the new wall attaches to the hub it became. |
 
-**The segment splits at the new hub** (`AlanthorWall.ConvertInstanceToHub`).
-The cells before it stay on the original segment, which now ends at the new
-hub; the cells after it move to a fresh segment from the new hub to the far
-hub; the cell under the hub (and any other sitting mostly inside the drum)
-is removed. Nothing is rebuilt — every other cell keeps its position, HP and
-construction state — so the graph changes but the wall on the ground does
-not. A drawn (curved) segment splits its curve at the cell, each half passing
-through the hub, and the swept mesh follows: cells keep their place on the
-curve by their stored position, not by an assumed even spacing.
+**The segment splits at the new hub** (`AlanthorWall.ConvertInstanceToHub`):
+the cells before it stay on the original segment, the cells after it move to
+a fresh segment from the new hub to the far hub, and the cell under the hub is
+removed. Nothing is rebuilt — every other cell keeps its position, HP and
+construction state. Not convertible: a gate cell, a tower cell, a cell still
+under construction, or a cell whose segment is mid-gate-conversion.
 
-Not convertible: a gate cell, a tower cell, a cell still under construction,
-or a cell whose segment is mid-gate-conversion. The hub goes up finished
-(there is no worker involved) with full hub HP; the wall it interrupts was
-already standing.
-
-**Snapping.** Wall placement snaps to hubs (6 m) and to wall cells (one
-section, 3 m), at both ends of the stroke. The end point of the order is
-the hub's or cell's own position, so what the preview line shows is what
-every peer resolves.
-
-### Auto-segment formation feedback
-
-Auto-segment spawn is **silent by default** — no popup, no toast, no
-minimap ping. A subtle **500 ms construction shimmer** plays along the
-line between the two hubs (reuses the existing wall-instance spawn cue).
-Audio: low-volume `construction_begin` SFX (reuses the existing
-wall-instance spawn SFX hook). Both effects honour
-`prefers-reduced-motion`: under reduced-motion, the instances pop in
-without animation.
-
-### Health bar treatment (segments and gates)
+### Health bars (segments and gates)
 
 | Selection | Bar shown |
 |-----------|-----------|
-| **Hub** | Standard `FloatingHealthBars` Health bar (existing). |
-| **Wall instance (individual)** | Standard per-instance world-space Health bar (existing). |
-| **Wall segment (clicked via instance)** | Selection panel renders **one aggregated bar** — `sum(instance.Hp) / sum(instance.HpMax)` with sub-text `<aliveCount> / <totalCount> intact`. Bar palette: green ≥ 50 %, amber 20–50 %, red < 20 %. The per-instance world-space bars still render. |
-| **Gate region (5 instances tagged WallGateTag)** | Same aggregated-bar treatment as a segment, label `Wall Gate`. No stacked-5-bar UI. |
+| **Hub** | Standard `FloatingHealthBars` Health bar. |
+| **Wall cell (individual)** | Standard per-cell world-space Health bar. |
+| **Wall segment** | One aggregated bar — `sum(cell.Hp) / sum(cell.HpMax)` with `<alive> / <total> intact`. |
+| **Gate** | Its own Health bar, label `Wall Gate`. |
 
-### AI Behaviour
+### The wall's art
 
-**Alanthor AI does not build walls in v1.** This is explicit:
+> **Stone levels authored 2026-10-01, re-authored 2026-10-02.** `Waning Border
+> > Art > Author Castle Prefabs` (`Scripts/Editor/CastleArtAuthor.cs`) builds
+> the stone set from the Synty POLYGON Fantasy Kingdom castle kit into
+> `Civs/Alanthor/Buildings/Wall/Stone/` and binds it per level in
+> `Age0/Buildings/Wall/WallModuleArt.asset` (curtain, hub, gate, wall tower,
+> ballista and trebuchet bastions; slot 0 = the timber palisade). Every level is
+> symmetrical — both faces carry the same masonry and parapet, and level 3's
+> roofed hoarding gallery runs along BOTH faces. Hubs are square bastions
+> flush with the walk at levels 1-2 and round towers under a slate cone at
+> level 3. The same tool authors the **Watch Tower** (`Tower/WatchTower.prefab`)
+> and the **Fortress** (`Fortress/Fortress.prefab`). `Preview Castle Prefabs`
+> renders all of it to `Temp/castle_preview/`.
 
-- `SimpleAISystem` skips Wall Hubs / Wall Segments / Wall Instances in its build-target / repair-target / attack-target enumerators.
-- The dead wall-building code in `AIEconomyManager.cs:627-756` (already `[DisableAutoCreation]`-orphaned) **stays dead** with a `task-109` comment marker so a future task can resurrect it.
-- `AIAlanthorEndgameSystem` remains `[DisableAutoCreation]`.
-- AI-owned Gatherer's Huts at age-up **do not** convert to Wall Hubs or Watch Towers — the AI keeps Age-0 gathering huts indefinitely.
+**Where things live.** The shared hub/segment CODE, the Gate (a palisade takes
+gates too), the timber art and `WallModuleArt` stay in `Age0/Buildings/Wall/`
+— one machine, two kinds of content; the Stone Wall's content (`WallHub`,
+`WallSegment`, `Tower/`, `Stone/`, the level SOs and the `Battlements` /
+`ShieldedRamparts` research) is in `Civs/Alanthor/Buildings/Wall/`. Every wall
+PIECE has its own SO and its own `prefab` + `presentationId`, so each piece's
+art binds independently and a piece with no art keeps its procedural visual.
 
-AI wall-building (strategic placement around Halls / resources / chokes) is a **separate follow-up task** that depends on the primitives canonicalised here.
+**Textures do not travel in the FBX, and must not.** The FBX carries
+**geometry, UVs and material NAMES**, and each name is remapped to a `.mat`
+asset in the piece's folder (`Wooden_Stakes`, `Player_cloth` — base colour
+stays white, the player's colour is applied on top — and `GroundMaterial`).
+Re-exporting the mesh cannot disturb them, because the link is by name.
+**Binding:** run **`Waning Border > Walls > Bind Wall Art`** after adding or
+replacing an FBX; it re-applies the importer settings and the material remap a
+Blender re-export resets. Artist steps: [docs/Art_Pipeline_FBX.md](../Art_Pipeline_FBX.md).
 
-### Open Items / Playtest Placeholders
+**How it is drawn.** Still **one mesh per segment**: the authored module baked
+along the curve, one copy per sim cell (`WallArtMesh`), or the procedural
+cross-section swept along it when no prefab is bound (`WallCurveMesh`).
+`WallModuleArt` measures the module once and **fits its length to the sim
+module pitch**, so the art does not have to be authored to the game's numbers.
 
-Concrete numeric values pinned in this section come from the
-task-109 architecture pass (2026-05-21). The following are **PLAYTEST
-PLACEHOLDERs** — the spec is committed to a default value, but designers
-should revisit after first playtest:
-
-- **Wall Hub HP = 400.** Default reasoned as "2× a Watch Tower (250), well below a Hall (2 400)". If hubs feel too fragile / too tanky in playtest, rebalance.
-- **Gate conversion cost = 80 S flat.** Default reasoned as "single payment matches the player's mental model of one decisive structural change". If gates end up too cheap relative to building a fresh wall ring, switch to per-instance pricing (5 × 16 S = 80 S, or raise to 5 × 20 S = 100 S).
-- **Wall instance HP = 80** (gate total HP therefore = 400). Default reasoned as "individual instance dies in ~3 catapult hits; the chain forms the resilience". If sieges are too quick, raise to 100 (gate total 500).
-- **MaxAutoSegmentDistance = 16 m (8 instances).** Default reasoned as "long enough to wall a typical compartment in 2–3 hubs, short enough to force multiple hubs around a Hall". If players spam single-hub compartments, lower to 12 m.
-- **Conversion timer (hut → hub / tower) = 5 s.** Default reasoned as "visible-but-not-painful". Tune if playtest reveals the wait feels off.
-- **Conversion timer (segment → gate) = 8 s, (instance → tower) = 10 s.** Default kept from legacy code values. Tune as needed.
-- **Watch Tower visual identity for the 5-cell gate.** Currently the gate tiles the existing single-gate prefab 5 times. A bespoke 5-cell wide-gate prefab is **out of scope for task-109**; lands in a follow-up.
-- **Manual gate open/close toggle.** Deferred to v2 of the wall system; v1 is automatic-only. Selection panel shows a read-only `OPEN` / `CLOSED` pip.
-- **Network-select affordance** ("double-click any wall piece → select the entire connected network"). Deferred; drag-select handles the common case.
-- **Friendly right-click on owned wall** (repair / garrison / open-gate). **No-op in v1.** Re-evaluate if Phase 7 surfaces a unit-on-wall requirement.
-- **Hover-preview cost overlay** on the Gate card. Tooltip cost chips suffice; **no** additional Resource-panel ghost-deduction in v1.
-- **Hub-attention pulse persistence** (on huts carrying the `GathererHutAgeUpChoice` marker). **Stays forever** until the player commits or the hut dies — matches the "hut keeps generating Age-0 income indefinitely" rule.
-- **Cancel mid-conversion** (hut → hub / tower, segment → gate, instance → tower). **No cancel in v1** — matches the existing structure-construction model.
-
-### Cross-references
-
-- **UI / UX spec (full):** [task-109 § UI / UX Specification](../../.deft/tasks/task-wall-system-bfme2-rework-109/task.md).
-- **Code touchpoints:** `AlanthorWall.cs` (hub / segment / instance factories), `WallUpgradeSystem.cs` (conversion to gate / tower), `WallGatePassabilitySystem.cs` (friendly-detect open / close), `WallSegmentCleanupSystem.cs` (dead-segment cleanup — walls fall in sections, no hub cascade), `InfluenceMapSystem.cs` (fortification influence), `WallAutoSegmentSystem.cs` (Phase 4, new — retroactive auto-formation).
-- **Wall-economy compartment yield** is unchanged from prior spec: `+8 Supplies per 10 u² closed compartment / min` via the `Alanthor_StoneLedgers` tech (PLAYTEST PLACEHOLDER, see [§ Cultured carryover buildings — KingsCourt techs](#existing-code-techs-that-need-re-homing-or-removal)).
-
----
-
-## Alanthor units (full stat blocks from code)
-
-### Alanthor Sentinel — heavy infantry
-
-Trained at Garrison (Barracks).
-
-| Field | Value |
-|------|-------|
-| Class | `human_melee` |
-| HP | 160 |
-| Speed | 5.0 |
-| Training time | 18 s |
-| Min building lvl | 2 |
-| Armor type | infantry_heavy |
-| Damage | 12 (melee) |
-| Defense (M/R/S/Mg) | 3 / 2 / 0 / 1 |
-| Attack range | 1.7 |
-| LoS | 18 |
-| Cost | 90 Supplies + 20 Veilsteel |
-| Pop | 1 |
-
-> Open: is this the Swordsman from the draft? Stats fit (defensive heavy
-> melee with armor). Likely yes.
-
-### Alanthor Crossbowman — heavy ranged
-
-Trained at Practice Range, L2.
-
-| Field | Value |
-|------|-------|
-| Class | `human_ranged` |
-| HP | 100 |
-| Speed | 5.0 |
-| Training time | 22 s |
-| Min building lvl | 2 |
-| Armor type | ranged |
-| Damage | 13 (ranged) |
-| Defense | 0 / 2 / 0 / 0 |
-| Attack range | 13 |
-| Min attack range | 4 |
-| LoS | 22 |
-| Cost | 70 Supplies + 15 Veilsteel |
-| Pop | 1 |
-
-### Alanthor Cataphract — heavy cavalry
-
-Trained at Garrison (Barracks), L2.
-
-| Field | Value |
-|------|-------|
-| Class | `human_cavalry` |
-| HP | **160** *(2026-08-04 rebalance — was 180)* |
-| Speed | 6.6 |
-| Training time | 40 s |
-| Min building lvl | 1 (Royal Stable) |
-| Armor type | cavalry |
-| Damage | **18** (melee) *(was 20)* |
-| Defense | 2 / 1 / 0 / 0 |
-| Attack range | 1.6 |
-| LoS | 20 |
-| Cost | **320 Supplies + 120 Iron + 60 Veilstone** *(was 220/80/40 — the Outrider fills the cheap slot)* |
-| Pop | 2 |
-
-### Alanthor Catapult — siege
-
-> **Replaced the Alanthor Ballista (2026-08-02).** Same battlefield slot,
-> but a lobbed AOE stone-thrower instead of a piercing bolt-thrower.
-
-Trained at Siege Yard.
-
-| Field | Value |
-|------|-------|
-| Class | `machinery_siege` |
-| HP | 220 |
-| Speed | 3.2 |
-| Armor type | ranged |
-| Damage | 40 (siege), **AOE radius 3** on impact — shots do NOT pierce (that was the ballista bolt's trait) |
-| Reload | **4 s** |
-| Trajectory | High lob (longbow-family parabola) |
-| Defense | 0 / 1 / 2 / 0 |
-| Attack range | **30** |
-| Min attack range | **10** |
-| LoS | **20** — the catapult OUTRANGES its own vision: it auto-engages only inside 20, and firing at 20-30 needs a spotter (scout/ally vision) plus an explicit attack order. Artillery doctrine (2026-08-02). |
-| Cost | 180 Supplies + 80 Iron + 40 Veilstone |
-| Pop | 1 |
-| Visual | Synty `SM_Wep_Catapult_01` with procedural arm release/re-wind; shots render as the `FX_Catapult_Single_01` effect. The shooter's launch angle is solved ballistically (speed + gravity from the authored FX, launch height and terrain height difference included) so the stone impacts the ground at the target's location. |
-
-### Alanthor Ledger — court automaton (visual identity, 2026-08-02)
-
-Mechanics unchanged (autonomous economy automaton, King's Court / Hall L2).
-Visual identity: a **legless floating automaton** — it hovers on a
-**forcefield disc** projected beneath it (tinted the owning player's color,
-with a low synthesized hum). The open-frame torso is **full of cogwheels**
-(spinning constantly), it has **four articulated arms**, and at its center
-floats a **shining crystal in the player's color**, pulsing with its
-machinery.
-
-Rules (confirmed 2026-08-02):
-
-- **Automate Facility**: +30 % yield for **30 s** on one economy building.
-- **Per-building cycle: 90 s** — the 30 s boost is followed by a 60 s
-  *Under Automation* lockout, so the same building can be re-automated
-  exactly 90 s after the previous application. (Implemented as the
-  Aftermath chain: boost Duration 30 + lockout Duration 60.)
-- **One Ledger per player** — enforced at the training-command gate, same
-  mechanism as King Lexor (live unit or queued order both count).
-- Feedback VFX: automated buildings carry a golden rising-spark aura for
-  the boost's 30 s; a larger golden burst plays at the building the moment
-  the ability lands.
-
-### Alanthor Scholar — religious / magic
-
-Trained at **Temple of Ridan, L3** (per the Runai-review Q#17 fix — the
-Temple caps at 3 levels, not 4; the old "L4" reference is a retired spec
-stage).
-
-| Field | Value |
-|------|-------|
-| Class | `human_magic` |
-| HP | 90 |
-| Speed | 3.0 |
-| Training time | 30 s |
-| Min building lvl | **3** *(Temple of Ridan L3)* |
-| Armor type | ranged |
-| Damage | 0 |
-| Damage type | magic |
-| Defense | 0 / 0 / 0 / 1 |
-| LoS | 14 |
-| Cost | **~300 Supplies + 150 Iron + 100 Veilstone + 30 Veilsteel** *(rebalanced to the cross-faction game-ender religious tier — see [Overview.md § Religious units](Overview.md#religious-units--cross-faction-game-ender-tier))* |
-| Pop | 1 |
-| Single unit / battalion | **Single** ([Overview.md § Unit granularity](Overview.md#unit-granularity--single-units-vs-battalions)) |
-| Role | Channels **Purification** rituals on Active veilstone nodes **and on rubble (Destroyed) wells** — right-click either with the Scholar selected; the well becomes its post (guard point), so it stays there when the rite ends. Damage 0: it never fights, even to return fire — Alanthor's Glow-generator. Vulnerable to direct attack, needs escort. *(Note: L4 building level conflicts with the L1-L3 cap stated in this culture summary — the Temple/Shrine's "level 4" is the spec-refinement #5 stage, not a fourth upgrade tier in the building-upgrade system.)* |
+**Ownership.** Every wall piece takes the owner's colour on its ownership
+parts through `WallModuleArt.ApplyOwnerColor` and a MaterialPropertyBlock —
+not `BuildingFactionColorMarker`, whose per-renderer material clones would
+collapse the batching a finished perimeter of hundreds of pieces depends on.
+Name a part `Stripe_*` (or give it the saturated marker blue) to make it the
+ownership part — no code changes either way.
 
 ---
 
-## Alanthor-specific tech (code-existing)
+## Alanthor units
 
-| Tech | Researched at | Effect | Cost |
-|------|---------------|--------|------|
-| `Alanthor_StoneLedgers` | KingsCourt / Town Hall | +8 Supplies per 10u² closed compartment / min | 220 S + 40 I |
-| `Alanthor_MasonGuild` | KingsCourt / Town Hall | +15 % building HP, +20 % repair rate | 180 S + 40 I |
+Every stat is on the unit SO; the roles, trainers and gates are above. Notes
+that are rules rather than numbers:
 
-> Both predate the draft's `Stone tools / Cranes / Masonry` ladder.
-> `MasonGuild` overlaps the proposed `Masonry` tech — reconcile before
-> implementing.
+- **Swordsman, Longbowman and the Royal Stable are settled** (decision 30) —
+  no longer "TBD".
+- **Cut, never to be documented again** (decision 30): Royal Guard, L2 / L3
+  cavalry tiers, the Academy tech, the Wheel cart, Stone Ledgers, the
+  Crucible. The Holy Scholar is cut (decision 33); the Smelter is removed
+  (decision 1).
+- **Weight tags** (decision 35): Outrider Light; Cataphract Heavy; Archer,
+  Crossbowman and Longbowman Light; Ballista, Catapult, Trebuchet, Battering
+  Ram and the emplaced engines Heavy ([Combat_Pacing.md](Combat_Pacing.md)).
+
+### Ledger — court automaton
+
+Trained at the **Fortress** (decision 33); its level gate is the unit SO's
+`minBuildingLevel`. **One Ledger per player** — enforced at the training-command
+gate, same mechanism as King Lexor (live unit or queued order both count).
+
+- **Automate Facility**: a timed yield boost on one economy building, followed
+  by an *Under Automation* lockout on that building (the Aftermath chain), so
+  the same building can be re-automated only after the full cycle. Durations
+  and the boost are on the `AutomateFacility` / `UnderAutomation` ability SOs
+  (`Civs/Alanthor/Units/Ledger/Abilities/`).
+- Feedback VFX: automated buildings carry a golden rising-spark aura for the
+  boost; a larger golden burst plays at the building when the ability lands.
+
+Visual identity (2026-08-02): a **legless floating automaton** hovering on a
+**forcefield disc** tinted the owning player's colour, with a low synthesized
+hum. The open-frame torso is **full of cogwheels** (spinning constantly), it
+has **four articulated arms**, and at its centre floats a **shining crystal in
+the player's colour**, pulsing with its machinery.
+
+### King Lexor
+
+The Alanthor hero, trained at the **Fortress** (decision 33), one at a time.
+Levels, abilities and the death / revival choice: [Heroes.md](Heroes.md).
 
 ---
 
-## Decisions (resolved 2026-05-19)
+## Decisions record
 
-The original "Open design questions" pass was reviewed and answered. Each
-decision is folded into the doc body above; this block is the **decision
-record** so future readers can trace why a number or rule is the way it is.
-
-1. **`KingsCourt` → `TownHall` rename** — **confirmed.** Queue code rename
-   of tag, prefab, presentation id, and BuildCosts entries.
-2. **Garrison roster** — **resolved.** Garrison trains a **3-tier line-
-   infantry ladder** (Spearman → Swordsman → Royal Guard, L1 / L2 / L3) plus
-   the **Sentinel** in parallel as a late-game damage-sponge / siege-melee
-   unit. **Cataphract is moved out of Garrison** into a new **Royal Stable**
-   building (see [§ Royal Stable](#royal-stable--cataphract-host-new)).
-3. **Practice Range HP / pop** — **resolved.** Drop the over-tuned
-   1 500 HP / 8 pop. Use the standard cultured-building multiplier path:
-   660 / 690 / 720 HP, 0 pop.
-4. **4-tier tech ladder semantics** — **resolved.** Researching a weapon
-   / arrow / tool tier **unlocks** a per-battalion (or per-Worker)
-   upgrade button; the upgrade is then **paid for per battalion** when
-   applied. Same rule applies in all cultures. See
-   [Overview.md § Per-battalion military upgrades](Overview.md#per-battalion-military-upgrades-cross-faction-rule).
-5. **Glow source / drop rules** — **resolved.** Glow is now defined as a
-   cross-faction resource produced only by Border node state
-   changes (cleanse / convert / destroy, once per node). Drop conditions
-   defined for unit / building death and the "drop Glow" UI button. See
-   [Overview.md § The Glow economy](Overview.md#the-glow-economy-cross-faction).
-6. **`Masonry` vs `Alanthor_MasonGuild`** — **resolved.** Canonical name
-   is **Mason Guild**. The draft's `Masonry` is dropped; `Alanthor_MasonGuild`
-   is renamed to `MasonGuild` and rebalanced to the +20 % HP figure.
-7. **Practice Range ranged-weapon ladder** — **resolved.** Same 4-tier
-   per-battalion upgrade pattern as Garrison: Stone-tipped → Iron-tipped
-   → Veilstone-tipped → Glow-tipped arrows. Plus the original two
-   passives (Choreographed volleys, Fletching).
-8. **Wall economy yield** — **resolved to placeholder.** The `+8 supplies
-   per 10u² closed compartment / min` figure from `Alanthor_StoneLedgers`
-   stands as a placeholder; final value requires playtesting.
-9. **Build-cost discrepancies** — **resolved.** [BuildCosts.cs](../../Assets/Scripts/Data/TechTree/BuildingCosts.cs)
-   is the authoritative source (runtime-loaded). All cost rows above use
-   BuildCosts values; TechTree.json needs to be updated to match.
-   Exception: the Crucible's 30-Veilsteel build cost (chicken-and-egg)
-   is flagged for fixing.
+1. ~~`KingsCourt` → `TownHall` rename~~ — **superseded 2026-10-03.** The Age 0
+   Shelter becomes the **Fortress** at age-up.
+2. **Garrison roster** — Spearman, Swordsman (L1), Nobleman (L2), Sentinel
+   (L3); cavalry moved to the **Royal Stable** (Outrider L1, Cataphract L3).
+   The Royal Guard is cut (decision 30).
+3. **Archery Range** — standard cultured-building path, no population; levels
+   on the level SOs.
+4. **Tech ladders** — originally "unlock a per-battalion upgrade". **Superseded
+   2026-10-03 (decision 31):** every weapon / armour / arrow / tool / veterancy
+   tier is a faction-wide tech.
+5. **Glow tiers** — superseded: the fourth tier of every ladder is the
+   veilsteel-priced Shard tier.
+6. **Mason Guild** — canonical name; faction-wide building HP (value on the
+   tech SO).
+7. **Archery Range ladder** — Stone → Iron → Veilstone → Shard-tipped arrows,
+   plus Choreographed Volleys and Fletching.
+8. **Wall economy yield** — gone: compartment income was removed 2026-07-06 and
+   Stone Ledgers is cut.
+9. **Build-cost discrepancies** — **resolved 2026-10-03:** the SO is the only
+   source; `BuildCosts.cs` and `TechTree.json` no longer hold prices.
 
 ## Remaining open questions
 
-- **Battalion sizes** for each Garrison / Practice Range / Royal Stable
-  trainable (Spearman / Swordsman / Royal Guard / Sentinel / Archer /
-  Crossbowman / L3 ranged apex / Cataphract / L2-L3 cavalry tiers). Stats
-  currently in this doc are battalion totals but the headcount per
-  battalion is TBD.
-- **Royal Stable** numeric stats — HP base, build cost, defense, LoS —
-  all marked TBD in the section above.
-- **L2 / L3 Cataphract tiers** — does the Royal Stable train a single
-  Cataphract unit at L1 only, or does it parallel the 3-tier ladder of
-  Garrison / Practice Range with three cavalry tiers? If three tiers,
-  what are the L2 and L3 names?
-- **L3 ranged apex name** — placeholder "Longbowman" suggested. Confirm.
-- **Crucible build cost** — fix the BuildCosts.cs chicken-and-egg
-  Veilsteel requirement (likely should be 200 S + 60 I + 40 C, matching
-  the TechTree.json value).
-- **`Academy` tech effect** — currently TBD; design draft only listed the
-  name.
+- **Trading Outpost art** — a model that stands beside the outcrop while the
+  building snaps onto it (decision 28).
+- **Mine levels** — wire the Mine into `UpgradeBuildingCommandHelper` so
+  `Mine_Lvl1..3` take effect.

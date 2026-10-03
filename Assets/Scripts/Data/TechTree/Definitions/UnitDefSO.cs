@@ -45,6 +45,7 @@ namespace TheWaningBorder.Data
         public float projectileSpeed;
 
         public CostBlock cost = new CostBlock();
+        public int populationCost;
 
         public int minBuildingLevel;
 
@@ -100,6 +101,7 @@ namespace TheWaningBorder.Data
             def.trajectory     = trajectory ?? "";
             def.projectileSpeed = projectileSpeed;
             def.cost           = CloneCost(cost);
+            def.populationCost = populationCost;
             def.minBuildingLevel = minBuildingLevel;
             def.buildSpeed     = buildSpeed;
             def.gatheringSpeed = gatheringSpeed;
@@ -135,6 +137,7 @@ namespace TheWaningBorder.Data
             trajectory     = def.trajectory ?? "";
             projectileSpeed = def.projectileSpeed;
             cost           = CloneCost(def.cost);
+            populationCost = def.populationCost;
             minBuildingLevel = def.minBuildingLevel;
             buildSpeed     = def.buildSpeed;
             gatheringSpeed = def.gatheringSpeed;

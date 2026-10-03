@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Crossbowman
   m_EditorClassIdentifier: 
   id: Alanthor_Crossbowman
-  displayName: Alanthor_Crossbowman
+  displayName: Crossbowman
   unitClass: human_ranged
   hp: 70
   speed: 5
@@ -39,6 +39,7 @@ MonoBehaviour:
     Iron: 0
     Crystal: 68
     Veilsteel: 0
+  populationCost: 1
   minBuildingLevel: 2
   buildSpeed: 0
   gatheringSpeed: 0
@@ -46,6 +47,7 @@ MonoBehaviour:
   healsPerSecond: 0
   tags:
   - Ranged
+  - Light
   bonusVsTags:
   - vsTag: Cavalry
     amount: 12

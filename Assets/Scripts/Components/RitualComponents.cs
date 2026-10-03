@@ -11,8 +11,9 @@ using Unity.Mathematics;
 // ==================== Ritualist markers ====================
 
 /// <summary>
-/// Marker for Alanthor's scholar — the ritualist that performs the
-/// Purification ritual. Vulnerable channeling unit (spec §11 item 1).
+/// Marker for the Purification ritualist. NO UNIT CARRIES IT since the Holy
+/// Scholar was cut (2026-10-03); the purify systems that read it are dead
+/// until the curse/ritual pass removes them.
 /// </summary>
 public struct ScholarTag : IComponentData { }
 

@@ -12,9 +12,9 @@
   --gold:#d8a94a; --gold-soft:rgba(216,169,74,.28);
   --ok:#6fbf8a; --bad:#d9573f; --bad-soft:rgba(217,87,63,.22);
   --veil:#9f8bd6; --iron:#8a939c; --supply:#6fbf8a; --veilsteel:#6fa8d9; --well:#c86fd9;
-  --map:#131a20; --map-grid:#1c252d;
+  --map:#131a20; --map-grid:#1c252d; --grid-ink:#e8e4da;
   --f-Blue:#5b95d9; --f-Red:#d9573f; --f-Green:#6fbf8a; --f-Yellow:#d8a94a;
-  --f-Purple:#a97ad9; --f-Orange:#d98c4a; --f-Teal:#4ab8b8; --f-White:#b8b3a8;
+  --f-Purple:#a97ad9; --f-Orange:#d98c4a; --f-Teal:#4ab8b8; --f-White:#b8b3a8; --f-Border:#c86fd9;
   --display:"Barlow Condensed","Arial Narrow",sans-serif;
   --body:"IBM Plex Sans","Segoe UI",Helvetica,Arial,sans-serif;
   --mono:"IBM Plex Mono",Consolas,"Courier New",monospace;
@@ -27,9 +27,9 @@
     --gold:#a97d25; --gold-soft:rgba(169,125,37,.24);
     --ok:#2f8a52; --bad:#c04a33; --bad-soft:rgba(192,74,51,.18);
     --veil:#6f5bb0; --iron:#6a737b; --supply:#2f8a52; --veilsteel:#2f6fb8; --well:#9b4ab0;
-    --map:#e9e8e0; --map-grid:#dcdbd2;
+    --map:#e9e8e0; --map-grid:#dcdbd2; --grid-ink:#1b2126;
     --f-Blue:#2f6fb8; --f-Red:#c04a33; --f-Green:#2f8a52; --f-Yellow:#a97d25;
-    --f-Purple:#7a4ab0; --f-Orange:#b06a25; --f-Teal:#2f8a8a; --f-White:#6a737b;
+    --f-Purple:#7a4ab0; --f-Orange:#b06a25; --f-Teal:#2f8a8a; --f-White:#6a737b; --f-Border:#9b4ab0;
   }
 }
 :root[data-theme="light"]{
@@ -39,9 +39,9 @@
   --gold:#a97d25; --gold-soft:rgba(169,125,37,.24);
   --ok:#2f8a52; --bad:#c04a33; --bad-soft:rgba(192,74,51,.18);
   --veil:#6f5bb0; --iron:#6a737b; --supply:#2f8a52; --veilsteel:#2f6fb8; --well:#9b4ab0;
-  --map:#e9e8e0; --map-grid:#dcdbd2;
+  --map:#e9e8e0; --map-grid:#dcdbd2; --grid-ink:#1b2126;
   --f-Blue:#2f6fb8; --f-Red:#c04a33; --f-Green:#2f8a52; --f-Yellow:#a97d25;
-  --f-Purple:#7a4ab0; --f-Orange:#b06a25; --f-Teal:#2f8a8a; --f-White:#6a737b;
+  --f-Purple:#7a4ab0; --f-Orange:#b06a25; --f-Teal:#2f8a8a; --f-White:#6a737b; --f-Border:#9b4ab0;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--body);
@@ -71,7 +71,15 @@ h2{font-family:var(--display);font-weight:600;font-size:22px;margin:34px 0 6px}
 
 /* ── stage ── */
 .stage{position:relative;background:var(--map);border:1px solid var(--rule)}
-.stage canvas{display:block;width:100%;height:auto}
+.stage canvas{display:block;width:100%;height:auto;cursor:grab;touch-action:none}
+.stage canvas.dragging{cursor:grabbing}
+.mapctl{position:absolute;right:12px;bottom:44px;display:flex;flex-direction:column;gap:4px;
+        align-items:flex-end;pointer-events:auto}
+.mapctl .btn{width:34px;padding:3px 0;font-size:17px;line-height:1.2;text-align:center}
+.mapctl .btn.fit{font-size:11px;padding:6px 0}
+.zoomread{font-family:var(--mono);font-size:11px;color:var(--ink2);background:var(--panel);
+          border:1px solid var(--rule);border-radius:2px;padding:2px 6px;white-space:nowrap;
+          font-variant-numeric:tabular-nums}
 .hud{position:absolute;inset:0;pointer-events:none}
 .clock{position:absolute;left:16px;top:12px;font-family:var(--display);font-weight:700;
        font-size:44px;line-height:1;font-variant-numeric:tabular-nums}
@@ -80,7 +88,7 @@ h2{font-family:var(--display);font-weight:600;font-size:22px;margin:34px 0 6px}
         gap:2px 14px;font-family:var(--mono);font-size:13px;color:var(--ink2);text-align:right;
         font-variant-numeric:tabular-nums}
 .counts b{color:var(--ink);font-weight:500}
-.caption{position:absolute;left:16px;right:16px;bottom:12px;font-size:14px;color:var(--ink)}
+.caption{position:absolute;left:16px;right:70px;bottom:12px;font-size:14px;color:var(--ink)}
 .caption .t{font-family:var(--mono);font-size:12.5px;color:var(--mute)}
 
 .transport{display:grid;grid-template-columns:auto auto 1fr;gap:12px 16px;align-items:center;margin-top:12px}
@@ -100,7 +108,18 @@ h2{font-family:var(--display);font-weight:600;font-size:22px;margin:34px 0 6px}
 .mark::after{content:"";display:block;width:1px;height:6px;background:currentColor;margin:1px auto 0}
 :focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 
-.legend{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:13px;color:var(--ink2);margin:14px 0 0}
+.legend{display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--ink2);margin:14px 0 0}
+.legend .row{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center}
+.legend .lh{font-family:var(--display);font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;
+            color:var(--mute);font-weight:600;min-width:64px}
+img.gl{width:16px;height:16px;vertical-align:-3px;margin-right:6px}
+.pip{display:inline-block;width:5px;height:5px;background:var(--gold);margin-right:2px;vertical-align:1px}
+.rhead{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between}
+.rcard .v .u{font-size:14px;color:var(--mute);font-weight:600}
+.rcard table{margin-top:6px} .rcard td,.rcard th{padding:4px 6px}
+.lv{display:inline-block;font-family:var(--mono);font-size:11px;padding:0 4px;border:1px solid var(--rule);
+    border-radius:2px;color:var(--ink2);white-space:nowrap;margin:1px 0}
+.lv.up{border-color:var(--gold);color:var(--gold)} .lv.site{border-style:dashed}
 .dot{display:inline-block;width:11px;height:11px;border-radius:50%;vertical-align:-1px;margin-right:7px}
 .dot.ring{box-shadow:0 0 0 2px var(--gold)}
 .dot.halo{box-shadow:0 0 0 3px var(--bad-soft)}
@@ -140,12 +159,18 @@ canvas.chart{display:block;width:100%;height:132px}
 
   <div class="runs" id="runs"></div>
 
-  <div class="stage" id="stage">
+  <div class="stage" id="stage" tabindex="0" aria-label="Match map: drag to pan, wheel or pinch to zoom, + and - keys zoom, 0 resets">
     <canvas id="map" width="1160" height="660"></canvas>
     <div class="hud">
       <div class="clock" id="clock">0:00<small>match time</small></div>
       <div class="counts" id="counts"></div>
       <div class="caption" id="caption"></div>
+      <div class="mapctl">
+        <button type="button" class="btn" id="zin" aria-label="Zoom in">+</button>
+        <button type="button" class="btn" id="zout" aria-label="Zoom out">&minus;</button>
+        <button type="button" class="btn fit" id="zfit" aria-label="Fit the whole map">FIT</button>
+        <div class="zoomread" id="zread"></div>
+      </div>
     </div>
   </div>
 
@@ -157,6 +182,11 @@ canvas.chart{display:block;width:100%;height:132px}
   </div>
 
   <div class="legend" id="legend"></div>
+
+  <h2>Full roster</h2>
+  <div class="rhead"><p class="note" id="rosterNote"></p>
+    <div class="speeds" id="rosterMode" role="group" aria-label="Roster time"></div></div>
+  <div class="grid" id="roster"></div>
 
   <h2>The waves</h2>
   <p class="note">Every attack this match launched: when it went, how many marched, how many
@@ -334,18 +364,275 @@ function fit(cv,h){
   var g=cv.getContext("2d"); g.setTransform(r,0,0,r,0,0); return g;
 }
 
+/* ── the view: ONE world->screen transform (2026-10-03) ──────────────────
+   Everything on the map is drawn in WORLD metres through PX/PZ, so pan and
+   zoom are just this transform: a world point (cx, cz) at the canvas centre
+   and k pixels per metre, k = k0 (whole map fits) x zoom. Wheel / pinch /
+   double-click zoom about the pointer, drag pans; the buttons and keys do
+   the same about the centre. */
+var VW={z:1,cx:null,cz:null,W:0,H:0,k0:1,sel:-1};
+function worldOf(m){ return m.world||m.extent; }
+function viewReset(){ VW.z=1; VW.cx=null; VW.cz=null; }
+function clampView(m){
+  if(!m) return;
+  var w=worldOf(m);
+  if(VW.cx==null||VW.z<=1.0001){ VW.cx=(w[0]+w[2])/2; VW.cz=(w[1]+w[3])/2; }
+  VW.cx=Math.max(w[0],Math.min(w[2],VW.cx)); VW.cz=Math.max(w[1],Math.min(w[3],VW.cz));
+}
+/* Deepest zoom: 64 px per metre -- one 2 m build cell is 128 px across. */
+function zoomMax(){ return Math.max(1,64/Math.max(VW.k0,0.01)); }
+function zoomAt(f,sx,sy){
+  var m=M[sel]; if(!m||!VW.W) return;
+  clampView(m);
+  var k=VW.k0*VW.z;
+  var wx=VW.cx+(sx-VW.W/2)/k, wz=VW.cz-(sy-VW.H/2)/k;
+  VW.z=Math.max(1,Math.min(zoomMax(),VW.z*f));
+  var k2=VW.k0*VW.z;
+  VW.cx=wx-(sx-VW.W/2)/k2; VW.cz=wz+(sy-VW.H/2)/k2;
+  clampView(m); draw();
+}
+function panBy(dx,dy){
+  var m=M[sel]; if(!m) return;
+  var k=VW.k0*VW.z;
+  VW.cx-=dx/k; VW.cz+=dy/k; clampView(m); draw();
+}
+function bindView(){
+  var cv=document.getElementById("map"); if(!cv||cv.getAttribute("data-bound")) return;
+  cv.setAttribute("data-bound","1");
+  var P={};
+  function rel(e){ var r=cv.getBoundingClientRect(); return {x:e.clientX-r.left,y:e.clientY-r.top}; }
+  cv.addEventListener("wheel",function(e){
+    e.preventDefault();
+    var p=rel(e), d=e.deltaY*(e.deltaMode===1?33:e.deltaMode===2?400:1);
+    zoomAt(Math.exp(-d*0.0015),p.x,p.y);
+  },{passive:false});
+  cv.addEventListener("pointerdown",function(e){
+    try{ cv.setPointerCapture(e.pointerId); }catch(_){}
+    P[String(e.pointerId)]=rel(e); cv.classList.add("dragging");
+  });
+  cv.addEventListener("pointermove",function(e){
+    var id=String(e.pointerId); if(!(id in P)) return;
+    var p=rel(e), ids=Object.keys(P), q=P[id];
+    if(ids.length===1){ P[id]=p; panBy(p.x-q.x,p.y-q.y); return; }
+    var o=P[ids[0]===id?ids[1]:ids[0]];
+    var d0=Math.hypot(q.x-o.x,q.y-o.y)||1, d1=Math.hypot(p.x-o.x,p.y-o.y)||1;
+    P[id]=p;
+    zoomAt(d1/d0,(p.x+o.x)/2,(p.y+o.y)/2);
+  });
+  function up(e){ delete P[String(e.pointerId)];
+    if(!Object.keys(P).length) cv.classList.remove("dragging"); }
+  cv.addEventListener("pointerup",up); cv.addEventListener("pointercancel",up);
+  cv.addEventListener("dblclick",function(e){ var p=rel(e); zoomAt(e.shiftKey?0.5:2,p.x,p.y); });
+  function mid(f){ zoomAt(f,VW.W/2,VW.H/2); }
+  document.getElementById("zin").onclick=function(){ mid(1.6); };
+  document.getElementById("zout").onclick=function(){ mid(1/1.6); };
+  document.getElementById("zfit").onclick=function(){ viewReset(); draw(); };
+  document.getElementById("stage").addEventListener("keydown",function(e){
+    var k=e.key, h=true;
+    if(k==="+"||k==="=") mid(1.6);
+    else if(k==="-"||k==="_") mid(1/1.6);
+    else if(k==="0"){ viewReset(); draw(); }
+    else if(k==="ArrowLeft") panBy(80,0);
+    else if(k==="ArrowRight") panBy(-80,0);
+    else if(k==="ArrowUp") panBy(0,80);
+    else if(k==="ArrowDown") panBy(0,-80);
+    else h=false;
+    if(h) e.preventDefault();
+  });
+}
+
+/* ── symbols: what a thing IS and what LEVEL it is (2026-10-03) ─────────
+   A building's kind comes from its tech-tree id (MapTrace "type", or the
+   Metrics_BuildingEvents id on a sampled match), and from its display name
+   on a trace written before the type was recorded. */
+function bkind(b){
+  var s=String(b.ty||b.id||"").toLowerCase().replace(/[^a-z]/g,"");
+  if(/cursewell/.test(s)) return "well";
+  if(/cursenode/.test(s)||b.f==="Border") return "cursenode";
+  if(/fortress|shelter|^hall|keep|kingscourt/.test(s)) return "fortress";
+  if(/gatherer/.test(s)) return "gatherer";
+  if(/veilstonemine|veilsteel|foundry|smelter|veilworks/.test(s)) return "veilmine";
+  if(/mine/.test(s)) return "mine";
+  if(/gate/.test(s)) return "gate";
+  if(/walltower|tower|totem/.test(s)) return "tower";
+  if(/wall|palisade/.test(s)||s==="building") return "wall";
+  if(/hut$|^hut|house|longhouse/.test(s)) return "house";
+  if(/barracks|garrison|warhall|musteryard/.test(s)) return "barracks";
+  if(/archery|range|huntinglodge/.test(s)) return "range";
+  if(/stable|pasture/.test(s)) return "stable";
+  if(/siege|workshop|emplacement/.test(s)) return "siege";
+  if(/chapel/.test(s)) return "chapel";
+  if(/temple|reliquary|mending|stonehold|sect/.test(s)) return "temple";
+  if(/vault|bazaar/.test(s)) return "vault";
+  if(/trad|outpost|hub/.test(s)) return "trade";
+  return "generic";
+}
+var BKINDS=[["fortress","Fortress / Shelter"],["house","House (Hut)"],["gatherer","Gatherer’s Hut"],
+  ["mine","Mine"],["veilmine","Veilstone Mine"],["barracks","Barracks"],["range","Archery Range"],
+  ["stable","Royal Stable"],["siege","Siege Yard"],["temple","Temple / sect hall"],["chapel","Chapel"],
+  ["vault","Vault"],["trade","Trading Outpost"],["tower","Watch Tower"],["gate","Gate"],["wall","Wall"],
+  ["cursenode","Curse node"],["well","Curse well"],["generic","Other"]];
+
+/* A unit's shape from its MapTrace class/flags when recorded, else from its
+   id. [name, cls, fl]: cls is UnitTag.Class (0 melee, 1 ranged, 2 siege,
+   3 support, 4 magic, 5 economy, 6 worker, 7 scout); fl 1 cavalry, 2 hero,
+   4 curse. */
+function ushape(t){
+  var n=String(t[0]||"").toLowerCase(), c=t[1], fl=t[2]|0;
+  if(fl&4||/crystalling|veilstinger|godsplinter|curse/.test(n)) return "curse";
+  if(fl&2||/king|lexor|hero/.test(n)) return "hero";
+  if(c==null){
+    if(/worker|builder|miner|caravan/.test(n)) return "worker";
+    if(/scout/.test(n)) return "scout";
+    if(/cataphract|outrider|rider|knight|cavalry|horse|lancer|hussar/.test(n)) return "cav";
+    if(/ballista|catapult|trebuchet|ram$|mangonel|siege/.test(n)) return "siege";
+    if(/archer|bow|sling|javelin|skirmish/.test(n)) return "ranged";
+    if(/litharch|priest|healer|ledger|scholar|tinker|lorekeeper|mystic/.test(n)) return "support";
+    return n&&n!=="?"?"melee":"dot";
+  }
+  if(fl&1) return "cav";
+  return ({0:"melee",1:"ranged",2:"siege",3:"support",4:"support",5:"worker",6:"worker",7:"scout"})[c]||"melee";
+}
+var USHAPES=[["melee","Infantry"],["ranged","Ranged"],["cav","Cavalry"],["siege","Siege"],
+  ["worker","Worker"],["scout","Scout"],["support","Support / magic"],["hero","Hero"],["curse","Curse unit"]];
+
+/* Building glyphs, drawn in a unit box centred on (x, y) and s pixels across. */
+function glyph(g,kind,x,y,s,col){
+  if(kind==="wall") return;
+  g.save(); g.translate(x,y); g.scale(s,s);
+  g.strokeStyle=col; g.fillStyle=col; g.lineWidth=Math.max(1.1,s/11)/s;
+  g.lineJoin="round"; g.lineCap="round";
+  var P=function(pts,close){ g.beginPath(); g.moveTo(pts[0],pts[1]);
+    for(var i=2;i<pts.length;i+=2) g.lineTo(pts[i],pts[i+1]); if(close) g.closePath(); g.stroke(); };
+  switch(kind){
+  case "fortress":
+    P([-.4,.4,-.4,-.4,-.22,-.4,-.22,-.24,-.08,-.24,-.08,-.4,.08,-.4,.08,-.24,.22,-.24,.22,-.4,.4,-.4,.4,.4],true);
+    g.beginPath(); g.moveTo(-.12,.4); g.lineTo(-.12,.14); g.arc(0,.14,.12,Math.PI,0); g.lineTo(.12,.4); g.stroke(); break;
+  case "house": P([-.34,.4,-.34,-.06,0,-.4,.34,-.06,.34,.4],true); break;
+  case "gatherer":
+    P([0,.42,0,-.42]);
+    [-.26,-.04,.18].forEach(function(yy){ P([-.24,yy+.14,0,yy,.24,yy+.14]); }); break;
+  case "mine":
+    g.beginPath(); g.moveTo(-.42,-.12); g.quadraticCurveTo(0,-.52,.42,-.12); g.stroke();
+    P([0,-.31,0,.42]); break;
+  case "veilmine":
+    g.globalAlpha=.55; g.fillStyle=css("--veil");
+    g.beginPath(); g.moveTo(0,-.42); g.lineTo(.32,-.06); g.lineTo(0,.42); g.lineTo(-.32,-.06); g.closePath(); g.fill();
+    g.globalAlpha=1; P([0,-.42,.32,-.06,0,.42,-.32,-.06],true); P([-.32,-.06,.32,-.06]); break;
+  case "barracks":
+    P([-.36,-.36,.36,.36]); P([.36,-.36,-.36,.36]);
+    P([.1,.28,.28,.1]); P([-.28,.1,-.1,.28]); break;
+  case "range":
+    g.beginPath(); g.arc(0,0,.38,0,Math.PI*2); g.stroke();
+    g.beginPath(); g.arc(0,0,.21,0,Math.PI*2); g.stroke();
+    g.beginPath(); g.arc(0,0,.06,0,Math.PI*2); g.fill(); break;
+  case "stable":
+    g.lineWidth*=1.6; g.beginPath(); g.arc(0,-.04,.3,Math.PI*0.72,Math.PI*2.28); g.stroke(); break;
+  case "siege":
+    g.beginPath(); g.arc(0,0,.37,0,Math.PI*2); g.stroke();
+    g.beginPath(); g.arc(0,0,.07,0,Math.PI*2); g.fill();
+    P([-.37,0,.37,0]); P([0,-.37,0,.37]); P([-.26,-.26,.26,.26]); P([.26,-.26,-.26,.26]); break;
+  case "temple": P([-.4,-.02,0,-.42,.4,-.02],true); P([-.3,-.02,-.3,.4,.3,.4,.3,-.02]); P([0,.4,0,.14]); break;
+  case "chapel": g.lineWidth*=1.4; P([0,-.42,0,.42]); P([-.24,-.14,.24,-.14]); break;
+  case "vault":
+    g.beginPath(); g.arc(0,0,.38,0,Math.PI*2); g.stroke();
+    g.beginPath(); g.arc(0,0,.22,0,Math.PI*2); g.stroke(); P([0,-.12,0,.12]); break;
+  case "trade":
+    P([-.38,-.14,.38,-.14]); P([.22,-.28,.38,-.14,.22,0]);
+    P([.38,.16,-.38,.16]); P([-.22,.02,-.38,.16,-.22,.3]); break;
+  case "tower": P([-.15,.42,-.15,-.3,.15,-.3,.15,.42],true); P([-.27,-.42,-.27,-.3,.27,-.3,.27,-.42]); break;
+  case "gate": g.beginPath(); g.moveTo(-.34,.42); g.lineTo(-.34,-.04); g.arc(0,-.04,.34,Math.PI,0); g.lineTo(.34,.42); g.stroke(); break;
+  case "cursenode": case "well":
+    g.fillStyle=css("--well"); g.beginPath();
+    var n=kind==="well"?8:4, ro=.44, ri=kind==="well"?.2:.14;
+    for(var i=0;i<n*2;i++){ var a=i*Math.PI/n-Math.PI/2, r=i%2?ri:ro;
+      i?g.lineTo(Math.cos(a)*r,Math.sin(a)*r):g.moveTo(Math.cos(a)*r,Math.sin(a)*r); }
+    g.closePath(); g.fill(); break;
+  default: g.fillRect(-.12,-.12,.24,.24);
+  }
+  g.restore();
+}
+
+/* A unit, r pixels in radius. Shapes are FILLED in the faction colour so a
+   swarm still reads as an army; class is the silhouette. */
+function unitMark(g,shape,x,y,r,col){
+  g.fillStyle=col; g.strokeStyle=col; g.lineWidth=1.3;
+  var star=function(n,ro,ri){ g.beginPath();
+    for(var i=0;i<n*2;i++){ var a=i*Math.PI/n-Math.PI/2, rr=i%2?ri:ro;
+      i?g.lineTo(x+Math.cos(a)*rr,y+Math.sin(a)*rr):g.moveTo(x+Math.cos(a)*rr,y+Math.sin(a)*rr); }
+    g.closePath(); };
+  switch(shape){
+  case "ranged": g.beginPath(); g.moveTo(x,y-r*1.25); g.lineTo(x+r*1.15,y+r*.85); g.lineTo(x-r*1.15,y+r*.85);
+    g.closePath(); g.fill(); break;
+  case "cav": g.beginPath(); g.moveTo(x,y-r*1.35); g.lineTo(x+r*1.15,y); g.lineTo(x,y+r*1.35); g.lineTo(x-r*1.15,y);
+    g.closePath(); g.fill(); break;
+  case "siege": g.fillRect(x-r*1.15,y-r*1.15,r*2.3,r*2.3);
+    g.strokeStyle=css("--ink"); g.lineWidth=1; g.strokeRect(x-r*1.15,y-r*1.15,r*2.3,r*2.3); break;
+  case "worker": g.beginPath(); g.arc(x,y,r*.75,0,Math.PI*2); g.stroke(); break;
+  case "scout": g.beginPath(); g.moveTo(x,y-r*1.2); g.lineTo(x+r,y); g.lineTo(x,y+r*1.2); g.lineTo(x-r,y);
+    g.closePath(); g.stroke(); break;
+  case "support": var a=r*.42;
+    g.fillRect(x-a,y-r*1.1,a*2,r*2.2); g.fillRect(x-r*1.1,y-a,r*2.2,a*2); break;
+  case "hero": star(5,r*1.9,r*.8); g.fill(); g.strokeStyle=css("--gold"); g.lineWidth=1.3; g.stroke(); break;
+  case "curse": g.fillStyle=css("--well"); star(4,r*1.5,r*.5); g.fill(); break;
+  default: g.beginPath(); g.arc(x,y,r,0,Math.PI*2); g.fill();
+  }
+}
+
+/* Level pips along the footprint's top edge: one gold pip per level. */
+function pips(g,lv,ww,hh){
+  var mn=Math.min(ww,hh), p=Math.max(2,Math.min(5,mn/7)), n=Math.min(lv,5);
+  g.fillStyle=css("--gold");
+  g.strokeStyle=css("--map"); g.lineWidth=1;
+  for(var i=0;i<n;i++){
+    var px=-ww/2+2+i*(p+1.5), py=-hh/2+2;
+    g.strokeRect(px,py,p,p); g.fillRect(px,py,p,p);
+  }
+  if(lv>5){ g.font="600 "+Math.round(p*2.2)+"px "+css("--display");
+    g.textAlign="left"; g.textBaseline="top"; g.fillText(String(lv),-ww/2+2+n*(p+1.5),-hh/2+1); }
+}
+
+/* The level an id held at time t, from its [[t, level], ...] change list. */
+function lvAt(list,t,dflt){
+  var v=dflt; if(!list) return v;
+  for(var i=0;i<list.length;i++){ if(list[i][0]>t) break; v=list[i][1]; }
+  return v;
+}
+
+/* Small images of the same marks for the legend and the roster tables.
+   Cached per kind and colour; cleared when the theme changes. */
+var GC={};
+function markURL(what,kind,col){
+  var key=what+"|"+kind+"|"+col;
+  if(GC[key]) return GC[key];
+  var c=document.createElement("canvas"); c.width=32; c.height=32;
+  var g=c.getContext("2d");
+  if(what==="b"){
+    g.strokeStyle=col; g.globalAlpha=.9; g.lineWidth=2;
+    if(kind==="wall"){ g.fillStyle=col; g.globalAlpha=.35; g.fillRect(3,11,26,10); g.globalAlpha=1; g.strokeRect(3,11,26,10); }
+    else { g.strokeRect(2,2,28,28); g.globalAlpha=1; glyph(g,kind,16,16,22,css("--ink")); }
+  } else unitMark(g,kind,16,16,6,col);
+  return (GC[key]=c.toDataURL());
+}
+function markImg(what,kind,col,title){
+  return '<img class="gl" alt="" src="'+markURL(what,kind,col)+'"'+(title?' title="'+esc(title)+'"':'')+'>';
+}
+
 function draw(){
   var m=M[sel]; if(!m) return;
   var cv=document.getElementById("map"); if(!cv) return;
   var W=cv.clientWidth||900, H=Math.round(W*0.57);
   var g=fit(cv,H);
-  var w=m.world||m.extent;
+  var w=worldOf(m);
   var spanX=Math.max(1,w[2]-w[0]), spanZ=Math.max(1,w[3]-w[1]);
-  var pad=10, k=Math.min((W-pad*2)/spanX,(H-pad*2)/spanZ);
-  var ox=(W-spanX*k)/2, oz=(H-spanZ*k)/2;
-  var PX=function(x){ return ox+(x-w[0])*k; };
+  var pad=10, k0=Math.min((W-pad*2)/spanX,(H-pad*2)/spanZ);
+  VW.W=W; VW.H=H; VW.k0=k0; clampView(m);
+  var k=k0*VW.z, cx=VW.cx, cz=VW.cz;
+  var PX=function(x){ return W/2+(x-cx)*k; };
   /* Z grows north in the sim, screen y grows down. */
-  var PZ=function(z){ return oz+(w[3]-z)*k; };
+  var PZ=function(z){ return H/2-(z-cz)*k; };
+  var vx0=cx-W/2/k, vx1=cx+W/2/k, vz0=cz-H/2/k, vz1=cz+H/2/k;
+  var on=function(px,py,m2){ return px>-m2&&py>-m2&&px<W+m2&&py<H+m2; };
 
   g.clearRect(0,0,W,H);
   g.fillStyle=css("--map"); g.fillRect(0,0,W,H);
@@ -366,40 +653,85 @@ function draw(){
     g.fillRect(PX(w[0]), PZ(w[3]), spanX*k, spanZ*k); g.globalAlpha=1;
   }
 
-  /* grid at a scale you can count in */
-  var step=spanX>600?200:spanX>300?100:50;
-  g.strokeStyle=css("--map-grid"); g.lineWidth=1;
-  for(var gx=Math.ceil(w[0]/step)*step; gx<=w[2]; gx+=step){
-    g.beginPath(); g.moveTo(Math.round(PX(gx))+0.5,0); g.lineTo(Math.round(PX(gx))+0.5,H); g.stroke(); }
-  for(var gz=Math.ceil(w[1]/step)*step; gz<=w[3]; gz+=step){
-    g.beginPath(); g.moveTo(0,Math.round(PZ(gz))+0.5); g.lineTo(W,Math.round(PZ(gz))+0.5); g.stroke(); }
+  /* THE BUILD GRID (2026-10-03). BuildGrid.cs: 2 m cells anchored at the
+     WORLD ORIGIN, so a line sits at every multiple of 2 m. Drawn at cell
+     resolution once a cell is big enough to see, coarsening by fives
+     (2 m, 10 m, 50 m, 250 m) as you zoom out; the finer level fades in
+     rather than popping, and every fifth line is a stronger major line. */
+  var cell=m.grid||2, cpx=cell*k, steps=[1,5,25,125,625], si=0;
+  while(si<steps.length-2 && steps[si]*cpx<10) si++;
+  var fine=steps[si]*cell, major=steps[si+1]*cell;
+  var fade=Math.max(0,Math.min(1,(steps[si]*cpx-10)/18));
+  var gx0=Math.max(w[0],vx0), gx1=Math.min(w[2],vx1), gz0=Math.max(w[1],vz0), gz1=Math.min(w[3],vz1);
+  var top=Math.max(0,PZ(w[3])), bot=Math.min(H,PZ(w[1])), lft=Math.max(0,PX(w[0])), rgt=Math.min(W,PX(w[2]));
+  function lines(step,a){
+    if(a<=0.01) return;
+    g.strokeStyle=css("--grid-ink"); g.globalAlpha=a; g.lineWidth=1; g.beginPath();
+    for(var n=Math.ceil(gx0/step); n*step<=gx1; n++){ var sx=Math.round(PX(n*step))+0.5; g.moveTo(sx,top); g.lineTo(sx,bot); }
+    for(var n2=Math.ceil(gz0/step); n2*step<=gz1; n2++){ var sy=Math.round(PZ(n2*step))+0.5; g.moveTo(lft,sy); g.lineTo(rgt,sy); }
+    g.stroke(); g.globalAlpha=1;
+  }
+  lines(fine,.13*fade); lines(major,.24);
+  var zr=document.getElementById("zread");
+  if(zr) zr.textContent="×"+(VW.z<10?VW.z.toFixed(1):Math.round(VW.z))+" · grid "+
+    (fade>0.05?fine:major)+" m";
 
   /* region seeds, when the trace recorded them */
   (m.regions||[]).forEach(function(r){
+    var px=PX(r.x), py=PZ(r.z); if(!on(px,py,80)) return;
     g.fillStyle=css("--mute"); g.globalAlpha=.5;
-    g.font='11px '+css("--display")||"sans-serif";
+    g.font=Math.round(11*Math.min(2,Math.sqrt(VW.z)))+'px '+(css("--display")||"sans-serif");
     g.textAlign="center"; g.textBaseline="middle";
-    g.fillText(r.name, PX(r.x), PZ(r.z));
+    g.fillText(r.name, px, py);
     g.globalAlpha=1;
   });
 
-  /* resource nodes — the map's fixed furniture */
+  /* resource nodes — the map's fixed furniture. Every node is 2 x 2 cells
+     (4 m, Build_Grid.md 3); drawn at that footprint once it is visible. */
   (m.nodes||[]).forEach(function(n){
+    var px=PX(n.x), py=PZ(n.z); if(!on(px,py,20)) return;
     g.fillStyle=css(NODE[n.kind]||"--mute"); g.globalAlpha=.85;
-    g.beginPath(); g.arc(PX(n.x),PZ(n.z), n.kind==="well"?5:3, 0, Math.PI*2); g.fill();
+    if(4*k>=7){
+      var s=4*k; g.globalAlpha=.5; g.fillRect(px-s/2,py-s/2,s,s);
+      g.globalAlpha=.9; g.strokeStyle=g.fillStyle; g.lineWidth=1; g.strokeRect(px-s/2,py-s/2,s,s);
+    } else { g.beginPath(); g.arc(px,py, n.kind==="well"?5:3, 0, Math.PI*2); g.fill(); }
     g.globalAlpha=1;
   });
 
   var t=R.t;
 
-  /* buildings, with their real footprints, alive at t */
+  /* BUILDINGS ON THE GRID. A building the trace placed on cells (g =
+     [minCellX, minCellZ, cellsX, cellsZ]) is drawn from its CELLS, rounded
+     exactly as the grid lines are, so its edges sit on them. Anything off
+     the grid (walls are drawn, not snapped) is drawn at its recorded centre,
+     size and yaw. A site is dashed until it completes; gold pips are its
+     level. */
+  var ink=css("--ink");
   (m.blds||[]).forEach(function(b){
     if(b.t0>t) return;
     if(b.t1!=null && b.t1<=t) return;
-    var c=fhue(b.f);
-    var x=PX(b.x-b.w/2), y=PZ(b.z+b.h/2), ww=b.w*k, hh=b.h*k;
-    g.fillStyle=c; g.globalAlpha=.22; g.fillRect(x,y,ww,hh); g.globalAlpha=1;
-    g.strokeStyle=c; g.lineWidth=1; g.strokeRect(x,y,ww,hh);
+    var c=fhue(b.f), kind=bkind(b);
+    var site=(b.tc!==undefined)&&(b.tc==null||t<b.tc);
+    var x,y,ww,hh,rot=0;
+    if(b.g){
+      var x0=b.g[0]*cell, z0=b.g[1]*cell;
+      var X0=Math.round(PX(x0)), X1=Math.round(PX(x0+b.g[2]*cell));
+      var Y0=Math.round(PZ(z0+b.g[3]*cell)), Y1=Math.round(PZ(z0));
+      ww=Math.max(1,X1-X0); hh=Math.max(1,Y1-Y0); x=X0+0.5; y=Y0+0.5;
+    } else {
+      ww=Math.max(1,b.w*k); hh=Math.max(1,b.h*k); x=PX(b.x)-ww/2; y=PZ(b.z)-hh/2;
+      rot=(b.yaw||0)*Math.PI/180;
+    }
+    if(!on(x+ww/2,y+hh/2,Math.max(ww,hh)+4)) return;
+    g.save(); g.translate(x+ww/2,y+hh/2); if(rot) g.rotate(rot);
+    g.fillStyle=c; g.globalAlpha=site?.10:(kind==="wall"?.5:.24); g.fillRect(-ww/2,-hh/2,ww,hh); g.globalAlpha=1;
+    g.strokeStyle=c; g.lineWidth=1; if(site) g.setLineDash([3,2]);
+    g.strokeRect(-ww/2,-hh/2,ww,hh); g.setLineDash([]);
+    var mn=Math.min(ww,hh);
+    if(mn>=9){ g.globalAlpha=site?.55:.92; glyph(g,kind,0,0,Math.min(48,mn*.62),ink); g.globalAlpha=1; }
+    var lv=lvAt(b.lv,t,0);
+    if(lv>0 && mn>=8) pips(g,lv,ww,hh);
+    g.restore();
   });
 
   /* UNITS, TWEENED BY IDENTITY -- NEVER BY POSITION IN THE LIST.
@@ -414,8 +746,13 @@ function draw(){
      Sampled matches -- recorded before the trace existed -- carry id 0 on
      every point, and are SNAPPED rather than tweened. A 15 s sample honestly
      shown as a slideshow beats a smooth animation of something that never
-     happened. */
+     happened.
+     SHAPE IS TYPE (2026-10-03): m.utype maps a unit id to an index into
+     m.utypes; no entry (a sampled match) draws the plain dot it always did. */
   var fr=m.frames||[];
+  if(!m._ush) m._ush=(m.utypes||[]).map(ushape);
+  var UM=m.utype||{}, UL=m.ulv||{};
+  var ur=2.7*Math.max(1,Math.min(2.6,Math.sqrt(VW.z)));
   if(fr.length){
     var i=0; while(i<fr.length-1 && fr[i+1].t<=t) i++;
     var a=fr[i], b2=fr[Math.min(i+1,fr.length-1)];
@@ -430,11 +767,28 @@ function draw(){
         var x=cur[1]+(q[1]-cur[1])*f, z=cur[2]+(q[2]-cur[2])*f;
         var fl=cur[3]|0;
         var px=PX(x), pz=PZ(z);
-        if(fl&4){ g.beginPath(); g.arc(px,pz,5.5,0,Math.PI*2);
+        if(!on(px,pz,12)) continue;
+        if(fl&4){ g.beginPath(); g.arc(px,pz,ur*2.05,0,Math.PI*2);
                   g.fillStyle=css("--bad-soft"); g.fill(); }
-        if(fl&2){ g.beginPath(); g.arc(px,pz,4.6,0,Math.PI*2);
+        if(fl&2){ g.beginPath(); g.arc(px,pz,ur*1.75,0,Math.PI*2);
                   g.strokeStyle=css("--gold"); g.lineWidth=1.4; g.stroke(); }
-        g.fillStyle=c; g.beginPath(); g.arc(px,pz,2.7,0,Math.PI*2); g.fill();
+        var ti=UM[cur[0]], sh=(ti==null)?"dot":m._ush[ti];
+        unitMark(g,sh,px,pz,ur,c);
+        /* rank / hero level, once there is room to read it */
+        var ll=UL[cur[0]];
+        if(ll && ur>=3.4){
+          var lv=lvAt(ll,t,1);
+          if(sh==="hero"){
+            g.fillStyle=css("--gold"); g.font="700 "+Math.round(ur*2.4)+"px "+css("--display");
+            g.textAlign="center"; g.textBaseline="bottom"; g.fillText(String(lv),px,pz-ur*1.9);
+          } else if(lv>1){
+            g.strokeStyle=css("--gold"); g.lineWidth=1.3;
+            for(var rk=0;rk<Math.min(4,lv-1);rk++){
+              var yy=pz-ur*1.6-rk*2.6;
+              g.beginPath(); g.moveTo(px-ur*.8,yy+1.2); g.lineTo(px,yy-.4); g.lineTo(px+ur*.8,yy+1.2); g.stroke();
+            }
+          }
+        }
       }
     });
   }
@@ -444,7 +798,7 @@ function draw(){
     var age=t-d.t; if(age<0||age>10) return;
     g.strokeStyle=fhue(d.v)||css("--bad");
     g.globalAlpha=(1-age/10)*.85; g.lineWidth=1.6;
-    g.beginPath(); g.arc(PX(d.x),PZ(d.z),3+age*1.7,0,Math.PI*2); g.stroke();
+    g.beginPath(); g.arc(PX(d.x),PZ(d.z),3+age*1.7*Math.min(3,Math.sqrt(VW.z)),0,Math.PI*2); g.stroke();
     g.globalAlpha=1;
   });
 
@@ -472,6 +826,110 @@ function draw(){
         ' · <b>'+best.army+'</b> marched'+(best.arrived?', '+best.arrived+' arrived':', none arrived')+
         ' <span class="t">'+esc(best.why)+'</span>';
   document.getElementById("caption").innerHTML=cap;
+
+  renderRoster(false);
+}
+
+/* ── the full roster (2026-10-03) ─────────────────────────────────────────
+   Every unit id and building id each faction had, with its count, from the
+   15 s metrics samples (m.roster: change events per faction). "Replay time"
+   follows the scrubber; "Match end" is the last sample. Building LEVELS come
+   from the trace (MapTrace L lines), counted over the buildings standing at
+   that moment; a match without them shows counts only. */
+var RS={mode:"live",sig:""};
+function rosterCounts(ch,t){
+  var o={};
+  for(var i=0;i<ch.length;i++){ var c=ch[i]; if(c[0]>t) break;
+    if(c[2]>0) o[c[1]]=c[2]; else delete o[c[1]]; }
+  return o;
+}
+function pretty(id){
+  return String(id).replace(/^(Alanthor|Runai|Feraldis|Sect)_/,"").replace(/_/g," ")
+    .replace(/([a-z])([A-Z])/g,"$1 $2");
+}
+function renderRoster(force){
+  var m=M[sel], host=document.getElementById("roster"); if(!m||!host) return;
+  var r=m.roster||{}, ts=r.ts||[];
+  var end=RS.mode==="end";
+  var T=end?Infinity:R.t;
+  var si=-1; for(var i=0;i<ts.length;i++){ if(ts[i]<=T) si=i; else break; }
+  if(m._lvl===undefined) m._lvl=(m.blds||[]).some(function(b){ return b.ty&&(b.lv||b.tc!==undefined||b.g); });
+  /* Re-render only when something it shows can have changed: a new metrics
+     sample, or (with trace levels) a new second of match time -- the latter
+     throttled to four times a wall-clock second, with a trailing call so the
+     table always settles on where the scrubber stopped. */
+  var sig=sel+"|"+RS.mode+"|"+si+(m._lvl&&!end?"|"+Math.floor(R.t):"");
+  if(!force && sig===RS.sig) return;
+  var now=Date.now();
+  if(!force && sig.split("|")[2]===String(RS.si) && now-(RS.at||0)<250){
+    clearTimeout(RS.tm); RS.tm=setTimeout(function(){ renderRoster(false); },260); return;
+  }
+  RS.sig=sig; RS.si=si; RS.at=now;
+  var note=document.getElementById("rosterNote");
+  if(!ts.length){
+    if(note) note.textContent="No per-id unit or building samples in this match (Metrics_Units.csv / Metrics_Buildings.csv).";
+    host.innerHTML=""; return;
+  }
+  if(note) note.textContent= si<0
+    ? "Before the first metrics sample ("+mmss(ts[0])+")."
+    : (end?"At the last sample, ":"At the replay time: counts from the 15 s sample at ")+mmss(ts[si])+
+      (m._lvl?". Building levels from the trace at "+mmss(end?m.tmax:R.t)+".":
+              ". This match’s trace predates building levels, so levels are not shown.");
+  var ids=r.ids||[];
+  /* unit shape by name: the trace's own class when it recorded one */
+  var shapeOf={};
+  (m.utypes||[]).forEach(function(u,i){ shapeOf[u[0]]=(m._ush||[])[i]||ushape(u); });
+  var Tl=end?(m.tmax||Infinity):R.t;
+  var lv={};
+  if(m._lvl) (m.blds||[]).forEach(function(b){
+    if(!b.ty||b.t0>Tl||(b.t1!=null&&b.t1<=Tl)) return;
+    var site=(b.tc!==undefined)&&(b.tc==null||Tl<b.tc);
+    var key=b.f+"|"+b.ty, e=(lv[key]=lv[key]||{});
+    var l=site?"site":lvAt(b.lv,Tl,0);
+    e[l]=(e[l]||0)+1;
+  });
+  var facs={};
+  Object.keys(r.u||{}).forEach(function(f){ facs[f]=1; });
+  Object.keys(r.b||{}).forEach(function(f){ facs[f]=1; });
+  host.innerHTML="";
+  Object.keys(facs).sort().forEach(function(f){
+    var uc=si<0?{}:rosterCounts((r.u||{})[f]||[],ts[si]);
+    var bc=si<0?{}:rosterCounts((r.b||{})[f]||[],ts[si]);
+    var urows=Object.keys(uc).map(function(k){ return [ids[k],uc[k]]; }).sort(function(a,b){ return b[1]-a[1]||(a[0]<b[0]?-1:1); });
+    var brows=Object.keys(bc).map(function(k){ return [ids[k],bc[k]]; }).sort(function(a,b){ return b[1]-a[1]||(a[0]<b[0]?-1:1); });
+    var ut=urows.reduce(function(a,x){ return a+x[1]; },0), bt=brows.reduce(function(a,x){ return a+x[1]; },0);
+    var col=fhue(f);
+    var d=document.createElement("div"); d.className="card rcard";
+    d.innerHTML='<div class="k"><span class="swatch" style="background:'+col+'"></span>'+esc(f)+'</div>'+
+      '<div class="v">'+ut+'<span class="u"> units · </span>'+bt+'<span class="u"> buildings</span></div>'+
+      (urows.length?'<table><thead><tr><th>Unit</th><th class="num">Count</th></tr></thead><tbody>'+
+        urows.map(function(x){
+          return '<tr><td>'+markImg("u",shapeOf[x[0]]||ushape([x[0],null,0]),col)+
+            '<span title="'+esc(x[0])+'">'+esc(pretty(x[0]))+'</span></td><td class="num">'+x[1]+'</td></tr>';
+        }).join("")+'</tbody></table>':'<div class="s">no units</div>')+
+      (brows.length?'<table><thead><tr><th>Building</th><th>Levels</th><th class="num">Count</th></tr></thead><tbody>'+
+        brows.map(function(x){
+          var e=lv[f+"|"+x[0]], chips="";
+          if(e) chips=Object.keys(e).sort().map(function(l){
+            return l==="site"?'<span class="lv site">site ×'+e[l]+'</span>'
+              :'<span class="lv'+(l>0?' up':'')+'">Lvl '+l+' ×'+e[l]+'</span>'; }).join(" ");
+          return '<tr><td>'+markImg("b",bkind({ty:x[0],f:f}),col)+
+            '<span title="'+esc(x[0])+'">'+esc(pretty(x[0]))+'</span></td><td>'+chips+'</td>'+
+            '<td class="num">'+x[1]+'</td></tr>';
+        }).join("")+'</tbody></table>':'<div class="s">no buildings</div>');
+    host.appendChild(d);
+  });
+}
+function renderRosterMode(){
+  var host=document.getElementById("rosterMode"); if(!host) return;
+  host.textContent="";
+  [["live","Replay time"],["end","Match end"]].forEach(function(p){
+    var b=document.createElement("button");
+    b.type="button"; b.className="btn"; b.textContent=p[1];
+    b.setAttribute("aria-pressed",String(RS.mode===p[0]));
+    b.addEventListener("click",function(){ RS.mode=p[0]; renderRosterMode(); renderRoster(true); });
+    host.appendChild(b);
+  });
 }
 
 function tick(ts){
@@ -741,21 +1199,43 @@ function renderHead(){
   document.getElementById("lede").innerHTML= m.fidelity==="trace"
     ? 'Every unit sampled once a second with its state. A <b>gold ring</b> is a unit in '+
       'formation; a <b>red halo</b> is one with a target. Buildings are drawn at their real '+
-      'footprint, and the map’s regions and resource nodes are the ones the match actually had.'
+      'footprint on the 2 m build grid, and the map’s regions and resource nodes are the ones the '+
+      'match actually had. A unit’s shape is its class and a building’s glyph its type, with gold pips '+
+      'for its level (see the legend). Drag to pan, scroll or pinch to zoom.'
     : 'Recorded before the trace existed, so units are sampled every 15 s without formation or '+
       'combat state — but the map underneath is real: true world extent, every resource node '+
-      'from the map asset, and every building at its true footprint.';
+      'from the map asset, and every building at its true footprint on the 2 m build grid, marked '+
+      'with its type. Drag to pan, scroll or pinch to zoom.';
+  /* THE LEGEND IS DRAWN BY THE SAME CODE AS THE MAP (markURL), so a symbol
+     here can never disagree with a symbol there. */
+  var mu=css("--mute");
   document.getElementById("legend").innerHTML=
+    '<div class="row"><span class="lh">Factions</span>'+
     Object.keys(m.series||{}).sort().map(function(f){
       return '<span><span class="dot" style="background:'+fhue(f)+'"></span>'+f+'</span>'; }).join("")+
     (m.fidelity==="trace"
       ? '<span><span class="dot ring" style="background:var(--mute)"></span>in formation</span>'+
         '<span><span class="dot halo" style="background:var(--mute)"></span>fighting</span>' : "")+
-    '<span><span class="sq" style="border-color:var(--mute)"></span>building</span>'+
+    '</div>'+
+    '<div class="row"><span class="lh">Units</span>'+
+    ((m.utypes||[]).length
+      ? USHAPES.map(function(u){ return '<span>'+markImg("u",u[0],mu)+u[1]+'</span>'; }).join("")+
+        '<span><span style="color:var(--gold)">&#8963;</span> rank above 1 (zoom in)</span>'
+      : '<span>'+markImg("u","dot",mu)+'unit (this match recorded no unit types)</span>')+
+    '</div>'+
+    '<div class="row"><span class="lh">Buildings</span>'+
+    BKINDS.map(function(b){ return '<span>'+markImg("b",b[0],mu)+b[1]+'</span>'; }).join("")+
+    '<span><span class="pip"></span><span class="pip"></span>level (one pip per level)</span>'+
+    '<span><span class="sq" style="border-color:var(--mute);border-style:dashed"></span>construction site</span>'+
+    '</div>'+
+    '<div class="row"><span class="lh">Map</span>'+
     '<span><span class="dot" style="background:var(--iron);width:8px;height:8px"></span>iron</span>'+
     '<span><span class="dot" style="background:var(--veil);width:8px;height:8px"></span>veilstone</span>'+
     '<span><span class="dot" style="background:var(--supply);width:8px;height:8px"></span>supply</span>'+
-    '<span><span class="dot" style="background:var(--well);width:9px;height:9px"></span>well</span>';
+    '<span><span class="dot" style="background:var(--well);width:9px;height:9px"></span>well</span>'+
+    '<span>grid: 2 m build cells, coarsening to 10 / 50 / 250 m as you zoom out</span>'+
+    '<span>drag to pan · wheel, pinch or + / − to zoom · double-click zooms in · FIT or 0 resets</span>'+
+    '</div>';
   document.getElementById("foot").textContent=
     "Source: "+m.key+" · "+(m.frames||[]).length+" position frames, "+
     (m.blds||[]).length+" buildings, "+(m.nodes||[]).length+" nodes, "+
@@ -774,10 +1254,13 @@ function renderOverflow(){
 
 function renderAll(){
   R.t=0; setPlay(false);
+  GC={}; RS.sig="";
+  if(VW.sel!==sel){ viewReset(); VW.sel=sel; }
+  bindView(); renderRosterMode();
   renderRuns(); renderHead(); renderTransport();
   renderOverflow(); renderWaves(); renderStanding(); renderComposition(); renderStructures();
   renderResearch(); renderCharts(); renderCombat(); renderCurse();
-  requestAnimationFrame(draw);
+  requestAnimationFrame(function(){ draw(); renderRoster(true); });
 }
 
 /* The ledger does not depend on the selected match, and it must render even

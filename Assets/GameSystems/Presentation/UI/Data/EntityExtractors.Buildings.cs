@@ -28,14 +28,8 @@ namespace TheWaningBorder.UI.Data
             if (_buildingIconCache.TryGetValue(buildingId, out var cached))
                 return cached;
 
-            // Map building IDs to icon filenames where they differ
-            string iconName = buildingId switch
-            {
-                "TempleOfRidan" => "ShrineOfRidan",
-                _ => buildingId
-            };
-
-            var tex = UnityEngine.Resources.Load<UnityEngine.Texture2D>($"UI/Icons/Buildings/{iconName}");
+            // The icon file is named after the building id.
+            var tex = UnityEngine.Resources.Load<UnityEngine.Texture2D>($"UI/Icons/Buildings/{buildingId}");
             _buildingIconCache[buildingId] = tex; // Cache even null to avoid repeated lookups
             return tex;
         }
@@ -375,9 +369,8 @@ namespace TheWaningBorder.UI.Data
             // refusal message — every part except the one that shows it.
             "Mine", "VeilstoneMine",
             "TempleOfRidan",
-            // The FORTRESS, not the Hall (Territory_Claims.md §4): the Hall is
-            // removed, and a Fortress is how ground with no resource node is
-            // locked. One per territory, enforced at placement.
+            // The FORTRESS (Territory_Claims.md §4): how ground with no
+            // resource node is locked. One per territory, enforced at placement.
             "Fortress",
             // The two walls are different buildings (2026-10-02): the
             // Palisade is every culture's in Age 0 and Feraldis's after; the
@@ -387,8 +380,7 @@ namespace TheWaningBorder.UI.Data
             // Runai culture buildings
             "Runai_Outpost", "Runai_TradeHub", "Runai_TradingPost", "ThessarasBazaar", "Runai_SiegeWorkshop",
             // Alanthor culture buildings. Alanthor_PracticeRange retired (it is
-            // the LEVELED Archery Range) and Alanthor_Crucible deleted (the
-            // Smelter absorbs its veilsteel role) — calculator 2026-08.
+            // the LEVELED Archery Range).
             "Alanthor_Tower", "Alanthor_SiegeYard", "Alanthor_RoyalStable",
             "Alanthor_TradingOutpost",
             // NO emplacement platforms (2026-09-25): emplacements are
@@ -471,12 +463,12 @@ namespace TheWaningBorder.UI.Data
             var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             EntityManager em = (world != null && world.IsCreated) ? world.EntityManager : default;
 
-            // Check if faction already has a choice building (Shrine/Vault/Keep)
+            // Check if faction already has a landmark (Vault/Keep)
             string existingChoice = null;
             if (!em.Equals(default(EntityManager)))
                 existingChoice = BuildingFactory.GetFactionChoiceBuilding(em, faction);
 
-            // Determine local faction's culture from the Hall entity's FactionProgress
+            // Determine local faction's culture from the capital's FactionProgress
             byte factionCulture = Cultures.None;
             if (!em.Equals(default(EntityManager)))
             {
@@ -502,16 +494,12 @@ namespace TheWaningBorder.UI.Data
             Cost available = GetFactionResourcesAsCost(em, faction);
 
             // Per-faction caps — counted once so we don't re-query inside the
-            // building loop. The Hall has no per-faction cap any more: it is one
+            // building loop. The Fortress has no per-faction cap: it is one
             // per TERRITORY, which is a question about a position and cannot be
-            // answered from a button (see the Hall case below). Temple of Ridan
-            // caps at 1.
+            // answered from a button. Temple of Ridan caps at 1.
             int templeCount = !em.Equals(default(EntityManager))
                 ? BuildingFactory.GetFactionBuildingCount<TempleOfRidanTag>(em, faction) : 0;
-            int smelterCount = !em.Equals(default(EntityManager))
-                ? BuildingFactory.GetFactionBuildingCount<SmelterTag>(em, faction) : 0;
             const int TempleCap = 1;
-            const int SmelterCap = 5;   // Forge: passive veilsteel generator, limit 5 (raised from 1, endgame completeness pass)
 
             if (TechCatalog.IsReady)
             {
@@ -522,32 +510,15 @@ namespace TheWaningBorder.UI.Data
 
                     // ONE MINE BUTTON (2026-09-29): the Veilstone Mine rides the
                     // "Mine" button, which raises whichever the node under the
-                    // cursor needs (TerritoryOwnership.ResolveExtractorAt). The
-                    // Smelter left it on 2026-10-01: with veilsteel deposits
-                    // gone it is an ordinary placed building.
+                    // cursor needs (TerritoryOwnership.ResolveExtractorAt).
                     if (building.id == "VeilstoneMine") continue;
 
                     // Choice building exclusion: if one is built, hide the other two
                     if (BuildingFactory.IsChoiceBuilding(building.id) && existingChoice != null)
                         continue;
 
-                    // Hall: THE claim structure (docs/Design/Regions.md §2).
-                    // Always offered — it is how a player takes ground, and the
-                    // Hall is an Age 0 building, so expansion is open from the
-                    // first minute. The old rules here were both wrong under
-                    // that model: hidden until age-up (which would have made
-                    // Age 0 unexpandable) and capped at six per faction (which
-                    // capped how much of the map anyone could ever hold). The
-                    // real limit is one Hall per TERRITORY, enforced at
-                    // placement by TerritoryOwnership.HallCapReached — a cap on
-                    // a position cannot be answered from a button.
-                    
-
                     // Temple of Ridan: one per faction.
                     if (building.id == "TempleOfRidan" && templeCount >= TempleCap) continue;
-
-                    // Forge: capped at 5 per faction (passive veilsteel generator).
-                    if (building.id == "Alanthor_Smelter" && smelterCount >= SmelterCap) continue;
 
                     // Sect buildings: adopt the sect to unlock it, then 5 max.
                     if (SectBuildingOwner.TryGetValue(building.id, out var owningSect))
@@ -586,9 +557,7 @@ namespace TheWaningBorder.UI.Data
                         Veilstone = building.cost.Veilstone
                     } : default;
                     // Show what THIS faction would be charged (the executor's
-                    // price): the Hall's escalation — each Hall beyond the
-                    // Fortress raises the next one's price, Regions.md §2 —
-                    // and Deep Foundations. Ids the cost table does not carry
+                    // price): Deep Foundations. Ids the cost table does not carry
                     // keep the catalog figure.
                     if (!em.Equals(default(EntityManager))
                         && TheWaningBorder.Data.BuildCosts.Exists(building.id))
@@ -627,13 +596,18 @@ namespace TheWaningBorder.UI.Data
                             + (requirement != null ? "\n" + requirement : "");
                     }
 
+                    // The capital is the Shelter in Age 0 (its SO name) and the
+                    // Fortress once the faction has aged up.
+                    string buildingName = building.id == "Fortress" && factionCulture != Cultures.None
+                        ? Fortress.AgedName : building.name;
+
                     string tooltip = BuildTooltip(
                         building.id == "Alanthor_Wall"
-                            ? WallTiers.DisplayName(WallTiers.LevelFor(em, faction)) : building.name,
+                            ? WallTiers.DisplayName(WallTiers.LevelFor(em, faction)) : buildingName,
                         building.id == "Mine"
                             ? Loc.T("Built on a resource node — an iron deposit raises an Iron Mine, a " +
-                                    "veilstone outcropping a Veilstone Mine, a veilsteel deposit a Veilsteel " +
-                                    "Mine (Alanthor). Its first extractor locks the territory.")
+                                    "veilstone outcropping a Veilstone Mine. Its first extractor locks " +
+                                    "the territory.")
                             : building.role,
                         cost,
                         available,
@@ -645,7 +619,7 @@ namespace TheWaningBorder.UI.Data
                     // (docs/Design/Age_1_Alanthor.md § The stone wall).
                     string label = building.id == "Alanthor_Wall"
                         ? WallTiers.DisplayName(WallTiers.LevelFor(em, faction))
-                        : building.name;
+                        : buildingName;
 
                     actions.Add(new ActionButton
                     {

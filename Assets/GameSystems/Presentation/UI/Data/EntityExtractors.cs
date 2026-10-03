@@ -245,8 +245,8 @@ namespace TheWaningBorder.UI.Data
                 }
             }
 
-            // THE TERRITORY READOUT (docs/Design/Regions.md §4). A Hall is what
-            // claims a territory, so the Hall is where that territory states
+            // THE TERRITORY READOUT (docs/Design/Regions.md §4). The capital is
+            // the home of a territory, so it is where that territory states
             // what it pays — per minute, by resource, with nothing left for the
             // player to infer by watching their bank tick.
             //
@@ -284,7 +284,7 @@ namespace TheWaningBorder.UI.Data
                 var si = em.GetComponentData<SuppliesIncome>(entity);
                 info.SuppliesPerMinute = si.PerMinute;
                 // task-108 R2: surface per-minute supplies as a dedicated yield
-                // row for buildings (Hall trickle, GathererHut overlap yield).
+                // row for buildings (capital trickle, GathererHut overlap yield).
                 if (isBuilding) info.YieldPerMinute = si.PerMinute;
             }
             if (em.HasComponent<IronIncome>(entity))
@@ -387,25 +387,14 @@ namespace TheWaningBorder.UI.Data
                 }
             }
 
-            // Temple level and era info
-            if (em.HasComponent<TempleOfRidanTag>(entity) && em.HasComponent<TempleLevel>(entity))
+            // Temple: the faction's Religion Points (the Temple has no levels)
+            if (em.HasComponent<TempleOfRidanTag>(entity) && em.HasComponent<FactionTag>(entity))
             {
-                var templeLevel = em.GetComponentData<TempleLevel>(entity);
-                int era = TempleLevelConfig.GetEraForLevel(templeLevel.Level);
-                string levelStr = templeLevel.Level >= TempleLevelConfig.MaxLevel
-                    ? $"Level {templeLevel.Level} (Max)"
-                    : $"Level {templeLevel.Level}";
-                info.Description += (info.Description.Length > 0 ? "\n" : "")
-                    + $"Temple {levelStr} | Era {era}";
-
-                // Show faction RP
-                if (em.HasComponent<FactionTag>(entity))
-                {
-                    var faction = em.GetComponentData<FactionTag>(entity).Value;
-                    int rp = GetFactionReligionPoints(em, faction);
-                    if (rp > 0)
-                        info.Description += $"\nReligion Points: {rp}";
-                }
+                var faction = em.GetComponentData<FactionTag>(entity).Value;
+                int rp = GetFactionReligionPoints(em, faction);
+                if (rp > 0)
+                    info.Description += (info.Description.Length > 0 ? "\n" : "")
+                        + $"Religion Points: {rp}";
             }
 
             // Trading Outpost: the trade it runs, per minute
@@ -748,7 +737,9 @@ namespace TheWaningBorder.UI.Data
                     {
                         Id = "WallUngarrison",
                         Label = string.Format(Loc.T("Empty ({0}/{1})"), manned, slots),
-                        Tooltip = Loc.T("The men in this wall section step back down on the friendly side."),
+                        Tooltip = em.HasComponent<WatchTowerTag>(entity)
+                            ? Loc.T("The men in this tower step back out beside it.")
+                            : Loc.T("The men in this wall section step back down on the friendly side."),
                         Enabled = true,
                         CanAfford = true,
                     }
@@ -830,11 +821,10 @@ namespace TheWaningBorder.UI.Data
                 return info;
             }
 
-            // Check if this is the Temple of Ridan (training + level-up + sect slots)
-            if (em.HasComponent<TempleOfRidanTag>(entity) && em.HasComponent<TempleLevel>(entity)
-                && em.HasComponent<ProductionState>(entity))
+            // Check if this is the Temple of Ridan (training + sect slots)
+            if (em.HasComponent<TempleOfRidanTag>(entity) && em.HasComponent<ProductionState>(entity))
             {
-                info.Type = ActionType.TempleUpgrade;
+                info.Type = ActionType.TempleTraining;
                 info.Actions = GetTempleTrainingActions(entity, em);
                 info.ProductionState = GetProductionInfo(entity, em);
                 return info;

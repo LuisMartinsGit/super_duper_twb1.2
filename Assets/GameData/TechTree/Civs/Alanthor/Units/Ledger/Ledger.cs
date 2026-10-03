@@ -7,7 +7,7 @@ using TheWaningBorder.Abilities;
 namespace TheWaningBorder.Entities
 {
     /// <summary>
-    /// Ledger — Alanthor Automaton (King's Court). Roams to allied economy
+    /// Ledger — Alanthor Automaton (trained at the Fortress). Roams to allied economy
     /// buildings and "automates" them: +30% yield for 30 s, then the building is
     /// Under Automation (60 s lockout). Driven by the Automate Facility ability
     /// (auto-cast by AbilityAuraSystem). Non-combatant. Placeholder art (pid 250
@@ -42,7 +42,7 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new LineOfSight { Radius = los });
             creator.AddComponent(entity, new Target { Value = Entity.Null });
             creator.AddComponent(entity, new Radius { Value = def.radius });
-            creator.AddComponent(entity, new PopulationCost { Amount = 1 });
+            creator.AddComponent(entity, new PopulationCost { Amount = def.populationCost });
             creator.AddComponent(entity, new DesiredDestination { Position = float3.zero, Has = 0 });
 
             creator.AddComponent(entity, new DamageTypeData { Value = DamageType.Melee });

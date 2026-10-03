@@ -4,9 +4,7 @@
 // behaviour Alanthor should ship with: defensive tower clusters (with a
 // Gatherer's Hut coverage pass), wall hubs at chokepoints (or a base
 // ring), sect adoption (Fortitude / Renewal cluster) AND active-power
-// firing, veilsteel production via the Smelter fleet (built toward the
-// 5-cap, every one levelled to L3 for 1/2/3 veilsteel per 10 s each),
-// housing toward 8 Houses, armoured unit production from the Stable /
+// firing, housing toward 8 Houses, armoured unit production from the Stable /
 // SiegeYard, worker flee from threats, and on-age-up strategy
 // transition to Defensive.
 //
@@ -36,12 +34,10 @@
 //      clusters in/near our base; support (Heal / Armor / Damage / Speed)
 //      on our own armies in combat; reveal at the last-known enemy
 //      position.
-//   4. Age-2 ladder + expansion — Temple / first Smelter / Stable /
-//      SiegeYard in order (CanAfford gate + CommandRouter
-//      placement + DispatchWorkersTo); every Smelter is levelled
-//      lowest-first. Once the ladder stands: more Smelters toward the
-//      5-cap and Huts toward 8 Houses, one foundation per tick. The
-//      Forges generate veilsteel passively (no worker supply chain).
+//   4. Age-2 ladder + expansion — Temple / Stable / SiegeYard in order
+//      (CanAfford gate + CommandRouter placement + DispatchWorkersTo).
+//      Once the ladder stands: sect buildings, then Huts toward 8
+//      Houses, one foundation per tick.
 //   6. Defensive tower spam — late-game (>5 min) build extra Alanthor_Towers
 //      around the Hall up to a cap. Direct creation (was queueing into
 //      the dead BuildRequest buffer; never actually built anything).
@@ -196,7 +192,7 @@ namespace TheWaningBorder.AI
                     // walled Red base was an EXPANSION (wall centroid 270-320
                     // m from home, 3-14 m from an expansion Hall) while the
                     // home stood bare, because this anchor drives the wall
-                    // doctrine, houses, smelters and sect buildings. The
+                    // doctrine, houses and sect buildings. The
                     // starting Hall has the lowest NetworkId its faction
                     // owns — ids are handed out sequentially from spawn.
                     long bestNid = long.MaxValue;
@@ -261,39 +257,23 @@ namespace TheWaningBorder.AI
                 // Temple FIRST (sect adoption hard-requires a Temple to
                 // host chapels — without this ladder no strategy except
                 // Turtle ever built one, so sects and their content never
-                // appeared), then Smelter (veilsteel), then the military
-                // production trio. One attempt per think tick. Returns true
-                // while a ladder entry is still missing so the expansion
-                // passes below wait for the core to stand.
+                // appeared), then the military production pair. One attempt
+                // per think tick. Returns true while a ladder entry is still
+                // missing so the expansion passes below wait for the core to
+                // stand.
                 bool ladderBusy = TryBuildAge2Ladder(faction, em, hallPos);
 
-                // ─── 4a. Temple leveling toward max ───────────────────
-                // The Holy Scholar (the purify ritualist) trains only at a
-                // max-level Temple (2026-08-04 purify flow) — without this
-                // ramp the AI could never field one and the well victory
-                // stayed out of reach.
-                TryLevelTemple(faction, em);
-
-                // ─── 4b. The culture VERB: purify wells ───────────────
-                // Curse & Shardroot canon: Alanthor's answer to a Wild well
-                // is Purification — income, victory progress (well
-                // domination), and the Shardroot if the well is the host.
-                TryPurifyWells(faction, em, hallPos);
-
                 // Pivotal savings hold (AIPivotalReserve): while the faction
-                // saves toward a Temple level / King's Court unique, the
-                // discretionary passes below skip their spends. The verbs
-                // (temple, purify, sects) and worker flee always run.
+                // saves toward a pivotal purchase, the discretionary passes
+                // below skip their spends. Sects and worker flee always run.
                 bool saving = AIPivotalReserve.ShouldHold(em, faction);
 
                 // ─── 4c/4d. Expansion targets ─────────────────────────
-                // Once the Age-2 core stands: Smelters toward the 5-cap
-                // (one foundation at a time), then Huts toward 8 Houses.
-                // One foundation per think tick across the two passes.
-                // Sect buildings come FIRST of the three: each one unlocks a
-                // unit and a faction-wide research the AI cannot get any other
-                // way, whereas a Smelter or a Hut is only more of what it
-                // already has.
+                // Once the Age-2 core stands: Huts toward 8 Houses, one
+                // foundation per think tick. Sect buildings come FIRST:
+                // each one unlocks a unit and a faction-wide research the
+                // AI cannot get any other way, whereas a Hut is only more
+                // of what it already has.
                 if (!saving && !ladderBusy
                     && !TryBuildSectBuildings(faction, em, hallPos)
                     )
@@ -386,7 +366,7 @@ namespace TheWaningBorder.AI
         // Simple ring-scan placement: try angles around the anchor at radii
         // within [rmin, rmax]. Returns the first candidate that
         // BuildCommandHelper.IsValidBuildPosition accepts. Used for endgame
-        // buildings (Smelter, towers) where SimpleAISystem's GH-spacing
+        // buildings (towers, sect halls) where SimpleAISystem's GH-spacing
         // and sand-spacing rules don't matter.
         /// <summary>Ring scan for a legal build spot. Tuning (24 samples,
         /// 4 m steps, hash-seeded start angle) is Alanthor's; the algorithm is

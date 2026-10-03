@@ -34,4 +34,20 @@ MonoBehaviour:
     meleeDamageAdd: 0
     rangedDamageAdd: 0
     archerRangeMult: 0
-  effectsList: []
+  effectsList:
+  - Target: "passive"
+    Stat: FirstStrikePct
+    Op: Set
+    Value: 30
+  - Target: "passive"
+    Stat: ChargeSpeedPct
+    Op: Set
+    Value: 50
+  - Target: "passive"
+    Stat: ChargeWindowSeconds
+    Op: Set
+    Value: 2
+  - Target: "passive"
+    Stat: ChargeRearmSeconds
+    Op: Set
+    Value: 5

@@ -12,7 +12,8 @@ namespace TheWaningBorder.Entities
     /// </summary>
     public static class Spearman
     {
-        // Default stats (calculator: tools/calculator/techtree.json, id "Spearman").
+        // Stats come from the UnitDefSO (TechCatalog.Unit); tools/calculator is
+        // a generated read-only view of the SOs, not a source.
         private const int PresentationID = 368;
 
         public static Entity Create(EntityManager em, float3 position, Faction faction)
@@ -43,7 +44,7 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new LineOfSight { Radius = los });
             creator.AddComponent(entity, new Target { Value = Entity.Null });
             creator.AddComponent(entity, new Radius { Value = def.radius });
-            creator.AddComponent(entity, new PopulationCost { Amount = 1 });
+            creator.AddComponent(entity, new PopulationCost { Amount = def.populationCost });
             creator.AddComponent<SpearmanTag>(entity);
 
             // Combat type tags

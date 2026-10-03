@@ -37,13 +37,10 @@ namespace TheWaningBorder.Systems.Training
 
         #endregion
 
-        /// <summary>
-        /// Conscription: a Barracks recruits 15% faster. Named rather than
-        /// inlined because the tooltip has to quote the same number the
-        /// simulation charges — the two disagreeing is exactly the bug this
-        /// pass fixed.
-        /// </summary>
-        public const float ConscriptionSpeedMultiplier = 1.15f;
+        /// <summary>The Conscription tech and the effectsList stat that carries
+        /// its training speed (Conscription.asset: TrainSpeed Pct 15).</summary>
+        private const string ConscriptionTech = "Conscription";
+        private const string TrainSpeedStat = "TrainSpeed";
 
         /// <summary>Units per completed Longhouse item.</summary>
         private const int LonghouseBatchSize = 5;
@@ -106,13 +103,15 @@ namespace TheWaningBorder.Systems.Training
                     .TrainTimeMultiplier[upLevel];
             }
 
-            // Conscription (Age 0 Barracks tech): +15% training speed at ANY
-            // Barracks — time / 1.15.
+            // Conscription (Age 0 Barracks tech): its SO's TrainSpeed percent
+            // faster training at ANY Barracks — time / (1 + pct / 100). The
+            // number is the tech's data, so the tooltip (which reads this
+            // method) and the simulation cannot disagree.
             if (em.HasComponent<BarracksTag>(building))
             {
                 var research = FactionResearchState.Instance;
-                if (research != null && research.HasResearched(faction, "Conscription"))
-                    trainingTime /= ConscriptionSpeedMultiplier;
+                if (research != null && research.HasResearched(faction, ConscriptionTech))
+                    trainingTime /= 1f + TechCatalog.TechEffect(ConscriptionTech, TrainSpeedStat) / 100f;
             }
 
             // Reviving a hero AT the level he died at takes as much longer as

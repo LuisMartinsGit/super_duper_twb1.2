@@ -52,7 +52,7 @@ namespace TheWaningBorder.Entities
             {
                 ResourceType = 0,
                 StoredAmount = 0f,
-                InterestRate = 0.25f,
+                InterestRate = def.interestPerMinute,   // the SO (VaultOfAlmierra.asset)
                 LockTimer = 0f,
                 LockDuration = 180f
             });
@@ -98,7 +98,7 @@ namespace TheWaningBorder.Entities
             {
                 ResourceType = 0,
                 StoredAmount = 0f,
-                InterestRate = 0.25f,
+                InterestRate = def.interestPerMinute,   // the SO (VaultOfAlmierra.asset)
                 LockTimer = 0f,
                 LockDuration = 180f
             });

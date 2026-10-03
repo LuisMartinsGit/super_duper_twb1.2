@@ -102,10 +102,10 @@ MonoBehaviour:
       tooltip: "Assault targets (halls / military buildings) with intel older than this trigger a recon pass instead of an attack."
     - field: "scoutFleeHealthFraction"
       header: 
-      tooltip: "A scout below this health fraction flees to the Hall."
+      tooltip: "A scout below this health fraction flees to the capital."
     - field: "defendThreatThreshold"
       header: "Posture (M4)"
-      tooltip: "ThreatMap level near the Hall that flips the AI into Defend posture."
+      tooltip: "ThreatMap level near the capital that flips the AI into Defend posture."
     - field: "retreatStrengthRatio"
       header: "Retreat (M6)"
       tooltip: "Retreat the fielded army when local enemy strength exceeds own strength times this ratio."
@@ -156,7 +156,7 @@ MonoBehaviour:
       tooltip: "Seconds to construct. 0 = the construction system's own default."
     - field: "populationProvided"
       header: "Population & Income"
-      tooltip: "Population headroom this building grants its owner (Hall 20, Hut 10)."
+      tooltip: "Population headroom this building grants its owner (Fortress 10, Hut 6)."
     - field: "suppliesPerTick"
       header: 
       tooltip: "Supplies credited to the owner every Supplies Interval seconds."
@@ -164,7 +164,7 @@ MonoBehaviour:
       header: 
       tooltip: "Seconds between supply ticks. 0 = generates no supplies."
     - field: "maxIron"
-      header: "Storage (Smelter)"
+      header: "Storage"
       tooltip: 
     - field: "segmentHp"
       header: "Curtain Segments (Alanthor wall only)"

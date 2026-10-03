@@ -39,7 +39,10 @@ namespace TheWaningBorder.Entities
             creator.AddComponent<ArcheryRangeTag>(entity);
             creator.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
             creator.AddComponent(entity, new LineOfSight { Radius = los });
-            var gridSize = BuildingSizeConfig.GetSize("Barracks");
+            // Its OWN footprint. This read "Barracks" (10 x 10) while placement
+            // snapped the range as 8 x 8, so every range stood off-grid with a
+            // collision / nav box straddling half-cells (fixed 2026-10-03).
+            var gridSize = BuildingSizeConfig.GetSize("ArcheryRange");
             creator.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             creator.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
 

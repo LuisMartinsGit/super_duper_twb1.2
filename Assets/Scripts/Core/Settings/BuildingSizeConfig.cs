@@ -5,138 +5,45 @@
 using Unity.Mathematics;
 
 /// <summary>
-/// Central lookup table for grid-aligned building sizes.
-/// Width = X-axis, Height = Z-axis.
+/// Grid-aligned building sizes. Width = X-axis, Height = Z-axis.
+///
+/// THE SO OWNS THE FOOTPRINT (2026-10-03, unification item 34). Every
+/// building with a BuildingDefSO carries <c>footprintCells</c> — its size in
+/// 2 m build cells, the unit docs/Design/Build_Grid.md speaks in — and this
+/// class only converts it. The id switch that used to be the authority (one
+/// row per building, a hand-kept twin of the asset) is gone; what remains
+/// below sizes only the ids that have no BuildingDefSO at all.
 ///
 /// UNITS: <see cref="GetSize"/> returns METRES, which are also 1 m nav /
 /// passability cells — that is what the <c>BuildingSize</c> component, the
 /// placement validator, the cost-field stamps, the terrain flatten and the AI
 /// clearance checks all consume, so it stays the primary accessor.
-///
-/// Footprints are AUTHORED against the 2 m build grid, so every value here is
-/// EVEN and <see cref="GetCells"/> gives the authored cell count.
-/// See <see cref="BuildGrid"/>.
-///
-/// DOUBLED 2026-08-13: every footprint here is twice what it was — buildings
-/// read far too small against the units and the terrain. The grid itself is
-/// unchanged at 2 m, so placement keeps its fine granularity; what changed is
-/// that the smallest building is now 2 x 2 cells rather than 1 x 1. The
-/// earlier "a Hut is exactly one grid cell" rule is therefore superseded: the
-/// Hut is still the smallest building, but it spans four cells.
 /// </summary>
 public static class BuildingSizeConfig
 {
     /// <summary>
     /// Get the footprint (width, height) in METRES for a building by its
-    /// string ID. Always even — see the class remarks.
+    /// string ID: its SO's footprintCells, in metres.
     /// </summary>
     public static int2 GetSize(string buildingId)
     {
-        return buildingId switch
-        {
-            // ── 2 x 2 cells (4 x 4 m) ───────────────────────────────────
-            // The smallest class. The Hut is the unit of the SIZE ladder,
-            // though no longer of the grid — see the doubling note above.
-            "Hut"               => new int2(4, 4),
-            "GatherersHut"      => new int2(4, 4),
+        if (TechCatalog.TryGetFootprintCells(buildingId, out var cells))
+            return ToMeters(new int2(cells.x, cells.y));
+        return CodeSeededSize(buildingId);
+    }
 
-            // ── 5 x 5 cells (10 x 10 m) ─────────────────────────────────
-            // The capital (Age_0.md 2026-08-31): a bit larger than the Hall.
-            "Fortress"          => new int2(10, 10),
-
-            // ── 4 x 4 cells (8 x 8 m) ───────────────────────────────────
-            "Hall"              => new int2(8, 8),
-            "ArcheryRange"      => new int2(8, 8),
-            "VaultOfAlmierra"   => new int2(8, 8),
-
-            // ── 5 x 5 cells (10 x 10 m) ─────────────────────────────────
-            // One cell wider than the Hall class (2026-08-18): the Barracks
-            // read too small for a unit-producing hall. Odd cell count, so
-            // it snaps to a cell CENTRE rather than a boundary — that is
-            // handled by BuildGrid.SnapAxis and needs nothing here.
-            "Barracks"          => new int2(10, 10),
-
-            // 7-sided cathedral. HALVED BACK 2026-08-17: the doubling had
-            // given it a 16 x 16 class of its own and in play it dwarfed
-            // everything — it now shares the Hall class, and the chapel ring
-            // (TempleChapelRing.SlotRadius) and the chapel footprints halve
-            // with the wall they dock against. docs/Design/Build_Grid.md
-            "TempleOfRidan"     => new int2(8, 8),
-
-            // ── 6 x 6 cells (12 x 12 m) ─────────────────────────────────
-            "FiendstoneKeep"    => new int2(12, 12),
-
-            // Walls — hub anchor only. Hubs are round towers, 0.7 of a wall
-            // section (2.1 m) in radius since 2026-09-21 (30 % smaller),
-            // snapping to the grid at 2 x 2 cells; the curtain segments
-            // between them stay FREEFORM and stamp their own module footprint
-            // in AlanthorWall.CreateInstance. Keep in step with
-            // AlanthorWall.HubWidth ((int)4.2 = 4).
-            "Alanthor_Wall"     => new int2(4, 4),
-            "Palisade"          => new int2(4, 4),
-
-            // Emplacements (docs/Design/Age_1_Alanthor.md § Ballista and
-            // Trebuchet emplacements). The platform is what is placed; the
-            // engine standing on it is a separate, immobile entity.
-            "Alanthor_BallistaEmplacement"  => new int2(4, 4),
-            "Alanthor_TrebuchetEmplacement" => new int2(6, 6),
-
-            // Alanthor culture
-            "Alanthor_Tower"    => new int2(4, 4),
-            "Alanthor_SiegeYard"=> new int2(8, 8),
-            "KingsCourt"        => new int2(8, 8),
-            "Alanthor_RoyalStable" => new int2(8, 8),
-
-            // Runai culture
-            "Runai_Outpost"     => new int2(8, 8),
-            "Runai_TradeHub"    => new int2(8, 8),
-            "Runai_TradingPost" => new int2(4, 4),
-            "ThessarasBazaar"   => new int2(12, 12),
-            "Runai_SiegeWorkshop" => new int2(8, 8),
-            "Runai_Vault"       => new int2(8, 8),
-            "Runai_VeilsteelFoundry" => new int2(8, 8),
-
-            // Feraldis culture
-            "Feraldis_HuntingLodge"   => new int2(8, 8),
-            "Feraldis_LoggingStation" => new int2(8, 8),
-            "Feraldis_Longhouse"      => new int2(8, 8),
-            "Feraldis_Tower"          => new int2(4, 4),
-            "Feraldis_SiegeYard"      => new int2(8, 8),
-            "Feraldis_Foundry"        => new int2(8, 8),
-            "Feraldis_WarTotem"       => new int2(4, 4),
-            "Feraldis_Pasture"        => new int2(8, 8),
-            "Feraldis_HallOfAxes"     => new int2(8, 8),
-            "Mine"                    => new int2(4, 4),   // 2 x 2 cells, on its node
-            "VeilstoneMine"           => new int2(4, 4),   // 2 x 2 cells, on its node
-            "Alanthor_TradingOutpost" => new int2(4, 4),   // 2 x 2 cells, BESIDE its outcrop
-
-            // Sect buildings — one per sect, capped at 5 per faction.
-            "Sect_Reliquary"          => new int2(8, 8),
-            "Sect_MendingHall"        => new int2(8, 8),
-            "Sect_Stonehold"          => new int2(8, 8),
-            "Sect_Veilworks"          => new int2(8, 8),
-            "Sect_MusterYard"         => new int2(8, 8),
-
-            // Raise Anew (Renewal) conjured fortifications — a ladder in
-            // footprint as well as in stats: watch post, walled strongpoint,
-            // keep. The default 8 x 8 would have made the Tower block as much
-            // ground as a Hall.
-            "Renewal_Tower"           => new int2(4, 4),
-            "Renewal_Fortification"   => new int2(6, 6),
-            "Renewal_Fortress"        => new int2(8, 8),
-
-            // Chapels (all sects) — generic Chapel_* prefix wildcard. The
-            // temple-ring statues: halved with the Temple (2026-08-17) so
-            // they keep their docked proportion against the smaller wall.
-            _ when buildingId != null && buildingId.StartsWith("Chapel_") => new int2(2, 2),
-
-            // The curse's well. A structure, not a node, so it gets 6 x 6
-            // cells rather than the single cell every resource node takes.
-            "BorderMainNode"         => new int2(12, 12),
-
-            // Default
-            _ => new int2(8, 8)
-        };
+    /// <summary>
+    /// The ids with no BuildingDefSO: the twelve chapels (Chapel_Sect_*,
+    /// docked in the Temple ring) and the curse's well. Everything else is
+    /// read from its asset — add a footprint THERE, not here.
+    /// </summary>
+    private static int2 CodeSeededSize(string buildingId)
+    {
+        if (buildingId != null && buildingId.StartsWith("Chapel_")) return new int2(2, 2);
+        if (buildingId == "BorderMainNode") return new int2(12, 12);
+        // An id nobody authored. 4 x 4 cells, the old default, so placement
+        // still has a box to test; the SO is the fix.
+        return new int2(8, 8);
     }
 
     /// <summary>

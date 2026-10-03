@@ -2,8 +2,8 @@
 // Top-center controller for the two faction-level choices. Owns the gating
 // logic; the visuals are the authored CultureSelection prefabs:
 // - SPECIAL BUILDING CHOICE: while the local faction has picked no special
-//   yet (culture None, no Shrine of Ahridan / Vault of Almiérra /
-//   Fiendstone Keep started), one button per choice building (authored
+//   yet (culture None, no Vault of Almiérra / Fiendstone Keep started),
+//   one button per choice building (authored
 //   SpecialBuildingChoiceMenu radial cluster, pinned top-center; code-built
 //   fallback buttons when unassigned). Clicking enters placement mode; the
 //   placement runtime enforces exclusivity and the building self-constructs.
@@ -314,9 +314,9 @@ namespace TheWaningBorder.UI.Ingame
             foreach (var button in menu.GetComponentsInChildren<Button>(true))
                 buttons.Add(button);
 
-            // The prefab's third radial slot was the Shrine of Ridan, which is
-            // cut (Age_0.md § Age-up by landmark). It now stands for Thessara's
-            // Crossing, the Runai landmark — shown, disabled until it exists.
+            // The prefab's third radial slot stands for Thessara's Crossing,
+            // the Runai landmark (Age_0.md § Age-up by landmark) — shown,
+            // disabled until it exists.
             var pending = new List<string> { ThessarasCrossingId, "VaultOfAlmierra", "FiendstoneKeep" };
             foreach (var button in buttons)
             {
@@ -865,7 +865,7 @@ namespace TheWaningBorder.UI.Ingame
 
                     // Push the real name onto the button. Binding can run before
                     // the catalog finishes parsing, in which case the label was
-                    // stamped with the raw id ("ShrineOfAhridan") and would have
+                    // stamped with the raw id and would have
                     // kept it for the whole match.
                     if (b.Label != null) b.Label.text = Loc.T(b.Name);
                 }

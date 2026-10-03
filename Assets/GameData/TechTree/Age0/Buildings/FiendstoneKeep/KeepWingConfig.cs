@@ -47,7 +47,7 @@ namespace TheWaningBorder.Core.Settings
             KeepWingType.Civic      => "The Keep generates Supplies and trains Workers.",
             KeepWingType.Engineers  => "Three ballista emplacements (extra bolts each volley) and +25% Keep HP.",
             KeepWingType.Economic   => "Gathers like a Gatherer's Hut with a larger area (Supplies income).",
-            KeepWingType.Librarians => "Hall economy techs researchable at the Keep; all research 20% faster.",
+            KeepWingType.Librarians => "Fortress economy techs researchable at the Keep; all research 20% faster.",
             KeepWingType.Temple     => "Trains sect units (Litharchs for now); grants +1 Religion Point when built.",
             _ => "",
         };

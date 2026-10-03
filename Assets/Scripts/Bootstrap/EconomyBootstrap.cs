@@ -101,7 +101,7 @@ namespace TheWaningBorder.Economy
                 typeof(ResourceTickState),
                 typeof(FactionPopulation),
                 typeof(FactionEra),
-                typeof(FactionReligionPoints),  // task-063: RP balance + Shrine-bonus latch + CurrentAge
+                typeof(FactionReligionPoints),  // task-063: RP balance + CurrentAge
                 typeof(SectAdoptionState),      // task-063: per-sect adoption + lever-level state
                 typeof(FactionEquipmentTier),   // spec §4 — faction-wide equipment research
                 typeof(GodPowerState)           // spec §6.2 + refinement #6

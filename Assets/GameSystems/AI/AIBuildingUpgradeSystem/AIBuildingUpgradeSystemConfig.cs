@@ -37,12 +37,5 @@ namespace TheWaningBorder.AI
         public int reserveIron;
 
         public int reserveVeilstone;
-
-        /// <summary>Veilsteel kept banked for Smelter levels while the faction's
-        /// Smelter is below max: L2 costs 30, L3 costs 60. Without this the
-        /// 5-veilsteel hut upgrades eat the entire L1 drip (6/min) forever and
-        /// the engine never grows — the exact famine the 47-min log shows
-        /// (veilsteel oscillating 0-11 with 12,700 veilstone banked).</summary>
-        public int smelterVeilsteelReserve;
     }
 }

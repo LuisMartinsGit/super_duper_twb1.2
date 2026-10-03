@@ -44,14 +44,6 @@ namespace TheWaningBorder.UI.Data
                 trainsList = TheWaningBorder.Core.Settings.KeepWingConfig
                     .BuildTrainList(em.GetComponentData<KeepWings>(entity));
 
-            // King's Court (Alanthor age-up of the Hall) also trains the Ledger
-            // automaton and the King Lexor hero. Injected here rather than via the
-            // building's trains[] because BuildingDefSO.ApplyTo overwrites trains
-            // from the SO on every lookup. Culture gating below hides them for
-            // non-Alanthor factions, so they only appear at a King's Court.
-            if (em.HasComponent<HallTag>(entity))
-                trainsList = AppendTrains(trainsList, "Ledger", "King Lexor");
-
             if (trainsList == null || trainsList.Length == 0) return actions;
 
             // Determine faction culture from the building's faction -> Hall -> FactionProgress
@@ -78,19 +70,10 @@ namespace TheWaningBorder.UI.Data
 
             // Building level for advanced-unit gating. Default L1 for buildings
             // that haven't been stamped with BuildingUpgradeState yet.
-            // Temples track their level via TempleLevel rather than
-            // BuildingUpgradeState — read whichever is present so the
-            // Scholar/Acolyte minBuildingLevel: 4 gate fires correctly
-            // (spec refinement #5: ritualists train at a fully-leveled Temple).
             int buildingLevel = 1;
             if (em.HasComponent<BuildingUpgradeState>(entity))
             {
                 int lv = em.GetComponentData<BuildingUpgradeState>(entity).Level;
-                if (lv > buildingLevel) buildingLevel = lv;
-            }
-            if (em.HasComponent<TempleLevel>(entity))
-            {
-                int lv = em.GetComponentData<TempleLevel>(entity).Level;
                 if (lv > buildingLevel) buildingLevel = lv;
             }
 
@@ -269,16 +252,6 @@ namespace TheWaningBorder.UI.Data
         private static bool IsSupersededByCulture(string unitId, byte factionCulture)
         {
             return TheWaningBorder.Data.CultureGate.IsSupersededByCulture(unitId, factionCulture);
-        }
-
-        /// <summary>Append unit ids to a trains list without mutating the source
-        /// array (which may be the SO's own array). Skips duplicates.</summary>
-        private static string[] AppendTrains(string[] baseList, params string[] extra)
-        {
-            var list = new List<string>(baseList ?? System.Array.Empty<string>());
-            foreach (var id in extra)
-                if (!list.Contains(id)) list.Add(id);
-            return list.ToArray();
         }
 
         // ═══════════════════════════════════════════════════════════════════
@@ -483,53 +456,7 @@ namespace TheWaningBorder.UI.Data
                 });
             }
 
-            // HOLY SCHOLAR (2026-08-04 purify flow): Alanthor's well ritualist
-            // trains HERE, gated on the Temple reaching max level. The bespoke
-            // Temple path bypasses the generic trains[] extractor, so without
-            // this block the unit existed but no button ever showed it.
-            if (TechCatalog.TryGetUnit("Alanthor_Scholar", out var scholarUnit))
-            {
-                byte requiredCulture = GetRequiredCultureForUnit("Alanthor_Scholar");
-                byte factionCulture = GetFactionCulture(em, faction);
-                if (requiredCulture == Cultures.None || requiredCulture == factionCulture)
-                {
-                    int templeLevel = em.HasComponent<TempleLevel>(entity)
-                        ? em.GetComponentData<TempleLevel>(entity).Level : 1;
-                    int minLv = scholarUnit.minBuildingLevel < 1 ? 1 : scholarUnit.minBuildingLevel;
-                    bool levelLocked = templeLevel < minLv;
-
-                    var sCost = scholarUnit.cost != null ? new Cost
-                    {
-                        Supplies = scholarUnit.cost.Supplies,
-                        Iron = scholarUnit.cost.Iron,
-                        Veilstone = scholarUnit.cost.Veilstone,
-                        Veilsteel = scholarUnit.cost.Veilsteel,
-                    } : default;
-
-                    string sTooltip = Loc.T("Holy Scholar — purifies wells (channels the ritual) and "
-                        + "walks a wide cleansing font that burns away curse and blood.") + "\n"
-                        + BuildTooltip(scholarUnit.name, scholarUnit.unitClass, sCost, available,
-                            trainingTime: scholarUnit.trainingTime);
-                    if (levelLocked)
-                        sTooltip = string.Format(Loc.T("Requires Temple Level {0}"), minLv) + "\n" + sTooltip;
-
-                    actions.Add(new ActionButton
-                    {
-                        Id = scholarUnit.id,
-                        Label = levelLocked
-                            ? string.Format(Loc.T("{0}  (Temple Lv {1})"), Loc.T(scholarUnit.name), minLv)
-                            : Loc.T(scholarUnit.name),
-                        Tooltip = sTooltip,
-                        Cost = sCost,
-                        Enabled = !levelLocked,
-                        CanAfford = !levelLocked && FactionEconomy.CanAfford(em, faction, sCost),
-                        Icon = null
-                    });
-                }
-            }
-
-            // Feraldis CORRUPTOR — the Feraldis answer to the Scholar, and
-            // the same story: the Temple path bypasses the generic trains[]
+            // Feraldis CORRUPTOR: the Temple path bypasses the generic trains[]
             // extractor, so without a hardcoded block the unit exists in the
             // catalog but no button ever surfaces it. (That is exactly why
             // Feraldis_Iconoclast was untrainable for its whole life.)
@@ -538,8 +465,9 @@ namespace TheWaningBorder.UI.Data
                 byte reqCulture = GetRequiredCultureForUnit("Feraldis_Iconoclast");
                 if (reqCulture == Cultures.None || reqCulture == GetFactionCulture(em, faction))
                 {
-                    int templeLevel = em.HasComponent<TempleLevel>(entity)
-                        ? em.GetComponentData<TempleLevel>(entity).Level : 1;
+                    // The Temple has no levels (docs/Design/Religion.md): it is
+                    // always level 1, so a minBuildingLevel above 1 stays locked.
+                    const int templeLevel = 1;
                     int minLv = corruptorUnit.minBuildingLevel < 1 ? 1 : corruptorUnit.minBuildingLevel;
                     bool locked = templeLevel < minLv;
 

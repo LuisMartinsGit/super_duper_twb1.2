@@ -182,7 +182,7 @@ namespace TheWaningBorder.Economy
         // There is no global cooldown scale. Until 2026-09-27 every authored
         // cooldown was multiplied by 0.5 (CooldownScale), so a table saying
         // 240 charged 120. That halving is folded into the authored numbers:
-        // what a spec says is what a player without Shrine or Shardroot waits
+        // what a spec says is what a player without the Shardroot waits
         // (docs/Design/Spells.md sections 5 and 8.2).
 
         /// <summary>Cooldown scale with the Shardroot enshrined for the sect:

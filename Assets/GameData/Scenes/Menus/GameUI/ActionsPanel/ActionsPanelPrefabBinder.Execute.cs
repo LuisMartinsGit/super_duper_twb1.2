@@ -141,6 +141,10 @@ namespace TheWaningBorder.UI.Ingame
                 case "Reliquary_Vision":
                     TheWaningBorder.Core.Commands.CommandRouter.IssueReliquaryAbility(em, entity, 2, default);
                     return;
+                // A manned wall module or Watch Tower: let the men out.
+                case "WallUngarrison":
+                    CommandRouter.IssueUngarrisonWall(em, entity);
+                    return;
                 case "Alanthor_RangingShot":
                     if (!TheWaningBorder.Core.Commands.CommandRouter
                             .IssueRangingShot(em, OwnFaction(em)))

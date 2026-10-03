@@ -21,7 +21,7 @@ namespace TheWaningBorder.Economy
 {
     public static class SectResearchEffects
     {
-        // ── Tech ids. Must match TechTree.json and TechTreeParser's allowlist ──
+        // ── Tech ids. Must match the TechDefSO ids in TechTreeCatalog ──
         public const string RoyalIndex       = "RoyalIndex";       // Antiquity
         public const string FieldHospital    = "FieldHospital";    // Renewal
         public const string DeepFoundations  = "DeepFoundations";  // Fortitude

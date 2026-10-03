@@ -212,27 +212,6 @@ public struct TempleOfRidanTag : IComponentData { }
 /// <summary>Legacy alias — kept for backward compatibility in queries.</summary>
 public struct TempleTag : IComponentData { }
 
-/// <summary>
-/// Tracks the current level of a Temple building (1-4).
-/// Level 1 = on build, Level 2-4 = upgrades that advance era.
-/// </summary>
-public struct TempleLevel : IComponentData
-{
-    public int Level; // 1-4
-}
-
-/// <summary>
-/// Active upgrade state for a Temple. Added when upgrade starts, removed on completion.
-/// TempleUpgradeSystem ticks Remaining each frame; on completion it sets TempleLevel,
-/// updates FactionEra, grants RP, and removes this component.
-/// </summary>
-public struct TempleUpgradeState : IComponentData
-{
-    public int TargetLevel;   // Level being upgraded to
-    public float Duration;    // Total upgrade time in seconds
-    public float Remaining;   // Time left
-}
-
 /// <summary>Runai expansion base.</summary>
 public struct OutpostTag : IComponentData { }
 

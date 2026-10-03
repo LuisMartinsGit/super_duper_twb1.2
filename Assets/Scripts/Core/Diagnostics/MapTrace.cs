@@ -21,6 +21,29 @@
 //   P  position    t id x z flags                 (1 moving, 2 in formation, 4 fighting)
 //   D  death       t id
 //
+// EXTENDED 2026-10-03 for the Muster Rolls viewer (type and level symbols,
+// buildings on the real 2 m build grid). Fields are only ever APPENDED, so a
+// reader of the old shape still matches every line:
+//   B  t id faction name x z w h  type cx cz cw ch yaw site
+//        type  BuildingIds.Of id ("Fortress", "Hut", "Alanthor_Wall"...), or
+//              CurseWell / CurseNode for the curse's structures, "?" if unknown
+//        cx cz the footprint's minimum BUILD CELL (BuildGrid, 2 m, anchored
+//              at the world origin) and cw ch its size in cells -- exactly
+//              BuildGrid.FootprintCells. cx/cz are "*" for a piece that is
+//              off the grid (walls are drawn, not snapped; Build_Grid.md 5)
+//        yaw   degrees about +Y (0 = facing +Z), integer 0..359
+//        site  1 = first seen as a construction site, 0 = complete
+//   U  t id faction name  cls fl
+//        cls   (int)UnitTag.Class (0 Melee .. 7 Scout), -1 if absent
+//        fl    1 cavalry, 2 hero (HeroLevel), 4 curse unit (BorderUnitTag)
+//   L  t id level        level change: a building's upgrade level
+//                        (BuildingUpgradeState / stone WallTier / curse
+//                        BorderNodeLevel), a unit's rank (UnitRank) or a
+//                        hero's level (HeroLevel). Written at first sight only
+//                        when it is not the default (building 0, unit 1), then
+//                        on every change -- an event, never a per-sample field
+//   C  t id              construction complete (a site became a building)
+//
 // SAMPLE PERIOD is the whole cost. At 0.5 s a three-hour match with 300 units
 // writes about six million position lines, so the default here is 1 s and
 // -twbTracePeriod overrides it. The dashboard thins whatever it gets; what it
@@ -34,6 +57,7 @@ using System.Globalization;
 using System.IO;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
 using TheWaningBorder.Core.Multiplayer;
@@ -54,6 +78,10 @@ namespace TheWaningBorder.Core.Diagnostics
 
         private StreamWriter _w;
         private readonly HashSet<string> _seen = new HashSet<string>();
+        // Last level written per id (L lines are change events), and the
+        // construction sites still waiting for their C line.
+        private readonly Dictionary<string, int> _level = new Dictionary<string, int>();
+        private readonly HashSet<string> _sites = new HashSet<string>();
         private HashSet<string> _alive = new HashSet<string>();
         private float _next;
         private bool _header;
@@ -109,6 +137,8 @@ namespace TheWaningBorder.Core.Diagnostics
                 }
                 _seen.Clear();
                 _alive.Clear();
+                _level.Clear();
+                _sites.Clear();
                 _next = 0f;
                 _header = false;
             }
@@ -142,15 +172,38 @@ namespace TheWaningBorder.Core.Diagnostics
                     var e = ents[i];
                     string id = Key(em, e);
                     alive.Add(id);
-                    if (!_seen.Add(id)) continue;
-                    var p = em.GetComponentData<LocalTransform>(e).Position;
-                    float w = 4f, h = 4f;
-                    if (em.HasComponent<BuildingSize>(e))
+                    if (_seen.Add(id))
                     {
-                        var bs = em.GetComponentData<BuildingSize>(e);
-                        w = bs.Width; h = bs.Height;
+                        var xf = em.GetComponentData<LocalTransform>(e);
+                        var p = xf.Position;
+                        int w = 4, h = 4;
+                        if (em.HasComponent<BuildingSize>(e))
+                        {
+                            var bs = em.GetComponentData<BuildingSize>(e);
+                            w = bs.Width; h = bs.Height;
+                        }
+                        string type = BuildingType(em, e);
+                        var size = new int2(math.max(1, w), math.max(1, h));
+                        BuildGrid.FootprintCells(p, size, out int2 minCell, out int2 cells);
+                        // Off the grid when the building is exempt by rule
+                        // (walls are drawn) or simply does not sit on it --
+                        // never claim a cell origin the game did not use.
+                        bool onGrid = !BuildGrid.IsGridExempt(type)
+                                      && BuildGrid.IsSnapped(p, size, 0.05f);
+                        bool site = em.HasComponent<UnderConstruction>(e);
+                        if (site) _sites.Add(id);
+                        W("B", ts, id, FactionOf(em, e), Q(Name(em, e)), F(p.x), F(p.z), F(w), F(h),
+                          Q(type),
+                          onGrid ? minCell.x.ToString(CultureInfo.InvariantCulture) : "*",
+                          onGrid ? minCell.y.ToString(CultureInfo.InvariantCulture) : "*",
+                          cells.x, cells.y, Yaw(xf.Rotation), site ? 1 : 0);
                     }
-                    W("B", ts, id, FactionOf(em, e), Q(Name(em, e)), F(p.x), F(p.z), F(w), F(h));
+                    else if (_sites.Contains(id) && !em.HasComponent<UnderConstruction>(e))
+                    {
+                        _sites.Remove(id);
+                        W("C", ts, id);
+                    }
+                    Level(ts, id, BuildingLevel(em, e), 0);
                 }
 
             var uq = QC_Unit.Get(em, QT_Unit);
@@ -160,7 +213,17 @@ namespace TheWaningBorder.Core.Diagnostics
                     var e = ents[i];
                     string id = Key(em, e);
                     alive.Add(id);
-                    if (_seen.Add(id)) W("U", ts, id, FactionOf(em, e), Q(Name(em, e)));
+                    if (_seen.Add(id))
+                    {
+                        int cls = em.HasComponent<UnitTag>(e)
+                            ? (int)em.GetComponentData<UnitTag>(e).Class : -1;
+                        int ufl = 0;
+                        if (em.HasComponent<CavalryTag>(e)) ufl |= 1;
+                        if (em.HasComponent<HeroLevel>(e)) ufl |= 2;
+                        if (em.HasComponent<BorderUnitTag>(e)) ufl |= 4;
+                        W("U", ts, id, FactionOf(em, e), Q(Name(em, e)), cls, ufl);
+                    }
+                    Level(ts, id, UnitLevel(em, e), 1);
                     var p = em.GetComponentData<LocalTransform>(e).Position;
                     int flags = 0;
                     if (em.HasComponent<DesiredDestination>(e)
@@ -172,7 +235,12 @@ namespace TheWaningBorder.Core.Diagnostics
                 }
 
             foreach (var id in _alive)
-                if (!alive.Contains(id)) W("D", ts, id);
+                if (!alive.Contains(id))
+                {
+                    W("D", ts, id);
+                    _level.Remove(id);
+                    _sites.Remove(id);
+                }
             _alive = alive;
 
             try { _w.Flush(); } catch { }
@@ -233,7 +301,70 @@ namespace TheWaningBorder.Core.Diagnostics
         {
             if (em.HasComponent<UnitTypeId>(e)) return em.GetComponentData<UnitTypeId>(e).Value.ToString();
             if (em.HasComponent<DisplayName>(e)) return em.GetComponentData<DisplayName>(e).Value.ToString();
+            // The curse's units are built outside UnitFactory and carry no
+            // type id; their tags still say exactly which of the three it is.
+            if (em.HasComponent<BorderUnitTag>(e))
+            {
+                if (em.HasComponent<CrystallingTag>(e)) return "Crystalling";
+                if (em.HasComponent<UnitTag>(e))
+                {
+                    var c = em.GetComponentData<UnitTag>(e).Class;
+                    if (c == UnitClass.Siege) return "Godsplinter";
+                    if (c == UnitClass.Ranged) return "Veilstinger";
+                }
+                return "Curse_unit";
+            }
             return em.HasComponent<BuildingTag>(e) ? "building" : "?";
+        }
+
+        /// <summary>The tech-tree id, the same one Metrics_Buildings.csv
+        /// counts under, so the viewer can join the two.</summary>
+        private static string BuildingType(EntityManager em, Entity e)
+        {
+            string id = TheWaningBorder.Entities.BuildingIds.Of(e, em);
+            if (!string.IsNullOrEmpty(id)) return id;
+            if (em.HasComponent<BorderMainNodeTag>(e)) return "CurseWell";
+            if (em.HasComponent<SmallNodeTag>(e)) return "CurseNode";
+            return "?";
+        }
+
+        /// <summary>The level the HUD names ("- Lvl N"): the upgrade ladder,
+        /// else a stone wall's tier, else a curse node's growth level.</summary>
+        private static int BuildingLevel(EntityManager em, Entity e)
+        {
+            if (em.HasComponent<BuildingUpgradeState>(e))
+                return em.GetComponentData<BuildingUpgradeState>(e).Level;
+            if (em.HasComponent<WallTier>(e) && !em.HasComponent<PalisadeTag>(e))
+                return em.GetComponentData<WallTier>(e).Level;
+            if (em.HasComponent<BorderNodeLevel>(e))
+                return em.GetComponentData<BorderNodeLevel>(e).Value;
+            return 0;
+        }
+
+        /// <summary>A hero's level, else bought veterancy rank, else 1.</summary>
+        private static int UnitLevel(EntityManager em, Entity e)
+        {
+            if (em.HasComponent<HeroLevel>(e)) return em.GetComponentData<HeroLevel>(e).Value;
+            if (em.HasComponent<UnitRank>(e)) return em.GetComponentData<UnitRank>(e).Value;
+            return 1;
+        }
+
+        /// <summary>Write an L line when an id's level differs from the last
+        /// one written (or from the default, at first sight). Read-only on
+        /// the world: the state is this writer's own dictionary.</summary>
+        private void Level(string ts, string id, int level, int dflt)
+        {
+            int last = _level.TryGetValue(id, out int v) ? v : dflt;
+            if (level == last) return;
+            _level[id] = level;
+            W("L", ts, id, level);
+        }
+
+        private static int Yaw(quaternion q)
+        {
+            float3 fwd = math.mul(q, new float3(0f, 0f, 1f));
+            int deg = (int)math.round(math.degrees(math.atan2(fwd.x, fwd.z)));
+            return ((deg % 360) + 360) % 360;
         }
 
         private static string FactionOf(EntityManager em, Entity e)

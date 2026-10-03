@@ -13,9 +13,8 @@ namespace TheWaningBorder.Entities
     /// </summary>
     public static class Cataphract
     {
-        // Default stats (calculator: tools/calculator/techtree.json,
-        // id "Alanthor_Cataphract" — 160 HP / 6.6 spd / 18 dmg / 1.6 cd /
-        // LoS 20 / pop 2).
+        // Stats come from the UnitDefSO (TechCatalog.Unit); tools/calculator is
+        // a generated read-only view of the SOs, not a source.
         private const int PresentationID = 336;
 
         /// <summary>Create Cataphract using EntityManager.</summary>
@@ -49,7 +48,7 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new LineOfSight { Radius = los });
             creator.AddComponent(entity, new Target { Value = Entity.Null });
             creator.AddComponent(entity, new Radius { Value = def.radius });
-            creator.AddComponent(entity, new PopulationCost { Amount = 2 });
+            creator.AddComponent(entity, new PopulationCost { Amount = def.populationCost });
             // Heavy shock cavalry: +50% damage on a connecting charge. Read by
             // CombatDamageHelper while Charging is set.
             creator.AddComponent(entity, new TheWaningBorder.Abilities.InnateChargePct { Pct = 50f });

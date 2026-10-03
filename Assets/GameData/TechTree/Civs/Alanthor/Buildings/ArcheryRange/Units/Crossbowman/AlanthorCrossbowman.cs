@@ -18,8 +18,8 @@ namespace TheWaningBorder.Entities
     /// </summary>
     public static class AlanthorCrossbowman
     {
-        // Default stats (calculator: tools/calculator/techtree.json,
-        // id "Alanthor_Crossbowman").
+        // Stats come from the UnitDefSO (TechCatalog.Unit); tools/calculator is
+        // a generated read-only view of the SOs, not a source.
         private const int PresentationID = 335;
 
         /// <summary>
@@ -69,7 +69,7 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new Target { Value = Entity.Null });
             creator.AddComponent(entity, new Radius { Value = def.radius });
             creator.AddComponent(entity, new AttackCooldown { Cooldown = cooldown, Timer = 0f });
-            creator.AddComponent(entity, new PopulationCost { Amount = 1 });
+            creator.AddComponent(entity, new PopulationCost { Amount = def.populationCost });
 
             // Archer-specific state for ranged behavior
             creator.AddComponent(entity, new ArcherState

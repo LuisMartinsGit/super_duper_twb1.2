@@ -18,7 +18,7 @@ MonoBehaviour:
   effect: 
   desc: "Unlocks Veilsteel banking: Veilsteel can be deposited in the Vault."
   researchAt: VaultOfAlmierra
-  minBuildingLevel: 0
+  minBuildingLevel: 3
   researchTime: 50
   prerequisites: []
   culture: 

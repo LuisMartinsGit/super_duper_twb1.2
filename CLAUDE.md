@@ -6,28 +6,54 @@ C# source code lives in `Assets/Scripts/` organized by domain modules.
 
 ## Game-design truth source
 
-**[docs/Design/](docs/Design/Overview.md) is the canonical truth source** for
-every game-design decision — units, buildings, costs, techs, factions,
-ages, Glow rules, religious-unit tier, per-battalion upgrade pattern,
-Runai trade lanes, Feraldis raider houses, Alanthor walls, sect framing.
+**Two sources, split by kind (2026-10-03,
+[Unification_Decisions_2026-10-03.md](docs/Design/Unification_Decisions_2026-10-03.md)):**
 
-When the **code** and the **Design folder** disagree, the Design folder
-wins; the code is being progressively aligned through tasks in
-[.deft/tasks/](. deft/tasks/) (notably
-[task-age0-techtree-alignment-065](.deft/tasks/task-age0-techtree-alignment-065/task.md)).
-Do **not** introduce new mechanics, balance values, or design changes
-without updating the Design folder first.
+- **[docs/Design/](docs/Design/Overview.md) is canonical for RULES and
+  REASONS** — what exists, what unlocks what, which level gates which tech or
+  unit, how a mechanic behaves and why: units and buildings as roles, techs
+  as effects, factions, ages, the curse, territory, religion, sects, walls,
+  Runai trade lanes, Feraldis raider houses.
+- **The SO assets (`Assets/GameData/TechTree/**/*.asset`) are the SINGLE
+  source of game DATA** — every cost, HP, damage, armour, range, line of sight,
+  speed, train / build / research / upgrade time, population, footprint,
+  income rate, interest and multiplier, and every roster (`trains[]`,
+  `researchAt`, `minBuildingLevel`, tags). **On a numeric conflict the SO
+  wins.** There is no JSON at all (`Resources/TechTree.json` is deleted;
+  sects live on `SectDefinition` SOs in `SectDatabase`), and no code-side stat
+  table where an SO field exists. A missing SO or catalog entry is a loud
+  load-time error, never a silent fallback.
+- **Design docs must not restate stat numbers.** Where a doc needs a value it
+  points at the SO, or at the calculator `tools/calculator/TechTree.html`,
+  which is **generated from the SOs**: `python tools/gen_calculator.py` reads
+  `Resources/TechTreeCatalog.asset` + `AbilityCatalog.asset` (Age 0 + Alanthor
+  scope) and writes `tools/calculator/techtree.json` and the DEFAULT blocks in
+  `TechTree.html` / `.jsx`. The page is read-only and every load starts from
+  the SO data — it is a view, never a source, and is never hand edited. The
+  old SO generators (`tools/gen_stat_sos.py`, `TechTreeParser`,
+  `TechTreeJsonDtos`, `TechTreeSOGenerator`, the "Generate Stat SOs" menu) are
+  deleted; `tools/rebuild_catalog.py` and `tools/patch_age0_buildings.py` are
+  retired (they point at dead paths). Numbers a doc may keep are rule-level ones (level gates, counts,
+  grid cell size, meter definitions) and named config values (they say which
+  config asset holds them).
+
+When the **code's behaviour** and a Design **rule** disagree, the rule wins and
+the code is aligned through tasks in [.deft/tasks/](.deft/tasks/). When a
+number disagrees, the SO wins and the doc is wrong for stating it. Do **not**
+introduce new mechanics or design changes without updating the Design folder
+first, and do not introduce a balance value anywhere but its SO.
 
 | Doc | Scope |
 |-----|-------|
+| [docs/Design/Unification_Decisions_2026-10-03.md](docs/Design/Unification_Decisions_2026-10-03.md) | **The game-data unification (Age 0 + Alanthor), numbered decisions newest-first** — SOs are the single data source, docs stop stating numbers, the calculator is generated from the SOs; the Hall and King's Court deleted (the capital is the Shelter, which becomes the Fortress at age-up), the Smelter / Holy Scholar / Retaliatory Measures / Research_Era2 / Shrine of Ridan cut, starting army 5 Spearmen + 1 Scout + 3 Workers, Mine and Veilstone Mine Age 0 for everyone, tech gates = SO `minBuildingLevel` only, L1 free at age-up, no Temple levels, per-battalion upgrades dropped. Read it before touching Age 0 / Alanthor data |
 | [docs/Design/Overview.md](docs/Design/Overview.md) | Cross-faction framing — two-age structure, movement axis, age-up transformations, per-battalion upgrades, religious-unit tier, population model, caravan-death rule, Petriarchy. (Glow economy: **superseded** — see Curse_And_Shardroot.md) |
 | [docs/Design/Curse_And_Shardroot.md](docs/Design/Curse_And_Shardroot.md) | **The curse & Shardroot loop** (replaces the old Border design AND the Glow economy): N wells, per-culture verbs (destroy/pacify/purify) with 10-min holds + tempo refresh, **well-domination victory** (all N wells yours at once), veilstone-only-from-curse, the Shardroot power artifact (One-Ring model, three Shardbound Heroes, first verb on the host well claims it) |
 | [docs/Design/Territory_Claims.md](docs/Design/Territory_Claims.md) | **Territory & the curse, fourth model (2026-09-29)** — one ownership meter per territory filled by standing military units (population-weighted), frozen while hostiles share it, decaying 3/s when empty and unbuilt; buildings HOLD, node buildings and Fortresses LOCK, everything collapses when ownership is lost; build only on owned ground. **No Hall** (the Fortress inherits it and is buildable). The curse claims at double weight while standing, builds destructible nodes on any resource node, cursed ground is a radius around nodes, and it hunts only the Shardroot holder. **No wells, verbs or well victory — elimination only.** **§10 (2026-10-01): territory limit = Fortress levels + 2 once aged up; only ground bordering Fortress-connected territory may be taken; cut-off ground wears down in ~4 min. §11: territory TYPES (Start / Normal / +iron / +veilstone / Empty / Veilstone rich (cursed) / Iron rich / Sanctum +1 RP/min) generate the nodes — scene node markers are inert.** Supersedes Regions.md §2-3 and most of Curse_And_Shardroot.md |
-| [docs/Design/Veilstone_Economy.md](docs/Design/Veilstone_Economy.md) | **Where veilstone and veilsteel come from (2026-10-01)** — veilstone outcrops are Inactive / Cursed / Depleted; a held node pays nothing by itself; Feraldis and Runai mine Inactive outcrops (Feraldis fast and finite), **Alanthor never mine veilstone (iron Mines stay; their Age 0 Veilstone Mines become Trading Outposts at age-up) — the Trading Outpost beside an outcrop buys veilstone with supplies + iron or (toggled) forges veilstone into veilsteel**; veilsteel is made, never mined (no veilsteel nodes, the Smelter generates nothing); destroying a curse node pacifies its outcrop and pays Feraldis veilsteel; the curse refills depleted outcrops. Runai Sanctuary / Feraldis raiding not yet implemented |
+| [docs/Design/Veilstone_Economy.md](docs/Design/Veilstone_Economy.md) | **Where veilstone and veilsteel come from (2026-10-01)** — veilstone outcrops are Inactive / Cursed / Depleted; a held node pays nothing by itself; Feraldis and Runai mine Inactive outcrops (Feraldis fast and finite), **Alanthor never mine veilstone (iron Mines stay; their Age 0 Veilstone Mines become Trading Outposts at age-up) — the Trading Outpost (snapped ON an outcrop, art reading as beside it) buys veilstone with supplies + iron or (toggled) forges veilstone into veilsteel**; veilsteel is made, never mined (no veilsteel nodes; the Alanthor Smelter is removed); **Guild Surveys are the deliberate exception** that lets Alanthor huts produce veilstone / veilsteel; income per source is the SO slot-income ladders (§5); destroying a curse node pacifies its outcrop and pays Feraldis veilsteel; the curse refills depleted outcrops. Runai Sanctuary / Feraldis raiding not yet implemented |
 | [docs/Design/Planned_Buildings.md](docs/Design/Planned_Buildings.md) | **Build orders create PLANS (2026-10-01)** — a white owner-only preview, paid, with no BuildingTag/Health (invisible to enemies, no collision role, does nothing) that reserves only its owner's tiles; it becomes the real site when a worker breaks ground, cancelling and refunding any other faction's overlapping plan. The **Delete** button/key cancels plans and sites (full refund), demolishes buildings, kills units |
 | [docs/Design/Religion.md](docs/Design/Religion.md) | **Religion points (2026-09-29)** — pts from curse kills (last hit is paid, escalating pts-per-RP), Tithe buys RP, Age 0 Temple for 1 RP (Shrine of Ridan cut, Litharch trains there), chapels 2 / 3 RP, powers and chapel levels bought with RP, sect units are heroes (limit 1, 1 RP). Supersedes Sects.md §3 and Overview's RP rules |
 | [docs/Design/Tech_Tree.md](docs/Design/Tech_Tree.md) | At-a-glance Mermaid charts of every building, unit, and tech across Age 0 and the three cultures |
-| [docs/Design/Combat_Pacing.md](docs/Design/Combat_Pacing.md) | Match pacing — the five meta beats, the unit counter table (bonusVsTags truth source), the siege-only wall rule |
+| [docs/Design/Combat_Pacing.md](docs/Design/Combat_Pacing.md) | Match pacing — the five meta beats, the counter RELATIONSHIPS (which tag each unit's `bonusVsTags` targets; the amounts are on the unit SOs), armour ordering, weight tags, the siege-only wall rule |
 | [docs/Design/Alpha_Build.md](docs/Design/Alpha_Build.md) | **The alpha test build** — which menu entries the shipped player hides (Campaign / Multiplayer / Scenarios / Load Game) and what every match records into the `logs` folder beside the exe |
 | [docs/Design/Lobby_Setup.md](docs/Design/Lobby_Setup.md) | **Lobby colour + start-position picking** — 12-swatch colour picker (taken colours locked out), click-a-row-then-click-the-map start assignment, and the `StartIndex` contract binding `MapInfo.PlayerStarts` to `MapMarkerRegistry` (re-bake required) |
 | [docs/Design/Teams.md](docs/Design/Teams.md) | **Teams** — lobby team assignment (or no team), shared line of sight, allies cannot damage each other, allied heals/buffs apply but never stack, last-team-standing victory. `Alliances.AreHostile` is the only valid hostility test |
@@ -59,9 +85,10 @@ the code currently does, often pre-design-pass) lives in
 
   ```
   TechTree/
-    Age0/Buildings/<Building>/{Research,Units,Abilities}/   ArcheryRange, Barracks,
-    Age0/Units/                                             Hall, Hut, GatherersHut,
-                                                            TempleOfRidan, Palisade,
+    Age0/Buildings/<Building>/{Research,Units,Abilities}/   Fortress (the capital),
+    Age0/Units/                                             Barracks, Hut, GatherersHut,
+                                                            Mine, VeilstoneMine, Palisade,
+                                                            Wall, TempleOfRidan,
                                                             VaultOfAlmierra, FiendstoneKeep
     Civs/<Culture>/Buildings/<Building>/{Research,Units,Abilities}/
     Civs/<Culture>/Units/<Unit>/{Abilities}/   units no building trains
@@ -88,14 +115,34 @@ the code currently does, often pre-design-pass) lives in
   `BuildingUpgradeConfig` reads them first and keeps its code tables only for
   cultures not yet migrated (Runai, Feraldis). The HUD shows
   `<name> - Lvl N`. docs/Design/Age_1_Alanthor.md § Building levels.
+- **The capital is `Age0/Buildings/Fortress/`** (2026-10-03). The Hall is
+  deleted: every faction starts with the **Shelter** (the `Fortress` SO's
+  Age 0 display name), which becomes the **Fortress** automatically at
+  age-up. There is no King's Court and no Town Hall; the capital's levels are
+  `Civs/Alanthor/Buildings/Fortress/Fortress_Lvl1..3`. The Worker, Scout,
+  Ledger and King Lexor all train there (its `trains[]`), and its techs
+  (`researchAt: Fortress`) are in `Fortress/Research/` (Age 0) and
+  `Civs/Alanthor/Buildings/Fortress/Research/` (Alanthor). `HallTag` survives
+  as an internal component name only — do not read it as a building.
+- **The Mine and Veilstone Mine are Age 0 buildings** (`Age0/Buildings/Mine/`,
+  `Age0/Buildings/VeilstoneMine/`), for every culture. The Gatherer's Hut has
+  no Age 0 research: the Alanthor Guild line is in
+  `Civs/Alanthor/Buildings/Guild/Research/` and the Feraldis raiding line in
+  `Civs/Feraldis/Buildings/RaiderCamp/Research/` (both still
+  `researchAt: GatherersHut`, culture-gated). The **Archery Range is an
+  Alanthor Age 1 building** (`Civs/Alanthor/Buildings/ArcheryRange/`).
+  The Alanthor **Smelter is removed** (`SmelterTag` stays only for the Runai
+  Foundry), and the Holy Scholar is cut.
 - **The Shrine of Ridan is gone** (2026-10-02; cut by Religion.md). Its
   Litharch trains at the Temple (`Age0/Buildings/TempleOfRidan/Units/Litharch/`),
   its heal aura is `TempleHealSystem`, and its materials (used by the Temple
   and chapel prefabs) live in `TempleOfRidan/Materials/`.
 - **A cultured building is the SAME entity renamed, so its folder is the
-  CULTURED name.** Alanthor units trained at the Age 0 `ArcheryRange` live under
-  `Civs/Alanthor/Buildings/PracticeRange/Units/`, because for an Alanthor player
-  that building *is* the Practice Range. This is why an Age 0 building's
+  CULTURED name.** Alanthor units trained at the Age 0 `Barracks` live under
+  `Civs/Alanthor/Buildings/Garrison/Units/`, because for an Alanthor player
+  that building *is* the Garrison. (The Archery Range is no longer an example:
+  it is an Age 1 Alanthor building, `Civs/Alanthor/Buildings/ArcheryRange/`,
+  with no cultured rename.) This is why an Age 0 building's
   `trains[]` legitimately lists `Alanthor_*` and `Feraldis_*` ids — the roster is
   culture-gated by id prefix at runtime, per
   [Age_1_Feraldis.md](docs/Design/Age_1_Feraldis.md) ("the Age 0 Barracks entity,
@@ -128,11 +175,11 @@ the code currently does, often pre-design-pass) lives in
   **It moved out of `Civs/Alanthor/Buildings/Walls/` on 2026-09-21**: the
   wall's first level is a timber palisade every culture builds from Age 0
   (docs/Design/Age_0.md § Wooden Wall), so it is no longer Alanthor content.
-  What is still Alanthor's is the LEVEL — stone at age-up, reinforced from
-  the Hall — not the building. The id stays `Alanthor_Wall` and the factory
-  class stays `AlanthorWall`: renaming either ripples through the recipe
-  table, BuildingSizeConfig, BuildCosts, build times, the name resolver and
-  the AI, and `Wall` as a type name would shadow far too much.
+  What is still Alanthor's is the LEVEL — stone at age-up, raised further by
+  research at the Wall Hub — not the building. The id stays `Alanthor_Wall`
+  and the factory class stays `AlanthorWall`: renaming either ripples through
+  the recipe table, the name resolver and the AI, and `Wall` as a type name
+  would shadow far too much.
   **2026-10-02: the palisade is its own building, `Palisade`** (its hub SO in
   `Age0/Buildings/Palisade/`), running on the SAME hub/segment/cell machinery —
   every palisade piece carries `PalisadeTag`, and `AlanthorWall.IsPalisade` is
@@ -145,6 +192,9 @@ the code currently does, often pre-design-pass) lives in
   only what exists in Age 0. The shared hub/segment CODE, the Gate (a
   palisade takes gates too), the timber art and `WallModuleArt` stay in
   `Age0/Buildings/Wall/` — one machine, two kinds of content.
+  **The stone wall's levels are level SOs** (2026-10-03):
+  `Civs/Alanthor/Buildings/Wall/Wall_Lvl1..3`, carrying the level name and
+  the wall HP multiplier the code used to hard-code.
   `Civs/Alanthor/Buildings/Tower/` is NOT part of the set: the watch tower is
   a stand-alone building from the Age 0 hut conversion.
 - **Cross-domain components** (CoreComponents, CombatComponents, etc.) stay in `Scripts/Components/`; **cross-domain systems** (Combat, Navigation, Work, Training, AI, Border) stay in `Scripts/Systems/` by domain.
@@ -164,12 +214,12 @@ the code currently does, often pre-design-pass) lives in
   `Systems/Research/TechEffectSystem` and `Systems/Navigation/Debug/` are
   MonoBehaviours, and `Systems/Audio/MusicManager` joined them on 2026-08-28.
   "System" here means a domain's behaviour, not the ECS base class. It looked like the same domain scattered across two folders, which is why it is written down now; splitting a domain's state from its systems is deliberate, not drift. **Abilities was the fourth such domain and no longer is** — it left `Scripts/` entirely on 2026-08-27 (next bullet but one).
-- **Shared factories are DISPATCH ONLY**: `UnitFactory.cs` in `Entities/Units/` and `BuildingFactory.cs` in `Entities/Buildings/` hold the id→recipe table and the cross-entity queries; the per-entity creation code lives in that entity's GameData folder as its own static class (`Hall.Create`, `KingsCourt.Create`, …, both an `EntityManager` and an `EntityCommandBuffer` overload). Adding a building = write its class in its folder, add one row to the recipe table.
+- **Shared factories are DISPATCH ONLY**: `UnitFactory.cs` in `Entities/Units/` and `BuildingFactory.cs` in `Entities/Buildings/` hold the id→recipe table and the cross-entity queries; the per-entity creation code lives in that entity's GameData folder as its own static class (`Fortress.Create`, `Barracks.Create`, …, both an `EntityManager` and an `EntityCommandBuffer` overload). Adding a building = write its class in its folder, add one row to the recipe table.
 - **An ability lives with whatever OWNS it**, in an `Abilities/<Ability>/`
   folder one level down — never in a shared ability pool. There is no
   `Age0/Abilities/` or `Civs/<Culture>/Abilities/` any more (flattened
   2026-08-27):
-  - the **unit that casts it** — `Age0/Buildings/Hall/Units/Scout/Abilities/{ScoutSight,UseCelestar}/`,
+  - the **unit that casts it** — `Age0/Buildings/Fortress/Units/Scout/Abilities/{ScoutSight,UseCelestar}/`,
     `Civs/Alanthor/Units/KingLexor/Abilities/{KingsCall,LiquidCourage,VeilshiftWithdrawal,LifeCling}/`
     (an aftermath ability files under the caster of the ability that chains
     into it), `Civs/Alanthor/Units/Ledger/Abilities/{AutomateFacility,UnderAutomation}/`
@@ -186,8 +236,9 @@ the code currently does, often pre-design-pass) lives in
     Mending Hall).
 
   Each folder carries one `AbilityDefSO` plus its icon/VFX-prefab slots (the
-  `AbilityCatalog` code seed is the runtime fallback). Sect god powers stay
-  JSON-backed — see the sect branch below. The generic ability **engine** is no
+  `AbilityCatalog` code seed is the runtime fallback). Sect data — god powers
+  included — lives on `SectDefinition` SOs (`SectDatabase`); there is no JSON
+  anywhere (2026-10-03). The generic ability **engine** is no
   longer under `Scripts/` at all: see the next bullet.
 - **`TechTree/` holds only what the player directly interacts with** — buildings,
   units, research and abilities. It is a CONTENT branch, not a code branch.
@@ -325,8 +376,9 @@ the code currently does, often pre-design-pass) lives in
   own `GameData/TechTree/` folder. That is the co-location rule winning over
   folder/namespace symmetry on purpose, not drift.
   Entity-specific visuals still live in that entity's TechTree folder — including
-  the seven `PresentationSpawnSystem.<Entity>.cs` partials (Vault of Almierra,
-  Smelter, Alanthor Wall, Border LargeNode, and the three ResourceNodes). They
+  the `PresentationSpawnSystem.<Entity>.cs` partials (Vault of Almierra,
+  Alanthor Wall, Border LargeNode, and the ResourceNodes — the Smelter's went
+  with the Smelter). They
   MUST stay in the runtime assembly: a partial class cannot span assemblies.
 - **Shared art the presentation code paints with** lives at
   `Assets/GameData/Art/{Atlases,Placeholders}/` — the building texture atlases
@@ -432,10 +484,13 @@ the code currently does, often pre-design-pass) lives in
     scene objects.
 - **Technologies are SOs, filed under the building that researches them**: one
   `TechDefSO` per tech at `Age0/Buildings/<Building>/Research/<Tech>.asset` or `Civs/<Culture>/Buildings/<Building>/Research/<Tech>.asset` (a sect building's is at `Sects/<Sect>/Buildings/<Building>/Research/`)
-  (e.g. `Age0/Buildings/ArcheryRange/Research/Fletching.asset`), carrying its costs,
-  prerequisites, culture gate and both effect models. `TechTreeCatalog.asset` holds the
-  references so they load without a magic `Resources/` folder; JSON is the deprecated
-  fallback, same as units/buildings.
+  (e.g. `Civs/Alanthor/Buildings/ArcheryRange/Research/Fletching.asset`), carrying its costs,
+  prerequisites, culture gate, level gate and both effect models. `TechTreeCatalog.asset` holds the
+  references so they load without a magic `Resources/` folder. **There is no JSON at all**
+  (2026-10-03): `Resources/TechTree.json` is deleted, for units, buildings and techs alike,
+  and a missing SO or catalog entry is a loud load-time error.
+  **`TechDefSO.minBuildingLevel` is the ONLY level gate on a tech** (decision 21) — no
+  faction-age gate, no code table.
   **`TechDefSO.researchAt` is the single source of truth for the research host.**
   `TechCatalog.RebuildResearchLists()` derives every `BuildingDef.research[]` from it at
   load. Do not hand-author a building's research array -- set `researchAt` on the tech and
@@ -585,12 +640,13 @@ builds stop.
 
 ## Key Design Decisions (Do Not Change)
 
-> **SUPERSEDED BY DESIGN, NOT YET BY CODE (2026-08-27).**
-> [docs/Design/Regions.md](docs/Design/Regions.md) §4 removes worker gathering
-> outright: income comes from territory ticks, forests and mines, and there is
-> ONE unit — the Worker — which only builds.
-> The four mining/worker bullets below describe what the code does TODAY and are
-> accurate for it; they are no longer the design. Do not "fix" code toward them.
+> **Nobody gathers (2026-10-03).** [docs/Design/Regions.md](docs/Design/Regions.md)
+> §4 removed worker gathering, and the code followed: there is no Miner and no
+> Builder — ONE economy unit, the **Worker, which only builds** (and repairs).
+> Income is territory: each held slot pays a trickle, and an extractor on it
+> (Gatherer's Hut, Mine, Veilstone Mine, Alanthor Trading Outpost) pays its
+> SO's slot-income ladder; the capital pays its own SO income
+> ([Veilstone_Economy.md §5](docs/Design/Veilstone_Economy.md)).
 
 - **Input reads intent; it does not issue orders** (2026-09-01).
   `RTSInputManager` was 1,285 lines of which ~600 were not input at all — what
@@ -627,10 +683,10 @@ builds stop.
   Menu scenes keep their cameras — they never call `GameCamera.Ensure()`, whose
   only caller is `GameBootstrap`.
 - Player color does NOT change on culture selection
-- Mined resources are credited straight to the faction bank on each gather
-  tick — there are NO carrying workers and NO dropoff buildings
-- Workers: local player workers require explicit GatherCommand; AI workers auto-find
-- Workers auto-find new deposits only on depletion and only within LineOfSight range
+- Income is credited straight to the faction bank by the territory / extractor
+  tick — there are NO carrying workers, NO gathering and NO dropoff buildings
+- Workers only build and repair; local player workers need an explicit order,
+  AI workers find sites on their own
 - Workers auto-chain to nearby unfinished structures within LOS
 - Shift+click stays in building placement mode for repeated placement
 
@@ -663,7 +719,7 @@ Scopes: `ai`, `combat`, `economy`, `ui`, `input`, `movement`, `building`, `minin
 |--------|-----------|
 | Commands | `Core/Commands/CommandRouter.cs` |
 | Economy | `Economy/FactionEconomy.cs`, `Economy/FactionResources.cs` |
-| Mining | `Systems/Work/MiningSystem.cs`, `Systems/Work/VeilstoneMiningSystem.cs` |
+| Income | `Systems/World/TerritoryIncomeSystem.cs` (slots, extractors, capital) |
 | Construction | `Systems/Work/BuildingConstructionSystem.cs` |
 | Combat | `Systems/Combat/TargetingSystem.cs`, `Systems/Combat/MeleeCombatSystem.cs` |
 | AI | `GameSystems/AI/AIBrain/AIBrain.cs`, `GameSystems/AI/SimpleAISystem/` |

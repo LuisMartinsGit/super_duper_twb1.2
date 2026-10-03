@@ -27,6 +27,13 @@ MonoBehaviour:
     magic: 3
   radius: 2
   lineOfSight: 14
+  footprintCells: {x: 4, y: 4}
+  buildTime: 90
+  slotIncomePerMinute: []
+  interestPerMinute: 0.25
+  minWallLevel: 0
+  garrisonSlots: 0
+  garrisonArrowsPerOccupant: 0
   trains: []
   research:
   - Coffers

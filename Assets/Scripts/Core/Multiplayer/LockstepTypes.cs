@@ -51,7 +51,7 @@ namespace TheWaningBorder.Core.Multiplayer
         Research = 25,           // CommandRouter.IssueResearch (building + tech id in BuildingId)
         BuildingUpgrade = 26,    // CommandRouter.IssueBuildingUpgrade (building level-up; target level recomputed per peer)
         AgeUp = 27,              // CommandRouter.IssueAgeUp (hall + culture byte in TargetEntityId)
-        TempleUpgrade = 28,      // CommandRouter.IssueTempleUpgrade (temple; level/duration recomputed per peer)
+        // 28 was TempleUpgrade — retired 2026-10-03 with the Temple's levels; never reuse it.
         SectAdopt = 29,          // CommandRouter.IssueSectAdoption (temple + sect id in BuildingId + slot in TargetEntityId + build time in TargetPosition.x)
 
         // ── Added 2026-08-15 (docs/Multiplayer_LAN_Readiness.md) ─────────

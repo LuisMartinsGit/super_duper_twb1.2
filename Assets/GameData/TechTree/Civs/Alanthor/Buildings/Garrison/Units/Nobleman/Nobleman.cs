@@ -13,8 +13,8 @@ namespace TheWaningBorder.Entities
     /// </summary>
     public static class Nobleman
     {
-        // Default stats (calculator: tools/calculator/techtree.json,
-        // id "Alanthor_Nobleman" — 175 HP / 18 dmg / 1.3 cd / 1.2 range).
+        // Stats come from the UnitDefSO (TechCatalog.Unit); tools/calculator is
+        // a generated read-only view of the SOs, not a source.
         private const int PresentationID = 346;
 
         public static Entity Create(EntityManager em, float3 position, Faction faction)
@@ -46,7 +46,7 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new LineOfSight { Radius = los });
             creator.AddComponent(entity, new Target { Value = Entity.Null });
             creator.AddComponent(entity, new Radius { Value = radius });
-            creator.AddComponent(entity, new PopulationCost { Amount = 1 });
+            creator.AddComponent(entity, new PopulationCost { Amount = def.populationCost });
 
             // Combat type tags
             creator.AddComponent(entity, new DamageTypeData { Value = DamageType.Melee });

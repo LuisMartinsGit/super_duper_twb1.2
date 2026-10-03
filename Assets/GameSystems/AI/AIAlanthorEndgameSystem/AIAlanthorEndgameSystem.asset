@@ -12,12 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2b3c4d5e6f708192a3b4c5d6e7f2001, type: 3}
   m_Name: AIAlanthorEndgameSystem
   m_EditorClassIdentifier:
-  escortSize: 6
-  wellDefenderPenalty: 20
-  wellOwnedBonus: 60
-  wellAdjacentBonus: 30
-  wellAdjacencyProbeRadius: 35
-  smelterTarget: 1
   houseTarget: 8
   fleeRadius: 14
   sectUnitCap: 1

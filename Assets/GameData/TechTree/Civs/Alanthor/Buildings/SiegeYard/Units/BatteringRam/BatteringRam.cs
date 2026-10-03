@@ -18,10 +18,8 @@ namespace TheWaningBorder.Entities
     /// </summary>
     public static class BatteringRam
     {
-        // Default stats (calculator: tools/calculator/techtree.json,
-        // id "alanthor_siegeyard_battering_ram" — 340 HP / 36 dmg / 3.0 cd /
-        // range 1 / LoS 18 / speed 3.0 / 36 s train / pop 2 /
-        // 220 S + 120 I + 40 V / defense 0-1-2-0).
+        // Stats come from the UnitDefSO (TechCatalog.Unit); tools/calculator is
+        // a generated read-only view of the SOs, not a source.
         public const int PresentationID = 347;
 
         /// <summary>Create Battering Ram using EntityManager.</summary>
@@ -59,7 +57,7 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new LineOfSight { Radius = los });
             creator.AddComponent(entity, new Target { Value = Entity.Null });
             creator.AddComponent(entity, new Radius { Value = def.radius });
-            creator.AddComponent(entity, new PopulationCost { Amount = 2 });
+            creator.AddComponent(entity, new PopulationCost { Amount = def.populationCost });
 
             // Combat type tags
             creator.AddComponent(entity, new DamageTypeData { Value = DamageType.Siege });

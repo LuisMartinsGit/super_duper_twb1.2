@@ -316,17 +316,6 @@ namespace TheWaningBorder.Systems.Combat
                             var targetHealth = em.GetComponentData<Health>(healTarget);
                             float healRate = canHeal.ValueRO.HealRate;
 
-                            // Shrine of Ridan simple upgrade (design
-                            // 2026-07-04): upgrading the Shrine also upgrades
-                            // Litharchs — heal rate +25% / +50%.
-                            if (em.HasComponent<FactionTag>(entity))
-                            {
-                                int shrineLv = ChoiceUpgradeQuery.MaxShrineLevel(
-                                    em, em.GetComponentData<FactionTag>(entity).Value);
-                                if (shrineLv >= 2) healRate *= 1.5f;
-                                else if (shrineLv == 1) healRate *= 1.25f;
-                            }
-
                             int healAmount = (int)(healRate * HealTickInterval);
                             if (healAmount < 1) healAmount = 1;
 

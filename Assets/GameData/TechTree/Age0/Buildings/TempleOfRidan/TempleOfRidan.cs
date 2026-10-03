@@ -53,8 +53,7 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
 
             em.AddComponent<TempleOfRidanTag>(entity);
-            em.AddComponent<TempleTag>(entity); // Keep legacy tag for TempleUpgradeSystem compatibility
-            em.AddComponentData(entity, new TempleLevel { Level = 1 });
+            em.AddComponent<TempleTag>(entity); // legacy alias, still read by queries
 
             // Glow storage lives on the Temple per spec refinement #2
             // (the standalone ShardrootReliquary was deleted).
@@ -108,7 +107,6 @@ namespace TheWaningBorder.Entities
 
             ecb.AddComponent<TempleOfRidanTag>(entity);
             ecb.AddComponent<TempleTag>(entity);
-            ecb.AddComponent(entity, new TempleLevel { Level = 1 });
 
             // Glow storage lives on the Temple per spec refinement #2.
             ecb.AddComponent(entity, new ShardrootStored { Amount = 0 });

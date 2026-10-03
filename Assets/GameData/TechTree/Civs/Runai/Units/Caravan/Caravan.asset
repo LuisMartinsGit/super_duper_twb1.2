@@ -36,6 +36,7 @@ MonoBehaviour:
     Iron: 0
     Crystal: 0
     Veilsteel: 0
+  populationCost: 0
   minBuildingLevel: 0
   buildSpeed: 0
   gatheringSpeed: 0

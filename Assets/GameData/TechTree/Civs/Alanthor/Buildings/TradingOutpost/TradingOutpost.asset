@@ -14,8 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   id: 'Alanthor_TradingOutpost'
   displayName: 'Trading Outpost'
-  role: 'Trade post beside a veilstone outcrop - buys veilstone with supplies and iron, or forges veilstone into veilsteel'
-  description: Raise beside an uncursed or depleted veilstone outcrop. Trade mode buys veilstone with supplies and iron; Forge mode turns veilstone into veilsteel.
+  role: 'Trade post on a veilstone outcrop - buys veilstone with supplies and iron, or forges veilstone into veilsteel'
+  description: Raise it on an uncursed or depleted veilstone outcrop (it snaps onto the outcrop). Trade mode buys veilstone with supplies and iron; Forge mode turns veilstone into veilsteel.
   hp: 650
   armorType: 'structure_human'
   defense:
@@ -25,7 +25,13 @@ MonoBehaviour:
     magic: 1
   radius: 1.0
   lineOfSight: 14
+  footprintCells: {x: 2, y: 2}
   buildTime: 30
+  slotIncomePerMinute: []
+  interestPerMinute: 0
+  minWallLevel: 0
+  garrisonSlots: 0
+  garrisonArrowsPerOccupant: 0
   trains: []
   research: []
   minEra: 2

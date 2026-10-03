@@ -1,5 +1,5 @@
 // BuildingDef.cs
-// Building definition data structure parsed from TechTree JSON
+// Runtime building definition, projected from its BuildingDefSO
 // Part of: Data/TechTree/Definitions/
 
 using System;
@@ -9,7 +9,7 @@ namespace TheWaningBorder.Data
 {
     /// <summary>
     /// Defines a building type's base stats, training capabilities, and research options.
-    /// Loaded from TechTree.json at runtime.
+    /// Projected from its SO by TechCatalog (the SO is the only source).
     /// </summary>
     [Serializable]
     public class BuildingDef
@@ -27,6 +27,10 @@ namespace TheWaningBorder.Data
         // ==================== Spatial ====================
         public float radius;            // building footprint radius
         public float lineOfSight;       // vision range
+        /// <summary>Footprint in 2 m BUILD CELLS (x = width, y = depth),
+        /// docs/Design/Build_Grid.md. BuildingSizeConfig reads it; it was that
+        /// class's own id switch until 2026-10-03 (unification item 34).</summary>
+        public UnityEngine.Vector2Int footprintCells;
 
         // ==================== Construction ====================
         /// <summary>Seconds to construct. 0 = the construction system's own default.</summary>
@@ -39,11 +43,30 @@ namespace TheWaningBorder.Data
         public float suppliesPerTick;
         /// <summary>Seconds between supply ticks. 0 = building generates no supplies.</summary>
         public float suppliesInterval;
+        /// <summary>What a resource SLOT pays per minute with this building on
+        /// it, by level (index 0 = level 1). Only the extractors (Gatherer's
+        /// Hut, Mine, Veilstone Mine) carry it; a culture's level SO may
+        /// override a rung (BuildingLevelDefSO.slotIncomePerMinute).
+        /// TerritoryIncomeSystem reads it.</summary>
+        public float[] slotIncomePerMinute;
+        /// <summary>Interest a stored resource earns per minute (0.25 = 25 %).
+        /// The Vault of Almierra only; its levels scale it
+        /// (BuildingLevelDefSO.interestMultiplier).</summary>
+        public float interestPerMinute;
+        /// <summary>The stone-wall level (WallTiers) a wall must stand at for
+        /// this building to be mounted on it. The emplacements only.</summary>
+        public int minWallLevel;
+        /// <summary>Foot units this building can hold (WallGarrisonSlot). The
+        /// Watch Tower only.</summary>
+        public int garrisonSlots;
+        /// <summary>Extra targets per volley each garrisoned unit adds to the
+        /// building's own attack.</summary>
+        public int garrisonArrowsPerOccupant;
         /// <summary>Most a faction may own at once, plans and sites included.
         /// 0 = unlimited. Enforced by <c>BuildingFactory.AtFactionCap</c>.</summary>
         public int maxPerFaction;
 
-        // ==================== Storage (Smelter) ====================
+        // ==================== Storage ====================
         public int maxIron;
         public int maxVeilstone;
 

@@ -7,7 +7,7 @@ using TheWaningBorder.Abilities;
 namespace TheWaningBorder.Entities
 {
     /// <summary>
-    /// King Lexor — Alanthor hero cavalry (King's Court, one per player).
+    /// King Lexor — Alanthor hero cavalry (trained at the Fortress, one per player).
     /// Passive leadership aura (King's Call) buffs allied Alanthor units; active
     /// Liquid Courage (90% DR + attack, with the Veilshift Withdrawal + Life Cling
     /// aftermath chain). One-per-player limit + escalating respawn train-time are
@@ -16,8 +16,8 @@ namespace TheWaningBorder.Entities
     /// </summary>
     public static class KingLexor
     {
-        // Default stats (calculator: tools/calculator/techtree.json,
-        // "King Lexor" — 650 HP / 45 dmg / 1.4 cd / speed 7 / LoS 26 / pop 3).
+        // Stats come from the UnitDefSO (TechCatalog.Unit); tools/calculator is
+        // a generated read-only view of the SOs, not a source.
         public const int PresentationID = 251;
 
         public static Entity Create(EntityManager em, float3 position, Faction faction)
@@ -48,7 +48,7 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new LineOfSight { Radius = los });
             creator.AddComponent(entity, new Target { Value = Entity.Null });
             creator.AddComponent(entity, new Radius { Value = def.radius });
-            creator.AddComponent(entity, new PopulationCost { Amount = 3 });
+            creator.AddComponent(entity, new PopulationCost { Amount = def.populationCost });
             // The King rides as heavy cavalry: +50% on a connecting charge, on top
             // of the flat bonus his own King's Call aura grants.
             creator.AddComponent(entity, new InnateChargePct { Pct = 50f });

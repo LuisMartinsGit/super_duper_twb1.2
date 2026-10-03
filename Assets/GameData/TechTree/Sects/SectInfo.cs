@@ -114,7 +114,7 @@ namespace TheWaningBorder.Economy
         }
 
         /// <summary>
-        /// The cooldown a player without Shardroot or Shrine upgrades actually
+        /// The cooldown a player without the Shardroot actually
         /// waits: the authored number, since there is no hidden global scale.
         /// These texts have no faction to ask; the Religion panel shows the
         /// fully effective number (SectActivePowerHelper.EffectiveCooldown).

@@ -29,13 +29,19 @@ namespace TheWaningBorder.Data
 
         public float radius = 1.6f;
         public float lineOfSight = 20f;
+        public Vector2Int footprintCells;
 
         public float buildTime;
 
         public int populationProvided;
         public float suppliesPerTick;
         public float suppliesInterval;
+        public float[] slotIncomePerMinute;
+        public float interestPerMinute;
         public int maxPerFaction;
+        public int minWallLevel;
+        public int garrisonSlots;
+        public int garrisonArrowsPerOccupant;
 
         public int maxIron;
         public int maxVeilstone;
@@ -91,10 +97,17 @@ namespace TheWaningBorder.Data
             def.defense     = UnitDefSO.CloneDefense(defense);
             def.radius      = radius;
             def.lineOfSight = lineOfSight;
+            def.footprintCells = footprintCells;
             def.buildTime   = buildTime;
             def.populationProvided = populationProvided;
             def.suppliesPerTick    = suppliesPerTick;
             def.suppliesInterval   = suppliesInterval;
+            // Authoring data is read-only at runtime, so reference-copy.
+            def.slotIncomePerMinute = slotIncomePerMinute ?? System.Array.Empty<float>();
+            def.interestPerMinute  = interestPerMinute;
+            def.minWallLevel       = minWallLevel;
+            def.garrisonSlots      = garrisonSlots;
+            def.garrisonArrowsPerOccupant = garrisonArrowsPerOccupant;
             def.maxPerFaction      = maxPerFaction;
             def.maxIron            = maxIron;
             def.maxVeilstone       = maxVeilstone;
@@ -124,10 +137,17 @@ namespace TheWaningBorder.Data
             defense     = UnitDefSO.CloneDefense(def.defense);
             radius      = def.radius;
             lineOfSight = def.lineOfSight;
+            footprintCells = def.footprintCells;
             buildTime   = def.buildTime;
             populationProvided = def.populationProvided;
             suppliesPerTick    = def.suppliesPerTick;
             suppliesInterval   = def.suppliesInterval;
+            slotIncomePerMinute = def.slotIncomePerMinute == null
+                ? System.Array.Empty<float>() : (float[])def.slotIncomePerMinute.Clone();
+            interestPerMinute  = def.interestPerMinute;
+            minWallLevel       = def.minWallLevel;
+            garrisonSlots      = def.garrisonSlots;
+            garrisonArrowsPerOccupant = def.garrisonArrowsPerOccupant;
             maxPerFaction      = def.maxPerFaction;
             maxIron            = def.maxIron;
             maxVeilstone       = def.maxVeilstone;

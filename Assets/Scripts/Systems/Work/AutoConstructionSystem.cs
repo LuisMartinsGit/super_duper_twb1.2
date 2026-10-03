@@ -5,7 +5,7 @@
 //   - the per-hub "Build Wall" action: the second (and onward) wall hubs and
 //     the wall instances along the segment are spawned with AutoConstructTag
 //     + UnderConstruction { Total = 30 } and finish ~30 s later.
-//   - the three choice buildings (Shrine / Vault / Keep): placed from the
+//   - the landmarks (Vault / Keep): placed from the
 //     top-bar special-building buttons with Total = 90. Workers sent to the
 //     site ACCELERATE the build (+0.25 progress/s each on top of this
 //     system's 1.0/s — see BuildingConstructionSystem), so 4 workers halve

@@ -1,5 +1,5 @@
 // FieldHospital.cs
-// The temporary building a Litharch deploys once the Shrine's Field Hospital
+// The temporary building a Litharch deploys once the Field Hospital
 // tech is researched. It heals allied units around it and then tears itself
 // down after two minutes.
 //

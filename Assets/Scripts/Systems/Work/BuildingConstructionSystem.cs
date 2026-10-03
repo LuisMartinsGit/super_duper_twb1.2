@@ -1,4 +1,4 @@
-using Unity.Burst;
+﻿using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -48,10 +48,8 @@ namespace TheWaningBorder.Systems.Work
                 ComponentType.ReadOnly<LocalTransform>()
             );
 
-            // task-063 phase 1: _templeQuery removed — was only used by the old
-            // GrantShrineRPBonus path that required an existing Temple to award the
-            // shrine bonus. The new design grants the +1 RP unconditionally on
-            // Shrine completion (latched once per faction).
+            // task-063 phase 1: _templeQuery removed — it was only used by an
+            // old RP-bonus path that no longer exists.
         }
 
         public void OnUpdate(ref SystemState state)
@@ -355,7 +353,7 @@ namespace TheWaningBorder.Systems.Work
             // Remove construction marker
             em.RemoveComponent<UnderConstruction>(building);
 
-            // Post-game chart milestone: choice building (Shrine/Vault/Keep)
+            // Post-game chart milestone: landmark (Vault/Keep)
             // completed. Only one completion path can fire per site — the
             // UnderConstruction removal above gates the other path out.
             if (em.HasComponent<ChoiceBuildingTag>(building) && em.HasComponent<FactionTag>(building))
@@ -397,11 +395,9 @@ namespace TheWaningBorder.Systems.Work
                 em.SetComponentData(building, lt);
             }
 
-            // Safety net: ensure GathererHuts have SuppliesIncome after completion
-            if (em.HasComponent<GathererHutTag>(building) && !em.HasComponent<SuppliesIncome>(building))
-            {
-                em.AddComponentData(building, new SuppliesIncome { PerTick = 10f, Interval = 10f });
-            }
+            // NO SuppliesIncome for a Gatherer's Hut: it pays ONLY its
+            // territory slot (TerritoryIncomeSystem). The safety net that
+            // re-added a flat income here paid it twice (2026-10-03, item 9).
 
             // Safety net: GathererHuts carry the Guild level ladder marker so the
             // culture auto-level + manual upgrade path can bump them (L1-L3).
@@ -453,8 +449,8 @@ namespace TheWaningBorder.Systems.Work
             }
 
             // task-063 phase 1: GrantTempleConstructionRP removed. The new design
-            // grants RP only on age-up + Shrine completion + chapel completion.
-            // Temple of Ridan finishing construction is no longer an RP source.
+            // grants RP per docs/Design/Religion.md; Temple of Ridan finishing
+            // construction is not an RP source.
         }
 
         /// <summary>

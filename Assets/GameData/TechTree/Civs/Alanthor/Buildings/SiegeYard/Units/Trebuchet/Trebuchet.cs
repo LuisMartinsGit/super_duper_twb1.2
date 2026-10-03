@@ -24,10 +24,8 @@ namespace TheWaningBorder.Entities
     /// </summary>
     public static class Trebuchet
     {
-        // Default stats (calculator: tools/calculator/techtree.json,
-        // id "alanthor_siegeyard_trebuchet" — 200 HP / 60 dmg / 6.0 cd /
-        // range 12-38 / LoS 30 / speed 2.4 / 50 s train / pop 3 /
-        // 320 S + 180 I + 100 V + 20 Vs / defense 0-1-2-0 / AoE 6).
+        // Stats come from the UnitDefSO (TechCatalog.Unit); tools/calculator is
+        // a generated read-only view of the SOs, not a source.
         // Nominal lob speed; in practice the catapult hang-time formula in
         // RangedCombatSystem overrides high-arc CatapultTag shots to a slow
         // 2-3 s flight scaled by range.
@@ -81,7 +79,7 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new Target { Value = Entity.Null });
             creator.AddComponent(entity, new Radius { Value = def.radius });
             creator.AddComponent(entity, new AttackCooldown { Cooldown = cooldown, Timer = 0f });
-            creator.AddComponent(entity, new PopulationCost { Amount = 3 });
+            creator.AddComponent(entity, new PopulationCost { Amount = def.populationCost });
 
             // Siege ranged state — high lob, slow stone.
             creator.AddComponent(entity, new ArcherState

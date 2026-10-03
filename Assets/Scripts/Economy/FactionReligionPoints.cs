@@ -8,7 +8,7 @@
 //    godsplinter), and points convert to RP at an escalating rate — the first
 //    RP is cheap, later ones cost the cap (CurseKillReligionSystem);
 //  - the Temple's Tithe: RP for resources, dearer each time.
-//  (Age-ups and Temple upgrades no longer award RP; the Shrine is cut.)
+//  (Age-ups do not award RP, and the Temple has no levels.)
 //
 // RP sinks:
 //  - the Temple itself (1), a chapel (2 with affinity / 3 without),
@@ -52,7 +52,7 @@ namespace TheWaningBorder.Economy
 
     /// <summary>
     /// Static helpers for awarding / spending Religion Points. Called by
-    /// AgeUpSystem (per-age award), BuildingConstructionSystem (Shrine bonus),
+    /// AgeUpSystem (per-age award), BuildingConstructionSystem,
     /// and SectAdoption (spending on chapels and lever upgrades).
     /// </summary>
     public static class FactionReligionPointsHelper

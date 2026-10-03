@@ -345,14 +345,11 @@ namespace TheWaningBorder.UI.Ingame
                         RenderClassicActions(em, info.Actions, treatAsTraining: true);
                         break;
 
-                    case ActionType.TempleUpgrade:
+                    case ActionType.TempleTraining:
                         _title.text = Loc.T("Temple of Ridan");
-                        // Training row lives on the authored panel when active;
-                        // the upgrade lever stays here (it must not sit in the
-                        // authored unit/research grid).
+                        // Training row lives on the authored panel when active.
                         if (!authored)
                             RenderClassicActions(em, info.Actions, treatAsTraining: true);
-                        RenderTempleUpgrade(em);
                         break;
 
                     case ActionType.GathererHutAgeUpChoice:
@@ -393,7 +390,7 @@ namespace TheWaningBorder.UI.Ingame
             if (!hasLayout && !authored
                 && (info.Type == ActionType.UnitTraining
                     || info.Type == ActionType.UnitTrainingAndResearch
-                    || info.Type == ActionType.TempleUpgrade))
+                    || info.Type == ActionType.TempleTraining))
             {
                 var research = EntityActionExtractor.GetResearchActions(_entity, em);
                 foreach (var b in research)
@@ -775,70 +772,6 @@ namespace TheWaningBorder.UI.Ingame
                     if (!ok) return;
                     BuildingUpgradeAction.Execute(em2, entity);
                     _timer = RefreshInterval;
-                });
-        }
-
-        // ── Temple upgrade section ─────────────────────────────────────────
-
-        private void RenderTempleUpgrade(EntityManager em)
-        {
-            if (!em.HasComponent<TempleLevel>(_entity)) return;
-            var level = em.GetComponentData<TempleLevel>(_entity);
-
-            if (level.Level >= TempleLevelConfig.MaxLevel)
-            {
-                _statusA.text = string.Format(
-                    Loc.T("Temple Level {0} (Maximum) — all eras unlocked"), level.Level);
-                return;
-            }
-            if (em.HasComponent<TempleUpgradeState>(_entity))
-            {
-                var up = em.GetComponentData<TempleUpgradeState>(_entity);
-                float pct = 1f - up.Remaining / up.Duration;
-                _researchBar.Set(true,
-                    string.Format(Loc.T("Upgrading to Level {0}  {1}%"),
-                        up.TargetLevel, (int)(pct * 100)), pct,
-                    GameUIKit.BarGold);
-                return;
-            }
-
-            var faction = OwnFaction(em);
-            if (EntityInfoExtractor.GetFactionEra(em, faction) < 2)
-            {
-                _statusB.text = Loc.T("Advance to Era 2 first (culture choice)");
-                return;
-            }
-
-            int nextLevel = level.Level + 1;
-            int nextEra = TempleLevelConfig.GetEraForLevel(nextLevel);
-            var cost = TempleLevelConfig.GetUpgradeCost(level.Level);
-            float duration = TempleLevelConfig.GetUpgradeDuration(level.Level);
-            int rp = TempleLevelConfig.GetRPGranted(nextLevel);
-            bool canAfford = FactionEconomy.CanAfford(em, faction, cost);
-
-            Entity temple = _entity;
-            AddWideButton(
-                string.Format(Loc.T("Upgrade to Level {0} (Era {1}) — {2}s"),
-                    nextLevel, nextEra, (int)duration),
-                enabled: canAfford,
-                tooltip: "<b>" + Loc.T("Temple upgrade") + "</b>\n" + Loc.T("Cost: ")
-                    + UIHelpers.FormatCostRich(cost,
-                        EntityActionExtractor.GetFactionResourcesAsCostPublic(em, faction))
-                    + "\n" + string.Format(Loc.T("Grants +{0} Religion Points"), rp),
-                onClick: () =>
-                {
-                    var em2 = EM(out bool ok2);
-                    if (!ok2 || !em2.Exists(temple)) return;
-                    // Affordability CHECK only — TempleUpgradeCommandDirect
-                    // spends on every peer (docs/Multiplayer_LAN_Readiness.md).
-                    if (!FactionEconomy.CanAfford(em2, OwnFaction(em2), cost))
-                    {
-                        PlayerNotificationSystem.NotifyError(Loc.T("Not enough resources"));
-                        return;
-                    }
-                    CommandRouter.IssueTempleUpgrade(em2, temple);
-                    PlayerNotificationSystem.Notify(string.Format(
-                        Loc.T("Temple upgrade started ({0}s)"), (int)duration));
                 });
         }
 

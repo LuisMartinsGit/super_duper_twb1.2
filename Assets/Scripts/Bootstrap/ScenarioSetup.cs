@@ -614,11 +614,11 @@ namespace TheWaningBorder.Bootstrap
 
             var hallPos = new float3(0f, 0f, 0f);
             hallPos.y = TerrainUtility.GetHeight(hallPos.x, hallPos.z);
-            var hall = BuildingFactory.Create(em, "Hall", hallPos, Faction.Blue);
+            var hall = BuildingFactory.Create(em, "Fortress", hallPos, Faction.Blue);
             if (hall != Entity.Null)
             {
                 // The completed-culture read (CultureConfig.GetCompletedCulture)
-                // resolves off the Hall's FactionProgress.
+                // resolves off the capital's FactionProgress.
                 if (em.HasComponent<FactionProgress>(hall))
                     em.SetComponentData(hall, new FactionProgress { Culture = Cultures.Alanthor });
                 else
@@ -1020,7 +1020,7 @@ namespace TheWaningBorder.Bootstrap
             FactionColors.SetFactionCulture(Faction.Yellow, Cultures.Feraldis);
 
             // ── Age 0 section (X = -150): true Lv0 states ────────────────
-            string[] age0 = { "Hall", "Hut", "GatherersHut", "Barracks",
+            string[] age0 = { "Fortress", "Hut", "GatherersHut", "Barracks",
                               "TempleOfRidan", "VaultOfAlmierra" };
             for (int i = 0; i < age0.Length; i++)
                 PlaceShowcaseBuilding(em, age0[i], Faction.Blue,
@@ -1068,14 +1068,14 @@ namespace TheWaningBorder.Bootstrap
             var sections = new (Faction faction, float startX, string[] buildings)[]
             {
                 (Faction.Red, -100f, new[] {
-                    "Hall", "Hut", "GatherersHut", "Barracks",
-                    "KingsCourt", "Alanthor_Tower", "Alanthor_SiegeYard" }),
+                    "Fortress", "Hut", "GatherersHut", "Barracks",
+                    "Alanthor_Tower", "Alanthor_SiegeYard" }),
                 (Faction.Green, -22f, new[] {
-                    "Hall", "Hut", "GatherersHut", "Barracks",
+                    "Fortress", "Hut", "GatherersHut", "Barracks",
                     "ThessarasBazaar", "Runai_Outpost", "Runai_TradeHub",
                     "Runai_Vault", "Runai_VeilsteelFoundry", "Runai_SiegeWorkshop" }),
                 (Faction.Yellow, 56f, new[] {
-                    "Hall", "Hut", "GatherersHut", "Barracks",
+                    "Fortress", "Hut", "GatherersHut", "Barracks",
                     "FiendstoneKeep", "Feraldis_HuntingLodge", "Feraldis_LoggingStation",
                     "Feraldis_Foundry", "Feraldis_Tower", "Feraldis_Longhouse",
                     "Feraldis_SiegeYard" }),
@@ -1173,8 +1173,8 @@ namespace TheWaningBorder.Bootstrap
             // hub, so it's intentionally left out of the damage row).
             var buildings = new[]
             {
-                "Hall", "Barracks", "Alanthor_Tower",
-                "Alanthor_SiegeYard", "KingsCourt",
+                "Fortress", "Barracks", "Alanthor_Tower",
+                "Alanthor_SiegeYard",
             };
 
             const float ColSpacing = 16f;
@@ -1213,10 +1213,10 @@ namespace TheWaningBorder.Bootstrap
 
             var rows = new (Faction faction, string[] buildings)[]
             {
-                (Faction.Blue,   new[] { "Hall", "Hut", "GatherersHut", "Barracks" }),
+                (Faction.Blue,   new[] { "Fortress", "Hut", "GatherersHut", "Barracks" }),
                 (Faction.Green,  new[] { "Runai_Outpost", "Runai_TradeHub", "ThessarasBazaar", "Runai_Vault" }),
                 (Faction.Yellow, new[] { "Feraldis_HuntingLodge", "Feraldis_Longhouse", "Feraldis_Tower", "Feraldis_Foundry" }),
-                (Faction.Red,    new[] { "Alanthor_Tower", "Alanthor_SiegeYard", "KingsCourt" }),
+                (Faction.Red,    new[] { "Alanthor_Tower", "Alanthor_SiegeYard" }),
             };
 
             float startZ = -((rows.Length - 1) * 0.5f) * RowZSpacing;
@@ -2058,11 +2058,11 @@ namespace TheWaningBorder.Bootstrap
             SpawnBattalion(em, "Alanthor_Swordsman", new float3(-ArmySpacing * 0.6f, 0f, ArtifactToKing + 6f), Faction.Blue);
             SpawnBattalion(em, "Alanthor_Longbowman", new float3(ArmySpacing * 0.6f, 0f, ArtifactToKing + 6f), Faction.Blue);
 
-            // The two doors the artifact can go through. Hall delivery awakens
+            // The two doors the artifact can go through. Capital delivery awakens
             // the Shardbound Hero (HallDeliverRadius around any HallTag
             // building); the Temple enshrines it.
             float hallZ = ArtifactToKing + KingToHall;
-            BuildingFactory.Create(em, "Hall", new float3(-16f, 0f, hallZ), Faction.Blue);
+            BuildingFactory.Create(em, "Fortress", new float3(-16f, 0f, hallZ), Faction.Blue);
             BuildingFactory.Create(em, "TempleOfRidan", new float3(16f, 0f, hallZ), Faction.Blue);
 
             // The Red army: two lines across the field, holding until the

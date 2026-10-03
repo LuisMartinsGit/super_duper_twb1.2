@@ -108,7 +108,9 @@ MonoBehaviour:
     sprite: {fileID: 21300000, guid: eb6d7e1f2c2234a53a12553df3ba7cd2, type: 3}
   - key: Nullblade
     sprite: {fileID: 21300000, guid: a02bbb33ab14a483d8b14962404caefe, type: 3}
-  - key: Hall
+  - key: Shelter
+    sprite: {fileID: 21300000, guid: 4eac6e39855404b8da7046a391bc646e, type: 3}
+  - key: Fortress
     sprite: {fileID: 21300000, guid: 4eac6e39855404b8da7046a391bc646e, type: 3}
   - key: Barracks
     sprite: {fileID: 21300000, guid: b660c2535b25f42ea980984826364c70, type: 3}
@@ -122,16 +124,12 @@ MonoBehaviour:
     sprite: {fileID: 21300000, guid: 98e83ba2543db420982c9347b9c9062f, type: 3}
   - key: Workshop
     sprite: {fileID: 21300000, guid: c122cd998f8a941ff939ce840bd69515, type: 3}
-  - key: Shrine of Ahridan
-    sprite: {fileID: 21300000, guid: 002aad974c70b438689f406cd8e9a5a6, type: 3}
   - key: Temple of Ridan
     sprite: {fileID: 21300000, guid: 38446868d4dda4ce5a6584dc973f9fb0, type: 3}
   - key: Vault of Almiérra
     sprite: {fileID: 21300000, guid: cbbbd793dcaed47b8b9dc8e019e5dcb3, type: 3}
   - key: Fiendstone Keep
     sprite: {fileID: 21300000, guid: d1c102f37f12c485da6e7eb876265a71, type: 3}
-  - key: Forge
-    sprite: {fileID: 21300000, guid: 2724b3a71ec6b4a308163d16c4736cc5, type: 3}
   - key: The Reliquary
     sprite: {fileID: 21300000, guid: f7869a5b2ed614a13ae627c422a3dd6a, type: 3}
   - key: Wall Hub

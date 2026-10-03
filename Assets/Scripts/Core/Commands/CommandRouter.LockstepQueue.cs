@@ -163,25 +163,6 @@ namespace TheWaningBorder.Core.Commands
             LockstepServiceLocator.Instance.QueueCommand(cmd);
         }
 
-        private static void QueueTempleUpgradeForLockstep(EntityManager em, Entity temple)
-        {
-            int networkId = GetNetworkId(em, temple);
-            if (networkId <= 0)
-            {
-                if (RefuseUnnetworkedInLockstep("TempleUpgrade")) return;
-                if (!MayExecuteLocally(em, temple, "TempleUpgrade")) return;
-                TempleUpgradeCommandDirect(em, temple);
-                return;
-            }
-
-            var cmd = new LockstepCommand
-            {
-                Type = LockstepCommandType.TempleUpgrade,
-                EntityNetworkId = networkId
-            };
-            LockstepServiceLocator.Instance.QueueCommand(cmd);
-        }
-
         private static void QueueSectAdoptionForLockstep(EntityManager em, Entity temple,
             string sectId, int preferredSlot, float buildTime)
         {

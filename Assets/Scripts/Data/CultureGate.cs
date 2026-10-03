@@ -43,7 +43,7 @@ namespace TheWaningBorder.Data
             if (unitId.StartsWith("Feraldis_")) return Cultures.Feraldis;
             if (unitId.StartsWith("Runai_")) return Cultures.Runai;
 
-            // King's Court units carry no culture prefix -- their ids are
+            // The capital's Alanthor units carry no culture prefix -- their ids are
             // stable across the factory and the ability catalog -- but they are
             // Alanthor-exclusive.
             if (unitId == "Ledger" || unitId == "King Lexor") return Cultures.Alanthor;

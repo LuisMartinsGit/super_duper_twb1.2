@@ -14,12 +14,6 @@ namespace TheWaningBorder.Entities
     {
         public const int PresentationID = 102;
 
-        // Alanthor "Retaliatory measures" — the auto-fire arrow attack Houses
-        // gain when the tech is researched (canon: +12 dmg, defensive range).
-        private const float RetaliatoryRange = 12f;
-        private const int RetaliatoryDamage = 12;
-        private const float RetaliatoryCooldown = 2.5f;
-
         public static Entity Create(EntityManager em, float3 position, Faction faction)
             => CreateInternal(new EmCreator(em), position, faction);
 
@@ -55,27 +49,10 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             creator.AddComponent<BuildingUpgradeable>(entity);
 
-            // Research host: the House offers "Retaliatory measures"
-            // (TechTree.json Hut.research). The research UI surfaces only for
-            // entities carrying ProductionState.
+            // The production queue carries the House's level-ups (one queue
+            // for units, research and levels — CommandRouter.MaxProductionQueue).
             creator.AddComponent(entity, new ProductionState { Busy = 0, Remaining = 0 });
             creator.AddBuffer<ProductionQueueItem>(entity);
-
-            // Houses built after Retaliatory measures is researched fight back
-            // from the start; existing Houses are upgraded by TechEffectSystem.
-            var research = TheWaningBorder.Economy.FactionResearchState.Instance;
-            if (research != null && research.HasResearched(faction, "RetaliatoryMeasures"))
-            {
-                creator.AddComponent(entity, new BuildingRangedAttack
-                {
-                    Range = RetaliatoryRange,
-                    Damage = RetaliatoryDamage,
-                    Cooldown = RetaliatoryCooldown,
-                    Timer = 0f,
-                    MaxTargets = 1,
-                });
-                creator.AddComponent(entity, new DamageTypeData { Value = DamageType.Ranged });
-            }
 
             return entity;
         }

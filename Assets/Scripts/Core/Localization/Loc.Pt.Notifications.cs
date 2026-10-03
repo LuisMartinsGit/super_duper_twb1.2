@@ -24,7 +24,6 @@ namespace TheWaningBorder.Core.Localization
             t["War Totems must be planted on blood"] = "Os Totens de Guerra têm de ser erguidos sobre sangue";
             t["Mines must be built on a free iron deposit"] = "As minas têm de ser construídas sobre um depósito de ferro livre";
             t["Veilstone Mines must be built on a free veilstone outcropping"] = "As Minas de Veilstone têm de ser construídas sobre um afloramento de veilstone livre";
-            t["Smelters must be built on a free veilsteel deposit"] = "As Fundições têm de ser construídas sobre um depósito de veilsteel livre";
             t["This building must stand on a free resource node"] = "Este edifício tem de assentar sobre um nó de recurso livre";
             t["Sawyers must be built against a forest"] = "As Serrações têm de ser construídas junto a uma floresta";
             t["Not enough resources"] = "Recursos insuficientes";
@@ -34,7 +33,7 @@ namespace TheWaningBorder.Core.Localization
             t["That building cannot be placed"] = "Esse edifício não pode ser colocado";
             t["The ground here is unsuitable"] = "O terreno aqui não é adequado";
             t["Cannot build on a resource node — only its own extractor may stand there"] = "Não é possível construir sobre um recurso — só o seu próprio extrator pode lá estar";
-            t["Alanthor do not mine veilstone — raise a Trading Outpost beside it"] = "Os Alanthor não mineram veilstone — ergue um Entreposto Comercial ao lado";
+            t["Alanthor do not mine veilstone — raise a Trading Outpost on it"] = "Os Alanthor não mineram veilstone — ergue um Entreposto Comercial sobre ele";
             t["Nothing — build on it"] = "Nada — constrói aqui";
             t["/min"] = "/min";
             t["This veilstone outcrop is cursed or mined out"] = "Este afloramento de veilstone está amaldiçoado ou esgotado";
@@ -100,10 +99,6 @@ namespace TheWaningBorder.Core.Localization
             // ---- Feraldis (WarTotemAuraSystem) ----
             t["A War Totem crumbles — its blood is spent."] =
                 "Um Totem de Guerra desmorona-se — o seu sangue esgotou-se.";
-
-            // ---- Temple of Ridan (TempleUpgradeSystem) ----
-            t["Era {0} reached! +{1} Religion Points — adopted sects advanced to Lv {2}"] =
-                "Era {0} alcançada! +{1} Pontos de Religião — seitas adotadas avançaram para Nv {2}";
         }
     }
 }

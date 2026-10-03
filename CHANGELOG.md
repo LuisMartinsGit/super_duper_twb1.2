@@ -13,6 +13,58 @@ build always name the same number.
 
 ---
 
+## [0.0.33] — 2026-10-03
+
+Everyone in a multiplayer match needs 0.0.33.
+
+### Changed
+
+- **Your capital is the Shelter.** You start with a Shelter, and it becomes
+  the Fortress when you age up, for every culture. There is no Hall, King's
+  Court or Town Hall any more. The research from the Hall and the King's Court
+  is done at the capital, and Alanthor trains the Ledger and King Lexor there.
+- **New starting army:** 5 Spearmen, 1 Scout and 3 Workers. No Archers: Age 0
+  is a melee age.
+- **Iron Mines and Veilstone Mines can be built in Age 0 by everyone.**
+- **Gatherer's Hut research is post-culture.** The Guild surveys belong to
+  Alanthor and the raiding line to Feraldis; nothing is researched at the hut
+  in Age 0.
+- **The Temple has no levels and you can build only one.**
+- **Every building's level 1 is free at age-up** (the Garrison, Archery Range
+  and Guild used to charge for it).
+- **The Watch Tower can garrison 4 foot units.** Each one inside adds a target
+  to the tower's volley.
+- **Wall emplacements need a stone wall at level 2 (Ballista) or level 3
+  (Trebuchet).**
+- **Fervored Masses costs veilstone only.**
+- **Gatherer's Huts pay only their territory income, and it is higher.** A
+  hidden extra 60 supplies a minute per hut is gone; the hut's own income was
+  raised to make up for it (Alanthor Guilds too). The capital pays its own
+  200 a minute.
+- **The curse defends its nodes.** Every curse node raises and guards its own
+  garrison, which no longer chases far from it. The curse no longer raids:
+  it only marches on ground it can take.
+- **The AI builds its Gatherer's Huts first**, keeps to three Workers plus one
+  per territory it conquers, and hunts the curse for its first Religion Point.
+
+### Fixed
+
+- **Hidden research is back in the menus.** Iron Surveying II and III, the
+  veilstone and veilsteel Surveys, Veilstone and Veilsteel Tools, Veilstone
+  Walls and Veilsteel Pylons were never shown to players.
+- **Scouts trained after Armed Scouts are armed too.**
+- **Charge gives its speed burst** as well as its first strike.
+- **The Archery Range sits on the build grid.** It was built with the Barracks'
+  footprint and straddled half-cells.
+- **Siege Screens now covers the Catapult.**
+
+### Removed
+
+- The Smelter, the Shrine of Ridan, the Holy Scholar, Retaliatory Measures and
+  the old age-up research.
+
+---
+
 ## [0.0.32] — 2026-09-30
 
 ### Fixed

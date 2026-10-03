@@ -36,6 +36,7 @@ MonoBehaviour:
     Iron: 44
     Crystal: 134
     Veilsteel: 0
+  populationCost: 2
   minBuildingLevel: 2
   tags:
   - 'Cavalry'

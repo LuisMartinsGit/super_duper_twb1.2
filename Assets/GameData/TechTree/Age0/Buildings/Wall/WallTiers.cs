@@ -67,14 +67,23 @@ namespace TheWaningBorder.Entities
         /// Playtest placeholder.</summary>
         public const int DeckArmorBonus = 3;
 
-        /// <summary>HP multiplier over the SO's level-1 numbers.</summary>
-        public static float HpMultiplier(byte level) => level switch
+        /// <summary>The stone wall's building id — the id its level SOs
+        /// (Civs/Alanthor/Buildings/Wall/Wall_Lvl1..3) are filed under.</summary>
+        private const string StoneWallId = "Alanthor_Wall";
+
+        /// <summary>
+        /// HP multiplier over the hub / segment SO's numbers: the stone wall
+        /// level SO's hpMultiplier (Wall_Lvl1..3 — 1.6 / 2.3 / 3.0 as shipped;
+        /// a code switch until 2026-10-03, unification item 34). The palisade
+        /// has no levels and stands at its SO's own numbers. A missing level
+        /// SO is reported by the TechCatalog audit and reads as x1.
+        /// </summary>
+        public static float HpMultiplier(byte level)
         {
-            Stone => 1.6f,
-            Battlemented => 2.3f,
-            Shielded => 3.0f,
-            _ => 1f,
-        };
+            if (level < Stone) return 1f;
+            return TechCatalog.TryGetBuildingLevel(Cultures.Alanthor, StoneWallId, level, out var def)
+                ? def.hpMultiplier : 1f;
+        }
 
         /// <summary>Garrison slots a curtain module of this level offers —
         /// none, at any level (retired 2026-10-02).</summary>
@@ -136,11 +145,21 @@ namespace TheWaningBorder.Entities
         /// wall).</summary>
         public static bool AllowsTowers(byte level) => level >= Stone;
 
-        /// <summary>A Ballista mount needs the Battlemented wall.</summary>
-        public static bool AllowsBallista(byte level) => level >= Battlemented;
+        /// <summary>A Ballista mount needs the wall level its emplacement SO
+        /// names (BallistaEmplacement.asset minWallLevel: 2, Battlemented).</summary>
+        public static bool AllowsBallista(byte level)
+            => level >= Stone && level >= MinWallLevel("Alanthor_BallistaEmplacement");
 
-        /// <summary>A Trebuchet mount needs the Shielded wall.</summary>
-        public static bool AllowsTrebuchet(byte level) => level >= Shielded;
+        /// <summary>A Trebuchet mount needs the wall level its emplacement SO
+        /// names (TrebuchetEmplacement.asset minWallLevel: 3, Shielded).</summary>
+        public static bool AllowsTrebuchet(byte level)
+            => level >= Stone && level >= MinWallLevel("Alanthor_TrebuchetEmplacement");
+
+        /// <summary>An emplacement SO's minWallLevel (read off the asset, no
+        /// def refresh — the build panel asks this every frame). A mount
+        /// with no SO can never be raised.</summary>
+        private static int MinWallLevel(string emplacementId)
+            => TechCatalog.TryGetBuildingSO(emplacementId, out var so) ? so.minWallLevel : MaxLevel + 1;
 
         /// <summary>A Shielded wall's hubs are towers (they shoot).</summary>
         public static bool HubIsTower(byte level) => level >= Shielded;

@@ -13,12 +13,6 @@ namespace TheWaningBorder.Systems.Research
 {
     public partial class TechEffectSystem : MonoBehaviour
     {
-        static readonly ComponentType[] QT_HutTagFactionTag =
-        {
-            ComponentType.ReadOnly<HutTag>(),
-            ComponentType.ReadOnly<FactionTag>(),
-        };
-        static CachedEntityQuery QC_HutTagFactionTag;
         static readonly ComponentType[] QT_ScoutSightStateFactionTag =
         {
             ComponentType.ReadOnly<TheWaningBorder.Abilities.ScoutSightState>(),
@@ -263,12 +257,14 @@ namespace TheWaningBorder.Systems.Research
             using var entities = query.ToEntityArray(Allocator.Temp);
             using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var healths = query.ToComponentDataArray<Health>(Allocator.Temp);
+            // The percent is the tech's data (MasonGuild.asset: BuildingHp Pct 30).
+            float mult = 1f + TechCatalog.TechEffect("MasonGuild", "BuildingHp") / 100f;
             for (int i = 0; i < entities.Length; i++)
             {
                 if (factions[i].Value != faction) continue;
                 var hp = healths[i];
-                hp.Max = (int)(hp.Max * 1.30f);
-                hp.Value = (int)(hp.Value * 1.30f);
+                hp.Max = (int)(hp.Max * mult);
+                hp.Value = (int)(hp.Value * mult);
                 em.SetComponentData(entities[i], hp);
             }
         }
@@ -423,63 +419,10 @@ namespace TheWaningBorder.Systems.Research
         /// melee damage (new Scouts pick it up at spawn via the research check
         /// in Scout.Create). Until researched Scouts spawn with Damage 0, which
         /// the TargetingSystem short-circuit keeps out of combat entirely.</summary>
-        private static void ApplyArmedScouts(EntityManager em, Faction faction)
-        {
-            int damage = 2; // design-doc default; SO wins when authored
-            if (TechCatalog.TryGetUnit("Scout", out var def) && def.damage > 0)
-                damage = (int)def.damage;
-
-            var query = QC_ScoutSightStateFactionTag.Get(em, QT_ScoutSightStateFactionTag);
-            using var entities = query.ToEntityArray(Allocator.Temp);
-            using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            for (int i = 0; i < entities.Length; i++)
-            {
-                if (factions[i].Value != faction) continue;
-                if (em.HasComponent<Damage>(entities[i]))
-                    em.SetComponentData(entities[i], new Damage { Value = damage });
-            }
-        }
-
-        /// <summary>Retaliatory measures — the faction's existing Houses gain an
-        /// auto-fire arrow attack (BuildingRangedAttack). Houses built after the
-        /// research pick it up at spawn in Hut.Create.</summary>
-        private const float RetaliatoryRange = 12f;
-        private const int RetaliatoryDamage = 12;
-        private const float RetaliatoryCooldown = 2.5f;
-
-        private static void ApplyRetaliatoryMeasures(EntityManager em, Faction faction)
-        {
-            var query = QC_HutTagFactionTag.Get(em, QT_HutTagFactionTag);
-            using var entities = query.ToEntityArray(Allocator.Temp);
-            using var factions = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            for (int i = 0; i < entities.Length; i++)
-            {
-                if (factions[i].Value != faction) continue;
-
-                var house = entities[i];
-                if (em.HasComponent<BuildingRangedAttack>(house))
-                {
-                    var atk = em.GetComponentData<BuildingRangedAttack>(house);
-                    atk.Range = RetaliatoryRange;
-                    atk.Damage = RetaliatoryDamage;
-                    atk.Cooldown = RetaliatoryCooldown;
-                    atk.MaxTargets = 1;
-                    em.SetComponentData(house, atk);
-                }
-                else
-                {
-                    em.AddComponentData(house, new BuildingRangedAttack
-                    {
-                        Range = RetaliatoryRange,
-                        Damage = RetaliatoryDamage,
-                        Cooldown = RetaliatoryCooldown,
-                        Timer = 0f,
-                        MaxTargets = 1,
-                    });
-                }
-                if (!em.HasComponent<DamageTypeData>(house))
-                    em.AddComponentData(house, new DamageTypeData { Value = DamageType.Ranged });
-            }
-        }
+        // ArmedScouts has no applier any more (2026-10-03, unification item
+        // 13): its damage is DATA — ArmedScouts.asset carries `unit:Scout
+        // Damage Set 2` — so ApplyGenericEffects arms the Scouts alive when it
+        // lands, TrainingSystem's spawn pass arms the ones trained after, and
+        // Scout.Create reads the same entry for every other spawn path.
     }
 }

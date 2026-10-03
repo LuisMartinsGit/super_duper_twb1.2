@@ -37,16 +37,11 @@ namespace TheWaningBorder.Data
         private static readonly Dictionary<string, Cost> _byId = new()
         {
             // Era 1 - Core Buildings
-            // Starting Hall is spawned for free by PlayerSpawnSystem (doesn't
-            // consult this table). Cost applies only to additional Halls a
-            // worker places post-age-up — capped at 6 per faction in
-            // WorkerCommandPanel.SpawnSelectedBuilding.
-            // The claim price (docs/Design/Regions.md §2). A Hall is what
-            // takes a territory, so it is the largest single purchase in
-            // the game — and the only one that grows the economy.
-            { "Hall",           Cost.Of(supplies: 600, iron: 200) },
-            // The most expensive thing in the game (Territory_Claims.md §4).
-            // Synced from Fortress.asset like every other entry.
+            // The capital (the Shelter / Fortress). The starting one is
+            // spawned for free by PlayerSpawnSystem (doesn't consult this
+            // table). The most expensive thing in the game
+            // (Territory_Claims.md §4). Synced from Fortress.asset like every
+            // other entry.
             { "Fortress",       Cost.Of(supplies: 1200, iron: 1200, veilstone: 300) },
             { "Hut",            Cost.Of(supplies: 80) },                            // Population provider
             { "GatherersHut",   Cost.Of(supplies: 120, iron: 10) },                 // Gathering support building
@@ -102,7 +97,6 @@ namespace TheWaningBorder.Data
             { "Alanthor_TradingOutpost", Cost.Of(supplies: 160, iron: 80) },
 
             // Alanthor Culture Buildings
-            { "KingsCourt",              Cost.Of(supplies: 500, iron: 150, veilstone: 50) },
             { "Alanthor_Wall",           Cost.Of(supplies: 50, iron: 20) },
             { "Palisade",                Cost.Of(supplies: 50) },   // supplies only since 2026-10-02
             // Per CURTAIN MODULE (3 m), charged on the whole length when a
@@ -120,10 +114,6 @@ namespace TheWaningBorder.Data
             // Alanthor_PracticeRange removed — the Practice Range is the
             // LEVELED Archery Range, not a separate placeable building.
             { "Alanthor_SiegeYard",      Cost.Of(supplies: 260, iron: 100, veilstone: 60) },
-            // Forge: deliberately steep — it passively generates veilsteel with
-            // no inputs and is build-limited to 1 per faction (directive 2026-07-04).
-            // The Crucible was deleted (calculator 2026-08); the Smelter absorbs
-            // its veilsteel-engine role via the Lv1-3 upgrade ladder.
             { "Alanthor_RoyalStable",    Cost.Of(supplies: 220, iron: 80) },
 
             // Sect buildings — one per sect, unlocked by adopting that sect,
@@ -300,12 +290,8 @@ namespace TheWaningBorder.Data
         /// </summary>
         public static string IdFromEntity(EntityManager em, Entity entity)
         {
-            // Era 1 core.
-            // KingsCourtTag BEFORE HallTag: the King's Court is an aged-up
-            // Alanthor Hall and carries both, so the cultured identity has to
-            // be tested first or the rename never shows up in any id query.
-            if (em.HasComponent<KingsCourtTag>(entity)) return "KingsCourt";
-            if (em.HasComponent<HallTag>(entity)) return "Hall";
+            // Era 1 core. The capital carries HallTag + FortressTag.
+            if (em.HasComponent<HallTag>(entity)) return "Fortress";
             if (em.HasComponent<HutTag>(entity)) return "Hut";
             if (em.HasComponent<GathererHutTag>(entity)) return "GatherersHut";
             if (em.HasComponent<BarracksTag>(entity)) return "Barracks";
@@ -321,9 +307,10 @@ namespace TheWaningBorder.Data
             if (em.HasComponent<TradeHubTag>(entity)) return "Runai_TradeHub";
             if (em.HasComponent<BazaarTag>(entity)) return "ThessarasBazaar";
             if (em.HasComponent<SiegeWorkshopTag>(entity)) return "Runai_SiegeWorkshop";
+            // SmelterTag marks the Runai Veilsteel Foundry.
+            if (em.HasComponent<SmelterTag>(entity)) return "Runai_VeilsteelFoundry";
 
             // Alanthor
-            if (em.HasComponent<SmelterTag>(entity)) return "Alanthor_Smelter";
             if (em.HasComponent<ReliquaryTag>(entity)) return "Sect_Reliquary";
             if (em.HasComponent<MendingHallTag>(entity)) return "Sect_MendingHall";
             if (em.HasComponent<StoneholdTag>(entity)) return "Sect_Stonehold";

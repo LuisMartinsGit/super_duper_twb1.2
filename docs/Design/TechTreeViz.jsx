@@ -1,24 +1,20 @@
 // TechTreeViz.jsx
 // ---------------------------------------------------------------------------
-// Age 0 tech-tree visualization for The Waning Border 1.2.
+// Tech-tree STRUCTURE visualization for The Waning Border 1.2: the Age 0
+// buildings and the Alanthor (Age 1) buildings, the units each one trains,
+// the techs each one researches, and the rules that gate them.
 //
-// A single self-contained React component (no external UI deps, inline styles)
-// that renders the Age 0 buildings, units, their stat blocks, train rosters,
-// research and upgrade paths.
+// A single self-contained React component (no external UI deps, inline styles).
 //
-// DATA SOURCING RULES (per request):
-//   * Numeric stats are read from the actual ScriptableObject .asset files
-//     under Assets/GameData/TechTree/  (marked source: "SO").
-//   * Where an entity only exists in the design doc (the Crossbowman /
-//     Longbowman ranged ladder) its values come from docs/Design/Age_0.md
-//     (marked source: "DOC").
-//   * When NAMES conflict, the design document wins — so the drawio's
-//     Swordsman/Sentinel melee ladder and "Iron/Crystal Survey / Celestar"
-//     techs are dropped in favour of the doc's Spearman + the
-//     Archer -> Crossbowman -> Longbowman ladder.
-//   * When a NUMBER conflicts between the SO and the doc, the SO value is
-//     shown (it is the "actual stat") and the doc value is surfaced as a
-//     small "doc: X" annotation so the discrepancy stays visible.
+// DATA SOURCING RULES
+//   * The roster mirrors the ScriptableObjects under Assets/GameData/TechTree/
+//     (the single source of game data): building trains[], each tech's
+//     researchAt / minBuildingLevel / prerequisites / culture gate, and each
+//     unit's minBuildingLevel and weight tags.
+//   * This view shows NO stat numbers (costs, HP, damage, times, population).
+//     For those open the calculator generated from the SOs:
+//     tools/calculator/TechTree.html (built by tools/gen_calculator.py).
+//   * Level gates (L1 / L2 / L3) are rules, not stats, so they are shown.
 //
 // Drop into any React 17/18 project:  import TechTreeViz from './TechTreeViz'
 // ---------------------------------------------------------------------------
@@ -34,210 +30,247 @@ const C = {
   text: "#e6e9f2",
   dim: "#8a93ad",
   gold: "#d9b45a", // buildings
-  blue: "#6c8ebf", // techs / upgrades
-  red: "#c76b66", // combat units
-  green: "#8bbf6a", // economy units
-  purple: "#a98bd0", // support / religious
-  doc: "#e0913a", // doc-conflict annotation
+  blue: "#6c8ebf", // techs
+  red: "#c76b66", // units
+  purple: "#a98bd0", // choice buildings
+  teal: "#5fb3a8", // Alanthor
 };
 
-/* ----------------------------------------------------------- resource icons */
-const RES = { Supplies: "🌾", Iron: "⛓️", Crystal: "💎", Veilstone: "🔮", Veilsteel: "⚙️" };
-const cost = (c) =>
-  Object.entries(c || {})
-    .filter(([, v]) => v > 0)
-    .map(([k, v]) => `${RES[k] || ""} ${v} ${k}`)
-    .join("   ") || "— free —";
-
 /* =================================================================== DATA == */
+// u(name, gate, tags)          a unit a building trains; gate = minBuildingLevel ("" = none)
+// t(name, gate, needs, culture) a tech a building researches
+const u = (name, gate = "", tags = "") => ({ name, gate, tags });
+const t = (name, gate = "", needs = "", culture = "") => ({ name, gate, needs, culture });
 
-// Age 0 BUILDINGS — stats from each *.asset ScriptableObject.
 const BUILDINGS = [
+  // ---------------------------------------------------------------- Age 0 --
   {
-    id: "Hall",
-    name: "Hall",
-    kind: "core",
-    pid: 100,
-    role: "HQ · trains economy · banks resources · researches age-up",
-    hp: 1000, docHp: 2400,
-    los: 24,
-    def: [2, 8, 0, 4],
-    radius: 1.6,
-    cost: { Supplies: 0 },
-    pop: 20, // doc: provides population 20
-    trains: ["Worker", "Scout"],
-    research: ["Advance to Era II", "Stone Tools", "Wheel Cart"],
-    upgradesTo: ["Town Hall", "Trader's Hall", "War Hall"],
+    id: "Fortress", name: "Shelter", age: "age0", kind: "core",
+    role: "The capital (id Fortress). Becomes the Fortress automatically at age-up for every culture. No Hall, King's Court or Town Hall.",
+    trains: [u("Worker", "", "Infantry, Light"), u("Scout", "", "Infantry, Light")],
+    research: [t("Stone Tools"), t("Armed Scouts")],
+    becomes: ["Fortress (every culture)"],
   },
   {
-    id: "GatherersHut",
-    name: "Gatherer's Hut",
-    kind: "core",
-    pid: 101,
-    role: "Area supply aura · Age 0 only · transforms at age-up",
-    hp: 300, docHp: 800,
-    los: 16,
-    def: [2, 2, 0, 0],
-    radius: 0.5,
-    cost: { Supplies: 120, Iron: 10 },
-    aura: "+60 Supplies / min · radius 12",
-    research: ["Iron Surveying I-III", "Veilstone Survey I-II", "Veilsteel Survey"],
+    id: "Barracks", name: "Barracks", age: "age0", kind: "core",
+    role: "Melee infantry. Age 0 is the melee age: there is no Archery Range before age-up.",
+    trains: [u("Spearman", "", "Infantry, Heavy")],
+    research: [t("Conscription"), t("Stone Weapons")],
+    becomes: ["Garrison (Alanthor)"],
   },
   {
-    id: "Hut",
-    name: "House (Hut)",
-    kind: "core",
-    pid: 102,
-    role: "Population housing",
-    hp: 650, docHp: 600,
-    los: 6, docLos: 14,
-    def: [2, 6, 0, 2],
-    radius: 1.6,
-    cost: { Supplies: 80 },
-    pop: 10,
+    id: "Hut", name: "House", age: "age0", kind: "core",
+    role: "Population housing (id Hut).",
+    becomes: ["House Lvl 1-3 (Alanthor)"],
   },
   {
-    id: "Barracks",
-    name: "Barracks",
-    kind: "core",
-    pid: 510,
-    role: "Trains & upgrades melee infantry",
-    hp: 500, docHp: 800,
-    los: 18,
-    def: [1, 1, 0, 0],
-    radius: 1.6,
-    cost: { Supplies: 220, Iron: 40 },
-    trains: ["Spearman"],
-    research: ["Conscription", "Stone Weapons"],
-    upgradesTo: ["Garrison"],
+    id: "GatherersHut", name: "Gatherer's Hut", age: "age0", kind: "core",
+    role: "Territory income. No research in Age 0.",
+    becomes: ["Guild (Alanthor)"],
   },
   {
-    id: "ArcheryRange",
-    name: "Archery Range",
-    kind: "core",
-    pid: 511,
-    role: "Ranged ladder — L1 Archer · L2 Crossbowman · L3 Longbowman",
-    hp: 500, docHp: 600,
-    los: 18,
-    def: [1, 1, 0, 0],
-    radius: 1.6,
-    cost: { Supplies: 180, Iron: 50 },
-    trains: ["Archer", "Crossbowman", "Longbowman"],
-    research: ["Choreographed Volleys", "Stone-tipped Arrows", "Fletching"],
-    upgradesTo: ["Practice Range"],
-  },
-  // ---- three mutually-exclusive Age 0 choice buildings (start at L1) --------
-  {
-    id: "VaultOfAlmierra",
-    name: "Vault of Almiérra",
-    kind: "choice",
-    pid: 530,
-    role: "Resource bank — compound interest per minute",
-    hp: 600, docHp: 1200,
-    los: 14,
-    def: [0, 8, 0, 0],
-    radius: 2,
-    cost: { Supplies: 300, Crystal: 100 },
-    special: "Interest 25 %/min · Alanthor +30 % · Runai −30 %",
-    research: ["Coffers", "Merchant Charters", "Sovereign Bonds", "Iron Subsidies", "Veilstone Monetization", "Veilsteel Bonds"],
+    id: "Mine", name: "Mine", age: "age0", kind: "core",
+    role: "Iron mine on an iron node. An Age 0 building for every culture.",
+    research: [t("Deep Shafts"), t("Rich Seams", "", "Deep Shafts")],
   },
   {
-    id: "ShrineOfRidan",
-    name: "Shrine of Ridan",
-    kind: "choice",
-    pid: 0,
-    role: "Religious · trains Litharch healers · heal aura",
-    hp: 600, docHp: 800,
-    los: 16,
-    def: [0, 6, 0, 0],
-    radius: 1.8,
-    cost: { Supplies: 300, Crystal: 100 },
-    special: "Heal aura 1 %/s (r 10) · Runai +30 % · Feraldis −30 % · +1 RP",
-    trains: ["Litharch"],
-    research: ["Heightened Masses", "Warrior Priests", "Pious Masses", "Fervored Masses"],
+    id: "VeilstoneMine", name: "Veilstone Mine", age: "age0", kind: "core",
+    role: "Veilstone mine on an outcrop. An Age 0 building for every culture.",
+    becomes: ["Trading Outpost (Alanthor)"],
   },
   {
-    id: "FiendstoneKeep",
-    name: "Fiendstone Keep",
-    kind: "choice",
-    pid: 540,
-    role: "Fortified trainer · supply · arrow volleys",
-    hp: 1000, docHp: 2000,
-    los: 18,
-    def: [2, 2, 0, 0],
-    radius: 2.4,
-    cost: { Supplies: 300, Crystal: 100 },
-    pop: 20,
-    special: "Auto-fire 20 dmg / 2 s · range 30 · 4 targets · Feraldis +50 % HP / Alanthor −50 %",
-    trains: ["Spearman", "Archer"],
-    research: ["Ballista Emplacement", "Trebuchet Emplacement", "Additional Towers", "Reinforced Walls"],
+    id: "Palisade", name: "Palisade", age: "age0", kind: "core",
+    role: "Timber wall every culture builds: hubs joined by Palisade Sections; a section converts to a Wall Gate. Never joins a Stone Wall.",
+    parts: ["Palisade Section", "Wall Gate (conversion)"],
+  },
+  // ---- the three Age 0 choice buildings -----------------------------------
+  {
+    id: "VaultOfAlmierra", name: "Vault of Almiérra", age: "age0", kind: "choice",
+    role: "Resource bank: interest applies from L1 and grows with the Vault's level.",
+    research: [
+      t("Coffers"), t("Merchant Charters"), t("Sovereign Bonds"), t("Iron Subsidies"),
+      t("Veilstone Monetization", "L2"), t("Veilsteel Bonds", "L3"),
+    ],
+  },
+  {
+    id: "TempleOfRidan", name: "Temple of Ridan", age: "age0", kind: "choice",
+    role: "Religious building. One per faction, no levels. Hosts the Litharch and the heal ladder (the Shrine of Ridan is gone).",
+    trains: [u("Litharch", "", "Ranged")],
+    research: [
+      t("Heightened Masses"), t("Pious Masses", "", "Heightened Masses"),
+      t("Fervored Masses", "", "Pious Masses"), t("Warrior Priests"),
+    ],
+  },
+  {
+    id: "FiendstoneKeep", name: "Fiendstone Keep", age: "age0", kind: "choice",
+    role: "Fortified trainer. Awaiting the Feraldis pass; the tech SO's minBuildingLevel is its only research gate.",
+    trains: [u("Spearman", "", "Infantry, Heavy")],
+    research: [
+      t("Ballista Emplacement"), t("Trebuchet Emplacement", "", "Ballista Emplacement"),
+      t("Additional Towers"), t("Reinforced Walls"),
+    ],
+  },
+
+  // ------------------------------------------------------- Alanthor Age 1 --
+  {
+    id: "Fortress", name: "Fortress", age: "alanthor", kind: "core", levels: "L1-L3",
+    role: "The Shelter after age-up (same entity, id Fortress).",
+    trains: [
+      u("Worker", "", "Infantry, Light"), u("Scout", "", "Infantry, Light"),
+      u("Ledger", "L2", "Infantry, Light"), u("King Lexor", "L3", "Cavalry, Heavy - hero"),
+    ],
+    research: [
+      t("Stone Tools", "", "", "all"), t("Armed Scouts", "", "", "all"),
+      t("Scouting Celestarii", "", "", "Alanthor"),
+      t("Iron Tools", "L2", "", "Alanthor"), t("Mason Guild", "L2", "", "Alanthor"),
+      t("Veilstone Tools", "L3", "", "Alanthor"), t("Veilsteel Tools", "L3", "", "Alanthor"),
+    ],
+  },
+  {
+    id: "Barracks", name: "Garrison", age: "alanthor", kind: "core", levels: "L1-L3",
+    role: "The Barracks, cultured. Alanthor techs here are culture-gated.",
+    trains: [
+      u("Spearman", "", "Infantry, Heavy"), u("Swordsman", "L1", "Infantry, Heavy"),
+      u("Nobleman", "L2", "Infantry, Heavy"), u("Sentinel", "L3", "Infantry, Heavy"),
+    ],
+    research: [
+      t("Conscription", "", "", "all"), t("Stone Weapons", "", "", "all"),
+      t("Iron Weapons", "L1", "Stone Weapons", "Alanthor"),
+      t("Veilstone Weapons", "L2", "Iron Weapons", "Alanthor"),
+      t("Shard-infused Weapons", "L3", "Veilstone Weapons", "Alanthor"),
+      t("Iron Plate", "L1", "", "Alanthor"),
+      t("Veilstone Plate", "L2", "Iron Plate", "Alanthor"),
+      t("Shard Plate", "L3", "Veilstone Plate", "Alanthor"),
+      t("Seasoned Infantry", "L1", "", "Alanthor"),
+      t("Veteran Infantry", "L2", "Seasoned Infantry", "Alanthor"),
+      t("Elite Infantry", "L3", "Veteran Infantry", "Alanthor"),
+      t("Charge", "L2", "", "Alanthor"),
+      t("Shield Wall", "L3", "Charge", "Alanthor"),
+    ],
+  },
+  {
+    id: "ArcheryRange", name: "Archery Range", age: "alanthor", kind: "core", levels: "L1-L3",
+    role: "An Age 1 Alanthor building (no Age 0 form, no cultured rename).",
+    trains: [
+      u("Archer", "", "Ranged, Light"), u("Crossbowman", "L2", "Ranged, Light"),
+      u("Longbowman", "L3", "Ranged, Light"),
+    ],
+    research: [
+      t("Fletching"), t("Choreographed Volleys"),
+      t("Stone-Tipped Arrows"),
+      t("Iron-Tipped Arrows", "L1", "Stone-Tipped Arrows", "Alanthor"),
+      t("Veilstone-Tipped Arrows", "L2", "Iron-Tipped Arrows", "Alanthor"),
+      t("Shard-Tipped Arrows", "L3", "Veilstone-Tipped Arrows", "Alanthor"),
+      t("Iron Brigandine", "L1", "", "Alanthor"),
+      t("Veilstone Brigandine", "L2", "Iron Brigandine", "Alanthor"),
+      t("Shard Brigandine", "L3", "Veilstone Brigandine", "Alanthor"),
+      t("Seasoned Archers", "L1", "", "Alanthor"),
+      t("Veteran Archers", "L2", "Seasoned Archers", "Alanthor"),
+      t("Elite Archers", "L3", "Veteran Archers", "Alanthor"),
+      t("Arrow Volley", "", "", "Alanthor"),
+      t("Arrow Shower", "L2", "Arrow Volley", "Alanthor"),
+      t("Deploy Stakes", "L3", "", "Alanthor"),
+    ],
+  },
+  {
+    id: "Alanthor_RoyalStable", name: "Royal Stable", age: "alanthor", kind: "core", levels: "L1-L3",
+    role: "Alanthor cavalry.",
+    trains: [u("Outrider", "L1", "Cavalry, Light"), u("Cataphract", "L3", "Cavalry, Heavy")],
+    research: [
+      t("Stone-Barded Lances", "", "", "Alanthor"),
+      t("Iron-Barded Lances", "L1", "Stone-Barded Lances", "Alanthor"),
+      t("Veilstone Lances", "L2", "Iron-Barded Lances", "Alanthor"),
+      t("Shard-infused Lances", "L3", "Veilstone Lances", "Alanthor"),
+      t("Iron Barding", "L1", "", "Alanthor"),
+      t("Veilstone Barding", "L2", "Iron Barding", "Alanthor"),
+      t("Shard Barding", "L3", "Veilstone Barding", "Alanthor"),
+      t("Seasoned Cavalry", "L1", "", "Alanthor"),
+      t("Veteran Cavalry", "L2", "Seasoned Cavalry", "Alanthor"),
+      t("Elite Cavalry", "L3", "Veteran Cavalry", "Alanthor"),
+      t("Charge (cavalry)", "L1", "", "Alanthor"),
+      t("War Horn", "L2", "", "Alanthor"),
+      t("Full Gallop", "L3", "War Horn", "Alanthor"),
+    ],
+  },
+  {
+    id: "Alanthor_SiegeYard", name: "Siege Yard", age: "alanthor", kind: "core", levels: "L1-L3",
+    role: "Alanthor siege. All four engines coexist.",
+    trains: [
+      u("Ballista", "L1", "Ranged, Siege, Heavy"), u("Catapult", "L1", "Ranged, Siege, Heavy"),
+      u("Battering Ram", "L2", "Siege, Heavy"), u("Trebuchet", "L3", "Ranged, Siege, Heavy"),
+    ],
+    research: [
+      t("Stone Shot", "", "", "Alanthor"),
+      t("Iron Shot", "L1", "Stone Shot", "Alanthor"),
+      t("Veilstone Shot", "L2", "Iron Shot", "Alanthor"),
+      t("Shard-infused Shot", "L3", "Veilstone Shot", "Alanthor"),
+      t("Iron Plating", "L1", "", "Alanthor"),
+      t("Veilstone Plating", "L2", "Iron Plating", "Alanthor"),
+      t("Shard Plating", "L3", "Veilstone Plating", "Alanthor"),
+      t("Seasoned Crews", "L1", "", "Alanthor"),
+      t("Veteran Crews", "L2", "Seasoned Crews", "Alanthor"),
+      t("Elite Crews", "L3", "Veteran Crews", "Alanthor"),
+      t("Reinforced Bolts", "L1", "", "Alanthor"),
+      t("Iron-Shod Ram", "L2", "", "Alanthor"),
+      t("Ranging Shot", "L2", "", "Alanthor"),
+      t("Siege Screens", "L3", "Ranging Shot", "Alanthor"),
+      t("Counterweight Tuning", "L3", "", "Alanthor"),
+    ],
+  },
+  {
+    id: "GatherersHut", name: "Guild", age: "alanthor", kind: "core", levels: "L1-L3",
+    role: "The Gatherer's Hut, cultured. Guild research is Alanthor-gated; the Surveys let Guild huts produce veilstone and veilsteel.",
+    research: [
+      t("Iron Surveying I", "", "", "Alanthor"),
+      t("Iron Survey II", "L2", "Iron Surveying I", "Alanthor"),
+      t("Iron Survey III", "L3", "Iron Survey II", "Alanthor"),
+      t("Veilstone Survey I", "L2", "Iron Surveying I", "Alanthor"),
+      t("Veilstone Survey II", "L3", "Veilstone Survey I", "Alanthor"),
+      t("Veilsteel Survey", "L3", "Veilstone Survey II", "Alanthor"),
+      t("Iron Reinforcements", "", "", "Alanthor"),
+      t("Veilstone Walls", "L2", "Iron Reinforcements", "Alanthor"),
+      t("Veilsteel Pylons", "L3", "Veilstone Walls", "Alanthor"),
+    ],
+  },
+  {
+    id: "Alanthor_TradingOutpost", name: "Trading Outpost", age: "alanthor", kind: "core",
+    role: "What an Alanthor Veilstone Mine becomes at age-up; Alanthor never mine veilstone. Sits on the outcrop and buys veilstone, or (toggled) forges veilstone into veilsteel.",
+    research: [
+      t("Trade Agreements I", "", "", "Alanthor"), t("Trade Agreements II", "", "", "Alanthor"),
+      t("Trade Agreements III", "", "", "Alanthor"),
+      t("Veilsteel Forging", "", "", "Alanthor"), t("Veilsteel Export", "", "", "Alanthor"),
+    ],
+  },
+  {
+    id: "Hut", name: "House", age: "alanthor", kind: "core", levels: "L1-L3",
+    role: "The House, cultured (House - Lvl 1 / 2 / 3). Population housing.",
+  },
+  {
+    id: "Alanthor_Tower", name: "Watch Tower", age: "alanthor", kind: "core", levels: "L1-L3",
+    role: "Stand-alone tower, directly buildable. Garrison slots; units inside add arrows.",
+  },
+  {
+    id: "Alanthor_Wall", name: "Stone Wall", age: "alanthor", kind: "wall", levels: "L1-L3",
+    role: "Alanthor-only hub-and-segment wall. Never joins a Palisade. Tower and Gate are conversions of a wall piece.",
+    parts: ["Wall Segment", "Wall Tower (conversion)", "Wall Gate (conversion)"],
+    research: [
+      t("Battlements", "", "", "Alanthor"),
+      t("Shielded Ramparts", "", "Battlements", "Alanthor"),
+    ],
+  },
+  {
+    id: "Alanthor_BallistaEmplacement", name: "Ballista Emplacement", age: "alanthor", kind: "wall",
+    role: "Worker-built on a Stone Wall of L2 or higher.",
+    trains: [u("Emplaced Ballista", "L1", "Ranged, Siege, Heavy")],
+  },
+  {
+    id: "Alanthor_TrebuchetEmplacement", name: "Trebuchet Emplacement", age: "alanthor", kind: "wall",
+    role: "Worker-built on a Stone Wall of L3.",
+    trains: [u("Emplaced Trebuchet", "L1", "Ranged, Siege, Heavy")],
   },
 ];
 
-// Age 0 UNITS — stats from each *.asset ScriptableObject (or DOC where noted).
-const UNITS = [
-  {
-    id: "Worker", name: "Worker", cls: "human_support", type: "economy", source: "SO", pid: 200,
-    trainer: "Hall",
-    hp: 70, speed: 6, train: 25, docTrain: 5, dmg: 2, dmgType: "melee",
-    armor: "infantry_light", def: [0, 0, 0, 0], cd: 0, range: 1, los: 14,
-    cost: { Supplies: 50 }, pop: 1,
-    extra: "Build 1.0 · Gather 1.0 · Carry 1 (+5 Wheel Cart)",
-    notes: "The one worker unit.",
-  },
-  {
-    id: "Scout", name: "Scout", cls: "human_scout", type: "economy", source: "SO", pid: 206,
-    trainer: "Hall",
-    hp: 60, speed: 6, train: 26, docTrain: 4, dmg: 10, docDmg: 2, dmgType: "melee",
-    armor: "infantry_light", def: [0, 0, 0, 0], cd: 0, range: 1, los: 40,
-    cost: { Supplies: 55 }, pop: 1,
-    notes: "Extreme vision (LoS 40) is the role.",
-  },
-  {
-    id: "Spearman", name: "Spearman", cls: "human_melee", type: "combat", source: "SO", pid: 0,
-    trainer: "Barracks",
-    hp: 120, speed: 5.5, train: 22, docTrain: 7, dmg: 10, dmgType: "melee",
-    armor: "infantry_heavy", def: [1, 0, 0, 0], cd: 1.5, range: 1.5, los: 16,
-    cost: { Supplies: 80, Iron: 30 }, pop: 1,
-    extra: "Bonus vs Cavalry +15",
-    notes: "Replaces the drawio 'Swordsman'. Ladder → Seasoned → Veteran → Elite.",
-  },
-  {
-    id: "Archer", name: "Archer", cls: "human_ranged", type: "combat", source: "SO", pid: 202,
-    trainer: "ArcheryRange", tier: "L1",
-    hp: 90, speed: 5.2, train: 20, docTrain: 15, dmg: 17, dmgType: "ranged",
-    armor: "ranged", def: [0, 1, 0, 0], cd: 0, docCd: 2.0, range: 25, minRange: 1, docMinRange: 10, los: 30,
-    cost: { Supplies: 50, Iron: 25 }, pop: 1,
-    notes: "Baseline ranged. Active skill after Choreographed Volleys.",
-  },
-  {
-    id: "Crossbowman", name: "Crossbowman", cls: "human_ranged", type: "combat", source: "DOC", pid: null,
-    trainer: "ArcheryRange", tier: "L2",
-    hp: 70, speed: 3.5, train: 18, dmg: 18, dmgType: "ranged",
-    armor: "ranged", def: [0, 1, 0, 0], cd: 3.0, range: 18, minRange: 6, los: 22,
-    cost: { Supplies: 40, Iron: 35 }, pop: 1,
-    notes: "Doc-only (no SO yet). Slow heavy-hitter vs high-HP/armor. PLAYTEST PLACEHOLDER.",
-  },
-  {
-    id: "Longbowman", name: "Longbowman", cls: "human_ranged", type: "combat", source: "DOC", pid: null,
-    trainer: "ArcheryRange", tier: "L3",
-    hp: 55, speed: 4, train: 25, dmg: 25, dmgType: "ranged",
-    armor: "ranged", def: [0, 1, 0, 0], cd: 3.5, range: 40, minRange: 12, los: 35,
-    cost: { Supplies: 50, Iron: 40 }, pop: 1,
-    notes: "Doc-only (no SO yet). Long-range sniper. PLAYTEST PLACEHOLDER.",
-  },
-  {
-    id: "Litharch", name: "Litharch", cls: "human_support", type: "support", source: "SO", pid: 207,
-    trainer: "ShrineOfRidan",
-    hp: 120, speed: 5.5, train: 24, docTrain: 7, dmg: 10, docDmg: 0, dmgType: "magic",
-    armor: "ranged", def: [0, 0, 0, 2], cd: 0, range: 10, los: 20,
-    cost: { Supplies: 100, Iron: 25, Crystal: 10 }, pop: 1,
-    heal: 6,
-    notes: "Doc: pure healer (0 dmg) until Warrior Priests tech.",
-  },
-];
-
-const UNIT_COLOR = { economy: C.green, combat: C.red, support: C.purple };
+const AGE_LABEL = { age0: "Age 0 (every culture)", alanthor: "Alanthor (Age 1)" };
 
 /* ============================================================ small pieces = */
 
@@ -257,123 +290,9 @@ function Chip({ children, color = C.blue, title }) {
   );
 }
 
-function Stat({ label, value, doc }) {
-  if (value === undefined || value === null || value === "") return null;
-  return (
-    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "2px 0", borderBottom: `1px solid ${C.line}` }}>
-      <span style={{ color: C.dim, fontSize: 12 }}>{label}</span>
-      <span style={{ color: C.text, fontSize: 12, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-        {value}
-        {doc !== undefined && doc !== null && String(doc) !== String(value) && (
-          <span style={{ color: C.doc, fontWeight: 400, marginLeft: 6, fontSize: 11 }} title="Design-doc value differs from the ScriptableObject">
-            (doc: {doc})
-          </span>
-        )}
-      </span>
-    </div>
-  );
-}
-
-const DEF_LABELS = ["Melee", "Ranged", "Siege", "Magic"];
-function DefenseRow({ def }) {
-  if (!def) return null;
-  return (
-    <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-      {def.map((v, i) => (
-        <div key={i} title={DEF_LABELS[i] + " armor"} style={{
-          flex: 1, textAlign: "center", fontSize: 11, padding: "3px 0", borderRadius: 4,
-          background: v > 0 ? "rgba(139,191,106,0.15)" : "rgba(255,255,255,0.03)",
-          border: `1px solid ${v > 0 ? C.green : C.line}`, color: C.text,
-        }}>
-          <div style={{ color: C.dim, fontSize: 9 }}>{DEF_LABELS[i][0]}</div>
-          <div style={{ fontWeight: 600 }}>{v}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* -------------------------------------------------------------- unit card -- */
-function UnitCard({ u }) {
-  const color = UNIT_COLOR[u.type];
-  return (
-    <div style={{
-      background: C.panelAlt, border: `1px solid ${C.line}`, borderTop: `3px solid ${color}`,
-      borderRadius: 8, padding: 12, width: 250, boxSizing: "border-box",
-    }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <strong style={{ color: C.text, fontSize: 14 }}>{u.name}</strong>
-        <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          {u.tier && <Chip color={C.blue}>{u.tier}</Chip>}
-          <span style={{
-            fontSize: 9, padding: "1px 5px", borderRadius: 4, color: u.source === "SO" ? C.green : C.doc,
-            border: `1px solid ${u.source === "SO" ? C.green : C.doc}`,
-          }} title={u.source === "SO" ? "Stats from ScriptableObject" : "Stats from design doc (no SO yet)"}>{u.source}</span>
-        </span>
-      </div>
-      <div style={{ color: C.dim, fontSize: 11, margin: "2px 0 8px" }}>{u.cls}</div>
-
-      <Stat label="HP" value={u.hp} />
-      <Stat label="Damage" value={`${u.dmg} ${u.dmgType}`} doc={u.docDmg !== undefined ? `${u.docDmg} ${u.dmgType}` : undefined} />
-      <Stat label="Cooldown" value={u.cd ? `${u.cd}s` : "—"} doc={u.docCd ? `${u.docCd}s` : undefined} />
-      <Stat label="Range" value={u.minRange ? `${u.minRange}–${u.range}` : u.range} doc={u.docMinRange ? `${u.docMinRange}–${u.range}` : undefined} />
-      <Stat label="Speed" value={u.speed} />
-      <Stat label="Line of Sight" value={u.los} />
-      <Stat label="Train time" value={`${u.train}s`} doc={u.docTrain !== undefined ? `${u.docTrain}s` : undefined} />
-      <Stat label="Heal / s" value={u.heal} />
-      <Stat label="Pop" value={u.pop} />
-      <Stat label="Cost" value={cost(u.cost)} />
-      <DefenseRow def={u.def} />
-      {u.extra && <div style={{ color: C.text, fontSize: 11, marginTop: 8 }}>{u.extra}</div>}
-      {u.notes && <div style={{ color: C.dim, fontSize: 11, marginTop: 6, fontStyle: "italic" }}>{u.notes}</div>}
-    </div>
-  );
-}
-
-/* ---------------------------------------------------------- building card -- */
-function BuildingCard({ b, units }) {
-  const trained = (b.trains || []).map((t) => units.find((u) => u.id === t)).filter(Boolean);
-  const color = b.kind === "choice" ? C.purple : C.gold;
-  return (
-    <div style={{
-      background: C.panel, border: `1px solid ${C.line}`, borderLeft: `4px solid ${color}`,
-      borderRadius: 10, padding: 14, width: 320, boxSizing: "border-box",
-    }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <strong style={{ color: C.text, fontSize: 16 }}>{b.name}</strong>
-        <span style={{ color: C.dim, fontSize: 10 }}>#{b.pid} · {b.kind === "choice" ? "choice L1" : "L0"}</span>
-      </div>
-      <div style={{ color: C.dim, fontSize: 12, margin: "4px 0 10px" }}>{b.role}</div>
-
-      <Stat label="HP" value={b.hp} doc={b.docHp} />
-      <Stat label="Line of Sight" value={b.los} doc={b.docLos} />
-      <Stat label="Radius" value={b.radius} />
-      <Stat label="Provides pop" value={b.pop} />
-      <Stat label="Build cost" value={cost(b.cost)} />
-      <DefenseRow def={b.def} />
-
-      {b.aura && <div style={{ marginTop: 8, fontSize: 11, color: C.green }}>🌾 {b.aura}</div>}
-      {b.special && <div style={{ marginTop: 8, fontSize: 11, color: C.text }}>✦ {b.special}</div>}
-
-      {trained.length > 0 && (
-        <Section title="Trains">
-          {trained.map((u) => (
-            <Chip key={u.id} color={UNIT_COLOR[u.type]}>{u.name}{u.tier ? ` · ${u.tier}` : ""}</Chip>
-          ))}
-        </Section>
-      )}
-      {b.research?.length > 0 && (
-        <Section title="Research">
-          {b.research.map((r) => <Chip key={r} color={C.blue}>{r}</Chip>)}
-        </Section>
-      )}
-      {b.upgradesTo?.length > 0 && (
-        <Section title="Age-up → ">
-          {b.upgradesTo.map((r) => <Chip key={r} color={C.gold}>{r}</Chip>)}
-        </Section>
-      )}
-    </div>
-  );
+function Gate({ gate }) {
+  if (!gate) return null;
+  return <span style={{ color: C.gold, marginLeft: 5, fontWeight: 600 }} title="Building-level gate (SO minBuildingLevel)">{gate}</span>;
 }
 
 function Section({ title, children }) {
@@ -385,22 +304,62 @@ function Section({ title, children }) {
   );
 }
 
+/* ---------------------------------------------------------- building card -- */
+function BuildingCard({ b }) {
+  const color = b.kind === "choice" ? C.purple : b.age === "alanthor" ? C.teal : C.gold;
+  return (
+    <div style={{
+      background: C.panel, border: `1px solid ${C.line}`, borderLeft: `4px solid ${color}`,
+      borderRadius: 10, padding: 14, width: 340, boxSizing: "border-box",
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+        <strong style={{ color: C.text, fontSize: 16 }}>{b.name}</strong>
+        <span style={{ color: C.dim, fontSize: 10 }}>{b.id}{b.levels ? ` - ${b.levels}` : ""}</span>
+      </div>
+      <div style={{ color: C.dim, fontSize: 12, margin: "4px 0 6px" }}>{b.role}</div>
+
+      {b.trains?.length > 0 && (
+        <Section title="Trains">
+          {b.trains.map((x) => (
+            <Chip key={x.name} color={C.red} title={x.tags}>{x.name}<Gate gate={x.gate} /></Chip>
+          ))}
+        </Section>
+      )}
+      {b.parts?.length > 0 && (
+        <Section title="Pieces">
+          {b.parts.map((p) => <Chip key={p} color={C.gold}>{p}</Chip>)}
+        </Section>
+      )}
+      {b.research?.length > 0 && (
+        <Section title="Research">
+          {b.research.map((x) => (
+            <Chip key={x.name} color={C.blue} title={x.needs ? `requires ${x.needs}` : undefined}>
+              {x.name}<Gate gate={x.gate} />
+              {x.needs && <span style={{ color: C.dim, marginLeft: 5 }}>after {x.needs}</span>}
+              {x.culture === "Alanthor" && <span style={{ color: C.teal, marginLeft: 5 }}>A</span>}
+            </Chip>
+          ))}
+        </Section>
+      )}
+      {b.becomes?.length > 0 && (
+        <Section title="At age-up becomes">
+          {b.becomes.map((r) => <Chip key={r} color={C.teal}>{r}</Chip>)}
+        </Section>
+      )}
+    </div>
+  );
+}
+
 /* ==================================================================== app == */
 export default function TechTreeViz() {
-  const [tab, setTab] = useState("all"); // all | buildings | units
+  const [tab, setTab] = useState("all"); // all | age0 | alanthor
   const [q, setQ] = useState("");
 
-  const filteredBuildings = useMemo(
-    () => BUILDINGS.filter((b) => !q || (b.name + b.role).toLowerCase().includes(q.toLowerCase())),
-    [q]
-  );
-  const filteredUnits = useMemo(
-    () => UNITS.filter((u) => !q || (u.name + u.cls + (u.notes || "")).toLowerCase().includes(q.toLowerCase())),
-    [q]
-  );
-
-  const core = filteredBuildings.filter((b) => b.kind === "core");
-  const choice = filteredBuildings.filter((b) => b.kind === "choice");
+  const shown = useMemo(() => {
+    const ql = q.toLowerCase();
+    const hay = (b) => [b.name, b.role, ...(b.trains || []).map((x) => x.name), ...(b.research || []).map((x) => x.name)].join(" ").toLowerCase();
+    return BUILDINGS.filter((b) => (tab === "all" || b.age === tab) && (!ql || hay(b).includes(ql)));
+  }, [tab, q]);
 
   return (
     <div style={{
@@ -409,27 +368,29 @@ export default function TechTreeViz() {
     }}>
       <header style={{ marginBottom: 18 }}>
         <h1 style={{ margin: 0, fontSize: 24, letterSpacing: 0.5 }}>
-          The Waning Border — <span style={{ color: C.gold }}>Age 0</span> Tech Tree
+          The Waning Border - <span style={{ color: C.gold }}>Age 0</span> and <span style={{ color: C.teal }}>Alanthor</span> Tech Tree
         </h1>
-        <p style={{ color: C.dim, margin: "6px 0 0", fontSize: 13, maxWidth: 780 }}>
-          Stats read from the live ScriptableObjects in{" "}
-          <code style={{ color: C.blue }}>Assets/GameData/TechTree/</code>. Names follow the
-          design doc where they conflict; a <span style={{ color: C.doc }}>(doc: X)</span> marker
-          flags any stat where <code style={{ color: C.blue }}>docs/Design/Age_0.md</code> disagrees.
+        <p style={{ color: C.dim, margin: "6px 0 0", fontSize: 13, maxWidth: 820 }}>
+          Structure only: which building trains which unit and researches which tech, with the
+          building-level gates (<span style={{ color: C.gold }}>L1 / L2 / L3</span>), prerequisites and
+          culture gates (<span style={{ color: C.teal }}>A</span> = Alanthor only) from the
+          ScriptableObjects in <code style={{ color: C.blue }}>Assets/GameData/TechTree/</code>.
+          For costs, stats and times see the generated calculator{" "}
+          <code style={{ color: C.blue }}>tools/calculator/TechTree.html</code>.
         </p>
       </header>
 
       {/* controls + legend */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", marginBottom: 20 }}>
-        {["all", "buildings", "units"].map((t) => (
-          <button key={t} onClick={() => setTab(t)} style={{
-            background: tab === t ? C.gold : C.panel, color: tab === t ? C.bg : C.text,
+        {["all", "age0", "alanthor"].map((k) => (
+          <button key={k} onClick={() => setTab(k)} style={{
+            background: tab === k ? C.gold : C.panel, color: tab === k ? C.bg : C.text,
             border: `1px solid ${C.line}`, borderRadius: 6, padding: "6px 14px",
-            cursor: "pointer", fontSize: 13, fontWeight: 600, textTransform: "capitalize",
-          }}>{t}</button>
+            cursor: "pointer", fontSize: 13, fontWeight: 600,
+          }}>{k === "all" ? "All" : AGE_LABEL[k]}</button>
         ))}
         <input
-          value={q} onChange={(e) => setQ(e.target.value)} placeholder="filter…"
+          value={q} onChange={(e) => setQ(e.target.value)} placeholder="filter..."
           style={{
             background: C.panel, color: C.text, border: `1px solid ${C.line}`,
             borderRadius: 6, padding: "6px 12px", fontSize: 13, minWidth: 160,
@@ -439,40 +400,21 @@ export default function TechTreeViz() {
         <Legend />
       </div>
 
-      {/* buildings */}
-      {tab !== "units" && (
-        <>
-          <SectionHeader color={C.gold}>Core Buildings <em style={{ color: C.dim, fontWeight: 400, fontSize: 13 }}>(pre-culture L0)</em></SectionHeader>
-          <Row>{core.map((b) => <BuildingCard key={b.id} b={b} units={UNITS} />)}</Row>
-
-          <SectionHeader color={C.purple}>Choice Buildings <em style={{ color: C.dim, fontWeight: 400, fontSize: 13 }}>(pick one · start L1 · unlock age-up)</em></SectionHeader>
-          <Row>{choice.map((b) => <BuildingCard key={b.id} b={b} units={UNITS} />)}</Row>
-        </>
-      )}
-
-      {/* units */}
-      {tab !== "buildings" && (
-        <>
-          <SectionHeader color={C.red}>Units</SectionHeader>
-          {["Hall", "Barracks", "ArcheryRange", "ShrineOfRidan"].map((tr) => {
-            const group = filteredUnits.filter((u) => u.trainer === tr);
-            if (!group.length) return null;
-            const bname = BUILDINGS.find((b) => b.id === tr)?.name || tr;
-            return (
-              <div key={tr} style={{ marginBottom: 8 }}>
-                <div style={{ color: C.dim, fontSize: 12, margin: "10px 0 6px" }}>
-                  trained at <strong style={{ color: C.gold }}>{bname}</strong>
-                </div>
-                <Row>{group.map((u) => <UnitCard key={u.id} u={u} />)}</Row>
-              </div>
-            );
-          })}
-        </>
-      )}
+      {["age0", "alanthor"].map((age) => {
+        const group = shown.filter((b) => b.age === age);
+        if (!group.length) return null;
+        return (
+          <div key={age}>
+            <SectionHeader color={age === "alanthor" ? C.teal : C.gold}>{AGE_LABEL[age]}</SectionHeader>
+            <Row>{group.map((b) => <BuildingCard key={b.age + b.id} b={b} />)}</Row>
+          </div>
+        );
+      })}
 
       <footer style={{ color: C.dim, fontSize: 11, marginTop: 30, borderTop: `1px solid ${C.line}`, paddingTop: 12 }}>
-        Damage model: <code>finalDamage = baseDamage × dmgTypeVsArmor × (1 − defense / (defense + 100))</code>.
-        &nbsp;Crossbowman / Longbowman are design-doc PLAYTEST PLACEHOLDER values (no ScriptableObject yet).
+        No numbers here by design. Every cost, stat and time lives on the SOs; read them in
+        tools/calculator/TechTree.html (generated by tools/gen_calculator.py).
+        Runai and Feraldis are not shown.
       </footer>
     </div>
   );
@@ -490,8 +432,8 @@ function SectionHeader({ children, color }) {
 }
 function Legend() {
   const items = [
-    ["Economy unit", C.green], ["Combat unit", C.red], ["Support unit", C.purple],
-    ["Building / tech", C.gold], ["doc conflict", C.doc],
+    ["Age 0 building", C.gold], ["Choice building", C.purple], ["Alanthor building", C.teal],
+    ["Unit", C.red], ["Tech", C.blue],
   ];
   return (
     <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>

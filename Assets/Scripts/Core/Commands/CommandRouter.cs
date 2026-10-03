@@ -1083,55 +1083,6 @@ namespace TheWaningBorder.Core.Commands
         }
 
         /// <summary>
-        /// Start a Temple of Ridan level upgrade. Cost is spent in
-        /// TempleUpgradeCommandDirect on EVERY peer (never by the caller —
-        /// see IssueAgeUp); target level and duration are recomputed on each
-        /// peer.
-        /// </summary>
-        public static void IssueTempleUpgrade(EntityManager em, Entity temple,
-            CommandSource source = CommandSource.LocalPlayer)
-        {
-            if (ShouldDropCommand(source)) return;
-            if (temple == Entity.Null || !em.Exists(temple)) return;
-
-            if (ShouldQueueForLockstep(source))
-                QueueTempleUpgradeForLockstep(em, temple);
-            else
-                TempleUpgradeCommandDirect(em, temple);
-        }
-
-        /// <summary>Apply the temple upgrade stamp on this peer. Re-entry
-        /// safe (no-op when already upgrading — checked BEFORE the spend so
-        /// a duplicate command cannot double-charge). Validates level +
-        /// affordability and SPENDS here so every peer debits the same bank
-        /// (docs/Multiplayer_LAN_Readiness.md).</summary>
-        public static void TempleUpgradeCommandDirect(EntityManager em, Entity temple)
-        {
-            if (!em.Exists(temple)) return;
-            if (!em.HasComponent<TempleLevel>(temple)) return;
-            if (em.HasComponent<TempleUpgradeState>(temple)) return;
-
-            int level = em.GetComponentData<TempleLevel>(temple).Level;
-            if (level >= TempleLevelConfig.MaxLevel) return;
-
-            if (em.HasComponent<FactionTag>(temple))
-            {
-                var faction = em.GetComponentData<FactionTag>(temple).Value;
-                if (!TheWaningBorder.Economy.FactionEconomy.Spend(
-                        em, faction, TempleLevelConfig.GetUpgradeCost(level)))
-                    return;
-            }
-
-            float duration = TempleLevelConfig.GetUpgradeDuration(level);
-            em.AddComponentData(temple, new TempleUpgradeState
-            {
-                TargetLevel = level + 1,
-                Duration    = duration,
-                Remaining   = duration,
-            });
-        }
-
-        /// <summary>
         /// Stamp a chapel build slot for an adopted sect. RP + material spend
         /// happen in SectAdoptionCommandDirect on EVERY peer — the issuer
         /// only VALIDATES (SectAdoption.ValidateAdoption) so the click can be
@@ -1568,8 +1519,7 @@ namespace TheWaningBorder.Core.Commands
         /// <summary>
         /// Authoritative check: can this <paramref name="unitId"/> be queued
         /// at this <paramref name="building"/> right now? Reads
-        /// <see cref="BuildingUpgradeState"/> (or <c>TempleLevel</c> for
-        /// Temple of Ridan) and compares to the unit's
+        /// <see cref="BuildingUpgradeState"/> and compares to the unit's
         /// <c>minBuildingLevel</c> from TechTreeDB. Returns true (with
         /// <paramref name="requiredLevel"/>=1 and the building's display
         /// name) when no gate applies — caller doesn't need to special-case
@@ -1592,11 +1542,6 @@ namespace TheWaningBorder.Core.Commands
             if (em.HasComponent<BuildingUpgradeState>(building))
             {
                 int lv = em.GetComponentData<BuildingUpgradeState>(building).Level;
-                if (lv > currentLevel) currentLevel = lv;
-            }
-            if (em.HasComponent<TempleLevel>(building))
-            {
-                int lv = em.GetComponentData<TempleLevel>(building).Level;
                 if (lv > currentLevel) currentLevel = lv;
             }
 
@@ -1622,7 +1567,7 @@ namespace TheWaningBorder.Core.Commands
         // uses, plus the culture-specific trainers.
         private static string ResolveBuildingIdForTrainer(EntityManager em, Entity e)
         {
-            if (em.HasComponent<HallTag>(e))            return "Hall";
+            if (em.HasComponent<HallTag>(e))            return "Fortress";
             if (em.HasComponent<BarracksTag>(e))        return "Barracks";
             if (em.HasComponent<ArcheryRangeTag>(e))    return "ArcheryRange";
             if (em.HasComponent<RoyalStableTag>(e))     return "Alanthor_RoyalStable";
@@ -1818,21 +1763,9 @@ namespace TheWaningBorder.Core.Commands
         // PLACE BUILDING COMMANDS
         // ═══════════════════════════════════════════════════════════════
 
-        /// <summary>Smelter (Forge) build cap per faction. Raised from 1 to 5
-        /// (endgame completeness pass) — enforced here at the single
-        /// replicated entry point so UI, AI and lockstep peers all agree.
-        /// The build-menu gate (EntityExtractors.Buildings SmelterCap)
-        /// mirrors this value.</summary>
-        public const int MaxSmeltersPerFaction = 5;
-
-        /// <summary>Count this faction's Smelters (completed AND under
-        /// construction) for the placement cap check.</summary>
-        private static int CountFactionSmelters(EntityManager em, Faction faction)
-            => CountFactionBuildings<SmelterTag>(em, faction);
-
         /// <summary>Count a faction's buildings of one tag type, completed and
-        /// under construction alike. The generic form of the Smelter count —
-        /// the sect buildings all need the same query with a different tag.</summary>
+        /// under construction alike — the sect buildings all need the same
+        /// query with a different tag.</summary>
         private static int CountFactionBuildings<T>(EntityManager em, Faction faction)
             where T : unmanaged, IComponentData
         {
@@ -1853,10 +1786,6 @@ namespace TheWaningBorder.Core.Commands
         /// </summary>
         public static bool CanPlaceBuilding(EntityManager em, string buildingId, Faction faction)
         {
-            if (buildingId == "Alanthor_Smelter")
-                return CountFactionSmelters(em, faction)
-                       + TheWaningBorder.Entities.PlannedBuildings.CountOf(em, faction, buildingId)
-                       < MaxSmeltersPerFaction;
             return !SectBuildingCapReached(em, buildingId, faction);
         }
 
@@ -1926,15 +1855,9 @@ namespace TheWaningBorder.Core.Commands
             if (IsWallMountOnlyBuilding(buildingId))
                 return TheWaningBorder.World.Regions.PlacementRefusal.UnknownBuilding;
 
-            // The Hall is removed (Territory_Claims.md §4) — the Fortress
-            // took its roster and research.
-            if (TheWaningBorder.World.Regions.TerritoryOwnership.IsRetiredBuilding(buildingId))
-                return TheWaningBorder.World.Regions.PlacementRefusal.Retired;
-
-            // Smelter cap (5 per faction). Rejected here so callers with a
+            // Sect buildings, 5 per faction. Rejected here so callers with a
             // spend-then-place flow (AI TryBuildOnce) see created == Null and
             // refund cleanly; the UI normally hides the button first.
-            // Sect buildings, 5 per faction, for the same reason.
             if (!CanPlaceBuilding(em, buildingId, faction))
                 return TheWaningBorder.World.Regions.PlacementRefusal.CapReached;
 
@@ -1954,9 +1877,9 @@ namespace TheWaningBorder.Core.Commands
 
             // EVERY EXTRACTOR STANDS ON ITS OWN NODE, one per node
             // (docs/Design/Regions.md §4): Gatherer's Hut on a supply site,
-            // Mine on iron, Veilstone Mine on a veilstone outcropping, Smelter
-            // on a veilsteel deposit. The node count is what limits how many a
-            // territory supports, so there is no separate cap.
+            // Mine on iron, Veilstone Mine on a veilstone outcropping. The node
+            // count is what limits how many a territory supports, so there is
+            // no separate cap.
             //
             // SNAP FIRST, then gate. An extractor sits ON its node, not near
             // it, so the click only has to name the node — the building lands
@@ -2115,8 +2038,6 @@ namespace TheWaningBorder.Core.Commands
             // meter between issue and execution, and on a remote peer the
             // issue gates never ran — a building must never land on ground
             // its faction lost in the meantime.
-            if (TheWaningBorder.World.Regions.TerritoryOwnership.IsRetiredBuilding(buildingId))
-                return TheWaningBorder.World.Regions.PlacementRefusal.Retired;
             if (TheWaningBorder.World.Regions.RegionMap.Ready)
                 TheWaningBorder.World.Regions.TerritoryOwnership.Recompute(em);
             var r = TheWaningBorder.World.Regions.TerritoryOwnership.TerritoryRefusal(
@@ -2395,7 +2316,7 @@ namespace TheWaningBorder.Core.Commands
                 em.SetComponentData(building, new Health { Value = 1, Max = hp.Max });
             }
 
-            // Choice buildings (Shrine / Vault / Keep) self-construct with no
+            // Landmarks (Vault / Keep) self-construct with no
             // worker over 90 s (design: Age_0.md § Special buildings).
             // Workers can still be sent to accelerate — each contributes
             // +25 % build rate in BuildingConstructionSystem, so 4 workers
@@ -2407,74 +2328,46 @@ namespace TheWaningBorder.Core.Commands
                 em.AddComponent<AutoConstructTag>(building);
             }
 
-            // Worker-placed Halls (expansion claims, one per territory) inherit
-            // the faction's current culture so culture-driven queries that
-            // pick "the first hall" stay consistent — EntityActionExtractor and
-            // CultureChoicePopup both read FactionProgress off whichever Hall
-            // they hit first. Hall.Create stamps Culture=None unconditionally,
-            // so we override here. FactionColors.GetFactionCulture is
-            // deterministic across lockstep peers (set by AgeUpSystem during
-            // tick replay), so this works for both single-player and
-            // multiplayer paths.
-            // A built FORTRESS (Territory_Claims.md §4) is the same case, and
-            // after age-up it also takes the cultured capital form the
-            // starting Fortress took (King's Court for Alanthor).
-            if ((buildingId == "Hall" || buildingId == "Fortress")
-                && em.HasComponent<FactionProgress>(building))
+            // A worker-placed Fortress (one per territory, Territory_Claims.md
+            // §4) inherits the faction's current culture so culture-driven
+            // queries that pick "the first capital" stay consistent —
+            // EntityActionExtractor and CultureChoicePopup both read
+            // FactionProgress off whichever capital they hit first.
+            // Fortress.Create stamps Culture=None unconditionally, so we
+            // override here. FactionColors.GetFactionCulture is deterministic
+            // across lockstep peers (set by AgeUpSystem during tick replay),
+            // so this works for both single-player and multiplayer paths.
+            // After age-up it is also named the Fortress, as the starting
+            // capital was (the Shelter is the Age 0 name).
+            if (buildingId == "Fortress" && em.HasComponent<FactionProgress>(building))
             {
                 byte culture = FactionColors.GetFactionCulture(faction);
                 em.SetComponentData(building, new FactionProgress { Culture = culture });
-                if (buildingId == "Fortress" && culture != Cultures.None)
-                    TheWaningBorder.Systems.Work.AgeUpSystem.TransformHallForCulture(em, building, culture);
+                if (culture != Cultures.None)
+                    TheWaningBorder.Systems.Work.AgeUpSystem.TransformCapitalForCulture(em, building, culture);
             }
 
             return building;
         }
 
+        /// <summary>
+        /// Seconds to raise <paramref name="buildingId"/>: its SO's buildTime,
+        /// and nothing else (2026-10-03, unification item 34). The id switch
+        /// that used to stand behind a zero buildTime is gone — every catalog
+        /// building now authors its time, and the TechCatalog audit names any
+        /// asset that does not. The one remaining constant is for ids with NO
+        /// BuildingDefSO at all (the code-seeded chapels).
+        /// </summary>
         private static float GetBuildTime(string buildingId)
         {
-            // THE SO OWNS THE NUMBER. BuildingDef.buildTime exists precisely so
-            // a designer can find it; this switch was the authority instead, so
-            // every buildTime authored on a building asset was dead data and
-            // the real figures lived in a file no designer opens. Same trap
-            // CLAUDE.md describes for the 74 factories that carried a
-            // DefaultHP ladder.
-            //
-            // The table below is now a FALLBACK for ids with no def (and the
-            // source the assets were seeded from, so nothing changed hands
-            // behaviourally). A zero on a def is treated as unset rather than
-            // as instant: an instant building is never what anyone meant.
-            if (TechCatalog.TryGetBuilding(buildingId, out var def)
-                && def != null && def.buildTime > 0f)
-                return def.buildTime;
-
-            return buildingId switch
-            {
-                "Hut" => 15f,
-                "GatherersHut" => 20f,
-                "Hall" => 50f,
-                "Barracks" or "ArcheryRange" => 30f,
-                "TempleOfRidan" => 40f,
-                // Choice buildings: 90 s self-build (no worker needed —
-                // AutoConstructTag is added in PlaceBuildingDirect).
-                "VaultOfAlmierra" or "FiendstoneKeep" => 90f,
-                "Alanthor_RoyalStable" => 30f,
-                "Alanthor_Tower" or "Feraldis_HuntingLodge" or "Feraldis_LoggingStation"
-                    or "Feraldis_Tower" or "Runai_Outpost" => 25f,
-                "Feraldis_WarTotem" => 15f,
-                "Feraldis_Pasture" => 30f,
-                "Mine" => 25f,
-                "Alanthor_TradingOutpost" => 30f,
-                "Feraldis_Longhouse" or "Runai_TradeHub" => 30f,
-                "Alanthor_SiegeYard" or "Runai_SiegeWorkshop"
-                    or "Feraldis_SiegeYard" => 35f,
-                // Emplacements — docs/Design/Age_1_Alanthor.md.
-                "Alanthor_BallistaEmplacement" => 35f,
-                "Alanthor_TrebuchetEmplacement" => 55f,
-                "ThessarasBazaar" => 40f,
-                _ => 30f
-            };
+            if (TechCatalog.HasBuildingSO(buildingId))
+                return TechCatalog.Building(buildingId).buildTime;
+            return CodeSeededBuildTime;
         }
+
+        /// <summary>Build time of an id with no BuildingDefSO (the chapels) —
+        /// the old switch's default, kept until those ids get assets.</summary>
+        private const float CodeSeededBuildTime = 30f;
 
         // ═══════════════════════════════════════════════════════════════
         // INTERNAL ROUTING LOGIC

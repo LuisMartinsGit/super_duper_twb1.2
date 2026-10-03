@@ -179,7 +179,7 @@ namespace TheWaningBorder.AI
             // too. Keeping it here starved stalled openers of supplies.)
 
             // PIVOTAL UNIQUES (2026-08-04): an aged-up Alanthor AI fields its
-            // King's Court pieces — the Ledger automaton and King Lexor.
+            // capital pieces — the Ledger automaton and King Lexor.
             // HeroTrainLimit's live-or-queued checks (the same gates the
             // player's training goes through) stop double-queueing, and both
             // re-train automatically after a death.
@@ -378,21 +378,21 @@ namespace TheWaningBorder.AI
         /// one pricey early tech blocked everything behind it indefinitely.</summary>
         private static readonly string[] EconomyResearchLadder =
         {
-            "StoneTools",                        // Hall — gather speed (cheap opener)
+            "StoneTools",                        // Fortress — gather speed (cheap opener)
             "IronSurveying1",                    // Gatherer's Hut — iron drip
             "DeepShafts",                        // Mine — +50% iron from worked slots
             "VeilstoneSurvey1",                  // Gatherer's Hut — veilstone drip
-            "ArmedScouts",                       // Hall — arms scouts (attack gate)
+            "ArmedScouts",                       // Fortress — arms scouts (attack gate)
             "Conscription", "StoneWeapons",      // Barracks — train speed / T1
             "Fletching", "StoneTippedArrows",    // Archery Range (Age 1) — range / T1
-            "IronTools", "MasonGuild",           // King's Court (Alanthor) — T2 eco + building HP
+            "IronTools", "MasonGuild",           // Fortress (Alanthor) — T2 eco + building HP
             "IronSurveying2",                    // Gatherer's Hut — iron drip II
             "RichSeams",                         // Mine — +100% iron from worked slots
             "VeilstoneSurvey2",                  // Gatherer's Hut — veilstone drip II
             "VeilsteelSurvey",                   // Gatherer's Hut — veilsteel (maxed huts only)
             "IronSurveying3",                    // Gatherer's Hut — iron drip III
-            "ScoutingCelestarii",                // King's Court (Alanthor) — scout tech
-            "VeilstoneTools",                    // King's Court (Alanthor) — T3 eco
+            "ScoutingCelestarii",                // Fortress (Alanthor) — scout tech
+            "VeilstoneTools",                    // Fortress (Alanthor) — T3 eco
         };
 
         /// <summary>
@@ -405,11 +405,11 @@ namespace TheWaningBorder.AI
         /// </summary>
         private static readonly string[] FeraldisEconomyResearchLadder =
         {
-            "StoneTools",                        // Hall — gather speed (cheap opener)
+            "StoneTools",                        // Fortress — gather speed (cheap opener)
             "Raiding1",                          // Raider Camp — bigger take
             "IronPlunder",                       // Raider Camp — steal iron too
             "DeepShafts",                        // Mine — +50% iron from worked slots
-            "ArmedScouts",                       // Hall — arms scouts (attack gate)
+            "ArmedScouts",                       // Fortress — arms scouts (attack gate)
             "Conscription", "StoneWeapons",      // Barracks — train speed / T1
             "Fletching", "StoneTippedArrows",    // Thrower Camp — range / T1
             "Raiding2",                          // Raider Camp — bigger take II
@@ -417,9 +417,9 @@ namespace TheWaningBorder.AI
             "VeilstonePlunder",                  // Raider Camp — steal veilstone
             "Raiding3",                          // Raider Camp — bigger take III
             "VeilsteelPlunder",                  // Raider Camp — steal veilsteel
-            // No King's Court techs (IronTools, ScoutingCelestarii,
-            // VeilstoneTools): the King's Court is Alanthor-only, so a Feraldis
-            // faction can never research them (audit 2026-10-03).
+            // No Fortress tool ladder (IronTools, ScoutingCelestarii,
+            // VeilstoneTools): those techs are Alanthor-gated on their SOs, so
+            // a Feraldis faction can never research them (audit 2026-10-03).
         };
 
         /// <summary>Ladder for this faction's culture (see above).</summary>
@@ -665,7 +665,7 @@ namespace TheWaningBorder.AI
         //
         // The EconomyResearchLadder is a hand-authored opener covering the
         // ~15 techs the early game lives on. Everything else — the armour
-        // ladders at the Smelter, the Vault bond line, Shrine masses, the
+        // ladders, the Vault bond line, the Temple's masses, the
         // Stable / Siege Yard military trees, Keep emplacements — exists
         // only in each building def's research list. This sweep walks every
         // OWNED research-capable building and queues the first tech that is
@@ -716,7 +716,7 @@ namespace TheWaningBorder.AI
 
             // Pivotal savings hold: the sweep is a steady discretionary
             // drain (a tech every ~20 s) — it waits while the faction saves
-            // toward a Temple level / King's Court unique.
+            // toward a capital unique.
             if (AIPivotalReserve.ShouldHold(em, faction)) return;
 
             var research = FactionResearchState.Instance;
@@ -749,7 +749,6 @@ namespace TheWaningBorder.AI
                 for (int t = 0; t < def.research.Length; t++)
                 {
                     string techId = def.research[t];
-                    if (techId == "Research_Era2") continue; // age-up rides its own flow
                     if (!TechCatalog.TryGetTechnology(techId, out var tech) || tech == null)
                         continue;
                     if (research != null && research.HasResearched(faction, techId)) continue;
@@ -767,10 +766,7 @@ namespace TheWaningBorder.AI
 
                     // PIVOTAL HOLD (2026-08-31): the research sweep is the
                     // third bank drain — it waits its <=MaxHoldSeconds turn.
-                    // Research_Era2 is exempt: the age-up outranks a land
-                    // grab (see the batch-11 note in Production.TryResearch).
-                    if (techId != "Research_Era2"
-                        && TheWaningBorder.AI.AIPivotalReserve.ShouldHold(em, faction)) continue;
+                    if (TheWaningBorder.AI.AIPivotalReserve.ShouldHold(em, faction)) continue;
 
                     TheWaningBorder.Core.Commands.CommandRouter.IssueResearch(
                         em, building, techId,
@@ -889,12 +885,12 @@ namespace TheWaningBorder.AI
             return true;
         }
 
-        /// <summary>Ticks a King's Court unique has been blocked, per
+        /// <summary>Ticks a capital unique has been blocked, per
         /// faction — drives the throttled block log below.</summary>
         private static readonly System.Collections.Generic.Dictionary<Faction, int> _uniqueBlockTicks
             = new System.Collections.Generic.Dictionary<Faction, int>();
 
-        /// <summary>Train a King's Court pivotal unique (Ledger / King
+        /// <summary>Train a capital pivotal unique (Ledger / King
         /// Lexor). Deliberately NOT budget-windowed: a 600-supply one-off
         /// starves inside the Advancement window's weighted share, and the
         /// HeroTrainLimit caller-side gate already makes this a one-time
@@ -907,7 +903,7 @@ namespace TheWaningBorder.AI
             {
                 _uniqueBlockTicks.Remove(faction);
                 AIPivotalReserve.Clear(faction, unitId);
-                AILogger.Log(faction, "MILITARY", $"King's Court: queued {unitId}");
+                AILogger.Log(faction, "MILITARY", $"Capital: queued {unitId}");
                 return;
             }
 
@@ -924,7 +920,7 @@ namespace TheWaningBorder.AI
             {
                 ticks = 0;
                 AILogger.Log(faction, "MILITARY",
-                    $"King's Court: {unitId} blocked ~1 min ({reason})");
+                    $"Capital: {unitId} blocked ~1 min ({reason})");
             }
             _uniqueBlockTicks[faction] = ticks;
         }

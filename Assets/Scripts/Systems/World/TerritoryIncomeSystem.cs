@@ -4,11 +4,15 @@
 // docs/Design/Regions.md §4: income comes from the ground you hold, not from
 // workers gathering. Per owned territory:
 //
-//   * 50/min of supplies from a FORTRESS standing in it
 //   * every resource node is a SLOT (supply, iron, veilstone): EMPTY it pays
 //     10/min of its resource; with its extractor on it (Gatherer's Hut,
-//     Mine, Veilstone Mine) it pays 50/min, doubling per level (50/100/200).
-//     An ALANTHOR faction's huts and iron Mines run 70/100/200 instead.
+//     Mine, Veilstone Mine) it pays that extractor's per-level rate, read
+//     from the SOs (2026-10-03, unification item 34): the building's own
+//     `slotIncomePerMinute` ladder, or its owner culture's level SO when one
+//     is authored (Alanthor's Guild and Mine levels).
+//   * the capital's own supplies are NOT paid here: the Fortress carries a
+//     SuppliesIncome from its SO (ResourceTickSystem pays it). The flat
+//     50/min this system added on top was cut (unification item 10).
 //   * a cursed or depleted veilstone outcrop pays nothing, and there is no
 //     veilsteel node at all (docs/Design/Veilstone_Economy.md, 2026-10-01)
 //
@@ -59,37 +63,18 @@ namespace TheWaningBorder.Systems.World
         private const float TickInterval = 1f;
 
         /// <summary>
-        /// Supplies a FORTRESS pays its territory (docs/Design/Veilstone_Economy.md
-        /// §5, 2026-10-01). Ground without one pays only its slots and forests.
-        /// </summary>
-        private const float FortressSuppliesPerMinute = 50f;
-
-        /// <summary>
         /// What an EMPTY slot pays — a supply, iron or uncursed veilstone node
         /// in held ground with no extractor on it. Small on purpose: holding a
         /// node is worth something, building on it is worth five times more.
         /// </summary>
         private const float EmptySlotPerMinute = 10f;
 
-        /// <summary>
-        /// What a slot pays with its extractor on it at LEVEL 1 (Gatherer's
-        /// Hut, Mine, Veilstone Mine). Each level doubles it: 50 / 100 / 200.
-        /// </summary>
-        private const float ExtractorSlotPerMinute = 50f;
-
-        /// <summary>
-        /// An ALANTHOR faction's Gatherer's Huts and iron Mines, by level
-        /// (Veilstone_Economy.md §5): the culture that will not mine veilstone
-        /// works its supply and iron slots harder.
-        /// </summary>
-        private static readonly float[] AlanthorSlotLadder = { 70f, 100f, 200f };
-
-        /// <summary>
-        /// MINES PAY DOUBLE (2026-10-01): a Mine or Veilstone Mine on its slot
-        /// pays twice the hut ladder — 100 / 200 / 400, Alanthor's iron Mines
-        /// 140 / 200 / 400. An empty ore slot still pays 10.
-        /// </summary>
-        private const float MineYieldMultiplier = 2f;
+        /// <summary>The three extractors whose `slotIncomePerMinute` ladders
+        /// this system pays (GatherersHut.asset, Mine.asset, VeilstoneMine.asset
+        /// and their culture level SOs).</summary>
+        private const string HutId = "GatherersHut";
+        private const string MineId = "Mine";
+        private const string VeilstoneMineId = "VeilstoneMine";
 
         /// <summary>
         /// EVERY IRON SOURCE PAYS 20 % MORE (2026-10-02, Veilstone_Economy.md
@@ -363,19 +348,22 @@ namespace TheWaningBorder.Systems.World
             int level = LevelOf(em, building);
             float r2 = MineToNodeRange * MineToNodeRange;
 
-            bool alanthor = CultureConfig.GetCompletedCulture(em, owner) == Cultures.Alanthor;
+            byte culture = CultureConfig.GetCompletedCulture(em, owner);
             if (em.HasComponent<FortressTag>(building))
             {
-                y.Supplies += FortressSuppliesPerMinute * hall;
+                // The capital's own SuppliesIncome (its SO's 50 per 15 s),
+                // paid by ResourceTickSystem — not by the territory.
+                if (em.HasComponent<SuppliesIncome>(building))
+                    y.Supplies += em.GetComponentData<SuppliesIncome>(building).PerMinute;
             }
             else if (em.HasComponent<GathererHutTag>(building) && !em.HasComponent<RaiderCampTag>(building))
             {
                 if (NearAny(em, QC_Supply.Get(em, QT_Supply), p, r2))
-                    y.Supplies += SlotRate(level, alanthor) * hall;
+                    y.Supplies += LadderFor(HutId, culture).At(level) * hall;
             }
             else if (em.HasComponent<MineTag>(building))
             {
-                y.Iron += NodeLevelYield(em, c.Ore[0], p, r2, level, alanthor) * hall
+                y.Iron += NodeLevelYield(em, c.Ore[0], p, r2, level, LadderFor(MineId, culture)) * hall
                           * SurveyMultiplier(owner, IronSurveyLadder)
                           * IronYieldMultiplier
                           * (level > 0 ? MineTechMultiplier(owner) : 1f);
@@ -394,7 +382,7 @@ namespace TheWaningBorder.Systems.World
                         != VeilstoneNodeKind.Inactive) continue;
                     if (em.HasComponent<NodeReserve>(o.Node[i])
                         && em.GetComponentData<NodeReserve>(o.Node[i]).Remaining <= 0f) continue;
-                    y.Veilstone += MineRate(level, false) * mult * hall
+                    y.Veilstone += LadderFor(VeilstoneMineId, culture).At(level) * mult * hall
                                    * SurveyMultiplier(owner, VeilstoneSurveyLadder);
                 }
             }
@@ -414,7 +402,7 @@ namespace TheWaningBorder.Systems.World
         /// <summary>One extractor's slot rate on the ore nodes it stands on,
         /// scaled by what is left in each (the same scale the tick pays).</summary>
         private static float NodeLevelYield(EntityManager em, OreCensus o, Unity.Mathematics.float3 p,
-            float r2, int level, bool alanthor)
+            float r2, int level, SlotLadder ladder)
         {
             float total = 0f;
             for (int i = 0; i < o.Node.Count; i++)
@@ -429,7 +417,7 @@ namespace TheWaningBorder.Systems.World
                     var res = em.GetComponentData<NodeReserve>(node);
                     if (res.Initial > 0f) scale = Mathf.Max(DepletionFloor, res.Remaining / res.Initial);
                 }
-                total += MineRate(level, alanthor) * scale;
+                total += ladder.At(level) * scale;
             }
             return total;
         }
@@ -511,25 +499,23 @@ namespace TheWaningBorder.Systems.World
             var y = new TerritoryYield();
             if (territory < 0 || !RegionMap.Ready) return y;
 
-            bool alanthor = CultureConfig.GetCompletedCulture(em, owner) == Cultures.Alanthor;
-
-            // The Fortress's own supplies.
-            y.Supplies += FortressSuppliesPerMinute * Census.CountAt(c.FortressRegion, territory);
+            byte culture = CultureConfig.GetCompletedCulture(em, owner);
 
             // Supply slots: 10 empty, the hut's ladder with one on it.
+            var hutLadder = LadderFor(HutId, culture);
             for (int i = 0; i < c.SupplyRegion.Count; i++)
                 if (c.SupplyRegion[i] == territory)
-                    y.Supplies += SlotRate(c.SupplyHutLevel[i], alanthor);
+                    y.Supplies += hutLadder.At(c.SupplyHutLevel[i]);
 
             // Ore slots. Survey research scales each line. There is no
             // veilsteel line — veilsteel is MADE (the Trading Outpost), never
             // mined.
-            y.Iron = OreSlotYield(em, c.Ore[0], territory, drainMinutes, alanthor, IronYieldMultiplier, false,
-                                  MineTechMultiplier(owner))
+            y.Iron = OreSlotYield(em, c.Ore[0], territory, drainMinutes, LadderFor(MineId, culture),
+                                  IronYieldMultiplier, false, MineTechMultiplier(owner))
                      * SurveyMultiplier(owner, IronSurveyLadder);
-            float veilMult = CultureConfig.GetCompletedCulture(em, owner) == Cultures.Feraldis
-                ? FeraldisVeilstoneMultiplier : 1f;
-            y.Veilstone = OreSlotYield(em, c.Ore[1], territory, drainMinutes, false, veilMult, true)
+            float veilMult = culture == Cultures.Feraldis ? FeraldisVeilstoneMultiplier : 1f;
+            y.Veilstone = OreSlotYield(em, c.Ore[1], territory, drainMinutes, LadderFor(VeilstoneMineId, culture),
+                                       veilMult, true)
                           * SurveyMultiplier(owner, VeilstoneSurveyLadder);
 
             // ── The Hall doubles everything the territory earns ──────────
@@ -615,21 +601,13 @@ namespace TheWaningBorder.Systems.World
             public readonly List<int> SupplyHutLevel = new List<int>();
             public readonly List<int> HallRegion = new List<int>();
             public readonly List<int> HallLevel = new List<int>();
-            public readonly List<int> FortressRegion = new List<int>();
             public readonly OreCensus[] Ore = { new OreCensus(), new OreCensus() };
             private readonly List<Vector3> _built = new List<Vector3>();   // x, z, level
-
-            public static int CountAt(List<int> regions, int territory)
-            {
-                int n = 0;
-                for (int i = 0; i < regions.Count; i++) if (regions[i] == territory) n++;
-                return n;
-            }
 
             public void Build(EntityManager em)
             {
                 SupplyRegion.Clear(); SupplyHutLevel.Clear();
-                HallRegion.Clear(); HallLevel.Clear(); FortressRegion.Clear();
+                HallRegion.Clear(); HallLevel.Clear();
 
                 // Gatherer's Huts, built, not Raider Camps (converted huts that
                 // KEEP GathererHutTag — AgeUpSystem adds RaiderCampTag to the
@@ -667,8 +645,6 @@ namespace TheWaningBorder.Systems.World
                         var p = em.GetComponentData<LocalTransform>(ents[i]).Position;
                         HallRegion.Add(RegionOfStatic(ents[i], p.x, p.z));
                         HallLevel.Add(LevelOf(em, ents[i]));
-                        if (em.HasComponent<FortressTag>(ents[i]))
-                            FortressRegion.Add(RegionOfStatic(ents[i], p.x, p.z));
                     }
                 }
 
@@ -754,19 +730,40 @@ namespace TheWaningBorder.Systems.World
         }
 
         /// <summary>
-        /// What one slot pays per minute: 10 empty, else its extractor's
-        /// ladder — 50 / 100 / 200, or Alanthor's 70 / 100 / 200.
+        /// One extractor's per-minute slot rates for one culture, levels 1-3,
+        /// from the SOs: the culture's BuildingLevelDefSO rung when it authors
+        /// one (Alanthor's Guild 70/100/200, its Mines 140/200/400), else the
+        /// building's own `slotIncomePerMinute` (huts 50/100/200, Mines and
+        /// Veilstone Mines 100/200/400). Level 0 is an EMPTY slot.
         /// </summary>
-        private static float MineRate(int extractorLevel, bool alanthor)
-            => extractorLevel <= 0 ? EmptySlotPerMinute
-                                   : SlotRate(extractorLevel, alanthor) * MineYieldMultiplier;
-
-        private static float SlotRate(int extractorLevel, bool alanthor)
+        private struct SlotLadder
         {
-            if (extractorLevel <= 0) return EmptySlotPerMinute;
-            if (alanthor)
-                return AlanthorSlotLadder[Mathf.Clamp(extractorLevel, 1, AlanthorSlotLadder.Length) - 1];
-            return ExtractorSlotPerMinute * Pow2(extractorLevel - 1);
+            public float L1, L2, L3;
+
+            /// <summary>A slot's rate with this extractor at <paramref name="level"/>
+            /// on it (past level 3 — two Mines on one node sum their levels —
+            /// it pays the top rung).</summary>
+            public float At(int level)
+                => level <= 0 ? EmptySlotPerMinute : level == 1 ? L1 : level == 2 ? L2 : L3;
+        }
+
+        private static SlotLadder LadderFor(string buildingId, byte culture)
+        {
+            float[] own = TechCatalog.TryGetBuildingSO(buildingId, out var so) ? so.slotIncomePerMinute : null;
+            return new SlotLadder
+            {
+                L1 = Rung(buildingId, culture, 1, own),
+                L2 = Rung(buildingId, culture, 2, own),
+                L3 = Rung(buildingId, culture, 3, own),
+            };
+        }
+
+        /// <summary>A hole in the data pays 0 — the TechCatalog audit names it.</summary>
+        private static float Rung(string buildingId, byte culture, int level, float[] own)
+        {
+            if (TechCatalog.TryGetBuildingLevel(culture, buildingId, level, out var lvl))
+                return lvl.slotIncomePerMinute;
+            return own != null && own.Length >= level ? own[level - 1] : 0f;
         }
 
         /// <summary>
@@ -779,7 +776,7 @@ namespace TheWaningBorder.Systems.World
         /// §2). Every unit paid is drawn from the reserve on the paying call.
         /// </summary>
         private static float OreSlotYield(EntityManager em, OreCensus o, int territory,
-            float drainMinutes, bool alanthor, float multiplier, bool veilstone,
+            float drainMinutes, SlotLadder ladder, float multiplier, bool veilstone,
             float extractorMultiplier = 1f)
         {
             float total = 0f;
@@ -790,7 +787,7 @@ namespace TheWaningBorder.Systems.World
                 if (veilstone && TheWaningBorder.Systems.Economy.VeilstoneNodeStateSystem.KindOf(em, node)
                                  != VeilstoneNodeKind.Inactive) continue;
 
-                float rate = MineRate(o.ExtractorLevels[i], alanthor) * multiplier;
+                float rate = ladder.At(o.ExtractorLevels[i]) * multiplier;
                 // A slot with its extractor on it earns that extractor's
                 // research (the Mine ladder); an empty slot does not.
                 if (o.ExtractorLevels[i] > 0) rate *= extractorMultiplier;

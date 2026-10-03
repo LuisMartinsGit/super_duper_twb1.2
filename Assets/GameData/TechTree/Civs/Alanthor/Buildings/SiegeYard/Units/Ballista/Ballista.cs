@@ -6,23 +6,24 @@ using TheWaningBorder.Economy;
 namespace TheWaningBorder.Entities
 {
     /// <summary>
-    /// Ballista unit - Alanthor culture siege weapon (calculator 2026-08:
-    /// replaced the Alanthor Catapult; Siege Yard Lv 1). Fires a single
+    /// Ballista unit - Alanthor culture siege weapon (Siege Yard Lv 1). It
+    /// COEXISTS with the Alanthor Catapult (AlanthorCatapult.cs): the Siege
+    /// Yard trains all four engines — Ballista, Battering Ram, Catapult,
+    /// Trebuchet (unification decision 32, 2026-10-03). Fires a single
     /// FLAT heavy bolt — no AOE, no lob — with +30 vs Building; slow 4 s
     /// reload. Shots carry CatapultShotTag (via CatapultTag) so the visual
     /// prefab's CatapultVisual arm driver + shot FX stay in charge of the
     /// projectile presentation until dedicated ballista art lands.
     ///
-    /// Trained under id "Alanthor_Ballista"; "Alanthor_Catapult" is kept as
-    /// a recipe alias so AI build orders / scenarios keep resolving.
+    /// Trained under id "Alanthor_Ballista". "Alanthor_Catapult" is its own
+    /// unit, not an alias of this one.
     ///
     /// Fix #219: the two Create overloads share one generic CreateInternal via IEntityCreator.
     /// </summary>
     public static class Ballista
     {
-        // Default stats (calculator: tools/calculator/techtree.json,
-        // id "Alanthor_Ballista" — 220 HP / 40 dmg / 4.0 cd / range 6-22 /
-        // LoS 26 / speed 3.2 / 38 s train / pop 2 / 180 S + 80 I + 40 V).
+        // Stats come from the UnitDefSO (TechCatalog.Unit); tools/calculator is
+        // a generated read-only view of the SOs, not a source.
         // (History: 338 was its own Synty ballista model, Ballista.prefab beside this
         // file). It shared 337 — the catapult model — until 2026-09-07.
         // 385: its OWN procedural visual (BallistaVisual beside this file).
@@ -47,8 +48,6 @@ namespace TheWaningBorder.Entities
             where TCreator : struct, IEntityCreator
         {
 
-            // Canonical id first; the retired Catapult id keeps working while
-            // the JSON fallback catalog still carries it.
             var def = TechCatalog.Unit("Alanthor_Ballista");
             float hp = def.hp;
             float speed = def.speed;
@@ -86,7 +85,7 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new Target { Value = Entity.Null });
             creator.AddComponent(entity, new Radius { Value = def.radius });
             creator.AddComponent(entity, new AttackCooldown { Cooldown = cooldown, Timer = 0f });
-            creator.AddComponent(entity, new PopulationCost { Amount = 2 });
+            creator.AddComponent(entity, new PopulationCost { Amount = def.populationCost });
 
             // Siege ranged state — flat bolt, crossbow trajectory family.
             creator.AddComponent(entity, new ArcherState

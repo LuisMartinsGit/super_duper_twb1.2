@@ -69,17 +69,6 @@ namespace TheWaningBorder.Rendering
             ComponentType.ReadOnly<LocalTransform>() };
         private TheWaningBorder.Core.CachedEntityQuery _upgradeScanQuery;
 
-        // The Temple of Ridan tracks its level in TempleLevel (set by
-        // TempleUpgradeSystem), NOT BuildingUpgradeState — without this
-        // second scan its leveled visuals (TempleOfRidan_al_1..4) never
-        // load. Disjoint from the query above: temples carry no
-        // BuildingUpgradeState.
-        private static readonly ComponentType[] TempleScanQueryTypes = {
-            ComponentType.ReadOnly<TempleLevel>(),
-            ComponentType.ReadOnly<FactionTag>(),
-            ComponentType.ReadOnly<LocalTransform>() };
-        private TheWaningBorder.Core.CachedEntityQuery _templeScanQuery;
-
         void Awake()
         {
             if (Instance != null && Instance != this) { Destroy(this); return; }
@@ -140,24 +129,10 @@ namespace TheWaningBorder.Rendering
             {
                 for (int i = 0; i < ents.Length; i++)
                 {
-                    // Temples belong to the TempleLevel pass below. A temple
-                    // that (from older code) also carries BuildingUpgradeState
-                    // would feed _lastLevel two disagreeing levels and replay
-                    // the swap + flourish every scan.
-                    if (_em.HasComponent<TempleLevel>(ents[i])) continue;
+                    // The Temple of Ridan has no levels (docs/Design/Religion.md)
+                    // and never carries BuildingUpgradeState.
                     ProcessSwapCandidate(ents[i],
                         _em.GetComponentData<BuildingUpgradeState>(ents[i]).Level);
-                }
-            }
-
-            // Temples: level lives in TempleLevel (1..4), same swap flow.
-            var templeQuery = _templeScanQuery.Get(_em, TempleScanQueryTypes);
-            using (var temples = templeQuery.ToEntityArray(Unity.Collections.Allocator.Temp))
-            {
-                for (int i = 0; i < temples.Length; i++)
-                {
-                    int tl = _em.GetComponentData<TempleLevel>(temples[i]).Level;
-                    ProcessSwapCandidate(temples[i], (byte)Mathf.Clamp(tl, 1, 4));
                 }
             }
 
@@ -422,7 +397,10 @@ namespace TheWaningBorder.Rendering
 
             switch (buildingId)
             {
-                case "Hall":
+                case "Fortress":
+                case "Hall":   // PresentationSpawnSystem's name for pid 100 art
+                    // The capital's legacy per-level art keeps its old file
+                    // names (Resources/Prefabs/Buildings/Hall_al_N).
                     list.Add($"{root}Hall_{code}_{level}");                 // Hall_al_2
                     break;
                 case "Barracks":
@@ -435,14 +413,6 @@ namespace TheWaningBorder.Rendering
                         list.Add($"{root}house_{code}_{level}_{variant}");  // house_al_2_1
                     list.Add($"{root}house_{code}_{level}");                 // single-variant fallback
                     list.Add($"{root}{CultureFolder(code)}/House");          // existing per-culture House.prefab
-                    break;
-                // ResolveBuildingId has returned "TempleOfRidan" since the
-                // TempleLevel scan was added, but no candidate path was ever
-                // built for it — so the temple query resolved nothing and the
-                // TempleOfRidan_al_1..4 prefabs sat unused.
-                case "TempleOfRidan":
-                    list.Add($"{root}TempleOfRidan_{code}_{level}");         // TempleOfRidan_al_2
-                    list.Add($"{root}TempleOfRidan_{level}");
                     break;
             }
             return list;
@@ -474,10 +444,9 @@ namespace TheWaningBorder.Rendering
 
         private string ResolveBuildingId(Entity e)
         {
-            if (_em.HasComponent<HallTag>(e))     return "Hall";
+            if (_em.HasComponent<HallTag>(e))     return "Fortress";
             if (_em.HasComponent<BarracksTag>(e)) return "Barracks";
             if (_em.HasComponent<HutTag>(e))      return "Hut";
-            if (_em.HasComponent<TempleOfRidanTag>(e)) return "TempleOfRidan";
             // The Archery Range is a copy-of-Barracks that carries its OWN tag,
             // and PresentationSpawnSystem already maps its presentation id (511)
             // onto the Barracks visual — including spawning Barracks_al_1 for an

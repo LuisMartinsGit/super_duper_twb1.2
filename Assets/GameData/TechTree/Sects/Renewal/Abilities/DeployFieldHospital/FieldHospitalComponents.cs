@@ -1,5 +1,5 @@
 // FieldHospitalComponents.cs
-// State for the Litharch-deployed Field Hospital (Shrine of Ridan tech).
+// State for the Litharch-deployed Field Hospital (Sect of Renewal research).
 
 using Unity.Entities;
 

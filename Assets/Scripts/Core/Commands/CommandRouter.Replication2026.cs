@@ -238,7 +238,9 @@ namespace TheWaningBorder.Core.Commands
             // note in the WallExtend executor below (2026-09-13).
             Entity hub = TheWaningBorder.Entities.BuildingFactory.Create(em, hubId, pos, faction);
 
-            float total = autoBuild ? 30f : 5f;
+            // The self-built (AI / extend) hub takes the hub SO's buildTime;
+            // a worker-driven hub stays the quick 5 s placement.
+            float total = autoBuild ? TechCatalog.Building(hubId).buildTime : 5f;
             if (!em.HasComponent<UnderConstruction>(hub))
                 em.AddComponentData(hub, new UnderConstruction { Progress = 0f, Total = total });
             if (autoBuild && !em.HasComponent<AutoConstructTag>(hub))

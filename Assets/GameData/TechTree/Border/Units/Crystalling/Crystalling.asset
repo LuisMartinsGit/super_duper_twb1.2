@@ -38,6 +38,7 @@ MonoBehaviour:
     Iron: 0
     Veilstone: 18
     Veilsteel: 0
+  populationCost: 0
   minBuildingLevel: 0
   buildSpeed: 0
   gatheringSpeed: 0

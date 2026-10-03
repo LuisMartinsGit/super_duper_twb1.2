@@ -442,17 +442,12 @@ namespace TheWaningBorder.Systems.Sect
             return true;
         }
 
-        /// <summary>Shrine of Ridan simple upgrade (design 2026-07-04): sect
-        /// power cooldowns -10% at shrine L1 and -20% at L2+.</summary>
-        public const float ShrineL1CooldownScale = 0.9f;
-        public const float ShrineL2CooldownScale = 0.8f;
-
         /// <summary>
         /// The cooldown a cast of a power authored at
         /// <paramref name="specCooldown"/> actually charges this faction: the
         /// authored number (there is no hidden global scale), x0.7 with the
-        /// Shardroot enshrined for the sect, then the Shrine of Ridan
-        /// discount. Fire charges exactly this, and the Religion panel shows
+        /// Shardroot enshrined for the sect. Fire charges exactly this, and
+        /// the Religion panel shows
         /// exactly this. docs/Design/Spells.md section 5.
         /// </summary>
         public static float EffectiveCooldown(EntityManager em, Faction faction, string sectId,
@@ -461,9 +456,6 @@ namespace TheWaningBorder.Systems.Sect
             float cooldown = specCooldown;
             if (HasShardrootAllocated(em, faction, sectId))
                 cooldown *= SectLeverEffects.ShardrootCooldownScale;
-            int shrineLv = ChoiceUpgradeQuery.MaxShrineLevel(em, faction);
-            if (shrineLv >= 2) cooldown *= ShrineL2CooldownScale;
-            else if (shrineLv == 1) cooldown *= ShrineL1CooldownScale;
             return cooldown;
         }
 

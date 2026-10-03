@@ -1,15 +1,14 @@
 //
 // Skirmish lobby "Start Age" pre-promoter. Reads GameSettings.StartAge after
-// PlayerSpawnSystem has placed every faction's Hall and, for StartAge > 0,
+// PlayerSpawnSystem has placed every faction's capital and, for StartAge > 0,
 // applies the chosen Alanthor loadout to every faction:
-//   • Hall culture stamped to Alanthor and BuildingUpgradeState bumped via
+//   • Capital culture stamped to Alanthor and BuildingUpgradeState bumped via
 //     BuildingUpgradeSystem.ApplyLevel (same recompute path the in-game
 //     L1→L2→L3 upgrade uses, so stats and visuals stay consistent).
-//   • Temple of Ridan spawned at a fixed offset from the Hall with
-//     TempleLevel matching the chosen age.
-//   • One choice building (Shrine of Ahridan / Vault of Almiérra /
-//     Fiendstone Keep) picked deterministically from GameSettings.SpawnSeed
-//     and placed at another offset.
+//   • Temple of Ridan spawned at a fixed offset from the capital (the
+//     Temple has no levels).
+//   • The culture's landmark (Vault of Almiérra / Fiendstone Keep) placed
+//     at another offset.
 //   • FactionEra bumped on the bank (Age N → Era N+1).
 //   • Bonus resources stocked via FactionEconomy.Add, scaled by age.
 //   • FactionColors and PresentationSpawnSystem refreshed so culture tones
@@ -54,7 +53,7 @@ namespace TheWaningBorder.Bootstrap
         // it still runs so the RNG stream is unchanged (see PromoteFaction).
         private static readonly string[] ChoiceBuildings =
         {
-            "TempleOfRidan",   // was the cut Shrine of Ridan — content unused, length kept
+            "TempleOfRidan",   // content unused, length kept
             "VaultOfAlmierra",
             "FiendstoneKeep",
         };
@@ -166,9 +165,8 @@ namespace TheWaningBorder.Bootstrap
             for (int lvl = 1; lvl <= hallLevel; lvl++)
                 BuildingUpgradeSystem.ApplyLevel(em, hall, (byte)lvl);
 
-            // Bump faction era. Age N → Era N+1, mirroring the in-game ladder
-            // (initial age-up → Era 2 at TempleLevel 1; each subsequent
-            // TempleLevel bumps Era by 1).
+            // Bump faction era. Age N → Era N+1, mirroring the in-game age-up
+            // (initial age-up → Era 2).
             if (FactionEconomy.TryGetBank(em, faction, out var bankEntity))
             {
                 if (!em.HasComponent<FactionEra>(bankEntity))
@@ -194,11 +192,11 @@ namespace TheWaningBorder.Bootstrap
             TheWaningBorder.Systems.Work.AgeUpSystem
                 .TransformHutsForCulture(em, faction, culture);
             TheWaningBorder.Entities.TradingOutpost.ConvertMinesForCulture(em, faction, culture);
-            // The Hall is the culture-less form; a faction that starts in
-            // Age 1 has already passed the moment it becomes the cultured HQ,
-            // so it must be renamed here too or its own research is hostless.
+            // The Shelter is the Age 0 form of the capital; a faction that
+            // starts in Age 1 has already passed the moment it becomes the
+            // Fortress, so it is renamed here too.
             TheWaningBorder.Systems.Work.AgeUpSystem
-                .TransformHallForCulture(em, hall, culture);
+                .TransformCapitalForCulture(em, hall, culture);
 
             if (FactionEconomy.TryGetBank(em, faction, out var cultureBank))
             {
@@ -208,17 +206,9 @@ namespace TheWaningBorder.Bootstrap
                     em.AddComponent<FeraldisPopOverride>(cultureBank);
             }
 
-            // Spawn the Temple of Ridan at the level matching our target so
-            // the player isn't gated by a "you must build the temple to
-            // research the next era" wall. TempleLevel handles the visual
-            // (assuming the Temple prefab ladder is wired) and the era ladder.
-            // Temple level is clamped to the ladder's top: the ritualist gates
-            // (Corruptor at L3, Scholar at max) read TempleLevel directly, and
-            // an out-of-range level would satisfy neither cleanly.
-            Entity temple = BuildingFactory.Create(em, "TempleOfRidan", hallPos + TempleOffset, faction);
-            int templeLevel = math.min(targetLevel, TempleLevelConfig.MaxLevel);
-            if (em.HasComponent<TempleLevel>(temple))
-                em.SetComponentData(temple, new TempleLevel { Level = templeLevel });
+            // Spawn the Temple of Ridan so the promoted faction has its
+            // religious layer (chapels, Litharch) from the first second.
+            BuildingFactory.Create(em, "TempleOfRidan", hallPos + TempleOffset, faction);
 
             // The landmark that WOULD have aged this faction up (Age_0.md
             // § Age-up by landmark): the culture decides it, it is no longer
@@ -248,11 +238,11 @@ namespace TheWaningBorder.Bootstrap
             // at?" was unanswerable from a postmortem.
             TheWaningBorder.AI.AILogger.Log(faction, "STARTAGE",
                 $"promoted to Age {targetLevel} ({CultureConfig.GetName(culture)}) — " +
-                $"Hall L{hallLevel}, Temple L{templeLevel}, Era {targetLevel + 1}, " +
+                $"Fortress L{hallLevel}, Temple, Era {targetLevel + 1}, " +
                 $"Barracks, choice {chosen}");
             TWBLog.Log($"[StartAgePromoter] Faction {faction} promoted to Age {targetLevel} " +
-                      $"({CultureConfig.GetName(culture)}). Hall L{hallLevel}, " +
-                      $"Temple L{templeLevel}, choice: {chosen}");
+                      $"({CultureConfig.GetName(culture)}). Fortress L{hallLevel}, " +
+                      $"Temple, choice: {chosen}");
         }
 
         // ──────────────────────────────────────────────────────────────────

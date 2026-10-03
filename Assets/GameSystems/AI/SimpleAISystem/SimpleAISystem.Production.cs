@@ -69,7 +69,7 @@ namespace TheWaningBorder.AI
                 // they are not what an army is MADE of, and they have one
                 // trainer apiece. Adopting one as `LastMilitaryUnit` pointed
                 // the entire army deficit at a single queue: log-proven on
-                // Hollow Table, "deficit 135 x Alanthor_Scholar -- trainer
+                // Hollow Table, "deficit 135 x <caster> -- trainer
                 // queue full", with 17,206 iron unspent in the military budget
                 // and an army of 34. Training a caster is fine; letting the
                 // caster BE the army program is not.
@@ -181,9 +181,9 @@ namespace TheWaningBorder.AI
             if (TheWaningBorder.Core.Commands.CommandRouter.IsProductionQueueFull(em, trainer))
             { blockReason = "trainer queue full"; return false; }
 
-            // King's Court seat (2026-08-11): an aged-up Alanthor faction
-            // that still owes a Hall unique (Ledger / King Lexor) keeps ONE
-            // Hall production slot free — the 5-slot queue stayed
+            // Capital seat (2026-08-11): an aged-up Alanthor faction that
+            // still owes a capital unique (Ledger / King Lexor) keeps ONE
+            // Fortress production slot free — the 5-slot queue stayed
             // permanently full of workers, so the hero never found an
             // opening ("trainer queue full" once a minute, all match).
             if ((unitId == "Worker" || unitId == "Scout")
@@ -195,7 +195,7 @@ namespace TheWaningBorder.AI
                 int queued = TheWaningBorder.Core.Commands.CommandRouter
                     .GetProductionQueueLength(em, trainer);
                 if (queued >= TheWaningBorder.Core.Commands.CommandRouter.MaxProductionQueue - 1)
-                { blockReason = "hall seat reserved"; return false; }
+                { blockReason = "capital seat reserved"; return false; }
             }
 
             // Level gate BEFORE spending — IssueTrain drops silently for AI
@@ -272,10 +272,9 @@ namespace TheWaningBorder.AI
 
         private static Entity FindTrainerForUnit(EntityManager em, Faction faction, string unitId)
         {
-            // Hall trains support units (Worker, Scout) and — as the Alanthor
-            // King's Court — the Ledger automaton and King Lexor (those two
-            // are UI-injected on HallTag, never in the Hall def's trains
-            // list, so the data fallback below cannot resolve them).
+            // The capital (Fortress) trains support units (Worker, Scout) and,
+            // for Alanthor, the Ledger automaton and King Lexor — all four on
+            // the Fortress SO's trains list.
             // Barracks trains the melee line; the archer line trains at the
             // Archery Range (2026-08-04 roster fix — routing Archer to the
             // Barracks silently stranded the AI without ranged production).
@@ -306,7 +305,6 @@ namespace TheWaningBorder.AI
                 case "Alanthor_BatteringRam":
                     return FindLeastBusyTrainer<SiegeYardTag>(em, faction);
                 case "Litharch":
-                case "Alanthor_Scholar":
                     return FindFactionBuilding<TempleTag>(em, faction);
             }
 
@@ -314,7 +312,7 @@ namespace TheWaningBorder.AI
             // lists so a roster change in the TechTree (e.g. the Swordsman ->
             // Spearman switch) can never silently strand the AI with an
             // untrainable unit again.
-            if (TrainsUnit(em, "Hall", unitId)) return FindFactionBuilding<HallTag>(em, faction);
+            if (TrainsUnit(em, "Fortress", unitId)) return FindFactionBuilding<HallTag>(em, faction);
             if (TrainsUnit(em, "Barracks", unitId)) return FindLeastBusyTrainer<BarracksTag>(em, faction);
             if (TrainsUnit(em, "ArcheryRange", unitId)) return FindLeastBusyTrainer<ArcheryRangeTag>(em, faction);
             if (TrainsUnit(em, "TempleOfRidan", unitId)) return FindFactionBuilding<TempleTag>(em, faction);
@@ -333,8 +331,8 @@ namespace TheWaningBorder.AI
         /// <summary>
         /// The buildable trainer for a unit, mirroring FindTrainerForUnit's
         /// routing — used by the build-order stepper to BUILD the missing
-        /// trainer instead of skipping the Train step. Null for Hall-trained
-        /// units (the Hall is never built through this path).
+        /// trainer instead of skipping the Train step. Null for capital-trained
+        /// units (the capital is never built through this path).
         /// </summary>
         private static string TrainerBuildingIdFor(EntityManager em, string unitId)
         {
@@ -345,7 +343,7 @@ namespace TheWaningBorder.AI
                 case "Ledger":
                 case "King Lexor":
                 case "KingLexor":
-                    return null; // Hall-trained
+                    return null; // capital-trained
                 case "Spearman":
                 case "Swordsman":
                 case "Alanthor_Swordsman":
@@ -364,11 +362,10 @@ namespace TheWaningBorder.AI
                 case "Alanthor_BatteringRam":
                     return "Alanthor_SiegeYard";
                 case "Litharch":
-                case "Alanthor_Scholar":
                     return "TempleOfRidan";
             }
             // Data-driven fallback, same ladder as FindTrainerForUnit.
-            if (TrainsUnit(em, "Hall", unitId)) return null;
+            if (TrainsUnit(em, "Fortress", unitId)) return null;
             if (TrainsUnit(em, "Barracks", unitId)) return "Barracks";
             if (TrainsUnit(em, "ArcheryRange", unitId)) return "ArcheryRange";
             if (TrainsUnit(em, "TempleOfRidan", unitId)) return "TempleOfRidan";
@@ -436,19 +433,13 @@ namespace TheWaningBorder.AI
             // pipeline keeping one Gatherer's Hut permanently under
             // construction, the first-found hut could be that foundation
             // for an entire match, silently starving the Survey line.
-            string researchAt = string.IsNullOrEmpty(def.researchAt) ? "Hall" : def.researchAt;
+            string researchAt = string.IsNullOrEmpty(def.researchAt) ? "Fortress" : def.researchAt;
             Entity bldg = researchAt switch
             {
                 "Barracks"             => FindResearchHost<BarracksTag>(em, faction),
-                "Hall"                 => FindResearchHost<HallTag>(em, faction),
-                // The King's Court IS the aged-up Alanthor Hall (same entity,
-                // renamed), so its research is hosted by the tag the age-up
-                // stamps. Without this case the switch fell through to
-                // Entity.Null and the whole Hall tier-2 line — IronTools,
-                // MasonGuild, ScoutingCelestarii, Veilstone/Veilsteel Tools —
-                // reported "no ready KingsCourt host" for the entire match,
-                // stalling every tech queued behind it on the ladder.
-                "KingsCourt"           => FindResearchHost<KingsCourtTag>(em, faction),
+                // The capital (Shelter / Fortress) hosts the Age 0 bench and
+                // the Alanthor tool ladder alike.
+                "Fortress"             => FindResearchHost<HallTag>(em, faction),
                 "ArcheryRange"         => FindResearchHost<ArcheryRangeTag>(em, faction),
                 "GatherersHut"         => FindResearchHost<GathererHutTag>(em, faction),
                 "Mine"                 => FindResearchHost<MineTag>(em, faction),
@@ -456,9 +447,7 @@ namespace TheWaningBorder.AI
                 // Alanthor Age-1 research hosts (Wave 2 military tree).
                 "Alanthor_RoyalStable" => FindResearchHost<RoyalStableTag>(em, faction),
                 "Alanthor_SiegeYard"   => FindResearchHost<SiegeYardTag>(em, faction),
-                "Alanthor_Smelter"     => FindResearchHost<SmelterTag>(em, faction),
-                // The Shrine is cut; its research is the Temple's now
-                // (docs/Design/Religion.md §2).
+                // The Temple's own research (docs/Design/Religion.md §2).
                 "TempleOfRidan"        => FindResearchHost<TempleOfRidanTag>(em, faction),
                 // Sect buildings — each sells exactly its own sect's research
                 // (docs/Design/Sects.md section 1).
@@ -479,14 +468,7 @@ namespace TheWaningBorder.AI
 
             // PIVOTAL HOLD (2026-08-31): research spending waits out the
             // savings window like army training and building placement do.
-            // THE AGE-UP IS EXEMPT (batch 11): Research_Era2 is the OTHER
-            // pivotal purchase, and deferring it behind the perpetual claim
-            // savings meant no faction ever left era 0 — which caps the army
-            // at 8 (Economy armyCap), which locked the army-first claim gate,
-            // which was the 3-territory ceiling's final layer. The game's
-            // defining purchase never queues behind a land grab.
-            if (techId != "Research_Era2"
-                && TheWaningBorder.AI.AIPivotalReserve.ShouldHold(em, faction))
+            if (TheWaningBorder.AI.AIPivotalReserve.ShouldHold(em, faction))
             { blockReason = "pivotal hold (saving)"; return false; }
 
             // Affordability CHECK only — ResearchCommandDirect spends on
@@ -623,12 +605,12 @@ namespace TheWaningBorder.AI
                         // trainer had been DESTROYED. But `LastMilitaryUnit`
                         // is whatever the composition picker last chose, and
                         // when that is a support unit with a single trainer --
-                        // Alanthor_Scholar -- the whole army deficit queues
+                        // a single caster -- the whole army deficit queues
                         // behind one full queue and stays there. Log-proven,
                         // Hollow Table 2026-09-12, with the named-reason log
                         // added the same day:
                         //     "floor blocked ~1 min: deficit 135 x
-                        //      Alanthor_Scholar -- trainer queue full"
+                        //      <caster> -- trainer queue full"
                         // Blue held 17,206 iron in its MILITARY budget alone
                         // and an army of 34. One support caster was absorbing
                         // the entire army program.

@@ -5,7 +5,7 @@
 // researches it:
 //
 //     Buildings/Age 0/ArcheryRange/Research/Fletching.asset
-//     Buildings/Alanthor/Smelter/Research/IronPlate.asset
+//     Civs/Alanthor/Buildings/Garrison/Research/IronPlate.asset
 //
 // so the folder tree can be walked the same way the tech tree is read.
 //

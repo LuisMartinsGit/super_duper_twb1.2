@@ -76,8 +76,15 @@ Every faction begins identically, regardless of mode:
 - **Glow:** 0
 - **Age:** 0 (pre-culture / neutral aesthetic)
 - **Religion Points:** 0
-- **Starting structures:** One Hall, placed at your spawn position.
-- **Population cap:** 20 (from your starting Hall).
+- **Starting structures:** One Shelter (your capital), placed at your spawn position.
+  At age-up it automatically becomes the **Fortress** for every culture — the
+  same building renamed, with Fortress levels L1-L3. There is no Hall, King's
+  Court or Town Hall.
+- **Starting army:** **5 Spearmen, 1 Scout and 3 Workers** — no Archers;
+  Age 0 is the melee age and the bow arrives with the Age 1 Archery Range.
+  One finished **House** stands beside the Shelter.
+- **Population cap:** the Shelter's housing plus the starting House's (both
+  set on their SOs — see the calculator `tools/calculator/TechTree.html`).
 
 The map will also have one or more **Veilstone Main Nodes** pre-placed and a
 scatter of **Cadavers** (veilstone corpses) to mine.
@@ -89,7 +96,12 @@ see [docs/Design/Age_0.md](docs/Design/Age_0.md).
 
 ## 3. Controls & Interface
 
-**Walls (Alanthor):** pick the Wall Hub in the worker palette, then **press and drag** on the ground to draw the wall — it follows the cursor as a curve (minimum bend 12 m), places a hub every 12 m, and **retracing over the path erases it** back to that point. Release to build the whole line; a plain click still places a single hub. Right-click / Esc cancels.
+**Walls (Palisade in Age 0, Stone Wall for Alanthor):** pick the wall in the worker palette, then **press and drag** on the ground to draw it — it follows the cursor as a curve and **retracing over the path erases it** back to that point. Release to build the whole line; a plain click still places a single hub. Right-click / Esc cancels. What the code does today:
+- Hubs go at the two **ends** of the stroke; a run longer than **11 modules (33 m)** gets extra hubs at **equal intervals** along it (`WallDrawTool.asset`). At most **24 hubs** per stroke.
+- The curtain is laid in **3 m modules** and you pay per hub **and** per module.
+- A bend tighter than a **12 m radius**, or a path crossing itself, turns red and is refused.
+- The start and end **snap** onto a friendly hub of the same kind within **about 4.2 m** (twice the hub's radius) or onto a friendly wall section within **3 m** (one module), which becomes a hub — that is how you join or branch walls. Palisades and stone walls never join each other.
+- Hubs do **not** snap to the build grid; the wall runs exactly where you drew it, on ground you own along its whole length.
 
 ### Selection
 
@@ -163,12 +175,9 @@ Right-click does whatever makes sense for the target:
 | Friendly damaged building | Repair (with workers). |
 | Friendly under-construction building | Resume building (with workers). |
 | Friendly unit (Litharch selected) | Heal. |
-| Resource node / Cadaver (Worker selected) | Gather (resources go straight to your stockpile). |
-| Smelter (Worker selected) | Supply the Smelter with iron and veilstone. |
-| Veilstone Main Node, active (Scholar selected) | Begin Purification ritual (Alanthor). |
 | Veilstone Main Node, active (Acolyte selected) | Begin Conversion ritual (Runai). |
 | Ground or resource, with only buildings selected | Set Rally Point. |
-| Enemy, with a shooting building selected (Hall, tower, Keep, Fortress, wall tower) | Direct its fire: the enemy takes one of the building's target slots while in range; the rest keep auto-firing. The order holds if the target walks out of range, and ends when it dies or you press **Stop**. On an emplacement, its engine attacks. |
+| Enemy, with a shooting building selected (Shelter/Fortress, tower, Keep, wall tower) | Direct its fire: the enemy takes one of the building's target slots while in range; the rest keep auto-firing. The order holds if the target walks out of range, and ends when it dies or you press **Stop**. On an emplacement, its engine attacks. |
 | Enemy wall piece, no siege selected | Nothing — "Only siege can damage walls". Only siege units (and siege-firing buildings) can damage walls. |
 
 **Shift + Right-Click** — Add an order to the END of each selected unit's
@@ -223,20 +232,21 @@ When you queue a building it follows the cursor as a ghost:
 
 - **Green** = valid placement; **Red** = blocked. Clicking a red ghost tells you
   **why** — not your territory, held by another player or the curse, this
-  territory already has a Hall, not adjacent, worker too far, no worker
+  territory already has a capital, not adjacent, worker too far, no worker
   selected, unsuitable ground, something already built there, or the building's
   own rule (a free node, blood, a forest).
-- **Claiming territory with a Hall** (450 supplies, 450 iron): the Hall is the
-  one building you may place outside your own ground, and only
+- **Claiming territory with a capital** (the Shelter in Age 0, the Fortress
+  after age-up): the capital is buildable, locks the territory it stands in,
+  and is the one building you may place outside your own ground, and only
   - in an unclaimed territory that **borders one you already hold** — no
     hopping across the map; and
   - while **one of your selected workers stands within 30 m** of the site.
     Walk a worker out first, then place. The worker is named in the order, so
     in multiplayer the claim is refused if that worker has died or wandered off
     by the time the order runs.
-  One Hall per territory. See [docs/Design/Regions.md §2](docs/Design/Regions.md).
+  One capital per territory. See [docs/Design/Regions.md §2](docs/Design/Regions.md).
 - **Mouse Wheel** rotates non-wall buildings in 15° steps.
-- **Wall hubs** snap to nearby existing hubs (≤2 units).
+- **Wall hubs** snap to a friendly hub of the same kind within about 4.2 m, or onto a friendly wall section within 3 m (see Walls above); they are not grid-snapped.
 - **Shift + Click** to place keeps you in placement mode — drop several in a row.
 - **Right-click or Esc** to leave placement mode.
 
@@ -281,13 +291,16 @@ Idle units pick their own targets by **stance** (see
 
 ### Damage Formula
 
-`finalDamage = baseDamage × dmgTypeVsArmor × (1 − defense / (defense + 100))`
+`finalDamage = max(1, baseDamage − armor) + bonusVsTags`
 
-- **Base damage** from the unit's damage component.
-- **Damage type vs. armor type** matrix (e.g., slashing vs. plate).
+- **Base damage** from the unit's damage component; **armor** is the target's
+  defense for that kind of attack (melee / ranged / siege / magic), subtracted
+  flat.
+- **Bonus vs tags** — hard counters (e.g. Spearman vs Cavalry) add flat damage
+  after armor; see [docs/Design/Combat_Pacing.md](docs/Design/Combat_Pacing.md).
 - **Height modifier:** ±4% per unit of elevation difference, capped at ±20%.
-- **Diminishing returns** on stacked defense values.
 - **Minimum damage 1** — every hit takes at least 1 HP.
+- Every unit's numbers are on its SO; read them in `tools/calculator/TechTree.html`.
 - Spell buffs (e.g., **Fortitude**) and debuffs (e.g., burning ground) multiply outgoing or reduce incoming.
 
 ### Melee
@@ -300,18 +313,19 @@ fleeing attacker go.
 
 ### Ranged
 
-Archers have three rings:
+Bow units have **no minimum range** (only siege engines keep a dead zone):
 
-- **Minimum range (~10 units):** if an enemy gets inside, the archer **retreats**.
-- **Optimal range (10–25):** stops, aims (AimTime), fires.
-- **Maximum range (~25):** chases until the target enters the optimal band — only for an ordered target, or on Aggressive / attack-move; a Defensive or Hold archer lets it go.
+- **Inside range:** stops, aims (AimTime), fires.
+- **Outside range:** chases until the target is in range — only for an ordered target, or on Aggressive / attack-move; a Defensive or Hold archer lets it go.
+- Range never exceeds the unit's line of sight, and rises Archer → Crossbowman → Longbowman.
 
 Projectiles travel at 30 units/sec (arrows) or 55 (siege bolts) and apply
 damage on hit.
 
 ### Special Combat Mechanics
 
-- **Healing** — Litharchs restore HP to allies within 10 m. (Litharchs have **0 base damage** — they cannot attack unless **Warrior priests** is researched at the Shrine of Ridan, which gives them 6 damage every 1.5 s, per [Age_0.md](docs/Design/Age_0.md).)
+- **Healing** — Litharchs restore HP to allies in heal range. (Litharchs have **no attack** unless **Warrior Priests** is researched at the Temple of Ridan, per [Age_0.md](docs/Design/Age_0.md).)
+- **Watch Tower garrison** (Alanthor) — up to 4 foot units inside a Watch Tower; each adds one target to its volley.
 - **Spell Buffs** — Temporary status effects from sect spells (damage, cooldown, invulnerability).
 - **Mind Control** — Flips a unit's allegiance for a duration, then returns it.
 - **Summons** — Spawned units expire on timer or when the summoner dies.
@@ -407,7 +421,7 @@ all-but-one triggers a map-wide warning, so expect company.
 
 One well secretly holds the **SHARDROOT**. The first player to claim that
 well unearths it: a persistent artifact any unit can carry (visible to
-everyone on the minimap). Deliver it to your **Hall** to awaken the
+everyone on the minimap). Deliver it to your **Fortress** to awaken the
 **Shardbound Hero**, or to your **Temple** to enshrine it (all god/sect
 powers surge — but the Temple detonates catastrophically if it falls, and
 the Shardroot drops in the crater). The choice is locked until the vessel
@@ -424,15 +438,14 @@ while standing, was removed on 2026-09-29.)
 AI bases keep a walkable lane between buildings: normally about 20 m between
 building centres and never less than two clear build cells (4 m) edge to edge;
 when the base is full it will squeeze down to one cell (2 m), never flush.
-Mines, veilstone mines, smelters and gatherer's huts stand on their resource
+Mines, veilstone mines and gatherer's huts stand on their resource
 node wherever the map put it. An Alanthor AI that has planned a perimeter
 wall builds everything inside it. See docs/Design/Game_AI.md §6b.
 
 The AI claims territory under the same rules you do: only territories that
-border ground it holds, and only once a worker has walked to the Hall site —
+border ground it holds, and only once a worker has walked to the capital site —
 you will see a lone worker head out to a neighbouring territory a little
-before its Hall foundation appears there (logged as `CLAIM no claim: worker
-walking to the Hall site in …`).
+before its capital foundation appears there.
 
 ### Observer Mode (AI vs AI)
 
@@ -484,9 +497,9 @@ Age 0 build order:
 | Strategy | Plan |
 |---|---|
 | **Rush** | Fast Barracks, early harassment, minimal economy. |
-| **EcoBoom** | Heavy gathering, veilstone farming, late military. |
+| **EcoBoom** | Heavy economy building, extractors on every node, late military. |
 | **TechRush** | Race to Age 1 with infantry tech. |
-| **Aggressive** | Balanced military + Shrine + Age-up. |
+| **Aggressive** | Balanced military + Temple of Ridan + Age-up. |
 | **Defensive** | Standing army, Iron Armor research, Vault. |
 | **Turtle** | Heavy economy + healers, stockpile for walls. |
 
@@ -525,11 +538,13 @@ match starts.
 
 | Need to… | Do this |
 |---|---|
-| Mine iron | Right-click an iron deposit with a Worker selected — mined resources go straight to your stockpile. |
-| Build a wall (Alanthor) | Place Hubs; segments and instances spawn automatically. |
-| Upgrade a wall piece | Select the instance and choose Tower or Gate from the action panel. |
+| Get iron | Build a Mine on an iron node in ground you hold; it pays straight into your stockpile. Workers only build and repair. |
+| Build a wall | Pick the Palisade (Age 0) or Stone Wall (Alanthor) and **drag** the line; hubs and sections are laid along it. |
+| Convert a wall section | Select the section: **Gate** (needs 4 clear sections; the gatehouse takes 3) or **Hub**; on a stone wall also **Tower** (3 clear sections), **Mount Ballista** (wall level 2+) or **Mount Trebuchet** (wall level 3) — emplacements are built by workers. |
+| Raise the stone wall's level | Select any Wall Hub and research **Battlements**, then **Shielded Ramparts** — every wall you own is re-clad at once. |
+| Garrison a Watch Tower (Alanthor) | Right-click it with **foot units** selected: up to **4** go inside, and each one adds a target to the tower's volley. |
 | Heal a friendly unit | Right-click it with a Litharch selected. |
-| Convert a Veilstone Main Node | Channel **Acolyte** (Runai) or **Scholar** (Alanthor) on an active node. |
+| Convert a Veilstone Main Node | Channel **Acolyte** (Runai) on an active node. |
 | Destroy a Veilstone Main Node | You need **Iconoclasts** (Feraldis) to bypass node invulnerability. |
 | Save a control group | Select your units, press Ctrl+1 through Ctrl+9. |
 | Repeat-place buildings | Hold Shift while placing — stay in placement mode. |
@@ -546,7 +561,7 @@ White = 7+).
 | Stat | Cap |
 |---|---|
 | Per-resource bank | 100,000 |
-| Population | 200 (Runai and Feraldis are auto-set to this cap at age-up — see [docs/Design/Overview.md § Population model](docs/Design/Overview.md#population-model-cross-faction-summary)) |
+| Population | `FactionPopulation.AbsoluteMax` (300) (Runai and Feraldis are auto-set to the cap at age-up — see [docs/Design/Overview.md](docs/Design/Overview.md)) |
 | Sects per faction | 6 of 12 |
 | Control groups | 9 (digits 1–9) |
 | Hold time for Alanthor / Runai node victory | 5 minutes |

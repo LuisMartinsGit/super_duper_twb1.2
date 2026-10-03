@@ -1,5 +1,5 @@
 // UnitDef.cs
-// Unit definition data structure parsed from TechTree JSON
+// Runtime unit definition, projected from its UnitDefSO
 // Part of: Data/TechTree/Definitions/
 
 using System;
@@ -9,7 +9,7 @@ namespace TheWaningBorder.Data
 {
     /// <summary>
     /// Defines a unit type's base stats and attributes.
-    /// Loaded from TechTree.json at runtime.
+    /// Projected from its SO by TechCatalog (the SO is the only source).
     /// </summary>
     [Serializable]
     public class UnitDef
@@ -54,6 +54,10 @@ namespace TheWaningBorder.Data
         
         // ==================== Economy ====================
         public CostBlock cost;
+        /// <summary>Population this unit occupies while it lives. Was the
+        /// PopulationHelper.GetUnitPopulationCost id switch plus a literal in
+        /// every unit factory until 2026-10-03 (unification item 34).</summary>
+        public int populationCost;
 
         // ==================== Progression Gating ====================
         // Minimum level the trainer building must be to unlock this unit.

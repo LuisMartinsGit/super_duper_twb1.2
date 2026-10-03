@@ -102,12 +102,8 @@ namespace TheWaningBorder.Systems.Research
                 case "ScoutingCelestarii":
                     ApplyScoutingCelestarii(em, faction);
                     break;
-                case "ArmedScouts":
-                    ApplyArmedScouts(em, faction);
-                    break;
-                case "RetaliatoryMeasures":
-                    ApplyRetaliatoryMeasures(em, faction);
-                    break;
+                // ArmedScouts: data only (its effectsList SETs the Scout's
+                // Damage) — applied by ApplyGenericEffects below.
                 case "WarHorn":
                     GrantCavalryAbility(em, faction, "War Horn");
                     break;
@@ -116,15 +112,15 @@ namespace TheWaningBorder.Systems.Research
                     break;
                 case "Charge":
                     GrantPassiveToUnits(em, faction, AlanthorPassiveTarget.GarrisonInfantry,
-                        (e) => TransientState.Set(em, e, new TheWaningBorder.Abilities.FirstStrike
-                        { Pct = 30f, Ready = 1 }));
+                        (e) => TransientState.Set(em, e,
+                            TheWaningBorder.Abilities.AlanthorActiveHelper.ChargeFromTech("Charge")));
                     break;
                 // The Royal Stable's own charge — the same passive on the
                 // cavalry roster, per the Age 1 Alanthor stable tree.
                 case "CavalryCharge":
                     GrantPassiveToUnits(em, faction, AlanthorPassiveTarget.Cavalry,
-                        (e) => TransientState.Set(em, e, new TheWaningBorder.Abilities.FirstStrike
-                        { Pct = 30f, Ready = 1 }));
+                        (e) => TransientState.Set(em, e,
+                            TheWaningBorder.Abilities.AlanthorActiveHelper.ChargeFromTech("CavalryCharge")));
                     break;
                 case "ShieldWall":
                     GrantPassiveToUnits(em, faction, AlanthorPassiveTarget.GarrisonInfantry,
@@ -160,7 +156,7 @@ namespace TheWaningBorder.Systems.Research
                 // live from FactionResearchState by TerritoryIncomeSystem (the
                 // survey ladders scale a territory's deposit trickle) and
                 // GathererHutReinforcementSystem — no one-shot application here.
-                // The Shrine heal ladder (HeightenedMasses/PiousMasses/
+                // The Temple heal ladder (HeightenedMasses/PiousMasses/
                 // FervoredMasses), the Vault banking techs, Conscription, and
                 // the Keep emplacements are read live from
                 // FactionResearchState by their owning systems — no one-shot

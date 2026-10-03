@@ -116,7 +116,6 @@ namespace TheWaningBorder.AI
         public byte NeedsMoreSupplyIncome;
         public byte NeedsMoreIronIncome;
         public float LastVaultCheck;
-        public float LastSmelterCheck;
     }
     // ═══════════════════════════════════════════════════════════════════════
     // CRYSTAL HUNT STATE

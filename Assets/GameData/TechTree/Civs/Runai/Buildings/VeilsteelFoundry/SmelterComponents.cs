@@ -1,13 +1,13 @@
 ﻿// SmelterComponents.cs
-// Components for the Alanthor Smelter (Forge, id Alanthor_Smelter).
-// The Crucible was deleted (calculator consolidation 2026-08) — the Smelter
-// absorbed its veilsteel-engine role via the Lv1-3 upgrade ladder. All types
-// are in the global namespace (single assembly), so location is
-// organizational only.
+// Components for the Runai Veilsteel Foundry, which carries SmelterTag. The
+// Alanthor Smelter (Forge) that the tag was named for is removed
+// (2026-10-03). All types are in the global namespace (single assembly), so
+// location is organizational only.
 
 using Unity.Entities;
 
-/// <summary>Alanthor metal processing building. UI label is "Forge".</summary>
+/// <summary>Marks the Runai Veilsteel Foundry (BuildingIds maps it to
+/// "Runai_VeilsteelFoundry").</summary>
 public struct SmelterTag : IComponentData { }
 
 /// <summary>

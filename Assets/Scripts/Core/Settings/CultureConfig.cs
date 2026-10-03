@@ -44,8 +44,7 @@ public static class CultureConfig
     /// <summary>
     /// Resource cost to advance from Era 1 to Era 2.
     /// Balance 2026-07: reduced 30% (was 1000/200/150) alongside the
-    /// choice-building cost cut — see docs/Design/Age_0.md and
-    /// TechTree.json (Research_Era2: 700 S + 140 I + 105 V).
+    /// choice-building cost cut — see docs/Design/Age_0.md.
     /// Veilstone is back in the gate (2026-07-25 techtree pass): the AI
     /// veil-mines inside its base tether, so the old Age-0 stall no longer applies.
     /// </summary>
@@ -57,7 +56,7 @@ public static class CultureConfig
     //     veilstone is centre-only, that stretched Age 0 (a one-unit melee
     //     age) past minute 15 in most matches.
     //   * Median age-up time target is 3-6 minutes by difficulty
-    //     (Age_0.md): from a 400-supply start, Shrine (257) + this must be
+    //     (Age_0.md): from a 400-supply start, a landmark + this must be
     //     reachable inside that window against ~72-120 supplies/min.
     public static readonly Cost AgeUpCost = Cost.Of(supplies: 250, iron: 100);
 

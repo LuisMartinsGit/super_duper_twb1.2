@@ -32,7 +32,7 @@ namespace TheWaningBorder.UI.Data
         /// its owner's culture authors that level (BuildingLevelDefSO) the name
         /// is the level's own — the Hut becomes "House - Lvl 1". The level is
         /// whichever ladder the building climbs: the upgrade ladder
-        /// (BuildingUpgradeState), the Temple's (TempleLevel), or a wall's
+        /// (BuildingUpgradeState) or a wall's
         /// faction tier (WallTier, a stone wall only — a palisade has none).
         /// </summary>
         private static string WithLevel(Entity entity, EntityManager em, string name)
@@ -40,8 +40,6 @@ namespace TheWaningBorder.UI.Data
             int level = 0;
             if (em.HasComponent<BuildingUpgradeState>(entity))
                 level = em.GetComponentData<BuildingUpgradeState>(entity).Level;
-            else if (em.HasComponent<TempleLevel>(entity))
-                level = em.GetComponentData<TempleLevel>(entity).Level;
             else if (em.HasComponent<WallTier>(entity) && !em.HasComponent<PalisadeTag>(entity))
             {
                 level = em.GetComponentData<WallTier>(entity).Level;
@@ -120,10 +118,9 @@ namespace TheWaningBorder.UI.Data
         ///     Age_1_Feraldis.md l.271 says outright that War Hall "replaces
         ///     'Longhouse' as the cultured Barracks, 2026-08-05 pass" and that
         ///     the Feraldis_Longhouse building id is retired from that role.
-        ///     That reassignment left the Feraldis cultured HALL needing a new
-        ///     name, since the one it used to carry moved to the Barracks.
-        ///     Age_1_Feraldis.md left it TBD; settled 2026-08-27 as
-        ///     "Warrior's Hall" and written back into that doc.
+        ///   * The capital is the Fortress for every culture once it ages up
+        ///     (2026-10-03; the Town Hall / Trader's Hall / Warrior's Hall
+        ///     names are retired).
         /// </summary>
         private static string CulturedBuildingName(Entity entity, EntityManager em)
         {
@@ -138,16 +135,10 @@ namespace TheWaningBorder.UI.Data
             byte culture = CultureConfig.GetCompletedCulture(em, faction);
             if (culture == Cultures.None) return null; // still Age 0 — stamped name stands
 
-            if (isHall)
-            {
-                return culture switch
-                {
-                    Cultures.Alanthor => "Town Hall",
-                    Cultures.Runai    => "Trader's Hall",
-                    Cultures.Feraldis => "Warrior's Hall",
-                    _ => null,
-                };
-            }
+            // The capital: the Shelter in Age 0 (its stamped name), the
+            // Fortress for every culture from age-up (docs/Design/Age_0.md
+            // § The Shelter). There is no cultured HQ name any more.
+            if (isHall) return TheWaningBorder.Entities.Fortress.AgedName;
 
             if (isBarracks)
             {
@@ -236,7 +227,7 @@ namespace TheWaningBorder.UI.Data
 
         private static string GetBuildingName(Entity entity, EntityManager em)
         {
-            if (em.HasComponent<HallTag>(entity)) return "Hall";
+            if (em.HasComponent<HallTag>(entity)) return "Shelter";
             if (em.HasComponent<BarracksTag>(entity)) return "Barracks";
             if (em.HasComponent<ArcheryRangeTag>(entity)) return "Archery Range";
             if (em.HasComponent<GathererHutTag>(entity)) return "Gatherer's Hut";
@@ -246,10 +237,6 @@ namespace TheWaningBorder.UI.Data
             if (em.HasComponent<TempleOfRidanTag>(entity)) return "Temple of Ridan";
             if (em.HasComponent<VaultTag>(entity)) return "Vault of Almiérra";
             if (em.HasComponent<FiendstoneKeepTag>(entity)) return "Fiendstone Keep";
-            // Display label changed Smelter → Forge per the user's UI request.
-            // The ECS tag, building id ("Alanthor_Smelter"), factory, and the
-            // ForgeStorage/ForgeConversionSystem pipeline are all unchanged.
-            if (em.HasComponent<SmelterTag>(entity)) return "Forge";
             if (em.HasComponent<ReliquaryTag>(entity)) return "The Reliquary";
             // Wall pieces are named for their LEVEL: a palisade is a
             // "Palisade", a stone wall its level's name
@@ -356,7 +343,7 @@ namespace TheWaningBorder.UI.Data
                     UnitClass.Economy => "Worker",
                     UnitClass.Worker => "Worker",
                     // UnitClass.Magic and any future class: name the class rather
-                    // than returning a bare "Unit" (Scholar/Acolyte hit this before
+                    // than returning a bare "Unit" (Acolyte hit this before
                     // their PIDs were mapped).
                     _ => unitTag.Class.ToString()
                 };
@@ -414,11 +401,10 @@ namespace TheWaningBorder.UI.Data
                 339 => "Warboar Rider",
                 340 => "Siege Ram",
                 341 => "Raider",
-                // Alanthor King's Court additions
+                // Alanthor capital units
                 250 => "Ledger",
                 251 => "King Lexor",
                 // Religious / magic tier
-                382 => "Scholar",
                 384 => "Acolyte",
                 386 => "Iconoclast",
                 // New-roster sect unit levers (task-063)

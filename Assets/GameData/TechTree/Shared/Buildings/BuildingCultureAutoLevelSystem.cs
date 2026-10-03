@@ -4,10 +4,9 @@
 // at age-up"). Manual upgrades cover L2 and L3 only.
 //
 // The set is defined by the BuildingUpgradeable component, not a tag
-// list: Hall/KingsCourt, Barracks (Garrison), ArcheryRange (Practice
-// Range), Hut (House), GatherersHut (Guild), Shrine, Vault (via their
-// creators) plus the Alanthor ladder buildings (RoyalStable, Tower,
-// SiegeYard, Smelter).
+// list: Fortress, Barracks (Garrison), ArcheryRange (Practice Range),
+// Hut (House), GatherersHut (Guild), Vault (via their creators) plus the
+// Alanthor ladder buildings (RoyalStable, Tower, SiegeYard).
 //
 // Same trigger handles both:
 //   1. Existing buildings at the moment age-up completes — every

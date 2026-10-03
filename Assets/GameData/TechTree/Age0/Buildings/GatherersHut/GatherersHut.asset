@@ -27,8 +27,17 @@ MonoBehaviour:
     magic: 1
   radius: 0.5
   lineOfSight: 16
-  suppliesPerTick: 15
-  suppliesInterval: 10
+  footprintCells: {x: 2, y: 2}
+  suppliesPerTick: 0
+  suppliesInterval: 0
+  slotIncomePerMinute:
+  - 110
+  - 160
+  - 260
+  interestPerMinute: 0
+  minWallLevel: 0
+  garrisonSlots: 0
+  garrisonArrowsPerOccupant: 0
   buildTime: 20
   trains: []
   research:

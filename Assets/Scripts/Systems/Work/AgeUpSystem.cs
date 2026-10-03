@@ -104,15 +104,13 @@ namespace TheWaningBorder.Systems.Work
                     em.SetComponentData(hallEntity, lt);
                 }
 
-                // 2b. THE HALL BECOMES THE CULTURED HQ. The Hall is the
-                //     culture-less form; for Alanthor it IS the King's Court
-                //     from this moment on. Same entity, renamed — the rule
-                //     the House and the Guild already follow.
-                TransformHallForCulture(em, hallEntity, culture);
+                // 2b. THE SHELTER BECOMES THE FORTRESS. Same entity, renamed —
+                //     the rule the House and the Guild already follow.
+                TransformCapitalForCulture(em, hallEntity, culture);
 
                 // 3. Set FactionEra to 2 and award the Age-2 RP bonus.
                 //    task-063: RP economy is sect-adoption-driven now (6/8/10
-                //    per age + ⌊leftover/2⌋ carryover, plus +1 from Shrine).
+                //    per age + ⌊leftover/2⌋ carryover).
                 //    Temple existence is no longer a gate on the per-age award.
                 if (FactionEconomy.TryGetBank(em, faction, out var bankEntity))
                 {
@@ -250,14 +248,13 @@ namespace TheWaningBorder.Systems.Work
         /// Phase 1 (task-066): no destruction; behaviors are stubs.
         /// </summary>
         /// <summary>
-        /// Rename the Hall into its cultured HQ. Alanthor's is the King's
-        /// Court; the other two cultures keep the Hall until their own HQ
-        /// forms are designed.
+        /// The Shelter becomes the Fortress (docs/Design/Age_0.md § The
+        /// Shelter, 2026-10-03). Every culture's capital is the Fortress after
+        /// age-up; there is no King's Court, Town Hall or other cultured HQ.
         ///
         /// This is a RENAME, not a replacement: the entity, its health, its
-        /// level, its position and its HallTag all survive. Only the identity
-        /// changes — which is what makes the King's Court's research findable
-        /// (researchAt: KingsCourt) and what the player sees on the panel.
+        /// level, its position and its HallTag / FortressTag all survive, and
+        /// its id stays "Fortress" — only the name the player sees changes.
         ///
         /// Idempotent, because StartAgePromoter can drive the same transform
         /// for a match that begins in Age 1 and the age-up path may then run
@@ -267,22 +264,11 @@ namespace TheWaningBorder.Systems.Work
         /// assembly; `internal` only ever worked while every script compiled
         /// into one assembly.
         /// </summary>
-        public static void TransformHallForCulture(EntityManager em, Entity hallEntity, byte culture)
+        public static void TransformCapitalForCulture(EntityManager em, Entity capital, byte culture)
         {
-            if (culture != Cultures.Alanthor) return;
-            if (!em.Exists(hallEntity)) return;
-            if (em.HasComponent<KingsCourtTag>(hallEntity)) return;   // already renamed
-
-            em.AddComponent<KingsCourtTag>(hallEntity);
-
-            // The name on the selection panel follows the identity.
-            if (em.HasComponent<DisplayName>(hallEntity))
-                em.SetComponentData(hallEntity, new DisplayName
-                {
-                    Value = TheWaningBorder.Core.DisplayNames.ForBuildingFixed("KingsCourt"),
-                });
-
-            UnityEngine.Debug.Log("[AgeUp] Hall renamed to King's Court (Alanthor).");
+            if (culture == Cultures.None) return;
+            if (!em.Exists(capital)) return;
+            TheWaningBorder.Entities.Fortress.ApplyAgedName(em, capital);
         }
 
         /// <summary>Public because StartAgePromoter drives it from the

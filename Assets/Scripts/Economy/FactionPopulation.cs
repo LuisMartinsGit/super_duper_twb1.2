@@ -215,89 +215,15 @@ namespace TheWaningBorder.Economy
         }
 
         /// <summary>
-        /// Get the population cost for a unit type by ID.
-        /// Override this with TechTreeDB lookup in the future.
+        /// The population a unit of this id occupies: its SO's
+        /// <c>populationCost</c>, the same number its factory stamps on the
+        /// PopulationCost component. This was an id switch until 2026-10-03
+        /// (unification item 34) — a second table that disagreed with the
+        /// factories on three units (Sentinel, Acolyte, Warbreaker) and still
+        /// called the Alanthor Catapult a retired Ballista alias.
         /// </summary>
-        /// <param name="unitId">Unit type ID</param>
-        /// <returns>Population cost for the unit</returns>
         public static int GetUnitPopulationCost(string unitId)
-        {
-            return unitId switch
-            {
-                // Basic units - 1 population each
-                // (retired Age 0 ids "Crossbowman" / "Longbowman" / "Swordsman"
-                // now alias the Alanthor creators and ride the default of 1)
-                "Worker" => 1,
-                "Scout" => 1,
-                "Archer" => 1,
-                "Spearman" => 1,
-                "Litharch" => 1,
-
-                // Runai units
-                "Runai_Spearman" => 1,
-                "Runai_Skirmisher" => 1,
-                "Runai_Raider" => 1,
-                "Runai_Catapult" => 2,
-                "Runai_Acolyte" => 2,
-
-                // Feraldis units
-                "Feraldis_Spearman" => 1,
-                "Feraldis_Bloodletter" => 1,
-                "Feraldis_Suicidal" => 1,
-                "Feraldis_Berserker" => 1,
-                "Feraldis_Plunderer" => 0,    // free camp output — never taxes pop
-                "Feraldis_Archer" => 1,
-                "Feraldis_Firethrower" => 1,
-                "Feraldis_Raider" => 1,
-                "Feraldis_WarChariot" => 2,   // heavy cavalry + blood-trail utility
-                "Feraldis_Hunter" => 1,
-                "Feraldis_WarboarRider" => 1,
-                "Feraldis_SiegeRam" => 2,
-                "Feraldis_Iconoclast" => 4,    // High-value Lv 3 unit, spec refinement #1
-
-                // Alanthor units
-                "Alanthor_Sentinel" => 1,
-                "Alanthor_Nobleman" => 1,
-                "Alanthor_Crossbowman" => 1,
-                "Alanthor_Outrider" => 1,
-                "Alanthor_Cataphract" => 2,
-                "Alanthor_Ballista" => 2,
-                "Alanthor_Catapult" => 2,   // retired id — recipe alias of the Ballista
-                "Alanthor_BatteringRam" => 2,
-                "Alanthor_Trebuchet" => 3,
-                "Alanthor_Scholar" => 1,
-                "King Lexor" => 3,          // hero cavalry (also trainable as "KingLexor")
-                "KingLexor" => 3,
-
-                // Default for unknown units
-                _ => 1
-            };
-        }
-
-        /// <summary>
-        /// Get the population provided by a building type.
-        /// Override this with TechTreeDB lookup in the future.
-        /// </summary>
-        /// <param name="buildingId">Building type ID</param>
-        /// <returns>Population capacity provided</returns>
-        public static int GetBuildingPopulationProvided(string buildingId)
-        {
-            return buildingId switch
-            {
-                // Sized so the 120 floor is reachable: a Hall plus three Huts.
-                // At 20/10 it took ten Huts and 800 supplies, and no faction in
-                // a measured match ever got there — caps sat at 20-75 while the
-                // AI logged "nothing affordable; top want = Hut" 27 times.
-                "Hall" => 30,
-                "Hut" => 6,
-                "Fortress" => 10,
-                "FiendstoneKeep" => 25,
-                "KingsCourt" => 30,
-                "Feraldis_Longhouse" => 15,
-                "ThessarasBazaar" => 40,
-                _ => 0  // Most buildings don't provide population
-            };
-        }
+            => TechCatalog.Unit(unitId).populationCost;
 
         /// <summary>
         /// Check if a faction is at the absolute population cap (200).

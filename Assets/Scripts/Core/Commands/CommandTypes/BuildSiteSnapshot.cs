@@ -494,7 +494,8 @@ namespace TheWaningBorder.Core.Commands.Types
                     System.Array.Resize(ref set.Taken, set.TakenCount + 8);
                 set.Taken[set.TakenCount++] = LocalTransform.FromPosition(position);
             }
-            if (buildingId == "Hall" && _hallsLoaded && RegionMap.Ready)
+            // The capital (HallTag) is what the hall-region scan counts.
+            if (buildingId == "Fortress" && _hallsLoaded && RegionMap.Ready)
             {
                 int r = RegionMap.RegionAt(position.x, position.z);
                 if (r >= 0 && r < _hallRegion.Length) _hallRegion[r] = true;

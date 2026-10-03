@@ -18,34 +18,6 @@ namespace TheWaningBorder.AI
         public static AIAlanthorEndgameSystemConfig I
             => _i != null ? _i : (_i = ComponentConfig.Require<AIAlanthorEndgameSystemConfig>());
 
-        /// <summary>Bodyguards dispatched alongside a well ritualist.
-        /// HEAVY (2026-08-04, was 5): the node births defenders at the
-        /// channeling Scholar — a token screen kept losing the ritual.</summary>
-        public int escortSize;
-
-        /// <summary>Well ranking (TryPurifyWells): metres added to a well's
-        /// score per curse defender standing at it, so a clean well a little
-        /// further away outranks a garrisoned one next door.</summary>
-        public float wellDefenderPenalty;
-
-        /// <summary>Metres taken off a well's score when its territory is
-        /// already ours.</summary>
-        public float wellOwnedBonus;
-
-        /// <summary>Metres taken off a well's score when it borders our
-        /// territory (a probe on the adjacency ring lands on our ground).</summary>
-        public float wellAdjacentBonus;
-
-        /// <summary>Radius (m) of the ring probed around a well for owned
-        /// territory next to it.</summary>
-        public float wellAdjacencyProbeRadius;
-
-        /// <summary>Endgame Smelter count. One: the Smelter no longer makes
-        /// veilsteel (docs/Design/Veilstone_Economy.md — Trading Outposts in
-        /// Forge mode do), so a second only buys a second armour-research
-        /// queue.</summary>
-        public int smelterTarget;
-
         /// <summary>Endgame housing target: 8 Huts. They auto-level to House
         /// L1 under culture (BuildingCultureAutoLevelSystem); the
         /// AIBuildingUpgradeSystem rotation takes them on to L3.</summary>

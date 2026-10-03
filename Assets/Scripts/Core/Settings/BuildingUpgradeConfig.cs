@@ -3,9 +3,9 @@
 // command helper (cost check / spend) and the upgrade system (apply
 // stats) read from here.
 //
-// Stats are absolute over base, NOT cumulative. e.g., a Hall at lvl 2
-// has 1.15x base HP (not 1.10 * 1.15). This matches the spec phrasing
-// "Hall_al_2 (increase HP by 15%)" — single bump from uncultured base.
+// Stats are absolute over base, NOT cumulative. e.g., a Fortress at lvl 2
+// has 1.15x base HP (not 1.10 * 1.15) — a single bump from the uncultured
+// base.
 //
 // Calculator alignment (tools/calculator/techtree.json, 2026-08): every
 // ladder runs L1-L3. L1 is FREE — granted at age-up by
@@ -140,7 +140,7 @@ namespace TheWaningBorder.Core.Settings
         /// </summary>
         public static readonly float[] AttackCooldownMultiplier = { 1.00f, 1f / 1.10f, 1f / 1.15f, 1f / 1.20f };
 
-        /// <summary>Hall / King's Court multi-target count per level
+        /// <summary>Fortress (capital) multi-target count per level
         /// (calculator: 1 at Lv1, 3 at Lv2, 6 at Lv3).</summary>
         public static readonly int[] HallMaxTargets = { 1, 1, 3, 6 };
 
@@ -171,22 +171,14 @@ namespace TheWaningBorder.Core.Settings
                 return 0f;
             return (buildingId, targetLevel) switch
             {
-                ("Hall" or "KingsCourt", 2)       => 65f,
-                ("Hall" or "KingsCourt", 3)       => 90f,
+                ("Fortress", 2)                   => 65f,
+                ("Fortress", 3)                   => 90f,
                 ("Hut", 2)                        => 45f,
                 ("Hut", 3)                        => 60f,
-                ("VaultOfAlmierra", 2)            => 30f,
-                ("VaultOfAlmierra", 3)            => 45f,
-                ("Alanthor_RoyalStable", 2)       => 30f,
-                ("Alanthor_RoyalStable", 3)       => 45f,
-                ("Alanthor_Wall", 2)              => 20f,
-                ("Alanthor_Wall", 3)              => 30f,
-                ("Alanthor_Tower", 2)             => 25f,
-                ("Alanthor_Tower", 3)             => 40f,
-                ("Alanthor_SiegeYard", 2)         => 35f,
-                ("Alanthor_SiegeYard", 3)         => 50f,
-                ("Alanthor_Smelter", 2)           => 45f,
-                ("Alanthor_Smelter", 3)           => 60f,
+                // The Alanthor-only ladders (Vault, Royal Stable, Watch Tower,
+                // Siege Yard) and the stone wall's levels live ONLY in their
+                // BuildingLevelDefSOs since 2026-10-03 (unification items 12
+                // and 34) — they had shadow rows here no path read.
                 _ => UpgradeDuration[targetLevel],
             };
         }
@@ -195,9 +187,10 @@ namespace TheWaningBorder.Core.Settings
         // COSTS (per buildingId, per TARGET level)
         // ──────────────────────────────────────────────────────────────────
         //
-        // No glow for buildings (per spec). L1 is free everywhere (granted
-        // at age-up by BuildingCultureAutoLevelSystem); L2/L3 costs come
-        // straight from the calculator.
+        // No glow for buildings (per spec). L1 is FREE everywhere — granted
+        // at age-up by BuildingCultureAutoLevelSystem (unification item 27,
+        // 2026-10-03: the Barracks / Archery Range / Gatherer's Hut rows used
+        // to price it); L2/L3 costs come straight from the calculator.
 
         /// <summary>
         /// Lookup cost for a given building type + target level. Returns
@@ -219,10 +212,8 @@ namespace TheWaningBorder.Core.Settings
 
             switch (buildingId)
             {
-                case "Hall":
-                case "KingsCourt":
-                    // King's Court ladder (calculator): L1 free at age-up,
-                    // then two paid rungs with veilsteel as the apex sink.
+                case "Fortress":
+                    // Fortress ladder: L1 free at age-up, then two paid rungs.
                     cost = targetLevel switch
                     {
                         1 => default,
@@ -238,7 +229,7 @@ namespace TheWaningBorder.Core.Settings
                     // (Leveled ArcheryRange IS the Alanthor Practice Range.)
                     cost = targetLevel switch
                     {
-                        1 => new Cost { Supplies = 80, Iron = 20 },
+                        1 => default,
                         2 => new Cost { Supplies = 167, Iron = 40 },
                         3 => new Cost { Supplies = 340, Iron = 80 },
                         _ => default,
@@ -260,14 +251,14 @@ namespace TheWaningBorder.Core.Settings
                     // Alanthor "Guild" level ladder — 3 levels (canon costs).
                     cost = targetLevel switch
                     {
-                        1 => new Cost { Supplies = 123, Iron = 25 },
+                        1 => default,
                         2 => new Cost { Supplies = 270, Iron = 50 },
                         3 => new Cost { Supplies = 467, Iron = 75 },
                         _ => default,
                     };
                     return true;
                 // Choice-building ladders (calculator): L1 free at age-up,
-                // L2/L3 paid. Shared curve for Vault and Shrine.
+                // L2/L3 paid.
                 case "Mine":
                 case "VeilstoneMine":
                     // THE ANSWER TO A THINNING SEAM, and the recurring sink for
@@ -293,64 +284,10 @@ namespace TheWaningBorder.Core.Settings
                         _ => default,
                     };
                     return true;
-                case "VaultOfAlmierra":
-                    cost = targetLevel switch
-                    {
-                        1 => default,
-                        2 => new Cost { Supplies = 210, Iron = 50 },
-                        3 => new Cost { Supplies = 427, Iron = 100 },
-                        _ => default,
-                    };
-                    return true;
-                case "Alanthor_RoyalStable":
-                    cost = targetLevel switch
-                    {
-                        1 => default,
-                        2 => new Cost { Supplies = 167, Iron = 40 },
-                        3 => new Cost { Supplies = 340, Iron = 80 },
-                        _ => default,
-                    };
-                    return true;
-                case "Alanthor_Tower":
-                    cost = targetLevel switch
-                    {
-                        1 => default,
-                        2 => new Cost { Supplies = 133, Iron = 60 },
-                        3 => new Cost { Supplies = 280, Iron = 120 },
-                        _ => default,
-                    };
-                    return true;
-                case "Alanthor_Wall":
-                    // Wall hub levels (calculator: L2 80S/40I, L3 160S/80I/40V).
-                    // Stat-only bumps via the standard multiplier arrays.
-                    cost = targetLevel switch
-                    {
-                        1 => default,
-                        2 => new Cost { Supplies = 80, Iron = 40 },
-                        3 => new Cost { Supplies = 187, Iron = 80 },
-                        _ => default,
-                    };
-                    return true;
-                case "Alanthor_SiegeYard":
-                    cost = targetLevel switch
-                    {
-                        1 => default,
-                        2 => new Cost { Supplies = 193, Iron = 60 },
-                        3 => new Cost { Supplies = 380, Iron = 120 },
-                        _ => default,
-                    };
-                    return true;
-                case "Alanthor_Smelter":
-                    // The Smelter ladder is the veilsteel engine ramp
-                    // (1/2/3 veilsteel per 10 s at Lv1/2/3 — ForgeConversionSystem).
-                    cost = targetLevel switch
-                    {
-                        1 => default,
-                        2 => new Cost { Supplies = 700, Iron = 250 },
-                        3 => new Cost { Supplies = 1073, Iron = 350 },
-                        _ => default,
-                    };
-                    return true;
+                // VaultOfAlmierra, Alanthor_RoyalStable, Alanthor_Tower,
+                // Alanthor_SiegeYard and the stone wall: their level SOs only
+                // (Civs/Alanthor/Buildings/). A culture with no authored levels
+                // for them has no upgrade ladder.
             }
             return false;
         }

@@ -1,18 +1,24 @@
-﻿# Age 0 â€” Tech Tree
+﻿# Age 0 — Tech Tree
 
-> Authoritative design document for **Age 0** (the starting age). Where this
-> document and the code disagree, **this document supersedes the code** â€” the
-> code is to be updated to match. Missing information falls back to the code
-> values noted in *Code reference* lines.
+> Design document for **Age 0** (the starting age): its buildings, units,
+> techs and the RULES and REASONS behind them.
+>
+> **Data lives on the SOs (2026-10-03, [Unification decisions](Unification_Decisions_2026-10-03.md)).**
+> Every number — cost, HP, damage, armour, range, line of sight, speed,
+> train / build / research time, population, footprint, income, interest,
+> multiplier — is authored on the entity's ScriptableObject under
+> `Assets/GameData/TechTree/Age0/` (and the culture folders for levels), and
+> **on a conflict the SO wins**. This doc does not restate them. To read the
+> numbers, open the generated calculator `tools/calculator/TechTree.html`
+> (built from the SOs by `tools/gen_calculator.py`). `Resources/TechTree.json`
+> is gone; there is no JSON fallback.
 >
 > **See also:** [Overview.md](Overview.md) for the game-wide framing (two-age
 > structure, culture focuses, Petriarchy / sect system).
 >
 > Resources used in Age 0: **Supplies**, **Iron**, **Veilstone**. Veilsteel and
-> Glow do **not** appear in Age 0 costs (Veilsteel only as the apex Hall L3
-> upgrade sink).
->
-> Doc version: 2026-05-19 â€” derived from [TechTree.json](../../Assets/Resources/TechTree.json) Era 1 + [BuildingUpgradeConfig.cs](../../Assets/Scripts/Core/Settings/BuildingUpgradeConfig.cs) + [BuildingCosts.cs](../../Assets/Scripts/Data/TechTree/BuildingCosts.cs).
+> Glow do **not** appear in Age 0 costs (**veilsteel is never an Age 0 cost** —
+> the rule that turned Fervored Masses into a veilstone-only price, decision 37).
 
 ---
 
@@ -20,7 +26,7 @@
 
 Age 0 projects **no influence**, so it gets its own curse layer:
 
-- **Hall hearth** — every Hall radiates a fixed, small **veil-suppression
+- **Capital hearth** — every Shelter / Fortress radiates a fixed, small **veil-suppression
   circle** (the curse cannot grow inside it and existing haze decays).
   Veil-only: no territory claim, no combat aura.
 - **Mining corruption** — mining out a veilstone node has a **15 %
@@ -47,291 +53,168 @@ Age 0 projects **no influence**, so it gets its own curse layer:
 ## Conventions
 
 - In Age 0 the player has **not yet picked a culture**, so the standard
-  buildings (Hall, Barracks, Archery Range, House) exist only in their
-  **lvl 0 / pre-culture form**. They have no in-Age-0 upgrade ladder â€” their
-  "lvl 1+" forms are the **cultured rename** that lands at age-up, and those
-  per-culture stats live in the Age 1 doc (TBD). See [Â§ Age-up transitions](#age-up-transitions) at the end of this document for the rename mapping.
-- **Choice / unique buildings** (`Vault of AlmiÃ©rra`, `Shrine of Ridan`,
-  `Fiendstone Keep`) are different: they are built **complete at lvl 1** in
-  Age 0 and *can* be upgraded to lvl 2 / lvl 3 within Age 0 â€” these levels
-  gate the tier-tech research.
-- Upgrade costs and durations are taken from [BuildingUpgradeConfig.cs](../../Assets/Scripts/Core/Settings/BuildingUpgradeConfig.cs:71). The existing
-  L0â†’L3 entries for Hall / Barracks / Archery Range / Hut are post-age-up
-  cultured-form data and are out of scope for Age 0. Where the doc adds a
-  missing entry, it is marked **(new)** and code must be extended.
-- **Population**: `popCost` = consumed by units, `provides.population` = housing.
-- **Training time** is in seconds at the trainer's lvl 0 (pre-culture form).
-  Trainer levels reduce train time per [TrainTimeMultiplier](../../Assets/Scripts/Core/Settings/BuildingUpgradeConfig.cs:34) only in Age 1+.
-- **Damage formula** (unchanged from TechTree.json): `finalDamage = baseDamage * dmgTypeVsArmor * (1 - defense / (defense + 100))`.
+  buildings (Shelter, Barracks, House, Gatherer's Hut, Mine) exist only in
+  their **level 0 / pre-culture form**. They have no Age 0 upgrade ladder —
+  their levels 1-3 are the **cultured form** that lands at age-up, authored as
+  level SOs in the culture's folder (for Alanthor, see
+  [Age_1_Alanthor.md § Building levels](Age_1_Alanthor.md)). See
+  [§ Age-up transitions](#age-up-transitions) for the rename mapping.
+- **Level 1 is free at age-up** for every cultured building (decision 27):
+  the culture pick promotes level 0 to level 1 at no price; levels 2 and 3
+  are bought.
+- **Tech level gates:** a tech's `minBuildingLevel` on its SO is the **only**
+  level gate (decision 21). Age 0 buildings are level 0, so every tech an Age 0
+  player can see has no level gate.
+- **Population**: a unit's population cost and a building's housing are SO
+  fields (`popCost`, `populationProvided`).
+- **Damage formula** (AoE4-style, [Combat_Pacing.md](Combat_Pacing.md)):
+  `final = max(1, baseDamage - armor) + bonusVsTags`. Armour per damage
+  column and the `bonusVsTags` counters are on the unit SOs.
+
+---
+
+## Starting position (decision 19, 2026-10-03)
+
+Every player starts with:
+
+- one **Shelter** (the capital) and one finished **House** beside it
+  ([Territory_Claims.md §4](Territory_Claims.md));
+- **5 Spearmen, 1 Scout and 3 Workers.** **No Archers** — Age 0 is the melee
+  age (the bow arrives with the Age 1 Archery Range). Spawned by
+  `PlayerSpawnSystem`.
+
+The opening population cap is the Shelter's housing plus the House's, both
+from their SOs.
 
 ---
 
 ## Buildings
 
-### Fortress — the capital (2026-08-31, NEW)
+### Shelter — the capital (Fortress from age-up) (2026-10-03)
 
-> **Superseded in part 2026-09-29** ([Territory_Claims.md](Territory_Claims.md) §4):
-> the Fortress is now **buildable** (the most expensive building in the game,
-> one per territory, locks its territory), and the Hall below is **removed** —
-> the Fortress inherits its roster and research.
+> **2026-10-03:** the capital is one building with two names — the Shelter
+> in Age 0, the Fortress from age-up (decisions 4-5d).
 
-**Every player STARTS with a Fortress, not a Hall.** It is the capital: a
-bit larger than a Hall (10x10 build cells vs 8x8) and much more formidable
-(~3x the hp, stronger defenses, a real garrison attack). It hosts
-everything the Hall hosts — trains Workers and Scouts, banks resources,
-researches the Hall bench including the age-up — and claims its home
-territory exactly as a Hall claims ground (mechanically it IS a Hall plus
-more, so every Hall rule — territory claim, one-per-territory, victory,
-AI targeting — applies to it unchanged).
+**Every player starts with a Shelter.** It is the capital: it trains Workers
+and Scouts, researches the economy bench, earns its own supply income (its
+SO's income — there is no separate territory line for it, decision 10) and
+claims its home territory. At age-up it **automatically becomes the
+Fortress** — the same building, renamed, for every culture. The Fortress has
+**levels L1-L3** (for Alanthor the level SOs read "Fortress - Lvl N"), and
+Territory_Claims.md §10 counts those levels toward the territory limit.
+Internally the building id is `Fortress` in both ages (`HallTag` survives as
+an internal component only).
 
-**It is NOT buildable.** The Fortress exists once per player, placed at
-match start. Expansion stays the Hall's job: Halls are what you raise to
-claim new territories (Regions.md §2); losing the Fortress is losing the
-capital, and rebuilding on a new territory gives you Halls, never a second
-Fortress.
-
-### Hall â€” lvl 0 (pre-culture)
-
-The starting building. Provides economic units and core economy research.
-At age-up the Hall is
-**renamed and reskinned** to its cultured form (`Town Hall` / `Trader's Hall`
-/ `Warrior's Hall` â€” see [Â§ Age-up transitions](#age-up-transitions)); the cultured
-form then starts at lvl 1 and has its own upgrade ladder. In Age 0 only the
-pre-culture lvl 0 form exists.
-
-| Stat | Value |
-|------|-------|
-| HP | 2 400 |
-| Line of Sight | 24 |
-| Auto-fire max targets | 1 |
-| Provides population | 20 |
-| Build cost | 450 Supplies + 450 Iron base, **escalating**: × (1 + 0.5 × N), N = your live + under-construction Halls not counting the Fortress ([Regions.md §2 No territory hopping](Regions.md#no-territory-hopping-2026-09-26-extended-2026-09-27)). The starting Fortress is free. |
+**It is buildable, one per territory** ([Territory_Claims.md](Territory_Claims.md)
+§4), and it **locks** the territory it stands in. Cost, HP, defence,
+population, footprint and income live on the `Fortress` SO
+(`Age0/Buildings/Fortress/Fortress.asset`).
 
 #### Trainable units
 
-| Unit | Train time | Cost | Pop | Notes |
-|------|-----------|------|-----|-------|
-| **Worker** | 5 s | 50 Supplies | 1 | The one worker unit (see Units section). |
-| **Scout** | 4 s | 55 Supplies | 1 | Moved from Barracks to Hall per overview. |
+Listed in the Fortress SO's `trains[]`:
+
+| Unit | Who | Notes |
+|------|-----|-------|
+| **Worker** | everyone | The one worker unit — it builds (see Units). |
+| **Scout** | everyone | |
+| **Ledger** | Alanthor, after age-up | Level gate on the unit SO. |
+| **King Lexor** | Alanthor, after age-up | Hero; level gate on the unit SO. |
 
 #### Researchable techs
 
-| Tech | Cost | Time | Effect | Code id |
-|------|------|------|--------|---------|
-| **Stone tools** | 80 S + 40 I | 30 s | +15 % gathering speed (gatherSpeedMult 1.15) | `ImprovedTools` (rename pending) |
-| **Armed scouts** | 90 S + 30 I | 30 s | Arms Scouts with their melee attack. Until researched, Scouts are vision-only: they never auto-engage and deal no damage. Applies to existing and future Scouts. | `ArmedScouts` **(new 2026-08-02)** |
-| **Advance to Era II** | 250 S + 100 I **(2026-08-29: was 700 S + 140 I + 105 veilstone; veilstone removed — the age-up is early tech, and early tech is supplies + iron per the resource-domain rule. Median age-up time target: 3-6 minutes by difficulty — Expert ~3, Hard ~4, Normal ~5, Easy ~6)** | â€” | Triggers age-up, opens culture choice. Requires 1 of `Shrine of Ridan` / `Vault of AlmiÃ©rra` / `Fiendstone Keep` built. | `Research_Era2` |
+Every tech below has `researchAt: Fortress`; the Alanthor-only ones are
+culture-gated and appear only after an Alanthor age-up. Prices, times,
+effects and gates are on the tech SOs.
 
-> **Removed (2026-07-20):** the *Wheel cart* carry-capacity tech. Mined
-> resources are credited straight to the player's stockpile on each gather
-> tick — workers never carry resources and there are no drop-off buildings.
+| Tech | Who | Effect (rule) |
+|------|-----|---------------|
+| **Stone Tools** (`StoneTools`) | everyone, Age 0 | workers **build faster** |
+| **Armed Scouts** (`ArmedScouts`) | everyone, Age 0 | **arms Scouts**: sets their damage, for Scouts already on the field **and every Scout trained afterwards** (decision 13). Until then Scouts are unarmed and vision-only |
+| **Iron / Veilstone / Veilsteel Tools** | Alanthor | further **build speed** tiers ([Age_1_Alanthor.md](Age_1_Alanthor.md)) |
+| **Mason Guild** | Alanthor | faction-wide building HP |
+| **Scouting Celestarii** | Alanthor | `ScoutingCelestarii` — Use Celestar + full Scout vision |
+
+There is **no age-up research** — the age-up is the landmark (see
+[§ Age-up by landmark](#age-up-by-landmark-2026-09-29)).
+
+> **Removed (2026-07-20):** the *Wheel cart* carry-capacity tech. Workers
+> never carry resources and there are no drop-off buildings.
 
 ---
 
-### Barracks â€” lvl 0 (pre-culture)
+### Barracks — level 0 (pre-culture)
 
-Trains and upgrades melee units. At age-up the Barracks is **renamed and
-reskinned** to its cultured form (`Garrison` / `Route Guard` / `War Hall` â€”
-see [Â§ Age-up transitions](#age-up-transitions)); the cultured form then
-starts at lvl 1 and has its own upgrade ladder. In Age 0 only the pre-culture
-lvl 0 form exists.
-
-| Stat | Value |
-|------|-------|
-| HP | 800 |
-| Line of Sight | 18 |
-| Train-time multiplier | Ã—1.00 |
-| Build cost | 220 Supplies + 40 Iron |
+Trains melee units. At age-up the Barracks is **renamed and reskinned** to its
+cultured form (`Garrison` / `Route Guard` / `War Hall` — see
+[§ Age-up transitions](#age-up-transitions)); the cultured form starts at
+level 1 (free) and has its own upgrade ladder. In Age 0 only the pre-culture
+level 0 form exists. Its stats are on `Age0/Buildings/Barracks/Barracks.asset`.
 
 #### Trainable units
 
-| Unit | Train time | Cost | Pop |
-|------|-----------|------|-----|
-| **Spearman** | 7 s | 80 S + 30 I | 1 |
+| Unit | Notes |
+|------|-------|
+| **Spearman** | The Age 0 line unit and the anti-cavalry leg of the triangle |
 
 #### Researchable techs
 
-| Tech | Cost | Time | Effect | Code id |
-|------|------|------|--------|---------|
-| **Conscription** | 100 S + 40 I | 35 s | +20 % training speed at the Barracks | **(new â€” replaces `BasicDrills`'s +10 % melee atkspd; code needs rewire)** |
-| **Stone weapons** | 80 S | 25 s | Unlocks unit upgrade 1 (Spearman tier-1 stat bump â€” TBD damage/defense line) | **(new â€” replaces `WoodenArmor`)** |
+| Tech | Effect (rule) | Code id |
+|------|---------------|---------|
+| **Conscription** | units train **faster at any Barracks** (faction-wide; decision 14) | `Conscription` |
+| **Stone Weapons** | melee weapon tier 1 — a faction-wide melee damage bump (per-battalion upgrades are dropped, decision 31) | `StoneWeapons` |
 
 ---
 
-### Mine — MOVED to Feraldis Age 1 *(2026-08-13)*
+### Mine and Veilstone Mine — Age 0, every culture (2026-10-03)
 
-**The Mine is no longer an Age 0 building and is no longer universal.** It
-is now **Feraldis-only, Age 1** — see
-[Age_1_Feraldis.md § Mine](Age_1_Feraldis.md#mine--mine-2026-08-13--feraldis-only-age-1).
-
-The 2026-08-05 rev.4 spec placed it here and argued for keeping it universal
-*because* it matters most to Feraldis (whose Workers cannot gather at all).
-That is reversed: the Feraldis dependency is exactly what makes it a culture
-identity building rather than a shared Age 0 option, and a workerless,
-never-depleting income source in the pre-culture opening undercut the
-hand-mining economy every other Age 0 lesson is built on.
+**The iron Mine and the Veilstone Mine are Age 0 buildings for everyone**
+(decision 15; supersedes the 2026-08-13 move of the Mine to Feraldis Age 1).
+Each stands on its own node — the Mine on an iron deposit, the Veilstone Mine
+on a veilstone outcrop ([Build_Grid.md § 3](Build_Grid.md)). The SOs live in
+`Age0/Buildings/Mine/` and `Age0/Buildings/VeilstoneMine/`. They are priced in
+supplies and veilstone, never iron. Each pays its slot-income ladder
+([Veilstone_Economy.md §5](Veilstone_Economy.md)). The Mine hosts its own
+research (Deep Shafts, Rich Seams). At age-up **Alanthor's Veilstone Mines
+become Trading Outposts** (Alanthor never mine veilstone; their iron Mines
+stay).
 
 ---
 
-### Archery Range â€” lvl 0 (pre-culture)
+### Archery Range — not an Age 0 building
 
-> **MOVED TO AGE 1 (2026-08-11):** the Archery Range now requires **era 2**
+> **MOVED TO AGE 1 (2026-08-11):** the Archery Range requires **era 2**
 > (`minEra: 2` — enforced for the player in the build UI and for the AI in
 > `SimpleAISystem.TryBuildBuilding`). Playtest-proven: the Age-0 archer
 > rush was uncounterable — massed archers ended a match by minute 15 with
 > nothing in the age able to answer them. **Age 0 is a melee age**:
-> spearmen hold the line until the culture pick brings the bow. The
-> section below documents the building itself; everything in it now
-> happens from age-up onward.
+> spearmen hold the line until the culture pick brings the bow.
 
-Trains and upgrades ranged units. At age-up the Archery Range is **renamed
-and reskinned** to its cultured form (`Practice Range` / `Arrowyard` /
-`Thrower Camp` â€” see [Â§ Age-up transitions](#age-up-transitions)); the
-cultured form then starts at lvl 1 and has its own upgrade ladder.
-
-Although the cultured upgrade ladder is an Age 1 affair, the Archery Range
-**also carries the `BuildingUpgradeable` component in Age 0** (see [task-064 audit](../../.deft/tasks/task-codebase-audit-064/task.md))
-so its **three building levels (lvl 1 / lvl 2 / lvl 3)** drive a **ranged
-unit ladder**. Each upgrade unlocks one new unit tier â€” the unit roster grows
-as the building grows. The unit ladder is logically a single block and is
-documented here in Age 0 even though levels 2 / 3 are typically reached after
-the culture pick.
-
-> See: `BuildingUpgradeable` system and `BuildingUpgradeConfig.TryGetCost`
-> for upgrade costs / durations.
-
-| Stat | Value |
-|------|-------|
-| HP | 600 |
-| Line of Sight | 18 |
-| Train-time multiplier | Ã—1.00 |
-| Build cost | 180 Supplies + 50 Iron |
-
-#### Unit ladder (by building level)
-
-| Building level | Unlocks | Role |
-|----------------|---------|------|
-| **Level 1** (base) | **Archer** | Generalist ranged unit (baseline). |
-| **Level 2** | **Crossbowman** | Slow heavy-hitter â€” high damage per shot, low fire rate. |
-| **Level 3** | **Longbowman** | Long-range sniper â€” outranges all other archers, slowest cooldown. |
-
-Implementation gating uses `minBuildingLevel: 2` / `minBuildingLevel: 3`
-on the training options.
-
-#### Trainable units
-
-Each unit is documented below with its full stat block. All numeric values
-are **PLAYTEST PLACEHOLDER** until validated through playtest.
-
-##### Archer â€” level 1 (baseline)
-
-The all-purpose ranged unit. Available the moment the Archery Range is built.
-Balanced fire rate, decent range, low cost. The yardstick the other two
-tiers are tuned against.
-
-| Field | Value |
-|------|-------|
-| Unlocked at | Archery Range **lvl 1** (base) |
-| HP | **60** *(PLAYTEST PLACEHOLDER)* |
-| Damage | **8** *(PLAYTEST PLACEHOLDER)* |
-| Min attack range | **10** *(PLAYTEST PLACEHOLDER)* |
-| Max attack range | **25** *(PLAYTEST PLACEHOLDER)* |
-| Cooldown | **1.5 s** *(PLAYTEST PLACEHOLDER)* |
-| Speed | **4** *(PLAYTEST PLACEHOLDER)* |
-| Line of Sight | **25** *(PLAYTEST PLACEHOLDER)* |
-| Population | **1** *(PLAYTEST PLACEHOLDER)* |
-| Cost | (existing â€” see Age 0 unit stat block below) |
-| Train time | (existing â€” see Age 0 unit stat block below) |
-
-> Note: the legacy Archer stat block further down this doc (see
-> [Â§ Archer](#archer)) lists the previous values (HP 90, Dmg 17, CD 2.0 s,
-> Speed 5.2, LoS 30). The values above are the **new PLAYTEST PLACEHOLDER**
-> proposal that ties Archer into the three-tier ladder â€” when these are
-> committed in code (task-110 Phase 2), the older block becomes stale and
-> should be reconciled.
-
-##### Crossbowman â€” level 2
-
-A slow, heavy crossbow shot. The Crossbowman trades fire rate and mobility
-for a single thumping bolt that punches through tough targets. Designed to
-shine against high-HP / heavy-armor units where the Archer's fast-but-light
-shots get blunted by defense rolls.
-
-| Field | Value |
-|------|-------|
-| Unlocked at | Archery Range **lvl 2** (`minBuildingLevel: 2`) |
-| HP | **70** *(PLAYTEST PLACEHOLDER)* |
-| Damage | **18** *(PLAYTEST PLACEHOLDER)* |
-| Min attack range | **6** *(PLAYTEST PLACEHOLDER)* |
-| Max attack range | **18** *(PLAYTEST PLACEHOLDER)* |
-| Cooldown | **3.0 s** *(PLAYTEST PLACEHOLDER)* |
-| Speed | **3.5** *(PLAYTEST PLACEHOLDER)* |
-| Line of Sight | **22** *(PLAYTEST PLACEHOLDER)* |
-| Population | **1** *(PLAYTEST PLACEHOLDER)* |
-| Cost | **40 Supplies + 35 Iron** *(PLAYTEST PLACEHOLDER)* |
-| Train time | **18 s** *(PLAYTEST PLACEHOLDER)* |
-
-##### Longbowman â€” level 3
-
-The long-range specialist. Slower than the Archer to ready a shot, but
-significantly outranges any other archer in the game and hits hard. A
-support-line unit â€” best protected by Spearmen and used to soften targets
-before the melee engagement closes.
-
-| Field | Value |
-|------|-------|
-| Unlocked at | Archery Range **lvl 3** (`minBuildingLevel: 3`) |
-| HP | **55** *(PLAYTEST PLACEHOLDER)* |
-| Damage | **25** *(PLAYTEST PLACEHOLDER)* |
-| Min attack range | **12** *(PLAYTEST PLACEHOLDER)* |
-| Max attack range | **40** *(PLAYTEST PLACEHOLDER)* |
-| Cooldown | **3.5 s** *(PLAYTEST PLACEHOLDER)* |
-| Speed | **4** *(PLAYTEST PLACEHOLDER)* |
-| Line of Sight | **35** *(PLAYTEST PLACEHOLDER)* |
-| Population | **1** *(PLAYTEST PLACEHOLDER)* |
-| Cost | **50 Supplies + 40 Iron** *(PLAYTEST PLACEHOLDER)* |
-| Train time | **25 s** *(PLAYTEST PLACEHOLDER)* |
-
-#### Researchable techs
-
-| Tech | Cost | Time | Effect |
-|------|------|------|--------|
-| **Choreographed volleys** | 120 S + 30 I | 35 s | Active skill, carried by every ranged unit: allied ranged units within 15 m fire at double rate for 5 s. 60 s cooldown ([Spells.md](Spells.md) §9). **(new)** |
-| **Stone-tipped arrows** | 80 S + 20 I | 25 s | Unlocks unit upgrade 1 (Archer tier-1 damage bump â€” TBD line). **(new)** |
-| **Fletching** | 80 S + 30 I | 30 s | +15 % range for Archers (attackRange 25 â†’ 28.75). **(new)** |
+The building, its Archer / Crossbowman / Longbowman ladder (unlocked at
+levels 1 / 2 / 3) and its research are documented in
+[Age_1_Alanthor.md § Archery Range](Age_1_Alanthor.md); its SO lives in
+`Civs/Alanthor/Buildings/ArcheryRange/`.
 
 ---
 
-### Gatherer's Hut â€” starts lvl 0, Age 0 only
+### Gatherer's Hut — level 0
 
-Early supply generation, exclusive to Age 0. Must be upgraded to a Hunting
-Lodge / Logging Station after age-up â€” if left un-upgraded it is refunded and
-removed (auto-despawn 2 min after Era 2 except Feraldis, per TechTree.json).
-
-| Stat | Value |
-|------|-------|
-| HP | 800 (code default) / 400 (json) â€” **doc: 800** |
-| Line of Sight | 16 |
-| Aura | +60 Supplies / minute, radius 12 |
-| Build cost | 120 Supplies + 10 Iron |
-| Provides population | 0 |
-
-No level-up path. No trainable units.
+Early supply generation. The hut stands **on a supply spot** (its footprint is
+the spot's, [Build_Grid.md](Build_Grid.md)) and pays **only its territory
+slot-income ladder** (decision 9: no construction safety-net income). Stats
+and the ladder are on `Age0/Buildings/GatherersHut/GatherersHut.asset`. No
+trainable units.
 
 #### Researchable techs
 
-> **Deep Gathering is REMOVED (2026-08-04).** The hut's secondary drips come
-> exclusively from the Alanthor Guild **Survey** line (Iron Surveying I-III,
-> Veilstone Survey I-II, Veilsteel Survey — see
-> [Age_1_Alanthor.md](Age_1_Alanthor.md)), all post-culture. Veilsteel in
-> particular comes only from **Crucibles** or a **fully upgraded (max-level)
-> Gatherer's Hut with Veilsteel Survey** — never in Age 0. In Age 0 the hut
-> hosts no researchable tech of its own.
-
-> Note: Gatherer's Huts deliberately grant **no influence** on the influence
-> map, but their income gains **+50%** when the hut stands inside its owner's
-> influence border (see [Overview.md Â§ The influence map](Overview.md)).
-> (Was a flat doubling until 2026-08-15.)
+> **The Gatherer's Hut hosts NO research in Age 0 (2026-10-03, decision 16).**
+> Its research lines are culture-gated and filed under the culture that gets
+> them: the Alanthor Guild line (Iron Surveying, Veilstone / Veilsteel
+> Surveys, Iron Reinforcements, Veilstone Walls, Veilsteel Pylons) under
+> `Civs/Alanthor/Buildings/Guild/Research/` (see
+> [Age_1_Alanthor.md](Age_1_Alanthor.md)), and the Feraldis Raiding / Plunder
+> line under `Civs/Feraldis/Buildings/RaiderCamp/Research/`. Deep Gathering
+> was removed 2026-08-04; Retaliatory Measures is cut (decision 18).
 
 > **What reduces a hut's yield.** The hut's % indicator and its output are the
 > same number: the fraction of its gather circle that is *productive ground*.
@@ -343,59 +226,38 @@ No level-up path. No trainable units.
 >   both partners),
 > - already claimed by an **older friendly hut** or **any enemy hut** circle, or
 > - inside a **wall enclosure** polygon.
->
-> The +50% influence bonus multiplies whatever survives that, so a hut deep in
-> its own territory is worth far more than one on a contested or cursed frontier.
 
 ---
 
-### House (a.k.a. Hut) â€” lvl 0 (pre-culture)
+### House (id `Hut`) — level 0 (pre-culture)
 
-> **Population (2026-09-29):** a House provides **3 / 5 / 8 / 10** at levels
-> 0 / 1 / 2 / 3 (`Hut.asset` base 3 + `BuildingUpgradeConfig.HutBonusPop`
-> +0 / +2 / +5 / +7). The **Fortress provides 10**, flat — its levels do not
-> raise it. A match opens on 9 of 10 (3 Workers, 3 Spearmen, 2 Archers, a
-> Scout), so the first House is the first thing any army needs.
->
-> **DOUBLED 2026-10-01:** a House provides **6 / 10 / 16 / 20** at levels
-> 0-3 (`Hut.asset` base 6 + HutBonusPop +0 / +4 / +10 / +14), and the
-> population cap is **300** (was 200, `FactionPopulation.AbsoluteMax`) — the
-> AI was building Houses endlessly to reach a cap that cost too many of them.
+Provides population in Age 0. The internal id is `Hut`
+(`Age0/Buildings/Hut/Hut.asset`, `HutTag`); the display name is "House".
+**No research** — population is its product. No trainable units.
 
-> **LIMIT 20 (2026-10-02):** a faction may own at most **20 Houses** at once —
-> finished, rising or still a plan (`Hut.asset` `maxPerFaction`, enforced for
-> every player at the command layer by `BuildingFactory.AtFactionCap`). Twenty
-> level-3 Houses are 400 population, so the 300 cap stays reachable.
->
-> **The AI keeps them in one quarter (2026-10-02):** its first House goes in
-> the normal base ring; every later one is placed outward from the centre of
-> the Houses it already has, with no centre spacing and no lane — Houses may
-> stand wall to wall (the lane elsewhere is only a look),
-> so its housing is one residential block rather than huts dotted through
-> the base.
+- **Housing** is on the SO (`populationProvided`; decision 8), and the cultured
+  levels' housing on the culture's level SOs. The faction-wide population
+  ceiling is `FactionPopulation.AbsoluteMax`.
+- **LIMIT (2026-10-02):** a faction may own at most `maxPerFaction` Houses at
+  once — finished, rising or still a plan — enforced for every player at the
+  command layer by `BuildingFactory.AtFactionCap`. The limit is sized so the
+  population ceiling stays reachable with fully levelled Houses.
+- **The AI keeps them in one quarter (2026-10-02):** its first House goes in
+  the normal base ring; every later one is placed outward from the centre of
+  the Houses it already has, with no centre spacing and no lane — Houses may
+  stand wall to wall, so its housing is one residential block rather than huts
+  dotted through the base.
 
-Provides population in Age 0. At age-up the per-culture behavior splits
-three ways (see [Â§ Age-up transitions](#age-up-transitions) for details):
+At age-up the per-culture behaviour splits three ways (see
+[§ Age-up transitions](#age-up-transitions)):
 
-- **Alanthor** â€” renamed and reskinned to House (Alanthor); standard pop
-  ladder applies.
-- **Runai** â€” **no House exists post-age-up**. Runai pop is set to the
-  game cap (200) instantly at age-up; standing Age 0 Houses are removed.
-- **Feraldis** â€” Houses remain but **pop becomes 0** at age-up (Feraldis
-  also gets instant 200 pop). Houses convert into pure **raider-spawn
-  buildings**.
-
-| Stat | Value |
-|------|-------|
-| HP | 600 |
-| Line of Sight | 14 |
-| Provides population | 10 |
-| Build cost | 80 Supplies |
-
-> Note: The overview document uses the name **House**. Internal code id is
-> `Hut` (preserved by [BuildCosts.cs](../../Assets/Scripts/Data/TechTree/BuildingCosts.cs:27) and [HutTag](../../Assets/Scripts/Core/Components/BuildingComponents.cs)). Display name is "House"; internal id stays `Hut`.
-
-No trainable units. No tech (population is its product).
+- **Alanthor** — renamed and reskinned to House (Alanthor) with its level
+  ladder.
+- **Runai** — **no House exists post-age-up**. Runai population is set to
+  the game cap instantly at age-up; standing Age 0 Houses are removed.
+- **Feraldis** — Houses remain but provide **no population** after age-up
+  (Feraldis also gets the full cap instantly). Houses convert into pure
+  **raider-spawn buildings**.
 
 ---
 
@@ -405,7 +267,7 @@ No trainable units. No tech (population is its product).
 > 2026-10-02 the timber fence was `Alanthor_Wall` at level 0 and the Alanthor
 > age-up re-clad it in stone. That is retired: a palisade is a palisade for its
 > whole life, and the Stone Wall is a different building Alanthor gains at
-> age-up ([Age_1_Alanthor.md § The stone wall](Age_1_Alanthor.md#the-stone-wall-2026-10-02--canonical-supersedes-the-wall-tiers-below)).
+> age-up ([Age_1_Alanthor.md § The stone wall](Age_1_Alanthor.md)).
 
 Every culture can draw a palisade from the first minute. **At age-up, Alanthor
 and Runai lose it** — the build button is gone, and nothing new can be added
@@ -414,20 +276,41 @@ Hub on a palisade section). What they built **stays timber**: it keeps its HP,
 it can still be turned into a gate, and it can be deleted. **Feraldis keep
 building palisades for the whole game** — they never leave timber.
 
-| Stat | Value |
+| Property | Rule |
 |------|-------|
-| Id | `Palisade` (hub). Its curtain sections, gates and seals are the shared wall pieces, carrying `PalisadeTag` |
+| Id | `Palisade` (hub, `Age0/Buildings/Palisade/Palisade.asset`). Its curtain sections, gates and seals are the shared wall pieces, carrying `PalisadeTag` |
 | Who | **every culture in Age 0; Feraldis only after age-up** |
-| Cost | **50 S** per hub (supplies only since 2026-10-02), **plus 6 S per 3 m curtain module** (`Palisade/PalisadeSegment.asset`), charged for the whole length when the fence is laid (2026-10-02 — the curtain used to be free) |
-| HP | hub 600, curtain module 200 (the shared `WallSegment.asset`), never scaled — a palisade has no levels |
-| Footprint | hub 2 × 2 cells (4 × 4 m), **not grid-snapped** (the wall hubs are the buildings exempt from the build grid, [Build_Grid.md § 5](Build_Grid.md)). The curtain is freeform and **thin** — it blocks a 3-cell band on the nav grid |
+| Cost | a price **per hub plus a price per curtain module** (`PalisadeSegment.asset`), charged for the whole length when the fence is laid — supplies only. The gate conversion costs the same as the stone wall's gate (decision 36) |
+| HP | hub and module HP on their SOs, never scaled — a palisade has no levels |
+| Footprint | the hub's footprint is its SO's, **not grid-snapped** (the wall hubs are the buildings exempt from the build grid, [Build_Grid.md § 5](Build_Grid.md)). The curtain is freeform and **thin** |
 | Walkable | **no.** A fence has no wall-walk; only the stone wall has a deck |
 | Look | authored timber art — `Wall_segment.fbx` / `Wall_hub.fbx` in `Age0/Buildings/Wall/`, the palisade slot (0) of `WallModuleArt.asset` |
 | Conversions | **Gate and Hub only.** No tower and no mounted engine. No placeholder cards |
 | Joins | **palisade to palisade only.** A palisade never snaps to, auto-connects with, or is branched from a stone wall, and the reverse — they are different buildings |
-| Placement | drawn, exactly as [Age_1_Alanthor.md § Drawing walls](Age_1_Alanthor.md#drawing-walls-2026-09-18) describes |
+| Placement | drawn, exactly as [Age_1_Alanthor.md § Drawing walls](Age_1_Alanthor.md) describes |
 
-## Age-up by landmark (2026-09-29 — SUPERSEDES the section below and the Advance to Era II research)
+---
+
+### Temple of Ridan — Age 0, one per faction
+
+**The Litharch trains at the Temple of Ridan**, an Age 0 building costing
+Religion Points ([Religion.md](Religion.md) §2; the price is on the SO). The
+Temple also hosts the heal ladder — **Heightened → Pious → Fervored Masses**
+(each requires the previous) and **Warrior Priests** — and the Temple's own
+heal aura (`TempleHealSystem`). The Shrine of Ridan is gone (2026-10-02).
+
+- **The Temple has no levels** (decision 20) and is limited to **one per
+  faction** (`maxPerFaction`). Any older text that gated Pious or Fervored
+  Masses on a Temple level is **void**: the techs' only gates are their
+  prerequisites (and `minBuildingLevel`, which is unset).
+- **Fervored Masses is priced in veilstone only** (decision 37) — no
+  veilsteel, per the Age 0 cost rule.
+- **Warrior Priests** gives the Litharch an attack; the Litharch has none
+  without it.
+
+---
+
+## Age-up by landmark (2026-09-29)
 
 **The age-up IS the construction of a landmark.** There is no age-up research
 and no culture-choice dialog: the landmark you build decides the culture.
@@ -440,12 +323,12 @@ and no culture-choice dialog: the landmark you build decides the culture.
 
 **The demo is 100 % Alanthor** — every player, AI included.
 
-- **Cost: 600 Supplies + 300 Iron + 200 Veilstone**, paid on placement. Every
-  start territory carries veilstone (Regions.md node quotas), so the price is
-  reachable on every map.
-- **Progress = construction.** The landmark self-builds in 90 s; each worker on
-  the site adds +25 % build rate (intended: workers buy a faster age-up). On
-  completion the faction ages up to that culture.
+- **Cost** is the landmark SO's, paid on placement. Every start territory
+  carries veilstone (Regions.md node quotas), so the price is reachable on
+  every map.
+- **Progress = construction.** The landmark self-builds over its SO build
+  time; each worker on the site adds build rate (intended: workers buy a
+  faster age-up). On completion the faction ages up to that culture.
 - **One landmark per faction.** Placing one disables the other buttons for the
   rest of the match.
 - **Destroyed before completion:** progress resets and **everything spent is
@@ -453,8 +336,6 @@ and no culture-choice dialog: the landmark you build decides the culture.
 - **Destroyed after completion:** the culture stays; the building is gone.
 - Placement follows the ordinary build gate — owned territory only
   ([Territory_Claims.md](Territory_Claims.md) §5).
-- The landmarks' own properties (Vault interest, Keep volleys) are unchanged
-  for now; the Vault is due a rework.
 
 ### The AI and the age-up (2026-10-02)
 
@@ -462,379 +343,71 @@ and no culture-choice dialog: the landmark you build decides the culture.
 attack and SAVES for its landmark:
 
 - **Aggressive and Rush** send out exactly **one** attack wave in Age 0, then
-  stop attacking and save. Their Age 0 army is the 8 units that wave needs. If
-  that wave cannot launch, they start saving 5 minutes past their usual
-  age-up push anyway — a rusher is never stuck in Age 0.
+  stop attacking and save. Their Age 0 army is what that wave needs. If that
+  wave cannot launch, they start saving a fixed delay past their usual age-up
+  push anyway — a rusher is never stuck in Age 0.
 - **Every other personality** (Balanced, Defensive, Economic, TechBoom, Turtle)
   launches **no** wave in Age 0 and saves from the start; it keeps only a
-  defensive garrison of 4.
+  small defensive garrison.
 - **Saving is strict.** While an AI saves for the landmark, its savings hold
-  does not lapse (the usual 4-minute duty cycle does not apply): only workers,
+  does not lapse (the usual duty cycle does not apply): only workers,
   houses, supply huts and the garrison floor may spend until the landmark is
   paid for.
 
-**The Shrine of Ridan is cut** — it is no longer a choice building. The
-Litharch and the Shrine's research move to the Temple of Ridan, which is now an
-Age 0 building ([Religion.md](Religion.md) §2).
+(The wave size, garrison floor and delays are AI config values in
+`Assets/GameSystems/AI/` — see [Game_AI.md](Game_AI.md).)
 
-**The Hall is removed**; the Fortress takes its roster and research
-([Territory_Claims.md](Territory_Claims.md) §4).
+---
 
-## Special buildings (starts lvl 1)
+## The landmarks
 
-> **Superseded 2026-09-29** by § Age-up by landmark above: the choice is the
-> landmark, the Shrine of Ridan is cut, and the build costs below no longer
-> apply. Kept for the buildings' stats and research.
+> **Superseded 2026-09-29** in their placement and price by § Age-up by
+> landmark above. Kept for the buildings' rules and research.
 
-These three are mutually-exclusive **choice buildings** in Age 0 â€” the player
-picks one to unlock the age-up research. All three start at lvl 1 (no lvl 0
-form).
+### Vault of Almiérra — the Alanthor landmark
 
-**Placement & construction (decided 2026-07-06):**
-
-- Choice buildings are **not** placed through a Worker's build menu. Three
-  dedicated buttons sit at the **top of the game window**; each becomes
-  active when the player can afford that building.
-- After the player places one, all three buttons disappear (mutual
-  exclusivity) and the slot is replaced by the **Culture choice button**,
-  which becomes usable once the choice building finishes and opens the
-  age-up / culture selection (see [Â§ Age-up transitions](#age-up-transitions)).
-- Choice buildings **self-construct with no workers in 90 s**. Workers sent
-  to the site accelerate construction: each worker adds **+25 %** build rate
-  (e.g. 4 workers â†’ double rate â†’ 45 s).
-
-### Vault of AlmiÃ©rra â€” starts lvl 1
-
-Acts as a resource bank. Resources can be deposited for an extended duration
-and generate interest.
-
-| Stat | L1 (base) | L2 | L3 |
-|------|-----------|----|----|
-| HP | 1 200 | 1 380 | 1 440 |
-| Line of Sight | 14 | 14 | 14 |
-| Interest rate (compounded, per minute) | **25 %** | 50 % / 75 % / 100 % (gated by *banking* tech tier) | â€” |
-| Culture modifier | **Alanthor +30 % yield**, **Runai âˆ’30 % yield**, Feraldis neutral | | |
-| Build / upgrade cost | 210 S + 70 C (build) | 200 S + 50 I + 15 C | 400 S + 100 I + 40 C **(new entry needed in [BuildingUpgradeConfig.cs](../../Assets/Scripts/Core/Settings/BuildingUpgradeConfig.cs:71))** |
-| Upgrade duration | â€” | 30 s | 45 s |
-
-No trainable units.
+A resource bank: deposited resources earn **compound interest** per minute,
+`next = current × (1 + rate)`. **Interest applies from level 1 and grows with
+the Vault's level** (decision 12): the base rate is on
+`Age0/Buildings/VaultOfAlmierra/VaultOfAlmierra.asset` and each level's
+multiplier on `Civs/Alanthor/Buildings/VaultOfAlmierra/VaultOfAlmierra_Lvl1..3`.
+HP, upgrade prices and times are on the same SOs. No trainable units.
 
 #### Researchable techs
 
-The three banking-grade techs are **mutually exclusive tiers** â€” the player
-can only have one banking grade active at a time. Researching a higher
-grade replaces the active interest rate.
+The three banking-grade techs are **mutually exclusive tiers** — only one
+banking grade is active at a time; researching a higher grade replaces the
+active rate. The resource-unlock techs widen what may be deposited.
 
-| Tech | Building lvl req. | Cost | Time | Effect |
-|------|------------------|------|------|--------|
-| **Coffers** | L1 | 150 S + 40 I | 30 s | Bumps interest tier to 50 % / min. *(Safe storage â€” "the Vault keeps coin"  )* |
-| **Merchant Charters** | L1 | 200 S + 80 I | 35 s | Bumps interest tier to 75 % / min. *(Active credit â€” "the Vault lends to traders"  )* |
-| **Sovereign Bonds** | L1 | 250 S + 120 I | 40 s | Bumps interest tier to 100 % / min. *(High-stakes investment â€” "the Vault speculates"  )* |
-| **Iron Subsidies** | L1 | 180 S + 80 I | 35 s | Unlocks **Iron** banking (Iron can be deposited like Supplies). |
-| **Veilstone monetization** | L2 | 220 S + 100 I + 40 C | 40 s | Unlocks **Veilstone** (Veilstone) banking. |
-| **Veilsteel Bonds** | L3 | 300 S + 120 I + 60 C | 50 s | Unlocks **Veilsteel** banking. |
-
----
-
-### Shrine of Ridan â€” starts lvl 1
-
-Early religious / Litharch training building. Slowly heals all friendly units
-within a 10-unit radius (1 s ticks). On build, awards **+1 Religion Point**;
-+1 additional RP if the player chooses **Runai** at age-up.
-
-| Stat | L1 (base) | L2 | L3 |
-|------|-----------|----|----|
-| HP | 800 | 920 | 960 |
-| Line of Sight | 16 | 16 | 16 |
-| Heal rate (% Max HP / s, in radius 10) | 1 % | 3 % (Heightened) â†’ 6 % (Pious) | 15 % (Fervored) |
-| Culture modifier | **Runai +30 %** heal rate, **Feraldis âˆ’30 %**, Alanthor neutral | | |
-| Build / upgrade cost | 210 S + 70 C (build) | 200 S + 50 I + 15 C | 400 S + 100 I + 40 C **(new entries needed)** |
-| Upgrade duration | â€” | 30 s | 45 s |
-
-#### Trainable units
-
-| Unit | Train time | Cost | Pop |
-|------|-----------|------|-----|
-| **Litharch** | 7 s | 100 S + 25 I + 10 C | 1 |
-
-#### Researchable techs
-
-| Tech | Building lvl req. | Cost | Time | Effect |
-|------|------------------|------|------|--------|
-| **Heightened masses** | L1 | 150 S + 40 C | 30 s | Heal rate 1 % â†’ 3 % / s. |
-| **Warrior priests** | L1 | 180 S + 50 I + 20 C | 35 s | Litharchs gain a melee attack: **6 damage every 1.5 s** (the suggested value, adopted 2026-09-26; authored as `Set` entries in `WarriorPriests.asset`'s effectsList, not in code). |
-| **Pious masses** | L2 | 220 S + 80 C | 40 s | Heal rate 3 % â†’ 6 % / s. Requires Heightened masses. |
-| **Fervored masses** | L3 | 320 S + 120 C | 50 s | Heal rate 6 % â†’ 15 % / s. Requires Pious masses. |
+| Tech | Gate (`minBuildingLevel`) | Effect (rule) |
+|------|------|---------------|
+| **Coffers** | none | banking grade 1 *(safe storage — "the Vault keeps coin")* |
+| **Merchant Charters** | none | banking grade 2 *(active credit — "the Vault lends to traders")* |
+| **Sovereign Bonds** | none | banking grade 3 *(high-stakes — "the Vault speculates")* |
+| **Iron Subsidies** | none | Iron can be deposited |
+| **Veilstone Monetization** | **Vault L2** | Veilstone can be deposited |
+| **Veilsteel Bonds** | **Vault L3** | Veilsteel can be deposited |
 
 ---
 
-### Fiendstone Keep â€” starts lvl 1
+### Fiendstone Keep — the Feraldis landmark (out of scope)
 
-Fortified position. Generates a modest amount of Supplies (half what the Hall
-produces). Trains all non-religious, non-siege military units (melee, cavalry,
-ranged â€” no sect units, no siege, no Litharchs). Faster training time than
-other buildings. Large HP pool, fires arrow volleys at enemies.
+> **Left for the Feraldis pass** (decision 38): it will move out of `Age0/`
+> then. Until that pass, read its stats on
+> `Age0/Buildings/FiendstoneKeep/FiendstoneKeep.asset`. **The level gates this
+> doc used to give its techs are void** — the tech SOs' `minBuildingLevel` is
+> the only gate (decision 21), and only the Trebuchet emplacement has a rule
+> on it: it requires the Ballista emplacement.
 
-| Stat | L1 (base) | L2 | L3 |
-|------|-----------|----|----|
-| HP | 2 000 | 2 300 | 2 400 |
-| HP with **Feraldis** | 3 000 | 3 450 | 3 600 |
-| HP with **Alanthor** | 1 000 | 1 150 | 1 200 |
-| Line of Sight | 18 | 18 | 18 |
-| Auto-fire max targets | **4** *(Q#3 bumped from 3)* | 4 (+2 with Additional Towers) | 4 (+2) |
-| Auto-fire damage / cooldown | **20 dmg / 2.0 s (range 30 â€” Q#3 bumped from 25)** | with **Ballista emplacement**: +18 siege dmg shot | with **Trebuchet emplacement**: +36 siege dmg AoE shot |
-| Provides population | 20 | 20 | 20 |
-| Train-time multiplier | Ã—1.00 (already 25 % faster aura per code) | Ã—0.870 | Ã—0.800 |
-| Build / upgrade cost | 210 S + 70 C (build) | 200 S + 50 I + 15 C | 400 S + 100 I + 40 C **(new entries needed)** |
-| Upgrade duration | â€” | 30 s | 45 s |
+Fortified position: trains non-religious, non-siege military units, shoots
+arrow volleys at enemies, and levels up by building **wings** (below). Its
+techs: **Ballista emplacement** (adds a single-target siege bolt to each
+volley), **Trebuchet emplacement** (adds a splash siege shot; requires the
+Ballista emplacement), **Additional Towers** (more targets per volley),
+**Reinforced Walls** (more HP).
 
-#### Trainable units
+#### Levels via WINGS (directive 2026-07-04)
 
-Inherits the rosters of Barracks + Archery Range (no level prerequisites â€” the
-Keep itself is the gating building). For Age 0 this means:
-
-| Unit | Train time | Cost | Pop |
-|------|-----------|------|-----|
-| **Spearman** | 7 s | 80 S + 30 I | 1 |
-| **Archer** | 15 s | 50 S + 25 I | 1 |
-
-Once an age-up culture is chosen, also trains that culture's basic cavalry
-unit (Runai Raider / Feraldis Warboar Rider / Alanthor Cataphract) â€” gated by
-that culture's Era 2 unlock, not Age 0.
-
-#### Researchable techs
-
-| Tech | Building lvl req. | Cost | Time | Effect |
-|------|------------------|------|------|--------|
-| **Ballista emplacement** | L1 | 200 S + 80 I | 35 s | Keep auto-fire gains a per-cooldown ballista shot (siege dmg, single-target). |
-| **Trebuchet emplacement** | L2 | 300 S + 140 I + 50 C | 45 s | Keep auto-fire gains a trebuchet shot (siege dmg, AoE). |
-| **Additional Towers** | L2 | 240 S + 80 I | 35 s | Max auto-fire targets +2. |
-| **Reinforced walls** | L1 | 180 S + 60 I | 30 s | Keep HP +20 % (applied after culture modifier). |
-
----
-
-## Units (Age 0)
-
-Combat math: `finalDamage = baseDamage Ã— dmgTypeVsArmor Ã— (1 âˆ’ defense / (defense + 100))`. Armor / damage type matrix is in [TechTree.json](../../Assets/Resources/TechTree.json#L28).
-
-### Worker
-
-> The one Age 0 economy unit. AI workers continue to auto-find
-> deposits / building sites; player workers require an explicit command except
-> for auto-chain on depletion within Line of Sight (preserved from current
-> worker behavior).
-
-| Field | Value |
-|------|-------|
-| Class | `human_support` |
-| HP | 70 |
-| Speed | 6.0 |
-| Training time | 5 s |
-| Armor type | infantry_light |
-| Damage | 2 (melee, self-defense only) |
-| Defense (M/R/S/Mg) | 0 / 0 / 0 / 0 |
-| Attack range | 1.0 |
-| Line of Sight | 14 |
-| **Build speed** | 1.0 |
-| **Gathering speed** | 1.0 |
-| Cost | 50 Supplies |
-| Pop cost | 1 |
-
-### Scout
-
-| Field | Value |
-|------|-------|
-| Class | `human_scout` |
-| HP | 60 |
-| Speed | 6.0 |
-| Training time | 4 s |
-| Armor type | infantry_light |
-| Damage | 2 (melee) — **gated behind the `ArmedScouts` Hall research**; unarmed (0 damage, never auto-engages) until it completes |
-| Defense | 0 / 0 / 0 / 0 |
-| Attack range | 1.0 |
-| Line of Sight | **40** (extreme vision is the role). Scout-Sight ramp: 25 % of LOS while moving, ramping to max over 25 s while standing still and unharmed. **Pre-`ScoutingCelestarii` (2026-08-02):** settled max capped at **80 %** of LOS and the ramp fills **half as fast**; the Celestarii research restores full max and ramp speed. |
-| Cost | 55 Supplies |
-| Pop cost | 1 |
-
-### Spearman (replaces Swordsman)
-
-| Field | Value |
-|------|-------|
-| Class | `human_melee` |
-| HP | 120 |
-| Speed | 5.5 |
-| Training time | 7 s |
-| Armor type | infantry_heavy |
-| Damage | 10 (melee) |
-| Attack speed | 1.5 s cooldown |
-| Defense (M/R/S/Mg) | 1 / 0 / 0 / 0 |
-| Attack range | **1.5** (slightly longer than sword â€” spear reach) |
-| Line of Sight | 16 |
-| Cost | 80 Supplies + 30 Iron |
-| Pop cost | 1 |
-| Notes | Bonus vs cavalry: applied via existing `melee` vs `cavalry` modifier (0.9). No extra-anti-cav bonus in Age 0 â€” added later via tech. |
-
-### Archer
-
-| Field | Value |
-|------|-------|
-| Class | `human_ranged` |
-| HP | 90 |
-| Speed | 5.2 |
-| Training time | 15 s |
-| Armor type | ranged |
-| Damage | 17 (ranged) |
-| Attack speed | 2.0 s cooldown |
-| Defense | 0 / 1 / 0 / 0 |
-| Attack range | 25 (28.75 with Fletching) |
-| Min attack range | 10 |
-| Line of Sight | 30 |
-| Cost | 50 Supplies + 25 Iron |
-| Pop cost | 1 |
-| Active skill (post **Choreographed volleys**) | Halve cooldown to 1.0 s for 5 s, then 60 s cooldown. A unit active: every ranged unit carries it and it reaches allied ranged units within 15 m ([Spells.md](Spells.md) §9). |
-
-### Litharch
-
-| Field | Value |
-|------|-------|
-| Class | `human_support` |
-| HP | 120 |
-| Speed | 5.5 |
-| Training time | 7 s |
-| Armor type | ranged |
-| Damage | **0 (Litharchs cannot attack â€” they are pure healers)**. The **Warrior priests** tech is what grants them an attack ability: **6 damage / 1.5 s**. Even armed, a Litharch never goes looking for a fight: it only returns fire on an attacker in reach and never chases ([Stances.md § 1b](Stances.md#1b-support-units)). |
-| Heal | 6 HP / s on target (single-target right-click heal). Shrine's *aura* heal is separate. |
-| Defense (M/R/S/Mg) | 0 / 0 / 0 / 2 |
-| Attack range | 10 (heal range; `healRange` in `Litharch.asset`) |
-| Healer positioning | Walks to a stand-off point **2 m inside** heal range on the patient-to-Litharch line (never onto the patient); prefers wounded allies **not in melee contact** (no enemy within 3 m of them); **steps 6 m away** from any armed enemy within **5 m**; auto-searches wounded allies within **16 m**. On Hold it heals only what is already in range. A move order always wins. Tunables: `LitharchHealingSystem.asset`. |
-| Line of Sight | 20 |
-| Cost | 100 Supplies + 25 Iron + 10 Veilstone |
-| Pop cost | 1 |
-| Trains at | Shrine of Ridan |
-
----
-
-## Age-up transitions
-
-At age-up the player chooses a culture (Runai / Feraldis / Alanthor) and the
-pre-culture buildings standing on the map are renamed, reskinned, and become
-the lvl 1 form of their cultured variant. Detailed per-level stats for those
-cultured forms belong to the Age 1 docs â€” included here only as the rename
-map so the Age 0 build order can be planned forward.
-
-| Age 0 building | Alanthor (lvl 1) | Runai (lvl 1) | Feraldis (lvl 1) |
-|----------------|------------------|---------------|------------------|
-| Hall | Town Hall | Trader's Hall | Warrior's Hall |
-| Barracks | Garrison | Route Guard | War Hall |
-| ~~Archery Range~~ | *(**not a carryover** — Alanthor-only, era 2. Runai's Arrowyard and Feraldis's Thrower Camp are separate buildings, not renames. 2026-08-27)* | — | — |
-
-> **Names corrected 2026-08-27.** This table previously read `War Hall` for the
-> cultured Hall, `Longhouse` for the cultured Barracks and `Longbow Grounds`
-> for the cultured Archery Range. The 2026-08-05 rev.4 pass moved `War Hall`
-> onto the **Barracks** and renamed the Alanthor range to **Practice Range**
-> ([Age_1_Alanthor.md](Age_1_Alanthor.md#practice-range--cultured-archery-range)),
-> which left the Feraldis Hall nameless until it was settled as
-> **Warrior's Hall**. `Feraldis_Longhouse` still exists as a standalone
-> building id — it is simply no longer the cultured Barracks.
->
-> **2026-08-27, second correction.** The Archery Range is gated to **era 2**
-> (`minEra: 2`) and never stands in Age 0 at all, so it is not a carryover and
-> has no Age 0 identity to grow out of. Alanthor therefore does **not** rename
-> it — both "Longbow Grounds" and "Practice Range" are retired. Runai's
-> Arrowyard and Feraldis's Thrower Camp are unaffected: those are their own
-> buildings, not renames of a shared one. The row above is kept only to show
-> which building the three names attach to.
-| House | House (Alanthor) â€” standard pop ladder | *(no House â€” Runai gets instant 200 pop at age-up; standing Age 0 Houses are removed)* | **House (Feraldis)** â€” exists as a **raider-spawn building only** (0 pop, since Feraldis also gets instant 200 pop at age-up). Every build / upgrade spawns autonomous Raider units that attack the closest enemy. |
-| **Gatherer's Hut** | **transforms into a wall-segment anchor** that auto-fortifies a small radius around itself | **transforms into a mobile caravan-wagon** the player drives outward to plant their first trade post (wagons output full income *while in transit* â€” this **is** Runai's age-up power spike) | persists â€” can be upgraded to **Hunting Lodge** (wildlife synergy) or **Logging Station** (forest synergy); also see Feraldis hut-to-raider note below |
-
-> **Transform, don't replace.** This is the cross-faction rule for the
-> Gatherer's Hut at age-up â€” see [Overview.md Â§ Age-up](Overview.md#age-up-transform-dont-replace).
-> The huts the player invested in during Age 0 *become* the seed of each
-> faction's mechanic; they do **not** despawn. (Earlier drafts of this doc
-> said "despawns 2 min after age-up with full refund" â€” that model is
-> retired.) Each transformation is the **only** free-territory burst the
-> faction ever gets; every subsequent trade-post / wall / raider after
-> age-up costs workers + resources at the normal rate.
-
-**Feraldis special case:** in addition to *also* gaining Hunting Lodge /
-Logging Station upgrade paths from the persistent Gatherer's Hut, the user
-design note specifies a parallel transformation â€” at age-up, a subset of
-the Feraldis player's gatherers transform into **raider/skirmisher units**
-that auto-patrol outward seeking targets. This solves Feraldis's
-"cold-start" problem (damage-income only works if there's something to
-damage) by handing the player roaming raiders the moment they choose the
-culture. Floor mechanic: **The Border creatures and nodes count as
-damage targets**, so an isolated Feraldis player can always farm
-damage-income from the border layer without contacting another player.
-
-The three **choice buildings** keep their names across cultures (no rename at
-age-up): **Vault of AlmiÃ©rra**, **Shrine of Ridan**, **Fiendstone Keep**.
-Their existing lvl 1 / 2 / 3 stats and tech tables apply unchanged after
-age-up â€” culture only adjusts their numeric modifiers (Vault yield Â±30 %,
-Shrine heal Â±30 %, Keep HP & arrows Â±50 %).
-
----
-
-## Decisions (resolved 2026-05-19)
-
-The original Age 0 open-questions pass was reviewed and answered. Each
-decision is folded into the doc body above; this block is the **decision
-record**. Cross-faction items are flagged.
-
-1. **Stone weapons / Stone-tipped arrows "unit upgrade 1" stat line** â€”
-   **resolved.** These techs **unlock** a per-battalion / per-unit
-   upgrade ladder (Stone â†’ Iron â†’ Veilstone â†’ Glow-infused) per the
-   cross-faction rule in [Overview.md Â§ Per-battalion upgrades](Overview.md#per-battalion-military-upgrades-cross-faction-rule).
-   Per-tier stat numbers TBD; see Age 1 culture docs for the full
-   ladder.
-2. **Warrior priests Litharch damage** â€” **resolved.** Litharch has
-   **0 damage by default** (pure healer). The **Warrior priests** tech
-   is what grants attack ability: 6 damage / 1.5 s (adopted
-   2026-09-26 from the suggestion above).
-3. **Fiendstone Keep base ranged stats** â€” **resolved.** Bump to:
-   **range 30** (from 25), **max targets 4** (from 3). Damage and
-   cooldown stay (20 dmg / 2.0 s). Emplacement techs still add separate
-   shots per cooldown on top.
-4. **Vault interest model** â€” **resolved.** Confirmed **compound
-   interest** with the formula `next = current Ã— (1 + rate / 100)` per
-   minute. Worked example from review: at 60 % rate, depositing 100
-   yields 160 after the first minute (and 256 after two minutes â€”
-   compound, not flat).
-5. **Banking tier names** â€” **resolved.** Three thematic names picked
-   for the three rate-tiers: **Coffers** (50 %), **Merchant Charters**
-   (75 %), **Sovereign Bonds** (100 %). The three resource-unlock techs
-   (Iron Subsidies / Veilstone monetization / Veilsteel Bonds) keep
-   their existing names.
-6. **Feraldis housing in early game** â€” **resolved.** Feraldis pop is
-   set to **200 (the game cap) instantly at age-up** â€” no building is
-   required for pop. Houses still exist for Feraldis (per
-   [Age_1_Feraldis.md Â§ House](Age_1_Feraldis.md#house-feraldis--raider-spawn-building-not-a-pop-source)) but only as a **raider-spawn mechanic**, not a pop source.
-   **Cross-faction impact:** Runai also gets instant 200 pop at age-up
-   (Runai has no House at all). See [Overview.md Â§ Population model](Overview.md#population-model-cross-faction-summary).
-7. **Gatherer's Hut on age-up** â€” **resolved.** Huts do not despawn;
-   they **transform** per culture (wall-anchor / wagon / Hunting Lodge
-   or Logging Station). See [Â§ Age-up transitions](#age-up-transitions).
-
-## Remaining open questions
-
-- **Per-tier stat numbers** for the unit-upgrade ladders (Stone /
-  Iron / Veilstone / Glow weapons + Stone-tipped / Iron-tipped /
-  Veilstone-tipped / Glow-tipped arrows + Tools 4-tier). Numbers TBD
-  per playtest; the *unlock* mechanic is set.
-- **Warrior priests Litharch damage** (Q#2) â€” 6 damage / 1.5 s adopted
-  2026-09-26; revisit in playtest.
-- **Fiendstone Keep range bump validation** (Q#3) â€” 30 range with 4 max
-  targets is a meaningful buff vs the prior 25 range / 3 targets. Worth
-  a playtest pass to confirm it doesn't make the Keep dominant in
-  Age 0 vs raw Vault / Shrine picks.
----
-
-## Choice-building leveling (directive 2026-07-04)
-
-The generic L1/L2/L3 ladders above are superseded for the three choice
-buildings by the following:
-
-### Fiendstone Keep ï¿½ levels via WINGS
 The Keep levels up by BUILDING WINGS. The player chooses up to THREE wings
 out of six (each wing type at most once):
 
@@ -842,17 +415,129 @@ out of six (each wing type at most once):
 |------|--------|
 | **War wing** | Allows training of Barracks / Archery Range / Stable units at the Keep. |
 | **Civic wing** | Keep generates Supplies and trains Workers. |
-| **Engineers wing** | Gains three ballista emplacements (extra bolts per volley) and more HP (+25%). |
+| **Engineers wing** | Gains ballista emplacements (extra bolts per volley) and more HP. |
 | **Economic wing** | Behaves as a Gatherer's Hut with a larger area; economic buffs. *(v1: flat Supplies income)* |
-| **Librarians' wing** | Additional researches available at the Keep (Hall economy techs); speeds up research globally (+20%). |
-| **Temple wing** | Allows training of every unlocked sect unit *(pending sect Unit lever, task-063 phase 2 ï¿½ v1 trains Litharchs)*; yields **+1 RP** when built. |
+| **Librarians' wing** | Additional researches available at the Keep (the capital's economy techs); speeds up research globally. |
+| **Temple wing** | Allows training of every unlocked sect unit *(pending sect Unit lever, task-063 phase 2 — v1 trains Litharchs)*; yields Religion Points when built. |
 
-### Vault of Almierra ï¿½ simple upgrade (2 levels)
-Dramatically increases interest yields (x1.5 / x2.0 on the active banking
-grade). *(The former wall-enclosure income boost was dropped 2026-07-06
-with the compartment-income mechanic â€” see Overview.md Â§ The influence map.)*
+Wing values are in `KeepWingConfig`.
 
-### Shrine of Ridan ï¿½ simple upgrade (2 levels)
-Upgrading the Shrine also upgrades Litharchs and their powers (heal rate
-+25% / +50%) and the Shrine aura itself (+25% / +50%), and reduces sect
-power cooldowns (-10% / -20%).
+---
+
+## Units (Age 0)
+
+Every stat is on the unit SO; the rules below are what the SOs must respect.
+
+### Worker
+
+The one Age 0 economy unit, and **the only builder** (decision: the Miner and
+the Builder are gone; nobody gathers — income is territory, slots and
+extractors). AI workers find building sites on their own; player workers need
+an order, except that they auto-chain to nearby unfinished structures within
+line of sight. SO: `Age0/Buildings/Fortress/Units/Worker/Worker.asset`.
+
+### Scout
+
+Extreme line of sight is the role. **Unarmed until Armed Scouts** (decision
+13): a Scout has no damage and never auto-engages until that research
+completes, after which every Scout — standing or newly trained — has the
+damage the tech's effect sets. **Scout Sight:** a reduced share of LoS while
+moving, ramping to the full radius while standing still and unharmed; before
+**Scouting Celestarii** the settled maximum and the ramp speed are reduced,
+and the research restores them (2026-08-02). Ramp values on the Scout Sight
+ability SO.
+
+### Spearman
+
+The Age 0 line infantry (it replaced the Swordsman in Age 0; the Swordsman is
+Alanthor's Garrison unit). Spear reach — slightly longer than a sword. Its
+**bonus vs Cavalry** is the infantry leg of the counter triangle
+([Combat_Pacing.md](Combat_Pacing.md)).
+
+### Litharch
+
+Trains at the Temple of Ridan. **A pure healer by default — no attack** until
+**Warrior Priests** grants one. Even armed, a Litharch never goes looking for a
+fight: it only returns fire on an attacker in reach and never chases
+([Stances.md § 1b](Stances.md#1b-support-units)). Single-target right-click
+heal (`healRange` on `Litharch.asset`); the Temple's aura heal is separate.
+
+**Healer positioning:** walks to a stand-off point inside heal range on the
+patient-to-Litharch line (never onto the patient); prefers wounded allies
+**not in melee contact**; **steps away** from any armed enemy that comes
+close; auto-searches wounded allies nearby. On Hold it heals only what is
+already in range. A move order always wins. Tunables:
+`LitharchHealingSystem.asset`.
+
+---
+
+## Age-up transitions
+
+At age-up the pre-culture buildings standing on the map are renamed,
+reskinned, and become **level 1 (free)** of their cultured variant. The
+per-level data of those cultured forms is on the culture's level SOs; this is
+only the rename map so the Age 0 build order can be planned forward.
+
+| Age 0 building | Alanthor (lvl 1) | Runai (lvl 1) | Feraldis (lvl 1) |
+|----------------|------------------|---------------|------------------|
+| Shelter | Fortress | Fortress | Fortress |
+| Barracks | Garrison | Route Guard | War Hall |
+| House | House (Alanthor) — level ladder | *(no House — Runai get the full population cap at age-up; standing Age 0 Houses are removed)* | **House (Feraldis)** — a **raider-spawn building only** (no population). Every build / upgrade spawns autonomous Raider units that attack the closest enemy. |
+| Gatherer's Hut | **Guild** (levels + the Guild research lines) | **transforms into a mobile caravan-wagon** the player drives outward to plant their first trade post | persists — can be upgraded to **Hunting Lodge** or **Logging Station** |
+| Mine | Mine (Alanthor levels) | Mine | Mine |
+| Veilstone Mine | **Trading Outpost** (Alanthor never mine veilstone) | Veilstone Mine | Veilstone Mine |
+| Palisade | stays timber; no new palisade | stays timber; no new palisade | keeps building palisades |
+
+> **The capital (2026-10-03).** The Shelter becomes the **Fortress** for every
+> culture, automatically at age-up; there are no per-culture capital names.
+>
+> **The Archery Range is not a carryover.** It is gated to **era 2** and never
+> stands in Age 0, so there is nothing to rename (2026-08-27). Runai's
+> Arrowyard and Feraldis's Thrower Camp are their own buildings.
+
+> **Transform, don't replace.** This is the cross-faction rule for the
+> Gatherer's Hut at age-up — see [Overview.md § Age-up](Overview.md#age-up-transform-dont-replace).
+> The huts the player invested in during Age 0 *become* the seed of each
+> faction's mechanic; they do **not** despawn.
+
+**Feraldis special case:** in addition to the Hunting Lodge / Logging Station
+upgrade paths, a subset of the Feraldis player's gatherers transform into
+**raider/skirmisher units** at age-up that auto-patrol outward seeking
+targets. This solves Feraldis's "cold-start" problem (damage-income only
+works if there's something to damage). Floor mechanic: **The Border creatures
+and nodes count as damage targets**, so an isolated Feraldis player can always
+farm damage-income from the border layer without contacting another player.
+
+The **landmarks** keep their names across cultures (no rename at age-up):
+**Vault of Almiérra**, **Fiendstone Keep**. The Temple of Ridan likewise keeps
+its name.
+
+---
+
+## Decisions (resolved 2026-05-19, revised 2026-10-03)
+
+1. **Stone Weapons / Stone-Tipped Arrows** — originally "unlock a
+   per-battalion upgrade ladder". **Superseded 2026-10-03 (decision 31):**
+   per-battalion upgrades are dropped; every weapon / arrow / armour tier is a
+   faction-wide tech whose effect is on its SO.
+2. **Warrior Priests** — the Litharch has no attack by default; Warrior
+   Priests grants one (values on the tech SO).
+3. **Fiendstone Keep** — out of scope until the Feraldis pass (decision 38).
+4. **Vault interest model** — **compound interest**,
+   `next = current × (1 + rate)` per minute, applying from level 1 and
+   growing with level (decision 12).
+5. **Banking tier names** — **Coffers**, **Merchant Charters**, **Sovereign
+   Bonds** (the three grades); Iron Subsidies / Veilstone Monetization /
+   Veilsteel Bonds are the resource unlocks.
+6. **Feraldis housing in early game** — Feraldis and Runai get the full
+   population cap instantly at age-up; Feraldis Houses are raider spawners
+   only ([Age_1_Feraldis.md](Age_1_Feraldis.md)). See
+   [Overview.md § Population model](Overview.md).
+7. **Gatherer's Hut on age-up** — huts do not despawn; they **transform** per
+   culture (Guild / wagon / Hunting Lodge or Logging Station). See
+   [§ Age-up transitions](#age-up-transitions).
+
+## Remaining open questions
+
+- **Ward** (planned) — design and price.
+- **Thessara's Crossing** (the Runai landmark) — design TBD.

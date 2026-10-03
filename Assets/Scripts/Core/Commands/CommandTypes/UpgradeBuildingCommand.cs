@@ -210,13 +210,13 @@ namespace TheWaningBorder.Core.Commands.Types
         // ──────────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Map building entity -> upgrade-system-known id ("Hall" / "Barracks"
+        /// Map building entity -> upgrade-system-known id ("Fortress" / "Barracks"
         /// / "Hut"). Uses the marker tag components rather than presentation
         /// id so the lookup keeps working through any future re-skinning.
         /// </summary>
         public static string ResolveBuildingId(EntityManager em, Entity e)
         {
-            if (em.HasComponent<HallTag>(e))         return "Hall";
+            if (em.HasComponent<HallTag>(e))         return "Fortress";
             if (em.HasComponent<BarracksTag>(e))     return "Barracks";
             if (em.HasComponent<ArcheryRangeTag>(e)) return "ArcheryRange";
             if (em.HasComponent<HutTag>(e))          return "Hut";
@@ -228,7 +228,6 @@ namespace TheWaningBorder.Core.Commands.Types
             if (em.HasComponent<RoyalStableTag>(e))  return "Alanthor_RoyalStable";
             if (em.HasComponent<WatchTowerTag>(e))   return "Alanthor_Tower";
             if (em.HasComponent<SiegeYardTag>(e))    return "Alanthor_SiegeYard";
-            if (em.HasComponent<SmelterTag>(e))      return "Alanthor_Smelter";
             return string.Empty;
         }
 

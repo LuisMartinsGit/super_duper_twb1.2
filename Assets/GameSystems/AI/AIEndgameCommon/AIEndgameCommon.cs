@@ -60,17 +60,10 @@ namespace TheWaningBorder.AI
             return Entity.Null;
         }
 
-        // ──────────────────────────────────────────────────────────────────
-        // TEMPLE LADDER
-        // ──────────────────────────────────────────────────────────────────
-
-        private static readonly Dictionary<Faction, int> _templeBlockTicks = new();
-
-        /// <summary>Drop the temple back-off counters. Per match, from
+        /// <summary>Drop the per-match back-off counters. Per match, from
         /// AIBootstrap — same reason as AIPivotalReserve.Initialize.</summary>
         public static void Initialize()
         {
-            _templeBlockTicks.Clear();
             _riteBlockedUntil.Clear();
         }
 
@@ -217,61 +210,6 @@ namespace TheWaningBorder.AI
 
         #endregion
 
-        /// <summary>
-        /// Climb the Temple of Ridan one level, at most one attempt per tick.
-        /// Era progression, sect levers and the culture's ritualist all hang
-        /// off temple level, so this is the victory path for both cultures.
-        ///
-        /// Deliberately NOT budget-windowed (2026-08-11): the 500-1200 supply
-        /// single spends starved inside the Advancement window's weighted
-        /// share. Bank affordability still gates, and a short bank RESERVES
-        /// the cost so discretionary spending holds until the lump forms.
-        ///
-        /// Every guard here is load-bearing — without the in-progress and
-        /// UnderConstruction checks this re-fires the upgrade command on every
-        /// think tick (the bug the Feraldis copy shipped with).
-        /// </summary>
-        public static void TryLevelTemple(EntityManager em, Faction faction)
-        {
-            Entity temple = FindFactionBuilding<TempleOfRidanTag>(em, faction);
-            if (temple == Entity.Null
-                || !em.HasComponent<TempleLevel>(temple)
-                || em.HasComponent<UnderConstruction>(temple)
-                || em.HasComponent<TempleUpgradeState>(temple)
-                || em.GetComponentData<TempleLevel>(temple).Level >= TempleLevelConfig.MaxLevel)
-            {
-                // No fundable goal right now — never hold the economy for it.
-                AIPivotalReserve.Clear(faction, "Temple");
-                return;
-            }
-
-            int level = em.GetComponentData<TempleLevel>(temple).Level;
-            var cost = TempleLevelConfig.GetUpgradeCost(level);
-            // Affordability CHECK only — TempleUpgradeCommandDirect spends
-            // on every peer (docs/Multiplayer_LAN_Readiness.md). The
-            // reserve bookkeeping below is unchanged: a short bank still
-            // holds the lump for the temple.
-            if (!FactionEconomy.CanAfford(em, faction, cost))
-            {
-                AIPivotalReserve.Set(faction, "Temple", cost);
-                _templeBlockTicks.TryGetValue(faction, out int ticks);
-                if (++ticks >= 12)   // ~1 minute at the 5 s think interval
-                {
-                    ticks = 0;
-                    AILogger.Log(faction, "BUILDING",
-                        $"Temple L{level + 1} blocked ~1 min (bank short: " +
-                        $"{cost.Supplies}s {cost.Iron}i {cost.Veilstone}v)");
-                }
-                _templeBlockTicks[faction] = ticks;
-                return;
-            }
-            _templeBlockTicks.Remove(faction);
-            AIPivotalReserve.Clear(faction, "Temple");
-
-            CommandRouter.IssueTempleUpgrade(em, temple, CommandSource.AI);
-            AILogger.Log(faction, "BUILDING", $"Temple upgrading to L{level + 1}");
-        }
-
         // ──────────────────────────────────────────────────────────────────
         // SECT ADOPTION
         // ──────────────────────────────────────────────────────────────────
@@ -406,7 +344,7 @@ namespace TheWaningBorder.AI
             // SPACED, AND SNAPSHOT-BACKED (2026-09-25). This search took the
             // first spot IsValidBuildPosition accepted — footprints could sit
             // flush against each other, which is most of the "AI bases are
-            // cramped" look for the endgame buildings (smelters, sect halls,
+            // cramped" look for the endgame buildings (sect halls,
             // houses). It now wants the same edge-to-edge lane the base
             // placer keeps (buildingGapCells), falling back to the relaxed
             // one-cell seam, never to flush. And each candidate reads the

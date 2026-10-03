@@ -24,7 +24,7 @@ MonoBehaviour:
   defense:
     melee: 0
     ranged: 4
-    siege: 2
+    siege: 0
     magic: 0
   attackCooldown: 3.5
   attackRange: 26
@@ -39,6 +39,7 @@ MonoBehaviour:
     Iron: 40
     Veilstone: 0
     Veilsteel: 0
+  populationCost: 0
   minBuildingLevel: 1
   buildSpeed: 0
   gatheringSpeed: 0
@@ -49,6 +50,7 @@ MonoBehaviour:
   tags:
   - Ranged
   - Siege
+  - Heavy
   bonusVsTags:
   - vsTag: Building
     amount: 30

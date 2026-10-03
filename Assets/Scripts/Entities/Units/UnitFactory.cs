@@ -120,8 +120,8 @@ namespace TheWaningBorder.Entities
             // ram + long-range trebuchet round out the Alanthor siege line.
             r["Alanthor_BatteringRam"] = new UnitRecipe(BatteringRam.Create, BatteringRam.Create, UnitClass.Siege, 347);
             r["Alanthor_Trebuchet"]   = new UnitRecipe(Trebuchet.Create, Trebuchet.Create, UnitClass.Siege, 348);
-            r["Alanthor_Scholar"]     = new UnitRecipe(Scholar.Create, Scholar.Create, UnitClass.Magic, 382);
-            // Alanthor King's Court additions (data-driven abilities; placeholder art).
+            // Alanthor capital units, trained at the Fortress (data-driven
+            // abilities; placeholder art).
             r["Ledger"]               = new UnitRecipe(Ledger.Create, Ledger.Create, UnitClass.Economy, Ledger.PresentationID);
             var kingLexor             = new UnitRecipe(KingLexor.Create, KingLexor.Create, UnitClass.Melee, KingLexor.PresentationID);
             r["King Lexor"] = r["KingLexor"] = kingLexor;

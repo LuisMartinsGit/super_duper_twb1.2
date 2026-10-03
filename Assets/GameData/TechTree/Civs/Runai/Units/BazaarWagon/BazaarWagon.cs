@@ -69,7 +69,7 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new MoveSpeed { Value = def.speed });
             creator.AddComponent(entity, new LineOfSight { Radius = def.lineOfSight });
             creator.AddComponent(entity, new Radius { Value = def.radius });
-            creator.AddComponent(entity, new PopulationCost { Amount = 0 });
+            creator.AddComponent(entity, new PopulationCost { Amount = def.populationCost });
             creator.AddComponent(entity, new DesiredDestination { Position = float3.zero, Has = 0 });
 
             // Wagon-specific components

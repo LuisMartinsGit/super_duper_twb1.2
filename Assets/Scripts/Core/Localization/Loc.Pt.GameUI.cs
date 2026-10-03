@@ -190,8 +190,8 @@ namespace TheWaningBorder.Core.Localization
                 "<s>1. Construa um edifício especial</s>";
             t["1. Build a special building - under construction"] =
                 "1. Construa um edifício especial - em construção";
-            t["1. Build a special building (Shrine / Vault / Keep)"] =
-                "1. Construa um edifício especial (Santuário / Cofre / Fortaleza)";
+            t["1. Build a special building (Vault / Keep)"] =
+                "1. Construa um edifício especial (Cofre / Fortaleza)";
             t["<s>2. Select a culture and age up</s>"] =
                 "<s>2. Selecione uma cultura e avance de era</s>";
             t["2. Advancing to Era 2 - {0}%"] = "2. A avançar para a Era 2 - {0}%";

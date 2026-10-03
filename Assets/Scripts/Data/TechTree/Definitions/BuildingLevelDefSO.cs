@@ -26,7 +26,7 @@ namespace TheWaningBorder.Data
     {
         // ── Which building, which culture, which level ──
         /// <summary>The ladder's building id — the Age 0 id the entity keeps
-        /// ("Hut", "Hall", "Barracks"), not the cultured name.</summary>
+        /// ("Hut", "Fortress", "Barracks"), not the cultured name.</summary>
         public string buildingId;
         /// <summary>"Alanthor" / "Runai" / "Feraldis".</summary>
         public string culture;
@@ -52,6 +52,14 @@ namespace TheWaningBorder.Data
         public int maxTargets;
         /// <summary>Population this level provides; 0 = not a provider.</summary>
         public int populationProvided;
+        /// <summary>What a resource slot pays per minute with this level of
+        /// the building on it — replaces the base building's rung for this
+        /// culture (Alanthor's Guild 70/100/200, its Mines 140/200/400). Read
+        /// only for the extractors; 0 on every other ladder.</summary>
+        public float slotIncomePerMinute;
+        /// <summary>Scales the building's interestPerMinute at this level (the
+        /// Vault of Almierra). Read only for the Vault; 0 elsewhere.</summary>
+        public float interestMultiplier;
 
         /// <summary>An attack AUTHORED for this level, replacing the scaled one
         /// (the Watch Tower ladder; the Garrison's level-3 arrows).

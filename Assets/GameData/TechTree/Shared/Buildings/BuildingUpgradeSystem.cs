@@ -67,7 +67,7 @@ namespace TheWaningBorder.Systems.Buildings
             // helper uses.
             if (em.HasComponent<FactionTag>(building))
             {
-                string id = em.HasComponent<HallTag>(building)     ? "Hall"
+                string id = em.HasComponent<HallTag>(building)     ? "Fortress"
                          :  em.HasComponent<BarracksTag>(building) ? "Barracks"
                          :  em.HasComponent<HutTag>(building)      ? "Hut"
                          :                                           "Building";

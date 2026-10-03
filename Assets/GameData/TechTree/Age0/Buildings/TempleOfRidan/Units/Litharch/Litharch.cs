@@ -12,7 +12,7 @@ namespace TheWaningBorder.Entities
 {
     /// <summary>
     /// Litharch - Era 1 support unit specialized in healing.
-    /// Trained at Shrine of Ridan.
+    /// Trained at the Temple of Ridan.
     ///
     /// Abilities:
     /// - Heals friendly units over time
@@ -31,7 +31,7 @@ namespace TheWaningBorder.Entities
         // Default stats (used if TechTreeDB not available).
         //
         // Damage starts at 0 per Complete.md §3.2 "Warrior priests": the
-        // Litharch has no melee attack until the Shrine tech unlocks it.
+        // Litharch has no melee attack until the Temple tech unlocks it.
         // Combined with the Damage<=0 short-circuit in TargetingSystem,
         // this keeps Litharchs from autonomously pursuing and engaging
         // enemies in their LOS — they stay in the back ranks healing.
@@ -95,7 +95,7 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new LineOfSight { Radius = los });
             creator.AddComponent(entity, new Radius { Value = def.radius });
             creator.AddComponent(entity, new AttackCooldown { Cooldown = cooldown, Timer = 0f });
-            creator.AddComponent(entity, new PopulationCost { Amount = 1 });
+            creator.AddComponent(entity, new PopulationCost { Amount = def.populationCost });
 
             // Targeting
             creator.AddComponent(entity, new Target { Value = Entity.Null });

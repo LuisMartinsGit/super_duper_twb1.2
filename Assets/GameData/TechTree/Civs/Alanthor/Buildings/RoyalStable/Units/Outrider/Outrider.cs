@@ -13,8 +13,8 @@ namespace TheWaningBorder.Entities
     /// </summary>
     public static class Outrider
     {
-        // Default stats (calculator: tools/calculator/techtree.json,
-        // id "Alanthor_Outrider" — 95 HP / 8.2 spd / 12 dmg / 1.4 cd / LoS 22).
+        // Stats come from the UnitDefSO (TechCatalog.Unit); tools/calculator is
+        // a generated read-only view of the SOs, not a source.
         public const int PresentationID = 349;
 
         public static Entity Create(EntityManager em, float3 position, Faction faction)
@@ -46,7 +46,7 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new LineOfSight { Radius = los });
             creator.AddComponent(entity, new Target { Value = Entity.Null });
             creator.AddComponent(entity, new Radius { Value = def.radius });
-            creator.AddComponent(entity, new PopulationCost { Amount = 1 });
+            creator.AddComponent(entity, new PopulationCost { Amount = def.populationCost });
             // Light cavalry: +30% damage on a connecting charge. Read by
             // CombatDamageHelper while Charging is set.
             creator.AddComponent(entity, new TheWaningBorder.Abilities.InnateChargePct { Pct = 30f });

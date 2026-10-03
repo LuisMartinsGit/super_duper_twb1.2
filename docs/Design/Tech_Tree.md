@@ -7,20 +7,30 @@
 > [task-sect-system-redesign-063](../../.deft/tasks/task-sect-system-redesign-063/task.md)
 > stabilizes).
 >
+> **The Age 0 and Alanthor charts mirror the ScriptableObjects** under
+> `Assets/GameData/TechTree/` (the single source of game data): each
+> building's `trains[]`, each tech's `researchAt` / `minBuildingLevel` /
+> prerequisites / culture gate, and each unit's `minBuildingLevel`. On a
+> conflict the SO wins. **These charts carry no stat numbers** — for costs,
+> HP, damage, times and population open the calculator generated from the
+> SOs, [tools/calculator/TechTree.html](../../tools/calculator/TechTree.html)
+> (built by `tools/gen_calculator.py`). The same structure as an interactive
+> page: [TechTreeViz.html](TechTreeViz.html).
+>
 > **Legend:**
 > - Rectangles (subgraph titles) = **buildings**
 > - Rounded `([ ])` shapes = **units** (battalion or single — per [Overview.md § Unit granularity](Overview.md#unit-granularity--single-units-vs-battalions))
 > - Hexagons `{{ }}` = **technologies**
-> - Arrow `tech_A --> tech_B` between two hex nodes = `tech_B` **requires** `tech_A` (research chain)
-> - Dotted arrow `unit_A -.-> unit_B` between two rounded nodes = `unit_B` is the **L2/L3 tier unlock** of `unit_A` at the same building (the player still trains them as separate battalions; the unlock is gated by building level, not a per-unit promotion)
-> - **❓** = name in design draft, **code mapping not yet confirmed**
-> - **⚠** = **new** — does not yet exist in code
+> - Plain boxes inside a wall subgraph = **wall pieces** (segments, conversions)
+> - Arrow `tech_A --> tech_B` between two hex nodes = `tech_B` **requires** `tech_A` (the tech SO's prerequisite)
+> - **L1 / L2 / L3** on a unit or tech = the **building level** it needs (the SO's `minBuildingLevel`, the only level gate); no label = no level gate
+> - **(all)** on an Age 1 tech = an Age 0 tech every culture keeps; the other techs on the Alanthor page are **Alanthor-gated** on the tech SO, or sit on an Alanthor-only building (the Archery Range's Fletching / Choreographed Volleys / Stone-Tipped Arrows)
+> - **❓** = name in design draft, **code mapping not yet confirmed** (Runai / Feraldis pages)
+> - **⚠** = **new** — does not yet exist in code (Runai / Feraldis pages)
 >
-> Tech-tier hex chains (Stone → Iron → Veilstone → Glow / Veilsteel) follow
-> the **per-battalion upgrade pattern** ([Overview.md § Per-battalion upgrades](Overview.md#per-battalion-military-upgrades-cross-faction-rule))
-> — researching the hex unlocks an upgrade button on each existing battalion;
-> upgrades are paid for **per-battalion** when applied. Glow-tier techs
-> additionally require Glow from border-node interactions ([Overview.md § Glow economy](Overview.md#the-glow-economy-cross-faction)).
+> Techs are **faction-wide**: researching one applies to every unit it
+> covers, existing and future. (The old per-battalion upgrade pattern is
+> dropped.)
 >
 > Open in VSCode (built-in Mermaid preview ⌃⇧V on the file), GitHub, or any
 > Mermaid-aware viewer.
@@ -29,20 +39,29 @@
 
 ## 1 — Age-up transitions (buildings only)
 
+The Alanthor column follows the SOs. The Runai and Feraldis columns are
+not yet reconciled with the SO roster: their ranged buildings (Arrowyard,
+Thrower Camp) have no Age 0 source, because Age 0 has no Archery Range.
+
 ```mermaid
 flowchart LR
-    Hall0["Hall"]
+    Cap0["Shelter"]
     Bar0["Barracks"]
-    AR0["Archery Range"]
     H0["House"]
     GH0["Gatherer's Hut"]
+    VM0["Veilstone Mine"]
+    Mi0["Mine"]
+    Pal0["Palisade"]
 
     subgraph Alanthor
-        TH_A["Town Hall"]
+        TH_A["Fortress L1-L3"]
         Gar["Garrison"]
-        LG_A["Longbow Grounds<br/>= Practice Range"]
-        H_A["House (Alanthor)"]
-        WallA["Wall-Anchor ⚠"]
+        H_A["House Lvl 1-3"]
+        Guild_A["Guild"]
+        TO_A["Trading Outpost"]
+        Mi_A["Mine (persists)"]
+        Pal_A["Palisade (persists)"]
+        New_A["New at Age 1:<br/>Archery Range, Royal Stable,<br/>Siege Yard, Watch Tower,<br/>Stone Wall + emplacements"]
     end
 
     subgraph Runai
@@ -66,13 +85,15 @@ flowchart LR
         FR_F["Raiders ⚠<br/>(auto-spawn)"]
     end
 
-    Hall0 ==> TH_A & TrH & WH_F
+    Cap0 ==> TH_A & TrH & WH_F
     Bar0 ==> Gar & RG_R & LH_F
-    AR0 ==> LG_A & AY_R & TC_F
     H0 ==> H_A
     H0 ==>|"raider-spawn only;<br/>pop = instant 200 cap"| H_F
     H0 -.->|"removed at age-up;<br/>Runai pop = instant 200"| NoHouse_R
-    GH0 ==> WallA
+    GH0 ==> Guild_A
+    VM0 ==> TO_A
+    Mi0 ==> Mi_A
+    Pal0 ==> Pal_A
     GH0 ==> Wagon
     GH0 ==> FGH_F
     GH0 -.->|"also spawns"| FR_F
@@ -86,73 +107,85 @@ flowchart LR
 ## 2 — Age 0 tech tree (shared by all factions)
 
 Every player starts here. Build any of the three Choice buildings to enable
-age-up.
+age-up. The capital is the **Shelter** (id `Fortress`); at age-up it
+becomes the **Fortress** automatically, for every culture (same building).
+There is no Hall, King's Court or Town Hall, and no Shrine of Ridan. Age 0
+is the melee age: there is **no Archery Range** before age-up. The Mine and
+the Veilstone Mine are Age 0 buildings for everyone.
 
 ```mermaid
 flowchart TB
-    subgraph Hall0["Hall — lvl 0"]
+    subgraph Cap0["Shelter (capital, id Fortress)"]
         direction TB
         h_w(["Worker"])
         h_s(["Scout"])
-        h_t1{{"Stone tools"}}
-        h_t3{{"Research Era II"}}
+        h_t1{{"Stone Tools"}}
+        h_t2{{"Armed Scouts"}}
     end
 
-    subgraph Bar0["Barracks — lvl 0"]
+    subgraph Bar0["Barracks"]
         direction TB
         b_sp(["Spearman"])
         b_t1{{"Conscription"}}
-        b_t2{{"Stone weapons"}}
+        b_t2{{"Stone Weapons"}}
     end
 
-    subgraph AR0["Archery Range — lvl 0"]
-        direction TB
-        a_ar(["Archer"])
-        a_t1{{"Choreographed volleys"}}
-        a_t2{{"Stone-tipped arrows"}}
-        a_t3{{"Fletching"}}
-    end
-
-    subgraph House0["House — lvl 0"]
+    subgraph House0["House (id Hut)"]
         direction TB
         ho_note["(provides population)"]
     end
 
-    subgraph GH0["Gatherer's Hut — lvl 0"]
+    subgraph GH0["Gatherer's Hut"]
         direction TB
-        gh_note["(supply trickle)"]
+        gh_note["(territory income;<br/>no research in Age 0)"]
     end
 
-    subgraph Vault0["Vault of Almiérra — choice, lvl 1"]
+    subgraph Mine0["Mine (iron)"]
+        direction TB
+        mi_t1{{"Deep Shafts"}}
+        mi_t2{{"Rich Seams"}}
+        mi_t1 --> mi_t2
+    end
+
+    subgraph VMine0["Veilstone Mine"]
+        direction TB
+        vm_note["(Alanthor: becomes a<br/>Trading Outpost at age-up)"]
+    end
+
+    subgraph Pal0["Palisade (timber wall)"]
+        direction TB
+        pal_seg["Palisade Section"]
+        pal_gate["Wall Gate (conversion)"]
+    end
+
+    subgraph Vault0["Vault of Almiérra — choice"]
         direction TB
         v_t1{{"Coffers"}}
         v_t2{{"Merchant Charters"}}
         v_t3{{"Sovereign Bonds"}}
         v_t4{{"Iron Subsidies"}}
-        v_t5{{"Veilstone monetization"}}
-        v_t6{{"Veilsteel Bonds"}}
-        v_t1 --> v_t2 --> v_t3
-        v_t4 --> v_t5 --> v_t6
+        v_t5{{"Veilstone Monetization · L2"}}
+        v_t6{{"Veilsteel Bonds · L3"}}
     end
 
-    subgraph Shrine0["Temple of Ridan — choice, lvl 1 (caps at L3)"]
+    subgraph Temple0["Temple of Ridan — choice (one per faction, no levels)"]
         direction TB
-        s_lith(["Litharch<br/>(0 damage by default)"])
-        s_t1{{"Heightened masses"}}
-        s_t2{{"Pious masses"}}
-        s_t3{{"Fervored masses"}}
-        s_t4{{"Warrior priests"}}
+        s_lith(["Litharch<br/>(healer)"])
+        s_t1{{"Heightened Masses"}}
+        s_t2{{"Pious Masses"}}
+        s_t3{{"Fervored Masses"}}
+        s_t4{{"Warrior Priests"}}
         s_t1 --> s_t2 --> s_t3
     end
 
-    subgraph Keep0["Fiendstone Keep — choice, lvl 1<br/>(range 30, 4 max targets)"]
+    subgraph Keep0["Fiendstone Keep — choice<br/>(awaiting the Feraldis pass)"]
         direction TB
         k_sp(["Spearman"])
-        k_ar(["Archer"])
-        k_t1{{"Ballista emplacement"}}
-        k_t2{{"Trebuchet emplacement"}}
+        k_t1{{"Ballista Emplacement"}}
+        k_t2{{"Trebuchet Emplacement"}}
         k_t3{{"Additional Towers"}}
-        k_t4{{"Reinforced walls"}}
+        k_t4{{"Reinforced Walls"}}
+        k_t1 --> k_t2
     end
 ```
 
@@ -160,109 +193,191 @@ flowchart TB
 
 ## 3 — Alanthor (Age 1)
 
-Defensive culture. The Wall family, long-range archery, and a four-tier
-Tools / Weapons ladder define the Alanthor late game. *(Plus the three
-Choice buildings from Age 0 — Vault / Shrine / Keep — persist with their
-Alanthor culture modifiers: +30 % Vault yield, neutral Shrine, −50 %
-Keep HP & arrows.)*
+Defensive culture. The stone wall family, the Archery Range ladder and the
+Iron → Veilstone → Shard equipment ladders define the Alanthor late game.
+*(Plus the three Choice buildings from Age 0 — Vault / Temple / Keep —
+persist, with the Alanthor culture modifiers on their SOs; the Mine and
+the Palisade persist unchanged.)* Every culture building's L1 is free at
+age-up. There is no Smelter, Crucible or Academy: each armour ladder
+researches at the building that trains the units it protects. Alanthor
+never mine veilstone — their Veilstone Mines become **Trading Outposts**.
 
 ```mermaid
 flowchart TB
-    subgraph TH_A["Town Hall (cultured Hall)"]
+    subgraph TH_A["Fortress L1-L3 (the Shelter after age-up)"]
         direction TB
         a_w(["Worker"])
         a_s(["Scout"])
-        a_t1{{"Stone tools"}}
-        a_t2{{"Iron tools"}}
-        a_t3{{"Veilstone tools"}}
-        a_t4{{"Veilsteel tools"}}
-        a_t5{{"Wheel cart"}}
-        a_t6{{"Cranes"}}
-        a_t7{{"Mason Guild"}}
-        a_t8{{"Stone Ledgers"}}
-        a_t1 --> a_t2 --> a_t3 --> a_t4
+        a_led(["Ledger · L2"])
+        a_lex(["King Lexor · L3<br/>(hero)"])
+        a_t1{{"Stone Tools (all)"}}
+        a_t5{{"Armed Scouts (all)"}}
+        a_t8{{"Scouting Celestarii"}}
+        a_t2{{"Iron Tools · L2"}}
+        a_t7{{"Mason Guild · L2"}}
+        a_t3{{"Veilstone Tools · L3"}}
+        a_t4{{"Veilsteel Tools · L3"}}
     end
 
-    subgraph Gar["Garrison (cultured Barracks)"]
+    subgraph Gar["Garrison L1-L3 (cultured Barracks)"]
         direction TB
         a_sp(["Spearman"])
-        a_sw(["Swordsman ⚠"])
-        a_rg(["Royal Guard ⚠"])
-        a_sn(["Sentinel<br/>(parallel — damage sponge)"])
-        a_g_t1{{"Conscription"}}
-        a_g_t2{{"Academy"}}
-        a_g_t3{{"Stone weapons"}}
-        a_g_t4{{"Iron weapons"}}
-        a_g_t5{{"Veilstone weapons"}}
-        a_g_t6{{"Glow-infused weapons ⚠"}}
+        a_sw(["Swordsman · L1"])
+        a_nb(["Nobleman · L2"])
+        a_sn(["Sentinel · L3"])
+        a_g_t1{{"Conscription (all)"}}
+        a_g_t3{{"Stone Weapons (all)"}}
+        a_g_t4{{"Iron Weapons · L1"}}
+        a_g_t5{{"Veilstone Weapons · L2"}}
+        a_g_t6{{"Shard-infused Weapons · L3"}}
+        a_g_p1{{"Iron Plate · L1"}}
+        a_g_p2{{"Veilstone Plate · L2"}}
+        a_g_p3{{"Shard Plate · L3"}}
+        a_g_v1{{"Seasoned Infantry · L1"}}
+        a_g_v2{{"Veteran Infantry · L2"}}
+        a_g_v3{{"Elite Infantry · L3"}}
+        a_g_c1{{"Charge · L2"}}
+        a_g_c2{{"Shield Wall · L3"}}
         a_g_t3 --> a_g_t4 --> a_g_t5 --> a_g_t6
-        a_sp -.->|"L2 unlock"| a_sw -.->|"L3 unlock"| a_rg
+        a_g_p1 --> a_g_p2 --> a_g_p3
+        a_g_v1 --> a_g_v2 --> a_g_v3
+        a_g_c1 --> a_g_c2
     end
 
-    subgraph RS_A["Royal Stable ⚠ (new — Cataphract host)"]
-        direction TB
-        a_cat(["Cataphract"])
-        a_cav2(["L2 cavalry tier ⚠"])
-        a_cav3(["L3 cavalry tier ⚠"])
-        a_rs_t1{{"Barding (TBD name)"}}
-        a_rs_t2{{"Iron barding"}}
-        a_rs_t3{{"Veilstone barding"}}
-        a_rs_t4{{"Glow-bonded barding ⚠"}}
-        a_rs_t1 --> a_rs_t2 --> a_rs_t3 --> a_rs_t4
-        a_cat -.->|"L2 unlock"| a_cav2 -.->|"L3 unlock"| a_cav3
-    end
-
-    subgraph PR_A["Practice Range / Longbow Grounds"]
+    subgraph AR_A["Archery Range L1-L3 (new at Age 1)"]
         direction TB
         a_arc(["Archer"])
-        a_xb(["Crossbowman"])
-        a_l3r(["L3 ranged apex ⚠<br/>(Longbowman?)"])
-        a_p_t1{{"Choreographed volleys"}}
+        a_xb(["Crossbowman · L2"])
+        a_lb(["Longbowman · L3"])
+        a_p_t1{{"Choreographed Volleys"}}
         a_p_t2{{"Fletching"}}
-        a_p_t3{{"Stone-tipped arrows"}}
-        a_p_t4{{"Iron-tipped arrows ⚠"}}
-        a_p_t5{{"Veilstone-tipped arrows ⚠"}}
-        a_p_t6{{"Glow-tipped arrows ⚠"}}
+        a_p_t3{{"Stone-Tipped Arrows"}}
+        a_p_t4{{"Iron-Tipped Arrows · L1"}}
+        a_p_t5{{"Veilstone-Tipped Arrows · L2"}}
+        a_p_t6{{"Shard-Tipped Arrows · L3"}}
+        a_p_b1{{"Iron Brigandine · L1"}}
+        a_p_b2{{"Veilstone Brigandine · L2"}}
+        a_p_b3{{"Shard Brigandine · L3"}}
+        a_p_v1{{"Seasoned Archers · L1"}}
+        a_p_v2{{"Veteran Archers · L2"}}
+        a_p_v3{{"Elite Archers · L3"}}
+        a_p_av{{"Arrow Volley"}}
+        a_p_as{{"Arrow Shower · L2"}}
+        a_p_ds{{"Deploy Stakes · L3"}}
         a_p_t3 --> a_p_t4 --> a_p_t5 --> a_p_t6
-        a_arc -.->|"L2 unlock"| a_xb -.->|"L3 unlock"| a_l3r
+        a_p_b1 --> a_p_b2 --> a_p_b3
+        a_p_v1 --> a_p_v2 --> a_p_v3
+        a_p_av --> a_p_as
     end
 
-    subgraph H_A["House (Alanthor)"]
+    subgraph RS_A["Royal Stable L1-L3"]
+        direction TB
+        a_out(["Outrider · L1"])
+        a_cat(["Cataphract · L3"])
+        a_rs_l0{{"Stone-Barded Lances"}}
+        a_rs_l1{{"Iron-Barded Lances · L1"}}
+        a_rs_l2{{"Veilstone Lances · L2"}}
+        a_rs_l3{{"Shard-infused Lances · L3"}}
+        a_rs_t2{{"Iron Barding · L1"}}
+        a_rs_t3{{"Veilstone Barding · L2"}}
+        a_rs_t4{{"Shard Barding · L3"}}
+        a_rs_v1{{"Seasoned Cavalry · L1"}}
+        a_rs_v2{{"Veteran Cavalry · L2"}}
+        a_rs_v3{{"Elite Cavalry · L3"}}
+        a_rs_ch{{"Charge · L1"}}
+        a_rs_wh{{"War Horn · L2"}}
+        a_rs_fg{{"Full Gallop · L3"}}
+        a_rs_l0 --> a_rs_l1 --> a_rs_l2 --> a_rs_l3
+        a_rs_t2 --> a_rs_t3 --> a_rs_t4
+        a_rs_v1 --> a_rs_v2 --> a_rs_v3
+        a_rs_wh --> a_rs_fg
+    end
+
+    subgraph SY_A["Siege Yard L1-L3 (all four engines coexist)"]
+        direction TB
+        a_bal(["Ballista · L1"])
+        a_cpt(["Catapult · L1"])
+        a_ram(["Battering Ram · L2"])
+        a_tre(["Trebuchet · L3"])
+        a_sy_s0{{"Stone Shot"}}
+        a_sy_s1{{"Iron Shot · L1"}}
+        a_sy_s2{{"Veilstone Shot · L2"}}
+        a_sy_s3{{"Shard-infused Shot · L3"}}
+        a_sy_p1{{"Iron Plating · L1"}}
+        a_sy_p2{{"Veilstone Plating · L2"}}
+        a_sy_p3{{"Shard Plating · L3"}}
+        a_sy_v1{{"Seasoned Crews · L1"}}
+        a_sy_v2{{"Veteran Crews · L2"}}
+        a_sy_v3{{"Elite Crews · L3"}}
+        a_sy_rb{{"Reinforced Bolts · L1"}}
+        a_sy_ir{{"Iron-Shod Ram · L2"}}
+        a_sy_rs{{"Ranging Shot · L2"}}
+        a_sy_sc{{"Siege Screens · L3"}}
+        a_sy_ct{{"Counterweight Tuning · L3"}}
+        a_sy_s0 --> a_sy_s1 --> a_sy_s2 --> a_sy_s3
+        a_sy_p1 --> a_sy_p2 --> a_sy_p3
+        a_sy_v1 --> a_sy_v2 --> a_sy_v3
+        a_sy_rs --> a_sy_sc
+    end
+
+    subgraph Guild_A["Guild L1-L3 (cultured Gatherer's Hut)"]
+        direction TB
+        a_gu_i1{{"Iron Surveying I"}}
+        a_gu_i2{{"Iron Survey II · L2"}}
+        a_gu_i3{{"Iron Survey III · L3"}}
+        a_gu_v1{{"Veilstone Survey I · L2"}}
+        a_gu_v2{{"Veilstone Survey II · L3"}}
+        a_gu_vs{{"Veilsteel Survey · L3"}}
+        a_gu_r1{{"Iron Reinforcements"}}
+        a_gu_r2{{"Veilstone Walls · L2"}}
+        a_gu_r3{{"Veilsteel Pylons · L3"}}
+        a_gu_i1 --> a_gu_i2 --> a_gu_i3
+        a_gu_i1 --> a_gu_v1 --> a_gu_v2 --> a_gu_vs
+        a_gu_r1 --> a_gu_r2 --> a_gu_r3
+    end
+
+    subgraph TO_A["Trading Outpost (the Veilstone Mine after age-up)"]
+        direction TB
+        a_to_t1{{"Trade Agreements I"}}
+        a_to_t2{{"Trade Agreements II"}}
+        a_to_t3{{"Trade Agreements III"}}
+        a_to_vf{{"Veilsteel Forging"}}
+        a_to_ve{{"Veilsteel Export"}}
+    end
+
+    subgraph H_A["House L1-L3 (cultured Hut)"]
         direction TB
         a_h_note["(provides population)"]
     end
 
-    subgraph WT_A["Watch Tower"]
+    subgraph WT_A["Watch Tower L1-L3"]
         direction TB
-        a_wt_note["(garrison + arrow-fire)"]
+        a_wt_note["(directly buildable;<br/>garrison adds arrows)"]
     end
 
-    subgraph Wall_A["Walls (Alanthor)"]
+    subgraph Wall_A["Stone Wall L1-L3 (Alanthor only)"]
         direction TB
-        a_wall(["Wall Segment"])
-        a_wall_t(["Wall Tower"])
-        a_wall_g(["Wall Gate"])
+        a_wall["Wall Segment"]
+        a_wall_t["Wall Tower (conversion)"]
+        a_wall_g["Wall Gate (conversion)"]
+        a_wl_t1{{"Battlements"}}
+        a_wl_t2{{"Shielded Ramparts"}}
+        a_wl_t1 --> a_wl_t2
     end
 
-    subgraph Smelt_A["Smelter"]
+    subgraph BE_A["Ballista Emplacement<br/>(worker-built; Stone Wall L2+)"]
         direction TB
-        a_sm_note["(refines Iron)"]
+        a_ebal(["Emplaced Ballista · L1"])
     end
 
-    subgraph Cruc_A["Crucible"]
+    subgraph TE_A["Trebuchet Emplacement<br/>(worker-built; Stone Wall L3)"]
         direction TB
-        a_cr_note["(forges Veilsteel<br/>from Iron + Veilstone)"]
+        a_etre(["Emplaced Trebuchet · L1"])
     end
 
-    subgraph SY_A["Siege Yard (A)"]
+    subgraph TempleA["Temple of Ridan (persists, no levels)"]
         direction TB
-        a_bal(["Ballista"])
-    end
-
-    subgraph ShrineA["Temple of Ridan (Alanthor pick)"]
-        direction TB
-        a_lith(["Litharch<br/>(0 damage by default)"])
-        a_sch(["Scholar — at L3<br/>(game-ender tier)"])
+        a_lith(["Litharch<br/>(healer)"])
     end
 ```
 
@@ -272,11 +387,11 @@ flowchart TB
 
 Economy / movement culture. **No walls. No Houses** — full pop unlocked at
 age-up. The trade-lane network *is* the economy + army + territory.
-*(Plus Choice buildings: Vault −30 %, Shrine +30 %, Keep neutral.)*
+*(Plus Choice buildings: Vault −30 %, Temple +30 %, Keep neutral.)*
 
 ```mermaid
 flowchart TB
-    subgraph TrH_R["Trader's Hall (cultured Hall)"]
+    subgraph TrH_R["Trader's Hall (cultured Shelter)"]
         direction TB
         r_w(["Worker"])
         r_s(["Scout"])
@@ -361,7 +476,7 @@ flowchart TB
         r_sb(["SandBallista"])
     end
 
-    subgraph ShrineR["Temple of Ridan (Runai pick)"]
+    subgraph TempleR["Temple of Ridan (Runai pick)"]
         direction TB
         r_lith(["Litharch"])
         r_aco(["Acolyte — at L3<br/>(game-ender tier)"])
@@ -382,12 +497,12 @@ flowchart TB
 
 Military culture. Damage-as-income with the Border floor; persistent
 gather buildings; **no Houses**. *(Plus Choice buildings: Vault neutral,
-Shrine −30 %, Keep +50 % HP & arrows — Feraldis has the natural Keep
+Temple −30 %, Keep +50 % HP & arrows — Feraldis has the natural Keep
 fortress identity.)*
 
 ```mermaid
 flowchart TB
-    subgraph WH_F["War Hall (cultured Hall)"]
+    subgraph WH_F["War Hall (cultured Shelter)"]
         direction TB
         f_w(["Worker"])
         f_s(["Scout"])
@@ -469,7 +584,7 @@ flowchart TB
         f_sr(["Siege Ram"])
     end
 
-    subgraph ShrineF["Temple of Ridan (Feraldis pick)"]
+    subgraph TempleF["Temple of Ridan (Feraldis pick)"]
         direction TB
         f_lith(["Litharch<br/>(0 damage by default)"])
         f_ico(["Iconoclast — at L3<br/>(game-ender tier)"])
@@ -488,6 +603,6 @@ flowchart TB
 2. Read **Age 0** to see the shared starting kit.
 3. Pick a faction page (Alanthor / Runai / Feraldis) to see what that
    culture's late game looks like.
-4. The three Choice buildings (Vault / Shrine / Keep) appear on the Age 0
+4. The three Choice buildings (Vault / Temple / Keep) appear on the Age 0
    page once and persist into every faction page — modifier deltas noted in
    the faction blurbs above. Their tech list does not change at age-up.

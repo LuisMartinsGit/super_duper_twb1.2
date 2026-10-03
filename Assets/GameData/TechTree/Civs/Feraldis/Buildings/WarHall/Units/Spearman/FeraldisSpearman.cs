@@ -46,7 +46,7 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new LineOfSight { Radius = los });
             creator.AddComponent(entity, new Target { Value = Entity.Null });
             creator.AddComponent(entity, new Radius { Value = def.radius });
-            creator.AddComponent(entity, new PopulationCost { Amount = 1 });
+            creator.AddComponent(entity, new PopulationCost { Amount = def.populationCost });
             creator.AddComponent<SpearmanTag>(entity);
             creator.AddComponent<FeraldisSpearmanTag>(entity);
             creator.AddComponent<FeraldisUnitTag>(entity);

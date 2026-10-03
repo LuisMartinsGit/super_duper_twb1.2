@@ -45,7 +45,7 @@
 //   covers the special selections (vault, walls, hut age-up, bazaar wagon,
 //   temple upgrade lever). Unassigned -> the code-built actions panel and
 //   worker palette (WorkerPanelBinder) render everything as before.
-// - TOP CHOICE BAR: special-building choice buttons (Shrine / Vault /
+// - TOP CHOICE BAR: special-building choice buttons (Vault /
 //   Keep, until one is started), plus the authored CultureSelection
 //   prefabs — the "SELECT CULTURE" pill and the culture selection menu
 //   it opens (TopChoiceBar).

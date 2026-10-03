@@ -69,7 +69,7 @@ namespace TheWaningBorder.Entities
             // path used to stamp 1 for both, so every House wave quietly taxed
             // the population budget — and, because those raiders counted
             // toward the AI's army floor, made the AI think it had recruited.
-            creator.AddComponent(entity, new PopulationCost { Amount = controllable ? 1 : 0 });
+            creator.AddComponent(entity, new PopulationCost { Amount = controllable ? def.populationCost : 0 });
             creator.AddComponent<CavalryTag>(entity);
 
             // The signature: enemy structures it strikes keep burning.

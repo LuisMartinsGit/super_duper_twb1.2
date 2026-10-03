@@ -39,6 +39,7 @@ MonoBehaviour:
     Iron: 14
     Veilstone: 0
     Veilsteel: 0
+  populationCost: 1
   minBuildingLevel: 0
   buildSpeed: 0
   gatheringSpeed: 0
@@ -48,6 +49,7 @@ MonoBehaviour:
   aoeRadius: 0
   tags:
   - Ranged
+  - Light
   bonusVsTags:
   - vsTag: Infantry
     amount: 6

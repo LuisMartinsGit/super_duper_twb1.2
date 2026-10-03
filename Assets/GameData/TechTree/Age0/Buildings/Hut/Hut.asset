@@ -26,18 +26,23 @@ MonoBehaviour:
     magic: 2
   radius: 1.6
   lineOfSight: 6
+  footprintCells: {x: 2, y: 2}
   buildTime: 15
   populationProvided: 6
   suppliesPerTick: 0
   suppliesInterval: 0
+  slotIncomePerMinute: []
+  interestPerMinute: 0
   maxPerFaction: 20
+  minWallLevel: 0
+  garrisonSlots: 0
+  garrisonArrowsPerOccupant: 0
   maxIron: 0
   maxVeilstone: 0
   segmentHp: 0
   segmentLineOfSight: 0
   trains: []
-  research:
-  - RetaliatoryMeasures
+  research: []
   minEra: 0
   cost:
     Supplies: 80

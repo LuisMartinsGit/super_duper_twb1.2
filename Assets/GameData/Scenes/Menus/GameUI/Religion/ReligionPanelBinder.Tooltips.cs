@@ -49,8 +49,8 @@ namespace TheWaningBorder.UI.Ingame
                     spec.Damage, SectInfo.DamageTypeName(spec.DamageType)));
             if (spec.Radius > 0f) sb.Append('\n').Append(Loc.T("Radius")).Append(' ')
                                     .Append(spec.Radius.ToString("0.#"));
-            // EFFECTIVE cooldown: the authored number, the Shardroot and the
-            // Shrine discount, via the same function Fire charges with
+            // EFFECTIVE cooldown: the authored number and the Shardroot
+            // discount, via the same function Fire charges with
             // (docs/Design/Spells.md section 5).
             if (spec.Cooldown > 0f) sb.Append("   ").Append(Loc.T("Cooldown")).Append(' ')
                                       .Append(Mathf.RoundToInt(SectActivePowerHelper.EffectiveCooldown(

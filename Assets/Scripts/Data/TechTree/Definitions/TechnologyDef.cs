@@ -1,5 +1,5 @@
 // TechnologyDef.cs
-// Technology definition and supporting data structures parsed from TechTree JSON
+// Runtime technology definition (projected from its TechDefSO) and supporting data structures
 // Part of: Data/TechTree/Definitions/
 
 using System;
@@ -9,7 +9,7 @@ namespace TheWaningBorder.Data
 {
     /// <summary>
     /// Defines a technology that can be researched to unlock upgrades or abilities.
-    /// Loaded from TechTree.json at runtime.
+    /// Projected from its SO by TechCatalog (the SO is the only source).
     /// </summary>
     [Serializable]
     public class TechnologyDef
@@ -46,14 +46,14 @@ namespace TheWaningBorder.Data
         // ==================== Effects ====================
         /// <summary>
         /// Stat modifiers applied when this technology is researched.
-        /// Parsed from the "effects" sub-object in TechTree.json.
+        /// Projected from the TechDefSO "effects" block.
         /// Null if the technology has no stat effects (e.g. age-up techs).
         /// </summary>
         public TechEffects effects;
 
         /// <summary>
         /// Generic target/op/stat effects (calculator model, Wave 2). Parsed
-        /// from the "effectsList" array in TechTree.json. Null or empty if the
+        /// from the TechDefSO "effectsList" array. Null or empty if the
         /// technology carries no generic effects (e.g. ability-unlock techs —
         /// those must be harmless no-ops until their behavior is wired).
         /// </summary>
@@ -84,7 +84,15 @@ namespace TheWaningBorder.Data
     [Serializable]
     public class TechEffectEntry
     {
-        /// <summary>"type:Melee" | "type:Ranged" | "type:Cavalry" | "type:Siege" | "unit:&lt;Id&gt;".</summary>
+        /// <summary>"type:Melee" | "type:Ranged" | "type:Cavalry" | "type:Siege" | "unit:&lt;Id&gt;"
+        /// — applied to units by the generic engine (TechEffectSystem.Generic).
+        /// Three more targets carry a behaviour-by-id tech's NUMBERS as data;
+        /// the generic engine skips them and the owning code reads them via
+        /// TechCatalog.TechEffect (2026-10-03): "faction" (BuildSpeed — the
+        /// tool ladder), "building:&lt;Id&gt;" / "building:*" (TrainSpeed —
+        /// Conscription; BuildingHp — Mason Guild) and "passive" (the charge's
+        /// FirstStrikePct / ChargeSpeedPct / ChargeWindowSeconds /
+        /// ChargeRearmSeconds).</summary>
         public string Target;
 
         /// <summary>"Hp" | "Damage" | "Speed" | "DefenseAll" | "AttackRange" | "AttackCooldown" | "LineOfSight".</summary>
@@ -99,7 +107,7 @@ namespace TheWaningBorder.Data
 
     /// <summary>
     /// Stat modifiers granted by researching a technology.
-    /// Each field corresponds to a JSON key in the "effects" block of TechTree.json.
+    /// Each field corresponds to a key in the TechDefSO "effects" block.
     /// Values of 0 mean "no effect" for that stat.
     /// </summary>
     [Serializable]
@@ -136,18 +144,6 @@ namespace TheWaningBorder.Data
     // SUPPORTING DATA STRUCTURES
     // ═══════════════════════════════════════════════════════════════════════
 
-    /// <summary>
-    /// Defines a sect (religious/magical faction variant).
-    /// Used for Era progression and special abilities.
-    /// </summary>
-    [Serializable]
-    public class SectDef
-    {
-        public string id;
-        public string order;            // which order this sect belongs to
-        public string affinity;         // magical/elemental affinity
-    }
-    
     /// <summary>
     /// Defense values against different damage types.
     /// Higher values reduce incoming damage of that type.
@@ -239,19 +235,5 @@ namespace TheWaningBorder.Data
             if (Veilsteel > 0) parts.Add($"Vs:{Veilsteel}");
             return parts.Count > 0 ? string.Join(" ", parts) : "Free";
         }
-    }
-    
-    /// <summary>
-    /// Combat profile defining damage calculation rules and modifiers.
-    /// Used for the combat system's damage formula.
-    /// </summary>
-    [Serializable]
-    public class CombatProfile
-    {
-        public string defenseFormulaHint;   // hint for defense calculation formula
-        
-        // Future expansion:
-        // public Dictionary<string, float> damageTypeModifiers;
-        // public Dictionary<string, float> armorTypeModifiers;
     }
 }

@@ -73,7 +73,7 @@ namespace TheWaningBorder.AI
             string buildingId, out string reason, float3? anchorOverride = null)
         {
             reason = null;
-            // A build order naming a choice building (or the retired Shrine)
+            // A build order naming a landmark
             // means THIS faction's landmark (Age_0.md § Age-up by landmark).
             buildingId = ResolveLandmarkId(em, faction, buildingId);
             if (!TechCatalog.IsReady) { reason = "catalog not ready"; return false; }
@@ -323,8 +323,8 @@ namespace TheWaningBorder.AI
             // not instead of.
             // EVERY EXTRACTOR PASSES, not just the Gatherer's Hut
             // (2026-09-08). The list above named the hut and missed Mine,
-            // VeilstoneMine and Alanthor_Smelter, so a faction saving for a
-            // Hall claim refused to build the ore income for as long as the
+            // VeilstoneMine, so a faction saving for a
+            // territory claim refused to build the ore income for as long as the
             // save ran — and the save runs until supplies accumulate, which
             // is what the ore income is for. Log-proven in the 22:36 Hard-AI
             // match: six straight minutes of
@@ -335,7 +335,7 @@ namespace TheWaningBorder.AI
             // playing had twelve. IsExtractor is the whole class, so a future
             // extractor cannot fall through the same hole.
             if (TheWaningBorder.AI.AIPivotalReserve.ShouldHold(em, faction)
-                && buildingId != "Hall"
+                && buildingId != "Fortress"
                 && buildingId != "VaultOfAlmierra"
                 && buildingId != "FiendstoneKeep"
                 && buildingId != "TempleOfRidan"

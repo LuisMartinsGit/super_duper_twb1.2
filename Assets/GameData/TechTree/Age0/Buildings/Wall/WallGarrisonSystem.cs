@@ -24,7 +24,11 @@ namespace TheWaningBorder.Systems.Buildings
         /// <summary>Seconds between sweeps. The garrison changes on player
         /// orders and on deaths, neither of which needs a per-frame answer.</summary>
         private const float PollInterval = 0.5f;
-        private float _next;
+        // SimCadence-phased, NOT a raw `_next -= dt` accumulator: a raw timer
+        // carries a machine-dependent phase in from the pre-match frames, and
+        // this sweep writes sim state (the Watch Tower's targets since
+        // 2026-10-03), so it must land on the same tick on every peer.
+        private SimCadence.Periodic _acc;
 
         protected override void OnCreate()
         {
@@ -33,9 +37,7 @@ namespace TheWaningBorder.Systems.Buildings
 
         protected override void OnUpdate()
         {
-            _next -= SystemAPI.Time.DeltaTime;
-            if (_next > 0f) return;
-            _next = PollInterval;
+            if (!_acc.Due(SystemAPI.Time.DeltaTime, PollInterval)) return;
 
             var em = EntityManager;
 

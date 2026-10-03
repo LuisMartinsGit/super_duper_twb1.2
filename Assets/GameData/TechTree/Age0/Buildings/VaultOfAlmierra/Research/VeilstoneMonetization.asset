@@ -18,7 +18,7 @@ MonoBehaviour:
   effect: 
   desc: "Unlocks Veilstone banking: Veilstone can be deposited in the Vault."
   researchAt: VaultOfAlmierra
-  minBuildingLevel: 0
+  minBuildingLevel: 2
   researchTime: 40
   prerequisites: []
   culture: 

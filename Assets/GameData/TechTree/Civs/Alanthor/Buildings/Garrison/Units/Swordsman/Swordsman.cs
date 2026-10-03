@@ -14,8 +14,8 @@ namespace TheWaningBorder.Entities
     /// </summary>
     public static class Swordsman
     {
-        // Default stats (calculator: tools/calculator/techtree.json,
-        // id "Alanthor_Swordsman" — 145 HP / 14 dmg / 1.4 cd / 1.0 range).
+        // Stats come from the UnitDefSO (TechCatalog.Unit); tools/calculator is
+        // a generated read-only view of the SOs, not a source.
         private const int PresentationID = 201;
 
         public static Entity Create(EntityManager em, float3 position, Faction faction)
@@ -47,7 +47,7 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new LineOfSight { Radius = los });
             creator.AddComponent(entity, new Target { Value = Entity.Null });
             creator.AddComponent(entity, new Radius { Value = radius });
-            creator.AddComponent(entity, new PopulationCost { Amount = 1 });
+            creator.AddComponent(entity, new PopulationCost { Amount = def.populationCost });
 
             // Combat type tags
             creator.AddComponent(entity, new DamageTypeData { Value = DamageType.Melee });

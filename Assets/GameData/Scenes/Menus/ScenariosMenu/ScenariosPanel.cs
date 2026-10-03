@@ -157,7 +157,7 @@ namespace TheWaningBorder.UI.Menus.Panels
                     "A guided match on the standard map against one relaxed opponent, from "
                     + "the opening to the victory condition.\n\n"
                     + "1. Camera controls\n"
-                    + "2. Territory, the Hall and the Gatherer's Hut\n"
+                    + "2. Territory, the Fortress and the Gatherer's Hut\n"
                     + "3. Barracks, Spearmen and taking a fight\n"
                     + "4. The special building, the age-up and the Temple\n"
                     + "5. Religion Points, sects and their powers\n"

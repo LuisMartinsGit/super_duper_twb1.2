@@ -39,16 +39,15 @@ namespace TheWaningBorder.Core.Diagnostics
     /// </summary>
     public enum GameEventKind : byte
     {
-        SpecialBuilding, // choice building (Shrine / Vault / Keep) completed
+        SpecialBuilding, // landmark (Vault / Keep) completed
         CultureChosen,   // age-up to Era 2 completed
-        TempleLevelUp,   // Temple of Ridan reached a new level
         NodeConverted,   // Border node cleansed / converted
         Eliminated,      // faction knocked out
     }
 
     /// <summary>
     /// A timestamped milestone for one faction. Value carries kind-specific
-    /// detail (temple level, culture id); 0 when unused.
+    /// detail (culture id); 0 when unused.
     /// </summary>
     public struct GameEvent
     {

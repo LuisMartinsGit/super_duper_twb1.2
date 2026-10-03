@@ -36,6 +36,7 @@ MonoBehaviour:
     Iron: 82
     Crystal: 255
     Veilsteel: 0
+  populationCost: 4
   minBuildingLevel: 3
   buildSpeed: 0
   gatheringSpeed: 0

@@ -71,7 +71,7 @@ namespace TheWaningBorder.UI.Ingame
 
         private static readonly HashSet<string> EconomyBuildings = new()
         {
-            "Hut", "GatherersHut", "Hall", "Mine", "VeilstoneMine",
+            "Hut", "GatherersHut", "Fortress", "Mine", "VeilstoneMine",
             "Runai_Outpost", "Runai_TradeHub", "Runai_TradingPost", "ThessarasBazaar",
             "Feraldis_HuntingLodge", "Feraldis_LoggingStation",
         };

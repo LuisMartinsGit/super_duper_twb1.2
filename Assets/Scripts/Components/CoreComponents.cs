@@ -117,7 +117,7 @@ public struct PresentationViewSpawned : IComponentData, IEnableableComponent { }
 /// to be inferred after the fact from PresentationId (which several entities
 /// legitimately SHARE, because it selects the visual — Outrider/Cataphract,
 /// Caravan/Tinker) or from a tag-component ladder (which some buildings, e.g.
-/// KingsCourt and the chapels, never appear in) — both of which silently
+/// the chapels, never appear in) — both of which silently
 /// produced the wrong name or the bare "Unit" / "Building" fallback.
 ///
 /// FixedString64Bytes: unmanaged, blittable, Burst-safe in queries. The longest

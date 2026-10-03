@@ -1,15 +1,14 @@
 # Veilstone Economy
 
 > **Doc version: 2026-10-01. Canon for where veilstone and veilsteel come
-> from.** Supersedes:
+> from.** Numbers (prices, trade rates, income ladders) live on the SOs and in
+> `TradingOutpostSystem.asset`; on a conflict they win (2026-10-03,
+> [Unification decisions](Unification_Decisions_2026-10-03.md)). Supersedes:
 >
 > - [Territory_Claims.md](Territory_Claims.md) / [Regions.md](Regions.md) §4:
 >   **a veilstone node no longer pays its territory's owner just for being
->   held** (the 190/min node trickle is gone for veilstone), and **veilsteel
+>   held** (the old node trickle is gone for veilstone), and **veilsteel
 >   deposits are removed from the map**.
-> - [Age_1_Alanthor.md](Age_1_Alanthor.md) § Smelter: the Smelter **no longer
->   generates veilsteel** and no longer stands on a node. It keeps its armour
->   research and is placed like any other building.
 > - [Age_0.md](Age_0.md) § Mine: the iron Mine no longer leaks veilstone from
 >   nearby nodes. Every faction may still build Mines and Veilstone Mines in
 >   Age 0 (before culture); at age-up an Alanthor faction's Veilstone Mines
@@ -43,8 +42,9 @@ Every veilstone outcrop on the map is in exactly one state:
 | **Cursed** | A curse node stands on it | The curse builds a node on it (Territory_Claims.md §6.3) |
 | **Depleted** | Mined out | A mine drew its reserve to zero |
 
-- **An empty node pays 10/min** of its resource to whoever holds its ground;
-  built on, it pays its extractor's rate (§5). A Cursed or Depleted outcrop
+- **An empty node pays a small trickle** of its resource to whoever holds its
+  ground (the empty-slot rate in `TerritoryIncomeSystem`); built on, it pays
+  its extractor's rate instead (§5). A Cursed or Depleted outcrop
   pays nothing.
 - **The curse replenishes.** When the curse raises a node on a depleted
   outcrop, the outcrop's reserve refills to full. Pacify it later and it is
@@ -63,7 +63,7 @@ is Inactive.
 | **Feraldis** | **Mine** on it: fast veilstone, drains the node | Destroy the curse node → **veilsteel bounty** | nothing |
 | **Runai** | **Mine** on it: veilstone | **Sanctuary** on it: keeps the curse's units away, produces veilsteel, must be fed by a caravan from a Runai mine; produces religion | nothing |
 | **Age 0 (no culture)** | **Veilstone Mine** on it | Destroy the curse node → pacified | nothing |
-| **Alanthor** | **Trading Outpost** beside it | Destroy the curse node → pacified (back to Inactive) | **Trading Outpost** beside it |
+| **Alanthor** | **Trading Outpost** on it | Destroy the curse node → pacified (back to Inactive) | **Trading Outpost** on it |
 
 ### 3.1 Alanthor — the Trading Outpost
 
@@ -73,33 +73,35 @@ the map, in contested ground, that anyone can burn.
 | | |
 |---|---|
 | **Alanthor do not mine veilstone** | No Veilstone Mine once Alanthor (iron Mines stay — they are every culture's). **At age-up every Veilstone Mine the faction owns becomes a Trading Outpost** — same building, same spot, same health fraction; the mine's level is lost. |
-| Placement | **On top of** an Inactive or Depleted veilstone outcrop, snapped onto it like a mine (2026-10-01; it stood beside the outcrop before). **One Outpost per outcrop.** Never on a Cursed outcrop. Alanthor's Mine button raises it on veilstone. |
-| Cost | 160 Supplies + 80 Iron, 30 s build |
+| Placement | **On top of** an Inactive or Depleted veilstone outcrop, snapped onto it like a mine (2026-10-01; it stood beside the outcrop before) — same footprint as the node ([Build_Grid.md § 2](Build_Grid.md)). Its **art must read as standing BESIDE the outcrop** (decision 28 — an art requirement; the placement stays on the outcrop for now). **One Outpost per outcrop.** Never on a Cursed outcrop. Alanthor's Mine button raises it on veilstone. |
+| Cost, build time | on the `Alanthor_TradingOutpost` SO |
 | Locks territory | Yes, like an extractor (Territory_Claims.md §3) |
-| **Buy Veilstone** (default) | **−50 Supplies −50 Iron → +65 Veilstone** per minute |
-| **Forge Veilsteel** (research: Veilsteel Forging) | **−50 Veilstone → +10 Veilsteel** per minute |
-| **Sell Veilsteel** (research: Veilsteel Export, after Forging) | **−50 Veilsteel → +300 Iron +450 Supplies** per minute |
-| **Trade Agreements I / II / III** (research, chained) | Every trade's INPUTS cost **20 / 45 / 75 %** less |
+| **Buy Veilstone** (default) | supplies + iron in, veilstone out |
+| **Forge Veilsteel** (research: Veilsteel Forging) | veilstone in, veilsteel out |
+| **Sell Veilsteel** (research: Veilsteel Export, after Forging) | veilsteel in, iron + supplies out |
+| **Trade Agreements I / II / III** (research, chained) | every trade's INPUTS cost progressively less |
 | Research | Hosted by the Outpost itself (`TradingOutpost/Research/`) |
 | Can't afford a cycle | That cycle is skipped; nothing is spent |
 | Its outcrop turns Cursed | The Outpost idles until the outcrop is pacified |
 
 The trade choice is the balancing act: every Outpost forging or selling is one
-not buying veilstone. The trade runs on a 12 s cycle with a per-Outpost
-fractional carry, so the per-minute numbers are paid exactly. The Outpost does **not** drain the outcrop; trade is not
-mining. Depleted outcrops left behind by Feraldis are as good as fresh ones
-for an Outpost.
+not buying veilstone. The trade runs on a short fixed cycle (`cycleSeconds`,
+1 s since 2026-10-03, decision 28) with a per-Outpost fractional carry, so the
+per-minute numbers are paid exactly. The Outpost does **not** drain the
+outcrop; trade is not mining. Depleted outcrops left behind by Feraldis are as
+good as fresh ones for an Outpost.
 
-Numbers live in `TradingOutpostSystem.asset` beside the class, authored per
-minute.
+Every trade rate, the cycle and the Trade Agreements discounts live in
+`TradingOutpostSystem.asset` beside the class (rates authored per minute); the
+research prices are on the tech SOs in `TradingOutpost/Research/`.
 
 ### 3.2 Feraldis
 
 - **Veilstone Mine** on an Inactive outcrop: veilstone per mine level, ×1.5
   for Feraldis, and every unit paid is drawn from the outcrop's reserve. A
   spent outcrop is Depleted and pays nothing (no yield floor for veilstone).
-- **Veilsteel**: destroying a curse node pays its last-hitter **40
-  Veilsteel** if that faction is Feraldis (`feraldisNodeVeilsteel`).
+- **Veilsteel**: destroying a curse node pays its last-hitter a veilsteel
+  bounty if that faction is Feraldis (`feraldisNodeVeilsteel`).
 - **Can raid Sanctuaries and Trading Outposts** *(target behaviour: not yet
   implemented).*
 - **Religion points from war**: any kill pays points, curse kills pay more
@@ -121,65 +123,83 @@ minute.
   (Territory_Claims.md §6.6). That is a reaction to holding a piece of it,
   not a preference for a faction, and is kept until decided otherwise.
 
-## 5. Territory income, per minute (2026-10-01)
+## 5. Territory income (2026-10-01; data moved onto the SOs 2026-10-03)
 
-| Source | Pays |
-|---|---|
-| **Fortress** | 50 Supplies |
-| **Empty slot** (supply / iron / uncursed veilstone node in held ground) | 10 of its resource |
-| **Gatherer's Hut** on a supply slot | 50 / 100 / 200 Supplies (L1 / L2 / L3) |
-| **Mine** on an iron slot | 100 / 200 / 400 Iron |
-| **Veilstone Mine** on a veilstone slot | 100 / 200 / 400 Veilstone (×1.5 Feraldis, drains the outcrop) |
-| **Alanthor** (after age-up): Gatherer's Hut | **70 / 100 / 200** Supplies |
-| **Alanthor** (after age-up): Mine | **140 / 200 / 400** Iron |
+Who pays, and where the number lives — the doc does not restate the rates
+(decisions 9, 10 and 34):
 
-A built slot REPLACES its empty 10, it does not add to it. The Hall/Fortress
-level multiplier (×1 / ×2 / ×4) and the survey research still scale the
-territory. The iron Mine's old patch income (`MineIncomeSystem`) is retired.
-**Every source pays every second** — the territory tick and every Trading
-Outpost (fractional carry keeps the per-minute numbers exact). **A resource the
-faction's trades consume faster than it produces turns red in the resource
-bar** (`TerritoryIncomeSystem.FactionNetForDisplay`).
+| Source | Pays | The number lives on |
+|---|---|---|
+| **The capital** (Shelter / Fortress) | its **own SO income** — supplies on a fixed interval. There is **no separate territory supply for the capital** any more: `TerritoryIncomeSystem`'s extra flat capital line was dropped (decision 10) | `Fortress.asset` (`suppliesPerTick` / `suppliesInterval`) |
+| **Empty slot** (supply / iron / uncursed veilstone node in held ground) | a small trickle of its resource | `TerritoryIncomeSystem` |
+| **Gatherer's Hut** on a supply slot | its **slot-income ladder**, one rate per level — and nothing else: the construction safety-net income is gone (decision 9) | `GatherersHut.asset` `slotIncomePerMinute` |
+| **Mine** on an iron slot | its slot-income ladder | `Mine.asset` `slotIncomePerMinute` |
+| **Veilstone Mine** on a veilstone slot | its slot-income ladder (Feraldis scaled up, drains the outcrop) | `VeilstoneMine.asset` |
+| **Alanthor** (after age-up): Guild (the Gatherer's Hut) and Mine | the Alanthor level SOs' own slot income | `Civs/Alanthor/Buildings/Guild/Guild_Lvl1..3`, `Mine/Mine_Lvl1..3` |
 
-A fresh start with 5 supply, 2 iron and 2 veilstone slots pays
-**100 Supplies + 20 Iron + 20 Veilstone** per minute (Fortress 50 + slots).
-Mines pay double the hut ladder (2026-10-01).
+A built slot REPLACES its empty trickle, it does not add to it. The Fortress
+level multiplier and the survey research still scale the territory. The iron
+Mine's old patch income (`MineIncomeSystem`) is retired. **Every source pays
+every second** — the territory tick and every Trading Outpost (fractional
+carry keeps the per-minute numbers exact). **A resource the faction's trades
+consume faster than it produces turns red in the resource bar**
+(`TerritoryIncomeSystem.FactionNetForDisplay`).
 
-**Forests pay nothing and the Sawyer is gone (2026-10-01).** **The Smelter is
-gone (2026-10-01)**: its armour ladders moved to the buildings that train what
-they protect — Plate (melee) to the Barracks, Brigandine (ranged) to the
-Archery Range, Barding (cavalry) to the Royal Stable, Plating (siege) to the
-Siege Yard — same costs and the same L1/L2/L3 host-level gates.
+Rule kept from 2026-10-01: **Mines pay more than huts** — an iron or
+veilstone slot worked by a Mine out-earns a supply slot worked by a hut of the
+same level, because the Mine is the scarcer, contested extractor.
+
+### 5.1 The one exception: Guild Surveys (decision 17, 2026-10-03)
+
+The rule of this document is that veilstone comes from outcrops (mined,
+bought or pacified) and veilsteel is made. **The Alanthor Guild Surveys are a
+deliberate exception:** researched at the Guild (the cultured Gatherer's Hut),
+**Veilstone Survey I-II** make every Guild produce a veilstone trickle and
+**Veilsteel Survey** a veilsteel trickle, on top of its supplies (the Iron
+Surveying line does the same for iron). It is a research reward for a
+developed hut ring, not a node — no outcrop, no curse interaction. Their gates
+are the Guild levels on the tech SOs (Veilstone Survey I at L2, II at L3;
+Veilsteel Survey at L3); the rates are in the tech SOs' descriptions and
+effects.
+
+**Forests pay nothing and the Sawyer is gone (2026-10-01).** The armour
+ladders live at the buildings that train what they protect — Plate (melee) at
+the Barracks, Brigandine (ranged) at the Archery Range, Barding (cavalry) at
+the Royal Stable, Plating (siege) at the Siege Yard — each gated by its host's
+level. Their prices are on the tech SOs, and they are **not** uniform across
+the ladders (decision 23: the upper tiers were raised).
 
 ## 6. The iron pass (2026-10-02)
 
-> Two 30-minute 8-AI batches on Veilmarch ended with every faction on 8-12k
-> unspent supplies and six of eight under 60 iron: iron was the wall every
-> economy hit. This pass moves iron off the things that are not military and
-> pays more of it.
+> Two 30-minute 8-AI batches on Veilmarch ended with every faction sitting on a
+> huge unspent supply bank and almost no iron: iron was the wall every economy
+> hit. This pass moves iron off the things that are not military and pays more
+> of it.
 
-| Change | Value |
+| Change | Rule (values on the SOs / configs) |
 |---|---|
-| **Start territory** | **3 iron** nodes (was 2) — 3 supply, 3 iron, 1 veilstone |
-| **Iron yield** | every iron line pays **+20 %** — empty slots and Mines alike (`TerritoryIncomeSystem.IronYieldMultiplier`) |
-| **Mine** and **Veilstone Mine** cost | **100 S + 10 V**, no iron (was 90 S + 140 I / 90 S + 160 I) |
-| **Palisade** hub | **50 S**, no iron (was 50 S + 20 I); its modules stay 6 S |
-| **House (Hut)** | supplies only, its level-ups included: L2 270 S, L3 533 S (the iron is gone) |
+| **Start territory** | one more iron node than before (Territory_Claims.md §11 Start type) |
+| **Iron yield** | every iron line pays a flat bonus — empty slots and Mines alike (`TerritoryIncomeSystem.IronYieldMultiplier`) |
+| **Mine** and **Veilstone Mine** cost | supplies and a little veilstone, **no iron** (decision 15) |
+| **Palisade** hub | supplies only, no iron |
+| **House (Hut)** | supplies only, its level-ups included |
 
 **The Mine's own research.** Every Mine is a research host, and two techs
 make the iron slots it works pay more. They replace each other, they do not
 stack, and an empty slot is not mined so it does not benefit:
 
-| Tech | At | Cost | Time | Effect | Requires |
-|---|---|---|---|---|---|
-| **Deep Shafts** | Mine | 150 S + 20 V | 40 s | Mine-worked iron slots **+50 %** | — |
-| **Rich Seams** | Mine | 300 S + 60 V | 60 s | Mine-worked iron slots **+100 %** | Deep Shafts |
+| Tech | At | Effect | Requires |
+|---|---|---|---|
+| **Deep Shafts** | Mine | raises Mine-worked iron slots | — |
+| **Rich Seams** | Mine | raises them further (replaces Deep Shafts) | Deep Shafts |
 
-These multiply with everything else on the iron line (the +20 %, the Hall's
-x1/x2/x4, the Iron Surveying ladder). The AI researches Deep Shafts right after
-Iron Surveying I and Rich Seams after Iron Surveying II (Feraldis: after Iron
-Plunder / Raiding II); its extractor walk reads the Mine's cost from the SO, so
-the cheaper Mine needs no AI change of its own.
+Prices, times and percentages are on the tech SOs
+(`Age0/Buildings/Mine/Research/`). These multiply with everything else on the
+iron line (the iron yield bonus, the Fortress level multiplier, the Iron
+Surveying ladder). The AI researches Deep Shafts right after Iron Surveying I
+and Rich Seams after Iron Surveying II (Feraldis: after Iron Plunder /
+Raiding II); its extractor walk reads the Mine's cost from the SO, so the
+cheaper Mine needs no AI change of its own.
 
 ## 4. What changed in code (2026-10-01)
 
@@ -192,8 +212,7 @@ Implemented:
 - Alanthor cannot build `VeilstoneMine` (`TerritoryOwnership.MayBuildMine`,
   enforced in `CheckPlaceBuilding`); `TradingOutpost.ConvertMinesForCulture` turns
   their Veilstone Mines into Outposts at age-up and in `StartAgePromoter`. Veilsteel deposits are no longer
-  spawned; the iron Mine pays no veilstone; the Smelter generates nothing and
-  is placed freely.
+  spawned; the iron Mine pays no veilstone.
 - `Alanthor_TradingOutpost` with its trade/forge toggle (`SetOutpostMode`
   lockstep order), placement rule in `CommandRouter.CheckPlaceBuilding`, and
   AI siting and mode choice.

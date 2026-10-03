@@ -48,14 +48,6 @@ namespace TheWaningBorder.Economy
     /// </summary>
     public static class SectAdoption
     {
-        static readonly ComponentType[] QT_TempleOfRidanTagFactionTagTempleLevel =
-        {
-            ComponentType.ReadOnly<TempleOfRidanTag>(),
-            ComponentType.ReadOnly<FactionTag>(),
-            ComponentType.ReadOnly<TempleLevel>(),
-        };
-        static CachedEntityQuery QC_TempleOfRidanTagFactionTagTempleLevel;
-
         #region Cached queries
 
         // CreateEntityQuery registers a NEW query with the world on every
@@ -298,10 +290,9 @@ namespace TheWaningBorder.Economy
                 ? em.GetComponentData<FactionReligionPoints>(bank).CurrentAge : (byte)1;
             if (currentAge == 0) currentAge = 1;
 
-            // Auto-leveling (design 2026-07-05): lever levels track the
-            // Temple's level, not manual RP buys — a sect adopted at a
-            // Lv-2 temple starts with every lever at Lv II.
-            byte startLevel = LeverLevelForTemple(em, faction);
+            // Every lever starts at Lv I. The Temple has no levels
+            // (docs/Design/Religion.md); higher levels are bought with RP.
+            byte startLevel = 1;
 
             var sect = new PerSectState
             {
@@ -325,59 +316,6 @@ namespace TheWaningBorder.Economy
 
             OnSectAdopted?.Invoke(faction, sectId, currentAge);
             return SectAdoptionResult.Ok;
-        }
-
-        /// <summary>
-        /// Auto-leveling (design 2026-07-05): every adopted sect's four
-        /// levers rise to match the Temple of Ridan's level (clamped to
-        /// Lv III). Called on temple upgrade completion; adoption uses
-        /// <see cref="LeverLevelForTemple"/> for the starting level.
-        /// </summary>
-        public static void SyncLeversToTempleLevel(EntityManager em, Faction faction, int templeLevel)
-        {
-            byte target = (byte)(templeLevel < 1 ? 1 : templeLevel > 3 ? 3 : templeLevel);
-
-            if (!FactionEconomy.TryGetBank(em, faction, out var bank)) return;
-            if (!em.HasComponent<SectAdoptionState>(bank)) return;
-            byte currentAge = em.HasComponent<FactionReligionPoints>(bank)
-                ? em.GetComponentData<FactionReligionPoints>(bank).CurrentAge : (byte)1;
-            if (currentAge == 0) currentAge = 1;
-
-            var state = em.GetComponentData<SectAdoptionState>(bank);
-            bool changed = false;
-            for (int i = 0; i < SectConfig.SectCount; i++)
-            {
-                var sect = state.Get(i);
-                if (!sect.IsAdopted) continue;
-
-                // The POWER level is no longer the Temple's to give: it is the
-                // chapel's level, bought with Religion Points
-                // (docs/Design/Religion.md §3.1). Only the levers below still
-                // follow the Temple.
-
-                if (sect.PassiveLevel < target)     { sect.SetLevel(SectLeverKind.Passive,     target, currentAge); changed = true; }
-                if (sect.BuildingLevel < target)    { sect.SetLevel(SectLeverKind.Building,    target, currentAge); changed = true; }
-                if (sect.UnitLevel < target)        { sect.SetLevel(SectLeverKind.Unit,        target, currentAge); changed = true; }
-                if (sect.ActivePowerLevel < target) { sect.SetLevel(SectLeverKind.ActivePower, target, currentAge); changed = true; }
-
-                state.Set(i, sect);
-            }
-            if (changed) em.SetComponentData(bank, state);
-        }
-
-        /// <summary>Lever level a newly adopted sect starts at: the faction
-        /// temple's current level, clamped 1..3.</summary>
-        private static byte LeverLevelForTemple(EntityManager em, Faction faction)
-        {
-            var q = QC_TempleOfRidanTagFactionTagTempleLevel.Get(em, QT_TempleOfRidanTagFactionTagTempleLevel);
-            using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
-            for (int i = 0; i < ents.Length; i++)
-            {
-                if (em.GetComponentData<FactionTag>(ents[i]).Value != faction) continue;
-                int lvl = em.GetComponentData<TempleLevel>(ents[i]).Level;
-                return (byte)(lvl < 1 ? 1 : lvl > 3 ? 3 : lvl);
-            }
-            return 1;
         }
 
         /// <summary>

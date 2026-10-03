@@ -17,8 +17,8 @@ MonoBehaviour:
   level: 1
   displayName: Garrison
   upgradeCost:
-    Supplies: 80
-    Iron: 20
+    Supplies: 0
+    Iron: 0
     Veilstone: 0
     Veilsteel: 0
   upgradeSeconds: 20
@@ -27,6 +27,8 @@ MonoBehaviour:
   attackCooldownMultiplier: 0.9090909
   maxTargets: 0
   populationProvided: 0
+  slotIncomePerMinute: 0
+  interestMultiplier: 0
   attack:
     enabled: 0
     damage: 12

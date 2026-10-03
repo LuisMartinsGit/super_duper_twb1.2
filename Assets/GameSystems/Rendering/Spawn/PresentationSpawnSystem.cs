@@ -1,6 +1,6 @@
 ﻿// PresentationSpawnSystem.cs
 // Spawns and syncs visual GameObjects for ECS entities
-// Per-entity builders live as partials in their entity folders (Smelter,
+// Per-entity builders live as partials in their entity folders (the
 // Vault of Almierra, Border LargeNode, Alanthor Wall set, and the three
 // Resources nodes); dead procedural Hall/Hut/Barracks builders deleted 2026-08-12.
 
@@ -29,7 +29,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         // ProceduralBuildingGenerator. The hand-authored *_base prefabs are
         // shelved for now; restore via PrefabPaths + remove the procedural
         // switch cases when ready.)
-        { 100, "Procedural/Hall" },                        // Hall.PresentationID = 100
+        { 100, "Procedural/Hall" },                        // the default building pid (BuildingFactory.CreateDefault)
         { 101, "Prefabs/Buildings/GatherersHut" },       // GatherersHut.PresentationID = 101
         { 102, "Procedural/Hut" },                          // Hut.PresentationID = 102
         { 510, "Procedural/Barracks" },                    // Barracks.PresentationID = 510
@@ -86,9 +86,6 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         { 554, "Procedural/WallGate" },                      // Alanthor Wall Gate (upgraded instance)
         { 555, "Procedural/WallCurve" },                     // Alanthor curved segment: one swept mesh (drawn walls)
         { 556, "Procedural/WallCurveCell" },                 // Alanthor curved segment cell: pick collider only
-
-        // Alanthor Buildings (procedurally generated)
-        { 560, "Procedural/Smelter" },                       // Alanthor Smelter/Forge (generated at runtime)
 
         // The Border (procedurally generated)
         { 311, "Procedural/BorderGround" },                  // Border Ground tile (generated at runtime)
@@ -692,10 +689,6 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             ApplyWallOwnerColor(go, entity);
             return go;
         }
-
-        // (The Smelter's forge visual, CreateProceduralSmelter, is retired: the
-        // veilsteel extractor is a MineVisual pithead like its two siblings —
-        // see the switch below.)
 
         // === Alanthor + Age-0 choice authored visuals (tech-tree implementation) ===
         // High-detail procedural builders co-located with their entities. Units
@@ -1348,7 +1341,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
     /// <summary>
     /// Attach the sink-depth tag (sized to actual renderer bounds) and the
     /// rise-animation snapshot to a procedural visual that doesn't pass
-    /// through FinishProceduralBuilding — walls, towers, gates, smelter,
+    /// through FinishProceduralBuilding — walls, towers, gates,
     /// border nodes. Idempotent: safe to call repeatedly.
     /// </summary>
     private static void AttachConstructionAnimation(GameObject go)
@@ -1398,7 +1391,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
 
         string path = presentationId switch
         {
-            100 => "Prefabs/Buildings/Hall",         // Hall.PresentationID
+            100 => "Prefabs/Buildings/Hall",         // the default building pid
             101 => "Prefabs/Buildings/GatherersHut", // GatherersHut.PresentationID — single prefab, no culture/level variants
             102 => "Prefabs/Buildings/Hut",          // Hut.PresentationID
             510 => "Prefabs/Buildings/Barracks",     // Barracks.PresentationID

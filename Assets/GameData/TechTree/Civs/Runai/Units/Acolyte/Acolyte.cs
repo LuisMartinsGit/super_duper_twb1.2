@@ -43,7 +43,7 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new Damage { Value = 0 });
             creator.AddComponent(entity, new LineOfSight { Radius = los });
             creator.AddComponent(entity, new Radius { Value = def.radius });
-            creator.AddComponent(entity, new PopulationCost { Amount = 1 });
+            creator.AddComponent(entity, new PopulationCost { Amount = def.populationCost });
             creator.AddComponent(entity, new DesiredDestination { Position = float3.zero, Has = 0 });
 
             creator.AddComponent(entity, new DamageTypeData { Value = DamageType.Magic });

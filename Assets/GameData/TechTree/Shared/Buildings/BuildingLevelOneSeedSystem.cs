@@ -27,13 +27,11 @@ namespace TheWaningBorder.Systems.Buildings
 
         protected override void OnCreate()
         {
-            // Temples are excluded: their ladder lives in TempleLevel (set by
-            // TempleUpgradeSystem). Stamping BuildingUpgradeState on a temple
-            // gave BuildingPrefabSwapSystem two disagreeing level sources and
-            // made the level-up flourish replay every scan, forever.
+            // Temples are excluded: the Temple of Ridan has no levels
+            // (docs/Design/Religion.md), so it never carries a level stamp.
             _unstamped = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<BuildingTag, FactionTag>()
-                .WithNone<UnderConstruction, BuildingUpgradeState, TempleLevel>()
+                .WithNone<UnderConstruction, BuildingUpgradeState, TempleOfRidanTag>()
                 .Build(this);
             RequireForUpdate(_unstamped);
         }

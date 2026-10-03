@@ -12,6 +12,19 @@
 > 2026-05-19 design pass and are awaiting code alignment via
 > [.deft/tasks/task-age0-techtree-alignment-065/](../.deft/tasks/task-age0-techtree-alignment-065/task.md).
 
+> **Game data lives in the SO assets, not here (2026-10-03).** Every unit,
+> building, level and tech stat is authored in
+> `Assets/GameData/TechTree/**/*.asset` and loaded through `TechTreeCatalog`
+> (`Assets/Resources/TechTreeCatalog.asset`, read by `TechCatalog`). There is
+> no JSON fallback any more: `Resources/TechTree.json` was deleted on
+> 2026-10-03. The browsable calculator `tools/calculator/TechTree.html` is
+> generated from the SOs by `tools/gen_calculator.py`. This reference does
+> not restate stat numbers (costs, HP, damage, ranges, times, population,
+> footprints, income) for Age 0 and Alanthor content - **the SO wins**. The
+> numbers that remain below are engine-side constants (lockstep timing,
+> steering, query and camera details) or older Runai / Feraldis / curse
+> tables that have not had their pass yet.
+
 > Unity 6 (6000.0.37f1) | DOTS/ECS (Entities 1.3.14) | C# | Hybrid MonoBehaviour UI
 
 ---
@@ -44,7 +57,7 @@
 24. [Building Repair System](#24-building-repair-system)
 25. [Command Queue & Patrol](#25-command-queue--patrol)
 26. [Self-Destruct System](#26-self-destruct-system)
-27. [Temple Upgrade & Chapels](#27-temple-upgrade--chapels)
+27. [Temple & Chapels](#27-temple--chapels)
 28. [Population Sync](#28-population-sync)
 29. [Victory Conditions](#29-victory-conditions)
 30. [Influence & Territory Painting](#30-influence--territory-painting)
@@ -115,7 +128,7 @@ Input Systems
 | Training | `Systems/Training/TrainingSystem.cs` |
 | Veilstone | `Systems/Border/CrystalSpreadSystem.cs`, `BorderAISystem.cs` |
 | Multiplayer | `Multiplayer/LockstepManager.cs`, `LockstepTypes.cs`, `LockstepBootstrap.cs` |
-| Tech Tree | `Data/TechTree/TechTreeDB.cs`, `Resources/TechTree.json` |
+| Tech Tree | `Data/TechTree/TechCatalog.cs`, `Data/TechTree/TechTreeCatalog.cs`, `Resources/TechTreeCatalog.asset` (references every SO under `GameData/TechTree/`) |
 
 ---
 
@@ -125,10 +138,10 @@ Input Systems
 
 | Resource | Weight | Cap | Primary Sources |
 |----------|--------|-----|-----------------|
-| **Supplies** | 1x | 100,000 | Hall (50/15s), Gatherer Hut (area-based ~60/min), trade caravans, wall compartments (Alanthor) |
+| **Supplies** | 1x | 100,000 | Capital (Shelter / Fortress, its own SO income), Gatherer's Hut (slot-income ladder on its SO), trade caravans, wall compartments (Alanthor) |
 | **Iron** | 2x | 100,000 | Iron deposits (mined by workers), passive building income |
-| **Veilstone** | 3x | 100,000 | Creature cadavers (mined), Veilstone Shrine income |
-| **Veilsteel** | 5x | 100,000 | Smelter conversion (5 Iron + 3 Veilstone = 1 Veilsteel / 5s) |
+| **Veilstone** | 3x | 100,000 | Creature cadavers (mined) |
+| **Veilsteel** | 5x | 100,000 | Alanthor Trading Outpost in forge mode (see docs/Design/Veilstone_Economy.md) |
 | **Glow** | 4x | 100,000 | Ley Line Nexus, special buildings |
 
 ### Iron Mining
@@ -156,30 +169,30 @@ Mined resources are credited directly to the faction bank on each gather tick �
 
 Cadavers spawn when The Border creatures die. **Cadavers are destroyed when depleted** (unlike iron deposits).
 
-### Smelter Conversion
+### Veilsteel Production
 
-| Parameter | Value |
-|-----------|-------|
-| Input | 5 Iron + 3 Veilstone |
-| Output | 1 Veilsteel |
-| Conversion time | 5 seconds |
-| Local storage | 100 Iron, 50 Veilstone max |
-| Loss factor | 20% (Foundry/Crucible buildings) |
-
-Workers with ForgeSupplyOrder fetch resources from Hall/GathererHut and deliver to the Smelter's ForgeStorage.
+The Alanthor Smelter (`Alanthor_Smelter`, the Forge) and the Crucible are
+deleted, along with the worker ForgeSupplyOrder/ForgeStorage flow that fed
+them. `SmelterTag` survives only on the Runai Veilsteel Foundry. Veilsteel is made
+only by the Alanthor Trading Outpost in forge mode; see
+[Veilstone_Economy.md](Design/Veilstone_Economy.md).
 
 ### Passive Income Buildings
 
 | Building | Income | Interval |
 |----------|--------|----------|
-| Hall | 50 Supplies | 15 seconds |
-| Gatherer Hut | ~60 Supplies/min | Area-based (12-unit radius, no stacking) |
+| Capital (Shelter / Fortress) | Supplies | Its own SO income (Fortress level SOs from age-up) |
+| Gatherer's Hut, Mine, Veilstone Mine | Supplies / iron / veilstone | Slot-income ladder: `slotIncomePerMinute` on the building SO, overridable per level by `BuildingLevelDefSO.slotIncomePerMinute` (decision 34 moved the old code ladders here) |
 | Custom buildings | IronIncome, CrystalIncome, VeilsteelIncome, GlowIncome | Per-minute -> ticks per-second |
+
+Alanthor Guild Surveys are the deliberate exception that lets Alanthor huts
+produce veilstone / veilsteel (research in
+`Civs/Alanthor/Buildings/Guild/Research/`).
 
 ### Vault Banking (Vault of Almierra / Runai Vault)
 
-- Interest rate: 3% per minute on deposits
-- Lock timer: 3 minutes after deposit/withdraw
+- Interest rate: `interestPerMinute` on the Vault SO, scaled by each level SO's `interestMultiplier` (applies from L1 and grows with level)
+- A lock timer follows each deposit/withdraw
 - Continuous compounding: `amount += amount * rate * dt / 60`
 
 ### Trade Economy (Runai)
@@ -194,7 +207,6 @@ Workers with ForgeSupplyOrder fetch resources from Hall/GathererHut and deliver 
 
 - Enclosed wall areas generate Supplies proportional to area
 - Income pauses if any wall segment in the compartment falls
-- Stone Ledgers tech: +8 Supplies per 10 sq. units per minute
 
 ---
 
@@ -217,7 +229,7 @@ Additional lobby colors: Pink, Brown, Black, Maroon (12-color pool total).
 
 ### Cultures (chosen at Era 2)
 
-**Age-up cost**: 800 Supplies + 200 Iron + 150 Veilstone (at Hall, requires one religious building).
+**Age-up**: by building the culture landmark. There is no "Advance to Era II" (`Research_Era2`) research any more. At age-up the starting Shelter automatically becomes the **Fortress** (same entity renamed, id `Fortress`, levels L1-L3) for every culture.
 
 #### Runai - "The Veil Scholars"
 - **Philosophy**: Preserve the Border, learn from it, pacify it
@@ -232,7 +244,7 @@ Additional lobby colors: Pink, Brown, Black, Maroon (12-color pool total).
 - **Playstyle**: Economy / Defense
 - **Aesthetic**: Medieval European stone, thick walls, forges
 - **Economy**: Walled compartments generate income by enclosed area; income pauses if walls fall
-- **Unique mechanic**: Wall hub/segment system; King's Court with +10% building HP and +15% repair rate auras
+- **Unique mechanic**: Wall hub/segment system
 - **Colors**: Sage Green (0.55, 0.65, 0.50) / Warm Grey (0.45, 0.45, 0.42)
 
 #### Feraldis - "The Ashborn"
@@ -260,15 +272,20 @@ Additional lobby colors: Pink, Brown, Black, Maroon (12-color pool total).
 | 6 | Worker | Resource gatherers |
 | 7 | Scout | Fast reconnaissance |
 
-### Era 1 Units (Universal)
+### Age 0 Units (Universal)
 
-| Unit | HP | Speed | Damage | Range | LoS | Cost | Pop | Cooldown | Armor | Special |
-|------|----|-------|--------|-------|-----|------|-----|----------|-------|---------|
-| Worker | 60 | 4.0 | 2 | Melee | 12 | 50S | 1 | - | Infantry Light | CanBuild |
-| Scout | 40 | 6.0 | 3 | Melee | 20 | 55S | 1 | - | Infantry Light | Extended LoS |
-| Swordsman | 120 | 3.5 | 12 | Melee | 10 | 140S | 1 | 1.2s | Infantry Heavy | Melee Def +1 |
-| Archer | 60 | 4.0 | 8 | 10-25 | 25 | 75S | 1 | 1.5s | Ranged | Retreats at min range, Ranged Def +1 |
-| Litharch | 60 | 3.5 | 5 (8 heal/s) | Melee | 10 | 100S+25I+10C | 1 | 1.5s | Ranged | Healer, Magic Def +2 |
+Stats are on each unit's SO (and in `tools/calculator/TechTree.html`); this
+table only says where the unit lives and what is special about it in code.
+
+| Unit (id) | Trained at | SO | Notes |
+|-----------|------------|----|-------|
+| Worker | Shelter / Fortress | `Age0/Buildings/Fortress/Units/Worker/` | Builds |
+| Scout | Shelter / Fortress | `Age0/Buildings/Fortress/Units/Scout/` | Starts unarmed; Armed Scouts sets its damage for existing and newly trained Scouts |
+| Spearman | Barracks | `Age0/Buildings/Barracks/Units/Spearman/` | The Age 0 line infantry. Age 0 is melee-only: there is no Age 0 Archer or Swordsman |
+| Litharch | Temple of Ridan | `Age0/Buildings/TempleOfRidan/Units/Litharch/` | Healer (the Shrine of Ridan is gone) |
+
+**Starting army** (`PlayerSpawnSystem`): 3 Workers, 5 Spearmen and 1 Scout
+beside the capital, plus one finished House (`Hut`).
 
 ### Runai Culture Units
 
@@ -282,12 +299,26 @@ Additional lobby colors: Pink, Brown, Black, Maroon (12-color pool total).
 
 ### Alanthor Culture Units
 
-| Unit | HP | Speed | Damage | Range | LoS | Cost | Pop | Cooldown | Armor | Special |
-|------|----|-------|--------|-------|-----|------|-----|----------|-------|---------|
-| Sentinel | 160 | 3.2 | 14 | Melee | 10 | (Garrison) | 2 | 1.4s | Infantry Heavy | Melee +8, Ranged +4, Siege +2, Magic +1 |
-| Crossbowman | 100 | 3.5 | 20 | 4-18 | 20 | (Garrison) | 2 | 1.2s | Infantry Heavy | Shorter range than Archer, faster fire. Melee +2, Ranged +2 |
-| Cataphract | 180 | 6.5 | 18 | Melee | 10 | (Royal Stable) | 2 | 1.1s | Cavalry | Melee +3, Ranged +2 |
-| Ballista | 220 | 2.8 | 50 | 10-24 | 26 | (Siege Yard) | 2 | 3.0s | Structure | Longest range, highest single-target damage. Bolt projectile (2.5x arrow). Siege +3 |
+Stats are on the SOs under `Civs/Alanthor/`; the building level gate is the
+unit SO's `minBuildingLevel`.
+
+| Unit (id) | Trained at | Level gate | Weight tag |
+|-----------|------------|------------|------------|
+| Swordsman (`Alanthor_Swordsman`) | Garrison (the Barracks renamed) | L1 | Heavy |
+| Nobleman (`Alanthor_Nobleman`) | Garrison | L2 | Heavy |
+| Sentinel (`Alanthor_Sentinel`) | Garrison | L3 | Heavy |
+| Archer (`Alanthor_Archer`) | Archery Range | none | Light |
+| Crossbowman (`Alanthor_Crossbowman`) | Archery Range | L2 | Light |
+| Longbowman (`Alanthor_Longbowman`) | Archery Range | L3 | Light |
+| Outrider (`Alanthor_Outrider`) | Royal Stable | L1 | Light |
+| Cataphract (`Alanthor_Cataphract`) | Royal Stable | L3 | Heavy |
+| Ballista / Catapult (`Alanthor_Ballista`, `Alanthor_Catapult`) | Siege Yard | L1 | Heavy |
+| Battering Ram (`Alanthor_BatteringRam`) | Siege Yard | L2 | Heavy |
+| Trebuchet (`Alanthor_Trebuchet`) | Siege Yard | L3 | Heavy |
+| Emplaced Ballista / Trebuchet | Worker-built emplacements on a stone wall (L2+ / L3) | - | Heavy |
+| Ledger, King Lexor | Fortress | L2 / L3 | Light / Heavy |
+
+Siege projectiles (Ballista / Catapult) still render at 2.5x arrow scale.
 
 ### Feraldis Culture Units
 
@@ -334,22 +365,27 @@ Additional lobby colors: Pink, Brown, Black, Maroon (12-color pool total).
 
 ## 5. Buildings
 
-### Era 1 Buildings (Universal)
+### Age 0 Buildings (Universal)
 
-| Building | HP | Cost | Pop | LoS | Trains | Researches | Special |
-|----------|----|------|-----|-----|--------|------------|---------|
-| Hall | 2400 | Starting | +20 | 24 | Worker, Scout | Research_Era2, ImprovedTools, StorageCarts | Ranged attack (12 dmg, range 20, 2.5s cd). 50 Supplies/15s |
-| Hut | 350 | 50S | +5 | 12 | - | - | Housing only |
-| Gatherer Hut | 400 | 120S | - | 16 | - | - | Area-based 60 Supplies/min (12-unit radius). Auto-despawns Era 2 (except Feraldis) |
-| Barracks | 800 | 150S+70I | - | 18 | Swordsman, Archer | BasicDrills, WoodenArmor | Single training queue |
+Every number (HP, cost, population, LoS, build time, footprint, income) is on
+the building SO in `Assets/GameData/TechTree/Age0/Buildings/<Building>/`.
 
-### Religious Buildings (Era 1, choose one)
+| Building (id) | Trains | Researches | Notes |
+|---------------|--------|------------|-------|
+| Shelter (Age 0) / Fortress (from age-up) (`Fortress`) | Worker, Scout; Alanthor also Ledger, King Lexor | Stone Tools, Armed Scouts; Alanthor also Iron / Veilstone / Veilsteel Tools, Mason Guild, Scouting Celestarii | The capital. Starting; buildable; locks its territory. Same entity renamed at age-up for every culture. Alanthor levels are `Civs/Alanthor/Buildings/Fortress/Fortress_Lvl1..3`. There is no Hall, King's Court or Town Hall; `HallTag` survives internally as the capital marker |
+| House (`Hut`) | - | - | Housing. Opening cap = capital population + one House |
+| Gatherer's Hut (`GatherersHut`) | - | none in Age 0 | Slot-income ladder on its SO. Alanthor's becomes the Guild (research in `Civs/Alanthor/Buildings/Guild/Research/`, still `researchAt: GatherersHut`); Feraldis raiding research is in `Civs/Feraldis/Buildings/RaiderCamp/Research/` |
+| Barracks (`Barracks`) | Spearman (culture rosters by id prefix) | Conscription, Stone Weapons | Single training queue. Alanthor's is the Garrison (techs in `Civs/Alanthor/Buildings/Garrison/Research/`) |
+| Mine / Veilstone Mine (`Mine`, `VeilstoneMine`) | - | Deep Shafts, Rich Seams (Mine) | Age 0 for every culture (`Age0/Buildings/Mine/`, `Age0/Buildings/VeilstoneMine/`). Alanthor Veilstone Mines become Trading Outposts at age-up |
+| Palisade (`Palisade`, `PalisadeSegment`) | - | - | Timber wall on the shared hub/segment machinery (`PalisadeTag`); never joins a stone wall |
 
-| Building | HP | Cost | Special |
-|----------|----|------|---------|
-| Shrine of Ridan | 800 | 300S+100C | Temple leveling (1-4). Trains Litharch. Grants 1 Sect Point. Enables era advancement |
-| Vault of Almierra | 1200 | 300S+100C | Banking (3% interest/min). Deposit/withdraw with 3-min lock |
-| Fiendstone Keep | 2000 | 300S+100C | 1.25x training speed aura. Ranged attack. Berserker conversion |
+### Religious Buildings (Age 0, choose one)
+
+| Building | Notes |
+|----------|-------|
+| Temple of Ridan | Costs Religion Points (see the SO / Religion.md). One per faction, no levels. Trains the Litharch and hosts the heal aura (`TempleHealSystem`). The Shrine of Ridan is deleted |
+| Vault of Almierra | Banking: compounding interest from `interestPerMinute`, scaled per level. Deposit/withdraw with a lock timer |
+| Fiendstone Keep | Training speed aura, ranged attack, Berserker conversion (values on the SO; Feraldis pass pending) |
 
 ### Runai Culture Buildings
 
@@ -364,17 +400,25 @@ Additional lobby colors: Pink, Brown, Black, Maroon (12-color pool total).
 
 ### Alanthor Culture Buildings
 
-| Building | HP | Cost | LoS | Trains | Special |
-|----------|----|------|-----|--------|---------|
-| King's Court | 2100 | 360S+80I | 26 | - | +10% building HP aura, +15% repair rate. +10 pop. Researches Stone Ledgers, Mason's Guild |
-| Wall Hub | 600 | 40S+20I | 8 | - | Connection point for wall segments |
-| Wall Segment | 400 | 40S+20I | 5 | - | Connects hubs; enclosed areas generate Supplies |
-| Watch Tower | 950 | 140S+70I | 28 | - | 4 garrison slots, arrow fire |
-| Garrison | 1500 | 220S+90I | 22 | Sentinel, Crossbowman | 6 garrison slots. +8 pop |
-| Royal Stable | 1300 | 260S+120I+40C | 20 | Cataphract | Heavy cavalry training |
-| Siege Yard | 1300 | 260S+140I+60C | 20 | Ballista | Siege engine training |
-| Smelter | 1000 | 220S+100I | 14 | - | 5 Iron + 3 Veilstone = 1 Veilsteel / 5s. Local storage: 100I, 50C |
-| Crucible | 1200 | 200S+60I+40C | 18 | - | Advanced veilsteel (20% loss factor) |
+Numbers are on the SOs under `Civs/Alanthor/Buildings/`. Building levels are
+`BuildingLevelDefSO` assets (`<Building>_Lvl1..3`) in the same folders; every
+culture L1 is free at age-up.
+
+| Building (id) | Trains | Notes |
+|---------------|--------|-------|
+| Fortress (`Fortress`) | Worker, Scout, Ledger, King Lexor | Levels `Fortress/Fortress_Lvl1..3`; research in `Fortress/Research/` |
+| Garrison (the `Barracks` renamed) | Swordsman, Nobleman, Sentinel | Levels `Garrison/Garrison_Lvl1..3` |
+| Archery Range (`ArcheryRange`) | Archer, Crossbowman, Longbowman | Levels `ArcheryRange/ArcheryRange_Lvl1..3` |
+| Royal Stable (`Alanthor_RoyalStable`) | Outrider, Cataphract | |
+| Siege Yard (`Alanthor_SiegeYard`) | Ballista, Battering Ram, Catapult, Trebuchet | |
+| Guild (the `GatherersHut` renamed) | - | Surveys / walls research in `Guild/Research/` |
+| Trading Outpost (`Alanthor_TradingOutpost`) | - | Snaps onto a veilstone outcrop; buys veilstone or forges veilsteel. Trade cycle on `TradingOutpostSystem.asset` |
+| Stone Wall (`Alanthor_Wall`, `Alanthor_WallSegment`) | - | Hub/segment wall; levels are `Wall/Wall_Lvl1..3`; research Battlements, Shielded Ramparts |
+| Ballista / Trebuchet Emplacement | Emplaced Ballista / Trebuchet | Worker-built on a stone wall of L2+ / L3 (`minWallLevel` on the SO) |
+| Watch Tower (`Alanthor_Tower`) | - | Garrison slots and arrow fire (values on the SO) |
+
+The King's Court entity, the Smelter (`Alanthor_Smelter`) and the Crucible are
+deleted. Mine and Veilstone Mine are Age 0 buildings for every culture.
 
 ### Feraldis Culture Buildings
 
@@ -597,7 +641,7 @@ AIBrain {
 | Manager | Responsibilities |
 |---------|-----------------|
 | **AIEconomyManager** | Tracks gatherer huts, workers, resource levels. Builds huts, assigns workers, manages economy |
-| **AIBuildingManager** | Places buildings based on needs. Prioritizes Halls, Barracks, defenses. Respects passability |
+| **AIBuildingManager** | Places buildings based on needs. Prioritizes the capital (Shelter / Fortress), Barracks, defenses. Respects passability |
 | **AIMilitaryManager** | Spawns units by economic capacity. Organizes attack waves |
 | **AITacticalManager** | Identifies threats. Plans attack routes. Attack vs defend decisions |
 | **AIMissionManager** | High-level mission control. Multi-unit coordination |
@@ -614,7 +658,7 @@ AISharedKnowledge {
 
 ### AI Tuning (Configurable Constants)
 
-Extracted to `AITuning` class for per-difficulty adjustment. Controls build priorities, economy thresholds, aggression timing, and smelter/vault interaction logic.
+Extracted to `AITuning` class for per-difficulty adjustment. Controls build priorities, economy thresholds, aggression timing, and vault interaction logic.
 
 ---
 
@@ -711,7 +755,7 @@ Veilstone-tagged entities are immune. Damage = max(1, DPS * interval).
 
 **Battalion spawning**: Melee and Ranged class units spawn as battalions (15 members = 5x3 grid). **Sect units are special** — they always train as single units regardless of class (identified by `Sect_` prefix).
 
-**Feraldis culture bonus**: When the training faction has Feraldis culture, training time and cost are multiplied by 1.75x, but **2 units/battalions spawn at once** (net ~14% efficiency bonus). Sect units are excluded from the 2x spawn. The multiplier applies to standard training buildings (Barracks, Hall, etc.), not to the Feraldis Longhouse which has its own batch system.
+**Feraldis culture bonus**: When the training faction has Feraldis culture, training time and cost are multiplied by 1.75x, but **2 units/battalions spawn at once** (net ~14% efficiency bonus). Sect units are excluded from the 2x spawn. The multiplier applies to standard training buildings (Barracks, Fortress, etc.), not to the Feraldis Longhouse which has its own batch system.
 
 ### Population
 
@@ -719,7 +763,7 @@ Veilstone-tagged entities are immune. Damage = max(1, DPS * interval).
 - Battalions: cost * 15 (5 columns * 3 rows)
 - Feraldis 2x spawn: pop requirement doubled (2 battalions = cost * 15 * 2)
 - Spawn blocked if insufficient capacity (waits for pop to free)
-- Buildings provide pop: Hall +20, Hut +5, Garrison +8, Longhouse +10, Bazaar +40
+- Buildings provide pop via `PopulationProvider`, read from the SO's `populationProvided` (and the level SOs' `populationProvided`) for the capital, House and Alanthor buildings; the older Runai / Feraldis figures (Longhouse +10, Bazaar +40) are as last documented
 
 ### Batch Training (Feraldis Longhouse)
 
@@ -762,11 +806,10 @@ Multiple workers can work simultaneously. On completion: remove UnderConstructio
 | Source | Points |
 |--------|--------|
 | Culture adoption (Era 2) | 2 RP |
-| Temple Level 2 (Era 3) | 3 RP |
-| Temple Level 3 (Era 4) | 3 RP |
-| Temple Level 4 (Era 5) | 3 RP |
-| Shrine bonus (if built Era 1) | +1 RP |
-| **Maximum** | **8-9 RP** |
+
+The Temple has no levels, so the old Temple-level RP grants and the Shrine
+bonus are gone. Religion points now follow
+[Religion.md](Design/Religion.md).
 
 ### Sect Adoption Cost
 
@@ -810,12 +853,8 @@ Multiple workers can work simultaneously. On completion: remove UnderConstructio
 
 ### Temple Power Scaling
 
-| Temple Level | Multiplier |
-|-------------|------------|
-| 1 | 1.0x |
-| 2 | 1.5x |
-| 3 | 2.0x |
-| 4 | 2.5x |
+Removed. The Temple of Ridan has no levels (`TempleLevelConfig` is deleted),
+so there is no temple-level multiplier.
 
 ### Temple Cascade
 
@@ -828,21 +867,20 @@ Destroying a temple destroys all attached chapels (TempleCascadeDestroySystem).
 | Era | Name | Requirement |
 |-----|------|-------------|
 | 1 | Dawn of Ashes | Starting era, universal roster |
-| 2 | Age of Divergence | 800S + 200I + 150C + one religious building. Choose culture |
-| 3 | - | Temple Level 2 |
-| 4 | - | Temple Level 3 |
-| 5 | - | Temple Level 4 |
+| 2 | Age of Divergence | Build the culture landmark. Choose culture |
+
+There are no later eras: the Temple-level eras 3-5 and the `Research_Era2`
+research are deleted.
 
 ### Age-Up Process (Era 1 -> 2)
 
-1. Hall starts age-up timer (AgeUpState.Remaining)
+1. Age-up timer starts (AgeUpState.Remaining)
 2. Timer ticks down each frame
 3. On completion:
-   - Set FactionProgress.Culture on Hall
-   - Scale Hall 1.3x
+   - Set FactionProgress.Culture on the capital
+   - The Shelter becomes the Fortress (same entity renamed, id `Fortress`)
    - Set FactionEra = 2 on faction bank
-   - Grant RP if Temple exists (2 RP for temple level 1)
-   - **Alanthor special**: Start 2-minute self-destruct on all GathererHuts (80% refund)
+   - **Alanthor**: `AgeUpSystem.TransformGathererHutsForCulture` tags every Gatherer's Hut with `GathererHutAgeUpChoice` (the action panel then offers the per-hut conversion); nothing self-destructs
    - Rebuild visual with culture tone
    - Remove AgeUpState
 
@@ -963,9 +1001,9 @@ Each entity has NetworkId (unique int, assigned at spawn) + SpawnTick. Thread-sa
 |------------|---------|---------|
 | BuildingPlacement | Worker selected | Building placement buttons by era/culture |
 | UnitTraining | Barracks/etc selected | Training queue (max 5), unit buttons |
-| UnitTrainingAndResearch | Hall/Barracks selected | Training + tech tree buttons |
+| UnitTrainingAndResearch | Fortress/Barracks selected | Training + tech tree buttons |
 | VaultManagement | Vault selected | Deposit/withdraw interface |
-| TempleUpgrade | Temple selected | Level upgrade, sect selection |
+| Temple | Temple selected | Sect selection (no level upgrade; the Temple upgrade action is deleted) |
 | BattalionStance | Battalion selected | Formation/stance buttons |
 
 ### Minimap
@@ -1010,10 +1048,10 @@ Battalion leaders use average member position as line origin. Battalion members 
 
 | Category | IDs |
 |----------|-----|
-| Era 1 Core | Hall (100), GatherersHut (101), Hut (102), Barracks (510) |
+| Era 1 Core | default building (100), GatherersHut (101), Hut (102), Barracks (510) |
 | Religious | Temple (520), Vault (530), Keep (540) |
 | Runai | Outpost (350), TradeHub (351), Bazaar (352), SiegeWorkshop (353) |
-| Alanthor | Tower (354), Garrison (355), Stable (356), SiegeYard (357), Wall Hub (550), Segment (551), Smelter (560) |
+| Alanthor | Tower (354), Garrison (355), Stable (356), SiegeYard (357), Wall Hub (550), Segment (551) |
 | Feraldis | HuntingLodge (358), LoggingStation (359), Longhouse (360), TotemTower (361), SiegeYard (362) |
 | Chapels | 390-401 |
 
@@ -1040,22 +1078,19 @@ Buildings emerge from ground (rising animation) during construction phase.
 ### Era 1 - Shared Tech Tree
 
 ```
-                          +-----------+
-                          |   HALL    |
-                          | (Start)  |
-                          +-----+-----+
-                                |
-              +-----------------+-----------------+
-              |                                   |
-    +---------v-------+                  +-------v--------+
-    | Improved Tools  |                  | Research_Era2  |
-    | 80S + 40I       |                  | 1000S+200I+150C|
-    | +15% gather     |                  | -> Choose      |
-    | speed           |                  |    Culture     |
-    +-----------------+                  +--------+-------+
-                                                  |
-                                         Requires one of:
-                                    Shrine / Vault / Keep
+                  +---------------------+
+                  |  SHELTER (Start)    |
+                  |  -> FORTRESS at     |
+                  |     age-up          |
+                  +----------+----------+
+                             |
+              +--------------+--------------+
+              |                             |
+    +---------v-------+           +---------v-------+
+    | Stone Tools     |           | Armed Scouts    |
+    +-----------------+           +-----------------+
+
+    Age-up: build the culture landmark (no Research_Era2).
 ```
 
 ```
@@ -1066,11 +1101,13 @@ Buildings emerge from ground (rising animation) during construction phase.
                   +------------+------------+
                   |                         |
         +---------v--------+     +----------v--------+
-        | Basic Drills     |     | Wooden Armor      |
-        | 100S + 40I       |     | 80S               |
-        | +10% melee       |     | +1 melee defense  |
-        | attack speed     |     |                   |
+        | Conscription     |     | Stone Weapons     |
+        | faster training  |     |                   |
+        | at any Barracks  |     |                   |
         +------------------+     +-------------------+
+
+    Trains: Spearman (Age 0). Costs and effects: see the tech SOs in
+    Age0/Buildings/Barracks/Research/.
 ```
 
 ### Era 2 - Runai Tech Tree
@@ -1124,55 +1161,60 @@ Buildings emerge from ground (rising animation) during construction phase.
 
 ```
                      +---------------------+
-                     |    KING'S COURT     |
-                     | +10% building HP    |
-                     | +15% repair rate    |
+                     | FORTRESS (Alanthor) |
+                     | trains Worker,      |
+                     | Scout, Ledger,      |
+                     | King Lexor          |
                      +----------+----------+
                                 |
-                   +------------+------------+
-                   |                         |
-         +---------v----------+    +---------v----------+
-         | Stone Ledgers      |    | Mason's Guild      |
-         | 220S + 40I         |    | 180S + 40I         |
-         | +8S per 10 sq.u    |    | +15% building HP   |
-         | per min (walled)   |    | +20% repair rate   |
-         +--------------------+    +--------------------+
+     +--------------------------+---------------------------+
+     |                          |                           |
+  Iron / Veilstone /       Mason Guild              Scouting Celestarii
+  Veilsteel Tools
 
 
               ALANTHOR BUILDING UNLOCK TREE
 
-    +----------+     +------------+     +---------------+
-    | Wall Hub |<--->| Wall       |     | Watch Tower   |
-    | 40S+20I  |     | Segment    |     | 140S+70I      |
-    | Connect  |     | 40S+20I    |     | 4 garrison    |
-    | point    |     | Enclose    |     | Arrow fire    |
-    +----------+     +------------+     +---------------+
+    +-------------+     +------------+     +---------------+
+    | Stone Wall  |<--->| Wall       |     | Watch Tower   |
+    | hub         |     | Segment    |     |               |
+    | Wall_Lvl1-3 |     |            |     |               |
+    +-------------+     +------------+     +---------------+
 
     +----------+     +---------------+     +--------------+
     | Garrison |     | Royal Stable  |     | Siege Yard   |
-    | 220S+90I |     | 260S+120I+40C |     | 260S+140I    |
-    | +8 pop   |     | Trains:       |     | +60C         |
-    | Sentinel |     | Cataphract    |     | Trains:      |
-    | Crossbow |     |               |     | Ballista     |
+    | (Barracks|     |               |     |              |
+    | renamed) |     |               |     |              |
     +----------+     +---------------+     +--------------+
 
-    +----------+     +-----------+
-    | Smelter  |     | Crucible  |
-    | 220S+100I|     | 200S+60I  |
-    | 5I+3C    |     | +40C      |
-    | = 1 Veil |     | Advanced  |
-    | /5s      |     | forging   |
-    +----------+     +-----------+
+    +---------------+     +------------------+     +-------------------+
+    | Archery Range |     | Guild (Gatherer's|     | Trading Outpost   |
+    |               |     | Hut renamed)     |     | (was the Veilstone|
+    |               |     |                  |     |  Mine)            |
+    +---------------+     +------------------+     +-------------------+
+
+    Veilsteel: Trading Outpost in forge mode (Smelter and Crucible deleted)
+    Costs, HP and levels: see the SOs under Civs/Alanthor/Buildings/.
 
 
               ALANTHOR UNIT ROSTER
 
-    Garrison ------+----> Sentinel (heavy melee tank, Def +8)
-                   +----> Crossbowman (armored ranged)
+    Garrison ------+----> Swordsman (L1)
+                   +----> Nobleman (L2)
+                   +----> Sentinel (L3)
 
-    Royal Stable ------> Cataphract (heavy cavalry)
+    Archery Range -+----> Archer
+                   +----> Crossbowman (L2)
+                   +----> Longbowman (L3)
 
-    Siege Yard --------> Ballista (longest range, 50 dmg)
+    Royal Stable --+----> Outrider (L1)
+                   +----> Cataphract (L3)
+
+    Siege Yard ----+----> Ballista, Catapult (L1)
+                   +----> Battering Ram (L2)
+                   +----> Trebuchet (L3)
+
+    Fortress ------+----> Ledger (L2), King Lexor (L3)
 ```
 
 ### Era 2 - Feraldis Tech Tree
@@ -1236,12 +1278,9 @@ Buildings emerge from ground (rising animation) during construction phase.
 ### Sect Tech Tree (All Cultures)
 
 ```
-              TEMPLE OF RIDAN (Levels 1-4)
+              TEMPLE OF RIDAN (no levels, one per faction)
               +---------------------------+
-              |  Level 1: +2 RP (Era 2)  |
-              |  Level 2: +3 RP (Era 3)  |
-              |  Level 3: +3 RP (Era 4)  |
-              |  Level 4: +3 RP (Era 5)  |
+              |  RP rules: Religion.md    |
               +-------------+-------------+
                             |
               Sect adoption (1 RP affinity / 2-3 RP foreign)
@@ -1276,24 +1315,20 @@ Buildings emerge from ground (rising animation) during construction phase.
 ### Complete Era Progression Diagram
 
 ```
-    ERA 1                    ERA 2                     ERA 3-5
-    Dawn of Ashes            Age of Divergence         Temple Advancement
-    +-----------+            +------------------+      +------------------+
-    | Universal |  800S+200I | Choose Culture:  | Temple| Unlock advanced |
-    | roster    |  +150C     |                  | Level | units, techs,   |
-    | 6 units   +----------->+  +-- RUNAI       | 2-4   | and buildings   |
-    | 4 buildings|           |  |   Trade/Mobile +------>| per culture     |
-    | 5 techs   |           |  +-- ALANTHOR     |      |                 |
-    |           |           |  |   Walls/Defense |      | Sect bonuses    |
-    | Shrine OR |           |  +-- FERALDIS     |      | scale 1.5x-2.5x|
-    | Vault OR  |           |      Raid/Aggro   |      |                 |
-    | Keep      |           +------------------+      +------------------+
-    +-----------+
-                    +2 RP          +3 RP    +3 RP    +3 RP
-                    (temple L1)    (L2)     (L3)     (L4)
+    AGE 0                         AGE 1
+    Dawn of Ashes                 Age of Divergence
+    +----------------+            +------------------+
+    | Universal      |  build the | Choose Culture:  |
+    | roster         |  culture   |  +-- RUNAI       |
+    | Shelter        +----------->+  +-- ALANTHOR    |
+    | (capital)      |  landmark  |  +-- FERALDIS    |
+    |                |            | Shelter becomes  |
+    | Temple of Ridan|            | the Fortress     |
+    | (1 RP, no lvls)|            +------------------+
+    +----------------+
 
-    TOTAL RP BUDGET: 8-9 RP
-    Sect costs: 1 RP (affinity) or 2-3 RP (foreign)
+    No Temple levels and no eras beyond Age 1.
+    Religion points: see docs/Design/Religion.md
 ```
 
 ### Damage Type Effectiveness Diagram
@@ -1332,11 +1367,12 @@ G
          |               |               |
          +-------+-------+-------+-------+
                  |               |
-           +-----v-----+  +-----v-----+
-           |  SMELTER   |  | Buildings |
-           | 5I+3C=1V   |  | & Units   |
-           | every 5s   |  | (costs)   |
-           +-----+------+  +-----------+
+           +-----v------+  +-----v-----+
+           | TRADING    |  | Buildings |
+           | OUTPOST    |  | & Units   |
+           | (forge,    |  | (costs)   |
+           | Alanthor)  |  +-----------+
+           +-----+------+
                  |
            +-----v------+
            | VEILSTEEL   |
@@ -1345,11 +1381,12 @@ G
            +-------------+
 
     PASSIVE INCOME:
-    Hall ----------> 50 Supplies / 15s
-    Gatherer Hut --> ~60 Supplies / min (area-based)
+    Shelter/Fortress> Supplies (rate in SO)
+    Gatherer Hut --> Supplies (slot-income ladder on SO)
+    Mines --------> iron / veilstone (slot-income ladder on SO)
     Trade Hub ----> Caravans -> Supplies (distance-scaled)
     Wall Enclosure> Supplies (area-scaled, Alanthor only)
-    Vault --------> 3% interest/min on deposits
+    Vault --------> interest on deposits (interestPerMinute x level)
 ```
 
 ---
@@ -1455,7 +1492,7 @@ Requires `LastDamagedByFaction` component for kill credit. Killer faction must h
 
 FIFO queue processing with timer, mirrors TrainingSystem pattern.
 
-1. **Idle** (Busy=0): Check queue, verify tech not already researched, look up in TechTreeDB. Set Busy=1, Remaining=researchTime (default 30s fallback).
+1. **Idle** (Busy=0): Check queue, verify tech not already researched, look up in `TechCatalog` (the tech SO). Set Busy=1, Remaining=researchTime (default 30s fallback).
 2. **Active** (Busy=1): Remaining -= dt each frame.
 3. **Complete** (Remaining<=0): Call `FactionResearchState.CompleteResearch(faction, techId)`. Pop from queue. Fires OnTechCompleted event.
 
@@ -1528,39 +1565,24 @@ Waypoint cycling between start and destination. Burst-compiled.
 
 ## 26. Self-Destruct System
 
-Used when Alanthor transitions to Era 2. GathererHuts receive a self-destruct timer.
-
-| Parameter | Value |
-|-----------|-------|
-| RefundMultiplier | 0.80 (80% of original build cost) |
-| Timer | 2 minutes (set at age-up) |
-
-### Workflow
-
-1. Alanthor age-up triggers -> all GathererHuts get SelfDestructTimer
-2. Each frame: TimeRemaining -= dt
-3. On expiry: look up original cost, calculate 80% refund (ceil), credit faction, destroy building
+`SelfDestructSystem` (`Systems/Work/`) ticks any `SelfDestructTimer`
+(declared in `Age0/Buildings/GatherersHut/GatherersHutComponents.cs`) and, on
+expiry, refunds part of the build cost and destroys the building. **Age-up no
+longer adds that timer**: Alanthor Gatherer's Huts are tagged with
+`GathererHutAgeUpChoice` by `AgeUpSystem.TransformGathererHutsForCulture`
+instead (see section 14). The system stays for anything that still stamps a
+timer; the UI shows the countdown through `EntityExtractors`.
 
 ---
 
-## 27. Temple Upgrade & Chapels
+## 27. Temple & Chapels
 
-### Temple Level Configuration
+### Temple Levels (removed)
 
-| Level | Era | Upgrade Cost | RP Granted | Duration |
-|-------|-----|--------------|-----------|----------|
-| 1 | 2 | (built directly) | 2 RP | N/A |
-| 2 | 3 | 500S + 200I + 150C | 3 RP | 60s |
-| 3 | 4 | 800S + 350I + 250C | 3 RP | 90s |
-| 4 | 5 | 1200S + 500I + 400C | 4 RP | 120s |
-
-MaxLevel = 4. ShrineBonus = +1 RP per chapel completion.
-
-### Temple Upgrade System
-
-1. Player initiates upgrade -> TempleUpgradeState component added
-2. Each frame: Remaining -= dt
-3. On completion: set TempleLevel, set FactionEra, grant RP, recalculate sect passives, remove state
+The Temple of Ridan has no levels. `TempleLevelConfig`, `TempleUpgradeSystem`
+(and its `TempleUpgradeState`), the Temple upgrade lockstep command (id 28,
+retired) and the AI's Temple leveling are deleted. The Temple costs 1 Religion
+Point and is limited to one per faction.
 
 ### Temple Chapel Build System
 
@@ -1755,10 +1777,10 @@ Sand, Grass, Dirt, Rock, Snow, Border. 512x512 textures, tiling 15.
 1. **EnsureECSWorld()** - Create/verify DefaultGameObjectInjectionWorld
 2. **Mode check** - BattalionTest/Scenario early exit paths
 3. **Multiplayer lockstep** - LockstepBootstrap.InitializeLockstepNow() (if multiplayer)
-4. **InitializeDataSystems()** - TechTreeDB singleton from Resources/TechTree.json
+4. **InitializeDataSystems()** - touches the static `TechCatalog`, which loads `Resources/TechTreeCatalog.asset` (the SO references; there is no JSON fallback)
 5. **CreateManagersObject()** - Runtime managers GO with ~30 components (EntityViewManager, PresentationSpawnSystem, SelectionSystem, RTSInputManager, all UI panels, VictoryConditionSystem, FactionResearchState, TechEffectSystem, AStarPathStore, etc.)
 6. **InitializeWorld()** - ProceduralTerrain, PassabilityGrid, FlowFieldManager, FogOfWarManager
-7. **InitializeFactions()** - EconomyBootstrap.EnsureFactionBanks(), spawn players via coroutine
+7. **InitializeFactions()** - EconomyBootstrap.EnsureFactionBanks(), spawn players via coroutine (`PlayerSpawnSystem`: capital, one House, 3 Workers, 5 Spearmen, 1 Scout)
 8. **InitializeAI()** - AIBootstrap.InitializeAIPlayers() (skipped in Sandbox/PathfindingTest)
 9. **PostInitializationSync()** - Final synchronization
 
@@ -1772,33 +1794,20 @@ Sand, Grass, Dirt, Rock, Snow, Border. 512x512 textures, tiling 15.
 
 ## 34. Building Footprints
 
-All sizes in grid cells (1m each).
-
-| Building | Size (WxH) | Building | Size (WxH) |
-|----------|-----------|----------|-----------|
-| Hall | 4x4 | FiendstoneKeep | 5x5 |
-| Hut | 3x3 | ThessarasBazaar | 5x5 |
-| GatherersHut | 2x2 | Runai Outpost | 3x3 |
-| Barracks | 3x4 | Runai TradeHub | 3x4 |
-| ShrineOfRidan | 3x3 | Runai SiegeWorkshop | 3x3 |
-| TempleOfRidan | 4x4 | Alanthor Wall | 1x1 |
-| VaultOfAlmierra | 4x4 | Alanthor Tower | 2x2 |
-| Alanthor Smelter | 3x3 | Alanthor Garrison | 3x4 |
-| Alanthor Stable | 4x3 | Alanthor SiegeYard | 3x3 |
-| Feraldis HuntingLodge | 3x3 | Feraldis LoggingStation | 3x3 |
-| Feraldis Longhouse | 4x3 | Feraldis Tower | 2x2 |
-| Feraldis SiegeYard | 3x3 | Chapel (all) | 2x2 |
-| Veilstone MainNode | 5x5 | Veilstone SubNodes | 2x2 |
-| Default | 3x3 | | |
+Footprints are game data and live on the SO: `BuildingDef.footprintCells`
+(a `Vector2Int`, in cells of the 2 m build grid). `BuildingSizeConfig`
+(`Scripts/Core/Settings/`) no longer holds a table - `GetSize` reads the
+SO's `footprintCells` and returns metres (1 m nav cells); only the ids with
+no BuildingDefSO (the chapels and the curse's well) keep a code-seeded size.
+Decision 34 moved the old code table onto the SOs. The
+cell size, snap rule and per-building shapes are defined in
+[Build_Grid.md](Design/Build_Grid.md).
 
 ### Build Times
 
-| Building | Time | Building | Time |
-|----------|------|----------|------|
-| Hut | 15s | Towers (all) | 25s |
-| GatherersHut | 20s | Barracks/Smelter/Garrison | 30s |
-| Longhouse/TradeHub | 30s | Siege Yards/Stable | 35s |
-| Temples/Keep/Bazaar | 40s | Default | 30s |
+Build times are the SO field `buildTime` (`BuildingDef`); the old code
+table (Royal Stable, Siege Yard, Wall Hub, Vault, Keep, Palisade and the
+rest) was moved onto the SOs by decision 34.
 
 ---
 
@@ -1846,7 +1855,7 @@ Only displays when building selected AND RallyPoint.Has == 1. Marker rotates. Li
 | Spawn attempts | 30 per frame |
 | SpawnRadius | MapHalfSize * 0.7 |
 
-When all BorderMainNodes destroyed: sets IsExtinct=1, starts timer. On timer expiry: find valid position (passable, 60u+ from all player halls, within map bounds). Spawns new main node + 100 veilstone to White faction. Deterministic random seed for multiplayer.
+When all BorderMainNodes destroyed: sets IsExtinct=1, starts timer. On timer expiry: find valid position (passable, 60u+ from all player capitals (`HallTag`), within map bounds). Spawns new main node + 100 veilstone to White faction. Deterministic random seed for multiplayer.
 
 ### Border Ground Recession
 
@@ -1907,7 +1916,7 @@ Each sect provides 4 gameplay elements: a passive faction bonus, a unique buildi
 
 ### 36.1 Passive Multiplier System
 
-Passives are computed by `FactionSectState` (MonoBehaviour singleton) and consumed by game systems. Multipliers scale with temple level (1.0x / 1.5x / 2.0x / 2.5x).
+Passives are computed by `FactionSectState` (MonoBehaviour singleton) and consumed by game systems. (The old temple-level scaling is gone: the Temple has no levels.)
 
 #### Multiplier Fields (SectMultipliers struct)
 
@@ -2123,7 +2132,6 @@ Where `SpellCooldownReduction` comes from sect passives (e.g., Veiled Memory -10
     |                  | unique slot.     |                  |                  |
     +------------------+------------------+------------------+------------------+
 
-    Temple Scaling: Level 1 (1.0x) -> Level 2 (1.5x) -> Level 3 (2.0x) -> Level 4 (2.5x)
 
 
     ALANTHOR SECTS                 RUNAI SECTS                   FERALDIS SECTS
@@ -2200,7 +2208,7 @@ Grouping reads **ids**, which are the runtime taxonomy ("the roster is
 culture-gated by id prefix at runtime"), mirroring the same rules
 `EntityExtractors.GetRequiredCultureForUnit` / `GetRequiredCulture` already
 ship — including their prefix-less exceptions (`Ledger` / `King Lexor` are
-Alanthor, `ThessarasBazaar` is Runai, `Mine` is Feraldis, `FiendstoneKeep` is
+Alanthor, `ThessarasBazaar` is Runai, `Mine` / `VeilstoneMine` and `FiendstoneKeep` are
 universal). Sect content is all prefixed: units `Sect_<Unit>`, chapels
 `Chapel_<SectId>`, and the five sect **buildings** `Sect_Reliquary` /
 `Sect_Stonehold` / `Sect_Veilworks` / `Sect_MendingHall` / `Sect_MusterYard` —

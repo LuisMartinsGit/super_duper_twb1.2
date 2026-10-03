@@ -574,7 +574,7 @@ namespace TheWaningBorder.AI
                     sightingObjective = true;
                     opportunity = true;
                     _lastDoctrine = $"opportunity: stray " +
-                        (pick.Category == IntelCategory.Hall ? "Hall" : "eco building") +
+                        (pick.Category == IntelCategory.Hall ? "capital" : "eco building") +
                         $" of {pick.OwnerFaction}, garrison {pick.EstStrength}, " +
                         $"sighted {(int)(simNow - pick.LastSeenTime)}s ago";
                 }

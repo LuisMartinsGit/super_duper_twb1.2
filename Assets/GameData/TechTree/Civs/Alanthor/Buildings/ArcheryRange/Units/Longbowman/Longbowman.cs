@@ -18,8 +18,8 @@ namespace TheWaningBorder.Entities
     /// </summary>
     public static class Longbowman
     {
-        // Default stats (calculator: tools/calculator/techtree.json,
-        // id "Alanthor_Longbowman").
+        // Stats come from the UnitDefSO (TechCatalog.Unit); tools/calculator is
+        // a generated read-only view of the SOs, not a source.
         private const int PresentationID = 205;  // Crossbowman=204; sit next to it.
 
         /// <summary>Create Longbowman using EntityManager.</summary>
@@ -67,7 +67,7 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new Target { Value = Entity.Null });
             creator.AddComponent(entity, new Radius { Value = def.radius });
             creator.AddComponent(entity, new AttackCooldown { Cooldown = cooldown, Timer = 0f });
-            creator.AddComponent(entity, new PopulationCost { Amount = 1 });
+            creator.AddComponent(entity, new PopulationCost { Amount = def.populationCost });
 
             // Reuse ArcherState — Longbowman is a stat profile, not a new
             // behaviour. The aim/fire/retreat machine works identically.

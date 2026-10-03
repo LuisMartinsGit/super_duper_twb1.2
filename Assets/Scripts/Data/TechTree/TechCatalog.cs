@@ -5,7 +5,9 @@
 // Loads the ScriptableObject catalog (Resources/TechTreeCatalog) lazily on first access
 // and serves the same unit/building/tech/sect lookups the old TechTreeDB.Instance did,
 // plus a presentationId -> prefab registry used by the prefab-based spawn path.
-// Technologies + sects are still parsed from TechTree.json (Resources) via TechTreeParser.
+// Units, buildings, technologies and building levels ALL come from the SOs the
+// catalog references. There is no JSON fallback (TechTree.json was deleted
+// 2026-10-03): a missing SO is a loud load-time error, never a silent backstop.
 //
 // No GameObject / scene wiring needed — it is a pure static service.
 
@@ -22,7 +24,6 @@ public static class TechCatalog
     private static readonly Dictionary<string, UnitDef> _unitsById = new();
     private static readonly Dictionary<string, BuildingDef> _buildingsById = new();
     private static readonly Dictionary<string, TechnologyDef> _technologiesById = new();
-    private static readonly Dictionary<string, SectDef> _sectsById = new();
     // Source SOs, so TryGet* can refresh the cached def from the asset each call —
     // that is what makes Inspector edits apply to the next-spawned entity ("on the fly").
     private static readonly Dictionary<string, UnitDefSO> _unitSOsById = new();
@@ -35,10 +36,6 @@ public static class TechCatalog
     // presentationId -> animator controller (assigned at spawn when the prefab's
     // own Animator has no controller, e.g. variant-of-FBX prefabs).
     private static readonly Dictionary<int, RuntimeAnimatorController> _controllerByPid = new();
-
-    private static CombatProfile _combatProfile;
-    private static string _faction;
-    private static List<string> _resources = new();
 
     /// <summary>
     /// Always true (mirrors the old `TechTreeDB.Instance != null`, which was true once the
@@ -92,72 +89,40 @@ public static class TechCatalog
 
     private static void Build()
     {
-        _unitsById.Clear(); _buildingsById.Clear(); _technologiesById.Clear(); _sectsById.Clear();
+        _unitsById.Clear(); _buildingsById.Clear(); _technologiesById.Clear();
         _unitSOsById.Clear(); _buildingSOsById.Clear(); _techSOsById.Clear(); _buildingLevels.Clear();
         _prefabByPid.Clear(); _controllerByPid.Clear();
         _eraOverrides.Clear(); _derivedResearch.Clear();
 
-        // Fully-qualified: the `Resources` property below would shadow UnityEngine.Resources.
         var catalog = UnityEngine.Resources.Load<TechTreeCatalog>(CatalogResourceName);
-        var jsonAsset = TryLoadJson();
-        string json = jsonAsset != null ? jsonAsset.text : null;
 
-        // 1. Sects/faction/resources come from JSON. Technologies prefer their SOs.
-        var parsed = TechTreeParser.ParseAll(json);
-        _faction = parsed.Faction;
-        _resources = parsed.Resources;
-        _combatProfile = new CombatProfile { defenseFormulaHint = "" };
-        foreach (var kv in parsed.Sects) _sectsById[kv.Key] = kv.Value;
-
-        // Technologies: the SO assets win, JSON is the deprecated fallback -- the
-        // same arrangement units and buildings already use. A tech that has no SO
-        // yet still loads from JSON, and says so once, rather than vanishing from
-        // the tree.
-        if (catalog != null && catalog.HasTechnologies)
+        // 1-2. Everything comes from the SO catalog. A missing catalog means the
+        //      game has no data at all — say so loudly; there is nothing to fall
+        //      back to (TechTree.json was deleted 2026-10-03).
+        if (catalog == null)
         {
-            foreach (var so in catalog.technologies)
-            {
-                if (so == null || string.IsNullOrEmpty(so.id)) continue;
-                _technologiesById[so.id] = so.ToDef();
-                _techSOsById[so.id] = so;
-            }
-            int missing = 0;
-            foreach (var kv in parsed.Technologies)
-            {
-                if (_technologiesById.ContainsKey(kv.Key)) continue;
-                _technologiesById[kv.Key] = kv.Value;
-                missing++;
-            }
-            if (missing > 0)
-                Debug.LogWarning($"[TechCatalog] {missing} technolog{(missing == 1 ? "y" : "ies")} " +
-                    "had no SO asset and fell back to TechTree.json. Author the missing " +
-                    "TechDefSO under its building's Research/ folder and add it to " +
-                    "TechTreeCatalog.asset (there is no generator tool).");
+            Debug.LogError("[TechCatalog] No TechTreeCatalog at Resources/TechTreeCatalog — the game " +
+                "has NO unit, building or technology data. Every SO is referenced from that asset " +
+                "(add the missing reference to Resources/TechTreeCatalog.asset).");
         }
         else
         {
-            foreach (var kv in parsed.Technologies) _technologiesById[kv.Key] = kv.Value;
-        }
-
-        // 2. Units/buildings come from the authoritative SO catalog (JSON = deprecated fallback).
-        if (catalog != null && catalog.HasEntries)
-        {
+            if (catalog.technologies != null)
+            {
+                foreach (var so in catalog.technologies)
+                {
+                    if (so == null || string.IsNullOrEmpty(so.id)) continue;
+                    _technologiesById[so.id] = so.ToDef();
+                    _techSOsById[so.id] = so;
+                }
+            }
             LoadFromCatalog(catalog);
-        }
-        else
-        {
-            Debug.LogWarning(
-                "[TechCatalog] No TechTreeCatalog found at Resources/TechTreeCatalog — falling back to " +
-                "DEPRECATED TechTree.json for unit/building stats. Generate the catalog (Waning Border ▸ " +
-                "Tech Tree ▸ Generate Stat SOs) so the game reads the SO stats.");
-            foreach (var kv in parsed.Units) _unitsById[kv.Key] = kv.Value;
-            foreach (var kv in parsed.Buildings) _buildingsById[kv.Key] = kv.Value;
         }
 
         // 3. Ensure required buildings exist + Temple fixup (only adds/repairs missing).
         ApplyBuildingDefaults();
 
-        // 3b. Seed the Alanthor King's Court units (Ledger + King Lexor) so they
+        // 3b. Seed the Alanthor capital units (Ledger + King Lexor) so they
         //     resolve before their UnitDefSO assets exist in the catalog. Same
         //     fallback pattern as ApplyBuildingDefaults — SO wins if authored.
         ApplyUnitDefaults();
@@ -230,24 +195,6 @@ public static class TechCatalog
             _derivedResearch[kv.Key] = def.research;
         }
 
-        // THE CAPITAL HOSTS THE HALL'S BENCH (Age_0.md 2026-08-31). The
-        // Fortress is the starting building and must offer everything the
-        // Hall researches — the age-up included — or a player who never
-        // builds a spare Hall could not advance at all. researchAt stays
-        // "Hall" as the single truth (moving the techs would orphan the
-        // buildable Hall); the capital inherits the derived list here, in
-        // the one place research lists are built.
-        if (_buildingsById.TryGetValue("Fortress", out var fortress)
-            && _buildingsById.TryGetValue("Hall", out var hall)
-            && fortress != null && hall != null && hall.research != null)
-        {
-            var inherited = new List<string>(fortress.research ?? System.Array.Empty<string>());
-            foreach (var id in hall.research)
-                if (!inherited.Contains(id)) inherited.Add(id);
-            fortress.research = inherited.ToArray();
-            _derivedResearch["Fortress"] = fortress.research;
-        }
-
         // A researchAt pointing at a building that does not exist would otherwise
         // be invisible: no building lists the tech, so nothing renders it.
         foreach (var host in byHost.Keys)
@@ -271,7 +218,7 @@ public static class TechCatalog
         // SimpleAISystem.TryResearchTechWithReason host switch.
         var aiHosts = new HashSet<string>
         {
-            "Barracks", "Hall", "ArcheryRange", "GatherersHut", "Hut",
+            "Barracks", "Fortress", "ArcheryRange", "GatherersHut", "Hut", "Mine",
             "Alanthor_RoyalStable", "Alanthor_SiegeYard",
             "TempleOfRidan",
         };
@@ -383,6 +330,51 @@ public static class TechCatalog
             if (b.lineOfSight <= 0f) Warn($"building '{b.id}' has lineOfSight {b.lineOfSight}");
         }
 
+        // ── fields that used to be code tables (2026-10-03, item 34) ──────
+        // Each of these was a switch in C# that the SO now owns; a hole in
+        // the asset must be as loud as a missing hp, because there is no
+        // code number behind it any more.
+        foreach (var u in _unitsById.Values)
+        {
+            if (u == null || !_unitSOsById.ContainsKey(u.id)) continue;
+            if (u.populationCost < 0) Warn($"unit '{u.id}' has populationCost {u.populationCost}");
+        }
+        foreach (var kv in _buildingSOsById)
+        {
+            var so = kv.Value;
+            if (so == null) continue;
+            if (so.footprintCells.x <= 0 || so.footprintCells.y <= 0)
+                Warn($"building '{kv.Key}' has footprintCells {so.footprintCells} — it has no footprint to place, stamp or path around");
+            if (so.buildTime <= 0f)
+                Warn($"building '{kv.Key}' has buildTime {so.buildTime} — its construction site would finish instantly");
+            if (so.slotIncomePerMinute != null && so.slotIncomePerMinute.Length > 0)
+            {
+                if (so.slotIncomePerMinute.Length != 3)
+                    Warn($"building '{kv.Key}' slotIncomePerMinute has {so.slotIncomePerMinute.Length} rungs — an extractor needs one per level (3)");
+                foreach (var r in so.slotIncomePerMinute)
+                    if (r <= 0f) Warn($"building '{kv.Key}' slotIncomePerMinute has a rung of {r}");
+            }
+            if (so.garrisonSlots > 0 && so.garrisonArrowsPerOccupant <= 0)
+                Warn($"building '{kv.Key}' holds {so.garrisonSlots} garrison but its occupants add no arrows");
+        }
+        foreach (var extractor in new[] { "GatherersHut", "Mine", "VeilstoneMine" })
+            if (_buildingSOsById.TryGetValue(extractor, out var ex) && ex != null
+                && (ex.slotIncomePerMinute == null || ex.slotIncomePerMinute.Length == 0))
+                Warn($"extractor '{extractor}' has no slotIncomePerMinute — its slot pays nothing");
+        if (_buildingSOsById.TryGetValue("VaultOfAlmierra", out var vault) && vault != null
+            && vault.interestPerMinute <= 0f)
+            Warn("building 'VaultOfAlmierra' has interestPerMinute 0 — the Vault earns nothing");
+        foreach (var lvl in _buildingLevels.Values)
+        {
+            if (lvl == null) continue;
+            if (lvl.hpMultiplier <= 0f)
+                Warn($"building level '{lvl.name}' has hpMultiplier {lvl.hpMultiplier}");
+            if ((lvl.buildingId == "GatherersHut" || lvl.buildingId == "Mine") && lvl.slotIncomePerMinute <= 0f)
+                Warn($"building level '{lvl.name}' is an extractor rung with slotIncomePerMinute {lvl.slotIncomePerMinute}");
+            if (lvl.buildingId == "VaultOfAlmierra" && lvl.interestMultiplier <= 0f)
+                Warn($"building level '{lvl.name}' has interestMultiplier {lvl.interestMultiplier} — the Vault earns nothing at it");
+        }
+
         if (issues == 0)
             Debug.Log("[TechTreeValidator] tech tree cross-references clean");
         else
@@ -477,7 +469,6 @@ public static class TechCatalog
     }
 
     public static bool TryGetTechnology(string id, out TechnologyDef def) { EnsureLoaded(); return _technologiesById.TryGetValue(id, out def); }
-    public static bool TryGetSect(string id, out SectDef def) { EnsureLoaded(); return _sectsById.TryGetValue(id, out def); }
 
     public static UnitDef GetUnit(string id) => TryGetUnit(id, out var def) ? def : null;
     public static BuildingDef GetBuilding(string id) => TryGetBuilding(id, out var def) ? def : null;
@@ -529,6 +520,74 @@ public static class TechCatalog
     };
     public static TechnologyDef GetTechnology(string id) { EnsureLoaded(); return _technologiesById.TryGetValue(id, out var def) ? def : null; }
 
+    /// <summary>
+    /// A building's authored footprint in 2 m build cells, read straight off
+    /// its SO (no def refresh: BuildingSizeConfig asks this on hot paths).
+    /// False when the id has no BuildingDefSO — the code-seeded ids
+    /// (chapels, the curse's well) that BuildingSizeConfig still sizes itself.
+    /// </summary>
+    public static bool TryGetFootprintCells(string id, out Vector2Int cells)
+    {
+        cells = default;
+        if (string.IsNullOrEmpty(id)) return false;
+        EnsureLoaded();
+        if (!_buildingSOsById.TryGetValue(id, out var so) || so == null) return false;
+        cells = so.footprintCells;
+        return true;
+    }
+
+    /// <summary>
+    /// The authoring asset behind a building, read without the def refresh
+    /// (for per-tick readers such as the territory income). False when the
+    /// id has no BuildingDefSO.
+    /// </summary>
+    public static bool TryGetBuildingSO(string id, out BuildingDefSO so)
+    {
+        so = null;
+        if (string.IsNullOrEmpty(id)) return false;
+        EnsureLoaded();
+        return _buildingSOsById.TryGetValue(id, out so) && so != null;
+    }
+
+    /// <summary>True when the id is backed by a BuildingDefSO in the catalog.</summary>
+    public static bool HasBuildingSO(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return false;
+        EnsureLoaded();
+        return _buildingSOsById.TryGetValue(id, out var so) && so != null;
+    }
+
+    /// <summary>
+    /// A number a behaviour-by-id tech carries as DATA: the first
+    /// effectsList entry of <paramref name="techId"/> whose Stat is
+    /// <paramref name="stat"/>. Used for the effects the generic unit engine
+    /// does not apply itself (build speed, train speed, building HP, the
+    /// charge's numbers — see TechEffectEntry).
+    /// </summary>
+    public static bool TryGetTechEffect(string techId, string stat, out float value)
+    {
+        value = 0f;
+        if (string.IsNullOrEmpty(techId) || !TryGetTechnology(techId, out var tech)
+            || tech?.effectsList == null) return false;
+        foreach (var fx in tech.effectsList)
+            if (fx != null && fx.Stat == stat) { value = fx.Value; return true; }
+        return false;
+    }
+
+    /// <summary>
+    /// <see cref="TryGetTechEffect"/> for an effect the code REQUIRES: a
+    /// missing entry is a data bug, reported once, and reads as 0 (no
+    /// effect) — never as a code-side number.
+    /// </summary>
+    public static float TechEffect(string techId, string stat)
+    {
+        if (TryGetTechEffect(techId, stat, out var v)) return v;
+        if (_reportedMissingDefs.Add("effect:" + techId + "|" + stat))
+            Debug.LogError($"[TechCatalog] Tech '{techId}' has no '{stat}' entry in its effectsList " +
+                "— the effect does nothing. Author it on the TechDefSO.");
+        return 0f;
+    }
+
     /// <summary>presentationId -> prefab for the spawn path. False = no prefab assigned (caller uses a primitive).</summary>
     public static bool TryGetPrefab(int presentationId, out GameObject prefab)
     {
@@ -546,14 +605,9 @@ public static class TechCatalog
         return _controllerByPid.TryGetValue(presentationId, out controller);
     }
 
-    public static CombatProfile CombatProfile { get { EnsureLoaded(); return _combatProfile; } }
-    public static string Faction { get { EnsureLoaded(); return _faction; } }
-    public static List<string> Resources { get { EnsureLoaded(); return _resources; } }
-
     public static IReadOnlyDictionary<string, UnitDef> AllUnits { get { EnsureLoaded(); return _unitsById; } }
     public static IReadOnlyDictionary<string, BuildingDef> AllBuildings { get { EnsureLoaded(); return _buildingsById; } }
     public static IReadOnlyDictionary<string, TechnologyDef> AllTechnologies { get { EnsureLoaded(); return _technologiesById; } }
-    public static IReadOnlyDictionary<string, SectDef> AllSects { get { EnsureLoaded(); return _sectsById; } }
 
     public static IEnumerable<BuildingDef> GetAllBuildings() { EnsureLoaded(); return _buildingsById.Values; }
     public static IEnumerable<UnitDef> GetAllUnits() { EnsureLoaded(); return _unitsById.Values; }
@@ -576,19 +630,12 @@ public static class TechCatalog
             range.minEra = 2;
         _eraOverrides["ArcheryRange"] = 2;
 
-        // The veilstone extractor. Seeded for the same reason the sect
-        // buildings are: its BuildingDefSO is authored but a new asset is not
-        // in Resources/TechTreeCatalog until Unity imports it and someone adds
-        // the reference, and until then Building() returns a 1-HP stub and the
-        // build menu shows no button. The authored SO wins the moment it
-        // loads; this only closes the gap.
-        EnsureBuildingDefault("VeilstoneMine", "Veilstone Mine",
-            "Veilstone extraction - built on a veilstone outcropping",
-            700, 12, 1.5f, 1, System.Array.Empty<string>(), System.Array.Empty<string>());
-
-        // Same gap-closer for the Trading Outpost (Veilstone_Economy.md §3.1).
+        // Gap-closer for the Trading Outpost (Veilstone_Economy.md §3.1): a
+        // new BuildingDefSO is not in Resources/TechTreeCatalog until someone
+        // adds the reference, and until then Building() returns a 1-HP stub.
+        // The authored SO wins the moment it loads; this only closes the gap.
         EnsureBuildingDefault("Alanthor_TradingOutpost", "Trading Outpost",
-            "Trade post beside a veilstone outcrop",
+            "Trade post on a veilstone outcrop",
             650, 14, 1.0f, 2, System.Array.Empty<string>(), System.Array.Empty<string>());
 
         // THE TEMPLE IS AN AGE 0 BUILDING (docs/Design/Religion.md §2,
@@ -647,7 +694,7 @@ public static class TechCatalog
                                  trains: new[] { unitId }, research: new[] { techId });
 
     /// <summary>
-    /// Seed the two Alanthor King's Court units in code so they train, show in
+    /// Seed the two Alanthor capital units in code so they train, show in
     /// the UI, and resolve their cost/training-time before a UnitDefSO exists in
     /// the catalog. Only fills gaps — an authored SO (loaded above) already sits
     /// in _unitsById and is left untouched. Stats mirror the entity factories
@@ -655,8 +702,8 @@ public static class TechCatalog
     /// </summary>
     private static void ApplyUnitDefaults()
     {
-        // Values below match the canonical tech-tree calculator
-        // (tools/calculator/techtree.json). Owner may still tune.
+        // Gap-fillers only: the authored UnitDefSO wins whenever it loads.
+        // (tools/calculator is a generated view of the SOs, not a source.)
         EnsureUnitDefault(new UnitDef
         {
             id = "Ledger", name = "Ledger", unitClass = "support",
@@ -767,17 +814,6 @@ public static class TechCatalog
         };
     }
 
-    private static TextAsset TryLoadJson()
-    {
-        string[] possiblePaths = { "TechTree", "Data/TechTree", "Config/TechTree", "TechTree/Human" };
-        foreach (var path in possiblePaths)
-        {
-            var asset = UnityEngine.Resources.Load<TextAsset>(path);
-            if (asset != null) return asset;
-        }
-        return null;
-    }
-
     // ─── culture gating ────────────────────────────────────────────────────
 
     /// <summary>
@@ -790,11 +826,10 @@ public static class TechCatalog
     /// them meant the AI researching techs the player cannot see, or the panel
     /// offering techs the AI would never take. One copy, both callers.
     ///
-    /// `tech.culture` wins when the JSON declares one. Otherwise the id switch
-    /// handles the shared-building case: the Gatherer's Hut carries both the
-    /// Alanthor Survey drips and the Feraldis Raiding ladder, and each line is
-    /// inert for the other culture (a Feraldis hut is a Raider Camp that
-    /// gathers nothing, and only Feraldis fields Plunderers).
+    /// The gate is the tech's own `culture` field (the SO is the truth): an
+    /// empty field means every culture. The Gatherer's Hut's Alanthor Guild
+    /// line and Feraldis Raider Camp line carry their culture on the SO since
+    /// 2026-10-03, so the id switch that used to special-case them is gone.
     /// </summary>
     public static bool CultureAllows(TechnologyDef tech, byte culture)
     {
@@ -807,33 +842,9 @@ public static class TechCatalog
                 case "Runai":    return culture == Cultures.Runai;
                 case "Alanthor": return culture == Cultures.Alanthor;
                 case "Feraldis": return culture == Cultures.Feraldis;
-                // Unknown culture name: fall through to the id switch.
             }
         }
-
-        switch (tech.id)
-        {
-            // Feraldis Raider Camp ladder.
-            case "Raiding1":
-            case "Raiding2":
-            case "Raiding3":
-            case "IronPlunder":
-            case "VeilstonePlunder":
-            case "VeilsteelPlunder":
-                return culture == Cultures.Feraldis;
-
-            // Alanthor Guild gather drips — dead weight on a Raider Camp.
-            case "IronSurveying1":
-            case "IronSurveying2":
-            case "IronSurveying3":
-            case "VeilstoneSurvey1":
-            case "VeilstoneSurvey2":
-            case "VeilsteelSurvey":
-                return culture != Cultures.Feraldis;
-
-            default:
-                return true;
-        }
+        return true;
     }
 
 }

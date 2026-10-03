@@ -8,7 +8,7 @@
 //   2. If yes: wall off and fortify the chokepoints (the Fiendstone Keep
 //      also stands there — see SimpleAISystem's choice-building hook).
 //   3. If not: wall a LARGE square-ish area around what's important
-//      (military production, Temple, Smelters, the near Gatherer's Huts),
+//      (military production, Temple, the near Gatherer's Huts),
 //      with a gate facing each cardinal direction and towers on the wall.
 //
 // The assessment is TERRAIN-ONLY (PassabilityGrid cell value ==

@@ -151,7 +151,7 @@ namespace TheWaningBorder.Entities
         private static readonly System.Collections.Generic.Dictionary<System.Type, string[]> TagIds =
             new System.Collections.Generic.Dictionary<System.Type, string[]>
         {
-            { typeof(HallTag),           new[] { "Hall", "Fortress" } },
+            { typeof(HallTag),           new[] { "Fortress" } },
             { typeof(FortressTag),       new[] { "Fortress" } },
             { typeof(BarracksTag),       new[] { "Barracks" } },
             { typeof(ArcheryRangeTag),   new[] { "ArcheryRange" } },

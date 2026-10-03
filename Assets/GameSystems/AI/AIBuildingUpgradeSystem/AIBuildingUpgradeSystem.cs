@@ -4,7 +4,7 @@
 // Each AI brain that's Era >= 2 with a non-None culture picks ONE
 // upgradeable building per tick (slowest cadence so it doesn't dominate
 // the build queue) and tries UpgradeBuildingCommandHelper.Execute on it.
-// The walk is Smelter-first, then a round-robin over PriorityOrder (every
+// The walk is a round-robin over PriorityOrder (every
 // line the faction can own, choice buildings and the wall hub included)
 // so the AI eventually levels EVERYTHING to L3.
 //
@@ -35,13 +35,6 @@ namespace TheWaningBorder.AI
             ComponentType.ReadOnly<AIBrain>(),
         };
         static CachedEntityQuery QC_AIBrain;
-
-        static readonly ComponentType[] QT_SmelterTagFactionTag =
-        {
-            ComponentType.ReadOnly<SmelterTag>(),
-            ComponentType.ReadOnly<FactionTag>(),
-        };
-        static CachedEntityQuery QC_SmelterTagFactionTag;
 
         static readonly ComponentType[] QT_HallTagFactionTagFactionProgress =
         {
@@ -107,14 +100,6 @@ namespace TheWaningBorder.AI
         };
         static CachedEntityQuery QC_WatchTowerTagBuildingUpgradeableFactionTag;
 
-        static readonly ComponentType[] QT_SmelterTagBuildingUpgradeableFactionTag =
-        {
-            ComponentType.ReadOnly<SmelterTag>(),
-            ComponentType.ReadOnly<BuildingUpgradeable>(),
-            ComponentType.ReadOnly<FactionTag>(),
-        };
-        static CachedEntityQuery QC_SmelterTagBuildingUpgradeableFactionTag;
-
         static readonly ComponentType[] QT_VaultTagBuildingUpgradeableFactionTag =
         {
             ComponentType.ReadOnly<VaultTag>(),
@@ -178,8 +163,7 @@ namespace TheWaningBorder.AI
         // so "lowest-level GatherersHut" always existed, the Hall saw its
         // first level at minute 24, and the Archery Range / Royal Stable /
         // Siege Yard / Watch Tower NEVER levelled (they were not even listed).
-        // The walk is now: Smelter strictly first (the veilsteel engine
-        // compounds), then a ROUND-ROBIN start index across the rest so every
+        // The walk is now a ROUND-ROBIN start index across the list so every
         // line gets a turn.
         // 2026-08-10 (endgame completeness): the choice buildings
         // (VaultOfAlmierra — carries BuildingUpgradeable
@@ -190,7 +174,7 @@ namespace TheWaningBorder.AI
         // ladder ships — wall Tower/Gate CONVERSIONS stay with
         // WallUpgradeSystem and are NOT driven from here.
         private static readonly string[] PriorityOrder =
-            { "GatherersHut", "Hall", "Barracks", "Hut", "ArcheryRange",
+            { "GatherersHut", "Fortress", "Barracks", "Hut", "ArcheryRange",
               "Alanthor_RoyalStable", "Alanthor_SiegeYard", "Alanthor_Tower",
               "VaultOfAlmierra", "Alanthor_Wall" };
 
@@ -279,37 +263,6 @@ namespace TheWaningBorder.AI
         // HELPERS
         // ──────────────────────────────────────────────────────────────────
 
-        /// <summary>
-        /// True while the faction owns at least one Smelter and NONE of them
-        /// has reached max level — i.e. the veilsteel engine is not running
-        /// at full rate yet, so the reserve that protects its levels applies.
-        ///
-        /// Was "ANY Smelter below max" (2026-08-18): with a cap of five
-        /// Smelters, and a new one dropping the fleet back below max every
-        /// time it is built, that condition effectively never cleared. The
-        /// reserve then blocked every veilsteel-costing upgrade for the whole
-        /// match — the Guild ladder (L2 costs 5 veilsteel, L3 costs 20) needed
-        /// 65 banked to spend 5, so the supply economy never grew while
-        /// veilsteel-free tower upgrades sailed past it 61 to 4. One maxed
-        /// Smelter is the engine this was protecting; after that the drip is
-        /// at full rate and the rest of the estate may spend.
-        /// </summary>
-        private static bool SmelterBelowMax(EntityManager em, Faction faction)
-        {
-            var query = QC_SmelterTagFactionTag.Get(em, QT_SmelterTagFactionTag);
-            using var ents = query.ToEntityArray(Allocator.Temp);
-            bool ownsAny = false;
-            for (int i = 0; i < ents.Length; i++)
-            {
-                if (em.GetComponentData<FactionTag>(ents[i]).Value != faction) continue;
-                ownsAny = true;
-                byte lvl = em.HasComponent<BuildingUpgradeState>(ents[i])
-                    ? em.GetComponentData<BuildingUpgradeState>(ents[i]).Level : (byte)0;
-                if (lvl >= BuildingUpgradeConfig.MaxLevel) return false;   // engine is running
-            }
-            return ownsAny;
-        }
-
         private static bool HasCulture(EntityManager em, Faction faction)
         {
             var query = QC_HallTagFactionTagFactionProgress.Get(em, QT_HallTagFactionTagFactionProgress);
@@ -333,10 +286,6 @@ namespace TheWaningBorder.AI
                 return;
             }
 
-            // The Smelter jumps the queue: its levels multiply the veilsteel
-            // drip that every OTHER upgrade past L1 wants to spend.
-            if (TryUpgradeBuildingType(em, faction, "Alanthor_Smelter")) return;
-
             for (int p = 0; p < PriorityOrder.Length; p++)
             {
                 int idx = (rotation + p) % PriorityOrder.Length;
@@ -347,7 +296,7 @@ namespace TheWaningBorder.AI
         /// <summary>
         /// Find the LOWEST-LEVEL building of the given type owned by the
         /// faction. Lowest level = highest marginal benefit per upgrade
-        /// click (uncultured Hall → L1 unlocks the multi-target chain).
+        /// click (Fortress L1 unlocks the multi-target chain).
         /// Returns true if the upgrade was queued.
         /// </summary>
         private static bool TryUpgradeBuildingType(EntityManager em, Faction faction, string buildingId)
@@ -355,7 +304,7 @@ namespace TheWaningBorder.AI
             EntityQuery query;
             switch (buildingId)
             {
-                case "Hall":
+                case "Fortress":
                     query = QC_HallTagBuildingUpgradeableFactionTag.Get(em, QT_HallTagBuildingUpgradeableFactionTag);
                     break;
                 case "Barracks":
@@ -381,9 +330,6 @@ namespace TheWaningBorder.AI
                     break;
                 case "Alanthor_Tower":
                     query = QC_WatchTowerTagBuildingUpgradeableFactionTag.Get(em, QT_WatchTowerTagBuildingUpgradeableFactionTag);
-                    break;
-                case "Alanthor_Smelter":
-                    query = QC_SmelterTagBuildingUpgradeableFactionTag.Get(em, QT_SmelterTagBuildingUpgradeableFactionTag);
                     break;
                 case "VaultOfAlmierra":
                     query = QC_VaultTagBuildingUpgradeableFactionTag.Get(em, QT_VaultTagBuildingUpgradeableFactionTag);
@@ -435,18 +381,6 @@ namespace TheWaningBorder.AI
             // Army first: never spend the military line's iron on levels.
             if (FactionEconomy.TryGetBank(em, faction, out var upgradeBank)
                 && em.GetComponentData<FactionResources>(upgradeBank).Iron < Cfg.upgradeIronReserve)
-                return false;
-
-            // Veilsteel engine first: while the faction's Smelter is below max
-            // level, upgrades that COST veilsteel must leave the Smelter's
-            // reserve untouched (L2+L3 need 90 total; the L1 drip is 6/min).
-            // The Smelter's own upgrade is exempt — it IS the reserve's purpose.
-            if (buildingId != "Alanthor_Smelter"
-                && BuildingUpgradeConfig.TryGetCost(em, faction, buildingId, (byte)(bestLevel + 1), out var nextCost)
-                && nextCost.Veilsteel > 0
-                && SmelterBelowMax(em, faction)
-                && FactionEconomy.TryGetResources(em, faction, out var vsRes)
-                && vsRes.Veilsteel < nextCost.Veilsteel + Cfg.smelterVeilsteelReserve)
                 return false;
 
             var result = UpgradeBuildingCommandHelper.Execute(em, best,

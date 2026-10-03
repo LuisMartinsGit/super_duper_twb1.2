@@ -177,7 +177,7 @@ namespace TheWaningBorder.UI.Ingame
             if (!hasLayout
                 && info.Type != ActionType.UnitTraining
                 && info.Type != ActionType.UnitTrainingAndResearch
-                && info.Type != ActionType.TempleUpgrade)
+                && info.Type != ActionType.TempleTraining)
             {
                 // A building whose ONLY action is its level-up — the Watch
                 // Tower trains and researches nothing — used to fall through
@@ -313,8 +313,7 @@ namespace TheWaningBorder.UI.Ingame
                 && TechCatalog.TryGetBuilding(buildingId, out var def) && def.research != null)
             {
                 var ids = new List<string>();
-                foreach (var id in def.research)
-                    if (id != "Research_Era2") ids.Add(id);
+                ids.AddRange(def.research);
 
                 // parent = first prerequisite that is itself in this list.
                 var parent = new Dictionary<string, string>();

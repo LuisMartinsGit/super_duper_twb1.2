@@ -52,16 +52,16 @@ namespace TheWaningBorder.UI.Data
                 "Planted siege engines load an aimed shot: +100% damage on their next shot.",
                 TheWaningBorder.Abilities.AlanthorActiveHelper.RangingShotCooldownRemaining(faction));
 
-            // Librarians' wing: Hall economy techs become researchable at the
-            // Keep as the "additional researches".
+            // Librarians' wing: the capital's economy techs become researchable
+            // at the Keep as the "additional researches".
             var researchIds = new List<string>();
             if (buildingDef.research != null) researchIds.AddRange(buildingDef.research);
             if (isKeep
                 && em.GetComponentData<KeepWings>(entity).Has(KeepWingType.Librarians)
-                && TechCatalog.TryGetBuilding("Hall", out var hallDef)
-                && hallDef.research != null)
+                && TechCatalog.TryGetBuilding("Fortress", out var capitalDef)
+                && capitalDef.research != null)
             {
-                foreach (var id in hallDef.research)
+                foreach (var id in capitalDef.research)
                     if (!researchIds.Contains(id)) researchIds.Add(id);
             }
 
@@ -86,15 +86,9 @@ namespace TheWaningBorder.UI.Data
             {
                 if (!TechCatalog.TryGetTechnology(techId, out var tech)) continue;
 
-                // Skip Research_Era2 — age-up is handled by DrawAgeUpSection + CultureChoicePopup
-                if (techId == "Research_Era2") continue;
-
-                // Culture gating. The Gatherer's Hut hosts two mutually
-                // exclusive economy ladders on the same building: the
-                // Alanthor Guild "Surveys" (gather drips) and the Feraldis
-                // "Raiding" line (what Plunderers steal). A Feraldis hut is a
-                // Raider Camp and gathers nothing, so showing it Surveys
-                // would sell a tech that does nothing.
+                // Culture gating: the tech SO's own culture field (the
+                // Alanthor Guild Surveys and the Feraldis Raiding line share
+                // the Gatherer's Hut, each gated to its culture).
                 if (!TechCatalog.CultureAllows(tech, factionCulture)) continue;
 
                 // Technologies are one-shot: drop any tech the faction has

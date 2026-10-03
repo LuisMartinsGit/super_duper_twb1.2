@@ -39,6 +39,7 @@ MonoBehaviour:
     Iron: 99
     Veilstone: 245
     Veilsteel: 0
+  populationCost: 3
   minBuildingLevel: 3
   buildSpeed: 0
   gatheringSpeed: 0
@@ -49,6 +50,7 @@ MonoBehaviour:
   tags:
   - Ranged
   - Siege
+  - Heavy
   bonusVsTags:
   - vsTag: Building
     amount: 80

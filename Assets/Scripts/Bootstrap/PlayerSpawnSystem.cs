@@ -277,9 +277,11 @@ namespace TheWaningBorder.Bootstrap
             UnitFactory.Create(em, "Worker", workerPos2, faction);
             UnitFactory.Create(em, "Worker", workerPos3, faction);
 
-            // Starting army south of the Hall (workers occupy E/W/N): a front
-            // row of three Swordsmen, two Archers behind, and a Scout on the
-            // eastern flank. No Catapult (§2.5b rev.3): siege in the opening
+            // Starting army south of the Hall (workers occupy E/W/N): FIVE
+            // Spearmen — a front row of three, two behind — and a Scout on the
+            // eastern flank (docs/Design/Unification_Decisions_2026-10-03.md
+            // item 19). No Archers: Age 0 is the melee age, and ranged is an
+            // Age 1 unlock. No Catapult (§2.5b rev.3): siege in the opening
             // seconds trivialised every early curse anchor.
             const float spacing = 3.5f;
             float3 frontRow = spawnPos + new float3(0, 0, -offset);
@@ -288,20 +290,8 @@ namespace TheWaningBorder.Bootstrap
             UnitFactory.Create(em, "Spearman", EnsureValidSpawnPosition(frontRow + new float3(-spacing, 0, 0)), faction);
             UnitFactory.Create(em, "Spearman", EnsureValidSpawnPosition(frontRow), faction);
             UnitFactory.Create(em, "Spearman", EnsureValidSpawnPosition(frontRow + new float3(spacing, 0, 0)), faction);
-
-            // "Alanthor_Archer", not "Archer". There is no unit authored under
-            // the bare id — the Archery Range trains Alanthor_Archer /
-            // _Crossbowman / _Longbowman, which is the same id-prefix roster
-            // an Age 0 building legitimately carries (see CLAUDE.md).
-            //
-            // TechCatalog.Unit() never returns null: it logged ONCE per session
-            // and handed back a stub of hp 1 / speed 1 / lineOfSight 1 /
-            // damage 0. So both opening archers, for every faction, in every
-            // match ever played, spawned with one hit point, at walking pace
-            // one, blind and unable to attack. Measured across an 11-session
-            // headless batch 2026-09-09: one real error per match, this one.
-            UnitFactory.Create(em, "Alanthor_Archer", EnsureValidSpawnPosition(backRow + new float3(-spacing * 0.5f, 0, 0)), faction);
-            UnitFactory.Create(em, "Alanthor_Archer", EnsureValidSpawnPosition(backRow + new float3(spacing * 0.5f, 0, 0)), faction);
+            UnitFactory.Create(em, "Spearman", EnsureValidSpawnPosition(backRow + new float3(-spacing * 0.5f, 0, 0)), faction);
+            UnitFactory.Create(em, "Spearman", EnsureValidSpawnPosition(backRow + new float3(spacing * 0.5f, 0, 0)), faction);
 
             UnitFactory.Create(em, "Scout", EnsureValidSpawnPosition(backRow + new float3(spacing * 2f, 0, 0)), faction);
 

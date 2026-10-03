@@ -1,7 +1,7 @@
 // MineVisual.cs
-// THE THREE ORE EXTRACTORS, ONE FAMILY: the iron Mine, the Veilstone Mine and
-// the veilsteel extractor (Alanthor_Smelter) share one procedural pithead,
-// and the ORE tells them apart:
+// THE ORE EXTRACTORS, ONE FAMILY: the iron Mine and the Veilstone Mine share
+// one procedural pithead, and the ORE tells them apart (the veilsteel look is
+// kept for any future veilsteel extractor; veilsteel is made, never mined):
 //
 //   Iron       rust-brown ore, dull iron fittings
 //   Veilstone  cyan crystal that glows
@@ -35,7 +35,6 @@ namespace TheWaningBorder.Rendering
         {
             "Mine"             => MineKind.Iron,
             "VeilstoneMine"    => MineKind.Veilstone,
-            "Alanthor_Smelter" => MineKind.Veilsteel,
             _                  => (MineKind?)null,
         };
 

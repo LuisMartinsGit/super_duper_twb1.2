@@ -13,7 +13,8 @@
 >   Shardroot's carry / store / detonate rules (§3.1) STAND where this file
 >   does not replace them.
 > - [Age_0.md](Age_0.md) Hall and Fortress sections — **the Hall is removed**;
->   the Fortress inherits its roster and research and becomes buildable.
+>   the capital is the Shelter (Age 0), which becomes the Fortress at age-up;
+>   the Fortress inherits the Hall's roster and research and is buildable.
 >
 > Everything here is **(new — not yet in code)**.
 
@@ -60,7 +61,10 @@ Its weight is its **population cost**. A faction's weight in a territory is
 `weight = (Σ popCost) ^ claimExponent`
 
 with `claimExponent` = **1.0** to start (linear in population). Set it to
-0.5 for the square-root curve if deathballs claim too fast in play.
+0.5 for the square-root curve if deathballs claim too fast in play. The meter
+parameters (`claimExponent`, `claimRate`, `decayRate`) are config values in
+`Assets/Scripts/World/Regions/TerritoryOwnership.asset`; the numbers quoted in
+this section are the rule's starting values, and the asset wins.
 
 **The curse** counts **×2** (§6.1), and only while it is standing, not
 passing (§6.2). Curse units carry no population cost, so they weigh by tier:
@@ -113,10 +117,21 @@ towers slow that down; they do not stop it.
 
 ## 4. The Fortress
 
-**Every player starts with a Fortress**, which claims and locks the home
-territory from tick 0 (home meter = 100, holder = that player).
+**Every player starts with a Shelter** — the Age 0 form of the capital —
+which claims and locks the home territory from tick 0 (home meter = 100, holder = that player).
 Beside it stands one finished **House** (Hut, 2026-09-30) on a diagonal
-10 m out, so the opening population cap is 10 + 3 = **13**.
+just outside the capital, so the opening population cap is **the Shelter's
+housing plus one House's** — both read from their SOs (`Fortress.asset` and
+`Hut.asset` `populationProvided`; decision 8, 2026-10-03, is what retired the
+old "13"). The opening army — 5 Spearmen, 1 Scout and 3 Workers (decision 19;
+no Archers, Age 0 is the melee age) — fits under that cap with room for the
+first trainings, so the first extra House is an early but not an immediate
+need.
+
+**At age-up the Shelter automatically becomes the Fortress** (2026-10-03),
+for every culture: the same building renamed, internal id `Fortress`, with
+levels L1-L3 (Alanthor's are `Civs/Alanthor/Buildings/Fortress/Fortress_Lvl1..3`).
+Everything below that says "Fortress" applies to the Shelter too.
 
 **The Fortress is buildable** — it is how a player secures ground that has no
 resource nodes, or doubles the lock on ground that has. It is **the most
@@ -124,14 +139,14 @@ expensive thing in the game**:
 
 | | |
 |---|---|
-| Cost | **1 200 Supplies + 1 200 Iron + 300 Veilstone** (first pass — must stay above the age-up landmark's 600 / 300 / 200) |
+| Cost | on the `Fortress` SO. **Rule:** it must stay the most expensive building and above the age-up landmark's price |
 | Limit | one per territory |
 | Placement | only in a territory you own (the ordinary build gate, §5) |
-| Hosts | everything the Hall hosted: trains Worker and Scout, researches Stone tools / Armed scouts, banks resources |
+| Hosts | trains Worker and Scout (Alanthor adds the Ledger and King Lexor), researches Stone Tools / Armed Scouts (Alanthor adds the tool ladder, Mason Guild and Scouting Celestarii — all `researchAt: Fortress`), banks resources |
 
-**The Hall is removed.** Its roster and research move to the Fortress. The
-cultured Hall forms of the Age 1 docs (Town Hall / Trader's Hall / Warrior's
-Hall) become the cultured Fortress — those docs follow in a later pass.
+**There is no Hall, no King's Court and no Town Hall** (deleted 2026-10-03).
+Their roster and research belong to the capital — the Shelter in Age 0, the
+Fortress after — and every culture's cultured capital is the Fortress.
 
 ## 5. The build gate
 
@@ -304,7 +319,7 @@ All in `TerritoryOwnership.asset` / `BorderSettings.asset`:
 
 | | Limit |
 |---|---|
-| Age 0, the starting Fortress at L1 | 1 — your start territory only |
+| Age 0, the starting Shelter (counts as L1) | 1 — your start territory only |
 | Aged up | +2 |
 | Each Fortress level beyond L1 | +1 |
 | Each further Fortress | +1 (its own L1) |

@@ -208,12 +208,10 @@ public enum NetworkRole
 /// <see cref="GameSettings.StartAge"/> and <c>StartAgePromoter</c>.
 /// </summary>
 /// <summary>
-/// Lobby start-age selector. The value IS the starting Temple level, and the
-/// era ladder runs one ahead of it (Temple L1 = Era 2), so:
-///   Age0 → no promotion   Age2 → Temple L2, Era 3
-///   Age1 → Temple L1, Era 2   Age3 → Temple L3, Era 4
-///   Age4 → Temple L4, Era 5 — the top of the ladder
-/// (TempleLevelConfig.MaxLevel is 4, so Age4 is fully teched.)
+/// Lobby start-age selector. The value is the starting capital level (capped
+/// at the building ladder's top, L3), and the era runs one ahead of it:
+///   Age0 → no promotion   Age1 → Era 2   Age2 → Era 3   Age3 → Era 4
+///   Age4 → Era 5 (the Fortress stays at L3).
 /// </summary>
 public enum SkirmishStartAge : byte
 {
@@ -321,18 +319,15 @@ public static class GameSettings
     /// to a chosen age before play starts, so the player can demo mid-game
     /// strategy without grinding through the early build order each time.
     ///
-    ///   Age0  — current default: bare Hall + workers, no age-up applied.
-    ///   Age1  — Alanthor L1: Hall L1, Temple of Ridan L1, one random choice
-    ///           building (Shrine of Ahridan / Vault of Almiérra / Fiendstone
-    ///           Keep) placed nearby. +200 supplies +50 iron pre-stocked.
-    ///   Age2  — Alanthor L2: Hall L2, Temple L2, one random choice building.
+    ///   Age0  — current default: bare Shelter + workers, no age-up applied.
+    ///   Age1  — Alanthor L1: Fortress L1, Temple of Ridan, the culture's
+    ///           landmark placed nearby. +200 supplies +50 iron pre-stocked.
+    ///   Age2  — Alanthor L2: Fortress L2, Temple, the landmark.
     ///           +500 supplies +150 iron +50 veilstone.
-    ///   Age3  — L3: Hall L3, Temple L3, one random choice building.
+    ///   Age3  — L3: Fortress L3, Temple, the landmark.
     ///           +1000 supplies +300 iron +100 veilstone +30 veilsteel.
-    ///   Age4  — L4 (top of the ladder): Hall L4, Temple L4, Era 5. Every
-    ///           culture unit and both ritualist gates are open, which is the
-    ///           point — the verb objectives sit behind Temple L3/L4 and are
-    ///           otherwise ~15 minutes of build-up away in every test.
+    ///   Age4  — Era 5 (the Fortress stays at L3, the ladder's top), with
+    ///           a larger stock for late-game tests.
     ///
     /// All slots (human + AI) get the same age — clean demo setup. The AI's
     /// SimpleAISystem build-order step pointer is advanced past the end so

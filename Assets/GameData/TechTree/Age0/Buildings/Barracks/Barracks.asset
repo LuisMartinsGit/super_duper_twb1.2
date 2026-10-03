@@ -27,10 +27,16 @@ MonoBehaviour:
     magic: 2
   radius: 1.6
   lineOfSight: 18
+  footprintCells: {x: 5, y: 5}
   buildTime: 30
   populationProvided: 0
   suppliesPerTick: 0
   suppliesInterval: 0
+  slotIncomePerMinute: []
+  interestPerMinute: 0
+  minWallLevel: 0
+  garrisonSlots: 0
+  garrisonArrowsPerOccupant: 0
   maxIron: 0
   maxVeilstone: 0
   segmentHp: 0

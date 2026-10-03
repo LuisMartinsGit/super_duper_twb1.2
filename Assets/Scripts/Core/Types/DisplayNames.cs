@@ -70,7 +70,7 @@ namespace TheWaningBorder.Core
         /// <summary>
         /// Strip the culture prefix and split the remaining PascalCase id into
         /// words: "Runai_VeilsteelFoundry" → "Veilsteel Foundry". Acronym runs
-        /// stay glued ("KingsCourtHQ" → "Kings Court HQ").
+        /// stay glued ("SiegeYardHQ" → "Siege Yard HQ").
         /// </summary>
         public static string Prettify(string id)
         {

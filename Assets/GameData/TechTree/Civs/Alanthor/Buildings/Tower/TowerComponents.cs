@@ -6,5 +6,6 @@ using Unity.Entities;
 using Unity.Collections;
 using Unity.Mathematics;
 
-/// <summary>Alanthor ranged defensive tower. Garrison 4.</summary>
+/// <summary>Alanthor ranged defensive tower. Its garrison (Tower.asset
+/// garrisonSlots) is a WallGarrisonSlot buffer — see WallGarrison.</summary>
 public struct WatchTowerTag : IComponentData { }

@@ -1369,14 +1369,6 @@ namespace TheWaningBorder.Multiplayer
                     }
                     break;
 
-                case LockstepCommandType.TempleUpgrade:
-                    if (entity != Entity.Null)
-                    {
-                        CommandRouter.TempleUpgradeCommandDirect(em, entity);
-                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed TempleUpgrade from player {cmd.PlayerIndex}");
-                    }
-                    break;
-
                 case LockstepCommandType.SectAdopt:
                     if (entity != Entity.Null)
                     {

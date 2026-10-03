@@ -113,10 +113,6 @@ namespace TheWaningBorder.Core.Config
         /// grace only absorbs same-tick state churn).</summary>
         public const float NodeVictoryHoldTime = 5f;
 
-        // ==================== Scholar (Alanthor ritualist) ====================
-        // Stats live in Scholar.asset (TechCatalog.Unit("Alanthor_Scholar")).
-        public const int   ScholarPresentationID = 382;       // After sect-unique unit IDs (370-381)
-
         // ==================== Iconoclast (Feraldis node breaker, spec refinement #1) ====================
         // High-value, slow, hard-hitting unit gated to a Lv 3 Feraldis
         // Longhouse. Only damage source that can bring a Veilstone node to
@@ -139,7 +135,7 @@ namespace TheWaningBorder.Core.Config
         public const float IconoclastAuraRadius = 12f;
 
         // ==================== Acolyte (Runai ritualist) ====================
-        // Same shape as Scholar — vulnerable caster, escort required. The
+        // A vulnerable caster, escort required. The
         // mechanical difficulty comes from RitualDefenseSystem's
         // RitualDefenseRunaiIntensity multiplier, not from the ritualist
         // itself being weaker.

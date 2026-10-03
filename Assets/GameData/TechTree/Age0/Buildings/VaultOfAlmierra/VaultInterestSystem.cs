@@ -1,5 +1,7 @@
 // Applies compound interest to resources stored in the Vault of Almiérra.
-// Rate: 3% per minute. Vault locks for 3 minutes after each deposit/withdraw.
+// Rate: the SO's interestPerMinute (VaultOfAlmierra.asset), scaled by the
+// level SO's interestMultiplier. Vault locks for 3 minutes after each
+// deposit/withdraw.
 
 using Unity.Entities;
 using TheWaningBorder.Economy;
@@ -39,7 +41,7 @@ namespace TheWaningBorder.Systems.Economy
                     // Banking-grade tech ladder (Age 0 design): the highest
                     // researched grade REPLACES the active interest rate —
                     // Coffers 50%, Merchant Charters 75%, Sovereign Bonds
-                    // 100% per minute (base 25% from the factory).
+                    // 100% per minute (base: the Vault SO's interestPerMinute).
                     if (research != null)
                     {
                         var f = faction.ValueRO.Value;
@@ -48,13 +50,18 @@ namespace TheWaningBorder.Systems.Economy
                         else if (research.HasResearched(f, "Coffers")) rate = 0.50f;
                     }
 
-                    // Vault simple upgrade (design 2026-07-04): dramatically
-                    // increases interest yields — x1.5 at L2, x2 at L3.
+                    // The Vault's level scales its yield by the level SO's
+                    // interestMultiplier (VaultOfAlmierra_Lvl1..3: x1 / x1.5 /
+                    // x2). The base rate applies from L1 — the code ladder
+                    // this replaced paid x1.5 at L1 and x2 at both L2 and L3.
+                    // A culture with no authored Vault levels (Runai,
+                    // Feraldis, or none yet) earns the base rate.
                     if (state.EntityManager.HasComponent<BuildingUpgradeState>(entity))
                     {
-                        int lv = state.EntityManager.GetComponentData<BuildingUpgradeState>(entity).Level;
-                        if (lv >= 2) rate *= 2f;
-                        else if (lv == 1) rate *= 1.5f;
+                        byte lv = state.EntityManager.GetComponentData<BuildingUpgradeState>(entity).Level;
+                        var levelDef = TheWaningBorder.Core.Settings.BuildingUpgradeConfig.LevelDef(
+                            state.EntityManager, faction.ValueRO.Value, "VaultOfAlmierra", lv);
+                        if (levelDef != null) rate *= levelDef.interestMultiplier;
                     }
 
                     // task-063 phase 1: sect VaultInterest multiplier removed with the

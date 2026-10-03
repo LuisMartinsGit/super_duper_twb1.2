@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Heightened Masses
   role: Religion
   effect: 
-  desc: Shrine healing aura rises from 1 to 3 percent of Max HP per second.
+  desc: Temple healing aura rises from 1 to 3 percent of Max HP per second.
   researchAt: TempleOfRidan
   minBuildingLevel: 0
   researchTime: 30

@@ -63,15 +63,14 @@ namespace TheWaningBorder.Systems.Abilities
                 else if (v.Ready != 0 && engaged && v.SpeedBonus == 0f)
                 {
                     // Contact: the charge goes in.
-                    v.WindowRemaining = AlanthorPassiveTuning.ChargeWindowSeconds;
-                    v.SpeedBonus = spd.ValueRO.Value
-                                 * (AlanthorPassiveTuning.ChargeSpeedPct / 100f);
+                    v.WindowRemaining = v.WindowSeconds;
+                    v.SpeedBonus = spd.ValueRO.Value * (v.SpeedPct / 100f);
                     spd.ValueRW = new MoveSpeed { Value = spd.ValueRO.Value + v.SpeedBonus };
                 }
                 else if (!engaged)
                 {
                     v.OutOfCombatTimer += dt;
-                    if (v.OutOfCombatTimer >= AlanthorPassiveTuning.ChargeRearmSeconds) v.Ready = 1;
+                    if (v.OutOfCombatTimer >= v.RearmSeconds) v.Ready = 1;
                 }
 
                 // The burst is over the moment the window is — whether it was

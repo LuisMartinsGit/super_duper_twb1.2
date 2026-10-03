@@ -130,7 +130,8 @@ namespace TheWaningBorder.Abilities
             => id == "Alanthor_Archer" || id == "Archer" || id == "Alanthor_Crossbowman" || id == "Alanthor_Longbowman";
 
         public static bool IsSiege(string id)
-            => id == "Alanthor_Ballista" || id == "Alanthor_BatteringRam" || id == "Alanthor_Trebuchet";
+            => id == "Alanthor_Ballista" || id == "Alanthor_BatteringRam" || id == "Alanthor_Trebuchet"
+            || id == "Alanthor_Catapult";
 
         public static bool IsCavalry(string id)
             => id == "Alanthor_Outrider" || id == "Alanthor_Cataphract"
@@ -149,7 +150,7 @@ namespace TheWaningBorder.Abilities
             if (IsGarrisonInfantry(unitId))
             {
                 if (rs.HasResearched(faction, "Charge"))
-                    AddOrSet(em, e, new FirstStrike { Pct = 30f, Ready = 1 });
+                    AddOrSet(em, e, ChargeFromTech("Charge"));
                 if (rs.HasResearched(faction, "ShieldWall"))
                     AddOrSet(em, e, new ShieldWallState { Pct = 30f });
             }
@@ -177,7 +178,7 @@ namespace TheWaningBorder.Abilities
             {
                 // The Royal Stable's charge — same passive, cavalry roster.
                 if (rs.HasResearched(faction, "CavalryCharge"))
-                    AddOrSet(em, e, new FirstStrike { Pct = 30f, Ready = 1 });
+                    AddOrSet(em, e, ChargeFromTech("CavalryCharge"));
             }
             // Not an Alanthor passive: Field Hospital is the Sect of Renewal's
             // research, so any culture that adopts Renewal arms its Litharchs.
@@ -188,6 +189,22 @@ namespace TheWaningBorder.Abilities
                 AbilityAssignment.AddAbility(em, e, AbilityCatalog.IndexOf("Deploy Field Hospital"));
             }
         }
+
+        /// <summary>
+        /// The charge passive as its tech authors it (Charge.asset /
+        /// CavalryCharge.asset effectsList): FirstStrikePct on the opening
+        /// blow, ChargeSpeedPct move speed for ChargeWindowSeconds once it
+        /// engages, re-armed after ChargeRearmSeconds out of combat. Armed
+        /// from the start, as a freshly researched charge always was.
+        /// </summary>
+        public static FirstStrike ChargeFromTech(string techId) => new FirstStrike
+        {
+            Pct = TechCatalog.TechEffect(techId, "FirstStrikePct"),
+            SpeedPct = TechCatalog.TechEffect(techId, "ChargeSpeedPct"),
+            WindowSeconds = TechCatalog.TechEffect(techId, "ChargeWindowSeconds"),
+            RearmSeconds = TechCatalog.TechEffect(techId, "ChargeRearmSeconds"),
+            Ready = 1,
+        };
 
         private static void AddOrSet<T>(EntityManager em, Entity e, T value) where T : unmanaged, IComponentData
         {

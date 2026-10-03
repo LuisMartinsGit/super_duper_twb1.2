@@ -65,7 +65,7 @@ namespace TheWaningBorder.Input
             }
 
             // A RESOURCE NODE YIELDS TO THE BUILDING STANDING ON IT
-            // (2026-09-26). An extractor (Mine, Veilstone Mine, Smelter)
+            // (2026-09-26). An extractor (Mine, Veilstone Mine)
             // sits on its node, and the node keeps its 2 m
             // cell box (PresentationSpawnSystem.FitCellBoxCollider). The
             // building's fitted box is floored at 2 m tall but centred on the

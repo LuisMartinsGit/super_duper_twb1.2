@@ -270,7 +270,7 @@ namespace TheWaningBorder.Core.Commands.Types
             // and passability checks below refused the ONE placement the
             // design requires. Diagnosed from a headless batch: six 30-minute
             // matches, 80 Gatherer's Huts (the supply node is deliberately
-            // obstacle-free) and not a single Mine, Veilstone Mine or Smelter
+            // obstacle-free) and not a single Mine or Veilstone Mine
             // — every on-node candidate died here, for the AI and the player
             // alike. The node kind the building is FOR is exempt from the
             // obstacle test; other node kinds and every other obstacle still

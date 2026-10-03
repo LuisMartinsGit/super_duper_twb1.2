@@ -103,7 +103,6 @@ namespace TheWaningBorder.Core.Localization
 
             // ── Building names (GetBuildingName ladder + cultured renames;
             //    translated by the selection header, resolvers stay English) ──
-            t["Hall"] = "Salão";
             t["Barracks"] = "Quartel";
             t["Archery Range"] = "Campo de Tiro com Arco";
             t["Power: {0}"] = "Poder: {0}";
@@ -111,7 +110,6 @@ namespace TheWaningBorder.Core.Localization
             t["Hut"] = "Cabana";
             t["Depot"] = "Depósito";
             t["Workshop"] = "Oficina";
-            t["Shrine of Ridan"] = "Santuário de Ridan";
             t["Temple of Ridan"] = "Templo de Ridan";
             t["Vault of Almiérra"] = "Cofre de Almiérra";
             t["Fiendstone Keep"] = "Fortaleza de Fiendstone";
@@ -186,7 +184,6 @@ namespace TheWaningBorder.Core.Localization
             t["Warboar Rider"] = "Cavaleiro de Javali";
             t["Siege Ram"] = "Aríete de Cerco";
             t["King Lexor"] = "Rei Lexor";
-            t["Scholar"] = "Erudito";
             t["Acolyte"] = "Acólito";
             t["Iconoclast"] = "Iconoclasta";
             t["Lorekeeper"] = "Guardião do Saber";
@@ -256,10 +253,6 @@ namespace TheWaningBorder.Core.Localization
                 + "e uma aura de Visão. Nv III: recargas -30%, efeitos de guarnição duplicados."
                 + "\nGuarnece um Guardião do Saber ao lado dele para recarregar as habilidades "
                 + "mais depressa.";
-            t["Holy Scholar — purifies wells (channels the ritual) and walks a wide cleansing "
-                + "font that burns away curse and blood."] =
-                "Erudito Sagrado — purifica poços (canaliza o ritual) e transporta uma fonte "
-                + "purificadora ampla que consome maldição e sangue.";
             t["Corruptor — channels on a well to crack it OPEN, leaving it vulnerable to attack "
                 + "for a short window. The curse defends it while it is exposed; break the well "
                 + "before it seals. Destroy every well to win."] =
@@ -297,8 +290,8 @@ namespace TheWaningBorder.Core.Localization
                 "Três posições de balista (virotes extra por salva) e +25% de PV da Fortaleza.";
             t["Gathers like a Gatherer's Hut with a larger area (Supplies income)."] =
                 "Recolhe como uma Cabana do Recoletor, com uma área maior (rendimento de Mantimentos).";
-            t["Hall economy techs researchable at the Keep; all research 20% faster."] =
-                "As tecnologias económicas do Salão podem ser investigadas na Fortaleza; toda a "
+            t["Fortress economy techs researchable at the Keep; all research 20% faster."] =
+                "As tecnologias económicas da capital podem ser investigadas na Fortaleza; toda a "
                 + "investigação é 20% mais rápida.";
             t["Trains sect units (Litharchs for now); grants +1 Religion Point when built."] =
                 "Treina unidades de seita (Litharchs, por agora); concede +1 Ponto de Religião "

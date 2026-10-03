@@ -1,8 +1,10 @@
 # The Build Grid
 
-**Status:** canonical. Supersedes every earlier per-building footprint number
-in [Age_0.md](Age_0.md), [Age_1_Alanthor.md](Age_1_Alanthor.md),
-[Age_1_Runai.md](Age_1_Runai.md) and [Age_1_Feraldis.md](Age_1_Feraldis.md).
+**Status:** canonical for the grid and the footprint RULES. Supersedes every
+earlier per-building footprint number in [Age_0.md](Age_0.md),
+[Age_1_Alanthor.md](Age_1_Alanthor.md), [Age_1_Runai.md](Age_1_Runai.md) and
+[Age_1_Feraldis.md](Age_1_Feraldis.md). The footprint VALUES are the SO field
+`footprintCells` (2026-10-03).
 
 The map is covered by a single **2 metre square grid**. Everything that
 occupies ground — buildings, resource nodes, curse structures, trees and
@@ -54,44 +56,58 @@ snaps too, so the player *sees* the cell the building will take.
 
 ## 2. Footprints
 
-Footprints are authored in **cells**, and the table below is the truth source.
+Footprints are authored in **cells**, on each building's SO: the
+`footprintCells` field (decision 34, 2026-10-03 — it replaced the
+`BuildingSizeConfig` code table, which no longer holds sizes). **The SO is the
+truth source; this doc does not restate cell counts.** Read them in the
+generated calculator (`tools/calculator/TechTree.html`). A building SO with no
+footprint is a data bug, caught like any other missing stat.
 
 > **Doubled 2026-08-13.** Every footprint is twice what it originally was —
 > buildings read far too small against the units and the terrain. The grid
 > itself is unchanged at 2 m, so placement keeps its fine granularity. The
 > earlier rule that *a Hut is exactly one grid cell* is **superseded**: the Hut
-> is still the smallest building, but it now spans 2 x 2 cells.
+> is still the smallest standing building.
 
-| Cells | Metres | Buildings |
-|---|---|---|
-| **1 x 1** | 2 x 2 | every Chapel — the statues docked in the Temple ring |
-| **2 x 2** | 4 x 4 | Hut, Alanthor Watch Tower, Feraldis Tower, War Totem, Runai Trading Post, **every resource building** — Gatherer's Hut, Iron Mine, Veilstone Mine, Veilsteel extractor (`Alanthor_Smelter`) (2026-09-29) |
-| **2 x 2** | 4 x 4 | Wall Hub — a round tower whose radius is 0.7 of a wall section (2.1 m, 30 % smaller since 2026-09-21); the curtain starts at its rim |
-| **4 x 4** | 8 x 8 | Hall, Archery Range, Shrine of Ridan, Temple of Ridan, Vault of Almierra, King's Court, Siege Yards, Royal Stable, Runai Outpost / Trade Hub / Siege Workshop / Vault / Veilsteel Foundry, Feraldis Hunting Lodge / Logging Station / Longhouse / Foundry / Pasture, all four sect buildings |
-| **5 x 5** | 10 x 10 | Barracks |
-| **6 x 6** | 12 x 12 | Fiendstone Keep, Thessara's Bazaar, Border Main Node (the well) |
+What the footprints must satisfy — the rules, which the SO values follow:
 
-Unknown ids default to **4 x 4 cells**.
+| Rule | Buildings |
+|---|---|
+| **Smallest** — statues, not buildings | every Chapel — the statues docked in the Temple ring |
+| **A resource building's footprint IS its node's** (2026-09-29), so the extractor lands exactly on its node | Gatherer's Hut (on a supply spot), Mine (on an iron deposit), Veilstone Mine and the Alanthor **Trading Outpost** (on a veilstone outcrop) |
+| **The wall hub's footprint is its drum's bounding square**, derived from `AlanthorWall.HubWidth` — the SO must stay in step with it | Wall Hub (`Alanthor_Wall`), Palisade hub (`Palisade`) |
+| **One footprint for the capital in both ages** — the Shelter becomes the Fortress in place (2026-10-03, decision 11) | the capital, id `Fortress` |
+| **Each building its own** — no building borrows another's size. The **Archery Range** used to fall back on a shared default; it now reads its own `footprintCells` (2026-10-03) | everything else: House, Barracks, Archery Range, Temple, the landmarks, Royal Stable, Siege Yard, Watch Tower, and the Runai / Feraldis / sect buildings |
 
 > **Temple halved back (2026-08-17).** The 2026-08-13 doubling had given the
-> Temple of Ridan its own 8 x 8-cell class; in play the cathedral dwarfed
-> everything around it. It now sits in the Hall class (4 x 4 cells), its
-> chapel statues halve with it (1 x 1 cell), and `TempleChapelRing.SlotRadius`
-> returns to the pre-doubling 3.95 m the docking was originally tuned for.
+> Temple of Ridan its own oversized class; in play the cathedral dwarfed
+> everything around it. It went back down a class, its chapel statues halved
+> with it, and `TempleChapelRing.SlotRadius` returned to the pre-doubling
+> value the docking was originally tuned for.
+
+### The Trading Outpost stands ON its outcrop (2026-10-03, decision 28)
+
+The Alanthor Trading Outpost snaps **onto** the veilstone outcrop it trades
+at, exactly as the Veilstone Mine it replaces did — same footprint as the
+node, even parity, the outcrop's cells under it. Its **art must read as
+standing BESIDE the outcrop** (the stall and wagons to one side, the
+outcrop's crystals still visible): an art requirement, not a placement one.
+The on-outcrop placement stays for now.
 
 Consequences worth stating plainly, because they change how a base packs:
 
-- Non-square footprints (`3x4`, `4x3`) are retired: at 2 m resolution a 3 m and
-  a 4 m building are not distinguishable, so the distinction is dropped rather
-  than faked.
-- **Anything tuned against the old sizes has to move with them.** Concretely:
+- Non-square footprints are retired: at 2 m resolution a 3 m and a 4 m
+  building are not distinguishable, so the distinction is dropped rather than
+  faked.
+- **Anything tuned against the sizes has to move with them.** Concretely:
   `AlanthorWall.HubWidth`, `TempleChapelRing.SlotRadius` (the chapel ring docks
-  against the Temple wall — at the old radius the whole ring would now sit
+  against the Temple wall — at a stale radius the whole ring would sit
   *inside* the cathedral), the AI's `BuildRingDistanceMin/Max`,
   `MinBuildingSpacing` and `MinResourceNodeClearance`, and the starting-base
-  worker/army offsets in `PlayerSpawnSystem`. At the old spacing two 12 m
-  buildings overlapped, every AI candidate failed validation, and the starting
-  army spawned inside its own Hall's blocked cells.
+  worker/army offsets in `PlayerSpawnSystem`. When the footprints doubled, two
+  large buildings overlapped at the old spacing, every AI candidate failed
+  validation, and the starting army spawned inside its own capital's blocked
+  cells.
 
 Building **visuals are scaled to their footprint** so the mesh fills its
 cells with no overhang and no gap.
@@ -145,8 +161,8 @@ cost field and `PassabilityGrid`.
 - Start Fortresses and the nature-region blocking run before any node spawns,
   so nodes also keep off them.
 - **Nothing is built on a node except the extractor made for it** (Gatherer's
-  Hut on supply, Mine on iron, Veilstone Mine on veilstone, the veilsteel
-  extractor on veilsteel). The whole node square is tested — the supply spot
+  Hut on supply, Mine on iron, Veilstone Mine on veilstone — or, for Alanthor,
+  the Trading Outpost on veilstone). The whole node square is tested — the supply spot
   included, which is passable and no obstacle — by the placement ghost, the
   AI's site search and the command executor. Refusal: *"Cannot build on a
   resource node — only its own extractor may stand there"*.

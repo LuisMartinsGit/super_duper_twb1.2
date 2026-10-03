@@ -309,13 +309,6 @@ namespace TheWaningBorder.World.Regions
         public static bool IsClaimStructure(string buildingId) => false;
 
         /// <summary>
-        /// The Hall is REMOVED (Territory_Claims.md §4): its roster and
-        /// research live on the Fortress. The id stays in the catalog
-        /// (scenarios, legacy references), but no one may place one.
-        /// </summary>
-        public static bool IsRetiredBuilding(string buildingId) => buildingId == "Hall";
-
-        /// <summary>
         /// One Fortress per territory (Territory_Claims.md §4). Counts
         /// Fortresses under construction too, or a double-click slips a
         /// second one past.
@@ -946,7 +939,7 @@ namespace TheWaningBorder.World.Regions
         NotOnBlood,
         /// <summary>A Sawyer away from a forest.</summary>
         NotByForest,
-        /// <summary>A per-faction cap (Smelters, sect buildings).</summary>
+        /// <summary>A per-faction cap (sect buildings, the Temple).</summary>
         CapReached,
         /// <summary>The Hall's worker is in range but not standing inside
         /// the territory the Hall would claim.</summary>
@@ -999,7 +992,7 @@ namespace TheWaningBorder.World.Regions
                 PlacementRefusal.FortressAlreadyHere => "This territory already has a Fortress",
                 PlacementRefusal.Retired          => "That building can no longer be built",
                 PlacementRefusal.OnResourceNode   => "Cannot build on a resource node — only its own extractor may stand there",
-                PlacementRefusal.WrongCulture     => "Alanthor do not mine veilstone — raise a Trading Outpost beside it",
+                PlacementRefusal.WrongCulture     => "Alanthor do not mine veilstone — raise a Trading Outpost on it",
                 PlacementRefusal.OutcropUnavailable => "This veilstone outcrop is cursed or mined out",
                 PlacementRefusal.NoOutcropNearby  => "Trading Outposts must stand on an uncursed veilstone outcrop",
                 _                                 => "Invalid placement",

@@ -6,5 +6,5 @@ using Unity.Entities;
 using Unity.Collections;
 using Unity.Mathematics;
 
-/// <summary>Marker for the 3 mutually exclusive choice buildings (Shrine, Vault, Keep). Build limit: 1.</summary>
+/// <summary>Marker for the mutually exclusive landmarks (Vault, Keep). Build limit: 1.</summary>
 public struct ChoiceBuildingTag : IComponentData { }

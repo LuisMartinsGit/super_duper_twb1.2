@@ -38,6 +38,7 @@ MonoBehaviour:
     Iron: 14
     Crystal: 0
     Veilsteel: 0
+  populationCost: 1
   minBuildingLevel: 1
   tags:
   - 'Ranged'

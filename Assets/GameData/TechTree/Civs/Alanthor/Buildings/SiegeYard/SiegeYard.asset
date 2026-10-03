@@ -24,6 +24,13 @@ MonoBehaviour:
     magic: 2
   radius: 1.6
   lineOfSight: 20
+  footprintCells: {x: 4, y: 4}
+  buildTime: 35
+  slotIncomePerMinute: []
+  interestPerMinute: 0
+  minWallLevel: 0
+  garrisonSlots: 0
+  garrisonArrowsPerOccupant: 0
   trains:
   - 'Alanthor_Ballista'
   - 'Alanthor_BatteringRam'
