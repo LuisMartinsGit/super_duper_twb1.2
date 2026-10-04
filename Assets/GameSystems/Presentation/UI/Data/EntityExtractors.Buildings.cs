@@ -596,6 +596,16 @@ namespace TheWaningBorder.UI.Data
                             + (requirement != null ? "\n" + requirement : "");
                     }
 
+                    // A Trading Outpost's price climbs per outcrop
+                    // (docs/Design/Veilstone_Economy.md §3.1): the button
+                    // shows the first post's price and names the ramp; the
+                    // exact price is charged at the side it snaps to.
+                    if (building.id == TheWaningBorder.Entities.TradingOutpost.BuildingId)
+                    {
+                        requirement = OutpostRampLine()
+                            + (requirement != null ? "\n" + requirement : "");
+                    }
+
                     // The capital is the Shelter in Age 0 (its SO name) and the
                     // Fortress once the faction has aged up.
                     string buildingName = building.id == "Fortress" && factionCulture != Cultures.None
@@ -635,6 +645,24 @@ namespace TheWaningBorder.UI.Data
             }
 
             return actions;
+        }
+
+        /// <summary>"Up to 4 per outcrop, one per side. Each further post
+        /// beside the same outcrop costs x1.5 / x2.25 / x3.5 (build and
+        /// level-ups)" — read from TradingOutpostSystem.asset.</summary>
+        internal static string OutpostRampLine()
+        {
+            var m = TheWaningBorder.Systems.Economy.TradingOutpostSystem.Cfg?.outcropRampMultipliers;
+            var sb = new System.Text.StringBuilder();
+            if (m != null)
+                for (int i = 1; i < m.Length && i < TheWaningBorder.Entities.TradingOutpost.SideCount; i++)
+                    sb.Append(i > 1 ? " / " : "").Append("x").Append(m[i].ToString("0.##"));
+            string line = string.Format(Loc.T("Stands on a free side of a veilstone outcrop, up to {0} per outcrop."),
+                TheWaningBorder.Entities.TradingOutpost.SideCount);
+            if (sb.Length > 0)
+                line += " " + string.Format(Loc.T("Each further post beside the same outcrop costs {0} (build and level-ups); a new outcrop starts at base price."),
+                    sb.ToString());
+            return line;
         }
 
         /// <summary>

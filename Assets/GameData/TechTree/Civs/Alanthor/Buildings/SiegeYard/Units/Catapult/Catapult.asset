@@ -17,7 +17,7 @@ MonoBehaviour:
   unitClass: machinery_siege
   hp: 220
   speed: 3.2
-  trainingTime: 38
+  trainingTime: 26.6
   damage: 40
   damageType: siege
   armorType: ranged
@@ -56,6 +56,8 @@ MonoBehaviour:
     amount: 30
   - vsTag: Infantry
     amount: 20
+  preferTargets:
+  - Massed
   abilities: []
   prefab: {fileID: 3770438709135643749, guid: ece62a5560e11f74bbe49297d4148d10, type: 3}
   presentationId: 337

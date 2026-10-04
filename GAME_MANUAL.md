@@ -435,12 +435,20 @@ while standing, was removed on 2026-09-29.)
 
 ### How the AI lays out its base
 
-AI bases keep a walkable lane between buildings: normally about 20 m between
-building centres and never less than two clear build cells (4 m) edge to edge;
-when the base is full it will squeeze down to one cell (2 m), never flush.
-Mines, veilstone mines and gatherer's huts stand on their resource
-node wherever the map put it. An Alanthor AI that has planned a perimeter
-wall builds everything inside it. See docs/Design/Game_AI.md §6b.
+Buildings may sit flush against each other, for you and for the AI. The AI
+prefers a one-cell (2 m) lane and builds flush when its ground is full, but
+it never seals its own base: every building keeps a free side, every
+production building keeps its unit exit clear, gates and the way out stay
+reachable, no open ground is walled off, and no more than a few buildings
+stand in one flush row. Mines, veilstone mines and gatherer's huts stand on
+their resource node wherever the map put it. An Alanthor AI that has planned
+a perimeter wall builds everything inside it.
+
+The AI develops every territory it holds in a fixed order: resource
+buildings on its nodes first, then watch towers facing hostile or unclaimed
+neighbours, then production buildings (so its armies are trained near the
+front), then a Fortress. A spot for that Fortress is kept free from the
+moment the territory is taken. See docs/Design/Game_AI.md §5g and §6b.
 
 The AI claims territory under the same rules you do: only territories that
 border ground it holds, and only once a worker has walked to the capital site —

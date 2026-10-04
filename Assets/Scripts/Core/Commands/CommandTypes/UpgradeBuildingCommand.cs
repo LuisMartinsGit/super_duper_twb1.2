@@ -79,7 +79,7 @@ namespace TheWaningBorder.Core.Commands.Types
             // ApplyDirect, the path every peer executes. Spending here (on
             // the issuing peer alone) forked the faction banks, which feed
             // the desync checksum (docs/Multiplayer_LAN_Readiness.md).
-            if (!BuildingUpgradeConfig.TryGetCost(em, faction, buildingId, targetLevel, out var cost))
+            if (!TryGetLevelCost(em, building, faction, buildingId, targetLevel, out var cost))
                 return UpgradeBuildingResult.NotUpgradeable;
             if (!FactionEconomy.CanAfford(em, faction, cost)) return UpgradeBuildingResult.CannotAfford;
 
@@ -137,8 +137,8 @@ namespace TheWaningBorder.Core.Commands.Types
             if (string.IsNullOrEmpty(buildingId)) return;
             if (!em.HasComponent<FactionTag>(building)) return;
             var faction = em.GetComponentData<FactionTag>(building).Value;
-            if (!BuildingUpgradeConfig.TryGetCost(em, faction, buildingId, targetLevel, out var cost)) return;
-            if (!FactionEconomy.Spend(em, faction, cost)) return;
+            if (!TryGetLevelCost(em, building, faction, buildingId, targetLevel, out var cost)) return;
+            if (!FactionEconomy.Spend(em, faction, cost, TheWaningBorder.Economy.SpendCategory.Upgrades)) return;
 
             // Capture base stats once. After this they NEVER change — the
             // upgrade system always recomputes scaled values from base, so
@@ -201,7 +201,7 @@ namespace TheWaningBorder.Core.Commands.Types
             string id = ResolveBuildingId(em, building);
             if (string.IsNullOrEmpty(id)) return;
             var owner = em.GetComponentData<FactionTag>(building).Value;
-            if (!BuildingUpgradeConfig.TryGetCost(em, owner, id, pricedLevel, out var cost)) return;
+            if (!TryGetLevelCost(em, building, owner, id, pricedLevel, out var cost)) return;
             FactionEconomy.Add(em, owner, cost);
         }
 
@@ -210,12 +210,32 @@ namespace TheWaningBorder.Core.Commands.Types
         // ──────────────────────────────────────────────────────────────────
 
         /// <summary>
+        /// The price of THIS building's level-up: the level's own price
+        /// (BuildingUpgradeConfig — the level SO first), times the Trading
+        /// Outpost's per-outcrop ramp for an Outpost (its place among the
+        /// posts beside its outcrop, docs/Design/Veilstone_Economy.md §3.1).
+        /// The check, the spend, the refund and the UI all price through here,
+        /// so a refund hands back exactly what was charged.
+        /// </summary>
+        private static bool TryGetLevelCost(EntityManager em, Entity building, Faction faction,
+            string buildingId, byte level, out Cost cost)
+        {
+            if (!BuildingUpgradeConfig.TryGetCost(em, faction, buildingId, level, out cost)) return false;
+            if (em.HasComponent<TradingOutpostTag>(building))
+                cost = TheWaningBorder.Entities.TradingOutpost.RampedUpgradeCost(em, building, cost);
+            return true;
+        }
+
+        /// <summary>
         /// Map building entity -> upgrade-system-known id ("Fortress" / "Barracks"
         /// / "Hut"). Uses the marker tag components rather than presentation
         /// id so the lookup keeps working through any future re-skinning.
         /// </summary>
         public static string ResolveBuildingId(EntityManager em, Entity e)
         {
+            // The Alanthor Trading Outpost's L1-L3 ladder (2026-10-04,
+            // Civs/Alanthor/Buildings/TradingOutpost/TradingOutpost_Lvl1..3).
+            if (em.HasComponent<TradingOutpostTag>(e)) return TheWaningBorder.Entities.TradingOutpost.BuildingId;
             if (em.HasComponent<HallTag>(e))         return "Fortress";
             if (em.HasComponent<BarracksTag>(e))     return "Barracks";
             if (em.HasComponent<ArcheryRangeTag>(e)) return "ArcheryRange";
@@ -265,7 +285,7 @@ namespace TheWaningBorder.Core.Commands.Types
             nextLevel = (byte)(current + 1);
             string id = ResolveBuildingId(em, building);
             if (!em.HasComponent<FactionTag>(building)) return false;
-            return BuildingUpgradeConfig.TryGetCost(em, em.GetComponentData<FactionTag>(building).Value,
+            return TryGetLevelCost(em, building, em.GetComponentData<FactionTag>(building).Value,
                 id, nextLevel, out cost);
         }
     }

@@ -240,6 +240,11 @@ namespace TheWaningBorder.Systems.Border
                 TickReseed(em, now, borderSettings);
                 if (_nextExpandAt < 0.0)
                     _nextExpandAt = now + borderSettings.expansionSeconds;
+                // Territory_Claims.md §6.8: garrisons are the only spawner
+                // (nodes under attack first under the cap); the expansion
+                // dispatch and the attack wave after them are DRAFTED from
+                // the garrisons TickGarrisons just topped up.
+                RefreshHostiles(em);
                 TickGarrisons(em, now, borderSettings, bonus);
                 TickShardrootGuarantee(em, now, borderSettings);
                 if (now >= _nextExpandAt)
@@ -247,6 +252,7 @@ namespace TheWaningBorder.Systems.Border
                     TryExpand(em, now, borderSettings, bonus);
                     _nextExpandAt = now + borderSettings.expansionSeconds / bonus;
                 }
+                TickAttackWaves(em, now, borderSettings);
                 ShepherdLiving(em, now, borderSettings);
                 return;
             }

@@ -137,6 +137,49 @@ namespace TheWaningBorder.Data.Border
         /// drops the fight and walks back (Territory_Claims.md §6.7).</summary>
         [Min(1f)] public float guardLeashRadius = 45f;
 
+        // ── Territory_Claims.md §6.8 (2026-10-04): attack waves + the cap ──
+
+        /// <summary>Match second at which the first attack wave forms.</summary>
+        [Min(0f)] public float firstWaveSeconds = 480f;
+
+        /// <summary>Seconds between attack waves (§6.8). The timer runs on
+        /// whether or not a wave could be sent.</summary>
+        [Min(10f)] public float waveIntervalSeconds = 240f;
+
+        /// <summary>Fraction of the curse's garrison units DRAFTED into each
+        /// attack wave (§6.8, 2026-10-04: "all spawn as garrison, then waves
+        /// are 30% of that"). Nothing is spawned for a wave.</summary>
+        [Range(0f, 1f)] public float waveDraftFraction = 0.30f;
+
+        /// <summary>A wave slot that can draft fewer units than this is
+        /// skipped (the timer runs on).</summary>
+        [Min(1)] public int waveMinSize = 6;
+
+        /// <summary>No draft (claim / fill / hunt party or attack wave) takes
+        /// a node's garrison below this many units (§6.8): a node is never
+        /// stripped bare.</summary>
+        [Min(0)] public int garrisonMinPerNode = 2;
+
+        /// <summary>Seconds a wave fights at its target before it walks
+        /// home and rejoins the garrison of the nearest curse node.</summary>
+        [Min(10f)] public float waveDurationSeconds = 150f;
+
+        /// <summary>A wave reduced below this fraction of the size it set
+        /// out with breaks off and walks home.</summary>
+        [Range(0f, 1f)] public float waveRetreatFraction = 0.25f;
+
+        /// <summary>Fair rotation (§6.8): when the nearest player was also
+        /// the last one targeted, any other player whose distance to the
+        /// curse is within this multiple of the nearest one's takes the wave
+        /// instead.</summary>
+        [Min(1f)] public float waveTargetDistanceSlack = 1.3f;
+
+        /// <summary>HARD CAP on live curse units (every BorderUnitTag unit,
+        /// whatever raised it). Every spawn path raises at most the headroom
+        /// left under it (§6.8, CurseUnitCap); in the living curse the only
+        /// spawner is the garrison, so this bounds the garrisons.</summary>
+        [Min(0)] public int maxCurseUnits = 250;
+
         // ── Territory_Claims.md §6 (2026-09-29): the curse as a claimant ──
 
         /// <summary>Curse nodes raised at match start on random resource
@@ -364,6 +407,15 @@ namespace TheWaningBorder.Data.Border
             leashSeconds = 25f;
             guardRadius = 30f;
             guardLeashRadius = 45f;
+            firstWaveSeconds = 480f;
+            waveIntervalSeconds = 240f;
+            waveDraftFraction = 0.30f;
+            waveMinSize = 6;
+            garrisonMinPerNode = 2;
+            waveDurationSeconds = 150f;
+            waveRetreatFraction = 0.25f;
+            waveTargetDistanceSlack = 1.3f;
+            maxCurseUnits = 250;
             initialNodes = 0;
             reseedSeconds = 180f;
             nodeAuraRadius = 20f;

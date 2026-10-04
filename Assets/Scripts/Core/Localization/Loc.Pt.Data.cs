@@ -57,6 +57,8 @@ namespace TheWaningBorder.Core.Localization
             t["Coffers"] = "Cofres";
             t["Merchant Charters"] = "Cartas Mercantis";
             t["Sovereign Bonds"] = "Obrigações Soberanas";
+            t["Swift Caravans"] = "Caravanas Céleres";
+            t["Trading Outposts trade 50% faster: every trade spends and earns half as much again each minute."] = "Os Entrepostos Comerciais negociam 50% mais depressa: cada troca gasta e rende metade mais por minuto.";
             t["Iron Subsidies"] = "Subsídios de Ferro";
             t["Veilstone Monetization"] = "Monetização de Veilstone";
             t["Veilsteel Bonds"] = "Obrigações de Veilsteel";

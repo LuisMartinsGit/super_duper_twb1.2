@@ -84,7 +84,10 @@ namespace TheWaningBorder.Systems.Border
                 if (simNow < p.At) continue;
                 Pending.RemoveAt(i);
 
-                int total = p.Crystallings + p.Veilstingers + p.Godsplinters;
+                // THE CAP (Territory_Claims.md §6.8): at most the headroom
+                // left under maxCurseUnits rises. The pool is spent either way.
+                int total = math.min(p.Crystallings + p.Veilstingers + p.Godsplinters,
+                                     CurseUnitCap.Headroom(EntityManager));
                 for (int u = 0; u < total; u++)
                 {
                     float angle = _rng.NextFloat(0f, math.PI * 2f);

@@ -1,3 +1,4 @@
+<meta charset="utf-8">
 <title>Muster Rolls</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 
@@ -15,6 +16,9 @@
   --map:#131a20; --map-grid:#1c252d; --grid-ink:#e8e4da;
   --f-Blue:#5b95d9; --f-Red:#d9573f; --f-Green:#6fbf8a; --f-Yellow:#d8a94a;
   --f-Purple:#a97ad9; --f-Orange:#d98c4a; --f-Teal:#4ab8b8; --f-White:#b8b3a8; --f-Border:#c86fd9;
+  /* categorical slots for the income-source / spend-category stacks (dataviz
+     reference palette, dark steps); fixed order, never cycled */
+  --c1:#3987e5; --c2:#d95926; --c3:#199e70; --c4:#c98500; --c5:#d55181; --c6:#008300; --c7:#9085e9; --c8:#e66767;
   --display:"Barlow Condensed","Arial Narrow",sans-serif;
   --body:"IBM Plex Sans","Segoe UI",Helvetica,Arial,sans-serif;
   --mono:"IBM Plex Mono",Consolas,"Courier New",monospace;
@@ -30,6 +34,7 @@
     --map:#e9e8e0; --map-grid:#dcdbd2; --grid-ink:#1b2126;
     --f-Blue:#2f6fb8; --f-Red:#c04a33; --f-Green:#2f8a52; --f-Yellow:#a97d25;
     --f-Purple:#7a4ab0; --f-Orange:#b06a25; --f-Teal:#2f8a8a; --f-White:#6a737b; --f-Border:#9b4ab0;
+    --c1:#2a78d6; --c2:#eb6834; --c3:#1baf7a; --c4:#eda100; --c5:#e87ba4; --c6:#008300; --c7:#4a3aa7; --c8:#e34948;
   }
 }
 :root[data-theme="light"]{
@@ -42,6 +47,7 @@
   --map:#e9e8e0; --map-grid:#dcdbd2; --grid-ink:#1b2126;
   --f-Blue:#2f6fb8; --f-Red:#c04a33; --f-Green:#2f8a52; --f-Yellow:#a97d25;
   --f-Purple:#7a4ab0; --f-Orange:#b06a25; --f-Teal:#2f8a8a; --f-White:#6a737b; --f-Border:#9b4ab0;
+  --c1:#2a78d6; --c2:#eb6834; --c3:#1baf7a; --c4:#eda100; --c5:#e87ba4; --c6:#008300; --c7:#4a3aa7; --c8:#e34948;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--body);
@@ -77,6 +83,8 @@ h2{font-family:var(--display);font-weight:600;font-size:22px;margin:34px 0 6px}
         align-items:flex-end;pointer-events:auto}
 .mapctl .btn{width:34px;padding:3px 0;font-size:17px;line-height:1.2;text-align:center}
 .mapctl .btn.fit{font-size:11px;padding:6px 0}
+.mapctl .btn[aria-pressed="true"]{border-color:var(--gold);color:var(--gold)}
+.mapctl .btn[hidden]{display:none}
 .zoomread{font-family:var(--mono);font-size:11px;color:var(--ink2);background:var(--panel);
           border:1px solid var(--rule);border-radius:2px;padding:2px 6px;white-space:nowrap;
           font-variant-numeric:tabular-nums}
@@ -147,6 +155,26 @@ td.fork{color:var(--bad);font-weight:600} td.ok{color:var(--ok)}
 .foot{margin-top:40px;padding-top:12px;border-top:1px solid var(--rule);font-size:12.5px;
       color:var(--mute);font-family:var(--mono)}
 canvas.chart{display:block;width:100%;height:132px}
+/* income & spending (2026-10-04) */
+.econbar{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin-top:12px}
+.econbar .grp{display:flex;flex-wrap:wrap;gap:4px}
+.econbar .btn{padding:5px 10px;font-size:12.5px}
+.econbar .btn[aria-pressed="true"]{border-color:var(--gold);color:var(--gold)}
+.card.wide{grid-column:1/-1}
+canvas.chart.tall{height:200px}
+.elegend{display:flex;flex-wrap:wrap;gap:2px 14px;margin-top:6px;font-size:12px;color:var(--ink2)}
+.elegend .swatch{width:9px;height:9px}
+.hover{font-family:var(--mono);font-size:11.5px;color:var(--ink2);min-height:1.5em;margin-top:4px}
+/* a match's own file on its way (folder build) */
+.loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+         padding:24px;text-align:center;background:var(--map);color:var(--ink2);
+         font-family:var(--display);font-size:18px;letter-spacing:.06em}
+.loading[hidden]{display:none}
+.loading.err{color:var(--bad);font-family:var(--body);font-size:14px;letter-spacing:0}
+.dbg{position:absolute;left:16px;top:74px;font-family:var(--mono);font-size:11.5px;line-height:1.45;
+     color:var(--ink);background:var(--panel);border:1px solid var(--rule);padding:4px 8px;
+     white-space:pre;font-variant-numeric:tabular-nums}
+.dbg.badc{border-color:var(--bad);color:var(--bad)}
 </style>
 
 <div class="page">
@@ -169,9 +197,14 @@ canvas.chart{display:block;width:100%;height:132px}
         <button type="button" class="btn" id="zin" aria-label="Zoom in">+</button>
         <button type="button" class="btn" id="zout" aria-label="Zoom out">&minus;</button>
         <button type="button" class="btn fit" id="zfit" aria-label="Fit the whole map">FIT</button>
+        <button type="button" class="btn fit" id="zterr" aria-pressed="true" hidden
+                title="Territories: the game's real borders, tinted by owner (T)"
+                aria-label="Show territory borders and owners">TER</button>
         <div class="zoomread" id="zread"></div>
       </div>
+      <div class="dbg" id="dbg" hidden></div>
     </div>
+    <div class="loading" id="loading" hidden></div>
   </div>
 
   <div class="transport">
@@ -211,7 +244,15 @@ canvas.chart{display:block;width:100%;height:132px}
   <div class="scroll" id="research"></div>
 
   <h2>Economy</h2>
+  <p class="note">Banked resources at each sample, per faction.</p>
   <div class="grid" id="charts"></div>
+
+  <h2>Income and spending</h2>
+  <p class="note" id="econNote">Per minute. Income is GROSS — what was earned, by where it came
+  from — and spending is what was paid, by what it bought; the bank above is the
+  difference between the two.</p>
+  <div class="econbar" id="econBar"></div>
+  <div class="grid" id="econ"></div>
 
   <h2>Kills and deaths</h2>
   <p class="note">Per minute, from the death events — where the fighting actually was.</p>
@@ -234,10 +275,21 @@ canvas.chart{display:block;width:100%;height:132px}
 (function(){
 "use strict";
 var DOC = JSON.parse(document.getElementById("data").textContent);
-var M = (DOC.matches||[]).filter(function(m){ return (m.frames||[]).length > 1; });
+/* A match is replayable when it has per-unit tracks or sampled frames; the
+   extractor says which (hasReplay), and a page built before it said so falls
+   back to counting frames. In a FOLDER build each entry here is a light
+   summary and carries `file`, its full record, fetched on selection. */
+var M = (DOC.matches||[]).filter(function(m){
+  return m.hasReplay!=null ? !!m.hasReplay : (m.frames||[]).length > 1; });
 var sel = 0;
 
-function css(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+/* CSS custom properties, cached. getComputedStyle is a style recalc, and the
+   draw loop used to call it once per building and per unit, sixty times a
+   second. Cleared whenever the theme can have changed (renderAll). */
+var CSSC={};
+function css(n){ var v=CSSC[n];
+  if(v===undefined) v=CSSC[n]=getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  return v; }
 function fhue(f){ return css("--f-"+f) || css("--mute"); }
 function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){
   return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
@@ -289,7 +341,7 @@ function renderLedger(){
     '<th>Verdict</th><th>Outcome</th></tr></thead><tbody>'+rows+'</tbody></table>';
   host.querySelectorAll("tr.live").forEach(function(tr){
     tr.addEventListener("click",function(){
-      sel=parseInt(tr.getAttribute("data-i"),10); renderAll();
+      selectMatch(parseInt(tr.getAttribute("data-i"),10));
       window.scrollTo({top:0,behavior:"smooth"});
     });
   });
@@ -331,7 +383,7 @@ function renderRuns(){
         ' · '+m.peers+'p · '+mmss(m.tmax)+'</span>'+
       '<span class="v '+(bad?"bad":"ok")+'">'+(bad?"FORK":"agreed")+
         (m.fidelity==="trace"?" · traced":"")+'</span>';
-    b.addEventListener("click",function(){ sel=i; renderAll(); });
+    b.addEventListener("click",function(){ selectMatch(i); });
     host.appendChild(b);
   });
 }
@@ -427,11 +479,14 @@ function bindView(){
   document.getElementById("zin").onclick=function(){ mid(1.6); };
   document.getElementById("zout").onclick=function(){ mid(1/1.6); };
   document.getElementById("zfit").onclick=function(){ viewReset(); draw(); };
+  document.getElementById("zterr").onclick=function(){ terrToggle(); };
+  document.getElementById("zterr").setAttribute("aria-pressed",String(TERR.on));
   document.getElementById("stage").addEventListener("keydown",function(e){
     var k=e.key, h=true;
     if(k==="+"||k==="=") mid(1.6);
     else if(k==="-"||k==="_") mid(1/1.6);
     else if(k==="0"){ viewReset(); draw(); }
+    else if((k==="t"||k==="T")&&M[sel]&&M[sel].terr) terrToggle();
     else if(k==="ArrowLeft") panBy(80,0);
     else if(k==="ArrowRight") panBy(-80,0);
     else if(k==="ArrowUp") panBy(0,80);
@@ -599,6 +654,76 @@ function lvAt(list,t,dflt){
   return v;
 }
 
+/* ── formations at whole-map zoom (2026-10-03) ─────────────────────────────
+   FORM_PITCH: the slot pitch a marching formation holds (traces measure
+   ~1.9 m). FORM_MIN_PX: below this many pixels per pitch the members are
+   merged into one glyph. FORM_LINK: two formation-flagged units of a faction
+   this close (metres) belong to the same group. FORM_STILL: metres per
+   second a group's mean velocity must reach to count as moving (else no
+   arrow); on old frame data, metres per frame. */
+var FORM_PITCH=2, FORM_MIN_PX=4, FORM_LINK=4, FORM_STILL=0.15;
+
+/* Connected groups (2+) of formation-flagged, non-hero points within
+   FORM_LINK of each other: a spatial hash on FORM_LINK cells, then a
+   union-find over each point's 3 x 3 neighbourhood. O(n) per faction. */
+function formationGroups(P){
+  var H=new Map(), par=new Int32Array(P.length), L2=FORM_LINK*FORM_LINK, i;
+  function key(ix,iz){ return (ix+32768)*65536+(iz+32768); }
+  function find(x){ while(par[x]!==x){ par[x]=par[par[x]]; x=par[x]; } return x; }
+  for(i=0;i<P.length;i++){
+    par[i]=i;
+    var p=P[i]; if(!(p.fl&2)||p.sh==="hero") continue;
+    var kk=key(Math.floor(p.x/FORM_LINK),Math.floor(p.z/FORM_LINK));
+    var b=H.get(kk); if(b) b.push(i); else H.set(kk,[i]);
+  }
+  H.forEach(function(list,kk){
+    var ix=Math.floor(kk/65536)-32768, iz=kk%65536-32768;
+    for(var dx=-1;dx<=1;dx++) for(var dz=-1;dz<=1;dz++){
+      var nb=H.get(key(ix+dx,iz+dz)); if(!nb) continue;
+      for(var a=0;a<list.length;a++) for(var b2=0;b2<nb.length;b2++){
+        var u=list[a], v=nb[b2]; if(v<=u) continue;
+        var ex=P[u].x-P[v].x, ez=P[u].z-P[v].z;
+        if(ex*ex+ez*ez<=L2){ var ru=find(u), rv=find(v); if(ru!==rv) par[ru]=rv; }
+      }
+    }
+  });
+  var by=new Map();
+  H.forEach(function(list){ list.forEach(function(ix){
+    var r=find(ix), gr=by.get(r); if(gr) gr.push(ix); else by.set(r,[ix]); }); });
+  var out=[]; by.forEach(function(gr){ if(gr.length>=2) out.push(gr); });
+  return out;
+}
+
+/* One marching formation: a block len x wid pixels in the faction colour,
+   its front drawn to a point along ang (screen radians, 0 = right) when it is
+   moving, an inner chevron for the direction, a red edge when any member is
+   fighting, and its head count above it. n == null draws no count (legend). */
+function formationGlyph(g,x,y,ang,len,wid,col,n,fight,moving){
+  var hl=len/2, hw=wid/2, nose=moving?Math.max(2.5,Math.min(wid*.55,len*.7)):0;
+  g.save(); g.translate(x,y); g.rotate(ang);
+  g.beginPath();
+  g.moveTo(-hl,-hw); g.lineTo(hl,-hw);
+  if(nose) g.lineTo(hl+nose,0);
+  g.lineTo(hl,hw); g.lineTo(-hl,hw); g.closePath();
+  g.globalAlpha=.88; g.fillStyle=col; g.fill(); g.globalAlpha=1;
+  g.lineJoin="round";
+  g.strokeStyle=fight?css("--bad"):css("--ink"); g.lineWidth=fight?2:1; g.stroke();
+  if(nose && len>=6){
+    var cw=Math.min(hw*.7,len*.35);
+    g.strokeStyle=css("--map"); g.lineWidth=1.4; g.lineCap="round";
+    g.beginPath(); g.moveTo(-cw*.5,-cw); g.lineTo(cw*.5,0); g.lineTo(-cw*.5,cw); g.stroke();
+  }
+  g.restore();
+  if(n!=null){
+    var fs=Math.max(10,Math.min(14,Math.round(8+Math.sqrt(n))));
+    g.font="700 "+fs+"px "+(css("--display")||"sans-serif");
+    g.textAlign="center"; g.textBaseline="middle";
+    var lx=x, ly=y-Math.max(hw,hl+nose*.5)-fs*.65;
+    g.lineWidth=3; g.lineJoin="round"; g.strokeStyle=css("--map"); g.strokeText(String(n),lx,ly);
+    g.fillStyle=css("--ink"); g.fillText(String(n),lx,ly);
+  }
+}
+
 /* Small images of the same marks for the legend and the roster tables.
    Cached per kind and colour; cleared when the theme changes. */
 var GC={};
@@ -611,18 +736,441 @@ function markURL(what,kind,col){
     g.strokeStyle=col; g.globalAlpha=.9; g.lineWidth=2;
     if(kind==="wall"){ g.fillStyle=col; g.globalAlpha=.35; g.fillRect(3,11,26,10); g.globalAlpha=1; g.strokeRect(3,11,26,10); }
     else { g.strokeRect(2,2,28,28); g.globalAlpha=1; glyph(g,kind,16,16,22,css("--ink")); }
-  } else unitMark(g,kind,16,16,6,col);
+  } else if(what==="f") formationGlyph(g,13,16,0,12,13,col,null,false,true);
+  else unitMark(g,kind,16,16,6,col);
   return (GC[key]=c.toDataURL());
 }
 function markImg(what,kind,col,title){
   return '<img class="gl" alt="" src="'+markURL(what,kind,col)+'"'+(title?' title="'+esc(title)+'"':'')+'>';
 }
 
+/* ── per-unit tracks (2026-10-03) ──────────────────────────────────────────
+   m.tracks (twb-match-data.py, "per-unit tracks") is one entry per unit:
+   [typeIndex, factionIndex, codes], codes a flat list of (frameCode, dx, dz)
+   triples -- frameCode = frame-index delta * 8 + flags, dx/dz decimetres,
+   the first triple absolute -- against m.ft, the frame times in deciseconds,
+   delta-encoded. decodeTracks unpacks that ONCE per match into flat typed
+   arrays (keyframe time / x / z / flags, and each unit's slice of them), so
+   the draw loop reads numbers and allocates nothing. */
+var USH=["melee","ranged","cav","siege","worker","scout","support","hero","curse","dot"];
+var SHI={}; USH.forEach(function(s,i){ SHI[s]=i; });
+var NSH=USH.length, SH_HERO=SHI.hero;
+
+function decodeTracks(m){
+  if(m._tr!==undefined) return m._tr;
+  var U=m.tracks;
+  if(!U||!U.length){ m._tr=null; return null; }
+  var ft=m.ft||[], nF=ft.length, T=new Float64Array(nF), acc=0, i, j;
+  for(i=0;i<nF;i++){ acc+=ft[i]; T[i]=acc/10; }
+  var n=U.length, K=0;
+  for(i=0;i<n;i++) K+=(U[i][2].length/3)|0;
+  var facs=m.tfac||[], nf=Math.max(1,facs.length);
+  var tr={n:n,K:K,facs:facs,nf:nf,
+    fac:new Uint8Array(n), sh:new Uint8Array(n), off:new Int32Array(n+1),
+    t0:new Float64Array(n), t1:new Float64Array(n), cur:new Int32Array(n), lv:new Array(n),
+    kt:new Float64Array(K), kx:new Float32Array(K), kz:new Float32Array(K), kf:new Uint8Array(K),
+    /* per-frame scratch, reused: world position and velocity, flags, screen
+       position, the live list, and the formation union-find */
+    X:new Float32Array(n), Z:new Float32Array(n), VX:new Float32Array(n), VZ:new Float32Array(n),
+    FL:new Uint8Array(n), SX:new Float32Array(n), SY:new Float32Array(n),
+    A:new Int32Array(n), C:new Int32Array(n), V:new Int32Array(n), ORD:new Int32Array(n),
+    PAR:new Int32Array(n), NXT:new Int32Array(n), GRP:new Uint8Array(n), BK:new Int32Array(n),
+    CNT:new Int32Array(n), GX:new Float64Array(n), GZ:new Float64Array(n),
+    GVX:new Float64Array(n), GVZ:new Float64Array(n), FG:new Uint8Array(n),
+    L0:new Float32Array(n), L1:new Float32Array(n), W0:new Float32Array(n), W1:new Float32Array(n),
+    BC:new Int32Array(nf*NSH+1), liveC:new Int32Array(nf), cells:new Map()};
+  var ush=(m.utypes||[]).map(function(u){ return SHI[ushape(u)]; });
+  var UL=m.ulv||{}, k=0;
+  for(i=0;i<n;i++){
+    var u=U[i], c=u[2], fi=0, x=0, z=0;
+    tr.off[i]=k; tr.fac[i]=u[1]; tr.sh[i]=(ush[u[0]]!=null)?ush[u[0]]:SHI.dot;
+    tr.lv[i]=UL[i]||null;
+    for(j=0;j+2<c.length;j+=3){
+      var code=c[j]; fi+=Math.floor(code/8); x+=c[j+1]; z+=c[j+2];
+      tr.kt[k]=T[Math.min(fi,nF-1)]; tr.kx[k]=x/10; tr.kz[k]=z/10; tr.kf[k]=code&7; k++;
+    }
+    tr.cur[i]=tr.off[i];
+    tr.t0[i]=tr.kt[tr.off[i]];
+    /* still standing in the trace's last frame: alive to the end of the replay */
+    tr.t1[i]=(fi>=nF-1)?Infinity:tr.kt[k-1];
+  }
+  tr.off[n]=k;
+  m._tr=tr;
+  delete m.tracks;                    /* the typed arrays are the copy kept */
+  return tr;
+}
+
+/* The keyframe at or before t on unit u's track. Playback moves a cursor
+   forward a step or two per frame; a scrub or a jump (more than 8 keyframes
+   either way) binary-searches the unit's slice instead. */
+function seek(tr,u,t){
+  var a=tr.off[u], b=tr.off[u+1]-1, c=tr.cur[u], kt=tr.kt;
+  if(c<a||c>b||kt[c]>t||(c+8<=b&&kt[c+8]<=t)){
+    var lo=a, hi=b;
+    while(lo<hi){ var mid=(lo+hi+1)>>1; if(kt[mid]<=t) lo=mid; else hi=mid-1; }
+    c=lo;
+  } else while(c<b&&kt[c+1]<=t) c++;
+  tr.cur[u]=c; return c;
+}
+
+/* The same silhouettes as unitMark, as SUBPATHS, so one faction's units of
+   one shape are a single path and a single fill per frame. */
+function shapePath(g,sh,x,y,r){
+  var i,a,rr,n,ro,ri;
+  switch(sh){
+  case 1: g.moveTo(x,y-r*1.25); g.lineTo(x+r*1.15,y+r*.85); g.lineTo(x-r*1.15,y+r*.85); g.closePath(); break;
+  case 2: g.moveTo(x,y-r*1.35); g.lineTo(x+r*1.15,y); g.lineTo(x,y+r*1.35); g.lineTo(x-r*1.15,y); g.closePath(); break;
+  case 3: g.rect(x-r*1.15,y-r*1.15,r*2.3,r*2.3); break;
+  case 4: g.moveTo(x+r*.75,y); g.arc(x,y,r*.75,0,Math.PI*2); break;
+  case 5: g.moveTo(x,y-r*1.2); g.lineTo(x+r,y); g.lineTo(x,y+r*1.2); g.lineTo(x-r,y); g.closePath(); break;
+  case 6: a=r*.42; g.rect(x-a,y-r*1.1,a*2,r*2.2); g.rect(x-r*1.1,y-a,r*2.2,a*2); break;
+  case 7: case 8:
+    n=sh===7?5:4; ro=sh===7?r*1.9:r*1.5; ri=sh===7?r*.8:r*.5;
+    for(i=0;i<n*2;i++){ a=i*Math.PI/n-Math.PI/2; rr=i%2?ri:ro;
+      if(i) g.lineTo(x+Math.cos(a)*rr,y+Math.sin(a)*rr); else g.moveTo(x+Math.cos(a)*rr,y+Math.sin(a)*rr); }
+    g.closePath(); break;
+  default: g.moveTo(x+r,y); g.arc(x,y,r,0,Math.PI*2);
+  }
+}
+
+/* Every live unit at t: interpolated, grouped into formation glyphs when
+   zoomed out, culled off screen, the rest drawn in batches. Returns the
+   counts the HUD and the debug overlay read. V = {k, cx, cz, W, H, ur,
+   aggregate}; glyphFn draws one formation glyph (draw()'s groupGlyph). */
+function drawTracks(g,tr,t,V,glyphFn){
+  var n=tr.n, k=V.k, W=V.W, H=V.H, ox=W/2-V.cx*k, oz=H/2+V.cz*k, ur=V.ur;
+  var X=tr.X, Z=tr.Z, VX=tr.VX, VZ=tr.VZ, FL=tr.FL, A=tr.A, GRP=tr.GRP;
+  var kt=tr.kt, kx=tr.kx, kz=tr.kz, kf=tr.kf, liveC=tr.liveC;
+  var u, i, c, na=0;
+  liveC.fill(0);
+  /* 1. where every live unit is now */
+  for(u=0;u<n;u++){
+    if(t<tr.t0[u]||t>tr.t1[u]) continue;
+    c=seek(tr,u,t);
+    var x=kx[c], z=kz[c], vx=0, vz=0;
+    if(c<tr.off[u+1]-1){
+      var dt=kt[c+1]-kt[c];
+      if(dt>0){ vx=(kx[c+1]-x)/dt; vz=(kz[c+1]-z)/dt; var e=t-kt[c]; x+=vx*e; z+=vz*e; }
+    }
+    X[u]=x; Z[u]=z; VX[u]=vx; VZ[u]=vz; FL[u]=kf[c]; GRP[u]=0;
+    A[na++]=u; liveC[tr.fac[u]]++;
+  }
+  var groups=0, grouped=0;
+  /* 2. zoomed out: marching formations -> one glyph per connected group of
+     formation-flagged units of one faction (spatial hash on FORM_LINK cells,
+     union-find over each unit's 3 x 3 neighbourhood) */
+  if(V.aggregate){
+    var PAR=tr.PAR, NXT=tr.NXT, C=tr.C, cells=tr.cells, CNT=tr.CNT;
+    var GX=tr.GX, GZ=tr.GZ, GVX=tr.GVX, GVZ=tr.GVZ, FG=tr.FG, L0=tr.L0, L1=tr.L1, W0=tr.W0, W1=tr.W1;
+    var find=function(q){ while(PAR[q]!==q){ PAR[q]=PAR[PAR[q]]; q=PAR[q]; } return q; };
+    var L2=FORM_LINK*FORM_LINK, nc=0, key, h, v, r;
+    cells.clear();
+    for(i=0;i<na;i++){
+      u=A[i];
+      if(!(FL[u]&2)||tr.sh[u]===SH_HERO) continue;
+      PAR[u]=u;
+      key=(tr.fac[u]*16384+Math.floor(X[u]/FORM_LINK)+8192)*16384+Math.floor(Z[u]/FORM_LINK)+8192;
+      h=cells.get(key); NXT[u]=(h===undefined)?-1:h; cells.set(key,u);
+      C[nc++]=u;
+    }
+    for(i=0;i<nc;i++){
+      u=C[i];
+      var base=(tr.fac[u]*16384+Math.floor(X[u]/FORM_LINK)+8192)*16384+Math.floor(Z[u]/FORM_LINK)+8192;
+      for(var dx=-1;dx<=1;dx++) for(var dz=-1;dz<=1;dz++){
+        v=cells.get(base+dx*16384+dz);
+        while(v!==undefined&&v>=0){
+          if(v<u){ var ex=X[u]-X[v], ez=Z[u]-Z[v];
+            if(ex*ex+ez*ez<=L2){ var ru=find(u), rv=find(v); if(ru!==rv) PAR[ru]=rv; } }
+          v=NXT[v];
+        }
+      }
+    }
+    for(i=0;i<nc;i++){ u=C[i]; CNT[u]=0; GX[u]=0; GZ[u]=0; GVX[u]=0; GVZ[u]=0; FG[u]=0;
+      L0[u]=1e9; L1[u]=-1e9; W0[u]=1e9; W1[u]=-1e9; }
+    for(i=0;i<nc;i++){ u=C[i]; r=find(u); CNT[r]++; GX[r]+=X[u]; GZ[r]+=Z[u];
+      GVX[r]+=VX[u]; GVZ[r]+=VZ[u]; if(FL[u]&4) FG[r]=1; }
+    /* roots: centre and heading (the mean of the members' own velocities) */
+    for(i=0;i<nc;i++){ u=C[i]; if(PAR[u]!==u||CNT[u]<2) continue;
+      var cn=CNT[u]; GX[u]/=cn; GZ[u]/=cn;
+      var mvx=GVX[u]/cn, mvz=GVZ[u]/cn, sp=Math.sqrt(mvx*mvx+mvz*mvz);
+      if(sp>=FORM_STILL){ GVX[u]=mvx/sp; GVZ[u]=mvz/sp; FG[u]|=2; } else { GVX[u]=1; GVZ[u]=0; }
+    }
+    /* members: extent along / across the heading */
+    for(i=0;i<nc;i++){ u=C[i]; r=find(u); if(CNT[r]<2) continue;
+      var ddx=X[u]-GX[r], ddz=Z[u]-GZ[r];
+      var al=ddx*GVX[r]+ddz*GVZ[r], ac=-ddx*GVZ[r]+ddz*GVX[r];
+      if(al<L0[r]) L0[r]=al; if(al>L1[r]) L1[r]=al; if(ac<W0[r]) W0[r]=ac; if(ac>W1[r]) W1[r]=ac;
+      GRP[u]=1; grouped++;
+    }
+    for(i=0;i<nc;i++){ u=C[i]; if(PAR[u]!==u||CNT[u]<2) continue;
+      groups++;
+      glyphFn(GX[u],GZ[u],GVX[u],GVZ[u],L1[u]-L0[u],W1[u]-W0[u],CNT[u],!!(FG[u]&1),!!(FG[u]&2),
+              fhue(tr.facs[tr.fac[u]]));
+    }
+  }
+  /* 3. everyone else: cull, then bucket by faction x shape (counting sort) */
+  var SX=tr.SX, SY=tr.SY, Vv=tr.V, ORD=tr.ORD, BC=tr.BC, BK=tr.BK, nv=0, culled=0, m2=12;
+  BC.fill(0);
+  for(i=0;i<na;i++){
+    u=A[i]; if(GRP[u]) continue;
+    var sx=ox+X[u]*k, sy=oz-Z[u]*k;
+    if(sx<-m2||sy<-m2||sx>W+m2||sy>H+m2){ culled++; continue; }
+    SX[u]=sx; SY[u]=sy; var bk=tr.fac[u]*NSH+tr.sh[u]; BK[u]=bk; BC[bk+1]++; Vv[nv++]=u;
+  }
+  for(i=1;i<BC.length;i++) BC[i]+=BC[i-1];
+  for(i=0;i<nv;i++){ u=Vv[i]; ORD[BC[BK[u]]++]=u; }
+  /* BC[b] is now the END of bucket b; bucket b starts at BC[b-1] (0 for b=0) */
+  /* halos (fighting) and rings (in formation), one path each */
+  g.beginPath(); var any=false;
+  for(i=0;i<nv;i++){ u=Vv[i]; if(FL[u]&4){ g.moveTo(SX[u]+ur*2.05,SY[u]); g.arc(SX[u],SY[u],ur*2.05,0,Math.PI*2); any=true; } }
+  if(any){ g.fillStyle=css("--bad-soft"); g.fill(); }
+  g.beginPath(); any=false;
+  for(i=0;i<nv;i++){ u=Vv[i]; if(FL[u]&2){ g.moveTo(SX[u]+ur*1.75,SY[u]); g.arc(SX[u],SY[u],ur*1.75,0,Math.PI*2); any=true; } }
+  if(any){ g.strokeStyle=css("--gold"); g.lineWidth=1.4; g.stroke(); }
+  var ink=css("--ink"), gold=css("--gold"), well=css("--well");
+  for(var b=0;b<BC.length-1;b++){
+    var s0=b?BC[b-1]:0, s1=BC[b]; if(s1<=s0) continue;
+    var sh=b%NSH, col=fhue(tr.facs[(b/NSH)|0]);
+    g.beginPath();
+    for(i=s0;i<s1;i++){ u=ORD[i]; shapePath(g,sh,SX[u],SY[u],ur); }
+    if(sh===4||sh===5){ g.strokeStyle=col; g.lineWidth=1.3; g.stroke(); continue; }
+    g.fillStyle=(sh===8)?well:col; g.fill();
+    if(sh===3){ g.strokeStyle=ink; g.lineWidth=1; g.stroke(); }
+    else if(sh===7){ g.strokeStyle=gold; g.lineWidth=1.3; g.stroke(); }
+  }
+  /* rank / hero level, once there is room to read it */
+  if(ur>=3.4){
+    for(i=0;i<nv;i++){
+      u=Vv[i]; var ll=tr.lv[u]; if(!ll) continue;
+      var lvl=lvAt(ll,t,1), px2=SX[u], pz2=SY[u];
+      if(tr.sh[u]===SH_HERO){
+        g.fillStyle=gold; g.font="700 "+Math.round(ur*2.4)+"px "+css("--display");
+        g.textAlign="center"; g.textBaseline="bottom"; g.fillText(String(lvl),px2,pz2-ur*1.9);
+      } else if(lvl>1){
+        g.strokeStyle=gold; g.lineWidth=1.3; g.beginPath();
+        for(var rk=0;rk<Math.min(4,lvl-1);rk++){
+          var yy=pz2-ur*1.6-rk*2.6;
+          g.moveTo(px2-ur*.8,yy+1.2); g.lineTo(px2,yy-.4); g.lineTo(px2+ur*.8,yy+1.2);
+        }
+        g.stroke();
+      }
+    }
+  }
+  return {alive:na, liveC:liveC, drawn:nv, culled:culled, groups:groups, grouped:grouped};
+}
+
+/* innerHTML only when it changed: the HUD is rewritten every frame. */
+var HTMLC={};
+function setHTML(id,s){ if(HTMLC[id]===s) return; HTMLC[id]=s;
+  var el=document.getElementById(id); if(el) el.innerHTML=s; }
+
+/* The map canvas is resized only when its size changes: assigning
+   canvas.width reallocates and clears the backing store, and doing that
+   every frame was a full-canvas allocation sixty times a second. */
+function stageCtx(cv,W,H){
+  var r=window.devicePixelRatio||1, pw=Math.round(W*r), ph=Math.round(H*r);
+  if(cv.width!==pw||cv.height!==ph){ cv.width=pw; cv.height=ph; cv.style.height=H+"px"; }
+  var g=cv.getContext("2d"); g.setTransform(r,0,0,r,0,0); return g;
+}
+
+/* ── TERRITORY: the game's real partition and who owns it (2026-10-04) ──
+   MapTrace writes RegionMap.RegionAt sampled on the build grid (TG / TR,
+   once) and every owner change (TO) and meter step (TM). The partition is
+   decoded ONCE per match into a cell id raster, and from it:
+     - a w x h offscreen canvas, one pixel per cell, tinted by owner. It is
+       repainted only when the ownership STATE at the replay time changes
+       (an event crossed), never per frame, and drawn scaled with smoothing
+       off so every cell edge is crisp;
+     - every border between two different ids as cell-edge segments,
+       collinear runs merged, grouped by the id pair. Each ownership change
+       rebuilds two Path2Ds -- borders where the owners differ (bright,
+       thick) and borders inside one owner's ground or between unowned
+       territories (faint, thin). Per frame they are stroked once each under
+       a cell->screen transform: pan and zoom cost two strokes.
+   A match whose trace predates these lines has no m.terr and draws nothing
+   here; the seed labels below still show. */
+var TERR={on:true};
+try{ TERR.on=localStorage.getItem("twb.terr")!=="0"; }catch(_){}
+function terrToggle(v){
+  TERR.on=(v==null)?!TERR.on:!!v;
+  try{ localStorage.setItem("twb.terr",TERR.on?"1":"0"); }catch(_){}
+  var b=document.getElementById("zterr"); if(b) b.setAttribute("aria-pressed",String(TERR.on));
+  draw();
+}
+function rgbOf(c){
+  c=String(c||"").trim();
+  if(c.charAt(0)==="#"){
+    if(c.length===4) c="#"+c[1]+c[1]+c[2]+c[2]+c[3]+c[3];
+    var n=parseInt(c.slice(1,7),16); if(isNaN(n)) return [128,128,128];
+    return [(n>>16)&255,(n>>8)&255,n&255];
+  }
+  var m=c.match(/(\d+(?:\.\d+)?)[ ,]+(\d+(?:\.\d+)?)[ ,]+(\d+(?:\.\d+)?)/);
+  return m?[+m[1],+m[2],+m[3]]:[128,128,128];
+}
+/* Index of the first event with time > t (events are in time order). */
+function evAt(ev,t){
+  var lo=0, hi=ev.length;
+  while(lo<hi){ var mid=(lo+hi)>>1; if(ev[mid][0]<=t) lo=mid+1; else hi=mid; }
+  return lo;
+}
+function terrPrep(m){
+  var T=m.terr;
+  if(!T||!T.rows||!T.w||!T.h) return null;
+  if(T._ids) return T;
+  var w=T.w, h=T.h, ids=new Int16Array(w*h), top=-1;
+  for(var j=0;j<h;j++){
+    var r=T.rows[j]||[], i=0;
+    for(var q=0;q+1<r.length;q+=2){
+      var id=r[q], n=r[q+1]; if(id>top) top=id;
+      for(var c=0;c<n&&i<w;c++,i++) ids[j*w+i]=id;
+    }
+    for(;i<w;i++) ids[j*w+i]=-1;
+  }
+  var N=Math.max(top+1,(m.regions||[]).length);
+  /* segments [x1,y1,x2,y2] in CELL units (x east, y north), per id pair */
+  var pairs={}, P=[];
+  function seg(a,b,x1,y1,x2,y2){
+    if(a>b){ var s=a; a=b; b=s; }
+    var key=a+","+b, p=pairs[key];
+    if(!p){ p=pairs[key]={a:a,b:b,s:[]}; P.push(p); }
+    p.s.push(x1,y1,x2,y2);
+  }
+  function at(i,j){ return (i<0||j<0||i>=w||j>=h)?-1:ids[j*w+i]; }
+  /* horizontal edges: the line y=j between row j-1 and row j */
+  for(var y=0;y<=h;y++){
+    var run=-1, ra=0, rb=0;
+    for(var x=0;x<=w;x++){
+      var a=x<w?at(x,y-1):-9, b=x<w?at(x,y):-9, open=x<w&&a!==b;
+      if(run>=0 && (!open||a!==ra||b!==rb)){ seg(ra,rb,run,y,x,y); run=-1; }
+      if(open && run<0){ run=x; ra=a; rb=b; }
+    }
+  }
+  /* vertical edges: the line x=i between column i-1 and column i */
+  for(var x2=0;x2<=w;x2++){
+    var run2=-1, sa=0, sb=0;
+    for(var y2=0;y2<=h;y2++){
+      var a2=y2<h?at(x2-1,y2):-9, b2=y2<h?at(x2,y2):-9, open2=y2<h&&a2!==b2;
+      if(run2>=0 && (!open2||a2!==sa||b2!==sb)){ seg(sa,sb,x2,run2,x2,y2); run2=-1; }
+      if(open2 && run2<0){ run2=y2; sa=a2; sb=b2; }
+    }
+  }
+  /* cell count and centroid per territory, for the meter label fallback */
+  T._ids=ids; T._N=N; T._pairs=P;
+  T._own=T.own||[]; T._met=T.meter||[];
+  T._oi=-1; T._mi=-1; T._sig="";
+  T._owner=[]; T._mh=[]; T._mp=[]; T._mc=[];
+  T._outline={};
+  var cv=document.createElement("canvas"); cv.width=w; cv.height=h; T._cv=cv;
+  return T;
+}
+/* Owner of each territory at time t; rebuilt only when an event is crossed. */
+function terrOwners(T,t){
+  var k=evAt(T._own,t);
+  if(k===T._oi) return false;
+  if(k<T._oi||T._oi<0){
+    T._owner=[]; for(var i=0;i<T._N;i++) T._owner.push("-");
+    T._oi=0;
+  }
+  for(var e=T._oi;e<k;e++){ var ev=T._own[e]; T._owner[ev[1]]=ev[2]; }
+  T._oi=k;
+  return true;
+}
+function terrMeter(T,t){
+  var k=evAt(T._met,t);
+  if(k===T._mi) return;
+  if(k<T._mi||T._mi<0){
+    T._mh=[]; T._mp=[]; T._mc=[];
+    for(var i=0;i<T._N;i++){ T._mh.push("-"); T._mp.push(0); T._mc.push(0); }
+    T._mi=0;
+  }
+  for(var e=T._mi;e<k;e++){ var ev=T._met[e];
+    T._mh[ev[1]]=ev[2]; T._mp[ev[1]]=ev[3]; T._mc[ev[1]]=ev[4]; }
+  T._mi=k;
+}
+function ownerHue(o){ return o==="Border" ? css("--f-Border")||css("--well") : fhue(o); }
+/* Repaint the fill and rebuild the two border paths for the current owners. */
+function terrPaint(T){
+  var sig=css("--map")+"|"+css("--f-Blue")+"|"+T._owner.join(",");
+  if(sig===T._sig) return;
+  T._sig=sig;
+  var w=T.w, h=T.h, g=T._cv.getContext("2d"), img=g.createImageData(w,h), d=img.data;
+  var col=[];
+  for(var r=0;r<T._N;r++){
+    var o=T._owner[r];
+    col.push(o&&o!=="-" ? rgbOf(ownerHue(o)) : null);
+  }
+  /* canvas row 0 is the NORTH row: sim Z grows north, screen y grows down */
+  for(var j=0;j<h;j++){
+    var py=(h-1-j)*w;
+    for(var i=0;i<w;i++){
+      var id=T._ids[j*w+i]; if(id<0) continue;
+      var c=col[id]; if(!c) continue;
+      var p=(py+i)*4; d[p]=c[0]; d[p+1]=c[1]; d[p+2]=c[2]; d[p+3]=255;
+    }
+  }
+  g.putImageData(img,0,0);
+  var diff=new Path2D(), same=new Path2D();
+  T._pairs.forEach(function(p){
+    var oa=p.a<0?"-":(T._owner[p.a]||"-"), ob=p.b<0?"-":(T._owner[p.b]||"-");
+    /* an unowned territory against unclaimable ground is a quiet line;
+       any edge where the holder changes is the loud one */
+    var path=(oa!==ob)?diff:same, s=p.s;
+    for(var q=0;q<s.length;q+=4){ path.moveTo(s[q],s[q+1]); path.lineTo(s[q+2],s[q+3]); }
+  });
+  T._diff=diff; T._same=same;
+}
+/* Every border of one territory as a path (contested outline), cached. */
+function terrOutline(T,id){
+  if(T._outline[id]) return T._outline[id];
+  var path=new Path2D();
+  T._pairs.forEach(function(p){
+    if(p.a!==id&&p.b!==id) return;
+    for(var q=0;q<p.s.length;q+=4){ path.moveTo(p.s[q],p.s[q+1]); path.lineTo(p.s[q+2],p.s[q+3]); }
+  });
+  return (T._outline[id]=path);
+}
+/* Draw the layer. k = px per metre, PX/PZ the world->screen maps. */
+function drawTerritory(g,m,t,k,PX,PZ){
+  var T=terrPrep(m); if(!T) return null;
+  terrOwners(T,t); terrMeter(T,t); terrPaint(T);
+  var cell=T.cell, x0=T.x0, z0=T.z0;
+  /* fill: one drawImage, nearest-neighbour so cell edges stay crisp */
+  g.save();
+  g.imageSmoothingEnabled=false;
+  g.globalAlpha=.30;
+  g.drawImage(T._cv, PX(x0), PZ(z0+T.h*cell), T.w*cell*k, T.h*cell*k);
+  g.restore();
+  /* lines: cell units through one transform on top of the DPR one */
+  var dpr=window.devicePixelRatio||1, s=cell*k;
+  g.save();
+  g.setTransform(dpr*s,0,0,-dpr*s,dpr*PX(x0),dpr*PZ(z0));
+  g.lineCap="round"; g.lineJoin="round";
+  g.strokeStyle=css("--ink");
+  g.globalAlpha=.22; g.lineWidth=1/s; g.stroke(T._same);
+  g.globalAlpha=.85; g.lineWidth=Math.max(1.6,Math.min(3,1.2+k*.25))/s; g.stroke(T._diff);
+  /* contested: hostiles share it and the meter is frozen */
+  var any=false;
+  for(var i=0;i<T._N;i++) if(T._mc[i]){ any=true; break; }
+  if(any){
+    g.strokeStyle=css("--bad"); g.globalAlpha=.95; g.lineWidth=2/s;
+    g.setLineDash([5/s,4/s]);
+    for(var i2=0;i2<T._N;i2++) if(T._mc[i2]) g.stroke(terrOutline(T,i2));
+    g.setLineDash([]);
+  }
+  g.restore();
+  return T;
+}
+
+/* ?debug=1 turns on the draw counter overlay (see the end of draw). */
+var DBG=/[?&]debug=1/.test(location.search||"")?{}:null;
+
 function draw(){
   var m=M[sel]; if(!m) return;
+  if(m.file && !m._loaded) return;            /* its file is still on the way */
   var cv=document.getElementById("map"); if(!cv) return;
+  var t0p=DBG?performance.now():0;
   var W=cv.clientWidth||900, H=Math.round(W*0.57);
-  var g=fit(cv,H);
+  var g=stageCtx(cv,W,H);
   var w=worldOf(m);
   var spanX=Math.max(1,w[2]-w[0]), spanZ=Math.max(1,w[3]-w[1]);
   var pad=10, k0=Math.min((W-pad*2)/spanX,(H-pad*2)/spanZ);
@@ -676,13 +1224,29 @@ function draw(){
   if(zr) zr.textContent="×"+(VW.z<10?VW.z.toFixed(1):Math.round(VW.z))+" · grid "+
     (fade>0.05?fine:major)+" m";
 
-  /* region seeds, when the trace recorded them */
-  (m.regions||[]).forEach(function(r){
+  /* THE TERRITORIES (2026-10-04): the game's own partition, tinted by
+     owner at the replay time. Only on a trace that recorded it. */
+  var tb=document.getElementById("zterr");
+  if(tb){ var hide=!m.terr; if(tb.hidden!==hide) tb.hidden=hide; }
+  var TT=(TERR.on&&m.terr)?drawTerritory(g,m,R.t,k,PX,PZ):null;
+
+  /* region seeds, when the trace recorded them -- with the ownership meter
+     under the name while someone is filling or draining it */
+  (m.regions||[]).forEach(function(r,ri){
     var px=PX(r.x), py=PZ(r.z); if(!on(px,py,80)) return;
+    var fs=Math.round(11*Math.min(2,Math.sqrt(VW.z)));
     g.fillStyle=css("--mute"); g.globalAlpha=.5;
-    g.font=Math.round(11*Math.min(2,Math.sqrt(VW.z)))+'px '+(css("--display")||"sans-serif");
+    g.font=fs+'px '+(css("--display")||"sans-serif");
     g.textAlign="center"; g.textBaseline="middle";
     g.fillText(r.name, px, py);
+    if(TT){
+      var mh=TT._mh[ri], mp=TT._mp[ri];
+      if(mh&&mh!=="-"&&(mp<100||mh!==TT._owner[ri])){
+        g.globalAlpha=.95; g.fillStyle=ownerHue(mh);
+        g.font=fs+'px '+(css("--mono")||"monospace");
+        g.fillText(mh+" "+mp+"%"+(TT._mc[ri]?" frozen":""), px, py+fs+2);
+      }
+    }
     g.globalAlpha=1;
   });
 
@@ -699,6 +1263,7 @@ function draw(){
   });
 
   var t=R.t;
+  var tL0=DBG?performance.now():0;   /* layer timings for ?debug=1 */
 
   /* BUILDINGS ON THE GRID. A building the trace placed on cells (g =
      [minCellX, minCellZ, cellsX, cellsZ]) is drawn from its CELLS, rounded
@@ -706,12 +1271,25 @@ function draw(){
      the grid (walls are drawn, not snapped) is drawn at its recorded centre,
      size and yaw. A site is dashed until it completes; gold pips are its
      level. */
+  /* BATCHED (2026-10-03): a match can stand thousands of pieces at once
+     (every wall segment is one), and a save / fill / stroke / restore per
+     piece was the costliest thing in the frame. Each piece's kind is worked
+     out once per match; per frame the visible ones are collected, their
+     outlines drawn as ONE path per faction and style (complete / wall /
+     site), and only pieces big enough to carry a glyph or level pips are
+     drawn one by one. */
   var ink=css("--ink");
-  (m.blds||[]).forEach(function(b){
-    if(b.t0>t) return;
-    if(b.t1!=null && b.t1<=t) return;
-    var c=fhue(b.f), kind=bkind(b);
-    var site=(b.tc!==undefined)&&(b.tc==null||t<b.tc);
+  var BL=m.blds||[];
+  if(!m._bprep){
+    var bfi={}; m._bfac=[];
+    BL.forEach(function(b){ b._k=bkind(b);
+      if(!(b.f in bfi)){ bfi[b.f]=m._bfac.length; m._bfac.push(b.f); } b._fi=bfi[b.f]; });
+    m._bvis=[]; m._bprep=true;
+  }
+  var BV=m._bvis; BV.length=0;
+  for(var bi=0; bi<BL.length; bi++){
+    var b=BL[bi];
+    if(b.t0>t || (b.t1!=null && b.t1<=t)) continue;
     var x,y,ww,hh,rot=0;
     if(b.g){
       var x0=b.g[0]*cell, z0=b.g[1]*cell;
@@ -722,70 +1300,169 @@ function draw(){
       ww=Math.max(1,b.w*k); hh=Math.max(1,b.h*k); x=PX(b.x)-ww/2; y=PZ(b.z)-hh/2;
       rot=(b.yaw||0)*Math.PI/180;
     }
-    if(!on(x+ww/2,y+hh/2,Math.max(ww,hh)+4)) return;
-    g.save(); g.translate(x+ww/2,y+hh/2); if(rot) g.rotate(rot);
-    g.fillStyle=c; g.globalAlpha=site?.10:(kind==="wall"?.5:.24); g.fillRect(-ww/2,-hh/2,ww,hh); g.globalAlpha=1;
-    g.strokeStyle=c; g.lineWidth=1; if(site) g.setLineDash([3,2]);
-    g.strokeRect(-ww/2,-hh/2,ww,hh); g.setLineDash([]);
-    var mn=Math.min(ww,hh);
-    if(mn>=9){ g.globalAlpha=site?.55:.92; glyph(g,kind,0,0,Math.min(48,mn*.62),ink); g.globalAlpha=1; }
-    var lv=lvAt(b.lv,t,0);
-    if(lv>0 && mn>=8) pips(g,lv,ww,hh);
+    if(!on(x+ww/2,y+hh/2,Math.max(ww,hh)+4)) continue;
+    b._cx=x+ww/2; b._cy=y+hh/2; b._w=ww; b._h=hh; b._r=rot;
+    b._site=(b.tc!==undefined)&&(b.tc==null||t<b.tc);
+    b._sty=b._site?2:(b._k==="wall"?1:0);
+    BV.push(b);
+  }
+  var outline=function(b){
+    var hw=b._w/2, hh2=b._h/2;
+    if(!b._r){ g.rect(b._cx-hw,b._cy-hh2,b._w,b._h); return; }
+    var co=Math.cos(b._r), si=Math.sin(b._r);
+    g.moveTo(b._cx-hw*co+hh2*si, b._cy-hw*si-hh2*co);
+    g.lineTo(b._cx+hw*co+hh2*si, b._cy+hw*si-hh2*co);
+    g.lineTo(b._cx+hw*co-hh2*si, b._cy+hw*si+hh2*co);
+    g.lineTo(b._cx-hw*co-hh2*si, b._cy-hw*si+hh2*co);
+    g.closePath();
+  };
+  var ALPHA=[.24,.5,.10];
+  for(var bf=0; bf<(m._bfac||[]).length; bf++){
+    var bc=fhue(m._bfac[bf]);
+    for(var st=0; st<3; st++){
+      var anyb=false; g.beginPath();
+      for(var vi=0; vi<BV.length; vi++){ var bb=BV[vi]; if(bb._fi!==bf||bb._sty!==st) continue; outline(bb); anyb=true; }
+      if(!anyb) continue;
+      g.fillStyle=bc; g.globalAlpha=ALPHA[st]; g.fill(); g.globalAlpha=1;
+      g.strokeStyle=bc; g.lineWidth=1; if(st===2) g.setLineDash([3,2]);
+      g.stroke(); if(st===2) g.setLineDash([]);
+    }
+  }
+  for(var vj=0; vj<BV.length; vj++){
+    var bv=BV[vj], mn=Math.min(bv._w,bv._h);
+    if(mn<8) continue;
+    var lv=lvAt(bv.lv,t,0);
+    if(mn<9 && !(lv>0)) continue;
+    g.save(); g.translate(bv._cx,bv._cy); if(bv._r) g.rotate(bv._r);
+    if(mn>=9){ g.globalAlpha=bv._site?.55:.92; glyph(g,bv._k,0,0,Math.min(48,mn*.62),ink); g.globalAlpha=1; }
+    if(lv>0) pips(g,lv,bv._w,bv._h);
     g.restore();
-  });
+  }
 
-  /* UNITS, TWEENED BY IDENTITY -- NEVER BY POSITION IN THE LIST.
-     A frame is an unordered bag: its order is whatever order the simulation
-     walked its chunks in, and that changes the moment anything spawns or
-     dies. Pairing point 7 of one frame with point 7 of the next therefore
-     re-paired every dot with a stranger several times a second, and the army
-     appeared to swap places and march backwards on the spot. Each point now
-     carries its unit id, and a dot is only ever tweened toward ITS OWN next
-     position; a unit with no next position (it died, or the frame is the
-     last) simply holds still.
-     Sampled matches -- recorded before the trace existed -- carry id 0 on
-     every point, and are SNAPPED rather than tweened. A 15 s sample honestly
-     shown as a slideshow beats a smooth animation of something that never
-     happened.
-     SHAPE IS TYPE (2026-10-03): m.utype maps a unit id to an index into
-     m.utypes; no entry (a sampled match) draws the plain dot it always did. */
+  /* UNITS: EVERY ONE, ALONG ITS OWN TRACK (2026-10-03).
+     A traced match carries one track per unit (m._tr, decoded from m.tracks
+     by decodeTracks): its keyframes, simplified so the drawn line never
+     strays more than trackInfo.tol metres from a recorded sample. The unit
+     is drawn at time t by linear interpolation between ITS OWN two keyframes
+     either side of t -- identity is the track, so nothing is ever paired with
+     a stranger -- and is hidden before its first keyframe and after its last
+     (spawn and death). Nothing is sampled away: every unit alive at t is
+     drawn, or counted into its formation glyph when zoomed out.
+     Sampled matches -- recorded before the trace existed -- still carry
+     frames with id 0 on every point, and are SNAPPED rather than tweened. A
+     15 s sample honestly shown as a slideshow beats a smooth animation of
+     something that never happened.
+     SHAPE IS TYPE: a track's type index (or m.utype on an old frame) points
+     into m.utypes; no entry draws the plain dot it always did. */
   var fr=m.frames||[];
   if(!m._ush) m._ush=(m.utypes||[]).map(ushape);
   var UM=m.utype||{}, UL=m.ulv||{};
   var ur=2.7*Math.max(1,Math.min(2.6,Math.sqrt(VW.z)));
-  if(fr.length){
+  /* FORMATIONS READ AT ANY ZOOM (2026-10-03). A marching formation holds its
+     members ~2 m apart (FORM_PITCH), which at whole-map zoom is far under a
+     pixel: forty overlapping dots read as one blob, or as nothing. While the
+     pitch is under FORM_MIN_PX on screen, formation-flagged units (flag 2) of
+     one faction standing within FORM_LINK of each other are drawn as ONE
+     glyph -- an arrow-ended block pointing the way the group is moving
+     (the mean of its members' own track velocities), sized by its real
+     extent but never smaller than its head count can read, with the count on
+     it. The groups are found on the page, at the drawn instant, from every
+     live unit's interpolated position, so the count is the real army size.
+     Zoom in until the pitch is FORM_MIN_PX or more and every unit is drawn on
+     its own again. Heroes are always drawn individually. */
+  var aggregate=(m.fidelity==="trace") && FORM_PITCH*k<FORM_MIN_PX;
+  if(zr && aggregate) zr.textContent+=" · formations grouped";
+  /* One group glyph: centre (world), unit heading (world), extent in metres
+     along / across the heading. */
+  function groupGlyph(mx,mz,ux,uz,lenM,widM,cnt,fight,moving,col){
+    var root=Math.sqrt(cnt);
+    var len=Math.max((lenM+FORM_PITCH)*k, 3+1.1*root);
+    var wid=Math.max((widM+FORM_PITCH)*k, 4+1.6*root);
+    var px=PX(mx), pz=PZ(mz);
+    if(!on(px,pz,len+wid+12)) return;
+    /* screen y grows down while sim z grows north */
+    formationGlyph(g,px,pz,Math.atan2(-uz,ux),len,wid,col,cnt,fight,moving);
+  }
+  var tL1=DBG?performance.now():0;
+  var TRK=m._tr, TS=null;
+  if(TRK){
+    TS=drawTracks(g,TRK,t,{k:k,cx:cx,cz:cz,W:W,H:H,ur:ur,aggregate:aggregate},groupGlyph);
+  } else if(fr.length){
     var i=0; while(i<fr.length-1 && fr[i+1].t<=t) i++;
-    var a=fr[i], b2=fr[Math.min(i+1,fr.length-1)];
+    var a=fr[i], b2=fr[Math.min(i+1,fr.length-1)], a0=fr[Math.max(0,i-1)];
     var span=(b2.t-a.t)||1, f=Math.max(0,Math.min(1,(t-a.t)/span));
     var tween=(m.fidelity==="trace");
     Object.keys(a.u).forEach(function(fa){
       var pa=a.u[fa]||[], pb=(b2.u&&b2.u[fa])||[];
-      var c=fhue(fa), nxt=null;
+      var c=fhue(fa), nxt=null, prv=null;
       if(tween){ nxt={}; for(var j=0;j<pb.length;j++) nxt[pb[j][0]]=pb[j]; }
+      /* positions this instant, then (zoomed out) the formation groups */
+      var P=new Array(pa.length);
       for(var n=0;n<pa.length;n++){
         var cur=pa[n], q=(tween&&nxt[cur[0]])||cur;
-        var x=cur[1]+(q[1]-cur[1])*f, z=cur[2]+(q[2]-cur[2])*f;
-        var fl=cur[3]|0;
-        var px=PX(x), pz=PZ(z);
-        if(!on(px,pz,12)) continue;
-        if(fl&4){ g.beginPath(); g.arc(px,pz,ur*2.05,0,Math.PI*2);
+        var ti=UM[cur[0]];
+        P[n]={x:cur[1]+(q[1]-cur[1])*f, z:cur[2]+(q[2]-cur[2])*f, fl:cur[3]|0,
+              sh:(ti==null)?"dot":m._ush[ti], c:cur, q:q};
+      }
+      var grouped=null;
+      if(aggregate && a.fg){
+        grouped=new Uint8Array(P.length);
+        for(var n3=0;n3<P.length;n3++) if(P[n3].fl&8) grouped[n3]=1;
+        var dtg=Math.max(0,t-a.t);
+        (a.fg[fa]||[]).forEach(function(r){
+          var mv=!!(r[8]&1), th=(r[5]==null?0:r[5])*Math.PI/180;
+          groupGlyph(r[0]+r[3]*dtg, r[1]+r[4]*dtg, Math.cos(th), Math.sin(th),
+                     r[6], r[7], r[2], !!(r[8]&2), mv, c);
+        });
+      } else if(aggregate){
+        var pp=(a0!==a&&a0.u&&a0.u[fa])||[];
+        prv={}; for(var j2=0;j2<pp.length;j2++) prv[pp[j2][0]]=pp[j2];
+        grouped=new Uint8Array(P.length);
+        formationGroups(P).forEach(function(gr){
+          var sx=0,sz=0,hx=0,hz=0,fight=false;
+          gr.forEach(function(ix){ var p=P[ix]; sx+=p.x; sz+=p.z;
+            hx+=p.q[1]-p.c[1]; hz+=p.q[2]-p.c[2];
+            if(p.fl&4) fight=true; grouped[ix]=1; });
+          var cnt=gr.length, mx=sx/cnt, mz=sz/cnt;
+          /* heading: this frame -> next; at rest, last frame -> this one */
+          if(hx*hx+hz*hz<FORM_STILL*FORM_STILL*cnt*cnt){
+            hx=0; hz=0;
+            gr.forEach(function(ix){ var p=P[ix], o=prv[p.c[0]]; if(o){ hx+=p.c[1]-o[1]; hz+=p.c[2]-o[2]; } });
+          }
+          var hl=Math.sqrt(hx*hx+hz*hz), moving=hl>=FORM_STILL*cnt;
+          var ux=moving?hx/hl:1, uz=moving?hz/hl:0;
+          /* real extent along / across the heading, in metres */
+          var l0=1e9,l1=-1e9,w0=1e9,w1=-1e9;
+          gr.forEach(function(ix){ var p=P[ix], dx=p.x-mx, dz=p.z-mz;
+            var along=dx*ux+dz*uz, across=-dx*uz+dz*ux;
+            if(along<l0) l0=along; if(along>l1) l1=along;
+            if(across<w0) w0=across; if(across>w1) w1=across; });
+          groupGlyph(mx,mz,ux,uz,l1-l0,w1-w0,cnt,fight,moving,c);
+        });
+      }
+      for(var n2=0;n2<P.length;n2++){
+        if(grouped&&grouped[n2]) continue;
+        var p=P[n2], cur2=p.c;
+        var px2=PX(p.x), pz2=PZ(p.z);
+        if(!on(px2,pz2,12)) continue;
+        if(p.fl&4){ g.beginPath(); g.arc(px2,pz2,ur*2.05,0,Math.PI*2);
                   g.fillStyle=css("--bad-soft"); g.fill(); }
-        if(fl&2){ g.beginPath(); g.arc(px,pz,ur*1.75,0,Math.PI*2);
+        if(p.fl&2){ g.beginPath(); g.arc(px2,pz2,ur*1.75,0,Math.PI*2);
                   g.strokeStyle=css("--gold"); g.lineWidth=1.4; g.stroke(); }
-        var ti=UM[cur[0]], sh=(ti==null)?"dot":m._ush[ti];
-        unitMark(g,sh,px,pz,ur,c);
+        var sh=p.sh;
+        unitMark(g,sh,px2,pz2,ur,c);
         /* rank / hero level, once there is room to read it */
-        var ll=UL[cur[0]];
+        var ll=UL[cur2[0]];
         if(ll && ur>=3.4){
           var lv=lvAt(ll,t,1);
           if(sh==="hero"){
             g.fillStyle=css("--gold"); g.font="700 "+Math.round(ur*2.4)+"px "+css("--display");
-            g.textAlign="center"; g.textBaseline="bottom"; g.fillText(String(lv),px,pz-ur*1.9);
+            g.textAlign="center"; g.textBaseline="bottom"; g.fillText(String(lv),px2,pz2-ur*1.9);
           } else if(lv>1){
             g.strokeStyle=css("--gold"); g.lineWidth=1.3;
             for(var rk=0;rk<Math.min(4,lv-1);rk++){
-              var yy=pz-ur*1.6-rk*2.6;
-              g.beginPath(); g.moveTo(px-ur*.8,yy+1.2); g.lineTo(px,yy-.4); g.lineTo(px+ur*.8,yy+1.2); g.stroke();
+              var yy=pz2-ur*1.6-rk*2.6;
+              g.beginPath(); g.moveTo(px2-ur*.8,yy+1.2); g.lineTo(px2,yy-.4); g.lineTo(px2+ur*.8,yy+1.2); g.stroke();
             }
           }
         }
@@ -793,28 +1470,32 @@ function draw(){
     });
   }
 
-  /* deaths flash where they fell */
-  (m.deaths||[]).forEach(function(d){
-    var age=t-d.t; if(age<0||age>10) return;
+  var tL2=DBG?performance.now():0;
+  /* deaths flash where they fell (sorted by time: start at t - 10 s) */
+  var DL=m.deaths||[], lo=0, hi=DL.length;
+  while(lo<hi){ var mid=(lo+hi)>>1; if(DL[mid].t<t-10) lo=mid+1; else hi=mid; }
+  for(var di=lo; di<DL.length && DL[di].t<=t; di++){
+    var d=DL[di], age=t-d.t;
     g.strokeStyle=fhue(d.v)||css("--bad");
     g.globalAlpha=(1-age/10)*.85; g.lineWidth=1.6;
     g.beginPath(); g.arc(PX(d.x),PZ(d.z),3+age*1.7*Math.min(3,Math.sqrt(VW.z)),0,Math.PI*2); g.stroke();
-    g.globalAlpha=1;
-  });
-
-  document.getElementById("clock").innerHTML=
-    mmss(t)+"<small>match time</small>";
-
-  /* live counts */
-  var live={};
-  if(fr.length){
-    var j=0; while(j<fr.length-1 && fr[j+1].t<=t) j++;
-    Object.keys(fr[j].u).forEach(function(fa){ live[fa]=fr[j].u[fa].length; });
   }
-  document.getElementById("counts").innerHTML=
+  g.globalAlpha=1;
+
+  setHTML("clock", mmss(t)+"<small>match time</small>");
+
+  /* live counts: from the tracks -- every unit alive at t, drawn or not */
+  var live={};
+  if(TS){
+    for(var fi2=0; fi2<TRK.facs.length; fi2++) if(TS.liveC[fi2]>0) live[TRK.facs[fi2]]=TS.liveC[fi2];
+  } else if(fr.length){
+    var j=0; while(j<fr.length-1 && fr[j+1].t<=t) j++;
+    Object.keys(fr[j].u).forEach(function(fa){ live[fa]=(fr[j].c&&fr[j].c[fa]!=null)?fr[j].c[fa]:fr[j].u[fa].length; });
+  }
+  setHTML("counts",
     Object.keys(live).sort().map(function(fa){
       return '<span style="color:'+fhue(fa)+'">'+fa+'</span><b>'+live[fa]+'</b><span>units</span>';
-    }).join("");
+    }).join(""));
 
   /* the wave in flight, named */
   var cap="", best=null;
@@ -825,7 +1506,27 @@ function draw(){
     cap='<span style="color:'+fhue(best.faction)+'">'+best.faction+'</span> wave '+best.n+
         ' · <b>'+best.army+'</b> marched'+(best.arrived?', '+best.arrived+' arrived':', none arrived')+
         ' <span class="t">'+esc(best.why)+'</span>';
-  document.getElementById("caption").innerHTML=cap;
+  setHTML("caption", cap);
+
+  /* ?debug=1: what was drawn against what is alive, and what it cost. Every
+     live unit is exactly one of: drawn on its own, inside a formation glyph,
+     or off screen -- the check line says so or names the gap. */
+  if(DBG){
+    var ms=(performance.now()-t0p);
+    DBG.ms=DBG.ms?DBG.ms*0.9+ms*0.1:ms;
+    DBG.lay="map+grid "+(tL0-t0p).toFixed(1)+" | buildings "+(tL1-tL0).toFixed(1)+
+      " | units "+(tL2-tL1).toFixed(1)+" | rest "+(performance.now()-tL2).toFixed(1)+" ms";
+    var el=document.getElementById("dbg"); el.hidden=false;
+    if(TS){
+      var ok=(TS.alive===TS.drawn+TS.grouped+TS.culled);
+      el.className="dbg"+(ok?"":" badc");
+      el.textContent="alive "+TS.alive+" | drawn "+TS.drawn+" + in "+TS.groups+" glyphs "+TS.grouped+
+        " + off-screen "+TS.culled+" = "+(TS.drawn+TS.grouped+TS.culled)+(ok?"  OK":"  MISMATCH")+
+        "\nunits in match "+TRK.n+" | keyframes "+TRK.K+" | tol "+((m.trackInfo||{}).tol||"?")+" m"+
+        "\ndraw "+DBG.ms.toFixed(2)+" ms | "+(R.fps?R.fps.toFixed(0):"-")+" fps | "+R.speed+"x"+
+        "\n"+DBG.lay+(DBG.bench?"\n"+DBG.bench:"");
+    } else el.textContent="sampled frames (no tracks) | draw "+DBG.ms.toFixed(2)+" ms";
+  }
 
   renderRoster(false);
 }
@@ -935,6 +1636,7 @@ function renderRosterMode(){
 function tick(ts){
   if(!R.playing){ R.raf=0; return; }
   var dt=R.last?(ts-R.last)/1000:0; R.last=ts;
+  if(dt>0) R.fps=R.fps?R.fps*0.95+0.05/dt:1/dt;   /* smoothed, for ?debug=1 */
   R.t+=dt*R.speed;
   var end=M[sel]?M[sel].tmax:0;
   if(R.t>=end){ R.t=end; setPlay(false); }
@@ -1167,13 +1869,175 @@ function lineChart(cv,series){
 
 function renderCharts(){
   var m=M[sel], host=document.getElementById("charts"); host.textContent="";
-  [["Supplies","s"],["Iron","i"],["Army","units"],["Buildings","bld"],["Territories","terr"]]
+  [["Supplies","s"],["Iron","i"],["Veilstone","v"],["Veilsteel","vs"],
+   ["Army","units"],["Buildings","bld"],["Territories","terr"]]
   .forEach(function(pair){
     var d=document.createElement("div"); d.className="card";
     d.innerHTML='<div class="k">'+pair[0]+'</div><canvas class="chart"></canvas>';
     host.appendChild(d);
     var ser=Object.keys(m.series||{}).map(function(f){
       return {color:fhue(f), pts:(m.series[f]||[]).map(function(r){ return [r.t, r[pair[1]]||0]; })};
+    });
+    requestAnimationFrame(function(){ lineChart(d.querySelector("canvas"),ser); });
+  });
+}
+
+/* ── income and spending (2026-10-04) ────────────────────────────────────
+   m.econ comes from Metrics_Income.csv: per faction, per flow (in/out), per
+   source, an array of per-minute [supplies, iron, veilstone, veilsteel].
+   The game records ~14 sources and ~11 categories; they are folded into at
+   most eight display groups each, so the stack keeps fixed categorical
+   slots (--c1..--c8) and never cycles a hue. */
+var ECON={f:null,r:0};
+var RES_NAMES=["Supplies","Iron","Veilstone","Veilsteel"];
+var IN_GROUPS=[
+  ["Extractors",["gatherersHut","mine","veilstoneMine"]],
+  ["Empty slots",["emptySlot"]],
+  ["Fortress level",["fortressLevel"]],
+  ["Capital",["capital"]],
+  ["Trade",["trade"]],
+  ["Loot & curse kills",["loot","curseKill"]],
+  ["Refunds",["refund"]],
+  ["Other",null]];
+var OUT_GROUPS=[
+  ["Units",["units"]],
+  ["Buildings",["buildings"]],
+  ["Upgrades",["upgrades"]],
+  ["Research & age-up",["research","ageUp"]],
+  ["Trade",["trade"]],
+  ["Religion",["religion"]],
+  ["Lost to bank cap",["overflow"]],
+  ["Other",null]];
+
+/* Sum one faction's flow into the display groups for resource r. */
+function econGroups(fe,flow,groups,r,n){
+  var src=(fe&&fe[flow])||{}, used={}, out=[];
+  groups.forEach(function(g,gi){
+    var vals=new Array(n).fill(0);
+    var keys=g[1]||Object.keys(src).filter(function(k){ return !used[k]; });
+    keys.forEach(function(k){ used[k]=1; var a=src[k]; if(!a) return;
+      for(var i=0;i<n;i++) vals[i]+=(a[i]||[0,0,0,0])[r]; });
+    out.push({name:g[0], color:css("--c"+(gi+1)), vals:vals});
+  });
+  return out;
+}
+function econTotal(fe,flow,r,n){
+  var src=(fe&&fe[flow])||{}, v=new Array(n).fill(0);
+  Object.keys(src).forEach(function(k){ var a=src[k];
+    for(var i=0;i<n;i++) v[i]+=(a[i]||[0,0,0,0])[r]; });
+  return v;
+}
+function fmtN(v){ v=Math.round(v); return Math.abs(v)>=10000?(v/1000).toFixed(1)+"k":String(v); }
+
+/* Stacked area chart: x = minute END (seconds), y = amount per minute. A thin
+   surface-coloured line separates the layers. Hover reads every layer at the
+   minute under the pointer into the card's .hover line. */
+function stackChart(cv,layers,n,hoverEl){
+  var H=200,g=fit(cv,H),W=cv.clientWidth||400;
+  var padL=44,padR=8,padT=8,padB=18;
+  var iw=Math.max(10,W-padL-padR), ih=Math.max(10,H-padT-padB);
+  g.clearRect(0,0,W,H);
+  var tot=new Array(n).fill(0);
+  layers.forEach(function(L){ for(var i=0;i<n;i++) tot[i]+=Math.max(0,L.vals[i]); });
+  var y1=Math.max.apply(null,tot.concat([1]));
+  var nice=Math.pow(10,Math.floor(Math.log10(y1))); y1=Math.ceil(y1/nice)*nice;
+  var x1=n*60;
+  var X=function(i){ return padL+((i+1)*60)/x1*iw; }, Y=function(v){ return padT+ih-v/y1*ih; };
+  g.strokeStyle=css("--rule"); g.fillStyle=css("--mute");
+  g.font='10px '+(css("--mono")||"monospace"); g.textBaseline="middle";
+  [0,y1/2,y1].forEach(function(v){
+    var y=Math.round(Y(v))+0.5;
+    g.beginPath(); g.moveTo(padL,y); g.lineTo(W-padR,y); g.stroke();
+    g.textAlign="right"; g.fillText(fmtN(v),padL-5,y);
+  });
+  g.textAlign="center"; g.textBaseline="top";
+  [0,.5,1].forEach(function(fr){ g.textAlign=fr===0?"left":fr===1?"right":"center";
+    g.fillText(mmss(x1*fr),padL+fr*iw,padT+ih+4); });
+  var base=new Array(n).fill(0);
+  layers.forEach(function(L){
+    var top=base.map(function(b,i){ return b+Math.max(0,L.vals[i]); });
+    if(top.every(function(v,i){ return v===base[i]; })) return;
+    g.beginPath();
+    for(var i=0;i<n;i++) i?g.lineTo(X(i),Y(top[i])):g.moveTo(X(i),Y(top[i]));
+    for(var j=n-1;j>=0;j--) g.lineTo(X(j),Y(base[j]));
+    g.closePath(); g.fillStyle=L.color; g.fill();
+    g.strokeStyle=css("--panel"); g.lineWidth=1; g.beginPath();
+    for(var k=0;k<n;k++) k?g.lineTo(X(k),Y(top[k])):g.moveTo(X(k),Y(top[k]));
+    g.stroke();
+    base=top;
+  });
+  if(!hoverEl) return;
+  cv.onmousemove=function(e){
+    var r=cv.getBoundingClientRect(), x=e.clientX-r.left;
+    var i=Math.max(0,Math.min(n-1,Math.round((x-padL)/iw*n-1)));
+    var parts=layers.filter(function(L){ return Math.round(L.vals[i])!==0; })
+      .map(function(L){ return L.name+" "+fmtN(L.vals[i]); });
+    hoverEl.textContent="minute "+(i+1)+" · total "+fmtN(tot[i])+(parts.length?" · "+parts.join(" · "):"");
+  };
+  cv.onmouseleave=function(){ hoverEl.textContent=""; };
+}
+
+function renderEcon(){
+  var m=M[sel], host=document.getElementById("econ"), bar=document.getElementById("econBar");
+  var note=document.getElementById("econNote");
+  host.textContent=""; bar.textContent="";
+  var E=m&&m.econ;
+  if(!E||!E.f||!E.minutes){
+    note.textContent="This match predates income recording (Metrics_Income.csv, game builds "+
+      "from 2026-10-04), so only the banks above are known. A bank delta is income minus "+
+      "spending and cannot tell the two apart.";
+    return;
+  }
+  note.textContent="Per minute. Income is GROSS — what was earned, by where it came from — and "+
+    "spending is what was paid, by what it bought; the bank above is the difference.";
+  var facs=Object.keys(E.f).filter(function(f){ return f!=="Border"; }).sort();
+  if(!facs.length) return;
+  if(facs.indexOf(ECON.f)<0) ECON.f=facs[0];
+  var n=E.minutes;
+
+  function group(label,items,cur,onPick){
+    var d=document.createElement("div"); d.className="grp"; d.setAttribute("role","group");
+    d.setAttribute("aria-label",label);
+    items.forEach(function(it){
+      var b=document.createElement("button"); b.className="btn"; b.type="button";
+      b.innerHTML=(it.color?'<span class="swatch" style="background:'+it.color+'"></span>':'')+esc(it.label);
+      b.setAttribute("aria-pressed",String(it.key===cur));
+      b.onclick=function(){ onPick(it.key); renderEcon(); };
+      d.appendChild(b);
+    });
+    bar.appendChild(d);
+  }
+  group("Faction",facs.map(function(f){ return {key:f,label:f,color:fhue(f)}; }),ECON.f,
+        function(k){ ECON.f=k; });
+  group("Resource",RES_NAMES.map(function(r,i){ return {key:i,label:r}; }),ECON.r,
+        function(k){ ECON.r=k; });
+
+  var rn=RES_NAMES[ECON.r], fe=E.f[ECON.f];
+  function stackCard(title,groups,flow){
+    var layers=econGroups(fe,flow,groups,ECON.r,n);
+    var d=document.createElement("div"); d.className="card wide";
+    var sum=layers.reduce(function(a,L){ return a+L.vals.reduce(function(x,y){ return x+y; },0); },0);
+    d.innerHTML='<div class="k">'+esc(title)+'</div><canvas class="chart tall"></canvas>'+
+      '<div class="hover"></div><div class="elegend">'+layers.filter(function(L){
+        return L.vals.some(function(v){ return v; }); }).map(function(L){
+        var t=L.vals.reduce(function(x,y){ return x+y; },0);
+        return '<span><span class="swatch" style="background:'+L.color+'"></span>'+esc(L.name)+
+          ' <span class="num">'+fmtN(t)+(sum>0?' ('+Math.round(100*t/sum)+'%)':'')+'</span></span>';
+      }).join("")+'</div>';
+    host.appendChild(d);
+    requestAnimationFrame(function(){ stackChart(d.querySelector("canvas"),layers,n,d.querySelector(".hover")); });
+  }
+  stackCard(ECON.f+" · "+rn+" income per minute, by source",IN_GROUPS,"in");
+  stackCard(ECON.f+" · "+rn+" spending per minute, by category",OUT_GROUPS,"out");
+
+  [["in",rn+" income per minute · every faction"],["out",rn+" spending per minute · every faction"]]
+  .forEach(function(pair){
+    var d=document.createElement("div"); d.className="card";
+    d.innerHTML='<div class="k">'+esc(pair[1])+'</div><canvas class="chart"></canvas>';
+    host.appendChild(d);
+    var ser=facs.map(function(f){
+      var v=econTotal(E.f[f],pair[0],ECON.r,n);
+      return {color:fhue(f), pts:v.map(function(y,i){ return [(i+1)*60,Math.max(0,y)]; })};
     });
     requestAnimationFrame(function(){ lineChart(d.querySelector("canvas"),ser); });
   });
@@ -1197,7 +2061,10 @@ function renderHead(){
       ? '<b class="warn">forked at tick '+(d.forkTick!=null?d.forkTick:d.flagTick)+'</b>'
       : '<b>'+(d.compared||0).toLocaleString()+' tick rows agreed</b>')+'</span>';
   document.getElementById("lede").innerHTML= m.fidelity==="trace"
-    ? 'Every unit sampled once a second with its state. A <b>gold ring</b> is a unit in '+
+    ? 'Every unit, all of them, recorded once a second with its state and drawn along its own '+
+      'track: between keyframes it moves in a straight line at a steady pace, and the keyframes are '+
+      'kept so that line never strays more than <b>'+(((m.trackInfo||{}).tol)||"0.75")+' m</b> from where '+
+      'the game had it. A <b>gold ring</b> is a unit in '+
       'formation; a <b>red halo</b> is one with a target. Buildings are drawn at their real '+
       'footprint on the 2 m build grid, and the map’s regions and resource nodes are the ones the '+
       'match actually had. A unit’s shape is its class and a building’s glyph its type, with gold pips '+
@@ -1215,7 +2082,10 @@ function renderHead(){
       return '<span><span class="dot" style="background:'+fhue(f)+'"></span>'+f+'</span>'; }).join("")+
     (m.fidelity==="trace"
       ? '<span><span class="dot ring" style="background:var(--mute)"></span>in formation</span>'+
-        '<span><span class="dot halo" style="background:var(--mute)"></span>fighting</span>' : "")+
+        '<span><span class="dot halo" style="background:var(--mute)"></span>fighting</span>'+
+        '<span>'+markImg("f","",mu)+'formation, zoomed out: one block per marching group, '+
+        'pointing the way it moves, with its head count (red edge: in a fight). '+
+        'Zoom in to see each unit</span>' : "")+
     '</div>'+
     '<div class="row"><span class="lh">Units</span>'+
     ((m.utypes||[]).length
@@ -1234,10 +2104,21 @@ function renderHead(){
     '<span><span class="dot" style="background:var(--supply);width:8px;height:8px"></span>supply</span>'+
     '<span><span class="dot" style="background:var(--well);width:9px;height:9px"></span>well</span>'+
     '<span>grid: 2 m build cells, coarsening to 10 / 50 / 250 m as you zoom out</span>'+
+    (m.terr
+      ? '<span><span class="sq" style="background:var(--mute);opacity:.45"></span>territory, tinted by '+
+        'its owner (curse in purple, unowned untinted) — the game’s own partition, on the build grid</span>'+
+        '<span>bright line: border between different owners · faint: same owner or unowned</span>'+
+        '<span style="color:var(--bad)">dashed red: contested (hostiles share it, meter frozen)</span>'+
+        '<span>“Red 60%” under a name: who is filling its ownership meter</span>'+
+        '<span>TER or T toggles the territory layer</span>'
+      : '')+
     '<span>drag to pan · wheel, pinch or + / − to zoom · double-click zooms in · FIT or 0 resets</span>'+
     '</div>';
   document.getElementById("foot").textContent=
-    "Source: "+m.key+" · "+(m.frames||[]).length+" position frames, "+
+    "Source: "+m.key+" · "+(m._tr
+      ? m._tr.n.toLocaleString()+" units on "+m._tr.K.toLocaleString()+" keyframes (from "+
+        (((m.trackInfo||{}).samples)||0).toLocaleString()+" samples, within "+((m.trackInfo||{}).tol)+" m), "
+      : (m.frames||[]).length+" position frames, ")+
     (m.blds||[]).length+" buildings, "+(m.nodes||[]).length+" nodes, "+
     (m.deaths||[]).length+" deaths. Generated "+(DOC.generated||"");
 }
@@ -1254,13 +2135,60 @@ function renderOverflow(){
 
 function renderAll(){
   R.t=0; setPlay(false);
-  GC={}; RS.sig="";
+  GC={}; CSSC={}; HTMLC={}; RS.sig="";
+  if(M[sel]) decodeTracks(M[sel]);
   if(VW.sel!==sel){ viewReset(); VW.sel=sel; }
   bindView(); renderRosterMode();
   renderRuns(); renderHead(); renderTransport();
   renderOverflow(); renderWaves(); renderStanding(); renderComposition(); renderStructures();
-  renderResearch(); renderCharts(); renderCombat(); renderCurse();
+  renderResearch(); renderCharts(); renderEcon(); renderCombat(); renderCurse();
   requestAnimationFrame(function(){ draw(); renderRoster(true); });
+}
+
+/* ── one match file per match (folder build) ─────────────────────────────
+   In a FOLDER build (twb-report.py --folder) the page carries only a light
+   summary per match; its full record -- tracks, AI account, series -- is
+   M[i].file, fetched the first time the match is selected, merged into the
+   summary and kept. The stage shows a loading state meanwhile. A page opened
+   from disk (file://) cannot fetch(): it says so and names the fix. */
+function showLoading(text,err){
+  var el=document.getElementById("loading"); if(!el) return;
+  el.hidden=false; el.className="loading"+(err?" err":""); el.textContent=text;
+}
+function hideLoading(){ var el=document.getElementById("loading"); if(el) el.hidden=true; }
+function loadMatch(m,cb){
+  if(m._loaded){ cb(null); return; }
+  if(m._waiters){ m._waiters.push(cb); return; }
+  m._waiters=[cb];
+  var done=function(err){ var w=m._waiters||[]; m._waiters=null; w.forEach(function(f){ f(err); }); };
+  fetch(m.file).then(function(r){
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    return r.json();
+  }).then(function(full){
+    for(var k in full) if(Object.prototype.hasOwnProperty.call(full,k)) m[k]=full[k];
+    m._loaded=true; done(null);
+  }).catch(function(e){ done(String(e&&e.message||e)); });
+}
+function selectMatch(i,after){
+  sel=i;
+  var m=M[i];
+  if(m && m.file && !m._loaded){
+    setPlay(false); renderRuns();
+    showLoading("Loading "+m.map+" · "+((m.stamp||"").slice(5,16).replace("_"," "))+
+      (m.bytes?" · "+(m.bytes/1e6).toFixed(1)+" MB":"")+" …");
+    loadMatch(m,function(err){
+      if(sel!==i) return;
+      if(err){
+        showLoading("Could not load "+m.file+" ("+err+"). A page opened straight from disk cannot "+
+          "fetch its match files: serve this folder over http (python -m http.server), or build the "+
+          "one-file page with twb-report.py --out page.html.",true);
+        return;
+      }
+      hideLoading(); renderAll(); if(after) after();
+    });
+    return;
+  }
+  hideLoading(); renderAll(); if(after) after();
 }
 
 /* The ledger does not depend on the selected match, and it must render even
@@ -1271,10 +2199,46 @@ if(!M.length){
   document.getElementById("stage").innerHTML=
     '<div style="padding:60px;text-align:center;color:var(--mute)">No replayable match found.</div>';
 } else {
-  renderAll();
+  /* DEEP LINK (2026-10-03): ?m=<match index>&t=<seconds>&z=<zoom>&cx=&cz=
+     opens the replay on one moment -- for sharing a link to "this army,
+     here", and for headless screenshots. Every parameter is optional. */
+  var QS={};
+  try{ (location.search||"").replace(/^\?/,"").split("&").forEach(function(kv){
+    var i=kv.indexOf("="); if(i>0) QS[decodeURIComponent(kv.slice(0,i))]=decodeURIComponent(kv.slice(i+1)); }); }catch(e){}
+  /* &play=<speed> starts it playing (1, 4, 8, 30 or 120x). */
+  var s0=(QS.m!=null && M[+QS.m]) ? +QS.m : 0;
+  selectMatch(s0,function(){
+    if(QS.t!=null || QS.z!=null){
+      if(QS.t!=null){ R.t=Math.max(0,Math.min(+QS.t||0,M[sel].tmax||0));
+        var sc0=document.getElementById("scrub"); if(sc0) sc0.value=String(R.t); }
+      if(QS.z!=null){ VW.z=Math.max(1,+QS.z||1);
+        if(QS.cx!=null) VW.cx=+QS.cx; if(QS.cz!=null) VW.cz=+QS.cz; }
+      requestAnimationFrame(function(){ draw(); });
+    }
+    /* &bench=N (with &debug=1): N back-to-back draws advancing as 8x
+       playback at 60 fps would, timed -- the draw cost with no rAF pacing. */
+    if(QS.bench!=null && DBG){
+      var nb=Math.max(1,+QS.bench||120), tb=R.t, t0b=performance.now(), worst=0, wi=0;
+      for(var ib=0; ib<nb; ib++){
+        var t1b=performance.now();
+        R.t=Math.min(M[sel].tmax||0, tb+ib*8/60); draw();
+        var dtb=performance.now()-t1b; if(dtb>worst){ worst=dtb; wi=ib; }
+      }
+      var avg=(performance.now()-t0b)/nb;
+      DBG.bench="bench "+nb+" draws at 8x: avg "+avg.toFixed(2)+" ms, worst "+worst.toFixed(2)+" (#"+wi+")"+
+        " ms -> "+(1000/avg).toFixed(0)+" fps ceiling";
+      draw();
+    }
+    if(QS.play!=null){
+      var sp=+QS.play; if([1,4,8,30,120].indexOf(sp)>=0) R.speed=sp;
+      Array.prototype.forEach.call(document.getElementById("speeds").children,function(o){
+        o.setAttribute("aria-pressed",String(o.textContent===R.speed+"×")); });
+      setPlay(true);
+    }
+  });
 }
 var rz; window.addEventListener("resize",function(){
-  clearTimeout(rz); rz=setTimeout(function(){ draw(); renderCharts(); },160); });
+  clearTimeout(rz); rz=setTimeout(function(){ draw(); renderCharts(); renderEcon(); },160); });
 if(window.matchMedia){
   var mq=window.matchMedia("(prefers-color-scheme: dark)");
   if(mq.addEventListener) mq.addEventListener("change",function(){ renderAll(); });

@@ -257,7 +257,8 @@ There are no wells, so there is no host well and no Maw backstop.
   it (carrier, hero or enshrining Temple):
   - the curse's garrison size and spawn rate rise by `shardrootCurseBonus`
     (**+50 %**: size ×1.5, interval ÷1.5);
-  - **every offensive curse force** (harassment, raid and claim parties) goes
+  - **every offensive curse force** (harassment, raid and claim parties, and
+    the §6.8 attack waves) goes
     for the holder's territories and **ignores every other player**;
   - garrisons still defend their own territory against any intruder — the
     curse ignores non-holders, it does not let them walk in.
@@ -271,13 +272,97 @@ The curse is a **defensive** force that spreads, not an army that hunts.
   `guardLeashRadius` from it: past that it drops the fight and walks back.
   It no longer sweeps its whole territory for intruders. A unit whose node
   dies adopts the nearest live node in its territory.
-- **Only claim parties leave home**, and only for an adjacent, unlocked
-  territory it can take (§6.5), or to fill a free node in ground it holds.
+- **Only claim parties and attack waves leave home** (waves since
+  2026-10-04, §6.8). A claim party goes only for an adjacent, unlocked
+  territory it can take (§6.5), or to fill a free node in ground it holds;
+  an attack wave marches on a player (§6.8). Both are DRAFTED out of the
+  garrisons (never below `garrisonMinPerNode` a node) — the garrison is the
+  curse's only spawner. A unit still on garrison duty never leaves: the
+  rules above are unchanged by waves.
 - **The Shardroot hunt is unchanged** (§6.6): while a player holds it,
   offensive parties go for the holder.
 - Why: the curse is the only source of religion points (Religion.md), and a
   curse that roams and raids punishes everyone at random. A curse that sits
   on its nodes is a target players choose to attack, and the reward is theirs.
+
+### 6.8 Curse waves and the cap (2026-10-04)
+
+Developer directives: *"Curse should send waves towards the players"*,
+*"Curse must be capped at 250 units"*, and the spawn model: *"all spawn as
+garrison, then waves are 30% of that."* The curse still defends (§6.7); on
+top of that it now **attacks on a clock**, and its whole army has a hard
+ceiling. Every number below is a field on `BorderSettings.asset` — this
+section names the field, the asset holds the value.
+
+**One spawner: the garrison.** In the living curse **every** curse unit
+rises as **garrison** of a node (§6.3, `armySpawnSeconds`). Nothing else
+spawns. Claim and fill parties (§6.5), the Shardroot hunt (§6.6) and the
+attack waves below are **drafted out of the garrison pool**:
+
+- A draft takes garrison units that are not in a fight; a defender already
+  fighting stays in it.
+- **No node is stripped bare:** a draft never takes a node's garrison below
+  `garrisonMinPerNode`.
+- A party (claim, fill, hunt) wants `mergePartySize` units (× the §6.6
+  bonus while someone holds the Shardroot). It takes them from the sending
+  territory's garrisons first, then from the guard posts nearest it. If
+  there are not enough spare units, the party goes **smaller**; if there are
+  none at all, it is **skipped** (logged either way).
+- Drafted units leave the garrison count, so their node fields them again
+  at its next army spawn (§6.3) — that regrowth is what feeds the next
+  draft.
+
+**Attack waves.**
+
+- **When.** The first wave forms at `firstWaveSeconds` of match time, then
+  one every `waveIntervalSeconds`. The clock runs on whether or not a wave
+  could actually be sent.
+- **How big.** At each slot the curse drafts **`waveDraftFraction` of all
+  its garrison units** into the wave, nearest the target first (guard posts
+  by distance to the objective, entity order breaking ties — the same on
+  every peer), never below `garrisonMinPerNode` a node. If that comes to
+  fewer than `waveMinSize`, the slot is **skipped**, not banked.
+- **Whom.** Among the living players (every player with a standing
+  building), the target is the one whose nearest building is closest to any
+  curse node. **Fair rotation:** if that player was also the last one a wave
+  went for, and any other player's distance is within
+  `waveTargetDistanceSlack` × the nearest one's, the wave goes to one of
+  those others instead (a seeded draw among them, on every peer), so no single
+  player eats every wave. With only one player in reach, they get it again.
+  **While a player holds the Shardroot, every wave goes for the holder** —
+  §6.6's "every offensive curse force" now includes waves.
+- **What it attacks.** The target player's **nearest territory** — the one
+  holding their building nearest the curse — and in it, their nearest
+  production building (anything that trains units) for preference, else
+  their nearest building there. The wave marches in formation, attack-moving,
+  and fights. Whenever it stands idle it re-targets: the nearest hostile unit
+  in that territory, else the nearest of the player's buildings there, else
+  the player's nearest building anywhere (whose territory becomes the new
+  one). A wave hunting the Shardroot holder re-aims at the holder instead.
+- **Going home.** After `waveDurationSeconds`, or once it is reduced below
+  `waveRetreatFraction` of the size it set out with, or when the target
+  player has nothing left standing, the wave turns back: its units **become
+  garrison** of the curse node nearest them at once, and the §6.7 leash walks
+  them home (a fight past `guardLeashRadius` is dropped). They count toward
+  that node's garrison from then on.
+- **Warning.** Every wave pings the minimap at the curse node nearest the
+  target and at its objective, logs `[CurseTerritory] WAVE …`, and the
+  targeted player is told a curse wave is coming.
+- Waves stand on player ground and therefore claim it (§6.1, §6.2) — that is
+  intended: a wave left alone in a territory drains it.
+
+**The cap.** Live curse units — every curse creature, whatever raised it —
+never exceed `maxCurseUnits`. There is **one gate**: every spawn path asks
+how much room is left under the cap (live units counted once per ask) and
+raises at most that many. In the living curse the only spawner is the
+garrison, so **the cap bounds the garrisons**, and waves and parties — being
+drafted from them — are bounded with them. When the room is short at an army
+spawn, **nodes under attack** (a hostile within `guardRadius`) are topped up
+before any other node. The curse's event spawns — blood pools on cursed
+ground, a failed rite's backlash, a corrupted well's defenders, a worker
+turned by the veil, the Feraldis Violent Extraction final wave — take
+whatever room is left at the moment they fire, and raise nothing at the cap
+(an infected worker still dies; no creature rises).
 
 ## 7. Winning
 
@@ -297,7 +382,10 @@ All in `TerritoryOwnership.asset` / `BorderSettings.asset`:
 `shardrootGuaranteeSeconds` 720, `shardrootCurseBonus` 0.5, plus the existing
 `armySpawnSeconds` (120 since 2026-10-03, was 180), `armyGrowth`,
 `garrisonCap` (now **per node**), `expansionSeconds`, `mergePartySize`,
-`shardrootChance`, and (2026-10-03) `guardRadius` 30, `guardLeashRadius` 45.
+`shardrootChance`, and (2026-10-03) `guardRadius` 30, `guardLeashRadius` 45,
+and (2026-10-04, §6.8) `firstWaveSeconds`, `waveIntervalSeconds`,
+`waveDraftFraction`, `waveMinSize`, `garrisonMinPerNode`, `waveDurationSeconds`,
+`waveRetreatFraction`, `waveTargetDistanceSlack`, `maxCurseUnits`.
 `raidSeconds` is retired with the raids.
 
 ## 9. Known risks (to watch in playtest, not to fix in advance)
@@ -312,20 +400,25 @@ All in `TerritoryOwnership.asset` / `BorderSettings.asset`:
   territory. That is intended; it is also what makes a lone unguarded extractor
   the most important building on the map.
 
-## 10. Fortresses bound the empire (2026-10-01)
+## 10. Fortresses anchor the empire (2026-10-01, cap removed 2026-10-04)
 
-**How many territories you may hold** = the sum of your Fortresses' levels,
-**+2 once you have aged up**.
+> **2026-10-04 (developer: "Remove the limit. It should be granted by how much
+> you can defend, not a hard cap."):** the territory limit (Fortress levels +2
+> once aged up) is **deleted**. Fortress levels and extra Fortresses no longer
+> buy room. Superseded text is not kept.
 
-| | Limit |
-|---|---|
-| Age 0, the starting Shelter (counts as L1) | 1 — your start territory only |
-| Aged up | +2 |
-| Each Fortress level beyond L1 | +1 |
-| Each further Fortress | +1 (its own L1) |
+**There is no cap on how many territories you hold. You hold what you can
+defend.** Ground is kept by the meter (§2-§3) and nothing else: standing
+military fills it, a hostile side standing in it freezes it, empty unbuilt
+ground decays, and losing ownership collapses everything you built there.
+Spread an army too thin and its ground decays or is drained out from under it;
+a building holds a territory against decay, and an extractor or a Fortress
+locks it.
 
-A claim already under way counts toward the limit. At the limit your army
-standing on new ground claims nothing (frozen, with a notice).
+**Claims open at age-up.** In Age 0 you hold your start territory only (the
+age gate of [Regions.md](Regions.md) — not a cap): an army standing on other
+ground claims nothing (frozen, with a notice). From age-up you may take any
+number of territories, subject to the connection rule below.
 
 **Connection.** You may only take ground that **borders** territory linked to
 one of your Fortresses through ground you hold. Held ground that **loses** that
@@ -334,7 +427,7 @@ link wears down: every one of your buildings there loses its full health over
 The curse is bound by neither rule.
 
 Implemented in `TerritoryClaimSystem` (`ComputeReach`, `MayTake`,
-`WearDisconnected`).
+`WearDisconnected`; the refusal notice is `NoticeRefusedClaim`).
 
 ## 11. Territory types (2026-10-01)
 
@@ -371,8 +464,8 @@ non-start territories logs a warning.
 **The Normal kinds are dealt 1 : 2 : 4 (2026-10-03)** — of every seven filler
 territories, one is Normal, two are Normal + iron and four are Normal +
 veilstone (~57 % carry veilstone, was an even third each). Veilstone is what an
-aged-up army runs out of, and Alanthor gets it only from Trading Outposts on
-outcrops in held ground (Veilstone_Economy.md §3.1): a 0.0.33 batch on
+aged-up army runs out of, and Alanthor gets it only from Trading Outposts
+beside outcrops in held ground (Veilstone_Economy.md §3.1): a 0.0.33 batch on
 Veilmarch dealt 23 outcrops to 8 players and every faction held 1-3 of them.
 With the new deal and the 1-2 draw, Veilmarch's 33 fillers carry ~19
 veilstone territories and ~28 of their outcrops (was 11), ~40 on the map in

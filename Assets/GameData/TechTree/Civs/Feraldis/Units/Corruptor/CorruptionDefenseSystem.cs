@@ -82,8 +82,11 @@ namespace TheWaningBorder.Systems.Border
                 }
             }
 
-            // Post-loop: entity creation is a structural change.
-            for (int i = 0; i < spawnAt.Length; i++)
+            // Post-loop: entity creation is a structural change. THE CAP
+            // (Territory_Claims.md §6.8): at most the headroom left under
+            // maxCurseUnits rises.
+            int headroom = CurseUnitCap.Headroom(em);
+            for (int i = 0; i < spawnAt.Length && i < headroom; i++)
             {
                 if (spawnRanged[i] != 0) Veilstinger.Create(em, spawnAt[i], Faction.Border);
                 else Crystalling.Create(em, spawnAt[i], Faction.Border);

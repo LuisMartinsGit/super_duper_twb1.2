@@ -206,7 +206,11 @@ namespace TheWaningBorder.Systems.Border
                     em.AddComponentData(ents[i], new InfectionState { Progress = prog });
             }
 
-            for (int i = 0; i < erupt.Length; i++)
+            // THE CAP (Territory_Claims.md §6.8): the worker is consumed
+            // either way; a creature rises only while there is headroom left
+            // under maxCurseUnits.
+            int headroom = erupt.Length > 0 ? CurseUnitCap.Headroom(em) : 0;
+            for (int i = 0; i < erupt.Length && i < headroom; i++)
                 SpawnCurseCreature(em, erupt[i], matchTime);
             erupt.Dispose();
         }

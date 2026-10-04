@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 22ca33cd9934d11488e8d35e1d85f5b5, type: 3}
+  m_Name: TradingOutpost_Lvl3
+  m_EditorClassIdentifier: 
+  buildingId: Alanthor_TradingOutpost
+  culture: Alanthor
+  level: 3
+  displayName: Trading Outpost
+  upgradeCost:
+    Supplies: 450
+    Iron: 200
+    Veilstone: 0
+    Veilsteel: 0
+  upgradeSeconds: 60
+  hpMultiplier: 1.3
+  trainTimeMultiplier: 1
+  attackCooldownMultiplier: 1
+  maxTargets: 0
+  populationProvided: 0
+  slotIncomePerMinute: 0
+  interestMultiplier: 0
+  tradeRateMultiplier: 2.0
+  attack:
+    enabled: 0
+    damage: 0
+    damageType: ranged
+    range: 0
+    cooldown: 0
+    maxTargets: 0
+    siegeShotDamage: 0
+  lineOfSight: 0
+  prefab: {fileID: 0}

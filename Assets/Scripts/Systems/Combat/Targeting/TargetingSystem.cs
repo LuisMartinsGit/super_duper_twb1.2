@@ -119,6 +119,7 @@ namespace TheWaningBorder.Systems.Combat
         private const byte FlagBuilding = 1;
         private const byte FlagWall = 2;
         private const byte FlagWorker = 4;   // WorkerTag or CanBuild (Border's guard rule)
+        private const byte FlagHero = 8;     // HeroLevel (TargetPreference "Hero")
 
         // ── Cross-frame cache of the enemy set's peer-stable order ────────
         // Rebuilding the order needs a NetworkedEntity lookup per enemy plus
@@ -132,6 +133,8 @@ namespace TheWaningBorder.Systems.Combat
         private NativeList<int> _cacheOrder;
         private NativeList<byte> _cacheFlags;
         private NativeList<byte> _cachePrio;
+        /// <summary>Per-enemy UnitTagsData mask (TargetPreference rules).</summary>
+        private NativeList<uint> _cacheTags;
         private byte _cacheValid;
 
         // ── Own clock (seconds since the match epoch began) ──────────────
@@ -155,6 +158,7 @@ namespace TheWaningBorder.Systems.Combat
             _cacheOrder = new NativeList<int>(256, Allocator.Persistent);
             _cacheFlags = new NativeList<byte>(256, Allocator.Persistent);
             _cachePrio = new NativeList<byte>(256, Allocator.Persistent);
+            _cacheTags = new NativeList<uint>(256, Allocator.Persistent);
             _cacheValid = 0;
         }
 
@@ -164,6 +168,7 @@ namespace TheWaningBorder.Systems.Combat
             if (_cacheOrder.IsCreated) _cacheOrder.Dispose();
             if (_cacheFlags.IsCreated) _cacheFlags.Dispose();
             if (_cachePrio.IsCreated) _cachePrio.Dispose();
+            if (_cacheTags.IsCreated) _cacheTags.Dispose();
         }
 
         [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
@@ -307,6 +312,7 @@ namespace TheWaningBorder.Systems.Combat
                 Health = allEnemyHealth,
                 Flags = _cacheFlags.AsArray(),
                 Priority = _cachePrio.AsArray(),
+                Tags = _cacheTags.AsArray(),
                 Map = spatialMap,
                 Hostile = hostile,
                 FactionPresent = factionPresent,
@@ -358,6 +364,7 @@ namespace TheWaningBorder.Systems.Combat
             _cacheOrder.ResizeUninitialized(n);
             _cacheFlags.ResizeUninitialized(n);
             _cachePrio.ResizeUninitialized(n);
+            _cacheTags.ResizeUninitialized(n);
 
             bool allNetworked = true;
             var order = new NativeArray<TargetMapKey>(n, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
@@ -381,7 +388,9 @@ namespace TheWaningBorder.Systems.Combat
                 if (em.HasComponent<BuildingTag>(e)) flags |= FlagBuilding;
                 if (em.HasComponent<WallTag>(e)) flags |= FlagWall;
                 if (em.HasComponent<WorkerTag>(e) || em.HasComponent<CanBuild>(e)) flags |= FlagWorker;
+                if (em.HasComponent<HeroLevel>(e)) flags |= FlagHero;
                 _cacheFlags[i] = flags;
+                _cacheTags[i] = em.HasComponent<UnitTagsData>(e) ? em.GetComponentData<UnitTagsData>(e).Mask : 0u;
 
                 // M2 (AI plan): tactical target priority per candidate. Within a
                 // bounded distance band (see FindAutoTarget), units prefer
@@ -419,6 +428,7 @@ namespace TheWaningBorder.Systems.Combat
             public NativeArray<Health> Health;
             public NativeArray<byte> Flags;
             public NativeArray<byte> Priority;
+            public NativeArray<uint> Tags;
             public NativeParallelMultiHashMap<int3, int> Map;
             public NativeArray<byte> Hostile;
             public NativeArray<byte> FactionPresent;

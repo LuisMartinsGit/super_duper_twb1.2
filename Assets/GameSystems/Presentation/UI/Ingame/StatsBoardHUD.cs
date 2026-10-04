@@ -18,7 +18,7 @@
 //     territories held, wrath per faction);
 //   * one row per faction — culture/era, human/AI, banks with NET income per
 //     minute (Trading Outposts included, red when draining), population,
-//     territories held / limit and how many are cut off from a Fortress,
+//     territories held and how many are cut off from a Fortress,
 //     military / economy units, buildings, plans waiting for a worker,
 //     Trading Outposts by trade, Religion Points;
 //   * twelve charts (5 s samples, 2 h window): the four banks, the four net
@@ -240,7 +240,7 @@ namespace TheWaningBorder.UI.Ingame
             public FactionResources Bank;
             public TerritoryYield Net;
             public int PopCur, PopMax, Military, Economy, Buildings, UnderConstruction, Plans;
-            public int Held, Cap, Disconnected;
+            public int Held, Disconnected;
             public int OutBuy, OutForge, OutSell;
             public int Rp, RpHave, RpNeed, Era;
             public byte Culture;
@@ -313,7 +313,6 @@ namespace TheWaningBorder.UI.Ingame
                 r.Culture = CultureConfig.GetCompletedCulture(em, fac);
                 r.Plans = TheWaningBorder.Entities.PlannedBuildings.CountAll(em, fac);
                 r.Held = TerritoryClaimSystem.TerritoriesHeldBy(fac);
-                r.Cap = TerritoryClaimSystem.TerritoryCapOf(fac);
                 if (RegionMap.Ready && TerritoryOwnership.Ready)
                     for (int t = 0; t < RegionMap.Count; t++)
                         if (TerritoryOwnership.OwnerOf(t) == f && !TerritoryClaimSystem.IsConnected(t, fac))
@@ -487,8 +486,7 @@ namespace TheWaningBorder.UI.Ingame
                 sb.Append(Res(r.Bank.Veilsteel, r.Net.Veilsteel));
                 sb.Append($"{r.PopCur,3}/{r.PopMax,-5} ");
                 string cut = r.Disconnected > 0 ? $"<color=#FF5050>({r.Disconnected})</color>" : "   ";
-                string terr = r.Held >= r.Cap && r.Cap > 0 ? $"<color=#FFC040>{r.Held}/{r.Cap}</color>" : $"{r.Held}/{r.Cap}";
-                sb.Append($"{terr,-4}{cut}  ");
+                sb.Append($"{r.Held,-4}{cut}  ");
                 sb.Append($"{r.Military,3}/{r.Economy,-4} ");
                 sb.Append($"{r.Buildings,3}(+{r.UnderConstruction}/{r.Plans})      ");
                 sb.Append($"{r.OutBuy}/{r.OutForge}/{r.OutSell}            ");

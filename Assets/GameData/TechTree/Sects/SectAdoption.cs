@@ -257,7 +257,7 @@ namespace TheWaningBorder.Economy
             // somehow fails (race), refund the RP.
             if (!FactionReligionPointsHelper.TrySpend(em, faction, rpCost))
                 return false;
-            if (!FactionEconomy.Spend(em, faction, chapelCost))
+            if (!FactionEconomy.Spend(em, faction, chapelCost, TheWaningBorder.Economy.SpendCategory.Religion))
             {
                 FactionReligionPointsHelper.Refund(em, faction, rpCost);
                 return false;
@@ -333,7 +333,7 @@ namespace TheWaningBorder.Economy
 
             if (!FactionReligionPointsHelper.TrySpend(em, faction, cost))
                 return SectAdoptionResult.NotEnoughRP;
-            if (!FactionEconomy.Spend(em, faction, materialCost))
+            if (!FactionEconomy.Spend(em, faction, materialCost, TheWaningBorder.Economy.SpendCategory.Religion))
             {
                 FactionReligionPointsHelper.Refund(em, faction, cost);
                 return SectAdoptionResult.NotEnoughRP;

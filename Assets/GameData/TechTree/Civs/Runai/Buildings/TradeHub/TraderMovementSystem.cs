@@ -119,7 +119,7 @@ namespace TheWaningBorder.Systems.Economy
                     // task-063 phase 1: sect TradeIncome multiplier removed with the
                     // FactionSectState bridge. Baseline 1.0× until Phase 2 reintroduces
                     // trade-related sect levers.
-                    FactionEconomy.Add(em, faction.ValueRO.Value, Cost.Of(supplies: supDep, veilstone: cryDep));
+                    FactionEconomy.Add(em, faction.ValueRO.Value, Cost.Of(supplies: supDep, veilstone: cryDep), TheWaningBorder.Economy.IncomeSource.Trade);
                 }
 
                 // Keep fractional remainder

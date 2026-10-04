@@ -146,6 +146,7 @@ namespace TheWaningBorder.AI
                 BeginThinkMemo();
                 _siteCandidatesLeft = Cfg.siteSearchCandidateBudget;
                 _siteValidationsLeft = Cfg.siteSearchValidateBudget;
+                _sealChecksLeft = Cfg.sealChecksPerThink;
 
                 var settings = AISettings.Get();
                 var personality = settings.For(brain.Personality);
@@ -188,12 +189,24 @@ namespace TheWaningBorder.AI
                 // is the "WHERE TO CLAIM" decision noted above — opportunistic,
                 // because it depends on the bank and on what ground is still
                 // free, neither of which a scripted build order can know.
-                EnsureTerritoryClaim(em, brain.Owner, now);
+                // DEFEND-BASED EXPANSION (Game_AI.md § 5b): claim squads go
+                // out in parallel to every free claimable territory the army
+                // can spare one for, until it is stretched — there is no
+                // territory cap (Territory_Claims.md §10, 2026-10-04).
+                EnsureTerritoryClaim(em, brain.Owner, aiState.Posture, profile, now);
 
-                // …and RAISE THE LIMIT: the territory limit is the Fortress
-                // levels + 2 (Territory_Claims.md §10), so after age-up a
-                // Fortress in held ground is what lets the claims go on
-                // (Game_AI.md § Fortress expansion).
+                // …and LOCK what the army cannot garrison: a Fortress in held
+                // ground locks it and re-links cut-off ground (Game_AI.md §
+                // Fortress expansion). It never gates claiming.
+                // PER-TERRITORY DEVELOPMENT (Game_AI.md 5g): every held
+                // territory in the operator's order — resource buildings, the
+                // Fortress (its spot reserved from the moment the ground is
+                // held), periphery watch towers, then ONE production building.
+                // PRODUCTION SATURATION (Game_AI.md 5g): sampled every think,
+                // so ProductionGate can tell busy production from idle.
+                SampleProductionSaturation(em, brain.Owner, now);
+                TickTerritoryDevelopment(em, brain.Owner, now);
+
                 EnsureFortressExpansion(em, brain.Owner, now);
 
                 // …and INVEST in the ground already held. With nodes depleting,
@@ -202,6 +215,9 @@ namespace TheWaningBorder.AI
                 // late-game optimisation any more.
                 EnsureExtractors(em, brain.Owner, now);
                 ManageTradingOutposts(em, brain.Owner, now);
+                // VEILSTONE SURPLUS (Game_AI.md 5e): the Outpost's research,
+                // and the throttled veilstone-held state line.
+                TickSurplus(em, brain.Owner, now);
 
                 // Army missions: prune the dead, regroup finished armies,
                 // retreat outmatched ones (per mission, not globally).
@@ -235,8 +251,16 @@ namespace TheWaningBorder.AI
                 // THE FIRST RELIGION POINT (2026-10-03): with no Temple and
                 // no RP the faction hunts a curse node for it; while that
                 // hunt owns the army the reclaim squad stands down.
+                // AGE-UP FIRST (2026-10-04): an Age 0 faction saving for its
+                // landmark sends the reclaim squad only against curse at its
+                // doorstep — the 60-minute batch's age-up stragglers (14-23
+                // min, one never) each fed 65-112 units to curse nodes one at
+                // a time and never banked the landmark's supplies.
+                bool savingAgeUpNow = !HasAgedUp(em, brain.Owner)
+                    && now > personality.ageUpPushSeconds
+                    && SavingForAgeUp(brain.Personality, aiState, now, personality.ageUpPushSeconds);
                 if (!TryHuntFirstReligionPoint(em, brain.Owner, ref aiState, now))
-                    TryReclaimCorruptedPatches(em, brain.Owner, now);
+                    TryReclaimCorruptedPatches(em, brain.Owner, savingAgeUpNow, now);
 
                 // ALWAYS-ON ECONOMY (2026-08-04 rev.2): the worker floor and
                 // the Gatherer's Hut pipeline run in BOTH phases — observed
@@ -284,6 +308,12 @@ namespace TheWaningBorder.AI
                 AIBudget.EvaluateWeights(planProfile, aiState.Posture,
                     out float wAdv, out float wMil, out float wEco);
                 AIBudget.Tick(em, brain.Owner, wAdv, wMil, wEco, thinkInterval, now);
+
+                // A LOST SOLE TRAINER COMES FIRST (2026-10-04, Game_AI.md
+                // 6c): a production line the faction had and has none of —
+                // the Barracks above all — is replaced before the age-up
+                // director and the economy tick spend the bank.
+                EnsureLostTrainersRebuilt(em, brain.Owner, now);
 
                 // ORDER MATTERS: the age-up director runs BEFORE the economy
                 // tick (2026-08-18). It used to run after, so every think the

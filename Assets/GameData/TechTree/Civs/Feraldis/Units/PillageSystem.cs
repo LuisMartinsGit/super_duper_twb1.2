@@ -76,7 +76,7 @@ namespace TheWaningBorder.Systems.Economy
                 {
                     // Building destroyed: +50 Supplies, +5 Iron
                     FactionEconomy.Add(em, killerFaction,
-                        Cost.Of(supplies: BuildingKillSupplies, iron: BuildingKillIron));
+                        Cost.Of(supplies: BuildingKillSupplies, iron: BuildingKillIron), TheWaningBorder.Economy.IncomeSource.Loot);
                 }
                 else if (em.HasComponent<UnitTag>(entity))
                 {
@@ -91,14 +91,14 @@ namespace TheWaningBorder.Systems.Economy
                     {
                         // Military unit: +5 Supplies
                         FactionEconomy.Add(em, killerFaction,
-                            Cost.Of(supplies: UnitKillSupplies_Military));
+                            Cost.Of(supplies: UnitKillSupplies_Military), TheWaningBorder.Economy.IncomeSource.Loot);
                     }
                     else
                     {
                         // Non-military unit (worker): +15 Supplies, +1 Iron
                         FactionEconomy.Add(em, killerFaction,
                             Cost.Of(supplies: UnitKillSupplies_NonMilitary,
-                                    iron: UnitKillIron_NonMilitary));
+                                    iron: UnitKillIron_NonMilitary), TheWaningBorder.Economy.IncomeSource.Loot);
                     }
                 }
             }

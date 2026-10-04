@@ -20,11 +20,13 @@
 // collapses every building the loser had in it (Health -> 0; DeathSystem owns
 // destruction).
 //
-// FORTRESSES BOUND THE EMPIRE (Territory_Claims.md §8, 2026-10-01). A player
-// may hold at most (sum of its Fortresses' levels) + 2 once aged up
-// territories, and may only START a claim on ground that borders the ground
-// connected to one of its Fortresses. Held ground that loses that connection
-// wears down: every building of the holder there loses its full health over
+// FORTRESSES ANCHOR THE EMPIRE (Territory_Claims.md §10). There is NO cap on
+// how many territories a player holds (2026-10-04: "granted by how much you
+// can defend, not a hard cap") — the meter above is the only thing that keeps
+// ground. A player may START a claim only once aged up (Age 0 holds its start
+// territory only), and only on ground that borders the ground connected to
+// one of its Fortresses. Held ground that loses that connection wears down:
+// every building of the holder there loses its full health over
 // DisconnectSeconds (about four minutes).
 //
 // Every input is replicated simulation state and every step runs on the
@@ -62,23 +64,16 @@ namespace TheWaningBorder.Systems.World
         /// takes to wear down from full health (Territory_Claims.md §8).</summary>
         private const float DisconnectSeconds = 240f;
 
-        /// <summary>Territories an aged-up player may hold on top of its
-        /// Fortress levels (Territory_Claims.md §8).</summary>
-        private const int AgeUpTerritories = 2;
-
         private EntityQuery _fortressQuery;
         // Static so read-only displays (the debug board) can read the last
         // tick's answer; only this system writes them.
-        private static readonly int[] _cap = new int[Sides];
         private static readonly int[] _held = new int[Sides];
+        /// <summary>Per player side: aged up as of the last tick — claims
+        /// open at age-up (Territory_Claims.md §10).</summary>
+        private static readonly bool[] _agedUp = new bool[Sides];
         /// <summary>[t * Sides + side] = 1 when t is held by side AND linked to
         /// one of its Fortresses through ground it holds.</summary>
         private static byte[] _connected = System.Array.Empty<byte>();
-
-        /// <summary>The faction's territory limit as of the last tick
-        /// (Fortress levels + 2 once aged up).</summary>
-        public static int TerritoryCapOf(Faction f)
-            => (int)f >= 0 && (int)f < CurseSide ? _cap[(int)f] : 0;
 
         /// <summary>Territories the faction holds or is mid-claim on, as of the last tick.</summary>
         public static int TerritoriesHeldBy(Faction f)
@@ -91,7 +86,7 @@ namespace TheWaningBorder.Systems.World
             int i = t * Sides + (int)f;
             return t >= 0 && (int)f >= 0 && (int)f < CurseSide && i < _connected.Length && _connected[i] != 0;
         }
-        private readonly float[] _nextLimitNotice = new float[Sides];
+        private readonly float[] _nextClaimNotice = new float[Sides];
 
         // Per-tick scratch, sized territories x sides.
         private int[] _pop = System.Array.Empty<int>();
@@ -245,8 +240,8 @@ namespace TheWaningBorder.Systems.World
                     // fills if it is here; otherwise the heaviest challenger
                     // (lowest side on a tie) is the one taking the ground.
                     // Only a side ALLOWED to take this ground may gain on it
-                    // (Territory_Claims.md §8): within its territory limit and
-                    // bordering its Fortress-connected ground. The holder
+                    // (Territory_Claims.md §10): aged up and bordering its
+                    // Fortress-connected ground. The holder
                     // filling its own ground is always allowed.
                     int gainer = -1;
                     if (holderSide >= 0 && weight[holderSide] > 0f) gainer = holderSide;
@@ -256,7 +251,7 @@ namespace TheWaningBorder.Systems.World
                                 && (gainer < 0 || weight[s] > weight[gainer])) gainer = s;
                     if (gainer < 0)
                     {
-                        NoticeLimit(t, firstPresent);
+                        NoticeRefusedClaim(t, firstPresent);
                         TerritoryOwnership.SetMeter(t, holder, value, claimed,
                             claimed && holderSide >= 0 && _hasLock[t * Sides + holderSide] != 0,
                             false, TerritoryOwnership.Natural);
@@ -319,8 +314,8 @@ namespace TheWaningBorder.Systems.World
         // ── Fortress reach (Territory_Claims.md §8) ─────────────────────
 
         /// <summary>
-        /// Per player side: its territory LIMIT (Fortress levels + 2 once aged
-        /// up), how many territories it holds or is mid-claim on, and which of
+        /// Per player side: whether it has aged up (claims open), how many
+        /// territories it holds or is mid-claim on, and which of
         /// the territories it holds are linked to one of its Fortresses through
         /// ground it holds.
         /// </summary>
@@ -329,7 +324,6 @@ namespace TheWaningBorder.Systems.World
             int cells = count * Sides;
             if (_connected.Length != cells) _connected = new byte[cells];
             System.Array.Clear(_connected, 0, cells);
-            System.Array.Clear(_cap, 0, Sides);
             System.Array.Clear(_held, 0, Sides);
 
             for (int t = 0; t < count; t++)
@@ -349,9 +343,6 @@ namespace TheWaningBorder.Systems.World
                     if (hps[i].Value <= 0) continue;
                     int side = (int)facs[i].Value;
                     if (side < 0 || side >= CurseSide) continue;
-                    _cap[side] += em.HasComponent<BuildingUpgradeState>(ents[i])
-                        ? math.max(1, em.GetComponentData<BuildingUpgradeState>(ents[i]).Level) : 1;
-
                     int t = RegionMap.NearestRegion(xfs[i].Position.x, xfs[i].Position.z);
                     if (t == RegionMap.None || !TerritoryOwnership.IsClaimed(t)
                         || SideOf(TerritoryOwnership.HolderOf(t)) != side) continue;
@@ -376,7 +367,7 @@ namespace TheWaningBorder.Systems.World
             queue.Dispose();
 
             for (int s = 0; s < CurseSide; s++)
-                if (AgedUp(em, (Faction)s)) _cap[s] += AgeUpTerritories;
+                _agedUp[s] = AgedUp(em, (Faction)s);
         }
 
         private static bool AgedUp(EntityManager em, Faction faction)
@@ -386,16 +377,17 @@ namespace TheWaningBorder.Systems.World
 
         /// <summary>
         /// May <paramref name="side"/> START (or continue) taking territory
-        /// <paramref name="t"/>? The curse always may. A player needs room under
-        /// its limit (a claim already under way counts toward it) and ground
-        /// that borders — or holds — its Fortress-connected territory.
+        /// <paramref name="t"/>? The curse always may. A player must have aged
+        /// up (Age 0 holds its start territory only) and the ground must
+        /// border — or hold — its Fortress-connected territory. There is no
+        /// cap on how many it holds (Territory_Claims.md §10, 2026-10-04).
         /// </summary>
         private bool MayTake(int t, int side)
         {
             if (side == CurseSide) return true;
             if (side < 0 || side >= CurseSide) return false;
             bool alreadyMine = SideOf(TerritoryOwnership.HolderOf(t)) == side;
-            if (!alreadyMine && _held[side] >= _cap[side]) return false;
+            if (!alreadyMine && !_agedUp[side]) return false;
             return Borders(t, side);
         }
 
@@ -446,18 +438,16 @@ namespace TheWaningBorder.Systems.World
 
         /// <summary>Tell the local player, at most every 20 s, why its army
         /// standing on ground is not claiming it. Presentation only.</summary>
-        private void NoticeLimit(int t, int side)
+        private void NoticeRefusedClaim(int t, int side)
         {
             int local = (int)GameSettings.LocalPlayerFaction;
             if (side != local || side < 0 || side >= CurseSide) return;
             float now = UnityEngine.Time.unscaledTime;
-            if (now < _nextLimitNotice[side]) return;
-            _nextLimitNotice[side] = now + 20f;
+            if (now < _nextClaimNotice[side]) return;
+            _nextClaimNotice[side] = now + 20f;
             var L = (System.Func<string, string>)TheWaningBorder.Core.Localization.Loc.T;
-            if (SideOf(TerritoryOwnership.HolderOf(t)) != side && _held[side] >= _cap[side])
-                SimSignals.NotifyError(string.Format(
-                    L("Territory limit reached ({0}/{1}) — level or build a Fortress to hold more"),
-                    _held[side], _cap[side]));
+            if (SideOf(TerritoryOwnership.HolderOf(t)) != side && !_agedUp[side])
+                SimSignals.NotifyError(L("Age up to claim new ground — Age 0 holds your start territory only"));
             else
                 SimSignals.NotifyError(L("Too far — you can only take ground that borders your Fortress's territories"));
         }

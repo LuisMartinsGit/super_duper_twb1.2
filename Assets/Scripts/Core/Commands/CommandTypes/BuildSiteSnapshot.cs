@@ -55,6 +55,19 @@ namespace TheWaningBorder.Core.Commands.Types
         /// from SPACING tests — a diagonal curtain's AABB is mostly empty
         /// ground — but never from the overlap test.</summary>
         public const byte FlagWall = 2;
+        /// <summary>A unit-training production building (Barracks, Archery
+        /// Range, Royal Stable, Siege Yard) — its trained units walk out of
+        /// its east side, so the AI's base-connectivity check keeps that side
+        /// open (docs/Design/Game_AI.md 6b, 2026-10-04).</summary>
+        public const byte FlagProduction = 4;
+        /// <summary>A House (the House quarter packs these flush on purpose).</summary>
+        public const byte FlagHouse = 8;
+
+        /// <summary>True for the building ids <see cref="FlagProduction"/>
+        /// stands for.</summary>
+        public static bool IsProductionId(string buildingId)
+            => buildingId == "Barracks" || buildingId == "ArcheryRange"
+            || buildingId == "Alanthor_RoyalStable" || buildingId == "Alanthor_SiegeYard";
 
         /// <summary>Spatial-hash cell edge, metres. Coarse on purpose: the
         /// questions asked are "anything within 20-30 m", and a 16 m cell
@@ -66,7 +79,7 @@ namespace TheWaningBorder.Core.Commands.Types
         // ── Key ───────────────────────────────────────────────────────────
         private Unity.Entities.World _world;
         private double _time;
-        private int _buildingCount, _obstacleCount;
+        private int _buildingCount, _obstacleCount, _planCount;
 
         // ── Buildings ─────────────────────────────────────────────────────
         private int _bCount;          // total, including NotePlaced extras
@@ -74,6 +87,17 @@ namespace TheWaningBorder.Core.Commands.Types
         private float2[] _bMin = new float2[64], _bMax = new float2[64], _bCtr = new float2[64];
         private byte[] _bFlags = new byte[64];
         private float _bMaxHalf;      // widest half-extent, for query padding
+
+        // ── Plans (docs/Design/Planned_Buildings.md) ─────────────────────
+        // A plan carries no BuildingTag, so the building lists above never
+        // see it — yet the router refuses a footprint over the faction's OWN
+        // plan (CommandRouter.CheckPlaceBuilding). The AI's site search reads
+        // these so it never proposes a spot its own plan already holds
+        // (2026-10-04).
+        private int _pCount;
+        private float2[] _pMin = new float2[16], _pMax = new float2[16];
+        private byte[] _pFaction = new byte[16];
+        private byte[] _pFlags = new byte[16];
 
         // ── Obstacles ─────────────────────────────────────────────────────
         private int _oCount;
@@ -108,6 +132,44 @@ namespace TheWaningBorder.Core.Commands.Types
         /// that memoise failed searches.</summary>
         public int BuildingCount => _buildingCount;
 
+        /// <summary>Every footprint the snapshot holds, NotePlaced extras
+        /// included — with <see cref="PlanCount"/>, the "did the layout change"
+        /// key for callers that cache a picture of the ground.</summary>
+        public int BoxCount => _bCount;
+
+        /// <summary>Plans captured (every faction's).</summary>
+        public int PlanCount => _pCount;
+
+        /// <summary>Footprint <paramref name="i"/> (0..BoxCount-1).</summary>
+        public void GetBox(int i, out float2 min, out float2 max, out byte flags)
+        {
+            min = _bMin[i]; max = _bMax[i]; flags = _bFlags[i];
+        }
+
+        /// <summary>Plan <paramref name="i"/> (0..PlanCount-1) and its owner.</summary>
+        public void GetPlan(int i, out float2 min, out float2 max, out byte faction, out byte flags)
+        {
+            min = _pMin[i]; max = _pMax[i]; faction = _pFaction[i]; flags = _pFlags[i];
+        }
+
+        /// <summary>
+        /// Footprint overlap (grown by <paramref name="gap"/>) against
+        /// <paramref name="faction"/>'s OWN plans — the router's
+        /// PlannedBuildings.OverlapsOwnPlan, from the snapshot.
+        /// </summary>
+        public bool OverlapsOwnPlan(Faction faction, float3 position, int2 size, float gap = 0f)
+        {
+            BuildCommandHelper.FootprintAabb(position, size, out float2 mn, out float2 mx);
+            mn -= gap; mx += gap;
+            for (int i = 0; i < _pCount; i++)
+            {
+                if (_pFaction[i] != (byte)faction) continue;
+                if (mn.x < _pMax[i].x && mx.x > _pMin[i].x && mn.y < _pMax[i].y && mx.y > _pMin[i].y)
+                    return true;
+            }
+            return false;
+        }
+
         /// <summary>
         /// The snapshot for this world at this sim tick, recaptured when the
         /// clock moved or the building / obstacle population changed.
@@ -133,17 +195,21 @@ namespace TheWaningBorder.Core.Commands.Types
             double t = world.Time.ElapsedTime;
             var bq = BuildCommandHelper.BuildingQuery(em);
             var oq = BuildCommandHelper.ObstacleQuery(em);
+            var pq = QC_Plans.Get(em, QT_Plans);
             int bc = bq.CalculateEntityCount();
             int oc = oq.CalculateEntityCount();
+            int pc = pq.CalculateEntityCount();
             if (ReferenceEquals(_world, world) && _time == t
-                && bc == _buildingCount && oc == _obstacleCount)
+                && bc == _buildingCount && oc == _obstacleCount && pc == _planCount)
                 return;
 
             _world = world;
             _time = t;
             _buildingCount = bc;
             _obstacleCount = oc;
+            _planCount = pc;
             Capture(em, bq, oq);
+            CapturePlans(pq);
         }
 
         private void Capture(EntityManager em, EntityQuery bq, EntityQuery oq)
@@ -161,6 +227,10 @@ namespace TheWaningBorder.Core.Commands.Types
                         out float2 mn, out float2 mx);
                     byte flags = 0;
                     if (em.HasComponent<GathererHutTag>(ents[i])) flags |= FlagGathererHut;
+                    if (em.HasComponent<BarracksTag>(ents[i]) || em.HasComponent<ArcheryRangeTag>(ents[i])
+                        || em.HasComponent<RoyalStableTag>(ents[i]) || em.HasComponent<SiegeYardTag>(ents[i]))
+                        flags |= FlagProduction;
+                    if (em.HasComponent<HutTag>(ents[i])) flags |= FlagHouse;
                     if (em.HasComponent<WallTag>(ents[i]) || em.HasComponent<WallHubTag>(ents[i])
                         || em.HasComponent<WallSegmentTag>(ents[i]))
                         flags |= FlagWall;
@@ -196,6 +266,47 @@ namespace TheWaningBorder.Core.Commands.Types
 
             foreach (var kv in _nodeSets) kv.Value.Loaded = false;
             _hallsLoaded = false;
+        }
+
+        static readonly ComponentType[] QT_Plans =
+        {
+            ComponentType.ReadOnly<PlannedBuilding>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<BuildingSize>(),
+        };
+        static CachedEntityQuery QC_Plans;
+
+        private void CapturePlans(EntityQuery pq)
+        {
+            using var plans = pq.ToComponentDataArray<PlannedBuilding>(Allocator.Temp);
+            using var facs = pq.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var xfs = pq.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var sizes = pq.ToComponentDataArray<BuildingSize>(Allocator.Temp);
+            _pCount = 0;
+            if (_pMin.Length < plans.Length)
+            {
+                int n = math.max(plans.Length, _pMin.Length * 2);
+                System.Array.Resize(ref _pMin, n);
+                System.Array.Resize(ref _pMax, n);
+                System.Array.Resize(ref _pFaction, n);
+                System.Array.Resize(ref _pFlags, n);
+            }
+            for (int i = 0; i < plans.Length; i++)
+            {
+                float hw = sizes[i].Width * 0.5f, hh = sizes[i].Height * 0.5f;
+                var p = xfs[i].Position;
+                _pMin[_pCount] = new float2(p.x - hw, p.z - hh);
+                _pMax[_pCount] = new float2(p.x + hw, p.z + hh);
+                _pFaction[_pCount] = (byte)facs[i].Value;
+                string id = plans[i].BuildingId.ToString();
+                byte f = 0;
+                if (IsProductionId(id)) f |= FlagProduction;
+                if (id == "Hut") f |= FlagHouse;
+                if (id == "GatherersHut") f |= FlagGathererHut;
+                _pFlags[_pCount] = f;
+                _pCount++;
+            }
         }
 
         private void EnsureBuildingCapacity(int n)
@@ -377,7 +488,7 @@ namespace TheWaningBorder.Core.Commands.Types
             // stage 1a (BuildCommandHelper.OverlapsWall).
             if (BuildCommandHelper.OverlapsWall(mn, mx)) return false;
 
-            var ownNode = buildingId != null ? TerritoryOwnership.RequiredNodeFor(buildingId) : null;
+            var ownNode = buildingId != null ? TerritoryOwnership.NodeStoodOnBy(buildingId) : null;
 
             // Nothing on a resource node but its own extractor — the live
             // validator's stage 1b, same test.
@@ -485,7 +596,10 @@ namespace TheWaningBorder.Core.Commands.Types
         public void NotePlaced(EntityManager em, string buildingId, float3 position, int2 size)
         {
             BuildCommandHelper.FootprintAabb(position, size, out float2 mn, out float2 mx);
-            AddBuilding(mn, mx, buildingId == "GatherersHut" ? FlagGathererHut : (byte)0);
+            byte nf = buildingId == "GatherersHut" ? FlagGathererHut : (byte)0;
+            if (IsProductionId(buildingId)) nf |= FlagProduction;
+            if (buildingId == "Hut") nf |= FlagHouse;
+            AddBuilding(mn, mx, nf);
 
             var set = NodesFor(em, buildingId);   // loads it if this tick has not yet
             if (set != null)

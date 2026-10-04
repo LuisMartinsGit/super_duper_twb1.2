@@ -240,6 +240,12 @@ namespace TheWaningBorder.Entities
             var bonus = UnitTagParse.Bonus(def.bonusVsTags);
             if (!bonus.IsEmpty)
                 em.AddComponentData(entity, bonus);
+
+            // Target preference (Combat_Pacing.md § Target preference) —
+            // the anti-army siege engines' picks, from the SO.
+            var pref = UnitTagParse.Preference(def.preferTargets);
+            if (!pref.IsEmpty)
+                em.AddComponentData(entity, pref);
         }
 
         /// <summary>
@@ -294,6 +300,10 @@ namespace TheWaningBorder.Entities
                 var bonus = UnitTagParse.Bonus(def.bonusVsTags);
                 if (!bonus.IsEmpty)
                     ecb.AddComponent(entity, bonus);
+
+                var pref = UnitTagParse.Preference(def.preferTargets);
+                if (!pref.IsEmpty)
+                    ecb.AddComponent(entity, pref);
             }
 
             // Same transient pre-add as the EM path — see TransientState.cs.

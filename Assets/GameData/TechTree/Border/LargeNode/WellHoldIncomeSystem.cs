@@ -54,7 +54,7 @@ namespace TheWaningBorder.Systems.Border
                 if (amount <= 0) continue;
 
                 FactionEconomy.Add(em, s.OwnerFaction,
-                    new Cost { Veilstone = amount });
+                    new Cost { Veilstone = amount }, TheWaningBorder.Economy.IncomeSource.Other);
             }
         }
     }

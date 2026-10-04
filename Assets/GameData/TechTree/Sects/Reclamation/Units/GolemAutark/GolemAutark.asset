@@ -17,7 +17,7 @@ MonoBehaviour:
   unitClass: magic
   hp: 320
   speed: 2
-  trainingTime: 30
+  trainingTime: 21
   damage: 22
   damageType: magic
   armorType: infantry_heavy

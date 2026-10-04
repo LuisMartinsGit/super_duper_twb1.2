@@ -102,6 +102,11 @@ namespace TheWaningBorder.AI
                 PickCompositionUnit(em, brainEntity, faction, now,
                     RoleBudget.For(personality.personality), profile.IntelFreshnessSeconds));
 
+            // The army's veilstone claim follows the plan the pick just read
+            // (on while a ladder line is behind or King Lexor is owed), and
+            // the once-a-minute composition line is written here.
+            UpdateArmyVeilstoneClaim(em, faction, now);
+
             // Raise the maintenance floors. Military floor comes from the
             // personality; the WORKER target follows the difficulty's per-age
             // curve (AoE4: villager targets rise with age and difficulty) —
@@ -117,59 +122,21 @@ namespace TheWaningBorder.AI
             // not ratcheted, so conquest raises it and losing ground lowers it.
             aiState.DesiredWorkers = WorkerFloorFor(em, faction);
 
-            // PRODUCTION BUILDINGS (2026-08-04): grow toward the difficulty
-            // target, alternating Barracks / Archery Range so the melee and
-            // archer lines pump in PARALLEL (FindLeastBusyTrainer spreads the
-            // orders across them). The first Barracks is unconditional —
-            // EcoBoom ends without one and could never queue military.
+            // PRODUCTION BUILDINGS — THE SATURATION RULE (2026-10-04,
+            // Game_AI.md 5g). This used to grow every line toward a per-kind
+            // target from the difficulty's productionBuildingTarget, weakest
+            // line first. Every province now gets one production building
+            // from its own build order (step 4); past that, this path asks
+            // for the line the army plan needs most, and ProductionGate lets
+            // it through only while the existing production is saturated and
+            // the army is below its target. The first Barracks of a faction
+            // with none is the opening, and always passes.
             {
-                int barracksCount = CountFactionBuildings<BarracksTag>(em, faction);
-                int rangeCount = CountFactionBuildings<ArcheryRangeTag>(em, faction);
-                // Ranged is an Age-1 unlock (2026-08-11) — the Range only
-                // enters the alternation once aged up; before that every
-                // production slot is a Barracks.
-                bool rangedUnlocked = false;
-                if (FactionEconomy.TryGetBank(em, faction, out var prodBank)
-                    && em.HasComponent<FactionEra>(prodBank))
-                    rangedUnlocked = em.GetComponentData<FactionEra>(prodBank).Value >= 2;
-                // MULTIPLE OF EVERY KIND, not one Barracks and nothing else.
-                //
-                // The old rotation only ever alternated Barracks and Archery
-                // Range, so the Royal Stable and Siege Yard were never built by
-                // this path at all — and with them absent, cavalry and siege
-                // had no trainer, which is why they were 0.0% of every unit
-                // built across 26 measured matches while Swordsman sat at 0.1%.
-                // Meanwhile the endgame tower spam put SIX towers per faction
-                // on the board against 0.3 Barracks.
-                //
-                // Build toward a count of EACH production building, weakest
-                // line first, so every unit type the culture owns has somewhere
-                // to come from and the lines pump in parallel.
-                int stableCount = CountFactionBuildings<RoyalStableTag>(em, faction);
-                int siegeCount  = CountFactionBuildings<SiegeYardTag>(em, faction);
-
-                // Per-kind target: the difficulty's total spread over the kinds
-                // actually unlocked, never less than one each once available.
-                int perKind = math.max(2, personality.productionBuildingTarget / (rangedUnlocked ? 4 : 1));
-
-                string want = null;
-                if (barracksCount == 0) want = "Barracks";
-                else if (rangedUnlocked && rangeCount == 0) want = "ArcheryRange";
-                else if (rangedUnlocked && stableCount == 0) want = "Alanthor_RoyalStable";
-                else if (rangedUnlocked && siegeCount == 0) want = "Alanthor_SiegeYard";
-                else
-                {
-                    // All present: top up whichever line is furthest behind.
-                    int least = barracksCount; want = "Barracks";
-                    if (rangedUnlocked)
-                    {
-                        if (rangeCount  < least) { least = rangeCount;  want = "ArcheryRange"; }
-                        if (stableCount < least) { least = stableCount; want = "Alanthor_RoyalStable"; }
-                        if (siegeCount  < least) { least = siegeCount;  want = "Alanthor_SiegeYard"; }
-                    }
-                    if (least >= perKind) want = null;   // every line is at target
-                }
-
+                int total = CountFactionBuildings<BarracksTag>(em, faction)
+                          + CountFactionBuildings<ArcheryRangeTag>(em, faction)
+                          + CountFactionBuildings<RoyalStableTag>(em, faction)
+                          + CountFactionBuildings<SiegeYardTag>(em, faction);
+                string want = total == 0 ? "Barracks" : ChooseNeededLine(em, faction, 0, out _);
                 if (want != null)
                     TryBuildBuildingBudgeted(em, faction, want, AIBudgetCategory.Military);
             }
@@ -275,7 +242,7 @@ namespace TheWaningBorder.AI
                     string unit = PickCompositionUnit(em, brainEntity, faction, now,
                         RoleBudget.For(personality.personality), profile.IntelFreshnessSeconds);
                     if (!belowGate && TechCatalog.TryGetUnit(unit, out var unitDef) && unitDef != null
-                        && AIPivotalReserve.ShouldHold(em, faction, AICommon.ToCost(unitDef.cost)))
+                        && MilitaryHold(em, faction, unit, AICommon.ToCost(unitDef.cost)))
                         break;
                     if (!TryTrainUnitBudgeted(em, faction, unit, AIBudgetCategory.Military)) break;
                     aiState.DesiredMilitary++;
@@ -332,10 +299,18 @@ namespace TheWaningBorder.AI
 
             if (CountFactionBuildings<SiegeYardTag>(em, faction) == 0)
             {
-                if (TryBuildBuilding(em, faction, "Alanthor_SiegeYard"))
+                // The yard obeys the production rule (Game_AI.md 5g): a
+                // province's step 4 raises it when the plan needs siege most,
+                // or a saturation extra does. While ProductionGate holds it
+                // there is nothing to save for.
+                if (TryBuildBuildingWithReason(em, faction, "Alanthor_SiegeYard", out string yardWhy))
                 {
                     AIPivotalReserve.Clear(faction, "SiegeYard");
                     AILogger.Log(faction, "MILITARY", "siege program: Siege Yard started");
+                }
+                else if (yardWhy != null && yardWhy.StartsWith("production:"))
+                {
+                    AIPivotalReserve.Clear(faction, "SiegeYard");
                 }
                 else if (TechCatalog.TryGetBuilding("Alanthor_SiegeYard", out var yard)
                          && yard != null)
@@ -353,9 +328,24 @@ namespace TheWaningBorder.AI
             if (_nextSiegeTrain.TryGetValue(key, out float next) && now < next) return;
             _nextSiegeTrain[key] = now + Cfg.siegeTrainRetrySeconds;
 
-            if (CountAliveByUnitId(em, faction, SiegeUnitId) >= Cfg.siegeTrainFloor) return;
-            if (TryTrainUnitBudgeted(em, faction, SiegeUnitId, AIBudgetCategory.Military))
-                AILogger.Log(faction, "MILITARY", "siege program: catapult queued");
+            // THE TRAIN IS EVERY ENGINE THE YARD UNLOCKS (2026-10-03). This
+            // counted and trained Catapults only — and, being priced in
+            // veilstone, the Catapult was refused by the Fortress savings
+            // hold and passed over by the picker for whole matches: the
+            // 0.0.33 batch ended with ONE Ballista per faction and no ram,
+            // catapult or trebuchet anywhere. The army plan names the
+            // siege ROLE most below its share — rams early and trebuchets
+            // late against buildings, the Ballista against heroes / heavy
+            // cavalry / engines and the Catapult against massed foot, by the
+            // scouted enemy — and counts every engine alive and queued; the
+            // army's veilstone earmark pays.
+            var plan = GetArmyPlan(em, faction);
+            string engine = plan.Active ? PlannedSiegeUnit(plan) : SiegeUnitId;
+            if (engine == null) return;
+            int siegeHeld = plan.Active ? PlannedSiegeCount(plan) : CountAliveByUnitId(em, faction, SiegeUnitId);
+            if (siegeHeld >= Cfg.siegeTrainFloor) return;
+            if (TryTrainUnitBudgeted(em, faction, engine, AIBudgetCategory.Military))
+                AILogger.Log(faction, "MILITARY", $"siege program: {engine} queued ({siegeHeld + 1}/{Cfg.siegeTrainFloor})");
         }
 
         /// <summary>Living units of one exact id, this faction.</summary>
@@ -388,6 +378,11 @@ namespace TheWaningBorder.AI
             "IronSurveying1",                    // Gatherer's Hut — iron drip
             "DeepShafts",                        // Mine — +50% iron from worked slots
             "VeilstoneSurvey1",                  // Gatherer's Hut — veilstone drip
+            // Trading Outpost (Alanthor only — the techs are culture-gated
+            // and no other culture has the host): cheaper trades, then faster
+            // ones. Veilstone is the Alanthor army's bottleneck (Game_AI.md §5a).
+            "Alanthor_TradeAgreements1",         // Trading Outpost — cheaper inputs
+            "Alanthor_SwiftCaravans",            // Trading Outpost — every trade faster
             "ArmedScouts",                       // Fortress — arms scouts (attack gate)
             "Conscription", "StoneWeapons",      // Barracks — train speed / T1
             "Fletching", "StoneTippedArrows",    // Archery Range (Age 1) — range / T1
@@ -589,12 +584,12 @@ namespace TheWaningBorder.AI
             // to require that no Barracks existed at all and to wait four
             // minutes, which is most of why two thirds of factions finished a
             // 30-minute match with no military production building whatsoever.
-            if (now > 90f
-                && CountFactionBuildings<BarracksTag>(em, faction)
-                   + CountFactionBuildingsUnderConstruction<BarracksTag>(em, faction) < 2
-                && TryBuildBuildingBudgeted(em, faction, "Barracks", AIBudgetCategory.Military))
-                AILogger.Log(faction, "ECONOMY",
-                    $"floor Barracks started (now {CountFactionBuildings<BarracksTag>(em, faction)})");
+            // REDUNDANCY (Game_AI.md 6c) is the HOME FLOOR now (2026-10-04,
+            // Game_AI.md 5g): the home territory's build order keeps
+            // homeProductionPerLine of every line it can build, the Barracks
+            // included, from homeProductionFloorAfterSeconds. The faction-wide
+            // redundantBarracksCount floor that stood here was the same rule
+            // stated twice, and is gone.
 
             if (FindFactionBuilding<BarracksTag>(em, faction) != Entity.Null)
             {
@@ -713,12 +708,17 @@ namespace TheWaningBorder.AI
             }
             if (_nextResearchSweep.TryGetValue((int)faction, out float next) && now < next)
                 return;
-            _nextResearchSweep[(int)faction] = now + Cfg.researchSweepInterval;
+            // SURPLUS (2026-10-04, Game_AI.md 5e): an overflowing bank sweeps
+            // more often and does not wait behind the authored ladder.
+            bool overflowing = AIBudget.BankOverflowing(em, faction);
+            bool veilstoneHeld = overflowing && AIBudget.IsMilitaryShort(faction, AIBudget.ResVeilstone);
+            _nextResearchSweep[(int)faction] = now + (overflowing && Cfg.surplusResearchSweepInterval > 0f
+                ? Cfg.surplusResearchSweepInterval : Cfg.researchSweepInterval);
 
             // Ladder priority: while the authored economy ladder still has an
             // affordable unresearched step, it keeps the wallet (era 2 only —
-            // from era 3 the sweep runs regardless).
-            if (era < 3 && LadderHasAffordableStep(em, faction)) return;
+            // from era 3 the sweep runs regardless, and so does a surplus).
+            if (!overflowing && era < 3 && LadderHasAffordableStep(em, faction)) return;
 
             // Pivotal savings hold: the sweep is a steady discretionary
             // drain (a tech every ~20 s) — it waits while the faction saves
@@ -731,13 +731,21 @@ namespace TheWaningBorder.AI
 
             // Walk every owned research-capable building (a ProductionQueueItem
             // buffer is the research-host marker).
+            // HOST ORDER (2026-10-04, Game_AI.md 5e): the Trading Outpost
+            // first (its research is veilstone income), then the buildings
+            // that train a unit the composition plan has a share for (their
+            // techs improve the army being built), then the rest. Within a
+            // tier the query order, as before.
             var q = QC_BuildingTagFactionTagResearchQueueItem.Get(em, QT_BuildingTagFactionTagResearchQueueItem);
             using var hosts = q.ToEntityArray(Allocator.Temp);
             using var hostFacs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            var plan = culture == Cultures.Alanthor ? GetArmyPlan(em, faction) : null;
+            for (int tier = 0; tier < SweepHostTiers; tier++)
             for (int i = 0; i < hosts.Length; i++)
             {
                 if (hostFacs[i].Value != faction) continue;
                 var building = hosts[i];
+                if (SweepHostTier(em, building, plan) != tier) continue;
                 if (em.HasComponent<UnderConstruction>(building)) continue;
                 if (CommandRouter.IsProductionQueueFull(em, building)) continue;
 
@@ -745,6 +753,7 @@ namespace TheWaningBorder.AI
                 if (string.IsNullOrEmpty(buildingId)) continue;
                 if (!TechCatalog.TryGetBuilding(buildingId, out var def)
                     || def == null || def.research == null) continue;
+                bool tradeHost = em.HasComponent<TradingOutpostTag>(building);
 
                 // Host building level for minBuildingLevel gates (unstamped
                 // buildings count as L1 — mirrors the research extractor).
@@ -771,16 +780,43 @@ namespace TheWaningBorder.AI
                     var cost = AICommon.ToCost(tech.cost);
                     if (!FactionEconomy.CanAfford(em, faction, cost)) continue;
 
+                    // VEILSTONE-HELD SURPLUS (Game_AI.md 5e): the surplus is
+                    // supplies and iron — while the army waits on veilstone a
+                    // tech that costs veilstone is not bought from it, except
+                    // the Trading Outpost's own (they ARE veilstone income,
+                    // and pass the hold and the earmark below).
+                    bool tradeCarve = veilstoneHeld && tradeHost;
+                    if (veilstoneHeld && !tradeHost && cost.Veilstone > 0) continue;
+
                     // PIVOTAL HOLD (2026-08-31): the research sweep is the
                     // third bank drain — it waits its <=MaxHoldSeconds turn
                     // when the tech spends a resource the save is short on.
-                    if (TheWaningBorder.AI.AIPivotalReserve.ShouldHold(em, faction, cost)) continue;
+                    if (!tradeCarve && TheWaningBorder.AI.AIPivotalReserve.ShouldHold(em, faction, cost)) continue;
+                    // Nor may it spend the army's veilstone earmark — the
+                    // sweep reaches the 300-680 veilstone techs (masses,
+                    // lances, plate) that one Swordsman's worth of income
+                    // cannot keep up with (2026-10-03).
+                    if (!tradeCarve && !AIBudget.LeavesMilitaryVeilstone(em, faction, cost)) continue;
+                    // ARMY FIRST (2026-10-04, Game_AI.md 5f): the sweep yields
+                    // to an army below its target that could spend the money
+                    // (AIBudget.ArmyFirstYield). The Trading Outpost's own
+                    // research is veilstone income and does not yield.
+                    if (!tradeHost)
+                    {
+                        string armyFirst = AIBudget.ArmyFirstYield(em, faction, cost);
+                        if (armyFirst != null)
+                        {
+                            AIBudget.NoteArmyFirstYield(faction, "research " + techId, armyFirst);
+                            continue;
+                        }
+                    }
 
                     TheWaningBorder.Core.Commands.CommandRouter.IssueResearch(
                         em, building, techId,
                         TheWaningBorder.Core.Commands.CommandSource.AI);
                     InvalidateThinkMemo();
                     AILogger.Log(faction, "RESEARCH", $"sweep: {techId} at {buildingId}");
+                    if (overflowing) LogSurplus(faction, $"research {techId} at {buildingId}");
                     break; // one tech per building per sweep
                 }
             }
@@ -925,6 +961,10 @@ namespace TheWaningBorder.AI
             {
                 _uniqueBlockTicks.Remove(faction);
                 AIPivotalReserve.Clear(faction, unitId);
+                // A capital unique is army spending: it pays out of the
+                // army's veilstone earmark first.
+                if (TechCatalog.TryGetUnit(unitId, out var paid) && paid != null)
+                    AIBudget.DebitMilitaryVeilstone(faction, AICommon.ToCost(paid.cost).Veilstone);
                 AILogger.Log(faction, "MILITARY", $"Capital: queued {unitId}");
                 return;
             }

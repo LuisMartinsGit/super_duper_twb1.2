@@ -17,7 +17,7 @@ MonoBehaviour:
   unitClass: 'human_cavalry'
   hp: 160
   speed: 6.6
-  trainingTime: 40
+  trainingTime: 28
   damage: 18
   damageType: 'melee'
   armorType: 'cavalry'

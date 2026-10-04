@@ -17,7 +17,7 @@ MonoBehaviour:
   unitClass: melee
   hp: 200
   speed: 2.8
-  trainingTime: 30
+  trainingTime: 21
   damage: 10
   damageType: melee
   armorType: infantry_heavy

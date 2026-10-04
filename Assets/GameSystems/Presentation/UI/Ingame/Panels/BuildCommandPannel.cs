@@ -977,8 +977,9 @@ namespace TheWaningBorder.UI.Ingame
             }
 
             // The price the executor will charge THIS faction — the Hall's
-            // escalation (Regions.md §2) and Deep Foundations included.
-            var cost = BuildCosts.For(_em, fac, id);
+            // escalation (Regions.md §2), Deep Foundations and, for a Trading
+            // Outpost, its outcrop's cost ramp (priced at the snapped site).
+            var cost = BuildCosts.For(_em, fac, id, pos);
 
             // Affordability CHECK only — the SPEND lives in
             // CommandRouter.PlaceBuildingDirect, the executor both the

@@ -231,6 +231,83 @@ public static class UnitTagParse
         }
         return result;
     }
+
+    /// <summary>
+    /// Build the runtime <see cref="TargetPreference"/> from the SO's
+    /// preferTargets list (docs/Design/Combat_Pacing.md § Target preference).
+    /// Each entry is one rule: tags joined by '+' (the candidate must carry
+    /// ALL of them, e.g. "Cavalry+Heavy"), or the word "Hero" (any hero), or
+    /// "Massed" (the candidate standing among the most enemies). Up to four
+    /// tag rules; unknown words are ignored like unknown tags.
+    /// </summary>
+    public static TargetPreference Preference(string[] entries)
+    {
+        var result = default(TargetPreference);
+        if (entries == null) return result;
+        int slot = 0;
+        for (int i = 0; i < entries.Length; i++)
+        {
+            string e = entries[i];
+            if (string.IsNullOrEmpty(e)) continue;
+            string lower = e.Trim().ToLowerInvariant();
+            if (lower == "hero" || lower == "heroes") { result.Heroes = 1; continue; }
+            if (lower == "massed") { result.Massed = 1; continue; }
+            if (slot >= 4) continue;
+            uint mask = 0;
+            bool bad = false;
+            foreach (var part in e.Split('+'))
+            {
+                uint t = Tag(part.Trim());
+                if (t == 0) { bad = true; break; }
+                mask |= t;
+            }
+            if (bad || mask == 0) continue;
+            switch (slot)
+            {
+                case 0: result.Mask0 = mask; break;
+                case 1: result.Mask1 = mask; break;
+                case 2: result.Mask2 = mask; break;
+                default: result.Mask3 = mask; break;
+            }
+            slot++;
+        }
+        return result;
+    }
+}
+
+/// <summary>
+/// What an attacker would rather shoot (docs/Design/Combat_Pacing.md
+/// § Target preference), from the unit SO's preferTargets list. Read by
+/// TargetingSystem's auto-acquire: a preferred candidate INSIDE the unit's
+/// own attack reach is taken over the nearest one. Ordered targets are never
+/// touched. A unit without the component (almost all of them) acquires as
+/// before.
+/// </summary>
+public struct TargetPreference : IComponentData
+{
+    /// <summary>Tag rules: a candidate matches a rule when it carries every
+    /// tag in the mask. Unused slots are 0.</summary>
+    public uint Mask0, Mask1, Mask2, Mask3;
+    /// <summary>1 = any hero (HeroLevel) is preferred.</summary>
+    public byte Heroes;
+    /// <summary>1 = among candidates (preferred by the rules above, or any
+    /// unit when there are no rules), the one standing among the most
+    /// enemies wins — the splash engine's pick.</summary>
+    public byte Massed;
+
+    public bool IsEmpty => Mask0 == 0 && Mask1 == 0 && Mask2 == 0 && Mask3 == 0 && Heroes == 0 && Massed == 0;
+    public bool HasRules => Mask0 != 0 || Mask1 != 0 || Mask2 != 0 || Mask3 != 0 || Heroes != 0;
+
+    /// <summary>Does a candidate with these tags match a rule?</summary>
+    public bool Matches(uint tags, bool hero)
+    {
+        if (Heroes != 0 && hero) return true;
+        if (Mask0 != 0 && (tags & Mask0) == Mask0) return true;
+        if (Mask1 != 0 && (tags & Mask1) == Mask1) return true;
+        if (Mask2 != 0 && (tags & Mask2) == Mask2) return true;
+        if (Mask3 != 0 && (tags & Mask3) == Mask3) return true;
+        return false;
+    }
 }
 
 /// <summary>

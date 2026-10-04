@@ -305,9 +305,14 @@ namespace TheWaningBorder.AI
                 // keeps priority on the bank while it is building).
                 if (!wallsHeld && !ladderBusy)
                     TryBuildWallDefenses(faction, em, entity, hallPos);
+                // …except the gates: a ring with no gate seals the army in,
+                // so cutting one ignores the ladder and the savings holds
+                // (TryBuildWallDefenses runs it first when it runs at all).
+                else
+                    TryEnsureRingGates(faction, em, entity, hallPos);
 
-                // ─── 7. Armoured-unit production ──────────────────────
-                TryQueueArmouredUnits(faction, em);
+                // ─── 7. (Armoured-unit production moved to the composition
+                //    layer, 2026-10-03 — see AIAlanthorEndgameSystem.Military.cs.)
 
                 // ─── 7b. Sect units ───────────────────────────────────
                 // Canon trains the sect unit at the SECT BUILDING; the chapel
@@ -324,40 +329,6 @@ namespace TheWaningBorder.AI
             if (perfThinks > 0)
                 TheWaningBorder.Core.Diagnostics.PerfSpikeLog.Report(
                     "AIEndgame", perfSw.Elapsed.TotalMilliseconds, $"brains {perfThinks}");
-        }
-
-        /// <summary>Returns true when the unit was queued — false on any
-        /// pre-flight failure so callers can fall back down a priority list
-        /// (e.g. Trebuchet gate closed, queue Ballista instead).</summary>
-        private static bool TryQueueAt<TBuildingTag>(EntityManager em, Faction faction, string unitId)
-            where TBuildingTag : unmanaged, IComponentData
-        {
-            Entity trainer = AIEndgameCommon.FindFactionBuilding<TBuildingTag>(em, faction);
-            if (trainer == Entity.Null) return false;
-            if (em.HasComponent<UnderConstruction>(trainer)) return false;
-            if (!em.HasBuffer<ProductionQueueItem>(trainer)) return false;
-            if (CommandRouter.GetTrainQueueLength(em, trainer) >= Cfg.maxTrainQueue) return false;
-
-            if (!TechCatalog.IsReady) return false;
-            if (!TechCatalog.TryGetUnit(unitId, out var def) || def == null) return false;
-
-            // Level gate BEFORE spending — IssueTrain drops silently for AI
-            // sources, which would leak the cost.
-            if (!CommandRouter.CanTrainAtBuilding(em, trainer, unitId, out _, out _)) return false;
-
-            // Affordability CHECK only — TrainCommandDirect spends on every
-            // peer (docs/Multiplayer_LAN_Readiness.md).
-            var cost = AICommon.ToCost(def.cost);
-            if (!FactionEconomy.CanAfford(em, faction, cost)) return false;
-            // Pivotal savings hold, resource-aware (every caller of this is a
-            // discretionary army pass).
-            if (AIPivotalReserve.ShouldHold(em, faction, cost)) return false;
-
-            // Through CommandRouter (CommandSource.AI) so host-AI training
-            // replicates — a direct queue.Add spawned units on the host only.
-            CommandRouter.IssueTrain(em, trainer, unitId, CommandSource.AI);
-            AILogger.Log(faction, "MILITARY", $"Alanthor: queued {unitId}");
-            return true;
         }
 
         // ──────────────────────────────────────────────────────────────────

@@ -29,6 +29,7 @@ using TheWaningBorder.Core;
 using TheWaningBorder.Data;
 using TheWaningBorder.Economy;
 using TheWaningBorder.World.Regions;
+using OutpostSites = TheWaningBorder.Entities.TradingOutpost;   // avoids the DC0062 Entities.ForEach misread
 
 namespace TheWaningBorder.AI
 {
@@ -45,7 +46,7 @@ namespace TheWaningBorder.AI
         /// </summary>
         private static readonly (string Building, ComponentType Node)[] ExtractorPlan =
         {
-            (TheWaningBorder.Entities.TradingOutpost.BuildingId, default),
+            (OutpostSites.BuildingId, default),
             ("VeilstoneMine",    default),
             ("Mine",             default),
             ("GatherersHut",     default),
@@ -109,7 +110,7 @@ namespace TheWaningBorder.AI
                 // Culture: Alanthor trade beside veilstone, everyone else
                 // mines it (Veilstone_Economy.md §3).
                 bool alanthor = CultureConfig.GetCompletedCulture(em, faction) == Cultures.Alanthor;
-                bool isOutpost = buildingId == TheWaningBorder.Entities.TradingOutpost.BuildingId;
+                bool isOutpost = buildingId == OutpostSites.BuildingId;
                 if (isOutpost && !alanthor) continue;
                 if (buildingId == "VeilstoneMine" && alanthor) continue;
 
@@ -122,7 +123,18 @@ namespace TheWaningBorder.AI
                     if (AILogger.Enabled) blocked += $" | {buildingId}: opening huts first";
                     continue;
                 }
-                if (!FactionEconomy.CanAfford(em, faction, AICommon.ToCost(def.cost)))
+                // A Trading Outpost is priced by WHERE it stands: the per-outcrop
+                // ramp (Veilstone_Economy.md §3.1). Its free slots come back
+                // cheapest first, so the first one is the price to beat.
+                var planCost = AICommon.ToCost(def.cost);
+                if (isOutpost)
+                {
+                    _freeNodes.Clear();
+                    CollectFreeNodes(em, faction, buildingId, owned, _freeNodes);
+                    if (_freeNodes.Count > 0)
+                        planCost = BuildCosts.For(em, faction, buildingId, _freeNodes[0]);
+                }
+                if (!FactionEconomy.CanAfford(em, faction, planCost))
                 {
                     if (AILogger.Enabled) blocked += $" | {buildingId}: bank short";
                     // VEILSTONE IS THE ARMY'S WALL (2026-10-03): an Alanthor
@@ -140,7 +152,7 @@ namespace TheWaningBorder.AI
                                 AILogger.Log(faction, "ECONOMY",
                                     $"veilstone is the army's bottleneck — saving for a Trading Outpost " +
                                     $"({_freeNodes.Count} free outcrop(s) in held ground)");
-                            AIPivotalReserve.Set(faction, OutpostReserveKey, AICommon.ToCost(def.cost));
+                            AIPivotalReserve.Set(faction, OutpostReserveKey, planCost);
                         }
                         else AIPivotalReserve.Clear(faction, OutpostReserveKey);
                     }
@@ -161,8 +173,44 @@ namespace TheWaningBorder.AI
                     continue;
                 }
                 string reason = null;
+
+                // VEILSTONE SURPLUS (2026-10-04, Game_AI.md 5e): the army is
+                // waiting on veilstone and supplies and iron are piling up —
+                // an Outpost beside EVERY outcrop with a free side this pass
+                // (one per outcrop, cheapest ramp first), not one, for as
+                // long as a worker is free to take the site (the open-site
+                // cap and the bank are re-checked per placement).
+                if (isOutpost && IsVeilstoneSurplus(em, faction))
+                {
+                    int placed = 0;
+                    for (int n = 0; n < _freeNodes.Count; n++)
+                    {
+                        if (AICommon.CountIdleWorkers(em, faction) == 0) break;
+                        // Ramp-priced per slot; the list runs cheapest first,
+                        // so new outcrops are taken before a 3rd or 4th post.
+                        if (!FactionEconomy.CanAfford(em, faction,
+                                BuildCosts.For(em, faction, buildingId, _freeNodes[n]))) continue;
+                        if (!TryBuildBuildingWithReason(em, faction, buildingId,
+                                out reason, _freeNodes[n])) continue;
+                        placed++;
+                        LogSurplus(faction,
+                            $"outpost placed at ({_freeNodes[n].x:F0},{_freeNodes[n].z:F0}) " +
+                            $"({_freeNodes.Count} free outcrop(s))");
+                    }
+                    if (placed > 0)
+                    {
+                        AIPivotalReserve.Clear(faction, OutpostReserveKey);
+                        return;
+                    }
+                    if (AILogger.Enabled)
+                        blocked += $" | {buildingId}: {_freeNodes.Count} node(s), last refusal: {reason}";
+                    continue;
+                }
+
                 for (int n = 0; n < _freeNodes.Count; n++)
                 {
+                    if (isOutpost && !FactionEconomy.CanAfford(em, faction,
+                            BuildCosts.For(em, faction, buildingId, _freeNodes[n]))) continue;
                     if (!TryBuildBuildingWithReason(em, faction, buildingId,
                             out reason, _freeNodes[n])) continue;
                     AILogger.Log(faction, "EXTRACT",
@@ -447,6 +495,13 @@ namespace TheWaningBorder.AI
             var required = TerritoryOwnership.RequiredNodeFor(buildingId);
             if (required == null) return;
 
+            // The Trading Outpost stands on a SIDE of its outcrop, not on it.
+            if (buildingId == OutpostSites.BuildingId)
+            {
+                CollectFreeOutpostSlots(em, faction, owned, into);
+                return;
+            }
+
             var q = AIQueryCache.NodeAt(em, required.Value);
             using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             // One node / extractor read per tick, not two queries per node.
@@ -471,6 +526,83 @@ namespace TheWaningBorder.AI
 
                 into.Add(site);
             }
+        }
+
+        // Scratch for CollectFreeOutpostSlots: (site, ramp index, distance² to the Hall).
+        private readonly List<(float3 Site, int Ramp, float D2)> _outpostSlots =
+            new List<(float3, int, float)>();
+
+        /// <summary>
+        /// THE TRADING OUTPOST'S SITES (2026-10-04, Veilstone_Economy.md §3.1):
+        /// up to four posts stand around one uncursed outcrop, one per side,
+        /// and every further post beside the same outcrop costs more. One
+        /// candidate per outcrop — its free, buildable side nearest the Hall —
+        /// returned CHEAPEST RAMP FIRST (then nearest the Hall), so the AI
+        /// spreads to fresh outcrops at base price before it pays for a third
+        /// or fourth post on one it already trades at.
+        ///
+        /// Same gates as every extractor site: seen ground, held territory
+        /// at the SITE, a reachable approach, no own plan over it, and the
+        /// snapshot's placement test (terrain, other nodes, buildings).
+        /// </summary>
+        private void CollectFreeOutpostSlots(EntityManager em, Faction faction,
+            HashSet<int> owned, List<float3> into)
+        {
+            const string id = OutpostSites.BuildingId;
+            _outpostSlots.Clear();
+            var q = AIQueryCache.NodeAt(em, ComponentType.ReadOnly<VeilstoneOutcroppingTag>());
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            var snap = TheWaningBorder.Core.Commands.Types.BuildSiteSnapshot.Current(em);
+            int2 size = BuildingSizeConfig.GetSize(id);
+
+            Entity hall = FindFactionBuilding<HallTag>(em, faction);
+            float3 hallPos = hall != Entity.Null && em.HasComponent<LocalTransform>(hall)
+                ? em.GetComponentData<LocalTransform>(hall).Position : float3.zero;
+
+            for (int i = 0; i < ents.Length; i++)
+            {
+                var np = xfs[i].Position;
+                if (!AICommon.IsKnownGround(faction, np)) continue;
+                if (TheWaningBorder.Systems.Economy.VeilstoneNodeStateSystem.KindOf(em, ents[i])
+                    == VeilstoneNodeKind.Cursed) continue;
+
+                bool found = false;
+                float bestD2 = float.MaxValue;
+                float3 best = default;
+                for (int s = 0; s < OutpostSites.SideCount; s++)
+                {
+                    var slot = OutpostSites.SideSlot(np, s);
+                    if (OutpostSites.SlotTaken(em, slot)) continue;
+                    if (TheWaningBorder.Entities.PlannedBuildings.OverlapsOwnPlan(em, faction, slot, size))
+                        continue;
+
+                    int region = RegionMap.RegionAt(slot.x, slot.z);
+                    if (region == RegionMap.None || !owned.Contains(region))
+                    { _nodesOffTerritory++; continue; }
+                    if (!HasReachableApproach(slot)) { _nodesUnreachable++; continue; }
+                    if (!snap.IsValidBuildPosition(em, slot, size, id)) continue;
+
+                    float d2 = math.distancesq(slot.xz, hallPos.xz);
+                    if (!found || d2 < bestD2) { found = true; bestD2 = d2; best = slot; }
+                }
+                if (!found) continue;
+
+                int ramp = OutpostSites.RampIndexForNewPost(em, faction, best);
+                if (ramp >= OutpostSites.SideCount) continue;
+                _outpostSlots.Add((best, ramp, bestD2));
+            }
+
+            _outpostSlots.Sort((a, b) =>
+            {
+                int c = a.Ramp.CompareTo(b.Ramp);
+                if (c != 0) return c;
+                c = a.D2.CompareTo(b.D2);
+                if (c != 0) return c;
+                c = a.Site.x.CompareTo(b.Site.x);
+                return c != 0 ? c : a.Site.z.CompareTo(b.Site.z);
+            });
+            for (int i = 0; i < _outpostSlots.Count; i++) into.Add(_outpostSlots[i].Site);
         }
     }
 }

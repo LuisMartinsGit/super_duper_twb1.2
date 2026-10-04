@@ -18,6 +18,11 @@ namespace TheWaningBorder.Core.Localization
             t["{0} - Lvl {1}"] = "{0} - Nív {1}";
             t["Must build inside your influence"] = "Tens de construir dentro da tua influência";
             t["You can only build in your own territory"] = "Só podes construir no teu próprio território";
+            // TerritoryClaimSystem.NoticeRefusedClaim (Territory_Claims.md §10)
+            t["Age up to claim new ground — Age 0 holds your start territory only"] =
+                "Sobe de era para reclamar novo terreno — na Era 0 só deténs o teu território inicial";
+            t["Too far — you can only take ground that borders your Fortress's territories"] =
+                "Demasiado longe — só podes tomar terreno que faça fronteira com os territórios da tua Fortaleza";
             t["Gatherer's Huts must be built on a free supply node"] = "As Cabanas do Recoletor têm de ser construídas num nó de mantimentos livre";
             t["This territory already has a Hall"] = "Este território já tem um Salão";
             t["Cannot claim ground another player holds"] = "Não podes reclamar terreno que outro jogador detém";
@@ -33,12 +38,12 @@ namespace TheWaningBorder.Core.Localization
             t["That building cannot be placed"] = "Esse edifício não pode ser colocado";
             t["The ground here is unsuitable"] = "O terreno aqui não é adequado";
             t["Cannot build on a resource node — only its own extractor may stand there"] = "Não é possível construir sobre um recurso — só o seu próprio extrator pode lá estar";
-            t["Alanthor do not mine veilstone — raise a Trading Outpost on it"] = "Os Alanthor não mineram veilstone — ergue um Entreposto Comercial sobre ele";
+            t["Alanthor do not mine veilstone — raise a Trading Outpost beside it"] = "Os Alanthor não mineram veilstone — ergue um Entreposto Comercial ao lado dele";
             t["Nothing — build on it"] = "Nada — constrói aqui";
             t["/min"] = "/min";
             t["This veilstone outcrop is cursed or mined out"] = "Este afloramento de veilstone está amaldiçoado ou esgotado";
-            t["Trading Outposts must stand on an uncursed veilstone outcrop"] = "Os Entrepostos Comerciais têm de ficar sobre um afloramento de veilstone não amaldiçoado";
-            t["Trading Outposts must be built on a free, uncursed veilstone outcrop"] = "Os Entrepostos Comerciais têm de ser construídos sobre um afloramento de veilstone livre e não amaldiçoado";
+            t["Trading Outposts must stand beside an uncursed veilstone outcrop"] = "Os Entrepostos Comerciais têm de ficar ao lado de um afloramento de veilstone não amaldiçoado";
+            t["Trading Outposts must stand on a free side of an uncursed veilstone outcrop"] = "Os Entrepostos Comerciais têm de ficar num lado livre de um afloramento de veilstone não amaldiçoado";
             t["Mines must be built on a free iron or veilstone node"] = "As Minas têm de ser construídas num recurso livre de ferro ou veilstone";
             t["Veilstone Mines must be built on a free, uncursed veilstone outcropping"] = "As Minas de Veilstone têm de ser construídas num afloramento livre e não amaldiçoado";
             t["Something is already built here"] = "Já existe algo construído aqui";
@@ -85,6 +90,7 @@ namespace TheWaningBorder.Core.Localization
             // ---- Curse / wells (Border systems) ----
             t["The rite collapses — the well erupts!"] = "O ritual colapsa — o poço entra em erupção!";
             t["Backlash — wave {0} of {1}!"] = "Retaliação — vaga {0} de {1}!";
+            t["A curse wave marches on your lands!"] = "Uma vaga da maldição marcha sobre as tuas terras!";
             t["A well stirs — {0} has disturbed it!"] = "Um poço agita-se — {0} perturbou-o!";
             t["Blood pool contaminating — {0} curse unit(s) will rise at ({1:0},{2:0}) in {3}s!"] =
                 "Poça de sangue em contaminação — {0} unidade(s) da maldição vão erguer-se em ({1:0},{2:0}) dentro de {3}s!";

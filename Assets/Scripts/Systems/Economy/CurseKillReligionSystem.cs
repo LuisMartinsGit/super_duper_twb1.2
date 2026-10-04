@@ -184,7 +184,7 @@ namespace TheWaningBorder.Systems.Economy
                     var border = TheWaningBorder.Data.Border.BorderSettings.Get();
                     int steel = border != null ? border.feraldisNodeVeilsteel : 0;
                     if (steel > 0)
-                        FactionEconomy.Add(em, killer, Cost.Of(veilsteel: steel));
+                        FactionEconomy.Add(em, killer, Cost.Of(veilsteel: steel), TheWaningBorder.Economy.IncomeSource.CurseKill);
                 }
             }
         }

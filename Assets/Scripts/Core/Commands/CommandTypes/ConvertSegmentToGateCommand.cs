@@ -115,7 +115,7 @@ namespace TheWaningBorder.Core.Commands.Types
             if (!TheWaningBorder.Entities.AlanthorWall.CanConvertToGate(em, focusForRule))
                 return false;
 
-            if (!FactionEconomy.Spend(em, faction, ConversionCost))
+            if (!FactionEconomy.Spend(em, faction, ConversionCost, TheWaningBorder.Economy.SpendCategory.Buildings))
                 return false;
 
             // Stash the focus instance on the segment so PickGateRegionInstances

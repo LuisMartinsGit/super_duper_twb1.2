@@ -360,8 +360,54 @@ namespace TheWaningBorder.AI
         /// number whenever the bar was 4 (operator question, 2026-09-12:
         /// "what does wave size 6 mean?" -- it meant nothing about the wave).
         /// </summary>
+        /// <summary>
+        /// The best known estimate of what defends <paramref name="pos"/>
+        /// (Game_AI.md 6a, the strength-gated wave): the larger of the live
+        /// read (hostile army + static defences in the assess radius,
+        /// AIEngagement) and what the scouts reported there -- the strongest
+        /// garrison recorded around a sighted building, or the sum of the
+        /// mobile sightings, whichever is larger -- plus the static defences.
+        /// Mobile sightings older than opportunityMaxAgeSeconds no longer
+        /// describe the place and are ignored. Pure reads, no iteration order
+        /// dependence (the buffer is walked in index order).
+        /// </summary>
+        private static int KnownDefenceAt(EntityManager em, Entity brainEntity, Faction faction,
+            float3 pos, in EngagementAssessment live)
+        {
+            int best = live.EnemyPower;
+            if (!em.HasBuffer<EnemySightingRecord>(brainEntity)) return best;
+            var sbuf = em.GetBuffer<EnemySightingRecord>(brainEntity);
+            float simNow = (float)TheWaningBorder.Core.SimClock.Now;
+            float r = AIEngagement.DefaultAssessRadius;
+            float r2 = r * r;
+            int garrison = 0, mobile = 0;
+            for (int i = 0; i < sbuf.Length; i++)
+            {
+                var s = sbuf[i];
+                if (!Alliances.AreHostile(faction, s.OwnerFaction)) continue;
+                float dx = s.Position.x - pos.x, dz = s.Position.z - pos.z;
+                if (dx * dx + dz * dz > r2) continue;
+                if (s.Category == IntelCategory.MilitaryUnit)
+                {
+                    if (simNow - s.LastSeenTime <= Cfg.opportunityMaxAgeSeconds)
+                        mobile += math.max(0, s.EstStrength);
+                }
+                else if ((s.Category == IntelCategory.Hall
+                          || s.Category == IntelCategory.MilitaryBuilding
+                          || s.Category == IntelCategory.EcoBuilding)
+                         && s.EstStrength > garrison)
+                    garrison = s.EstStrength;   // a building's tally IS its garrison
+            }
+            int scouted = math.max(garrison, mobile) + live.EnemyStaticPower;
+            return math.max(best, scouted);
+        }
+
+        /// <param name="strengthGate">Past strengthWaveAfterSeconds the wave
+        /// launches only when the army's power reaches strengthWaveRatio x the
+        /// best known defence at the objective, overdue or not (Game_AI.md
+        /// 6a).</param>
         private bool TryLaunchAttack(EntityManager em, Entity brainEntity, Faction faction, int minUnits,
-            ref SimpleAIState aiState, AISettingsSO settings, AISettingsSO.PersonalityBlock personality,
+            bool strengthGate, ref SimpleAIState aiState, AISettingsSO settings, AISettingsSO.PersonalityBlock personality,
             AIDifficultyProfile profile, float now, out int launchedSize)
         {
             launchedSize = 0;
@@ -679,7 +725,45 @@ namespace TheWaningBorder.AI
             }
 
             var assault = AIEngagement.AssessAssault(em, faction, idleMilitary, targetPos);
-            if (target != Entity.Null && !assault.ShouldFight && !overdue)
+
+            // THE LATE WAVE IS A STRENGTH TEST (2026-10-04, Game_AI.md 6a).
+            // Past strengthWaveAfterSeconds the army goes when its power beats
+            // the best known defence by strengthWaveRatio (scaled by the
+            // personality's riskMultiplier, the same appetite for risk the
+            // target scorer reads) -- and not before, overdue or not.
+            if (strengthGate)
+            {
+                int known = KnownDefenceAt(em, brainEntity, faction, targetPos, assault);
+                float ratio = Cfg.strengthWaveRatio
+                              * math.max(0.1f, personality != null ? personality.riskMultiplier : 1f);
+                float need = known * ratio;
+                // An army at the population ceiling cannot grow into the
+                // ratio, so it goes with everything it has -- what the old
+                // full-population rule asked for, kept as the release valve.
+                PopulationHelper.TryGetFactionPopulation(faction, out int sgPop, out int sgMax);
+                bool atCeiling = sgMax > 0 && sgPop >= sgMax;
+                if (assault.MyPower < need && !atCeiling)
+                {
+                    // At least as large as the defence demands, so the army
+                    // the faction keeps growing is the one that can win.
+                    int perUnit = math.max(1, assault.MyPower / math.max(1, idleMilitary.Count));
+                    int want = CountAliveMilitary(em, faction)
+                               + math.max(1, (int)math.ceil((need - assault.MyPower) / perUnit));
+                    want = math.min(want, FactionPopulation.AbsoluteMax);
+                    if (aiState.DesiredMilitary < want) aiState.DesiredMilitary = want;
+                    if ((int)(now / 120f) != (int)((now - Cfg.waveRetrySeconds) / 120f))
+                        AILogger.Log(faction, "WAVE",
+                            $"wave {aiState.WaveNumber + 1} HELD at {(int)now}s — strength " +
+                            $"{assault.MyPower} ({idleMilitary.Count} idle) vs known defence {known} " +
+                            $"at ({targetPos.x:0},{targetPos.z:0}) needs x{ratio:0.00} = {need:0}");
+                    return false;
+                }
+                AILogger.Log(faction, "WAVE", assault.MyPower >= need
+                    ? $"strength {assault.MyPower} beats known defence {known} x{ratio:0.00} — launching"
+                    : $"strength {assault.MyPower} short of {need:0} but population is full " +
+                      $"({sgPop}/{sgMax}) — launching with everything");
+            }
+            else if (target != Entity.Null && !assault.ShouldFight && !overdue)
             {
                 AILogger.Log(faction, "WAVE",
                     $"hold — assault at ({targetPos.x:0},{targetPos.z:0}) unfavourable: " +
@@ -688,7 +772,7 @@ namespace TheWaningBorder.AI
                     $"ratio {assault.Ratio:0.00}");
                 return false;
             }
-            if (!assault.ShouldFight)
+            else if (!assault.ShouldFight)
                 AILogger.Log(faction, "WAVE",
                     $"overdue — attacking anyway at ratio {assault.Ratio:0.00} " +
                     $"(cadence beats caution past {(int)Cfg.waveOverdueSeconds}s)");
@@ -774,8 +858,9 @@ namespace TheWaningBorder.AI
                         Entity u = idleMilitary[0];
                         idleMilitary.RemoveAt(0);
                         raid.Members.Add(u);
-                        CommandRouter.IssueAttackMove(em, u, raidPos, CommandSource.AI);
                     }
+                    // One formation, not a per-unit stream (AICommon.IssueGroupOrder).
+                    AICommon.IssueGroupOrder(em, raid.Members, raidPos, attackMove: true);
                     missions.Add(raid);
                 }
             }
@@ -1411,16 +1496,7 @@ namespace TheWaningBorder.AI
             // formation stop and re-slot every regroupInterval. Only a real
             // share of the army travelling loose justifies it; one or two
             // strays catch up on their own orders.
-            int loose = 0;
-            for (int i = 0; i < mission.Members.Count; i++)
-            {
-                var u = mission.Members[i];
-                if (em.HasComponent<FormationMemberState>(u)) continue;
-                if (em.HasComponent<Target>(u) && em.GetComponentData<Target>(u).Value != Entity.Null) continue;
-                bool travelling = em.HasComponent<DesiredDestination>(u)
-                    && em.GetComponentData<DesiredDestination>(u).Has != 0;
-                if (travelling) loose++;
-            }
+            int loose = AICommon.CountLooseMembers(em, mission.Members);
             if (loose == 0) return;
             if (loose < math.max(2f, mission.Members.Count * Cfg.regroupLooseFraction)) return;
 
@@ -1575,12 +1651,31 @@ namespace TheWaningBorder.AI
                 }
 
             // A hunt already under way on this node: reinforce it, no gate.
+            // Only the units freed since the last think are in the list (the
+            // hunters already marching carry AttackMoveTag), so this sends the
+            // newcomers as their own formation and never re-plans the one
+            // already on the road; units already standing at the node get a
+            // plain per-unit re-poke (AICommon.IssueGroupOrder).
             if (_religionHunt.TryGetValue(key, out var hunt)
                 && math.distancesq(hunt.Node, node) < 4f
                 && now - hunt.LaunchedAt < Cfg.religionHuntReinforceSeconds)
             {
-                for (int i = 0; i < _religionHuntArmy.Count; i++)
-                    CommandRouter.IssueAttackMove(em, _religionHuntArmy[i], node, CommandSource.AI);
+                // Reinforce only a fight still being won (newcomers plus the
+                // hunters already there): a lost hunt is called off, and the
+                // next think judges the node afresh instead of streaming
+                // recruits into it one by one.
+                var r = AIEngagement.AssessAssault(em, faction, _religionHuntArmy, node,
+                    Cfg.religionHuntAssessRadius);
+                int engaged = TacticalQuery.FactionStrengthInRadius(em, faction, node, Cfg.religionHuntAssessRadius);
+                if (r.EnemyPower > 0 && r.EnemyPower > (r.MyPower + engaged) * AIEngagement.DefaultCommitRatio)
+                {
+                    _religionHunt.Remove(key);
+                    LogReligionHunt(faction, now,
+                        $"hunt at ({node.x:0},{node.z:0}) is losing (power {r.MyPower}+{engaged} vs " +
+                        $"{r.EnemyPower}) — called off, no reinforcements");
+                    return true;
+                }
+                AICommon.IssueGroupOrder(em, _religionHuntArmy, node, attackMove: true, Cfg.waveArrivedRadius);
                 return true;
             }
             if (_religionHuntArmy.Count == 0)
@@ -1603,8 +1698,8 @@ namespace TheWaningBorder.AI
                 return true;
             }
 
-            for (int i = 0; i < _religionHuntArmy.Count; i++)
-                CommandRouter.IssueAttackMove(em, _religionHuntArmy[i], node, CommandSource.AI);
+            // The whole hunt marches as one formation (AICommon.IssueGroupOrder).
+            AICommon.IssueGroupOrder(em, _religionHuntArmy, node, attackMove: true, Cfg.waveArrivedRadius);
             _religionHunt[key] = (node, now);
             AILogger.Log(faction, "RELIGION",
                 $"first Religion Point: {_religionHuntArmy.Count} units attack the curse node at " +
@@ -1620,12 +1715,28 @@ namespace TheWaningBorder.AI
             AILogger.Log(faction, "RELIGION", $"first Religion Point: {why}");
         }
 
+        private readonly System.Collections.Generic.Dictionary<int, float> _nextReclaimHeldLog
+            = new System.Collections.Generic.Dictionary<int, float>();
+
+        private void LogReclaimHeld(Faction faction, float now, string why)
+        {
+            int key = (int)faction;
+            if (_nextReclaimHeldLog.TryGetValue(key, out float next) && now < next) return;
+            _nextReclaimHeldLog[key] = now + Cfg.claimLogInterval;
+            AILogger.Log(faction, "RECLAIM", why);
+        }
+
+        /// <summary>Host scratch for the reclaim draft (main thread only).</summary>
+        private readonly System.Collections.Generic.List<Entity> _reclaimSquad
+            = new System.Collections.Generic.List<Entity>();
+
         /// <summary>When veilstone-poor, attack-move a small squad onto the
         /// nearest live SmallNode near the base — the military reclaim the
         /// corruption design demands. Drafted units carry AttackMoveTag, so
         /// consecutive ticks never double-draft; killing the SmallNode
         /// collapses the growth and pays the residue field.</summary>
-        private void TryReclaimCorruptedPatches(EntityManager em, Faction faction, float now)
+        private void TryReclaimCorruptedPatches(EntityManager em, Faction faction,
+            bool savingForAgeUp, float now)
         {
             if (now < Cfg.reclaimEarliestSeconds) return;
 
@@ -1677,6 +1788,9 @@ namespace TheWaningBorder.AI
             bool wantsReligion = TheWaningBorder.Economy.FactionReligionPointsHelper
                 .GetBalance(em, faction) < Cfg.reclaimReligionBelow;
             if (!atDoorstep && !veilstonePoor && !wantsReligion) return;
+            // Saving for the age-up landmark: only curse at the doorstep is
+            // worth soldiers (the age-up is what opens the map).
+            if (savingForAgeUp && !atDoorstep) return;
 
             // Draft a small squad of uncommitted military (same eligibility
             // rules as the attack waves).
@@ -1684,8 +1798,9 @@ namespace TheWaningBorder.AI
             using var ents = mq.ToEntityArray(Allocator.Temp);
             using var tags = mq.ToComponentDataArray<UnitTag>(Allocator.Temp);
             using var facs = mq.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            int drafted = 0;
-            for (int i = 0; i < ents.Length && drafted < Cfg.reclaimSquadSize; i++)
+            var squad = _reclaimSquad;
+            squad.Clear();
+            for (int i = 0; i < ents.Length && squad.Count < Cfg.reclaimSquadSize; i++)
             {
                 if (facs[i].Value != faction) continue;
                 if (!IsCombatClass(tags[i].Class)) continue;
@@ -1697,9 +1812,36 @@ namespace TheWaningBorder.AI
                 if (TransientState.Active<MoveCommand>(em, e)) continue;
                 if (TransientState.Active<AttackCommand>(em, e)) continue;
                 if (TransientState.Active<UserMoveOrder>(em, e)) continue;
-                CommandRouter.IssueAttackMove(em, e, target, CommandSource.AI);
-                drafted++;
+                squad.Add(e);
             }
+            if (squad.Count == 0) return;
+
+            // NEVER FEED A LOSING FIGHT (2026-10-04). The squad used to go
+            // with whoever was idle — in practice each freshly trained
+            // Spearman walked alone onto a guarded node and died: 1,700
+            // RECLAIM orders in one 60-minute batch, 65-112 units per
+            // straggler lost to the curse before minute 15, and the supplies
+            // that should have bought the age-up spent on replacements. The
+            // squad goes only when it, plus our units already fighting there,
+            // wins against what stands at the node.
+            var assess = AIEngagement.AssessAssault(em, faction, squad, target, Cfg.reclaimAssessRadius);
+            if (assess.EnemyPower > 0)
+            {
+                int engaged = TacticalQuery.FactionStrengthInRadius(em, faction, target, Cfg.reclaimAssessRadius);
+                int mine = assess.MyPower + engaged;
+                if (mine <= 0 || assess.EnemyPower > mine * AIEngagement.DefaultCommitRatio)
+                {
+                    LogReclaimHeld(faction, now,
+                        $"held back at ({target.x:0},{target.z:0}): {squad.Count} free unit(s) power " +
+                        $"{assess.MyPower} (+{engaged} engaged) vs {assess.EnemyPower}");
+                    return;
+                }
+            }
+
+            // One formation, not a per-unit stream; anyone already standing
+            // on the node is re-poked on its own (AICommon.IssueGroupOrder).
+            AICommon.IssueGroupOrder(em, squad, target, attackMove: true, Cfg.waveArrivedRadius);
+            int drafted = squad.Count;
             if (drafted > 0)
             {
                 TWBLog.Log($"[AI {faction}] veilstone-poor — {drafted} units sent to clear the " +
@@ -1734,6 +1876,11 @@ namespace TheWaningBorder.AI
 
             if (now < aiState.NextWaveTime) return;
 
+            // CLAIMS OUTRANK WAVES while open ground waits for soldiers and
+            // nothing threatens home (Game_AI.md § 5b) — bounded, so a wave
+            // still goes after claimWaveYieldMaxSeconds.
+            if (ClaimsYieldWave(faction, aiState.Posture, now)) return;
+
             // A TARGET, NOT A DOORSTEP (2026-09-12, Game_AI.md 8). WaveBaseUnits
             // is 4 to 6, so the bar was met the moment a couple of bodies came
             // free: Red launched waves of TWO into a defended base, wasted
@@ -1763,40 +1910,23 @@ namespace TheWaningBorder.AI
             int affordable = math.max(4, (barCap > 0 ? barCap : barPop) / 3);
             minUnits = math.min(minUnits, affordable);
 
-            // PAST MINUTE 25, NOTHING LEAVES HOME BELOW FULL POPULATION
-            // (operator directive 2026-09-12, Game_AI.md 6a). The late game
-            // should be decided by real pushes, not by a stream of
-            // half-armies fed into a defended base one wave at a time. This
-            // outranks the overdue release deliberately: "attack anyway
-            // because a wave is late" is exactly the behaviour the rule
-            // exists to stop.
-            //
-            // The AI raises its own ceiling -- housing whenever it is within
-            // populationHeadroomFloor of the cap, stopping at
-            // FactionPopulation.AbsoluteMax -- so "full" settles at a
-            // 200-population faction committing everything.
-            //
-            // LOGGED EVERY TIME IT BLOCKS, with the numbers. A faction that
-            // cannot fill its cap stops attacking under this rule, and a
-            // silent version of that is indistinguishable from the passivity
-            // bug the rest of this file exists to fix.
-            if (now >= Cfg.fullPopulationAfterSeconds)
-            {
-                PopulationHelper.TryGetFactionPopulation(faction, out int pop, out int popMax);
-                if (pop < popMax)
-                {
-                    aiState.NextWaveTime = now + Cfg.waveRetrySeconds;
-                    if ((int)(now / 120f) != (int)((now - Cfg.waveRetrySeconds) / 120f))
-                        AILogger.Log(faction, "WAVE",
-                            $"wave {aiState.WaveNumber + 1} HELD at {(int)now}s — " +
-                            $"past minute {(int)(Cfg.fullPopulationAfterSeconds / 60f)} " +
-                            $"a wave needs FULL population and this faction is " +
-                            $"{pop}/{popMax} (short {popMax - pop})");
-                    return;
-                }
-            }
+            // PAST THE MARK, A WAVE LAUNCHES ON STRENGTH (2026-10-04,
+            // Game_AI.md 6a). This replaced "past minute 25, nothing leaves
+            // home below FULL population", which held late waves 221 times in
+            // one 60-minute batch while banks piled up 34k supplies and 27k
+            // iron: a faction that could not fill its cap simply stopped
+            // attacking. The late game should still be decided by real pushes
+            // rather than half-armies, so the bar is now the fight itself --
+            // the army's power against the best known defence at the
+            // objective (TryLaunchAttack) -- with a head-count FLOOR so a tiny
+            // army never trickles out at an undefended target. Like the rule
+            // it replaced, it outranks the overdue release.
+            bool strengthGate = now >= Cfg.strengthWaveAfterSeconds;
+            if (strengthGate)
+                minUnits = math.min(affordable, math.max(2, (int)math.round(
+                    Cfg.strengthWaveMinArmy * PlanProfileOf(faction).WaveBarScale)));
 
-            if (TryLaunchAttack(em, brainEntity, faction, minUnits,
+            if (TryLaunchAttack(em, brainEntity, faction, minUnits, strengthGate,
                     ref aiState, settings, personality, profile, now, out int waveSize))
             {
                 aiState.WaveNumber++;

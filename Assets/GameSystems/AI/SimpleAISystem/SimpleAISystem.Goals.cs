@@ -222,6 +222,12 @@ namespace TheWaningBorder.AI
             // five-slot queue, a deficit of twenty Spearmen and 20,505 iron
             // sitting unspent. The cap said five were allowed; the faction
             // never got past one because nothing ever asked for a second.
+            // THE SATURATION RULE (2026-10-04, Game_AI.md 5g) sits under
+            // these goals: every production building past one per province
+            // goes through ProductionGate, which refuses it unless the
+            // existing production has stayed saturated and the army is below
+            // its target, and then only for the line the plan needs most. A
+            // goal the gate holds is refused "production: extra held".
             int Line<T>(int baseline) where T : unmanaged, IComponentData
             {
                 int have = CountFactionBuildings<T>(em, faction);

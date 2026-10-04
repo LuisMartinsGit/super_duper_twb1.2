@@ -63,6 +63,13 @@ namespace TheWaningBorder.Economy
                         amount = (int)(amount * state.EntityManager.GetComponentData<TheWaningBorder.Abilities.AutoYieldBoost>(e).Mult);
                     if (amount <= 0) continue;
 
+                    // Match metrics ledger (observation only; no-op unless recording).
+                    if (EconomyLedger.Recording)
+                        EconomyLedger.Credit(tag.ValueRO.Value,
+                            state.EntityManager.HasComponent<FortressTag>(e)
+                                ? IncomeSource.Capital : IncomeSource.BuildingPassive,
+                            amount, 0f, 0f, 0f);
+
                     var key = (byte)tag.ValueRO.Value;
                     if (suppliesPerFaction.TryGetValue(key, out var existing))
                         suppliesPerFaction[key] = existing + amount;
@@ -84,7 +91,11 @@ namespace TheWaningBorder.Economy
                         // FactionSectState bridge. Phase 2 reintroduces income levers.
                         bank.ValueRW.Supplies += supplies;
                         if (bank.ValueRO.Supplies > FactionResources.ResourceCap)
+                        {
+                            EconomyLedger.Debit(tag.ValueRO.Value, SpendCategory.Overflow,
+                                bank.ValueRO.Supplies - FactionResources.ResourceCap, 0f, 0f, 0f);
                             bank.ValueRW.Supplies = FactionResources.ResourceCap;
+                        }
                     }
                 }
             }
@@ -122,6 +133,16 @@ namespace TheWaningBorder.Economy
                         resources.Iron += income.Iron * missed;
                         resources.Veilstone += income.Veilstone * missed;
                         resources.Veilsteel += income.Veilsteel * missed;
+                        if (EconomyLedger.Recording)
+                        {
+                            EconomyLedger.Credit(tag.ValueRO.Value, IncomeSource.BuildingPassive,
+                                0f, income.Iron * missed, income.Veilstone * missed, income.Veilsteel * missed);
+                            var unclamped = resources;
+                            resources.Clamp();
+                            EconomyLedger.Debit(tag.ValueRO.Value, SpendCategory.Overflow, 0f,
+                                unclamped.Iron - resources.Iron, unclamped.Veilstone - resources.Veilstone,
+                                unclamped.Veilsteel - resources.Veilsteel);
+                        }
                         resources.Clamp();
                         bank.ValueRW = resources;
                     }

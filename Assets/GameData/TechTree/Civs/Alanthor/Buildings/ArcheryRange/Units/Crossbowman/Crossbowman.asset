@@ -17,7 +17,7 @@ MonoBehaviour:
   unitClass: human_ranged
   hp: 70
   speed: 5
-  trainingTime: 22
+  trainingTime: 15.4
   damage: 18
   damageType: ranged
   armorType: ranged

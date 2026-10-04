@@ -45,6 +45,13 @@ namespace TheWaningBorder.AI
         /// <summary>Multiplier on the support systems' fixed think cadence
         /// (endgame directors, building upgrades, scouting).</summary>
         public float SupportThinkScale;
+
+        /// <summary>How hard scouted intel bends the army plan (see the SO).</summary>
+        public float CounterResponse;
+        /// <summary>Multiplier on the basics' share of the army plan.</summary>
+        public float BasicsShareScale;
+        /// <summary>Multiplier on how many claim squads go out at once.</summary>
+        public float ExpansionDrive;
     }
 
     /// <summary>
@@ -83,6 +90,9 @@ namespace TheWaningBorder.AI
                 AttackWaveIntervalSeconds = so.attackWaveIntervalSeconds,
                 WaveBaseUnits = so.waveBaseUnits,
                 SupportThinkScale = so.supportThinkScale,
+                CounterResponse = so.counterResponse,
+                BasicsShareScale = so.basicsShareScale,
+                ExpansionDrive = so.expansionDrive,
             };
         }
 

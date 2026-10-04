@@ -438,7 +438,7 @@ namespace TheWaningBorder.Core.Commands
 
             var faction = em.GetComponentData<FactionTag>(platform).Value;
             var cost = EmplacementEquipment.CostOf(engineId);
-            if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost))
+            if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost, TheWaningBorder.Economy.SpendCategory.Units))
                 return false;
 
             float seconds = EmplacementEquipment.SecondsOf(engineId);

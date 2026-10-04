@@ -17,3 +17,11 @@ MonoBehaviour:
   walletCapMinimum: 500
   logInterval: 15
   militaryShortHoldSeconds: 45
+  militaryVeilstoneShare: 0.75
+  militaryVeilstoneCreditCap: 400
+  surplusSupplies: 2000
+  surplusIron: 1000
+  armyFirstTargetFraction: 1
+  armyFirstReserveUnits: 5
+  armyFirstStatusMaxAge: 30
+  armyFirstLogInterval: 60

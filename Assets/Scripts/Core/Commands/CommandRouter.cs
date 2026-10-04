@@ -557,7 +557,7 @@ namespace TheWaningBorder.Core.Commands
             // stands. Non-stacking, and read from world state that is identical
             // on every peer, so the debit stays deterministic under lockstep.
             cost = TheWaningBorder.Economy.MusterYardDiscount.Apply(em, faction, cost);
-            if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost))
+            if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost, TheWaningBorder.Economy.SpendCategory.Research))
                 return false;
 
             switch (unitClass)
@@ -1056,7 +1056,7 @@ namespace TheWaningBorder.Core.Commands
             {
                 var faction = em.GetComponentData<FactionTag>(hall).Value;
                 if (!TheWaningBorder.Economy.FactionEconomy.Spend(
-                        em, faction, CultureConfig.AgeUpCost))
+                        em, faction, CultureConfig.AgeUpCost, TheWaningBorder.Economy.SpendCategory.AgeUp))
                 {
                     // NEVER silent (2026-08-31): this drop is invisible to
                     // the issuer — the check-then-playback gap means the
@@ -1190,7 +1190,7 @@ namespace TheWaningBorder.Core.Commands
 
                 var cost = ResearchCost(faction, techId);
                 if (!cost.IsZero
-                    && !TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost))
+                    && !TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost, TheWaningBorder.Economy.SpendCategory.Research))
                     return;
             }
 
@@ -1448,7 +1448,7 @@ namespace TheWaningBorder.Core.Commands
                 && !TheWaningBorder.Entities.AlanthorWall.CanConvertToEmplacement(em, wall, trebuchet: upgradeType == 5))
                 return false;
             var faction = em.GetComponentData<FactionTag>(wall).Value;
-            if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost))
+            if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost, TheWaningBorder.Economy.SpendCategory.Upgrades))
                 return false;
 
             WallUpgradeDirect(em, wall, upgradeType, duration);
@@ -1509,7 +1509,7 @@ namespace TheWaningBorder.Core.Commands
 
             var faction = em.GetComponentData<FactionTag>(keep).Value;
             var cost = TheWaningBorder.Core.Settings.KeepWingConfig.CostOf(wingType);
-            if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost))
+            if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost, TheWaningBorder.Economy.SpendCategory.Buildings))
                 return false;
 
             KeepWingDirect(em, keep, wing, duration);
@@ -1727,7 +1727,7 @@ namespace TheWaningBorder.Core.Commands
                     em, trainFaction, unitId,
                     TheWaningBorder.Data.UnitCosts.Get(unitId));
                 cost = TheWaningBorder.Economy.WarSectCostHelper.ApplyPaidMultiplier(cost, boonMult);
-                if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, trainFaction, cost))
+                if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, trainFaction, cost, TheWaningBorder.Economy.SpendCategory.Units))
                 {
                     if (notifyLocal)
                         SimSignals.NotifyError(Loc.T("Not enough resources"));
@@ -1910,13 +1910,19 @@ namespace TheWaningBorder.Core.Commands
                     && kind != VeilstoneNodeKind.Inactive)
                     return TheWaningBorder.World.Regions.PlacementRefusal.OutcropUnavailable;
             }
-            // The Trading Outpost stands ON an uncursed outcrop — Inactive or
-            // Depleted (a spent outcrop trades as well as a fresh one).
-            if (buildingId == TheWaningBorder.Entities.TradingOutpost.BuildingId
-                && TheWaningBorder.Systems.Economy.VeilstoneNodeStateSystem.TryGetOutcropAt(
-                       em, position.x, position.z, 4f, out _, out var outpostKind)
-                && outpostKind == VeilstoneNodeKind.Cursed)
-                return TheWaningBorder.World.Regions.PlacementRefusal.OutcropUnavailable;
+            // The Trading Outpost stands on a SIDE SLOT of an uncursed outcrop
+            // — Inactive or Depleted (a spent outcrop trades as well as a
+            // fresh one), up to four posts per outcrop (2026-10-04).
+            if (buildingId == TheWaningBorder.Entities.TradingOutpost.BuildingId)
+            {
+                if (!TheWaningBorder.Entities.TradingOutpost.TryGetOutcropOf(
+                        em, position.x, position.z, out var outcrop, out _, out byte side)
+                    || side == TheWaningBorder.Entities.TradingOutpost.OnOutcrop)
+                    return TheWaningBorder.World.Regions.PlacementRefusal.NoOutcropNearby;
+                if (TheWaningBorder.Systems.Economy.VeilstoneNodeStateSystem.KindOf(em, outcrop)
+                    == VeilstoneNodeKind.Cursed)
+                    return TheWaningBorder.World.Regions.PlacementRefusal.OutcropUnavailable;
+            }
 
             // The faction's own plans reserve their tiles
             // (docs/Design/Planned_Buildings.md).
@@ -2188,7 +2194,7 @@ namespace TheWaningBorder.Core.Commands
             BuildCommandHelper.FootprintAabb(snappedPos, BuildingSizeConfig.GetSize(buildingId),
                 out float2 nodeMin, out float2 nodeMax);
             if (TheWaningBorder.Entities.ResourceNodeSite.OverlapsNode(em, nodeMin, nodeMax,
-                    TheWaningBorder.World.Regions.TerritoryOwnership.RequiredNodeFor(buildingId)))
+                    TheWaningBorder.World.Regions.TerritoryOwnership.NodeStoodOnBy(buildingId)))
             {
                 LastPlacementRefusal = TheWaningBorder.World.Regions.PlacementRefusal.OnResourceNode;
                 UnityEngine.Debug.LogWarning(
@@ -2231,8 +2237,10 @@ namespace TheWaningBorder.Core.Commands
                 return Entity.Null;
             }
 
-            var cost = TheWaningBorder.Data.BuildCosts.For(em, faction, buildingId);
-            if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost))
+            // Position-aware: a Trading Outpost's price climbs with every post
+            // already beside its outcrop (BuildCosts.For, 2026-10-04).
+            var cost = TheWaningBorder.Data.BuildCosts.For(em, faction, buildingId, snappedPos);
+            if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost, TheWaningBorder.Economy.SpendCategory.Buildings))
                 return Entity.Null;
             if (temple)
                 TheWaningBorder.Economy.FactionReligionPointsHelper.TrySpend(em, faction, templeRp);
@@ -2262,7 +2270,7 @@ namespace TheWaningBorder.Core.Commands
                 return TheWaningBorder.World.Regions.PlacementRefusal.Overlap;
             BuildCommandHelper.FootprintAabb(position, size, out float2 nodeMin, out float2 nodeMax);
             if (TheWaningBorder.Entities.ResourceNodeSite.OverlapsNode(em, nodeMin, nodeMax,
-                    TheWaningBorder.World.Regions.TerritoryOwnership.RequiredNodeFor(buildingId)))
+                    TheWaningBorder.World.Regions.TerritoryOwnership.NodeStoodOnBy(buildingId)))
                 return TheWaningBorder.World.Regions.PlacementRefusal.OnResourceNode;
             return TheWaningBorder.World.Regions.PlacementRefusal.None;
         }

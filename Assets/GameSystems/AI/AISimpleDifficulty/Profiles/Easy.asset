@@ -20,3 +20,6 @@ MonoBehaviour:
   waveBaseUnits: 4
   sustainArmyCap: 200
   supportThinkScale: 1.5
+  counterResponse: 0.4
+  basicsShareScale: 1.35
+  expansionDrive: 0.5

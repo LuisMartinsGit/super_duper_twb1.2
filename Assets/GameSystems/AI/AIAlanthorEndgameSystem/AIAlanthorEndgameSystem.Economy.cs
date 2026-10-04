@@ -25,14 +25,16 @@ namespace TheWaningBorder.AI
 
         // Age-2 build ladder, priority-ordered. Temple leads: sect adoption
         // (chapel plots), Litharch training and the whole religious layer
-        // hang off it. Then the military
-        // production pair the armoured-unit pass trains from. (The Practice
-        // Range is the LEVELED Archery Range now, not a placeable building.)
+        // hang off it. (The Practice Range is the LEVELED Archery Range now,
+        // not a placeable building.)
+        // The Royal Stable and Siege Yard LEFT the ladder (2026-10-04,
+        // Game_AI.md 5g): production buildings come from SimpleAISystem only
+        // — one per province (the line the army plan needs most), more only
+        // while the existing production is saturated (ProductionGate). The
+        // ladder placed them at home past that rule.
         private static readonly (string id, float rMin, float rMax)[] Age2Ladder =
         {
             ("TempleOfRidan",          16f, 26f),
-            ("Alanthor_RoyalStable",   18f, 30f),
-            ("Alanthor_SiegeYard",     20f, 32f),
         };
 
         /// <summary>Returns true while a ladder entry is still missing (an
@@ -111,7 +113,7 @@ namespace TheWaningBorder.AI
             if (flush)
             {
                 if (!AIEndgameCommon.TryFindBuildSpotRingGap(em, hallPos, size, ringMin, ringMax * 1.6f,
-                        angleSamples: 24, radiusStep: 4f, seededStart: true, gap: 0f, out pos))
+                        angleSamples: 24, radiusStep: 4f, seededStart: true, gap: 0f, out pos, buildingId))
                     return false;
             }
             else if (!TryFindBuildPositionRing(em, hallPos, size, ringMin, ringMax, out pos)

@@ -6,11 +6,10 @@ Three files. One runs matches, one joins what they leave behind, one draws it.
 |---|---|
 | `twb-run.ps1` | runs matches — single-player batches, lockstep multiplayer, or a forever-loop |
 | `twb-match-data.py` | every artefact of every run → one JSON, one record per match |
-| `twb-report.py` | that JSON → one self-contained HTML page (or `--text` for the console) |
+| `twb-report.py` | that JSON → the Muster Rolls page: a folder (`--folder`) or one self-contained HTML file (`--out`), or `--text` for the console |
 
 `twb-report-page.html` is the page template. `twb-report.py` drops the data
-into it at the `/*__TWB_DATA__*/` marker, so the result carries its own data
-and opens anywhere with no server behind it.
+into it at the `/*__TWB_DATA__*/` marker.
 
 ## Running matches
 
@@ -53,9 +52,67 @@ game end" rather than "how many can I get through".
 ## Reading them
 
 ```powershell
+# a folder: index.html + matches/<key>.json + maps/<map>.png  (publish this)
+python tools/twb-report.py "Build/Current/logs" --folder muster-site
+# one self-contained file, for opening straight from disk
 python tools/twb-report.py "Build/Current/logs" --out twb-report.html
 python tools/twb-report.py "Build/Current/logs" --text     # console roll-up
 ```
+
+**Two shapes of the same page.**
+
+* `--folder DIR` writes `index.html` (the page, the run ledger and a light
+  summary per match), one `matches/<key>.json` per match with its full
+  record, and the map pictures as `maps/<map>.png`. The page `fetch()`es a
+  match's file when it is selected, with a loading state. Nothing is shared
+  between matches, so nothing is squeezed between them. A browser will not
+  `fetch()` local files from a `file://` page, so view it over http
+  (`python -m http.server` in the folder) or publish it — an artifact takes
+  16 MB per file, 255 files and 64 MB per version, and the builder prints
+  every file's size and warns past those limits. A match file over 15 MB has
+  its tracks re-simplified at a larger tolerance until it fits, and says so.
+* `--out FILE` (or `--inline`) embeds everything into one HTML file that opens
+  from disk. One file has one ceiling (14 MB), so when the page is over it the
+  replay tolerance is raised across all matches; only past the last step are
+  whole matches dropped, oldest first, and the page lists them.
+
+**The replay is a track per unit (2026-10-03).** Every unit in `MapTrace.txt`
+is carried — none is sampled away. Each unit's 1 Hz samples are simplified
+with a time-aware Douglas-Peucker: a sample is dropped only if linear
+interpolation in time between the kept keyframes passes within 0.75 m of it
+(`--track-tol` on the extractor), and every sample where the unit's flags
+(moving / in formation / fighting) change is kept, as are its first and last
+(spawn and death). Per match the data is a type dictionary plus, per unit,
+`[typeIndex, factionIndex, codes]` where `codes` are integer triples
+`(frameDelta*8 + flags, dx, dz)` in decimetres, the first absolute, against
+`ft` — the frame times in deciseconds, delta-encoded. The page unpacks this
+once into typed arrays and draws each unit by interpolating along its own
+keyframes, hidden before its first and after its last; the live counts are
+the units alive at that instant, and formation glyphs at whole-map zoom are
+grouped on the page from every live unit. An hour-long match is 1.5–6 MB.
+`?m=&t=&z=&cx=&cz=` deep-links a moment, `&play=8` starts playback, and
+`&debug=1` overlays drawn-against-alive counts and the draw cost.
+
+**Territories are the game's own partition (2026-10-04).** The `R` lines are
+only seeds; the ground the game plays on is `RegionMap.RegionAt` (authored
+outlines with their sliver tolerance, warped Voronoi where a region has none,
+no territory on Water / Mountain / Obstacle regions). `MapTrace.txt` now
+carries that partition and its owners, and the page tints each territory by
+its owner (the curse in its purple, unowned untinted) with crisp borders —
+bright where the owners differ — dashed red while contested, and the meter
+(`Blue 60%`) under the name while someone is filling it. `TER` / `T` toggles
+the layer; a trace from before these lines draws no territory layer.
+
+| Line | When | Fields |
+|---|---|---|
+| `TG cell x0 z0 w h` | once, after `R` | raster of `RegionAt` at cell centres: cell size (m; 2, doubled until the map is at most 512 cells across), south-west corner on the build grid, size in cells |
+| `TR j id:n id:n ...` | once per row | row `j` (0 = south), run-length encoded west to east; id `-1` = no territory |
+| `TO t idx owner` | first check, then on change | `TerritoryOwnership.OwnerOf`: faction name, `Border` (curse) or `-`; read when `TerritoryOwnership.Version` moves |
+| `TM t idx holder pct contested` | at a sample, on change | the ownership meter: who fills it, 0..100, 1 if hostiles froze it; written on a holder / contested change, a 10-point step, or reaching 0 / 100 |
+
+In the match JSON this is `terr = {cell, x0, z0, w, h, rows, own, meter}`:
+`rows` stay run-length encoded (`[id, n, id, n, ...]` per row), `own` and
+`meter` are the change events as written.
 
 Pass as many log roots as you like; they are joined on the match. Peers of one
 lockstep match are folded into ONE record — a four-peer match is one match
@@ -111,8 +168,10 @@ three.
 | `Metrics_Combat.csv` | end of match: kills and deaths per faction, by minute |
 | `Metrics_Deaths.csv` | every death as an event — where the battles were |
 | `Metrics_UnitPositions.csv` | positions, sampled — the match unfolding on the map |
+| `Metrics_Income.csv` | per sample (since 2026-10-04): `t,faction,flow,source,supplies,iron,veilstone,veilsteel` — what moved in the period ENDING at `t`. `flow=in` is GROSS income by source (`emptySlot`, `gatherersHut`, `mine`, `veilstoneMine`, `fortressLevel` = the capital-level x2/x4 share of territory yield, `capital`, `buildingPassive`, `trade`, `vault`, `curseKill`, `loot`, `refund`, `grant`, `other`); `flow=out` is spending by category (`units`, `buildings`, `upgrades`, `research`, `ageUp`, `trade`, `repair`, `religion`, `vault`, `overflow` = clamped by the 100k bank cap, `other`). `untracked` (either flow) is the bank delta the ledger did not see — a direct bank write. Only non-zero rows. Fed by `Economy/EconomyLedger.cs`, observation only |
 
 plus `Lockstep.log` (a checksum row per tick, per peer), `Console.log`,
 `Perf.log`, `AI_<colour>.log` (the AI's own account of itself) and, when
 `-Trace` is on, `MapTrace.txt` — the per-second replay feed with unit
-identity that the map replay is actually drawn from.
+identity that the map replay is actually drawn from (as per-unit tracks; see
+"Reading them").

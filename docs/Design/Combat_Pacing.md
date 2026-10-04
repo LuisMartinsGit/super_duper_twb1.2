@@ -170,13 +170,33 @@ unit is bonused against and the beat it delivers.
 | Alanthor_Crossbowman | **Cavalry** | Bolts pierce barding — the cataphract answer (beat 3) |
 | Alanthor_Cataphract | **Ranged** | Runs down longbow/crossbow lines (beats 2-3) |
 | Alanthor_Outrider | **Ranged** (smaller than the Cataphract's) | Light harasser version of the same job |
-| Alanthor_Ballista | Building | Hard-target cracker (beat 2) |
+| Alanthor_Ballista | Building | Hard-target cracker (beat 2); in the field it hunts heroes, heavy cavalry and engines (§ Target preference) |
 | Alanthor_Trebuchet | Building (the largest) | Area siege, wall-line killer (beats 2-3) |
 | Alanthor_BatteringRam | Building (the largest) | Buildings-only attacker (`BuildingsOnlyAttacker`) |
 | Alanthor_Archer | **Infantry** | Closes the triangle (below) - massed bows clear a foot line |
 | Alanthor_Swordsman | **Siege** | Infantry is how a siege line dies; siege carries 0 melee armor to match |
 | Alanthor_Sentinel | **Heavy** | Gives the tank something it can actually kill: elite armour |
-| Alanthor_Catapult | **Building and Infantry** | Splash - the anti-mass answer as well as a wall-breaker |
+| Alanthor_Catapult | **Building and Infantry** | Splash - the anti-mass answer as well as a wall-breaker; aims at the densest knot (§ Target preference) |
+
+### Target preference (2026-10-03)
+
+The two **anti-army** siege engines are built to pick a kind of target, and
+they do it when they choose their own: a unit carrying `preferTargets` on its
+SO takes a preferred candidate **inside its own attack reach** over the
+nearest one (TargetingSystem's auto-acquire; `TargetPreference` component).
+
+| Unit | Prefers | Why |
+|------|---------|-----|
+| Alanthor_Ballista | `Hero`, `Cavalry+Heavy`, `Siege` | Single heavy bolts: heroes, barded cavalry and enemy engines — the high-value targets a bow line cannot finish |
+| Alanthor_Catapult | `Massed` (the candidate standing among the most enemies) | Splash: put the stone where the formation is thickest |
+
+Rules: an entry is tags joined by `+` (the candidate must carry all of them),
+`Hero`, or `Massed`; units only, never buildings; only inside reach, so a
+preference never drags an engine off its post or out of its formation; an
+ORDERED target is never overridden. Every other unit keeps the nearest /
+value pick. The Battering Ram and the Trebuchet need no preference — the Ram
+attacks buildings only and the Trebuchet's work is walls. The AI composes by
+the same roles (Game_AI.md §5d).
 
 ### The triangle
 

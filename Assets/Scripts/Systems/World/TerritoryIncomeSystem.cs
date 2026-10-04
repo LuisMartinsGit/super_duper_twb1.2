@@ -36,6 +36,7 @@ using TheWaningBorder.Core;
 using TheWaningBorder.Economy;
 using TheWaningBorder.World.MapMarkers;
 using TheWaningBorder.World.Regions;
+using OutpostSites = TheWaningBorder.Entities.TradingOutpost;   // avoids the DC0062 Entities.ForEach misread
 
 namespace TheWaningBorder.Systems.World
 {
@@ -216,17 +217,75 @@ namespace TheWaningBorder.Systems.World
                 // drainMinutes > 0: this is the PAYING call, so it also takes
                 // what it pays out of the ground. The panel's read-only call
                 // passes 0 — a player opening the Hall panel must not mine.
-                var yield = Yield(em, census, t, (Faction)owner, minutes);
+                float[] split = null;
+                if (EconomyLedger.Recording)
+                {
+                    split = _ledgerSplit;
+                    System.Array.Clear(split, 0, split.Length);
+                }
+                var yield = Yield(em, census, t, (Faction)owner, minutes, split);
                 if (yield.IsEmpty) continue;
 
+                // Ledger-tagged as Other: the source split is booked below.
                 FactionEconomy.Add(em, (Faction)owner, new Cost
                 {
                     Supplies  = Draw(ref _carrySupplies[owner],  yield.Supplies  * minutes),
                     Iron      = Draw(ref _carryIron[owner],      yield.Iron      * minutes),
                     Veilstone = Draw(ref _carryVeilstone[owner], yield.Veilstone * minutes),
                     Veilsteel = Draw(ref _carryVeilsteel[owner], yield.Veilsteel * minutes),
-                });
+                }, IncomeSource.Other);
+                if (split != null) BookSplit((Faction)owner, yield, split, minutes);
             }
+        }
+
+        // -- Ledger attribution (observation only) --------------------------
+        //
+        // Yield() writes each slot's pre-Fortress-level rate into this scratch
+        // array when the ledger is recording. Nothing in the payout reads it,
+        // so it cannot change what is paid. Layout:
+        //   0 supply empty   1 supply hut   2 iron empty   3 iron mine
+        //   4 veil empty     5 veil mine    6 the territory's level multiplier
+        private readonly float[] _ledgerSplit = new float[7];
+
+        /// <summary>
+        /// Book one territory's paid yield by source. The tick has just booked
+        /// it as <see cref="IncomeSource.Other"/> (whole units, after the
+        /// carry); this moves the same float amount out of Other and into its
+        /// real sources, so per resource the sources sum to what the territory
+        /// paid. The level multiplier's share - everything above the x1 base -
+        /// is booked as <see cref="IncomeSource.FortressLevel"/>.
+        /// </summary>
+        private static void BookSplit(Faction owner, TerritoryYield y, float[] split, float minutes)
+        {
+            EconomyLedger.Credit(owner, IncomeSource.Other,
+                -y.Supplies * minutes, -y.Iron * minutes, -y.Veilstone * minutes, -y.Veilsteel * minutes);
+            float m = split[6] > 1f ? split[6] : 1f;
+            BookResource(owner, 0, y.Supplies * minutes, m, split[0], split[1], IncomeSource.GatherersHut);
+            BookResource(owner, 1, y.Iron * minutes, m, split[2], split[3], IncomeSource.Mine);
+            BookResource(owner, 2, y.Veilstone * minutes, m, split[4], split[5], IncomeSource.VeilstoneMine);
+            if (y.Veilsteel != 0f) LedgerCredit(owner, IncomeSource.Other, 3, y.Veilsteel * minutes);
+        }
+
+        private static void BookResource(Faction owner, int resource, float paid, float levelMult,
+            float emptyPart, float builtPart, IncomeSource extractor)
+        {
+            if (paid <= 0f) return;
+            float baseAmt = paid / levelMult;
+            float bonus = paid - baseAmt;
+            float parts = emptyPart + builtPart;
+            float emptyAmt = parts > 0f ? baseAmt * emptyPart / parts : 0f;
+            float builtAmt = baseAmt - emptyAmt;
+            LedgerCredit(owner, IncomeSource.EmptySlot, resource, emptyAmt);
+            LedgerCredit(owner, extractor, resource, builtAmt);
+            LedgerCredit(owner, IncomeSource.FortressLevel, resource, bonus);
+        }
+
+        private static void LedgerCredit(Faction owner, IncomeSource src, int resource, float amount)
+        {
+            if (amount == 0f) return;
+            EconomyLedger.Credit(owner, src,
+                resource == 0 ? amount : 0f, resource == 1 ? amount : 0f,
+                resource == 2 ? amount : 0f, resource == 3 ? amount : 0f);
         }
 
         /// <summary>Add this tick's fractional amount to the carry and hand back
@@ -318,11 +377,10 @@ namespace TheWaningBorder.Systems.World
             // Paid straight to the faction, wherever it stands.
             if (em.HasComponent<TradingOutpostTag>(building))
             {
-                if (!TheWaningBorder.Entities.TradingOutpost.HasLiveOutcrop(em, p.x, p.z)) return y;
-                var recipe = TheWaningBorder.Entities.TradingOutpost.RecipeOf(em, building);
-                if (!TheWaningBorder.Systems.Economy.TradingOutpostSystem.IsUnlocked(owner, recipe))
-                    recipe = TradeRecipe.BuyVeilstone;
-                TheWaningBorder.Systems.Economy.TradingOutpostSystem.PerMinute(owner, recipe,
+                if (!OutpostSites.HasLiveOutcrop(em, p.x, p.z)) return y;
+                // The post's own rate (recipe, research, its level) — the
+                // number TradingOutpostSystem's cycle pays.
+                TheWaningBorder.Systems.Economy.TradingOutpostSystem.PerMinuteFor(em, building,
                     out var spend, out var earn);
                 y.Supplies = earn.Supplies - spend.Supplies;
                 y.Iron = earn.Iron - spend.Iron;
@@ -494,7 +552,7 @@ namespace TheWaningBorder.Systems.World
         /// to the territory — the same entities in the same order the
         /// per-territory scans used, so the float totals are bit-identical.</summary>
         private static TerritoryYield Yield(EntityManager em, Census c, int territory, Faction owner,
-            float drainMinutes)
+            float drainMinutes, float[] split = null)
         {
             var y = new TerritoryYield();
             if (territory < 0 || !RegionMap.Ready) return y;
@@ -505,17 +563,21 @@ namespace TheWaningBorder.Systems.World
             var hutLadder = LadderFor(HutId, culture);
             for (int i = 0; i < c.SupplyRegion.Count; i++)
                 if (c.SupplyRegion[i] == territory)
-                    y.Supplies += hutLadder.At(c.SupplyHutLevel[i]);
+                {
+                    float rate = hutLadder.At(c.SupplyHutLevel[i]);
+                    y.Supplies += rate;
+                    if (split != null) split[c.SupplyHutLevel[i] > 0 ? 1 : 0] += rate;
+                }
 
             // Ore slots. Survey research scales each line. There is no
             // veilsteel line — veilsteel is MADE (the Trading Outpost), never
             // mined.
             y.Iron = OreSlotYield(em, c.Ore[0], territory, drainMinutes, LadderFor(MineId, culture),
-                                  IronYieldMultiplier, false, MineTechMultiplier(owner))
+                                  IronYieldMultiplier, false, MineTechMultiplier(owner), split, 2)
                      * SurveyMultiplier(owner, IronSurveyLadder);
             float veilMult = culture == Cultures.Feraldis ? FeraldisVeilstoneMultiplier : 1f;
             y.Veilstone = OreSlotYield(em, c.Ore[1], territory, drainMinutes, LadderFor(VeilstoneMineId, culture),
-                                       veilMult, true)
+                                       veilMult, true, 1f, split, 4)
                           * SurveyMultiplier(owner, VeilstoneSurveyLadder);
 
             // ── The Hall doubles everything the territory earns ──────────
@@ -532,6 +594,7 @@ namespace TheWaningBorder.Systems.World
             for (int i = 0; i < c.HallRegion.Count; i++)
                 if (c.HallRegion[i] == territory && c.HallLevel[i] > hallLevel)
                     hallLevel = c.HallLevel[i];
+            if (split != null) split[6] = hallLevel > 1 ? Pow2(hallLevel - 1) : 1f;
             if (hallLevel > 1)
             {
                 float m = Pow2(hallLevel - 1);
@@ -777,7 +840,7 @@ namespace TheWaningBorder.Systems.World
         /// </summary>
         private static float OreSlotYield(EntityManager em, OreCensus o, int territory,
             float drainMinutes, SlotLadder ladder, float multiplier, bool veilstone,
-            float extractorMultiplier = 1f)
+            float extractorMultiplier = 1f, float[] split = null, int splitIndex = 0)
         {
             float total = 0f;
             for (int i = 0; i < o.Node.Count; i++)
@@ -817,6 +880,10 @@ namespace TheWaningBorder.Systems.World
                     }
                 }
                 total += rate;
+                // Ledger only: which half of the slot line this rate is.
+                // BookSplit uses only the proportions, so the survey multiplier
+                // applied after the sum does not need repeating here.
+                if (split != null) split[splitIndex + (o.ExtractorLevels[i] > 0 ? 1 : 0)] += rate;
             }
             return total;
         }

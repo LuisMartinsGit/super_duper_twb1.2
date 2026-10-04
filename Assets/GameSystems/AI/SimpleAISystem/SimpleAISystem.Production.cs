@@ -204,6 +204,15 @@ namespace TheWaningBorder.AI
                     out int reqLevel, out string trainerName))
             { blockReason = $"needs Lv{reqLevel} {trainerName}"; return false; }
 
+            var cost = AICommon.ToCost(def.cost);
+
+            // THE ARMY PLAN (2026-10-03, SimpleAISystem.Composition.cs): the
+            // basics cap and King Lexor's priority apply to EVERY training
+            // path, so no caller can buy a basic past the cap or spend the
+            // king's veilstone and population.
+            string planBlock = CompositionGate(em, faction, unitId, cost);
+            if (planBlock != null) { blockReason = planBlock; return false; }
+
             // ANTI-STAGNATION: don't queue what population can't spawn. A
             // pop-blocked item sits in the 5-slot queue forever, clogging
             // every later train/research order for the faction. The Hut
@@ -231,8 +240,11 @@ namespace TheWaningBorder.AI
             // RESOURCE-AWARE (2026-10-03): only a unit that spends a resource
             // the save is short on is held — a veilstone-short Fortress save
             // no longer freezes supplies/iron infantry.
-            var cost = AICommon.ToCost(def.cost);
-            if (TheWaningBorder.AI.AIPivotalReserve.ShouldHold(em, faction, cost))
+            // MILITARY PRIORITY (2026-10-03): the capital uniques are never
+            // held (they are pivotal purchases themselves), and a combat unit
+            // is judged only on the veilstone the army's earmark does not
+            // cover — see MilitaryHold.
+            if (MilitaryHold(em, faction, unitId, cost))
             {
                 bool essential =
                     (unitId == "Worker"
@@ -274,6 +286,7 @@ namespace TheWaningBorder.AI
             // Through CommandRouter (CommandSource.AI) so host-AI training
             // replicates — a direct queue.Add spawned units on the host only.
             CommandRouter.IssueTrain(em, trainer, unitId, CommandSource.AI);
+            NoteArmyPlanTrained(faction, unitId);
             InvalidateThinkMemo();   // a queue and (single-player) the bank moved
             return true;
         }
@@ -291,10 +304,14 @@ namespace TheWaningBorder.AI
             {
                 case "Worker":
                 case "Scout":
+                    return FindFactionBuilding<HallTag>(em, faction);
+                // The capital uniques go to whichever capital can take them
+                // (home first) — a faction holding several Fortresses was
+                // otherwise bound to the home seat's level and queue alone.
                 case "Ledger":
                 case "King Lexor":
                 case "KingLexor":
-                    return FindFactionBuilding<HallTag>(em, faction);
+                    return FindCapitalTrainer(em, faction, unitId);
                 case "Spearman":
                 case "Swordsman":
                 case "Alanthor_Swordsman":
@@ -455,6 +472,10 @@ namespace TheWaningBorder.AI
                 // Alanthor Age-1 research hosts (Wave 2 military tree).
                 "Alanthor_RoyalStable" => FindResearchHost<RoyalStableTag>(em, faction),
                 "Alanthor_SiegeYard"   => FindResearchHost<SiegeYardTag>(em, faction),
+                // The Trading Outpost hosts its own trade research
+                // (Veilstone_Economy.md §3.1). With no case here the AI
+                // could never buy a single Outpost tech.
+                "Alanthor_TradingOutpost" => FindResearchHost<TradingOutpostTag>(em, faction),
                 // The Temple's own research (docs/Design/Religion.md §2).
                 "TempleOfRidan"        => FindResearchHost<TempleOfRidanTag>(em, faction),
                 // Sect buildings — each sells exactly its own sect's research
@@ -481,6 +502,11 @@ namespace TheWaningBorder.AI
             var cost = AICommon.ToCost(def.cost);
             if (TheWaningBorder.AI.AIPivotalReserve.ShouldHold(em, faction, cost))
             { blockReason = "pivotal hold (saving)"; return false; }
+
+            // The army's veilstone earmark is not research money
+            // (AIBudget.LeavesMilitaryVeilstone, 2026-10-03).
+            if (!AIBudget.LeavesMilitaryVeilstone(em, faction, cost))
+            { blockReason = "veilstone earmarked for the army"; return false; }
 
             // Affordability CHECK only — ResearchCommandDirect spends on
             // every peer (docs/Multiplayer_LAN_Readiness.md).
@@ -559,6 +585,11 @@ namespace TheWaningBorder.AI
         private static readonly System.Collections.Generic.Dictionary<Faction, int> _floorBlockTicks
             = new System.Collections.Generic.Dictionary<Faction, int>();
 
+        /// <summary>Next time the "army floor paused — no standing trainer"
+        /// line may be written, per faction (simulated time).</summary>
+        private static readonly System.Collections.Generic.Dictionary<Faction, float> _nextNoTrainerLog
+            = new System.Collections.Generic.Dictionary<Faction, float>();
+
         /// <summary>Last unit reported as having no trainer, per faction —
         /// de-dupes an otherwise per-tick log line.</summary>
         private static readonly System.Collections.Generic.Dictionary<Faction, string> _lastMissingTrainer
@@ -578,6 +609,47 @@ namespace TheWaningBorder.AI
                 int aliveMil = CountAliveMilitary(em, faction);
                 int queuedMil = CountQueuedByPredicate(em, faction, isCombat: true);
                 int deficit = aiState.DesiredMilitary - (aliveMil + queuedMil);
+
+                // NO TRAINER, NO ORDER (2026-10-04, Game_AI.md 6c). This runs
+                // FIRST in the think, on the unit the previous think picked;
+                // when that unit's building has just been razed the floor
+                // asked for it anyway, then fell back to a Spearman whose
+                // Barracks was gone too -- Headless28 logged 123 "floor unit X
+                // has no trainer" and 72 "floor blocked ... no trainer" lines,
+                // most of them from factions with no production left at all.
+                // Re-pick from what can be trained now; with nothing, pause
+                // the floor quietly until the lost-trainer rebuild stands.
+                if (deficit > 0
+                    && FindTrainerForUnit(em, faction, aiState.LastMilitaryUnit.ToString()) == Entity.Null)
+                {
+                    string repick = PickCompositionUnit(em, brainEntity, faction, now, budget, intelFreshness);
+                    if (string.IsNullOrEmpty(repick) || FindTrainerForUnit(em, faction, repick) == Entity.Null)
+                    {
+                        var trainable = TrainableCombatIds(em, faction);
+                        repick = trainable.Count > 0 ? trainable[0] : null;
+                    }
+                    if (repick == null)
+                    {
+                        AIBudget.SetArmyStatus(faction, aliveMil + queuedMil, aiState.DesiredMilitary,
+                            default, canAbsorb: false);
+                        _floorBlockTicks[faction] = 0;
+                        if (!_nextNoTrainerLog.TryGetValue(faction, out float nextLog) || now >= nextLog)
+                        {
+                            _nextNoTrainerLog[faction] = now + Cfg.noTrainerLogInterval;
+                            AILogger.Log(faction, "MILITARY",
+                                $"army floor paused — no standing trainer for any combat unit " +
+                                $"(deficit {deficit}; waiting on the lost-trainer rebuild)");
+                        }
+                        deficit = 0;   // nothing to order; the worker floor below still runs
+                    }
+                    else aiState.LastMilitaryUnit = new FixedString64Bytes(repick);
+                }
+                else _nextNoTrainerLog.Remove(faction);
+
+                if (deficit <= 0 && aliveMil + queuedMil >= aiState.DesiredMilitary)
+                    AIBudget.SetArmyStatus(faction, aliveMil + queuedMil, aiState.DesiredMilitary,
+                        default, canAbsorb: true);
+
                 if (deficit > 0)
                 {
                     // TryTrainUnit (not the build-order wrapper) so DesiredMilitary
@@ -654,6 +726,26 @@ namespace TheWaningBorder.AI
                         }
                     }
 
+                    // ARMY FIRST (AIBudget.ArmyFirstYield, Game_AI.md 5f): tell
+                    // the surplus spenders whether the army is below target
+                    // and could take the bank. It cannot when every trainer's
+                    // queue is full, population is capped, or no trainer
+                    // stands -- then nothing yields to it.
+                    {
+                        bool canAbsorb = trained > 0 || floorBlock == null
+                            || !(floorBlock.Contains("queue full")
+                                 || floorBlock.StartsWith("population capped")
+                                 || floorBlock == "no trainer"
+                                 || floorBlock == "trainer under construction"
+                                 || floorBlock.StartsWith("needs Lv"));
+                        Cost unitCost = default;
+                        if (TechCatalog.TryGetUnit(aiState.LastMilitaryUnit.ToString(), out var lastDef)
+                            && lastDef != null)
+                            unitCost = AICommon.ToCost(lastDef.cost);
+                        AIBudget.SetArmyStatus(faction, aliveMil + queuedMil + trained,
+                            aiState.DesiredMilitary, unitCost, canAbsorb);
+                    }
+
                     // A silently blocked floor gets a log line about once a
                     // minute (2026-08-04: Blue held 0 military for 25 min
                     // with a Barracks standing and the log said nothing).
@@ -688,8 +780,15 @@ namespace TheWaningBorder.AI
                             floorTrainer == Entity.Null
                             || TheWaningBorder.Core.Commands.CommandRouter
                                    .IsProductionQueueFull(em, floorTrainer);
+                        // NOT PAST THE BASICS CAP (2026-10-04, Game_AI.md
+                        // 5d): with the plan active and the basics at their
+                        // share, a Spearman is exactly what the cap refuses —
+                        // the army waits for its role unit instead.
                         if (trainerUnusable
-                            && !aiState.LastMilitaryUnit.Equals(new FixedString64Bytes("Spearman")))
+                            && !aiState.LastMilitaryUnit.Equals(new FixedString64Bytes("Spearman"))
+                            && !BasicsCapped(em, faction)
+                            // ...and only onto a Spearman something can train.
+                            && FindTrainerForUnit(em, faction, "Spearman") != Entity.Null)
                         {
                             // Log ONCE per distinct missing trainer. The
                             // build order re-adopts its preferred unit every
@@ -702,7 +801,9 @@ namespace TheWaningBorder.AI
                             {
                                 _lastMissingTrainer[faction] = missing;
                                 AILogger.Log(faction, "MILITARY",
-                                    $"floor unit {missing} has no trainer — falling back to Spearman " +
+                                    $"floor unit {missing} " +
+                                    (floorTrainer == Entity.Null ? "has no trainer" : "has only full queues") +
+                                    " — falling back to Spearman " +
                                     "(repeats suppressed until it changes)");
                             }
                             aiState.LastMilitaryUnit = new FixedString64Bytes("Spearman");
@@ -827,11 +928,18 @@ namespace TheWaningBorder.AI
             {
                 var buffer = em.GetBuffer<EnemySightingRecord>(brainEntity);
                 int meleeStr = 0, rangedStr = 0, cavStr = 0;
+                // FRESHNESS AGAINST THE NEWEST SIGHTING (2026-10-03): the
+                // records are stamped on the intel system's world clock while
+                // `now` is match-relative, so "now - LastSeenTime" was never
+                // positive and every stale sighting counted as fresh.
+                float newest = float.MinValue;
+                for (int i = 0; i < buffer.Length; i++)
+                    if (buffer[i].LastSeenTime > newest) newest = buffer[i].LastSeenTime;
                 for (int i = 0; i < buffer.Length; i++)
                 {
                     var rec = buffer[i];
                     if (rec.Category != IntelCategory.MilitaryUnit) continue;
-                    if (now - rec.LastSeenTime > intelFreshness) continue;
+                    if (newest - rec.LastSeenTime > intelFreshness) continue;
                     if (!em.Exists(rec.Enemy) || !em.HasComponent<UnitTag>(rec.Enemy)) continue;
                     var cls = em.GetComponentData<UnitTag>(rec.Enemy).Class;
                     if (em.HasComponent<CavalryTag>(rec.Enemy)) cavStr += rec.EstStrength;
@@ -945,6 +1053,19 @@ namespace TheWaningBorder.AI
             bool rangedHeavy = c.RangedHeavy;
             string melee = c.Melee, ranged = c.Ranged, cavalry = c.Cavalry, siege = c.Siege;
             float desiredRangedFrac = c.DesiredRangedFrac;
+
+            // AN AGED-UP ALANTHOR ARMY IS PLANNED BY ROLE (2026-10-03,
+            // SimpleAISystem.Composition.cs): every unit for its job against
+            // the scouted enemy, the basics' share dynamic and capped, the
+            // army saving for its role unit instead of stepping down to
+            // Spearman/Archer whenever veilstone is short.
+            // Everything below is the pre-plan tail — Age 0, and the other
+            // cultures.
+            if (FactionCultureOf(em, faction) == Cultures.Alanthor)
+            {
+                var plan = GetArmyPlan(em, faction);
+                if (plan.Active) return PickPlannedUnit(em, faction, plan);
+            }
 
             int totalArmy = ownMelee + ownRanged + ownCav + ownSiege;
 
@@ -1066,8 +1187,7 @@ namespace TheWaningBorder.AI
             // stalled on the same refusal. Pass it over so the line steps
             // down to a unit the hold lets through.
             if (TechCatalog.TryGetUnit(unitId, out var heldDef) && heldDef != null
-                && TheWaningBorder.AI.AIPivotalReserve.ShouldHold(em, faction,
-                       AICommon.ToCost(heldDef.cost)))
+                && MilitaryHold(em, faction, unitId, AICommon.ToCost(heldDef.cost)))
                 return true;
             if (!_unitUnaffordableUntil.TryGetValue((faction, unitId), out float until)) return false;
             if (TheWaningBorder.Core.SimClock.Now >= until)

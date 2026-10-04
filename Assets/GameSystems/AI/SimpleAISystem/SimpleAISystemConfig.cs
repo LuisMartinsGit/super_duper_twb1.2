@@ -155,6 +155,29 @@ namespace TheWaningBorder.AI
         /// skipped.</summary>
         public float fortressSiteRetrySeconds;
 
+        // ── Lost sole trainer (2026-10-04, Game_AI.md 6c) ────────────────
+
+        /// <summary>After a lost production line's replacement is placed, the
+        /// rebuild for that line waits this long before it may place another
+        /// — a lockstep placement lands two ticks later, so the count would
+        /// otherwise read zero again on the next think.</summary>
+        public float lostTrainerRetrySeconds;
+
+        /// <summary>When a lost line's rebuild is refused for "bank short",
+        /// arm a STRICT AIPivotalReserve for its price (no duty cycle) so
+        /// the discretionary spenders stop draining it between thinks.</summary>
+        public bool lostTrainerSaveStrict;
+
+        /// <summary>After a lost line's rebuild found no legal spot, the
+        /// next search waits this long (it bypasses the failed-search
+        /// memory, so it needs its own pacing).</summary>
+        public float lostTrainerSearchRetrySeconds;
+
+        /// <summary>The army floor's quiet pause: with no standing trainer
+        /// for any combat unit, the floor stops asking and logs this rarely
+        /// (seconds) instead of once a minute per missing unit.</summary>
+        public float noTrainerLogInterval;
+
         // ── Think cost (2026-09-25 AI perf pass) ─────────────────────────
 
         /// <summary>Seconds a FAILED site search for one (faction, building,
@@ -302,10 +325,73 @@ namespace TheWaningBorder.AI
         /// retrying every tick.</summary>
         public float claimAttemptInterval;
 
-        /// <summary>Soldiers drafted to stand on a territory and claim it
-        /// (Territory_Claims.md §2). Population weight is what fills the
-        /// meter, so a bigger squad claims faster.</summary>
-        public int claimSquadSize;
+        /// <summary>Fewest soldiers a claim squad is sent with (Territory_Claims.md
+        /// §2: population weight fills the meter). Empty, unthreatened ground
+        /// gets exactly this many (Game_AI.md § 5b, defend-based expansion).</summary>
+        public int claimSquadMinSize;
+
+        /// <summary>Most soldiers one claim squad may take, however much the
+        /// known threat at the target asks for.</summary>
+        public int claimSquadMaxSize;
+
+        /// <summary>Most claim squads a faction keeps out at once, before the
+        /// difficulty's expansionDrive and the plan's claim appetite scale it.</summary>
+        public int claimMaxParallelSquads;
+
+        /// <summary>Radius (m) around a claim point whose KNOWN hostile power
+        /// (mobile + static) the squad is sized against.</summary>
+        public float claimThreatRadius;
+
+        /// <summary>A claim squad's power must reach the known threat at its
+        /// target times this, or the target is held back.</summary>
+        public float claimThreatMargin;
+
+        /// <summary>Most of the army (fraction of combat units) that claim
+        /// squads may hold at once; the rest stays free for defence and waves.</summary>
+        public float claimArmyShare;
+
+        /// <summary>Extra claim score per known supply node in a candidate
+        /// (on top of claimNodeBonus): supply slots are the income.</summary>
+        public float claimSupplyNodeBonus;
+
+        /// <summary>Extra claim score per known uncursed veilstone outcrop in a
+        /// candidate, always (claimVeilstoneNodeBonus adds more while the
+        /// army is short of veilstone).</summary>
+        public float claimOutcropBonus;
+
+        /// <summary>Seconds a target is skipped after the squad the army could
+        /// spare was judged too weak for its known threat.</summary>
+        public float claimHeldBackSeconds;
+
+        /// <summary>Seconds a squad keeps standing on ground it has CLAIMED
+        /// while it waits for an extractor or Fortress to lock it.</summary>
+        public float claimHoldForLockSeconds;
+
+        /// <summary>Most seconds a squad pre-staged on a target before the
+        /// age-up lands may wait there (the landmark stalled: release it).</summary>
+        public float claimPrestageMaxSeconds;
+
+        /// <summary>A claim that found no idle soldiers within this many
+        /// seconds makes the attack waves yield the idle army to it.</summary>
+        public float claimWaveYieldWindowSeconds;
+
+        /// <summary>Longest continuous stretch (s) the waves yield to the
+        /// claims; past it one wave may launch anyway.</summary>
+        public float claimWaveYieldMaxSeconds;
+
+        /// <summary>DEFEND-BASED EXPANSION (Territory_Claims.md §10, 2026-10-04:
+        /// no territory cap). Army power (AIEngagement scale) per held
+        /// territory below which the faction is STRETCHED and stops claiming
+        /// to consolidate. Divided by the plan's claim appetite.</summary>
+        public float expandPowerPerTerritoryFloor;
+
+        /// <summary>The stretch test applies only from this many held
+        /// territories (a fresh empire is never "stretched").</summary>
+        public int expandStretchMinTerritories;
+
+        /// <summary>Seconds after losing a claimed territory during which the
+        /// faction consolidates instead of claiming more.</summary>
+        public float expandLossConsolidateSeconds;
 
         /// <summary>A faction holding fewer Religion Points than this sends a
         /// squad against the nearest curse node within reclaimRadius, even
@@ -463,12 +549,26 @@ namespace TheWaningBorder.AI
         /// every five minutes).</summary>
         public float waveOverdueSeconds;
 
-        /// <summary>Match time after which a wave may only launch at FULL
-        /// POPULATION (pop >= popMax) -- operator directive 2026-09-12,
-        /// Game_AI.md 6a. Before this mark the scaled wave bar decides; after
-        /// it, nothing leaves home until the faction is at its ceiling, and
-        /// the overdue release does not override it.</summary>
-        public float fullPopulationAfterSeconds;
+        /// <summary>Match time after which a wave launches on STRENGTH, not
+        /// on a head count (2026-10-04, Game_AI.md 6a; replaced the
+        /// full-population rule). Past this mark the idle army must number at
+        /// least strengthWaveMinArmy (x the plan's WaveBarScale) AND its power
+        /// must reach strengthWaveRatio (x the personality's riskMultiplier)
+        /// times the best known defence at the objective. The overdue release
+        /// does not override it.</summary>
+        public float strengthWaveAfterSeconds;
+
+        /// <summary>Army power over the best known defending power a late wave
+        /// needs before it launches (AIEngagement scale: hostile army + static
+        /// defences at the objective, or the scouted garrison if larger).
+        /// Multiplied by the personality's riskMultiplier.</summary>
+        public float strengthWaveRatio;
+
+        /// <summary>Fewest idle soldiers a late (strength-gated) wave may
+        /// launch with, before the plan's WaveBarScale; clamped to a third of
+        /// the population ceiling like the early bar. Stops a tiny army
+        /// trickling out at an undefended target.</summary>
+        public int strengthWaveMinArmy;
 
         public float stagingGatherRadius;
 
@@ -550,6 +650,10 @@ namespace TheWaningBorder.AI
         /// (2026-08-07 match: `wave 4 reinforced with 47 unit(s) (0 already
         /// committed)` every 10 s for twenty minutes, army parked on a razed
         /// objective, `wave 5 BLOCKED` because everyone was nominally busy).
+        /// Since 2026-10-03 it is also the "already there" test for every
+        /// other AI group draft (religion hunt, reclaim, claim squads): a unit
+        /// this close to the destination is re-poked on its own instead of
+        /// being planned into a marching formation (AICommon.IssueGroupOrder).
         /// </summary>
         public float waveArrivedRadius;
 
@@ -594,6 +698,11 @@ namespace TheWaningBorder.AI
         public float reclaimHallThreatRadius;
 
         public int reclaimSquadSize;
+
+        /// <summary>Radius (m) the reclaim squad judges a curse node's
+        /// defenders over before it goes (it never feeds units into a fight
+        /// it loses).</summary>
+        public float reclaimAssessRadius;
 
         // Bank thresholds before triggering AgeUp: cost + reserve buffer.
         // Set to 0: with the optimised build-orders the AI accumulates well
@@ -660,5 +769,244 @@ namespace TheWaningBorder.AI
         public float startHallKnownRadius;
 
         public float stepTimeoutSeconds;
+
+        // ── Army composition by ROLE (2026-10-03, docs/Design/Game_AI.md
+        //    § 5d). Every unit has a job and a counter; the share of each is
+        //    its baseShare bent by what the faction has SEEN of the enemy. ──
+
+        /// <summary>
+        /// One row of the role table: a unit, the share of the army it holds
+        /// with no intel (baseShare), and how far each fraction of the scouted
+        /// enemy army moves that share (perEnemy* — share += coefficient x
+        /// enemy fraction x the difficulty's counterResponse; negative = a
+        /// unit that is the WRONG answer to that enemy). Enemy fractions are
+        /// by estimated strength over the fresh military sightings.
+        /// </summary>
+        [System.Serializable]
+        public sealed class CompositionRole
+        {
+            /// <summary>The unit this row trains.</summary>
+            public string unitId;
+            /// <summary>While unitId cannot be trained (trainer missing or
+            /// below its level), its share goes to this row's unit — the next
+            /// best answer to the same job. Chains.</summary>
+            public string fallbackUnitId;
+            /// <summary>Once THIS unit can be trained, the row's share moves to
+            /// it: the Battering Ram's anti-building job is the Trebuchet's
+            /// once the Siege Yard reaches its level (early rams, late
+            /// trebuchets).</summary>
+            public string supersededByUnitId;
+            /// <summary>A veilstone-free basic (Spearman, Archer): scaled by
+            /// the difficulty's basicsShareScale and the personality's
+            /// basicsAppetite, and counted against the basics cap.</summary>
+            public bool basic;
+            public float baseShare;
+            /// <summary>Enemy cavalry (Cavalry tag).</summary>
+            public float perEnemyCavalry;
+            /// <summary>Enemy heavy cavalry (Cavalry + Heavy).</summary>
+            public float perEnemyHeavyCavalry;
+            /// <summary>Enemy foot infantry (Infantry, not Cavalry).</summary>
+            public float perEnemyInfantry;
+            /// <summary>Enemy ranged (Ranged, not Siege).</summary>
+            public float perEnemyRanged;
+            /// <summary>Enemy Heavy weight class (any).</summary>
+            public float perEnemyHeavy;
+            /// <summary>Enemy whose ranged armour is at least
+            /// armouredRangedDefense — what a bow cannot hurt.</summary>
+            public float perEnemyArmoured;
+            /// <summary>Enemy siege engines.</summary>
+            public float perEnemySiege;
+            /// <summary>High-value single targets: heroes, heavy cavalry and
+            /// siege engines (the Ballista's work).</summary>
+            public float perEnemyHighValue;
+            /// <summary>Enemy foot standing massed (massedMinUnits or more
+            /// sighted in one massedCellSize cell — the Catapult's work).</summary>
+            public float perEnemyMassed;
+        }
+
+        /// <summary>The role table. Order is the tie-break order of the pick
+        /// (deterministic), not a priority.</summary>
+        public CompositionRole[] compositionRoles;
+
+        /// <summary>The two veilstone-free basics (Spearman, Archer) may
+        /// always number at least this many, whatever the army's size — the
+        /// Age 0 army, the claim squad and the early defence are all basics.</summary>
+        public int basicsFloor;
+
+        /// <summary>The basics' combined share of the plan is clamped into
+        /// [basicsMinShare, basicsMaxShare] after intel, difficulty,
+        /// personality and economy have moved it. The basics cap is the
+        /// larger of basicsFloor and that share of the army — a HARD cap
+        /// (Game_AI.md 5d, 2026-10-04): at it the AI SAVES veilstone for the
+        /// role it is short of; nothing lets another basic through.</summary>
+        public float basicsMinShare;
+        public float basicsMaxShare;
+
+        /// <summary>SURPLUS (Game_AI.md 5e). While the bank is veilstone-held
+        /// and overflowing (AIBudget surplusSupplies / surplusIron), each
+        /// known outcrop in a claim candidate scores this many times its
+        /// usual claimVeilstoneNodeBonus.</summary>
+        public float surplusClaimOutcropScale;
+
+        /// <summary>SURPLUS: claim rounds run every claimAttemptInterval x
+        /// this (below 1 = more often) — the army is waiting on veilstone
+        /// anyway.</summary>
+        public float surplusClaimIntervalScale;
+
+        /// <summary>SURPLUS: the Fortress picker weighs outcrops (inside and
+        /// on the frontier) this many times as much; a Fortress whose ground
+        /// or frontier holds an outcrop may then use the army's veilstone
+        /// earmark.</summary>
+        public float surplusFortressOutcropScale;
+
+        /// <summary>SURPLUS: seconds between endgame research sweeps while
+        /// the bank is overflowing (researchSweepInterval otherwise); in era 2
+        /// the sweep no longer waits behind the authored ladder.</summary>
+        public float surplusResearchSweepInterval;
+
+        /// <summary>SURPLUS: seconds between the repeating "veilstone-held"
+        /// state lines (each action logs once, unthrottled).</summary>
+        public float surplusLogInterval;
+
+        /// <summary>THE ECONOMY'S SAY. Veilstone income (the faction's
+        /// Trading Outposts' Buy rate, per minute) at which the veilstone
+        /// roles get their full share; below it they are scaled down toward
+        /// ladderScaleWhenStarved and the basics take up the slack. A bank of
+        /// veilstoneBankForFullLadder counts as full income on its own.</summary>
+        public float veilstoneIncomeForFullLadder;
+        public float veilstoneBankForFullLadder;
+        public float ladderScaleWhenStarved;
+
+        /// <summary>Ranged armour at or above which an enemy counts as
+        /// ARMOURED (perEnemyArmoured).</summary>
+        public int armouredRangedDefense;
+
+        /// <summary>The MASSED read: cell size (m) and how many sighted enemy
+        /// foot in one cell make it a mass.</summary>
+        public float massedCellSize;
+        public int massedMinUnits;
+
+        /// <summary>Fewer fresh military sightings than this = no enemy read
+        /// (the plan runs on baseShare alone).</summary>
+        public int enemyReadMinSightings;
+
+        /// <summary>Seconds between the "MILITARY: composition" log lines
+        /// (target vs actual by role and why, the basics cap, what it is
+        /// saving for).</summary>
+        public float compositionLogInterval;
+
+        // ── FLUSH PLACEMENT + THE SELF-LOCK CHECK (2026-10-04, Game_AI.md 6b) ──
+
+        /// <summary>Run the base-connectivity check (AIBaseLayout) on every
+        /// accepted non-extractor candidate: a placement may not seal a
+        /// building's last free side, a production building's exit, a gate,
+        /// the base's way out, or a pocket of open ground.</summary>
+        public bool sealCheckEnabled;
+
+        /// <summary>Half-size, in 2 m build cells, of the square window the
+        /// check floods around the search anchor (40 = 80 m each way).</summary>
+        public int sealWindowHalfCells;
+
+        /// <summary>Open cells a placement may cut off from the base before it
+        /// counts as sealing a pocket (a nook against a cliff is harmless).</summary>
+        public int sealPocketToleranceCells;
+
+        /// <summary>Most buildings one FLUSH cluster (footprints touching edge
+        /// to edge) may hold before the next must leave a lane. Houses in the
+        /// House quarter are exempt. 0 = no limit.</summary>
+        public int maxFlushClusterBuildings;
+
+        /// <summary>Connectivity checks one think may run (each is one bounded
+        /// flood); past it the search is inconclusive, like the other budgets.</summary>
+        public int sealChecksPerThink;
+
+        /// <summary>Seconds a window's "before" picture is reused while the
+        /// building set is unchanged (any placement, loss or plan rebuilds it).</summary>
+        public float sealCacheSeconds;
+
+        /// <summary>Seconds between "BUILD: rejected — would seal" lines per
+        /// faction.</summary>
+        public float sealLogInterval;
+
+        // ── PER-TERRITORY DEVELOPMENT (2026-10-04, Game_AI.md 5g) ──
+
+        /// <summary>Seconds between one faction's walks over its held
+        /// territories (step 1 extractors, 2 Fortress, 3 towers, 4 production).</summary>
+        public float territoryDevelopInterval;
+
+        /// <summary>Seconds a territory waits after a placement there before
+        /// its next step may place (a lockstep placement lands two ticks
+        /// later; this stops a double order).</summary>
+        public float territoryStepCooldown;
+
+        /// <summary>Seconds a territory's step that found no legal spot (or a
+        /// Fortress spot search that found none) waits before it is tried
+        /// again; meanwhile the step counts as done for the order.</summary>
+        public float territoryBlockedStepSeconds;
+
+        /// <summary>Watch Towers per territory that borders hostile or
+        /// unowned ground (step 3). Cultures with no Watch Tower skip it.</summary>
+        public int towersPerTerritory;
+
+        /// <summary>How far from the territory's seed toward the exposed
+        /// neighbour's seed a tower's search is anchored (0 = seed, 1 = the
+        /// neighbour's seed; the region lock keeps it inside).</summary>
+        public float towerPeripheryFraction;
+
+        /// <summary>Production buildings every held territory gets from its
+        /// own build order (step 4): the line the army plan needs most that
+        /// the territory does not already have, the Barracks when the plan
+        /// names nothing else.</summary>
+        public int productionPerTerritory;
+
+        /// <summary>The HOME territory's floor: production buildings of EACH
+        /// line the faction can build (the Barracks always; the Archery
+        /// Range, Royal Stable and Siege Yard once the culture and age allow
+        /// them), sites and plans counted. Filled breadth-first — every line
+        /// to 1, then every line to 2. Replaces the faction-wide redundant
+        /// Barracks floor (was redundantBarracksCount).</summary>
+        public int homeProductionPerLine;
+
+        /// <summary>Match seconds before the home floor asks for more than
+        /// one of a line; before it the home gets only its first building of
+        /// each line, so the hut-first opening and the age-up savings run
+        /// first (was the redundant Barracks floor's literal 90 s).</summary>
+        public float homeProductionFloorAfterSeconds;
+
+        /// <summary>Fraction of the faction's finished production buildings
+        /// whose queue holds work (training or research) for the existing
+        /// production to count as SATURATED. Any production building past
+        /// one per territory waits on saturation.</summary>
+        public float productionSaturationThreshold;
+
+        /// <summary>Seconds the saturation must hold, unbroken, before an
+        /// extra production building may be placed; the window restarts
+        /// after each extra.</summary>
+        public float productionSaturationSeconds;
+
+        /// <summary>Seconds between "PRODUCTION: extra held" lines per
+        /// faction.</summary>
+        public float productionLogInterval;
+
+        /// <summary>Territories one un-anchored production-building request
+        /// may try before it gives up this think (least-equipped, frontier
+        /// first, then the home).</summary>
+        public int productionSiteTerritoriesPerCall;
+
+        /// <summary>The Fortress (step 2) waits for step 1 (the resource
+        /// buildings) in its territory unless the territory is cut off from
+        /// every Fortress.</summary>
+        public bool fortressAfterResources;
+
+        /// <summary>Seconds between the "TERRITORY production:" count lines.</summary>
+        public float territoryReportInterval;
+
+        /// <summary>How far (m) from a territory's seed the reserved Fortress
+        /// spot may be sought.</summary>
+        public float fortressSpotSearchRadius;
+
+        /// <summary>Build cells kept clear around a reserved Fortress spot, so
+        /// the Fortress also keeps a free side.</summary>
+        public int fortressSpotMarginCells;
     }
 }

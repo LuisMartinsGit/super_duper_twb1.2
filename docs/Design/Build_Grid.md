@@ -74,7 +74,8 @@ What the footprints must satisfy — the rules, which the SO values follow:
 | Rule | Buildings |
 |---|---|
 | **Smallest** — statues, not buildings | every Chapel — the statues docked in the Temple ring |
-| **A resource building's footprint IS its node's** (2026-09-29), so the extractor lands exactly on its node | Gatherer's Hut (on a supply spot), Mine (on an iron deposit), Veilstone Mine and the Alanthor **Trading Outpost** (on a veilstone outcrop) |
+| **A resource building's footprint IS its node's** (2026-09-29), so the extractor lands exactly on its node | Gatherer's Hut (on a supply spot), Mine (on an iron deposit), Veilstone Mine (on a veilstone outcrop) |
+| **The Alanthor Trading Outpost stands BESIDE its outcrop** (2026-10-04) — on a side slot, never on the node (next subsection) | Trading Outpost (`Alanthor_TradingOutpost`) |
 | **The wall hub's footprint is its drum's bounding square**, derived from `AlanthorWall.HubWidth` — the SO must stay in step with it | Wall Hub (`Alanthor_Wall`), Palisade hub (`Palisade`) |
 | **One footprint for the capital in both ages** — the Shelter becomes the Fortress in place (2026-10-03, decision 11) | the capital, id `Fortress` |
 | **Each building its own** — no building borrows another's size. The **Archery Range** used to fall back on a shared default; it now reads its own `footprintCells` (2026-10-03) | everything else: House, Barracks, Archery Range, Temple, the landmarks, Royal Stable, Siege Yard, Watch Tower, and the Runai / Feraldis / sect buildings |
@@ -85,14 +86,34 @@ What the footprints must satisfy — the rules, which the SO values follow:
 > with it, and `TempleChapelRing.SlotRadius` returned to the pre-doubling
 > value the docking was originally tuned for.
 
-### The Trading Outpost stands ON its outcrop (2026-10-03, decision 28)
+### The Trading Outpost's side slots (2026-10-04, decision 40)
 
-The Alanthor Trading Outpost snaps **onto** the veilstone outcrop it trades
-at, exactly as the Veilstone Mine it replaces did — same footprint as the
-node, even parity, the outcrop's cells under it. Its **art must read as
-standing BESIDE the outcrop** (the stall and wagons to one side, the
-outcrop's crystals still visible): an art requirement, not a placement one.
-The on-outcrop placement stays for now.
+*Supersedes decision 28's on-outcrop placement.* Every veilstone outcrop has
+**four side slots — north, east, south, west** — and an Alanthor Trading
+Outpost stands on one of them:
+
+- **Flush and centred.** A slot's centre is the outcrop's centre moved along
+  one axis by half the node's footprint plus half the Outpost's
+  (`footprintCells` on its SO), so the post's edge meets the node's edge with
+  no gap and no overlap, centred on the outcrop's axis. With the node's even
+  parity the slot always lands on the Outpost's own grid parity — the
+  ordinary snap never moves it.
+- **One post per slot**, so at most four per outcrop. **The outcrop's own
+  square stays an impassable node** that nothing is built on — the Outpost
+  gets no "own node" exemption from the node rule (§3), and two outcrops'
+  slots that fall on one spot are one slot.
+- **A slot is legal only when the ordinary placement rules pass there** —
+  terrain, slope, water, passability, no other node, no building, no wall —
+  so a side against a cliff or another node is simply not offered.
+- **The ghost snaps to the nearest free, legal side** of any uncursed outcrop
+  near the cursor (`TradingOutpostSystem.asset` `nodeReach`), and reads red
+  with the node rule when no side is left.
+- **At age-up** an Alanthor Veilstone Mine (which stood on the outcrop) moves
+  to the free, legal side nearest its capital, ties broken north, east,
+  south, west — preferring a side inside the outcrop's own territory; with
+  none it stays on the outcrop.
+
+The Outpost's art no longer has to fake standing beside the crystal: it does.
 
 Consequences worth stating plainly, because they change how a base packs:
 
@@ -111,6 +132,22 @@ Consequences worth stating plainly, because they change how a base packs:
 
 Building **visuals are scaled to their footprint** so the mesh fills its
 cells with no overhang and no gap.
+
+### Buildings may touch (2026-10-04)
+
+**Two footprints may sit flush — edge to edge, sharing a cell boundary — but
+never overlap.** The game enforces no gap between buildings: the placement
+test is a strict overlap test (touching edges pass), for the player's ghost,
+the AI's site search and the command executor alike, and the passability
+stamp covers exactly the footprint's cells (no padding ring). This was
+already how the executor behaved; it is now the stated rule.
+
+What keeps a base walkable is therefore a matter of LAYOUT, not of a gap
+rule: a player who walls their own buildings in has done so on purpose. The
+AI may build flush too, and is held to not sealing its own base instead (no
+building's last free side, no production exit, no gate, no pocket of open
+ground cut off; at most a few buildings in one flush row) — see
+[Game_AI.md](Game_AI.md) §6b.
 
 ---
 
@@ -161,8 +198,9 @@ cost field and `PassabilityGrid`.
 - Start Fortresses and the nature-region blocking run before any node spawns,
   so nodes also keep off them.
 - **Nothing is built on a node except the extractor made for it** (Gatherer's
-  Hut on supply, Mine on iron, Veilstone Mine on veilstone — or, for Alanthor,
-  the Trading Outpost on veilstone). The whole node square is tested — the supply spot
+  Hut on supply, Mine on iron, Veilstone Mine on veilstone). The Alanthor
+  Trading Outpost is NOT built on its outcrop — it stands on a side slot (§2,
+  The Trading Outpost's side slots), and the node rule applies to it in full. The whole node square is tested — the supply spot
   included, which is passable and no obstacle — by the placement ghost, the
   AI's site search and the command executor. Refusal: *"Cannot build on a
   resource node — only its own extractor may stand there"*.

@@ -278,7 +278,7 @@ namespace TheWaningBorder.Core.Commands.Types
             // exemption: the router's OnFreeNodeFor gate leashes an extractor
             // to within 4 m of a free node of exactly this kind.
             var ownNode = buildingId != null
-                ? TheWaningBorder.World.Regions.TerritoryOwnership.RequiredNodeFor(buildingId)
+                ? TheWaningBorder.World.Regions.TerritoryOwnership.NodeStoodOnBy(buildingId)
                 : null;
 
             // 1b. NOTHING IS BUILT ON A RESOURCE NODE except the extractor made

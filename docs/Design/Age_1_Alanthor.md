@@ -75,12 +75,13 @@ under the cultured name:
 | `Alanthor_RoyalStable` | Royal Stable | `RoyalStable/RoyalStable_Lvl1..3` |
 | `Alanthor_Tower` | Watch Tower | `Tower/WatchTower_Lvl1..3` |
 | `Alanthor_SiegeYard` | Siege Yard | `SiegeYard/SiegeYard_Lvl1..3` |
+| `Alanthor_TradingOutpost` (Age 1 only; also the Veilstone Mine after age-up) | Trading Outpost | `TradingOutpost/TradingOutpost_Lvl1..3` |
 | `Alanthor_Wall` — Stone Wall | Stone / Battlemented / Shielded | `Wall/Wall_Lvl1..3` |
 
 Each level carries its **name, upgrade cost and time, HP / train-time /
 attack-cooldown multipliers over the base, targets per volley, population,
-slot income, interest multiplier, an authored attack and sight, and its
-model**. `BuildingUpgradeConfig` reads them first; its code tables are kept
+slot income, interest multiplier, trade-rate multiplier (the Trading
+Outpost), an authored attack and sight, and its model**. `BuildingUpgradeConfig` reads them first; its code tables are kept
 only for Runai and Feraldis until their levels get the same treatment.
 
 **The HUD names the level.** Level 0 is the bare Age 0 name; every levelled
@@ -98,9 +99,9 @@ too** (`Wall_Lvl1..3`: the level name and the wall's HP multiplier, decision
 > **2026-10-03 (decisions 4, 5, 5b-5d):** there is no Hall, no King's Court
 > and no Town Hall. Every faction starts Age 0 with the **Shelter**, and at
 > age-up the Shelter **automatically becomes the Fortress** for every culture
-> — the same entity, renamed. The Fortress keeps **levels L1-L3**, and
-> [Territory_Claims.md §10](Territory_Claims.md)'s territory limit counts
-> Fortress levels. It earns its own SO supply income and carries its own
+> — the same entity, renamed. The Fortress keeps **levels L1-L3** (they no
+> longer raise a territory limit — there is none since 2026-10-04,
+> [Territory_Claims.md §10](Territory_Claims.md)). It earns its own SO supply income and carries its own
 > defence block on its SO.
 
 #### Trainable units
@@ -372,23 +373,35 @@ tower's volley** (`garrisonArrowsPerOccupant`): a full tower shoots at more
 enemies at once. Occupants are safe inside while the tower stands and step
 out beside it when ordered out; if the tower falls they die with it.
 
-### Trading Outpost — `Alanthor_TradingOutpost` (decision 28)
+### Trading Outpost — `Alanthor_TradingOutpost` (L1-L3, decision 40)
 
 Alanthor's veilstone source: **Alanthor never mine veilstone**, and at age-up
-every Veilstone Mine the faction owns becomes a Trading Outpost
+every Veilstone Mine the faction owns becomes the first Trading Outpost of its
+outcrop, moved off the outcrop onto a side
 ([Veilstone_Economy.md §3.1](Veilstone_Economy.md)).
 
-- **Placement:** it **snaps ON an Inactive or Depleted veilstone outcrop**,
-  like a mine, one per outcrop, never on a Cursed one. Its **art must read as
-  standing BESIDE the outcrop** — an art requirement; the on-outcrop placement
-  stays for now. It locks its territory like an extractor.
+- **Placement (2026-10-04):** **beside** an Inactive or Depleted veilstone
+  outcrop, on one of its **four side slots (N / E / S / W)**, flush against
+  it — **up to four posts per outcrop**, one per side, never beside a Cursed
+  one. The outcrop stays an impassable node
+  ([Build_Grid.md § The Trading Outpost's side slots](Build_Grid.md)). Every
+  post locks its territory like an extractor.
+- **Per-outcrop cost ramp:** the 2nd, 3rd and 4th post beside the same
+  outcrop cost progressively more, to build AND to level; the first post
+  beside a new outcrop is base price again. Multipliers:
+  `TradingOutpostSystem.asset` `outcropRampMultipliers`.
+- **Levels:** L1 free, L2 and L3 bought (`TradingOutpost_Lvl1..3`, prices
+  ramped per outcrop). A level raises the post's trade rate — spend and earn
+  alike (`tradeRateMultiplier`) — and its HP.
 - **Trades** (toggled on the building, one at a time): Buy Veilstone (the
   default), Forge Veilsteel (after Veilsteel Forging), Sell Veilsteel (after
   Veilsteel Export). It never drains the outcrop.
 - **Cycle:** the trade pays on a short fixed cycle (1 s since 2026-10-03) —
   the cycle and every rate are in `TradingOutpostSystem.asset`.
 - **Research** (hosted by the Outpost, `TradingOutpost/Research/`): Trade
-  Agreements I-III (chained, cheaper inputs), Veilsteel Forging, Veilsteel
+  Agreements I-III (chained, cheaper inputs), **Swift Caravans** (after Trade
+  Agreements I — every trade of every Outpost runs faster, inputs and outputs
+  together; the percentage is on its SO), Veilsteel Forging, Veilsteel
   Export.
 
 ---
@@ -498,10 +511,10 @@ is never a patchwork of levels.
 
 ### The AI's wall (2026-10-02)
 
-**Which ground (2026-10-03):** only the AI's home territory, and any other
-territory where it has its own Fortress, is walled — one ring per territory,
-piece-capped, rebuild-capped and paid from the Economy wallet, yielding to the
-army. The full rule is [Game_AI.md § Walls](Game_AI.md).
+**Which ground (2026-10-03):** the AI builds a Fortress in every territory it
+can, but walls only its starting (home) territory — one ring, piece-capped,
+rebuild-capped and paid from the Economy wallet, yielding to the army. The
+full rule is [Game_AI.md § Walls](Game_AI.md).
 
 The Alanthor AI walls its **territory border**, and the wall stands close to
 it: its centre line a few metres inside the border (`AIWallPlanner.asset`
@@ -517,7 +530,9 @@ claims and extractors, which the map sites — keeps a clearance between its
 EDGE and its territory border (`buildingBorderClearance`; halved on 2026-10-02
 when the larger value left no legal Vault spot in small start territories).
 The wall is planned after age-up, long after most of the base stands; without
-the band the base was built exactly where the wall later had to go.
+the band the base was built exactly where the wall later had to go. **Only in
+the home territory** (2026-10-04): only the home is ever walled, so a
+province keeps no band (Game_AI.md §6b).
 
 **A refused link is repaired, then abandoned — never retried forever.**
 Before linking two hubs the AI checks the run with the executor's own rules
@@ -875,7 +890,8 @@ Levels, abilities and the death / revival choice: [Heroes.md](Heroes.md).
 
 ## Remaining open questions
 
-- **Trading Outpost art** — a model that stands beside the outcrop while the
-  building snaps onto it (decision 28).
+- **Trading Outpost art** — its own Alanthor model (it still borrows the Runai
+  Trading Post visual), now that it really stands beside the outcrop
+  (decision 40); level models for L2 / L3.
 - **Mine levels** — wire the Mine into `UpgradeBuildingCommandHelper` so
   `Mine_Lvl1..3` take effect.

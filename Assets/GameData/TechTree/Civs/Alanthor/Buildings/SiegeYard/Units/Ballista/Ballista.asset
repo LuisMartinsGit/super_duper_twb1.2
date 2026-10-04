@@ -17,7 +17,7 @@ MonoBehaviour:
   unitClass: machinery_siege
   hp: 220
   speed: 3.2
-  trainingTime: 38
+  trainingTime: 26.6
   damage: 40
   damageType: siege
   armorType: ranged
@@ -54,6 +54,10 @@ MonoBehaviour:
   bonusVsTags:
   - vsTag: Building
     amount: 30
+  preferTargets:
+  - Hero
+  - 'Cavalry+Heavy'
+  - Siege
   abilities: []
   prefab: {fileID: 1120605536951438, guid: 7a247cfdd0575f0047ba581ac44c2a4b, type: 3}
   presentationId: 385

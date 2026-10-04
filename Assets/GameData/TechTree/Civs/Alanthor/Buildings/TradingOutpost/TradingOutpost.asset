@@ -14,8 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   id: 'Alanthor_TradingOutpost'
   displayName: 'Trading Outpost'
-  role: 'Trade post on a veilstone outcrop - buys veilstone with supplies and iron, or forges veilstone into veilsteel'
-  description: Raise it on an uncursed or depleted veilstone outcrop (it snaps onto the outcrop). Trade mode buys veilstone with supplies and iron; Forge mode turns veilstone into veilsteel.
+  role: 'Trade post beside a veilstone outcrop - buys veilstone with supplies and iron, or forges veilstone into veilsteel'
+  description: Raise it beside an uncursed or depleted veilstone outcrop - it snaps to a free side (north, east, south or west), up to four posts per outcrop, each further post there costing more to build and to level. Trade mode buys veilstone with supplies and iron; Forge mode turns veilstone into veilsteel.
   hp: 650
   armorType: 'structure_human'
   defense:

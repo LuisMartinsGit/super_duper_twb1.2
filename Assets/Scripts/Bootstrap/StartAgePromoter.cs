@@ -226,7 +226,7 @@ namespace TheWaningBorder.Bootstrap
 
             // Stock bonus resources proportional to the age (so the player
             // doesn't start Era 4 with an Era 1 economy).
-            FactionEconomy.Add(em, faction, ResourceBonusForAge(targetLevel));
+            FactionEconomy.Add(em, faction, ResourceBonusForAge(targetLevel), TheWaningBorder.Economy.IncomeSource.Grant);
 
             // Refresh culture visuals on every owned building (Hall + new
             // Temple + new choice + the starting workers' tone).

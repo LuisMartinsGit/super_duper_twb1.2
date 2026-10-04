@@ -73,6 +73,12 @@ namespace TheWaningBorder.Data.AI
             public bool raidingEnabled = true;
             /// <summary>Form up at a staging point before committing.</summary>
             public bool forwardStaging = false;
+
+            /// <summary>How much this personality leans on the cheap basics
+            /// (Spearman, Archer) in the army plan: multiplies their share
+            /// (docs/Design/Game_AI.md § 5d). A rusher wants bodies now; a tech
+            /// boomer invests its veilstone in the role units.</summary>
+            public float basicsAppetite = 1f;
         }
 
         public PersonalityBlock[] personalities = DefaultPersonalities();
@@ -100,22 +106,22 @@ namespace TheWaningBorder.Data.AI
         public static PersonalityBlock[] DefaultPersonalities() => new[]
         {
             new PersonalityBlock { personality = AIPersonality.Balanced,   attackThreshold = 3, militaryFloor = 16,  workerFloor = 3, riskMultiplier = 1.0f,
-                                   workerTargetAge0 = 3, workerTargetAge1 = 5, gathererHutTarget = 14, productionBuildingTarget = 24, ageUpPushSeconds = 90f,  raidingEnabled = true,  forwardStaging = false },
+                                   workerTargetAge0 = 3, workerTargetAge1 = 5, gathererHutTarget = 14, productionBuildingTarget = 24, ageUpPushSeconds = 90f,  raidingEnabled = true,  forwardStaging = false, basicsAppetite = 1.0f },
             new PersonalityBlock { personality = AIPersonality.Aggressive, attackThreshold = 2, militaryFloor = 20, workerFloor = 2, riskMultiplier = 0.6f,
-                                   workerTargetAge0 = 3, workerTargetAge1 = 5, gathererHutTarget = 11, productionBuildingTarget = 28, ageUpPushSeconds = 110f, raidingEnabled = true,  forwardStaging = true  },
+                                   workerTargetAge0 = 3, workerTargetAge1 = 5, gathererHutTarget = 11, productionBuildingTarget = 28, ageUpPushSeconds = 110f, raidingEnabled = true,  forwardStaging = true , basicsAppetite = 1.15f },
             new PersonalityBlock { personality = AIPersonality.Defensive,  attackThreshold = 5, militaryFloor = 24, workerFloor = 4, riskMultiplier = 1.5f,
-                                   workerTargetAge0 = 4, workerTargetAge1 = 6, gathererHutTarget = 16, productionBuildingTarget = 22, ageUpPushSeconds = 90f,  raidingEnabled = false, forwardStaging = false },
+                                   workerTargetAge0 = 4, workerTargetAge1 = 6, gathererHutTarget = 16, productionBuildingTarget = 22, ageUpPushSeconds = 90f,  raidingEnabled = false, forwardStaging = false, basicsAppetite = 1.05f },
             new PersonalityBlock { personality = AIPersonality.Economic,   attackThreshold = 4, militaryFloor = 12,  workerFloor = 5, riskMultiplier = 1.2f,
-                                   workerTargetAge0 = 5, workerTargetAge1 = 8, gathererHutTarget = 20, productionBuildingTarget = 18, ageUpPushSeconds = 75f,  raidingEnabled = false, forwardStaging = false },
+                                   workerTargetAge0 = 5, workerTargetAge1 = 8, gathererHutTarget = 20, productionBuildingTarget = 18, ageUpPushSeconds = 75f,  raidingEnabled = false, forwardStaging = false, basicsAppetite = 0.9f },
             new PersonalityBlock { personality = AIPersonality.Rush,       attackThreshold = 2, militaryFloor = 20, workerFloor = 2, riskMultiplier = 0.5f,
-                                   workerTargetAge0 = 2, workerTargetAge1 = 4, gathererHutTarget = 9,  productionBuildingTarget = 30, ageUpPushSeconds = 120f, raidingEnabled = true,  forwardStaging = true  },
+                                   workerTargetAge0 = 2, workerTargetAge1 = 4, gathererHutTarget = 9,  productionBuildingTarget = 30, ageUpPushSeconds = 120f, raidingEnabled = true,  forwardStaging = true , basicsAppetite = 1.3f },
             // Absorbed from the retired AIStrategy enum: the tech and turtle
             // openings had no personality to belong to, so Yellow was filed
             // as "Balanced" and carried its identity in the build order alone.
             new PersonalityBlock { personality = AIPersonality.TechBoom,   attackThreshold = 4, militaryFloor = 14,  workerFloor = 4, riskMultiplier = 1.2f,
-                                   workerTargetAge0 = 4, workerTargetAge1 = 7, gathererHutTarget = 17, productionBuildingTarget = 20, ageUpPushSeconds = 60f,  raidingEnabled = false, forwardStaging = false },
+                                   workerTargetAge0 = 4, workerTargetAge1 = 7, gathererHutTarget = 17, productionBuildingTarget = 20, ageUpPushSeconds = 60f,  raidingEnabled = false, forwardStaging = false, basicsAppetite = 0.75f },
             new PersonalityBlock { personality = AIPersonality.Turtle,     attackThreshold = 6, militaryFloor = 28, workerFloor = 5, riskMultiplier = 1.8f,
-                                   workerTargetAge0 = 4, workerTargetAge1 = 7, gathererHutTarget = 18, productionBuildingTarget = 20, ageUpPushSeconds = 105f, raidingEnabled = false, forwardStaging = false },
+                                   workerTargetAge0 = 4, workerTargetAge1 = 7, gathererHutTarget = 18, productionBuildingTarget = 20, ageUpPushSeconds = 105f, raidingEnabled = false, forwardStaging = false, basicsAppetite = 0.95f },
         };
 
         public PersonalityBlock For(AIPersonality p)

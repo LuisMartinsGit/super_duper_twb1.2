@@ -100,8 +100,9 @@ and Scouts, researches the economy bench, earns its own supply income (its
 SO's income — there is no separate territory line for it, decision 10) and
 claims its home territory. At age-up it **automatically becomes the
 Fortress** — the same building, renamed, for every culture. The Fortress has
-**levels L1-L3** (for Alanthor the level SOs read "Fortress - Lvl N"), and
-Territory_Claims.md §10 counts those levels toward the territory limit.
+**levels L1-L3** (for Alanthor the level SOs read "Fortress - Lvl N"). There
+is no territory limit for the levels to raise (Territory_Claims.md §10,
+2026-10-04).
 Internally the building id is `Fortress` in both ages (`HallTag` survives as
 an internal component only).
 

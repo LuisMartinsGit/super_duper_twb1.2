@@ -126,6 +126,15 @@ namespace TheWaningBorder.Economy
         /// <param name="c">Cost to spend</param>
         /// <returns>True if resources were spent successfully, false if not affordable</returns>
         public static bool Spend(EntityManager em, Faction fac, in Cost c)
+            => Spend(em, fac, c, SpendCategory.Other);
+
+        /// <summary>
+        /// <see cref="Spend(EntityManager, Faction, in Cost)"/>, booking a
+        /// successful debit in the <see cref="EconomyLedger"/> under
+        /// <paramref name="category"/> (observation only — the ledger never
+        /// feeds back into the simulation).
+        /// </summary>
+        public static bool Spend(EntityManager em, Faction fac, in Cost c, SpendCategory category)
         {
             if (c.IsZero) return true;
             if (!TryGetBank(em, fac, out var bank)) return false;
@@ -144,6 +153,7 @@ namespace TheWaningBorder.Economy
             r.Veilsteel -= c.Veilsteel;
 
             em.SetComponentData(bank, r);
+            EconomyLedger.Debit(fac, category, c);
             return true;
         }
         
@@ -155,6 +165,16 @@ namespace TheWaningBorder.Economy
         /// <param name="c">Resources to add</param>
         /// <returns>True if resources were added successfully</returns>
         public static bool Add(EntityManager em, Faction fac, in Cost c)
+            => Add(em, fac, c, IncomeSource.Refund);
+
+        /// <summary>
+        /// <see cref="Add(EntityManager, Faction, in Cost)"/>, booking the
+        /// credit in the <see cref="EconomyLedger"/> under
+        /// <paramref name="source"/>. What the resource cap clamps away is
+        /// booked as <see cref="SpendCategory.Overflow"/> so the ledger
+        /// balances against the bank. Observation only.
+        /// </summary>
+        public static bool Add(EntityManager em, Faction fac, in Cost c, IncomeSource source)
         {
             if (c.IsZero) return true;
             if (!TryGetBank(em, fac, out var bank)) return false;
@@ -165,9 +185,17 @@ namespace TheWaningBorder.Economy
             r.Iron += c.Iron;
             r.Veilstone += c.Veilstone;
             r.Veilsteel += c.Veilsteel;
+            var unclamped = r;
             r.Clamp();
 
             em.SetComponentData(bank, r);
+            if (EconomyLedger.Recording)
+            {
+                EconomyLedger.Credit(fac, source, c);
+                EconomyLedger.Debit(fac, SpendCategory.Overflow,
+                    unclamped.Supplies - r.Supplies, unclamped.Iron - r.Iron,
+                    unclamped.Veilstone - r.Veilstone, unclamped.Veilsteel - r.Veilsteel);
+            }
             return true;
         }
         

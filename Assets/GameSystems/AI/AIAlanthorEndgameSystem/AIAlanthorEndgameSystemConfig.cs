@@ -77,8 +77,8 @@ namespace TheWaningBorder.AI
         public int maxWallSlotRebuilds;
 
         /// <summary>Seconds (simulated) between repeats of one faction's
-        /// wall-doctrine hold notes (yielding to the army, piece cap reached,
-        /// a Fortress territory waiting for funds).</summary>
+        /// wall-doctrine hold notes (yielding to the army, piece cap
+        /// reached).</summary>
         public float wallLogInterval;
 
         /// <summary>Hub / instance self-build time — mirrors

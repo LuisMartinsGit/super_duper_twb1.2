@@ -635,7 +635,7 @@ public static class TechCatalog
         // adds the reference, and until then Building() returns a 1-HP stub.
         // The authored SO wins the moment it loads; this only closes the gap.
         EnsureBuildingDefault("Alanthor_TradingOutpost", "Trading Outpost",
-            "Trade post on a veilstone outcrop",
+            "Trade post beside a veilstone outcrop",
             650, 14, 1.0f, 2, System.Array.Empty<string>(), System.Array.Empty<string>());
 
         // THE TEMPLE IS AN AGE 0 BUILDING (docs/Design/Religion.md §2,

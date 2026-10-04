@@ -110,6 +110,15 @@ MonoBehaviour:
   leashSeconds: 25
   guardRadius: 30
   guardLeashRadius: 45
+  firstWaveSeconds: 480
+  waveIntervalSeconds: 240
+  waveDraftFraction: 0.3
+  waveMinSize: 6
+  garrisonMinPerNode: 2
+  waveDurationSeconds: 150
+  waveRetreatFraction: 0.25
+  waveTargetDistanceSlack: 1.3
+  maxCurseUnits: 250
   initialNodes: 0
   reseedSeconds: 180
   nodeAuraRadius: 20

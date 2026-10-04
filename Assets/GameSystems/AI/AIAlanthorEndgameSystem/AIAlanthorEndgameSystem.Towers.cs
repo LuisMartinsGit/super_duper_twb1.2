@@ -321,8 +321,14 @@ namespace TheWaningBorder.AI
                 if (dx * dx + dz * dz < Cfg.minTowerSpacing * Cfg.minTowerSpacing) return false;
             }
             // The border band the wall runs along stays clear.
-            if (!AIWallPlanner.FootprintClearOfBorder(pos, size)) return false;
-            return BuildCommandHelper.IsValidBuildPosition(em, pos, size);
+            if (!AIWallPlanner.FootprintClearOfBorder(em, pos, size)) return false;
+            // …and off the reserved home wall corridor (AIWallCorridor).
+            if (!AIWallCorridor.FootprintClearForOwner(em, pos, size)) return false;
+            // …and off every reserved Fortress spot (AIBaseLayout).
+            if (!AIBaseLayout.FootprintClearOfFortressSpots(pos, size, "Alanthor_Tower")) return false;
+            if (!BuildCommandHelper.IsValidBuildPosition(em, pos, size)) return false;
+            // Flush is allowed; sealing the base is not (Game_AI.md 6b).
+            return !AIEndgameCommon.SealsOwnersBase(em, pos, size, "Alanthor_Tower");
         }
 
         /// <summary>Chokepoint scan shared by the tower and wall doctrines:

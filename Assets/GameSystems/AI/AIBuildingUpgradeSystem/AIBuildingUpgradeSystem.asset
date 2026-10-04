@@ -17,3 +17,6 @@ MonoBehaviour:
   reserveSupplies: 200
   reserveIron: 50
   reserveVeilstone: 20
+  capitalPriorityLevel: 3
+  surplusUpgradesPerThink: 3
+  hutUpgradeHeadroomMax: 40

@@ -44,6 +44,35 @@
 //                        on every change -- an event, never a per-sample field
 //   C  t id              construction complete (a site became a building)
 //
+// EXTENDED 2026-10-04: THE REAL TERRITORY PARTITION AND WHO OWNS IT.
+// The R lines are only seeds; the partition the game plays on is
+// RegionMap.RegionAt -- authored outlines (with their sliver tolerance),
+// warped Voronoi where a region has none, and None on Water / Mountain /
+// Obstacle regions. A viewer-side Voronoi of the seeds is NOT that. So the
+// header now carries the partition itself, sampled from RegionAt on the 2 m
+// build grid (cell doubled until the map is at most 512 cells across), and
+// ownership follows as change events:
+//   TG cell x0 z0 w h    the raster: cell size in metres, south-west corner
+//                        (a multiple of the cell, so cells sit on the build
+//                        grid), and its size in cells. Cell (i, j) is the
+//                        ground [x0+i*cell, x0+(i+1)*cell) x [z0+j*cell, ...)
+//                        and holds RegionAt at its CENTRE.
+//   TR j id:n id:n ...   row j (j = 0 is the south row), run-length encoded
+//                        west to east: n cells of territory id (-1 = no
+//                        territory). One line per row, written once.
+//   TO t idx owner       territory idx's OWNER changed (TerritoryOwnership.
+//                        OwnerOf): a faction name, Border for the curse, or
+//                        "-" for unowned. Every territory is written once at
+//                        the first check, then only on change -- read when
+//                        TerritoryOwnership.Version moves, never by scanning.
+//   TM t idx holder pct contested
+//                        the ownership METER (Territory_Claims.md 2): who is
+//                        filling it (same names as TO), its value 0..100 as
+//                        an integer, 1 when hostiles froze it. Written at a
+//                        sample only when the holder or contested state
+//                        changes, the value crosses a 10-point step, or it
+//                        reaches 0 or 100 -- a summary, not a per-second log.
+//
 // SAMPLE PERIOD is the whole cost. At 0.5 s a three-hour match with 300 units
 // writes about six million position lines, so the default here is 1 s and
 // -twbTracePeriod overrides it. The dashboard thins whatever it gets; what it
@@ -85,6 +114,19 @@ namespace TheWaningBorder.Core.Diagnostics
         private HashSet<string> _alive = new HashSet<string>();
         private float _next;
         private bool _header;
+        // Ownership as last WRITTEN (TO lines are change events) and the
+        // TerritoryOwnership.Version it was read at.
+        private int[] _ownLast = Array.Empty<int>();
+        private int _ownVersion = int.MinValue;
+        // The meter as last written (TM lines).
+        private int[] _mHolder = Array.Empty<int>();
+        private int[] _mPct = Array.Empty<int>();
+        private byte[] _mCont = Array.Empty<byte>();
+
+        /// <summary>Longest side of the partition raster, in cells.</summary>
+        private const int PartitionMaxCells = 512;
+        /// <summary>Finest raster cell, metres -- the 2 m build grid.</summary>
+        private const float PartitionMinCell = 2f;
         private bool _stopped;
         private long _bytes;
 
@@ -141,6 +183,11 @@ namespace TheWaningBorder.Core.Diagnostics
                 _sites.Clear();
                 _next = 0f;
                 _header = false;
+                _ownLast = Array.Empty<int>();
+                _ownVersion = int.MinValue;
+                _mHolder = Array.Empty<int>();
+                _mPct = Array.Empty<int>();
+                _mCont = Array.Empty<byte>();
             }
 
             // The fixed features, once, as soon as the partition is ready.
@@ -151,6 +198,7 @@ namespace TheWaningBorder.Core.Diagnostics
                     var seed = RegionMap.SeedOf(i);
                     W("R", i, Q(RegionMap.NameOf(i)), F(seed.x), F(seed.y));
                 }
+                WritePartition();
                 WriteNodes<IronMineTag>(em, "iron");
                 WriteNodes<VeilstoneOutcroppingTag>(em, "veilstone");
                 WriteNodes<SupplyNodeTag>(em, "supply");
@@ -159,9 +207,13 @@ namespace TheWaningBorder.Core.Diagnostics
             }
 
             float t = MatchMetrics.MatchTime;
+            // Ownership is an event stream, so it is checked every frame
+            // (one int compare) rather than at the sample period.
+            if (_header) WriteOwnership(F(t));
             if (t < _next) return;
             _next = t + Mathf.Max(0.1f, Period);
             string ts = F(t);
+            if (_header) WriteMeter(ts);
 
             var alive = new HashSet<string>();
 
@@ -279,6 +331,107 @@ namespace TheWaningBorder.Core.Diagnostics
             // match, so a cached query would outlive its world for nothing.
             q.Dispose();
         }
+
+        /// <summary>
+        /// The partition as the game plays it: RegionMap.RegionAt sampled at
+        /// every cell centre of a raster on the build grid, run-length
+        /// encoded per row. Once per match. RegionAt is a pure function of
+        /// the installed partition, so this reads nothing it could change.
+        /// </summary>
+        private void WritePartition()
+        {
+            if (!TheWaningBorder.World.Terrain.TerrainUtility.TryGetWorldBounds(out Vector2 min, out Vector2 max))
+                TheWaningBorder.World.Terrain.TerrainUtility.GetPlayableBounds(out min, out max);
+
+            float cell = PartitionMinCell;
+            while (Mathf.Max(max.x - min.x, max.y - min.y) / cell > PartitionMaxCells) cell *= 2f;
+            // Snap the corner OUT to a multiple of the cell, so the raster's
+            // cells are build-grid cells (BuildGrid is anchored at the origin).
+            float x0 = Mathf.Floor(min.x / cell) * cell;
+            float z0 = Mathf.Floor(min.y / cell) * cell;
+            int w = Mathf.Max(1, Mathf.CeilToInt((max.x - x0) / cell - 1e-4f));
+            int h = Mathf.Max(1, Mathf.CeilToInt((max.y - z0) / cell - 1e-4f));
+            W("TG", F(cell), F(x0), F(z0), w, h);
+
+            var sb = new System.Text.StringBuilder(256);
+            for (int j = 0; j < h; j++)
+            {
+                float wz = z0 + (j + 0.5f) * cell;
+                sb.Length = 0;
+                sb.Append(j.ToString(CultureInfo.InvariantCulture));
+                int run = int.MinValue, n = 0;
+                for (int i = 0; i < w; i++)
+                {
+                    int r = RegionMap.RegionAt(x0 + (i + 0.5f) * cell, wz);
+                    if (r == run) { n++; continue; }
+                    if (n > 0) AppendRun(sb, run, n);
+                    run = r; n = 1;
+                }
+                if (n > 0) AppendRun(sb, run, n);
+                W("TR", sb.ToString());
+            }
+        }
+
+        private static void AppendRun(System.Text.StringBuilder sb, int id, int n)
+        {
+            sb.Append(' ');
+            sb.Append(id.ToString(CultureInfo.InvariantCulture));
+            sb.Append(':');
+            sb.Append(n.ToString(CultureInfo.InvariantCulture));
+        }
+
+        /// <summary>A TO line for every territory whose owner differs from
+        /// the last one written. Gated on TerritoryOwnership.Version, which
+        /// bumps only on a real change. Reads OwnerOf only -- never
+        /// Recompute, which publishes.</summary>
+        private void WriteOwnership(string ts)
+        {
+            int count = RegionMap.Count;
+            if (_ownVersion == TerritoryOwnership.Version && _ownLast.Length == count) return;
+            _ownVersion = TerritoryOwnership.Version;
+            if (_ownLast.Length != count)
+            {
+                _ownLast = new int[count];
+                for (int i = 0; i < count; i++) _ownLast[i] = int.MinValue;
+            }
+            for (int i = 0; i < count; i++)
+            {
+                int o = TerritoryOwnership.OwnerOf(i);
+                if (o == _ownLast[i]) continue;
+                _ownLast[i] = o;
+                W("TO", ts, i, SideName(o));
+            }
+        }
+
+        /// <summary>TM lines: the meter, summarised (see the header).</summary>
+        private void WriteMeter(string ts)
+        {
+            int count = RegionMap.Count;
+            if (_mHolder.Length != count)
+            {
+                _mHolder = new int[count];
+                _mPct = new int[count];
+                _mCont = new byte[count];
+                for (int i = 0; i < count; i++) { _mHolder[i] = int.MinValue; _mPct[i] = -1; }
+            }
+            for (int i = 0; i < count; i++)
+            {
+                int holder = TerritoryOwnership.HolderOf(i);
+                int pct = Mathf.Clamp(Mathf.FloorToInt(TerritoryOwnership.ValueOf(i) + 1e-3f), 0, 100);
+                byte cont = (byte)(TerritoryOwnership.IsContested(i) ? 1 : 0);
+                int last = _mPct[i];
+                bool step = last < 0 || pct / 10 != last / 10
+                            || ((pct == 0 || pct == 100) && pct != last);
+                if (holder == _mHolder[i] && cont == _mCont[i] && !step) continue;
+                _mHolder[i] = holder; _mPct[i] = pct; _mCont[i] = cont;
+                W("TM", ts, i, SideName(holder), pct, cont);
+            }
+        }
+
+        private static string SideName(int side)
+            => side == TerritoryOwnership.Curse ? "Border"
+             : side < 0 ? "-"
+             : ((Faction)side).ToString();
 
         private static string Key(EntityManager em, Entity e)
             => em.HasComponent<NetworkedEntity>(e)

@@ -125,6 +125,11 @@ namespace TheWaningBorder.UI.Ingame
             var levelDef = TheWaningBorder.Core.Settings.BuildingUpgradeConfig.LevelDef(em, faction,
                 UpgradeBuildingCommandHelper.ResolveBuildingId(em, building), nextLevel);
             if (levelDef != null) { a = levelDef.attack; sight = levelDef.lineOfSight; }
+            // A Trading Outpost's level is its trade speed (Veilstone_Economy.md §3.1).
+            if (levelDef != null && levelDef.tradeRateMultiplier > 0f
+                && em.HasComponent<TradingOutpostTag>(building))
+                return string.Format(Loc.T("Trades x{0} — spends and earns that much more per minute."),
+                    levelDef.tradeRateMultiplier.ToString("0.##"));
             else
             {
                 string id = TheWaningBorder.Entities.BuildingIds.Of(building, em);

@@ -157,7 +157,7 @@ namespace TheWaningBorder.Systems.Economy
                 {
                     Iron = iron,
                     Veilstone = veilstone,
-                });
+                }, TheWaningBorder.Economy.IncomeSource.Mine);
             }
         }
 

@@ -118,7 +118,7 @@ namespace TheWaningBorder.Systems.Border
                 int whole = (int)_purse[f];
                 if (whole <= 0) continue;
                 _purse[f] -= whole;
-                FactionEconomy.Add(em, (Faction)f, new Cost { Veilstone = whole });
+                FactionEconomy.Add(em, (Faction)f, new Cost { Veilstone = whole }, TheWaningBorder.Economy.IncomeSource.Loot);
             }
         }
 

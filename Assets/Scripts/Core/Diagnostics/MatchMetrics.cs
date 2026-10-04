@@ -26,6 +26,9 @@
 //                          killer, position — where the battles were
 //   Metrics_UnitPositions.csv  every unit's position, sampled every other
 //                          tick (30 s) — the match unfolding on the map
+//   Metrics_Income.csv     per sample: GROSS income by source and spending
+//                          by category, per faction, over the sample period
+//                          (fed by EconomyLedger; 2026-10-04)
 // ─────────────────────────────────────────────────────────────────────────
 
 using System.Collections.Generic;
@@ -127,6 +130,8 @@ namespace TheWaningBorder.Core.Diagnostics
             _kills.Clear();
             _deaths.Clear();
             _deathEvents.Clear();
+            EconomyLedger.Reset();
+            _prevBankValid = false;
         }
 
         private float _t;
@@ -161,6 +166,94 @@ namespace TheWaningBorder.Core.Diagnostics
             Write("Metrics_Deaths.csv", "t,victim,killer,attributed,x,z\n");
             Write("Metrics_UnitPositions.csv", "t,faction,x,z\n");
             Write("Metrics_BuildingEvents.csv", "t,faction,buildingId,x,z,event\n");
+            Write("Metrics_Income.csv",
+                "t,faction,flow,source,supplies,iron,veilstone,veilsteel\n");
+        }
+
+        // ── income / spending ledger (2026-10-04) ──
+        // The bank is income minus spending; this writes the two halves.
+        // One row per (faction, flow, source) that moved this sample period:
+        //   flow   in  = gross income, by EconomyLedger.IncomeSource
+        //          out = spending, by EconomyLedger.SpendCategory
+        //   amounts are what moved during the period that ENDS at t (one
+        //   SampleInterval), so a row's amount * 60 / SampleInterval is a
+        //   per-minute rate.
+        // "untracked" is the residual: the bank moved by something that did
+        // not go through FactionEconomy.Add/Spend (a direct bank write). It
+        // is reported, never hidden, so the ledger always balances.
+        private readonly int[,] _prevBank = new int[8, 4];
+        private bool _prevBankValid;
+        private static readonly string[] IncomeNames =
+        {
+            "emptySlot", "gatherersHut", "mine", "veilstoneMine", "fortressLevel",
+            "capital", "buildingPassive", "trade", "vault", "curseKill", "loot",
+            "refund", "grant", "other",
+        };
+        private static readonly string[] SpendNames =
+        {
+            "units", "buildings", "upgrades", "research", "ageUp", "trade",
+            "repair", "religion", "vault", "overflow", "other",
+        };
+
+        private static void AppendFlow(StringBuilder sb, string t, Faction faction, string flow,
+            string source, float a, float b, float c, float d)
+        {
+            if (System.Math.Abs(a) < 0.05f && System.Math.Abs(b) < 0.05f
+                && System.Math.Abs(c) < 0.05f && System.Math.Abs(d) < 0.05f) return;
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            sb.Append(t).Append(',').Append(faction).Append(',').Append(flow).Append(',')
+              .Append(source).Append(',')
+              .Append(a.ToString("0.#", inv)).Append(',').Append(b.ToString("0.#", inv)).Append(',')
+              .Append(c.ToString("0.#", inv)).Append(',').Append(d.ToString("0.#", inv)).Append('\n');
+        }
+
+        /// <summary>Write this period's ledger for one faction, plus the
+        /// untracked residual against its bank delta.</summary>
+        private void SampleIncome(StringBuilder sb, string t, int f, int su, int ir, int ve, int vs)
+        {
+            var faction = (Faction)f;
+            var net = new float[4];
+            for (int s = 0; s < (int)IncomeSource.Count; s++)
+            {
+                var src = (IncomeSource)s;
+                float a = EconomyLedger.IncomeOf(f, src, 0), b = EconomyLedger.IncomeOf(f, src, 1),
+                      c = EconomyLedger.IncomeOf(f, src, 2), d = EconomyLedger.IncomeOf(f, src, 3);
+                net[0] += a; net[1] += b; net[2] += c; net[3] += d;
+                AppendFlow(sb, t, faction, "in", IncomeNames[s], a, b, c, d);
+            }
+            for (int k = 0; k < (int)SpendCategory.Count; k++)
+            {
+                var cat = (SpendCategory)k;
+                float a = EconomyLedger.SpendOf(f, cat, 0), b = EconomyLedger.SpendOf(f, cat, 1),
+                      c = EconomyLedger.SpendOf(f, cat, 2), d = EconomyLedger.SpendOf(f, cat, 3);
+                net[0] -= a; net[1] -= b; net[2] -= c; net[3] -= d;
+                AppendFlow(sb, t, faction, "out", SpendNames[k], a, b, c, d);
+            }
+
+            var bank = new[] { su, ir, ve, vs };
+            if (_prevBankValid)
+            {
+                // Residual = what the bank did minus what the ledger saw. The
+                // territory tick's fractional carry makes up to ~1 unit of
+                // noise per resource, so anything under 2 is dropped.
+                var res = new float[4];
+                bool any = false;
+                for (int r = 0; r < 4; r++)
+                {
+                    float x = bank[r] - _prevBank[f, r] - net[r];
+                    if (System.Math.Abs(x) >= 2f) { res[r] = x; any = true; }
+                }
+                if (any)
+                {
+                    AppendFlow(sb, t, faction, "in", "untracked",
+                        System.Math.Max(0f, res[0]), System.Math.Max(0f, res[1]),
+                        System.Math.Max(0f, res[2]), System.Math.Max(0f, res[3]));
+                    AppendFlow(sb, t, faction, "out", "untracked",
+                        System.Math.Max(0f, -res[0]), System.Math.Max(0f, -res[1]),
+                        System.Math.Max(0f, -res[2]), System.Math.Max(0f, -res[3]));
+                }
+            }
+            for (int r = 0; r < 4; r++) _prevBank[f, r] = bank[r];
         }
 
         // ── building EVENT ledger (2026-08-31) ──
@@ -294,6 +387,8 @@ namespace TheWaningBorder.Core.Diagnostics
                 }
 
             var fac = new StringBuilder();
+            var inc = new StringBuilder();
+            string tStr = t.ToString("F0");
             var un = new StringBuilder();
             var bl = new StringBuilder();
 
@@ -315,6 +410,8 @@ namespace TheWaningBorder.Core.Diagnostics
 
                 int terr = TerritoryOwnership.Ready ? TerritoryOwnership.CountOf(faction) : 0;
 
+                SampleIncome(inc, tStr, f, su, ir, ve, vs);
+
                 fac.Append(t.ToString("F0")).Append(',').Append(faction).Append(',')
                    .Append(pop).Append(',').Append(popMax).Append(',')
                    .Append(su).Append(',').Append(ir).Append(',')
@@ -332,6 +429,12 @@ namespace TheWaningBorder.Core.Diagnostics
                   .Append(kv.Key.Item2).Append(',').Append(kv.Value).Append('\n');
 
             Write("Metrics_Faction.csv", fac.ToString());
+            Write("Metrics_Income.csv", inc.ToString());
+            // The period is closed: every faction's rows are written and its
+            // bank snapshot taken. A faction skipped above (no units, no
+            // buildings) has its period discarded with the reset.
+            EconomyLedger.Reset();
+            _prevBankValid = true;
             Write("Metrics_Units.csv", un.ToString());
             Write("Metrics_Buildings.csv", bl.ToString());
         }

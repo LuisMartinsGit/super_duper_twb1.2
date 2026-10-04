@@ -401,11 +401,15 @@ namespace TheWaningBorder.UI.Data
             // (docs/Design/Veilstone_Economy.md §3.1).
             if (em.HasComponent<TradingOutpostTag>(entity) && em.HasComponent<FactionTag>(entity))
             {
-                var of = em.GetComponentData<FactionTag>(entity).Value;
-                var recipe = TheWaningBorder.Entities.TradingOutpost.RecipeOf(em, entity);
-                TheWaningBorder.Systems.Economy.TradingOutpostSystem.PerMinute(of, recipe, out var spend, out var earn);
+                // This post's own rate: recipe, research AND its level.
+                TheWaningBorder.Systems.Economy.TradingOutpostSystem.PerMinuteFor(em, entity, out var spend, out var earn);
                 string line = EntityActionExtractor.PerMinuteLine(spend, "-") + "  ->  "
                               + EntityActionExtractor.PerMinuteLine(earn, "+") + " /min";
+                // Its place in the outcrop's cost ramp (level-ups are priced on it).
+                int rampIndex = TheWaningBorder.Entities.TradingOutpost.RampIndexOf(em, entity);
+                float rampMult = TheWaningBorder.Entities.TradingOutpost.RampMultiplier(rampIndex);
+                line += "\n" + string.Format(Loc.T("Post {0} of {1} beside its outcrop — level-ups cost x{2}"),
+                    rampIndex + 1, TheWaningBorder.Entities.TradingOutpost.SideCount, rampMult.ToString("0.##"));
                 var op = em.GetComponentData<Unity.Transforms.LocalTransform>(entity).Position;
                 if (!TheWaningBorder.Entities.TradingOutpost.HasLiveOutcrop(em, op.x, op.z))
                     line += "\n" + Loc.T("Idle — its outcrop is cursed. Destroy the curse node to trade again.");
@@ -712,10 +716,10 @@ namespace TheWaningBorder.UI.Data
                     ? GetProductionInfo(entity, em) : null;
                 info.Actions = new List<ActionButton>
                 {
-                    OutpostRecipeButton(me, TradeRecipe.BuyVeilstone, active, Loc.T("Buy Veilstone"), null),
-                    OutpostRecipeButton(me, TradeRecipe.ForgeVeilsteel, active, Loc.T("Forge Veilsteel"),
+                    OutpostRecipeButton(em, entity, me, TradeRecipe.BuyVeilstone, active, Loc.T("Buy Veilstone"), null),
+                    OutpostRecipeButton(em, entity, me, TradeRecipe.ForgeVeilsteel, active, Loc.T("Forge Veilsteel"),
                         TheWaningBorder.Systems.Economy.TradingOutpostSystem.Cfg?.forgeTech),
-                    OutpostRecipeButton(me, TradeRecipe.SellVeilsteel, active, Loc.T("Sell Veilsteel"),
+                    OutpostRecipeButton(em, entity, me, TradeRecipe.SellVeilsteel, active, Loc.T("Sell Veilsteel"),
                         TheWaningBorder.Systems.Economy.TradingOutpostSystem.Cfg?.sellTech),
                 };
                 return info;
@@ -888,11 +892,18 @@ namespace TheWaningBorder.UI.Data
         /// <summary>One Trading Outpost trade as a top-row button: its per-minute
         /// exchange in the tooltip, greyed while its research is missing, and
         /// marked (not clickable) while it is the trade being run.</summary>
-        private static ActionButton OutpostRecipeButton(Faction me, TradeRecipe recipe,
-            TradeRecipe active, string label, string requiredTech)
+        private static ActionButton OutpostRecipeButton(EntityManager em, Entity outpost, Faction me,
+            TradeRecipe recipe, TradeRecipe active, string label, string requiredTech)
         {
             TheWaningBorder.Systems.Economy.TradingOutpostSystem.PerMinute(
                 me, recipe, out var spend, out var earn);
+            // This post's level scales its trade, both sides.
+            float lvl = TheWaningBorder.Systems.Economy.TradingOutpostSystem.LevelMultiplier(em, outpost);
+            if (lvl != 1f)
+            {
+                spend.Supplies *= lvl; spend.Iron *= lvl; spend.Veilstone *= lvl; spend.Veilsteel *= lvl;
+                earn.Supplies *= lvl; earn.Iron *= lvl; earn.Veilstone *= lvl; earn.Veilsteel *= lvl;
+            }
             bool unlocked = TheWaningBorder.Systems.Economy.TradingOutpostSystem.IsUnlocked(me, recipe);
             bool isActive = recipe == active;
             string tip = label + "\n" + PerMinuteLine(spend, "-") + "  ->  " + PerMinuteLine(earn, "+")

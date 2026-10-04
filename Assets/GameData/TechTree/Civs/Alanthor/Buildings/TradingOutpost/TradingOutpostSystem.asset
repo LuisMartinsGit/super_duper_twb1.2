@@ -15,7 +15,7 @@ MonoBehaviour:
   cycleSeconds: 1
   buySupplies: 50
   buyIron: 50
-  buyVeilstone: 65
+  buyVeilstone: 100
   forgeVeilstone: 50
   forgeVeilsteel: 10
   sellVeilsteel: 50
@@ -31,4 +31,11 @@ MonoBehaviour:
   - 20
   - 45
   - 75
+  speedTechs:
+  - Alanthor_SwiftCaravans
   nodeReach: 12
+  outcropRampMultipliers:
+  - 1
+  - 1.5
+  - 2.25
+  - 3.5

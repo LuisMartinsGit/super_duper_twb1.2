@@ -248,14 +248,27 @@ namespace TheWaningBorder.AI
                                && res.Iron      >= Cfg.reserveIron
                                && res.Veilstone >= Cfg.reserveVeilstone;
 
+                // SURPLUS (2026-10-04, Game_AI.md 5e): an overflowing bank
+                // queues several level-ups a think, not one — the basics cap
+                // is hard, so idle supplies and iron go to upgrades. While the
+                // army waits on veilstone, a level priced in veilstone must
+                // leave the army's earmark in the bank.
+                bool overflowing = AIBudget.BankOverflowing(em, faction);
+                bool veilstoneHeld = overflowing
+                    && AIBudget.IsMilitaryShort(faction, AIBudget.ResVeilstone);
+                int attempts = overflowing ? System.Math.Max(1, Cfg.surplusUpgradesPerThink) : 1;
+
                 // Walk the priority order from a rotating start so no single
                 // building line (log-proven: the hut line) monopolizes the loop.
                 var tickState = em.GetComponentData<AIBuildingUpgradeTickState>(brainEntity);
                 int rotation = tickState.Rotation;
-                tickState.Rotation = (byte)((rotation + 1) % PriorityOrder.Length);
+                tickState.Rotation = (byte)((rotation + attempts) % PriorityOrder.Length);
                 em.SetComponentData(brainEntity, tickState);
 
-                TryUpgradeOne(em, faction, rotation, reservesOk);
+                for (int a = 0; a < attempts; a++)
+                    if (!TryUpgradeOne(em, faction, (rotation + a) % PriorityOrder.Length,
+                            reservesOk, overflowing, veilstoneHeld))
+                        break;
             }
         }
 
@@ -275,22 +288,115 @@ namespace TheWaningBorder.AI
             return false;
         }
 
-        private static void TryUpgradeOne(EntityManager em, Faction faction, int rotation,
-            bool reservesOk)
+        /// <summary>One level-up (or none). True when one was queued.</summary>
+        private static bool TryUpgradeOne(EntityManager em, Faction faction, int rotation,
+            bool reservesOk, bool surplus, bool veilstoneHeld)
         {
+            // THE HOME CAPITAL FIRST (2026-10-03). King Lexor trains only at
+            // a Lv3 capital (levels no longer raise a territory limit —
+            // there is none since 2026-10-04). The round-robin gave the
+            // capital one turn in ten, the Fortress turn went to the LOWEST
+            // Fortress (any new expansion Fortress), and the supply reserve
+            // shut it out entirely for a poor faction: the 0.0.33 batch had
+            // capitals sitting at L1 for 50 minutes (Red on Sundered Crown,
+            // L1 from 11:20 to the end) and 1,333 "King Lexor blocked (needs
+            // Lv3 Shelter)" lines, while expansion Fortresses levelled 1->3
+            // in under three minutes. Below capitalPriorityLevel the capital
+            // is upgraded ahead of the rotation and past the reserves; when
+            // the bank cannot pay for it, only the supply engine may level
+            // meanwhile, so the price can form.
+            switch (TryUpgradeCapital(em, faction, surplus))
+            {
+                case CapitalUpgrade.Queued:
+                    return true;
+                case CapitalUpgrade.Saving:
+                    return TryUpgradeBuildingType(em, faction, "GatherersHut", surplus, veilstoneHeld,
+                        supplyEngine: true);
+            }
+
             // Below the reserve floor only the supply engine is eligible —
             // see the exemption note at the call site.
+            // The production lines pass too (2026-10-04, Game_AI.md 5f): the
+            // reserve floor keeps money for the army, and a production level
+            // is the army's own output — it never yields to it.
             if (!reservesOk)
             {
-                TryUpgradeBuildingType(em, faction, "GatherersHut");
-                return;
+                if (TryUpgradeBuildingType(em, faction, "GatherersHut", surplus, veilstoneHeld,
+                        supplyEngine: true))
+                    return true;
+                for (int p = 0; p < ProductionLineIds.Length; p++)
+                {
+                    int idx = (rotation + p) % ProductionLineIds.Length;
+                    if (TryUpgradeBuildingType(em, faction, ProductionLineIds[idx], surplus, veilstoneHeld))
+                        return true;
+                }
+                return false;
             }
 
             for (int p = 0; p < PriorityOrder.Length; p++)
             {
                 int idx = (rotation + p) % PriorityOrder.Length;
-                if (TryUpgradeBuildingType(em, faction, PriorityOrder[idx])) return;
+                if (TryUpgradeBuildingType(em, faction, PriorityOrder[idx], surplus, veilstoneHeld))
+                    return true;
             }
+            return false;
+        }
+
+        private enum CapitalUpgrade : byte { NotNeeded, Queued, Saving }
+
+        /// <summary>The production lines: a level cuts their train time
+        /// (BuildingUpgradeConfig.TrainTimeMultiplier), so it raises unit
+        /// output and never yields to the army it feeds. A roster table, not
+        /// tuning: the ids are the buildings' SO ids.</summary>
+        private static bool RaisesUnitOutput(string buildingId)
+            => buildingId == "Barracks" || buildingId == "ArcheryRange"
+            || buildingId == "Alanthor_RoyalStable" || buildingId == "Alanthor_SiegeYard";
+
+        /// <summary>The same four lines, for the pass below the reserve floor.</summary>
+        private static readonly string[] ProductionLineIds =
+            { "Barracks", "ArcheryRange", "Alanthor_RoyalStable", "Alanthor_SiegeYard" };
+
+        /// <summary>Level the home capital (the faction's Hall with the
+        /// lowest NetworkId — the starting seat, the rule SimpleAISystem and
+        /// AIAlanthorEndgameSystem use) while it is below
+        /// capitalPriorityLevel.</summary>
+        private static CapitalUpgrade TryUpgradeCapital(EntityManager em, Faction faction, bool surplus)
+        {
+            var query = QC_HallTagBuildingUpgradeableFactionTag.Get(em, QT_HallTagBuildingUpgradeableFactionTag);
+            using var ents = query.ToEntityArray(Allocator.Temp);
+            Entity home = Entity.Null;
+            long bestNid = long.MaxValue;
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (em.GetComponentData<FactionTag>(ents[i]).Value != faction) continue;
+                long nid = em.HasComponent<TheWaningBorder.Core.Multiplayer.NetworkedEntity>(ents[i])
+                    ? em.GetComponentData<TheWaningBorder.Core.Multiplayer.NetworkedEntity>(ents[i]).NetworkId
+                    : long.MaxValue - 1;
+                if (home != Entity.Null && nid >= bestNid) continue;
+                bestNid = nid;
+                home = ents[i];
+            }
+            if (home == Entity.Null) return CapitalUpgrade.NotNeeded;
+            if (em.HasComponent<UnderConstruction>(home)) return CapitalUpgrade.NotNeeded;
+
+            byte lvl = em.HasComponent<BuildingUpgradeState>(home)
+                ? em.GetComponentData<BuildingUpgradeState>(home).Level : (byte)0;
+            if (lvl >= Cfg.capitalPriorityLevel || lvl >= BuildingUpgradeConfig.MaxLevel)
+                return CapitalUpgrade.NotNeeded;
+            // Already paid for and waiting / in progress: nothing to buy.
+            if (UpgradeBuildingCommandHelper.IsUpgradeQueued(em, home)) return CapitalUpgrade.NotNeeded;
+
+            var result = UpgradeBuildingCommandHelper.Execute(em, home,
+                TheWaningBorder.Core.Commands.CommandSource.AI);
+            if (result == UpgradeBuildingResult.Ok)
+            {
+                AILogger.Log(faction, "BUILDING", $"Upgrading the capital to L{lvl + 1} (priority)");
+                if (surplus) AILogger.Log(faction, "SURPLUS", $"upgrade Fortress (capital) to L{lvl + 1}");
+                return CapitalUpgrade.Queued;
+            }
+            return result == UpgradeBuildingResult.CannotAfford
+                ? CapitalUpgrade.Saving
+                : CapitalUpgrade.NotNeeded;
         }
 
         /// <summary>
@@ -299,7 +405,12 @@ namespace TheWaningBorder.AI
         /// click (Fortress L1 unlocks the multi-target chain).
         /// Returns true if the upgrade was queued.
         /// </summary>
-        private static bool TryUpgradeBuildingType(EntityManager em, Faction faction, string buildingId)
+        /// <param name="supplyEngine">The Gatherer's Hut levelled as the
+        /// supply engine (below the reserves, or while the capital's price
+        /// forms) — exempt from the army-first gate and the savings hold,
+        /// because it is the income both are waiting on.</param>
+        private static bool TryUpgradeBuildingType(EntityManager em, Faction faction, string buildingId,
+            bool surplus = false, bool veilstoneHeld = false, bool supplyEngine = false)
         {
             EntityQuery query;
             switch (buildingId)
@@ -311,7 +422,15 @@ namespace TheWaningBorder.AI
                     query = QC_BarracksTagBuildingUpgradeableFactionTag.Get(em, QT_BarracksTagBuildingUpgradeableFactionTag);
                     break;
                 case "Hut":
-                    query = QC_HutTagBuildingUpgradeableFactionTag.Get(em, QT_HutTagBuildingUpgradeableFactionTag);
+                    // A Hut level buys population and nothing else. Measured
+                    // 2026-10-04 (Headless26): with ~60 of 300 used, House
+                    // L2/L3 ate 1,000-2,600 supplies a minute until popMax hit
+                    // the ceiling, and that stop was the "income jump at 30
+                    // minutes". Only level Huts when housing is actually short.
+                    if (PopulationHelper.TryGetFactionPopulation(faction, out int pop, out int popMax)
+                        && popMax - pop > Cfg.hutUpgradeHeadroomMax)
+                        return false;
+                    query =QC_HutTagBuildingUpgradeableFactionTag.Get(em, QT_HutTagBuildingUpgradeableFactionTag);
                     break;
                 case "GatherersHut":
                     // Feraldis huts are Raider Camps — they gather nothing,
@@ -379,8 +498,44 @@ namespace TheWaningBorder.AI
             if (best == Entity.Null) return false;
 
             // Army first: never spend the military line's iron on levels.
-            if (FactionEconomy.TryGetBank(em, faction, out var upgradeBank)
+            // A PRODUCTION LINE'S LEVEL IS EXEMPT from every army-first gate
+            // here (2026-10-04, Game_AI.md 5f, operator: "the buildings are
+            // what allows the army to grow faster"): this iron floor, the
+            // ArmyFirstYield below and the army's veilstone earmark.
+            bool feedsArmy = RaisesUnitOutput(buildingId);
+            if (!feedsArmy
+                && FactionEconomy.TryGetBank(em, faction, out var upgradeBank)
                 && em.GetComponentData<FactionResources>(upgradeBank).Iron < Cfg.upgradeIronReserve)
+                return false;
+
+            // ARMY FIRST (2026-10-04, Game_AI.md 5f). A level that does not
+            // raise unit output -- everything but the four production lines
+            // -- yields to an army below its target that could spend the
+            // money (AIBudget.ArmyFirstYield), and every level respects the
+            // resource-aware savings hold (the lost-trainer rebuild's strict
+            // reserve among them). The capital's priority levels and the
+            // supply engine are exempt (they never reach this call / pass
+            // supplyEngine).
+            if (!supplyEngine
+                && UpgradeBuildingCommandHelper.TryGetNextCost(em, best, out var gateCost, out _))
+            {
+                if (AIPivotalReserve.ShouldHold(em, faction, gateCost)) return false;
+                if (!feedsArmy)
+                {
+                    string why = AIBudget.ArmyFirstYield(em, faction, gateCost);
+                    if (why != null)
+                    {
+                        AIBudget.NoteArmyFirstYield(faction, "upgrade " + buildingId, why);
+                        return false;
+                    }
+                }
+            }
+
+            // The army waits on veilstone: a level priced in it must leave
+            // the army's earmark in the bank (Game_AI.md 5e).
+            if (veilstoneHeld && !feedsArmy
+                && UpgradeBuildingCommandHelper.TryGetNextCost(em, best, out var nextCost, out _)
+                && !AIBudget.LeavesMilitaryVeilstone(em, faction, nextCost))
                 return false;
 
             var result = UpgradeBuildingCommandHelper.Execute(em, best,
@@ -389,6 +544,7 @@ namespace TheWaningBorder.AI
             {
                 AILogger.Log(faction, "BUILDING",
                     $"Upgrading {buildingId} to L{bestLevel + 1}");
+                if (surplus) AILogger.Log(faction, "SURPLUS", $"upgrade {buildingId} to L{bestLevel + 1}");
                 return true;
             }
             return false;

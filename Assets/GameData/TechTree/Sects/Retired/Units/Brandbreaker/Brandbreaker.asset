@@ -17,7 +17,7 @@ MonoBehaviour:
   unitClass: siege
   hp: 150
   speed: 4
-  trainingTime: 30
+  trainingTime: 21
   damage: 12
   damageType: melee
   armorType: infantry_heavy

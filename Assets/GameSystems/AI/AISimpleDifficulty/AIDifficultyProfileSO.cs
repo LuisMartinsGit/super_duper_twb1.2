@@ -60,7 +60,33 @@ namespace TheWaningBorder.AI
         /// </summary>
         public float supportThinkScale;
 
+        // ── Army composition (docs/Design/Game_AI.md § 5d) ──────────────
+
+        /// <summary>
+        /// How hard the scouted enemy army bends the composition: every
+        /// perEnemy* term of the role table (SimpleAISystem.asset) is
+        /// multiplied by this. 0 = the AI trains its baseline mix whatever it
+        /// faces; 1 = the table as authored. Freshness of the read is
+        /// intelFreshnessSeconds; this is how WELL the AI answers it.
+        /// </summary>
+        public float counterResponse;
+
+        /// <summary>
+        /// Multiplier on the basics' (Spearman, Archer) share of the army
+        /// plan. A weaker tier leans on the cheap, quick basics; a stronger
+        /// one invests its veilstone in the role units.
+        /// </summary>
+        public float basicsShareScale;
+
         // ── Economy ───────────────────────────────────────────────────────
+
+        /// <summary>
+        /// How hard this tier races for territory (Game_AI.md § 5b,
+        /// defend-based expansion): multiplies claimMaxParallelSquads
+        /// (SimpleAISystem.asset). Below 1 a weaker tier sends fewer claim
+        /// squads at once; it never changes whether ground can be held.
+        /// </summary>
+        public float expansionDrive;
 
 
 

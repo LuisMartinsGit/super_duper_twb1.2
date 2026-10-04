@@ -75,6 +75,8 @@ namespace TheWaningBorder.Data
         public string[] tags;
         /// <summary>Flat bonus damage vs target tags (added after armor, ignores armor).</summary>
         public List<DamageBonus> bonusVsTags;
+        /// <summary>Auto-acquire preference (Combat_Pacing.md § Target preference).</summary>
+        public string[] preferTargets;
 
         // ==================== Abilities (data-driven ability system) ====================
         /// <summary>Ability card names attached to this unit (see AbilityCatalog).

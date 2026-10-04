@@ -58,7 +58,7 @@ flowchart LR
         Gar["Garrison"]
         H_A["House Lvl 1-3"]
         Guild_A["Guild"]
-        TO_A["Trading Outpost"]
+        TO_A["Trading Outpost L1-L3"]
         Mi_A["Mine (persists)"]
         Pal_A["Palisade (persists)"]
         New_A["New at Age 1:<br/>Archery Range, Royal Stable,<br/>Siege Yard, Watch Tower,<br/>Stone Wall + emplacements"]
@@ -149,7 +149,7 @@ flowchart TB
 
     subgraph VMine0["Veilstone Mine"]
         direction TB
-        vm_note["(Alanthor: becomes a<br/>Trading Outpost at age-up)"]
+        vm_note["(Alanthor: becomes a<br/>Trading Outpost at age-up,<br/>moved beside its outcrop)"]
     end
 
     subgraph Pal0["Palisade (timber wall)"]
@@ -200,7 +200,9 @@ persist, with the Alanthor culture modifiers on their SOs; the Mine and
 the Palisade persist unchanged.)* Every culture building's L1 is free at
 age-up. There is no Smelter, Crucible or Academy: each armour ladder
 researches at the building that trains the units it protects. Alanthor
-never mine veilstone — their Veilstone Mines become **Trading Outposts**.
+never mine veilstone — their Veilstone Mines become **Trading Outposts**,
+which stand beside an outcrop, up to four per outcrop (one per side), each
+further post there costing more.
 
 ```mermaid
 flowchart TB
@@ -336,13 +338,15 @@ flowchart TB
         a_gu_r1 --> a_gu_r2 --> a_gu_r3
     end
 
-    subgraph TO_A["Trading Outpost (the Veilstone Mine after age-up)"]
+    subgraph TO_A["Trading Outpost L1-L3 (the Veilstone Mine after age-up; up to 4 per outcrop, one per side)"]
         direction TB
         a_to_t1{{"Trade Agreements I"}}
         a_to_t2{{"Trade Agreements II"}}
         a_to_t3{{"Trade Agreements III"}}
+        a_to_sc{{"Swift Caravans"}}
         a_to_vf{{"Veilsteel Forging"}}
         a_to_ve{{"Veilsteel Export"}}
+        a_to_t1 --> a_to_sc
     end
 
     subgraph H_A["House L1-L3 (cultured Hut)"]

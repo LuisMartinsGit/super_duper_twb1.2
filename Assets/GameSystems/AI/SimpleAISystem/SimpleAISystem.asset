@@ -14,11 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   buildRingDistanceMin: 16
   buildRingDistanceMax: 48
-  minBuildingSpacing: 20
+  minBuildingSpacing: 0
   minResourceNodeClearance: 14
   minGHutToGHutSpacing: 30
-  buildingGapCells: 2
-  relaxedBuildingGapCells: 1
+  buildingGapCells: 1
+  relaxedBuildingGapCells: 0
   relaxedBuildRingDistanceMax: 52
   wallInteriorClearance: 4
   extractorSearchRadius: 8
@@ -43,6 +43,10 @@ MonoBehaviour:
   fortressDisconnectedBonus: 150
   fortressDistanceWeight: 0.2
   fortressSiteRetrySeconds: 90
+  lostTrainerRetrySeconds: 10
+  lostTrainerSaveStrict: 1
+  lostTrainerSearchRetrySeconds: 15
+  noTrainerLogInterval: 120
   failedSiteSearchCooldown: 10
   siteSearchCandidateBudget: 4000
   siteSearchValidateBudget: 160
@@ -67,7 +71,22 @@ MonoBehaviour:
   workersPerConqueredTerritory: 1
   researchSweepInterval: 20
   claimAttemptInterval: 12
-  claimSquadSize: 5
+  claimSquadMinSize: 3
+  claimSquadMaxSize: 12
+  claimMaxParallelSquads: 4
+  claimThreatRadius: 30
+  claimThreatMargin: 1.3
+  claimArmyShare: 0.6
+  claimSupplyNodeBonus: 40
+  claimOutcropBonus: 80
+  claimHeldBackSeconds: 60
+  claimHoldForLockSeconds: 240
+  claimPrestageMaxSeconds: 300
+  claimWaveYieldWindowSeconds: 30
+  claimWaveYieldMaxSeconds: 120
+  expandPowerPerTerritoryFloor: 100
+  expandStretchMinTerritories: 3
+  expandLossConsolidateSeconds: 120
   reclaimReligionBelow: 3
   religionHuntEarliestSeconds: 60
   religionHuntAssessRadius: 40
@@ -92,7 +111,9 @@ MonoBehaviour:
   leadMargin: 1.35
   stagingDistance: 45
   waveOverdueSeconds: 300
-  fullPopulationAfterSeconds: 1500
+  strengthWaveAfterSeconds: 1500
+  strengthWaveRatio: 1.3
+  strengthWaveMinArmy: 20
   stagingGatherRadius: 12
   musterDistance: 22
   musterGatherFraction: 0.85
@@ -114,6 +135,7 @@ MonoBehaviour:
   reclaimRadius: 110
   reclaimHallThreatRadius: 65
   reclaimSquadSize: 6
+  reclaimAssessRadius: 40
   ageUpReserveSupplies: 0
   ageUpReserveIron: 0
   ageUpReserveVeilstone: 0
@@ -125,3 +147,225 @@ MonoBehaviour:
   curseCorridorSampleStep: 8
   startHallKnownRadius: 60
   stepTimeoutSeconds: 90
+  compositionRoles:
+  - unitId: Spearman
+    fallbackUnitId: 
+    supersededByUnitId: 
+    basic: 1
+    baseShare: 0.1
+    perEnemyCavalry: 0.45
+    perEnemyHeavyCavalry: 0
+    perEnemyInfantry: 0
+    perEnemyRanged: 0
+    perEnemyHeavy: 0
+    perEnemyArmoured: 0
+    perEnemySiege: 0
+    perEnemyHighValue: 0
+    perEnemyMassed: 0
+  - unitId: Alanthor_Archer
+    fallbackUnitId: Spearman
+    supersededByUnitId: 
+    basic: 1
+    baseShare: 0.1
+    perEnemyCavalry: -0.1
+    perEnemyHeavyCavalry: 0
+    perEnemyInfantry: 0.15
+    perEnemyRanged: 0
+    perEnemyHeavy: 0
+    perEnemyArmoured: -0.25
+    perEnemySiege: 0
+    perEnemyHighValue: 0
+    perEnemyMassed: 0
+  - unitId: Alanthor_Swordsman
+    fallbackUnitId: Spearman
+    supersededByUnitId: 
+    basic: 0
+    baseShare: 0.14
+    perEnemyCavalry: 0
+    perEnemyHeavyCavalry: 0
+    perEnemyInfantry: 0.05
+    perEnemyRanged: 0
+    perEnemyHeavy: 0
+    perEnemyArmoured: 0
+    perEnemySiege: 0.4
+    perEnemyHighValue: 0
+    perEnemyMassed: 0
+  - unitId: Alanthor_Nobleman
+    fallbackUnitId: Alanthor_Swordsman
+    supersededByUnitId: 
+    basic: 0
+    baseShare: 0.1
+    perEnemyCavalry: 0
+    perEnemyHeavyCavalry: 0
+    perEnemyInfantry: 0.05
+    perEnemyRanged: 0.25
+    perEnemyHeavy: 0
+    perEnemyArmoured: 0
+    perEnemySiege: 0
+    perEnemyHighValue: 0
+    perEnemyMassed: 0
+  - unitId: Alanthor_Sentinel
+    fallbackUnitId: Alanthor_Swordsman
+    supersededByUnitId: 
+    basic: 0
+    baseShare: 0.06
+    perEnemyCavalry: 0
+    perEnemyHeavyCavalry: 0.1
+    perEnemyInfantry: 0
+    perEnemyRanged: 0
+    perEnemyHeavy: 0.1
+    perEnemyArmoured: 0.2
+    perEnemySiege: 0
+    perEnemyHighValue: 0
+    perEnemyMassed: 0
+  - unitId: Alanthor_Crossbowman
+    fallbackUnitId: Spearman
+    supersededByUnitId: 
+    basic: 0
+    baseShare: 0.06
+    perEnemyCavalry: 0.25
+    perEnemyHeavyCavalry: 0.25
+    perEnemyInfantry: 0
+    perEnemyRanged: 0
+    perEnemyHeavy: 0
+    perEnemyArmoured: 0
+    perEnemySiege: 0
+    perEnemyHighValue: 0
+    perEnemyMassed: 0
+  - unitId: Alanthor_Longbowman
+    fallbackUnitId: Alanthor_Archer
+    supersededByUnitId: 
+    basic: 0
+    baseShare: 0.12
+    perEnemyCavalry: -0.15
+    perEnemyHeavyCavalry: 0
+    perEnemyInfantry: 0.15
+    perEnemyRanged: 0
+    perEnemyHeavy: 0
+    perEnemyArmoured: 0
+    perEnemySiege: 0
+    perEnemyHighValue: 0
+    perEnemyMassed: 0.1
+  - unitId: Alanthor_Outrider
+    fallbackUnitId: Alanthor_Nobleman
+    supersededByUnitId: 
+    basic: 0
+    baseShare: 0.07
+    perEnemyCavalry: -0.1
+    perEnemyHeavyCavalry: 0
+    perEnemyInfantry: 0
+    perEnemyRanged: 0.2
+    perEnemyHeavy: 0
+    perEnemyArmoured: 0
+    perEnemySiege: 0.15
+    perEnemyHighValue: 0
+    perEnemyMassed: 0
+  - unitId: Alanthor_Cataphract
+    fallbackUnitId: Alanthor_Outrider
+    supersededByUnitId: 
+    basic: 0
+    baseShare: 0.07
+    perEnemyCavalry: -0.05
+    perEnemyHeavyCavalry: 0
+    perEnemyInfantry: 0
+    perEnemyRanged: 0.25
+    perEnemyHeavy: 0
+    perEnemyArmoured: 0
+    perEnemySiege: 0.1
+    perEnemyHighValue: 0
+    perEnemyMassed: 0
+  - unitId: Alanthor_BatteringRam
+    fallbackUnitId: Alanthor_Ballista
+    supersededByUnitId: Alanthor_Trebuchet
+    basic: 0
+    baseShare: 0.04
+    perEnemyCavalry: 0
+    perEnemyHeavyCavalry: 0
+    perEnemyInfantry: 0
+    perEnemyRanged: 0
+    perEnemyHeavy: 0
+    perEnemyArmoured: 0
+    perEnemySiege: 0
+    perEnemyHighValue: 0
+    perEnemyMassed: 0
+  - unitId: Alanthor_Trebuchet
+    fallbackUnitId: Alanthor_BatteringRam
+    supersededByUnitId: 
+    basic: 0
+    baseShare: 0
+    perEnemyCavalry: 0
+    perEnemyHeavyCavalry: 0
+    perEnemyInfantry: 0
+    perEnemyRanged: 0
+    perEnemyHeavy: 0
+    perEnemyArmoured: 0
+    perEnemySiege: 0
+    perEnemyHighValue: 0
+    perEnemyMassed: 0
+  - unitId: Alanthor_Ballista
+    fallbackUnitId: Alanthor_Sentinel
+    supersededByUnitId: 
+    basic: 0
+    baseShare: 0.02
+    perEnemyCavalry: 0
+    perEnemyHeavyCavalry: 0
+    perEnemyInfantry: 0
+    perEnemyRanged: 0
+    perEnemyHeavy: 0
+    perEnemyArmoured: 0
+    perEnemySiege: 0
+    perEnemyHighValue: 0.2
+    perEnemyMassed: 0
+  - unitId: Alanthor_Catapult
+    fallbackUnitId: Alanthor_Longbowman
+    supersededByUnitId: 
+    basic: 0
+    baseShare: 0.02
+    perEnemyCavalry: 0
+    perEnemyHeavyCavalry: 0
+    perEnemyInfantry: 0
+    perEnemyRanged: 0
+    perEnemyHeavy: 0
+    perEnemyArmoured: 0
+    perEnemySiege: 0
+    perEnemyHighValue: 0
+    perEnemyMassed: 0.2
+  basicsFloor: 16
+  basicsMinShare: 0.12
+  basicsMaxShare: 0.6
+  surplusClaimOutcropScale: 2
+  surplusClaimIntervalScale: 0.5
+  surplusFortressOutcropScale: 2
+  surplusResearchSweepInterval: 8
+  surplusLogInterval: 60
+  veilstoneIncomeForFullLadder: 300
+  veilstoneBankForFullLadder: 600
+  ladderScaleWhenStarved: 0.35
+  armouredRangedDefense: 3
+  massedCellSize: 10
+  massedMinUnits: 6
+  enemyReadMinSightings: 4
+  compositionLogInterval: 60
+  sealCheckEnabled: 1
+  sealWindowHalfCells: 40
+  sealPocketToleranceCells: 2
+  maxFlushClusterBuildings: 4
+  sealChecksPerThink: 24
+  sealCacheSeconds: 5
+  sealLogInterval: 10
+  territoryDevelopInterval: 8
+  territoryStepCooldown: 6
+  territoryBlockedStepSeconds: 60
+  towersPerTerritory: 2
+  towerPeripheryFraction: 0.6
+  productionPerTerritory: 1
+  homeProductionPerLine: 2
+  homeProductionFloorAfterSeconds: 90
+  productionSaturationThreshold: 0.8
+  productionSaturationSeconds: 60
+  productionLogInterval: 60
+  productionSiteTerritoriesPerCall: 3
+  fortressAfterResources: 1
+  territoryReportInterval: 60
+  fortressSpotSearchRadius: 60
+  fortressSpotMarginCells: 1

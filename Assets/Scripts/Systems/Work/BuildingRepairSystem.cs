@@ -220,7 +220,7 @@ namespace TheWaningBorder.Systems.Work
             );
 
             // Try to spend
-            return FactionEconomy.Spend(em, faction, cost);
+            return FactionEconomy.Spend(em, faction, cost, TheWaningBorder.Economy.SpendCategory.Repair);
         }
 
         /// <summary>

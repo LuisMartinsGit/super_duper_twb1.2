@@ -639,11 +639,25 @@ namespace TheWaningBorder.World.Regions
             "GatherersHut"     => (ComponentType?)ComponentType.ReadOnly<SupplyNodeTag>(),
             "Mine"             => (ComponentType?)ComponentType.ReadOnly<IronMineTag>(),
             "VeilstoneMine"    => (ComponentType?)ComponentType.ReadOnly<VeilstoneOutcroppingTag>(),
-            // Alanthor's veilstone building stands ON the outcrop too
-            // (docs/Design/Veilstone_Economy.md §3.1, 2026-10-01).
+            // Alanthor's veilstone building is tied to an outcrop too, but it
+            // stands BESIDE it, on one of its four side slots — see
+            // NodeStoodOnBy (docs/Design/Veilstone_Economy.md §3.1, 2026-10-04).
             "Alanthor_TradingOutpost" => (ComponentType?)ComponentType.ReadOnly<VeilstoneOutcroppingTag>(),
             _ => null,
         };
+
+        /// <summary>
+        /// The node kind this building's footprint may COVER — its own node,
+        /// exempt from the "nothing on a node" and obstacle tests. Every
+        /// extractor stands on its node except the Alanthor Trading Outpost
+        /// (2026-10-04), which is tied to a veilstone outcrop but stands on a
+        /// side slot beside it: it covers no node at all, so it gets no
+        /// exemption and the strict tests keep it off every node.
+        /// </summary>
+        public static ComponentType? NodeStoodOnBy(string buildingId)
+            => buildingId == TheWaningBorder.Entities.TradingOutpost.BuildingId
+                ? null
+                : RequiredNodeFor(buildingId);
 
         /// <summary>The tag that identifies an already-built extractor of this
         /// kind. Buildings carry tags, not ids, so occupancy is tested by tag.</summary>
@@ -763,6 +777,11 @@ namespace TheWaningBorder.World.Regions
             var required = RequiredNodeFor(buildingId);
             if (required == null) return false;
 
+            // The Trading Outpost snaps to a free SIDE of an uncursed outcrop,
+            // nearest first, skipping sides the ground refuses (2026-10-04).
+            if (buildingId == TheWaningBorder.Entities.TradingOutpost.BuildingId)
+                return TheWaningBorder.Entities.TradingOutpost.TrySnapToSide(em, pos, out snapped);
+
             var nodes = TagWithTransform(em, required.Value).ToComponentDataArray<LocalTransform>(
                 Unity.Collections.Allocator.Temp);
 
@@ -806,6 +825,12 @@ namespace TheWaningBorder.World.Regions
             LocalTransform[] taken, int takenCount, out float3 snapped)
         {
             snapped = pos;
+
+            // The Trading Outpost's side slots (the pure form — the snapshot
+            // has no ground test; the AI validates its sites separately).
+            if (buildingId == TheWaningBorder.Entities.TradingOutpost.BuildingId)
+                return TheWaningBorder.Entities.TradingOutpost.SnapToSideAmong(
+                    pos, nodes, nodeCount, taken, takenCount, out snapped);
 
             float r2 = SupplyNodeSnapRange * SupplyNodeSnapRange;
             bool found = false;
@@ -992,9 +1017,9 @@ namespace TheWaningBorder.World.Regions
                 PlacementRefusal.FortressAlreadyHere => "This territory already has a Fortress",
                 PlacementRefusal.Retired          => "That building can no longer be built",
                 PlacementRefusal.OnResourceNode   => "Cannot build on a resource node — only its own extractor may stand there",
-                PlacementRefusal.WrongCulture     => "Alanthor do not mine veilstone — raise a Trading Outpost on it",
+                PlacementRefusal.WrongCulture     => "Alanthor do not mine veilstone — raise a Trading Outpost beside it",
                 PlacementRefusal.OutcropUnavailable => "This veilstone outcrop is cursed or mined out",
-                PlacementRefusal.NoOutcropNearby  => "Trading Outposts must stand on an uncursed veilstone outcrop",
+                PlacementRefusal.NoOutcropNearby  => "Trading Outposts must stand beside an uncursed veilstone outcrop",
                 _                                 => "Invalid placement",
             };
             return TheWaningBorder.Core.Localization.Loc.T(en);
@@ -1008,7 +1033,7 @@ namespace TheWaningBorder.World.Regions
             "GatherersHut"     => "Gatherer's Huts must be built on a free supply node",
             "Mine"             => "Mines must be built on a free iron or veilstone node",
             "VeilstoneMine"    => "Veilstone Mines must be built on a free, uncursed veilstone outcropping",
-            "Alanthor_TradingOutpost" => "Trading Outposts must be built on a free, uncursed veilstone outcrop",
+            "Alanthor_TradingOutpost" => "Trading Outposts must stand on a free side of an uncursed veilstone outcrop",
             _                  => "This building must stand on a free resource node",
         };
     }

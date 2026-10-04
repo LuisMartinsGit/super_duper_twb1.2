@@ -39,26 +39,16 @@ namespace TheWaningBorder.AI
         // 7. ARMOURED-UNIT PRODUCTION
         // ──────────────────────────────────────────────────────────────────
 
-        // Push the armoured lines into their production buildings' queues.
-        // Same pattern SimpleAISystem uses for Age-1 units; the cost is
-        // charged inside TrainCommandDirect on every peer
-        // (docs/Multiplayer_LAN_Readiness.md) — TryQueueAt only CHECKS
-        // affordability, so we don't double-deduct.
-        //   Stable    — Cataphract first (the heavy line), Outrider filler.
-        //   SiegeYard — Trebuchet when its level gate opens, else Ballista.
-        //     (Was "Alanthor_Catapult" — a UnitFactory ALIAS the TechCatalog
-        //     does not carry, so TryGetUnit failed and the AI shipped ZERO
-        //     siege in every match up to 2026-08-11. The catalog id is
-        //     "Alanthor_Ballista".)
-        // Infantry/archer lines stay with SimpleAISystem's composition
-        // picker — the Barracks queue belongs to it.
-        private static void TryQueueArmouredUnits(Faction faction, EntityManager em)
-        {
-            if (!TryQueueAt<RoyalStableTag>(em, faction, "Alanthor_Cataphract"))
-                TryQueueAt<RoyalStableTag>(em, faction, "Alanthor_Outrider");
-            if (!TryQueueAt<SiegeYardTag>(em, faction, "Alanthor_Trebuchet"))
-                TryQueueAt<SiegeYardTag>(em, faction, "Alanthor_Ballista");
-        }
+        // REMOVED 2026-10-03: this pass queued a Cataphract (else an
+        // Outrider) and a Trebuchet (else a Ballista) every think, beside and
+        // ahead of SimpleAISystem's composition picker. It was a second unit
+        // picker — the very thing AIComposition.cs exists to forbid — and it
+        // spent the scarce veilstone first-come on whichever unit it named,
+        // with no line targets, no siege variety and no King Lexor priority.
+        // Cavalry and siege are now lines of the Alanthor army plan
+        // (SimpleAISystem.Composition.cs), paid from the army's veilstone
+        // earmark (AIBudget). Sect units (below) stay here: they are per-sect
+        // uniques, not composition.
         // ──────────────────────────────────────────────────────────────────
         // 8. WORKER FLEE
         // ──────────────────────────────────────────────────────────────────

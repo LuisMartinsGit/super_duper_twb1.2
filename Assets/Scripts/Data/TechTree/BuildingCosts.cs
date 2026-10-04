@@ -223,6 +223,22 @@ namespace TheWaningBorder.Data
             return cost;
         }
 
+        /// <summary>
+        /// <see cref="For(EntityManager, Faction, string)"/> at a known SITE —
+        /// what the executor charges. One building's price depends on where it
+        /// stands: the Alanthor Trading Outpost costs more for every post
+        /// already beside the same outcrop (the per-outcrop ramp,
+        /// docs/Design/Veilstone_Economy.md §3.1, 2026-10-04); a post on a new
+        /// outcrop is base price again. Replicated state only.
+        /// </summary>
+        public static Cost For(EntityManager em, Faction faction, string id, Unity.Mathematics.float3 position)
+        {
+            var cost = For(em, faction, id);
+            if (id == TheWaningBorder.Entities.TradingOutpost.BuildingId)
+                cost = TheWaningBorder.Entities.TradingOutpost.RampedBuildCost(em, faction, position, cost);
+            return cost;
+        }
+
         /// <summary>Scale every resource, rounding to the nearest whole unit
         /// (1.5 x 450 is 675, never 674 from float truncation).</summary>
         private static Cost Scale(Cost c, float m) => Cost.Of(

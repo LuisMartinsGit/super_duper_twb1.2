@@ -89,5 +89,53 @@ namespace TheWaningBorder.AI
         /// <summary>A wall point closer than this to the Fortress is dropped:
         /// a border that near cannot be walled without walling the capital.</summary>
         public float borderMinRadius;
+
+        // ── The reserved ring and its gates (2026-10-04) ─────────────────
+        /// <summary>Build cells kept clear on EACH side of the planned home
+        /// ring, beyond the wall's own half-depth (hub radius at a hub): room
+        /// for the wall and a walkway. Every AI placer refuses a footprint on
+        /// this corridor (AIWallCorridor).</summary>
+        public int corridorClearanceCells;
+
+        /// <summary>A footprint of at most this many 2 m build cells (a Hut
+        /// or a Watch Tower is 2 x 2 = 4) is refused only on the wall's OWN
+        /// cells, not on the walkway band either side: it fits beside the
+        /// wall and the curtain router winds past it (2026-10-04). 0 = no
+        /// exemption.</summary>
+        public int corridorSmallFootprintCells;
+
+        /// <summary>Seconds between "placement rejected — on wall corridor"
+        /// log lines per faction and building.</summary>
+        public float corridorLogInterval;
+
+        /// <summary>Grid cell of the curtain router, metres.</summary>
+        public float wallRerouteCellSize;
+
+        /// <summary>How far round the two hubs the curtain router may look
+        /// for a way past a blocker, metres.</summary>
+        public float wallRerouteMargin;
+
+        /// <summary>A routed curtain may be at most this many times the
+        /// straight distance between its hubs (and never less than the
+        /// bulge detour's own cap).</summary>
+        public float wallRerouteMaxLengthFactor;
+
+        /// <summary>Gates every closed home ring must have — the army is
+        /// never sealed in.</summary>
+        public int minGatesPerRing;
+
+        /// <summary>Most gates the doctrine cuts into one ring.</summary>
+        public int maxGatesPerRing;
+
+        /// <summary>Minimum distance between two gates on a ring, metres.</summary>
+        public float gateSiteSpacing;
+
+        /// <summary>How far from a chosen exit point the gate may be cut,
+        /// metres.</summary>
+        public float gateSiteReach;
+
+        /// <summary>How far outward of the ring a curtain's midpoint is probed
+        /// to learn which territory that stretch of wall faces, metres.</summary>
+        public float gateExitProbe;
     }
 }

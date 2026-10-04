@@ -110,7 +110,7 @@ namespace TheWaningBorder.Systems.Economy
                 if (culture != Cultures.Feraldis) continue;
 
                 int supplies = (int)math.max(1, damageInWindow * SuppliesPerHp);
-                FactionEconomy.Add(em, killerFaction, Cost.Of(supplies: supplies));
+                FactionEconomy.Add(em, killerFaction, Cost.Of(supplies: supplies), TheWaningBorder.Economy.IncomeSource.Loot);
                 TWBLog.Log($"[FeraldisLowHp] {killerFaction} earned {supplies} Supplies from low-HP damage");
             }
 

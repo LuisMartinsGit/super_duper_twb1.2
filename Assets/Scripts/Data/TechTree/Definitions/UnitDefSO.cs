@@ -61,6 +61,11 @@ namespace TheWaningBorder.Data
         public string[] tags;
         public List<DamageBonus> bonusVsTags = new List<DamageBonus>();
 
+        /// <summary>What this unit would rather shoot when it picks its own
+        /// target (Combat_Pacing.md § Target preference): "Cavalry+Heavy",
+        /// "Siege", "Hero", "Massed". Empty for almost every unit.</summary>
+        public string[] preferTargets;
+
         public string[] abilities;
 
         public GameObject prefab;
@@ -109,6 +114,7 @@ namespace TheWaningBorder.Data
             def.healRange      = healRange;
             def.tags           = tags == null ? System.Array.Empty<string>() : (string[])tags.Clone();
             def.bonusVsTags    = bonusVsTags;   // read-only at runtime -> reference copy
+            def.preferTargets  = preferTargets == null ? System.Array.Empty<string>() : (string[])preferTargets.Clone();
             def.abilities      = abilities == null ? System.Array.Empty<string>() : (string[])abilities.Clone();
             def.siegeRange     = siegeRange;
             def.siegeCooldown  = siegeCooldown;
@@ -145,6 +151,7 @@ namespace TheWaningBorder.Data
             healRange      = def.healRange;
             tags           = def.tags == null ? System.Array.Empty<string>() : (string[])def.tags.Clone();
             bonusVsTags    = def.bonusVsTags ?? new List<DamageBonus>();
+            preferTargets  = def.preferTargets == null ? System.Array.Empty<string>() : (string[])def.preferTargets.Clone();
             abilities      = def.abilities == null ? System.Array.Empty<string>() : (string[])def.abilities.Clone();
             siegeRange     = def.siegeRange;
             siegeCooldown  = def.siegeCooldown;

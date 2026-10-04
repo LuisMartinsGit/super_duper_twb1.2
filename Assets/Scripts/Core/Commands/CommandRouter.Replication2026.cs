@@ -221,7 +221,7 @@ namespace TheWaningBorder.Core.Commands
 
             string hubId = TheWaningBorder.Entities.AlanthorWall.HubIdFor(palisade);
             if (!BuildCosts.TryGet(hubId, out var cost)) cost = default;
-            if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost))
+            if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost, TheWaningBorder.Economy.SpendCategory.Buildings))
                 return Entity.Null;
 
             // NO GRID SNAP (2026-09-24). The wall hub is the one building
@@ -343,14 +343,14 @@ namespace TheWaningBorder.Core.Commands
             {
                 if (TheWaningBorder.Entities.AlanthorWall.AreHubsConnected(em, sourceHub, hub))
                     return hub; // identical no-op on every peer
-                if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, runCost))
+                if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, runCost, TheWaningBorder.Economy.SpendCategory.Buildings))
                     return Entity.Null;
             }
             else
             {
                 string hubId = TheWaningBorder.Entities.AlanthorWall.HubIdFor(palisade);
                 if (!BuildCosts.TryGet(hubId, out var cost)) cost = default;
-                if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost + runCost))
+                if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost + runCost, TheWaningBorder.Economy.SpendCategory.Buildings))
                     return Entity.Null;
 
                 // Through the dispatcher, never AlanthorWall.CreateHub direct:
@@ -663,7 +663,7 @@ namespace TheWaningBorder.Core.Commands
             Entity cell = FindWallCellNear(em, pos, faction, WallPathCellSnap, palisade);
             if (cell == Entity.Null) return Entity.Null;
             if (!BuildCosts.TryGet(TheWaningBorder.Entities.AlanthorWall.HubIdFor(palisade), out var cost)) cost = default;
-            if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost))
+            if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost, TheWaningBorder.Economy.SpendCategory.Buildings))
                 return Entity.Null;
             return TheWaningBorder.Entities.AlanthorWall.ConvertInstanceToHub(em, cell);
         }
@@ -795,7 +795,7 @@ namespace TheWaningBorder.Core.Commands
                     curve.Add(CurveEndFor(em, hub, k, pts[i]));
                     // Pay for this run's modules (checked affordable above).
                     if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction,
-                            WallRunCost(palisade, PolylineLength(curve)))) return;
+                            WallRunCost(palisade, PolylineLength(curve)), TheWaningBorder.Economy.SpendCategory.Buildings)) return;
                     var segment = TheWaningBorder.Entities.AlanthorWall.CreateSegmentAlong(em, prev, hub, curve, faction);
                     TagSegmentAutoConstruct(em, segment, BuildSeconds);
                 }
@@ -822,7 +822,7 @@ namespace TheWaningBorder.Core.Commands
             {
                 if (amount <= 0) return;
                 if (!TheWaningBorder.Economy.FactionEconomy.Spend(
-                        em, faction, VaultTransferCost(resourceType, amount))) return;
+                        em, faction, VaultTransferCost(resourceType, amount), TheWaningBorder.Economy.SpendCategory.Vault)) return;
                 vault.ResourceType = resourceType;
                 vault.StoredAmount += amount;
             }
@@ -831,7 +831,7 @@ namespace TheWaningBorder.Core.Commands
                 int withdraw = (int)vault.StoredAmount;
                 if (withdraw <= 0) return;
                 TheWaningBorder.Economy.FactionEconomy.Add(
-                    em, faction, VaultTransferCost(vault.ResourceType, withdraw));
+                    em, faction, VaultTransferCost(vault.ResourceType, withdraw), TheWaningBorder.Economy.IncomeSource.Vault);
                 vault.StoredAmount = 0f;
                 vault.ResourceType = 0;
             }

@@ -38,6 +38,13 @@ namespace TheWaningBorder.Systems.Combat
             public byte IsMelee;
             public byte BuildingsOnly;
             public byte NonSiege;
+            /// <summary>1 = the unit carries a TargetPreference
+            /// (Combat_Pacing.md § Target preference).</summary>
+            public byte HasPref;
+            public TargetPreference Pref;
+            /// <summary>A preferred candidate counts only inside this — the
+            /// unit's own attack reach — so a preference never drags it off.</summary>
+            public float PreferReach;
         }
 
         /// <summary>A unit's own attack reach, to the target's surface:
@@ -125,6 +132,17 @@ namespace TheWaningBorder.Systems.Combat
             };
 
             float reach = math.min(los, AttackReach(em, e));
+
+            // TARGET PREFERENCE (2026-10-03): the anti-army siege engines
+            // (Ballista: heroes, heavy cavalry, siege; Catapult: the densest
+            // knot of enemies) pick their own kind of target from what is
+            // already inside their reach. Data on the unit SO (preferTargets).
+            if (em.HasComponent<TargetPreference>(e))
+            {
+                r.Pref = em.GetComponentData<TargetPreference>(e);
+                r.HasPref = (byte)(r.Pref.IsEmpty ? 0 : 1);
+                r.PreferReach = reach;
+            }
 
             if (IsFixedMount(em, e))
             {
@@ -393,6 +411,10 @@ namespace TheWaningBorder.Systems.Combat
             Entity prioBest = Entity.Null;
             float prioBestDist = float.MaxValue;
             byte prioBestPrio = 0;
+            // Target preference: the best preferred candidate in reach.
+            Entity prefBest = Entity.Null;
+            float prefBestDist = float.MaxValue;
+            int prefBestDensity = -1;
 
             Entity lastAttacker = TransientState.Active<LastAttackerEntity>(em, self)
                 ? em.GetComponentData<LastAttackerEntity>(self).Value : Entity.Null;
@@ -476,6 +498,30 @@ namespace TheWaningBorder.Systems.Combat
                                 && !IsThreat(em, cand, self, lastAttacker, rules.HitRecently != 0))
                                 continue;
 
+                            // TARGET PREFERENCE (Combat_Pacing.md § Target
+                            // preference): units only, inside the unit's own
+                            // reach. "Massed" ranks by how many of that
+                            // faction stand in the candidate's targeting cell
+                            // (the splash pick); otherwise nearest wins.
+                            if (rules.HasPref != 0 && dist <= rules.PreferReach
+                                && (flags & FlagBuilding) == 0
+                                && (!rules.Pref.HasRules
+                                    || rules.Pref.Matches(scan.Tags[i], (flags & FlagHero) != 0)))
+                            {
+                                int density = 0;
+                                if (rules.Pref.Massed != 0)
+                                    density = scan.Map.CountValuesForKey(new int3(
+                                        (int)math.floor(enemyPos.x / TargetingCellSize),
+                                        (int)math.floor(enemyPos.z / TargetingCellSize), f));
+                                if (density > prefBestDensity
+                                    || (density == prefBestDensity && dist < prefBestDist))
+                                {
+                                    prefBest = cand;
+                                    prefBestDist = dist;
+                                    prefBestDensity = density;
+                                }
+                            }
+
                             byte prio = scan.Priority[i];
                             if (dist < anyBestDist) { anyBest = cand; anyBestDist = dist; anyBestPrio = prio; }
                             if (prio > prioBestPrio || (prio == prioBestPrio && dist < prioBestDist))
@@ -515,6 +561,10 @@ namespace TheWaningBorder.Systems.Combat
             }
 
             Entity best = PickSpreadOrNearest(underBest, underBestDist, anyBest, anyBestDist);
+
+            // A preferred target inside reach outranks the nearest / value
+            // pick outright (the engine is built for it).
+            if (prefBest != Entity.Null) best = prefBest;
 
             // Record the assignment so the next unit in this same pass sees
             // the updated count (prevents two simultaneously-assigned

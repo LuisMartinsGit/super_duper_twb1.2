@@ -29,3 +29,14 @@ MonoBehaviour:
   buildingBorderClearance: 5
   borderScanMax: 320
   borderMinRadius: 16
+  corridorClearanceCells: 1
+  corridorSmallFootprintCells: 4
+  corridorLogInterval: 30
+  wallRerouteCellSize: 1
+  wallRerouteMargin: 20
+  wallRerouteMaxLengthFactor: 2.5
+  minGatesPerRing: 2
+  maxGatesPerRing: 4
+  gateSiteSpacing: 30
+  gateSiteReach: 16
+  gateExitProbe: 12

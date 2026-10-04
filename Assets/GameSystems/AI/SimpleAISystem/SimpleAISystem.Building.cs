@@ -72,6 +72,22 @@ namespace TheWaningBorder.AI
         private bool TryBuildBuildingWithReason(EntityManager em, Faction faction,
             string buildingId, out string reason, float3? anchorOverride = null)
         {
+            // ONE PER PROVINCE, THEN ONLY WHEN SATURATED (2026-10-04,
+            // Game_AI.md 5g): every production building past a province's
+            // own (step 4) passes here, whichever path asked for it.
+            reason = ProductionGate(em, faction, buildingId, _thinkNow, out bool extra, out string detail);
+            if (reason != null) return false;
+            bool ok = TryBuildBuildingCore(em, faction, buildingId, out reason, anchorOverride);
+            if (ok && extra) NoteExtraProduction(faction, buildingId, detail);
+            return ok;
+        }
+
+        /// <summary>The placement itself, past the production gate (the
+        /// across-territories production search calls it per territory, so
+        /// the gate and its log run once per request).</summary>
+        private bool TryBuildBuildingCore(EntityManager em, Faction faction,
+            string buildingId, out string reason, float3? anchorOverride = null)
+        {
             reason = null;
             // A build order naming a landmark
             // means THIS faction's landmark (Age_0.md § Age-up by landmark).
@@ -149,6 +165,24 @@ namespace TheWaningBorder.AI
                     ? $"bank short ({cost.Supplies}s {cost.Iron}i {cost.Veilstone}v)" : "bank short";
                 return false;
             }
+            // THE ARMY'S VEILSTONE EARMARK (2026-10-03, AIBudget): a building
+            // priced in veilstone — the expansion Fortress above all — is
+            // paid from the veilstone the army has not claimed.
+            // (A veilstone-surplus Fortress on outcrop ground may use it —
+            // _surplusEarmarkCarve, Game_AI.md 5e: more ground is more
+            // Outposts, the income the earmark is waiting on.)
+            // A PRODUCTION BUILDING NEVER YIELDS TO THE ARMY (2026-10-04,
+            // Game_AI.md 5f): it is what lets the army grow faster, and its
+            // count is bounded by the province / saturation rule instead.
+            if (!_surplusEarmarkCarve && !BuildSiteSnapshot.IsProductionId(buildingId)
+                && !AIBudget.LeavesMilitaryVeilstone(em, faction, cost))
+            {
+                reason = AILogger.Enabled
+                    ? $"veilstone earmarked for the army ({AIBudget.MilitaryVeilstoneCredit(faction)}v held, " +
+                      $"{cost.Veilstone}v needed)"
+                    : "veilstone earmarked for the army";
+                return false;
+            }
 
             int2 size = BuildingSizeConfig.GetSize(buildingId);
 
@@ -174,10 +208,24 @@ namespace TheWaningBorder.AI
                 && TheWaningBorder.World.Regions.TerritoryOwnership.IsExtractor(buildingId))
                 return TryBuildOnFreeNode(em, faction, buildingId, size, hallPos, out reason);
 
+            // PRODUCTION IN EVERY PROVINCE (2026-10-04, Game_AI.md 5g). An
+            // un-anchored Barracks / Archery Range / Royal Stable / Siege Yard
+            // is sited in whichever held territory has the fewest (frontier
+            // first), searched inside that territory from its core — not in a
+            // home ring that Headless29 showed full (1,678 failed searches).
+            if (anchorOverride == null
+                && _siteRegionLock == TheWaningBorder.World.Regions.RegionMap.None
+                && TheWaningBorder.World.Regions.RegionMap.Ready
+                && TheWaningBorder.World.Regions.TerritoryOwnership.Ready
+                && BuildSiteSnapshot.IsProductionId(buildingId))
+                return TryBuildProductionAcrossTerritories(em, faction, buildingId, out reason);
+
             // A search that just failed here, for this building, on this
             // ground, is not re-run until something that could change the
             // answer has changed — see SiteSearchRemembered.
-            if (buildingId != "FiendstoneKeep"
+            // (The lost-trainer rebuild searches with the wall's walkway
+            // relaxed, so a normal search's failure says nothing about it.)
+            if (buildingId != "FiendstoneKeep" && !_rebuildingLostTrainer
                 && SiteSearchRemembered(em, faction, buildingId, anchor, out reason))
                 return false;
 
@@ -238,7 +286,12 @@ namespace TheWaningBorder.AI
                 BuildSiteSnapshot.Current(em).NotePlaced(em, buildingId, pos, size);
             if (queued)
             {
-                AICommon.DispatchWorkersTo(em, faction, Entity.Null, buildingId, pos, maxWorkers: 2);
+                int sent = AICommon.DispatchWorkersTo(em, faction, Entity.Null, buildingId, pos, maxWorkers: 2);
+                // A LOST TRAINER IS NEVER ORPHANED (Game_AI.md 6c): with no
+                // idle worker, the nearest busy ones take it as their next site.
+                if (sent == 0 && _rebuildingLostTrainer)
+                    NoteLostTrainerPull(faction, buildingId,
+                        AICommon.PullWorkersTo(em, faction, Entity.Null, buildingId, pos, maxWorkers: 2));
                 // No rollback path here: the placement command is already
                 // queued on every peer. Past the idle-worker pre-flight a
                 // zero dispatch is a rare race; workers auto-chain to nearby
@@ -252,6 +305,11 @@ namespace TheWaningBorder.AI
             // never gains progress. The human player flow does the same step
             // explicitly via BuildCommandPanel.AssignWorkersToConstruction.
             int dispatched = AICommon.DispatchWorkersTo(em, faction, building, buildingId, pos, maxWorkers: 2);
+            if (dispatched == 0 && _rebuildingLostTrainer)
+            {
+                dispatched = AICommon.PullWorkersTo(em, faction, building, buildingId, pos, maxWorkers: 2);
+                NoteLostTrainerPull(faction, buildingId, dispatched);
+            }
             if (dispatched == 0)
             {
                 // Race: a worker went busy between the pre-flight check and
@@ -355,18 +413,256 @@ namespace TheWaningBorder.AI
                 // "bounded, self-repaying essential" the exemptions above
                 // exist for. Holding it starves the army to buy land, and the
                 // land is only worth holding if there is an army.
-                && !ProductionLineSaturated(em, faction, buildingId))
+                && !ProductionLineSaturated(em, faction, buildingId)
+                // A LOST SOLE TRAINER PASSES (2026-10-04, Game_AI.md 6c):
+                // the replacement for a production line the faction no
+                // longer has at all (EnsureLostTrainersRebuilt).
+                && !_rebuildingLostTrainer)
             { reason = "pivotal hold (saving)"; return false; }
 
             int crew = CountAliveWorkers(em, faction);
             if (crew == 0) { reason = "no build crew"; return false; }
+            // The lost-trainer rebuild ignores the open-site cap (2026-10-04):
+            // a line with no building at all outranks every other site, and
+            // its site is never orphaned — busy workers take it as their next
+            // job (AICommon.PullWorkersTo). Measured Headless28: "38 sites
+            // open, crew 3" refused a Siege Yard rebuild outright.
+            if (_rebuildingLostTrainer) return true;
             int openSites = CountFactionBuildingsUnderConstruction(em, faction);
-            if (openSites >= math.max(2, crew))
+            int siteCap = math.max(2, crew);
+            if (openSites >= siteCap)
             {
                 reason = AILogger.Enabled ? $"{openSites} sites open, crew {crew}" : "sites open";
                 return false;
             }
             return true;
+        }
+
+        // ─────────────────────────────────────────────────────────────────
+        // LOST SOLE TRAINER (2026-10-04, Game_AI.md 6c)
+        //
+        // A 60-minute batch logged "floor blocked: deficit N x Spearman — no
+        // trainer" 67 times: a faction whose only Barracks was razed did not
+        // put it back. The goal list does ask for it, but the goal list runs
+        // LAST in a think, after the economy tick has already spent the bank,
+        // and through the Military wallet -- so the one building the whole
+        // army waits on lost to every hut and research ahead of it.
+        //
+        // A production line the faction HAD and now has none of -- no
+        // finished building, no site, no plan -- is rebuilt first thing in
+        // the think, bank-direct, past the savings hold and one site past the
+        // open-site cap. The Barracks always (it hosts the basics and the
+        // army floor); the other lines when the composition plan still wants
+        // a unit that building trains. A line never owned is the opening's
+        // business (the goal list's first-of-line rule), not this.
+        // ─────────────────────────────────────────────────────────────────
+
+        /// <summary>Production lines the rebuild watches, in priority order.
+        /// A roster table, not tuning: the ids are the buildings' SO ids.</summary>
+        private static readonly string[] LostTrainerLines =
+            { "Barracks", "ArcheryRange", "Alanthor_RoyalStable", "Alanthor_SiegeYard" };
+
+        /// <summary>True only while EnsureLostTrainersRebuilt is placing —
+        /// read by PassesBuildPreflight.</summary>
+        private bool _rebuildingLostTrainer;
+
+        /// <summary>True only while a veilstone-surplus Fortress on outcrop
+        /// ground is being placed (EnsureFortressExpansion, Game_AI.md 5e) —
+        /// TryBuildBuildingWithReason then skips the army's veilstone
+        /// earmark.</summary>
+        private bool _surplusEarmarkCarve;
+
+        /// <summary>Per faction, a bit per LostTrainerLines entry the faction
+        /// has ever owned (site and plan included). Keyed lookups only.</summary>
+        private readonly System.Collections.Generic.Dictionary<int, int> _linesEverOwned
+            = new System.Collections.Generic.Dictionary<int, int>();
+
+        /// <summary>(faction, line) -> earliest time the rebuild may place again.</summary>
+        private readonly System.Collections.Generic.Dictionary<(int, int), float> _lostTrainerRetryAt
+            = new System.Collections.Generic.Dictionary<(int, int), float>();
+
+        /// <summary>(faction, line) -> next time a refusal may be logged.</summary>
+        private readonly System.Collections.Generic.Dictionary<(int, int), float> _lostTrainerLogAt
+            = new System.Collections.Generic.Dictionary<(int, int), float>();
+
+        private static int CountLine(EntityManager em, Faction faction, int line) => line switch
+        {
+            0 => CountFactionBuildings<BarracksTag>(em, faction),
+            1 => CountFactionBuildings<ArcheryRangeTag>(em, faction),
+            2 => CountFactionBuildings<RoyalStableTag>(em, faction),
+            _ => CountFactionBuildings<SiegeYardTag>(em, faction),
+        };
+
+        /// <summary>Does the composition plan still want a unit this building
+        /// trains (any row with a raw share, by the building SO's trains[])?</summary>
+        private static bool CompositionWantsLine(EntityManager em, Faction faction, string lineId)
+        {
+            if (!TechCatalog.TryGetBuilding(lineId, out var bdef) || bdef?.trains == null) return false;
+            var p = GetArmyPlan(em, faction);
+            for (int r = 0; r < p.N; r++)
+            {
+                if (p.Rows[r] == null || p.Raw[r] <= 0f) continue;
+                string unit = p.Rows[r].unitId;
+                for (int k = 0; k < bdef.trains.Length; k++)
+                    if (bdef.trains[k] == unit) return true;
+            }
+            return false;
+        }
+
+        /// <summary>(faction, line) -> when the faction found itself without
+        /// that line (for the "Ns without one" figure in the log).</summary>
+        private readonly System.Collections.Generic.Dictionary<(int, int), float> _lostTrainerSince
+            = new System.Collections.Generic.Dictionary<(int, int), float>();
+
+        /// <summary>Factions told once that their rebuilds are suspended for
+        /// want of a capital (keyed lookups only).</summary>
+        private readonly System.Collections.Generic.HashSet<int> _lostTrainerNoCapital
+            = new System.Collections.Generic.HashSet<int>();
+
+        /// <summary>AIPivotalReserve keys, one per LostTrainerLines entry.</summary>
+        private static readonly string[] LostTrainerSaveKeys =
+            { "LostTrainer:Barracks", "LostTrainer:ArcheryRange",
+              "LostTrainer:Alanthor_RoyalStable", "LostTrainer:Alanthor_SiegeYard" };
+
+        private static void ClearLostTrainerSaves(Faction faction)
+        {
+            for (int i = 0; i < LostTrainerSaveKeys.Length; i++)
+                AIPivotalReserve.Clear(faction, LostTrainerSaveKeys[i]);
+        }
+
+        /// <summary>"lost sole trainer: X site queued on N busy worker(s)".</summary>
+        private static void NoteLostTrainerPull(Faction faction, string buildingId, int pulled)
+        {
+            AILogger.Log(faction, "BUILDING", pulled > 0
+                ? $"lost sole trainer: {buildingId} site queued on {pulled} busy worker(s) (none idle)"
+                : $"lost sole trainer: {buildingId} site placed with no worker to take it");
+        }
+
+        /// <summary>
+        /// Rebuild a lost production line before anything else in the think
+        /// spends the bank. At most one placement per think.
+        ///
+        /// WHAT BLOCKED IT (2026-10-04, Headless28, 160 refusal lines): "no
+        /// hall" 92 -- factions already without a capital, eliminated in all
+        /// but name; "bank short" 41 -- a besieged faction whose supplies
+        /// every other spender drained between thinks (Hollow Table Red:
+        /// 31 minutes without a Barracks, its Fortress standing, 7,000 iron
+        /// banked and supplies at 20-200 against a 220-supply Barracks);
+        /// "no legal spot" 18 -- the wall band and corridor were 517 of 672
+        /// candidates for Sundered Crown Yellow's Siege Yard, gone for the
+        /// last 23 minutes; "no build crew" 5 and "38 sites open" 1. So:
+        ///   * no capital: stop, quietly (one line, then nothing);
+        ///   * bank short: a STRICT savings reserve for the line's price
+        ///     (AIPivotalReserve), so the other spenders stop eating it;
+        ///   * no spot: the search keeps off the wall's own cells only (the
+        ///     walkway yields) and skips the failed-search memory; a failure
+        ///     waits lostTrainerSearchRetrySeconds;
+        ///   * no crew: train a Worker; the open-site cap does not apply and
+        ///     the site is queued on busy workers when none is idle.
+        /// </summary>
+        private void EnsureLostTrainersRebuilt(EntityManager em, Faction faction, float now)
+        {
+            int key = (int)faction;
+
+            // NO CAPITAL, NO REBUILD -- quietly. Every placement anchors on
+            // the Hall; without one nothing can be placed, and the faction is
+            // eliminated in all but name.
+            if (FindFactionBuilding<HallTag>(em, faction) == Entity.Null)
+            {
+                ClearLostTrainerSaves(faction);
+                if (_lostTrainerNoCapital.Add(key))
+                    AILogger.Log(faction, "BUILDING",
+                        "lost sole trainer: rebuilds suspended — no capital standing (quiet until one stands)");
+                return;
+            }
+            _lostTrainerNoCapital.Remove(key);
+
+            _linesEverOwned.TryGetValue(key, out int owned);
+            bool placed = false;
+            for (int line = 0; line < LostTrainerLines.Length; line++)
+            {
+                int bit = 1 << line;
+                string id = LostTrainerLines[line];
+                if (CountLine(em, faction, line) > 0)
+                {
+                    owned |= bit;
+                    AIPivotalReserve.Clear(faction, LostTrainerSaveKeys[line]);
+                    if (_lostTrainerSince.TryGetValue((key, line), out float lostAt))
+                    {
+                        _lostTrainerSince.Remove((key, line));
+                        AILogger.Log(faction, "BUILDING",
+                            $"lost sole trainer: {id} line restored after {now - lostAt:F0}s");
+                    }
+                    continue;
+                }
+                if ((owned & bit) == 0) continue;                // never owned: the opening's job
+                if (line > 0 && !CompositionWantsLine(em, faction, id))
+                {
+                    AIPivotalReserve.Clear(faction, LostTrainerSaveKeys[line]);
+                    continue;
+                }
+                if (!_lostTrainerSince.TryGetValue((key, line), out float since))
+                    _lostTrainerSince[(key, line)] = since = now;
+                if (placed) continue;
+                if (_lostTrainerRetryAt.TryGetValue((key, line), out float at) && now < at) continue;
+
+                bool ok;
+                string why;
+                _rebuildingLostTrainer = true;
+                try { ok = TryBuildBuildingWithReason(em, faction, id, out why); }
+                finally { _rebuildingLostTrainer = false; }
+
+                if (ok)
+                {
+                    placed = true;
+                    _lostTrainerRetryAt[(key, line)] = now + Cfg.lostTrainerRetrySeconds;
+                    AIPivotalReserve.Clear(faction, LostTrainerSaveKeys[line]);
+                    if (TechCatalog.TryGetBuilding(id, out var def) && def != null)
+                        AIBudget.RecordSpend(faction, AIBudgetCategory.Military, AICommon.ToCost(def.cost));
+                    AILogger.Log(faction, "BUILDING",
+                        $"lost sole trainer: {id} gone — rebuilding first (bank-direct, past the hold; " +
+                        $"{now - since:F0}s without one)");
+                    continue;
+                }
+
+                string action = null;
+                if (why != null && why.StartsWith("bank short"))
+                {
+                    // SAVE FOR IT: a strict reserve stops every discretionary
+                    // spender (buildings, research, levels, the army past its
+                    // essentials) from eating the price between thinks.
+                    if (Cfg.lostTrainerSaveStrict
+                        && !AIPivotalReserve.Has(faction, LostTrainerSaveKeys[line]))
+                    {
+                        Cost cost = default;
+                        if (TheWaningBorder.Data.BuildCosts.Exists(id))
+                            cost = TheWaningBorder.Data.BuildCosts.For(em, faction, id);
+                        else if (TechCatalog.TryGetBuilding(id, out var cdef) && cdef != null)
+                            cost = AICommon.ToCost(cdef.cost);
+                        AIPivotalReserve.Set(faction, LostTrainerSaveKeys[line], cost, strict: true);
+                        action = "saving for it (strict reserve)";
+                    }
+                }
+                else if (why == "no build crew")
+                {
+                    action = TryTrainUnit(em, faction, "Worker")
+                        ? "training a Worker for it" : "no Worker trainable";
+                }
+                else if (why != null && why.StartsWith("no legal"))
+                {
+                    _lostTrainerRetryAt[(key, line)] = now + Cfg.lostTrainerSearchRetrySeconds;
+                }
+
+                if (action != null
+                    || !_lostTrainerLogAt.TryGetValue((key, line), out float logAt) || now >= logAt)
+                {
+                    _lostTrainerLogAt[(key, line)] = now + 60f;
+                    AILogger.Log(faction, "BUILDING",
+                        $"lost sole trainer: {id} gone — rebuild refused ({why ?? "no reason"}; " +
+                        $"{now - since:F0}s without one)" + (action != null ? $" — {action}" : ""));
+                }
+            }
+            _linesEverOwned[key] = owned;
         }
 
         // ─────────────────────────────────────────────────────────────────
@@ -493,7 +789,27 @@ namespace TheWaningBorder.AI
             bool isClaim = TheWaningBorder.World.Regions.TerritoryOwnership
                                .IsClaimStructure(buildingId);
             bool onTarget = isClaim || isExtractor;
-            float ringMin = onTarget || houseQuarter ? 0f : Cfg.buildRingDistanceMin;
+            // A Fortress is searched from its territory's seed / reserved
+            // spot outward, not from a ring 16 m clear of it.
+            float ringMin = onTarget || houseQuarter || buildingId == "Fortress"
+                ? 0f : Cfg.buildRingDistanceMin;
+
+            // THE RESERVED FORTRESS SPOT FIRST (Game_AI.md 5g): it was chosen
+            // legal and kept clear by every other placer; take it as it is
+            // when the hard rules still pass there.
+            if (_fortressSpotExact && buildingId == "Fortress"
+                && _siteRegionLock != TheWaningBorder.World.Regions.RegionMap.None)
+            {
+                var spot = BuildGrid.Snap(anchor, size);
+                spot.y = TerrainUtility.GetHeight(spot.x, spot.z);
+                if (FortressSpotGood(em, faction, _siteRegionLock, spot, size,
+                        nodeClear: false, sealCheck: false, _thinkNow)
+                    && snap.OnFreeNodeFor(em, buildingId, spot.x, spot.z))
+                {
+                    pos = spot;
+                    return true;
+                }
+            }
 
             // AN EXTRACTOR IS SITED BY THE MAP, NOT BY LAYOUT PREFERENCE. It
             // must stand within 4 m of its node (OnFreeNodeFor below), and its
@@ -535,9 +851,20 @@ namespace TheWaningBorder.AI
             bool walled = !onTarget
                 && TryGetWallInterior(em, faction, anchor, out wallMin, out wallMax);
 
+            // THE RESERVED RING (2026-10-04, docs/Design/Game_AI.md § Walls).
+            // The home wall ring is planned from the first minute
+            // (AIWallCorridor) and its corridor is refused to every footprint
+            // but an extractor's, whose node decides where it stands (the
+            // ring routes round it instead). A base building whose anchor is
+            // inside the ring stands inside it too.
+            bool ringed = !onTarget && AIWallCorridor.InsideRing(em, faction, anchor);
+
             // Rejection tally, written into the refusal reason when the whole
             // search fails. "No legal spot" with no evidence is the diagnostic
             // hole that hid the extractor contradiction for a full batch.
+            int nCorridor = 0, nSpot = 0, nSeal = 0;
+            string firstSeal = null;
+            float3 firstSealAt = default;
             int nCand = 0, nCover = 0, nSpacing = 0, nGap = 0, nNodeClear = 0, nWall = 0,
                 nCurse = 0, nTerritory = 0, nNodeGate = 0, nHallCap = 0, nInvalid = 0,
                 nOverlap = 0;
@@ -576,11 +903,32 @@ namespace TheWaningBorder.AI
             float gapNormal = math.max(0, Cfg.buildingGapCells) * BuildGrid.CellSize;
             float gapRelaxed = math.max(0, Cfg.relaxedBuildingGapCells) * BuildGrid.CellSize;
 
+            // INWARD FIRST (2026-10-04, Game_AI.md § Walls). The rings already
+            // grow outward from the anchor; with the anchor inside the home
+            // ring, a bearing whose candidate has reached the wall corridor
+            // or left the ring can only meet the corridor, the ring outside
+            // or foreign ground further out — so that bearing is dropped for
+            // the rest of the pass instead of being proposed again at every
+            // larger radius (1,913 "on wall corridor" lines in Headless28,
+            // a median 39% of every failed search's candidates). A concave
+            // ring could in principle re-enter along a ray; the next pass
+            // starts every bearing afresh.
+            var rayPastRing = _rayPastRing;
+            int nPastRing = 0;
+            bool lostTrainerCore = _rebuildingLostTrainer;
+
             for (int pass = 0; pass < passes; pass++)
             {
                 bool requireCover = placingGHut && pass == 0;
-                bool centreSpacing = pass < normalPasses && !houseQuarter;
+                bool centreSpacing = pass < normalPasses && !houseQuarter && Cfg.minBuildingSpacing > 0f;
                 bool lastResort = pass == normalPasses + 1;
+                // The LOOSE pass only drops the centre spacing; with none to
+                // drop (minBuildingSpacing 0 since buildings may sit flush,
+                // 2026-10-04) it would re-run the normal pass candidate for
+                // candidate, so it is skipped.
+                if (pass == normalPasses && !isExtractor
+                    && (houseQuarter || Cfg.minBuildingSpacing <= 0f)) continue;
+                if (ringed) System.Array.Clear(rayPastRing, 0, rayPastRing.Length);
                 // Houses in their quarter may touch: the lane is only a look.
                 float gap = houseQuarter ? 0f : lastResort ? gapRelaxed : gapNormal;
                 float passMax = lastResort
@@ -591,6 +939,10 @@ namespace TheWaningBorder.AI
                     int angleStart = (int)(NextRandFloat01() * BuildAngleSamples);
                     for (int i = 0; i < BuildAngleSamples; i++)
                     {
+                        int idx = (angleStart + i) % BuildAngleSamples;
+                        // A bearing past the ring costs nothing (no budget).
+                        if (ringed && rayPastRing[idx]) { nPastRing++; continue; }
+
                         // Per-think candidate budget: a think that has already
                         // scanned its share stops here, and says so.
                         if (_siteCandidatesLeft <= 0)
@@ -602,7 +954,6 @@ namespace TheWaningBorder.AI
                         }
                         _siteCandidatesLeft--;
 
-                        int idx = (angleStart + i) % BuildAngleSamples;
                         float angle = (idx / (float)BuildAngleSamples) * math.PI * 2f;
                         float3 candidate = new float3(
                             anchor.x + math.cos(angle) * r,
@@ -632,8 +983,27 @@ namespace TheWaningBorder.AI
                             // THE BORDER BAND: keep the strip the border wall
                             // will run along clear (AIWallPlanner). Claims
                             // are sited by the map and exempt.
-                            if (!onTarget && !AIWallPlanner.FootprintClearOfBorder(candidate, size))
+                            if (!onTarget && !AIWallPlanner.FootprintClearOfBorder(em, candidate, size))
                             { nWall++; continue; }
+
+                            // ON THE WALL CORRIDOR: the ring could not be
+                            // closed through this footprint. The lost-trainer
+                            // rebuild is held off the wall's own cells only
+                            // (the walkway yields to a production line the
+                            // army has none of); a small footprint likewise
+                            // (AIWallCorridor.FootprintClear).
+                            if (!AIWallCorridor.FootprintClear(em, faction, candidate, size, lostTrainerCore))
+                            {
+                                nCorridor++;
+                                if (ringed) rayPastRing[idx] = true;
+                                continue;
+                            }
+                            if (ringed && !AIWallCorridor.FootprintInsideRing(em, faction, candidate, size))
+                            {
+                                nWall++;
+                                if (ringed) rayPastRing[idx] = true;
+                                continue;
+                            }
 
                             if (centreSpacing && snap.AnyCentreWithin(candidate,
                                     Cfg.minBuildingSpacing, placingGHut ? Cfg.minGHutToGHutSpacing : 0f))
@@ -655,6 +1025,11 @@ namespace TheWaningBorder.AI
                                     wallMin + Cfg.wallInteriorClearance,
                                     wallMax - Cfg.wallInteriorClearance))
                             { nWall++; continue; }
+
+                            // THE RESERVED FORTRESS SPOTS stay clear, like
+                            // the wall corridor (AIBaseLayout, Game_AI.md 5g).
+                            if (!AIBaseLayout.FootprintClearOfFortressSpots(candidate, size, buildingId))
+                            { nSpot++; continue; }
                         }
 
                         // Never place on crusted ground (2026-08-04): the
@@ -683,6 +1058,11 @@ namespace TheWaningBorder.AI
                         // (10,-46) before this test existed here.
                         if (snap.Overlaps(candidate, size, 0f, ignoreWalls: false))
                         { nOverlap++; continue; }
+                        // …and the faction's OWN plans, which the router
+                        // refuses (Planned_Buildings.md) but the building list
+                        // above never sees (a plan has no BuildingTag).
+                        if (snap.OverlapsOwnPlan(faction, candidate, size))
+                        { nOverlap++; continue; }
 
                         // The expensive stage (terrain slope/water samples):
                         // its own, smaller budget per think.
@@ -699,12 +1079,40 @@ namespace TheWaningBorder.AI
                         // extractor-on-node exemption (and the Veilworks
                         // crust exception) — the id-less overload is the
                         // strict rule and refuses every on-node candidate.
-                        if (snap.IsValidBuildPosition(em, candidate, size, buildingId))
+                        if (!snap.IsValidBuildPosition(em, candidate, size, buildingId))
                         {
-                            pos = candidate;
-                            return true;
+                            nInvalid++;
+                            continue;
                         }
-                        nInvalid++;
+
+                        // FLUSH IS ALLOWED; SEALING THE BASE IS NOT
+                        // (2026-10-04, Game_AI.md 6b). One bounded flood per
+                        // accepted candidate (AIBaseLayout). Extractors are
+                        // sited by the map and exempt.
+                        if (!isExtractor && Cfg.sealCheckEnabled)
+                        {
+                            if (_sealChecksLeft <= 0)
+                            {
+                                inconclusive = true;
+                                _siteRefusalTally = "seal-check budget spent";
+                                pos = default;
+                                return false;
+                            }
+                            _sealChecksLeft--;
+                            string seal = AIBaseLayout.WouldSeal(em, faction, candidate, size,
+                                buildingId, _thinkNow);
+                            if (seal != null)
+                            {
+                                nSeal++;
+                                if (firstSeal == null) { firstSeal = seal; firstSealAt = candidate; }
+                                continue;
+                            }
+                        }
+                        if (firstSeal != null)
+                            AIBaseLayout.LogSeal(faction, buildingId, firstSealAt,
+                                firstSeal + $" — sited elsewhere after {nSeal} such candidate(s)", _thinkNow);
+                        pos = candidate;
+                        return true;
                     }
                 }
             }
@@ -715,17 +1123,25 @@ namespace TheWaningBorder.AI
             _siteRefusalTally = AILogger.Enabled
                 ? $"{nCand} cand (incl. relaxed passes): " +
                   $"cover {nCover}, spacing {nSpacing}, gap {nGap}, " +
-                  $"nodeclear {nNodeClear}, wall {nWall}, curse {nCurse}, territory {nTerritory}, " +
+                  $"nodeclear {nNodeClear}, wall {nWall}, corridor {nCorridor}, past-ring {nPastRing}, " +
+                  $"curse {nCurse}, territory {nTerritory}, " +
                   $"nodegate {nNodeGate}, hallcap {nHallCap}, overlap {nOverlap}, " +
-                  $"invalid {nInvalid}"
+                  $"invalid {nInvalid}, fortress-spot {nSpot}, seal {nSeal}"
                 : "";
+            if (firstSeal != null)
+                AIBaseLayout.LogSeal(faction, buildingId, firstSealAt, firstSeal, _thinkNow);
+            AIWallCorridor.NoteRejected(faction, buildingId, nCorridor);
             pos = default;
             return false;
         }
 
+        /// <summary>Per-bearing "this ray has reached the wall corridor"
+        /// scratch for TryFindBuildPosition (single-threaded think loop).</summary>
+        private readonly bool[] _rayPastRing = new bool[BuildAngleSamples];
+
         // Per-think site-search budgets, reset at the start of every think
         // (SimpleAISystem.OnUpdate).
-        private int _siteCandidatesLeft, _siteValidationsLeft;
+        private int _siteCandidatesLeft, _siteValidationsLeft, _sealChecksLeft;
 
         /// <summary>Footprint of a candidate entirely inside [mn, mx].</summary>
         private static bool FootprintInside(float3 c, int2 size, float2 mn, float2 mx)

@@ -196,13 +196,24 @@ namespace TheWaningBorder.AI
                     $"held: {idle.Count}/{need} idle vs {defenders} defender(s) at the well ({wellPos.x:0},{wellPos.z:0})");
                 return 0;
             }
-            int sent = 0;
-            for (int i = 0; i < idle.Count && sent < need; i++)
-            {
-                float3 slot = EscortSlot(wellPos, sent, need, Cfg.escortStandoffRadius);
-                CommandRouter.IssueAttackMove(em, idle[i], slot, CommandSource.AI);
-                sent++;
-            }
+            // The assault marches as ONE formation (AICommon.IssueGroupOrder,
+            // 2026-10-03) onto the stand-off ring on the side it comes from —
+            // never onto the well itself, for the trampling reason EscortSlot
+            // documents. It used to be one attack-move per unit to its own
+            // ring slot, which crossed the map as a scattered stream.
+            if (idle.Count > need) idle.RemoveRange(need, idle.Count - need);
+            int sent = idle.Count;
+            float3 c = float3.zero;
+            for (int i = 0; i < sent; i++)
+                if (em.HasComponent<LocalTransform>(idle[i]))
+                    c += em.GetComponentData<LocalTransform>(idle[i]).Position;
+            c /= math.max(1, sent);
+            float2 away = c.xz - wellPos.xz;
+            float len = math.length(away);
+            float3 approach = len > 0.01f
+                ? wellPos + new float3(away.x / len, 0f, away.y / len) * Cfg.escortStandoffRadius
+                : EscortSlot(wellPos, 0, 1, Cfg.escortStandoffRadius);
+            AICommon.IssueGroupOrder(em, idle, approach, attackMove: true);
             AILogger.Log(faction, "ASSAULT",
                 $"{sent} units march on the well at ({wellPos.x:0},{wellPos.z:0}) vs {defenders} defender(s)");
             return sent;
@@ -361,11 +372,32 @@ namespace TheWaningBorder.AI
                     angleSamples, radiusStep, seededStart, gapRelaxed, out pos);
         }
 
+        /// <summary>
+        /// The self-lock check for a placer that carries no faction: the
+        /// faction holding the ground under the candidate is the one whose
+        /// base it must not seal. Logs the throttled "would seal" line.
+        /// </summary>
+        public static bool SealsOwnersBase(EntityManager em, float3 candidate, int2 size, string buildingId)
+        {
+            if (!TheWaningBorder.World.Regions.RegionMap.Ready
+                || !TheWaningBorder.World.Regions.TerritoryOwnership.Ready) return false;
+            int t = TheWaningBorder.World.Regions.RegionMap.RegionAt(candidate.x, candidate.z);
+            if (t == TheWaningBorder.World.Regions.RegionMap.None) return false;
+            int owner = TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(t);
+            if (owner < 0) return false;
+            float now = (float)em.World.Time.ElapsedTime;
+            string what = AIBaseLayout.WouldSeal(em, (Faction)owner, candidate, size, buildingId, now);
+            if (what == null) return false;
+            AIBaseLayout.LogSeal((Faction)owner, buildingId ?? "building", candidate, what, now);
+            return true;
+        }
+
         /// <summary>The ring search with an explicit edge-to-edge gap — 0 lets
         /// footprints touch (the House quarter, docs/Design/Age_0.md § House).</summary>
         public static bool TryFindBuildSpotRingGap(EntityManager em, float3 anchor,
             int2 buildingSize, float rmin, float rmax,
-            int angleSamples, float radiusStep, bool seededStart, float gap, out float3 pos)
+            int angleSamples, float radiusStep, bool seededStart, float gap, out float3 pos,
+            string buildingId = null)
         {
             pos = default;
             if (angleSamples <= 0 || radiusStep <= 0f) return false;
@@ -402,10 +434,19 @@ namespace TheWaningBorder.AI
                     if (gap > 0f && snap.Overlaps(candidate, buildingSize, gap, ignoreWalls: true))
                         continue;
                     // The border band the wall runs along stays clear.
-                    if (!AIWallPlanner.FootprintClearOfBorder(candidate, buildingSize))
+                    if (!AIWallPlanner.FootprintClearOfBorder(em, candidate, buildingSize))
+                        continue;
+                    // …and off the reserved home wall corridor (AIWallCorridor).
+                    if (!AIWallCorridor.FootprintClearForOwner(em, candidate, buildingSize))
+                        continue;
+                    // …and off every reserved Fortress spot (AIBaseLayout).
+                    if (!AIBaseLayout.FootprintClearOfFortressSpots(candidate, buildingSize, buildingId))
                         continue;
                     if (snap.IsValidBuildPosition(em, candidate, buildingSize, null))
                     {
+                        // Flush is allowed; sealing the base is not
+                        // (AIBaseLayout, Game_AI.md 6b).
+                        if (SealsOwnersBase(em, candidate, buildingSize, buildingId)) continue;
                         pos = candidate;
                         return true;
                     }

@@ -37,3 +37,24 @@ public struct TradingOutpostCarry : IComponentData
     public float InSupplies, InIron, InVeilstone, InVeilsteel;
     public float OutSupplies, OutIron, OutVeilstone, OutVeilsteel;
 }
+
+/// <summary>
+/// Which veilstone outcrop this Outpost trades at, and which of its four
+/// sides it stands on (docs/Design/Veilstone_Economy.md §3.1, 2026-10-04).
+/// The outcrop is kept by POSITION, not by Entity, so the link is the same
+/// on every lockstep peer and survives anything that re-creates the node
+/// entity in place.
+///
+/// <see cref="RampIndex"/> is the post's place in its outcrop's cost ramp:
+/// how many other posts already stood beside that outcrop when this one
+/// broke ground (0 = the first). Its level-ups are priced on it.
+/// </summary>
+public struct TradingOutpostSite : IComponentData
+{
+    public float OutcropX, OutcropZ;
+    /// <summary>0 north (+z), 1 east (+x), 2 south (-z), 3 west (-x);
+    /// 255 = standing on the outcrop itself (an age-up conversion that found
+    /// no free side).</summary>
+    public byte Side;
+    public byte RampIndex;
+}

@@ -263,6 +263,15 @@ namespace TheWaningBorder.Core.Localization
             t["{0}% complete"] = "{0}% concluído";
             t["Upgrade\nLv {0}"] = "Melhorar\nNv {0}";
             t["Upgrade to Level {0}"] = "Melhorar para o Nível {0}";
+            // Trading Outpost side slots, ramp and levels (2026-10-04).
+            t["Trades x{0} — spends and earns that much more per minute."] =
+                "Comercia x{0} — gasta e ganha tanto mais por minuto.";
+            t["Stands on a free side of a veilstone outcrop, up to {0} per outcrop."] =
+                "Fica num lado livre de um afloramento de veilstone, até {0} por afloramento.";
+            t["Each further post beside the same outcrop costs {0} (build and level-ups); a new outcrop starts at base price."] =
+                "Cada entreposto a mais junto ao mesmo afloramento custa {0} (construção e melhorias); um afloramento novo volta ao preço base.";
+            t["Post {0} of {1} beside its outcrop — level-ups cost x{2}"] =
+                "Entreposto {0} de {1} junto ao seu afloramento — melhorias custam x{2}";
             t["Raises this building's stats and unlocks its next tier of units and research."] =
                 "Aumenta as estatísticas deste edifício e desbloqueia o próximo escalão de unidades e investigação.";
             t["Not enough resources to upgrade"] = "Recursos insuficientes para melhorar";

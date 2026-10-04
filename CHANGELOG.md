@@ -13,6 +13,36 @@ build always name the same number.
 
 ---
 
+## [0.0.34] — 2026-10-04
+
+Everyone in a multiplayer match needs 0.0.34.
+
+### Changed
+
+- **No territory limit.** You hold as much ground as you can defend: standing
+  troops fill a territory's meter, enemies freeze it, and empty unbuilt ground
+  wears down. New ground can still be claimed only after you age up, and only
+  next to ground your Fortresses connect.
+- **Four Trading Outposts per veilstone outcrop.** Outposts now stand on the
+  north, east, south and west sides of an outcrop instead of on it, one per
+  side. Each further Outpost beside the same outcrop costs more to build and
+  to level; the first one on a new outcrop is back at the base price. At
+  age-up, each Veilstone Mine becomes its outcrop's first Outpost.
+- **Trading Outposts have three levels.** Each level trades faster.
+- **Trading Outposts trade more,** and the new **Swift Caravans** research
+  speeds them up further.
+- **Every unit trains 30% faster.**
+- **The curse sends waves.** Its units rise as garrisons at its nodes; from
+  the eighth minute, every few minutes about a third of them march on a
+  player, who is warned. The curse can field at most 250 units.
+- **The AI is much stronger.** It races for territory, builds production in
+  every province, levels its Fortresses, mixes its army by role (Spearmen
+  against cavalry, rams early and trebuchets late, Ballistas against heroes,
+  Catapults against packed troops), marches in formation, walls only its home
+  territory and cuts gates in its walls, and rebuilds a lost Barracks first.
+
+---
+
 ## [0.0.33] — 2026-10-03
 
 Everyone in a multiplayer match needs 0.0.33.

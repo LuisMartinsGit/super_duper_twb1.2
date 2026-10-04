@@ -50,7 +50,7 @@ namespace TheWaningBorder.Core.Commands.Types
             if (!em.HasComponent<FactionTag>(unit)) return UnitRankPromoteResult.Invalid;
             var faction = em.GetComponentData<FactionTag>(unit).Value;
 
-            if (!FactionEconomy.Spend(em, faction, cost))
+            if (!FactionEconomy.Spend(em, faction, cost, TheWaningBorder.Economy.SpendCategory.Units))
                 return UnitRankPromoteResult.CannotAfford;
 
             if (em.HasComponent<UnitRank>(unit))

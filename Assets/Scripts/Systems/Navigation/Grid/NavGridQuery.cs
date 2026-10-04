@@ -295,6 +295,31 @@ namespace TheWaningBorder.Systems.Navigation
         }
 
         /// <summary>
+        /// Can a unit walk the ground cell under (<paramref name="x"/>,
+        /// <paramref name="z"/>)? Impassable cost (terrain, obstacles, stamped
+        /// buildings, curtain walls) says no — except a GATE cell, which its
+        /// owner walks through, reported in <paramref name="gate"/>. Off the
+        /// grid, or before the field is built, is not walkable / walkable
+        /// respectively (<paramref name="known"/> false in the second case).
+        /// For the AI's base-connectivity check (AIBaseLayout); reads lockstep
+        /// sim state only.
+        /// </summary>
+        public static bool IsWalkableAt(float x, float z, out bool gate, out bool known)
+        {
+            gate = false;
+            known = false;
+            if (!EnsureCache() || !_cachedCost.Flags.IsCreated || !_cachedCost.Cost.IsCreated) return true;
+            known = true;
+            float cs = _cachedGrid.CellSize;
+            int cx = (int)math.floor((x - _cachedGrid.Origin.x) / cs);
+            int cz = (int)math.floor((z - _cachedGrid.Origin.z) / cs);
+            if (cx < 0 || cz < 0 || cx >= _cachedGrid.Width || cz >= _cachedGrid.Height) return false;
+            int i = cz * _cachedCost.Width + cx;
+            gate = (_cachedCost.Flags[i] & NavCostField.FlagGate) != 0;
+            return gate || _cachedCost.Cost[i] != NavCostField.CostImpassable;
+        }
+
+        /// <summary>
         /// True when the ground cell under <paramref name="world"/> cannot
         /// take a wall: a building, obstacle or wall already stands there
         /// (its footprint flag), or the terrain itself is impassable. Off the

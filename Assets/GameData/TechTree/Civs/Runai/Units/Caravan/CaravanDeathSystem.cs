@@ -62,7 +62,7 @@ namespace TheWaningBorder.Systems.Economy
                     // Runai friendly-fire, and Border PvE destroy it.
                     if (FactionColors.GetFactionCulture(killerFaction) == Cultures.Feraldis)
                     {
-                        FactionEconomy.Add(em, killerFaction, Cost.Of(supplies: lootSupplies, veilstone: lootVeilstone));
+                        FactionEconomy.Add(em, killerFaction, Cost.Of(supplies: lootSupplies, veilstone: lootVeilstone), TheWaningBorder.Economy.IncomeSource.Loot);
                     }
                 }
 

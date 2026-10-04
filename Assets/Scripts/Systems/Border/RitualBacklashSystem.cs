@@ -180,8 +180,10 @@ namespace TheWaningBorder.Systems.Border
                 if (wave >= RitualBacklashTuning.WaveCount) finished.Add(entity);
             }
 
-            // Structural changes after iteration.
-            for (int i = 0; i < spawnPos.Length; i++)
+            // Structural changes after iteration. THE CAP (Territory_Claims.md
+            // §6.8): at most the headroom left under maxCurseUnits erupts.
+            int headroom = CurseUnitCap.Headroom(em);
+            for (int i = 0; i < spawnPos.Length && i < headroom; i++)
             {
                 switch (spawnKind[i])
                 {

@@ -78,7 +78,7 @@ namespace TheWaningBorder.Systems.Sect
                     veilsteel: (int)(cost.Veilsteel * frac)
                 );
 
-                FactionEconomy.Add(em, killerFaction, refund);
+                FactionEconomy.Add(em, killerFaction, refund, TheWaningBorder.Economy.IncomeSource.Other);
             }
         }
     }

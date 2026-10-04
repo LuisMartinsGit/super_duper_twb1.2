@@ -53,6 +53,18 @@ namespace TheWaningBorder.Systems.Navigation
         // stamp. While it's unchanged the cost field is already correct, so we
         // skip the whole clear+stamp pass and the Generation bump.
         private ulong _lastSignature;
+
+        /// <summary>
+        /// Bumped by simulation code that MOVES a building (the change gate
+        /// below hashes the building set and sizes, never positions). Only
+        /// ever changed from lockstep-deterministic code, on the same tick on
+        /// every peer: the age-up move of a Veilstone Mine onto its outcrop's
+        /// side as a Trading Outpost (TradingOutpost.ConvertMinesForCulture).
+        /// </summary>
+        private static int _externalVersion;
+
+        /// <summary>Force a full restamp on the next update.</summary>
+        public static void RequestRestamp() => _externalVersion++;
         private byte _stampedOnce;
         // The latch is MATCH state on a system object that outlives matches.
         // Left set, a second match on the same map whose first signature
@@ -434,6 +446,7 @@ namespace TheWaningBorder.Systems.Navigation
                 h = (h ^ (uint)_wallClimbQuery.CalculateEntityCount()) * P;
                 h = (h ^ (uint)_overpassQuery.CalculateEntityCount()) * P;
                 h = (h ^ terrainBaked) * P;
+                h = (h ^ (uint)_externalVersion) * P;
                 if (sized > 0)
                 {
                     // ORDER-INDEPENDENT over the size set (2026-09-04, MP

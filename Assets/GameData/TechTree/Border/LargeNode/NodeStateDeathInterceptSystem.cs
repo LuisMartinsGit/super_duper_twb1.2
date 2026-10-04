@@ -221,7 +221,11 @@ namespace TheWaningBorder.Systems.Border
             uint seed = (uint)(math.abs(qx * 1009 + qz * 7919) + (int)killer * 31 + 1);
             var rng = new Unity.Mathematics.Random(math.max(1u, seed));
 
-            for (int i = 0; i < ViolentExtractionFinalWaveSize; i++)
+            // THE CAP (Territory_Claims.md §6.8): at most the headroom left
+            // under maxCurseUnits rises. The RNG is per event and local, so
+            // stopping early forks nothing.
+            int count = math.min(ViolentExtractionFinalWaveSize, CurseUnitCap.Headroom(em));
+            for (int i = 0; i < count; i++)
             {
                 float angle = rng.NextFloat(0f, math.PI * 2f);
                 float r = ViolentExtractionFinalWaveRadius * rng.NextFloat(0.5f, 1.0f);

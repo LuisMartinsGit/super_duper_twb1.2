@@ -121,7 +121,7 @@ namespace TheWaningBorder.Economy
             if (!FactionEconomy.TryGetBank(em, faction, out var bank)) return false;
             if (!em.HasComponent<FactionReligionPoints>(bank)) return false;
             var cost = TitheCost(em, faction);
-            if (!FactionEconomy.Spend(em, faction, cost)) return false;
+            if (!FactionEconomy.Spend(em, faction, cost, SpendCategory.Religion)) return false;
             var rp = em.GetComponentData<FactionReligionPoints>(bank);
             rp.Balance++;
             rp.TithesBought++;

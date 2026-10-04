@@ -100,6 +100,12 @@ namespace TheWaningBorder.AI
             //    § Walls). Every wall action costs supplies and iron; while
             //    military purchases are being refused for either, nothing is
             //    spent on stone. ──
+            // ── GATES FIRST (2026-10-04). A ring with curtain standing and no
+            //    gate seals the army in; cutting one outranks every hold
+            //    below, the army-short one included. ──
+            if (TryEnsureRingGates(faction, em, brainEntity, hallPos))
+                return;
+
             if (AIBudget.IsMilitaryShort(faction, AIBudget.ResSupplies)
                 || AIBudget.IsMilitaryShort(faction, AIBudget.ResIron))
             {
@@ -107,12 +113,12 @@ namespace TheWaningBorder.AI
                 return;
             }
 
-            // ── Plan, then execute. A BORDER plan is redrawn whenever the set
-            //    of territories this faction may WALL changes — its home, and
-            //    any other held territory with its own Fortress in it
-            //    (AIWallPlanner.CollectWallTerritories). Claiming or losing
-            //    unfortified ground moves no wall. Standing hubs stay; the
-            //    executor matches slots to hubs by position. ──
+            // ── Plan, then execute. A BORDER plan is redrawn whenever the
+            //    territory this faction may WALL changes — its home territory,
+            //    and only that (AIWallPlanner.CollectWallTerritories). Claiming
+            //    or losing any other ground, Fortress or not, moves no wall.
+            //    Standing hubs stay; the executor matches slots to hubs by
+            //    position. ──
             uint signature = AIWallPlanner.WallTerritorySignature(em, faction, hallPos);
             if (em.HasComponent<AIWallPlan>(brainEntity))
             {
@@ -146,7 +152,7 @@ namespace TheWaningBorder.AI
                 {
                     AIWallPlanner.ModeNone => "fully sheltered, no walls needed",
                     AIWallPlanner.ModeChokepoints => "seal chokepoints",
-                    AIWallPlanner.ModeBorder => "along the home (and Fortress) territory border",
+                    AIWallPlanner.ModeBorder => "along the home territory border",
                     _ => "perimeter around the base",
                 };
                 AILogger.Log(faction, "BUILDING",
@@ -224,9 +230,6 @@ namespace TheWaningBorder.AI
                         hubEntities, hubPositions))
                     return;
 
-                if (TryConvertPlannedGate(faction, em, slots, hubEntities, hubPositions))
-                    return;
-
                 TryConvertPlannedTower(faction, em, slots);
             }
             finally
@@ -265,12 +268,11 @@ namespace TheWaningBorder.AI
         // paid bank-direct, outside the budget the army draws on.
         //
         // The rule now, per plan chain (one chain = one walled territory):
-        //   * only the home territory, or a held territory with the
-        //     faction's own Fortress in it, is walled (the planner draws
-        //     nothing else; a chain whose territory stops qualifying is
-        //     frozen until the plan is redrawn);
-        //   * a non-home territory is only STARTED when the bank covers the
-        //     Fortress price plus the whole ring it plans;
+        //   * only the home (starting) territory is walled. The AI still
+        //     builds a Fortress in every territory it can, but walls none of
+        //     them (the planner draws nothing else; a chain whose territory
+        //     stops qualifying -- the home lost -- is frozen until the plan
+        //     is redrawn);
         //   * at most maxWallPiecesPerTerritory pieces stand in a territory;
         //   * a lost hub or link is rebuilt at most maxWallSlotRebuilds times;
         //   * every wall purchase comes out of the Economy wallet without
@@ -376,15 +378,13 @@ namespace TheWaningBorder.AI
             }
 
             AIWallPlanner.CollectWallTerritories(em, faction, hallPos, _wallRegions, _wallAnchors);
-            int home = AIWallPlanner.HomeRegion(hallPos);
-            BuildCosts.TryGet("Fortress", out var fortressCost);
 
             for (int ch = 0; ch < _chainRegion.Length; ch++)
             {
                 int r = _chainRegion[ch];
                 if (r == TheWaningBorder.World.Regions.RegionMap.None) continue;
-                // Home, or held with its own Fortress in it — re-checked
-                // every think, not only when the plan was drawn.
+                // The home territory, still held — re-checked every think,
+                // not only when the plan was drawn.
                 if (!_wallRegions.Contains(r)) continue;
                 _chainMayConvert[ch] = true;
 
@@ -396,20 +396,6 @@ namespace TheWaningBorder.AI
                     continue;
                 }
 
-                // A non-home territory is only STARTED when the bank covers
-                // the Fortress price plus everything its ring plans to buy.
-                if (r != home && !ChainStarted(slots, (byte)ch))
-                {
-                    var ring = EstimateChainCost(slots, (byte)ch);
-                    if (!FactionEconomy.CanAfford(em, faction, fortressCost + ring))
-                    {
-                        LogWallsThrottled(faction,
-                            $"Alanthor walls: territory {r} (Fortress) waits — the bank must cover the " +
-                            $"Fortress price plus its ring ({fortressCost.Supplies + ring.Supplies}s, " +
-                            $"{fortressCost.Iron + ring.Iron}i)");
-                        continue;
-                    }
-                }
                 _chainMayGrow[ch] = true;
             }
         }
@@ -423,33 +409,6 @@ namespace TheWaningBorder.AI
                 if (_chainRegion[ch] == TheWaningBorder.World.Regions.RegionMap.None) continue;
                 if (_chainRegion[ch] == r) _chainPieces[ch]++;
             }
-        }
-
-        /// <summary>True once any slot of the chain has had a hub stand.</summary>
-        private static bool ChainStarted(NativeArray<AIWallPlanSlot> slots, byte chain)
-        {
-            for (int i = 0; i < slots.Length; i++)
-                if (slots[i].Chain == chain && (slots[i].Flags & AIWallPlanner.FlagHubBuilt) != 0)
-                    return true;
-            return false;
-        }
-
-        /// <summary>What a chain's whole ring would cost: a hub per live slot
-        /// and the curtain to its next live slot.</summary>
-        private static Cost EstimateChainCost(NativeArray<AIWallPlanSlot> slots, byte chain)
-        {
-            Cost total = default;
-            if (!BuildCosts.TryGet("Alanthor_Wall", out var hubCost)) return total;
-            for (int i = 0; i < slots.Length; i++)
-            {
-                if (slots[i].Chain != chain || (slots[i].Flags & AIWallPlanner.FlagDead) != 0) continue;
-                total = total + hubCost;
-                int j = NextLiveSlot(slots, i, cyclic: true);
-                if (j < 0 || (slots[i].Flags & AIWallPlanner.FlagTerrainSealed) != 0) continue;
-                total = total + CommandRouter.WallRunCost(false,
-                    math.distance(slots[i].Position.xz, slots[j].Position.xz));
-            }
-            return total;
         }
 
         /// <summary>Unit direction along the plan chain at slot i — the
@@ -490,8 +449,8 @@ namespace TheWaningBorder.AI
             {
                 var slot = slots[i];
                 if ((slot.Flags & AIWallPlanner.FlagDead) != 0) continue;
-                // Its territory may not grow (not walled ground, at the piece
-                // cap, or a Fortress territory the bank cannot yet fund).
+                // Its territory may not grow (not walled ground, or at the
+                // piece cap).
                 if (!_chainMayGrow[slot.Chain]) continue;
                 if (FindHubNear(hubPositions, slot.Position,
                         Cfg.wallSlotOccupiedRadius) >= 0) continue;
@@ -809,9 +768,47 @@ namespace TheWaningBorder.AI
                     return LinkResult.Unaffordable;
                 CommandRouter.IssuePlaceWallPath(em, pts, kinds, faction, CommandSource.AI, palisade: false);
                 RecordWallSpend(faction, curveCost);
+                LogReroute(em, faction, pa, pb);
+                return LinkResult.Detoured;
+            }
+
+            // ROUTED ROUND IT (2026-10-04). One bulge cannot wind past two
+            // buildings — four links of the SunderedCrown Blue ring were "blocked
+            // straight and round both sides; left open" with a Barracks, an
+            // Archery Range and a Vault on the line. A grid search inside own
+            // ground finds the way the executor will accept, if there is one.
+            float maxLen = math.max(WallMaxGapSpan * 1.3f,
+                gap * AIWallPlannerConfig.I.wallRerouteMaxLengthFactor);
+            if (AIWallCorridor.TryRoute(em, faction, pa, pb, maxLen, _routePts))
+            {
+                float len = CommandRouter.PolylineLength(_routePts);
+                var routeCost = CommandRouter.WallRunCost(false, len);
+                if (!WallSpendAllowed(em, faction, routeCost))
+                    return LinkResult.Unaffordable;
+                kinds.Clear();
+                for (int k = 0; k < _routePts.Count; k++)
+                    kinds.Add(k == 0 || k == _routePts.Count - 1
+                        ? CommandRouter.WallPathKind.ExistingHub : CommandRouter.WallPathKind.Point);
+                CommandRouter.IssuePlaceWallPath(em, _routePts, kinds, faction, CommandSource.AI, palisade: false);
+                RecordWallSpend(faction, routeCost);
+                LogReroute(em, faction, pa, pb);
                 return LinkResult.Detoured;
             }
             return LinkResult.Refused;
+        }
+
+        private static readonly System.Collections.Generic.List<float3> _routePts
+            = new System.Collections.Generic.List<float3>(32);
+
+        /// <summary>"WALL: rerouted around &lt;building&gt; at (x,z)".</summary>
+        private static void LogReroute(EntityManager em, Faction faction, float3 pa, float3 pb)
+        {
+            if (!AILogger.Enabled) return;
+            if (AIWallCorridor.TryFindBlocker(em, pa, pb, out string id, out float3 at))
+                AILogger.Log(faction, "WALL", $"rerouted around {id} at ({at.x:F0},{at.z:F0})");
+            else
+                AILogger.Log(faction, "WALL",
+                    $"rerouted around terrain or a node between ({pa.x:F0},{pa.z:F0}) and ({pb.x:F0},{pb.z:F0})");
         }
 
         private static void MarkLinkRefused(Faction faction, EntityManager em, Entity brainEntity,
@@ -910,82 +907,306 @@ namespace TheWaningBorder.AI
             return -1;
         }
 
-        /// <summary>Convert the segment behind each gate-flagged slot to a
-        /// Gate once both hubs stand and the wall pieces have finished
-        /// self-building. One conversion per think tick; returns true when
-        /// one was issued.</summary>
-        private static bool TryConvertPlannedGate(Faction faction, EntityManager em,
-            NativeArray<AIWallPlanSlot> slots,
-            NativeList<Entity> hubEntities, NativeList<float3> hubPositions)
+        // ──────────────────────────────────────────────────────────────────
+        // GATES (2026-10-04, docs/Design/Game_AI.md § Walls — gates)
+        // ──────────────────────────────────────────────────────────────────
+        //
+        // "On the instances the AI makes a good wall, its army gets stuck
+        // inside. There are no Gates being made." The old pass converted only
+        // the segment behind a gate-FLAGGED slot, with no focus module, so the
+        // executor picked the segment's middle module — and refused silently
+        // whenever that module had no clear run of FreeRunForGate (a short
+        // segment, a tower on it, a module still rising). The AI re-issued the
+        // same refused order every think tick (one SunderedCrown Blue log:
+        // "gate conversion at (-128,-65)" twenty-odd times), and a flagged
+        // segment whose link was refused never got a gate at all. It also ran
+        // last, behind the hub, gap and army-short holds.
+        //
+        // Now gates are planned at the ring's EXITS — where the ring faces each
+        // neighbouring territory, the faction's own claims first, then the
+        // longest shared borders — topped up from the planned gate slots to
+        // at least minGatesPerRing, spaced gateSiteSpacing apart. Each is cut
+        // at a module that CAN take a gate (AlanthorWall.CanConvertToGate),
+        // nearest the exit, as soon as curtain stands there. It runs FIRST in
+        // the wall think, ahead of the army-short hold; the gates up to the
+        // minimum are paid from the bank alone, like an essential.
+
+        private static readonly System.Collections.Generic.Dictionary<Entity, float> _gateTried
+            = new System.Collections.Generic.Dictionary<Entity, float>();
+        private static readonly System.Collections.Generic.Dictionary<int, bool> _ringClosedLogged
+            = new System.Collections.Generic.Dictionary<int, bool>();
+        private static float _gateClock = -1f;
+
+        private struct GateSite { public float2 Pos; public int Region; public int Votes; public bool Own; }
+
+        static readonly ComponentType[] QT_WallGateTagFactionTagLocalTransform =
         {
-            for (int i = 0; i < slots.Length; i++)
+            ComponentType.ReadOnly<WallGateTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.Exclude<PalisadeTag>(),
+        };
+        static CachedEntityQuery QC_WallGateTagFactionTagLocalTransform;
+
+        static float DistToSegSq(float2 p, float2 a, float2 b)
+        {
+            float2 ab = b - a;
+            float l2 = math.lengthsq(ab);
+            float t = l2 > 1e-8f ? math.saturate(math.dot(p - a, ab) / l2) : 0f;
+            return math.distancesq(p, a + ab * t);
+        }
+
+        static bool NearRing(float2 p, NativeList<float2> segA, NativeList<float2> segB, float r)
+        {
+            for (int s = 0; s < segA.Length; s++)
+                if (DistToSegSq(p, segA[s], segB[s]) <= r * r) return true;
+            return false;
+        }
+
+        static void AddGateUnique(NativeList<float2> gates, float2 p)
+        {
+            for (int g = 0; g < gates.Length; g++)
+                if (math.distancesq(gates[g], p) < 36f) return;
+            gates.Add(p);
+        }
+
+        /// <summary>Cut the ring's gates. One conversion per think; true when
+        /// one was issued.</summary>
+        private static bool TryEnsureRingGates(Faction faction, EntityManager em,
+            Entity brainEntity, float3 hallPos)
+        {
+            if (!em.HasComponent<AIWallPlan>(brainEntity) || !em.HasBuffer<AIWallPlanSlot>(brainEntity))
+                return false;
+            byte mode = em.GetComponentData<AIWallPlan>(brainEntity).Mode;
+            if (mode == AIWallPlanner.ModeNone) return false;
+
+            float now = SimClock.Now;
+            if (now < _gateClock) { _gateTried.Clear(); _ringClosedLogged.Clear(); }   // a new match
+            _gateClock = now;
+
+            var wp = AIWallPlannerConfig.I;
+            bool cyclic = mode == AIWallPlanner.ModePerimeter || mode == AIWallPlanner.ModeBorder;
+            bool regions = TheWaningBorder.World.Regions.RegionMap.Ready
+                        && TheWaningBorder.World.Regions.TerritoryOwnership.Ready;
+            int home = AIWallPlanner.HomeRegion(hallPos);
+            const float OnRing = 8f;
+
+            var slots = em.GetBuffer<AIWallPlanSlot>(brainEntity).ToNativeArray(Allocator.Temp);
+            var segA = new NativeList<float2>(Allocator.Temp);
+            var segB = new NativeList<float2>(Allocator.Temp);
+            var gates = new NativeList<float2>(Allocator.Temp);
+            var instEnts = new NativeList<Entity>(Allocator.Temp);
+            var instPos = new NativeList<float2>(Allocator.Temp);
+            var sites = new System.Collections.Generic.List<GateSite>(8);
+            try
             {
-                if ((slots[i].Flags & AIWallPlanner.FlagGateAfter) == 0) continue;
-                if ((slots[i].Flags & AIWallPlanner.FlagDead) != 0) continue;
-                if (!_chainMayConvert[slots[i].Chain]) continue;
-
-                // Far hub = next live slot of the same chain.
-                int j = -1;
-                for (int k = i + 1; k < slots.Length; k++)
+                // ── The ring's curtains (live slot to next live slot) and
+                //    whether the ring is closed. ──
+                int live = 0;
+                bool closed = true;
+                var byRegion = new System.Collections.Generic.SortedDictionary<int, System.Collections.Generic.List<float2>>();
+                for (int i = 0; i < slots.Length; i++)
                 {
-                    if (slots[k].Chain != slots[i].Chain) break;
-                    if ((slots[k].Flags & AIWallPlanner.FlagDead) != 0) continue;
-                    j = k;
-                    break;
+                    if ((slots[i].Flags & AIWallPlanner.FlagDead) != 0) continue;
+                    live++;
+                    if ((slots[i].Flags & AIWallPlanner.FlagHubBuilt) == 0) closed = false;
+                    int j = NextLiveSlot(slots, i, cyclic);
+                    bool sealedRun = (slots[i].Flags & AIWallPlanner.FlagTerrainSealed) != 0
+                                     || (j >= 0 && SealedBetween(slots, i, j));
+                    if (j < 0 || sealedRun) continue;
+                    if ((slots[i].Flags & AIWallPlanner.FlagLinked) == 0) closed = false;
+                    float2 a = slots[i].Position.xz, b = slots[j].Position.xz;
+                    segA.Add(a); segB.Add(b);
+                    if (!regions) continue;
+                    float2 m = (a + b) * 0.5f;
+                    float2 dir = math.normalizesafe(m - hallPos.xz, new float2(1f, 0f));
+                    float2 q = m + dir * wp.gateExitProbe;
+                    int r = TheWaningBorder.World.Regions.RegionMap.RegionAt(q.x, q.y);
+                    if (r == TheWaningBorder.World.Regions.RegionMap.None || r == home) continue;
+                    if (!byRegion.TryGetValue(r, out var list))
+                        byRegion[r] = list = new System.Collections.Generic.List<float2>(4);
+                    list.Add(m);
                 }
-                if (j < 0) continue;
+                if (live < 3 || segA.Length == 0) closed = false;
 
-                int ha = FindHubNear(hubPositions, slots[i].Position, Cfg.wallSlotOccupiedRadius);
-                int hb = FindHubNear(hubPositions, slots[j].Position, Cfg.wallSlotOccupiedRadius);
-                if (ha < 0 || hb < 0) continue;
-                Entity hubA = hubEntities[ha], hubB = hubEntities[hb];
-                if (!em.Exists(hubA) || !em.Exists(hubB)) continue;
-                if (em.HasComponent<UnderConstruction>(hubA)) continue;
-                if (em.HasComponent<UnderConstruction>(hubB)) continue;
-                if (!em.HasBuffer<WallHubLink>(hubA)) continue;
+                // ── Exits: one per neighbouring territory, at the curtain
+                //    midpoint nearest the middle of the shared stretch. ──
+                foreach (var kv in byRegion)
+                {
+                    float2 avg = float2.zero;
+                    for (int k = 0; k < kv.Value.Count; k++) avg += kv.Value[k];
+                    avg /= kv.Value.Count;
+                    float2 best = kv.Value[0];
+                    for (int k = 1; k < kv.Value.Count; k++)
+                        if (math.distancesq(kv.Value[k], avg) < math.distancesq(best, avg)) best = kv.Value[k];
+                    sites.Add(new GateSite
+                    {
+                        Pos = best, Region = kv.Key, Votes = kv.Value.Count,
+                        Own = TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(kv.Key) == (int)faction,
+                    });
+                }
+                sites.Sort((x, y) =>
+                    x.Own != y.Own ? (x.Own ? -1 : 1)
+                    : x.Votes != y.Votes ? y.Votes.CompareTo(x.Votes)
+                    : x.Region.CompareTo(y.Region));
+                // …then the planned gate slots.
+                for (int i = 0; i < slots.Length; i++)
+                {
+                    if ((slots[i].Flags & AIWallPlanner.FlagGateAfter) == 0) continue;
+                    if ((slots[i].Flags & AIWallPlanner.FlagDead) != 0) continue;
+                    int j = NextLiveSlot(slots, i, cyclic);
+                    if (j < 0) continue;
+                    sites.Add(new GateSite
+                    {
+                        Pos = (slots[i].Position.xz + slots[j].Position.xz) * 0.5f,
+                        Region = TheWaningBorder.World.Regions.RegionMap.None,
+                    });
+                }
+                // Spaced apart, in priority order.
+                for (int a = 0; a < sites.Count; a++)
+                    for (int b = sites.Count - 1; b > a; b--)
+                        if (math.distance(sites[a].Pos, sites[b].Pos) < wp.gateSiteSpacing)
+                            sites.RemoveAt(b);
 
-                Entity segment = Entity.Null;
-                var links = em.GetBuffer<WallHubLink>(hubA);
-                for (int l = 0; l < links.Length; l++)
-                    if (links[l].ConnectedHub == hubB) { segment = links[l].Segment; break; }
-                if (segment == Entity.Null || !em.Exists(segment)) continue;
-                if (em.HasComponent<WallSegmentUpgradeState>(segment)) continue; // converting
-                if (SegmentHasGate(em, segment)) continue;                       // done
-                if (SegmentUnderConstruction(em, segment)) continue;             // still rising
+                // ── What stands on the ring: gates, gates rising, modules. ──
+                {
+                    var gq = QC_WallGateTagFactionTagLocalTransform.Get(em, QT_WallGateTagFactionTagLocalTransform);
+                    using var facs = gq.ToComponentDataArray<FactionTag>(Allocator.Temp);
+                    using var xfs = gq.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+                    for (int i = 0; i < facs.Length; i++)
+                    {
+                        if (facs[i].Value != faction) continue;
+                        float2 p = xfs[i].Position.xz;
+                        if (NearRing(p, segA, segB, OnRing)) AddGateUnique(gates, p);
+                    }
+                }
+                {
+                    var iq = QC_WallInstanceTagFactionTagLocalTransform.Get(em, QT_WallInstanceTagFactionTagLocalTransform);
+                    using var ents = iq.ToEntityArray(Allocator.Temp);
+                    using var facs = iq.ToComponentDataArray<FactionTag>(Allocator.Temp);
+                    using var xfs = iq.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+                    for (int i = 0; i < ents.Length; i++)
+                    {
+                        if (facs[i].Value != faction) continue;
+                        float2 p = xfs[i].Position.xz;
+                        if (!NearRing(p, segA, segB, OnRing)) continue;
+                        // A segment converting to a gate is a gate rising.
+                        if (em.HasComponent<WallInstanceParent>(ents[i]))
+                        {
+                            var seg = em.GetComponentData<WallInstanceParent>(ents[i]).Segment;
+                            if (em.Exists(seg) && em.HasComponent<WallSegmentUpgradeState>(seg)
+                                && em.GetComponentData<WallSegmentUpgradeState>(seg).UpgradeType == 2)
+                            {
+                                AddGateUnique(gates, p);
+                                continue;
+                            }
+                        }
+                        instEnts.Add(ents[i]);
+                        instPos.Add(p);
+                    }
+                }
 
-                if (!WallSpendAllowed(em, faction,
-                        ConvertSegmentToGateCommandHelper.ConversionCost)) return false;
-                CommandRouter.IssueConvertSegmentToGate(em, segment, Entity.Null,
-                    CommandSource.AI);
-                RecordWallSpend(faction, ConvertSegmentToGateCommandHelper.ConversionCost);
-                AILogger.Log(faction, "BUILDING",
-                    $"Alanthor walls: gate conversion at " +
-                    $"({slots[i].Position.x:F0},{slots[i].Position.z:F0})");
+                int have = gates.Length;
+                int min = math.max(0, wp.minGatesPerRing);
+                int want = math.clamp(sites.Count, min, math.max(min, wp.maxGatesPerRing));
+
+                // ── The closed-ring report, once per closing. ──
+                int fk = (int)faction;
+                bool logged = _ringClosedLogged.TryGetValue(fk, out bool lg) && lg;
+                if (closed && !logged)
+                {
+                    AILogger.Log(faction, "WALL", have > 0
+                        ? $"ring closed with {have} gate(s)"
+                        : "WARNING ring closed with 0 gates — the army is sealed in; cutting one now");
+                    _ringClosedLogged[fk] = true;
+                }
+                else if (!closed && logged) _ringClosedLogged[fk] = false;
+
+                if (have >= want || instEnts.Length == 0) return false;
+                if (CommandRouter.WallsLockedForUpgrade(em, faction)) return false;
+
+                // ── Pick the module: nearest an exit with no gate, free, able
+                //    to take a gate, not already refused. ──
+                int pick = -1, pickSite = -1;
+                for (int s = 0; s < sites.Count && pick < 0; s++)
+                {
+                    bool served = false;
+                    for (int g = 0; g < gates.Length && !served; g++)
+                        served = math.distance(gates[g], sites[s].Pos) < wp.gateSiteSpacing;
+                    if (served) continue;
+                    pick = BestGateModule(em, instEnts, instPos, gates, sites[s].Pos,
+                        wp.gateSiteReach, wp.gateSiteSpacing);
+                    if (pick >= 0) pickSite = s;
+                }
+                // Short of the minimum and no exit could take one: any module
+                // that can, nearest the first exit, spaced from the gates
+                // standing if possible.
+                if (pick < 0 && have < min)
+                {
+                    float2 aim = sites.Count > 0 ? sites[0].Pos : instPos[0];
+                    pick = BestGateModule(em, instEnts, instPos, gates, aim, float.MaxValue, wp.gateSiteSpacing);
+                    if (pick < 0)
+                        pick = BestGateModule(em, instEnts, instPos, gates, aim, float.MaxValue, 0f);
+                }
+                if (pick < 0) return false;
+
+                var cost = ConvertSegmentToGateCommandHelper.ConversionCost;
+                bool essential = have < min;
+                if (essential ? !FactionEconomy.CanAfford(em, faction, cost)
+                              : !WallSpendAllowed(em, faction, cost))
+                    return false;
+
+                Entity inst = instEnts[pick];
+                Entity segment = em.GetComponentData<WallInstanceParent>(inst).Segment;
+                CommandRouter.IssueConvertSegmentToGate(em, segment, inst, CommandSource.AI);
+                RecordWallSpend(faction, cost);
+                _gateTried[inst] = now;
+
+                string toward;
+                if (pickSite < 0) toward = "no exit could take one — nearest free stretch";
+                else if (sites[pickSite].Region == TheWaningBorder.World.Regions.RegionMap.None)
+                    toward = "the planned gate slot";
+                else
+                    toward = TheWaningBorder.World.Regions.RegionMap.NameOf(sites[pickSite].Region)
+                             + (sites[pickSite].Own ? " (held)" : "");
+                AILogger.Log(faction, "WALL",
+                    $"gate converted at ({instPos[pick].x:F0},{instPos[pick].y:F0}) (exit toward {toward}; " +
+                    $"{have + 1}/{want} gates)");
                 return true;
             }
-            return false;
+            finally
+            {
+                slots.Dispose();
+                segA.Dispose(); segB.Dispose();
+                gates.Dispose();
+                instEnts.Dispose(); instPos.Dispose();
+            }
         }
 
-        private static bool SegmentHasGate(EntityManager em, Entity segment)
+        /// <summary>The ring module nearest <paramref name="aim"/> (within
+        /// <paramref name="reach"/>) that can take a gate now, at least
+        /// <paramref name="spacing"/> from every gate, and not an order the
+        /// executor already refused. Ties by query order. -1 if none.</summary>
+        private static int BestGateModule(EntityManager em, NativeList<Entity> ents, NativeList<float2> pos,
+            NativeList<float2> gates, float2 aim, float reach, float spacing)
         {
-            if (!em.HasBuffer<WallInstanceRef>(segment)) return false;
-            var insts = em.GetBuffer<WallInstanceRef>(segment);
-            for (int i = 0; i < insts.Length; i++)
-                if (em.Exists(insts[i].Instance)
-                    && em.HasComponent<WallGateTag>(insts[i].Instance))
-                    return true;
-            return false;
-        }
-
-        private static bool SegmentUnderConstruction(EntityManager em, Entity segment)
-        {
-            if (!em.HasBuffer<WallInstanceRef>(segment)) return false;
-            var insts = em.GetBuffer<WallInstanceRef>(segment);
-            for (int i = 0; i < insts.Length; i++)
-                if (em.Exists(insts[i].Instance)
-                    && em.HasComponent<UnderConstruction>(insts[i].Instance))
-                    return true;
-            return false;
+            int best = -1;
+            float bestD = reach == float.MaxValue ? float.MaxValue : reach * reach;
+            for (int i = 0; i < ents.Length; i++)
+            {
+                float d = math.distancesq(pos[i], aim);
+                if (d > bestD || (best >= 0 && d >= bestD)) continue;
+                if (_gateTried.ContainsKey(ents[i])) continue;
+                bool crowded = false;
+                for (int g = 0; g < gates.Length && !crowded; g++)
+                    crowded = math.distance(gates[g], pos[i]) < spacing;
+                if (crowded) continue;
+                if (!em.HasComponent<WallInstanceParent>(ents[i])) continue;
+                if (!AlanthorWall.CanConvertToGate(em, ents[i])) continue;
+                best = i;
+                bestD = d;
+            }
+            return best;
         }
 
         /// <summary>Convert the wall instance nearest each tower-flagged

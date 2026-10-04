@@ -32,6 +32,17 @@
 //                   node (a curse node rises on it) and the territory.
 //                   A Shardroot HUNT party (§6.6) presses the holder for as
 //                   long as anyone holds it, then walks home as garrison.
+//   TickAttackWaves  every `waveIntervalSeconds` waveDraftFraction of the
+//                   garrison is DRAFTED into an ATTACK WAVE that marches on a
+//                   player (Territory_Claims.md §6.8, 2026-10-04) --
+//                   CurseTerritorySystem.Waves.cs.
+//
+// ONE SPAWNER (§6.8, 2026-10-04). TickGarrisons is the only thing in the
+// living path that raises units. Claim, fill and hunt parties and attack
+// waves are DRAFTED out of the garrison pool (DraftFromGarrisons), never
+// spawned, and no node's guard is drafted below garrisonMinPerNode. The cap
+// (CurseUnitCap.Headroom) therefore bounds the garrisons; under it, the
+// nodes under attack are topped up first.
 //
 // DETERMINISM. Everything here runs in-sim on every peer with no host gate.
 // Orders go through the direct helpers, never the router, exactly as the
@@ -60,7 +71,8 @@ namespace TheWaningBorder.Systems.Border
     {
         /// <summary>Home territory index (RegionMap).</summary>
         public int Home;
-        /// <summary>0 = garrison, 1 = merge party, 2 = raid.</summary>
+        /// <summary>0 = garrison, 1 = merge party, 2 = raid (Shardroot hunt),
+        /// 3 = attack wave (Territory_Claims.md §6.8).</summary>
         public byte Role;
         /// <summary>Merge party / raid id, or -1 for garrison.</summary>
         public int Party;
@@ -128,6 +140,7 @@ namespace TheWaningBorder.Systems.Border
             _nextExpandAt = -1.0;
             _noNodeSince = -1.0;
             _shardrootGuaranteed = false;
+            ResetAttackWaves();
         }
 
         /// <summary>Sim time the curse was first seen with no node, or -1.</summary>
@@ -211,10 +224,31 @@ namespace TheWaningBorder.Systems.Border
 
         // ── garrisons ────────────────────────────────────────────────────────
 
-        /// <summary>2.13 rules 1-3: every armySpawnSeconds a held territory
-        /// brings its garrison up to garrisonCap x armyGrowth^n in ONE spawn.
-        /// Survivors count; between spawns nothing regrows, which is the
-        /// window in which a well can be verbed.</summary>
+        /// <summary>One due garrison spawn: a territory whose army timer
+        /// fired this check.</summary>
+        private sealed class GarrisonDue
+        {
+            public int Territory;
+            public int Spawn;                       // n of 2.13 rule 3
+            public int Size;                        // per node
+            public List<float3> Nodes;
+            public readonly List<int> Have = new();
+            public readonly List<Entity> Spawned = new();
+            public int Survived, Capped;
+        }
+
+        /// <summary>
+        /// 2.13 rules 1-3: every armySpawnSeconds a held territory brings its
+        /// garrison up to garrisonCap x armyGrowth^n in ONE spawn. Survivors
+        /// count; between spawns nothing regrows, which is the window in
+        /// which a node can be taken.
+        ///
+        /// THE ONLY SPAWNER (Territory_Claims.md §6.8, 2026-10-04): parties
+        /// and waves are drafted out of these garrisons, so the cap bounds
+        /// them here. Under the cap the NODES UNDER ATTACK (a hostile within
+        /// guardRadius) are topped up before any other node, across every
+        /// territory due this check.
+        /// </summary>
         private void TickGarrisons(EntityManager em, double now, BorderSettingsSO s, float bonus)
         {
             int tierIndex = TierForNow(s, now);
@@ -230,12 +264,13 @@ namespace TheWaningBorder.Systems.Border
             foreach (int t in _held) _scratchHeld.Add(t);
             _scratchHeld.Sort();
 
+            var due = new List<GarrisonDue>();
             for (int i = 0; i < _scratchHeld.Count; i++)
             {
                 int t = _scratchHeld[i];
                 // A garrison rises from a NODE (Territory_Claims.md §6.3).
                 // Ground the curse holds by standing on it, with no node yet,
-                // fields nothing — its claimants are its only defence.
+                // fields nothing -- its claimants are its only defence.
                 if (!_nodesByTerritory.TryGetValue(t, out var nodes) || nodes.Count == 0) continue;
                 if (!_nextArmyAt.TryGetValue(t, out double at))
                 {
@@ -251,35 +286,70 @@ namespace TheWaningBorder.Systems.Border
                 // has. A guard whose node died counts for the nearest node
                 // left (ShepherdLiving re-points it there).
                 _armySpawns.TryGetValue(t, out int n);
-                int size = (int)math.round(s.garrisonCap * math.pow(math.max(1f, s.armyGrowth), n) * bonus);
-                var have = _scratchGuardCounts;
-                have.Clear();
-                for (int k = 0; k < nodes.Count; k++) have.Add(0);
+                var d = new GarrisonDue
+                {
+                    Territory = t, Spawn = n, Nodes = nodes,
+                    Size = (int)math.round(s.garrisonCap * math.pow(math.max(1f, s.armyGrowth), n) * bonus),
+                };
+                for (int k = 0; k < nodes.Count; k++) d.Have.Add(0);
                 for (int m = 0; m < members.Length; m++)
                     if (members[m].Role == RoleGarrison && members[m].Home == t)
-                        have[NearestNodeIndex(nodes, members[m].Guard)]++;
+                        d.Have[NearestNodeIndex(nodes, members[m].Guard)]++;
+                for (int k = 0; k < nodes.Count; k++) d.Survived += d.Have[k];
+                due.Add(d);
+            }
+            if (due.Count == 0) return;
 
-                _scratchWave.Clear();
-                int spawned = 0, survived = 0;
-                for (int k = 0; k < nodes.Count; k++)
+            // Every (territory, node) slot, nodes under attack first, then by
+            // territory and node order -- so a short headroom goes where the
+            // fighting is.
+            float guardR2 = s.guardRadius * s.guardRadius;
+            var slots = new List<(bool attacked, int d, int k)>();
+            for (int di = 0; di < due.Count; di++)
+            {
+                var d = due[di];
+                _hostilesByTerritory.TryGetValue(d.Territory, out var intruders);
+                for (int k = 0; k < d.Nodes.Count; k++)
                 {
-                    survived += have[k];
-                    int toSpawn = math.max(0, size - have[k]);
-                    for (int u = 0; u < toSpawn; u++)
-                    {
-                        var e = SpawnCurseUnit(em, tier, have[k] + u, nodes[k]);
-                        em.AddComponentData(e, new CurseLivingMember
-                            { Home = t, Role = RoleGarrison, Party = -1, Guard = nodes[k] });
-                        _scratchWave.Add(e);
-                    }
-                    spawned += toSpawn;
+                    bool attacked = false;
+                    if (intruders != null)
+                        for (int h = 0; h < intruders.Count && !attacked; h++)
+                            attacked = Distance2(intruders[h], d.Nodes[k]) <= guardR2;
+                    slots.Add((attacked, di, k));
                 }
-                _armySpawns[t] = n + 1;
+            }
+            slots.Sort((a, b) => a.attacked != b.attacked ? (a.attacked ? -1 : 1)
+                               : a.d != b.d ? a.d.CompareTo(b.d) : a.k.CompareTo(b.k));
+
+            int headroom = CurseUnitCap.Headroom(em);
+            for (int i = 0; i < slots.Count; i++)
+            {
+                var d = due[slots[i].d];
+                int k = slots[i].k;
+                int want = math.max(0, d.Size - d.Have[k]);
+                int toSpawn = math.min(want, headroom);
+                headroom -= toSpawn;
+                d.Capped += want - toSpawn;
+                for (int u = 0; u < toSpawn; u++)
+                {
+                    var e = SpawnCurseUnit(em, tier, d.Have[k] + u, d.Nodes[k]);
+                    em.AddComponentData(e, new CurseLivingMember
+                        { Home = d.Territory, Role = RoleGarrison, Party = -1, Guard = d.Nodes[k] });
+                    d.Spawned.Add(e);
+                }
+            }
+
+            for (int di = 0; di < due.Count; di++)
+            {
+                var d = due[di];
+                int t = d.Territory;
+                _armySpawns[t] = d.Spawn + 1;
                 _nextArmyAt[t] = now + s.armySpawnSeconds / bonus;
-                UnityEngine.Debug.Log($"[CurseTerritory] ARMY {n + 1} in territory {t} ({RegionMap.NameOf(t)}): " +
-                    $"{nodes.Count} node(s) x {size}, {spawned} spawned, {survived} survived; " +
-                    $"next in {s.armySpawnSeconds / bonus:0}s.");
-                TryRollShardroot(em, s, _scratchWave, $"garrison army {n + 1} of territory {t}");
+                UnityEngine.Debug.Log($"[CurseTerritory] ARMY {d.Spawn + 1} in territory {t} ({RegionMap.NameOf(t)}): " +
+                    $"{d.Nodes.Count} node(s) x {d.Size}, {d.Spawned.Count} spawned, {d.Survived} survived" +
+                    (d.Capped > 0 ? $", {d.Capped} held back by the cap ({CurseUnitCap.Max})" : "") +
+                    $"; next in {s.armySpawnSeconds / bonus:0}s.");
+                TryRollShardroot(em, s, d.Spawned, $"garrison army {d.Spawn + 1} of territory {t}");
             }
         }
 
@@ -464,24 +534,26 @@ namespace TheWaningBorder.Systems.Border
             if (from < 0) return;
             float3 origin = WaveOrigin(em, from);
 
-            int tierIndex = TierForNow(s, now);
-            var tier = tierIndex >= 0 ? s.Tier(tierIndex) : null;
-            if (tier == null || tier.TotalUnits == 0) return;
-
             bool claim = !hunt;
+
+            // DRAFTED, NOT SPAWNED (§6.8, 2026-10-04): the party comes out of
+            // the garrisons — the sending territory's first, then the nearest
+            // others — and no node is left with fewer than garrisonMinPerNode.
+            int want = (int)math.round(s.mergePartySize * bonus);
+            int got = DraftFromGarrisons(em, s, origin, from, want, _scratchWave);
+            if (got == 0)
+            {
+                UnityEngine.Debug.Log($"[CurseTerritory] {(claim ? "CLAIM" : "HUNT")} skipped -- no garrison " +
+                    $"to spare above {s.garrisonMinPerNode} per node (wanted {want}).");
+                return;
+            }
+            if (got < want)
+                UnityEngine.Debug.Log($"[CurseTerritory] {(claim ? "CLAIM" : "HUNT")} party short -- " +
+                    $"{got} of {want} drafted (garrisons keep {s.garrisonMinPerNode} per node).");
             NodesIn(em, pick, _scratchNodes);
 
             int party = _nextPartyId++;
-            int partySize = (int)math.round(s.mergePartySize * bonus);
-            _scratchWave.Clear();
-            for (int u = 0; u < partySize; u++)
-            {
-                var e = SpawnCurseUnit(em, tier, u, origin);
-                em.AddComponentData(e, new CurseLivingMember
-                    { Home = from, Role = claim ? RoleMerge : RoleRaid, Party = party, Guard = origin });
-                _scratchWave.Add(e);
-            }
-            TryRollShardroot(em, s, _scratchWave, $"harassment party {party}");
+            Enlist(em, _scratchWave, claim ? RoleMerge : RoleRaid, party, from, origin);
 
             if (claim)
             {
@@ -564,22 +636,21 @@ namespace TheWaningBorder.Systems.Border
         private void SendFillParty(EntityManager em, double now, BorderSettingsSO s, float bonus,
                                    int territory, Entity node, float3 nodePos)
         {
-            int tierIndex = TierForNow(s, now);
-            var tier = tierIndex >= 0 ? s.Tier(tierIndex) : null;
-            if (tier == null || tier.TotalUnits == 0) return;
-
-            float3 origin = WaveOrigin(em, territory);
-            int party = _nextPartyId++;
-            int partySize = (int)math.round(s.mergePartySize * bonus);
-            _scratchWave.Clear();
-            for (int u = 0; u < partySize; u++)
+            // DRAFTED, NOT SPAWNED (§6.8, 2026-10-04): this territory's own
+            // garrisons first, then the nearest others, never below
+            // garrisonMinPerNode a node.
+            int want = (int)math.round(s.mergePartySize * bonus);
+            int got = DraftFromGarrisons(em, s, nodePos, territory, want, _scratchWave);
+            if (got == 0)
             {
-                var e = SpawnCurseUnit(em, tier, u, origin);
-                em.AddComponentData(e, new CurseLivingMember
-                    { Home = territory, Role = RoleMerge, Party = party, Guard = nodePos });
-                _scratchWave.Add(e);
+                UnityEngine.Debug.Log($"[CurseTerritory] FILL skipped -- no garrison to spare above " +
+                    $"{s.garrisonMinPerNode} per node (wanted {want}).");
+                return;
             }
-            TryRollShardroot(em, s, _scratchWave, $"fill party {party}");
+            if (got < want)
+                UnityEngine.Debug.Log($"[CurseTerritory] FILL party short -- {got} of {want} drafted.");
+            int party = _nextPartyId++;
+            Enlist(em, _scratchWave, RoleMerge, party, territory, nodePos);
 
             _merges[party] = new MergeState
             {
@@ -593,7 +664,129 @@ namespace TheWaningBorder.Systems.Border
                 $"{territory} ({RegionMap.NameOf(territory)}).");
         }
 
+        // ── drafting (§6.8, 2026-10-04) ─────────────────────────────────────
+
+        private readonly List<(int idx, bool prefer, float d2, int entIndex)> _draftCandidates = new();
+        private readonly Dictionary<long, int> _draftGuardCounts = new();
+
+        /// <summary>The (home territory, guarded node) a garrison unit counts
+        /// for — the same node TickGarrisons counts it against. Ground held
+        /// without a node is its own group (node slot 0).</summary>
+        private long GuardGroup(in CurseLivingMember m)
+        {
+            int node = -1;
+            if (_nodesByTerritory.TryGetValue(m.Home, out var nodes) && nodes.Count > 0)
+                node = NearestNodeIndex(nodes, m.Guard);
+            return ((long)m.Home << 32) | (uint)(node + 1);
+        }
+
+        /// <summary>Garrison units alive now (Role garrison).</summary>
+        private int CountGarrisonUnits(EntityManager em)
+        {
+            var q = QC_Living.Get(em, QT_Living);
+            using var members = q.ToComponentDataArray<CurseLivingMember>(Allocator.Temp);
+            int n = 0;
+            for (int i = 0; i < members.Length; i++)
+                if (members[i].Role == RoleGarrison) n++;
+            return n;
+        }
+
+        /// <summary>
+        /// DRAFT up to <paramref name="want"/> garrison units into
+        /// <paramref name="into"/> (cleared first) — the only way a party or a
+        /// wave gets units (Territory_Claims.md §6.8). Candidates: garrison
+        /// units that are alive and not mid-fight (a defender in a fight stays
+        /// in it). Order: units of <paramref name="preferTerritory"/> first,
+        /// then by distance of their guard post to <paramref name="near"/>,
+        /// then entity index — the same on every peer. No node's guard is
+        /// drafted below garrisonMinPerNode. Returns the number drafted; the
+        /// caller re-roles them (<see cref="Enlist"/>).
+        /// </summary>
+        private int DraftFromGarrisons(EntityManager em, BorderSettingsSO s, float3 near,
+                                       int preferTerritory, int want, List<Entity> into)
+        {
+            into.Clear();
+            if (want <= 0) return 0;
+            var q = QC_Living.Get(em, QT_Living);
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var members = q.ToComponentDataArray<CurseLivingMember>(Allocator.Temp);
+
+            _draftGuardCounts.Clear();
+            _draftCandidates.Clear();
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (members[i].Role != RoleGarrison) continue;
+                var e = ents[i];
+                if (em.HasComponent<Health>(e) && em.GetComponentData<Health>(e).Value <= 0) continue;
+                long g = GuardGroup(members[i]);
+                _draftGuardCounts.TryGetValue(g, out int c);
+                _draftGuardCounts[g] = c + 1;
+                if (em.HasComponent<Target>(e) && em.GetComponentData<Target>(e).Value != Entity.Null) continue;
+                _draftCandidates.Add((i, members[i].Home == preferTerritory,
+                                      Distance2(members[i].Guard, near), e.Index));
+            }
+            _draftCandidates.Sort((a, b) =>
+                a.prefer != b.prefer ? (a.prefer ? -1 : 1)
+                : a.d2 != b.d2 ? a.d2.CompareTo(b.d2)
+                : a.entIndex.CompareTo(b.entIndex));
+
+            int keep = math.max(0, s.garrisonMinPerNode);
+            for (int k = 0; k < _draftCandidates.Count && into.Count < want; k++)
+            {
+                int i = _draftCandidates[k].idx;
+                long g = GuardGroup(members[i]);
+                int c = _draftGuardCounts[g];
+                if (c <= keep) continue;
+                _draftGuardCounts[g] = c - 1;
+                into.Add(ents[i]);
+            }
+            return into.Count;
+        }
+
+        /// <summary>Re-role drafted units as one party. <paramref name="home"/>
+        /// &lt; 0 keeps each unit's own home territory.</summary>
+        private static void Enlist(EntityManager em, List<Entity> units, byte role, int party,
+                                   int home, float3 guard)
+        {
+            for (int i = 0; i < units.Count; i++)
+            {
+                var e = units[i];
+                var m = em.GetComponentData<CurseLivingMember>(e);
+                m.Role = role; m.Party = party; m.Guard = guard;
+                if (home >= 0) m.Home = home;
+                em.SetComponentData(e, m);
+            }
+        }
+
         // ── shepherd ────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Hostile (non-curse) unit positions by territory, one walk per
+        /// check, so each garrison's check is a dictionary lookup rather than
+        /// a query. Run at the top of the living check: TickGarrisons reads it
+        /// for "node under attack" (the §6.8 cap priority), ShepherdLiving and
+        /// the waves after it.
+        /// Reused across ticks: every list is emptied, never dropped, so the
+        /// lookups see exactly the per-tick content (an empty list reads as
+        /// "no intruders", as a missing key did).
+        /// </summary>
+        private void RefreshHostiles(EntityManager em)
+        {
+            var hostiles = _hostilesByTerritory;
+            foreach (var kv in hostiles) kv.Value.Clear();
+            var hq = QueryFacXf<UnitTag>(em);
+            using var hx = hq.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var hf = hq.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            for (int i = 0; i < hx.Length; i++)
+            {
+                if (hf[i].Value == Faction.Border) continue;
+                var p = hx[i].Position;
+                int t = RegionMap.NearestRegion(p.x, p.z);
+                if (t == RegionMap.None) continue;
+                if (!hostiles.TryGetValue(t, out var list)) hostiles[t] = list = new List<float3>();
+                list.Add(p);
+            }
+        }
 
         private void ShepherdLiving(EntityManager em, double now, BorderSettingsSO s)
         {
@@ -602,27 +795,10 @@ namespace TheWaningBorder.Systems.Border
             using var members = q.ToComponentDataArray<CurseLivingMember>(Allocator.Temp);
             using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
-            // Hostiles by territory, one walk, so each garrison's check is a
-            // dictionary lookup rather than a query.
-            // Reused across ticks: every list is emptied, never dropped, so the
-            // lookups below see exactly the per-tick content (an empty list
-            // reads as "no intruders", as a missing key did).
+            // Hostiles by territory: RefreshHostiles filled it at the top of
+            // this check (spawns since then are all curse units, which it
+            // skips, so it is still exact).
             var hostiles = _hostilesByTerritory;
-            foreach (var kv in hostiles) kv.Value.Clear();
-            {
-                var hq = QueryFacXf<UnitTag>(em);
-                using var hx = hq.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-                using var hf = hq.ToComponentDataArray<FactionTag>(Allocator.Temp);
-                for (int i = 0; i < hx.Length; i++)
-                {
-                    if (hf[i].Value == Faction.Border) continue;
-                    var p = hx[i].Position;
-                    int t = RegionMap.NearestRegion(p.x, p.z);
-                    if (t == RegionMap.None) continue;
-                    if (!hostiles.TryGetValue(t, out var list)) hostiles[t] = list = new List<float3>();
-                    list.Add(p);
-                }
-            }
 
             // The Shardroot holder, if a player has it (the hunt parties use it).
             bool holderKnown = TryShardrootHolder(em, out _, out float3 holderAt, out _);
@@ -850,6 +1026,9 @@ namespace TheWaningBorder.Systems.Border
                         em, _scratchWave, holderAt, FormationShape.Box, attackMove: true);
                 }
             }
+
+            // -- attack waves (§6.8) --
+            ShepherdAttackWaves(em, now, s, ents, members, xfs, holderKnown, holderAt);
         }
 
         /// <summary>A claim party on a node-less territory the meter has

@@ -21,8 +21,9 @@ because a four-peer lockstep match is ONE match seen four times -- carrying:
     wallets and their weights, what it refused to buy and why, posture,
     plan, claims, research, and the INTEL line
   * the economy / military / territory time series from Metrics_Faction.csv
-  * everything needed to REPLAY the match on a map: unit position frames,
-    building add/remove events, and death events
+  * everything needed to REPLAY the match on a map: a track per unit
+    (traced matches; sampled position frames otherwise), building add/remove
+    events, and death events
   * the end-of-match rolls the old batch reports were built on: what each
     faction had STANDING (Metrics_Buildings), what it had RESEARCHED
     (Metrics_Research), WHERE it built (Metrics_Placement) and its kills
@@ -41,38 +42,44 @@ if "--out" in args:
     i = args.index("--out"); OUT = args[i + 1]; del args[i:i + 2]
 MAX_MATCHES = 40          # newest first; the page has to stay openable
 
-# THE REPLAY POINT BUDGET IS THE PAGE'S, NOT EACH MATCH'S (2026-09-24).
-# Every match in the window draws from these; main() divides them by how many
-# matches it is actually emitting, so six long traced matches cost the same
-# page as thirty short ones and the overflow guard never has to discard a
-# whole match to fit. Floors keep a replay watchable however many matches
-# are in flight: below about 8k points a long match's units teleport.
-# SIZED FROM A MEASUREMENT, not a guess. Six matches a third of the way
-# through a 3600 s run measured 6.7 MB of json, of which the replay frames
-# were ~1.6 MB and growing with the match; the rest (the AI's account of
-# itself, deaths, building lists, series) grows too. Tripling that to the end
-# of the run would clear the build script's 14 MB ceiling, and its overflow
-# guard discards WHOLE MATCHES to fit -- a sixth of the evidence, silently,
-# to make room for the rest. 270k trace points across the window is the old
-# 45k-per-match value at six matches and shrinks from there.
-TRACE_TOTAL_BUDGET = 150000
+# REPLAY BUDGETS (2026-10-03, rewritten). Units are no longer SAMPLED to fit a
+# point budget: every unit the trace saw is carried, as its own track (see
+# "per-unit tracks" below), and what bounds the size is the track TOLERANCE --
+# how far, in metres, the interpolated replay may stray from a recorded sample.
+#   TRACK_TOL   the starting tolerance; 0.75 m keeps every unit within less
+#               than half a build cell of where the game actually had it.
+#   TRACK_CAP   bytes of encoded tracks one match may carry. A match over it
+#               is re-simplified from its raw samples at twice the tolerance,
+#               and again, until it fits -- and says so. 12 MB leaves room for
+#               the rest of the record under a 15 MB per-file limit.
+# A single-file page (twb-report.py --inline) may still have to fit several
+# matches in ONE file; it raises the tolerance further itself (retrack), and
+# never drops units.
+TRACK_TOL = 0.75
+TRACK_CAP = 12 * 1000 * 1000
+# Sampled (pre-trace) matches still have frames, and still have a budget.
 SAMPLED_TOTAL_BUDGET = 200000
-TRACE_SHARE = 45000        # set by main(); this is the single-match value
 SAMPLED_SHARE = 60000
 # Death events per match. thin() keeps an EVEN spread and always keeps the
 # last row, so a capped list still ends where the match ended.
 DEATH_TOTAL_BUDGET = 30000
 DEATH_CAP = 5000
-# Frames a match keeps however tight the budget gets. Temporal resolution is
-# what makes a replay readable, so this is the last thing spent -- but with a
-# dozen matches in the window it cannot stay at 240 each.
-FRAME_FLOOR = 240
 # The AI's own series, per faction. Set by main() from the window size.
 AI_SERIES_TOTAL = 2400
 AI_SERIES_CAP = 400
 AI_EVENT_CAP = 300
 if "--max" in args:
     i = args.index("--max"); MAX_MATCHES = int(args[i + 1]); del args[i:i + 2]
+if "--track-tol" in args:
+    i = args.index("--track-tol"); TRACK_TOL = float(args[i + 1]); del args[i:i + 2]
+if "--track-cap" in args:
+    i = args.index("--track-cap"); TRACK_CAP = int(float(args[i + 1])); del args[i:i + 2]
+# ONE FILE PER MATCH (twb-report.py --folder): nothing is shared between the
+# matches any more, so nothing is divided between them either -- each match
+# gets the single-match caps, whatever else is in the window.
+PER_MATCH = False
+if "--per-match" in args:
+    i = args.index("--per-match"); PER_MATCH = True; del args[i:i + 1]
 # The append-only record. Match folders are pruned off disk as the hunt runs
 # and the page only carries the newest MAX_MATCHES anyway, so without this a
 # fork found at 03:00 has silently vanished from the totals by 09:00 -- the
@@ -720,6 +727,139 @@ TR_P = re.compile(r"^P ([\d.]+) (\S+) (-?[\d.]+) (-?[\d.]+) (\d+)")
 TR_D = re.compile(r"^D ([\d.]+) (\S+)")
 TR_L = re.compile(r"^L ([\d.]+) (\S+) (-?\d+)")
 TR_C = re.compile(r"^C ([\d.]+) (\S+)")
+# THE REAL TERRITORY PARTITION (2026-10-04; MapTrace.cs header). Written once:
+#   TG cell x0 z0 w h          raster of RegionMap.RegionAt on the build grid
+#   TR j id:n id:n ...         row j (south first), run-length encoded
+# then as events:
+#   TO t idx owner             owner change (faction name, Border, or "-")
+#   TM t idx holder pct cont   the ownership meter, summarised
+# A trace from before these lines simply has none, and the page then draws
+# no territory layer.
+TR_TG = re.compile(r"^TG ([\d.]+) (-?[\d.]+) (-?[\d.]+) (\d+) (\d+)")
+TR_TO = re.compile(r"^TO ([\d.]+) (\d+) (\S+)")
+TR_TM = re.compile(r"^TM ([\d.]+) (\d+) (\S+) (\d+) (\d)")
+METER_CAP = 20000
+
+# -- per-unit tracks (2026-10-03) ----------------------------------------------
+# THE REPLAY IS A TRACK PER UNIT, NOT A FRAME PER SECOND. MapTrace records
+# every unit once a second; the page used to get those as frames, thinned to a
+# point budget -- with six hour-long matches on one page an army of 230 was
+# drawn as 16-40 dots, frames seconds apart. Now every unit is kept, and what
+# is thinned is the REDUNDANCY in each unit's own path: a unit walking a
+# straight line at a steady pace needs two keyframes, not sixty.
+#
+# simplify_track is a time-aware Douglas-Peucker: a dropped sample is never
+# further than `tol` metres from where linear interpolation IN TIME between
+# the kept keyframes puts it -- the exact rule the page draws it by. Every
+# sample where the flags change is kept (so moving / formation / fighting
+# switch on the right second), and the first and last always are (spawn and
+# death).
+#
+# ENCODING, per unit: [typeIndex, factionIndex, codes] with codes a flat list
+# of (frameCode, dx, dz) triples, all integers:
+#   frameCode = (frame index - previous frame index) * 8 + flags (0..7)
+#   dx, dz    = position change in DECIMETRES (the trace's own 0.1 m)
+# the first triple is absolute (frame index, x, z). Frame indices point into
+# the match's `ft` list: frame times in deciseconds, delta-encoded. Small
+# integers in JSON arrays compress very well over the wire.
+FLAG_MASK = 7
+
+
+def simplify_track(s, T, tol):
+    """Indices of the samples to keep. s = [(frame, x_dm, z_dm, flags)],
+    T = frame times in seconds, tol in metres."""
+    n = len(s)
+    if n <= 2:
+        return list(range(n))
+    keep = [False] * n
+    keep[0] = keep[n - 1] = True
+    for k in range(1, n):
+        if s[k][3] != s[k - 1][3]:
+            keep[k] = True
+    tol2 = (tol * 10.0) ** 2
+    anchors = [i for i in range(n) if keep[i]]
+    stack = [(anchors[i], anchors[i + 1]) for i in range(len(anchors) - 1)
+             if anchors[i + 1] - anchors[i] > 1]
+    while stack:
+        a, b = stack.pop()
+        sa, sb = s[a], s[b]
+        ta = T[sa[0]]
+        span = (T[sb[0]] - ta) or 1e-9
+        ax, az = sa[1], sa[2]
+        dx, dz = sb[1] - ax, sb[2] - az
+        best, bi = -1.0, -1
+        for k in range(a + 1, b):
+            sk = s[k]
+            fr = (T[sk[0]] - ta) / span
+            ex = sk[1] - ax - dx * fr
+            ez = sk[2] - az - dz * fr
+            e = ex * ex + ez * ez
+            if e > best:
+                best, bi = e, k
+        if best > tol2:
+            keep[bi] = True
+            if bi - a > 1:
+                stack.append((a, bi))
+            if b - bi > 1:
+                stack.append((bi, b))
+    return [i for i in range(n) if keep[i]]
+
+
+def encode_track(s, idx):
+    out = []
+    pf = px = pz = 0
+    for i in idx:
+        fi, x, z, fl = s[i]
+        out.append((fi - pf) * 8 + (fl & FLAG_MASK))
+        out.append(x - px)
+        out.append(z - pz)
+        pf, px, pz = fi, x, z
+    return out
+
+
+def decode_track(codes):
+    s = []
+    fi = x = z = 0
+    for j in range(0, len(codes), 3):
+        c = codes[j]
+        fi += c >> 3
+        x += codes[j + 1]
+        z += codes[j + 2]
+        s.append((fi, x, z, c & FLAG_MASK))
+    return s
+
+
+def frame_seconds(ft):
+    """The `ft` list (deciseconds, delta-encoded) back to seconds."""
+    out, acc = [], 0
+    for d in ft:
+        acc += d
+        out.append(acc / 10.0)
+    return out
+
+
+def encode_all(samples, T, tol):
+    enc = [encode_track(s, simplify_track(s, T, tol)) for s in samples]
+    return enc, len(json.dumps(enc, separators=(",", ":")))
+
+
+def retrack(rec, extra_tol):
+    """Re-simplify a built record's tracks from their KEYFRAMES at a larger
+    tolerance (twb-report.py, when one page or one file is still too big).
+    The error bound is then the old tolerance plus the new one, and the
+    record says so in trackInfo.tol."""
+    if not rec.get("tracks"):
+        return 0
+    T = frame_seconds(rec.get("ft") or [])
+    for tr in rec["tracks"]:
+        s = decode_track(tr[2])
+        tr[2] = encode_track(s, simplify_track(s, T, extra_tol))
+    info = rec.get("trackInfo") or {}
+    info["tol"] = round(info.get("tol", TRACK_TOL) + extra_tol, 2)
+    info["keys"] = sum(len(t[2]) // 3 for t in rec["tracks"])
+    rec["trackInfo"] = info
+    return info["keys"]
+
 
 # -- the 2 m build grid ------------------------------------------------------
 # BuildGrid.cs: CellSize 2 m, anchored at the WORLD ORIGIN; a footprint of an
@@ -753,66 +893,154 @@ def grid_cells(x, z, w, h):
 def read_trace(host_dir):
     """MapTrace.txt: the full-fidelity feed. Units carry identity and state
     (moving / in formation / fighting), buildings carry real footprints, and
-    the region partition and every node are written once at the top."""
+    the region partition and every node are written once at the top.
+
+    Positions are kept PER UNIT (samples[id] = [(frame, x_dm, z_dm, flags)])
+    at the trace's own 0.1 m -- never rounded to whole metres -- against one
+    shared list of frame times in deciseconds (ftimes)."""
     path = os.path.join(host_dir, "MapTrace.txt")
     if not os.path.exists(path):
         return None
     regions, nodes, blds, units = [], [], {}, {}
-    frames = defaultdict(list)
+    samples = defaultdict(list)
+    fidx, ftimes = {}, []
     deaths = []
     levels = defaultdict(list)      # id -> [[t, level], ...]   (L lines)
     built = {}                      # id -> t construction completed (C lines)
-    for line in read_lines(path):
-        m = TR_P.match(line)
-        if m:
-            frames[round(f(m.group(1)), 1)].append(
-                [m.group(2), int(round(f(m.group(3)))), int(round(f(m.group(4)))),
-                 int(m.group(5))])
-            continue
-        m = TR_L.match(line)
-        if m:
-            levels[m.group(2)].append([round(f(m.group(1)), 1), int(m.group(3))])
-            continue
-        m = TR_U.match(line)
-        if m:
-            units[m.group(2)] = dict(f=m.group(3), name=m.group(4), t0=f(m.group(1)),
-                                     cls=(int(m.group(5)) if m.group(5) else None),
-                                     fl=(int(m.group(6)) if m.group(6) else 0))
-            continue
-        m = TR_B.match(line)
-        if m:
-            rec = dict(t0=f(m.group(1)), f=m.group(3), name=m.group(4),
-                       x=f(m.group(5)), z=f(m.group(6)),
-                       w=f(m.group(7)), h=f(m.group(8)))
-            if m.group(9):
-                rec["type"] = m.group(9)
-                rec["cells"] = (None if m.group(10) == "*" else
-                                [int(m.group(10)), int(m.group(11)),
-                                 int(m.group(12)), int(m.group(13))])
-                rec["yaw"] = int(m.group(14))
-                rec["site"] = int(m.group(15))
-            blds[m.group(2)] = rec
-            continue
-        m = TR_C.match(line)
-        if m:
-            built[m.group(2)] = round(f(m.group(1)), 1)
-            continue
-        m = TR_D.match(line)
-        if m:
-            deaths.append([f(m.group(1)), m.group(2)])
-            continue
-        m = TR_R.match(line)
-        if m:
-            regions.append(dict(name=m.group(2).replace("_", " "),
-                                x=f(m.group(3)), z=f(m.group(4))))
-            continue
-        m = TR_N.match(line)
-        if m:
-            nodes.append(dict(kind=m.group(2), x=f(m.group(3)), z=f(m.group(4))))
-    if not frames:
+    terr = None                     # TG/TR partition + TO/TM events
+    try:
+        fh = io.open(path, encoding="utf-8", errors="ignore")
+    except Exception:
+        return None
+    with fh:
+        for line in fh:
+            # P is ~99% of the file: split, never regex, and never hold the
+            # whole 70 MB file as a list of lines.
+            if line.startswith("P "):
+                p = line.split()
+                if len(p) < 6:
+                    continue
+                try:
+                    t = int(round(float(p[1].replace(",", ".")) * 10))
+                    x = int(round(float(p[3].replace(",", ".")) * 10))
+                    z = int(round(float(p[4].replace(",", ".")) * 10))
+                    fl = int(p[5])
+                except ValueError:
+                    continue
+                fi = fidx.get(t)
+                if fi is None:
+                    fi = fidx[t] = len(ftimes)
+                    ftimes.append(t)
+                samples[p[2]].append((fi, x, z, fl))
+                continue
+            line = line.rstrip("\r\n")
+            if line.startswith("T"):
+                if line.startswith("TM ") and terr is not None:
+                    m = TR_TM.match(line)
+                    if m:
+                        terr["meter"].append([round(f(m.group(1)), 1), int(m.group(2)),
+                                              m.group(3), int(m.group(4)), int(m.group(5))])
+                    continue
+                if line.startswith("TO ") and terr is not None:
+                    m = TR_TO.match(line)
+                    if m:
+                        terr["own"].append([round(f(m.group(1)), 1), int(m.group(2)), m.group(3)])
+                    continue
+                if line.startswith("TR ") and terr is not None:
+                    p = line.split()
+                    try:
+                        j = int(p[1])
+                        runs = []
+                        for tok in p[2:]:
+                            a, _, b = tok.partition(":")
+                            runs.append(int(a))
+                            runs.append(int(b))
+                    except (ValueError, IndexError):
+                        continue
+                    if 0 <= j < terr["h"]:
+                        terr["rows"][j] = runs
+                    continue
+                if line.startswith("TG "):
+                    m = TR_TG.match(line)
+                    if m:
+                        h = int(m.group(5))
+                        terr = dict(cell=f(m.group(1)), x0=f(m.group(2)), z0=f(m.group(3)),
+                                    w=int(m.group(4)), h=h, rows=[None] * h, own=[], meter=[])
+                    continue
+            m = TR_L.match(line)
+            if m:
+                levels[m.group(2)].append([round(f(m.group(1)), 1), int(m.group(3))])
+                continue
+            m = TR_U.match(line)
+            if m:
+                units[m.group(2)] = dict(f=m.group(3), name=m.group(4), t0=f(m.group(1)),
+                                         cls=(int(m.group(5)) if m.group(5) else None),
+                                         fl=(int(m.group(6)) if m.group(6) else 0))
+                continue
+            m = TR_B.match(line)
+            if m:
+                rec = dict(t0=f(m.group(1)), f=m.group(3), name=m.group(4),
+                           x=f(m.group(5)), z=f(m.group(6)),
+                           w=f(m.group(7)), h=f(m.group(8)))
+                if m.group(9):
+                    rec["type"] = m.group(9)
+                    rec["cells"] = (None if m.group(10) == "*" else
+                                    [int(m.group(10)), int(m.group(11)),
+                                     int(m.group(12)), int(m.group(13))])
+                    rec["yaw"] = int(m.group(14))
+                    rec["site"] = int(m.group(15))
+                blds[m.group(2)] = rec
+                continue
+            m = TR_C.match(line)
+            if m:
+                built[m.group(2)] = round(f(m.group(1)), 1)
+                continue
+            m = TR_D.match(line)
+            if m:
+                deaths.append([f(m.group(1)), m.group(2)])
+                continue
+            m = TR_R.match(line)
+            if m:
+                regions.append(dict(name=m.group(2).replace("_", " "),
+                                    x=f(m.group(3)), z=f(m.group(4))))
+                continue
+            m = TR_N.match(line)
+            if m:
+                nodes.append(dict(kind=m.group(2), x=f(m.group(3)), z=f(m.group(4))))
+    if not samples:
         return None
     return dict(regions=regions, nodes=nodes, buildings=blds, units=units,
-                frames=frames, deaths=deaths, levels=dict(levels), built=built)
+                samples=samples, ftimes=ftimes, deaths=deaths,
+                levels=dict(levels), built=built, terr=territory_of(terr))
+
+
+def territory_of(terr):
+    """The partition + ownership record for the page, or None (an older
+    trace, or a raster with missing rows -- a hole in the partition would be
+    drawn as ground nobody can own, which is a lie, so it is dropped whole).
+
+    rows: per row, flat [id, n, id, n, ...] runs, south row first -- kept
+    run-length encoded, the page decodes it once. own: [t, idx, owner] change
+    events. meter: [t, idx, holder, pct, contested] -- if a very long match
+    overflows METER_CAP, the 10-point steps are dropped first; holder and
+    contested changes and the 0 / 100 endpoints are always kept."""
+    if not terr:
+        return None
+    if any(r is None for r in terr["rows"]):
+        print("  territory raster incomplete (%d of %d rows) -- layer dropped"
+              % (sum(1 for r in terr["rows"] if r is not None), terr["h"]))
+        return None
+    meter = terr["meter"]
+    if len(meter) > METER_CAP:
+        last, keep = {}, []
+        for e in meter:
+            p = last.get(e[1])
+            if p is None or p[2] != e[2] or p[4] != e[4] or e[3] in (0, 100):
+                keep.append(e)
+            last[e[1]] = e
+        meter = keep[-METER_CAP:] if len(keep) > METER_CAP else keep
+    terr["meter"] = meter
+    return terr
 
 
 def roster_of(hd):
@@ -920,6 +1148,50 @@ def summary_of(d):
     return out
 
 
+def economy_of(hd):
+    """Gross income by source and spending by category, per faction, binned
+    to whole minutes, from Metrics_Income.csv (written since 2026-10-04 by
+    MatchMetrics from the game's EconomyLedger).
+
+    Each CSV row is what moved during the sample period ENDING at t, so a row
+    at t lands in minute floor((t-1)/60) -- the minute it happened in.
+
+    Returns None for a match that predates the file, else
+      {"minutes": N,
+       "f": {faction: {"in":  {source:   [[s,i,v,vs], ... N]},
+                       "out": {category: [[s,i,v,vs], ... N]}}}}
+    with amounts rounded to whole units. A source a faction never touched is
+    absent, which is what keeps the record small."""
+    path = os.path.join(hd, "Metrics_Income.csv")
+    if not os.path.exists(path):
+        return None
+    rows = read_csv(path)
+    if not rows:
+        return None
+    acc = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: [0.0] * 4))))
+    nmin = 0
+    for r in rows:
+        t = f(r.get("t"))
+        m = max(0, int((t - 1) // 60))
+        nmin = max(nmin, m + 1)
+        flow = "out" if r.get("flow") == "out" else "in"
+        cell = acc[r.get("faction", "?")][flow][r.get("source", "other")][m]
+        for k, col in enumerate(("supplies", "iron", "veilstone", "veilsteel")):
+            cell[k] += f(r.get(col))
+    out = {}
+    for fac, flows in acc.items():
+        out[fac] = {}
+        for flow, srcs in flows.items():
+            out[fac][flow] = {}
+            for src, mins in srcs.items():
+                arr = [[0, 0, 0, 0] for _ in range(nmin)]
+                for m, v in mins.items():
+                    arr[m] = [int(round(x)) for x in v]
+                if any(any(c) for c in arr):
+                    out[fac][flow][src] = arr
+    return dict(minutes=nmin, f=out)
+
+
 def build(match):
     peers = match["peers"]
     host = next((p for p in peers if p["role"] == "host"), peers[0])
@@ -1025,122 +1297,53 @@ def build(match):
     nodes = trace["nodes"] if trace else map_nodes(match["map"], world)
     regions = trace["regions"] if trace else []
     utypes, utype, ulv = [], {}, {}
+    tracks, tfac, frame_dt, track_info = None, [], [], None
 
     if trace:
-        # Full fidelity: identity, state, real footprints, per-second frames.
+        # PER-UNIT TRACKS (2026-10-03). Every unit the trace saw, each as its
+        # own simplified path (simplify_track) -- no unit is sampled away,
+        # whatever else is in the window. A unit's id is its index in
+        # `tracks` (first-sighting order), so identity survives exactly as it
+        # did when frames carried a renumbered id: the page interpolates a
+        # unit only ever along ITS OWN keyframes.
         who = trace["units"]
         died = {u: t for t, u in trace["deaths"]}
-        # CARRY THE UNIT ID INTO THE FRAME (2026-09-12). The id was read here
-        # only to look up a faction and then dropped, so a frame was an
-        # UNORDERED bag of positions -- its order is whatever order the ECS
-        # query walked chunks in, which changes the moment anything is created
-        # or destroyed. The page then tweened point 7 of one frame to point 7
-        # of the next, so every spawn or death re-paired every dot with a
-        # stranger and the whole army appeared to shuffle places and walk
-        # backwards. Operator-reported. Identity is the only thing that makes
-        # an interpolated replay mean anything.
-        #
-        # Ids are renumbered to small ints because the trace's own keys are
-        # strings ("n1423") and there is one per unit per second.
-        seq, num = {}, [0]
-        def nid(u):
-            if u not in seq:
-                num[0] += 1
-                seq[u] = num[0]
-            return seq[u]
-        frames = []
-        for t in sorted(trace["frames"]):
-            per = defaultdict(list)
-            for uid, x, z, fl in trace["frames"][t]:
-                fa = who.get(uid, {}).get("f", "?")
-                per[fa].append([nid(uid), x, z, fl])
-            frames.append(dict(t=round(t, 1), u=dict(per)))
-
-        # THE TRACE NEEDS A BUDGET TOO (2026-09-12). The sampled path has had
-        # one since it existed; the trace path was added later and never got
-        # it. A three-hour match traced every two seconds is 5,400 frames of
-        # up to 200 units -- about a million points, from ONE match, against a
-        # whole-page ceiling of 11 MB. The build script's overflow guard would
-        # then have thrown away every OTHER match to make room for it, which
-        # is the worst possible way to spend the budget.
-        #
-        # Two rules, in this order:
-        #
-        #  * cap the units per faction per frame, choosing them by a STABLE
-        #    hash of the unit id. Stable is the whole point: the page tweens a
-        #    dot toward its own next position, so a unit kept in one frame and
-        #    dropped from the next would freeze mid-stride. A hash also gives
-        #    a fair scatter across the army instead of whichever units the
-        #    simulation happened to list first, which is one corner of the map.
-        #  * only then thin in TIME, evenly, never by cutting the tail -- the
-        #    end of a long match is exactly the part worth watching.
-        # 45k, down from 60k (2026-09-13): with warm-ups no longer taking
-        # window slots the page now carries 32 traced matches instead of
-        # 15, and sat at 9.4 MB of a 14 MB ceiling. Enough temporal
-        # resolution survives (a 3 h match keeps ~280 frames) and the
-        # overflow guard that discards whole matches stays well away.
-        # SHARED ACROSS THE WINDOW (2026-09-24). The budget used to be a flat
-        # 45k PER MATCH, which was right when the window was mostly sampled
-        # matches and only a few carried a trace. Six concurrent TRACED
-        # matches is a different shape: 6 x 45k lands the page on the build
-        # script's 14 MB ceiling, and its overflow guard then discards whole
-        # matches, oldest first -- with six in the window that is a sixth of
-        # the evidence thrown away to make room for the rest, silently.
-        #
-        # The page has one budget, so the matches in it share one budget.
-        TRACE_POINT_BUDGET = TRACE_SHARE
-        TRACE_FACTION_CAP = 55
-
-        def _pts(rs):
-            return sum(len(p) for r in rs for p in r["u"].values())
-
-        def _rank(uid):
-            return (uid * 2654435761) & 0xFFFFFFFF
-
-        # THE CAP HAS TO TIGHTEN, AND THE FLOOR HAS TO MOVE (2026-09-24).
-        # As written this enforced nothing once a window held more than a few
-        # matches: the faction cap was a fixed 55 and never reduced, and the
-        # frame thinning refused to run below 240 frames. Twelve matches of
-        # ~170 frames each sailed past a 12.5k budget at 42k points apiece,
-        # and the page walked into the overflow guard that discards whole
-        # matches. Squeeze the units per frame FIRST -- losing a few dots is
-        # invisible, losing a second of time is not -- and only then thin in
-        # time, against a floor that also shrinks with the window.
-        cap = TRACE_FACTION_CAP
-        while _pts(frames) > TRACE_POINT_BUDGET and cap > 6:
-            cap = max(6, int(cap * 0.75))
-            for fr in frames:
-                for fa, pts in fr["u"].items():
-                    if len(pts) > cap:
-                        pts.sort(key=lambda p: _rank(p[0]))
-                        fr["u"][fa] = pts[:cap]
-        while len(frames) > FRAME_FLOOR and _pts(frames) > TRACE_POINT_BUDGET:
-            frames = frames[::2]
-
-        # UNIT TYPES, AS A PER-MATCH DICTIONARY (2026-10-03). A frame point
-        # stays [nid, x, z, flags]; the type rides beside the frames once per
-        # unit, as a small index into `utypes` ([name, class, flags] -- class
+        S = trace["samples"]
+        T = [x / 10.0 for x in trace["ftimes"]]
+        order = sorted(S.keys(), key=lambda u: (S[u][0][0], who.get(u, {}).get("t0", 0.0)))
+        # UNIT TYPES, AS A PER-MATCH DICTIONARY: [name, class, flags] -- class
         # and flags are null/0 in a trace written before MapTrace recorded
-        # them, and the page then infers the shape from the name alone).
-        # Only units that survived the point budget are listed.
-        kept = set()
-        for fr in frames:
-            for pts in fr["u"].values():
-                for p in pts:
-                    kept.add(p[0])
-        utypes, tix, utype, ulv = [], {}, {}, {}
+        # them, and the page then infers the shape from the name alone.
+        tix, fix, meta = {}, {}, []
         lv_all = trace.get("levels", {})
-        for uid, n in seq.items():
-            if n not in kept:
-                continue
+        for n, uid in enumerate(order):
             u = who.get(uid, {})
             key = (u.get("name", "?"), u.get("cls"), u.get("fl", 0))
             if key not in tix:
                 tix[key] = len(utypes)
                 utypes.append(list(key))
-            utype[n] = tix[key]
+            fa = u.get("f", "?")
+            if fa not in fix:
+                fix[fa] = len(tfac)
+                tfac.append(fa)
+            meta.append((tix[key], fix[fa]))
             if uid in lv_all:
                 ulv[n] = lv_all[uid][:40]
+        raw = [S[u] for u in order]
+        tol = TRACK_TOL
+        enc, size = encode_all(raw, T, tol)
+        while size > TRACK_CAP and tol < 64:
+            print("  %s: tracks %.1f MB at %.2f m > cap %.1f MB -- raising the tolerance"
+                  % (match["key"], size / 1e6, tol, TRACK_CAP / 1e6))
+            tol *= 2
+            enc, size = encode_all(raw, T, tol)
+        tracks = [[a, b, c] for (a, b), c in zip(meta, enc)]
+        fts = trace["ftimes"]
+        frame_dt = ([fts[0]] + [fts[i] - fts[i - 1] for i in range(1, len(fts))]) if fts else []
+        track_info = dict(tol=tol, units=len(order), frames=len(fts),
+                          samples=sum(len(s) for s in raw),
+                          keys=sum(len(c) // 3 for c in enc), bytes=size)
+        frames = []
 
         built = trace.get("built", {})
         blds = []
@@ -1319,7 +1522,14 @@ def build(match):
         errors=i_(summ.get("Errors")), warnings=i_(summ.get("Warnings")),
         tmax=tmax, extent=ext, config=cfg,
         world=world, nodes=nodes, regions=regions, blds=blds,
+        # The game's real territory partition and its owners over time
+        # (MapTrace TG/TR/TO/TM); None for a trace that predates them.
+        terr=(trace or {}).get("terr"),
         frames=frames, fidelity=fidelity,
+        # Per-unit tracks (traced matches; see "per-unit tracks"). `frames`
+        # is then empty and only sampled matches carry it.
+        tracks=tracks, ft=frame_dt, tfac=tfac, trackInfo=track_info,
+        hasReplay=bool(tracks) or len(frames) > 1,
         waveList=wavelist, composition=composition, structures=structures,
         research={k: v for k, v in research.items()},
         placement=placement, combat=combat,
@@ -1334,6 +1544,9 @@ def build(match):
         # starts discarding whole matches to fit.
         builds=builds, deaths=deaths, eliminated=eliminated,
         utypes=utypes, utype=utype, ulv=ulv, roster=roster_of(hd), grid=GRID,
+        # Income by source / spending by category per minute; None for a
+        # match recorded before Metrics_Income.csv existed.
+        econ=economy_of(hd),
         curse=curse_story(hd, deaths))
 
 
@@ -1352,16 +1565,20 @@ def main():
     else:
         matches = allmatches[:MAX_MATCHES]
         older = allmatches[MAX_MATCHES:]
-    # Divide the page's replay budget among the matches that will be in it.
-    global TRACE_SHARE, SAMPLED_SHARE
-    n = max(1, len(matches))
-    global DEATH_CAP, FRAME_FLOOR, AI_SERIES_CAP, AI_EVENT_CAP
-    TRACE_SHARE = max(9000, TRACE_TOTAL_BUDGET // n)
-    SAMPLED_SHARE = max(12000, SAMPLED_TOTAL_BUDGET // n)
-    DEATH_CAP = max(600, DEATH_TOTAL_BUDGET // n)
-    FRAME_FLOOR = max(80, 1440 // n)
-    AI_SERIES_CAP = max(80, AI_SERIES_TOTAL // n)
-    AI_EVENT_CAP = max(60, 1800 // n)
+    # Divide the page's budgets among the matches that will be in it -- unless
+    # each match is its own file (--per-match), when nothing is shared.
+    global SAMPLED_SHARE, DEATH_CAP, AI_SERIES_CAP, AI_EVENT_CAP
+    if PER_MATCH:
+        SAMPLED_SHARE = 60000
+        DEATH_CAP = 20000
+        AI_SERIES_CAP = 400
+        AI_EVENT_CAP = 300
+    else:
+        n = max(1, len(matches))
+        SAMPLED_SHARE = max(12000, SAMPLED_TOTAL_BUDGET // n)
+        DEATH_CAP = max(600, DEATH_TOTAL_BUDGET // n)
+        AI_SERIES_CAP = max(80, AI_SERIES_TOTAL // n)
+        AI_EVENT_CAP = max(60, 1800 // n)
 
     records = []
     records_tail = []      # cheap verdicts for everything past the window

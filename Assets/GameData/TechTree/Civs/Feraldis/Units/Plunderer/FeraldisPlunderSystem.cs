@@ -134,7 +134,7 @@ namespace TheWaningBorder.Systems.Economy
                     take = DrainFromVictim(em, victimFaction, take);
 
                 if (take.Supplies + take.Iron + take.Veilstone + take.Veilsteel > 0)
-                    FactionEconomy.Add(em, owner, take);
+                    FactionEconomy.Add(em, owner, take, TheWaningBorder.Economy.IncomeSource.Loot);
             }
         }
 

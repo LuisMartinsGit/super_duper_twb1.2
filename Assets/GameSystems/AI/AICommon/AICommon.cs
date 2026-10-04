@@ -73,6 +73,94 @@ namespace TheWaningBorder.AI
                     Entity.Null, CommandSource.AI);
         }
 
+        /// <summary>
+        /// A GROUP ORDER MARCHES IN FORMATION (2026-10-03, docs/Design/Game_AI.md
+        /// § 6 Formation movement). Every AI decision that sends two or more
+        /// soldiers to ONE destination goes through here, so they travel as
+        /// one formation (virtual leader, type-ranked slots, slowest-member
+        /// speed) exactly like an attack wave or a player's group order —
+        /// not as a stream of per-unit orders, which is what the religion
+        /// hunt, the reclaim squad and the claim squads used to send (traces
+        /// measured those groups at a p90 nearest-neighbour gap of 44 m).
+        /// A group of one is an ordinary per-unit order. Lockstep: the
+        /// formation commands replicate as one FormationOrder, the same path
+        /// the waves use (CommandRouter.Formation).
+        /// Callers must not re-issue this every think to units already
+        /// marching on it — each call re-plans the whole formation.
+        /// </summary>
+        public static void IssueGroupOrder(EntityManager em, IReadOnlyList<Entity> units,
+            float3 destination, bool attackMove)
+        {
+            if (units == null || units.Count == 0) return;
+            if (units.Count == 1)
+            {
+                if (attackMove) CommandRouter.IssueAttackMove(em, units[0], destination, CommandSource.AI);
+                else CommandRouter.IssueMove(em, units[0], destination, CommandSource.AI);
+                return;
+            }
+            if (attackMove)
+                CommandRouter.IssueFormationAttackMove(em, units, destination, FormationShape.Box, CommandSource.AI);
+            else
+                CommandRouter.IssueFormationMove(em, units, destination, FormationShape.Box, CommandSource.AI);
+        }
+
+        /// <summary>
+        /// <see cref="IssueGroupOrder(EntityManager, IReadOnlyList{Entity}, float3, bool)"/>
+        /// for a draft that may include units ALREADY standing at the
+        /// destination (within <paramref name="arrivedRadius"/>): those have
+        /// nothing to march, so they get a plain per-unit re-poke — exactly
+        /// what every unit used to get — and only the rest are planned into a
+        /// formation. Planning arrivals in would re-slot them round the
+        /// destination on every think that re-drafts them.
+        /// </summary>
+        public static void IssueGroupOrder(EntityManager em, IReadOnlyList<Entity> units,
+            float3 destination, bool attackMove, float arrivedRadius)
+        {
+            if (units == null || units.Count == 0) return;
+            var marchers = _groupMarchers;
+            marchers.Clear();
+            float r2 = arrivedRadius * arrivedRadius;
+            for (int i = 0; i < units.Count; i++)
+            {
+                var u = units[i];
+                if (u == Entity.Null || !em.Exists(u)) continue;
+                bool arrived = em.HasComponent<LocalTransform>(u)
+                    && math.distancesq(em.GetComponentData<LocalTransform>(u).Position.xz, destination.xz) <= r2;
+                if (!arrived) { marchers.Add(u); continue; }
+                if (attackMove) CommandRouter.IssueAttackMove(em, u, destination, CommandSource.AI);
+                else CommandRouter.IssueMove(em, u, destination, CommandSource.AI);
+            }
+            // The router copies what it keeps (CommandRouter.Formation), so the
+            // pooled list is safe to reuse.
+            IssueGroupOrder(em, marchers, destination, attackMove);
+        }
+
+        /// <summary>Host scratch for <see cref="IssueGroupOrder(EntityManager, IReadOnlyList{Entity}, float3, bool, float)"/>
+        /// (the AI think is main-thread only).</summary>
+        private static readonly List<Entity> _groupMarchers = new List<Entity>();
+
+        /// <summary>
+        /// Members of an AI group travelling OUTSIDE a formation: under an
+        /// order (DesiredDestination set) but with no FormationMemberState,
+        /// and not fighting. These are the ones the plan's cohesion gate left
+        /// out (too far from the centroid when the order went out) or stuck
+        /// recovery dropped — the same count SimpleAISystem's wave straggler
+        /// sweep uses.
+        /// </summary>
+        public static int CountLooseMembers(EntityManager em, IReadOnlyList<Entity> members)
+        {
+            int loose = 0;
+            for (int i = 0; i < members.Count; i++)
+            {
+                var u = members[i];
+                if (!em.Exists(u) || em.HasComponent<FormationMemberState>(u)) continue;
+                if (em.HasComponent<Target>(u) && em.GetComponentData<Target>(u).Value != Entity.Null) continue;
+                if (em.HasComponent<DesiredDestination>(u)
+                    && em.GetComponentData<DesiredDestination>(u).Has != 0) loose++;
+            }
+            return loose;
+        }
+
         public static bool IsKnownGround(Faction faction, float3 pos)
         {
             var fog = TheWaningBorder.World.FogOfWar.FogOfWarManager.Instance;
@@ -191,6 +279,50 @@ namespace TheWaningBorder.AI
                 dispatched++;
             }
             return dispatched;
+        }
+
+        /// <summary>
+        /// Give up to <paramref name="maxWorkers"/> BUSY workers
+        /// <paramref name="site"/> as their next job, nearest first (ties by
+        /// entity index, so lockstep peers agree). BuildCommandHelper queues a
+        /// busy worker's new site behind its current one rather than replacing
+        /// it, so nothing is abandoned; what this buys is a site that is
+        /// certain to be picked up when no worker is idle. Only for an order
+        /// that must not be orphaned — the lost-sole-trainer rebuild
+        /// (docs/Design/Game_AI.md 6c).
+        /// </summary>
+        /// <returns>Number of workers given the site.</returns>
+        public static int PullWorkersTo(EntityManager em, Faction faction, Entity site,
+            string buildingId, float3 sitePos, int maxWorkers)
+        {
+            var query = _workerQuery.Get(em, WorkerTypes);
+            using var ents = query.ToEntityArray(Allocator.Temp);
+            using var facs = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var xfs  = query.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+
+            var busy = new List<Candidate>();
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (facs[i].Value != faction) continue;
+                if (!IsCommittedWorker(em, ents[i])) continue;
+                float dx = xfs[i].Position.x - sitePos.x;
+                float dz = xfs[i].Position.z - sitePos.z;
+                busy.Add(new Candidate { Entity = ents[i], DistSq = dx * dx + dz * dz });
+            }
+            busy.Sort((a, c) =>
+            {
+                int d = a.DistSq.CompareTo(c.DistSq);
+                return d != 0 ? d : a.Entity.Index.CompareTo(c.Entity.Index);
+            });
+
+            int pulled = 0;
+            for (int i = 0; i < busy.Count && pulled < maxWorkers; i++)
+            {
+                CommandRouter.IssueBuild(em, busy[i].Entity, site, buildingId, sitePos,
+                    CommandSource.AI);
+                pulled++;
+            }
+            return pulled;
         }
 
         struct Candidate

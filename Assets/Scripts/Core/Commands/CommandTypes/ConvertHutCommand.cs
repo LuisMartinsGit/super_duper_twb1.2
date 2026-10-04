@@ -84,7 +84,7 @@ namespace TheWaningBorder.Core.Commands.Types
             }
             Faction faction = em.GetComponentData<FactionTag>(hut).Value;
 
-            if (!FactionEconomy.Spend(em, faction, ConversionCost))
+            if (!FactionEconomy.Spend(em, faction, ConversionCost, TheWaningBorder.Economy.SpendCategory.Buildings))
                 return false;
 
             em.RemoveComponent<GathererHutAgeUpChoice>(hut);

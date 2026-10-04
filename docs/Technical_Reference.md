@@ -412,7 +412,7 @@ culture L1 is free at age-up.
 | Royal Stable (`Alanthor_RoyalStable`) | Outrider, Cataphract | |
 | Siege Yard (`Alanthor_SiegeYard`) | Ballista, Battering Ram, Catapult, Trebuchet | |
 | Guild (the `GatherersHut` renamed) | - | Surveys / walls research in `Guild/Research/` |
-| Trading Outpost (`Alanthor_TradingOutpost`) | - | Snaps onto a veilstone outcrop; buys veilstone or forges veilsteel. Trade cycle on `TradingOutpostSystem.asset` |
+| Trading Outpost (`Alanthor_TradingOutpost`) | - | Levels L1-L3 (`TradingOutpost_Lvl1..3`). Snaps to one of the four side slots (N/E/S/W) of a veilstone outcrop, up to four per outcrop, each further post there costing more (`outcropRampMultipliers`); buys veilstone or forges veilsteel. Trade cycle on `TradingOutpostSystem.asset`, scaled per post by its level's `tradeRateMultiplier` |
 | Stone Wall (`Alanthor_Wall`, `Alanthor_WallSegment`) | - | Hub/segment wall; levels are `Wall/Wall_Lvl1..3`; research Battlements, Shielded Ramparts |
 | Ballista / Trebuchet Emplacement | Emplaced Ballista / Trebuchet | Worker-built on a stone wall of L2+ / L3 (`minWallLevel` on the SO) |
 | Watch Tower (`Alanthor_Tower`) | - | Garrison slots and arrow fire (values on the SO) |

@@ -7,6 +7,7 @@ using TheWaningBorder.Core;
 using Unity.Entities;
 using Unity.Transforms;
 using TheWaningBorder.Economy;
+using OutpostSites = TheWaningBorder.Entities.TradingOutpost;   // avoids the DC0062 Entities.ForEach misread
 
 namespace TheWaningBorder.Systems.Work
 {
@@ -129,7 +130,7 @@ namespace TheWaningBorder.Systems.Work
                 TransformHutsForCulture(em, faction, culture);
                 // Alanthor do not mine veilstone: every Veilstone Mine becomes a Trading Outpost
                 // (docs/Design/Veilstone_Economy.md §3.1).
-                TheWaningBorder.Entities.TradingOutpost.ConvertMinesForCulture(em, faction, culture);
+                OutpostSites.ConvertMinesForCulture(em, faction, culture);
 
                 // 4b. Runai: instant 200-pop override (Houses don't apply; wagon-burst is task-066 Phase 2).
                 if (culture == Cultures.Runai)

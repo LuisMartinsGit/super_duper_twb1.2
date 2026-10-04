@@ -410,12 +410,12 @@ namespace TheWaningBorder.AI
             // The terrain-only square below is the fallback for maps with no
             // partition, where the ownership gate is off.
             //
-            // ONLY FORTIFIED GROUND IS WALLED (2026-10-03, docs/Design/Game_AI.md
-            // § Walls): the home territory, plus any other held territory with
-            // one of the faction's own Fortresses in it. One loop per such
-            // territory, each its own chain, each traced round THAT territory
-            // alone -- never round the union of everything held, which is what
-            // walled conquered ground and left 2,803 wall pieces on Veilmarch.
+            // ONLY THE HOME TERRITORY IS WALLED (2026-10-03, docs/Design/Game_AI.md
+            // § Walls). The AI still raises a Fortress in every territory it
+            // can, but walls none of them. The loop is traced round the home
+            // territory alone -- never round the union of everything held,
+            // which is what walled conquered ground and left 2,803 wall pieces
+            // on Veilmarch.
             if (TheWaningBorder.World.Regions.RegionMap.Ready
                 && TheWaningBorder.World.Regions.TerritoryOwnership.Ready
                 && TheWaningBorder.World.Regions.TerritoryOwnership.CountOf(faction) > 0)
@@ -425,7 +425,7 @@ namespace TheWaningBorder.AI
                 CollectWallTerritories(em, faction, hallPos, regions, anchors);
                 if (regions.Count == 0)
                 {
-                    why = "the home territory is not held and no other territory has a Fortress";
+                    why = "the home territory is not held";
                     return ModeBorder;
                 }
                 int home = HomeRegion(hallPos);
@@ -434,7 +434,7 @@ namespace TheWaningBorder.AI
                 {
                     EmitBorderLoop(em, faction, regions[i], anchors[i], (byte)i, slots, out string part);
                     if (i > 0) sb.Append("; ");
-                    sb.Append(regions[i] == home ? "home: " : $"territory {regions[i]} (Fortress): ");
+                    sb.Append(regions[i] == home ? "home: " : $"territory {regions[i]}: ");
                     sb.Append(part);
                 }
                 why = sb.ToString();
@@ -645,8 +645,8 @@ namespace TheWaningBorder.AI
 
         /// <summary>Signature of the territories this faction may wall
         /// (<see cref="CollectWallTerritories"/>) -- the plan is redrawn when
-        /// it changes. A claim or a loss of UNFORTIFIED ground no longer
-        /// redraws anything, because no wall stands there.</summary>
+        /// it changes (the home territory taken or retaken). A claim or a loss
+        /// of any other ground redraws nothing, because no wall stands there.</summary>
         public static uint WallTerritorySignature(EntityManager em, Faction faction, float3 homePos)
         {
             if (!TheWaningBorder.World.Regions.RegionMap.Ready
@@ -670,26 +670,16 @@ namespace TheWaningBorder.AI
                 ? TheWaningBorder.World.Regions.RegionMap.RegionAt(homePos.x, homePos.z)
                 : TheWaningBorder.World.Regions.RegionMap.None;
 
-        static readonly ComponentType[] QT_Fortresses =
-        {
-            ComponentType.ReadOnly<HallTag>(),
-            ComponentType.ReadOnly<FactionTag>(),
-            ComponentType.ReadOnly<LocalTransform>(),
-        };
-        static CachedEntityQuery QC_Fortresses;
-
         /// <summary>
-        /// THE TERRITORIES THE AI MAY WALL (2026-10-03, docs/Design/Game_AI.md
-        /// § Walls), each with the point its border is traced from:
-        ///   * the HOME territory -- where <paramref name="homePos"/> (the
-        ///     starting capital, the endgame's home anchor) stands -- while
-        ///     the faction holds it;
-        ///   * every other territory it holds that has one of its OWN
-        ///     Fortresses in it, standing or under construction -- Fortress
-        ///     first, then walls; never walls on ground with no Fortress.
-        /// Home first, then by region id; the anchor of a non-home territory
-        /// is its Fortress (lowest x, then z, if somehow two). Deterministic:
-        /// a pure function of replicated state.
+        /// THE TERRITORY THE AI MAY WALL (2026-10-03, docs/Design/Game_AI.md
+        /// § Walls): the HOME territory alone -- where <paramref name="homePos"/>
+        /// (the starting capital, the endgame's home anchor) stands -- while
+        /// the faction holds it, anchored at <paramref name="homePos"/>.
+        /// The AI still builds a Fortress in every territory it can
+        /// (SimpleAISystem.EnsureFortressExpansion), but no other territory is
+        /// walled, Fortress or not. Kept as a list so the per-chain machinery
+        /// (one chain per walled territory) is unchanged. Deterministic: a
+        /// pure function of replicated state.
         /// </summary>
         public static void CollectWallTerritories(EntityManager em, Faction faction, float3 homePos,
             System.Collections.Generic.List<int> regions, System.Collections.Generic.List<float3> anchors)
@@ -705,31 +695,6 @@ namespace TheWaningBorder.AI
             {
                 regions.Add(home);
                 anchors.Add(homePos);
-            }
-
-            var q = QC_Fortresses.Get(em, QT_Fortresses);
-            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            int first = regions.Count;
-            for (int i = 0; i < facs.Length; i++)
-            {
-                if (facs[i].Value != faction) continue;
-                var p = xfs[i].Position;
-                int r = TheWaningBorder.World.Regions.RegionMap.RegionAt(p.x, p.z);
-                if (r == TheWaningBorder.World.Regions.RegionMap.None || r == home) continue;
-                if (TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(r) != (int)faction) continue;
-                int at = regions.IndexOf(r);
-                if (at >= 0)
-                {
-                    var a = anchors[at];
-                    if (p.x < a.x || (p.x == a.x && p.z < a.z)) anchors[at] = p;
-                    continue;
-                }
-                // Sorted by region id, after the home entry.
-                int k = first;
-                while (k < regions.Count && regions[k] < r) k++;
-                regions.Insert(k, r);
-                anchors.Insert(k, p);
             }
         }
 
@@ -946,14 +911,22 @@ namespace TheWaningBorder.AI
         /// any placer can ask without knowing the faction. Lakes, mountains
         /// and the map edge (region None) are not borders. Fails open before
         /// the region map exists.
+        ///
+        /// THE HOME TERRITORY ONLY (2026-10-04, Game_AI.md § Walls): only the
+        /// starting territory is ever walled, so a province's border has no
+        /// wall to keep a band for. Applying the band there cost every
+        /// province a 5 m strip round its whole edge for nothing — and with
+        /// production now raised in every province (Game_AI.md 5g) that strip
+        /// was a large share of the ground those buildings could use.
         /// </summary>
-        public static bool FootprintClearOfBorder(float3 centre, int2 size)
+        public static bool FootprintClearOfBorder(EntityManager em, float3 centre, int2 size)
         {
             if (!TheWaningBorder.World.Regions.RegionMap.Ready
                 || !TheWaningBorder.World.Regions.TerritoryOwnership.Ready) return true;
             int home = TheWaningBorder.World.Regions.RegionMap.RegionAt(centre.x, centre.z);
             if (home == TheWaningBorder.World.Regions.RegionMap.None) return true;
             int owner = TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(home);
+            if (owner >= 0 && HomeRegionOf(em, (Faction)owner) != home) return true;
 
             float c = Cfg.buildingBorderClearance;
             float hx = size.x * 0.5f + c, hz = size.y * 0.5f + c;
@@ -966,6 +939,22 @@ namespace TheWaningBorder.AI
                     if (TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(t) != owner) return false;
                 }
             return true;
+        }
+
+        static readonly System.Collections.Generic.Dictionary<int, (int Frame, int Region)> _homeRegion
+            = new System.Collections.Generic.Dictionary<int, (int, int)>();
+
+        /// <summary>The region the faction's home capital stands in (None when
+        /// it has none) — read once per frame per faction.</summary>
+        public static int HomeRegionOf(EntityManager em, Faction faction)
+        {
+            int frame = UnityEngine.Time.frameCount;
+            if (_homeRegion.TryGetValue((int)faction, out var c) && c.Frame == frame) return c.Region;
+            int r = AIWallCorridor.TryGetHome(em, faction, out float3 home, out _)
+                ? TheWaningBorder.World.Regions.RegionMap.RegionAt(home.x, home.z)
+                : TheWaningBorder.World.Regions.RegionMap.None;
+            _homeRegion[(int)faction] = (frame, r);
+            return r;
         }
 
         /// <summary>
