@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Sovereign Bonds
   role: Banking
   effect: 
-  desc: "High-stakes investment: Vault interest rises to 100 percent per minute."
+  desc: "High-stakes investment: the Vault's interest rises to banking grade 3."
   researchAt: VaultOfAlmierra
   minBuildingLevel: 0
   researchTime: 40

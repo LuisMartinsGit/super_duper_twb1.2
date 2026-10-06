@@ -49,39 +49,8 @@ namespace TheWaningBorder.AI
     // COMBAT POWER
     // ═══════════════════════════════════════════════════════════════════════
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // SCOUTING STATE
-    // ═══════════════════════════════════════════════════════════════════════
-
-    /// <summary>
-    /// State tracking for AI scouting behavior.
-    /// </summary>
-    public struct AIScoutingState : IComponentData
-    {
-        /// <summary>Number of active scouts</summary>
-        public int ActiveScouts;
-
-        /// <summary>Target number of scouts to maintain</summary>
-        public int DesiredScouts;
-
-        /// <summary>Last time scout assignments were updated</summary>
-        public float LastScoutUpdate;
-
-        /// <summary>Interval between scout updates</summary>
-        public float ScoutUpdateInterval;
-
-        /// <summary>Last time scouting priorities were updated</summary>
-        public float LastPriorityUpdate;
-
-        /// <summary>Update interval for scouting priorities</summary>
-        public float PriorityUpdateInterval;
-
-        /// <summary>Zones that need exploration</summary>
-        public int UnexploredZoneCount;
-
-        /// <summary>Percentage of map that has been explored (0-100)</summary>
-        public float MapExplorationPercent;
-    }
+    // AIScoutingState was removed on 2026-10-05: allocated per brain, read
+    // by nothing (ScoutDirectorSystem keeps its own state).
 
     /// <summary>
     /// Represents an active scout assignment linking a scout unit to a target zone.

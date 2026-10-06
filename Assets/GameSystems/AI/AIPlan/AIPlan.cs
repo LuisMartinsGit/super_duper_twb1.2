@@ -159,27 +159,23 @@ namespace TheWaningBorder.AI
         /// reads the same board for everybody, so without a personal bias they
         /// would all counter it the same way — which is how four AIs with five
         /// different personalities ended up playing one identical game.
+        ///
+        /// The numbers are DATA: the five <c>*Affinity</c> fields on the
+        /// personality's row in Resources/AISettings.asset
+        /// (AISettingsSO.PersonalityBlock). They were tuned against a board
+        /// sweep: at those weights an AMBIGUOUS board (the opening, being
+        /// slightly behind) splits four AIs across four different plans, while
+        /// a DECISIVE one (an enemy deathball, an enemy in the base) still
+        /// collapses everybody onto the single right answer. At a third of
+        /// them the board signal swamped personality and five of seven test
+        /// boards produced one identical plan for all five personalities,
+        /// which is the convergence this whole layer exists to break.
         /// </summary>
-        /// Tuned against a board sweep: at these weights an AMBIGUOUS board
-        /// (the opening, being slightly behind) splits four AIs across four
-        /// different plans, while a DECISIVE one (an enemy deathball, an enemy
-        /// in the base) still collapses everybody onto the single right answer.
-        /// At the first values tried — a third of these — the board signal
-        /// swamped personality and five of seven test boards produced one
-        /// identical plan for all five personalities, which is the convergence
-        /// this whole layer exists to break.
-        public static float Affinity(AIPersonality p, AIPlan plan) => p switch
-        {
-            AIPersonality.Aggressive => plan == AIPlan.Rush ? 42f
-                                      : plan == AIPlan.Mass ? 26f : 0f,
-            AIPersonality.Rush       => plan == AIPlan.Rush ? 55f
-                                      : plan == AIPlan.Mass ? 18f : 0f,
-            AIPersonality.Defensive  => plan == AIPlan.Fortress ? 46f
-                                      : plan == AIPlan.Tech ? 22f : 0f,
-            AIPersonality.Economic   => plan == AIPlan.Boom ? 46f
-                                      : plan == AIPlan.Tech ? 26f : 0f,
-            _                        => plan == AIPlan.Mass ? 20f
-                                      : plan == AIPlan.Tech ? 10f : 0f,
-        };
+        public static float Affinity(AIPersonality p, AIPlan plan)
+            => TheWaningBorder.Data.AI.AISettings.Get().For(p).AffinityFor(plan);
+
+        /// <summary>The affinity dampened by tier (Game_AI.md § 3).</summary>
+        public static float Affinity(AIPersonality p, AIPlan plan, float weight)
+            => TheWaningBorder.Data.AI.AISettings.Get().For(p, weight).AffinityFor(plan);
     }
 }

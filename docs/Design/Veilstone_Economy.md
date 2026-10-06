@@ -83,6 +83,7 @@ the map, in contested ground, that anyone can burn.
 | **Buy Veilstone** (default) | supplies + iron in, veilstone out |
 | **Forge Veilsteel** (research: Veilsteel Forging) | veilstone in, veilsteel out |
 | **Sell Veilsteel** (research: Veilsteel Export, after Forging) | veilsteel in, iron + supplies out |
+| **Hold** (always available; 2026-10-05) | the post trades nothing — nothing spent, nothing earned — until set to a trade again. A bank that already holds more veilstone than it can use stops paying supplies and iron for more |
 | **Trade Agreements I / II / III** (research, chained) | every trade's INPUTS cost progressively less |
 | **Swift Caravans** (research, after Trade Agreements I; 2026-10-03) | every trade runs faster — Buy, Forge and Sell alike, inputs and outputs scaled together, on every Outpost the faction owns. The percentage is on the tech SO (`effectsList`, `TradeSpeed` on `building:Alanthor_TradingOutpost`) |
 | Research | Hosted by the Outpost itself (`TradingOutpost/Research/`) |

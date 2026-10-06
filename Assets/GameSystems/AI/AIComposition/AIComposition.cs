@@ -1,3 +1,4 @@
+using Unity.Mathematics;
 // AIComposition.cs
 // LAYER 3 of the AI stack: COUNTERS AND MILITARY STRATEGY — the only layer
 // allowed to decide WHICH unit gets trained.
@@ -16,12 +17,13 @@
 // ── What this file exists to stop ────────────────────────────────────────
 // Two layers were choosing units, and neither was this one.
 //
-//   * PERSONALITY chose units directly. AIBuildOrder's step lists named
+//   * PERSONALITY chose units directly. The old AIBuildOrder step lists named
 //     "Spearman" four to seven times depending on the opening, and the Turtle
 //     opener alone named "Litharch" — a personality picking a unit TYPE, not
-//     a priority. Build orders name a ROLE now (see BuildOrderStep.Train), so
-//     a personality can ask for seven military units early without saying
-//     what they are, and the id it would have named cannot be written down.
+//     a priority. Those scripted orders are gone (2026-10-05); a personality
+//     is now only its row of how-much numbers in Resources/AISettings.asset
+//     (AISettingsSO.PersonalityBlock), and the id it would have named cannot
+//     be written down.
 //
 //   * DIFFICULTY chose whether to counter at all. counterCompEnabled was a
 //     bool on the difficulty profile, and it shipped FALSE on Easy and
@@ -82,6 +84,22 @@ namespace TheWaningBorder.AI
         /// horses early; a turtle wants a shooting line behind walls and the
         /// engines to break a siege.
         /// </summary>
+        /// <summary>The mix dampened by tier (Game_AI.md § 3): blended from
+        /// Balanced toward <paramref name="p"/>'s by <paramref name="weight"/>.</summary>
+        public static RoleBudget For(AIPersonality p, float weight)
+        {
+            var t = For(p);
+            if (weight >= 0.999f) return t;
+            var b = For(AIPersonality.Balanced);
+            weight = math.saturate(weight);
+            return new RoleBudget
+            {
+                RangedFrac = b.RangedFrac + (t.RangedFrac - b.RangedFrac) * weight,
+                CavalryFrac = b.CavalryFrac + (t.CavalryFrac - b.CavalryFrac) * weight,
+                SiegeFrac = b.SiegeFrac + (t.SiegeFrac - b.SiegeFrac) * weight,
+            };
+        }
+
         public static RoleBudget For(AIPersonality p) => p switch
         {
             AIPersonality.Rush       => new RoleBudget { RangedFrac = 0.30f, CavalryFrac = 0.25f, SiegeFrac = 0.05f },

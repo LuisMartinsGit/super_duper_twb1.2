@@ -139,7 +139,7 @@ namespace TheWaningBorder.AI
                     DisbandAllMissions(faction);
                     // Rally at the ATTACKED building, not the Hall — the
                     // defenders converge on the actual fight.
-                    DefendBase(em, faction, attackedPos, settings);
+                    DefendBase(em, faction, attackedPos, settings, includeCurse: true);
                 }
                 return;
             }
@@ -207,7 +207,14 @@ namespace TheWaningBorder.AI
         /// </summary>
         // Instance, not static: registering the defence as a mission needs
         // the per-faction mission list, which is instance state.
-        private void DefendBase(EntityManager em, Faction faction, float3 hallPos, AISettingsSO settings)
+        /// <param name="includeCurse">True when the defence answers a building
+        /// under attack: the attacker may be the curse, and a curse raid used
+        /// to enter Defend, disband every mission and dispatch NO defender
+        /// (the threat search skipped Border units) — Blue lost 13 huts that
+        /// way (2026-10-05, Game_AI.md § 5i). The Hall-ring entry keeps the
+        /// old rule: curse units idling near home are not an assault.</param>
+        private void DefendBase(EntityManager em, Faction faction, float3 hallPos, AISettingsSO settings,
+            bool includeCurse = false)
         {
             float defendRadiusSq = settings.defendRadius * settings.defendRadius;
 
@@ -234,7 +241,7 @@ namespace TheWaningBorder.AI
                 // Allies do not count as a threat near the Hall; the curse is
                 // excluded here as before. docs/Design/Teams.md
                 if (!Alliances.AreHostile(faction, facs[i].Value)
-                    || facs[i].Value == Faction.Border) continue;
+                    || (facs[i].Value == Faction.Border && !includeCurse)) continue;
                 float dx = xfs[i].Position.x - hallPos.x;
                 float dz = xfs[i].Position.z - hallPos.z;
                 float d2 = dx * dx + dz * dz;
@@ -271,6 +278,9 @@ namespace TheWaningBorder.AI
                 // flipped to Defend, and the endgame system re-dispatched it
                 // 5 s later. Defending the base must not cost you the verb.
                 if (IsVerbUnit(em, ents[i])) continue;
+                // Already answering an attack on the economy: it has its own
+                // fight (SimpleAISystem.EconomyDefence.cs).
+                if (IsEconResponder(ents[i])) continue;
                 float dx = xfs[i].Position.x - hallPos.x;
                 float dz = xfs[i].Position.z - hallPos.z;
                 bool home = dx * dx + dz * dz <= defendRadiusSq;

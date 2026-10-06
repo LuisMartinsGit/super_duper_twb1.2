@@ -132,6 +132,14 @@ namespace TheWaningBorder.AI
             if (!FactionEconomy.CanAfford(em, faction, cost)) return;
             // Pivotal savings hold, resource-aware.
             if (AIPivotalReserve.ShouldHold(em, faction, cost)) return;
+            // UNITS BEFORE ECONOMY (Game_AI.md 5h): the endgame's extra
+            // towers are economy drive on a tier that says so.
+            string deferred = AIBudget.EconomyDeferral(em, faction, cost);
+            if (deferred != null)
+            {
+                AIBudget.NoteEconomyDeferred(faction, "build " + towerId + " (endgame)", deferred);
+                return;
+            }
             if (AICommon.CountIdleWorkers(em, faction) == 0) return;
 
             // Own tower positions — the anti-clump constraint.
@@ -183,12 +191,10 @@ namespace TheWaningBorder.AI
             if (building == Entity.Null) return;
 
             int dispatched = AICommon.DispatchWorkersTo(em, faction, building, towerId, pos, maxWorkers: 1);
+            // No idle worker is not a rollback (2026-10-05, see
+            // SimpleAISystem.Building): the plan stands, a busy worker queues it.
             if (dispatched == 0)
-            {
-                FactionEconomy.Add(em, faction, cost);
-                em.DestroyEntity(building);
-                return;
-            }
+                AICommon.PullWorkersTo(em, faction, building, towerId, pos, maxWorkers: 1);
             AILogger.Log(faction, "BUILDING",
                 $"Alanthor towers: {existing + 1}/{TowerBudget(difficulty)} toward " +
                 $"({threatHint.x:F0},{threatHint.z:F0})");

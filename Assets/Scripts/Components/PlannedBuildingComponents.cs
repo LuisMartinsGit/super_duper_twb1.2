@@ -23,4 +23,10 @@ public struct PlannedBuilding : IComponentData
     public float Yaw;
     /// <summary>Religion Points paid with it (the Temple), refunded with it.</summary>
     public int PaidReligion;
+    /// <summary>Sim time the world re-check first refused to break ground
+    /// here (0 = never refused). The plan waits out a grace period before it
+    /// is cancelled (PlannedBuildings.BreakGround).</summary>
+    public float RefusedSince;
+    /// <summary>Sim time of the next break-ground attempt while refused.</summary>
+    public float NextBreakGroundAt;
 }

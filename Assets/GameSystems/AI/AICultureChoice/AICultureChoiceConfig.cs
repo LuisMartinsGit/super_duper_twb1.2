@@ -32,12 +32,6 @@ namespace TheWaningBorder.AI
         /// military cover is the classic raid invitation.</summary>
         public float exposedEconomyWeight;
 
-        /// <summary>Our own combat record. Winning fights says "keep
-        /// fighting" (Feraldis); losing armies says "turtle" (Alanthor).</summary>
-        public float successWeight;
-
-        public float lossWeight;
-
         /// <summary>Being poor pushes toward the culture that STEALS its
         /// income rather than the one that gathers harder.</summary>
         public float povertyWeight;

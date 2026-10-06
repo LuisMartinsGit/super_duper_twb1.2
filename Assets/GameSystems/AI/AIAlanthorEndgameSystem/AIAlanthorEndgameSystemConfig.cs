@@ -99,11 +99,5 @@ namespace TheWaningBorder.AI
 
         // Train-queue cap per Stable / SiegeYard. Mirrors SimpleAISystem.
         public int maxTrainQueue;
-
-        // Strategy switch threshold: number of armies lost without dealing
-        // significant damage since the last strategy switch before we flip
-        // to Defensive. Cheap signal — armies-lost is bumped by combat
-        // bookkeeping elsewhere; we just react to it.
-        public int lossesBeforeDefensiveFlip;
     }
 }

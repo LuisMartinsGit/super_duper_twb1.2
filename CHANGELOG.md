@@ -13,6 +13,56 @@ build always name the same number.
 
 ---
 
+## [0.0.35] — 2026-10-06
+
+Everyone in a multiplayer match needs 0.0.35.
+
+### Added
+
+- **Flanking.** A melee blow that lands on a unit's side or back deals extra
+  damage. It works for everyone, including the AI and the curse. Units turn to
+  face what they fight and where they walk, so hit a unit that is already
+  locked in front of someone else, or one that is running away. Buildings
+  cannot be flanked, and arrows and spells never flank.
+- **The Score.** Every faction gets one number built from economy, strategy
+  and military. It shows on the stats board and is written to the match logs.
+- **New map: Mirror Marches.** A four-player map mirrored on both axes, with
+  homes in the corners and the curse in the centre.
+- **Trading Outposts can Hold.** A held post trades nothing until you set it
+  to trade again.
+
+### Changed
+
+- **The Vault of Almiérra pays simple interest, capped.** Interest is paid on
+  what you deposited, up to a limit, and never compounds. The banking techs
+  raise the rate. (Before this, one test turned 2,645 iron into 7.5 million.)
+- **Curse waves pick on the strong.** Waves now go mostly to the strongest
+  players (by army and territory) instead of whoever sits nearest the curse.
+  A player who was just hit gets a break. A wave is sized to the army it
+  attacks, and is larger against harder AI.
+- **The curse leaves you alone at the start.** Before the first wave it does
+  not contest ground a player holds. Curse garrisons no longer walk out to
+  shoot buildings they can merely see.
+- **The AI plays a personality, not a build order.** The lobby offers
+  Economist, Balanced, Technologist, Aggressor, Turtle and Defender (or
+  Random). Each one is a set of leanings, not a script.
+- **The AI is much stronger.** It defends and rebuilds its economy, attacks
+  curse nodes only in force, clears curse ground with idle armies, retakes
+  lost territory, uses the Vault, and keeps its army growing with its land.
+  On Hard and Expert it sends several coordinated armies at once and goes
+  after your income.
+
+### Fixed
+
+- **Build plans no longer flicker.** A plan that cannot break ground right
+  away keeps its spot and retries for a while before it is cancelled and
+  refunded. The AI used to pay for and refund the same hut dozens of times a
+  minute.
+- **Start territories stay Start territories** when a seat is empty, so
+  mirrored maps keep their layout with fewer players.
+
+---
+
 ## [0.0.34] — 2026-10-04
 
 Everyone in a multiplayer match needs 0.0.34.

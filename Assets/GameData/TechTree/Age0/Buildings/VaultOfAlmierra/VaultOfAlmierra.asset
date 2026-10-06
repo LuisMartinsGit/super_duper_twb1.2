@@ -16,8 +16,9 @@ MonoBehaviour:
   displayName: "Vault of Almi\xE9rra"
   role: Banking (deposit/interest)
   description: Resource bank and one of the three Age 0 choice buildings that unlock
-    the advance to Era II. Deposited resources earn compounding interest each minute;
-    banking-grade techs raise the rate (Alanthor +30%, Runai -30%).
+    the advance to Era II. Deposited resources earn simple interest each minute on
+    the stored principal up to a cap; banking-grade techs raise the rate and the
+    Vault's levels multiply it.
   hp: 600
   armorType: structure_human
   defense:
@@ -30,7 +31,11 @@ MonoBehaviour:
   footprintCells: {x: 4, y: 4}
   buildTime: 90
   slotIncomePerMinute: []
-  interestPerMinute: 0.25
+  interestPerMinute: 0.05
+  interestPrincipalCap: 3000
+  coffersRate: 0.08
+  merchantChartersRate: 0.11
+  sovereignBondsRate: 0.15
   minWallLevel: 0
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0

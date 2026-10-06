@@ -17,9 +17,10 @@ namespace TheWaningBorder.Core.Config
     }
 
     /// <summary>
-    /// AI strategy choice for lobby configuration. Random rolls one of the six
-    /// concrete strategies at game start (matches the legacy behaviour);
-    /// the rest pin a specific build order from <c>AIBuildOrder.cs</c>.
+    /// AI personality choice for lobby configuration. Random rolls one of the
+    /// six concrete personalities at game start; the rest pin one
+    /// (AIBootstrap.LobbyToPersonality -> AIPersonality, whose row in
+    /// Resources/AISettings.asset is what the AI then plays).
     /// </summary>
     public enum LobbyAIStrategy
     {

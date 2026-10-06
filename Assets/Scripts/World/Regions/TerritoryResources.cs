@@ -106,7 +106,15 @@ namespace TheWaningBorder.World.Regions
             {
                 if (RegionMap.KindBlocks(RegionMap.KindOf(t))) { _types[t] = ResourceType.Empty; continue; }
                 if (startSet.Contains(t)) { _types[t] = ResourceType.Start; continue; }
-                if (_types[t] == ResourceType.Auto || _types[t] == ResourceType.Start) auto.Add(t);
+                // AN AUTHORED START STAYS A START (2026-10-05). It used to be
+                // re-dealt as Auto when no player sat there, so a two-player
+                // match on a four-seat map changed the empty corners' types,
+                // the quadrants stopped matching, the mirrored node layout
+                // fell back to random (MirrorPartners), and one home's
+                // outcrop landed where nothing could reach it: that side
+                // aged up at minute 24. The map author's seats keep their
+                // layout whoever is seated.
+                if (_types[t] == ResourceType.Auto) auto.Add(t);
             }
 
             var rng = new Unity.Mathematics.Random(seed | 1u);
@@ -184,9 +192,16 @@ namespace TheWaningBorder.World.Regions
                 if (t != RegionMap.None && !homeCentre.ContainsKey(t)) homeCentre[t] = starts[i];
             }
 
+            // A MIRRORED MAP (2026-10-05) lays its nodes once, in the
+            // territories of one quadrant, and copies them across both axes,
+            // so every seat opens on the same ground. Detected, not authored:
+            // see MirrorPartners.
+            var partners = MirrorPartners(n, centres, boxMin, boxMax, out float2 mid);
+
             int placed = 0, short_ = 0;
             for (int t = 0; t < n; t++)
             {
+                if (partners != null && partners[t].x < 0) continue;   // laid by its canonical twin
                 // One stream per territory: the same map and seed lay the same
                 // nodes on every peer, and adding a territory does not reshuffle
                 // every other one.
@@ -198,6 +213,7 @@ namespace TheWaningBorder.World.Regions
                 float3 centre = home ? hc : centres[t];
                 float minR = home ? HomeClearRadius : 0f;
                 var mine = new List<float3>();
+                if (partners != null) _record = new List<(float3, int)>();
 
                 for (int i = 0; i < veil; i++)
                     short_ += PlaceRandom(em, t, home, centre, boxMin[t], boxMax[t], mine, 2, ref rng) ? 0 : 1;
@@ -206,7 +222,31 @@ namespace TheWaningBorder.World.Regions
                 for (int i = 0; i < supply; i++)
                     short_ += PlaceRandom(em, t, home, centre, boxMin[t], boxMax[t], mine, 0, ref rng) ? 0 : 1;
                 placed += mine.Count;
+
+                if (partners != null)
+                {
+                    var laid = _record;
+                    _record = null;
+                    var twins = partners[t];
+                    for (int k = 0; k < 3; k++)
+                    {
+                        int p = k == 0 ? twins.y : k == 1 ? twins.z : twins.w;
+                        float2 sign = k == 0 ? new float2(-1f, 1f) : k == 1 ? new float2(1f, -1f) : new float2(-1f, -1f);
+                        foreach (var (site, kind) in laid)
+                        {
+                            var want = new float3(mid.x + sign.x * (site.x - mid.x), 0f,
+                                                  mid.y + sign.y * (site.z - mid.y));
+                            want.y = TerrainUtility.GetHeight(want.x, want.z);
+                            if (ResourceNodeSite.TryResolve(em, want, out var twin)
+                                && RegionMap.RegionAt(twin.x, twin.z) == p)
+                            { Create(em, twin, kind); placed++; }
+                            else short_++;
+                        }
+                    }
+                }
             }
+            if (partners != null)
+                Debug.Log("[TerritoryResources] mirrored map: nodes laid in one quadrant and copied across both axes.");
             Debug.Log($"[TerritoryResources] {placed} node(s) laid from territory types" +
                       (short_ > 0 ? $"; {short_} could not find legal ground." : "."));
         }
@@ -303,8 +343,52 @@ namespace TheWaningBorder.World.Regions
             return true;
         }
 
+        /// <summary>While non-null, every node Create lays is noted here —
+        /// the canonical quadrant's list a mirrored map copies.</summary>
+        private static List<(float3, int)> _record;
+
+        /// <summary>
+        /// Null unless the territories are mirror-symmetric across BOTH axes
+        /// through the map's centre: every territory's mirror images are
+        /// territories of the same type, and none straddles an axis. Then
+        /// entry t is (-1, ...) for a territory laid by its twin, or
+        /// (t, mirror-in-X, mirror-in-Z, mirror-in-both) for a canonical one
+        /// (the quadrant below-left of the centre).
+        /// </summary>
+        private static int4[] MirrorPartners(int n, float3[] centres, float2[] boxMin, float2[] boxMax,
+            out float2 mid)
+        {
+            mid = float2.zero;
+            if (n < 4) return null;
+            float2 lo = new float2(float.MaxValue), hi = new float2(float.MinValue);
+            for (int t = 0; t < n; t++)
+            {
+                if (boxMin[t].x > boxMax[t].x) continue;   // no ground sampled
+                lo = math.min(lo, boxMin[t]);
+                hi = math.max(hi, boxMax[t]);
+            }
+            mid = (lo + hi) * 0.5f;
+            var result = new int4[n];
+            for (int t = 0; t < n; t++)
+            {
+                if (boxMin[t].x > boxMax[t].x) return null;
+                float2 c = (boxMin[t] + boxMax[t]) * 0.5f - mid;
+                if (math.abs(c.x) < 4f || math.abs(c.y) < 4f) return null;   // straddles an axis
+                int mx = RegionMap.RegionAt(mid.x - c.x, mid.y + c.y);
+                int mz = RegionMap.RegionAt(mid.x + c.x, mid.y - c.y);
+                int mb = RegionMap.RegionAt(mid.x - c.x, mid.y - c.y);
+                if (mx < 0 || mz < 0 || mb < 0) return null;
+                var ty = TypeOf(t);
+                if (TypeOf(mx) != ty || TypeOf(mz) != ty || TypeOf(mb) != ty) return null;
+                bool canonical = c.x < 0f && c.y < 0f;
+                result[t] = canonical ? new int4(t, mx, mz, mb) : new int4(-1, mx, mz, mb);
+            }
+            return result;
+        }
+
         private static void Create(EntityManager em, float3 site, int kind)
         {
+            _record?.Add((site, kind));
             switch (kind)
             {
                 case 0: SupplyNode.Create(em, site); break;

@@ -49,6 +49,57 @@ entries — flat bonus damage vs a target tag, added **after** armor and
 ignoring it. Tags: Infantry, Cavalry, Ranged, Siege, Heavy, Light,
 Building, Worker, Religious, Ship.
 
+### Flanking (2026-10-04)
+
+**A melee hit that lands on a unit's side or back deals more damage.** The
+rule applies to everyone alike: players, the AI and the curse's own units.
+
+- **Arcs are the DEFENDER's.** The defender's facing is its current yaw (the
+  way its model points, XZ only). The hit's direction is the line from the
+  defender to the attacker. Inside the **front arc** — within
+  `frontArcHalfAngleDegrees` either side of the facing, boundary included —
+  the hit is a normal hit. Anywhere outside it is a **flank hit**.
+- **Side and rear are one arc with one bonus.** There is no separate "rear
+  attack" tier: a blow from the side and a blow from directly behind both
+  multiply by `flankDamageMultiplier`. Both values are named fields on
+  `MeleeCombatSystem.asset` (beside `Systems/Combat/Attacks/MeleeCombatSystem.cs`);
+  this doc does not restate them.
+- **Melee only.** Only a contact swing resolved by `MeleeCombatSystem` can
+  flank. Arrows, bolts and every projectile, splash, spell, ability, bleed,
+  burn, damage over time and the Godsplinter's siege slam never do. Riders
+  that are computed FROM the swing (the Shardbound cleave share, the
+  Bloodletter whirl) carry the swing's flanked number with them; they do not
+  test an arc of their own.
+- **Only units can be flanked.** A building has no facing: buildings, wall
+  hubs, segments, gates and towers, curse nodes and every other structure
+  always take a front hit.
+- **Facing is real and turns at a finite rate.** A unit swinging at its own
+  target turns toward that target (at the shared unit turn rate); a moving
+  unit faces where it walks. So a unit already locked in front of one enemy
+  keeps its back to a second one for as long as that fight lasts, and a
+  fleeing unit shows its back to everyone chasing it. A unit that turns to
+  answer a flanker closes its own flank within a fraction of a second — the
+  bonus rewards attacking an engaged or retreating unit, not merely walking
+  around an idle one.
+- **Where it sits in the damage math.** Flanking is a multiplier on the
+  post-armour total, on the same layer as the height and veilstone/frenzy
+  multipliers:
+
+  ```
+  final = max(1, round( (max(1, base - armour) + bonusVsTags)
+                         x height x veilstone/frenzy x flank ))
+  ```
+
+  It therefore scales the `bonusVsTags` counter damage too, and armour is
+  subtracted once, before it — armour is never "flanked around". Everything
+  that already came after the formula still comes after it, unchanged:
+  on-hit bonus damage riders, the target's damage-taken multiplier (Liquid
+  Courage), then the shield.
+- **Measured.** Every melee hit and every flank hit is counted per attacking
+  faction per minute in the match metrics (`Metrics_Combat.csv`, columns
+  `meleeHits` / `flankHits`), so a headless batch can read how often the rule
+  fires. Nothing is logged per hit.
+
 ### Shield points are hit points
 
 **There is no difference between shield and HP.** A unit with shield points

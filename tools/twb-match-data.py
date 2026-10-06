@@ -21,6 +21,8 @@ because a four-peer lockstep match is ONE match seen four times -- carrying:
     wallets and their weights, what it refused to buy and why, posture,
     plan, claims, research, and the INTEL line
   * the economy / military / territory time series from Metrics_Faction.csv
+  * the per-faction SCORE (economy / strategy / military, docs/Design/Score.md)
+    over time and where it ended, from Metrics_Score.csv
   * everything needed to REPLAY the match on a map: a track per unit
     (traced matches; sampled position frames otherwise), building add/remove
     events, and death events
@@ -1148,6 +1150,38 @@ def summary_of(d):
     return out
 
 
+RUNINFO_LINE = re.compile(r"^(Label|AI)\s+:\s*(.*)$")
+
+
+def run_info(d, summ):
+    """The batch's -twbLabel and the resolved per-faction AI roster
+    (HeadlessBatch, 2026-10-04). Summary.txt carries both; a match that never
+    wrote its summary (a crash, a kill) still has them in the Console.log
+    match header. Returns (label, {faction: {"d": difficulty, "p": personality}});
+    ("", {}) for a match recorded before the flags existed."""
+    label, ai = summ.get("Label", ""), summ.get("AI", "")
+    if not label and not ai:
+        for cn in ("Console.log", "Console-2.log", "Console-3.log", "Console-4.log",
+                   "Console-5.log", "Console-6.log", "Console-7.log", "Console-8.log"):
+            for line in read_lines(os.path.join(d, cn)):
+                m = RUNINFO_LINE.match(line.strip())
+                if m:
+                    if m.group(1) == "Label":
+                        label = label or m.group(2).strip()
+                    else:
+                        ai = ai or m.group(2).strip()
+                if label and ai:
+                    break
+            if ai:
+                break
+    roster = {}
+    for part in ai.split(","):
+        bits = part.split()
+        if len(bits) >= 2:
+            roster[bits[0]] = dict(d=bits[1], p=bits[2] if len(bits) > 2 else "")
+    return label, roster
+
+
 def economy_of(hd):
     """Gross income by source and spending by category, per faction, binned
     to whole minutes, from Metrics_Income.csv (written since 2026-10-04 by
@@ -1190,6 +1224,110 @@ def economy_of(hd):
                 if any(any(c) for c in arr):
                     out[fac][flow][src] = arr
     return dict(minutes=nmin, f=out)
+
+
+# -- the score (docs/Design/Score.md) ----------------------------------------
+# Metrics_Score.csv, one row per faction per 15 s sample:
+#   t,faction,score,economy,strategy,military,earned,incomePerMin,territories,
+#   fortresses,techs,levels,kills,deaths,razed,kd
+# score = economy + strategy + military; kd = kills / max(1, deaths).
+SCORE_COLS = ("score", "economy", "strategy", "military", "kills", "deaths",
+              "razed", "territories", "fortresses", "techs", "levels", "earned",
+              "incomePerMin")
+SCORE_CAP = 400
+
+
+def _score_row(r):
+    out = dict(t=i_(r.get("t")))
+    for k in SCORE_COLS:
+        out[k] = int(round(f(r.get(k))))
+    out["kd"] = round(f(r.get("kd")), 2)
+    return out
+
+
+def score_leader(final):
+    """[faction, score] of the top faction in a `final` map, or None."""
+    best = None
+    for fa, v in (final or {}).items():
+        s = v.get("score", 0) if isinstance(v, dict) else 0
+        if best is None or s > best[1]:
+            best = [fa, s]
+    return best
+
+
+def score_of(hd):
+    """The per-faction score series and where it ended, from
+    Metrics_Score.csv. None for a match recorded before the file existed.
+
+    Returns
+      {"ts":    [t, ...]                       the sample times, thinned,
+       "f":     {faction: {"s": [...], "e": [...], "st": [...], "m": [...],
+                           "kd": [...]}}      one value per ts (null where
+                                              the faction had no row: dead),
+       "final": {faction: {score, economy, strategy, military, kills,
+                           deaths, razed, kd, territories, fortresses,
+                           techs, levels, earned, incomePerMin, t}}}
+    The sample times are shared so every faction's line reads against the
+    same axis; the series are thinned to SCORE_CAP points like every other
+    series here, always keeping the last sample."""
+    rows = read_csv(os.path.join(hd, "Metrics_Score.csv"))
+    if not rows:
+        return None
+    per = defaultdict(dict)       # faction -> t -> row
+    for r in rows:
+        fa = (r.get("faction") or "").strip()
+        if not fa or r.get("t") is None:
+            continue
+        per[fa][i_(r.get("t"))] = _score_row(r)
+    if not per:
+        return None
+    ts = sorted(set(t for by_t in per.values() for t in by_t))
+    ts = thin(ts, SCORE_CAP)
+    series, final = {}, {}
+    for fa, by_t in per.items():
+        s = dict(s=[], e=[], st=[], m=[], kd=[])
+        for t in ts:
+            r = by_t.get(t)
+            s["s"].append(r["score"] if r else None)
+            s["e"].append(r["economy"] if r else None)
+            s["st"].append(r["strategy"] if r else None)
+            s["m"].append(r["military"] if r else None)
+            s["kd"].append(r["kd"] if r else None)
+        series[fa] = s
+        final[fa] = by_t[max(by_t)]
+    return dict(ts=ts, f=series, final=final)
+
+
+def score_tail(d):
+    """The score leader of a match past the page's window, from the TAIL of
+    its Metrics_Score.csv only -- the last row per faction is all the ledger
+    needs, and reading the whole file for every run on disk would cost what
+    the cheap-verdict pass exists to avoid. [faction, score] or None."""
+    path = os.path.join(d, "Metrics_Score.csv")
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, "rb") as fh:
+            fh.seek(0, 2)
+            back = min(fh.tell(), 16384)
+            fh.seek(-back, 2)
+            lines = fh.read().decode("utf-8", "replace").strip().splitlines()
+    except Exception:
+        return None
+    last = {}
+    # lines[0] is the header when the tail is the whole file, and a line cut
+    # mid-way when it is not: skip it either way
+    for ln in lines[1:]:
+        c = ln.split(",")
+        if len(c) < 3 or not c[1] or c[0] == "t":
+            continue
+        t = i_(c[0])
+        if c[1] not in last or last[c[1]][0] <= t:
+            last[c[1]] = (t, int(round(f(c[2]))))
+    if not last:
+        return None
+    # a faction that died early is not in the tail, and was not leading
+    return score_leader({k: dict(score=v[1]) for k, v in last.items()})
 
 
 def build(match):
@@ -1489,6 +1627,7 @@ def build(match):
               for r in read_csv(os.path.join(hd, "Metrics_Combat.csv"))]
 
     summ = summary_of(hd)
+    label, airoster = run_info(hd, summ)
     # DID THE PEERS HOLD REAL TIME? The simulation is pinned to wall clock in
     # multiplayer, so a match of N ticks should take N/30 seconds. The ratio
     # of actual to ideal is the one number that says whether a peer was
@@ -1513,6 +1652,8 @@ def build(match):
         if _dm:
             tmax = int(int(_dm.group(1) or 0) * 60 + f(_dm.group(2)))
 
+    score = score_of(hd)
+
     return dict(
         key=match["key"], map=match["map"], stamp=match["stamp"],
         kind=match["kind"], peers=len(peers),
@@ -1520,6 +1661,9 @@ def build(match):
         decidedAt=summ.get("DecidedAt"), winner=summ.get("Winner", ""),
         build=summ.get("Build", "?"), exceptions=i_(summ.get("Exceptions")),
         errors=i_(summ.get("Errors")), warnings=i_(summ.get("Warnings")),
+        # -twbLabel and the resolved per-faction AI difficulty/personality;
+        # "" / {} for a match recorded before HeadlessBatch wrote them.
+        label=label, aiRoster=airoster,
         tmax=tmax, extent=ext, config=cfg,
         world=world, nodes=nodes, regions=regions, blds=blds,
         # The game's real territory partition and its owners over time
@@ -1547,6 +1691,12 @@ def build(match):
         # Income by source / spending by category per minute; None for a
         # match recorded before Metrics_Income.csv existed.
         econ=economy_of(hd),
+        # The per-faction score (docs/Design/Score.md) over time and where it
+        # ended; None before Metrics_Score.csv existed. `scoreLeader` is
+        # [faction, score] of the top faction, kept in the light summary and
+        # the ledger so a run's winner-by-score reads without its file.
+        score=score,
+        scoreLeader=score_leader(score["final"]) if score else None,
         curse=curse_story(hd, deaths))
 
 
@@ -1625,8 +1775,10 @@ def main():
         # Metrics_Faction.csv and the outcome is one line of Summary.txt --
         # neither costs anything, and without them every run past the window
         # showed a length of 0:00, which reads as "this match never ran".
-        tail_tmax, tail_outcome = 0, "?"
+        tail_tmax, tail_outcome, tail_label, tail_score = 0, "?", "", None
         for pr in m["peers"]:
+            if tail_score is None:
+                tail_score = score_tail(pr["dir"])
             mf = os.path.join(pr["dir"], "Metrics_Faction.csv")
             try:
                 with open(mf, "rb") as fh:
@@ -1641,6 +1793,8 @@ def main():
             summ = summary_of(pr["dir"])
             if tail_outcome == "?":
                 tail_outcome = summ.get("Outcome", "?")
+            if not tail_label:
+                tail_label = summ.get("Label", "")
             # No metrics file at all -- an editor play session in the project
             # `logs` root, or an old-format run -- still has a Duration line in
             # its summary ("0m 41,4s"). Use it, so the ledger says 0:41 and
@@ -1653,6 +1807,7 @@ def main():
         records_tail.append(dict(
             key=m["key"], stamp=m["stamp"], map=m["map"], kind=m["kind"],
             peers=len(m["peers"]), tmax=tail_tmax, outcome=tail_outcome,
+            label=tail_label, scoreLeader=tail_score,
             desync=dict(flagged=v["flagged"] or bool(v["dumps"]),
                         flagTick=v["flagTick"], forkTick=None,
                         forkCols=v["forkCols"], compared=0, ticks=0,
@@ -1694,6 +1849,8 @@ def main():
                             else d.get("flagTick"),
                    forkCols=d.get("forkCols", []),
                    config=r.get("config", {}),
+                   label=r.get("label", ""),
+                   scoreLeader=r.get("scoreLeader"),
                    exceptions=r.get("exceptions", 0))
         # A match still in flight reports fewer ticks than the finished one;
         # never let a later, thinner read shrink what was already recorded.
@@ -1709,6 +1866,10 @@ def main():
             row["outcome"] = prev["outcome"]
         if not row["config"] and prev.get("config"):
             row["config"] = prev["config"]
+        if not row["label"] and prev.get("label"):
+            row["label"] = prev["label"]
+        if not row["scoreLeader"] and prev.get("scoreLeader"):
+            row["scoreLeader"] = prev["scoreLeader"]
         if prev.get("forked"):
             row["forked"] = True
             row["forkTick"] = prev.get("forkTick", row["forkTick"])

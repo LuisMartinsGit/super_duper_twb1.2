@@ -33,9 +33,9 @@ MonoBehaviour:
   claimCurseTargetPenalty: 150
   claimCurseTimeoutSeconds: 360
   fortressCheckInterval: 10
-  fortressReserveSupplies: 800
-  fortressReserveIron: 600
-  fortressReserveVeilstone: 100
+  fortressReserveSupplies: 200
+  fortressReserveIron: 200
+  fortressReserveVeilstone: 0
   fortressMaxPerFaction: 8
   fortressOutcropWeight: 200
   fortressFrontierOutcropWeight: 80
@@ -358,14 +358,91 @@ MonoBehaviour:
   territoryBlockedStepSeconds: 60
   towersPerTerritory: 2
   towerPeripheryFraction: 0.6
-  productionPerTerritory: 1
-  homeProductionPerLine: 2
+  towersProvinceFirst: 2
+  towersPerProvinceMax: 6
+  towerCoverageTarget: 0.85
+  towerMinSpacingRangeFraction: 1
+  towerExtraArmyFraction: 0.75
+  towerMinGainWeight: 2
+  towerSiteTriesPerWalk: 3
+  towerSiteSearchRadius: 12
+  towerSampleStep: 8
+  towerSampleMaxCells: 4000
+  towerWeightResource: 3
+  towerWeightFortress: 4
+  towerWeightProduction: 2
+  towerWeightBorder: 1
   homeProductionFloorAfterSeconds: 90
-  productionSaturationThreshold: 0.8
-  productionSaturationSeconds: 60
   productionLogInterval: 60
   productionSiteTerritoriesPerCall: 3
   fortressAfterResources: 1
   territoryReportInterval: 60
   fortressSpotSearchRadius: 60
   fortressSpotMarginCells: 1
+  religionHuntPowerMargin: 1.5
+  econPassInterval: 5
+  vaultKeepSupplies: 400
+  vaultKeepIron: 300
+  vaultKeepVeilstone: 150
+  vaultKeepVeilsteel: 50
+  vaultMinDeposit: 200
+  vaultDamagedFraction: 0.75
+  econLogInterval: 60
+  economyDefenceProbeRadius: 30
+  economyDefenceAssessRadius: 35
+  economyDefenceDraftRadius: 260
+  economyDefenceTimeoutSeconds: 90
+  economyDefenceTopUpSeconds: 10
+  economyDefenceSitesPerThink: 3
+  economyAttackLingerSeconds: 30
+  extractorRebuildWindowSeconds: 600
+  extractorRebuildAttemptInterval: 3
+  extractorRebuildMaxRefusals: 10
+  extractorCurseKeepoutRadius: 45
+  extractorSiteMaxLosses: 2
+  extractorSiteBlockSeconds: 300
+  reclaimMinSquadSize: 3
+  reclaimRetrySeconds: 120
+  economyCollapseIncomeFraction: 0.5
+  economyRecoveredIncomeFraction: 0.75
+  economyExpectedHalfLifeSeconds: 900
+  economyExpectedRisePerSecond: 0.02
+  economyCollapseMinExpected: 6
+  waveIntelHoldMaxSeconds: 90
+  curseClearInterval: 30
+  curseClearMinUnits: 6
+  curseClearPowerMargin: 1.5
+  curseIntelLastSeenHalfLifeSeconds: 300
+  curseIntelLookSeconds: 90
+  curseIntelStaleFactor: 1.25
+  curseIntelBaselineFraction: 0.7
+  curseIntelGroundFactor: 1.15
+  curseIntelLogInterval: 30
+  religionHuntCallOffMargin: 1
+  outpostVeilstoneNeedMinutes: 4
+  outpostVeilstoneNeedFloor: 600
+  outpostBuyResumeFraction: 0.6
+  glutIronAbove: 1500
+  glutCompositionTilt: 0.5
+  missionMarchSpeedForTimeout: 3
+  wallBreachAfterSeconds: 45
+  wallBreachRadius: 45
+  wallBreachMinSiege: 1
+  claimHostileTargetPenalty: 200
+  outpostVeilstoneNeedMax: 3000
+  economyCollapseConfirmSeconds: 45
+  waveLiveArmyShare: 0.5
+  refusedSpotRadius: 6
+  waveOverdueMaxRatio: 1.6
+  armyEssentialFraction: 0.5
+  armyPerTerritory: 8
+  armyMinUnits: 6
+  armySeparationDegrees: 25
+  armySeparationMeters: 100
+  armySyncTimeoutSeconds: 60
+  incomeWeightExtractor: 4
+  incomeWeightMilitary: 2
+  incomeWeightHouse: 1
+  incomeReconMinKnown: 3
+  incomeReconIntervalSeconds: 45
+  incomeReconSpreadMeters: 120

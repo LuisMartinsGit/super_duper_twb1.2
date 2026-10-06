@@ -87,6 +87,8 @@ namespace TheWaningBorder.Systems.Work
                 else continue;   // a real site — BuildCommandSystem's job
 
                 if (TargetGeometry.SurfaceDistXZ(em, xf.ValueRO.Position, plan) > BuildRange) continue;
+                // A refused plan retries on its own cadence (PlannedBuildings.BreakGround).
+                if (em.GetComponentData<PlannedBuilding>(plan).NextBreakGroundAt > SimClock.Now) continue;
                 if (breakPlan.Contains(plan)) continue;
                 breakPlan.Add(plan);
                 breakWorker.Add(entity);

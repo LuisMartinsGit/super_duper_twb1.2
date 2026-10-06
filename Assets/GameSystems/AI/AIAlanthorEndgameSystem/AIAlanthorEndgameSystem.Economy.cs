@@ -139,12 +139,10 @@ namespace TheWaningBorder.AI
             if (building == Entity.Null) return false;
 
             int dispatched = AICommon.DispatchWorkersTo(em, faction, building, buildingId, pos, maxWorkers: 2);
+            // No idle worker is not a rollback (2026-10-05, see
+            // SimpleAISystem.Building): the plan stands, a busy worker queues it.
             if (dispatched == 0)
-            {
-                FactionEconomy.Add(em, faction, cost);
-                em.DestroyEntity(building);
-                return false;
-            }
+                AICommon.PullWorkersTo(em, faction, building, buildingId, pos, maxWorkers: 1);
             AILogger.Log(faction, "BUILDING", $"Alanthor age-2 ladder: queued {buildingId}");
             return true;
         }

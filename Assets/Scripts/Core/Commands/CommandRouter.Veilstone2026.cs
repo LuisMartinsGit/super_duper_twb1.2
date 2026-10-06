@@ -54,7 +54,7 @@ namespace TheWaningBorder.Core.Commands
         {
             if (outpost == Entity.Null || !em.Exists(outpost)) return;
             if (!em.HasComponent<TradingOutpostTag>(outpost)) return;
-            if (recipe > TradeRecipe.SellVeilsteel) return;
+            if (recipe > TradeRecipe.Hold) return;
             if (em.HasComponent<FactionTag>(outpost)
                 && !TheWaningBorder.Systems.Economy.TradingOutpostSystem.IsUnlocked(
                        em.GetComponentData<FactionTag>(outpost).Value, recipe)) return;

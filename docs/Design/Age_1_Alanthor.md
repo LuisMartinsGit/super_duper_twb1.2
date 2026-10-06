@@ -281,10 +281,13 @@ Mines cannot be levelled and `Mine_Lvl1..3` are data waiting for that switch.
 ### Vault of Almiérra — the Alanthor landmark
 
 Built in Age 0 as the landmark that ages the faction up
-([Age_0.md § Vault](Age_0.md)). Its Alanthor levels
-(`VaultOfAlmierra/VaultOfAlmierra_Lvl1..3`) carry the interest multiplier:
-**interest applies from L1 and grows with level** (decision 12). Its research
-gates: Veilstone Monetization at **Vault L2**, Veilsteel Bonds at **Vault L3**.
+([Age_0.md § Vault](Age_0.md)). Interest is **simple, on the principal up to
+the Vault SO's cap** (decision 41, 2026-10-05) — never compounding. Its
+Alanthor levels (`VaultOfAlmierra/VaultOfAlmierra_Lvl1..3`) carry the
+interest multiplier: **interest applies from L1 and grows with level**
+(decision 12); the banking-grade techs raise the rate (the grade rates are on
+the Vault SO). Its research gates: Veilstone Monetization at **Vault L2**,
+Veilsteel Bonds at **Vault L3**.
 
 ---
 

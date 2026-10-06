@@ -130,6 +130,14 @@ namespace TheWaningBorder.AI
         };
         static CachedEntityQuery QC_GathererHutUpgradeableNotRaider;
 
+        static readonly ComponentType[] QT_TradingOutpostUpgradeable =
+        {
+            ComponentType.ReadOnly<TradingOutpostTag>(),
+            ComponentType.ReadOnly<BuildingUpgradeable>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_TradingOutpostUpgradeable;
+
         #endregion
 
         #region Tuning
@@ -205,8 +213,8 @@ namespace TheWaningBorder.AI
                 Faction faction = brain.Owner;
 
                 // Per-brain throttle, scaled by difficulty.
-                float think = Cfg.thinkInterval
-                            * AISimpleDifficulty.GetProfile(brain.Difficulty).SupportThinkScale;
+                var profile = AISimpleDifficulty.GetProfile(brain.Difficulty);
+                float think = Cfg.thinkInterval * profile.SupportThinkScale;
 
                 if (em.HasComponent<AIBuildingUpgradeTickState>(brainEntity))
                 {
@@ -265,11 +273,128 @@ namespace TheWaningBorder.AI
                 tickState.Rotation = (byte)((rotation + attempts) % PriorityOrder.Length);
                 em.SetComponentData(brainEntity, tickState);
 
+                // The capital's price is a savings goal on tiers that say so
+                // (Game_AI.md 5h) -- never while the base is defended.
+                bool defending = em.HasComponent<SimpleAIState>(brainEntity)
+                    && em.GetComponentData<SimpleAIState>(brainEntity).Posture == AIPosture.Defend;
+                // ...and never while the economy is in distress (Game_AI.md
+                // § 5i): a collapsed supply income, an economy under attack or
+                // a lost extractor owed a rebuild pauses the saving goal, so
+                // the trickle goes to the rebuild and the army instead.
+                bool reserveCapital = profile.ReserveForCapitalLevel && !defending
+                    && !AIPivotalReserve.IsSuspended(faction);
+                if (!reserveCapital) AIPivotalReserve.Clear(faction, CapitalReserveKey);
+
                 for (int a = 0; a < attempts; a++)
                     if (!TryUpgradeOne(em, faction, (rotation + a) % PriorityOrder.Length,
-                            reservesOk, overflowing, veilstoneHeld))
+                            reservesOk, overflowing, veilstoneHeld, reserveCapital, profile, time))
+                        break;
+
+                // ECONOMY LEVELS FIRST (Game_AI.md 5h): a level is income,
+                // which is what the army is waiting on.
+                for (int e = 0; e < profile.EconomyUpgradesPerThink; e++)
+                    if (!TryEconomyUpgrade(em, faction, e, profile.ArmyBeforeSaves))
                         break;
             }
+        }
+
+        /// <summary>AIPivotalReserve key of the capital's next level.</summary>
+        private const string CapitalReserveKey = "CapitalLevel";
+
+        /// <summary>Seconds between "capital saving" lines per faction (log
+        /// cadence, not tuning).</summary>
+        private const float CapitalSavingLogSeconds = 60f;
+
+        /// <summary>Per-faction next time the "capital saving" line may be
+        /// written (host AI state, main thread).</summary>
+        private static readonly System.Collections.Generic.Dictionary<int, float> _nextCapitalSavingLog
+            = new System.Collections.Generic.Dictionary<int, float>();
+
+        /// <summary>
+        /// One economy level, ahead of the rotation and without yielding to
+        /// the army (Game_AI.md 5f / 5h): the Gatherer's Hut (highest first,
+        /// so huts reach the L3 survey gate) on even passes, the cheapest
+        /// Trading Outpost on odd ones, each falling back to the other.
+        /// Respects the savings hold (the capital's price first) and the
+        /// army's veilstone earmark.
+        /// </summary>
+        private static bool TryEconomyUpgrade(EntityManager em, Faction faction, int pass,
+            bool incomeOutranksPot)
+        {
+            bool outpostFirst = (pass & 1) == 1;
+            for (int k = 0; k < 2; k++)
+            {
+                bool outpost = (k == 0) == outpostFirst;
+                Entity best = outpost ? CheapestOutpost(em, faction) : HighestHut(em, faction);
+                if (best == Entity.Null) continue;
+                if (!UpgradeBuildingCommandHelper.TryGetNextCost(em, best, out var cost, out byte next)) continue;
+                if (next <= 1) continue;   // L1 is the free age-up level
+                // Outside the budget's lump-sum reservation (the Fortress pot,
+                // Game_AI.md 5c): a level paid from the bank directly used
+                // to spend it on every release of the pivotal hold.
+                // ...except on a tier whose economy is what pays for the
+                // Fortress (armyBeforeSaves, Game_AI.md 5f): an INCOME level
+                // raises the income the pot is filled from, so it passes the
+                // pot and the non-strict holds; the bank still has to pay.
+                if (incomeOutranksPot)
+                {
+                    if (!FactionEconomy.CanAfford(em, faction, cost)) continue;
+                }
+                else
+                {
+                    if (!AIBudget.CanAffordOutsideReservation(em, faction, cost)) continue;
+                    if (AIPivotalReserve.ShouldHold(em, faction, cost)) continue;
+                }
+                if (!AIBudget.LeavesMilitaryVeilstone(em, faction, cost)) continue;
+                // UNITS BEFORE ECONOMY (Game_AI.md 5h): on a tier that says
+                // so, an economy level waits while the money could still
+                // start units in an idle trainer of an army below target.
+                string deferred = AIBudget.EconomyDeferral(em, faction, cost);
+                if (deferred != null)
+                {
+                    AIBudget.NoteEconomyDeferred(faction,
+                        "upgrade " + (outpost ? "Alanthor_TradingOutpost" : "GatherersHut"), deferred);
+                    return false;
+                }
+                if (UpgradeBuildingCommandHelper.Execute(em, best,
+                        TheWaningBorder.Core.Commands.CommandSource.AI) != UpgradeBuildingResult.Ok) continue;
+                string id = outpost ? "Alanthor_TradingOutpost" : "GatherersHut";
+                AILogger.Log(faction, "ECON", $"upgrade {id} -> L{next} ({cost.Supplies}s {cost.Iron}i)");
+                return true;
+            }
+            return false;
+        }
+
+        private static Entity HighestHut(EntityManager em, Faction faction)
+            => PickUpgradeable(em, faction,
+                QC_GathererHutUpgradeableNotRaider.Get(em, QT_GathererHutUpgradeableNotRaider), cheapest: false);
+
+        private static Entity CheapestOutpost(EntityManager em, Faction faction)
+            => PickUpgradeable(em, faction,
+                QC_TradingOutpostUpgradeable.Get(em, QT_TradingOutpostUpgradeable), cheapest: true);
+
+        /// <summary>The highest-level building (or, <paramref name="cheapest"/>,
+        /// the one with the cheapest next level) of a query that can be
+        /// levelled now: finished, nothing queued, below max.</summary>
+        private static Entity PickUpgradeable(EntityManager em, Faction faction, EntityQuery q, bool cheapest)
+        {
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            Entity best = Entity.Null;
+            int bestScore = int.MinValue;
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (facs[i].Value != faction) continue;
+                if (em.HasComponent<UnderConstruction>(ents[i])) continue;
+                if (UpgradeBuildingCommandHelper.IsUpgradeQueued(em, ents[i])) continue;
+                if (!UpgradeBuildingCommandHelper.TryGetNextCost(em, ents[i], out var cost, out byte next)) continue;
+                if (next <= 1 || next > BuildingUpgradeConfig.MaxLevel) continue;
+                int score = cheapest
+                    ? -(cost.Supplies + cost.Iron + cost.Veilstone + cost.Veilsteel)
+                    : next;
+                if (score > bestScore) { bestScore = score; best = ents[i]; }
+            }
+            return best;
         }
 
         // ──────────────────────────────────────────────────────────────────
@@ -290,7 +415,8 @@ namespace TheWaningBorder.AI
 
         /// <summary>One level-up (or none). True when one was queued.</summary>
         private static bool TryUpgradeOne(EntityManager em, Faction faction, int rotation,
-            bool reservesOk, bool surplus, bool veilstoneHeld)
+            bool reservesOk, bool surplus, bool veilstoneHeld, bool reserveCapital,
+            in AIDifficultyProfile profile, float time)
         {
             // THE HOME CAPITAL FIRST (2026-10-03). King Lexor trains only at
             // a Lv3 capital (levels no longer raise a territory limit —
@@ -305,7 +431,7 @@ namespace TheWaningBorder.AI
             // is upgraded ahead of the rotation and past the reserves; when
             // the bank cannot pay for it, only the supply engine may level
             // meanwhile, so the price can form.
-            switch (TryUpgradeCapital(em, faction, surplus))
+            switch (TryUpgradeCapital(em, faction, surplus, reserveCapital, profile, time))
             {
                 case CapitalUpgrade.Queued:
                     return true;
@@ -360,11 +486,91 @@ namespace TheWaningBorder.AI
         /// lowest NetworkId — the starting seat, the rule SimpleAISystem and
         /// AIAlanthorEndgameSystem use) while it is below
         /// capitalPriorityLevel.</summary>
-        private static CapitalUpgrade TryUpgradeCapital(EntityManager em, Faction faction, bool surplus)
+        private static CapitalUpgrade TryUpgradeCapital(EntityManager em, Faction faction, bool surplus,
+            bool reserveCapital, in AIDifficultyProfile profile, float time)
+        {
+            if (_capitalHoldEpoch != SimCadence.Epoch)
+            {
+                _capitalHoldEpoch = SimCadence.Epoch;
+                _capitalHoldSince.Clear();
+                _capitalRestUntil.Clear();
+            }
+            int fk = (int)faction;
+            var verdict = TryUpgradeCapitalCore(em, faction, surplus, out var home);
+            // THE CAPITAL'S PRICE IS A SAVINGS GOAL (Game_AI.md 5h). A rusher
+            // spent every supply on units as it arrived and its capital sat at
+            // L1 all match: the price never formed, and the x2 / x4 on the
+            // home territory never came.
+            if (verdict == CapitalUpgrade.Saving && reserveCapital
+                && UpgradeBuildingCommandHelper.TryGetNextCost(em, home, out var price, out byte next))
+            {
+                // ...BUT NOT FOREVER (2026-10-05): a savings goal that holds
+                // the bank for capitalReserveMaxHoldSeconds unbroken is
+                // released for capitalReserveRestSeconds, so production and
+                // units are not starved while the price forms. The capital is
+                // still bought whenever the bank can pay; while resting the
+                // upgrade rotation runs as usual.
+                if (CapitalReserveResting(faction, profile, time, next))
+                {
+                    AIPivotalReserve.Clear(faction, CapitalReserveKey);
+                    return CapitalUpgrade.NotNeeded;
+                }
+                AIPivotalReserve.Set(faction, CapitalReserveKey, price);
+                int key = (int)faction;
+                if (!_nextCapitalSavingLog.TryGetValue(key, out float at) || time >= at
+                    || time < at - CapitalSavingLogSeconds)   // a new match restarted the clock
+                {
+                    _nextCapitalSavingLog[key] = time + CapitalSavingLogSeconds;
+                    AILogger.Log(faction, "ECON",
+                        $"capital L{next} saving ({price.Supplies}s {price.Iron}i {price.Veilstone}v)");
+                }
+            }
+            else
+            {
+                AIPivotalReserve.Clear(faction, CapitalReserveKey);
+                _capitalHoldSince.Remove(fk);
+            }
+            return verdict;
+        }
+
+        // Host-only AI state, keyed by faction, reset per match (SimCadence).
+        private static int _capitalHoldEpoch = -1;
+        private static readonly System.Collections.Generic.Dictionary<int, float> _capitalHoldSince
+            = new System.Collections.Generic.Dictionary<int, float>();
+        private static readonly System.Collections.Generic.Dictionary<int, float> _capitalRestUntil
+            = new System.Collections.Generic.Dictionary<int, float>();
+
+        /// <summary>True while the capital's savings goal is released (its
+        /// hold ran capitalReserveMaxHoldSeconds unbroken; it rests for
+        /// capitalReserveRestSeconds). Starts the hold clock otherwise.</summary>
+        private static bool CapitalReserveResting(Faction faction, in AIDifficultyProfile profile,
+            float time, byte next)
+        {
+            int key = (int)faction;
+            if (_capitalRestUntil.TryGetValue(key, out float rest) && time < rest) return true;
+            if (!_capitalHoldSince.TryGetValue(key, out float since))
+            {
+                _capitalHoldSince[key] = time;
+                return false;
+            }
+            if (profile.CapitalReserveMaxHoldSeconds <= 0f
+                || time - since < profile.CapitalReserveMaxHoldSeconds)
+                return false;
+            _capitalHoldSince.Remove(key);
+            float restFor = System.Math.Max(0f, profile.CapitalReserveRestSeconds);
+            _capitalRestUntil[key] = time + restFor;
+            AILogger.Log(faction, "ECON",
+                $"capital L{next} saving released after {profile.CapitalReserveMaxHoldSeconds:F0}s " +
+                $"(units and production first for {restFor:F0}s)");
+            return true;
+        }
+
+        private static CapitalUpgrade TryUpgradeCapitalCore(EntityManager em, Faction faction, bool surplus,
+            out Entity home)
         {
             var query = QC_HallTagBuildingUpgradeableFactionTag.Get(em, QT_HallTagBuildingUpgradeableFactionTag);
             using var ents = query.ToEntityArray(Allocator.Temp);
-            Entity home = Entity.Null;
+            home = Entity.Null;
             long bestNid = long.MaxValue;
             for (int i = 0; i < ents.Length; i++)
             {
@@ -386,11 +592,28 @@ namespace TheWaningBorder.AI
             // Already paid for and waiting / in progress: nothing to buy.
             if (UpgradeBuildingCommandHelper.IsUpgradeQueued(em, home)) return CapitalUpgrade.NotNeeded;
 
+            // UNITS BEFORE ECONOMY (Game_AI.md 5h): a priority level past
+            // capitalEssentialLevel (L2 doubles the home income and stays
+            // essential) is economy drive -- on a tier that says so it
+            // waits, unsaved, while the money could still become units. The
+            // rotation may still level it later, under the same gate.
+            if (lvl + 1 > Cfg.capitalEssentialLevel
+                && UpgradeBuildingCommandHelper.TryGetNextCost(em, home, out var drivePrice, out _))
+            {
+                string deferred = AIBudget.EconomyDeferral(em, faction, drivePrice);
+                if (deferred != null)
+                {
+                    AIBudget.NoteEconomyDeferred(faction, $"capital L{lvl + 1}", deferred);
+                    return CapitalUpgrade.NotNeeded;
+                }
+            }
+
             var result = UpgradeBuildingCommandHelper.Execute(em, home,
                 TheWaningBorder.Core.Commands.CommandSource.AI);
             if (result == UpgradeBuildingResult.Ok)
             {
                 AILogger.Log(faction, "BUILDING", $"Upgrading the capital to L{lvl + 1} (priority)");
+                AILogger.Log(faction, "ECON", $"upgrade Fortress (capital) -> L{lvl + 1}");
                 if (surplus) AILogger.Log(faction, "SURPLUS", $"upgrade Fortress (capital) to L{lvl + 1}");
                 return CapitalUpgrade.Queued;
             }
@@ -503,6 +726,22 @@ namespace TheWaningBorder.AI
             // what allows the army to grow faster"): this iron floor, the
             // ArmyFirstYield below and the army's veilstone earmark.
             bool feedsArmy = RaisesUnitOutput(buildingId);
+
+            // UNITS BEFORE ECONOMY (Game_AI.md 5h): every level that does not
+            // raise unit output waits, on a tier that says so, while the
+            // money could still start units (the supply engine excepted: it
+            // is the income the capital's essential price is waiting on; a Hut
+            // level is housing, levelled only when housing is short).
+            if (!feedsArmy && !supplyEngine && buildingId != "Hut"
+                && UpgradeBuildingCommandHelper.TryGetNextCost(em, best, out var driveCost, out _))
+            {
+                string deferred = AIBudget.EconomyDeferral(em, faction, driveCost);
+                if (deferred != null)
+                {
+                    AIBudget.NoteEconomyDeferred(faction, "upgrade " + buildingId, deferred);
+                    return false;
+                }
+            }
             if (!feedsArmy
                 && FactionEconomy.TryGetBank(em, faction, out var upgradeBank)
                 && em.GetComponentData<FactionResources>(upgradeBank).Iron < Cfg.upgradeIronReserve)

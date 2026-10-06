@@ -69,8 +69,18 @@ namespace TheWaningBorder.AI
                 _nextExtractorTime[key] = now + Cfg.extractorAttemptInterval * ((key & 7) / 8f);
                 return;
             }
+            // A LOST EXTRACTOR IS REBUILT FIRST (2026-10-05, Game_AI.md §
+            // 5i): while one is owed (TrackExtractorLosses) the walk runs every
+            // extractorRebuildAttemptInterval and tries the lost kind first.
+            bool rebuilding = TryGetRebuildOwed(faction, now, out int owedKind);
+            if (rebuilding && _nextExtractorTime.TryGetValue(key, out float due)
+                && due > now + Cfg.extractorRebuildAttemptInterval)
+                _nextExtractorTime[key] = now + Cfg.extractorRebuildAttemptInterval;
             if (_nextExtractorTime.TryGetValue(key, out float next) && now < next) return;
-            _nextExtractorTime[key] = now + Cfg.extractorAttemptInterval;
+            // PACE IS THE LADDER (2026-10-05, Game_AI.md § 2); a rebuild keeps
+            // its own faster cadence on every tier.
+            _nextExtractorTime[key] = now + (rebuilding ? Cfg.extractorRebuildAttemptInterval
+                : Cfg.extractorAttemptInterval * math.max(0.1f, ProfileOf(faction).TerritoryCadenceScale));
 
             if (!TechCatalog.IsReady) return;
             // The Outpost savings goal lasts only while the army is short of
@@ -97,10 +107,17 @@ namespace TheWaningBorder.AI
             string blocked = null;
             _nodesOffTerritory = 0;
             _nodesUnreachable = 0;
+            _nodesSiteBlocked = 0;
 
-            for (int i = 0; i < ExtractorPlan.Length; i++)
+            string owedId = rebuilding ? RebuildIds[owedKind] : null;
+            for (int step = 0; step < ExtractorPlan.Length + (owedId != null ? 1 : 0); step++)
             {
-                string buildingId = ExtractorPlan[i].Building;
+                // The owed kind goes first, then the plan in its own order
+                // (skipping the owed kind's second visit).
+                string buildingId = owedId != null
+                    ? (step == 0 ? owedId : ExtractorPlan[step - 1].Building)
+                    : ExtractorPlan[step].Building;
+                if (owedId != null && step > 0 && buildingId == owedId) continue;
 
                 // Affordable and legal for this culture/era? TryBuildBuilding
                 // re-checks, but asking first avoids scanning nodes for a
@@ -219,6 +236,10 @@ namespace TheWaningBorder.AI
                     if (isOutpost) AIPivotalReserve.Clear(faction, OutpostReserveKey);
                     return;   // one per attempt
                 }
+                // An owed rebuild every free node refuses is dropped after
+                // extractorRebuildMaxRefusals walks, so its strict savings
+                // goal cannot hold the bank for a site that never comes.
+                if (buildingId == owedId) NoteRebuildRefused(faction, owedKind, reason, now);
                 if (AILogger.Enabled)
                     blocked += $" | {buildingId}: {_freeNodes.Count} node(s), last refusal: {reason}";
             }
@@ -228,6 +249,8 @@ namespace TheWaningBorder.AI
                 // Bad map data reads as an AI that will not build, so name it.
                 if (_nodesUnreachable > 0)
                     blocked += $" | {_nodesUnreachable} node(s) skipped: nothing can reach them";
+                if (_nodesSiteBlocked > 0)
+                    blocked += $" | {_nodesSiteBlocked} site(s) skipped: lost there before (curse node in reach, or lost too often)";
                 LogExtractBlocked(faction, now, blocked.Substring(3));
             }
         }
@@ -237,6 +260,46 @@ namespace TheWaningBorder.AI
         private const string OutpostReserveKey = "TradingOutpost";
 
         private readonly Dictionary<int, float> _nextOutpostModeTime = new Dictionary<int, float>();
+
+        /// <summary>Per faction: the Outposts have stopped BUYING because the
+        /// bank holds more veilstone than the army plan needs (§ 5a, the
+        /// glut rule). Static: the composition reads it (ComputeShares is
+        /// static). Host-only; reset per match.</summary>
+        private static readonly Dictionary<int, bool> _outpostBuyOff = new Dictionary<int, bool>();
+
+        private static bool OutpostBuyOff(Faction faction)
+            => _outpostBuyOff.TryGetValue((int)faction, out bool off) && off;
+
+        /// <summary>
+        /// Veilstone a minute the army plan spends at full production: the
+        /// share-weighted veilstone price per training second of its role
+        /// rows (unit SOs), times the faction's military trainers. 0 while no
+        /// plan is active (pre-age-up, other cultures).
+        /// </summary>
+        private static float PlanVeilstonePerMinute(EntityManager em, Faction faction)
+        {
+            var p = GetArmyPlan(em, faction);
+            if (!p.Active) return 0f;
+            float perTrainer = 0f, shares = 0f;
+            for (int r = 0; r < p.N; r++)
+            {
+                if (!p.Trainable[r] || p.Share[r] <= 0f || p.Rows[r] == null) continue;
+                if (!TechCatalog.TryGetUnit(p.Rows[r].unitId, out var def) || def?.cost == null) continue;
+                perTrainer += p.Share[r] * def.cost.Veilstone * 60f / math.max(1f, def.trainingTime);
+                shares += p.Share[r];
+            }
+            if (shares <= 0f) return 0f;
+            return perTrainer / shares * math.max(1, CountMilitaryTrainers(em, faction));
+        }
+
+        /// <summary>The veilstone the bank should hold: the plan's spend for
+        /// outpostVeilstoneNeedMinutes, never below outpostVeilstoneNeedFloor.</summary>
+        private static int OutpostVeilstoneNeed(EntityManager em, Faction faction)
+            => math.min(Cfg.outpostVeilstoneNeedMax > 0 ? Cfg.outpostVeilstoneNeedMax : int.MaxValue,
+                math.max(Cfg.outpostVeilstoneNeedFloor,
+                    (int)math.ceil(PlanVeilstonePerMinute(em, faction) * math.max(0f, Cfg.outpostVeilstoneNeedMinutes))));
+
+        private static readonly string[] _glutTradeTechs = new string[2];
 
         /// <summary>
         /// Choose each of this faction's Trading Outposts' trade
@@ -275,6 +338,77 @@ namespace TheWaningBorder.AI
             bool canSell = TheWaningBorder.Systems.Economy.TradingOutpostSystem.IsUnlocked(
                 faction, TradeRecipe.SellVeilsteel);
 
+            // THE GLUT RULE (2026-10-05, Game_AI.md § 5a). Blue (Expert)
+            // banked 4,900 veilstone and 14,000 iron at 26.8 min with 409
+            // supplies and an army of 29: four Outposts kept BUYING — 11,271
+            // supplies and 11,271 iron into trade over the match, more
+            // supplies than its whole army cost (7,146) — while supplies were
+            // what every refused purchase lacked. Above what the army plan
+            // needs, the Outposts stop buying: forge the surplus (and sell
+            // the veilsteel for supplies and iron, once researched), or HOLD.
+            bool veilstoneStarved = AIBudget.IsMilitaryShort(faction, AIBudget.ResVeilstone);
+            // SUPPLIES OUTRANK A VEILSTONE PURCHASE (2026-10-05, Mirror
+            // Marches M2): with 29 Outposts the four-minute need read 13-16k,
+            // so Expert bought veilstone at 15 supplies/s — its whole supply
+            // income — from 15:00 to 35:00 with 12k banked, and never
+            // reached a Fortress's price. Buying trades supplies for
+            // veilstone: while the army is short of SUPPLIES and not of
+            // veilstone, the Outposts hold (or forge); and the need is capped.
+            bool suppliesStarved = AIBudget.IsMilitaryShort(faction, AIBudget.ResSupplies);
+            int need = OutpostVeilstoneNeed(em, faction);
+            bool wasOff = OutpostBuyOff(faction);
+            bool buyOff = wasOff;
+            if (veilstoneStarved) buyOff = false;
+            else if (suppliesStarved) buyOff = true;
+            else if (!wasOff && bank.Veilstone > need) buyOff = true;
+            else if (wasOff && bank.Veilstone < need * math.saturate(Cfg.outpostBuyResumeFraction)) buyOff = false;
+            _outpostBuyOff[key] = buyOff;
+            if (buyOff != wasOff)
+                AILogger.Log(faction, "TRADE", buyOff
+                    ? $"outposts buy off (veilstone {bank.Veilstone}, need {need}" +
+                      (suppliesStarved && bank.Veilstone <= need ? ", army short of supplies)" : ")")
+                    : $"outposts buy on (veilstone {bank.Veilstone}, need {need}" +
+                      (veilstoneStarved ? ", army short of veilstone)" : ")"));
+
+            if (buyOff)
+            {
+                // The way back to supplies is Forge -> Sell: research both.
+                var tcfg = TheWaningBorder.Systems.Economy.TradingOutpostSystem.Cfg;
+                Entity host = FindResearchHost<TradingOutpostTag>(em, faction);
+                if (tcfg != null && host != Entity.Null && (!canForge || !canSell))
+                {
+                    _glutTradeTechs[0] = tcfg.forgeTech;
+                    _glutTradeTechs[1] = tcfg.sellTech;
+                    TryTradeResearchFrom(em, faction, host, _glutTradeTechs);
+                }
+                TheWaningBorder.Systems.Economy.TradingOutpostSystem.PerMinute(
+                    faction, TradeRecipe.SellVeilsteel, out var sellIn, out _);
+                int glutSell = canSell && bank.Veilsteel >= math.max(1f, sellIn.Veilsteel) ? 1 : 0;
+                // Forge everything else; without the sale, only up to the
+                // veilsteel target (Export's own price included).
+                int glutForge = !canForge ? 0
+                    : canSell || bank.Veilsteel < Cfg.outpostVeilsteelTarget ? mine - glutSell : 0;
+                int gChanged = 0, gSells = 0, gForges = 0;
+                for (int i = 0; i < ents.Length; i++)
+                {
+                    if (facs[i].Value != faction) continue;
+                    TradeRecipe want;
+                    if (gSells < glutSell) { want = TradeRecipe.SellVeilsteel; gSells++; }
+                    else if (gForges < glutForge) { want = TradeRecipe.ForgeVeilsteel; gForges++; }
+                    else want = TradeRecipe.Hold;
+                    if (modes[i].Recipe == want) continue;
+                    TheWaningBorder.Core.Commands.CommandRouter.IssueSetOutpostMode(
+                        em, ents[i], want, TheWaningBorder.Core.Commands.CommandSource.AI);
+                    gChanged++;
+                }
+                if (gChanged > 0)
+                    AILogger.Log(faction, "TRADE",
+                        $"outposts buy off: {gSells} sell / {gForges} forge / {mine - gSells - gForges} hold " +
+                        $"(veilstone {bank.Veilstone} > need {need}, veilsteel {bank.Veilsteel}, " +
+                        $"supplies {bank.Supplies}, iron {bank.Iron})");
+                return;
+            }
+
             int sellWant = canSell && bank.Veilsteel >= Cfg.outpostSellAboveVeilsteel ? 1 : 0;
             int forgeWant;
             if (!canForge || bank.Veilstone < Cfg.outpostTradeBelowVeilstone
@@ -292,7 +426,6 @@ namespace TheWaningBorder.AI
             // an Outpost selling veilsteel is one not buying. Selling stays
             // only while the bank is too poor in supplies or iron to run a
             // Buy cycle, which the sale itself pays for.
-            bool veilstoneStarved = AIBudget.IsMilitaryShort(faction, AIBudget.ResVeilstone);
             if (veilstoneStarved)
             {
                 forgeWant = 0;
@@ -467,7 +600,7 @@ namespace TheWaningBorder.AI
         /// <summary>Nodes skipped by the last walk because the map put them
         /// somewhere unusable — surfaced in the EXTRACT log so bad map data is
         /// visible instead of silent.</summary>
-        private int _nodesOffTerritory, _nodesUnreachable;
+        private int _nodesOffTerritory, _nodesUnreachable, _nodesSiteBlocked;
 
         /// <summary>
         /// Every node of the kind <paramref name="buildingId"/> needs, inside
@@ -523,6 +656,8 @@ namespace TheWaningBorder.AI
                 { _nodesOffTerritory++; continue; }
 
                 if (!HasReachableApproach(site)) { _nodesUnreachable++; continue; }
+                // A site that keeps dying waits (Game_AI.md § 5i).
+                if (ExtractorSiteBlocked(em, faction, site, _thinkNow)) { _nodesSiteBlocked++; continue; }
 
                 into.Add(site);
             }
@@ -581,6 +716,7 @@ namespace TheWaningBorder.AI
                     if (region == RegionMap.None || !owned.Contains(region))
                     { _nodesOffTerritory++; continue; }
                     if (!HasReachableApproach(slot)) { _nodesUnreachable++; continue; }
+                    if (ExtractorSiteBlocked(em, faction, slot, _thinkNow)) { _nodesSiteBlocked++; continue; }
                     if (!snap.IsValidBuildPosition(em, slot, size, id)) continue;
 
                     float d2 = math.distancesq(slot.xz, hallPos.xz);

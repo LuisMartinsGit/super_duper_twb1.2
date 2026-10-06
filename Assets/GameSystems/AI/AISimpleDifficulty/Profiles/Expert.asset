@@ -18,8 +18,47 @@ MonoBehaviour:
   firstAttackEarliestSeconds: 180
   attackWaveIntervalSeconds: 120
   waveBaseUnits: 6
+  standingArmyFloorFraction: 0.15
+  waveMinArmyFraction: 0.1
+  territoryCadenceScale: 0.7
+  fortressDelaySeconds: 0
+  reconquestMargin: 1.15
+  strengthWaveRatioScale: 0.9
+  personalityWeight: 0.35
   sustainArmyCap: 200
+  concurrentArmies: 3
+  incomeTargeting: 1
   supportThinkScale: 0.6
   counterResponse: 1.15
   basicsShareScale: 0.75
   expansionDrive: 1.5
+  reserveForCapitalLevel: 1
+  economyUpgradesPerThink: 3
+  productionQueueDepth: 1
+  protectAgeUpSavings: 0
+  curseHuntMinCapitalLevel: 1
+  vaultDepositShare: 0.85
+  vaultHoldSeconds: 300
+  vaultWithdrawOnNeed: 1
+  unitsBeforeEconomy: 1
+  armyBeforeSaves: 1
+  capitalReserveMaxHoldSeconds: 90
+  capitalReserveRestSeconds: 60
+  homeProductionPerLine: 2
+  provinceProductionPerTerritory: 1
+  productionSaturationThreshold: 0.5
+  productionSaturationSeconds: 30
+  economyDefenceDelaySeconds: 1
+  economyDefenceMargin: 2
+  tactics:
+    counterTargetWeight: 1
+    focusFireWeight: 1
+    kiting: 1
+    flankFraction: 0.3
+    retreatRatio: 1.35
+    reengageRatio: 0.95
+    rangedBehindMelee: 1
+    castUnitAbilities: 1
+    aoeMinEnemies: 4
+    healMinMissingFraction: 0.3
+    pivotalRatio: 1.3

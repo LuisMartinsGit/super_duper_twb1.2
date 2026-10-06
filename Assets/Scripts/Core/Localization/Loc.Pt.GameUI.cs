@@ -63,15 +63,15 @@ namespace TheWaningBorder.Core.Localization
             t["Veilsteel"] = "Veilsteel";
             t["Glow"] = "Fulgor";
             t["Empty"] = "Vazio";
-            t["Interest: {0:F0}%/min (compound)   Stored: {1}"] =
-                "Juros: {0:F0}%/min (compostos)   Armazenado: {1}";
+            t["Interest: {0:F0}%/min (simple, on the deposit)   Stored: {1}"] =
+                "Juros: {0:F0}%/min (simples, sobre o depósito)   Armazenado: {1}";
             t["LOCKED — {0}:{1:D2} remaining"] = "BLOQUEADO — {0}:{1:D2} restantes";
             t["Resource: {0}  (click to cycle)"] = "Recurso: {0}  (clique para alternar)";
             t["Pick which resource this vault stores. Locked to the stored type once a deposit is made."] =
                 "Escolha o recurso que este cofre armazena. Fica fixo ao tipo armazenado assim que for feito um depósito.";
             t["Deposit {0}"] = "Depositar {0}";
-            t["Deposits lock the vault for a while; interest compounds per minute."] =
-                "Os depósitos bloqueiam o cofre durante algum tempo; os juros compõem a cada minuto.";
+            t["Deposits lock the vault for a while; the deposit earns simple interest per minute, up to the Vault's cap."] =
+                "Os depósitos bloqueiam o cofre durante algum tempo; o depósito rende juros simples a cada minuto, até ao limite do Cofre.";
             t["Withdraw All ({0})"] = "Levantar Tudo ({0})";
             t["Returns the stored amount (plus accrued interest) to the bank."] =
                 "Devolve o valor armazenado (mais os juros acumulados) ao banco.";

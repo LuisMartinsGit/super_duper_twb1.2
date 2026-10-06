@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4d2f9c81a6e34b0f8d1c5a7e2b9f6034, type: 3}
+  m_Name: Mirror Marches MapInfo
+  m_EditorClassIdentifier: 
+  SceneName: MirrorMarches
+  DisplayName: Mirror Marches
+  PlayerCount: 4
+  SizeTag: OPEN
+  Description: 
+  Thumbnail: {fileID: 2800000, guid: e80150d35854d3548853dab4e8fa2a35, type: 3}
+  PlayerStarts:
+  - {x: 0.125, y: 0.125}
+  - {x: 0.875, y: 0.125}
+  - {x: 0.875, y: 0.875}
+  - {x: 0.125, y: 0.875}
+  PlayerStartFactions: 00010203
+  PlayerStartTeams: 
+  IronDeposits: []
+  VeilstoneNodes: []
+  VeilsteelNodes: []
+  CurseNodes: []
+  SupplyNodes: []
+  RegionStamp: 14A8AD23B1B6DB43

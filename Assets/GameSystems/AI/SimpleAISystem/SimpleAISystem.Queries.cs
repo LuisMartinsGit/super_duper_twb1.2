@@ -247,8 +247,8 @@ namespace TheWaningBorder.AI
                 if (facs[i].Value != faction) continue;
                 if (em.HasComponent<UnderConstruction>(ents[i])) continue;
                 finished++;
-                if (!TheWaningBorder.Core.Commands.CommandRouter
-                        .IsProductionQueueFull(em, ents[i]))
+                // The tier's queue depth is its cap (Game_AI.md § 5h).
+                if (!AtQueueCap(em, faction, ents[i]))
                     return false;      // one idle slot anywhere: not the cap
             }
             return finished > 0;

@@ -16,8 +16,6 @@ MonoBehaviour:
   enemyStrengthWeight: 2.0
   enemyBaseWeight: 0.6
   exposedEconomyWeight: 0.35
-  successWeight: 0.5
-  lossWeight: 0.7
   povertyWeight: 0.8
   povertySuppliesFloor: 250
   seedJitter: 0.5

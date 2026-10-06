@@ -102,6 +102,12 @@ namespace TheWaningBorder.Economy
             new float[Factions, (int)IncomeSource.Count, Resources];
         private static readonly float[,,] _spend =
             new float[Factions, (int)SpendCategory.Count, Resources];
+        /// <summary>Income since the match began, never reset by the sample
+        /// (the Score's "resources earned", docs/Design/Score.md). Kept
+        /// whether or not the metrics recorder runs: it is the one ledger
+        /// the shipped game reads.</summary>
+        private static readonly float[,,] _lifetimeIncome =
+            new float[Factions, (int)IncomeSource.Count, Resources];
 
         /// <summary>True while the match metrics recorder is running. Off,
         /// every entry point returns at the first line.</summary>
@@ -111,10 +117,14 @@ namespace TheWaningBorder.Economy
         public static void Credit(Faction faction, IncomeSource source,
             float supplies, float iron, float veilstone, float veilsteel)
         {
-            if (!Recording) return;
             int f = (int)faction;
             if (f < 0 || f >= Factions || source >= IncomeSource.Count) return;
             int s = (int)source;
+            _lifetimeIncome[f, s, 0] += supplies;
+            _lifetimeIncome[f, s, 1] += iron;
+            _lifetimeIncome[f, s, 2] += veilstone;
+            _lifetimeIncome[f, s, 3] += veilsteel;
+            if (!Recording) return;
             _income[f, s, 0] += supplies;
             _income[f, s, 1] += iron;
             _income[f, s, 2] += veilstone;
@@ -143,6 +153,14 @@ namespace TheWaningBorder.Economy
         /// <summary>Accumulated income since the last <see cref="Reset"/>.</summary>
         public static float IncomeOf(int faction, IncomeSource source, int resource)
             => _income[faction, (int)source, resource];
+
+        /// <summary>Income since the match began (see the field).</summary>
+        public static float LifetimeIncomeOf(int faction, IncomeSource source, int resource)
+            => _lifetimeIncome[faction, (int)source, resource];
+
+        /// <summary>A new match: MatchScoreSystem calls this on the epoch change.</summary>
+        public static void ResetLifetime()
+            => System.Array.Clear(_lifetimeIncome, 0, _lifetimeIncome.Length);
 
         /// <summary>Accumulated spending since the last <see cref="Reset"/>.</summary>
         public static float SpendOf(int faction, SpendCategory category, int resource)

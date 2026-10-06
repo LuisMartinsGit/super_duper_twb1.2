@@ -15,6 +15,8 @@ namespace TheWaningBorder.Systems.Combat
     /// - Damage-type vs armor-type modifier matrix (via CombatModifiers)
     /// - Per-damage-type defense with diminishing returns
     /// - Height-based damage modifiers (±20% cap)
+    /// - Flanking: a hit outside the defender's front arc is multiplied
+    ///   (docs/Design/Combat_Pacing.md § Flanking; MeleeCombatSystem.asset)
     /// - Veilstone buff/debuff integration
     /// - Attack cooldown management
     /// - Chase behavior when target is out of range
@@ -51,6 +53,17 @@ namespace TheWaningBorder.Systems.Combat
             var dt = SystemAPI.Time.DeltaTime;
             var elapsed = SimCadence.MatchTimeOr(SystemAPI.Time.ElapsedTime); // for BuildingDamageState stamps
             var em = state.EntityManager;
+
+            // Flanking (docs/Design/Combat_Pacing.md § Flanking). Read once per
+            // update; the arc test below compares a dot product against the
+            // cosine of the half-angle, so no per-hit trig. A missing config
+            // has already been reported loudly by ComponentConfig.Require —
+            // flanking is then off rather than every melee swing throwing.
+            var meleeCfg = MeleeCombatSystemConfig.I;
+            float flankMult = meleeCfg != null ? meleeCfg.flankDamageMultiplier : 1f;
+            float frontArcCos = meleeCfg != null
+                ? math.cos(math.radians(meleeCfg.frontArcHalfAngleDegrees))
+                : -2f; // below any dot product: everything is "front"
 
             foreach (var (transform, target, cooldown, damage, entity) in SystemAPI
                 .Query<RefRO<LocalTransform>, RefRW<Target>, RefRW<AttackCooldown>, RefRO<Damage>>()
@@ -191,7 +204,8 @@ namespace TheWaningBorder.Systems.Combat
                 if (em.HasComponent<Invulnerable>(tgt.Value)) continue;
 
                 var myPos = transform.ValueRO.Position;
-                var targetPos = em.GetComponentData<LocalTransform>(tgt.Value).Position;
+                var targetXf = em.GetComponentData<LocalTransform>(tgt.Value);
+                var targetPos = targetXf.Position;
 
                 // SURFACE distance — how far the attacker is from the target's
                 // BODY, not its pivot. See TargetGeometry: box footprint for
@@ -295,6 +309,13 @@ namespace TheWaningBorder.Systems.Combat
                         // Feraldis: blood frenzy + Berserker last stand.
                         borderMod *= CombatDamageHelper.GetFrenzyDamageMult(em, entity);
 
+                        // Flanking: same multiplier layer as height and
+                        // veilstone — on the post-armour total, tag bonus
+                        // included. Units only; a building has no facing.
+                        bool flank = em.HasComponent<UnitTag>(tgt.Value)
+                            && IsFlankHit(targetXf, myPos, frontArcCos);
+                        if (flank) borderMod *= flankMult;
+
                         // Tag bonus (AoE4-style): attacker's BonusVsTags vs the
                         // target's tags — flat, armor-ignoring, from the unit SO.
                         int tagBonus = TagBonus.Compute(em, entity, tgt.Value);
@@ -340,6 +361,13 @@ namespace TheWaningBorder.Systems.Combat
                         // Match-long damage ledger — what Wrath's Spite pools
                         // and pays back (docs/Design/Sects.md).
                         CombatDamageHelper.RecordDamageDealt(em, ecb, entity, finalDamage);
+
+                        // Diagnostics only (no-op unless metrics are on):
+                        // melee / flank hit counts per attacking faction.
+                        if (TheWaningBorder.Core.Diagnostics.MatchMetrics.Enabled
+                            && em.HasComponent<FactionTag>(entity))
+                            TheWaningBorder.Core.Diagnostics.MatchMetrics.RecordMeleeHit(
+                                em.GetComponentData<FactionTag>(entity).Value, flank);
 
                         // Feraldis on-hit riders. Both no-op for units without
                         // the declaring component, so every other unit in the
@@ -557,6 +585,27 @@ namespace TheWaningBorder.Systems.Combat
             var anchor = new ChaseAnchor { Target = target, TargetPos = targetPos, Point = point };
             TransientState.Set(ecb, self, anchor);
             return point;
+        }
+
+        /// <summary>
+        /// True when <paramref name="attackerPos"/> stands outside the
+        /// defender's front arc: the angle between the defender's facing
+        /// (yaw forward, XZ) and the defender-to-attacker line exceeds the
+        /// half-angle whose cosine is <paramref name="frontArcCos"/>. The
+        /// boundary counts as front; a degenerate (coincident) position is
+        /// front. Side and rear are one arc. docs/Design/Combat_Pacing.md.
+        /// </summary>
+        internal static bool IsFlankHit(in LocalTransform defender, float3 attackerPos, float frontArcCos)
+        {
+            float3 fwd = math.mul(defender.Rotation, new float3(0f, 0f, 1f));
+            float fx = fwd.x, fz = fwd.z;
+            float flen2 = fx * fx + fz * fz;
+            float tx = attackerPos.x - defender.Position.x;
+            float tz = attackerPos.z - defender.Position.z;
+            float tlen2 = tx * tx + tz * tz;
+            if (flen2 < 1e-8f || tlen2 < 1e-8f) return false;
+            float cos = (fx * tx + fz * tz) / math.sqrt(flen2 * tlen2);
+            return cos < frontArcCos;
         }
 
         /// <summary>

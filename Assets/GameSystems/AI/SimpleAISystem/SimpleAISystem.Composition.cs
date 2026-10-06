@@ -162,6 +162,8 @@ namespace TheWaningBorder.AI
             public bool EnemyRead;
 
             public float BasicsShare, EconScale, VeilstoneIncome, CounterResponse, DiffBasics, PersBasics;
+            /// <summary>The surplus-resource tilt is on this think (§ 5a glut rule).</summary>
+            public bool GlutTilt;
 
             public bool LexorOwed;          // capital can train him, none alive or queued
             public Cost LexorCost;
@@ -197,6 +199,18 @@ namespace TheWaningBorder.AI
         }
 
         private static bool IsBasicRow(ArmyPlan p, int r) => r >= 0 && p.Rows[r].basic;
+
+        /// <summary>1 + tilt x (1 - 2 x the unit's supplies share of its
+        /// cost), floored at 0.1: a unit paid only in iron/veilstone gets
+        /// 1 + tilt, one paid only in supplies 1 - tilt.</summary>
+        private static float GlutTiltFactor(string unitId, float tilt)
+        {
+            if (string.IsNullOrEmpty(unitId)) return 1f;
+            if (!TechCatalog.TryGetUnit(unitId, out var def) || def?.cost == null) return 1f;
+            float total = def.cost.Supplies + def.cost.Iron + def.cost.Veilstone + def.cost.Veilsteel;
+            if (total <= 0f) return 1f;
+            return math.max(0.1f, 1f + tilt * (1f - 2f * def.cost.Supplies / total));
+        }
 
         private static string ShortName(string unitId)
             => unitId != null && unitId.StartsWith("Alanthor_") ? unitId.Substring(9) : unitId;
@@ -267,7 +281,8 @@ namespace TheWaningBorder.AI
             Entity brain = BrainOf(em, faction);
             var brainData = brain != Entity.Null ? em.GetComponentData<AIBrain>(brain) : default;
             var profile = AISimpleDifficulty.GetProfile(brainData.Difficulty);
-            var personality = AISettings.Get().For(brainData.Personality);
+            var personality = AISettings.Get().For(brainData.Personality,
+                AISimpleDifficulty.GetProfile(brainData.Difficulty).PersonalityWeight);
 
             ReadEnemy(em, brain, profile.IntelFreshnessSeconds, p);
             ComputeShares(em, faction, p, profile, personality);
@@ -431,6 +446,24 @@ namespace TheWaningBorder.AI
                 econ = 1f;
             p.EconScale = math.lerp(math.saturate(Cfg.ladderScaleWhenStarved), 1f, econ);
 
+            // THE BASICS SCALE IS NOT A WAY TO SHRINK THE ARMY (2026-10-04,
+            // Game_AI.md § 5h). A tier below 1 leans on role units — but only
+            // while veilstone flows. Starved (econ < 1), the role units cannot
+            // be bought anyway, and the hard basics cap made Expert's 0.75 a
+            // smaller army, not a better one: lift it toward 1 by the same
+            // amount the ladder is starved.
+            if (p.DiffBasics < 1f) p.DiffBasics = math.lerp(1f, p.DiffBasics, econ);
+
+            // THE GLUT TILT (2026-10-05, Game_AI.md § 5a): veilstone or iron
+            // piling up while the army is short of SUPPLIES — weigh the roles
+            // paid mostly in the surplus up, the supply-heavy ones down. The
+            // basics clamp and the locks below still apply.
+            float tilt = math.max(0f, Cfg.glutCompositionTilt);
+            p.GlutTilt = tilt > 0f && AIBudget.IsMilitaryShort(faction, AIBudget.ResSupplies)
+                && (OutpostBuyOff(faction)
+                    || (FactionEconomy.TryGetResources(em, faction, out var glutBank)
+                        && glutBank.Iron >= Cfg.glutIronAbove));
+
             // 1-4: raw shares.
             for (int r = 0; r < p.N; r++)
             {
@@ -447,6 +480,7 @@ namespace TheWaningBorder.AI
                     }
                 v = math.max(0f, v) * classFactor[p.Class[r]];
                 v *= row.basic ? p.DiffBasics * p.PersBasics : p.EconScale;
+                if (p.GlutTilt) v *= GlutTiltFactor(row.unitId, tilt);
                 p.Raw[r] = v;
             }
 
@@ -810,6 +844,7 @@ namespace TheWaningBorder.AI
               .Append(", army earmark ").Append(AIBudget.MilitaryVeilstoneCredit(faction));
             if (p.LexorOwed) sb.Append(" | King Lexor owed (first in line)");
             sb.Append(p.SavingFor != null ? $" | saving for {p.SavingFor}" : " | not saving");
+            if (p.GlutTilt) sb.Append(" | glut tilt (supplies short, iron/veilstone piling up)");
             if (AIBudget.VeilstoneHeldSurplus(em, faction))
                 sb.Append(" | veilstone-held surplus (spending on veilstone and upgrades)");
             AILogger.Log(faction, "MILITARY", sb.ToString());

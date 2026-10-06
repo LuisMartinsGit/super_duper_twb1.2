@@ -128,7 +128,10 @@ tow a defending army into the enemy base. That is the bug the leash closes.
   standing on it ([Territory_Claims.md](Territory_Claims.md)), so the default
   army must fight what walks into its ground, not only return fire.
 - **Curse (Border) units** are driven by the curse's own wave logic and are
-  **not leashed**.
+  **not leashed**. A curse unit on **garrison** duty stands **Defensive**
+  (2026-10-05, Territory_Claims.md §6.7): its guard order does the
+  engaging, so it no longer shoots player buildings it merely sees from its
+  post. Drafted curse units (parties, attack waves) stand Aggressive.
 - **Buildings and towers** have no stance.
 - Scouts, workers and zero-damage units never auto-engage whatever their
   stance (unchanged); support units only return fire (§1b).

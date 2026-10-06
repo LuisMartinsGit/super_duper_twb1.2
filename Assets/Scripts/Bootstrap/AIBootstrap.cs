@@ -38,19 +38,6 @@ namespace TheWaningBorder.AI
 
         #endregion
         // ═══════════════════════════════════════════════════════════════
-        // CONFIGURATION
-        // ═══════════════════════════════════════════════════════════════
-
-        /// <summary>How often AI evaluates decisions (in seconds)</summary>
-        public const float DefaultUpdateInterval = 0.5f;
-
-        /// <summary>How often AI checks mine assignments (in seconds)</summary>
-        public const float MineCheckInterval = 5.0f;
-
-        /// <summary>How often AI checks build queue (in seconds)</summary>
-        public const float BuildCheckInterval = 3.0f;
-
-        // ═══════════════════════════════════════════════════════════════
         // PUBLIC API
         // ═══════════════════════════════════════════════════════════════
 
@@ -220,8 +207,6 @@ namespace TheWaningBorder.AI
             em.AddComponentData(brainEntity, new AIBrain
             {
                 Owner = faction,
-                UpdateInterval = DefaultUpdateInterval,
-                NextUpdateTime = 0,
                 IsActive = 1,
                 Personality = personality,
                 Difficulty = difficulty,
@@ -261,47 +246,7 @@ namespace TheWaningBorder.AI
                 LastMilitaryUnit = default,// e.g. "Swordsman" — used to refill losses
             });
 
-            // Economy Manager State
-            em.AddComponentData(brainEntity, new AIEconomyState
-            {
-                AssignedWorkers = 0,
-                DesiredWorkers = 0,
-                ActiveGatherersHuts = 0,
-                DesiredGatherersHuts = 0,
-                LastMineAssignmentCheck = 0,
-                MineCheckInterval = MineCheckInterval,
-                NeedsMoreSupplyIncome = 0,
-                NeedsMoreIronIncome = 0
-            });
-
-            // Building Manager State
-            em.AddComponentData(brainEntity, new AIBuildingState
-            {
-                ActiveWorkers = 0,
-                DesiredWorkers = 2,
-                QueuedConstructions = 0,
-                LastBuildCheck = 0,
-                BuildCheckInterval = BuildCheckInterval
-            });
-
-            // Military Manager State
-            em.AddComponentData(brainEntity, new AIMilitaryState
-            {
-                TotalSoldiers = 0,
-                TotalArchers = 0,
-                TotalSiegeUnits = 0,
-                ActiveBarracks = 0,
-                DesiredBarracks = 0,
-                ArmiesCount = 0,
-                ScoutsCount = 0,
-                QueuedSoldiers = 0,
-                QueuedArchers = 0,
-                QueuedSiegeUnits = 0,
-                LastRecruitmentCheck = 0,
-                RecruitmentCheckInterval = 5.0f
-            });
-
-            // Shared Intelligence
+            // Shared Intelligence (read by AICultureChoice)
             em.AddComponentData(brainEntity, new AISharedKnowledge
             {
                 EnemyLastSeenTime = 0,
@@ -311,46 +256,12 @@ namespace TheWaningBorder.AI
                 OwnEconomicStrength = 0
             });
 
-            // Scouting Manager State
-            em.AddComponentData(brainEntity, new AIScoutingState
-            {
-                ActiveScouts = 0,
-                DesiredScouts = 2,
-                LastScoutUpdate = 0,
-                ScoutUpdateInterval = 2.0f,
-                LastPriorityUpdate = 0,
-                PriorityUpdateInterval = 10.0f,
-                UnexploredZoneCount = 0,
-                MapExplorationPercent = 0f
-            });
-
-            // Veilstone Hunt State
-            em.AddComponentData(brainEntity, new AIVeilstoneHuntState
-            {
-                LastHuntCheck = 0,
-                HuntCheckInterval = 8.0f
-            });
-
-            // Dynamic Strategy State — random initial strategy, eval rate by difficulty
-            float evalInterval = difficulty switch
-            {
-                AIDifficulty.Easy => 9999f,   // Never adapts
-                AIDifficulty.Normal => 120f,  // Every 2 minutes
-                AIDifficulty.Hard => 60f,     // Every minute
-                AIDifficulty.Expert => 30f,   // Every 30s
-                _ => 120f
-            };
-            em.AddComponentData(brainEntity, new AIStrategyState
-            {
-                Current = personality,
-                Previous = personality,
-                LastEvalTime = 0,
-                EvalInterval = evalInterval,
-                StrategyStartTime = 0,
-                ArmiesLostSinceSwitch = 0,
-                SuccessfulAttacks = 0,
-                HasAgedUp = 0
-            });
+            // The legacy manager states (AIEconomyState, AIBuildingState,
+            // AIMilitaryState, AIScoutingState, AIVeilstoneHuntState), the
+            // AIStrategyState re-evaluator and the ResourceRequest buffer
+            // were removed on 2026-10-05: their managers were
+            // [DisableAutoCreation] and nothing read them. The personality
+            // is the brain's whole layer-2 state (Resources/AISettings.asset).
             AILogger.Log(faction, "STRATEGY", $"Personality: {personality} (difficulty: {difficulty})");
 
             // Dynamic Buffers
@@ -358,14 +269,13 @@ namespace TheWaningBorder.AI
             em.AddBuffer<BuildRequest>(brainEntity);
             em.AddBuffer<RecruitmentRequest>(brainEntity);
             em.AddBuffer<EnemySighting>(brainEntity);
-            em.AddBuffer<ResourceRequest>(brainEntity);
             em.AddBuffer<ScoutAssignment>(brainEntity);
             em.AddBuffer<ExplorationZone>(brainEntity);
 
             return brainEntity;
         }
 
-        private static AIDifficulty GetFactionDifficulty(Faction faction)
+        internal static AIDifficulty GetFactionDifficulty(Faction faction)
         {
             // Try to get difficulty from LobbyConfig. In observer matches an
             // Observer-typed slot is AI-controlled too (IsFactionHumanControlled
@@ -404,7 +314,7 @@ namespace TheWaningBorder.AI
         /// opener while still answering "Economic" to every floor query. One
         /// identity, chosen once.
         /// </summary>
-        private static AIPersonality ResolvePersonality(Faction faction)
+        internal static AIPersonality ResolvePersonality(Faction faction)
         {
             // 1. The lobby's per-slot pick wins. Observer-typed slots count as
             //    AI in observer matches (see GetFactionDifficulty).

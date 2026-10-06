@@ -117,7 +117,16 @@ MonoBehaviour:
   garrisonMinPerNode: 2
   waveDurationSeconds: 150
   waveRetreatFraction: 0.25
-  waveTargetDistanceSlack: 1.3
+  waveShareTerritoryWeight: 0.5
+  waveShareFloor: 0.1
+  wavePlayerCooldownSeconds: 300
+  waveSizeVsPower: 0.6
+  waveSizeByDifficulty:
+  - 0.5
+  - 1
+  - 1
+  - 1.25
+  claimGraceSeconds: 480
   maxCurseUnits: 250
   initialNodes: 0
   reseedSeconds: 180

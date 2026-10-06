@@ -10,6 +10,7 @@ using TheWaningBorder.Core;
 using TheWaningBorder.Core.Commands;
 using TheWaningBorder.Core.Commands.Types;
 using TheWaningBorder.Data;
+using TheWaningBorder.Data.AI;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Entities;
 using TheWaningBorder.Systems.Sect;
@@ -106,6 +107,26 @@ namespace TheWaningBorder.AI
             if (TryEnsureRingGates(faction, em, brainEntity, hallPos))
                 return;
 
+            // ── WALLS ARE A PERSONALITY (2026-10-05, Game_AI.md § 3). The
+            //    block's wallPriorityScale: below 1 the doctrine waits until
+            //    the army has reached that much of its target (a rusher
+            //    walls last); 1 and above it holds only for the army-short
+            //    rule. ──
+            float wallPriority = 1f;
+            if (em.HasComponent<AIBrain>(brainEntity))
+            {
+                var wb = em.GetComponentData<AIBrain>(brainEntity);
+                wallPriority = AISettings.Get().For(wb.Personality,
+                    AISimpleDifficulty.GetProfile(wb.Difficulty).PersonalityWeight).wallPriorityScale;
+            }
+            if (wallPriority < 1f && AIBudget.TryGetArmyStatus(faction, out int armyAlive, out int armyDesired)
+                && armyDesired > 0 && armyAlive < armyDesired * (1f - wallPriority))
+            {
+                LogWallsThrottled(faction,
+                    $"Alanthor walls: holding — this personality walls once the army stands at " +
+                    $"{(1f - wallPriority) * 100f:F0}% of its target ({armyAlive}/{armyDesired})");
+                return;
+            }
             if (AIBudget.IsMilitaryShort(faction, AIBudget.ResSupplies)
                 || AIBudget.IsMilitaryShort(faction, AIBudget.ResIron))
             {

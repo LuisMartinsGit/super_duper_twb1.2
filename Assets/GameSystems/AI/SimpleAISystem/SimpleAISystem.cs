@@ -121,6 +121,9 @@ namespace TheWaningBorder.AI
 
                 // Difficulty is DATA (AoE4 model): one brain, per-tier knobs.
                 var profile = AISimpleDifficulty.GetProfile(brain.Difficulty);
+                // The static helpers (training pre-flight, age-up saving) read
+                // the tier through ProfileOf (SimpleAISystem.EconomyDrive.cs).
+                NoteProfile(brain.Owner, profile, brain.Personality);
                 float thinkInterval = profile.ThinkInterval;
 
                 bool starving = aiState.ThinkTimer <= -thinkInterval * Cfg.thinkStarvationIntervals;
@@ -149,7 +152,9 @@ namespace TheWaningBorder.AI
                 _sealChecksLeft = Cfg.sealChecksPerThink;
 
                 var settings = AISettings.Get();
-                var personality = settings.For(brain.Personality);
+                // Dampened by tier (Game_AI.md § 3): Easy plays its flavour in
+                // full, Expert a fraction of it.
+                var personality = settings.For(brain.Personality, profile.PersonalityWeight);
                 // MATCH-relative clock. World ElapsedTime starts at APP
                 // launch (the bootstrap world predates the menu), so on the
                 // first match of a session every "now > Ns" gate — the 30s
@@ -171,7 +176,7 @@ namespace TheWaningBorder.AI
                 // queued them. Runs before the next step so replacements take
                 // priority on the train queue and resources.
                 ReplaceLostUnits(em, brainEntity, brain.Owner, ref aiState,
-                    RoleBudget.For(personality.personality), profile.IntelFreshnessSeconds, now);
+                    RoleBudget.For(personality.personality, personality.weight), profile.IntelFreshnessSeconds, now);
 
                 // Scout movement is owned by ScoutDirectorSystem (AI plan M3):
                 // zone-based exploration + recon requests replace the old
@@ -209,6 +214,11 @@ namespace TheWaningBorder.AI
 
                 EnsureFortressExpansion(em, brain.Owner, now);
 
+                // A LOST EXTRACTOR IS OWED A REBUILD (Game_AI.md § 5i): read
+                // the losses before the extractor walk, which then puts the
+                // lost kind first.
+                TrackExtractorLosses(em, brain.Owner, now);
+
                 // …and INVEST in the ground already held. With nodes depleting,
                 // an unworked territory gets poorer whether or not anyone is
                 // extracting from it, so the extraction buildings are not a
@@ -218,6 +228,9 @@ namespace TheWaningBorder.AI
                 // VEILSTONE SURPLUS (Game_AI.md 5e): the Outpost's research,
                 // and the throttled veilstone-held state line.
                 TickSurplus(em, brain.Owner, now);
+                // The Vault, and the ECON / PRODUCTION measurement lines
+                // (Game_AI.md § 5h).
+                TickEconomyDrive(em, brain.Owner, aiState.Posture, profile, now);
 
                 // Army missions: prune the dead, regroup finished armies,
                 // retreat outmatched ones (per mission, not globally).
@@ -230,6 +243,12 @@ namespace TheWaningBorder.AI
                 // there, and keeps it together while it does.
                 TickArmyTactics(em, brain.Owner, now);
 
+                // DEFEND THE ECONOMY (Game_AI.md § 5i): an attack on an
+                // extractor, a house or a worker in held ground — the curse's
+                // raids included — gets a response sized to the attacker,
+                // never at parity, from the standing army.
+                TickEconomyDefence(em, brain.Owner, profile, now);
+
                 // M4: evaluate the posture (threat near base -> Defend; gutted
                 // army -> Rebuild; assembled army + healthy bank -> Pressure)
                 // and act on Defend (recall + repair) / M6 retreat.
@@ -240,8 +259,19 @@ namespace TheWaningBorder.AI
                 // (waves start the moment the first-attack gate passes, even
                 // mid-script) and forever after it. Scripted LaunchAttack
                 // steps still fire as authored strategy openings.
+                // THE SCOUTS GO WHERE THE INCOME IS (Game_AI.md § 6f): an
+                // income-targeting tier keeps a recon request on the enemy's
+                // holdings until it knows enough of them to aim at.
+                TickIncomeRecon(em, brain.Owner, ref aiState, profile, brainEntity, now);
+
                 TickAttackWaves(em, brainEntity, brain.Owner, ref aiState,
                     settings, personality, profile, now);
+
+                // THE IDLE ARMY CLEARS THE CURSE (Game_AI.md § 5b): no wave
+                // out, no defence need, surplus above the standing floor —
+                // march on the weakest curse-held neighbour so it can be
+                // claimed.
+                TryClearAdjacentCurse(em, brain.Owner, aiState, profile, now);
 
                 // CORRUPTION COUNTERPLAY (2026-08-04): when veilstone-poor,
                 // strike the SmallNode hazing the home patches — without a
@@ -273,24 +303,20 @@ namespace TheWaningBorder.AI
                 // situational weights split measured income into the three
                 // wallets every spend center below draws from. The old
                 // savings-mode hack is now just a policy input — an active
-                // advancement gate (age-up / choice step) tilts the split
-                // to Advancement instead of hard-pausing the economy.
-                var boForPolicy = AIBuildOrder.For(brain.Personality);
-                bool advancementGate = aiState.StepIndex < boForPolicy.Length
-                    && (boForPolicy[aiState.StepIndex].Kind == BuildStepKind.AgeUp
-                        || (boForPolicy[aiState.StepIndex].Kind == BuildStepKind.BuildBuilding
-                            && BuildingFactory.IsChoiceBuilding(boForPolicy[aiState.StepIndex].Id)));
-                // The age-up director (below) counts as an active advancement
-                // gate too: the age-up costs 700 SUPPLIES, and without the
-                // wallet tilt the economy spends supplies as fast as they
-                // arrive — the AIs sat on 1500 iron/veilstone for whole
-                // matches while never banking the one resource that gates.
-                // Aggressive / Rush push their ONE Age 0 wave first, and only
-                // then save (Age_0.md § The AI and the age-up).
+                // advancement gate tilts the split to Advancement instead of
+                // hard-pausing the economy.
+                // The age-up director (below) IS the advancement gate: the
+                // age-up costs 700 SUPPLIES, and without the wallet tilt the
+                // economy spends supplies as fast as they arrive — the AIs
+                // sat on 1500 iron/veilstone for whole matches while never
+                // banking the one resource that gates. Aggressive / Rush push
+                // their ONE Age 0 wave first, and only then save (Age_0.md §
+                // The AI and the age-up). (The per-personality scripted build
+                // orders that used to open this gate are gone, 2026-10-05:
+                // their step pointer never advanced, so the gate never fired.)
                 bool ageUpPush = now > personality.ageUpPushSeconds && aiState.AgeUpIssued == 0
                                  && SavingForAgeUp(brain.Personality, aiState, now, personality.ageUpPushSeconds);
-                if (ageUpPush)
-                    advancementGate = true;
+                bool advancementGate = ageUpPush;
                 // ── STRATEGY FIRST: pick (or keep) a committed plan, then let
                 //    that plan set the budget. ──
                 //
@@ -308,6 +334,12 @@ namespace TheWaningBorder.AI
                 AIBudget.EvaluateWeights(planProfile, aiState.Posture,
                     out float wAdv, out float wMil, out float wEco);
                 AIBudget.Tick(em, brain.Owner, wAdv, wMil, wEco, thinkInterval, now);
+
+                // ECONOMY DISTRESS (Game_AI.md § 5i): with the income just
+                // measured, pause the ordinary savings goals while supply
+                // income is collapsed, the economy is under attack, or a lost
+                // extractor is owed.
+                EvaluateEconomyDistress(em, brain.Owner, aiState.Posture, now);
 
                 // A LOST SOLE TRAINER COMES FIRST (2026-10-04, Game_AI.md
                 // 6c): a production line the faction had and has none of —

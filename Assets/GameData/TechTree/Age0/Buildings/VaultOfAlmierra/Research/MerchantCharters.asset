@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Merchant Charters
   role: Banking
   effect: 
-  desc: "Active credit: Vault interest rises to 75 percent per minute."
+  desc: "Active credit: the Vault's interest rises to banking grade 2."
   researchAt: VaultOfAlmierra
   minBuildingLevel: 0
   researchTime: 35

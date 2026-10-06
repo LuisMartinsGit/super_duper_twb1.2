@@ -79,6 +79,10 @@ namespace TheWaningBorder.AI
             /// with veilstone in it; becomes an ordinary claim the moment the
             /// last node there falls (Game_AI.md § Veilstone-driven conquest).</summary>
             public bool CurseAssault;
+            /// <summary>RECONQUEST (Game_AI.md 5b, 2026-10-05): sent to raze a
+            /// rival's locking buildings off its unwalled territory; becomes
+            /// an ordinary claim when the last one falls.</summary>
+            public bool HostileAssault;
             /// <summary>Sent before the age-up landed (claims open at age-up,
             /// Territory_Claims.md §10): waits on the ground, and its clock
             /// starts when the era turns.</summary>
@@ -94,6 +98,7 @@ namespace TheWaningBorder.AI
             public int Region;
             public float3 Point;
             public bool CurseHeld;
+            public bool HostileHeld;
             public bool Exploring;
             public float Score;
             public int Outcrops;
@@ -129,6 +134,9 @@ namespace TheWaningBorder.AI
         /// candidate for want of idle soldiers — the waves yield to it.</summary>
         private readonly Dictionary<int, float> _claimWantsSoldiersAt = new Dictionary<int, float>();
         private readonly Dictionary<int, float> _claimWaveYieldSince = new Dictionary<int, float>();
+        /// <summary>Until when the yield is SPENT for this faction: a wave
+        /// attempt is owed (Game_AI.md § 5b, 2026-10-05).</summary>
+        private readonly Dictionary<int, float> _claimWaveYieldSpentUntil = new Dictionary<int, float>();
 
         private int _claimEpoch = -1;
 
@@ -141,7 +149,12 @@ namespace TheWaningBorder.AI
 
         /// <summary>True while this unit is holding ground for a claim —
         /// wave and merge drafts must leave it where it stands.</summary>
-        private bool IsClaimSquadMember(Entity e) => _claimSquadMembers.Contains(e);
+        /// <remarks>Also true for a soldier answering an attack on the economy
+        /// (SimpleAISystem.EconomyDefence.cs): every draft that leaves claim
+        /// squads alone must leave a response alone too, or the next wave or
+        /// reclaim pulls it off the fight it was sent to (Game_AI.md § 5i).
+        /// Curse-clearing sorties are claim squads, so they are covered.</remarks>
+        private bool IsClaimSquadMember(Entity e) => _claimSquadMembers.Contains(e) || IsEconResponder(e);
 
         private bool IsEnrolledInMission(Faction faction, Entity e)
         {
@@ -186,6 +199,7 @@ namespace TheWaningBorder.AI
                 _consolidating.Clear();
                 _claimWantsSoldiersAt.Clear();
                 _claimWaveYieldSince.Clear();
+                _claimWaveYieldSpentUntil.Clear();
             }
 
             int key = (int)faction;
@@ -216,14 +230,16 @@ namespace TheWaningBorder.AI
                 }
                 if (squads.Count > 0) return;   // staged already
                 if (_nextClaimTime.TryGetValue(key, out float nextStage) && now < nextStage) return;
-                _nextClaimTime[key] = now + Cfg.claimAttemptInterval;
+                _nextClaimTime[key] = now + Cfg.claimAttemptInterval * math.max(0.1f, profile.TerritoryCadenceScale);
                 LaunchClaimRound(em, faction, maxParallel, prestage: true, now);
                 return;
             }
 
             if (_nextClaimTime.TryGetValue(key, out float next) && now < next) return;
             bool surplus = IsVeilstoneSurplus(em, faction);
-            float interval = Cfg.claimAttemptInterval;
+            // PACE IS THE LADDER (2026-10-05, Game_AI.md § 2): the tier's
+            // territoryCadenceScale stretches or shortens every claim round.
+            float interval = Cfg.claimAttemptInterval * math.max(0.1f, profile.TerritoryCadenceScale);
             if (surplus && Cfg.surplusClaimIntervalScale > 0f) interval *= Cfg.surplusClaimIntervalScale;
             _nextClaimTime[key] = now + interval;
 
@@ -293,7 +309,7 @@ namespace TheWaningBorder.AI
             {
                 inSquads += squads[i].Members.Count;
                 exploringOut |= squads[i].Exploring;
-                curseOut |= squads[i].CurseAssault;
+                curseOut |= squads[i].CurseAssault || squads[i].HostileAssault;
             }
             int budget = (int)math.floor((armyCount + inSquads) * Cfg.claimArmyShare) - inSquads;
             bool surplus = !prestage && IsVeilstoneSurplus(em, faction);
@@ -309,15 +325,20 @@ namespace TheWaningBorder.AI
                 var squad = new ClaimSquad
                 {
                     Territory = cand.Region, Point = cand.Point, StartedAt = now,
-                    Exploring = cand.Exploring, CurseAssault = cand.CurseHeld, Staged = prestage,
+                    Exploring = cand.Exploring, CurseAssault = cand.CurseHeld,
+                    HostileAssault = cand.HostileHeld, Staged = prestage,
                 };
 
-                if (cand.CurseHeld)
+                if (cand.CurseHeld || cand.HostileHeld)
                 {
-                    // A curse node is guarded by its garrison (§6.7): the free
-                    // army goes only when it wins there, and one at a time.
+                    // A curse node is guarded by its garrison (§6.7), a
+                    // rival's ground by its army: the free army goes only
+                    // when it wins there, and one assault at a time.
                     if (curseOut || prestage) continue;
-                    if (!DraftCurseAssault(em, faction, squad, now)) continue;
+                    bool drafted = cand.CurseHeld
+                        ? DraftCurseAssault(em, faction, squad, now)
+                        : DraftHostileAssault(em, faction, squad, now);
+                    if (!drafted) continue;
                     curseOut = true;
                     for (int m = 0; m < squad.Members.Count; m++) _claimPool.Remove(squad.Members[m]);
                     budget -= squad.Members.Count;
@@ -492,6 +513,19 @@ namespace TheWaningBorder.AI
         private bool ClaimsYieldWave(Faction faction, AIPosture posture, float now)
         {
             int key = (int)faction;
+            // THE YIELD IS SPENT ONCE PER CADENCE (2026-10-05, Game_AI.md
+            // 5b). After claimWaveYieldMaxSeconds the wave attempt that
+            // followed usually failed on the idle count — the claim squads
+            // hold the soldiers — and twenty seconds later the claims
+            // re-armed another full yield: Expert, the tier with the most
+            // claims, held its first wave until minute 15 while Hard attacked
+            // at 11. Once the bound is reached, claims do not yield again
+            // for a wave interval, so the wave gets its real chance.
+            if (_claimWaveYieldSpentUntil.TryGetValue(key, out float spentUntil))
+            {
+                if (now < spentUntil) return false;
+                _claimWaveYieldSpentUntil.Remove(key);
+            }
             if (posture == AIPosture.Defend
                 || !_claimWantsSoldiersAt.TryGetValue(key, out float at)
                 || now - at > Cfg.claimWaveYieldWindowSeconds)
@@ -505,6 +539,7 @@ namespace TheWaningBorder.AI
             {
                 _claimWaveYieldSince.Remove(key);
                 _claimWantsSoldiersAt.Remove(key);
+                _claimWaveYieldSpentUntil[key] = now + math.max(60f, ProfileOf(faction).AttackWaveIntervalSeconds);
                 return false;
             }
             LogClaimBlocked(faction, now, "attack wave held — open ground needs the idle army");
@@ -598,6 +633,26 @@ namespace TheWaningBorder.AI
                 }
             }
 
+            // A RECONQUEST razes the rival's buildings first, the same way.
+            if (squad.HostileAssault && squad.Members.Count > 0)
+            {
+                if (TryNearestHostileBuildingIn(em, t, false, faction, squad.Point, out float3 bld))
+                {
+                    if (math.distancesq(bld.xz, squad.Point.xz) > 1f) squad.NextReorderAt = now;
+                    squad.Point = bld;
+                }
+                else
+                {
+                    squad.HostileAssault = false;
+                    squad.StartedAt = now;
+                    squad.NextReorderAt = now;
+                    if (TryFirstKnownNodeIn(em, faction, t, out float3 stand)) squad.Point = stand;
+                    AILogger.Log(faction, "CLAIM",
+                        $"{RegionMap.NameOf(t)}: rival's holdings razed, squad of {squad.Members.Count} now claims it");
+                    return false;
+                }
+            }
+
             bool owned = TerritoryOwnership.OwnerOf(t) == (int)faction;
             bool claimed = owned && TerritoryOwnership.IsClaimed(t);
             if (claimed && squad.ClaimedAt <= 0f) squad.ClaimedAt = now;
@@ -608,13 +663,14 @@ namespace TheWaningBorder.AI
             bool timedOut = !squad.Staged && (squad.ClaimedAt > 0f
                 ? now - squad.ClaimedAt > Cfg.claimHoldForLockSeconds
                 : now - squad.StartedAt >
-                  (squad.CurseAssault ? Cfg.claimCurseTimeoutSeconds : Cfg.claimSquadTimeoutSeconds));
+                  (squad.CurseAssault || squad.HostileAssault
+                      ? Cfg.claimCurseTimeoutSeconds : Cfg.claimSquadTimeoutSeconds));
 
             // A rival or the curse locked it under us: nothing a squad can do
             // — except a curse assault, whose whole job is breaking that lock.
             // A curse lock with no live curse node left in the territory is
             // the claim system's last-tick reading of a node that just died.
-            bool lockedAgainst = !owned && TerritoryOwnership.IsLocked(t) && !squad.CurseAssault
+            bool lockedAgainst = !owned && TerritoryOwnership.IsLocked(t) && !squad.CurseAssault && !squad.HostileAssault
                 && !(TerritoryOwnership.OwnerOf(t) == TerritoryOwnership.Curse
                      && !TryNearestCurseNodeIn(em, t, false, faction, squad.Point, out _));
 
@@ -648,7 +704,7 @@ namespace TheWaningBorder.AI
                     var p = em.GetComponentData<LocalTransform>(m).Position;
                     // An assault keeps walking from node to node; a claim
                     // only pulls back members who wandered off the ground.
-                    if (!squad.CurseAssault && RegionMap.RegionAt(p.x, p.z) == t) continue;
+                    if (!squad.CurseAssault && !squad.HostileAssault && RegionMap.RegionAt(p.x, p.z) == t) continue;
                     if (TransientState.Active<AttackCommand>(em, m)) continue;
                     if (!pointMoved && TransientState.Active<AttackMoveTag>(em, m)) continue;
                     _claimReorder.Add(m);
@@ -755,12 +811,29 @@ namespace TheWaningBorder.AI
 
                 // Locked ground is off the table — unless it is the curse's,
                 // the army wants veilstone, and outcrops are known there.
-                bool curseTarget = false;
+                bool curseTarget = false, hostileTarget = false;
                 if (TerritoryOwnership.IsLocked(r))
                 {
-                    if (!wantOutcrops || owner != TerritoryOwnership.Curse) continue;
-                    if (CountIn(_claimAllOutcrops, r) == 0) continue;
-                    curseTarget = true;
+                    if (owner >= 0 && owner != (int)faction && Alliances.AreHostile(faction, (Faction)owner))
+                    {
+                        // RECONQUEST (2026-10-05, Game_AI.md 5b). Ground a
+                        // rival locked — ours once, or never — used to be off
+                        // the table for good: six matches ended with every
+                        // side logging "no claimable territory" from minute
+                        // 20 on. A rival's UNWALLED territory is a candidate
+                        // (penalised: free land first); the squad razes its
+                        // locking buildings and then claims the ground. Its
+                        // walled home is a wave's business, not a squad's.
+                        if (IsWalledGround(em, (Faction)owner, r)) continue;
+                        if (ProfileOf(faction).ReconquestMargin <= 0f) continue;   // this tier never retakes
+                        hostileTarget = true;
+                    }
+                    else
+                    {
+                        if (!wantOutcrops || owner != TerritoryOwnership.Curse) continue;
+                        if (CountIn(_claimAllOutcrops, r) == 0) continue;
+                        curseTarget = true;
+                    }
                 }
 
                 int nodes = 0;
@@ -785,7 +858,7 @@ namespace TheWaningBorder.AI
                     // No node it knows of. Unseen ground is worth a look;
                     // seen ground with nothing on it is not.
                     var seedPos = new float3(seed.x, 0f, seed.y);
-                    if (!curseTarget && !AICommon.IsKnownGround(faction, seedPos))
+                    if (!curseTarget && !hostileTarget && !AICommon.IsKnownGround(faction, seedPos))
                     {
                         _claimCandidates.Add(new ClaimCandidate
                         {
@@ -801,6 +874,9 @@ namespace TheWaningBorder.AI
                 // The assault walks to the KNOWN curse node nearest home first.
                 if (curseTarget && !TryNearestCurseNodeIn(em, r, true, faction, home, out standAt))
                     continue;
+                // The reconquest walks to the KNOWN rival building nearest home first.
+                if (hostileTarget && !TryNearestHostileBuildingIn(em, r, true, faction, home, out standAt))
+                    continue;
 
                 int outcrops = CountIn(curseTarget ? _claimAllOutcrops : _claimOutcrops, r);
                 int supply = CountIn(_claimSupplyNodes, r);
@@ -811,12 +887,13 @@ namespace TheWaningBorder.AI
                     + supply * Cfg.claimSupplyNodeBonus
                     + outcrops * (Cfg.claimOutcropBonus + (wantOutcrops ? shortBonus : 0f))
                     - (curseTarget ? Cfg.claimCurseTargetPenalty
+                       : hostileTarget ? Cfg.claimHostileTargetPenalty
                        : owner != TerritoryOwnership.Natural ? Cfg.claimNodeBonus * 2f : 0f);
                 // Stand by a node: the seed can sit in a lake or a forest, a
                 // node never does.
                 _claimCandidates.Add(new ClaimCandidate
                 {
-                    Region = r, CurseHeld = curseTarget, Score = score, Outcrops = outcrops,
+                    Region = r, CurseHeld = curseTarget, HostileHeld = hostileTarget, Score = score, Outcrops = outcrops,
                     Point = new float3(standAt.x, TerrainUtility.GetHeight(standAt.x, standAt.z), standAt.z),
                 });
             }
@@ -897,6 +974,89 @@ namespace TheWaningBorder.AI
             return found;
         }
 
+        /// <summary>The live hostile building in territory <paramref name="r"/>
+        /// nearest <paramref name="from"/> — the reconquest's next target.
+        /// With <paramref name="knownOnly"/> only buildings on ground the
+        /// faction has SEEN count (the picker); the squad on the ground takes
+        /// every one.</summary>
+        private static bool TryNearestHostileBuildingIn(EntityManager em, int r, bool knownOnly,
+            Faction faction, float3 from, out float3 at)
+        {
+            at = default;
+            var q = QC_BuildingTagFactionTagLocalTransform.Get(em, QT_BuildingTagFactionTagLocalTransform);
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            float best = float.MaxValue;
+            bool found = false;
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (facs[i].Value == Faction.Border || !Alliances.AreHostile(faction, facs[i].Value)) continue;
+                if (em.HasComponent<Health>(ents[i]) && em.GetComponentData<Health>(ents[i]).Value <= 0f) continue;
+                var p = xfs[i].Position;
+                if (RegionMap.RegionAt(p.x, p.z) != r) continue;
+                if (knownOnly && !AICommon.IsKnownGround(faction, p)) continue;
+                float d = math.distancesq(p.xz, from.xz);
+                if (d < best) { best = d; at = p; found = true; }
+            }
+            return found;
+        }
+
+        /// <summary>
+        /// Launch a reconquest of a rival's unwalled territory: the same free
+        /// army a curse assault takes, only when AIEngagement says it beats
+        /// what stands at the first building by claimHostileAssaultMargin.
+        /// </summary>
+        private bool DraftHostileAssault(EntityManager em, Faction faction, ClaimSquad squad, float now)
+        {
+            _curseAssaultArmy.Clear();
+            var mq = QC_UnitTagFactionTagLocalTransform.Get(em, QT_UnitTagFactionTagLocalTransform);
+            using (var ents = mq.ToEntityArray(Allocator.Temp))
+            using (var tags = mq.ToComponentDataArray<UnitTag>(Allocator.Temp))
+            using (var facs = mq.ToComponentDataArray<FactionTag>(Allocator.Temp))
+                for (int i = 0; i < ents.Length && _curseAssaultArmy.Count < Cfg.claimCurseSquadMax; i++)
+                {
+                    if (facs[i].Value != faction) continue;
+                    if (!IsCombatClass(tags[i].Class)) continue;
+                    Entity e = ents[i];
+                    if (em.HasComponent<UnderConstruction>(e)) continue;
+                    if (IsVerbUnit(em, e)) continue;
+                    if (IsClaimSquadMember(e)) continue;
+                    if (IsEnrolledInMission(faction, e)) continue;
+                    if (TransientState.Active<AttackMoveTag>(em, e)) continue;
+                    if (TransientState.Active<MoveCommand>(em, e)) continue;
+                    if (TransientState.Active<AttackCommand>(em, e)) continue;
+                    if (TransientState.Active<UserMoveOrder>(em, e)) continue;
+                    _curseAssaultArmy.Add(e);
+                }
+
+            int key = (int)faction;
+            if (_curseAssaultArmy.Count == 0)
+            {
+                LogClaimBlocked(faction, now, "no idle soldiers for a reconquest");
+                return false;
+            }
+            float margin = math.max(1.05f, ProfileOf(faction).ReconquestMargin);
+            var a = AIEngagement.AssessAssault(em, faction, _curseAssaultArmy, squad.Point,
+                Cfg.claimCurseAssessRadius, 1f / margin);
+            if (!a.ShouldFight)
+            {
+                _siteBlocked[(key, squad.Territory)] = now + SiteBlockSeconds;
+                AILogger.Log(faction, "CLAIM",
+                    $"reconquest of {RegionMap.NameOf(squad.Territory)} held back: " +
+                    $"{_curseAssaultArmy.Count} free units, power {a.MyPower} vs {a.EnemyPower} (needs x{margin:0.00})");
+                return false;
+            }
+            for (int i = 0; i < _curseAssaultArmy.Count; i++)
+                squad.Members.Add(_curseAssaultArmy[i]);
+            AICommon.IssueGroupOrder(em, _curseAssaultArmy, squad.Point, attackMove: true, Cfg.waveArrivedRadius);
+            squad.OrderedPoint = squad.Point;
+            AILogger.Log(faction, "CLAIM",
+                $"reconquest: {_curseAssaultArmy.Count} units -> {RegionMap.NameOf(squad.Territory)} " +
+                $"(power {a.MyPower} vs {a.EnemyPower})");
+            return true;
+        }
+
         /// <summary>A known resource node in <paramref name="r"/> to stand by
         /// once its curse nodes are gone (outcrops first).</summary>
         private static bool TryFirstKnownNodeIn(EntityManager em, Faction faction, int r, out float3 at)
@@ -955,8 +1115,8 @@ namespace TheWaningBorder.AI
                 LogClaimBlocked(faction, now, "no idle soldiers for a curse assault");
                 return false;
             }
-            var a = AIEngagement.AssessAssault(em, faction, _curseAssaultArmy, squad.Point,
-                Cfg.claimCurseAssessRadius);
+            var a = AssessCurseNode(em, faction, _curseAssaultArmy, squad.Point,
+                Cfg.claimCurseAssessRadius, now);
             if (!a.ShouldFight)
             {
                 _siteBlocked[(key, squad.Territory)] = now + SiteBlockSeconds;
@@ -1027,11 +1187,18 @@ namespace TheWaningBorder.AI
         /// <summary>AIPivotalReserve key of a Fortress the faction is saving
         /// for while its expansion consolidates.</summary>
         private const string FortressReserveKey = "FortressExpansion";
+        /// <summary>AIBudget.Reserve priority of the Fortress pot: above a
+        /// region claim (0), level with the age-up (which precedes it).</summary>
+        private const int FortressReservePriority = 1;
 
         private readonly Dictionary<int, float> _nextFortressCheck = new Dictionary<int, float>();
         private readonly Dictionary<int, float> _nextFortressLog = new Dictionary<int, float>();
         /// <summary>(faction, region) -> sim time a failed Fortress site there expires.</summary>
         private readonly Dictionary<(int faction, int region), float> _fortressSiteBlocked = new();
+        /// <summary>(faction, region) -> sim time the territory first qualified
+        /// for a Fortress (resource buildings done); the tier's
+        /// fortressDelaySeconds runs from here.</summary>
+        private readonly Dictionary<(int faction, int region), float> _fortressQualifiedSince = new();
         private int _fortressEpoch = -1;
 
         // Host scratch.
@@ -1061,6 +1228,7 @@ namespace TheWaningBorder.AI
                 _nextFortressCheck.Clear();
                 _nextFortressLog.Clear();
                 _fortressSiteBlocked.Clear();
+                _fortressQualifiedSince.Clear();
             }
 
             int key = (int)faction;
@@ -1155,7 +1323,24 @@ namespace TheWaningBorder.AI
                 if (Cfg.fortressAfterResources && !cutOff && !TerritoryResourcesDone(faction, r))
                 {
                     developing++;
+                    _fortressQualifiedSince.Remove((key, r));
                     continue;
+                }
+                // PACE IS THE LADDER (2026-10-05, Game_AI.md § 2): a slow tier
+                // fortifies late. Easy built eight Fortresses to Expert's one
+                // on identical ground because this check ran at the same pace
+                // for every tier; the territory now has to have qualified for
+                // the tier's fortressDelaySeconds (cut-off ground excepted —
+                // the Fortress is what re-links it).
+                if (!cutOff)
+                {
+                    if (!_fortressQualifiedSince.TryGetValue((key, r), out float qSince))
+                        _fortressQualifiedSince[(key, r)] = qSince = now;
+                    if (now - qSince < ProfileOf(faction).FortressDelaySeconds)
+                    {
+                        developing++;
+                        continue;
+                    }
                 }
                 var seed = RegionMap.SeedOf(r);
                 float dist = math.distance(new float2(seed.x, seed.y), home.xz);
@@ -1187,22 +1372,38 @@ namespace TheWaningBorder.AI
             bool consolidating = IsConsolidating(faction);
 
             var cost = TheWaningBorder.Data.BuildCosts.For(em, faction, "Fortress");
+            // THE FORTRESS IS ALWAYS SAVED FOR (2026-10-05, Game_AI.md 5e).
+            // This used to save only while consolidating and otherwise "wait
+            // for the bank" — and a fast-thinking tier never has a bank: a
+            // 0.25 s think spends every surplus on something cheaper first,
+            // so Expert and Hard built exactly one Fortress in six matches
+            // while Easy built eight, and Fortress levels were the winners'
+            // largest income line. Now a candidate territory IS the savings
+            // goal (non-strict, so essentials still carve through), and the
+            // reserve is a buffer the goal keeps, not a second price on top.
             var need = cost + Cost.Of(Cfg.fortressReserveSupplies, Cfg.fortressReserveIron,
                                       Cfg.fortressReserveVeilstone);
-            if (!FactionEconomy.CanAfford(em, faction, need))
+            if (!FactionEconomy.CanAfford(em, faction, cost))
             {
-                // Consolidating, the Fortress IS the expansion — it locks
-                // ground the army cannot garrison: save for it (non-strict,
-                // so the hold breathes). Otherwise just wait for the bank.
-                if (consolidating) AIPivotalReserve.Set(faction, FortressReserveKey, need);
-                else AIPivotalReserve.Clear(faction, FortressReserveKey);
+                AIPivotalReserve.Set(faction, FortressReserveKey, need);
+                // THE POT IS A BUDGET RESERVATION TOO (2026-10-05, v4 M2):
+                // the pivotal hold breathes (240 s on, 60 s off) and pauses
+                // under distress, and in every release Expert's 0.25 s think
+                // spent the pot on levels and towers — 29 minutes of "saving
+                // for a Fortress" with the bank never past 1,055. The budget's
+                // lump-sum hold comes off the top of every wallet spend and
+                // of the levels (CanAffordOutsideReservation), above the
+                // working float, and is re-armed every check while the goal
+                // stands.
+                AIBudget.Reserve(faction, cost, now, Cfg.fortressCheckInterval * 3f, FortressReservePriority);
                 LogFortress(faction, now,
-                    $"{(consolidating ? "saving" : "waiting")} for a Fortress in {RegionMap.NameOf(best)} " +
-                    $"({held} territories; needs {need.Supplies}s {need.Iron}i {need.Veilstone}v " +
-                    $"with the reserve)");
+                    $"saving for a Fortress in {RegionMap.NameOf(best)} " +
+                    $"({held} territories{(consolidating ? ", consolidating" : "")}; needs " +
+                    $"{cost.Supplies}s {cost.Iron}i {cost.Veilstone}v)");
                 return;
             }
             AIPivotalReserve.Clear(faction, FortressReserveKey);
+            AIBudget.ClearReservation(faction, FortressReservePriority);
 
             var at = RegionMap.SeedOf(best);
             var anchor = new float3(at.x, TerrainUtility.GetHeight(at.x, at.y), at.y);

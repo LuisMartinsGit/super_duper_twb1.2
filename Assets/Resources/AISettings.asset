@@ -1,0 +1,143 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3e114d890376d7d4bb369395132e1818, type: 3}
+  m_Name: AISettings
+  m_EditorClassIdentifier:
+  weightWorker: 120
+  weightEcoBuilding: 100
+  weightMilitaryBuilding: 70
+  weightHall: 60
+  weightBorderNode: 80
+  weightMilitaryUnit: 40
+  riskPerDefenseStrength: 0.6
+  defenseProbeRadius: 25
+  travelCostPerMeter: 0.4
+  intelAgePenaltyPerSecond: 0.5
+  reconMaxIntelAge: 45
+  scoutFleeHealthFraction: 0.5
+  defendThreatThreshold: 120
+  defendRadius: 45
+  retreatStrengthRatio: 1.6
+  retreatCooldownSeconds: 30
+  personalities:
+  - personality: 0
+    attackThreshold: 3
+    militaryFloor: 16
+    riskMultiplier: 1
+    gathererHutTarget: 14
+    productionBuildingTarget: 24
+    ageUpPushSeconds: 90
+    raidingEnabled: 1
+    basicsAppetite: 1
+    boomAffinity: 0
+    massAffinity: 20
+    rushAffinity: 0
+    techAffinity: 10
+    fortressAffinity: 0
+    towerCoverageScale: 1
+    wallPriorityScale: 1
+  - personality: 1
+    attackThreshold: 2
+    militaryFloor: 20
+    riskMultiplier: 0.6
+    gathererHutTarget: 11
+    productionBuildingTarget: 28
+    ageUpPushSeconds: 110
+    raidingEnabled: 1
+    basicsAppetite: 1.15
+    boomAffinity: 0
+    massAffinity: 26
+    rushAffinity: 42
+    techAffinity: 0
+    fortressAffinity: 0
+    towerCoverageScale: 0.7
+    wallPriorityScale: 0.6
+  - personality: 2
+    attackThreshold: 5
+    militaryFloor: 24
+    riskMultiplier: 1.5
+    gathererHutTarget: 16
+    productionBuildingTarget: 22
+    ageUpPushSeconds: 90
+    raidingEnabled: 0
+    basicsAppetite: 1.05
+    boomAffinity: 0
+    massAffinity: 0
+    rushAffinity: 0
+    techAffinity: 22
+    fortressAffinity: 46
+    towerCoverageScale: 1.5
+    wallPriorityScale: 1.4
+  - personality: 3
+    attackThreshold: 4
+    militaryFloor: 12
+    riskMultiplier: 1.2
+    gathererHutTarget: 20
+    productionBuildingTarget: 18
+    ageUpPushSeconds: 75
+    raidingEnabled: 0
+    basicsAppetite: 0.9
+    boomAffinity: 46
+    massAffinity: 0
+    rushAffinity: 0
+    techAffinity: 26
+    fortressAffinity: 0
+    towerCoverageScale: 0.9
+    wallPriorityScale: 0.9
+  - personality: 4
+    attackThreshold: 2
+    militaryFloor: 20
+    riskMultiplier: 0.5
+    gathererHutTarget: 9
+    productionBuildingTarget: 30
+    ageUpPushSeconds: 120
+    raidingEnabled: 1
+    basicsAppetite: 1.3
+    boomAffinity: 0
+    massAffinity: 18
+    rushAffinity: 55
+    techAffinity: 0
+    fortressAffinity: 0
+    towerCoverageScale: 0.5
+    wallPriorityScale: 0.4
+  - personality: 5
+    attackThreshold: 4
+    militaryFloor: 14
+    riskMultiplier: 1.2
+    gathererHutTarget: 17
+    productionBuildingTarget: 20
+    ageUpPushSeconds: 60
+    raidingEnabled: 0
+    basicsAppetite: 0.75
+    boomAffinity: 14
+    massAffinity: 0
+    rushAffinity: 0
+    techAffinity: 46
+    fortressAffinity: 0
+    towerCoverageScale: 1
+    wallPriorityScale: 1
+  - personality: 6
+    attackThreshold: 6
+    militaryFloor: 28
+    riskMultiplier: 1.8
+    gathererHutTarget: 18
+    productionBuildingTarget: 20
+    ageUpPushSeconds: 105
+    raidingEnabled: 0
+    basicsAppetite: 0.95
+    boomAffinity: 0
+    massAffinity: 12
+    rushAffinity: 0
+    techAffinity: 0
+    fortressAffinity: 46
+    towerCoverageScale: 1.6
+    wallPriorityScale: 1.6

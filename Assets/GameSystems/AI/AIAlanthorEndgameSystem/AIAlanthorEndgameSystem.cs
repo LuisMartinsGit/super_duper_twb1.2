@@ -5,8 +5,7 @@
 // Gatherer's Hut coverage pass), wall hubs at chokepoints (or a base
 // ring), sect adoption (Fortitude / Renewal cluster) AND active-power
 // firing, housing toward 8 Houses, armoured unit production from the Stable /
-// SiegeYard, worker flee from threats, and on-age-up strategy
-// transition to Defensive.
+// SiegeYard, and worker flee from threats.
 //
 // Scope: SELF-SUFFICIENT. The legacy AIBuildingManager / AIEconomyManager /
 // AIMilitaryManager are all [DisableAutoCreation] (replaced by
@@ -21,10 +20,8 @@
 // Tick rate: 5 seconds (slow loop — strategic decisions, not micro).
 //
 // Phases (each tick):
-//   1. HasAgedUp latch — first frame era >= 2 is observed on the Hall.
-//      Also flips AIStrategyState.Current to Defensive after enough
-//      armies have been lost since the last strategy switch (preserves
-//      previous as Previous so future evaluators can diff).
+//   1. (removed 2026-10-05 — the AIStrategyState latch / Defensive flip;
+//      the personality is the only strategy state now.)
 //   2. Sect adoption — when a Temple of Ridan exists and RP / supplies /
 //      veilstone can afford a chapel, queue an adoption via SectAdoption.
 //      Picks Alanthor-cluster sects in priority order (Fortitude first).
@@ -218,34 +215,10 @@ namespace TheWaningBorder.AI
                 if (culture != Cultures.Alanthor) continue;
                 if (era < 2) continue;
 
-                // ─── 1. HasAgedUp latch + opportunistic strategy flip ─
-                if (em.HasComponent<AIStrategyState>(entity))
-                {
-                    var ss = em.GetComponentData<AIStrategyState>(entity);
-                    bool ssDirty = false;
-                    if (ss.HasAgedUp == 0)
-                    {
-                        ss.HasAgedUp = 1;
-                        ssDirty = true;
-                        AILogger.Log(faction, "STRATEGY",
-                            "Alanthor: aged up to era 2+ — endgame system engaged");
-                    }
-                    // Flip to Defensive if too many armies lost since the last
-                    // switch. Cheap signal that doesn't require a full
-                    // AIStrategyEvaluator (also [DisableAutoCreation]).
-                    if (ss.Current != AIPersonality.Defensive
-                        && ss.ArmiesLostSinceSwitch >= Cfg.lossesBeforeDefensiveFlip)
-                    {
-                        ss.Previous = ss.Current;
-                        ss.Current  = AIPersonality.Defensive;
-                        ss.ArmiesLostSinceSwitch = 0;
-                        ss.StrategyStartTime = time;
-                        ssDirty = true;
-                        AILogger.Log(faction, "STRATEGY",
-                            $"Alanthor: switching to Defensive after {Cfg.lossesBeforeDefensiveFlip}+ losses");
-                    }
-                    if (ssDirty) em.SetComponentData(entity, ss);
-                }
+                // (Phase 1, the AIStrategyState HasAgedUp latch and the
+                // losses-to-Defensive flip, was removed on 2026-10-05: the
+                // loss counter was never incremented, so the flip never
+                // fired, and nothing read the flipped value.)
 
                 // ─── 2. Sect adoption ─────────────────────────────────
                 TryAdoptNextSect(faction, em);

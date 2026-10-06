@@ -110,6 +110,20 @@ namespace TheWaningBorder.AI
         // TRAIN UNIT
         // ─────────────────────────────────────────────────────────────────
 
+        /// <summary>Is the army below armyEssentialFraction of its target —
+        /// the band in which a combat unit outranks every non-strict savings
+        /// goal and the budget's lump-sum reservation (Game_AI.md 5f)?</summary>
+        private static bool ArmyEssential(Faction faction)
+            => AIBudget.TryGetArmyStatus(faction, out int alive, out int desired)
+               && desired > 0 && alive < desired * math.saturate(Cfg.armyEssentialFraction);
+
+        /// <summary>Does a combat unit pass the non-strict saves and the
+        /// budget reservation right now? Below the essential line on every
+        /// tier; at ANY size on a tier whose army never pays for a Fortress
+        /// (armyBeforeSaves, Game_AI.md 5f, 2026-10-05).</summary>
+        private static bool ArmyOutranksSaves(Faction faction)
+            => ArmyEssential(faction) || ProfileOf(faction).ArmyBeforeSaves;
+
         private static bool TryTrainUnit(EntityManager em, Faction faction, string unitId)
             => TryTrainUnitWithReason(em, faction, unitId, out _);
 
@@ -180,6 +194,15 @@ namespace TheWaningBorder.AI
             // CommandRouter.MaxProductionQueue.
             if (TheWaningBorder.Core.Commands.CommandRouter.IsProductionQueueFull(em, trainer))
             { blockReason = "trainer queue full"; return false; }
+
+            // SHALLOW QUEUES (2026-10-04, Game_AI.md § 5h). A unit is paid
+            // when queued, so a deep queue locks money that could start a
+            // unit in an idle building. A tier with a depth queues only while
+            // the (least busy) trainer's whole queue is shorter than it; the
+            // reason keeps "queue full" so the army reads as unable to take
+            // money (AIBudget.SetArmyStatus) and the surplus goes elsewhere.
+            if (AtQueueCap(em, faction, trainer))
+            { blockReason = $"trainer queue full (depth {ProfileOf(faction).ProductionQueueDepth})"; return false; }
 
             // Capital seat (2026-08-11): an aged-up Alanthor faction that
             // still owes a capital unique (Ledger / King Lexor) keeps ONE
@@ -259,7 +282,18 @@ namespace TheWaningBorder.AI
                     // through holds — see the thermostat note in
                     // Expansion.TickClaims.
                     || (unitId != "Worker" && unitId != "Scout"
-                        && CountAliveMilitary(em, faction) < Cfg.minArmyForNextClaim);
+                        && CountAliveMilitary(em, faction) < Cfg.minArmyForNextClaim)
+                    // THE ARMY FLOOR OUTRANKS EVERY ORDINARY SAVE (2026-10-05,
+                    // Game_AI.md 5f). Expert in a 1v1 spent 10,462 on
+                    // buildings, 6,016 on levels, 4,146 on trade and 1,622 on
+                    // units between minutes 5 and 17: its floor was refused
+                    // 70 times by the Fortress and capital pots, so it had no
+                    // idle soldiers to claim with, read itself as "stretched",
+                    // stopped expanding and lost ground to a Normal that trains
+                    // freely. While the army is below armyEssentialFraction of
+                    // its target (the Rebuild line), a combat unit passes the
+                    // non-strict holds; the age-up stays strict.
+                    || (unitId != "Worker" && unitId != "Scout" && ArmyOutranksSaves(faction));
                 // THE OPENING HUTS OUTRANK ALL OF THAT (2026-10-03): the
                 // second scout and the claim-gate spearman were buying
                 // themselves out of the starting bank ahead of the huts.
@@ -726,6 +760,33 @@ namespace TheWaningBorder.AI
                         }
                     }
 
+                    // EVERY LINE TRAINS (2026-10-05, Game_AI.md 6c). The floor
+                    // used to order the whole deficit as ONE unit — the plan's
+                    // most-behind role — so a role with a single trainer took
+                    // the army program hostage: Blue (Expert, queue depth 1)
+                    // logged "floor blocked: deficit 112 x Alanthor_Ballista —
+                    // trainer queue full (depth 1)" every minute from 50:38 on,
+                    // "parallel 1 buildings training (of 7)", army 80 of 200
+                    // on a 99,860-iron / 21,820-supply bank. When the pick's
+                    // trainer is the gate (queue full, missing, building,
+                    // level), the rest of the deficit goes to the plan's
+                    // OTHER rows, most-behind first, each into its own
+                    // trainers — within the basics cap. A budget refusal does
+                    // not spread: that is the army saving for its role unit.
+                    if (trained < refill && IsTrainerSideBlock(floorBlock))
+                    {
+                        string firstBlock = floorBlock;
+                        int spread = TrainOnOtherLines(em, faction, aiState.LastMilitaryUnit.ToString(),
+                            refill - trained, out string spreadBlock);
+                        trained += spread;
+                        if (spread > 0) floorBlock = spreadBlock;
+                        else floorBlock = firstBlock;
+                        if (spread > 0 && AILogger.Enabled)
+                            LogOtherLines(faction, now,
+                                $"{aiState.LastMilitaryUnit} blocked ({firstBlock}) — {spread} unit(s) " +
+                                $"trained on other lines");
+                    }
+
                     // ARMY FIRST (AIBudget.ArmyFirstYield, Game_AI.md 5f): tell
                     // the surplus spenders whether the army is below target
                     // and could take the bank. It cannot when every trainer's
@@ -849,6 +910,79 @@ namespace TheWaningBorder.AI
                 }
             }
         }
+        /// <summary>The floor's pick was refused by its TRAINER, not by the
+        /// bank — another line's trainers can still take the order.</summary>
+        private static bool IsTrainerSideBlock(string why)
+            => why != null
+               && (why.Contains("queue full") || why == "no trainer"
+                   || why == "trainer under construction" || why == "trainer has no queue"
+                   || why.StartsWith("needs Lv") || why == "capital seat reserved");
+
+        private static readonly List<(float Ratio, int Row, string Id)> _otherLines
+            = new List<(float, int, string)>();
+        private static readonly Dictionary<Faction, float> _nextOtherLinesLog
+            = new Dictionary<Faction, float>();
+
+        private static void LogOtherLines(Faction faction, float now, string message)
+        {
+            if (_nextOtherLinesLog.TryGetValue(faction, out float next) && now < next) return;
+            _nextOtherLinesLog[faction] = now + 60f;
+            AILogger.Log(faction, "MILITARY", message + " (logged once a minute)");
+        }
+
+        /// <summary>
+        /// Up to <paramref name="budget"/> combat units on every line but
+        /// <paramref name="skipUnit"/>'s: the active Alanthor plan's rows,
+        /// most below their share first, basics only under the cap; without a
+        /// plan, every trainable combat unit not passed over. Each line trains
+        /// until its own trainers refuse. Returns the count trained.
+        /// </summary>
+        private static int TrainOnOtherLines(EntityManager em, Faction faction, string skipUnit,
+            int budget, out string lastBlock)
+        {
+            lastBlock = null;
+            if (budget <= 0) return 0;
+            _otherLines.Clear();
+            ArmyPlan p = FactionCultureOf(em, faction) == Cultures.Alanthor ? GetArmyPlan(em, faction) : null;
+            bool planned = p != null && p.Active;
+            if (planned)
+            {
+                for (int r = 0; r < p.N; r++)
+                {
+                    if (!p.Trainable[r] || p.Share[r] <= 0.001f || p.Rows[r] == null) continue;
+                    string id = p.Rows[r].unitId;
+                    if (string.IsNullOrEmpty(id) || id == skipUnit) continue;
+                    _otherLines.Add(((p.Count[r] + 1) / p.Share[r], r, id));
+                }
+            }
+            else
+            {
+                var ids = TrainableCombatIds(em, faction);
+                for (int k = 0; k < ids.Count; k++)
+                {
+                    if (ids[k] == skipUnit || IsPassedOver(em, faction, ids[k])) continue;
+                    _otherLines.Add((k, -1, ids[k]));
+                }
+            }
+            _otherLines.Sort((a, b) => a.Ratio != b.Ratio ? a.Ratio.CompareTo(b.Ratio) : a.Row.CompareTo(b.Row));
+
+            int trained = 0, basicsAdded = 0;
+            for (int i = 0; i < _otherLines.Count && trained < budget; i++)
+            {
+                var line = _otherLines[i];
+                bool basic = planned && line.Row >= 0 && p.Rows[line.Row].basic;
+                while (trained < budget)
+                {
+                    if (basic && p.Basics + basicsAdded >= BasicsAllowed(p)) break;
+                    if (!TryTrainUnitBudgeted(em, faction, line.Id, AIBudgetCategory.Military, out lastBlock))
+                        break;
+                    trained++;
+                    if (basic) basicsAdded++;
+                }
+            }
+            return trained;
+        }
+
         /// <summary>
         /// LAYER 3 — the composition pick. See AIComposition.cs for the layer
         /// contract; this is its implementation.

@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6f2a9c41d3b84e7f9a1c5d2e8b7f4a01, type: 3}
+  m_Name: MatchScoreSystem
+  m_EditorClassIdentifier:
+  sampleIntervalSeconds: 15
+  weightSupplies: 1
+  weightIron: 1
+  weightVeilstone: 2
+  weightVeilsteel: 4
+  pointsPerHundredEarned: 1
+  pointsPerHundredIncomePerMinute: 5
+  pointsPerTerritory: 60
+  pointsPerFortress: 120
+  pointsPerTech: 25
+  pointsPerBuildingLevel: 8
+  ageUpBonusMax: 300
+  ageUpBonusDecayPerMinute: 15
+  pointsPerKill: 12
+  pointsPerRazedBuilding: 25
+  kdFactorMin: 0.5
+  kdFactorMax: 2

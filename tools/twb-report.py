@@ -214,7 +214,7 @@ def totals_line(where, size):
 SUMMARY_KEYS = ("key", "map", "stamp", "kind", "peers", "outcome", "duration",
                 "decidedAt", "winner", "build", "exceptions", "errors", "warnings",
                 "tmax", "config", "fidelity", "desync", "hasReplay", "trackInfo",
-                "error", "wall", "realtime")
+                "error", "wall", "realtime", "label", "aiRoster", "scoreLeader")
 
 
 def safe(name):

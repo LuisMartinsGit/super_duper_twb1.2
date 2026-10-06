@@ -134,6 +134,17 @@ namespace TheWaningBorder.AI
         /// </summary>
         private static void TryFireSectPowers(Faction faction, EntityManager em, float3 hallPos)
         {
+            // WAIT FOR VALUE (2026-10-04, Game_AI.md § 6e). Every active used
+            // to fire the moment it came off cooldown at whatever the picker
+            // found — a smite on a lone building near the keep, a heal on
+            // three idle full-HP spearmen, Bulwark on a base nobody was
+            // attacking. Powers now aim only at FIGHTS: the ones the army
+            // tactics reported (AITactics fight sites) plus the base when it
+            // is under attack, and each kind has a value bar from the tier's
+            // AITacticsSkill. A power that clears no bar is HELD, and says why.
+            AITactics.TryGetSkill(em, faction, out var skill);
+            CollectPowerSites(em, faction, hallPos, out bool baseThreat);
+
             for (int i = 0; i < AllSects.Length; i++)
             {
                 string sectId = AllSects[i];
@@ -146,7 +157,15 @@ namespace TheWaningBorder.AI
 
                     var spec = SectLeverEffects.ActiveOf(sectId, slot, level);
                     if (spec.Kind == SectActivePowerKind.None) continue;
-                    if (!TryPickTargetFor(em, faction, hallPos, spec, out float3 target)) continue;
+                    if (!TryPickTargetFor(em, faction, hallPos, spec, in skill, baseThreat,
+                            out float3 target, out string why, out int caught))
+                    {
+                        if (why != null
+                            && AITactics.LogDue(em, faction, "sect:" + sectId + slot, AITactics.Cfg.abilityHeldLogSeconds))
+                            AILogger.Log(faction, "ABILITY",
+                                $"{sectId.Substring(5)} slot {slot} ({spec.Kind}) held ({why})");
+                        continue;
+                    }
 
                     // THROUGH THE ROUTER, NEVER Fire() DIRECT (2026-09-04, MP
                     // harness catch #8 — the same class as catch #2). This
@@ -162,21 +181,67 @@ namespace TheWaningBorder.AI
                         TheWaningBorder.Core.Commands.CommandSource.AI);
                     AILogger.Log(faction, "STRATEGY",
                         $"Alanthor: fired {sectId.Substring(5)} slot {slot} at Lv {level}");
+                    AILogger.Log(faction, "ABILITY",
+                        $"{sectId.Substring(5)} slot {slot} ({spec.Kind}) cast ({caught} enemies) at ({target.x:F0},{target.z:F0})");
                 }
             }
         }
 
+        // ── Fight sites for the power pickers (host scratch) ─────────────
+        private static readonly System.Collections.Generic.List<AIFightSite> _powerSites =
+            new System.Collections.Generic.List<AIFightSite>(8);
+
         /// <summary>
-        /// Where to aim one active. Split out of TryFireSectPowers because the
-        /// canon pass took the kind count from nine to nineteen, and a switch
-        /// that long inside a double loop stopped being readable.
+        /// The places a power may land: every fight the army tactics reported
+        /// within fightSiteSeconds, plus the capital when hostile PLAYER
+        /// units stand within baseThreatRadius of it.
+        /// </summary>
+        private static void CollectPowerSites(EntityManager em, Faction faction, float3 hallPos,
+            out bool baseThreat)
+        {
+            AITactics.FightSites(em, faction, _powerSites);
+            float r = AITactics.Cfg.baseThreatRadius;
+            int enemies = CountPlayerEnemiesNear(em, faction, hallPos, r);
+            baseThreat = enemies > 0;
+            if (!baseThreat) return;
+            var a = AIEngagement.Assess(em, faction, hallPos, r);
+            _powerSites.Add(new AIFightSite { Pos = hallPos, Mine = a.MyPower, Enemy = a.EnemyPower });
+        }
+
+        private static int CountPlayerEnemiesNear(EntityManager em, Faction faction, float3 pos, float r)
+        {
+            var query = QC_UnitTagLocalTransformFactionTagHealth.Get(em, QT_UnitTagLocalTransformFactionTagHealth);
+            using var ents = query.ToEntityArray(Allocator.Temp);
+            float r2 = r * r; int n = 0;
+            for (int i = 0; i < ents.Length; i++)
+            {
+                var e = ents[i];
+                var fac = em.GetComponentData<FactionTag>(e).Value;
+                if (fac == Faction.Border || !Alliances.AreHostile(faction, fac)) continue;
+                if (em.GetComponentData<Health>(e).Value <= 0) continue;
+                float3 p = em.GetComponentData<LocalTransform>(e).Position;
+                float dx = p.x - pos.x, dz = p.z - pos.z;
+                if (dx * dx + dz * dz <= r2) n++;
+            }
+            return n;
+        }
+
+        /// <summary>
+        /// Where to aim one active, and whether it is worth it NOW. Returns
+        /// false with <paramref name="why"/> set when the power should be held
+        /// (null why = nothing to say, e.g. an economy power with no node).
         /// </summary>
         private static bool TryPickTargetFor(EntityManager em, Faction faction, float3 hallPos,
-            SectActivePowerSpec spec, out float3 target)
+            SectActivePowerSpec spec, in AITacticsSkill skill, bool baseThreat,
+            out float3 target, out string why, out int caught)
         {
+            why = null;
+            caught = 0;
+            int aoeMin = math.max(1, skill.aoeMinEnemies);
             switch (spec.Kind)
             {
-                // Aim at the enemy army.
+                // Aim at the enemy army — at a fight, never "near the base
+                // at whatever is there".
                 case SectActivePowerKind.SmiteCircle:
                 case SectActivePowerKind.BurningCircle:
                 case SectActivePowerKind.SpawnPyre:
@@ -192,42 +257,69 @@ namespace TheWaningBorder.AI
                 case SectActivePowerKind.AttainderStrike:
                 case SectActivePowerKind.SpyNetwork:
                 case SectActivePowerKind.Blind:
-                    return TryPickEnemyClusterNearBase(em, faction, hallPos, spec.Radius, out target);
+                    if (_powerSites.Count == 0) { target = default; why = "no fight in progress"; return false; }
+                    if (TryPickEnemyClusterAtSites(em, faction, spec.Radius, aoeMin, out target, out caught))
+                        return true;
+                    why = $"densest cluster {caught}/{aoeMin} enemies";
+                    return false;
 
                 // Nowhere to Hide is map-wide: it hits whatever the AI can
-                // already see, so there is nothing to aim and the cast point
-                // only decides where the art plays.
+                // already see — worth it only while a fight is on.
                 case SectActivePowerKind.RevealedStrike:
-                    target = hallPos;
-                    return true;
+                    for (int s = 0; s < _powerSites.Count; s++)
+                        if (_powerSites[s].Enemy > 0)
+                        {
+                            target = _powerSites[s].Pos; caught = _powerSites.Count;
+                            return true;
+                        }
+                    target = hallPos; why = "no fight in progress";
+                    return false;
 
-                // Aim at an enemy BUILDING.
+                // Aim at an enemy BUILDING beside a fight.
                 case SectActivePowerKind.BuildingShutdown:
-                    return TryPickEnemyBuildingNearBase(em, faction, hallPos, out target);
+                    for (int s = 0; s < _powerSites.Count; s++)
+                        if (TryPickEnemyBuildingNearBase(em, faction, _powerSites[s].Pos, out target)) return true;
+                    target = default; why = "no enemy building at a fight";
+                    return false;
 
-                // Aim at your own army.
+                // Heals: only where enough of the allied pool is missing.
                 case SectActivePowerKind.HealCircle:
                 case SectActivePowerKind.HealCirclePercent:
+                    return TryPickFriendlyAtSites(em, faction, spec.Radius, FriendlyNeed.Heal, in skill,
+                        out target, out why, out caught);
+
+                // Buffs: only on a fighting cluster of allies.
                 case SectActivePowerKind.ArmorCircle:
                 case SectActivePowerKind.DamageCircle:
                 case SectActivePowerKind.SpeedCircle:
-                case SectActivePowerKind.DeathWard:
                 case SectActivePowerKind.Veil:
-                case SectActivePowerKind.Invulnerable:
                 case SectActivePowerKind.CurseWard:
-                    return TryPickFriendlyArmy(em, faction, hallPos, spec.Radius, out target);
+                    return TryPickFriendlyAtSites(em, faction, spec.Radius, FriendlyNeed.Buff, in skill,
+                        out target, out why, out caught);
+
+                // Ultimates: only when the fight is pivotal.
+                case SectActivePowerKind.DeathWard:
+                case SectActivePowerKind.Invulnerable:
+                    return TryPickFriendlyAtSites(em, faction, spec.Radius, FriendlyNeed.Pivotal, in skill,
+                        out target, out why, out caught);
 
                 // Aim into the fog.
                 case SectActivePowerKind.RevealCircle:
                     return TryPickRevealTarget(em, faction, hallPos, out target);
 
                 // Aim at your own ground. Bulwark wants the base, not the field
-                // army: it buffs buildings, and the buildings worth buffing are
-                // at home. Cleanse is base-defensive too.
+                // army: it buffs buildings — and only while the base is
+                // actually under attack. Cleanse is base-defensive too.
                 case SectActivePowerKind.BuildingHpBuff:
                 case SectActivePowerKind.InfluenceBurst:
                     target = hallPos;
-                    return true;
+                    if (baseThreat)
+                    {
+                        caught = CountPlayerEnemiesNear(em, faction, hallPos, AITactics.Cfg.baseThreatRadius);
+                        return true;
+                    }
+                    why = "base not under attack";
+                    return false;
 
                 // A tower is a PICKET, so it goes out on the threatened side
                 // rather than on the keep — which is where "aim at your own
@@ -244,6 +336,143 @@ namespace TheWaningBorder.AI
                     target = default;
                     return false;
             }
+        }
+
+        private enum FriendlyNeed : byte { Heal, Buff, Pivotal }
+
+        /// <summary>
+        /// Densest enemy PLAYER cluster standing at one of the fight sites.
+        /// <paramref name="caught"/> is the best count found (also on failure,
+        /// for the held log).
+        /// </summary>
+        private static bool TryPickEnemyClusterAtSites(EntityManager em, Faction faction,
+            float castRadius, int need, out float3 target, out int caught)
+        {
+            target = default; caught = 0;
+            var query = QC_UnitTagLocalTransformFactionTagHealth.Get(em, QT_UnitTagLocalTransformFactionTagHealth);
+            using var ents = query.ToEntityArray(Allocator.Temp);
+            float siteR = AITactics.Cfg.powerRadius;
+            float siteR2 = siteR * siteR;
+
+            var pts = new NativeList<float3>(Allocator.Temp);
+            for (int i = 0; i < ents.Length; i++)
+            {
+                var e = ents[i];
+                var fac = em.GetComponentData<FactionTag>(e).Value;
+                // PLAYER enemies only: curse critters respawn from the node,
+                // so a smite on them buys nothing (2026-08-11).
+                if (fac == Faction.Border || !Alliances.AreHostile(faction, fac)) continue;
+                if (em.GetComponentData<Health>(e).Value <= 0) continue;
+                float3 p = em.GetComponentData<LocalTransform>(e).Position;
+                bool atSite = false;
+                for (int s = 0; s < _powerSites.Count && !atSite; s++)
+                {
+                    float dx = p.x - _powerSites[s].Pos.x, dz = p.z - _powerSites[s].Pos.z;
+                    atSite = dx * dx + dz * dz <= siteR2;
+                }
+                if (atSite) pts.Add(p);
+            }
+
+            float c2 = castRadius * castRadius;
+            int bestIdx = -1;
+            for (int i = 0; i < pts.Length; i++)
+            {
+                int count = 0;
+                for (int j = 0; j < pts.Length; j++)
+                {
+                    float dx = pts[j].x - pts[i].x, dz = pts[j].z - pts[i].z;
+                    if (dx * dx + dz * dz <= c2) count++;
+                }
+                if (count > caught) { caught = count; bestIdx = i; }
+            }
+            bool ok = bestIdx >= 0 && caught >= need;
+            if (ok) target = pts[bestIdx];
+            pts.Dispose();
+            return ok;
+        }
+
+        /// <summary>
+        /// Own units standing at a fight site, clustered in the power's
+        /// radius, judged by what the power is FOR: a heal needs the missing
+        /// share of the cluster's HP pool above healMinMissingFraction; a buff
+        /// needs buffMinAllies in the circle; an ultimate needs the site's odds
+        /// at or past pivotalRatio as well.
+        /// </summary>
+        private static bool TryPickFriendlyAtSites(EntityManager em, Faction faction, float castRadius,
+            FriendlyNeed need, in AITacticsSkill skill, out float3 target, out string why, out int caught)
+        {
+            target = default; why = null; caught = 0;
+            if (_powerSites.Count == 0) { why = "no fight in progress"; return false; }
+
+            int pivotalSite = -1;
+            if (need == FriendlyNeed.Pivotal)
+            {
+                float worst = 0f;
+                for (int s = 0; s < _powerSites.Count; s++)
+                {
+                    float r = _powerSites[s].Ratio;
+                    if (r >= skill.pivotalRatio && r > worst) { worst = r; pivotalSite = s; }
+                }
+                if (pivotalSite < 0) { why = "no fight is pivotal"; return false; }
+            }
+
+            var query = QC_UnitTagLocalTransformFactionTagHealth.Get(em, QT_UnitTagLocalTransformFactionTagHealth);
+            using var ents = query.ToEntityArray(Allocator.Temp);
+            float siteR = AITactics.Cfg.powerRadius;
+            float siteR2 = siteR * siteR;
+            var pos = new NativeList<float3>(Allocator.Temp);
+            var cur = new NativeList<int>(Allocator.Temp);
+            var max = new NativeList<int>(Allocator.Temp);
+            for (int i = 0; i < ents.Length; i++)
+            {
+                var e = ents[i];
+                if (em.GetComponentData<FactionTag>(e).Value != faction) continue;
+                var hp = em.GetComponentData<Health>(e);
+                if (hp.Value <= 0) continue;
+                float3 p = em.GetComponentData<LocalTransform>(e).Position;
+                bool atSite = false;
+                for (int s = 0; s < _powerSites.Count && !atSite; s++)
+                {
+                    if (pivotalSite >= 0 && s != pivotalSite) continue;
+                    float dx = p.x - _powerSites[s].Pos.x, dz = p.z - _powerSites[s].Pos.z;
+                    atSite = dx * dx + dz * dz <= siteR2;
+                }
+                if (!atSite) continue;
+                pos.Add(p); cur.Add(hp.Value); max.Add(hp.Max);
+            }
+
+            float c2 = castRadius * castRadius;
+            int bestIdx = -1; float bestScore = 0f; int bestN = 0; float bestMissing = 0f;
+            for (int i = 0; i < pos.Length; i++)
+            {
+                int n = 0, missing = 0, pool = 0;
+                for (int j = 0; j < pos.Length; j++)
+                {
+                    float dx = pos[j].x - pos[i].x, dz = pos[j].z - pos[i].z;
+                    if (dx * dx + dz * dz > c2) continue;
+                    n++; pool += max[j]; missing += math.max(0, max[j] - cur[j]);
+                }
+                float frac = pool > 0 ? missing / (float)pool : 0f;
+                float score = need == FriendlyNeed.Heal ? missing : n;
+                if (score > bestScore) { bestScore = score; bestIdx = i; bestN = n; bestMissing = frac; }
+            }
+            float3 best = bestIdx >= 0 ? pos[bestIdx] : default;
+            pos.Dispose(); cur.Dispose(); max.Dispose();
+            caught = bestN;
+
+            int minAllies = math.max(1, AITactics.Cfg.buffMinAllies);
+            if (bestIdx < 0 || bestN < minAllies)
+            {
+                why = $"only {bestN}/{minAllies} allies in the circle";
+                return false;
+            }
+            if (need == FriendlyNeed.Heal && bestMissing < skill.healMinMissingFraction)
+            {
+                why = $"{bestMissing * 100f:F0}% hp missing (needs {skill.healMinMissingFraction * 100f:F0}%)";
+                return false;
+            }
+            target = best;
+            return true;
         }
 
         /// <summary>Nearest live resource node to the Hall, for Harvest the
@@ -411,65 +640,6 @@ namespace TheWaningBorder.AI
                 hallPos.x + dx / dist * reach,
                 hallPos.y,
                 hallPos.z + dz / dist * reach);
-            return true;
-        }
-
-        // Pick the centroid of our largest army group within ~120 m of the
-        // Hall. Bias toward groups that are currently taking damage so the
-        // heal/buff actually matters.
-        private static bool TryPickFriendlyArmy(
-            EntityManager em, Faction faction, float3 hallPos, float castRadius,
-            out float3 target)
-        {
-            target = default;
-            var query = QC_UnitTagLocalTransformFactionTagHealth.Get(em, QT_UnitTagLocalTransformFactionTagHealth);
-            using var ents = query.ToEntityArray(Allocator.Temp);
-
-            const float scanRadius = 120f;
-            float scanRadiusSq = scanRadius * scanRadius;
-
-            var positions = new NativeList<float3>(Allocator.Temp);
-            var damaged   = new NativeList<bool>(Allocator.Temp);
-            for (int i = 0; i < ents.Length; i++)
-            {
-                var e = ents[i];
-                if (em.GetComponentData<FactionTag>(e).Value != faction) continue;
-                var hp = em.GetComponentData<Health>(e);
-                if (hp.Value <= 0) continue;
-                float3 p = em.GetComponentData<LocalTransform>(e).Position;
-                float dx = p.x - hallPos.x, dz = p.z - hallPos.z;
-                if (dx * dx + dz * dz > scanRadiusSq) continue;
-                positions.Add(p);
-                damaged.Add(hp.Value < hp.Max);
-            }
-
-            if (positions.Length == 0) { positions.Dispose(); damaged.Dispose(); return false; }
-
-            // Score each unit by (cluster size in castRadius) + (2× damaged
-            // friends in radius), so heals/buffs land where they help most.
-            float castRadiusSq = castRadius * castRadius;
-            float bestScore = 0f;
-            int bestIdx = -1;
-            for (int i = 0; i < positions.Length; i++)
-            {
-                float score = 0f;
-                for (int j = 0; j < positions.Length; j++)
-                {
-                    float dx = positions[j].x - positions[i].x;
-                    float dz = positions[j].z - positions[i].z;
-                    if (dx * dx + dz * dz > castRadiusSq) continue;
-                    score += 1f + (damaged[j] ? 2f : 0f);
-                }
-                if (score > bestScore) { bestScore = score; bestIdx = i; }
-            }
-
-            // Need at least 3 units (or 2 wounded) to justify the cooldown.
-            bool worthwhile = bestScore >= 3f;
-            float3 best = bestIdx >= 0 ? positions[bestIdx] : default;
-            positions.Dispose();
-            damaged.Dispose();
-            if (!worthwhile) return false;
-            target = best;
             return true;
         }
 

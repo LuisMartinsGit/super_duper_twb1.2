@@ -1,0 +1,67 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1daa6a41a9544f4681c9595cd1ece3f9, type: 3}
+  m_Name: AITactics
+  m_EditorClassIdentifier:
+  microInterval: 0.3
+  abilityInterval: 0.5
+  kiteTriggerDistance: 4
+  kiteStepDistance: 4.5
+  kiteMinReloadSeconds: 0.35
+  kiteSpeedRatio: 0.9
+  kiteMaxDrift: 24
+  kiteAnchorResetSeconds: 15
+  kiteMaxPerTick: 24
+  dangerScale: 3
+  finishScale: 0.1
+  fragileScale: 0.02
+  distanceScale: 0.5
+  counterThreatScale: 2
+  counterEdgeScale: 1
+  heroThreatBonus: 30
+  highValueBonus: 25
+  focusTopK: 6
+  memberDistanceScale: 0.6
+  switchMargin: 12
+  rangedReachSlack: 3
+  rangedStandoff: 6
+  rangedLineTolerance: 4
+  rangedLineSpacing: 1.8
+  rangedLineSlots: 8
+  flankMinArmy: 8
+  flankMinGroup: 3
+  flankMinEnemies: 4
+  flankSpeedRatio: 1.15
+  flankLateral: 16
+  flankDepth: 8
+  flankArriveRadius: 7
+  flankTimeout: 12
+  flankRetrySeconds: 25
+  powerRadius: 30
+  fallbackAnchorSearch: 80
+  fallbackDistance: 28
+  fallbackArriveRadius: 10
+  fallbackHoldSeconds: 4
+  fallbackTimeout: 30
+  fallbackMinArmy: 4
+  fallbackSafeHomeRadius: 45
+  abilityScanRadius: 18
+  contactDistance: 10
+  defensiveHpFraction: 0.45
+  buffMinAllies: 3
+  buffEnemyMargin: 8
+  legacyAbilityRadius: 6
+  condemnMinHpFraction: 0.5
+  abilityHeldLogSeconds: 20
+  fightSiteSeconds: 8
+  baseThreatRadius: 60
+  logIntervalSeconds: 6

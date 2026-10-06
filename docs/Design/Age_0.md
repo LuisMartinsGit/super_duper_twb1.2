@@ -367,18 +367,34 @@ attack and SAVES for its landmark:
 
 ### Vault of Almiérra — the Alanthor landmark
 
-A resource bank: deposited resources earn **compound interest** per minute,
-`next = current × (1 + rate)`. **Interest applies from level 1 and grows with
-the Vault's level** (decision 12): the base rate is on
-`Age0/Buildings/VaultOfAlmierra/VaultOfAlmierra.asset` and each level's
-multiplier on `Civs/Alanthor/Buildings/VaultOfAlmierra/VaultOfAlmierra_Lvl1..3`.
-HP, upgrade prices and times are on the same SOs. No trainable units.
+A resource bank: deposited resources earn **simple interest** per minute on
+the stored **principal**, and only on the part of it **up to a cap**
+([Unification decision 41](Unification_Decisions_2026-10-03.md), 2026-10-05).
+The principal is what the Vault holds as of the last deposit; the interest it
+pays is added to the payout, never to the principal, so the yield grows in a
+straight line and never compounds. Anything stored above the cap earns
+nothing (it is still safe and still paid out on withdrawal). A withdrawal
+takes everything and zeroes the principal.
+
+**Interest applies from level 1 and grows with the Vault's level**
+(decision 12), and **the banking-grade techs raise the rate**: the base rate,
+the principal cap and the three grade rates are on
+`Age0/Buildings/VaultOfAlmierra/VaultOfAlmierra.asset`
+(`interestPerMinute`, `interestPrincipalCap`, `coffersRate`,
+`merchantChartersRate`, `sovereignBondsRate`), and each level's multiplier on
+`Civs/Alanthor/Buildings/VaultOfAlmierra/VaultOfAlmierra_Lvl1..3`. HP, upgrade
+prices and times are on the same SOs. No trainable units.
+
+> Why simple and capped: under compounding the Vault was a money printer —
+> one test saw 2,645 iron become 7.5 million eleven minutes later. The point
+> of the Vault is a modest, safe return on idle resources, not an economy.
 
 #### Researchable techs
 
 The three banking-grade techs are **mutually exclusive tiers** — only one
 banking grade is active at a time; researching a higher grade replaces the
-active rate. The resource-unlock techs widen what may be deposited.
+active rate with that grade's rate from the Vault SO (the level multiplier
+still applies on top). The resource-unlock techs widen what may be deposited.
 
 | Tech | Gate (`minBuildingLevel`) | Effect (rule) |
 |------|------|---------------|
@@ -524,9 +540,10 @@ its name.
 2. **Warrior Priests** — the Litharch has no attack by default; Warrior
    Priests grants one (values on the tech SO).
 3. **Fiendstone Keep** — out of scope until the Feraldis pass (decision 38).
-4. **Vault interest model** — **compound interest**,
-   `next = current × (1 + rate)` per minute, applying from level 1 and
-   growing with level (decision 12).
+4. **Vault interest model** — originally compound. **Superseded 2026-10-05
+   (decision 41):** **simple interest on the principal up to the SO cap**,
+   applying from level 1 and growing with level (decision 12); the banking
+   grades replace the rate. See § Vault of Almiérra above.
 5. **Banking tier names** — **Coffers**, **Merchant Charters**, **Sovereign
    Bonds** (the three grades); Iron Subsidies / Veilstone Monetization /
    Veilsteel Bonds are the resource unlocks.

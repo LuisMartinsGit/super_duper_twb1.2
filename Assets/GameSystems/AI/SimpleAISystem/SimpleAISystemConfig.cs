@@ -944,8 +944,10 @@ namespace TheWaningBorder.AI
         /// again; meanwhile the step counts as done for the order.</summary>
         public float territoryBlockedStepSeconds;
 
-        /// <summary>Watch Towers per territory that borders hostile or
-        /// unowned ground (step 3). Cultures with no Watch Tower skip it.</summary>
+        /// <summary>Watch Towers in the HOME territory when it borders
+        /// hostile or unowned ground (step 3, periphery-anchored). Provinces
+        /// use the coverage siting below instead. Cultures with no Watch
+        /// Tower skip it.</summary>
         public int towersPerTerritory;
 
         /// <summary>How far from the territory's seed toward the exposed
@@ -953,36 +955,76 @@ namespace TheWaningBorder.AI
         /// neighbour's seed; the region lock keeps it inside).</summary>
         public float towerPeripheryFraction;
 
-        /// <summary>Production buildings every held territory gets from its
-        /// own build order (step 4): the line the army plan needs most that
-        /// the territory does not already have, the Barracks when the plan
-        /// names nothing else.</summary>
-        public int productionPerTerritory;
+        // ── PROVINCE TOWER COVERAGE (2026-10-04, Game_AI.md 5g) ──
 
-        /// <summary>The HOME territory's floor: production buildings of EACH
-        /// line the faction can build (the Barracks always; the Archery
-        /// Range, Royal Stable and Siege Yard once the culture and age allow
-        /// them), sites and plans counted. Filled breadth-first — every line
-        /// to 1, then every line to 2. Replaces the faction-wide redundant
-        /// Barracks floor (was redundantBarracksCount).</summary>
-        public int homeProductionPerLine;
+        /// <summary>Coverage-sited Watch Towers a province (a held territory
+        /// other than the home) gets in step 3, BEFORE its production
+        /// building. Not army-gated; a money refusal holds step 4 as any
+        /// step does.</summary>
+        public int towersProvinceFirst;
+
+        /// <summary>The most Watch Towers a province gets in all. Those past
+        /// towersProvinceFirst are the coverage extras (step 5): after the
+        /// province's production, and only while the army is at
+        /// towerExtraArmyFraction of its target.</summary>
+        public int towersPerProvinceMax;
+
+        /// <summary>Fraction (0..1) of a province's weighted important points
+        /// inside some own tower's reach at which its towers stop.</summary>
+        public float towerCoverageTarget;
+
+        /// <summary>Minimum distance between two own towers, as a fraction
+        /// of the tower's SO reach (attack range, else line of sight).</summary>
+        public float towerMinSpacingRangeFraction;
+
+        /// <summary>The coverage extras wait until the alive army is at least
+        /// this fraction of its desired size (army first).</summary>
+        public float towerExtraArmyFraction;
+
+        /// <summary>A tower site must bring at least this much still-uncovered
+        /// point weight into reach; below it the province is called done.</summary>
+        public float towerMinGainWeight;
+
+        /// <summary>Greedy sites tried per walk when the best ones have no
+        /// legal footprint (each is a bounded placement search).</summary>
+        public int towerSiteTriesPerWalk;
+
+        /// <summary>Metres around a chosen coverage site the placement search
+        /// may move the tower to find a legal footprint.</summary>
+        public float towerSiteSearchRadius;
+
+        /// <summary>Spacing (m) of the per-province sample grid: candidate
+        /// tower sites and the border-crossing points. Built once per map.</summary>
+        public float towerSampleStep;
+
+        /// <summary>Cap on the sample-grid cells one province is flooded to.</summary>
+        public int towerSampleMaxCells;
+
+        /// <summary>Coverage weight of a resource node (built on or free).</summary>
+        public float towerWeightResource;
+
+        /// <summary>Coverage weight of the province's Fortress, or of its
+        /// reserved Fortress spot.</summary>
+        public float towerWeightFortress;
+
+        /// <summary>Coverage weight of each production building there.</summary>
+        public float towerWeightProduction;
+
+        /// <summary>Coverage weight of each border sample facing an unowned,
+        /// curse-held or hostile neighbour.</summary>
+        public float towerWeightBorder;
+
+        // The production CAPACITY (home floor per line, production per
+        // province, the saturation threshold and seconds for extras) is per
+        // difficulty tier since 2026-10-05: AIDifficultyProfileSO
+        // (homeProductionPerLine, provinceProductionPerTerritory,
+        // productionSaturationThreshold, productionSaturationSeconds).
 
         /// <summary>Match seconds before the home floor asks for more than
         /// one of a line; before it the home gets only its first building of
         /// each line, so the hut-first opening and the age-up savings run
         /// first (was the redundant Barracks floor's literal 90 s).</summary>
         public float homeProductionFloorAfterSeconds;
-
-        /// <summary>Fraction of the faction's finished production buildings
-        /// whose queue holds work (training or research) for the existing
-        /// production to count as SATURATED. Any production building past
-        /// one per territory waits on saturation.</summary>
-        public float productionSaturationThreshold;
-
-        /// <summary>Seconds the saturation must hold, unbroken, before an
-        /// extra production building may be placed; the window restarts
-        /// after each extra.</summary>
-        public float productionSaturationSeconds;
 
         /// <summary>Seconds between "PRODUCTION: extra held" lines per
         /// faction.</summary>
@@ -1008,5 +1050,288 @@ namespace TheWaningBorder.AI
         /// <summary>Build cells kept clear around a reserved Fortress spot, so
         /// the Fortress also keeps a free side.</summary>
         public int fortressSpotMarginCells;
+
+        // ── Economic drive and the Vault (docs/Design/Game_AI.md § 5h) ──
+
+        /// <summary>The first-Religion-Point hunt launches only when the
+        /// army's power is at least this multiple of the curse node's.
+        /// Every tier: the hunt never fights at parity.</summary>
+        public float religionHuntPowerMargin;
+
+        /// <summary>Seconds between economy-pass runs per faction: the Vault
+        /// decision and the node-built scan.</summary>
+        public float econPassInterval;
+
+        /// <summary>Bank kept back from any Vault deposit, per resource, on
+        /// top of every pending savings goal.</summary>
+        public int vaultKeepSupplies;
+        public int vaultKeepIron;
+        public int vaultKeepVeilstone;
+        public int vaultKeepVeilsteel;
+
+        /// <summary>Smallest deposit worth locking the Vault for.</summary>
+        public int vaultMinDeposit;
+
+        /// <summary>Below this fraction of its health the Vault is emptied
+        /// (stored resources die with it).</summary>
+        public float vaultDamagedFraction;
+
+        /// <summary>Seconds between the periodic ECON / PRODUCTION summary
+        /// lines per faction.</summary>
+        public float econLogInterval;
+
+        // ── Economy defence and distress (docs/Design/Game_AI.md § 5i) ──
+
+        /// <summary>An economy asset (extractor, house, worker) counts as
+        /// under attack while its last attacker is alive, hostile and within
+        /// this many metres of it.</summary>
+        public float economyDefenceProbeRadius;
+
+        /// <summary>Radius (m) the response reads the attacker's power in:
+        /// mobile army plus static defences, curse included (AIEngagement).</summary>
+        public float economyDefenceAssessRadius;
+
+        /// <summary>Only standing soldiers within this many metres of the
+        /// attack are drafted into a response.</summary>
+        public float economyDefenceDraftRadius;
+
+        /// <summary>A response is released (its soldiers walk home) when no
+        /// hostile power is left at the site, or after this many seconds.</summary>
+        public float economyDefenceTimeoutSeconds;
+
+        /// <summary>Seconds between top-ups of a response the attacker still
+        /// outweighs.</summary>
+        public float economyDefenceTopUpSeconds;
+
+        /// <summary>Attack sites one think may answer (the rest wait a
+        /// think).</summary>
+        public int economyDefenceSitesPerThink;
+
+        /// <summary>Seconds an economy attack keeps the faction "under
+        /// attack" for the savings pause after its last sighting.</summary>
+        public float economyAttackLingerSeconds;
+
+        /// <summary>A lost extractor is owed a rebuild (first in the extractor
+        /// walk, a strict savings goal) for this many seconds.</summary>
+        public float extractorRebuildWindowSeconds;
+
+        /// <summary>Seconds between extractor walks while a rebuild is owed
+        /// (instead of extractorAttemptInterval).</summary>
+        public float extractorRebuildAttemptInterval;
+
+        /// <summary>Extractor walks in a row that may fail to place an owed
+        /// rebuild on any free node before the debt is dropped.</summary>
+        public int extractorRebuildMaxRefusals;
+
+        /// <summary>An extractor site lost once is not rebuilt while a live
+        /// curse node stands within this many metres of it.</summary>
+        public float extractorCurseKeepoutRadius;
+
+        /// <summary>An extractor site lost this many times (to anyone)...</summary>
+        public int extractorSiteMaxLosses;
+
+        /// <summary>...rests this many seconds before it is built again.</summary>
+        public float extractorSiteBlockSeconds;
+
+        /// <summary>Smallest reclaim squad that may march on a curse node —
+        /// no one-unit sorties.</summary>
+        public int reclaimMinSquadSize;
+
+        /// <summary>Seconds after a reclaim squad marched on a curse node
+        /// before another may march on it (a failed attempt is not repeated
+        /// at once, and a live attempt is not fed piecemeal).</summary>
+        public float reclaimRetrySeconds;
+
+        /// <summary>Supply income below this fraction of the expected income
+        /// is COLLAPSED: ordinary savings goals pause.</summary>
+        public float economyCollapseIncomeFraction;
+
+        /// <summary>...and resume once income is back above this fraction
+        /// (hysteresis; above economyCollapseIncomeFraction).</summary>
+        public float economyRecoveredIncomeFraction;
+
+        /// <summary>The expected supply income is the best income the faction
+        /// has measured, decaying with this half-life (seconds).</summary>
+        public float economyExpectedHalfLifeSeconds;
+
+        /// <summary>The expected income may rise at most this fraction per
+        /// second toward a higher measurement, so a one-off windfall (a Vault
+        /// withdrawal, a veilsteel sale) does not read as the norm.</summary>
+        public float economyExpectedRisePerSecond;
+
+        /// <summary>No collapse is read while the expected supply income is
+        /// below this (supplies per second): the opening is not a collapse.</summary>
+        public float economyCollapseMinExpected;
+
+        // ── Waves without intel (Game_AI.md § 6a) ──
+
+        /// <summary>A wave whose objective nobody has seen holds for recon at
+        /// most this many seconds, then marches anyway. A start position is
+        /// public knowledge and never waits.</summary>
+        public float waveIntelHoldMaxSeconds;
+
+        // ── The idle army clears the curse (Game_AI.md § 5b) ──
+
+        /// <summary>Seconds between curse-clearing decisions per faction.</summary>
+        public float curseClearInterval;
+
+        /// <summary>Idle soldiers above the standing floor a curse-clearing
+        /// sortie needs before it goes.</summary>
+        public int curseClearMinUnits;
+
+        /// <summary>The sortie goes only when its power is at least this
+        /// multiple of the curse's at the node it attacks first.</summary>
+        public float curseClearPowerMargin;
+
+        // ── Curse node intel (Game_AI.md § 5i rule 2; SimpleAISystem.CurseIntel.cs) ──
+
+        /// <summary>Half-life, seconds, of the highest curse power this
+        /// faction has seen at a node: the memory fades slowly, so a low
+        /// reading later never erases it at once.</summary>
+        public float curseIntelLastSeenHalfLifeSeconds;
+
+        /// <summary>A curse node not in sight for this many seconds is
+        /// treated as reinforced (curseIntelStaleFactor).</summary>
+        public float curseIntelLookSeconds;
+
+        /// <summary>Multiplier on the estimate of a node nobody has looked at
+        /// within curseIntelLookSeconds.</summary>
+        public float curseIntelStaleFactor;
+
+        /// <summary>Fraction of the curse's config garrison (garrisonCap x
+        /// armyGrowth^n at the match's tier) assumed to stand at any node —
+        /// below 1 because waves and parties draft from it.</summary>
+        public float curseIntelBaselineFraction;
+
+        /// <summary>Multiplier on every curse estimate for fighting on cursed
+        /// ground (its slow and damage over time).</summary>
+        public float curseIntelGroundFactor;
+
+        /// <summary>Seconds between INTEL lines for one curse node.</summary>
+        public float curseIntelLogInterval;
+
+        /// <summary>A running first-RP hunt is called off — and its hunters
+        /// walked home — when its roster plus newcomers fall below this
+        /// multiple of the node's estimate (the launch needs
+        /// religionHuntPowerMargin).</summary>
+        public float religionHuntCallOffMargin;
+
+        // ── The Outposts' veilstone glut (Game_AI.md § 5a) ──
+
+        /// <summary>Minutes of the army plan's veilstone spend the bank should
+        /// hold; above that (and outpostVeilstoneNeedFloor) the Outposts stop
+        /// buying.</summary>
+        public float outpostVeilstoneNeedMinutes;
+
+        /// <summary>Veilstone the bank always keeps before the Outposts stop
+        /// buying, whatever the plan's spend.</summary>
+        public int outpostVeilstoneNeedFloor;
+
+        /// <summary>Buying resumes when veilstone falls below this fraction of
+        /// the need (hysteresis).</summary>
+        public float outpostBuyResumeFraction;
+
+        /// <summary>Iron banked at or above which iron counts as piling up
+        /// for the composition's resource tilt.</summary>
+        public int glutIronAbove;
+
+        /// <summary>While veilstone or iron piles up and the army is short of
+        /// supplies, each role's share is scaled by 1 + this x (1 - 2 x its
+        /// supplies share of the unit's cost): units paid mostly in the
+        /// surplus resources weigh more. 0 = off.</summary>
+        public float glutCompositionTilt;
+
+        // ── Missions on a big map and at a wall (2026-10-05, Game_AI.md 6a) ──
+
+        /// <summary>Metres per second an army is assumed to cover on the
+        /// march, for a mission's deadline: missionTimeoutSeconds plus the
+        /// march at this speed. 0 = the flat timeout from launch.</summary>
+        public float missionMarchSpeedForTimeout;
+
+        /// <summary>Seconds a striking army may stand still short of its
+        /// objective before it looks for the hostile wall piece stopping it.</summary>
+        public float wallBreachAfterSeconds;
+
+        /// <summary>How far from the stalled army's centroid a hostile wall
+        /// piece counts as the wall in the way.</summary>
+        public float wallBreachRadius;
+
+        /// <summary>Siege engines the army needs with it to breach; with
+        /// fewer the mission ends rather than stand under the towers.</summary>
+        public int wallBreachMinSiege;
+
+        // ── Reconquest (2026-10-05, Game_AI.md 5b) ──
+
+        /// <summary>Score penalty on a rival's locked, unwalled territory as
+        /// a claim candidate: free land first, then ground to take back.</summary>
+        public float claimHostileTargetPenalty;
+
+        /// <summary>Ceiling on the veilstone the Outposts buy toward (the
+        /// four-minute plan need, § 5a); 0 = no ceiling.</summary>
+        public int outpostVeilstoneNeedMax;
+
+        /// <summary>Seconds the collapse reading must hold before the
+        /// savings pause flips on or off (§ 5i).</summary>
+        public float economyCollapseConfirmSeconds;
+
+        /// <summary>A wave also launches once this share of the LIVE army
+        /// (above the standing floor) stands idle, never below the tier's
+        /// base bar (§ 6a). 0 = the desired-army bar only.</summary>
+        public float waveLiveArmyShare;
+
+        /// <summary>A site search skips candidates within this of a spot where
+        /// the faction's plan was cancelled for a persistent refusal
+        /// (Planned_Buildings.md, the grace).</summary>
+        public float refusedSpotRadius;
+
+        /// <summary>An overdue wave still holds while the assessed enemy /
+        /// own power ratio at the objective exceeds this (§ 6a). 0 = the
+        /// overdue release ignores the assessment, as before.</summary>
+        public float waveOverdueMaxRatio;
+
+        /// <summary>While the army is below this fraction of its target, a
+        /// combat unit passes every non-strict savings hold and the budget
+        /// reservation (§ 5f). The Rebuild line is half.</summary>
+        public float armyEssentialFraction;
+
+        /// <summary>After the age-up the desired army is at least this many
+        /// combat units per territory held (capped at the plan's army cap),
+        /// whatever the savings goals (§ 3a). 0 = off.</summary>
+        public float armyPerTerritory;
+
+        // ── Many armies (§ 6f) ──
+
+        /// <summary>The smallest body that counts as an army of its own; a
+        /// wave launches fewer armies than the tier's concurrentArmies when
+        /// the draft cannot give each at least this many.</summary>
+        public int armyMinUnits;
+
+        /// <summary>Two armies of one wave approach from bearings (as seen
+        /// from the victim's capital) at least this far apart, in degrees.</summary>
+        public float armySeparationDegrees;
+
+        /// <summary>...and their objectives stand at least this far apart.</summary>
+        public float armySeparationMeters;
+
+        /// <summary>A staged army waits this long for its sister armies to
+        /// stage before it strikes alone.</summary>
+        public float armySyncTimeoutSeconds;
+
+        /// <summary>Income-target ranking (§ 6f): the value of an extractor
+        /// (Gatherer's Hut, Mine, Veilstone Mine, Trading Outpost), of a
+        /// military building, and of a house or other eco building. Each
+        /// is worth 100 points per unit of weight before distance, defence
+        /// and intel age are charged by the target scorer's rates.</summary>
+        public float incomeWeightExtractor;
+        public float incomeWeightMilitary;
+        public float incomeWeightHouse;
+
+        /// <summary>Income recon (§ 6f): while fewer than this many hostile
+        /// income buildings are known, an income-targeting tier files a
+        /// recon request every incomeReconIntervalSeconds at the nearest
+        /// hostile start and then at points incomeReconSpreadMeters around it.</summary>
+        public int incomeReconMinKnown;
+        public float incomeReconIntervalSeconds;
+        public float incomeReconSpreadMeters;
     }
 }

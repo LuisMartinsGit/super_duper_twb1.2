@@ -52,6 +52,52 @@ namespace TheWaningBorder.AI
         public float BasicsShareScale;
         /// <summary>Multiplier on how many claim squads go out at once.</summary>
         public float ExpansionDrive;
+
+        /// <summary>Economic drive (Game_AI.md § 5h) — see the SO fields.</summary>
+        public bool ReserveForCapitalLevel;
+        public int EconomyUpgradesPerThink;
+        public int ProductionQueueDepth;
+        public bool ProtectAgeUpSavings;
+        public int CurseHuntMinCapitalLevel;
+        public float VaultDepositShare;
+        public float VaultHoldSeconds;
+        public bool VaultWithdrawOnNeed;
+        public bool UnitsBeforeEconomy;
+        public bool ArmyBeforeSaves;
+        public float CapitalReserveMaxHoldSeconds;
+        public float CapitalReserveRestSeconds;
+
+        /// <summary>Production capacity (Game_AI.md § 5g) — see the SO fields.</summary>
+        public int HomeProductionPerLine;
+        public int ProvinceProductionPerTerritory;
+        public float ProductionSaturationThreshold;
+        public float ProductionSaturationSeconds;
+
+        /// <summary>Economy defence (Game_AI.md § 5i) — see the SO fields.</summary>
+        public float EconomyDefenceDelaySeconds;
+        public float EconomyDefenceMargin;
+
+        /// <summary>Waves (Game_AI.md § 6a) — see the SO fields.</summary>
+        public float StandingArmyFloorFraction;
+        public float WaveMinArmyFraction;
+
+        /// <summary>Pace (Game_AI.md § 2) — see the SO fields.</summary>
+        public float TerritoryCadenceScale;
+        public float FortressDelaySeconds;
+        public float ReconquestMargin;
+        public float StrengthWaveRatioScale;
+        public float PersonalityWeight;
+
+        /// <summary>Many armies (Game_AI.md § 6f) — see the SO fields.</summary>
+        public int ConcurrentArmies;
+        public bool IncomeTargeting;
+
+        /// <summary>Which tier this is (log lines name it).</summary>
+        public AIDifficulty Tier;
+
+        /// <summary>The tier's in-fight skills (kiting, flanking, counter
+        /// targeting, fall-back, ability patience). See the SO field.</summary>
+        public AITacticsSkill Tactics;
     }
 
     /// <summary>
@@ -93,6 +139,35 @@ namespace TheWaningBorder.AI
                 CounterResponse = so.counterResponse,
                 BasicsShareScale = so.basicsShareScale,
                 ExpansionDrive = so.expansionDrive,
+                ReserveForCapitalLevel = so.reserveForCapitalLevel,
+                EconomyUpgradesPerThink = so.economyUpgradesPerThink,
+                ProductionQueueDepth = so.productionQueueDepth,
+                ProtectAgeUpSavings = so.protectAgeUpSavings,
+                CurseHuntMinCapitalLevel = so.curseHuntMinCapitalLevel,
+                VaultDepositShare = so.vaultDepositShare,
+                VaultHoldSeconds = so.vaultHoldSeconds,
+                VaultWithdrawOnNeed = so.vaultWithdrawOnNeed,
+                UnitsBeforeEconomy = so.unitsBeforeEconomy,
+                ArmyBeforeSaves = so.armyBeforeSaves,
+                CapitalReserveMaxHoldSeconds = so.capitalReserveMaxHoldSeconds,
+                CapitalReserveRestSeconds = so.capitalReserveRestSeconds,
+                HomeProductionPerLine = so.homeProductionPerLine,
+                ProvinceProductionPerTerritory = so.provinceProductionPerTerritory,
+                ProductionSaturationThreshold = so.productionSaturationThreshold,
+                ProductionSaturationSeconds = so.productionSaturationSeconds,
+                EconomyDefenceDelaySeconds = so.economyDefenceDelaySeconds,
+                EconomyDefenceMargin = so.economyDefenceMargin,
+                StandingArmyFloorFraction = so.standingArmyFloorFraction,
+                WaveMinArmyFraction = so.waveMinArmyFraction,
+                TerritoryCadenceScale = so.territoryCadenceScale,
+                FortressDelaySeconds = so.fortressDelaySeconds,
+                ReconquestMargin = so.reconquestMargin,
+                StrengthWaveRatioScale = so.strengthWaveRatioScale,
+                PersonalityWeight = so.personalityWeight,
+                ConcurrentArmies = so.concurrentArmies,
+                IncomeTargeting = so.incomeTargeting,
+                Tier = so.tier,
+                Tactics = so.tactics,
             };
         }
 

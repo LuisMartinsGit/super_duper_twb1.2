@@ -1,8 +1,10 @@
-﻿// AISettingsSO.cs
+// AISettingsSO.cs
 // Inspector-tunable knobs for the full-scale player-faction AI
-// (docs/AI_Assessment_and_Plan.md M2-M6). One asset under Resources/AISettings;
-// AISettings.Get() falls back to a defaults-seeded instance when missing,
-// mirroring the BorderSettings pattern.
+// (docs/AI_Assessment_and_Plan.md M2-M6). ONE asset: Resources/AISettings.asset,
+// loaded by AISettings.Get(). There are no field initialisers and no coded
+// default table: the asset is the single source of every number here, and a
+// missing asset or personality row is a loud load-time error, never a
+// silent code-side fallback (CLAUDE.md, component config rule).
 
 using System;
 using UnityEngine;
@@ -13,116 +15,154 @@ namespace TheWaningBorder.Data.AI
     [CreateAssetMenu(fileName = "AISettings", menuName = "Waning Border/AI Settings", order = 10)]
     public class AISettingsSO : ScriptableObject
     {
-        public float weightWorker = 120f;
-        public float weightEcoBuilding = 100f;
-        public float weightMilitaryBuilding = 70f;
-        public float weightHall = 60f;
-        public float weightBorderNode = 80f;
-        public float weightMilitaryUnit = 40f;
+        public float weightWorker;
+        public float weightEcoBuilding;
+        public float weightMilitaryBuilding;
+        public float weightHall;
+        public float weightBorderNode;
+        public float weightMilitaryUnit;
 
-        public float riskPerDefenseStrength = 0.6f;
-        public float defenseProbeRadius = 25f;
-        public float travelCostPerMeter = 0.4f;
-        public float intelAgePenaltyPerSecond = 0.5f;
+        public float riskPerDefenseStrength;
+        public float defenseProbeRadius;
+        public float travelCostPerMeter;
+        public float intelAgePenaltyPerSecond;
 
-        public float reconMaxIntelAge = 45f;
-        public float scoutFleeHealthFraction = 0.5f;
+        public float reconMaxIntelAge;
+        public float scoutFleeHealthFraction;
 
-        public int defendThreatThreshold = 120;
-        public float defendRadius = 45f;
+        public int defendThreatThreshold;
+        public float defendRadius;
 
-        public float retreatStrengthRatio = 1.6f;
-        public float retreatCooldownSeconds = 30f;
+        public float retreatStrengthRatio;
+        public float retreatCooldownSeconds;
 
         /// <summary>
         /// LAYER 2 — what one personality PRIORITISES. Every field here is a
         /// how-much, never a which: no unit id appears in this block, and none
         /// ever should. Unit choice is layer 3 (AIComposition).
         ///
-        /// The five economy/tech fields at the bottom used to live on the
-        /// DIFFICULTY profile, which meant Hard bought more economy than
-        /// Normal regardless of whether either was playing an economic game —
-        /// difficulty setting priorities instead of skill.
+        /// One row per AIPersonality, authored in Resources/AISettings.asset.
+        /// docs/Design/Game_AI.md § 3 describes what each row makes the AI do.
         /// </summary>
         [Serializable]
         public class PersonalityBlock
         {
             public AIPersonality personality;
-            public int attackThreshold = 3;
-            public int militaryFloor = 16;
-            /// <summary>Workers to keep. They only BUILD now (Regions.md §4 removed
-            /// gathering), so this is a build crew, not an economy.</summary>
-            public int workerFloor = 3;
-            public float riskMultiplier = 1f;
+            /// <summary>Min idle units before a maintenance attack launches.</summary>
+            public int attackThreshold;
+            /// <summary>The standing army kept before anything else military;
+            /// multiplied by the PLAN's ArmyScale, never by difficulty
+            /// (Game_AI.md § 3a).</summary>
+            public int militaryFloor;
+            /// <summary>Multiplier on the risk term of the target scorer.
+            /// Above 1 is cautious, below 1 takes the fight.</summary>
+            public float riskMultiplier;
 
-            // ── Economy / tech priorities (moved off the difficulty profile) ──
-            /// <summary>Workers to grow toward before age-up…</summary>
-            public int workerTargetAge0 = 3;
-            /// <summary>…and after it.</summary>
-            public int workerTargetAge1 = 5;
-            /// <summary>Gatherer's Huts the maintenance loop grows toward.</summary>
-            public int gathererHutTarget = 14;
+            // ── Economy / tech priorities ──
+            /// <summary>Gatherer's Huts the maintenance loop grows toward
+            /// (the early-game figure; the cap doubles over the match for
+            /// gathering cultures, Feraldis stays hard-capped).</summary>
+            public int gathererHutTarget;
             /// <summary>Military production buildings to build toward.</summary>
-            public int productionBuildingTarget = 24;
+            public int productionBuildingTarget;
             /// <summary>Game time (s) at which this AI stops expanding and
             /// banks for the age-up. Lower = techs sooner.</summary>
-            public float ageUpPushSeconds = 90f;
+            public float ageUpPushSeconds;
 
-            // ── Military stances (also moved off difficulty) ──
+            // ── Military stances ──
             /// <summary>Peel fast raid parties at the enemy economy.</summary>
-            public bool raidingEnabled = true;
-            /// <summary>Form up at a staging point before committing.</summary>
-            public bool forwardStaging = false;
+            public bool raidingEnabled;
 
             /// <summary>How much this personality leans on the cheap basics
             /// (Spearman, Archer) in the army plan: multiplies their share
             /// (docs/Design/Game_AI.md § 5d). A rusher wants bodies now; a tech
             /// boomer invests its veilstone in the role units.</summary>
-            public float basicsAppetite = 1f;
+            public float basicsAppetite;
+
+            // ── Plan affinity (AIPlans.Affinity) ──
+            // Score bonus this personality adds to each strategic plan when
+            // the plan is chosen. Keeps four AIs on one board from converging
+            // on one answer: the board signal is the same for everybody, so
+            // only a personal bias separates them. Magnitudes were tuned
+            // against a board sweep: an AMBIGUOUS board splits four AIs four
+            // ways, a DECISIVE one (deathball, base under attack) still
+            // collapses them onto the one right plan.
+            public float boomAffinity;
+            public float massAffinity;
+            public float rushAffinity;
+            public float techAffinity;
+            public float fortressAffinity;
+
+            // ── Fortification ──
+            /// <summary>Multiplier on how much ground this personality wants
+            /// covered by watch towers. 1 = Balanced.</summary>
+            public float towerCoverageScale;
+            /// <summary>The weight this block was blended at (For(p, weight));
+            /// 1 for an authored row read as is. Carried so the role mix can
+            /// be blended by the same amount.</summary>
+            [System.NonSerialized] public float weight = 1f;
+            /// <summary>Multiplier on the priority of wall work against the
+            /// rest of the build list. 1 = Balanced.</summary>
+            public float wallPriorityScale;
+
+            /// <summary>The affinity for one plan, by plan id.</summary>
+            public float AffinityFor(AIPlan plan) => plan switch
+            {
+                AIPlan.Boom     => boomAffinity,
+                AIPlan.Mass     => massAffinity,
+                AIPlan.Rush     => rushAffinity,
+                AIPlan.Tech     => techAffinity,
+                AIPlan.Fortress => fortressAffinity,
+                _               => 0f,
+            };
         }
 
-        public PersonalityBlock[] personalities = DefaultPersonalities();
+        public PersonalityBlock[] personalities;
 
         /// <summary>
-        /// Anchored on what the NORMAL difficulty profile used to carry
-        /// (workers 3/5, huts 14, production 24, age-up push 90 s), then
-        /// spread by personality. Those numbers were tuned in play; moving
-        /// them between layers must not silently retune them, so Balanced
-        /// reproduces the old Normal almost exactly and the others vary
-        /// around it.
+        /// The row for one personality. A missing row is a DATA bug: it is
+        /// logged once per personality and a zeroed block is returned so the
+        /// callers do not NRE, but the AI it drives will be visibly broken,
+        /// which is the point.
         /// </summary>
         /// <summary>
-        /// THE FLOORS WERE DOUBLED ON 2026-09-12 (operator directive), from
-        /// 6/7/8/10/10/12/14 to the values below. They were authored when the
-        /// army cap was small; with the cap at 200 they left factions fielding
-        /// single figures deep into a match, and every muster rule downstream
-        /// -- the wave bar, mission size, reinforcement -- can only divide up
-        /// an army that was actually raised. See docs/Design/Game_AI.md 3a.
-        ///
-        /// Difficulty does NOT scale this: the tier sets the army CAP, the
-        /// wave base and think speed. The floor is the personality's, and the
-        /// PLAN's ArmyScale is the only multiplier on it.
+        /// The personality DAMPENED BY TIER (docs/Design/Game_AI.md § 3,
+        /// 2026-10-05): every numeric value blended from Balanced toward
+        /// <paramref name="p"/>'s row by <paramref name="weight"/> (1 = the
+        /// row as authored, 0 = Balanced); a flag takes the personality's
+        /// value from a weight of one half. Mixed matches showed an Expert
+        /// that drew Defensive or Economic finishing behind a Hard Rush — a
+        /// flavour cost more than a tier. A new block each call.
         /// </summary>
-        public static PersonalityBlock[] DefaultPersonalities() => new[]
+        public PersonalityBlock For(AIPersonality p, float weight)
         {
-            new PersonalityBlock { personality = AIPersonality.Balanced,   attackThreshold = 3, militaryFloor = 16,  workerFloor = 3, riskMultiplier = 1.0f,
-                                   workerTargetAge0 = 3, workerTargetAge1 = 5, gathererHutTarget = 14, productionBuildingTarget = 24, ageUpPushSeconds = 90f,  raidingEnabled = true,  forwardStaging = false, basicsAppetite = 1.0f },
-            new PersonalityBlock { personality = AIPersonality.Aggressive, attackThreshold = 2, militaryFloor = 20, workerFloor = 2, riskMultiplier = 0.6f,
-                                   workerTargetAge0 = 3, workerTargetAge1 = 5, gathererHutTarget = 11, productionBuildingTarget = 28, ageUpPushSeconds = 110f, raidingEnabled = true,  forwardStaging = true , basicsAppetite = 1.15f },
-            new PersonalityBlock { personality = AIPersonality.Defensive,  attackThreshold = 5, militaryFloor = 24, workerFloor = 4, riskMultiplier = 1.5f,
-                                   workerTargetAge0 = 4, workerTargetAge1 = 6, gathererHutTarget = 16, productionBuildingTarget = 22, ageUpPushSeconds = 90f,  raidingEnabled = false, forwardStaging = false, basicsAppetite = 1.05f },
-            new PersonalityBlock { personality = AIPersonality.Economic,   attackThreshold = 4, militaryFloor = 12,  workerFloor = 5, riskMultiplier = 1.2f,
-                                   workerTargetAge0 = 5, workerTargetAge1 = 8, gathererHutTarget = 20, productionBuildingTarget = 18, ageUpPushSeconds = 75f,  raidingEnabled = false, forwardStaging = false, basicsAppetite = 0.9f },
-            new PersonalityBlock { personality = AIPersonality.Rush,       attackThreshold = 2, militaryFloor = 20, workerFloor = 2, riskMultiplier = 0.5f,
-                                   workerTargetAge0 = 2, workerTargetAge1 = 4, gathererHutTarget = 9,  productionBuildingTarget = 30, ageUpPushSeconds = 120f, raidingEnabled = true,  forwardStaging = true , basicsAppetite = 1.3f },
-            // Absorbed from the retired AIStrategy enum: the tech and turtle
-            // openings had no personality to belong to, so Yellow was filed
-            // as "Balanced" and carried its identity in the build order alone.
-            new PersonalityBlock { personality = AIPersonality.TechBoom,   attackThreshold = 4, militaryFloor = 14,  workerFloor = 4, riskMultiplier = 1.2f,
-                                   workerTargetAge0 = 4, workerTargetAge1 = 7, gathererHutTarget = 17, productionBuildingTarget = 20, ageUpPushSeconds = 60f,  raidingEnabled = false, forwardStaging = false, basicsAppetite = 0.75f },
-            new PersonalityBlock { personality = AIPersonality.Turtle,     attackThreshold = 6, militaryFloor = 28, workerFloor = 5, riskMultiplier = 1.8f,
-                                   workerTargetAge0 = 4, workerTargetAge1 = 7, gathererHutTarget = 18, productionBuildingTarget = 20, ageUpPushSeconds = 105f, raidingEnabled = false, forwardStaging = false, basicsAppetite = 0.95f },
-        };
+            var target = For(p);
+            weight = Mathf.Clamp01(weight);
+            if (weight >= 0.999f || p == AIPersonality.Balanced) { target.weight = 1f; return target; }
+            var b = For(AIPersonality.Balanced);
+            float L(float x, float y) => x + (y - x) * weight;
+            int I(int x, int y) => Mathf.RoundToInt(x + (y - x) * weight);
+            return new PersonalityBlock
+            {
+                personality = p,
+                weight = weight,
+                attackThreshold = I(b.attackThreshold, target.attackThreshold),
+                militaryFloor = I(b.militaryFloor, target.militaryFloor),
+                riskMultiplier = L(b.riskMultiplier, target.riskMultiplier),
+                gathererHutTarget = I(b.gathererHutTarget, target.gathererHutTarget),
+                productionBuildingTarget = I(b.productionBuildingTarget, target.productionBuildingTarget),
+                ageUpPushSeconds = L(b.ageUpPushSeconds, target.ageUpPushSeconds),
+                raidingEnabled = weight >= 0.5f ? target.raidingEnabled : b.raidingEnabled,
+                basicsAppetite = L(b.basicsAppetite, target.basicsAppetite),
+                boomAffinity = L(b.boomAffinity, target.boomAffinity),
+                massAffinity = L(b.massAffinity, target.massAffinity),
+                rushAffinity = L(b.rushAffinity, target.rushAffinity),
+                techAffinity = L(b.techAffinity, target.techAffinity),
+                fortressAffinity = L(b.fortressAffinity, target.fortressAffinity),
+                towerCoverageScale = L(b.towerCoverageScale, target.towerCoverageScale),
+                wallPriorityScale = L(b.wallPriorityScale, target.wallPriorityScale),
+            };
+        }
 
         public PersonalityBlock For(AIPersonality p)
         {
@@ -130,13 +170,18 @@ namespace TheWaningBorder.Data.AI
                 for (int i = 0; i < personalities.Length; i++)
                     if (personalities[i] != null && personalities[i].personality == p)
                         return personalities[i];
-            // Defensive fallback: an asset saved before a new personality was
-            // added (or with a cleared list) still gets sane behavior.
-            var defs = DefaultPersonalities();
-            for (int i = 0; i < defs.Length; i++)
-                if (defs[i].personality == p) return defs[i];
-            return defs[0];
+
+            int bit = 1 << (int)p;
+            if ((_missingLogged & bit) == 0)
+            {
+                _missingLogged |= bit;
+                Debug.LogError($"[AISettings] Resources/AISettings.asset has no personality row for {p}. " +
+                               "Author one on the asset; the AI runs on a zeroed block until then.");
+            }
+            return new PersonalityBlock { personality = p };
         }
+
+        [NonSerialized] private int _missingLogged;
 
         public float CategoryWeight(IntelCategory c) => c switch
         {

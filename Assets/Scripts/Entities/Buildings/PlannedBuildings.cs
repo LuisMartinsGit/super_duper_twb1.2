@@ -45,6 +45,45 @@ namespace TheWaningBorder.Entities
         };
         static CachedEntityQuery QC_Plans, QC_Workers, QC_Queues;
 
+        // ── A REFUSED PLAN WAITS BEFORE IT IS CANCELLED (2026-10-05) ──
+        // BreakGround used to cancel and refund on the first refusal, and the
+        // AI, seeing no plan, paid for a new one on its next think: 55 pay-
+        // and-refund cycles of one Gatherer's Hut in the first 15 s of a
+        // match (6,600 supplies through the ledger on a 164-supply bank),
+        // and 146 cycles in one 15 s period at minute 18. Most refusals are
+        // transient (ground still being claimed at match start, a unit on
+        // the footprint), so the plan now keeps its spot and retries every
+        // BreakGroundRetrySeconds; one still refused after
+        // BreakGroundGraceSeconds is cancelled and refunded, and the spot is
+        // remembered so the AI's site search avoids it (IsRecentlyRefused).
+        // Engine timing, not tuning: the grace is how long a transient
+        // refusal may last, the memory how long a spot stays suspect.
+        private const float BreakGroundRetrySeconds = 2f;
+        private const float BreakGroundGraceSeconds = 20f;
+        private const float RefusedSpotMemorySeconds = 180f;
+
+        private struct RefusedSpot { public Faction Faction; public float3 Pos; public float At; }
+        private static readonly System.Collections.Generic.List<RefusedSpot> _refusedSpots
+            = new System.Collections.Generic.List<RefusedSpot>();
+
+        /// <summary>Did one of <paramref name="faction"/>'s plans get cancelled
+        /// for a persistent refusal within <paramref name="radius"/> of
+        /// <paramref name="pos"/> in the last RefusedSpotMemorySeconds?</summary>
+        public static bool IsRecentlyRefused(Faction faction, float3 pos, float radius, float now)
+        {
+            float r2 = radius * radius;
+            for (int i = _refusedSpots.Count - 1; i >= 0; i--)
+            {
+                var s = _refusedSpots[i];
+                if (now - s.At > RefusedSpotMemorySeconds) { _refusedSpots.RemoveAt(i); continue; }
+                if (s.Faction == faction && math.distancesq(s.Pos.xz, pos.xz) <= r2) return true;
+            }
+            return false;
+        }
+
+        /// <summary>A new match: forget every refused spot.</summary>
+        public static void ResetRefusedSpots() => _refusedSpots.Clear();
+
         /// <summary>
         /// Does this building go through a plan? Everything a worker raises
         /// does. The landmarks self-construct with no worker and are placed
@@ -213,10 +252,22 @@ namespace TheWaningBorder.Entities
             var paid = em.GetComponentData<PaidBuildCost>(plan).Value;
 
             var refusal = TheWaningBorder.Core.Commands.CommandRouter.CheckBreakGround(em, id, pos, faction, worker);
+            float now = SimClock.Now;
             if (refusal != TheWaningBorder.World.Regions.PlacementRefusal.None)
             {
-                Cancel(em, plan, refund: true,
-                    reason: TheWaningBorder.World.Regions.PlacementRefusalText.Of(refusal, id));
+                // Grace, then cancel (see the constants above).
+                if (data.RefusedSince <= 0f) data.RefusedSince = now;
+                data.NextBreakGroundAt = now + BreakGroundRetrySeconds;
+                if (now - data.RefusedSince < BreakGroundGraceSeconds)
+                {
+                    em.SetComponentData(plan, data);
+                    return Entity.Null;
+                }
+                _refusedSpots.Add(new RefusedSpot { Faction = faction, Pos = pos, At = now });
+                string why = TheWaningBorder.World.Regions.PlacementRefusalText.Of(refusal, id);
+                UnityEngine.Debug.Log(string.Format("[Plans] {0} {1} at ({2:0},{3:0}) cancelled after {4:0}s: {5}",
+                    faction, id, pos.x, pos.z, BreakGroundGraceSeconds, why));
+                Cancel(em, plan, refund: true, reason: why);
                 return Entity.Null;
             }
 

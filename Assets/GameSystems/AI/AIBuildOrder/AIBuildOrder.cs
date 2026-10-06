@@ -1,371 +1,25 @@
-﻿// Hardcoded Age-1 build orders for the SimpleAISystem.
-// Each strategy is a flat list of steps the AI tries to issue in order.
-// A step ADVANCES on issue (not on completion) â€” the AI doesn't wait for the
-// trained unit/finished building before moving to the next step.
+// AIBuildOrder.cs
+// The personality's PRIOR culture lean — the one thing left of the scripted
+// per-personality Age 0 build orders.
+//
+// The six step arrays (EcoBoom / Balanced / TechBoom / Rush / Turtle /
+// Defensive), BuildOrderStep, BuildStepKind, For() and CultureFor() were
+// deleted on 2026-10-05: SimpleAISystem's step pointer was never advanced,
+// so no step of any order was ever issued and the one reader (the
+// advancement-gate test) was always false. Every opening the AI actually
+// plays is the maintenance loop driven by its personality row in
+// Resources/AISettings.asset (AISettingsSO.PersonalityBlock) and its
+// strategic plan (AIPlan).
 
 namespace TheWaningBorder.AI
 {
-    public enum BuildStepKind : byte
-    {
-        TrainUnit,         // queue a unit at the appropriate training building
-        BuildBuilding,     // place a building near the Hall (uses idle Worker)
-        Research,          // queue a tech at the Barracks (or Hall, etc.)
-        AgeUp,             // trigger AgeUp on the Hall (60 s wait)
-        SetVeilstoneTarget,  // set the AI's target veilstone-worker count (IntArg)
-        LaunchAttack,      // send all idle military to attack closest enemy (IntArg = min units)
-    }
-
-    /// <summary>
-    /// One step in an AI build order. Strings keep this trivially serialisable
-    /// and let us hardcode the orders without a content pipeline.
-    /// </summary>
-    public struct BuildOrderStep
-    {
-        public BuildStepKind Kind;
-        public string Id;        // buildingId or techId; EMPTY for TrainUnit — see Role
-        public bool Optional;    // Easy difficulty may skip optional steps
-        public int IntArg;       // numeric arg (e.g. SetVeilstoneTarget count); 0 otherwise
-        /// <summary>For TrainUnit: WHAT FOR, never which. Layer 3 resolves
-        /// it (AIComposition.cs).</summary>
-        public UnitRole Role;
-
-        /// <summary>
-        /// Queue a unit BY ROLE. A build order is layer 2 — it says how much
-        /// of what kind, and it is deliberately unable to name a unit id.
-        ///
-        /// It used to take a string, and the orders duly named "Spearman"
-        /// four to seven times apiece while the Turtle opener alone asked for
-        /// a "Litharch" — a personality choosing a unit TYPE. Every one of
-        /// those became Train(UnitRole.Military), which is what they all
-        /// actually meant: "another soldier, whatever we need".
-        /// </summary>
-        public static BuildOrderStep Train(UnitRole role, bool optional = false) =>
-            new() { Kind = BuildStepKind.TrainUnit, Id = string.Empty, Role = role, Optional = optional };
-
-        public static BuildOrderStep Build(string buildingId, bool optional = false) =>
-            new() { Kind = BuildStepKind.BuildBuilding, Id = buildingId, Optional = optional };
-
-        public static BuildOrderStep ResearchTech(string techId, bool optional = false) =>
-            new() { Kind = BuildStepKind.Research, Id = techId, Optional = optional };
-
-        public static BuildOrderStep AgeUpStep() =>
-            new() { Kind = BuildStepKind.AgeUp, Id = string.Empty, Optional = false };
-
-        /// <summary>
-        /// Set the FLOOR for veilstone-worker allocation. The AI normally splits
-        /// idle workers 50/50 between iron and veilstone whenever outcroppings are
-        /// reachable; this step lets a strategy push the floor higher (e.g.
-        /// TechBoom asking for 2 veilstone workers with only 4 total workers,
-        /// front-loading veilstone income). The effective target each tick is
-        /// max(this floor, totalWorkers / 2). Capped at 16.
-        /// </summary>
-        public static BuildOrderStep SetVeilstoneTarget(int count) =>
-            new() { Kind = BuildStepKind.SetVeilstoneTarget, Id = string.Empty, IntArg = count };
-
-        /// <summary>
-        /// Send every idle military unit (Melee/Ranged/Siege/Magic, plus
-        /// battalion leaders) to attack-move toward the closest enemy economy
-        /// target. Priority: enemy Workers â†’ GathererHuts â†’ Halls.
-        ///
-        /// Blocks the build order until at least <paramref name="minUnits"/>
-        /// idle military are available â€” so a "wait for the army to assemble,
-        /// then commit it" rhythm falls out naturally. Use this after each
-        /// wave's Train steps in attack-oriented strategies.
-        /// </summary>
-        public static BuildOrderStep LaunchAttack(int minUnits) =>
-            new() { Kind = BuildStepKind.LaunchAttack, Id = string.Empty, IntArg = minUnits };
-    }
-
-    /// <summary>
-    /// The 6 hardcoded Age-1 build orders. See the design notes for the full
-    /// rationale and timing tables.
-    /// </summary>
     public static class AIBuildOrder
     {
-        // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        // 1. ECONOMY BOOM â€” fastest age-up via heavy economy infrastructure
-        //    3Mn â†’ 4 GHut â†’ 3Mn â†’ Vault â†’ AgeUp (4 Mn during 60s wait)
-        //    Choice: Vault. Culture: Runai or Alanthor.
-        //    Veilstone: ramps to 2 once 6 workers exist (heavy iron focus for the
-        //    Vault + age-up cost; veilstone needed only for age-up).
-        // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        public static readonly BuildOrderStep[] EcoBoom =
-        {
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Scout),       // map vision so the AI can see what to attack
-            BuildOrderStep.Build("GatherersHut"),
-            BuildOrderStep.Build("GatherersHut"),
-            BuildOrderStep.Build("GatherersHut", optional: true),
-            BuildOrderStep.Build("GatherersHut", optional: true),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.SetVeilstoneTarget(2),  // 6 workers â†’ 2 on veilstone for age-up
-            BuildOrderStep.Build("VaultOfAlmierra"),
-            BuildOrderStep.AgeUpStep(),
-            BuildOrderStep.Train(UnitRole.Worker),  // during ageup wait
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Scout, optional: true),  // second scout once economy is stable
-        };
-
-        // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        // 2. BALANCED â€” token military + Shrine
-        //    Choice: the age-up landmark. Culture: Random.
-        //    Veilstone: 2 from mid-eco onward (steady drip for Shrine + age-up).
-        // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        public static readonly BuildOrderStep[] Balanced =
-        {
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Scout),       // map vision before military commitment
-            BuildOrderStep.Build("GatherersHut"),
-            BuildOrderStep.Build("GatherersHut"),
-            BuildOrderStep.Build("GatherersHut", optional: true),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.SetVeilstoneTarget(2),  // 6 workers â†’ 2 on veilstone
-            BuildOrderStep.Build("Hut"),
-            BuildOrderStep.Build("Hut"),
-            BuildOrderStep.Build("Hut"),
-            BuildOrderStep.Build("Barracks"),
-            BuildOrderStep.Train(UnitRole.Military),
-            BuildOrderStep.Train(UnitRole.Military),   // was Archer — ranged is an Age-1 unlock (2026-08-11)
-            BuildOrderStep.Build("VaultOfAlmierra"),   // any choice id = "my landmark" (ResolveLandmarkId)
-            BuildOrderStep.AgeUpStep(),
-            // The wall's own upgrade, researched at a Wall Hub. Optional
-            // twice over: a non-Alanthor pick makes it unavailable, and a
-            // faction with no hub standing has nowhere to research it —
-            // either way a required step here would stall the whole order.
-            // Lv1 (stone) already came free with the culture pick.
-            // docs/Design/Age_1_Alanthor.md § The four wall levels
-            BuildOrderStep.ResearchTech("Battlements", optional: true),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Scout, optional: true),
-            // Commit the standing army at least once after age-up so the AI
-            // isn't a passive sandbag in a demo. The maintenance loop in
-            // SimpleAISystem takes over from here and keeps pushing waves.
-            BuildOrderStep.Train(UnitRole.Military),
-            BuildOrderStep.Train(UnitRole.Military),   // was Archer — ranged is an Age-1 unlock (2026-08-11)
-            BuildOrderStep.LaunchAttack(2),
-        };
-
-        // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        // 3. TECH BOOM â€” research both Barracks techs before age up
-        //    Choice: the age-up landmark. Culture: Runai.
-        //    Veilstone: 3 â€” heaviest veilstone demand of any strategy because both
-        //    techs and the Shrine cost veilstone on top of age-up.
-        // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        public static readonly BuildOrderStep[] TechBoom =
-        {
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Scout),       // map vision while economy ramps
-            BuildOrderStep.SetVeilstoneTarget(2),  // start veilstone early â€” techs need it
-            BuildOrderStep.Build("GatherersHut"),
-            BuildOrderStep.Build("GatherersHut"),
-            BuildOrderStep.Build("GatherersHut", optional: true),
-            BuildOrderStep.Build("GatherersHut", optional: true),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.SetVeilstoneTarget(3),  // 6 workers â†’ ramp to 3 on veilstone
-            BuildOrderStep.Build("Hut"),
-            BuildOrderStep.Build("Hut"),
-            BuildOrderStep.Build("Hut"),
-            BuildOrderStep.Build("Barracks"),
-            BuildOrderStep.ResearchTech("Conscription"),
-            BuildOrderStep.ResearchTech("StoneWeapons"),
-            BuildOrderStep.Train(UnitRole.Military),
-            BuildOrderStep.Train(UnitRole.Military),
-            BuildOrderStep.Build("VaultOfAlmierra"),   // any choice id = "my landmark" (ResolveLandmarkId)
-            BuildOrderStep.AgeUpStep(),
-            // The wall's own upgrade, researched at a Wall Hub. Optional
-            // twice over: a non-Alanthor pick makes it unavailable, and a
-            // faction with no hub standing has nowhere to research it —
-            // either way a required step here would stall the whole order.
-            // Lv1 (stone) already came free with the culture pick.
-            // docs/Design/Age_1_Alanthor.md § The four wall levels
-            BuildOrderStep.ResearchTech("Battlements", optional: true),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            // Commit the upgraded army post-age-up so the tech investment
-            // actually shows up on the map. Maintenance loop continues
-            // pushing waves after this final step.
-            BuildOrderStep.Train(UnitRole.Military),
-            BuildOrderStep.LaunchAttack(2),
-        };
-
-        // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        // 4. RUSH â€” three attack waves (1 / 2 / 4 battalions)
-        //    Choice: the age-up landmark. Culture: Feraldis.
-        //    Veilstone: 1, late â€” every worker is needed on iron for the army
-        //    rush; only switch on veilstone when the Shrine + age-up draw near.
-        //    Attacks: a LaunchAttack(N) step after each wave blocks the build
-        //    order until N idle battalions exist, then sends them to harass
-        //    the closest enemy economy. Survivors get re-tasked by the next
-        //    wave's LaunchAttack call.
-        // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        public static readonly BuildOrderStep[] Rush =
-        {
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Scout),         // find the enemy before sending the rush
-            BuildOrderStep.Build("Barracks"),
-            BuildOrderStep.Build("Hut"),
-            BuildOrderStep.Train(UnitRole.Military),    // Wave #1 (1 battalion)
-            BuildOrderStep.LaunchAttack(1),       // â†’ harass enemy workers
-            BuildOrderStep.Build("Hut"),
-            BuildOrderStep.Build("GatherersHut"),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Build("Hut"),
-            BuildOrderStep.Train(UnitRole.Military),    // Wave #2 (1st batt)
-            BuildOrderStep.Train(UnitRole.Military),    // Wave #2 (2nd batt)
-            BuildOrderStep.LaunchAttack(2),       // â†’ push, 2 fresh batts (+ wave-1 survivors)
-            BuildOrderStep.Build("Hut"),
-            BuildOrderStep.Build("GatherersHut"),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Build("Hut"),
-            BuildOrderStep.Build("Hut"),
-            BuildOrderStep.Train(UnitRole.Military),    // Wave #3 (4 battalions)
-            BuildOrderStep.Train(UnitRole.Military),
-            BuildOrderStep.Train(UnitRole.Military),
-            BuildOrderStep.Train(UnitRole.Military),
-            BuildOrderStep.LaunchAttack(4),       // â†’ big push, 4 fresh batts (+ survivors)
-            BuildOrderStep.Build("GatherersHut"),
-            BuildOrderStep.Build("GatherersHut"),
-            BuildOrderStep.SetVeilstoneTarget(1),   // late switch â€” just enough for Shrine + age-up
-            BuildOrderStep.Build("VaultOfAlmierra"),   // any choice id = "my landmark" (ResolveLandmarkId)
-            BuildOrderStep.AgeUpStep(),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-        };
-
-        // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        // 5. TURTLE â€” standing army + healers + big stockpile for Alanthor walls
-        //    Choice: TempleOfRidan (trains Litharchs). Culture: Alanthor.
-        //    Veilstone: 2 mid, then 3 around the Temple/Litharch phase (Litharchs
-        //    cost veilstone and the Temple itself is a choice building).
-        // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        public static readonly BuildOrderStep[] Turtle =
-        {
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Scout),       // warn of incoming pressure
-            BuildOrderStep.Build("Barracks"),
-            BuildOrderStep.Build("Hut"),
-            BuildOrderStep.Build("GatherersHut"),
-            BuildOrderStep.Train(UnitRole.Military),
-            BuildOrderStep.SetVeilstoneTarget(2),  // 4 workers â†’ 2 on veilstone
-            BuildOrderStep.Build("Hut"),
-            BuildOrderStep.Build("GatherersHut"),
-            BuildOrderStep.Train(UnitRole.Military),   // was Archer — ranged is an Age-1 unlock (2026-08-11)
-            BuildOrderStep.Build("Hut"),
-            BuildOrderStep.Build("GatherersHut"),
-            BuildOrderStep.Train(UnitRole.Military),   // was Archer — ranged is an Age-1 unlock (2026-08-11)
-            BuildOrderStep.Build("GatherersHut", optional: true),
-            BuildOrderStep.Build("Hut"),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.SetVeilstoneTarget(3),  // ramp for Temple + 2 Litharchs
-            BuildOrderStep.Build("TempleOfRidan"),
-            BuildOrderStep.Train(UnitRole.Military),
-            BuildOrderStep.Train(UnitRole.Military),
-            BuildOrderStep.AgeUpStep(),
-            // The turtle wants its wall upgraded above all: see Balanced.
-            BuildOrderStep.ResearchTech("Battlements", optional: true),
-            // Turtle is defensive but still has a standing army â€” push it
-            // out at least once. Maintenance loop keeps the pressure on.
-            BuildOrderStep.Train(UnitRole.Military),
-            BuildOrderStep.Train(UnitRole.Military),   // was Archer — ranged is an Age-1 unlock (2026-08-11)
-            BuildOrderStep.LaunchAttack(2),
-        };
-
-        // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        // 6. DEFENSIVE â€” leaner buildings, upgraded standing army
-        //    Choice: VaultOfAlmierra. Culture: Feraldis.
-        //    Veilstone: 2 around techs (techs + Vault both cost veilstone).
-        // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        public static readonly BuildOrderStep[] Defensive =
-        {
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Scout),       // map awareness before turtling
-            BuildOrderStep.Build("GatherersHut"),
-            BuildOrderStep.Build("GatherersHut"),
-            BuildOrderStep.Build("GatherersHut", optional: true),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.SetVeilstoneTarget(2),  // 6 workers â†’ 2 on veilstone for techs + Vault
-            BuildOrderStep.Build("Hut"),
-            BuildOrderStep.Build("Hut"),
-            BuildOrderStep.Build("Hut"),
-            BuildOrderStep.Build("Barracks"),
-            BuildOrderStep.Train(UnitRole.Military),
-            BuildOrderStep.ResearchTech("Conscription"),
-            BuildOrderStep.ResearchTech("StoneWeapons"),
-            BuildOrderStep.Train(UnitRole.Military),
-            BuildOrderStep.Train(UnitRole.Military),   // was Archer — ranged is an Age-1 unlock (2026-08-11)
-            BuildOrderStep.Build("VaultOfAlmierra"),
-            BuildOrderStep.AgeUpStep(),
-            // The wall's own upgrade, researched at a Wall Hub. Optional
-            // twice over: a non-Alanthor pick makes it unavailable, and a
-            // faction with no hub standing has nowhere to research it —
-            // either way a required step here would stall the whole order.
-            // Lv1 (stone) already came free with the culture pick.
-            // docs/Design/Age_1_Alanthor.md § The four wall levels
-            BuildOrderStep.ResearchTech("Battlements", optional: true),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            BuildOrderStep.Train(UnitRole.Worker),
-            // Commit the Drilled+Armoured standing army at least once so the
-            // tech upgrades are visible on the map. Maintenance loop keeps
-            // sending fresh waves after this.
-            BuildOrderStep.Train(UnitRole.Military),
-            BuildOrderStep.Train(UnitRole.Military),   // was Archer — ranged is an Age-1 unlock (2026-08-11)
-            BuildOrderStep.LaunchAttack(2),
-        };
-
         /// <summary>
-        /// Returns the build order array for the given strategy.
-        /// AIPersonality.Balanced maps to Balanced, AIPersonality.TechBoom maps to
-        /// TechBoom (legacy enum names preserved for compatibility).
-        /// </summary>
-        public static BuildOrderStep[] For(AIPersonality strategy) => strategy switch
-        {
-            AIPersonality.Economic    => EcoBoom,
-            AIPersonality.Balanced => Balanced,   // legacy alias
-            AIPersonality.TechBoom   => TechBoom,   // legacy alias
-            AIPersonality.Rush       => Rush,
-            AIPersonality.Defensive  => Defensive,
-            AIPersonality.Turtle     => Turtle,
-            _                     => Balanced,
-        };
-
-        /// <summary>
-        /// The strategy's PRIOR culture preference — what this personality
-        /// leans toward before it has looked at the map. Used as the base
-        /// score by <see cref="AICultureChoice"/>, which then bends it with
-        /// scouted intel.
+        /// The personality's PRIOR culture preference — what it leans toward
+        /// before it has looked at the map. Used as the base score by
+        /// <see cref="AICultureChoice"/>, which then bends it with scouted
+        /// intel.
         ///
         /// Runai is deliberately absent: it is still an incomplete culture
         /// (CultureConfig.IsComingSoon locks it for the player too), so the
@@ -373,35 +27,18 @@ namespace TheWaningBorder.AI
         ///
         /// Returns a signed lean: negative = Alanthor, positive = Feraldis.
         /// </summary>
-        public static float CultureLeanFor(AIPersonality strategy) => strategy switch
+        public static float CultureLeanFor(AIPersonality personality) => personality switch
         {
             // Aggression wants the raiding culture.
             AIPersonality.Rush       => +2.0f,
-            AIPersonality.Balanced => +1.5f,
+            AIPersonality.Balanced   => +1.5f,
             // Balanced/eco lean slightly to the fortified culture.
-            AIPersonality.Economic    => -0.5f,
+            AIPersonality.Economic   => -0.5f,
             AIPersonality.TechBoom   => -0.5f,
             // Defensive play wants walls and towers.
             AIPersonality.Defensive  => -2.0f,
             AIPersonality.Turtle     => -2.5f,
-            _                     => 0f,
+            _                        => 0f,
         };
-
-        /// <summary>
-        /// Legacy entry point kept for callers that have no intel context.
-        /// Prefer <see cref="AICultureChoice.Pick"/>, which reads the AI's
-        /// actual scouting before deciding.
-        /// </summary>
-        public static byte CultureFor(AIPersonality strategy, uint randomSeed)
-        {
-            float lean = CultureLeanFor(strategy);
-            // Break a dead tie deterministically off the seed.
-            byte pick = lean == 0f
-                ? ((randomSeed & 1) == 0 ? Cultures.Alanthor : Cultures.Feraldis)
-                : (lean > 0f ? Cultures.Feraldis : Cultures.Alanthor);
-            // Ship gate — see CultureConfig.Playable.
-            return CultureConfig.Playable(pick);
-        }
     }
 }
-

@@ -15,11 +15,10 @@ namespace TheWaningBorder.AI
     public struct AIBrain : IComponentData
     {
         public Faction Owner;
-        public float UpdateInterval;
-        public float NextUpdateTime;
         public byte IsActive;
-        /// <summary>Layer 2 — what this AI prioritises. Selects the build
-        /// order and the priority floors. Never selects a unit.</summary>
+        /// <summary>Layer 2 — what this AI prioritises: its row in
+        /// Resources/AISettings.asset (plan affinities, floors, hut cap,
+        /// risk, raiding, fortification scales). Never selects a unit.</summary>
         public AIPersonality Personality;
         /// <summary>Layer 1 — decision rate, reaction time, army size.</summary>
         public AIDifficulty Difficulty;
@@ -156,22 +155,6 @@ namespace TheWaningBorder.AI
         public float ReinforceHoldSince;
     }
 
-    /// <summary>
-    /// Dynamic strategy state that changes during the game based on conditions.
-    /// Attached to the same entity as AIBrain.
-    /// </summary>
-    public struct AIStrategyState : IComponentData
-    {
-        public AIPersonality Current;
-        public AIPersonality Previous;
-        public float LastEvalTime;       // When strategy was last evaluated
-        public float EvalInterval;       // How often to re-evaluate (difficulty-dependent)
-        public float StrategyStartTime;  // When the current strategy was adopted
-        public int ArmiesLostSinceSwitch;   // Armies lost without dealing significant damage
-        public int SuccessfulAttacks;        // Attacks that dealt significant damage
-        public byte HasAgedUp;               // Whether this AI has completed age-up
-    }
-
     // ==================== Shared Knowledge ====================
 
     public struct AISharedKnowledge : IComponentData
@@ -184,17 +167,5 @@ namespace TheWaningBorder.AI
         public int OwnEconomicStrength;
         public int EnemyBasesSpotted;
         public int EnemyArmiesSpotted;
-    }
-
-    public struct ResourceRequest : IBufferElementData
-    {
-        public int Supplies;
-        public int Iron;
-        public int Veilstone;
-        public int Veilsteel;
-        public int Glow;
-        public int Priority;
-        public Entity Requester;
-        public byte Approved;
     }
 }

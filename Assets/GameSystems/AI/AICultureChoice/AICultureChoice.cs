@@ -111,12 +111,9 @@ namespace TheWaningBorder.AI
                         score += (k.KnownEnemyBases - 1) * Cfg.enemyBaseWeight;
                 }
 
-                if (em.HasComponent<AIStrategyState>(brainEntity))
-                {
-                    var s = em.GetComponentData<AIStrategyState>(brainEntity);
-                    score += s.SuccessfulAttacks * Cfg.successWeight;
-                    score -= s.ArmiesLostSinceSwitch * Cfg.lossWeight;
-                }
+                // (The combat-record term — AIStrategyState.SuccessfulAttacks
+                // / ArmiesLostSinceSwitch — was removed on 2026-10-05: nothing
+                // ever incremented either counter, so it always scored 0.)
 
                 // Scouted enemy economy that we have NOT seen defended.
                 score += ScoreExposedEconomy(em, brainEntity);

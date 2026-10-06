@@ -8,13 +8,18 @@
 // wave marches on a player (2026-10-04: "all spawn as garrison, then waves
 // are 30% of that"):
 //
-//   TickAttackWaves      picks the target (nearest living player to the
-//                        curse, rotated fairly via waveTargetDistanceSlack;
-//                        the Shardroot holder while anyone holds it), the
-//                        objective (the player's nearest production building
-//                        in their nearest territory), drafts the wave and
-//                        sends it as one formation attack-move. Fewer than
-//                        waveMinSize to draft: the slot is skipped.
+//   TickAttackWaves      picks the target (2026-10-05: by STRENGTH — each
+//                        living player's share blends army power and
+//                        territories, accrues as credit, and the eligible
+//                        player with the most credit takes the wave; a
+//                        per-player cooldown after each wave; the Shardroot
+//                        holder while anyone holds it), the objective (the
+//                        player's nearest production building in their
+//                        nearest territory), drafts the wave SIZED TO THE
+//                        TARGET (waveSizeVsPower x its army power x its
+//                        difficulty multiplier, waveMinSize..waveDraftFraction
+//                        of the garrisons) and sends it as one formation
+//                        attack-move. Fewer than waveMinSize: slot skipped.
 //   ShepherdAttackWaves  re-targets an idle wave inside the target territory,
 //                        and after waveDurationSeconds, or below
 //                        waveRetreatFraction of its size, turns it home: its
@@ -61,14 +66,26 @@ namespace TheWaningBorder.Systems.Border
         private readonly Dictionary<int, AttackWaveState> _attackWaves = new();
         private double _nextAttackWaveAt = -1.0;
         private int _attackWavesSent;
-        private Faction _lastWaveTarget = Faction.Border;
+
+        // ── fair targeting (Territory_Claims.md §6.8, 2026-10-05), one slot per player faction ──
+        private const int PlayerSlots = (int)Faction.Border;
+        /// <summary>Accrued wave share minus waves received (the schedule).</summary>
+        private readonly float[] _waveCredit = new float[PlayerSlots];
+        /// <summary>Sim time before which the faction may not be targeted.</summary>
+        private readonly double[] _waveCooldownUntil = new double[PlayerSlots];
+        private readonly bool[] _wsLiving = new bool[PlayerSlots];
+        private readonly float[] _wsArmy = new float[PlayerSlots];
+        private readonly int[] _wsTerr = new int[PlayerSlots];
+        private readonly float[] _wsShare = new float[PlayerSlots];
+        private const float WaveCreditClamp = 2f;
 
         private void ResetAttackWaves()
         {
             _attackWaves.Clear();
             _nextAttackWaveAt = -1.0;
             _attackWavesSent = 0;
-            _lastWaveTarget = Faction.Border;
+            System.Array.Clear(_waveCredit, 0, PlayerSlots);
+            System.Array.Clear(_waveCooldownUntil, 0, PlayerSlots);
         }
 
         // ── snapshots ───────────────────────────────────────────────────────
@@ -175,8 +192,6 @@ namespace TheWaningBorder.Systems.Border
 
         // ── forming a wave ──────────────────────────────────────────────────
 
-        private readonly List<(Faction f, float d2, int building, int node)> _waveCandidates = new();
-        private readonly List<int> _waveAlternates = new();
 
         /// <summary>
         /// One attack-wave slot (§6.8). Runs AFTER TickGarrisons and the
@@ -191,9 +206,11 @@ namespace TheWaningBorder.Systems.Border
             // send is skipped, not banked.
             _nextAttackWaveAt = now + s.waveIntervalSeconds;
 
-            // Always draw, so the RNG stream is the same on every peer
-            // whichever branch below is taken.
-            float draw = _rng.NextFloat();
+            // One draw per slot, on every peer whichever branch below is
+            // taken. The target pick no longer uses it (2026-10-05: the
+            // credit schedule is deterministic by itself); it is kept so the
+            // stream other curse draws read stays where it was.
+            _rng.NextFloat();
 
             SnapshotAllNodes();
             if (_allNodes.Count == 0)
@@ -207,10 +224,12 @@ namespace TheWaningBorder.Systems.Border
             int originNode;
             int territory;
             float3 objective;
+            int living = ComputeWaveShares(em, s);
             bool huntsHolder = TryShardrootHolder(em, out var holder, out float3 holderPos, out int holderTerritory);
             if (huntsHolder)
             {
-                // §6.6: every offensive curse force goes for the holder.
+                // §6.6: every offensive curse force goes for the
+                // holder — shares and cooldowns do not apply.
                 target = holder;
                 objective = holderPos;
                 territory = holderTerritory;
@@ -218,49 +237,44 @@ namespace TheWaningBorder.Systems.Border
             }
             else
             {
-                // Per living player: its building nearest any curse node.
-                _waveCandidates.Clear();
-                for (int fi = 0; fi < (int)Faction.Border; fi++)
-                {
-                    var f = (Faction)fi;
-                    float bestD = float.MaxValue; int bestB = -1, bestN = -1;
-                    for (int b = 0; b < _playerBuildings.Count; b++)
-                    {
-                        if (_playerBuildings[b].F != f) continue;
-                        int n = NearestCurseNode(_playerBuildings[b].P);
-                        float d = Distance2(_allNodes[n].p, _playerBuildings[b].P);
-                        if (d < bestD) { bestD = d; bestB = b; bestN = n; }
-                    }
-                    if (bestB >= 0) _waveCandidates.Add((f, bestD, bestB, bestN));
-                }
-                if (_waveCandidates.Count == 0)
+                if (living == 0)
                 {
                     UnityEngine.Debug.Log("[CurseTerritory] WAVE skipped — no living player to march on.");
                     return;
                 }
+                LogWaveShares(now);
 
-                int pick = 0;
-                for (int i = 1; i < _waveCandidates.Count; i++)
-                    if (_waveCandidates[i].d2 < _waveCandidates[pick].d2) pick = i;
-
-                // FAIR ROTATION: the nearest player was the last one hit, and
-                // someone else is nearly as close — the wave goes to them.
-                if (_waveCandidates[pick].f == _lastWaveTarget)
+                // FAIR TARGETING (§6.8, 2026-10-05): the eligible player with
+                // the most credit once this slot's share is added; faction
+                // order breaks ties, the same on every peer.
+                int pickF = -1; float best = float.MinValue;
+                for (int f = 0; f < PlayerSlots; f++)
                 {
-                    float slack = math.max(1f, s.waveTargetDistanceSlack);
-                    float limit2 = _waveCandidates[pick].d2 * slack * slack;
-                    _waveAlternates.Clear();
-                    for (int i = 0; i < _waveCandidates.Count; i++)
-                        if (i != pick && _waveCandidates[i].d2 <= limit2) _waveAlternates.Add(i);
-                    if (_waveAlternates.Count > 0)
-                        pick = _waveAlternates[math.min(_waveAlternates.Count - 1,
-                                                        (int)(draw * _waveAlternates.Count))];
+                    if (!_wsLiving[f] || !WaveEligible((Faction)f, now)) continue;
+                    float c = _waveCredit[f] + _wsShare[f];
+                    if (c > best) { best = c; pickF = f; }
                 }
+                if (pickF < 0)
+                {
+                    UnityEngine.Debug.Log($"[CurseTerritory] WAVE skipped — every living player is under a wave " +
+                        $"or cooling down (wavePlayerCooldownSeconds {s.wavePlayerCooldownSeconds:F0}).");
+                    return;
+                }
+                target = (Faction)pickF;
 
-                var c = _waveCandidates[pick];
-                target = c.f;
-                originNode = c.node;
-                var near = _playerBuildings[c.building].P;
+                // Where: the target's building nearest any curse node, and
+                // that node as the origin.
+                float bestD = float.MaxValue; int bestB = -1, bestN = -1;
+                for (int b = 0; b < _playerBuildings.Count; b++)
+                {
+                    if (_playerBuildings[b].F != target) continue;
+                    int n = NearestCurseNode(_playerBuildings[b].P);
+                    float d = Distance2(_allNodes[n].p, _playerBuildings[b].P);
+                    if (d < bestD) { bestD = d; bestB = b; bestN = n; }
+                }
+                if (bestB < 0) return;   // unreachable: living means a building
+                originNode = bestN;
+                var near = _playerBuildings[bestB].P;
                 territory = RegionMap.NearestRegion(near.x, near.z);
                 int obj = ObjectiveIn(target, territory, _allNodes[originNode].p);
                 objective = obj >= 0 ? _playerBuildings[obj].P : near;
@@ -270,28 +284,50 @@ namespace TheWaningBorder.Systems.Border
             int home = _allNodes[originNode].t;
             float3 origin = _allNodes[originNode].p;
 
-            // Size: waveDraftFraction of every garrison unit the curse has,
-            // drafted nearest the target first (guard posts by distance, then
-            // entity index), never below garrisonMinPerNode a node. Nothing
-            // is spawned. Too few to draft: the slot is skipped.
+            // Size: at most waveDraftFraction of every garrison unit the
+            // curse has, drafted nearest the target first (guard posts by
+            // distance, then entity index), never below garrisonMinPerNode a
+            // node. Nothing is spawned. SIZED TO THE TARGET (§6.8,
+            // 2026-10-05): under that ceiling the draft stops once its power
+            // meets waveSizeVsPower x the target's army power x the target's
+            // difficulty multiplier — never under waveMinSize. The holder
+            // hunt takes the whole ceiling.
             int garrison = CountGarrisonUnits(em);
             int want = (int)math.floor(garrison * math.saturate(s.waveDraftFraction));
-            int count = want >= s.waveMinSize
-                ? DraftFromGarrisons(em, s, objective, -1, want, _scratchWave) : 0;
-            if (count < math.max(1, s.waveMinSize))
+            int ti = (int)target;
+            bool playerSlot = ti >= 0 && ti < PlayerSlots;
+            float targetPower = playerSlot ? _wsArmy[ti] : 0f;
+            int difficulty = DifficultyOf(target);
+            float diffMult = s.WaveSizeForDifficulty(difficulty);
+            float budget = huntsHolder ? 0f : math.max(0f, s.waveSizeVsPower) * diffMult * targetPower;
+            int minCount = math.max(1, s.waveMinSize);
+            int count = want >= minCount
+                ? DraftFromGarrisons(em, s, objective, -1, want, _scratchWave,
+                                     minCount, huntsHolder ? 0f : math.max(budget, 0.001f))
+                : 0;
+            if (count < minCount)
             {
                 UnityEngine.Debug.Log($"[CurseTerritory] WAVE skipped — {count} of {want} drafted from " +
-                    $"{garrison} garrison units, under waveMinSize {s.waveMinSize}.");
+                    $"{garrison} garrison units, under waveMinSize {s.waveMinSize} (target {target}).");
                 _scratchWave.Clear();
                 return;
             }
+            float wavePower = _lastDraftPower;
 
             int party = _nextPartyId++;
             // Each unit keeps its home territory; the guard post is reset
             // when the wave turns back (SendAttackWaveHome).
             Enlist(em, _scratchWave, RoleWave, party, -1, origin);
             _attackWavesSent++;
-            _lastWaveTarget = target;
+            float share = playerSlot ? _wsShare[ti] : 0f;
+            if (!huntsHolder && playerSlot)
+            {
+                // The schedule: every living player accrues its share, the
+                // target pays one wave for it.
+                for (int f = 0; f < PlayerSlots; f++)
+                    if (_wsLiving[f]) _waveCredit[f] = math.min(WaveCreditClamp, _waveCredit[f] + _wsShare[f]);
+                _waveCredit[ti] = math.max(-WaveCreditClamp, _waveCredit[ti] - 1f);
+            }
 
             _attackWaves[party] = new AttackWaveState
             {
@@ -306,9 +342,11 @@ namespace TheWaningBorder.Systems.Border
             SimSignals.Ping(objective, SimPingKind.Curse, 12f, big: true);
             if (target == GameSettings.LocalPlayerFaction)
                 SimSignals.Notify(Loc.T("A curse wave marches on your lands!"));
-            UnityEngine.Debug.Log($"[CurseTerritory] WAVE {_attackWavesSent} — {count} units " +
-                $"(wanted {want} of {garrison} garrison) drafted nearest territory {home} ({RegionMap.NameOf(home)}) " +
-                $"and march on {target}{(huntsHolder ? " (Shardroot holder)" : "")} in territory {territory} " +
+            UnityEngine.Debug.Log($"[CurseTerritory] WAVE {_attackWavesSent} -> {target}" +
+                $"{(huntsHolder ? " (Shardroot holder)" : "")} (share {share:F2}, size {count} vs power {targetPower:F0}; " +
+                $"wave power {wavePower:F0}, budget {budget:F0} = {s.waveSizeVsPower:F2} x power x {DifficultyName(difficulty)} " +
+                $"{diffMult:F2}; ceiling {want} of {garrison} garrison) — drafted nearest territory {home} " +
+                $"({RegionMap.NameOf(home)}), marching on territory {territory} " +
                 $"({RegionMap.NameOf(territory)}) at ({objective.x:F0},{objective.z:F0}); " +
                 $"curse units {CurseUnitCap.Live(em)}/{CurseUnitCap.Max}; next in {s.waveIntervalSeconds:F0}s.");
         }
@@ -358,6 +396,7 @@ namespace TheWaningBorder.Systems.Border
                 if (_scratchWave.Count == 0)
                 {
                     UnityEngine.Debug.Log($"[CurseTerritory] WAVE {ws.Number} destroyed by {ws.Target}.");
+                    StartWaveCooldown(ws.Target, now, s);
                     _attackWaves.Remove(party);
                     continue;
                 }
@@ -366,12 +405,12 @@ namespace TheWaningBorder.Systems.Border
                 // Time is up, or the wave is broken: home.
                 if (now - ws.StartedAt >= s.waveDurationSeconds)
                 {
-                    SendAttackWaveHome(em, party, ws, centre, "its time is up");
+                    SendAttackWaveHome(em, now, s, party, ws, centre, "its time is up");
                     continue;
                 }
                 if (_scratchWave.Count < ws.Size * s.waveRetreatFraction)
                 {
-                    SendAttackWaveHome(em, party, ws, centre,
+                    SendAttackWaveHome(em, now, s, party, ws, centre,
                         $"it is broken ({_scratchWave.Count}/{ws.Size} left)");
                     continue;
                 }
@@ -423,7 +462,7 @@ namespace TheWaningBorder.Systems.Border
                 }
                 if (!found)
                 {
-                    SendAttackWaveHome(em, party, ws, centre, $"{ws.Target} has nothing left standing");
+                    SendAttackWaveHome(em, now, s, party, ws, centre, $"{ws.Target} has nothing left standing");
                     continue;
                 }
                 ws.Objective = next;
@@ -435,9 +474,10 @@ namespace TheWaningBorder.Systems.Border
         /// <summary>The wave turns back (§6.8): its units become garrison of
         /// the curse node nearest them at once, and the §6.7 leash walks them
         /// there — a fight past guardLeashRadius is dropped.</summary>
-        private void SendAttackWaveHome(EntityManager em, int party, AttackWaveState ws,
-                                        float3 centre, string why)
+        private void SendAttackWaveHome(EntityManager em, double now, BorderSettingsSO s,
+                                        int party, AttackWaveState ws, float3 centre, string why)
         {
+            StartWaveCooldown(ws.Target, now, s);
             SnapshotAllNodes();
             int n = NearestCurseNode(centre);
             int home = n >= 0 ? _allNodes[n].t : ws.Home;
@@ -455,5 +495,173 @@ namespace TheWaningBorder.Systems.Border
             UnityEngine.Debug.Log($"[CurseTerritory] WAVE {ws.Number} turns home — {why}; " +
                 $"{_scratchWave.Count} unit(s) rejoin the garrison of territory {home} ({RegionMap.NameOf(home)}).");
         }
+
+        // ── fair targeting helpers (Territory_Claims.md §6.8, 2026-10-05) ──
+
+        /// <summary>The faction may not be targeted for
+        /// wavePlayerCooldownSeconds after a wave against it ended.</summary>
+        private void StartWaveCooldown(Faction f, double now, BorderSettingsSO s)
+        {
+            int i = (int)f;
+            if (i < 0 || i >= PlayerSlots) return;
+            _waveCooldownUntil[i] = now + math.max(0f, s.wavePlayerCooldownSeconds);
+        }
+
+        /// <summary>No wave is out against the faction and its cooldown is over.</summary>
+        private bool WaveEligible(Faction f, double now)
+        {
+            int i = (int)f;
+            if (i < 0 || i >= PlayerSlots || now < _waveCooldownUntil[i]) return false;
+            foreach (var kv in _attackWaves)
+                if (kv.Value.Target == f) return false;
+            return true;
+        }
+
+        private static readonly ComponentType[] QT_PlayerArmy =
+        {
+            ComponentType.ReadOnly<UnitTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<Health>(),
+            ComponentType.ReadOnly<Damage>(),
+        };
+        private static CachedEntityQuery QC_PlayerArmy;
+
+        /// <summary>
+        /// A unit's live combat power: the geometric mean of its damage per
+        /// second and its current HP — the core of UnitPower's Combat number
+        /// (docs/Design/Unit_Power.md), read off live components so wounds
+        /// and upgrades count. The same scale for curse and player units, so
+        /// a wave can be sized against an army (§6.8). 0 for a unit that
+        /// deals no damage.
+        /// </summary>
+        private static float CombatPowerOf(EntityManager em, Entity e)
+        {
+            if (!em.HasComponent<Damage>(e) || !em.HasComponent<Health>(e)) return 0f;
+            int dmg = em.GetComponentData<Damage>(e).Value;
+            int hp = em.GetComponentData<Health>(e).Value;
+            if (dmg <= 0 || hp <= 0) return 0f;
+            float cd = em.HasComponent<AttackCooldown>(e) ? em.GetComponentData<AttackCooldown>(e).Cooldown : 1f;
+            float dps = dmg / math.max(0.5f, cd);
+            return math.sqrt(dps * hp);
+        }
+
+        /// <summary>
+        /// Fills the per-player wave snapshot (§6.8, 2026-10-05): living (a
+        /// standing building — reads _playerBuildings, so
+        /// SnapshotPlayerBuildings runs first), army power (CombatPowerOf
+        /// over its combat units), territories held, and the wave SHARE —
+        /// strength (army share and territory share blended by
+        /// waveShareTerritoryWeight) floored at waveShareFloor and
+        /// renormalised. Returns the living count. Walks are in entity /
+        /// faction order, so every peer agrees.
+        /// </summary>
+        private int ComputeWaveShares(EntityManager em, BorderSettingsSO s)
+        {
+            System.Array.Clear(_wsLiving, 0, PlayerSlots);
+            System.Array.Clear(_wsArmy, 0, PlayerSlots);
+            System.Array.Clear(_wsTerr, 0, PlayerSlots);
+            System.Array.Clear(_wsShare, 0, PlayerSlots);
+
+            for (int b = 0; b < _playerBuildings.Count; b++)
+            {
+                int f = (int)_playerBuildings[b].F;
+                if (f >= 0 && f < PlayerSlots) _wsLiving[f] = true;
+            }
+
+            var q = QC_PlayerArmy.Get(em, QT_PlayerArmy);
+            using (var ents = q.ToEntityArray(Allocator.Temp))
+            using (var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp))
+            using (var tags = q.ToComponentDataArray<UnitTag>(Allocator.Temp))
+            {
+                // Summed in entity order so the float totals are the same on
+                // every peer.
+                _scratchArmyOrder.Clear();
+                for (int i = 0; i < ents.Length; i++) _scratchArmyOrder.Add((ents[i].Index, i));
+                _scratchArmyOrder.Sort((a, b) => a.idx.CompareTo(b.idx));
+                for (int k = 0; k < _scratchArmyOrder.Count; k++)
+                {
+                    int i = _scratchArmyOrder[k].i;
+                    int f = (int)facs[i].Value;
+                    if (f < 0 || f >= PlayerSlots) continue;
+                    var cls = tags[i].Class;
+                    if (cls == UnitClass.Scout || cls == UnitClass.Economy || cls == UnitClass.Worker) continue;
+                    _wsArmy[f] += CombatPowerOf(em, ents[i]);
+                }
+            }
+
+            for (int r = 0; r < RegionMap.Count; r++)
+            {
+                int o = TerritoryOwnership.OwnerOf(r);
+                if (o >= 0 && o < PlayerSlots) _wsTerr[o]++;
+            }
+
+            int living = 0; float sumArmy = 0f; int sumTerr = 0;
+            for (int f = 0; f < PlayerSlots; f++)
+            {
+                if (!_wsLiving[f]) { _waveCredit[f] = 0f; continue; }   // gone: its credit with it
+                living++; sumArmy += _wsArmy[f]; sumTerr += _wsTerr[f];
+            }
+            if (living == 0) return 0;
+
+            float w = math.saturate(s.waveShareTerritoryWeight);
+            float floor = math.saturate(s.waveShareFloor);
+            float even = 1f / living, total = 0f;
+            for (int f = 0; f < PlayerSlots; f++)
+            {
+                if (!_wsLiving[f]) continue;
+                float a = sumArmy > 0f ? _wsArmy[f] / sumArmy : even;
+                float t = sumTerr > 0 ? (float)_wsTerr[f] / sumTerr : even;
+                _wsShare[f] = math.max(floor, (1f - w) * a + w * t);
+                total += _wsShare[f];
+            }
+            for (int f = 0; f < PlayerSlots; f++)
+                if (_wsLiving[f]) _wsShare[f] = total > 0f ? _wsShare[f] / total : even;
+            return living;
+        }
+
+        private readonly List<(int idx, int i)> _scratchArmyOrder = new();
+        private readonly System.Text.StringBuilder _shareLog = new();
+
+        /// <summary>One line per wave slot: every living player's share, army
+        /// power, territories, credit, difficulty and whether it can be
+        /// targeted.</summary>
+        private void LogWaveShares(double now)
+        {
+            _shareLog.Clear();
+            _shareLog.Append("[CurseTerritory] WAVE shares —");
+            for (int f = 0; f < PlayerSlots; f++)
+            {
+                if (!_wsLiving[f]) continue;
+                var fac = (Faction)f;
+                _shareLog.Append(' ').Append(fac).Append(' ').Append(_wsShare[f].ToString("F2"))
+                    .Append(" (army ").Append(_wsArmy[f].ToString("F0"))
+                    .Append(", ").Append(_wsTerr[f]).Append(" terr, credit ")
+                    .Append(_waveCredit[f].ToString("F2")).Append(", ").Append(DifficultyName(DifficultyOf(fac)));
+                if (!WaveEligible(fac, now))
+                    _shareLog.Append(now < _waveCooldownUntil[f]
+                        ? $", cooling until {_waveCooldownUntil[f]:F0}s" : ", wave out");
+                _shareLog.Append(')');
+            }
+            UnityEngine.Debug.Log(_shareLog.ToString());
+        }
+
+        /// <summary>The faction's lobby AI difficulty as a LobbyAIDifficulty
+        /// index (0 Easy .. 3 Expert); a human, or a slot the lobby does not
+        /// know, counts as Normal (§6.8). Read from the lobby config, which is
+        /// the same on every peer — not from the AI's own state.</summary>
+        private static int DifficultyOf(Faction f)
+        {
+            const int Normal = (int)TheWaningBorder.Core.Config.LobbyAIDifficulty.Normal;
+            int i = (int)f;
+            var slots = TheWaningBorder.Core.Config.LobbyConfig.Slots;
+            if (slots == null || i < 0 || i >= slots.Length || slots[i] == null) return Normal;
+            var slot = slots[i];
+            bool ai = slot.Type == TheWaningBorder.Core.Config.SlotType.AI
+                      || (GameSettings.IsObserver && slot.Type == TheWaningBorder.Core.Config.SlotType.Observer);
+            return ai ? (int)slot.AIDifficulty : Normal;
+        }
+
+        private static string DifficultyName(int d)
+            => ((TheWaningBorder.Core.Config.LobbyAIDifficulty)d).ToString();
     }
 }

@@ -240,7 +240,7 @@ namespace TheWaningBorder.AI
             }
 
             for (int i = 0; i < scores.Length; i++)
-                scores[i] += AIPlans.Affinity(personality.personality, (AIPlan)i);
+                scores[i] += AIPlans.Affinity(personality.personality, (AIPlan)i, personality.weight);
 
             int best = 0;
             for (int i = 1; i < scores.Length; i++)

@@ -29,28 +29,9 @@ namespace TheWaningBorder.AI
     // ARMY SYSTEM
     // ═══════════════════════════════════════════════════════════════════════
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // MILITARY STATE
-    // ═══════════════════════════════════════════════════════════════════════
-
-    /// <summary>
-    /// State tracking for AI military management.
-    /// </summary>
-    public struct AIMilitaryState : IComponentData
-    {
-        public int TotalSoldiers;
-        public int TotalArchers;
-        public int TotalSiegeUnits;
-        public int ActiveBarracks;
-        public int DesiredBarracks;
-        public int ArmiesCount;
-        public int ScoutsCount;
-        public int QueuedSoldiers;
-        public int QueuedArchers;
-        public int QueuedSiegeUnits;
-        public float LastRecruitmentCheck;
-        public float RecruitmentCheckInterval;
-    }
+    // AIMilitaryState, AIBuildingState, AIEconomyState and
+    // AIVeilstoneHuntState were removed on 2026-10-05: allocated per brain,
+    // read by nothing (their managers were [DisableAutoCreation]).
 
     /// <summary>
     /// A queued unit recruitment request.
@@ -71,22 +52,6 @@ namespace TheWaningBorder.AI
     // TACTICAL MANAGER STATE
     // ═══════════════════════════════════════════════════════════════════════
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // BUILDING STATE
-    // ═══════════════════════════════════════════════════════════════════════
-
-    /// <summary>
-    /// State tracking for AI building/construction management.
-    /// </summary>
-    public struct AIBuildingState : IComponentData
-    {
-        public int ActiveWorkers;
-        public int DesiredWorkers;
-        public int QueuedConstructions;
-        public float LastBuildCheck;
-        public float BuildCheckInterval;
-    }
-
     /// <summary>
     /// A queued building construction request.
     /// </summary>
@@ -98,38 +63,6 @@ namespace TheWaningBorder.AI
         public byte Assigned;           // 0 = pending, 1 = assigned to worker
         public Entity AssignedWorker;
     }
-    // ═══════════════════════════════════════════════════════════════════════
-    // ECONOMY STATE
-    // ═══════════════════════════════════════════════════════════════════════
-
-    /// <summary>
-    /// State tracking for AI economy management.
-    /// </summary>
-    public struct AIEconomyState : IComponentData
-    {
-        public int AssignedWorkers;
-        public int DesiredWorkers;
-        public int ActiveGatherersHuts;
-        public int DesiredGatherersHuts;
-        public float LastMineAssignmentCheck;
-        public float MineCheckInterval;
-        public byte NeedsMoreSupplyIncome;
-        public byte NeedsMoreIronIncome;
-        public float LastVaultCheck;
-    }
-    // ═══════════════════════════════════════════════════════════════════════
-    // CRYSTAL HUNT STATE
-    // ═══════════════════════════════════════════════════════════════════════
-
-    /// <summary>
-    /// State tracking for AI veilstone creature hunting.
-    /// </summary>
-    public struct AIVeilstoneHuntState : IComponentData
-    {
-        public float LastHuntCheck;
-        public float HuntCheckInterval;
-    }
-
     // ═══════════════════════════════════════════════════════════════════════
 // ECONOMY ASSIGNMENTS
 // ═══════════════════════════════════════════════════════════════════════

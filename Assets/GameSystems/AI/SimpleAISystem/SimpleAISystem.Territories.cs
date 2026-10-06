@@ -10,19 +10,28 @@
 //      held (AIBaseLayout), kept clear by every other AI placer the way the
 //      wall corridor is, so it can always be placed. EnsureFortressExpansion
 //      places it; this walk holds steps 3-4 behind it;
-//   3. Watch Towers near the territory's periphery, facing hostile or unowned
-//      neighbours (towersPerTerritory);
-//   4. ONE production building (productionPerTerritory) — the line the army
-//      plan needs most that the territory lacks, the Barracks when the plan
-//      names nothing else — so units are trained near the front. The HOME is
-//      larger and keeps a FLOOR instead: homeProductionPerLine of EACH line
+//   3. Watch Towers: in the HOME near its periphery, facing hostile or
+//      unowned neighbours (towersPerTerritory); in every other province
+//      the first towersProvinceFirst COVERAGE-sited towers
+//      (SimpleAISystem.TowerCoverage.cs);
+//   4. provinceProductionPerTerritory production buildings (the tier's
+//      profile: one on Normal) — the line the army plan needs most that the
+//      territory lacks, the Barracks when the plan names nothing else — so
+//      units are trained near the front. The HOME is larger and keeps a
+//      FLOOR instead: the tier's homeProductionPerLine of EACH line
 //      the faction can build, every line to 1 before any line to 2, the most
 //      needed first (DevelopHomeProduction; one of each before
 //      homeProductionFloorAfterSeconds).
+//   5. (provinces) more coverage towers, up to towersPerProvinceMax or until
+//      towerCoverageTarget of the province's important ground is in reach —
+//      army first: only while the army is near its target.
 //
 // Every production building past that waits on SATURATION (the existing
-// production's queues busy for productionSaturationSeconds) and an army below
-// its target — ProductionGate, which every global production path obeys.
+// production's queues busy for the tier's productionSaturationSeconds) and an
+// army below its target — ProductionGate, which every global production path
+// obeys. Harder tiers get more of all three (2026-10-05, developer: "Harder AIs
+// should have more parallel military training facilities"): the capacity is
+// AIDifficultyProfileSO data, not SimpleAISystem.asset.
 //
 // A step blocked by money holds the steps below it in THAT territory (the
 // priority is the point); a step blocked by placement (no legal spot) does not
@@ -48,12 +57,12 @@ namespace TheWaningBorder.AI
     public partial class SimpleAISystem : SystemBase
     {
         private const int StepResources = 1, StepFortress = 2, StepTowers = 3,
-                          StepProduction = 4, StepDone = 5;
+                          StepProduction = 4, StepCoverage = 5, StepDone = 6;
 
         private const string TowerId = "Alanthor_Tower";
 
         private static readonly string[] StepNames =
-            { "", "resource buildings", "Fortress", "watch towers", "production", "developed" };
+            { "", "resource buildings", "Fortress", "watch towers", "production", "tower coverage", "developed" };
 
         // Host-only managed state (same contract as _claimSquads).
         private readonly Dictionary<int, int[]> _territoryStep = new Dictionary<int, int[]>();
@@ -66,7 +75,7 @@ namespace TheWaningBorder.AI
         /// which that step counts as blocked by PLACEMENT there (no legal
         /// spot): skipped, and treated as done by the dry evaluation.</summary>
         private readonly Dictionary<int, float[]> _territoryBlockedUntil = new Dictionary<int, float[]>();
-        private const int StepSlots = 6;
+        private const int StepSlots = 7;
         private int _territoryWalk;
         private int _territoryEpoch = -1;
 
@@ -153,7 +162,9 @@ namespace TheWaningBorder.AI
                 return;
             }
             if (now < _nextTerritoryDevelop[key]) return;
-            _nextTerritoryDevelop[key] = now + math.max(1f, Cfg.territoryDevelopInterval);
+            // PACE IS THE LADDER (2026-10-05, Game_AI.md § 2).
+            _nextTerritoryDevelop[key] = now + math.max(1f,
+                Cfg.territoryDevelopInterval * math.max(0.1f, ProfileOf(faction).TerritoryCadenceScale));
 
             if (FindFactionBuilding<HallTag>(em, faction) == Entity.Null) return;
             int home = AIWallPlanner.HomeRegionOf(em, faction);
@@ -314,14 +325,32 @@ namespace TheWaningBorder.AI
                 return StepFortress;
             }
 
-            // ── STEP 3: watch towers on the periphery ──────────────────────
-            if (alanthor && Cfg.towersPerTerritory > 0 && HasAgedUp(em, faction))
+            // ── STEP 3 (PROVINCE): the first coverage-sited towers ─────────
+            if (!isHome && alanthor && HasAgedUp(em, faction))
+            {
+                if (DevelopProvinceTowers(em, faction, r, now, dry, false,
+                        out bool tPlaced, out bool tCrew, out string tWhat))
+                {
+                    placed = tPlaced;
+                    crewBlocked = tCrew;
+                    what = tWhat;
+                    return StepTowers;
+                }
+                if (tWhat != null) what = tWhat;
+            }
+
+            // ── STEP 3 (HOME): watch towers on the periphery ───────────────
+            if (isHome && alanthor && Cfg.towersPerTerritory > 0 && HasAgedUp(em, faction))
             {
                 CollectFrontier(faction, r);
                 if (_devFrontier.Count > 0)
                 {
                     int have = CountInRegion<WatchTowerTag>(em, faction, r) + CountPlansIn(em, faction, r, TowerId);
-                    if (have < Cfg.towersPerTerritory && !StepBlocked(faction, r, StepTowers, now))
+                    // UNITS BEFORE ECONOMY (Game_AI.md 5h): a tower is economy
+                    // drive on a tier that says so; while deferred the next
+                    // step (the production) runs.
+                    if (have < Cfg.towersPerTerritory && !StepBlocked(faction, r, StepTowers, now)
+                        && BuildingDeferral(em, faction, TowerId, !dry) == null)
                     {
                         if (dry) return StepTowers;
                         int nb = _devFrontier[have % _devFrontier.Count];
@@ -354,23 +383,29 @@ namespace TheWaningBorder.AI
             if (isHome)
                 return DevelopHomeProduction(em, faction, r, now, dry, out placed, out crewBlocked, out what);
 
-            // ── STEP 4: ONE production building — the line the army needs ─
-            // productionPerTerritory (1) per province (the home keeps its
-            // floor instead, above): the
-            // line with the largest shortfall of the army plan's share against
-            // its share of the faction's trainers, among the lines this
-            // territory lacks; the Barracks when the plan names nothing else.
+            // ── STEP 4: the province's production — the lines the army needs ─
+            // provinceProductionPerTerritory per province (the tier's profile;
+            // the home keeps its floor instead, above), breadth-first: every
+            // line to 1 before any line to 2. Within a tier the line with the
+            // largest shortfall of the army plan's share against its share of
+            // the faction's trainers, among the lines this territory has
+            // fewest of; the Barracks when the plan names nothing else.
             // Every production building past this waits on saturation
             // (ProductionGate) — this step is the one that does not.
             {
+                int perProvince = math.max(1, ProfileOf(faction).ProvinceProductionPerTerritory);
                 CountProductionIn(em, faction, r, out int bar, out int rng, out int stb, out int sie);
                 int total = bar + rng + stb + sie;
-                if (total < math.max(1, Cfg.productionPerTerritory)
+                if (total < perProvince
                     && !StepBlocked(faction, r, StepProduction, now))
                 {
                     if (dry) return StepProduction;
-                    int have = (bar > 0 ? 1 : 0) | (rng > 0 ? 2 : 0) | (stb > 0 ? 4 : 0) | (sie > 0 ? 8 : 0);
-                    string want = ChooseNeededLine(em, faction, have, out string because);
+                    string want = null, because = null;
+                    for (int t = 1; t <= perProvince && want == null; t++)
+                    {
+                        int have = (bar >= t ? 1 : 0) | (rng >= t ? 2 : 0) | (stb >= t ? 4 : 0) | (sie >= t ? 8 : 0);
+                        want = ChooseNeededLine(em, faction, have, out because);
+                    }
                     if (want != null)
                     {
                         var core = AIBaseLayout.CoreOf(em, faction, r);
@@ -388,7 +423,7 @@ namespace TheWaningBorder.AI
                         {
                             placed = true;
                             what = $"{StepNames[StepProduction]}: {want} ({total + 1}/" +
-                                   $"{math.max(1, Cfg.productionPerTerritory)} here)";
+                                   $"{perProvince} here)";
                             AILogger.Log(faction, "PRODUCTION",
                                 $"province {RegionMap.NameOf(r)} gets {want} ({because})");
                             return StepProduction;
@@ -404,6 +439,21 @@ namespace TheWaningBorder.AI
                         MarkStepBlocked(faction, r, StepProduction, now);
                     }
                 }
+            }
+
+            // ── STEP 5 (PROVINCE): coverage towers past the first ──────────
+            // After the province's production, and army first.
+            if (alanthor && HasAgedUp(em, faction))
+            {
+                if (DevelopProvinceTowers(em, faction, r, now, dry, true,
+                        out bool tPlaced, out bool tCrew, out string tWhat))
+                {
+                    placed = tPlaced;
+                    crewBlocked = tCrew;
+                    what = tWhat;
+                    return StepCoverage;
+                }
+                if (tWhat != null) what = tWhat;
             }
 
             return StepDone;
@@ -462,7 +512,8 @@ namespace TheWaningBorder.AI
             what = null;
             if (StepBlocked(faction, r, StepProduction, now)) return StepDone;
 
-            int perLine = now >= Cfg.homeProductionFloorAfterSeconds ? math.max(1, Cfg.homeProductionPerLine) : 1;
+            int perLine = now >= Cfg.homeProductionFloorAfterSeconds
+                ? math.max(1, ProfileOf(faction).HomeProductionPerLine) : 1;
             bool others = CultureConfig.GetCompletedCulture(em, faction) == Cultures.Alanthor
                           && HasAgedUp(em, faction);
             CountProductionIn(em, faction, r,
@@ -689,6 +740,11 @@ namespace TheWaningBorder.AI
         private readonly Dictionary<int, float> _prodSatSince = new Dictionary<int, float>();
         private readonly Dictionary<int, float> _prodBusyFrac = new Dictionary<int, float>();
         private readonly Dictionary<int, float> _prodHeldLogAt = new Dictionary<int, float>();
+        // (faction, line) -> sim time until which a saturation extra of that
+        // line is not asked for: its last placement found no legal spot. A
+        // line with nowhere to go must not veto the lines that do (2026-10-05:
+        // Expert held 3 trainers for 20 min on an unplaceable Siege Yard).
+        private readonly Dictionary<(int, int), float> _extraLineBlocked = new Dictionary<(int, int), float>();
         private int _prodEpoch = -1;
 
         // Scratch for ChooseNeededLine (LostTrainerLines order).
@@ -706,23 +762,32 @@ namespace TheWaningBorder.AI
                 _prodSatSince.Clear();
                 _prodBusyFrac.Clear();
                 _prodHeldLogAt.Clear();
+                _extraLineBlocked.Clear();
             }
-            int finished = 0, busy = 0;
-            CountBusyTrainers<BarracksTag>(em, faction, ref finished, ref busy);
-            CountBusyTrainers<ArcheryRangeTag>(em, faction, ref finished, ref busy);
-            CountBusyTrainers<RoyalStableTag>(em, faction, ref finished, ref busy);
-            CountBusyTrainers<SiegeYardTag>(em, faction, ref finished, ref busy);
+            int finished = 0, busy = 0, belowDepth = 0;
+            var profile = ProfileOf(faction);
+            // "At depth" for UNITS BEFORE ECONOMY: the tier's queue depth,
+            // or one item (training) on a tier with no AI-side cap.
+            int depth = math.max(1, profile.ProductionQueueDepth);
+            CountBusyTrainers<BarracksTag>(em, faction, depth, ref finished, ref busy, ref belowDepth);
+            CountBusyTrainers<ArcheryRangeTag>(em, faction, depth, ref finished, ref busy, ref belowDepth);
+            CountBusyTrainers<RoyalStableTag>(em, faction, depth, ref finished, ref busy, ref belowDepth);
+            CountBusyTrainers<SiegeYardTag>(em, faction, depth, ref finished, ref busy, ref belowDepth);
+            // The economy drive's gate (Game_AI.md 5h) reads this beside the
+            // army reading ReplaceLostUnits wrote this think.
+            AIBudget.SetTrainerStatus(faction, profile.UnitsBeforeEconomy, finished, belowDepth);
             int key = (int)faction;
             float frac = finished > 0 ? busy / (float)finished : 0f;
             _prodBusyFrac[key] = frac;
-            if (finished > 0 && frac >= Cfg.productionSaturationThreshold)
+            if (finished > 0 && frac >= ProfileOf(faction).ProductionSaturationThreshold)
             {
                 if (!_prodSatSince.ContainsKey(key)) _prodSatSince[key] = now;
             }
             else _prodSatSince.Remove(key);
         }
 
-        private static void CountBusyTrainers<T>(EntityManager em, Faction faction, ref int finished, ref int busy)
+        private static void CountBusyTrainers<T>(EntityManager em, Faction faction, int depth,
+            ref int finished, ref int busy, ref int belowDepth)
             where T : unmanaged, IComponentData
         {
             var q = AIQueryCache.TagFaction<T>(em);
@@ -733,8 +798,11 @@ namespace TheWaningBorder.AI
                 if (facs[i].Value != faction) continue;
                 if (em.HasComponent<UnderConstruction>(ents[i])) continue;
                 finished++;
-                if (TheWaningBorder.Core.Commands.CommandRouter.GetProductionQueueLength(em, ents[i]) > 0)
-                    busy++;
+                int len = TheWaningBorder.Core.Commands.CommandRouter.GetProductionQueueLength(em, ents[i]);
+                if (len > 0) busy++;
+                if (len < depth
+                    && !TheWaningBorder.Core.Commands.CommandRouter.IsProductionQueueFull(em, ents[i]))
+                    belowDepth++;
             }
         }
 
@@ -833,11 +901,12 @@ namespace TheWaningBorder.AI
             string held = null;
             int alive = 0, desired = 0;
             bool armyKnown = false;
-            if (satFor < Cfg.productionSaturationSeconds)
+            var cap = ProfileOf(faction);
+            if (satFor < cap.ProductionSaturationSeconds)
                 held = AILogger.Enabled
                     ? $"not saturated ({busyFrac * 100f:F0}% of trainers busy" +
                       (satFor >= 0f ? $" for {satFor:F0}s" : "") +
-                      $"; needs {Cfg.productionSaturationThreshold * 100f:F0}% for {Cfg.productionSaturationSeconds:F0}s)"
+                      $"; needs {cap.ProductionSaturationThreshold * 100f:F0}% for {cap.ProductionSaturationSeconds:F0}s)"
                     : "not saturated";
             else
             {
@@ -859,8 +928,8 @@ namespace TheWaningBorder.AI
             }
             if (held == null)
             {
-                string line = ChooseNeededLine(em, faction, 0, out _);
-                if (line != buildingId)
+                string line = ChooseNeededLine(em, faction, ExtraBlockedMask(faction, now), out _);
+                if (line != null && line != buildingId)
                     held = AILogger.Enabled ? $"saturated, but the plan needs {line} more than {buildingId}"
                                             : "other line";
             }
@@ -879,6 +948,32 @@ namespace TheWaningBorder.AI
             if (AILogger.Enabled)
                 detail = $"{busyFrac * 100f:F0}% busy over {satFor:F0}s, army {alive}/{desired}";
             return null;
+        }
+
+        /// <summary>Lines (LostTrainerLines bits) whose last saturation-extra
+        /// placement found no legal spot, still inside the retry window.</summary>
+        private int ExtraBlockedMask(Faction faction, float now)
+        {
+            int mask = 0;
+            for (int l = 0; l < LostTrainerLines.Length; l++)
+                if (_extraLineBlocked.TryGetValue(((int)faction, l), out float until) && now < until)
+                    mask |= 1 << l;
+            return mask;
+        }
+
+        /// <summary>A saturation extra of <paramref name="buildingId"/> was
+        /// refused for want of a spot: skip that line for
+        /// territoryBlockedStepSeconds so the next-needed line is asked.</summary>
+        private void NoteExtraLinePlacementFailed(Faction faction, string buildingId, string why, float now)
+        {
+            for (int l = 0; l < LostTrainerLines.Length; l++)
+            {
+                if (LostTrainerLines[l] != buildingId) continue;
+                _extraLineBlocked[((int)faction, l)] = now + math.max(1f, Cfg.territoryBlockedStepSeconds);
+                AILogger.Log(faction, "PRODUCTION",
+                    $"extra {buildingId} has no legal spot ({why}) — next-needed line asked for {Cfg.territoryBlockedStepSeconds:F0}s");
+                return;
+            }
         }
 
         /// <summary>A placed saturation extra: log it and restart the window,

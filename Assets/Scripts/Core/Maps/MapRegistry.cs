@@ -115,6 +115,9 @@ namespace TheWaningBorder.Core.Maps
                                // is deleted (2026-09-24) — PlayerCount is a
                                // lobby MAXIMUM, so the 8-start ring already
                                // covers every count the 4P map did.
+            "MirrorMarches",   // 4P, 1024 m, mirrored on both axes: corner
+                               // homes, square territories, curse in the
+                               // centre four — the fair test map (2026-10-05)
         };
 
         /// <summary>

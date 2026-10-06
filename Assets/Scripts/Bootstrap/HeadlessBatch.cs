@@ -27,6 +27,21 @@
 //   -twbSpeed X     Time.timeScale; see the clamp note below
 //   -twbSeed N      spawn seed, so runs can be repeated or deliberately varied
 //   -twbRich        every faction pinned at FactionResources.ResourceCap
+//   -twbDifficulty L          every AI slot at L (Easy|Normal|Hard|Expert);
+//                             omitted = the slot default, Normal
+//   -twbFactionDifficulty F=L[,F=L...]
+//                             per colour (Blue, Red, Green, Yellow, Purple,
+//                             Orange, Teal, White); overrides -twbDifficulty
+//                             for the colours it names
+//   -twbFactionPersonality F=P[,F=P...]
+//                             per colour, P = Balanced|Economic|EcoBoom|
+//                             TechBoom|Rush|Turtle|Defensive; overrides the
+//                             colour-default personality for the colours it
+//                             names (sets the lobby slot's pick)
+//   -twbLabel "text"          free-text run label. Written with the resolved
+//                             per-faction "AI" roster into the match header
+//                             (Console.log) and Summary.txt; the Muster Rolls
+//                             report titles the match with it
 //
 // RICH MODE ISOLATES BEHAVIOUR FROM ECONOMY. Every blocker found so far has
 // been a money path -- the Advancement wallet that never lent, the working
@@ -109,6 +124,13 @@ namespace TheWaningBorder.Bootstrap
             LobbyConfig.ApplyColorSelections();
 
             GameSettings.SpawnSeed = seed;
+
+            // DIFFICULTY FROM THE COMMAND LINE (2026-10-04). The same slot
+            // field the lobby's difficulty dropdown writes, so AIBootstrap
+            // reads it exactly as it would for a hand-started skirmish.
+            ApplyDifficulty(args);
+            ApplyPersonality(args);
+            MatchLogSession.RunInfo = DescribeRun(ArgStr(args, "-twbLabel"));
             GameSettings.IsObserver = true;
             GameSettings.TutorialActive = false;
 
@@ -136,6 +158,7 @@ namespace TheWaningBorder.Bootstrap
                       $"speed {Time.timeScale}x, " +
                       $"seed {seed}, map {GameSettings.SelectedMapScene}" +
                       (_rich ? ", RICH (banks pinned at cap)" : ""));
+            Debug.Log("[HeadlessBatch] " + MatchLogSession.RunInfo.Replace("\n", " | "));
 
             SceneManager.LoadScene(GameSettings.SelectedMapScene);
         }
@@ -227,6 +250,129 @@ namespace TheWaningBorder.Bootstrap
             try { MatchMetrics.DumpFinal(); }
             catch (Exception e) { Debug.LogError($"[HeadlessBatch] dump failed: {e.Message}"); }
             Application.Quit();
+        }
+
+        /// <summary>
+        /// -twbDifficulty sets every active AI slot; -twbFactionDifficulty
+        /// then overrides the colours it names. An unparseable value is a
+        /// loud error and is ignored -- the run must not silently test the
+        /// wrong difficulty, but it must not die over a typo either, since
+        /// the header below says what was actually applied.
+        /// </summary>
+        private static void ApplyDifficulty(string[] args)
+        {
+            string all = ArgStr(args, "-twbDifficulty");
+            if (!string.IsNullOrEmpty(all))
+            {
+                if (TryParseLevel(all, out var level))
+                {
+                    for (int i = 0; i < LobbyConfig.ActiveSlotCount; i++)
+                        if (LobbyConfig.Slots[i].Type == SlotType.AI)
+                            LobbyConfig.Slots[i].AIDifficulty = level;
+                }
+                else Debug.LogError($"[HeadlessBatch] -twbDifficulty: unknown level '{all}' " +
+                                    "(Easy|Normal|Hard|Expert)");
+            }
+
+            string per = ArgStr(args, "-twbFactionDifficulty");
+            if (string.IsNullOrEmpty(per)) return;
+            foreach (var raw in per.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                var pair = raw.Split('=');
+                if (pair.Length != 2
+                    || !Enum.TryParse(pair[0].Trim(), true, out Faction faction)
+                    || !TryParseLevel(pair[1], out var level))
+                {
+                    Debug.LogError($"[HeadlessBatch] -twbFactionDifficulty: cannot read '{raw}' " +
+                                   "(want <Faction>=<Easy|Normal|Hard|Expert>)");
+                    continue;
+                }
+                bool applied = false;
+                for (int i = 0; i < LobbyConfig.ActiveSlotCount; i++)
+                {
+                    var slot = LobbyConfig.Slots[i];
+                    if (slot.Faction != faction || slot.Type != SlotType.AI) continue;
+                    slot.AIDifficulty = level;
+                    applied = true;
+                }
+                if (!applied)
+                    Debug.LogError($"[HeadlessBatch] -twbFactionDifficulty: {faction} is not " +
+                                   $"an AI slot in a {LobbyConfig.ActiveSlotCount}-player match");
+            }
+        }
+
+        /// <summary>
+        /// -twbFactionPersonality: the lobby slot's personality pick for the
+        /// colours it names, so a batch can decouple personality from colour.
+        /// Same loud-but-not-fatal policy as ApplyDifficulty.
+        /// </summary>
+        private static void ApplyPersonality(string[] args)
+        {
+            string per = ArgStr(args, "-twbFactionPersonality");
+            if (string.IsNullOrEmpty(per)) return;
+            foreach (var raw in per.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                var pair = raw.Split('=');
+                string name = pair.Length == 2 ? pair[1].Trim() : null;
+                if (string.Equals(name, "Economic", StringComparison.OrdinalIgnoreCase)) name = "EcoBoom";
+                if (pair.Length != 2
+                    || !Enum.TryParse(pair[0].Trim(), true, out Faction faction)
+                    || !Enum.TryParse(name, true, out LobbyAIStrategy strategy)
+                    || !Enum.IsDefined(typeof(LobbyAIStrategy), strategy)
+                    || strategy == LobbyAIStrategy.Random)
+                {
+                    Debug.LogError($"[HeadlessBatch] -twbFactionPersonality: cannot read '{raw}' " +
+                                   "(want <Faction>=<Balanced|Economic|TechBoom|Rush|Turtle|Defensive>)");
+                    continue;
+                }
+                bool applied = false;
+                for (int i = 0; i < LobbyConfig.ActiveSlotCount; i++)
+                {
+                    var slot = LobbyConfig.Slots[i];
+                    if (slot.Faction != faction || slot.Type != SlotType.AI) continue;
+                    slot.AIStrategy = strategy;
+                    applied = true;
+                }
+                if (!applied)
+                    Debug.LogError($"[HeadlessBatch] -twbFactionPersonality: {faction} is not " +
+                                   $"an AI slot in a {LobbyConfig.ActiveSlotCount}-player match");
+            }
+        }
+
+        private static bool TryParseLevel(string s, out LobbyAIDifficulty level)
+        {
+            level = LobbyAIDifficulty.Normal;
+            return !string.IsNullOrEmpty(s)
+                && Enum.TryParse(s.Trim(), true, out level)
+                && Enum.IsDefined(typeof(LobbyAIDifficulty), level);
+        }
+
+        /// <summary>
+        /// The "Key : value" lines MatchLogSession writes into the match header
+        /// and Summary.txt. Resolved through AIBootstrap's own resolvers, so
+        /// the roster says what the brains will actually be built with --
+        /// including the colour-default personality -- not what was asked.
+        /// </summary>
+        private static string DescribeRun(string label)
+        {
+            var sb = new System.Text.StringBuilder();
+            if (!string.IsNullOrWhiteSpace(label))
+                sb.Append("Label       : ")
+                  .Append(label.Replace('\n', ' ').Replace('\r', ' ').Trim())
+                  .Append('\n');
+            sb.Append("AI          : ");
+            bool first = true;
+            for (int i = 0; i < LobbyConfig.ActiveSlotCount; i++)
+            {
+                var slot = LobbyConfig.Slots[i];
+                if (slot.Type != SlotType.AI) continue;
+                if (!first) sb.Append(", ");
+                first = false;
+                sb.Append(slot.Faction).Append(' ')
+                  .Append(TheWaningBorder.AI.AIBootstrap.GetFactionDifficulty(slot.Faction)).Append(' ')
+                  .Append(TheWaningBorder.AI.AIBootstrap.ResolvePersonality(slot.Faction));
+            }
+            return sb.ToString();
         }
 
         private static string ArgStr(string[] args, string key)

@@ -721,6 +721,7 @@ namespace TheWaningBorder.UI.Data
                         TheWaningBorder.Systems.Economy.TradingOutpostSystem.Cfg?.forgeTech),
                     OutpostRecipeButton(em, entity, me, TradeRecipe.SellVeilsteel, active, Loc.T("Sell Veilsteel"),
                         TheWaningBorder.Systems.Economy.TradingOutpostSystem.Cfg?.sellTech),
+                    OutpostRecipeButton(em, entity, me, TradeRecipe.Hold, active, Loc.T("Hold Trade"), null),
                 };
                 return info;
             }

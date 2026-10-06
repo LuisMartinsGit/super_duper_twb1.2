@@ -471,6 +471,11 @@ namespace TheWaningBorder.Systems.Border
         {
             if (_held.Count == 0) return;
 
+            // OPENING GRACE (§6.5, 2026-10-05): before claimGraceSeconds the
+            // curse claims only unclaimed ground — a player who starts beside
+            // it is not contested before the first attack wave.
+            bool grace = now < s.claimGraceSeconds;
+            int graced = 0;
             _scratchCandidates.Clear();
             for (int r = 0; r < RegionMap.Count; r++)
             {
@@ -480,7 +485,9 @@ namespace TheWaningBorder.Systems.Border
                 bool adjacent = false;
                 foreach (int h in _held)
                     if (AreAdjacent(h, r)) { adjacent = true; break; }
-                if (adjacent) _scratchCandidates.Add(r);
+                if (!adjacent) continue;
+                if (grace && TerritoryOwnership.OwnerOf(r) >= 0) { graced++; continue; }
+                _scratchCandidates.Add(r);
             }
             _scratchCandidates.Sort();
             // Always draw, so the RNG stream is the same on every peer
@@ -509,8 +516,12 @@ namespace TheWaningBorder.Systems.Border
             }
             else
             {
-                if (_scratchCandidates.Count == 0) return;
                 if (_merges.Count > 0) return;   // one takeover at a time: it is the curse's whole attention
+                if (graced > 0)
+                    UnityEngine.Debug.Log($"[CurseTerritory] GRACE: party held (before first wave) — " +
+                        $"{graced} player-held territor{(graced == 1 ? "y is" : "ies are")} off limits until " +
+                        $"{s.claimGraceSeconds:F0}s; {_scratchCandidates.Count} unclaimed candidate(s) left.");
+                if (_scratchCandidates.Count == 0) return;
                 pick = _scratchCandidates[draw];
             }
 
@@ -703,9 +714,11 @@ namespace TheWaningBorder.Systems.Border
         /// caller re-roles them (<see cref="Enlist"/>).
         /// </summary>
         private int DraftFromGarrisons(EntityManager em, BorderSettingsSO s, float3 near,
-                                       int preferTerritory, int want, List<Entity> into)
+                                       int preferTerritory, int want, List<Entity> into,
+                                       int minCount = 0, float powerBudget = 0f)
         {
             into.Clear();
+            _lastDraftPower = 0f;
             if (want <= 0) return 0;
             var q = QC_Living.Get(em, QT_Living);
             using var ents = q.ToEntityArray(Allocator.Temp);
@@ -739,12 +752,20 @@ namespace TheWaningBorder.Systems.Border
                 if (c <= keep) continue;
                 _draftGuardCounts[g] = c - 1;
                 into.Add(ents[i]);
+                _lastDraftPower += CombatPowerOf(em, ents[i]);
+                // Sized to the target (§6.8, 2026-10-05): stop once the
+                // draft's power meets the budget, but never below minCount.
+                if (powerBudget > 0f && into.Count >= minCount && _lastDraftPower >= powerBudget) break;
             }
             return into.Count;
         }
 
+        /// <summary>Summed CombatPowerOf of the last DraftFromGarrisons.</summary>
+        private float _lastDraftPower;
+
         /// <summary>Re-role drafted units as one party. <paramref name="home"/>
-        /// &lt; 0 keeps each unit's own home territory.</summary>
+        /// &lt; 0 keeps each unit's own home territory. Drafted units stand
+        /// Aggressive; a garrison stands Defensive (§6.7, 2026-10-05).</summary>
         private static void Enlist(EntityManager em, List<Entity> units, byte role, int party,
                                    int home, float3 guard)
         {
@@ -755,7 +776,18 @@ namespace TheWaningBorder.Systems.Border
                 m.Role = role; m.Party = party; m.Guard = guard;
                 if (home >= 0) m.Home = home;
                 em.SetComponentData(e, m);
+                SetCurseStance(em, e, UnitStanceMode.Aggressive);
             }
+        }
+
+        /// <summary>Set a curse unit's stance (no structural change: the
+        /// component is stamped by UnitStanceSystem; a unit that does not
+        /// carry it yet is set on the next check).</summary>
+        private static void SetCurseStance(EntityManager em, Entity e, UnitStanceMode mode)
+        {
+            if (!em.HasComponent<UnitStance>(e)) return;
+            if (em.GetComponentData<UnitStance>(e).Value == mode) return;
+            em.SetComponentData(e, new UnitStance { Value = mode });
         }
 
         // ── shepherd ────────────────────────────────────────────────────────
@@ -815,6 +847,14 @@ namespace TheWaningBorder.Systems.Border
                 if (m.Role != RoleGarrison) continue;
                 var e = ents[i];
                 var p = xfs[i].Position;
+
+                // DEFENSIVE ON POST (§6.7, 2026-10-05): on Aggressive an idle
+                // defender auto-acquired whatever its own sight reached, so a
+                // defender at the edge of its guard radius shot player
+                // buildings well outside it and walked out to the leash to
+                // finish them. Defensive only returns fire; the guard order
+                // below does every other engagement.
+                SetCurseStance(em, e, UnitStanceMode.Defensive);
 
                 // Its node died: guard the nearest one left in its territory.
                 if (_nodesByTerritory.TryGetValue(m.Home, out var nodes) && nodes.Count > 0)

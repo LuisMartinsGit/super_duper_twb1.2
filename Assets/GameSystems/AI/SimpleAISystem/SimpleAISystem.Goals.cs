@@ -381,7 +381,7 @@ namespace TheWaningBorder.AI
                     if (g.Id == "@military")
                     {
                         string unit = PickCompositionUnit(em, brainEntity, brain.Owner, now,
-                            RoleBudget.For(brain.Personality), profile.IntelFreshnessSeconds);
+                            RoleBudget.For(brain.Personality, profile.PersonalityWeight), profile.IntelFreshnessSeconds);
                         if (string.IsNullOrEmpty(unit)) return false;
                         if (!TryTrainUnitBudgeted(em, brain.Owner, unit, g.Cat)) return false;
                         aiState.LastMilitaryUnit = new Unity.Collections.FixedString64Bytes(unit);
@@ -509,7 +509,10 @@ namespace TheWaningBorder.AI
         /// <summary>Only Aggressive and Rush attack before the age-up — and
         /// only once (docs/Design/Age_0.md § The AI and the age-up).</summary>
         private static bool AttacksInAge0(AIPersonality p)
-            => p == AIPersonality.Aggressive || p == AIPersonality.Rush;
+            => (p == AIPersonality.Aggressive || p == AIPersonality.Rush)
+               // A tier that protects its age-up savings (Game_AI.md § 5h)
+               // skips the Age 0 wave and saves from the start.
+               && !ProfileOf(_thinkFaction).ProtectAgeUpSavings;
 
         /// <summary>
         /// Is this AI in its Age 0 SAVING phase? Every personality that does

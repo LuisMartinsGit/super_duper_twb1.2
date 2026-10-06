@@ -311,6 +311,15 @@ attack-move / patrol), as far as the 30 m leash allows, then it returns to
 its post and will not re-engage for a moment. A Defensive unit lets a
 fleeing attacker go.
 
+**Flanking.** A melee blow that lands on a unit's side or back deals extra
+damage (the multiplier is `flankDamageMultiplier` on
+`MeleeCombatSystem.asset`). It works for everyone, the AI and the
+curse included. Units turn to face what they fight and where they walk, so the
+way to land it is to hit a unit that is already locked in front of someone
+else, or one that is running away. Buildings have no sides and cannot be
+flanked; arrows and spells never flank. See
+[docs/Design/Combat_Pacing.md](docs/Design/Combat_Pacing.md) § Flanking.
+
 ### Ranged
 
 Bow units have **no minimum range** (only siege engines keep a dead zone):
@@ -384,11 +393,31 @@ Computer-controlled factions run on the **AIBrain** with two axes:
 
 ### Personality
 
-- **Balanced** — General-purpose.
-- **Aggressive** — Early military, harassment.
-- **Defensive** — Standing army, fortification.
-- **Economic** — Boom first, military later.
-- **Rush** — Minimum economy, fast military strike.
+The lobby's strategy dropdown (RANDOM / ECONOMIST / BALANCED / TECHNOLOGIST
+/ AGGRESSOR / TURTLE / DEFENDER) picks one per AI slot; it is kept for the
+whole match. RANDOM gives each colour its fixed personality (Red and Orange
+rush, Yellow techs, Green booms, Blue turtles, White is Aggressive) and
+rolls one for any other colour. A personality is a row of tuning numbers
+(`Assets/Resources/AISettings.asset`) — which strategic plans it leans
+toward, how big a standing army it keeps, how much risk it accepts, whether
+it raids, how many huts it founds, when it pushes the age-up, how much it
+fortifies — never a script.
+
+- **BALANCED** — The reference. Mild lean to massing and teching, raids.
+- **AGGRESSOR** (Rush) — The hardest lean in the table: constant pressure
+  with cheap units, the least caution, fewest huts, most barracks, ages up
+  last, almost no towers or walls.
+- **DEFENDER** — Fortifies first, techs second; cautious, no raids, a big
+  standing army, many towers and walls.
+- **ECONOMIST** — Booms first, techs second; the smallest army, the most
+  huts, ages up early, no raids.
+- **TECHNOLOGIST** — Techs first; the earliest age-up push, spends its
+  veilstone on role units rather than basics, no raids.
+- **TURTLE** — Fortifies with a little massing; the most cautious, the
+  biggest standing army and the most towers and walls.
+- **Aggressive** (RANDOM only — White, or the roll) — Rushes and masses,
+  accepts risk, raids, more barracks and fewer huts, ages up late (after
+  its first wave), few towers or walls.
 
 ### Difficulty
 
@@ -497,26 +526,17 @@ The AI reads territory counts (public — they are on the map) and army
 sizes (a human would have to scout for this; it is a deliberate difficulty
 assist, like the AI knowing where the resource nodes are).
 
-### AI Strategies
+### How the AI plays its personality
 
-Each AI commits to one strategy at match start and follows a locked-in
-Age 0 build order:
-
-| Strategy | Plan |
-|---|---|
-| **Rush** | Fast Barracks, early harassment, minimal economy. |
-| **EcoBoom** | Heavy economy building, extractors on every node, late military. |
-| **TechRush** | Race to Age 1 with infantry tech. |
-| **Aggressive** | Balanced military + Temple of Ridan + Age-up. |
-| **Defensive** | Standing army, Iron Armor research, Vault. |
-| **Turtle** | Heavy economy + healers, stockpile for walls. |
-
-After its opening build order, the AI runs an AoE4-style maintenance brain:
-it grows workers toward its difficulty's target curve, trains a mixed army
-toward a melee/ranged composition vector (counter-picking your composition
-on Hard+), and launches **missions** — armies that march in formation, stage
-near the target before committing (Hard+), raid your economy with fast
-parties, retreat when locally outmatched, and regroup at home. All of it is
+There is no scripted opening: from the first second the AI runs an
+AoE4-style maintenance brain steered by its personality's numbers and its
+current plan. It keeps workers at its worker rule (three plus one per
+territory it conquers), grows huts toward its personality's cap, keeps its
+standing army at its personality's floor, trains a mixed army toward a
+composition that counter-picks what it has scouted of yours, and launches
+**missions** — armies that march in formation, stage near the target before
+committing, raid your economy with fast parties (if its personality raids),
+retreat when locally outmatched, and regroup at home. All of it is
 fog-of-war honest: the AI only acts on what its own units have scouted.
 
 ---

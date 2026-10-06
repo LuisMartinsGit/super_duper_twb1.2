@@ -42,7 +42,13 @@ refunded in full**, and its owner is told why.
 
 Breaking ground also re-checks the spot against the world as it is then: a
 plan whose ground was lost, or which a real building or resource node now
-covers, is cancelled and refunded instead.
+covers, is cancelled and refunded instead — **after a grace period
+(2026-10-05)**: a refusal at break-ground is usually transient (ground still
+being claimed at match start, a unit standing on the footprint), so the plan
+keeps its spot and retries for a short while before it is cancelled. This
+replaced cancel-on-first-refusal, which had the AI paying for and refunding
+the same hut dozens of times a minute. A spot whose plan was cancelled this
+way is remembered for a while, and the AI's site search avoids it.
 
 ## 4. The Delete button
 

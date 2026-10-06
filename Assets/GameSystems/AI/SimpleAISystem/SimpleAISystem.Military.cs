@@ -7,6 +7,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Core;
+using TheWaningBorder.World.Regions;
 using TheWaningBorder.Core.Commands;
 using TheWaningBorder.Core.Commands.Types;
 using TheWaningBorder.Data;
@@ -91,6 +92,18 @@ namespace TheWaningBorder.AI
             /// Its own clock, so a long muster does not eat the stage timeout.</summary>
             public float LegStartTime;
             public float NextRegroupTime;
+            /// <summary>Sim time the mission is over if its objective still
+            /// stands: launch (or the last chain) + missionTimeoutSeconds +
+            /// the march at missionMarchSpeedForTimeout. A flat clock from
+            /// launch ran out on a 1024 m map before the army arrived
+            /// (2026-10-05: 87 units stood down at 480 s, 0 on the objective).
+            /// 0 = the flat clock (missions that never set it).</summary>
+            public float Deadline;
+            /// <summary>TryBreachWall: where the army last stood and since
+            /// when it has not moved, and whether it is on a wall piece.</summary>
+            public float3 LastCentroid;
+            public float StalledSince;
+            public bool Breaching;
 
             // ── Tactical state (SimpleAISystem.Tactics.cs). ──
             /// <summary>What the whole army is killing right now, so the
@@ -106,9 +119,53 @@ namespace TheWaningBorder.AI
             public bool Engaged;
             public float NextTacticsTime;
 
+            // ── In-fight skills (SimpleAISystem.Tactics.cs, Game_AI.md § 6e). ──
+            /// <summary>Fast melee detached to hit the enemy's side / rear.
+            /// Empty when no flank is out.</summary>
+            public readonly System.Collections.Generic.List<Entity> Flankers
+                = new System.Collections.Generic.List<Entity>();
+            /// <summary>0 none, 1 swinging round to FlankPoint, 2 striking.</summary>
+            public byte FlankPhase;
+            public float3 FlankPoint;
+            public float FlankStart;
+            public float NextFlankTime;
+            /// <summary>Falling back to regroup on FallbackPos (a friendly
+            /// tower / Fortress, or toward the capital) after reading the
+            /// fight as lost; re-engages when the odds turn.</summary>
+            public bool FallingBack;
+            public float3 FallbackPos;
+            public float FallbackStart;
+
+            // ── Many armies (Game_AI.md § 6f). ──
+            /// <summary>The wave this army launched with (0 = none / a lone
+            /// army). Sister armies of one group stage, then strike together.</summary>
+            public int Group;
+            /// <summary>The wave's main body: the one army whose objective
+            /// the reinforcement stream (aiState.WaveTarget) follows.</summary>
+            public bool Primary;
+            /// <summary>A reinforcement column on its way to join an army —
+            /// the only kind of mission TryMergeIntoArmy absorbs.</summary>
+            public bool Column;
+            /// <summary>When this army finished staging and began waiting
+            /// for its sisters (0 = not yet).</summary>
+            public float ReadyAt;
+
             public readonly System.Collections.Generic.List<Entity> Members
                 = new System.Collections.Generic.List<Entity>();
         }
+
+        /// <summary>A ranked income objective (RankIncomeTargets).</summary>
+        private struct IncomeTarget
+        {
+            public Entity Ent;
+            public float3 Pos;
+            public float Score;
+            public string What;
+            public Faction Owner;
+        }
+        private readonly System.Collections.Generic.List<IncomeTarget> _scratchIncome
+            = new System.Collections.Generic.List<IncomeTarget>();
+        private int _nextArmyGroup;
 
 
 
@@ -261,6 +318,465 @@ namespace TheWaningBorder.AI
         /// <summary>Nearest hostile building to a point, or Null. The chain
         /// target for a won assault — buildings are the lifelines the victory
         /// check counts, so razing them is what ENDS a match.</summary>
+        /// <summary>A mission's deadline: the flat missionTimeoutSeconds plus
+        /// the march from <paramref name="from"/> to <paramref name="to"/>
+        /// at missionMarchSpeedForTimeout (0 = the flat clock).</summary>
+        private float DeadlineFor(float now, float3 from, float3 to)
+        {
+            float t = math.max(1f, Cfg.missionTimeoutSeconds);
+            if (Cfg.missionMarchSpeedForTimeout > 0f)
+                t += math.distance(from.xz, to.xz) / Cfg.missionMarchSpeedForTimeout;
+            return now + t;
+        }
+
+        /// <summary>Does <paramref name="owner"/>'s capital stand in territory
+        /// <paramref name="r"/>? The AI walls its home territory and only
+        /// that (AIWallPlanner.CollectWallTerritories), so this is "walled
+        /// ground" for every doctrine that must not march into a wall.</summary>
+        private static bool IsWalledGround(EntityManager em, Faction owner, int r)
+        {
+            if (r == RegionMap.None) return false;
+            Entity hall = FindFactionBuilding<HallTag>(em, owner);
+            if (hall == Entity.Null || !em.HasComponent<LocalTransform>(hall)) return false;
+            var p = em.GetComponentData<LocalTransform>(hall).Position;
+            if (RegionMap.RegionAt(p.x, p.z) != r) return false;
+            // ...AND A WALL ACTUALLY STANDS THERE (2026-10-05, Game_AI.md 6f).
+            // The capital's territory read as walled from the first second,
+            // and on Mirror Marches the whole Age 0 economy sits in it — so
+            // every early income building was unreachable by rule while the
+            // ground was in fact open. Walled means wall pieces of the owner
+            // stand in the territory; until they do, its holdings are fair.
+            return HasWallPiecesIn(em, owner, r);
+        }
+
+        /// <summary>Does <paramref name="owner"/> have any wall piece
+        /// (palisade or stone — both carry WallInstanceTag) standing in
+        /// territory <paramref name="r"/>?</summary>
+        private static bool HasWallPiecesIn(EntityManager em, Faction owner, int r)
+        {
+            var q = QC_WallPieceFactionHealthXf.Get(em, QT_WallPieceFactionHealthXf);
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            for (int i = 0; i < facs.Length; i++)
+            {
+                if (facs[i].Value != owner) continue;
+                if (RegionMap.RegionAt(xfs[i].Position.x, xfs[i].Position.z) == r) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// The victim's nearest KNOWN eco or military building on ground
+        /// that does not hold its capital (see IsWalledGround), skipping
+        /// razed sightings and ground a timed-out mission blacklisted.
+        /// </summary>
+        private bool TryNearestUnwalledSighting(EntityManager em, Entity brainEntity, Faction faction,
+            Faction victim, float3 origin, float now, out float3 pos, out Entity ent, out string what)
+        {
+            pos = default; ent = Entity.Null; what = null;
+            if (!em.HasBuffer<EnemySightingRecord>(brainEntity)) return false;
+            var buf = em.GetBuffer<EnemySightingRecord>(brainEntity);
+            float bestD2 = float.MaxValue;
+            for (int i = 0; i < buf.Length; i++)
+            {
+                var s = buf[i];
+                if (s.OwnerFaction != victim) continue;
+                if (s.Category != IntelCategory.EcoBuilding && s.Category != IntelCategory.MilitaryBuilding) continue;
+                if (s.Enemy != Entity.Null && !em.Exists(s.Enemy)) continue;   // razed since
+                int r = RegionMap.RegionAt(s.Position.x, s.Position.z);
+                if (IsWalledGround(em, victim, r)) continue;
+                var (cx, cz) = WaveCell(s.Position);
+                if (_waveBlocked.TryGetValue(((int)faction, cx, cz), out float until) && now < until) continue;
+                float dx = s.Position.x - origin.x, dz = s.Position.z - origin.z;
+                float d2 = dx * dx + dz * dz;
+                if (d2 >= bestD2) continue;
+                bestD2 = d2;
+                pos = s.Position;
+                ent = s.Enemy != Entity.Null && em.Exists(s.Enemy) ? s.Enemy : Entity.Null;
+                what = s.Category == IntelCategory.EcoBuilding ? "eco building" : "military building";
+            }
+            return bestD2 < float.MaxValue;
+        }
+
+        /// <summary>
+        /// THE ENEMY'S INCOME (2026-10-05, Game_AI.md 6f). Every known
+        /// hostile building outside its owner's walls, ranked by what it is
+        /// worth to the enemy: extractors first (the Gatherer's Hut, Mine,
+        /// Veilstone Mine and Trading Outpost are where income is made),
+        /// military buildings next, houses and the rest last — minus the
+        /// target scorer's charges for distance, the garrison seen there
+        /// and the age of the report. <paramref name="victim"/> equal to
+        /// the caller means any hostile. Razed, walled, blacklisted and
+        /// unseen ground is skipped. Highest score first.
+        /// </summary>
+        private void RankIncomeTargets(EntityManager em, Entity brainEntity, Faction faction,
+            Faction victim, float3 origin, float now, float risk, AISettingsSO settings,
+            System.Collections.Generic.List<IncomeTarget> into)
+        {
+            into.Clear();
+            if (!em.HasBuffer<EnemySightingRecord>(brainEntity)) return;
+            var buf = em.GetBuffer<EnemySightingRecord>(brainEntity);
+            float simNow = (float)TheWaningBorder.Core.SimClock.Now;
+            for (int i = 0; i < buf.Length; i++)
+            {
+                var s = buf[i];
+                if (s.OwnerFaction == Faction.Border || !Alliances.AreHostile(faction, s.OwnerFaction)) continue;
+                if (victim != faction && s.OwnerFaction != victim) continue;
+                if (s.Category != IntelCategory.EcoBuilding && s.Category != IntelCategory.MilitaryBuilding) continue;
+                if (s.Enemy == Entity.Null || !em.Exists(s.Enemy)) continue;        // razed since
+                if (em.HasComponent<UnderConstruction>(s.Enemy)) continue;
+                int r = RegionMap.RegionAt(s.Position.x, s.Position.z);
+                if (IsWalledGround(em, s.OwnerFaction, r)) continue;
+                if (WaveTargetBlocked(faction, s.Position, now)) continue;
+                if (!IsKnownGround(faction, s.Position)) continue;
+
+                float weight; string what;
+                Entity e = s.Enemy;
+                if (s.Category == IntelCategory.MilitaryBuilding) { weight = Cfg.incomeWeightMilitary; what = "military building"; }
+                else if (em.HasComponent<TradingOutpostTag>(e)) { weight = Cfg.incomeWeightExtractor; what = "trading outpost"; }
+                else if (em.HasComponent<VeilstoneMineTag>(e)) { weight = Cfg.incomeWeightExtractor; what = "veilstone mine"; }
+                else if (em.HasComponent<MineTag>(e) || em.HasComponent<IronMineTag>(e)) { weight = Cfg.incomeWeightExtractor; what = "mine"; }
+                else if (em.HasComponent<GathererHutTag>(e)) { weight = Cfg.incomeWeightExtractor; what = "gatherer's hut"; }
+                else if (em.HasComponent<HutTag>(e)) { weight = Cfg.incomeWeightHouse; what = "house"; }
+                else { weight = Cfg.incomeWeightHouse; what = "eco building"; }
+
+                float dx = s.Position.x - origin.x, dz = s.Position.z - origin.z;
+                float score = weight * 100f
+                              - math.sqrt(dx * dx + dz * dz) * settings.travelCostPerMeter
+                              - s.EstStrength * settings.riskPerDefenseStrength * risk
+                              - math.max(0f, simNow - s.LastSeenTime) * settings.intelAgePenaltyPerSecond;
+                into.Add(new IncomeTarget { Ent = e, Pos = s.Position, Score = score, What = what, Owner = s.OwnerFaction });
+            }
+            into.Sort((x, y) =>
+            {
+                int c = y.Score.CompareTo(x.Score);
+                return c != 0 ? c : x.Ent.Index.CompareTo(y.Ent.Index);
+            });
+        }
+
+        private readonly System.Collections.Generic.Dictionary<int, float> _incomeReconAt
+            = new System.Collections.Generic.Dictionary<int, float>();
+        private readonly System.Collections.Generic.Dictionary<int, int> _incomeReconLeg
+            = new System.Collections.Generic.Dictionary<int, int>();
+
+        /// <summary>
+        /// THE SCOUTS GO WHERE THE INCOME IS (2026-10-05, Game_AI.md 6f). An
+        /// income-targeting tier cannot hit what it has not seen, and the
+        /// zone director explores outward from home: in the v15 smoke match
+        /// Expert's scouts spent nine minutes in its own corner and reported
+        /// the first enemy eco building at minute 18. While fewer than
+        /// incomeReconMinKnown hostile income buildings are known, this files
+        /// a recon request every incomeReconIntervalSeconds at the nearest
+        /// hostile START position (public knowledge) and then at points
+        /// incomeReconSpreadMeters around it — the ground its economy grows
+        /// into — so the scout director (which serves recon requests before
+        /// exploration) walks the enemy's holdings early. Never overrides a
+        /// request already filed.
+        /// </summary>
+        private void TickIncomeRecon(EntityManager em, Faction faction, ref SimpleAIState aiState,
+            in AIDifficultyProfile profile, Entity brainEntity, float now)
+        {
+            if (!profile.IncomeTargeting || aiState.HasReconRequest != 0) return;
+            int fk = (int)faction;
+            if (_incomeReconAt.TryGetValue(fk, out float at) && now < at) return;
+            _incomeReconAt[fk] = now + math.max(10f, Cfg.incomeReconIntervalSeconds);
+
+            int known = 0;
+            if (em.HasBuffer<EnemySightingRecord>(brainEntity))
+            {
+                var buf = em.GetBuffer<EnemySightingRecord>(brainEntity);
+                for (int i = 0; i < buf.Length; i++)
+                {
+                    var s = buf[i];
+                    if (s.Category != IntelCategory.EcoBuilding) continue;
+                    if (s.OwnerFaction == Faction.Border || !Alliances.AreHostile(faction, s.OwnerFaction)) continue;
+                    if (s.Enemy == Entity.Null || !em.Exists(s.Enemy)) continue;
+                    known++;
+                }
+            }
+            if (known >= math.max(1, Cfg.incomeReconMinKnown)) return;
+
+            Entity myHall = FindFactionBuilding<HallTag>(em, faction);
+            if (myHall == Entity.Null || !em.HasComponent<LocalTransform>(myHall)) return;
+            float3 home = em.GetComponentData<LocalTransform>(myHall).Position;
+            Entity start = FindEnemyStartHall(em, faction, home);
+            if (start == Entity.Null || !em.HasComponent<LocalTransform>(start)) return;
+            float3 sp = em.GetComponentData<LocalTransform>(start).Position;
+
+            // Leg 0 the start itself, then the ring around it: toward home
+            // (the ground between us, where its forward holdings are), then
+            // the two flanks, then the far side.
+            _incomeReconLeg.TryGetValue(fk, out int leg);
+            _incomeReconLeg[fk] = leg + 1;
+            float3 toHome = home - sp; toHome.y = 0f;
+            float len = math.length(toHome);
+            float3 dir = len > 1f ? toHome / len : new float3(1f, 0f, 0f);
+            float3 side = new float3(-dir.z, 0f, dir.x);
+            float r = math.max(0f, Cfg.incomeReconSpreadMeters);
+            float3 p = (leg % 5) switch
+            {
+                0 => sp,
+                1 => sp + dir * r,
+                2 => sp + side * r,
+                3 => sp - side * r,
+                _ => sp - dir * r,
+            };
+            aiState.ReconTarget = p;
+            aiState.HasReconRequest = 1;
+            AILogger.Log(faction, "SCOUT",
+                $"income recon: {known} hostile income building(s) known — " +
+                $"scouting the enemy's holdings at ({p.x:0},{p.z:0})");
+        }
+
+        /// <summary>Compass bearing of <paramref name="p"/> from <paramref name="from"/>, degrees.</summary>
+        private static float BearingDeg(float3 from, float3 p)
+            => math.degrees(math.atan2(p.x - from.x, p.z - from.z));
+
+        private static float BearingDiff(float a, float b)
+        {
+            float d = math.abs(a - b) % 360f;
+            return d > 180f ? 360f - d : d;
+        }
+
+        /// <summary>
+        /// MANY ARMIES, MANY DIRECTIONS (2026-10-05, Game_AI.md 6f). Up to
+        /// <paramref name="want"/> further objectives for the wave's sister
+        /// armies: the victim's income targets (RankIncomeTargets), each on
+        /// an approach bearing — as seen from the victim's capital, or from
+        /// home when its capital is unknown — at least armySeparationDegrees
+        /// from every objective already chosen, at least armySeparationMeters
+        /// from it, and a fight the army's share could take (unless the wave
+        /// is overdue). The victim is the owner of the main objective.
+        /// </summary>
+        private void PickSisterTargets(EntityManager em, Entity brainEntity, Faction faction,
+            float3 originPos, Entity mainTarget, float3 mainPos, Faction waveVictim, float now,
+            System.Collections.Generic.List<Entity> idle, int bodies, int want,
+            float risk, AISettingsSO settings, System.Collections.Generic.List<IncomeTarget> into)
+        {
+            into.Clear();
+            Faction victim = waveVictim;
+            if (mainTarget != Entity.Null && em.Exists(mainTarget) && em.HasComponent<FactionTag>(mainTarget))
+                victim = em.GetComponentData<FactionTag>(mainTarget).Value;
+            RankIncomeTargets(em, brainEntity, faction, victim, originPos, now, risk, settings, _scratchIncome);
+            if (_scratchIncome.Count == 0) return;
+
+            // Bearings are read from the victim's capital when the scouts
+            // have reported it; otherwise from home, which still spreads
+            // the approaches.
+            float3 reference = originPos;
+            if (victim != faction && TryNearestHallSighting(em, brainEntity, victim, originPos,
+                    out float3 hallPos, out _, out _))
+                reference = hallPos;
+
+            var bearings = new System.Collections.Generic.List<float> { BearingDeg(reference, mainPos) };
+            var positions = new System.Collections.Generic.List<float3> { mainPos };
+            float sep2 = Cfg.armySeparationMeters * Cfg.armySeparationMeters;
+            // A provisional share — the first 1/bodies of the draft — stands
+            // in for each sister army's strength in the assessment.
+            int share = math.max(1, idle.Count / math.max(1, bodies));
+            var probe = new System.Collections.Generic.List<Entity>(share);
+            for (int i = 0; i < share && i < idle.Count; i++) probe.Add(idle[i]);
+
+            for (int i = 0; i < _scratchIncome.Count && into.Count < want; i++)
+            {
+                var t = _scratchIncome[i];
+                bool apart = true;
+                for (int k = 0; k < positions.Count && apart; k++)
+                {
+                    float dx = t.Pos.x - positions[k].x, dz = t.Pos.z - positions[k].z;
+                    if (dx * dx + dz * dz < sep2) apart = false;
+                    else if (BearingDiff(BearingDeg(reference, t.Pos), bearings[k]) < Cfg.armySeparationDegrees) apart = false;
+                }
+                if (!apart) continue;
+                // NEVER WAIVED (2026-10-05): overdue used to skip this, and an
+                // overdue Expert split 34 units into 11 + 11 + 12 against a
+                // defender with 80 — a blob that is overdue goes as a blob.
+                var a = AIEngagement.AssessAssault(em, faction, probe, t.Pos);
+                if (!a.ShouldFight) continue;
+                into.Add(t);
+                bearings.Add(BearingDeg(reference, t.Pos));
+                positions.Add(t.Pos);
+            }
+        }
+
+        /// <summary>Does this mission's objective steer the reinforcement
+        /// stream (aiState.WaveTarget)? The wave's primary army does; any
+        /// other only while no primary army is alive.</summary>
+        private static bool OwnsWaveTarget(System.Collections.Generic.List<Mission> missions, Mission mission)
+        {
+            if (mission.Primary) return true;
+            for (int i = 0; i < missions.Count; i++)
+                if (missions[i].Primary && missions[i] != mission) return false;
+            return true;
+        }
+
+        /// <summary>STRIKE TOGETHER (Game_AI.md 6f): true when every sister
+        /// army of <paramref name="mission"/>'s group has staged (or is
+        /// already striking), or the wait has run past armySyncTimeoutSeconds.</summary>
+        private bool GroupReadyToStrike(System.Collections.Generic.List<Mission> missions, Mission mission, float now)
+        {
+            for (int i = 0; i < missions.Count; i++)
+            {
+                var s = missions[i];
+                if (s == mission || s.Group != mission.Group || s.Column || s.Type != MissionType.Attack) continue;
+                if (s.Phase == MissionPhase.Striking || s.ReadyAt > 0f) continue;
+                return now - mission.ReadyAt > Cfg.armySyncTimeoutSeconds;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Put an attack mission on the road: muster outside the gate, march
+        /// to a stage point on its own origin→objective line, strike (the
+        /// commit in UpdateMissions) — or strike direct when the objective
+        /// is close. Sets the deadline, files the mission, logs the motive.
+        /// </summary>
+        private void DispatchArmy(EntityManager em, Faction faction, Mission attack, float3 originPos,
+            float now, string doctrine, int ofBodies)
+        {
+            float3 targetPos = attack.TargetPos;
+            float3 fromTarget = originPos - targetPos;
+            fromTarget.y = 0f;
+            float approachDist = math.length(fromTarget);
+            // STAGING IS FOR EVERYONE (2026-08-30 directive — was Hard+ via
+            // personality.forwardStaging, and the default headless tier is
+            // Normal, so batch armies attack-moved across the whole map).
+            // The approach leg is a plain formation MARCH, not an attack-
+            // move: an attack-moving army peels at every skirmish it passes
+            // and arrives as stragglers. It forms up at the stage point,
+            // then strikes as one body (the commit in TickMissions).
+            if (approachDist > Cfg.stagingDistance * 2f)
+            {
+                attack.StagePos = targetPos + (fromTarget / approachDist) * Cfg.stagingDistance;
+                // MUSTER FIRST (2026-09-07). The army was dispatched from
+                // wherever it stood, and the formation plan makes members
+                // only of units already close to the centroid — so a base
+                // full of rally points sent most of the army to the stage
+                // point one by one. Form up outside the gate, THEN march.
+                // Same shape the curse waves get from spawning compact.
+                attack.Phase = MissionPhase.Mustering;
+                attack.MusterPos = originPos - (fromTarget / approachDist) * Cfg.musterDistance;
+                attack.LegStartTime = now;
+                CommandRouter.IssueFormationMove(
+                    em, attack.Members, attack.MusterPos, FormationShape.Box, CommandSource.AI);
+            }
+            else
+            {
+                attack.Phase = MissionPhase.Striking;
+                attack.LegStartTime = now;
+                CommandRouter.IssueFormationAttackMove(
+                    em, attack.Members, targetPos, FormationShape.Box, CommandSource.AI);
+            }
+            attack.Deadline = DeadlineFor(now, originPos, targetPos);
+            attack.LastCentroid = originPos;
+            attack.StalledSince = now;
+            MissionsFor(faction).Add(attack);
+            // THE MOTIVATION LINE (2026-08-31 audit directive): every launch
+            // says what it attacks and WHY, so a march without a credible
+            // motive is visible in the log rather than only on the map.
+            AILogger.Log(faction, "WAVE",
+                (ofBodies > 1 ? (attack.Primary ? "main army: " : "sister army: ") : "") +
+                $"objective ({targetPos.x:0},{targetPos.z:0}) [{doctrine}] " +
+                $"army {attack.Members.Count}, " +
+                (attack.Phase == MissionPhase.Mustering
+                    ? $"mustering at ({attack.MusterPos.x:0},{attack.MusterPos.z:0}), " +
+                      $"staging at ({attack.StagePos.x:0},{attack.StagePos.z:0})"
+                    : "striking direct"));
+        }
+
+        static readonly ComponentType[] QT_WallPieceFactionHealthXf =
+        {
+            ComponentType.ReadOnly<WallInstanceTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<Health>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery QC_WallPieceFactionHealthXf;
+        private readonly System.Collections.Generic.List<Entity> _breachFoot =
+            new System.Collections.Generic.List<Entity>();
+
+        /// <summary>
+        /// THE WALL IN THE WAY (2026-10-05, Game_AI.md 6a). A striking army
+        /// that has stood still short of its objective for
+        /// wallBreachAfterSeconds, with a hostile wall piece within
+        /// wallBreachRadius, is stopped by that wall: the Wall Rule
+        /// (Combat_Pacing.md) lets only siege hurt it. With siege along, the
+        /// engines are set on the nearest piece and the rest attack-move to
+        /// it (the raze chain then presses on through the breach); with none,
+        /// the mission ends now instead of standing under the towers for the
+        /// rest of its clock.
+        /// </summary>
+        private void TryBreachWall(EntityManager em, Faction faction, ref SimpleAIState aiState,
+            Mission mission, float3 centroid, float now)
+        {
+            if (mission.Breaching) return;
+            float ar = Cfg.waveArrivedRadius;
+            if (math.distancesq(centroid.xz, mission.TargetPos.xz) <= ar * ar) return;
+            if (math.distancesq(centroid.xz, mission.LastCentroid.xz) > 36f)
+            {
+                mission.LastCentroid = centroid;
+                mission.StalledSince = now;
+                return;
+            }
+            if (now - mission.StalledSince < math.max(5f, Cfg.wallBreachAfterSeconds)) return;
+
+            Entity best = Entity.Null;
+            float3 bestPos = default;
+            float bestD2 = Cfg.wallBreachRadius * Cfg.wallBreachRadius;
+            {
+                var q = QC_WallPieceFactionHealthXf.Get(em, QT_WallPieceFactionHealthXf);
+                using var ents = q.ToEntityArray(Allocator.Temp);
+                using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+                using var hps = q.ToComponentDataArray<Health>(Allocator.Temp);
+                using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+                for (int i = 0; i < ents.Length; i++)
+                {
+                    if (hps[i].Value <= 0f || !Alliances.AreHostile(faction, facs[i].Value)) continue;
+                    float d2 = math.distancesq(xfs[i].Position.xz, centroid.xz);
+                    if (d2 >= bestD2) continue;
+                    bestD2 = d2;
+                    best = ents[i];
+                    bestPos = xfs[i].Position;
+                }
+            }
+            mission.StalledSince = now;
+            mission.LastCentroid = centroid;
+            if (best == Entity.Null) return;   // stalled on something else: the deadline decides
+
+            int siege = 0;
+            _breachFoot.Clear();
+            for (int i = 0; i < mission.Members.Count; i++)
+            {
+                var e = mission.Members[i];
+                if (!em.Exists(e)) continue;
+                if (em.HasComponent<SiegeTag>(e)) siege++; else _breachFoot.Add(e);
+            }
+            if (siege < math.max(1, Cfg.wallBreachMinSiege))
+            {
+                mission.Deadline = now;
+                AILogger.Log(faction, "WAVE",
+                    $"wall in the way at ({bestPos.x:0},{bestPos.z:0}) and no siege in the army — " +
+                    $"mission ends ({mission.Members.Count} alive); the next wave needs engines");
+                return;
+            }
+            mission.Breaching = true;
+            mission.Target = best;
+            mission.TargetPos = bestPos;
+            aiState.WaveTarget = bestPos;
+            mission.Deadline = now + math.max(1f, Cfg.missionTimeoutSeconds);
+            for (int i = 0; i < mission.Members.Count; i++)
+            {
+                var e = mission.Members[i];
+                if (em.Exists(e) && em.HasComponent<SiegeTag>(e))
+                    CommandRouter.IssueAttack(em, e, best, CommandSource.AI);
+            }
+            if (_breachFoot.Count > 0)
+                CommandRouter.IssueFormationAttackMove(em, _breachFoot, bestPos, FormationShape.Box, CommandSource.AI);
+            AILogger.Log(faction, "WAVE",
+                $"wall in the way — breaching at ({bestPos.x:0},{bestPos.z:0}) with {siege} siege engine(s), " +
+                $"{_breachFoot.Count} covering");
+        }
+
         private static Entity FindNearestHostileBuilding(EntityManager em, Faction faction,
             float3 around, float radius, out float3 pos)
         {
@@ -274,6 +790,14 @@ namespace TheWaningBorder.AI
             for (int i = 0; i < ents.Length; i++)
             {
                 if (!Alliances.AreHostile(faction, facs[i].Value)) continue;
+                // A wave's follow-up objective is a PLAYER's building, never
+                // the curse's (Game_AI.md § 6a, 2026-10-05): Red's raid on a
+                // stray eco building "pressed on" to the curse nodes 30 m
+                // away, six times, and fed 6-7 units at a time into
+                // garrisons it never assessed. Curse nodes fall only to the
+                // margin-checked paths (first-RP hunt, reclaim, curse clear,
+                // claim curse assault).
+                if (facs[i].Value == Faction.Border) continue;
                 float dx = xfs[i].Position.x - around.x;
                 float dz = xfs[i].Position.z - around.z;
                 float d2 = dx * dx + dz * dz;
@@ -325,6 +849,43 @@ namespace TheWaningBorder.AI
             if (!_waveBlocked.TryGetValue(((int)f, cx, cz), out float until)) return false;
             if (now < until) return true;
             _waveBlocked.Remove(((int)f, cx, cz));
+            return false;
+        }
+
+        /// <summary>Per faction: the 40 m cell of the unseen wave objective it
+        /// is holding for, and since when (Game_AI.md 6a — the hold for intel
+        /// is bounded by waveIntelHoldMaxSeconds).</summary>
+        private readonly System.Collections.Generic.Dictionary<int, (int cx, int cz, float Since)> _waveIntelHold
+            = new System.Collections.Generic.Dictionary<int, (int, int, float)>();
+
+        /// <summary>Seconds this faction's waves have been holding for intel
+        /// on <paramref name="target"/>'s cell (0 the first time; a new cell
+        /// restarts the clock).</summary>
+        private float NoteWaveIntelHold(Faction f, float3 target, float now)
+        {
+            var (cx, cz) = WaveCell(target);
+            if (_waveIntelHold.TryGetValue((int)f, out var h) && h.cx == cx && h.cz == cz)
+                return now - h.Since;
+            _waveIntelHold[(int)f] = (cx, cz, now);
+            return 0f;
+        }
+
+        /// <summary>Is <paramref name="p"/> a player start position (within
+        /// startHallKnownRadius of a start marker)? Start positions are public
+        /// knowledge — the lobby shows them to everyone.</summary>
+        private static bool IsStartPosition(float3 p)
+        {
+            var starts = TheWaningBorder.World.MapMarkers.MapMarkerRegistry.PlayerStarts;
+            if (starts == null) return false;
+            float r2 = Cfg.startHallKnownRadius * Cfg.startHallKnownRadius;
+            for (int i = 0; i < starts.Count; i++)
+            {
+                var sm = starts[i];
+                if (sm == null) continue;
+                var sp = sm.WorldPosition;
+                float dx = p.x - sp.x, dz = p.z - sp.z;
+                if (dx * dx + dz * dz <= r2) return true;
+            }
             return false;
         }
 
@@ -490,6 +1051,10 @@ namespace TheWaningBorder.AI
                     enrolled.Add(member);
 
             var idleMilitary = new System.Collections.Generic.List<Entity>();
+            // STANDING ARMY (Game_AI.md 6a): every draftable combat unit not
+            // already serving a mission — fighting at home and walking
+            // included. The tier's standing floor is kept out of it.
+            int standing = 0;
             for (int i = 0; i < ents.Length; i++)
             {
                 if (facs[i].Value != faction) continue;
@@ -519,9 +1084,48 @@ namespace TheWaningBorder.AI
                 // a player's own order is untouchable; everything else is a
                 // body this brain already owns and may re-task.
                 if (enrolled.Contains(e)) continue;          // serving already
+                standing++;
                 if (TransientState.Active<AttackCommand>(em, e)) continue;  // in a fight
                 if (TransientState.Active<UserMoveOrder>(em, e)) continue;  // player's
                 idleMilitary.Add(e);
+            }
+
+            // A WAVE IS A PUSH, NOT A FEEDER (2026-10-05, Game_AI.md 6a): on
+            // a tier with waveMinArmyFraction the wave is at least that share
+            // of the standing army, so frequent waves stay real pushes.
+            if (profile.WaveMinArmyFraction > 0f)
+                minUnits = math.max(minUnits,
+                    (int)math.ceil(standing * math.saturate(profile.WaveMinArmyFraction)));
+
+            // THE STANDING FLOOR IS NEVER DRAFTED (2026-10-05, developer:
+            // "Having less time between attacks in higher difficulties should
+            // not come at the cost of army count"). A wave draws only the
+            // surplus above the tier's standing floor; the units nearest home
+            // stay.
+            int floor = StandingArmyFloor(faction, profile, aiState.DesiredMilitary);
+            _lastFloorKept = 0;
+            _lastFloor = floor;
+            if (floor > 0)
+            {
+                int canDraft = math.max(0, standing - floor);
+                if (idleMilitary.Count > canDraft)
+                {
+                    _lastFloorKept = idleMilitary.Count - canDraft;
+                    // Farthest from home first; the tail (nearest home) stays.
+                    var dist = new System.Collections.Generic.Dictionary<Entity, float>(idleMilitary.Count);
+                    for (int i = 0; i < idleMilitary.Count; i++)
+                    {
+                        var u = idleMilitary[i];
+                        dist[u] = em.HasComponent<LocalTransform>(u)
+                            ? math.distancesq(em.GetComponentData<LocalTransform>(u).Position, originPos) : 0f;
+                    }
+                    idleMilitary.Sort((a, b) =>
+                    {
+                        int c = dist[b].CompareTo(dist[a]);
+                        return c != 0 ? c : a.Index.CompareTo(b.Index);
+                    });
+                    idleMilitary.RemoveRange(canDraft, _lastFloorKept);
+                }
             }
 
             if (idleMilitary.Count < minUnits) return false; // wait for the army
@@ -626,6 +1230,7 @@ namespace TheWaningBorder.AI
                 }
             }
 
+            Faction waveVictim = faction;   // the wave's designated victim (6f sisters)
             if (!opportunity)
             {
                 // A DUEL IS ALWAYS THE CLOSEOUT (2026-08-31 rev.3): with one
@@ -638,12 +1243,35 @@ namespace TheWaningBorder.AI
                 Faction victim = closeout
                     ? WeakestHostileFaction(em, faction)
                     : LeadingHostileFaction(em, faction);
+                waveVictim = victim;
                 if (victim != faction)
                 {
                     // The KNOWN world only: the victim's Hall as the scouts
                     // last reported it. No sighting means the scouts owe us
                     // intel before the army owes anyone a march.
-                    if (TryNearestHallSighting(em, brainEntity, victim, originPos,
+                    // THE HOLDINGS OUTSIDE THE WALLS FIRST (2026-10-05,
+                    // Game_AI.md 6a). Every capital on a developed board sits
+                    // behind 150-240 wall pieces and the Wall Rule keeps
+                    // infantry off them, so a wave sent at a Hall stood under
+                    // the towers until its clock ran out (M6: 87 units, 480 s,
+                    // 3 kills). The victim's eco and military buildings on
+                    // ground without its capital are what pay for that wall;
+                    // they are reachable, and the raze chain presses on from
+                    // there. The Hall is the objective only when nothing else
+                    // of the victim's is known.
+                    if (TryNearestUnwalledSighting(em, brainEntity, faction, victim, originPos, now,
+                            out float3 uPos, out Entity uEnt, out string uWhat))
+                    {
+                        target = uEnt;
+                        targetPos = uPos;
+                        scored = false;
+                        sightingObjective = true;
+                        _lastDoctrine = (closeout
+                            ? $"closeout: {victim} is weakest"
+                            : $"{victim} leads the board")
+                            + $", {uWhat} outside its walls";
+                    }
+                    else if (TryNearestHallSighting(em, brainEntity, victim, originPos,
                             out float3 sPos, out float sAge, out Entity sEnt))
                     {
                         target = sEnt;          // may be Null: location march
@@ -693,6 +1321,34 @@ namespace TheWaningBorder.AI
                             $"want {victim} but no Hall sighting — scouts first");
                     }
                 }
+
+                // THE ENEMY'S INCOME, NOT THE NEAREST THING (2026-10-05,
+                // Game_AI.md 6f). On an income-targeting tier the main
+                // objective is the most valuable known income building of
+                // the victim (any hostile when nobody leads) — an extractor
+                // outside its walls before a house, a house before a march
+                // on the capital. The late-game finishing doctrine (past
+                // closeoutAfterSeconds) keeps precedence; the hostile-count
+                // closeout does NOT, because a duel is "closeout" from the
+                // first second and the smoke match showed Expert marching
+                // blind on the start Hall for 25 minutes with the doctrine
+                // never firing. The opportunity hijack above is already an
+                // income strike.
+                if (profile.IncomeTargeting && now <= Cfg.closeoutAfterSeconds)
+                {
+                    RankIncomeTargets(em, brainEntity, faction, victim, originPos, now,
+                        personality != null ? personality.riskMultiplier : 1f, settings, _scratchIncome);
+                    if (_scratchIncome.Count > 0)
+                    {
+                        var top = _scratchIncome[0];
+                        target = top.Ent;
+                        targetPos = top.Pos;
+                        scored = false;
+                        sightingObjective = true;
+                        _lastDoctrine = $"income: {top.Owner}'s {top.What}" +
+                            (victim != faction ? $" ({victim} leads the board)" : "");
+                    }
+                }
             }
 
             // (Starve-then-storm now emerges from the sighting picker: the
@@ -715,14 +1371,36 @@ namespace TheWaningBorder.AI
             // objective, the army does not march on ground nobody has seen:
             // the wave converts into a recon request instead, and the scout
             // director earns the intel first.
+            //
+            // ...BUT NEVER FOR LONG (2026-10-05, Game_AI.md 6a). Yellow, the
+            // last strong side on SunderedCrown, held 193 units at home for
+            // the rest of the match logging "holding — no intel on (75,75)"
+            // every think: the scouts could not get through the curse to the
+            // last enemy's START position — ground every player knows. A
+            // start position is public knowledge, so the wave advances at
+            // once; any other unseen objective holds for recon at most
+            // waveIntelHoldMaxSeconds, then the army advances itself and
+            // fights what it meets on the way (the tactical layer engages
+            // the curse like anyone else). Recon keeps running alongside.
+            bool blindAdvance = false;
             if (!IsKnownGround(faction, targetPos))
             {
                 aiState.ReconTarget = targetPos;
                 aiState.HasReconRequest = 1;
+                bool publicStart = IsStartPosition(targetPos);
+                float heldFor = NoteWaveIntelHold(faction, targetPos, now);
+                if (!publicStart && heldFor < Cfg.waveIntelHoldMaxSeconds)
+                {
+                    AILogger.Log(faction, "WAVE",
+                        $"holding — no intel on ({targetPos.x:0},{targetPos.z:0}); recon requested");
+                    return false;
+                }
+                blindAdvance = true;
                 AILogger.Log(faction, "WAVE",
-                    $"holding — no intel on ({targetPos.x:0},{targetPos.z:0}); recon requested");
-                return false;
+                    $"advancing without intel on ({targetPos.x:0},{targetPos.z:0}) after {(int)heldFor}s" +
+                    (publicStart ? " (a start position: public knowledge)" : " (recon timed out)"));
             }
+            else _waveIntelHold.Remove((int)faction);
 
             var assault = AIEngagement.AssessAssault(em, faction, idleMilitary, targetPos);
 
@@ -734,7 +1412,10 @@ namespace TheWaningBorder.AI
             if (strengthGate)
             {
                 int known = KnownDefenceAt(em, brainEntity, faction, targetPos, assault);
+                // ...and by the tier's strengthWaveRatioScale (Game_AI.md § 2):
+                // a slow tier waits for a bigger edge, Expert goes sooner.
                 float ratio = Cfg.strengthWaveRatio
+                              * math.max(0.1f, ProfileOf(faction).StrengthWaveRatioScale)
                               * math.max(0.1f, personality != null ? personality.riskMultiplier : 1f);
                 float need = known * ratio;
                 // An army at the population ceiling cannot grow into the
@@ -749,7 +1430,9 @@ namespace TheWaningBorder.AI
                     int perUnit = math.max(1, assault.MyPower / math.max(1, idleMilitary.Count));
                     int want = CountAliveMilitary(em, faction)
                                + math.max(1, (int)math.ceil((need - assault.MyPower) / perUnit));
-                    want = math.min(want, FactionPopulation.AbsoluteMax);
+                    // ...never past the tier's army cap (Game_AI.md 2): this
+                    // is how Easy's "cap of 60" read 83 in the v16 pair.
+                    want = math.min(want, math.max(1, profile.SustainArmyCap));
                     if (aiState.DesiredMilitary < want) aiState.DesiredMilitary = want;
                     if ((int)(now / 120f) != (int)((now - Cfg.waveRetrySeconds) / 120f))
                         AILogger.Log(faction, "WAVE",
@@ -770,6 +1453,20 @@ namespace TheWaningBorder.AI
                     $"mine {assault.MyPower} vs {assault.EnemyPower} " +
                     $"(army {assault.EnemyMobilePower} + defences {assault.EnemyStaticPower}), " +
                     $"ratio {assault.Ratio:0.00}");
+                return false;
+            }
+            else if (!assault.ShouldFight && Cfg.waveOverdueMaxRatio > 0f && assault.Ratio > Cfg.waveOverdueMaxRatio)
+            {
+                // OVERDUE IS NOT SUICIDAL (2026-10-05, Game_AI.md 6a). The
+                // overdue release used to override the assessment outright:
+                // Expert sent its first wave, 13 units, into a base it had
+                // read at 1,790 power against its 701 (ratio 2.34) and lost
+                // the lot at minute 15. Past the cap the wave keeps holding
+                // and the army keeps growing; the strength gate takes over
+                // past strengthWaveAfterSeconds.
+                AILogger.Log(faction, "WAVE",
+                    $"overdue, but the assault at ({targetPos.x:0},{targetPos.z:0}) reads {assault.Ratio:0.00} " +
+                    $"against, past the overdue cap {Cfg.waveOverdueMaxRatio:0.00} — holding");
                 return false;
             }
             else if (!assault.ShouldFight)
@@ -813,7 +1510,7 @@ namespace TheWaningBorder.AI
             // ANTI-STAGNATION: only when a living scout exists to serve the
             // request — with all scouts dead this gate deadlocked the build
             // order at its LaunchAttack step forever.
-            if (scored && !overdue
+            if (scored && !overdue && !blindAdvance
                 && (category == IntelCategory.Hall || category == IntelCategory.MilitaryBuilding)
                 && intelAge > settings.reconMaxIntelAge
                 && CountScouts(em, faction) > 0)
@@ -865,65 +1562,92 @@ namespace TheWaningBorder.AI
                 }
             }
 
-            // ── Main attack mission ──
+            // ── Main attack mission(s) ──
             // The army marches through the FORMATION pipeline (virtual leader,
             // type-ranked slots, slowest-member speed) — the same machinery
-            // player group orders use. Hard+ tiers stage first: form up near
-            // the target on the home side, then commit at full strength.
+            // player group orders use (DispatchArmy).
+            //
+            // MANY ARMIES, MANY DIRECTIONS (2026-10-05, Game_AI.md 6f). A tier
+            // with concurrentArmies above one splits the draft into that many
+            // bodies: the main army takes the objective chosen above, each
+            // sister army an income objective of the same victim on its own
+            // approach bearing (PickSisterTargets), and the group stages,
+            // then strikes together (GroupReadyToStrike). The units nearest
+            // each objective form its army. Fewer armies launch when the
+            // draft cannot give each armyMinUnits, or when no second
+            // objective separates enough from the first.
+            var sisters = new System.Collections.Generic.List<IncomeTarget>();
+            int armies = math.max(1, profile.ConcurrentArmies);
+            if (armies > 1 && !rerouted
+                && idleMilitary.Count / armies >= math.max(1, Cfg.armyMinUnits))
+                PickSisterTargets(em, brainEntity, faction, originPos, target, targetPos, waveVictim, now,
+                    idleMilitary, armies, armies - 1,
+                    personality != null ? personality.riskMultiplier : 1f, settings, sisters);
+            int bodies = 1 + sisters.Count;
+            int group = bodies > 1 ? ++_nextArmyGroup : 0;
+            int share = idleMilitary.Count / bodies;
+
+            var pool = new System.Collections.Generic.List<Entity>(idleMilitary);
+            var launched = new System.Collections.Generic.List<Mission>(bodies);
+            for (int k = 0; k < sisters.Count; k++)
+            {
+                var t = sisters[k];
+                float3 tp = t.Pos;
+                pool.Sort((a, b) =>
+                {
+                    float da = em.HasComponent<LocalTransform>(a)
+                        ? math.distancesq(em.GetComponentData<LocalTransform>(a).Position, tp) : float.MaxValue;
+                    float db = em.HasComponent<LocalTransform>(b)
+                        ? math.distancesq(em.GetComponentData<LocalTransform>(b).Position, tp) : float.MaxValue;
+                    int c = da.CompareTo(db);
+                    return c != 0 ? c : a.Index.CompareTo(b.Index);
+                });
+                var sister = new Mission
+                {
+                    Type = MissionType.Attack,
+                    Target = t.Ent,
+                    TargetPos = t.Pos,
+                    StartTime = now,
+                    Group = group,
+                };
+                for (int i = 0; i < share && pool.Count > 0; i++)
+                {
+                    sister.Members.Add(pool[0]);
+                    pool.RemoveAt(0);
+                }
+                launched.Add(sister);
+            }
             var attack = new Mission
             {
                 Type = MissionType.Attack,
                 Target = target,
                 TargetPos = targetPos,
                 StartTime = now,
+                Group = group,
+                Primary = true,
             };
-            for (int i = 0; i < idleMilitary.Count; i++)
-                attack.Members.Add(idleMilitary[i]);
-            launchedSize = attack.Members.Count;
+            attack.Members.AddRange(pool);
+            launched.Add(attack);
+            launchedSize = idleMilitary.Count;
+            if (_lastFloor > 0)
+                AILogger.Log(faction, "WAVE",
+                    $"standing floor {_lastFloor} kept ({standing - launchedSize} standing at home, " +
+                    $"{_lastFloorKept} idle held back; wave {launchedSize}, min {minUnits})");
+            if (bodies > 1)
+                AILogger.Log(faction, "WAVE",
+                    $"wave of {bodies} armies against {waveVictim}: " +
+                    string.Join(", ", sisters.ConvertAll(s => $"{s.What} at ({s.Pos.x:0},{s.Pos.z:0})")) +
+                    $" and the main objective at ({targetPos.x:0},{targetPos.z:0})");
 
-            float3 fromTarget = originPos - targetPos;
-            fromTarget.y = 0f;
-            float approachDist = math.length(fromTarget);
-            // STAGING IS FOR EVERYONE (2026-08-30 directive — was Hard+ via
-            // personality.forwardStaging, and the default headless tier is
-            // Normal, so batch armies attack-moved across the whole map).
-            // The approach leg is a plain formation MARCH, not an attack-
-            // move: an attack-moving army peels at every skirmish it passes
-            // and arrives as stragglers. It forms up at the stage point,
-            // then strikes as one body (the commit in TickMissions).
-            if (approachDist > Cfg.stagingDistance * 2f)
+            // The main army is dispatched LAST so it sits after its sisters
+            // in the list; columns come later still (TryMergeIntoArmy).
+            for (int k = 0; k < launched.Count; k++)
             {
-                attack.StagePos = targetPos + (fromTarget / approachDist) * Cfg.stagingDistance;
-                // MUSTER FIRST (2026-09-07). The army was dispatched from
-                // wherever it stood, and the formation plan makes members
-                // only of units already close to the centroid — so a base
-                // full of rally points sent most of the army to the stage
-                // point one by one. Form up outside the gate, THEN march.
-                // Same shape the curse waves get from spawning compact.
-                attack.Phase = MissionPhase.Mustering;
-                attack.MusterPos = originPos - (fromTarget / approachDist) * Cfg.musterDistance;
-                attack.LegStartTime = now;
-                CommandRouter.IssueFormationMove(
-                    em, attack.Members, attack.MusterPos, FormationShape.Box, CommandSource.AI);
+                var a = launched[k];
+                string doctrine = a.Primary ? _lastDoctrine
+                    : $"income: {sisters[k].Owner}'s {sisters[k].What}, a second direction";
+                DispatchArmy(em, faction, a, originPos, now, doctrine, bodies);
             }
-            else
-            {
-                attack.Phase = MissionPhase.Striking;
-                attack.LegStartTime = now;
-                CommandRouter.IssueFormationAttackMove(
-                    em, attack.Members, targetPos, FormationShape.Box, CommandSource.AI);
-            }
-            missions.Add(attack);
-            // THE MOTIVATION LINE (2026-08-31 audit directive): every launch
-            // says what it attacks and WHY, so a march without a credible
-            // motive is visible in the log rather than only on the map.
-            AILogger.Log(faction, "WAVE",
-                $"objective ({targetPos.x:0},{targetPos.z:0}) [{_lastDoctrine}] " +
-                $"army {attack.Members.Count}, " +
-                (attack.Phase == MissionPhase.Mustering
-                    ? $"mustering at ({attack.MusterPos.x:0},{attack.MusterPos.z:0}), " +
-                      $"staging at ({attack.StagePos.x:0},{attack.StagePos.z:0})"
-                    : "striking direct"));
 
             // Remember where this wave went so newly-finished units can be
             // fed into it (ReinforceActiveWave). Without this a wave was a
@@ -933,6 +1657,7 @@ namespace TheWaningBorder.AI
             // WHILE STAGING, reinforcements rally to the STAGE POINT — sent
             // at the objective they attack-moved straight past the forming
             // army into the enemy alone. The staging commit repoints this.
+            // The MAIN army's objective (6f): sisters never steer the stream.
             aiState.WaveTarget = attack.Phase == MissionPhase.Mustering
                 ? attack.StagePos : targetPos;
             aiState.WaveActive = 1;
@@ -1030,7 +1755,7 @@ namespace TheWaningBorder.AI
                 for (int mi = 0; mi < mission.Members.Count; mi++)
                     serving.Add(mission.Members[mi]);
 
-            int committed = 0, sent = 0, arrived = 0;
+            int committed = 0, sent = 0, arrived = 0, standing = 0;
             for (int i = 0; i < ents.Length; i++)
             {
                 if (facs[i].Value != faction) continue;
@@ -1058,6 +1783,10 @@ namespace TheWaningBorder.AI
                 bool atObjective =
                     dx * dx + dz * dz <= Cfg.waveArrivedRadius * Cfg.waveArrivedRadius;
                 if (atObjective) arrived++;
+                // The standing army (Game_AI.md 6a): not serving, not out at
+                // the objective. The floor below is kept out of it.
+                if (!atObjective && !serving.Contains(e)
+                    && !TransientState.Active<UserMoveOrder>(em, e)) standing++;
 
                 // SAME AVAILABILITY RULE AS THE FRESH-WAVE DRAFT (Game_AI.md
                 // 6a): fighting is busy, a roster is busy, the player's order
@@ -1081,6 +1810,27 @@ namespace TheWaningBorder.AI
 
                 reinforcements.Add(e);
                 sent++;
+            }
+
+            // THE STANDING FLOOR IS NEVER SENT (2026-10-05, Game_AI.md 6a):
+            // reinforcements draw only the surplus above it, like a wave.
+            {
+                int floor = StandingArmyFloor(faction, ProfileOf(faction), aiState.DesiredMilitary);
+                int canSend = math.max(0, standing - floor);
+                if (floor > 0 && reinforcements.Count > canSend)
+                {
+                    int kept = reinforcements.Count - canSend;
+                    reinforcements.RemoveRange(canSend, kept);
+                    sent = reinforcements.Count;
+                    int fk = (int)faction;
+                    if (AILogger.Enabled && (!_floorLogAt.TryGetValue(fk, out float at) || now >= at))
+                    {
+                        _floorLogAt[fk] = now + 60f;   // log cadence, not tuning
+                        AILogger.Log(faction, "WAVE",
+                            $"standing floor {floor} kept ({kept} held back from reinforcing wave " +
+                            $"{aiState.WaveNumber}, {standing} standing)");
+                    }
+                }
             }
 
             // GATHER BEFORE MARCHING. A trickle arrives piecemeal and is
@@ -1134,10 +1884,14 @@ namespace TheWaningBorder.AI
                 var column = new Mission
                 {
                     Type = MissionType.Attack,
+                    Column = true,
                     Target = Entity.Null,
                     TargetPos = aiState.WaveTarget,
                     StartTime = now,
                     LegStartTime = now,
+                    Deadline = DeadlineFor(now, from, aiState.WaveTarget),
+                    LastCentroid = from,
+                    StalledSince = now,
                 };
                 column.Members.AddRange(reinforcements);
                 if (approachDist > Cfg.stagingDistance * 2f)
@@ -1224,7 +1978,11 @@ namespace TheWaningBorder.AI
                     float ddx = adx - mission.TargetPos.x, ddz = adz - mission.TargetPos.z;
                     objectiveDown = alive > 0 && ddx * ddx + ddz * ddz < 30f * 30f;
                 }
-                bool timedOut = now - mission.StartTime > Cfg.missionTimeoutSeconds;
+                // A mission that never set its deadline (the posture defence)
+                // keeps the flat clock.
+                bool timedOut = mission.Deadline > 0f
+                    ? now > mission.Deadline
+                    : now - mission.StartTime > Cfg.missionTimeoutSeconds;
 
                 // GO FOR THE THROAT (2026-08-30). A razed objective used to
                 // read as "Success: regroup home" — and that single line is
@@ -1269,6 +2027,7 @@ namespace TheWaningBorder.AI
                         {
                             var sg = buf[i];
                             if (!Alliances.AreHostile(faction, sg.OwnerFaction)) continue;
+                            if (sg.OwnerFaction == Faction.Border) continue;   // players only (above)
                             bool lifeline = sg.Category == IntelCategory.Hall
                                 || sg.Category == IntelCategory.MilitaryBuilding;
                             bool finisher = chainCloseout
@@ -1287,6 +2046,9 @@ namespace TheWaningBorder.AI
                         }
                         if (bd2 < float.MaxValue)
                         {
+                            mission.Deadline = DeadlineFor(now, mission.TargetPos, nextPos);
+                            mission.Breaching = false;
+                            mission.StalledSince = now;
                             mission.Target = nextT;
                             mission.TargetPos = nextPos;
                             // Repoint the REINFORCEMENT stream too — it steers
@@ -1294,7 +2056,8 @@ namespace TheWaningBorder.AI
                             // objective sent 17 fresh units to a building razed
                             // 42 s earlier (log-proven), where they idled,
                             // never "arrived", and were re-dispatched forever.
-                            aiState.WaveTarget = nextPos;
+                            // Only the wave's MAIN army steers it (6f).
+                            if (OwnsWaveTarget(missions, mission)) aiState.WaveTarget = nextPos;
                             mission.StartTime = now;
                             mission.LegStartTime = now;
                             mission.Phase = MissionPhase.Staging;
@@ -1308,10 +2071,13 @@ namespace TheWaningBorder.AI
                     }
                     if (nextT != Entity.Null)
                     {
+                        mission.Deadline = DeadlineFor(now, mission.TargetPos, nextPos);
+                        mission.Breaching = false;
+                        mission.StalledSince = now;
                         mission.Target = nextT;
                         mission.TargetPos = nextPos;
                         // Same reinforcement repoint as the site-empty chain.
-                        aiState.WaveTarget = nextPos;
+                        if (OwnsWaveTarget(missions, mission)) aiState.WaveTarget = nextPos;
                         mission.StartTime = now;
                         mission.LegStartTime = now;
                         mission.Phase = MissionPhase.Striking;
@@ -1326,6 +2092,10 @@ namespace TheWaningBorder.AI
 
                 if (objectiveDown || timedOut)
                 {
+                    if (objectiveDown && !timedOut && mission.Type == MissionType.Attack)
+                        AILogger.Log(faction, "WAVE",
+                            $"no player objective — returning ({mission.Members.Count} alive, " +
+                            $"last objective at ({mission.TargetPos.x:0},{mission.TargetPos.z:0}))");
                     // A TIMEOUT IS EVIDENCE, NOT JUST AN EXPIRY. Whatever was
                     // wrong with this ground -- unreachable, too well held,
                     // never actually there -- is still wrong in ten seconds,
@@ -1336,7 +2106,7 @@ namespace TheWaningBorder.AI
                         _waveBlocked[((int)faction, bcx, bcz)] = now + WaveBlockSeconds;
                         AILogger.Log(faction, "WAVE",
                             $"mission timed out at ({mission.TargetPos.x:0},{mission.TargetPos.z:0}) " +
-                            $"after {Cfg.missionTimeoutSeconds:F0}s with {mission.Members.Count} alive — " +
+                            $"after {now - mission.StartTime:F0}s with {mission.Members.Count} alive — " +
                             $"that ground is off the target list for {WaveBlockSeconds:F0}s");
                     }
 
@@ -1363,7 +2133,9 @@ namespace TheWaningBorder.AI
                 // sent to join becomes part of it: one roster, one centroid,
                 // one set of tactics. (Columns are the later missions in the
                 // list; the army they join is an earlier one.)
-                if (mission.Type == MissionType.Attack && m > 0
+                // Only a COLUMN is absorbed (6f): a sister army mustering
+                // beside the main army is its own body, not a reinforcement.
+                if (mission.Type == MissionType.Attack && mission.Column && m > 0
                     && TryMergeIntoArmy(em, missions, m, centroid))
                     continue;
 
@@ -1399,6 +2171,25 @@ namespace TheWaningBorder.AI
                     bool gathered = sx * sx + sz * sz <= Cfg.stagingGatherRadius * Cfg.stagingGatherRadius
                         && FractionWithin(em, mission, centroid, GatherRadius(mission.Members.Count)) >= Cfg.musterGatherFraction;
                     bool stageTimedOut = now - mission.LegStartTime > Cfg.stagingTimeoutSeconds;
+                    // STRIKE TOGETHER (2026-10-05, Game_AI.md 6f): a staged
+                    // army of a many-army wave holds at its stage point until
+                    // every sister has staged, at most armySyncTimeoutSeconds,
+                    // so the victim is hit from every direction at once.
+                    if (gathered && !stageTimedOut && mission.Group != 0)
+                    {
+                        if (mission.ReadyAt <= 0f)
+                        {
+                            mission.ReadyAt = now;
+                            AILogger.Log(faction, "WAVE",
+                                $"staged at ({mission.StagePos.x:0},{mission.StagePos.z:0}) — " +
+                                "waiting for the sister armies");
+                        }
+                        if (!GroupReadyToStrike(missions, mission, now))
+                        {
+                            RegroupStragglers(em, faction, mission, now, attackMove: false);
+                            continue;
+                        }
+                    }
                     if (gathered || stageTimedOut)
                     {
                         mission.Phase = MissionPhase.Striking;
@@ -1406,8 +2197,8 @@ namespace TheWaningBorder.AI
                         CommandRouter.IssueFormationAttackMove(
                             em, mission.Members, mission.TargetPos, FormationShape.Box, CommandSource.AI);
                         // Reinforcements now flow to the front, not the
-                        // (abandoned) form-up ground.
-                        aiState.WaveTarget = mission.TargetPos;
+                        // (abandoned) form-up ground — the main army's front (6f).
+                        if (OwnsWaveTarget(missions, mission)) aiState.WaveTarget = mission.TargetPos;
                     }
                     else RegroupStragglers(em, faction, mission, now, attackMove: false);
                 }
@@ -1415,6 +2206,8 @@ namespace TheWaningBorder.AI
                 {
                     RegroupStragglers(em, faction, mission, now, attackMove: true);
                 }
+                if (mission.Phase == MissionPhase.Striking && mission.Type == MissionType.Attack)
+                    TryBreachWall(em, faction, ref aiState, mission, centroid, now);
 
                 // Per-mission retreat: compare local strength at the army's
                 // centroid. Raids disengage more readily (they harass, they
@@ -1487,6 +2280,9 @@ namespace TheWaningBorder.AI
         private void RegroupStragglers(EntityManager em, Faction faction, Mission mission,
             float now, bool attackMove)
         {
+            // A falling-back army is being walked AWAY on purpose; folding
+            // its "stragglers" back toward the objective would undo that.
+            if (mission.FallingBack) return;
             if (now < mission.NextRegroupTime) return;
             mission.NextRegroupTime = now + Cfg.regroupInterval;
 
@@ -1565,6 +2361,37 @@ namespace TheWaningBorder.AI
         private readonly System.Collections.Generic.Dictionary<int, float> _waveHeartbeat
             = new System.Collections.Generic.Dictionary<int, float>();
 
+        // ── THE STANDING ARMY FLOOR (2026-10-05, Game_AI.md 6a) ──────────
+        //
+        // Headless33-35: Expert's 120 s wave cadence kept drafting every idle
+        // unit, so Normal stood with a LARGER army than Expert at every
+        // checkpoint (48 vs 28 at 20 minutes). A harder tier now keeps
+        // standingArmyFloorFraction of its desired army at home — never
+        // drafted by a wave or its reinforcements — and its waves draw only
+        // the surplus above it.
+
+        /// <summary>The last launch's floor and how many idle units it held
+        /// back (for the "standing floor n kept" line).</summary>
+        private int _lastFloor, _lastFloorKept;
+
+        /// <summary>Per faction: next "standing floor kept" line from the
+        /// reinforcement pass (sim time).</summary>
+        private readonly System.Collections.Generic.Dictionary<int, float> _floorLogAt
+            = new System.Collections.Generic.Dictionary<int, float>();
+
+        /// <summary>Units a wave may never draft below: the tier's
+        /// standingArmyFloorFraction of the desired army, capped at a third
+        /// of the population capacity (the same ceiling the wave bar uses), so
+        /// an impossible desired army cannot freeze every wave. 0 = no floor.</summary>
+        private static int StandingArmyFloor(Faction faction, in AIDifficultyProfile profile, int desired)
+        {
+            if (profile.StandingArmyFloorFraction <= 0f || desired <= 0) return 0;
+            PopulationHelper.TryGetFactionPopulation(faction, out int pop, out int cap);
+            int ceiling = math.max(4, (cap > 0 ? cap : pop) / 3);
+            return math.min(ceiling,
+                (int)math.ceil(desired * math.saturate(profile.StandingArmyFloorFraction)));
+        }
+
         /// <summary>Per faction: the curse node the first-RP hunt is on, and
         /// when it launched (units freed later reinforce it until then +
         /// religionHuntReinforceSeconds).</summary>
@@ -1574,6 +2401,39 @@ namespace TheWaningBorder.AI
             = new System.Collections.Generic.Dictionary<int, float>();
         private readonly System.Collections.Generic.List<Entity> _religionHuntArmy
             = new System.Collections.Generic.List<Entity>();
+        /// <summary>Per faction: every unit sent on the current first-RP
+        /// hunt (launch + reinforcements). The hunt's power is THIS roster,
+        /// wherever it stands — not who happens to be at the node yet.</summary>
+        private readonly System.Collections.Generic.Dictionary<int, System.Collections.Generic.List<Entity>> _religionHuntRoster
+            = new System.Collections.Generic.Dictionary<int, System.Collections.Generic.List<Entity>>();
+
+        private System.Collections.Generic.List<Entity> ReligionHuntRoster(int key)
+        {
+            if (!_religionHuntRoster.TryGetValue(key, out var list))
+                _religionHuntRoster[key] = list = new System.Collections.Generic.List<Entity>();
+            return list;
+        }
+
+        /// <summary>Call the hunt off: forget it and walk the roster home
+        /// (left alone, the hunters kept their attack-move and died at the
+        /// node one by one).</summary>
+        private void CallOffReligionHunt(EntityManager em, int key, float3 hallPos)
+        {
+            _religionHunt.Remove(key);
+            var roster = ReligionHuntRoster(key);
+            PruneDeadUnits(em, roster);
+            if (roster.Count > 0)
+                CommandRouter.IssueFormationMove(em, roster, hallPos, FormationShape.Box, CommandSource.AI);
+            roster.Clear();
+        }
+
+        private static void PruneDeadUnits(EntityManager em, System.Collections.Generic.List<Entity> list)
+        {
+            for (int i = list.Count - 1; i >= 0; i--)
+                if (!em.Exists(list[i]) || !em.HasComponent<Health>(list[i])
+                    || em.GetComponentData<Health>(list[i]).Value <= 0)
+                    list.RemoveAt(i);
+        }
 
         /// <summary>
         /// THE FIRST RELIGION POINT COMES FROM THE CURSE (2026-10-03,
@@ -1602,9 +2462,13 @@ namespace TheWaningBorder.AI
                 || TheWaningBorder.Economy.FactionReligionPointsHelper.CanAfford(em, faction, templeRp))
             {
                 _religionHunt.Remove(key);
+                ReligionHuntRoster(key).Clear();
                 return false;
             }
             if (now < Cfg.religionHuntEarliestSeconds) return false;
+            // Economy first on tiers that say so (Game_AI.md § 5h): no hunt,
+            // and no army grown for one, until the capital's level.
+            if (HuntDeferredForEconomy(em, faction, now)) return false;
 
             Entity hall = FindFactionBuilding<HallTag>(em, faction);
             if (hall == Entity.Null || !em.HasComponent<LocalTransform>(hall)) return false;
@@ -1647,6 +2511,7 @@ namespace TheWaningBorder.AI
                     if (TransientState.Active<MoveCommand>(em, e)) continue;
                     if (TransientState.Active<AttackCommand>(em, e)) continue;
                     if (TransientState.Active<UserMoveOrder>(em, e)) continue;
+                    if (_religionHuntRoster.TryGetValue(key, out var onHunt) && onHunt.Contains(e)) continue;
                     _religionHuntArmy.Add(e);
                 }
 
@@ -1664,18 +2529,36 @@ namespace TheWaningBorder.AI
                 // hunters already there): a lost hunt is called off, and the
                 // next think judges the node afresh instead of streaming
                 // recruits into it one by one.
-                var r = AIEngagement.AssessAssault(em, faction, _religionHuntArmy, node,
-                    Cfg.religionHuntAssessRadius);
-                int engaged = TacticalQuery.FactionStrengthInRadius(em, faction, node, Cfg.religionHuntAssessRadius);
-                if (r.EnemyPower > 0 && r.EnemyPower > (r.MyPower + engaged) * AIEngagement.DefaultCommitRatio)
+                var r = AssessCurseNode(em, faction, _religionHuntArmy, node,
+                    Cfg.religionHuntAssessRadius, now);
+                // THE HUNT'S POWER IS ITS ROSTER (2026-10-05): this used to
+                // count newcomers plus our units INSIDE the node's radius, so
+                // five seconds after launch — the hunters still on the road —
+                // it read "losing (power 0+0 vs 72)" and dropped the hunt,
+                // while the hunters marched on alone and died.
+                var roster = ReligionHuntRoster(key);
+                PruneDeadUnits(em, roster);
+                int hunting = AIEngagement.PowerOf(em, roster);
+                // Called off (and walked home) only when the roster plus the
+                // newcomers no longer beat the node at all
+                // (religionHuntCallOffMargin) — not at the launch margin,
+                // which a garrison top-up would trip mid-march.
+                if (r.EnemyPower > 0
+                    && r.MyPower + hunting < r.EnemyPower * math.max(0.5f, Cfg.religionHuntCallOffMargin))
                 {
-                    _religionHunt.Remove(key);
+                    CallOffReligionHunt(em, key, hallPos);
                     LogReligionHunt(faction, now,
-                        $"hunt at ({node.x:0},{node.z:0}) is losing (power {r.MyPower}+{engaged} vs " +
-                        $"{r.EnemyPower}) — called off, no reinforcements");
+                        $"hunt at ({node.x:0},{node.z:0}) is losing (power {r.MyPower}+{hunting} vs " +
+                        $"{r.EnemyPower}) — called off, hunters recalled");
                     return true;
                 }
-                AICommon.IssueGroupOrder(em, _religionHuntArmy, node, attackMove: true, Cfg.waveArrivedRadius);
+                // No one-unit trickle: newcomers go as a group of at least
+                // reclaimMinSquadSize (Game_AI.md § 5i).
+                if (_religionHuntArmy.Count >= math.max(1, Cfg.reclaimMinSquadSize))
+                {
+                    AICommon.IssueGroupOrder(em, _religionHuntArmy, node, attackMove: true, Cfg.waveArrivedRadius);
+                    roster.AddRange(_religionHuntArmy);
+                }
                 return true;
             }
             if (_religionHuntArmy.Count == 0)
@@ -1684,13 +2567,19 @@ namespace TheWaningBorder.AI
                 return true;
             }
 
-            var a = AIEngagement.AssessAssault(em, faction, _religionHuntArmy, node,
-                Cfg.religionHuntAssessRadius);
-            if (!a.ShouldFight)
+            // A hunt past its reinforce window is over: its roster is free
+            // again (the units already left the attack-move behind).
+            if (!_religionHunt.ContainsKey(key)) ReligionHuntRoster(key).Clear();
+            var a = AssessCurseNode(em, faction, _religionHuntArmy, node,
+                Cfg.religionHuntAssessRadius, now);
+            // Never at parity (Game_AI.md § 5h): the commit ratio alone let
+            // 180-vs-180 hunts launch and lose.
+            if (!a.ShouldFight || !HuntHasMargin(a))
             {
                 // Too weak: grow the army toward what the node needs.
                 int need = (int)math.ceil(_religionHuntArmy.Count * a.Ratio / math.max(0.1f, AIEngagement.DefaultCommitRatio));
                 int want = CountAliveMilitary(em, faction) + math.max(1, need - _religionHuntArmy.Count);
+                want = math.min(want, math.max(1, ProfileOf(faction).SustainArmyCap));   // the tier's cap holds
                 if (aiState.DesiredMilitary < want) aiState.DesiredMilitary = want;
                 LogReligionHunt(faction, now,
                     $"saving an army for the curse node at ({node.x:0},{node.z:0}): " +
@@ -1701,6 +2590,11 @@ namespace TheWaningBorder.AI
             // The whole hunt marches as one formation (AICommon.IssueGroupOrder).
             AICommon.IssueGroupOrder(em, _religionHuntArmy, node, attackMove: true, Cfg.waveArrivedRadius);
             _religionHunt[key] = (node, now);
+            {
+                var roster = ReligionHuntRoster(key);
+                roster.Clear();
+                roster.AddRange(_religionHuntArmy);
+            }
             AILogger.Log(faction, "RELIGION",
                 $"first Religion Point: {_religionHuntArmy.Count} units attack the curse node at " +
                 $"({node.x:0},{node.z:0}) — power {a.MyPower} vs {a.EnemyPower}");
@@ -1729,6 +2623,9 @@ namespace TheWaningBorder.AI
         /// <summary>Host scratch for the reclaim draft (main thread only).</summary>
         private readonly System.Collections.Generic.List<Entity> _reclaimSquad
             = new System.Collections.Generic.List<Entity>();
+        /// <summary>Free soldiers past reclaimSquadSize, for the margin.</summary>
+        private readonly System.Collections.Generic.List<Entity> _reclaimExtra
+            = new System.Collections.Generic.List<Entity>();
 
         /// <summary>When veilstone-poor, attack-move a small squad onto the
         /// nearest live SmallNode near the base — the military reclaim the
@@ -1751,6 +2648,7 @@ namespace TheWaningBorder.AI
             float bestD2 = Cfg.reclaimRadius * Cfg.reclaimRadius;
             float3 target = default;
             bool found = false;
+            bool targetIsNode = false;
             for (int i = 0; i < sXfs.Length; i++)
             {
                 if (sHps[i].Value <= 0) continue;
@@ -1758,7 +2656,7 @@ namespace TheWaningBorder.AI
                 float dx = sXfs[i].Position.x - hallPos.x;
                 float dz = sXfs[i].Position.z - hallPos.z;
                 float d2 = dx * dx + dz * dz;
-                if (d2 < bestD2) { bestD2 = d2; target = sXfs[i].Position; found = true; }
+                if (d2 < bestD2) { bestD2 = d2; target = sXfs[i].Position; found = true; targetIsNode = true; }
             }
 
             // Announced blood contaminations count as threats too (2026-08-04
@@ -1770,7 +2668,7 @@ namespace TheWaningBorder.AI
                 float dx = pendingSpawns[i].Pos.x - hallPos.x;
                 float dz = pendingSpawns[i].Pos.z - hallPos.z;
                 float d2 = dx * dx + dz * dz;
-                if (d2 < bestD2) { bestD2 = d2; target = pendingSpawns[i].Pos; found = true; }
+                if (d2 < bestD2) { bestD2 = d2; target = pendingSpawns[i].Pos; found = true; targetIsNode = false; }
             }
             if (!found) return;
 
@@ -1800,7 +2698,8 @@ namespace TheWaningBorder.AI
             using var facs = mq.ToComponentDataArray<FactionTag>(Allocator.Temp);
             var squad = _reclaimSquad;
             squad.Clear();
-            for (int i = 0; i < ents.Length && squad.Count < Cfg.reclaimSquadSize; i++)
+            _reclaimExtra.Clear();
+            for (int i = 0; i < ents.Length; i++)
             {
                 if (facs[i].Value != faction) continue;
                 if (!IsCombatClass(tags[i].Class)) continue;
@@ -1812,7 +2711,11 @@ namespace TheWaningBorder.AI
                 if (TransientState.Active<MoveCommand>(em, e)) continue;
                 if (TransientState.Active<AttackCommand>(em, e)) continue;
                 if (TransientState.Active<UserMoveOrder>(em, e)) continue;
-                squad.Add(e);
+                if (em.HasComponent<NotControllableTag>(e)) continue;
+                // The first reclaimSquadSize free soldiers are the squad; the
+                // rest are the reserve the margin may call on (below).
+                if (squad.Count < Cfg.reclaimSquadSize) squad.Add(e);
+                else _reclaimExtra.Add(e);
             }
             if (squad.Count == 0) return;
 
@@ -1824,32 +2727,77 @@ namespace TheWaningBorder.AI
             // that should have bought the age-up spent on replacements. The
             // squad goes only when it, plus our units already fighting there,
             // wins against what stands at the node.
-            var assess = AIEngagement.AssessAssault(em, faction, squad, target, Cfg.reclaimAssessRadius);
-            if (assess.EnemyPower > 0)
+            //
+            // ...AND NEVER AT PARITY, NEVER PIECEMEAL (2026-10-05, Game_AI.md
+            // § 5i). The commit ratio counted our units ALREADY fighting at
+            // the node, so a lone Spearman went whenever the sum looked even:
+            // Blue logged "held back: 1 free unit power 36 (+107 engaged) vs
+            // 171" and then "1 units vs curse node" eleven times in one
+            // minute; Red sent 59 such sorties. Now:
+            //   * the squad ALONE (fighters already there do not count) must
+            //     beat the node by the hunt's margin (religionHuntPowerMargin);
+            //     when its first reclaimSquadSize soldiers fall short it takes
+            //     more free ones, nearest the node first, up to
+            //     claimCurseSquadMax;
+            //   * it is at least reclaimMinSquadSize soldiers — no one-unit
+            //     sorties, even at an unguarded node;
+            //   * after a squad marched on a node, no other marches on it for
+            //     reclaimRetrySeconds: a live attempt is not fed piecemeal and
+            //     a failed one is not repeated at once.
+            var cell = ((int)faction, (int)math.floor(target.x / 20f), (int)math.floor(target.z / 20f));
+            if (_reclaimCooldown.TryGetValue(cell, out float retryAt) && now < retryAt) return;
+
+            // A curse NODE is judged by the curse estimate (visible, last
+            // seen, garrison baseline — SimpleAISystem.CurseIntel.cs); a
+            // pending blood spawn has nothing standing yet.
+            var assess = targetIsNode
+                ? AssessCurseNode(em, faction, squad, target, Cfg.reclaimAssessRadius, now)
+                : AIEngagement.AssessAssault(em, faction, squad, target, Cfg.reclaimAssessRadius);
+            float margin = math.max(1.05f, Cfg.religionHuntPowerMargin);
+            int need = (int)math.ceil(assess.EnemyPower * margin);
+            int mine = assess.MyPower;
+            int minSquad = math.max(1, Cfg.reclaimMinSquadSize);
+            if ((mine < need || squad.Count < minSquad) && _reclaimExtra.Count > 0)
+            {
+                _reclaimExtra.Sort((a, b) =>
+                {
+                    int c = math.distancesq(em.GetComponentData<LocalTransform>(a).Position.xz, target.xz)
+                        .CompareTo(math.distancesq(em.GetComponentData<LocalTransform>(b).Position.xz, target.xz));
+                    return c != 0 ? c : a.Index.CompareTo(b.Index);
+                });
+                for (int i = 0; i < _reclaimExtra.Count && (mine < need || squad.Count < minSquad)
+                                && squad.Count < Cfg.claimCurseSquadMax; i++)
+                {
+                    squad.Add(_reclaimExtra[i]);
+                    mine += TacticalQuery.UnitStrength(em, _reclaimExtra[i]);
+                }
+            }
+            if (squad.Count < minSquad || (assess.EnemyPower > 0 && mine < need))
             {
                 int engaged = TacticalQuery.FactionStrengthInRadius(em, faction, target, Cfg.reclaimAssessRadius);
-                int mine = assess.MyPower + engaged;
-                if (mine <= 0 || assess.EnemyPower > mine * AIEngagement.DefaultCommitRatio)
-                {
-                    LogReclaimHeld(faction, now,
-                        $"held back at ({target.x:0},{target.z:0}): {squad.Count} free unit(s) power " +
-                        $"{assess.MyPower} (+{engaged} engaged) vs {assess.EnemyPower}");
-                    return;
-                }
+                LogReclaimHeld(faction, now,
+                    $"held back at ({target.x:0},{target.z:0}): {squad.Count} free unit(s) power " +
+                    $"{mine} vs {assess.EnemyPower} (needs {need} and {minSquad}+ units; " +
+                    $"{engaged} of ours already there do not count)");
+                return;
             }
 
             // One formation, not a per-unit stream; anyone already standing
             // on the node is re-poked on its own (AICommon.IssueGroupOrder).
             AICommon.IssueGroupOrder(em, squad, target, attackMove: true, Cfg.waveArrivedRadius);
+            _reclaimCooldown[cell] = now + math.max(0f, Cfg.reclaimRetrySeconds);
             int drafted = squad.Count;
-            if (drafted > 0)
-            {
-                TWBLog.Log($"[AI {faction}] veilstone-poor — {drafted} units sent to clear the " +
-                           $"curse node at ({target.x:0},{target.z:0}).");
-                AILogger.Log(faction, "RECLAIM",
-                    $"{drafted} units vs curse node at ({target.x:0},{target.z:0})");
-            }
+            TWBLog.Log($"[AI {faction}] {drafted} units sent to clear the " +
+                       $"curse node at ({target.x:0},{target.z:0}).");
+            AILogger.Log(faction, "RECLAIM",
+                $"{drafted} units vs curse node at ({target.x:0},{target.z:0}) (power {mine} vs {assess.EnemyPower})");
         }
+
+        /// <summary>(faction, 20 m cell of a curse node) -> sim time before
+        /// which no new reclaim squad may march on it (reclaimRetrySeconds).
+        /// Reset per match with the economy-defence state.</summary>
+        private readonly System.Collections.Generic.Dictionary<(int, int, int), float> _reclaimCooldown
+            = new System.Collections.Generic.Dictionary<(int, int, int), float>();
 
         private void TickAttackWaves(EntityManager em, Entity brainEntity, Faction faction,
             ref SimpleAIState aiState, AISettingsSO settings, AISettingsSO.PersonalityBlock personality,
@@ -1891,7 +2839,27 @@ namespace TheWaningBorder.AI
             // it regardless once a wave is late. Big armies wait to be armies.
             int bar = (int)math.round(profile.WaveBaseUnits
                                       * PlanProfileOf(faction).WaveBarScale);
-            int minUnits = math.max(2, math.max(bar, aiState.DesiredMilitary / 2));
+            // With a standing floor (Game_AI.md 6a) the wave is drawn from the
+            // surplus above it, so half of THAT is the bar.
+            int standFloor = StandingArmyFloor(faction, profile, aiState.DesiredMilitary);
+            int minUnits = math.max(2, math.max(bar, (aiState.DesiredMilitary - standFloor) / 2));
+
+            // A SHARE OF THE ARMY IT HAS, NOT OF THE ONE IT WANTS (2026-10-05,
+            // Mirror Marches v3). DesiredMilitary jumps to 200 at age-up, so
+            // half of it asked a 30-unit army for 85 idle, and the population
+            // clamp below made it worse for the tier that houses fastest:
+            // Expert's cap passed 200 by minute 15 and its bar read 66-73
+            // while Easy's read 30 — Expert attacked at 22-25 minutes against
+            // a 180 s earliest. A wave now also goes once waveLiveArmyShare
+            // of the LIVE army stands idle above the floor (never below the
+            // tier's base bar); the strength gate past strengthWaveAfterSeconds
+            // still decides whether that army is enough.
+            if (Cfg.waveLiveArmyShare > 0f)
+            {
+                int alive = CountAliveMilitary(em, faction);
+                int liveBar = (int)math.ceil(math.max(0, alive - standFloor) * math.saturate(Cfg.waveLiveArmyShare));
+                minUnits = math.max(bar, math.min(minUnits, liveBar));
+            }
 
             // NEVER ASK FOR MORE THAN THE POPULATION CAP CAN HOLD
             // (2026-09-12). DesiredMilitary is SustainArmyCap x the plan's
@@ -1952,11 +2920,11 @@ namespace TheWaningBorder.AI
                 if ((int)(now / 120f) != (int)((now - Cfg.waveRetrySeconds) / 120f))
                 {
                     TWBLog.Log($"[AI {faction}] wave {aiState.WaveNumber + 1} blocked at " +
-                               $"{(int)now}s (need {minUnits} idle military, posture " +
+                               $"{(int)now}s (need {minUnits} idle military above a standing floor of {standFloor}, posture " +
                                $"{aiState.Posture}, desired {aiState.DesiredMilitary})");
                     AILogger.Log(faction, "WAVE",
                         $"wave {aiState.WaveNumber + 1} BLOCKED at {(int)now}s " +
-                        $"(need {minUnits} idle, posture {aiState.Posture}, " +
+                        $"(need {minUnits} idle above standing floor {standFloor}, posture {aiState.Posture}, " +
                         $"desired {aiState.DesiredMilitary})");
                 }
             }

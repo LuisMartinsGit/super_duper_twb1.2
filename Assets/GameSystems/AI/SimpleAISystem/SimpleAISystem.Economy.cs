@@ -7,6 +7,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Core;
+using TheWaningBorder.World.Regions;
 using TheWaningBorder.Core.Commands;
 using TheWaningBorder.Core.Commands.Types;
 using TheWaningBorder.Data;
@@ -100,7 +101,7 @@ namespace TheWaningBorder.AI
             // the army toward the mix instead of stamping one unit type.
             aiState.LastMilitaryUnit = new FixedString64Bytes(
                 PickCompositionUnit(em, brainEntity, faction, now,
-                    RoleBudget.For(personality.personality), profile.IntelFreshnessSeconds));
+                    RoleBudget.For(personality.personality, personality.weight), profile.IntelFreshnessSeconds));
 
             // The army's veilstone claim follows the plan the pick just read
             // (on while a ladder line is behind or King Lexor is owed), and
@@ -114,8 +115,9 @@ namespace TheWaningBorder.AI
             // The floor moves with the plan too, so a massing AI starts
             // wanting troops immediately rather than waiting for the sustain
             // loop to inch its target up one unit at a time.
-            int floorWanted = math.max(1,
-                (int)math.round(personality.militaryFloor * PlanProfileOf(faction).ArmyScale));
+            int floorWanted = math.clamp(
+                (int)math.round(personality.militaryFloor * PlanProfileOf(faction).ArmyScale),
+                1, math.max(1, profile.SustainArmyCap));
             if (aiState.DesiredMilitary < floorWanted)
                 aiState.DesiredMilitary = floorWanted;
             // Workers follow THE WORKER RULE exactly (WorkerFloorFor) — set,
@@ -136,9 +138,13 @@ namespace TheWaningBorder.AI
                           + CountFactionBuildings<ArcheryRangeTag>(em, faction)
                           + CountFactionBuildings<RoyalStableTag>(em, faction)
                           + CountFactionBuildings<SiegeYardTag>(em, faction);
-                string want = total == 0 ? "Barracks" : ChooseNeededLine(em, faction, 0, out _);
-                if (want != null)
-                    TryBuildBuildingBudgeted(em, faction, want, AIBudgetCategory.Military);
+                string want = total == 0 ? "Barracks"
+                    : ChooseNeededLine(em, faction, ExtraBlockedMask(faction, now), out _);
+                if (want != null
+                    && !TryBuildBuildingBudgeted(em, faction, want, AIBudgetCategory.Military, true, out string why)
+                    && total > 0 && why != null
+                    && !IsMoneyRefusal(why) && !IsCrewRefusal(why) && !why.StartsWith("production:"))
+                    NoteExtraLinePlacementFailed(faction, want, why, now);
             }
 
             // (Gatherer's Hut growth moved to TickEconomy — the always-on
@@ -198,13 +204,17 @@ namespace TheWaningBorder.AI
             // queues up to one unit per trainer per tick — the parallel
             // buildings actually pump in parallel instead of growing the army
             // one unit per think tick regardless of capacity.
-            // THE PLAN SETS THE CEILING. A flat SustainArmyCap is why every
-            // AI wanted the same army: massing and booming are the same
-            // ambition with different excuses unless the target actually
-            // moves. Mass reaches well past the difficulty cap; Boom stays
-            // deliberately thin, which is what makes it punishable.
-            int armyCap = math.max(1,
-                (int)math.round(profile.SustainArmyCap * PlanProfileOf(faction).ArmyScale));
+            // THE PLAN SHAPES THE TARGET UNDER THE CAP. A flat SustainArmyCap
+            // is why every AI wanted the same army: massing and booming are
+            // the same ambition with different excuses unless the target
+            // actually moves. Boom stays deliberately thin, which is what
+            // makes it punishable. Mass used to reach PAST the difficulty
+            // cap; since the cap became a difficulty knob again (2026-10-05,
+            // Game_AI.md 2 — Easy is restricted to a small army) it is a hard
+            // ceiling here as it already was in the goal list (Goals.cs).
+            int armyCap = math.clamp(
+                (int)math.round(profile.SustainArmyCap * PlanProfileOf(faction).ArmyScale),
+                1, math.max(1, profile.SustainArmyCap));
 
             // AGE 0 IS THE RACE (Combat_Pacing.md). The goal list already
             // clamps its floor to a garrison of 8 pre-era-2, but THIS
@@ -218,6 +228,31 @@ namespace TheWaningBorder.AI
             // the goals: garrison until era 2, then the plan's ceiling.
             if (FactionEra(em, faction) < 2)
                 armyCap = math.min(armyCap, 8);
+
+            // THE ARMY KEEPS UP WITH THE GROUND (2026-10-05, Game_AI.md 3a).
+            // The target only ever grew by one per unit bought, and the
+            // escalator below stops under a savings hold — so a tier that
+            // saves (the Fortress pot, the capital level) froze its target
+            // near the opening floor, read its army as "at target", and put
+            // every surplus into the economy while Easy, which saves for
+            // nothing, climbed to 200. Expert lost to Easy in both seats of
+            // a 1v1 with a third of its unit spend. The target is now at
+            // least armyPerTerritory for every territory held, whatever the
+            // saves; the holds then yield to the floor (ArmyEssential).
+            if (FactionEra(em, faction) >= 2 && TerritoryOwnership.Ready && Cfg.armyPerTerritory > 0f)
+            {
+                int keepUp = math.min(armyCap,
+                    (int)math.round(TerritoryOwnership.CountOf(faction) * Cfg.armyPerTerritory));
+                if (aiState.DesiredMilitary < keepUp) aiState.DesiredMilitary = keepUp;
+            }
+
+            // THE CAP IS THE CAP, EVERY THINK (2026-10-05, Game_AI.md 2).
+            // Several paths raise the target — a unit bought (+1), the wave's
+            // strength gate, the curse hunt, the goal list — and with every
+            // tier at 200 none of them could matter. With Easy at 60 they
+            // did: its target read 83. Whatever raised it, the think ends
+            // with the target inside the tier's cap.
+            if (aiState.DesiredMilitary > armyCap) aiState.DesiredMilitary = armyCap;
 
             if (aiState.DesiredMilitary < armyCap
                 && CountAliveMilitary(em, faction) >= aiState.DesiredMilitary)
@@ -240,7 +275,7 @@ namespace TheWaningBorder.AI
                 for (int t = 0; t < burst && aiState.DesiredMilitary < armyCap; t++)
                 {
                     string unit = PickCompositionUnit(em, brainEntity, faction, now,
-                        RoleBudget.For(personality.personality), profile.IntelFreshnessSeconds);
+                        RoleBudget.For(personality.personality, personality.weight), profile.IntelFreshnessSeconds);
                     if (!belowGate && TechCatalog.TryGetUnit(unit, out var unitDef) && unitDef != null
                         && MilitaryHold(em, faction, unit, AICommon.ToCost(unitDef.cost)))
                         break;
@@ -283,7 +318,7 @@ namespace TheWaningBorder.AI
                     "emergency defence: tower started (rich and under attack)");
 
             string unit = PickCompositionUnit(em, brainEntity, faction, now,
-                RoleBudget.For(personalityKind), profile.IntelFreshnessSeconds);
+                RoleBudget.For(personalityKind, profile.PersonalityWeight), profile.IntelFreshnessSeconds);
             if (!string.IsNullOrEmpty(unit))
                 TryTrainUnitBudgeted(em, faction, unit, AIBudgetCategory.Military);
         }
@@ -575,7 +610,20 @@ namespace TheWaningBorder.AI
             {
                 int alive = CountAliveWorkers(em, faction);
                 int queued = CountQueuedByPredicate(em, faction, isWorker: true);
-                if (alive + queued < WorkerFloorFor(em, faction))
+                // NO CREW IS AN EMERGENCY (2026-10-05, Game_AI.md § 5i): with
+                // every worker dead nothing can rebuild the economy, so the
+                // first replacement goes bank-direct, past the wallets.
+                if (alive + queued == 0)
+                {
+                    if (TryTrainUnitWithReason(em, faction, "Worker", out string crewWhy))
+                        AILogger.Log(faction, "ECON", "no workers left — retraining one at once");
+                    else if (!_nextCrewLog.TryGetValue(faction, out float crewLogAt) || now >= crewLogAt)
+                    {
+                        _nextCrewLog[faction] = now + System.Math.Max(1f, Cfg.econLogInterval);
+                        AILogger.Log(faction, "ECON", $"no workers left — retrain blocked ({crewWhy})");
+                    }
+                }
+                else if (alive + queued < WorkerFloorFor(em, faction))
                     TryTrainUnitBudgeted(em, faction, "Worker", AIBudgetCategory.EconomyExpansion);
             }
 
@@ -922,7 +970,11 @@ namespace TheWaningBorder.AI
             if (!TechCatalog.TryGetUnit(unitId, out var def) || def == null)
             { blockReason = "no catalog def for " + unitId; return false; }
             var cost = AICommon.ToCost(def.cost);
-            if (!AIBudget.TryAfford(faction, cat, cost))
+            // A combat unit the army needs (ArmyEssential) — or any combat
+            // unit on an armyBeforeSaves tier — ignores the lump-sum
+            // reservation; it still has to fit the bank.
+            bool honour = !(cat == AIBudgetCategory.Military && ArmyOutranksSaves(faction));
+            if (!AIBudget.TryAfford(faction, cat, cost, 0f, honour))
             {
                 blockReason = $"{cat} budget short for {unitId}";
                 // RECORD THE REFUSAL (2026-10-03, the AI silent-failure

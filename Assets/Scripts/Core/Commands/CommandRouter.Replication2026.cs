@@ -414,7 +414,7 @@ namespace TheWaningBorder.Core.Commands
         //
         // Moves resources between the faction bank (checksummed) and the
         // vault's VaultStorage — both sides of the move must land on every
-        // peer, and interest compounding starts from the stored amount.
+        // peer, and the simple-interest principal is re-based on every move.
         // docs/Multiplayer_Desync_Sweep_2026-08-16.md
         // ═══════════════════════════════════════════════════════════════
 
@@ -825,6 +825,10 @@ namespace TheWaningBorder.Core.Commands
                         em, faction, VaultTransferCost(resourceType, amount), TheWaningBorder.Economy.SpendCategory.Vault)) return;
                 vault.ResourceType = resourceType;
                 vault.StoredAmount += amount;
+                // Interest is SIMPLE and paid on the principal only (decision
+                // 41): a deposit re-bases the principal to everything stored,
+                // and VaultInterestSystem never adds its own payout to it.
+                vault.Principal = vault.StoredAmount;
             }
             else
             {
@@ -833,6 +837,7 @@ namespace TheWaningBorder.Core.Commands
                 TheWaningBorder.Economy.FactionEconomy.Add(
                     em, faction, VaultTransferCost(vault.ResourceType, withdraw), TheWaningBorder.Economy.IncomeSource.Vault);
                 vault.StoredAmount = 0f;
+                vault.Principal = 0f;
                 vault.ResourceType = 0;
             }
             vault.LockTimer = vault.LockDuration;

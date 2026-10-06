@@ -203,6 +203,19 @@ namespace TheWaningBorder.Systems.Combat
                             : default;
                         TheWaningBorder.Core.Diagnostics.MatchMetrics.RecordUnitDeath(
                             victim, killer, attributed, dpos.x, dpos.z);
+                        TheWaningBorder.Core.Diagnostics.MatchScore.NoteUnitDeath(victim, killer, attributed);
+                    }
+                    // A RAZED BUILDING COUNTS FOR THE SCORE (docs/Design/Score.md):
+                    // the razer is whoever last damaged it, when that is known.
+                    if (isBuilding && state.EntityManager.HasComponent<FactionTag>(dead))
+                    {
+                        var bVictim = state.EntityManager.GetComponentData<FactionTag>(dead).Value;
+                        bool bAttributed = state.EntityManager.HasComponent<LastDamagedByFaction>(dead)
+                            && TransientState.Active<LastDamagedByFaction>(state.EntityManager, dead);
+                        var razer = bAttributed
+                            ? state.EntityManager.GetComponentData<LastDamagedByFaction>(dead).Value
+                            : bVictim;
+                        TheWaningBorder.Core.Diagnostics.MatchScore.NoteBuildingRazed(bVictim, razer, bAttributed);
                     }
 
                     // A LOST BUILDING IS A RECORDED EVENT.

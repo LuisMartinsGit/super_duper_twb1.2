@@ -114,6 +114,10 @@ namespace TheWaningBorder.Core.Localization
             t["Vault of Almiérra"] = "Cofre de Almiérra";
             t["Fiendstone Keep"] = "Fortaleza de Fiendstone";
             t["Forge"] = "Forja";
+            t["Buy Veilstone"] = "Comprar Veilstone";
+            t["Forge Veilsteel"] = "Forjar Veilsteel";
+            t["Sell Veilsteel"] = "Vender Veilsteel";
+            t["Hold Trade"] = "Suspender Comércio";
             t["The Reliquary"] = "O Relicário";
             t["Reliquary"] = "Relicário";
             t["Wall Hub"] = "Nó de Muralha";

@@ -21,7 +21,9 @@
 //   Metrics_Research.csv   end of match: every completed tech, per faction
 //   Metrics_Placement.csv  end of match: every building's id and position
 //   Metrics_Combat.csv     end of match: kills and deaths per faction, by
-//                          minute (fed live by DeathSystem)
+//                          minute (fed live by DeathSystem), plus melee
+//                          hits and flank hits landed (fed by
+//                          MeleeCombatSystem; Combat_Pacing.md § Flanking)
 //   Metrics_Deaths.csv     every unit death as an EVENT: time, victim,
 //                          killer, position — where the battles were
 //   Metrics_UnitPositions.csv  every unit's position, sampled every other
@@ -98,6 +100,21 @@ namespace TheWaningBorder.Core.Diagnostics
         // plays twice does not carry the first match's tally into the second.
         private static readonly Dictionary<(int, int), int> _kills = new();
         private static readonly Dictionary<(int, int), int> _deaths = new();
+        // Melee hits / flank hits LANDED, keyed by the attacker's faction.
+        private static readonly Dictionary<(int, int), int> _meleeHits = new();
+        private static readonly Dictionary<(int, int), int> _flankHits = new();
+
+        /// <summary>One melee swing landed; <paramref name="flank"/> when it
+        /// was outside the defender's front arc. Counters only — nothing is
+        /// logged per hit.</summary>
+        public static void RecordMeleeHit(Faction attacker, bool flank)
+        {
+            if (!Enabled) return;
+            var key = ((int)(MatchTime / 60f), (int)attacker);
+            _meleeHits[key] = _meleeHits.TryGetValue(key, out int m) ? m + 1 : 1;
+            if (flank)
+                _flankHits[key] = _flankHits.TryGetValue(key, out int f) ? f + 1 : 1;
+        }
 
         // ── death events, with position — flushed incrementally by Sample
         // so a session still in flight has them too (the placement ledger's
@@ -129,6 +146,8 @@ namespace TheWaningBorder.Core.Diagnostics
             MatchTime = 0f;
             _kills.Clear();
             _deaths.Clear();
+            _meleeHits.Clear();
+            _flankHits.Clear();
             _deathEvents.Clear();
             EconomyLedger.Reset();
             _prevBankValid = false;
@@ -168,6 +187,7 @@ namespace TheWaningBorder.Core.Diagnostics
             Write("Metrics_BuildingEvents.csv", "t,faction,buildingId,x,z,event\n");
             Write("Metrics_Income.csv",
                 "t,faction,flow,source,supplies,iron,veilstone,veilsteel\n");
+            Write("Metrics_Score.csv", MatchScore.CsvHeader);
         }
 
         // ── income / spending ledger (2026-10-04) ──
@@ -437,6 +457,11 @@ namespace TheWaningBorder.Core.Diagnostics
             _prevBankValid = true;
             Write("Metrics_Units.csv", un.ToString());
             Write("Metrics_Buildings.csv", bl.ToString());
+
+            // ── the Score (MatchScoreSystem's latest rows, docs/Design/Score.md) ──
+            var sc = new StringBuilder();
+            MatchScore.AppendCsvRows(sc, t);
+            if (sc.Length > 0) Write("Metrics_Score.csv", sc.ToString());
         }
 
         /// <summary>
@@ -478,16 +503,20 @@ namespace TheWaningBorder.Core.Diagnostics
             Write("Metrics_Research.csv", res.ToString());
 
             // ── kills / deaths, by minute ──
-            var combat = new StringBuilder("minute,faction,kills,deaths\n");
+            var combat = new StringBuilder("minute,faction,kills,deaths,meleeHits,flankHits\n");
             var minutes = new SortedSet<(int, int)>();
             foreach (var k in _kills.Keys) minutes.Add(k);
             foreach (var k in _deaths.Keys) minutes.Add(k);
+            foreach (var k in _meleeHits.Keys) minutes.Add(k);
             foreach (var key in minutes)
             {
                 _kills.TryGetValue(key, out int kk);
                 _deaths.TryGetValue(key, out int dd);
+                _meleeHits.TryGetValue(key, out int mh);
+                _flankHits.TryGetValue(key, out int fh);
                 combat.Append(key.Item1).Append(',').Append((Faction)key.Item2)
-                      .Append(',').Append(kk).Append(',').Append(dd).Append('\n');
+                      .Append(',').Append(kk).Append(',').Append(dd)
+                      .Append(',').Append(mh).Append(',').Append(fh).Append('\n');
             }
             Write("Metrics_Combat.csv", combat.ToString());
         }

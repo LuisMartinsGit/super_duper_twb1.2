@@ -49,6 +49,54 @@ the whole batch. With it, only the match's own `-Limit` (simulated seconds)
 ends a match — which is what you want when the question is "how does a real
 game end" rather than "how many can I get through".
 
+### AI difficulty and run labels (single-player batches)
+
+```powershell
+# every Red AI at Expert, everyone else at the default (Normal)
+.\tools\twb-run.ps1 -Exe ".\Build\Current\The Waning Border.exe" `
+    -Mode single -Matches 6 -FactionDifficulty "Red=Expert" -Label "Red = Expert"
+
+# every AI at Expert
+.\tools\twb-run.ps1 -Exe ".\Build\Current\The Waning Border.exe" `
+    -Mode single -Matches 6 -Difficulty Expert -Label "All Expert"
+
+# combined: everyone Hard except Red Expert and Blue Easy
+.\tools\twb-run.ps1 -Exe ".\Build\Current\The Waning Border.exe" `
+    -Mode single -Difficulty Hard -FactionDifficulty "Red=Expert,Blue=Easy" -Label "Hard, Red up, Blue down"
+```
+
+| runner | game flag (`HeadlessBatch`) | meaning |
+|---|---|---|
+| `-Difficulty <L>` | `-twbDifficulty <L>` | every AI slot at `Easy`, `Normal`, `Hard` or `Expert` |
+| `-FactionDifficulty "F=L,F=L"` | `-twbFactionDifficulty F=L,F=L` | per colour (Blue, Red, Green, Yellow, Purple, Orange, Teal, White); overrides `-Difficulty` for the colours it names |
+| `-Label "<text>"` | `-twbLabel "<text>"` | free-text run label |
+
+Omitted, nothing changes: every AI is Normal and there is no label. The
+difficulty is written to the same lobby-slot field the skirmish lobby sets,
+so `AIBootstrap` reads it exactly as for a hand-started match. A bad level or
+a colour that is not an AI slot in that match is logged as an error and
+skipped, never guessed.
+
+The game writes the label and the **resolved** roster (difficulty plus the
+personality `AIBootstrap` will actually build, colour default included) into
+the match header in `Console.log` and into `Summary.txt`:
+
+```
+Label       : Red = Expert
+AI          : Blue Normal Turtle, Red Expert Rush, Green Normal Economic, Yellow Normal TechBoom
+```
+
+The Muster Rolls page puts `[label]` in front of the map name in the run
+picker, the header eyebrow and the ledger, and shows each faction's
+difficulty and personality beside its swatch. Logs from before the flags
+existed simply show no label.
+
+These flags are read by the single-player batch only (`-Mode single`, and
+`-Mode loop` when it runs single); lockstep matches (`HeadlessMp`) ignore
+them. The runner quotes every value it forwards, so a label with spaces
+survives PowerShell 5.1's `Start-Process -ArgumentList`, which joins items
+with bare spaces.
+
 ## Reading them
 
 ```powershell
@@ -123,6 +171,97 @@ replay, army composition, standing buildings and where they were built,
 research taken per faction, the economy series, kills and deaths per minute,
 the curse's story, and how each faction finished.
 
+**The score (2026-10-05, [docs/Design/Score.md](../docs/Design/Score.md)).**
+The game writes `Metrics_Score.csv` every 15 s sample, one row per faction:
+`t,faction,score,economy,strategy,military,earned,incomePerMin,territories,fortresses,techs,levels,kills,deaths,razed,kd`,
+with `score = economy + strategy + military` and `kd = kills / max(1, deaths)`
+(Summary.txt repeats the final line; the CSV is the source). The extractor
+carries it as `score = {ts, f: {faction: {s, e, st, m, kd}}, final: {faction:
+{...the last row}}}` — one shared time axis, thinned like every series, with
+`null` where a faction had no row — plus `scoreLeader = [faction, score]`,
+which also rides in the light summary and the run ledger. The page shows a
+**Score** section under the header (standings ranked by final score with the
+three parts, K/D, territories, Fortresses and techs, and a score-over-time
+line per faction), names the leader in the spec line, and marks the
+winner-by-score on each run picker tile and ledger row. A match recorded
+before the file existed has no section. Live mode carries the latest row per
+faction as `score.final` and the page grows the series one point per snapshot.
+
+## Live mode: watching a match that is still running (2026-10-05)
+
+The folder page can follow ONE running match in place, without reloading,
+through the artifact `db` capability. The page subscribes to a single
+document, **`live/state`**; whenever it is rewritten the page redraws.
+
+`twb-live-snapshot.py` builds that document from the logs the match is
+writing:
+
+```powershell
+python tools/twb-live-snapshot.py "Build/Headless36/logs/<stamp>_<Map>" live.json
+# 2026-10-05_13-06-50_SunderedCrown  t=2051.4  179 units, 669 buildings, 4 factions  30.7 KB  (0.15 s)
+```
+
+It reads `MapTrace.txt` (every non-position line from the whole file in one
+regex pass, positions from the tail only), the last `Metrics_Faction.csv` row
+per faction, the `Console.log` header (label, AI roster, world extent) and
+`Summary.txt` (present once the match has ended). It is safe against a file
+mid-write: a last line with no newline is ignored, and while the match runs
+the frame BEFORE the newest is used (the newest may be half written). A 75 MB
+trace takes about a second.
+
+The document: `matchKey` (the log folder name), `map`, `label`, `aiRoster`,
+`t` (game seconds), `seq` (t in deciseconds; the page redraws only when it
+changes), `wrote` (epoch ms, for "updated N s ago"), `finished`, `outcome`,
+`world`, `facs`, `factions` (units, army, pop/popMax, the four banks,
+territories, buildings), `utypes` + `units` (`[facIdx, x2, z2, typeIdx,
+flags]`), `btypes` + `buildings` (`[facIdx, typeIdx, level, site, x2, z2, w2,
+h2, yaw, gx?, gz?, gw?, gh?]`), `terrOwner`, `meter`, `terr` (the partition,
+run-length rows), `regions`, `nodes`, `curse`. Coordinates are half-metre
+integers. 15-50 KB in practice; a `db` document holds 256 KiB, and the script
+keeps it under 200 KB by thinning units evenly (it says so in `cap` and on the
+page; `--max-units N` forces a cap).
+
+**Publishing, once:** build the folder as usual and publish `index.html`
+(with `matches/` and `maps/` as its files) with `capabilities: {db: {}}`.
+The default rules let anyone admitted read and Contributors and up write; to
+let only editors write the feed, declare
+`{db: {rules: [{path: "", read: "view", write: "admin"}]}}` instead.
+
+**Every update (every 20-30 s while the match runs):**
+
+1. `python tools/twb-live-snapshot.py <match-log-dir> live.json`
+2. write it with the ArtifactData tool: action **`set`** (never `update` --
+   `update` merges objects, so a territory that changed hands would keep its
+   old owner), `collection: "live"`, `doc_id: "state"`, `file_path` =
+   `live.json`, `url` = the published page, and `if_version` = the `version`
+   the previous `set` returned (omit it only on the very first write, when the
+   document does not exist yet; if a write is refused for a version mismatch,
+   `get` the document once and retry with the version it shows).
+
+Skip the write when the printed `t=` has not moved (the page ignores a
+rewrite with the same `seq` anyway). Stop when the line ends `FINISHED`; the
+page then shows ENDED. To follow another match, just write its snapshot: a
+new `matchKey` replaces the live entry.
+
+**What the page does.** With no `db` (signed out, not granted, a local file,
+`python -m http.server`) or no `live/state` document, nothing changes: it is
+the replay viewer. With one, a **LIVE** entry appears first in the run strip
+(even when the match is not in the index yet; its map picture is taken from
+`maps/<map>.png` when the folder has one) and a bar above the map shows the
+badge (LIVE; STALE after 5 minutes without a write; ENDED once `Summary.txt`
+exists), the game time, "updated N s ago" and the Follow toggle. The page
+opens on the live match when it is running and no `?m=` deep link chose a
+replay. While following, each new snapshot redraws in place: every unit at
+the snapshot second with the replay's symbols and formation glyphs, every
+standing building with its level pips and dashed sites, the territory tint
+and meters, the standing table, composition, structures and roster; the
+economy charts grow by one point per snapshot for as long as the page is
+open. Pan and zoom are kept across updates. "Follow live" off freezes the
+view (the bar says how far behind it is); choosing any other match is the
+normal replay, and new snapshots never pull the reader away from it. The
+replay-only sections (transport, waves, research, income, kills, curse
+story) are hidden on the live entry.
+
 ## What was here before
 
 Nine files did this work and overlapped badly. They are gone (2026-09-24):
@@ -168,6 +307,7 @@ three.
 | `Metrics_Combat.csv` | end of match: kills and deaths per faction, by minute |
 | `Metrics_Deaths.csv` | every death as an event — where the battles were |
 | `Metrics_UnitPositions.csv` | positions, sampled — the match unfolding on the map |
+| `Metrics_Score.csv` | per sample (since 2026-10-05): `t,faction,score,economy,strategy,military,earned,incomePerMin,territories,fortresses,techs,levels,kills,deaths,razed,kd` — the per-faction score and its three parts ([docs/Design/Score.md](../docs/Design/Score.md)); `score = economy + strategy + military`, `kd = kills / max(1, deaths)` |
 | `Metrics_Income.csv` | per sample (since 2026-10-04): `t,faction,flow,source,supplies,iron,veilstone,veilsteel` — what moved in the period ENDING at `t`. `flow=in` is GROSS income by source (`emptySlot`, `gatherersHut`, `mine`, `veilstoneMine`, `fortressLevel` = the capital-level x2/x4 share of territory yield, `capital`, `buildingPassive`, `trade`, `vault`, `curseKill`, `loot`, `refund`, `grant`, `other`); `flow=out` is spending by category (`units`, `buildings`, `upgrades`, `research`, `ageUp`, `trade`, `repair`, `religion`, `vault`, `overflow` = clamped by the 100k bank cap, `other`). `untracked` (either flow) is the bank delta the ledger did not see — a direct bank write. Only non-zero rows. Fed by `Economy/EconomyLedger.cs`, observation only |
 
 plus `Lockstep.log` (a checksum row per tick, per peer), `Console.log`,

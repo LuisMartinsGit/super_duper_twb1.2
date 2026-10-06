@@ -137,12 +137,6 @@ namespace TheWaningBorder.AI
                 if (!em.HasComponent<FactionEra>(bank)) continue;
                 if (em.GetComponentData<FactionEra>(bank).Value < 2) continue;
 
-                if (em.HasComponent<AIStrategyState>(brainEntity))
-                {
-                    var ss = em.GetComponentData<AIStrategyState>(brainEntity);
-                    if (ss.HasAgedUp == 0) { ss.HasAgedUp = 1; em.SetComponentData(brainEntity, ss); }
-                }
-
                 ConscriptSurplusWorkers(em, faction, hallPos);
                 // Mines and Raider Camps (Gatherer's Huts) are NOT built here
                 // (2026-10-03): this system searched a ring beside the ore and

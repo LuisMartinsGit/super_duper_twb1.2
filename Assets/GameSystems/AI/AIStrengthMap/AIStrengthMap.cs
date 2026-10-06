@@ -339,6 +339,38 @@ namespace TheWaningBorder.AI
             return sum;
         }
 
+        /// <summary>
+        /// Units of exactly <paramref name="faction"/> inside the radius, and
+        /// their summed strength (same scale as <see cref="StrengthInRadius"/>).
+        /// The curse-node estimate needs the COUNT, because a Crystalling
+        /// pack's damage grows with its size (BorderSettingsSO
+        /// crystallingPack*) and the per-unit strength cannot show that.
+        /// </summary>
+        public static int UnitsOfFactionInRadius(EntityManager em, float3 pos, float radius,
+            Faction faction, out int strength)
+        {
+            var s = EnsureReadable(em);
+            float r2 = radius * radius;
+            int count = 0;
+            strength = 0;
+            s.Range(pos, radius, out int x0, out int z0, out int x1, out int z1);
+            for (int z = z0; z <= z1; z++)
+                for (int x = x0; x <= x1; x++)
+                {
+                    int c = z * s.W + x;
+                    for (int k = s.CellStart[c]; k < s.CellStart[c + 1]; k++)
+                    {
+                        ref readonly var r = ref s.Recs[s.CellItems[k]];
+                        if (r.Kind != KindUnit || r.F != faction) continue;
+                        float dx = r.X - pos.x, dz = r.Z - pos.z;
+                        if (dx * dx + dz * dz > r2) continue;
+                        count++;
+                        strength += r.Strength;
+                    }
+                }
+            return count;
+        }
+
         /// <summary>Hostile static defence power inside the radius —
         /// AIEngagement.StaticDefencePower's number.</summary>
         public static int StaticPowerInRadius(EntityManager em, Faction faction, float3 pos, float radius)
@@ -392,6 +424,100 @@ namespace TheWaningBorder.AI
                         into.Add(r.E);
                     }
                 }
+        }
+
+        /// <summary>
+        /// <see cref="HostileUnitCandidates"/> for the OTHER side: units of
+        /// <paramref name="faction"/> and its allies. Candidates only, same
+        /// margin and staleness — the caller re-reads live state. Used by the
+        /// tactics layer's ability value checks (AITactics).
+        /// </summary>
+        public static void FriendlyUnitCandidates(EntityManager em, Faction faction,
+            float3 pos, float radius, System.Collections.Generic.List<Entity> into)
+        {
+            into.Clear();
+            var s = EnsureReadable(em);
+            float reach = radius + math.max(0f, Cfg.candidateMargin);
+            float r2 = reach * reach;
+            s.Range(pos, reach, out int x0, out int z0, out int x1, out int z1);
+            for (int z = z0; z <= z1; z++)
+                for (int x = x0; x <= x1; x++)
+                {
+                    int c = z * s.W + x;
+                    for (int k = s.CellStart[c]; k < s.CellStart[c + 1]; k++)
+                    {
+                        ref readonly var r = ref s.Recs[s.CellItems[k]];
+                        if (r.Kind != KindUnit) continue;
+                        if (!Alliances.AreAllied(faction, r.F)) continue;
+                        float dx = r.X - pos.x, dz = r.Z - pos.z;
+                        if (dx * dx + dz * dz > r2) continue;
+                        into.Add(r.E);
+                    }
+                }
+        }
+
+        /// <summary>
+        /// The faction's own (or an ally's) building that SHOOTS — static
+        /// power above zero — nearest to <paramref name="pos"/> within
+        /// <paramref name="radius"/>, as a fall-back anchor for an army that
+        /// is losing (AITactics). Ties go to the lower entity index.
+        /// </summary>
+        public static bool NearestFriendlyDefence(EntityManager em, Faction faction,
+            float3 pos, float radius, out float3 at, out int power)
+        {
+            at = default; power = 0;
+            var s = EnsureReadable(em);
+            float r2 = radius * radius;
+            float best = float.MaxValue;
+            Entity bestE = Entity.Null;
+            s.Range(pos, radius, out int x0, out int z0, out int x1, out int z1);
+            for (int z = z0; z <= z1; z++)
+                for (int x = x0; x <= x1; x++)
+                {
+                    int c = z * s.W + x;
+                    for (int k = s.CellStart[c]; k < s.CellStart[c + 1]; k++)
+                    {
+                        ref readonly var r = ref s.Recs[s.CellItems[k]];
+                        if (r.Kind != KindBuilding || r.StaticPower <= 0) continue;
+                        if (!Alliances.AreAllied(faction, r.F)) continue;
+                        float dx = r.X - pos.x, dz = r.Z - pos.z;
+                        float d2 = dx * dx + dz * dz;
+                        if (d2 > r2) continue;
+                        if (d2 < best || (d2 == best && r.E.Index < bestE.Index))
+                        {
+                            best = d2; bestE = r.E;
+                            at = new float3(r.X, pos.y, r.Z);
+                            power = r.StaticPower;
+                        }
+                    }
+                }
+            return bestE != Entity.Null;
+        }
+
+        /// <summary>Own-side (own + allies) static defence power inside the
+        /// radius — the friendly mirror of <see cref="StaticPowerInRadius"/>.</summary>
+        public static int FriendlyStaticPowerInRadius(EntityManager em, Faction faction,
+            float3 pos, float radius)
+        {
+            var s = EnsureReadable(em);
+            float r2 = radius * radius;
+            int sum = 0;
+            s.Range(pos, radius, out int x0, out int z0, out int x1, out int z1);
+            for (int z = z0; z <= z1; z++)
+                for (int x = x0; x <= x1; x++)
+                {
+                    int c = z * s.W + x;
+                    for (int k = s.CellStart[c]; k < s.CellStart[c + 1]; k++)
+                    {
+                        ref readonly var r = ref s.Recs[s.CellItems[k]];
+                        if (r.Kind != KindBuilding || r.StaticPower < 0) continue;
+                        if (!Alliances.AreAllied(faction, r.F)) continue;
+                        float dx = r.X - pos.x, dz = r.Z - pos.z;
+                        if (dx * dx + dz * dz > r2) continue;
+                        sum += r.StaticPower;
+                    }
+                }
+            return sum;
         }
     }
 }

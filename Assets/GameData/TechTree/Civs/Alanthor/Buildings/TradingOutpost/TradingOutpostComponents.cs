@@ -16,6 +16,10 @@ public enum TradeRecipe : byte
     ForgeVeilsteel = 1,
     /// <summary>Veilsteel → iron + supplies (research: Veilsteel Export).</summary>
     SellVeilsteel = 2,
+    /// <summary>Trades nothing: the post stands idle, spending and earning
+    /// nothing, until set to a trade again (Veilstone_Economy.md §3.1,
+    /// 2026-10-05). Always available.</summary>
+    Hold = 3,
 }
 
 /// <summary>

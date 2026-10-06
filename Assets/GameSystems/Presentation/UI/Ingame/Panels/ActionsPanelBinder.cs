@@ -617,6 +617,7 @@ namespace TheWaningBorder.UI.Ingame
                 case "OutpostMode_0":
                 case "OutpostMode_1":
                 case "OutpostMode_2":
+                case "OutpostMode_3":
                     TheWaningBorder.Core.Commands.CommandRouter.IssueSetOutpostMode(
                         em, entity, (TradeRecipe)(b.Id[b.Id.Length - 1] - '0'));
                     _timer = RefreshInterval;
@@ -791,7 +792,7 @@ namespace TheWaningBorder.UI.Ingame
                 ? $"{(int)vault.StoredAmount} {Loc.T(VaultResourceNames[vault.ResourceType])}"
                 : Loc.T("Empty");
             _statusA.text = string.Format(
-                Loc.T("Interest: {0:F0}%/min (compound)   Stored: {1}"),
+                Loc.T("Interest: {0:F0}%/min (simple, on the deposit)   Stored: {1}"),
                 vault.InterestRate * 100f, stored);
 
             bool locked = vault.LockTimer > 0f;
@@ -821,7 +822,7 @@ namespace TheWaningBorder.UI.Ingame
                     && (vault.ResourceType == 0 || vault.ResourceType == sel)
                     && FactionEconomy.CanAfford(em, faction, VaultCost(sel, amt));
                 AddWideButton(string.Format(Loc.T("Deposit {0}"), amt), canDeposit,
-                    Loc.T("Deposits lock the vault for a while; interest compounds per minute."),
+                    Loc.T("Deposits lock the vault for a while; the deposit earns simple interest per minute, up to the Vault's cap."),
                     () => VaultAction(entity, sel, amt, deposit: true));
             }
 

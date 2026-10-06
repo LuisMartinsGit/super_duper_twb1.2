@@ -285,6 +285,7 @@ namespace TheWaningBorder.UI.Ingame
                     {
                         case TradeRecipe.ForgeVeilsteel: _rows[f].OutForge++; break;
                         case TradeRecipe.SellVeilsteel: _rows[f].OutSell++; break;
+                        case TradeRecipe.Hold: break;   // idle, counted in no trade
                         default: _rows[f].OutBuy++; break;
                     }
                 }
@@ -471,7 +472,7 @@ namespace TheWaningBorder.UI.Ingame
         {
             Collect(em);
             var sb = new StringBuilder(1024);
-            sb.AppendLine("<b>Faction        Age/Cult  Supplies         Iron             Veilstone        Veilsteel        Pop       Terr(cut)  Mil/Eco  Bld(+site/plan)  Outposts b/f/s  RP (pts)</b>");
+            sb.AppendLine("<b>Faction        Age/Cult  Supplies         Iron             Veilstone        Veilsteel        Pop       Terr(cut)  Mil/Eco  Bld(+site/plan)  Outposts b/f/s  RP (pts)   Score (eco/strat/mil)  K/D</b>");
             for (int f = 0; f < MaxFactions; f++)
             {
                 var r = _rows[f];
@@ -490,7 +491,10 @@ namespace TheWaningBorder.UI.Ingame
                 sb.Append($"{r.Military,3}/{r.Economy,-4} ");
                 sb.Append($"{r.Buildings,3}(+{r.UnderConstruction}/{r.Plans})      ");
                 sb.Append($"{r.OutBuy}/{r.OutForge}/{r.OutSell}            ");
-                sb.Append($"{r.Rp} ({r.RpHave}/{r.RpNeed})");
+                sb.Append($"{r.Rp} ({r.RpHave}/{r.RpNeed})".PadRight(11));
+                // The Score (docs/Design/Score.md): MatchScoreSystem's latest sample.
+                if (TheWaningBorder.Core.Diagnostics.MatchScore.TryGet(fac, out var score))
+                    sb.Append($"{score.Score,6:F0} ({score.Economy:F0}/{score.Strategy:F0}/{score.Military:F0})  {score.Kd:F2}");
                 sb.AppendLine();
             }
             _table.text = sb.ToString();

@@ -90,6 +90,17 @@ namespace TheWaningBorder.AI
             /// the next line may be written.</summary>
             public int ArmyYields;
             public float ArmyNextLog;
+
+            /// <summary>UNITS BEFORE ECONOMY (see SetTrainerStatus): the
+            /// tier's flag, the finished trainers, how many sit below the
+            /// tier's queue depth, and when that was read.</summary>
+            public bool UnitsFirst;
+            public int Trainers, TrainersIdle;
+            public float TrainerStamp = -1f;
+            /// <summary>Deferrals since the last ECON line, and when the next
+            /// line may be written.</summary>
+            public int EconDeferrals;
+            public float EconNextLog;
         }
 
         /// <summary>Resource indices for <see cref="IsMilitaryShort"/> — the
@@ -276,6 +287,15 @@ namespace TheWaningBorder.AI
         /// Advancement allocation into a REAL floor in the shared bank —
         /// see the note on <see cref="CanSpend"/>.
         /// </summary>
+        /// <summary>The measured gross income of one resource, per second
+        /// (the EMA every Tick updates; 0 before the first sample). Read by
+        /// the economy-distress test (Game_AI.md § 5i).</summary>
+        public static float IncomePerSecond(Faction faction, int resource)
+        {
+            var b = GetBrain(faction);
+            return !b.Seeded || resource < 0 || resource >= Resources ? 0f : b.IncomeEma[resource];
+        }
+
         public static int WalletSupplies(Faction faction, AIBudgetCategory cat)
         {
             var b = GetBrain(faction);
@@ -408,6 +428,11 @@ namespace TheWaningBorder.AI
         public static void Reserve(Faction faction, Cost cost, float now, float holdSeconds,
             int priority = 0)
         {
+            // ONE CLOCK (2026-10-05): callers armed this on match time and
+            // TryAfford checked it on engine time, so a hold armed 10 s into
+            // the match (or minutes, in the editor) was short by the anchor
+            // or dead on arrival. Every reservation read now uses SimClock.
+            now = TheWaningBorder.Core.SimClock.Now;
             var b = GetBrain(faction);
             if (now < b.ReserveExpiry && priority < b.ReservePriority) return;
             b.ReservePriority = priority;
@@ -434,9 +459,27 @@ namespace TheWaningBorder.AI
             b.ReservePriority = 0;
         }
 
+        /// <summary>Can the bank cover <paramref name="cost"/> WITHOUT touching
+        /// the live reservation? For spenders that pay the bank directly
+        /// (building levels) rather than through a wallet — they used to
+        /// read the whole bank and spent the Fortress pot every release.</summary>
+        public static bool CanAffordOutsideReservation(EntityManager em, Faction faction, Cost cost)
+        {
+            if (!FactionEconomy.CanAfford(em, faction, cost)) return false;
+            var b = GetBrain(faction);
+            if (!b.Seeded) return true;
+            float now = TheWaningBorder.Core.SimClock.Now;
+            if (!FactionEconomy.TryGetResources(em, faction, out var res)) return true;
+            return res.Supplies  - ReservedAmount(b, 0, now) >= cost.Supplies
+                && res.Iron      - ReservedAmount(b, 1, now) >= cost.Iron
+                && res.Veilstone - ReservedAmount(b, 2, now) >= cost.Veilstone
+                && res.Veilsteel - ReservedAmount(b, 3, now) >= cost.Veilsteel;
+        }
+
         /// <summary>True while a reservation is being held for this faction.</summary>
         public static bool IsReserving(Faction faction, float now)
         {
+            now = TheWaningBorder.Core.SimClock.Now;
             var b = GetBrain(faction);
             if (now >= b.ReserveExpiry) return false;
             for (int r = 0; r < Resources; r++) if (b.Reserved[r] > 0f) return true;
@@ -484,6 +527,7 @@ namespace TheWaningBorder.AI
         /// </summary>
         private static float ReservedAmount(BrainBudget b, int r, float now)
         {
+            now = TheWaningBorder.Core.SimClock.Now;
             if (now >= b.ReserveExpiry || b.Reserved[r] <= 0f) return 0f;
 
             float bank = 0f;
@@ -702,6 +746,17 @@ namespace TheWaningBorder.AI
             return b.ArmyStamp >= 0f && SimClock.Now - b.ArmyStamp <= Cfg.armyFirstStatusMaxAge;
         }
 
+        /// <summary>The army's latest reading — alive-and-queued and desired
+        /// (SetArmyStatus); false when there is none or it is stale. Read by
+        /// the wall doctrine's personality gate (Game_AI.md § 3).</summary>
+        public static bool TryGetArmyStatus(Faction faction, out int alive, out int desired)
+        {
+            var b = GetBrain(faction);
+            alive = b.ArmyAlive;
+            desired = b.ArmyDesired;
+            return b.ArmyStamp >= 0f && SimClock.Now - b.ArmyStamp <= Cfg.armyFirstStatusMaxAge;
+        }
+
         /// <summary>
         /// Null when this surplus spend may go; otherwise why it yields to the
         /// army (see the block comment above). The caller logs through
@@ -756,6 +811,89 @@ namespace TheWaningBorder.AI
             AILogger.Log(faction, "ARMYFIRST",
                 $"{what} yields — {reason} ({b.ArmyYields} yield(s) since the last line)");
             b.ArmyYields = 0;
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // UNITS BEFORE ECONOMY (2026-10-05, docs/Design/Game_AI.md 5h)
+        // ─────────────────────────────────────────────────────────────
+        //
+        // Headless33-35, same maps and seeds: the Expert economy drive
+        // (capital savings, economy levels, the Vault, towers) took the
+        // money, so Expert spent 30-40% less on units than Normal and stood
+        // with a SMALLER army at every checkpoint. On a tier with
+        // unitsBeforeEconomy the drive spends only when the money cannot
+        // become units:
+        //
+        //   * the army is at its target (alive + queued >= desired), or it
+        //     cannot take money (every trainer full, population capped, no
+        //     trainer), or no fresh reading: the drive spends;
+        //   * every finished production building is training at the tier's
+        //     queue depth: the drive spends (more units cannot start);
+        //   * the bank is overflowing (BankOverflowing): the drive spends —
+        //     the units are not absorbing it;
+        //   * the army is waiting on a resource this spend does not cost
+        //     (veilstone, usually): the drive spends;
+        //   * otherwise it is DEFERRED and the money goes to units.
+        //
+        // Production buildings and their levels never pass through here.
+
+        /// <summary>Written every think by SimpleAISystem's saturation
+        /// sample: the tier's flag, the finished production buildings, and
+        /// how many hold fewer queue items than the tier's depth.</summary>
+        public static void SetTrainerStatus(Faction faction, bool unitsFirst, int trainers, int trainersIdle)
+        {
+            var b = GetBrain(faction);
+            b.UnitsFirst = unitsFirst;
+            b.Trainers = trainers;
+            b.TrainersIdle = trainersIdle;
+            b.TrainerStamp = SimClock.Now;
+        }
+
+        /// <summary>
+        /// Null when this economy-drive spend may go; otherwise why it is
+        /// deferred ("army a/t, trainers idle k"). The caller logs through
+        /// <see cref="NoteEconomyDeferred"/>.
+        /// </summary>
+        public static string EconomyDeferral(EntityManager em, Faction faction, Cost spend)
+        {
+            var b = GetBrain(faction);
+            if (!b.UnitsFirst) return null;
+            float now = SimClock.Now;
+            if (b.ArmyStamp < 0f || now - b.ArmyStamp > Cfg.armyFirstStatusMaxAge) return null;
+            if (b.TrainerStamp < 0f || now - b.TrainerStamp > Cfg.armyFirstStatusMaxAge) return null;
+            if (b.ArmyDesired <= 0 || b.ArmyAlive >= b.ArmyDesired) return null;
+            if (!b.ArmyCanAbsorb) return null;
+            if (b.Trainers <= 0 || b.TrainersIdle <= 0) return null;
+            if (BankOverflowing(em, faction)) return null;
+
+            bool shortS = IsMilitaryShort(faction, ResSupplies);
+            bool shortI = IsMilitaryShort(faction, ResIron);
+            bool shortV = IsMilitaryShort(faction, ResVeilstone);
+            bool shortVs = IsMilitaryShort(faction, ResVeilsteel);
+            if ((shortS || shortI || shortV || shortVs)
+                && !((spend.Supplies > 0 && shortS) || (spend.Iron > 0 && shortI)
+                     || (spend.Veilstone > 0 && shortV) || (spend.Veilsteel > 0 && shortVs)))
+                return null;
+
+            return AILogger.Enabled
+                ? $"army {b.ArmyAlive}/{b.ArmyDesired}, trainers idle {b.TrainersIdle}"
+                : "units first";
+        }
+
+        /// <summary>"ECON: deferred (army a/t, trainers idle k) — &lt;what&gt;",
+        /// at most once per armyFirstLogInterval per faction, with the number
+        /// of deferrals since the last line.</summary>
+        public static void NoteEconomyDeferred(Faction faction, string what, string reason)
+        {
+            var b = GetBrain(faction);
+            b.EconDeferrals++;
+            if (!AILogger.Enabled) return;
+            float now = SimClock.Now;
+            if (now < b.EconNextLog) return;
+            b.EconNextLog = now + Cfg.armyFirstLogInterval;
+            AILogger.Log(faction, "ECON",
+                $"deferred ({reason}) — {what} ({b.EconDeferrals} deferral(s) since the last line)");
+            b.EconDeferrals = 0;
         }
 
         private static BrainBudget GetBrain(Faction faction)

@@ -237,6 +237,15 @@ party). There the party **stands** and claims by the meter:
   a locked territory is never picked. A claim party whose target is locked
   under it while it stands there gives up and walks home to its garrison.
   There are no raids.
+- **Player ground during the opening grace (2026-10-05)** — before
+  `claimGraceSeconds` of match time, a territory a player holds (claimed,
+  locked or not) is **not a target** either: the opening claims only
+  unclaimed ground, so a player who starts beside the curse is not
+  contested before the first attack wave. Each dispatch that the grace
+  narrows logs `[CurseTerritory] GRACE: party held (before first wave)`.
+  The Shardroot hunt (§6.6) ignores the grace, and a fill party never needs
+  it (it works the curse's own ground). Default: the same second as
+  `firstWaveSeconds`.
 
 **If the curse holds no node at all**, it re-seeds one after `reseedSeconds`
 (default 180 s) under the §6.4 rules. The curse can be driven back, never out:
@@ -272,6 +281,22 @@ The curse is a **defensive** force that spreads, not an army that hunts.
   `guardLeashRadius` from it: past that it drops the fight and walks back.
   It no longer sweeps its whole territory for intruders. A unit whose node
   dies adopts the nearest live node in its territory.
+  **A garrison unit stands Defensive (2026-10-05)** — it only returns fire
+  on its own; every other engagement is the guard order above (an
+  attack-move on an intruder inside `guardRadius`). Why: on the default
+  Aggressive stance an idle defender auto-acquired anything in its own line
+  of sight, so a defender standing at the edge of its guard radius shot
+  player buildings up to `guardRadius` + its sight away and walked out to
+  `guardLeashRadius` to finish them. That was the curse "raiding" the
+  extractors of whoever started beside it (the 2026-10-05 Sundered Crown
+  log: one Gatherer's Hut 35 m from a node was destroyed ten times before
+  the first wave ever formed). The guard order looks for intruding UNITS
+  in the garrison's own territory, and a player building cannot stand on
+  curse ground, so a building is engaged only when it shoots at a defender
+  (a tower) or stands in the path of a guard order's attack-move. Drafted
+  units (claim, fill and hunt parties, attack waves) stand
+  Aggressive while drafted and go back to Defensive when they rejoin a
+  garrison. This is the curse's exception to Stances.md §4.
 - **Only claim parties and attack waves leave home** (waves since
   2026-10-04, §6.8). A claim party goes only for an adjacent, unlocked
   territory it can take (§6.5), or to fill a free node in ground it holds;
@@ -317,20 +342,49 @@ attack waves below are **drafted out of the garrison pool**:
 - **When.** The first wave forms at `firstWaveSeconds` of match time, then
   one every `waveIntervalSeconds`. The clock runs on whether or not a wave
   could actually be sent.
-- **How big.** At each slot the curse drafts **`waveDraftFraction` of all
-  its garrison units** into the wave, nearest the target first (guard posts
-  by distance to the objective, entity order breaking ties — the same on
-  every peer), never below `garrisonMinPerNode` a node. If that comes to
-  fewer than `waveMinSize`, the slot is **skipped**, not banked.
-- **Whom.** Among the living players (every player with a standing
-  building), the target is the one whose nearest building is closest to any
-  curse node. **Fair rotation:** if that player was also the last one a wave
-  went for, and any other player's distance is within
-  `waveTargetDistanceSlack` × the nearest one's, the wave goes to one of
-  those others instead (a seeded draw among them, on every peer), so no single
-  player eats every wave. With only one player in reach, they get it again.
-  **While a player holds the Shardroot, every wave goes for the holder** —
-  §6.6's "every offensive curse force" now includes waves.
+- **Whom — the strong carry the curse (2026-10-05).** Supersedes the
+  nearest-player rule and its `waveTargetDistanceSlack` rotation, which the
+  2026-10-05 Sundered Crown log showed feeding the weakest player: the
+  Easy AI, whose base sat nearest the curse, took four of six waves (24,
+  43, 63 and 75 units) while the Hard AI that had just eaten two
+  neighbours took none. Now:
+  - Every living player (a standing building) has a **strength**: its
+    army power share (the sum, over its combat units, of
+    √(damage per second × current HP) — the same geometric mean
+    `UnitPower` uses, on live stats) blended with its territory share by
+    `waveShareTerritoryWeight` (0 = army only, 1 = territories only).
+  - Its **wave share** is that strength, floored at `waveShareFloor` so
+    nobody is ever forgotten, renormalised to sum to 1.
+  - Shares accrue as **credit**; each wave goes to the eligible player
+    with the most credit (faction order breaking ties, the same on every
+    peer) and costs that player one wave. Over a match each player's
+    count of waves converges on their share: the strongest get the most,
+    the weakest the fewest — a deterministic schedule, no draw.
+  - **Cooldown.** A player is not eligible while a wave is out against
+    them, nor for `wavePlayerCooldownSeconds` after it turned home. When
+    every living player is cooling down, the slot is **skipped**.
+  - **While a player holds the Shardroot, every wave goes for the holder**
+    — §6.6's "every offensive curse force" includes waves. The holder hunt
+    ignores shares and cooldown and drafts the full `waveDraftFraction`.
+- **How big — sized to the target (2026-10-05).** The ceiling is still
+  **`waveDraftFraction` of all the curse's garrison units**; under it the
+  wave is drafted, nearest the target first (guard posts by distance to the
+  objective, entity order breaking ties — the same on every peer, never
+  below `garrisonMinPerNode` a node), **only until its own power reaches
+  `waveSizeVsPower` × the target's army power × the target's difficulty
+  multiplier** (below), and never smaller than `waveMinSize`. A player with
+  no army is met by `waveMinSize` units, not by a third of the curse. If
+  the ceiling itself comes to fewer than `waveMinSize`, the slot is
+  **skipped**, not banked.
+- **Difficulty.** `waveSizeByDifficulty` is a four-entry table — Easy,
+  Normal, Hard, Expert — multiplying the wave-size budget against a player
+  by that player's AI difficulty (the lobby slot's). **Human players count
+  as Normal.** Default: Easy lighter, Normal and Hard as authored, Expert
+  heavier; the values are on the asset. It changes how big a wave is, not
+  how often a player is chosen (strength already does that).
+- **Log.** Each slot logs the shares (`WAVE shares — <faction> <share>
+  (army <power>, <territories> terr)…`) and each launch
+  `WAVE n -> <faction> (share s, size k vs power p)`.
 - **What it attacks.** The target player's **nearest territory** — the one
   holding their building nearest the curse — and in it, their nearest
   production building (anything that trains units) for preference, else
@@ -385,7 +439,10 @@ All in `TerritoryOwnership.asset` / `BorderSettings.asset`:
 `shardrootChance`, and (2026-10-03) `guardRadius` 30, `guardLeashRadius` 45,
 and (2026-10-04, §6.8) `firstWaveSeconds`, `waveIntervalSeconds`,
 `waveDraftFraction`, `waveMinSize`, `garrisonMinPerNode`, `waveDurationSeconds`,
-`waveRetreatFraction`, `waveTargetDistanceSlack`, `maxCurseUnits`.
+`waveRetreatFraction`, `maxCurseUnits`, and (2026-10-05, §6.5, §6.8)
+`claimGraceSeconds`, `waveShareTerritoryWeight`, `waveShareFloor`,
+`wavePlayerCooldownSeconds`, `waveSizeVsPower`, `waveSizeByDifficulty`.
+`waveTargetDistanceSlack` is retired with the nearest-player rule.
 `raidSeconds` is retired with the raids.
 
 ## 9. Known risks (to watch in playtest, not to fix in advance)
@@ -476,6 +533,13 @@ the outcrop range are `TerritoryResources.asset` (beside `TerritoryResources.cs`
 Implemented in `TerritoryResources` (resolve + generation), the
 `SpawnDelayHelper` resource step, `CurseNodeSeeding.CurseVeilstoneRich` and
 `SanctumSystem`. The territory hover overlay shows a Sanctum's +1 RP/min.
+
+**An authored Start territory stays a Start (2026-10-05)** whether or not a
+player is seated there. It used to be re-dealt as an ordinary type when no
+start stood in it, so a two-player match on a four-seat map changed the empty
+corners, the quadrants of a mirrored map stopped matching, and the node layout
+fell back to random (one home's outcrop landed where nothing could reach it).
+The map author's seats keep their layout for any player count.
 
 ### 11.1 Map review (2026-10-01)
 

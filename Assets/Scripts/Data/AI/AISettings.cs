@@ -1,7 +1,9 @@
 // AISettings.cs
-// Static runtime accessor for AISettingsSO — mirrors BorderSettings. Lazily
-// loads Resources/AISettings.asset; falls back to a defaults-seeded instance
-// (field initializers ARE the defaults) so the game runs without the asset.
+// Static runtime accessor for AISettingsSO. Lazily loads
+// Resources/AISettings.asset — the single source of every AI tuning number
+// and of the personality table. A missing asset is a DATA bug: it is logged
+// loudly and an empty instance is returned so callers do not NRE, but the AI
+// then runs on zeroes and is visibly broken (CLAUDE.md: no silent fallback).
 
 using UnityEngine;
 
@@ -19,11 +21,14 @@ namespace TheWaningBorder.Data.AI
             if (_so != null) return _so;
             _so = Resources.Load<AISettingsSO>(ResourceName);
             if (_so != null) return _so;
+            Debug.LogError($"[AISettings] Resources/{ResourceName}.asset is missing. Every AI tuning number " +
+                           "and the personality table live on it; the AI runs on an empty instance until it is restored.");
             _so = ScriptableObject.CreateInstance<AISettingsSO>();
+            _so.personalities = new AISettingsSO.PersonalityBlock[0];
             return _so;
         }
 
-        /// <summary>Drop the cached reference (after (re)generating the asset).</summary>
+        /// <summary>Drop the cached reference (after editing the asset).</summary>
         public static void Reload() => _so = null;
     }
 }

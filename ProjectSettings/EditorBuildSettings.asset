@@ -143,6 +143,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/GameData/Scenes/Scenarios/Scenario_WallDrawing.unity
     guid: 094cd0d4364c1ff41a044dadb70a481a
+  - enabled: 1
+    path: Assets/GameData/Scenes/Maps/Mirror Marches/MirrorMarches.unity
+    guid: 450d128ae423e0b418998def2e2eb84d
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

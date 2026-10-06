@@ -168,11 +168,42 @@ namespace TheWaningBorder.Data.Border
         /// out with breaks off and walks home.</summary>
         [Range(0f, 1f)] public float waveRetreatFraction = 0.25f;
 
-        /// <summary>Fair rotation (§6.8): when the nearest player was also
-        /// the last one targeted, any other player whose distance to the
-        /// curse is within this multiple of the nearest one's takes the wave
-        /// instead.</summary>
-        [Min(1f)] public float waveTargetDistanceSlack = 1.3f;
+        // ── §6.8 (2026-10-05): fair targeting — the strong carry the curse ──
+
+        /// <summary>A player's wave STRENGTH blends its army power share with
+        /// its territory share: 0 = army only, 1 = territories only (§6.8).</summary>
+        [Range(0f, 1f)] public float waveShareTerritoryWeight = 0.5f;
+
+        /// <summary>Floor on any living player's wave share before the shares
+        /// are renormalised, so the weakest is never forgotten (§6.8).</summary>
+        [Range(0f, 1f)] public float waveShareFloor = 0.1f;
+
+        /// <summary>A player is not targeted while a wave is out against them,
+        /// nor for this many seconds after it turned home (§6.8). Every living
+        /// player cooling down: the slot is skipped.</summary>
+        [Min(0f)] public float wavePlayerCooldownSeconds = 300f;
+
+        /// <summary>A wave is drafted only until its own combat power reaches
+        /// this multiple of the target's army power (x the target's
+        /// difficulty multiplier), never below waveMinSize units and never
+        /// above waveDraftFraction of the garrisons (§6.8).</summary>
+        [Min(0f)] public float waveSizeVsPower = 0.6f;
+
+        /// <summary>Wave-size multiplier against a player by that player's AI
+        /// difficulty, indexed Easy, Normal, Hard, Expert (LobbyAIDifficulty).
+        /// Human players count as Normal (§6.8).</summary>
+        public float[] waveSizeByDifficulty = { 0.5f, 1f, 1f, 1.25f };
+
+        /// <summary>Before this match second a claim party never targets a
+        /// territory a player holds — the opening claims only unclaimed
+        /// ground (§6.5, 2026-10-05). The Shardroot hunt ignores it.</summary>
+        [Min(0f)] public float claimGraceSeconds = 480f;
+
+        /// <summary>The wave-size multiplier for a player of the given lobby
+        /// difficulty index (0 Easy .. 3 Expert); 1 when the table is short.</summary>
+        public float WaveSizeForDifficulty(int difficulty)
+            => waveSizeByDifficulty != null && difficulty >= 0 && difficulty < waveSizeByDifficulty.Length
+                ? Mathf.Max(0f, waveSizeByDifficulty[difficulty]) : 1f;
 
         /// <summary>HARD CAP on live curse units (every BorderUnitTag unit,
         /// whatever raised it). Every spawn path raises at most the headroom
@@ -414,7 +445,12 @@ namespace TheWaningBorder.Data.Border
             garrisonMinPerNode = 2;
             waveDurationSeconds = 150f;
             waveRetreatFraction = 0.25f;
-            waveTargetDistanceSlack = 1.3f;
+            waveShareTerritoryWeight = 0.5f;
+            waveShareFloor = 0.1f;
+            wavePlayerCooldownSeconds = 300f;
+            waveSizeVsPower = 0.6f;
+            waveSizeByDifficulty = new[] { 0.5f, 1f, 1f, 1.25f };
+            claimGraceSeconds = 480f;
             maxCurseUnits = 250;
             initialNodes = 0;
             reseedSeconds = 180f;

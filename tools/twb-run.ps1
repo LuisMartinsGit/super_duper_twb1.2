@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     THE headless match runner. Single-player batches, lockstep multiplayer
     matches, and the forever-loop that rotates both.
@@ -89,6 +89,19 @@ param(
     [switch]$Rich,              # every faction pinned at the resource cap (diagnostic)
     [switch]$Trace,             # single mode: write MapTrace.txt for the replay
 
+    # ── AI difficulty and run label (single / loop-single only) ─────────
+    # -Difficulty sets every AI; -FactionDifficulty overrides per colour,
+    # "Red=Expert,Blue=Easy". -Label is free text; the game writes it with the
+    # resolved per-faction difficulty into each match's Console.log header and
+    # Summary.txt, and the Muster Rolls report titles the match with it.
+    # Omitted = unchanged behaviour (every AI Normal, no label).
+    [ValidateSet("", "Easy", "Normal", "Hard", "Expert")][string]$Difficulty = "",
+    [string]$FactionDifficulty = "",
+    # Per-colour personality, "Red=Turtle,Blue=Rush" (Balanced|Economic|
+    # TechBoom|Rush|Turtle|Defensive); omitted colours keep their default.
+    [string]$FactionPersonality = "",
+    [string]$Label = "",
+
     # ── multiplayer only ──────────────────────────────────────────────────
     [int]$Peers = 4,
     [int]$Factions = 0,         # 0 = same as Peers; more adds host-lobby AI slots
@@ -124,6 +137,7 @@ $MapPlayers = @{
     "SunderedCrown" = 4
     "TwinSpans"     = 6
     "Veilmarch"     = 8
+    "MirrorMarches" = 4
 }
 
 function PlayersFor([string]$m) {
@@ -133,6 +147,28 @@ function PlayersFor([string]$m) {
 }
 
 function Banner($text) { Write-Host $text -ForegroundColor Cyan }
+
+# QUOTE ONE ARGUMENT FOR Start-Process. PS 5.1 joins -ArgumentList items with
+# bare spaces and quotes nothing, so a value with a space ("Red = Expert")
+# would arrive at the game as three arguments. Wrap it in double quotes,
+# escaping embedded quotes and the backslashes that precede a quote, per the
+# Windows command-line parsing rules the player uses.
+function Quote-Arg([string]$s) {
+    $s = $s -replace '(\\*)"', '$1$1\"'
+    $s = $s -replace '(\\+)$', '$1$1'
+    return '"' + $s + '"'
+}
+
+# The difficulty / label flags for one single-player launch. Empty when none
+# was asked for, so a plain run's command line is byte-identical to before.
+function RunTagArgs {
+    $a = @()
+    if ($Difficulty -ne "")        { $a += @("-twbDifficulty", $Difficulty) }
+    if ($FactionDifficulty -ne "") { $a += @("-twbFactionDifficulty", (Quote-Arg ($FactionDifficulty -replace '\s', ''))) }
+    if ($FactionPersonality -ne "") { $a += @("-twbFactionPersonality", (Quote-Arg ($FactionPersonality -replace '\s', ''))) }
+    if ($Label -ne "")             { $a += @("-twbLabel", (Quote-Arg $Label)) }
+    return ,$a
+}
 
 # ═══════════════════════════════════════════════════════════════════════════
 # SINGLE — a worker pool of independent AI-only matches
@@ -144,6 +180,12 @@ function Invoke-Single {
     $launched = 0; $ok = 0; $failed = 0; $killed = 0
     $started = Get-Date
 
+    if ($Difficulty -ne "" -or $FactionDifficulty -ne "" -or $Label -ne "") {
+        Banner ("  AI difficulty: {0}{1}{2}" -f `
+            $(if ($Difficulty -ne "") { $Difficulty } else { "Normal (default)" }), `
+            $(if ($FactionDifficulty -ne "") { "; per colour $FactionDifficulty" } else { "" }), `
+            $(if ($Label -ne "") { "; label `"$Label`"" } else { "" }))
+    }
     Banner ("single: {0} workers, {1} AI, {2} at {3}x{4}" -f `
         $Workers, $(if ($Players -gt 0) { $Players } else { "per-map" }), `
         $(if ($Limit -le 0) { "NO LIMIT (until decided)" } else { "${Limit}s" }), $Speed, `
@@ -193,6 +235,7 @@ function Invoke-Single {
                 "-twbMap", $thisMap
             )
             if ($Rich) { $argList += "-twbRich" }
+            $argList += (RunTagArgs)
             if ($Trace) {
                 # A LONG MATCH NEEDS A LONGER PERIOD. MapTrace's 400 MB cap
                 # stops the file rather than truncating the match, so the

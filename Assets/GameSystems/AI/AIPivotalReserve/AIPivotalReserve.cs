@@ -51,7 +51,39 @@ namespace TheWaningBorder.AI
             _pending.Clear();
             _holdSince.Clear();
             _strict.Clear();
+            _suspended.Clear();
         }
+
+        /// <summary>Factions whose ORDINARY (non-strict) savings goals are
+        /// paused: they still exist (<see cref="Has"/> answers for them) but
+        /// hold nothing and count toward no shortfall. Strict goals — the
+        /// age-up landmark, a lost sole trainer, a lost extractor's rebuild —
+        /// keep holding.
+        ///
+        /// WHY (2026-10-05, Game_AI.md § 5i): a collapsing economy kept
+        /// saving. Blue (Expert) held "capital L2 saving (447s)", a Fortress
+        /// pot and an Outpost pot against a 4 supplies/s trickle while the
+        /// curse razed its huts; the army floor read "pivotal hold (saving)
+        /// short supplies" for minutes and its Fortress fell at 25:47 to an
+        /// army it never trained. SimpleAISystem's distress test sets this
+        /// while supply income is collapsed against what the faction earned,
+        /// while its economy is under attack, or while it owes an extractor
+        /// rebuild.</summary>
+        private static readonly HashSet<Faction> _suspended = new HashSet<Faction>();
+
+        /// <summary>Pause (or resume) this faction's non-strict goals.</summary>
+        public static void SetSuspended(Faction faction, bool suspended)
+        {
+            if (suspended) _suspended.Add(faction); else _suspended.Remove(faction);
+        }
+
+        /// <summary>Are this faction's ordinary savings goals paused?</summary>
+        public static bool IsSuspended(Faction faction) => _suspended.Contains(faction);
+
+        /// <summary>Does this pending goal hold right now? A non-strict goal
+        /// of a suspended faction does not.</summary>
+        private static bool Counts((Faction faction, string key) k)
+            => !_suspended.Contains(k.faction) || _strict.Contains(k);
 
         /// <summary>Reserves that do not breathe: while one is unfunded the
         /// hold stays on, with no release window (the age-up landmark,
@@ -80,6 +112,22 @@ namespace TheWaningBorder.AI
         /// without also pausing for temple levels or heroes.</summary>
         public static bool Has(Faction faction, string key)
             => _pending.ContainsKey((faction, key));
+
+        /// <summary>The summed price of every pending goal of this faction —
+        /// what a Vault deposit must leave in the bank (Game_AI.md § 5h).</summary>
+        public static Cost PendingTotal(Faction faction)
+        {
+            var sum = new Cost();
+            foreach (var kv in _pending)
+            {
+                if (kv.Key.faction != faction || !Counts(kv.Key)) continue;
+                sum.Supplies  += kv.Value.Supplies;
+                sum.Iron      += kv.Value.Iron;
+                sum.Veilstone += kv.Value.Veilstone;
+                sum.Veilsteel += kv.Value.Veilsteel;
+            }
+            return sum;
+        }
 
 
 
@@ -155,7 +203,7 @@ namespace TheWaningBorder.AI
             bool any = false;
             foreach (var kv in _pending)
             {
-                if (kv.Key.faction != faction) continue;
+                if (kv.Key.faction != faction || !Counts(kv.Key)) continue;
                 any = true;
                 if (_strict.Contains(kv.Key)) strict = true;
                 s    += kv.Value.Supplies;
@@ -179,7 +227,7 @@ namespace TheWaningBorder.AI
         {
             bool pendingAny = false;
             foreach (var kv in _pending)
-                if (kv.Key.faction == faction) { pendingAny = true; break; }
+                if (kv.Key.faction == faction && Counts(kv.Key)) { pendingAny = true; break; }
             if (!pendingAny) { _holdSince.Remove(faction); shortSet = default; return false; }
 
             if (!ComputeShort(em, faction, out shortSet, out bool strict)) return false;

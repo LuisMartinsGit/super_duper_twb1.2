@@ -361,9 +361,15 @@ public static class TechCatalog
             if (_buildingSOsById.TryGetValue(extractor, out var ex) && ex != null
                 && (ex.slotIncomePerMinute == null || ex.slotIncomePerMinute.Length == 0))
                 Warn($"extractor '{extractor}' has no slotIncomePerMinute — its slot pays nothing");
-        if (_buildingSOsById.TryGetValue("VaultOfAlmierra", out var vault) && vault != null
-            && vault.interestPerMinute <= 0f)
-            Warn("building 'VaultOfAlmierra' has interestPerMinute 0 — the Vault earns nothing");
+        if (_buildingSOsById.TryGetValue("VaultOfAlmierra", out var vault) && vault != null)
+        {
+            if (vault.interestPerMinute <= 0f)
+                Warn("building 'VaultOfAlmierra' has interestPerMinute 0 — the Vault earns nothing");
+            if (vault.interestPrincipalCap <= 0f)
+                Warn("building 'VaultOfAlmierra' has interestPrincipalCap 0 — no principal earns, the Vault pays nothing");
+            if (vault.coffersRate <= 0f || vault.merchantChartersRate <= 0f || vault.sovereignBondsRate <= 0f)
+                Warn("building 'VaultOfAlmierra' has a banking-grade rate of 0 (coffersRate / merchantChartersRate / sovereignBondsRate) — researching that grade would stop the Vault paying");
+        }
         foreach (var lvl in _buildingLevels.Values)
         {
             if (lvl == null) continue;

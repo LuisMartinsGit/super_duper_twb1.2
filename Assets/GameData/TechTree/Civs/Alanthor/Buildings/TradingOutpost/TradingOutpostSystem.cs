@@ -151,6 +151,8 @@ namespace TheWaningBorder.Systems.Economy
                     earn.Iron = cfg.sellIron * speed;
                     earn.Supplies = cfg.sellSupplies * speed;
                     break;
+                case TradeRecipe.Hold:
+                    break;   // idle: nothing in, nothing out
                 default:
                     spend.Supplies = cfg.buySupplies * keep;
                     spend.Iron = cfg.buyIron * keep;
@@ -243,6 +245,8 @@ namespace TheWaningBorder.Systems.Economy
                 if (!OutpostSites.HasLiveOutcrop(em, p.x, p.z)) continue;
 
                 var faction = facs[i].Value;
+                // A post on Hold trades nothing (its carry is kept as is).
+                if (modes[i].Recipe == TradeRecipe.Hold) continue;
                 // Recipe (Buy when its trade is not researched), discount,
                 // speed and THIS post's level — four posts round one outcrop
                 // each trade on their own.

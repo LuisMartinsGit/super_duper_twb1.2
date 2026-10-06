@@ -74,6 +74,9 @@ h2{font-family:var(--display);font-weight:600;font-size:22px;margin:34px 0 6px}
 .run .d{font-family:var(--mono);font-size:11px;color:var(--mute);white-space:nowrap}
 .run .v{font-family:var(--mono);font-size:11px}
 .run .v.ok{color:var(--ok)} .run .v.bad{color:var(--bad)}
+/* the batch's -twbLabel, in front of the map name; difficulty per faction */
+.lbl{color:var(--gold);font-weight:600}
+.spec .aidiff{color:var(--mute)}
 
 /* ── stage ── */
 .stage{position:relative;background:var(--map);border:1px solid var(--rule)}
@@ -175,6 +178,24 @@ canvas.chart.tall{height:200px}
      color:var(--ink);background:var(--panel);border:1px solid var(--rule);padding:4px 8px;
      white-space:pre;font-variant-numeric:tabular-nums}
 .dbg.badc{border-color:var(--bad);color:var(--bad)}
+/* ── live mode (2026-10-05): a running match fed through the db capability ── */
+.livebar{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin:0 0 10px;
+         font-family:var(--mono);font-size:13px;color:var(--ink2)}
+.livebar[hidden]{display:none}
+.livebadge{font-family:var(--display);font-weight:700;font-size:14px;letter-spacing:.12em;
+           padding:3px 10px;border:1px solid var(--bad);color:var(--bad);border-radius:2px}
+.livebadge::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;
+                   background:currentColor;margin-right:7px;vertical-align:1px}
+.livebadge.on::before{animation:livepulse 1.6s ease-in-out infinite}
+.livebadge.stale,.livebadge.ended{border-color:var(--mute);color:var(--mute)}
+@keyframes livepulse{50%{opacity:.25}}
+@media (prefers-reduced-motion: reduce){.livebadge.on::before{animation:none}}
+.livebar b{color:var(--ink);font-weight:500}
+.livebar .btn{padding:5px 10px;font-size:12.5px}
+.livebar .btn[aria-pressed="true"]{border-color:var(--gold);color:var(--gold)}
+.run.live{border-color:var(--bad)}
+.run .v.live{color:var(--bad);font-weight:600}
+.page.live-on .ronly{display:none}
 </style>
 
 <div class="page">
@@ -186,6 +207,19 @@ canvas.chart.tall{height:200px}
   </header>
 
   <div class="runs" id="runs"></div>
+
+  <div class="livebar" id="livebar" hidden aria-live="polite">
+    <span class="livebadge" id="livebadge">LIVE</span>
+    <span id="livetext"></span>
+    <button type="button" class="btn" id="livefollow" aria-pressed="true"
+            title="Follow the running match: redraw it in place on every new snapshot">Follow live</button>
+  </div>
+
+  <section id="scoreSec" hidden>
+  <h2>Score</h2>
+  <p class="note" id="scoreNote"></p>
+  <div class="grid" id="score"></div>
+  </section>
 
   <div class="stage" id="stage" tabindex="0" aria-label="Match map: drag to pan, wheel or pinch to zoom, + and - keys zoom, 0 resets">
     <canvas id="map" width="1160" height="660"></canvas>
@@ -207,7 +241,7 @@ canvas.chart.tall{height:200px}
     <div class="loading" id="loading" hidden></div>
   </div>
 
-  <div class="transport">
+  <div class="transport ronly">
     <button class="btn play" id="play">Play</button>
     <div class="speeds" id="speeds" role="group" aria-label="Playback speed"></div>
     <div class="scrub"><div class="marks" id="marks"></div>
@@ -221,12 +255,14 @@ canvas.chart.tall{height:200px}
     <div class="speeds" id="rosterMode" role="group" aria-label="Roster time"></div></div>
   <div class="grid" id="roster"></div>
 
+  <section class="ronly">
   <h2>The waves</h2>
   <p class="note">Every attack this match launched: when it went, how many marched, how many
   reinforcements were fed in behind it, and how many ever reached the objective.</p>
   <div class="scroll" id="waves"></div>
+  </section>
 
-  <h2>Where each faction finished</h2>
+  <h2 id="standingHead">Where each faction finished</h2>
   <div class="scroll" id="standing"></div>
 
   <h2>Army composition</h2>
@@ -236,17 +272,20 @@ canvas.chart.tall{height:200px}
   <h2>What each faction built</h2>
   <p class="note">Standing structures at the last sample, and the ground they stand on.</p>
   <div class="grid" id="structures"></div>
-  <div class="scroll" id="placement"></div>
+  <div class="scroll ronly" id="placement"></div>
 
+  <section class="ronly">
   <h2>Research</h2>
   <p class="note">Every technology completed, and how widely each was taken across the
   factions of this match.</p>
   <div class="scroll" id="research"></div>
+  </section>
 
   <h2>Economy</h2>
   <p class="note">Banked resources at each sample, per faction.</p>
   <div class="grid" id="charts"></div>
 
+  <section class="ronly">
   <h2>Income and spending</h2>
   <p class="note" id="econNote">Per minute. Income is GROSS — what was earned, by where it came
   from — and spending is what was paid, by what it bought; the bank above is the
@@ -261,6 +300,7 @@ canvas.chart.tall{height:200px}
   <h2>The curse</h2>
   <p class="lede" id="curseLede"></p>
   <div class="scroll" id="curse"></div>
+  </section>
 
   <h2 id="ledgerHead">Every run</h2>
   <p class="lede" id="ledgerLede"></p>
@@ -291,6 +331,31 @@ function css(n){ var v=CSSC[n];
   if(v===undefined) v=CSSC[n]=getComputedStyle(document.documentElement).getPropertyValue(n).trim();
   return v; }
 function fhue(f){ return css("--f-"+f) || css("--mute"); }
+/* A faction's display name: "DIFFICULTY - PERSONALITY" from the batch roster
+   when the match has one (2026-10-05), so batches that decouple personality
+   from colour read by who played, not which colour; the colour otherwise. */
+function fnmOf(m,f){
+  var ai=m&&m.aiRoster&&m.aiRoster[f];
+  return ai&&ai.d ? ai.d+(ai.p?" - "+ai.p:"") : f;
+}
+function fnm(f){ return fnmOf(M[sel],f); }
+/* A match's score leader as [faction, score]: the extractor's `scoreLeader`
+   (in the light summary, so it reads before the match file arrives), else
+   worked out from the full record's final standings; null without either. */
+function scoreLeaderOf(m){
+  if(!m) return null;
+  if(m.scoreLeader&&m.scoreLeader.length===2) return m.scoreLeader;
+  var F=m.score&&m.score.final; if(!F) return null;
+  var best=null;
+  Object.keys(F).forEach(function(f){ var s=+(F[f]&&F[f].score)||0; if(!best||s>best[1]) best=[f,s]; });
+  return best;
+}
+function fmtScore(v){ return Math.round(+v||0).toLocaleString(); }
+function scoreSpec(m){
+  var L=scoreLeaderOf(m); if(!L) return "";
+  return '<span>Score leader: <span class="swatch" style="background:'+fhue(L[0])+'"></span><b>'+
+    esc(fnmOf(m,L[0]))+' '+fmtScore(L[1])+'</b></span>';
+}
 function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){
   return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
 function mmss(t){ t=Math.max(0,Math.round(t)); var m=Math.floor(t/60);
@@ -327,14 +392,19 @@ function renderLedger(){
     var cfg=r.config||{};
     var tags=[cfg.age!=null?"age"+cfg.age:"", cfg.warm==="1"?"warm":"", cfg.monkey==="1"?"monkey":""]
       .filter(Boolean).join(" ");
+    /* winner by score, when the run recorded one (Metrics_Score.csv): named
+       by the batch roster when the match is on the page, by colour otherwise */
+    var L=r.scoreLeader, lm=has?M[idx[r.key]]:null;
+    var score=L?' <span style="color:var(--mute)">· <span class="swatch" style="background:'+fhue(L[0])+
+      '"></span>'+esc(fnmOf(lm,L[0]))+' '+fmtScore(L[1])+'</span>':'';
     return '<tr'+(has?' class="live" data-i="'+idx[r.key]+'"':'')+'>'+
-      '<td>'+esc(when)+'</td><td>'+esc(r.map||"?")+'</td>'+
+      '<td>'+esc(when)+'</td><td>'+(r.label?'<b class="lbl">['+esc(r.label)+']</b> ':'')+esc(r.map||"?")+'</td>'+
       '<td class="num">'+(r.peers||1)+'p</td>'+
       '<td class="num">'+(r.tmax?mmss(r.tmax):'—')+'</td>'+
       '<td class="num">'+(r.compared||0).toLocaleString()+'</td>'+
       '<td>'+esc(tags)+'</td>'+
       '<td class="'+(r.forked?"fork":(r.kind==="mp"?"ok":""))+'">'+esc(verdict)+'</td>'+
-      '<td>'+esc(r.outcome||"?")+'</td></tr>';
+      '<td>'+esc(r.outcome||"?")+score+'</td></tr>';
   }).join("");
   host.innerHTML='<table><thead><tr><th>When</th><th>Map</th><th class="num">Peers</th>'+
     '<th class="num">Length</th><th class="num">Ticks compared</th><th>Setup</th>'+
@@ -378,11 +448,18 @@ function renderRuns(){
     b.type="button"; b.className="run";
     b.setAttribute("aria-current", i===sel?"true":"false");
     var bad=forked(m);
-    b.innerHTML='<span class="m">'+esc(m.map)+'</span>'+
+    if(m.live) b.className="run live";
+    var L=scoreLeaderOf(m);
+    b.innerHTML='<span class="m">'+(m.label?'<b class="lbl">['+esc(m.label)+']</b> ':'')+esc(m.map)+'</span>'+
       '<span class="d">'+esc((m.stamp||"").slice(5,16).replace("_"," "))+
-        ' · '+m.peers+'p · '+mmss(m.tmax)+'</span>'+
-      '<span class="v '+(bad?"bad":"ok")+'">'+(bad?"FORK":"agreed")+
-        (m.fidelity==="trace"?" · traced":"")+'</span>';
+        ' · '+m.peers+'p · '+mmss(m.tmax)+
+        (L?' · <span class="swatch" style="background:'+fhue(L[0])+'"></span>'+esc(fnmOf(m,L[0]))+' '+fmtScore(L[1]):'')+
+        '</span>'+
+      (m.live
+        ? '<span class="v live">'+esc(liveState().word)+'</span>'
+        : '<span class="v '+(bad?"bad":"ok")+'">'+(bad?"FORK":"agreed")+
+          (m.fidelity==="trace"?" · traced":"")+
+          (LIVE.m&&LIVE.m.liveKey===m.key?" · live now":"")+'</span>');
     b.addEventListener("click",function(){ selectMatch(i); });
     host.appendChild(b);
   });
@@ -402,9 +479,13 @@ function mapArt(name){
   if(!name) return null;
   if(MAPART[name]!==undefined) return MAPART[name];
   var src=(DOC.mapArt||{})[name];
+  /* a LIVE match's map may not be in this build's index yet: a folder build
+     still has every picture it ever wrote at maps/<map>.png, so try that */
+  if(!src && DOC.folder) src="maps/"+String(name).replace(/[^A-Za-z0-9._-]+/g,"_")+".png";
   if(!src){ MAPART[name]=null; return null; }
   var im=new Image();
   im.onload=function(){ draw(); };      /* repaint once it is actually there */
+  im.onerror=function(){ MAPART[name]=null; };
   im.src=src;
   MAPART[name]=im;
   return im;
@@ -1482,7 +1563,7 @@ function draw(){
   }
   g.globalAlpha=1;
 
-  setHTML("clock", mmss(t)+"<small>match time</small>");
+  setHTML("clock", mmss(t)+"<small>"+(m.live?"game time · live":"match time")+"</small>");
 
   /* live counts: from the tracks -- every unit alive at t, drawn or not */
   var live={};
@@ -1494,7 +1575,7 @@ function draw(){
   }
   setHTML("counts",
     Object.keys(live).sort().map(function(fa){
-      return '<span style="color:'+fhue(fa)+'">'+fa+'</span><b>'+live[fa]+'</b><span>units</span>';
+      return '<span style="color:'+fhue(fa)+'">'+esc(fnm(fa))+'</span><b>'+live[fa]+'</b><span>units</span>';
     }).join(""));
 
   /* the wave in flight, named */
@@ -1601,7 +1682,7 @@ function renderRoster(force){
     var ut=urows.reduce(function(a,x){ return a+x[1]; },0), bt=brows.reduce(function(a,x){ return a+x[1]; },0);
     var col=fhue(f);
     var d=document.createElement("div"); d.className="card rcard";
-    d.innerHTML='<div class="k"><span class="swatch" style="background:'+col+'"></span>'+esc(f)+'</div>'+
+    d.innerHTML='<div class="k"><span class="swatch" style="background:'+col+'"></span>'+esc(fnm(f))+'</div>'+
       '<div class="v">'+ut+'<span class="u"> units · </span>'+bt+'<span class="u"> buildings</span></div>'+
       (urows.length?'<table><thead><tr><th>Unit</th><th class="num">Count</th></tr></thead><tbody>'+
         urows.map(function(x){
@@ -1716,12 +1797,73 @@ function renderStanding(){
       var s=m.series[f], l=s[s.length-1]||{};
       var el=(m.eliminated||{})[f];
       var tag=(el!=null)?' <span class="v bad" title="last seen in the metrics">eliminated '+mmss(el)+'</span>':'';
-      return '<tr'+(el!=null?' style="opacity:.6"':'')+'><td><span class="swatch" style="background:'+fhue(f)+'"></span>'+f+tag+'</td>'+
+      return '<tr'+(el!=null?' style="opacity:.6"':'')+'><td><span class="swatch" style="background:'+fhue(f)+'"></span>'+esc(fnm(f))+tag+'</td>'+
         '<td class="num">'+(l.s||0)+'</td><td class="num">'+(l.i||0)+'</td>'+
         '<td class="num">'+(l.v||0)+'</td><td class="num">'+(l.pop||0)+'/'+(l.popMax||0)+'</td>'+
         '<td class="num">'+(l.units||0)+'</td><td class="num">'+(l.bld||0)+'</td>'+
         '<td class="num">'+(l.terr||0)+'</td></tr>';
     }).join("")+'</tbody></table>';
+}
+
+/* ── the score (docs/Design/Score.md, 2026-10-05) ─────────────────────────
+   m.score comes from Metrics_Score.csv: `ts`, the shared sample times; per
+   faction in `f` the score (s) and its three parts (e / st / m) and the
+   kill/death ratio (kd), one value per sample and null where the faction
+   had no row (dead); and `final`, the last row per faction. Economy is
+   resources earned (weighted) plus income rate; Strategy is territories,
+   Fortresses, techs, building levels and age-up timing; Military is kills
+   and razed buildings scaled by the kill/death ratio. The whole section is
+   hidden for a match that recorded no score (game builds before the file). */
+function renderScore(){
+  var m=M[sel], sec=document.getElementById("scoreSec"), host=document.getElementById("score");
+  var note=document.getElementById("scoreNote");
+  if(!sec||!host) return;
+  var S=m&&m.score, F=S&&S.final;
+  var facs=F?Object.keys(F).filter(function(f){ return f!=="Border"; }):[];
+  if(!facs.length){ sec.hidden=true; host.textContent=""; return; }
+  sec.hidden=false;
+  facs.sort(function(a,b){ return ((+F[b].score)||0)-((+F[a].score)||0) || a.localeCompare(b); });
+  var lead=facs[0];
+  note.innerHTML='<b>Economy</b> (resources earned, weighted, plus income rate) + <b>Strategy</b> '+
+    '(territories, Fortresses, techs, building levels, age-up timing) + <b>Military</b> (kills and '+
+    'razed buildings, scaled by the kill/death ratio). '+
+    (m.live?'Standings at the latest snapshot':'Final standings')+': <span class="swatch" style="background:'+
+    fhue(lead)+'"></span><b>'+esc(fnm(lead))+'</b> leads with '+fmtScore(F[lead].score)+'.';
+  var rows=facs.map(function(f,i){
+    var v=F[f]||{}, el=(m.eliminated||{})[f];
+    return '<tr'+(el!=null?' style="opacity:.6"':'')+'><td class="num">'+(i+1)+'</td>'+
+      '<td><span class="swatch" style="background:'+fhue(f)+'"></span>'+esc(fnm(f))+
+      (el!=null?' <span class="v bad" title="last seen in the metrics">eliminated '+mmss(el)+'</span>':'')+'</td>'+
+      '<td class="num"><b>'+fmtScore(v.score)+'</b></td>'+
+      '<td class="num">'+fmtScore(v.economy)+'</td><td class="num">'+fmtScore(v.strategy)+'</td>'+
+      '<td class="num">'+fmtScore(v.military)+'</td>'+
+      '<td class="num">'+(v.kills||0)+'/'+(v.deaths||0)+' <span style="color:var(--mute)">('+
+        ((+v.kd)||0).toFixed(2)+')</span></td>'+
+      '<td class="num">'+(v.territories||0)+'</td><td class="num">'+(v.fortresses||0)+'</td>'+
+      '<td class="num">'+(v.techs||0)+'</td></tr>';
+  }).join("");
+  host.innerHTML='<div class="scroll"><table><thead><tr><th class="num">#</th><th>Faction</th>'+
+    '<th class="num">Score</th><th class="num">Economy</th><th class="num">Strategy</th>'+
+    '<th class="num">Military</th><th class="num" title="kills / deaths (ratio)">K/D</th>'+
+    '<th class="num">Territories</th><th class="num">Fortresses</th><th class="num">Techs</th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table></div>';
+  /* score over time: one line per faction on the shared sample times, in
+     the page's own line chart; a faction's line ends where its rows do */
+  var ts=S.ts||[], ser=[];
+  facs.forEach(function(f){
+    var a=(S.f&&S.f[f]&&S.f[f].s)||[], pts=[];
+    for(var i=0;i<ts.length&&i<a.length;i++) if(a[i]!=null) pts.push([ts[i],+a[i]]);
+    if(pts.length) ser.push({color:fhue(f),pts:pts});
+  });
+  if(ts.length>1&&ser.length){
+    var d=document.createElement("div"); d.className="card";
+    d.innerHTML='<div class="k">Score over time</div><canvas class="chart"></canvas>'+
+      '<div class="elegend">'+facs.map(function(f){
+        return '<span><span class="swatch" style="background:'+fhue(f)+'"></span>'+esc(fnm(f))+
+          ' <span class="num">'+fmtScore(F[f].score)+'</span></span>'; }).join("")+'</div>';
+    host.appendChild(d);
+    requestAnimationFrame(function(){ lineChart(d.querySelector("canvas"),ser); });
+  }
 }
 
 function renderComposition(){
@@ -1734,7 +1876,7 @@ function renderComposition(){
                  .reduce(function(a,r){ return a+r[1]; },0);
     var tot=army.reduce(function(a,r){ return a+r[1]; },0);
     var d=document.createElement("div"); d.className="card";
-    d.innerHTML='<div class="k"><span class="swatch" style="background:'+fhue(f)+'"></span>'+f+'</div>'+
+    d.innerHTML='<div class="k"><span class="swatch" style="background:'+fhue(f)+'"></span>'+esc(fnm(f))+'</div>'+
       '<div class="v">'+tot+'<span style="font-size:14px;color:var(--mute)"> army · '+work+' workers</span></div>'+
       (army.length
         ? '<div class="s">'+army.slice(0,10).map(function(r){
@@ -1753,7 +1895,7 @@ function renderStructures(){
     var rows=st[f]||[];
     var tot=rows.reduce(function(a,r){ return a+r[1]; },0);
     var d=document.createElement("div"); d.className="card";
-    d.innerHTML='<div class="k"><span class="swatch" style="background:'+fhue(f)+'"></span>'+f+'</div>'+
+    d.innerHTML='<div class="k"><span class="swatch" style="background:'+fhue(f)+'"></span>'+esc(fnm(f))+'</div>'+
       '<div class="v">'+tot+'<span style="font-size:14px;color:var(--mute)"> standing</span></div>'+
       (rows.length
         ? '<div class="s">'+rows.slice(0,10).map(function(r){
@@ -1803,7 +1945,7 @@ function renderResearch(){
     return techs[b]-techs[a] || (a<b?-1:1); });
   host.innerHTML='<table><thead><tr><th>technology</th>'+
     facs.map(function(f){
-      return '<th><span class="swatch" style="background:'+fhue(f)+'"></span>'+esc(f)+'</th>'; }).join("")+
+      return '<th><span class="swatch" style="background:'+fhue(f)+'"></span>'+esc(fnm(f))+'</th>'; }).join("")+
     '<th class="num">taken by</th></tr></thead><tbody>'+
     names.map(function(t){
       return '<tr><td>'+esc(t)+'</td>'+
@@ -1832,7 +1974,7 @@ function renderCombat(){
     facs.map(function(f){
       var p=per[f];
       var ratio=p.d>0?(p.k/p.d).toFixed(2):(p.k>0?"∞":"–");
-      return '<tr><td><span class="swatch" style="background:'+fhue(f)+'"></span>'+esc(f)+'</td>'+
+      return '<tr><td><span class="swatch" style="background:'+fhue(f)+'"></span>'+esc(fnm(f))+'</td>'+
         '<td class="num">'+p.k+'</td><td class="num">'+p.d+'</td>'+
         '<td class="num '+(p.d>0&&p.k/p.d>=1?"ok":"")+'">'+ratio+'</td>'+
         '<td class="s">'+(p.peak?('minute '+p.peakM+' — '+p.peak+' kills'):'–')+'</td></tr>';
@@ -2007,7 +2149,7 @@ function renderEcon(){
     });
     bar.appendChild(d);
   }
-  group("Faction",facs.map(function(f){ return {key:f,label:f,color:fhue(f)}; }),ECON.f,
+  group("Faction",facs.map(function(f){ return {key:f,label:fnm(f),color:fhue(f)}; }),ECON.f,
         function(k){ ECON.f=k; });
   group("Resource",RES_NAMES.map(function(r,i){ return {key:i,label:r}; }),ECON.r,
         function(k){ ECON.r=k; });
@@ -2049,17 +2191,25 @@ function renderHead(){
   var runNote=DOC.since?" · latest run, since "+DOC.since.slice(0,16).replace("_"," ")
                         +" ("+M.length+" match"+(M.length===1?"":"es")+")":"";
   document.getElementById("eyebrow").textContent=
-    "Match replay · "+(m.stamp||"").slice(0,10)+" · "+m.map+runNote;
+    (m.label?"["+m.label+"] ":"")+(m.live?"Live match · ":"Match replay · ")+(m.stamp||"").slice(0,10)+" · "+m.map+runNote;
   document.getElementById("spec").innerHTML=
     Object.keys(m.series||{}).sort().map(function(f){
-      return '<span><span class="swatch" style="background:'+fhue(f)+'"></span><b>'+f+'</b></span>';
+      /* Per-faction AI difficulty + personality from the batch header
+         (HeadlessBatch -twbDifficulty, 2026-10-04); absent on older logs. */
+      var ai=(m.aiRoster||{})[f];
+      return '<span><span class="swatch" style="background:'+fhue(f)+'"></span><b>'+esc(fnm(f))+'</b>'+
+        '</span>';
     }).join("")+
-    '<span>'+m.peers+' peers</span>'+
+    (m.live
+      ? '<span>live snapshot at <b>'+mmss(m.tmax)+'</b> of game time</span>'+
+        '<span>'+(m.liveN||0)+' units drawn'+(m.liveCap?' (thinned: '+esc(m.liveCap)+')':'')+'</span>'
+      : '<span>'+m.peers+' peers</span>'+
     '<span>'+esc(m.build)+'</span>'+
     '<span>positions every <b>'+(m.fidelity==="trace"?"1 s":"15 s")+'</b></span>'+
     '<span>'+(forked(m)
       ? '<b class="warn">forked at tick '+(d.forkTick!=null?d.forkTick:d.flagTick)+'</b>'
-      : '<b>'+(d.compared||0).toLocaleString()+' tick rows agreed</b>')+'</span>';
+      : '<b>'+(d.compared||0).toLocaleString()+' tick rows agreed</b>')+'</span>')+
+    scoreSpec(m);
   document.getElementById("lede").innerHTML= m.fidelity==="trace"
     ? 'Every unit, all of them, recorded once a second with its state and drawn along its own '+
       'track: between keyframes it moves in a straight line at a steady pace, and the keyframes are '+
@@ -2079,7 +2229,7 @@ function renderHead(){
   document.getElementById("legend").innerHTML=
     '<div class="row"><span class="lh">Factions</span>'+
     Object.keys(m.series||{}).sort().map(function(f){
-      return '<span><span class="dot" style="background:'+fhue(f)+'"></span>'+f+'</span>'; }).join("")+
+      return '<span><span class="dot" style="background:'+fhue(f)+'"></span>'+esc(fnm(f))+'</span>'; }).join("")+
     (m.fidelity==="trace"
       ? '<span><span class="dot ring" style="background:var(--mute)"></span>in formation</span>'+
         '<span><span class="dot halo" style="background:var(--mute)"></span>fighting</span>'+
@@ -2114,6 +2264,21 @@ function renderHead(){
       : '')+
     '<span>drag to pan · wheel, pinch or + / − to zoom · double-click zooms in · FIT or 0 resets</span>'+
     '</div>';
+  var sh=document.getElementById("standingHead");
+  if(sh) sh.textContent=m.live?"Where each faction stands":"Where each faction finished";
+  if(m.live){
+    var cap=m.liveCap?" Units were thinned to fit one document: "+m.liveCap+" drawn.":"";
+    document.getElementById("lede").innerHTML=
+      'The match <b>as the game has it now</b>, from the snapshot the publisher last wrote: every unit '+
+      'at its latest recorded second, every standing building with its level, and who holds each '+
+      'territory. The page redraws in place each time a new snapshot arrives; pan and zoom are kept. '+
+      'Banks and population are the last metrics sample; the economy charts grow while this page '+
+      'stays open.'+esc(cap);
+    document.getElementById("foot").textContent="Live source: "+m.liveKey+" · "+
+      (m.liveN||0)+" units, "+(m.blds||[]).length+" buildings, "+(m.nodes||[]).length+" nodes · snapshot "+
+      mmss(m.tmax)+" of game time.";
+    return;
+  }
   document.getElementById("foot").textContent=
     "Source: "+m.key+" · "+(m._tr
       ? m._tr.n.toLocaleString()+" units on "+m._tr.K.toLocaleString()+" keyframes (from "+
@@ -2134,13 +2299,15 @@ function renderOverflow(){
 }
 
 function renderAll(){
-  R.t=0; setPlay(false);
+  var lm=!!(M[sel]&&M[sel].live);
+  R.t=lm?(M[sel].tmax||0):0; setPlay(false);
+  var pg=document.querySelector(".page"); if(pg) pg.classList.toggle("live-on",lm);
   GC={}; CSSC={}; HTMLC={}; RS.sig="";
   if(M[sel]) decodeTracks(M[sel]);
   if(VW.sel!==sel){ viewReset(); VW.sel=sel; }
   bindView(); renderRosterMode();
   renderRuns(); renderHead(); renderTransport();
-  renderOverflow(); renderWaves(); renderStanding(); renderComposition(); renderStructures();
+  renderOverflow(); renderScore(); renderWaves(); renderStanding(); renderComposition(); renderStructures();
   renderResearch(); renderCharts(); renderEcon(); renderCombat(); renderCurse();
   requestAnimationFrame(function(){ draw(); renderRoster(true); });
 }
@@ -2172,12 +2339,18 @@ function loadMatch(m,cb){
 function selectMatch(i,after){
   sel=i;
   var m=M[i];
+  /* choosing the live entry follows it; choosing any other match is the
+     replay, and a new snapshot never pulls the page away from it */
+  LIVE.follow=!!(m&&m.live);
+  if(LIVE.ready&&!(m&&m.live)) LIVE.picked=true;   /* the reader chose a replay */
+  if(m&&m.live&&LIVE.doc) liveApply(m,LIVE.doc);
+  liveBar();
   if(m && m.file && !m._loaded){
     setPlay(false); renderRuns();
-    showLoading("Loading "+m.map+" · "+((m.stamp||"").slice(5,16).replace("_"," "))+
+    showLoading("Loading "+(m.label?"["+m.label+"] ":"")+m.map+" · "+((m.stamp||"").slice(5,16).replace("_"," "))+
       (m.bytes?" · "+(m.bytes/1e6).toFixed(1)+" MB":"")+" …");
     loadMatch(m,function(err){
-      if(sel!==i) return;
+      if(M[sel]!==m) return;           /* a live entry may have shifted the indices */
       if(err){
         showLoading("Could not load "+m.file+" ("+err+"). A page opened straight from disk cannot "+
           "fetch its match files: serve this folder over http (python -m http.server), or build the "+
@@ -2191,13 +2364,222 @@ function selectMatch(i,after){
   hideLoading(); renderAll(); if(after) after();
 }
 
+/* ── LIVE MODE (2026-10-05) ──────────────────────────────────────────────
+   Published as an artifact with the `db` capability, the page subscribes to
+   ONE document, live/state, written every 20-30 s by the publisher from
+   tools/twb-live-snapshot.py. Each new snapshot becomes (or refreshes) a
+   synthetic match record at the top of the run strip -- the "LIVE" entry --
+   shaped like any other match, so draw(), the territory layer, the roster
+   and the tables all read it unchanged: one position frame (every unit at the
+   snapshot second), buildings standing from t=0, territory owners and meters
+   as events at t=0, and a per-faction series that GROWS for as long as the
+   page stays open.
+   No db (signed out, not granted, not served, a file on disk) or no
+   document: nothing here runs and the page is exactly the replay viewer.
+   Only window.claude.use is ever read (the runtime contract promises
+   nothing else); the subscription is opened once and never from a render. */
+var LIVE={m:null,doc:null,follow:true,seq:null,key:null,err:null,ready:false,picked:false};
+var LIVE_STALE=5*60*1000;          /* no snapshot for this long: STALE, not LIVE */
+
+function liveState(){
+  var d=LIVE.doc;
+  if(!d) return {word:"LIVE",cls:"on",age:0};
+  var age=Math.max(0,Date.now()-(d.wrote||Date.now()));
+  if(d.finished) return {word:"ENDED",cls:"ended",age:age};
+  if(age>LIVE_STALE) return {word:"STALE",cls:"stale",age:age};
+  return {word:"LIVE",cls:"on",age:age};
+}
+function ago(ms){
+  var s=Math.round(ms/1000);
+  if(s<60) return s+" s ago";
+  if(s<3600) return Math.floor(s/60)+" min "+(s%60)+" s ago";
+  return Math.floor(s/3600)+" h "+Math.floor(s%3600/60)+" min ago";
+}
+/* The bar above the stage: badge, game time, freshness, Follow toggle. Text
+   only -- it is refreshed once a second and never touches the canvas. */
+function liveBar(){
+  var bar=document.getElementById("livebar"); if(!bar) return;
+  var d=LIVE.doc;
+  if(!d||!LIVE.m){ bar.hidden=true; return; }
+  bar.hidden=false;
+  var st=liveState(), on=(M[sel]===LIVE.m);
+  var badge=document.getElementById("livebadge");
+  badge.textContent=st.word; badge.className="livebadge "+st.cls;
+  var shown=LIVE.m.tmax||0, behind=(on&&!LIVE.follow&&d.t>shown);
+  var txt='<b>'+esc((d.label?"["+d.label+"] ":"")+d.map)+'</b> · game time <b>'+mmss(d.t)+'</b> · updated '+
+    esc(ago(st.age))+(d.finished&&d.outcome?' · '+esc(d.outcome):'')+
+    (behind?' · <span class="warn">paused at '+mmss(shown)+'</span>':'')+
+    (!on?' · you are viewing a replay':'')+
+    (LIVE.err?' · <span class="warn">live feed stopped ('+esc(LIVE.err)+')</span>':'');
+  setHTML("livetext",txt);
+  var fb=document.getElementById("livefollow");
+  fb.setAttribute("aria-pressed",String(on&&LIVE.follow));
+  fb.textContent=on?(LIVE.follow?"Following live":"Follow live"):"Go to live";
+}
+function liveFollowClick(){
+  var i=M.indexOf(LIVE.m); if(i<0) return;
+  if(M[sel]!==LIVE.m){ selectMatch(i); return; }
+  LIVE.follow=!LIVE.follow;
+  if(LIVE.follow&&LIVE.doc) liveRefresh();
+  liveBar();
+}
+
+/* A snapshot document -> the synthetic match record m (in place). */
+function liveApply(m,d){
+  var facs=d.facs||[];
+  m.live=true; m.liveKey=d.matchKey; m.key="live:"+d.matchKey;
+  m.map=d.map||"?"; m.label=d.label||""; m.aiRoster=d.aiRoster||{};
+  m.stamp=String(d.matchKey||"").slice(0,19); m.peers=1; m.kind="sp"; m.build="live snapshot";
+  m.fidelity="trace"; m.desync={}; m.hasReplay=true; m.grid=2; m.tmax=d.t||0;
+  m.liveCap=(d.cap&&d.cap.units)||""; m.liveN=(d.units||[]).length;
+  m.regions=(d.regions||[]).map(function(r){ return {name:r[0],x:r[1]/2,z:r[2]/2}; });
+  m.nodes=(d.nodes||[]).map(function(n){ return {kind:n[0],x:n[1]/2,z:n[2]/2}; });
+  /* units: one frame, every unit at the snapshot second */
+  m.utypes=d.utypes||[]; m._ush=null;
+  var U={}, C={}, UT={}, xs=[], zs=[];
+  (d.units||[]).forEach(function(u,j){
+    var f=facs[u[0]]||"?", x=u[1]/2, z=u[2]/2;
+    (U[f]=U[f]||[]).push([j,x,z,u[4]|0]); UT[j]=u[3]; xs.push(x); zs.push(z);
+  });
+  Object.keys(U).forEach(function(f){ C[f]=U[f].length; });
+  m.frames=[{t:m.tmax,u:U,c:C}]; m.utype=UT; m.ulv={}; m.tracks=null; m._tr=null;
+  /* buildings: standing from t=0; a site is dashed; level as a [[0, lv]] list */
+  var bt=d.btypes||[];
+  m.blds=(d.buildings||[]).map(function(r){
+    var b={f:facs[r[0]]||"?", ty:bt[r[1]]||"?", id:bt[r[1]]||"?", t0:0, t1:null,
+           lv:r[2]>0?[[0,r[2]]]:null, x:r[4]/2, z:r[5]/2, w:r[6]/2, h:r[7]/2, yaw:r[8]|0};
+    if(r[3]) b.tc=null;
+    if(r.length>=13) b.g=[r[9],r[10],r[11],r[12]];
+    xs.push(b.x); zs.push(b.z);
+    return b;
+  });
+  m._bprep=false; m._lvl=undefined;
+  /* the map's extent: the console's nav-grid line, else what is standing */
+  if(d.world&&d.world.length===4) m.world=d.world;
+  else if(!m.world&&xs.length) m.world=[Math.min.apply(null,xs)-40,Math.min.apply(null,zs)-40,
+                                        Math.max.apply(null,xs)+40,Math.max.apply(null,zs)+40];
+  if(!m.world) m.world=[-100,-100,100,100];
+  m.extent=m.world;
+  /* territory: the partition is kept once decoded; owners and meters are
+     replaced as events at t=0 and the layer is told to repaint */
+  var T=m.terr, P=d.terr;
+  if(P&&P.rows&&!(T&&T.w===P.w&&T.h===P.h&&T.x0===P.x0&&T.z0===P.z0&&T.cell===P.cell))
+    T=m.terr={cell:P.cell,x0:P.x0,z0:P.z0,w:P.w,h:P.h,rows:P.rows};
+  if(T){
+    var own=[], mt=[], to=d.terrOwner||{};
+    Object.keys(to).forEach(function(k){ own.push([0,+k,to[k]]); });
+    (d.meter||[]).forEach(function(r){ mt.push([0,r[0],r[1],r[2],r[3]]); });
+    T.own=own; T.meter=mt;
+    if(T._ids){ T._own=own; T._met=mt; T._oi=-1; T._mi=-1; T._sig=""; }
+  }
+  /* faction stats: the standing table reads the last series row; the
+     economy charts read the whole series, which grows per snapshot */
+  if(m._seriesKey!==d.matchKey){ m.series={}; m._seriesKey=d.matchKey; }
+  (d.factions||[]).forEach(function(s){
+    var f=s.name, ser=(m.series[f]=m.series[f]||[]);
+    var row={t:d.t, s:s.supplies||0, i:s.iron||0, v:s.veilstone||0, vs:s.veilsteel||0,
+             pop:s.pop||0, popMax:s.popMax||0, units:s.units||0, bld:s.buildings||0, terr:s.territories||0};
+    if(ser.length&&ser[ser.length-1].t>=d.t) ser[ser.length-1]=row; else ser.push(row);
+    if(ser.length>4000) ser.splice(0,ser.length-4000);
+  });
+  /* the score: the snapshot carries the latest row per faction (d.score.final,
+     the extractor's shape); the series is grown here one sample per snapshot,
+     like m.series, so the "score over time" plot fills in while the page is
+     open. The leader is worked out from `final` (no scoreLeader on a live entry). */
+  m.scoreLeader=null;
+  var SF=d.score&&d.score.final;
+  if(SF&&Object.keys(SF).length){
+    if(!m.score||m._scoreKey!==d.matchKey){ m.score={ts:[],f:{},final:{}}; m._scoreKey=d.matchKey; }
+    var sc=m.score, ti=sc.ts.length;
+    if(ti&&sc.ts[ti-1]>=d.t) ti--; else sc.ts.push(d.t);
+    Object.keys(SF).forEach(function(f){
+      var v=SF[f]||{}, s=(sc.f[f]=sc.f[f]||{s:[],e:[],st:[],m:[],kd:[]});
+      while(s.s.length<ti){ s.s.push(null); s.e.push(null); s.st.push(null); s.m.push(null); s.kd.push(null); }
+      s.s[ti]=v.score; s.e[ti]=v.economy; s.st[ti]=v.strategy; s.m[ti]=v.military; s.kd[ti]=v.kd;
+    });
+    sc.final=SF;
+  } else m.score=null;
+  /* composition, standing structures and the full roster, counted here */
+  var uc={}, bc={}, ids=[], idi={}, ru={}, rb={}, comp={}, stru={};
+  function idOf(n){ if(!(n in idi)){ idi[n]=ids.length; ids.push(n); } return idi[n]; }
+  (d.units||[]).forEach(function(u){ var f=facs[u[0]], n=(m.utypes[u[3]]||["?"])[0];
+    var o=(uc[f]=uc[f]||{}); o[n]=(o[n]||0)+1; });
+  m.blds.forEach(function(b){ var o=(bc[b.f]=bc[b.f]||{}); o[b.ty]=(o[b.ty]||0)+1; });
+  facs.forEach(function(f){
+    var o=uc[f]||{}, q=bc[f]||{};
+    comp[f]=Object.keys(o).map(function(n){ return [n,o[n]]; }).sort(function(a,b){ return b[1]-a[1]; });
+    stru[f]=Object.keys(q).map(function(n){ return [n,q[n]]; }).sort(function(a,b){ return b[1]-a[1]; });
+    ru[f]=Object.keys(o).map(function(n){ return [d.t,idOf(n),o[n]]; });
+    rb[f]=Object.keys(q).map(function(n){ return [d.t,idOf(n),q[n]]; });
+  });
+  m.composition=comp; m.structures=stru;
+  m.roster={ts:[d.t],ids:ids,u:ru,b:rb};
+  m.waveList=[]; m.deaths=[]; m.research={}; m.placement=[]; m.combat=[]; m.econ=null;
+  m.curse={events:[]};
+  m._loaded=true;
+}
+
+/* Redraw the live entry in place: no view reset, no replay clock reset. */
+function liveRefresh(){
+  var m=LIVE.m; if(!m||M[sel]!==m) return;
+  liveApply(m,LIVE.doc);
+  R.t=m.tmax; RS.sig="";
+  renderRuns(); renderHead(); renderScore(); renderStanding(); renderComposition(); renderStructures();
+  renderCharts(); draw(); renderRoster(true); liveBar();
+}
+
+/* One snapshot arrived (or the first one did). */
+function liveArrive(d){
+  if(!d||typeof d!=="object"||!d.matchKey||!d.facs) return;
+  var same=(LIVE.key===d.matchKey&&LIVE.seq===d.seq);
+  LIVE.doc=d;
+  if(same){ liveBar(); return; }               /* rewritten, nothing new: no redraw */
+  var fresh=(LIVE.key!==d.matchKey);
+  LIVE.key=d.matchKey; LIVE.seq=d.seq;
+  if(!LIVE.m||fresh){
+    var keepSel=M[sel]||null, wasLive=!!(keepSel&&keepSel.live);
+    if(LIVE.m){ var oi=M.indexOf(LIVE.m); if(oi>=0) M.splice(oi,1); }
+    LIVE.m={};
+    liveApply(LIVE.m,d);
+    M.unshift(LIVE.m);
+    /* the indices moved: keep the selection (and the view tied to it) */
+    if(keepSel&&!wasLive){ sel=M.indexOf(keepSel); VW.sel=sel; }
+    renderLedger();
+    var st=liveState(), linked=/[?&]m=/.test(location.search||"");
+    /* open on the live match while it is running -- unless a deep link chose
+       a replay, or the reader picked one: never pull a reader off a replay */
+    if(wasLive||!keepSel||(!LIVE.picked&&!linked&&st.cls==="on")){ selectMatch(0); return; }
+    LIVE.follow=false; renderRuns(); liveBar();
+    return;
+  }
+  if(M[sel]===LIVE.m&&LIVE.follow) liveRefresh();
+  else { renderRuns(); liveBar(); }
+}
+
+function liveStart(){
+  var c; try{ c=window.claude; }catch(_){ c=null; }
+  if(!c||typeof c.use!=="function") return;
+  LIVE.ready=true;
+  var fb=document.getElementById("livefollow"); if(fb) fb.onclick=liveFollowClick;
+  var p; try{ p=c.use("db"); }catch(_){ return; }
+  Promise.resolve(p).then(function(db){
+    if(!db) return;
+    var ref; try{ ref=db.doc("live/state"); }catch(_){ return; }
+    ref.onSnapshot(function(snap){
+      if(!snap||!snap.exists) return;
+      try{ liveArrive(snap.data()); }catch(e){ if(window.console) console.error("live snapshot",e); }
+    },function(err){ LIVE.err=(err&&err.code)||"error"; liveBar(); });
+    setInterval(liveBar,1000);
+  },function(){});
+}
+
 /* The ledger does not depend on the selected match, and it must render even
    when there is nothing replayable -- the record is the point. */
 renderLedger();
 
 if(!M.length){
-  document.getElementById("stage").innerHTML=
-    '<div style="padding:60px;text-align:center;color:var(--mute)">No replayable match found.</div>';
+  /* the stage is kept (not replaced) so a live snapshot can still draw on it */
+  showLoading("No replayable match found.");
 } else {
   /* DEEP LINK (2026-10-03): ?m=<match index>&t=<seconds>&z=<zoom>&cx=&cz=
      opens the replay on one moment -- for sharing a link to "this army,
@@ -2237,6 +2619,7 @@ if(!M.length){
     }
   });
 }
+liveStart();
 var rz; window.addEventListener("resize",function(){
   clearTimeout(rz); rz=setTimeout(function(){ draw(); renderCharts(); renderEcon(); },160); });
 if(window.matchMedia){

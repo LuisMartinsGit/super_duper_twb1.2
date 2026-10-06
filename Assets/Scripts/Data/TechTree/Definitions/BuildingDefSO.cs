@@ -38,6 +38,10 @@ namespace TheWaningBorder.Data
         public float suppliesInterval;
         public float[] slotIncomePerMinute;
         public float interestPerMinute;
+        public float interestPrincipalCap;
+        public float coffersRate;
+        public float merchantChartersRate;
+        public float sovereignBondsRate;
         public int maxPerFaction;
         public int minWallLevel;
         public int garrisonSlots;
@@ -105,6 +109,10 @@ namespace TheWaningBorder.Data
             // Authoring data is read-only at runtime, so reference-copy.
             def.slotIncomePerMinute = slotIncomePerMinute ?? System.Array.Empty<float>();
             def.interestPerMinute  = interestPerMinute;
+            def.interestPrincipalCap = interestPrincipalCap;
+            def.coffersRate          = coffersRate;
+            def.merchantChartersRate = merchantChartersRate;
+            def.sovereignBondsRate   = sovereignBondsRate;
             def.minWallLevel       = minWallLevel;
             def.garrisonSlots      = garrisonSlots;
             def.garrisonArrowsPerOccupant = garrisonArrowsPerOccupant;
@@ -145,6 +153,10 @@ namespace TheWaningBorder.Data
             slotIncomePerMinute = def.slotIncomePerMinute == null
                 ? System.Array.Empty<float>() : (float[])def.slotIncomePerMinute.Clone();
             interestPerMinute  = def.interestPerMinute;
+            interestPrincipalCap = def.interestPrincipalCap;
+            coffersRate          = def.coffersRate;
+            merchantChartersRate = def.merchantChartersRate;
+            sovereignBondsRate   = def.sovereignBondsRate;
             minWallLevel       = def.minWallLevel;
             garrisonSlots      = def.garrisonSlots;
             garrisonArrowsPerOccupant = def.garrisonArrowsPerOccupant;

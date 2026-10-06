@@ -2,6 +2,7 @@
 // Building placement: siting rules, spacing, worker dispatch, pop headroom.
 // Partial of SimpleAISystem.cs -- split 2026-08-12 for readability.
 
+using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -276,6 +277,7 @@ namespace TheWaningBorder.AI
             // building that needed one on site — is removed.)
             Entity claimWorker = Entity.Null;
 
+            _lastPlacedPos = pos;
             bool queued = CommandRouter.IssuePlaceBuilding(em, buildingId, pos, faction,
                 claimWorker, out Entity building, CommandSource.AI);
             // Whatever happened, buildings / the bank may have changed: every
@@ -312,20 +314,33 @@ namespace TheWaningBorder.AI
             }
             if (dispatched == 0)
             {
-                // Race: a worker went busy between the pre-flight check and
-                // dispatch. Refund + destroy the orphan foundation rather
-                // than advancing the step on a stalled site. Refund the
-                // amount PlaceBuildingDirect actually charged (stamped on the
-                // foundation) — an escalated Hall refunds its own price.
-                TheWaningBorder.Data.BuildCosts.TryGetPaid(em, building, buildingId, out var paid);
-                FactionEconomy.Add(em, faction, paid);
-                em.DestroyEntity(building);
-                InvalidateThinkMemo();
-                BuildSiteSnapshot.Invalidate();
-                return false;
+                // NO IDLE WORKER IS NOT A ROLLBACK (2026-10-05). This used to
+                // refund and destroy the placement, and with a 0.25 s think
+                // the next tick placed it again: 55 pay-and-refund cycles of
+                // one Gatherer's Hut in the first 15 s of a match, 146 in one
+                // 15 s period later, and a bank that read 120 short whenever
+                // the fast tier checked whether it could afford a soldier —
+                // Expert bought a quarter of Easy's units in its first ten
+                // minutes. A worker-raised building is a PLAN now
+                // (Planned_Buildings.md): it costs nothing standing, idle
+                // workers adopt it on their own, and here the nearest busy
+                // worker takes it as its next job. Only a site that is not a
+                // plan (a self-constructing landmark) stands without a crew,
+                // and those need none.
+                int pulled = AICommon.PullWorkersTo(em, faction, building, buildingId, pos, maxWorkers: 1);
+                if (AILogger.Enabled && (!_noCrewLogAt.TryGetValue((int)faction, out float at) || _thinkNow >= at))
+                {
+                    _noCrewLogAt[(int)faction] = _thinkNow + 60f;   // log cadence, not tuning
+                    AILogger.Log(faction, "BUILD",
+                        $"{buildingId} placed with no idle worker — " +
+                        (pulled > 0 ? "queued on a busy one" : "left for the next free worker"));
+                }
             }
             return true;
         }
+
+        /// <summary>Per-faction cadence of the "placed with no idle worker" line.</summary>
+        private readonly Dictionary<int, float> _noCrewLogAt = new Dictionary<int, float>();
 
         /// <summary>
         /// The build pre-flight that does not depend on WHERE: the savings
@@ -791,7 +806,11 @@ namespace TheWaningBorder.AI
             bool onTarget = isClaim || isExtractor;
             // A Fortress is searched from its territory's seed / reserved
             // spot outward, not from a ring 16 m clear of it.
-            float ringMin = onTarget || houseQuarter || buildingId == "Fortress"
+            // A COVERAGE TOWER (Game_AI.md 5g) is searched from its chosen
+            // site outward, and only within towerSiteSearchRadius of it: a
+            // tower pushed off its site no longer covers what it was for.
+            bool towerSite = _towerSiteExact && buildingId == TowerId;
+            float ringMin = onTarget || houseQuarter || towerSite || buildingId == "Fortress"
                 ? 0f : Cfg.buildRingDistanceMin;
 
             // THE RESERVED FORTRESS SPOT FIRST (Game_AI.md 5g): it was chosen
@@ -841,6 +860,7 @@ namespace TheWaningBorder.AI
             // only candidates within 4 m of a free node, so rings out to the
             // base ring's 48 m were 200+ candidates that could never pass.
             if (isExtractor) maxRadius = math.min(maxRadius, Cfg.extractorSearchRadius);
+            if (towerSite) maxRadius = math.min(maxRadius, math.max(BuildGrid.CellSize, Cfg.towerSiteSearchRadius));
 
             // INSIDE THE WALLS (2026-09-25). When this faction has planned a
             // perimeter wall around the base, a base building must fit inside
@@ -931,7 +951,7 @@ namespace TheWaningBorder.AI
                 if (ringed) System.Array.Clear(rayPastRing, 0, rayPastRing.Length);
                 // Houses in their quarter may touch: the lane is only a look.
                 float gap = houseQuarter ? 0f : lastResort ? gapRelaxed : gapNormal;
-                float passMax = lastResort
+                float passMax = lastResort && !towerSite
                     ? math.max(maxRadius, Cfg.relaxedBuildRingDistanceMax) : maxRadius;
 
                 for (float r = ringMin; r <= passMax; r += 4f)
@@ -939,6 +959,8 @@ namespace TheWaningBorder.AI
                     int angleStart = (int)(NextRandFloat01() * BuildAngleSamples);
                     for (int i = 0; i < BuildAngleSamples; i++)
                     {
+                        // Radius 0 is one point: a coverage tower tries it once.
+                        if (towerSite && r <= 0f && i > 0) break;
                         int idx = (angleStart + i) % BuildAngleSamples;
                         // A bearing past the ring costs nothing (no budget).
                         if (ringed && rayPastRing[idx]) { nPastRing++; continue; }
@@ -1062,6 +1084,11 @@ namespace TheWaningBorder.AI
                         // refuses (Planned_Buildings.md) but the building list
                         // above never sees (a plan has no BuildingTag).
                         if (snap.OverlapsOwnPlan(faction, candidate, size))
+                        { nOverlap++; continue; }
+                        // A spot where this faction's plan was cancelled for a
+                        // persistent refusal (Planned_Buildings.md, the grace)
+                        // is not tried again while the memory lasts.
+                        if (PlannedBuildings.IsRecentlyRefused(faction, candidate, Cfg.refusedSpotRadius, _thinkNow))
                         { nOverlap++; continue; }
 
                         // The expensive stage (terrain slope/water samples):

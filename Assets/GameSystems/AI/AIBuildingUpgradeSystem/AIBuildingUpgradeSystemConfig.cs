@@ -47,6 +47,13 @@ namespace TheWaningBorder.AI
         /// level meanwhile. 0 = no priority.</summary>
         public int capitalPriorityLevel;
 
+        /// <summary>Capital levels up to this one are ESSENTIAL: bought and
+        /// saved for ahead of everything (L2 doubles the home territory's
+        /// income). Levels above it, up to capitalPriorityLevel, are economy
+        /// drive: on a tier with unitsBeforeEconomy they wait while the money
+        /// could still become units (docs/Design/Game_AI.md 5h).</summary>
+        public int capitalEssentialLevel;
+
         /// <summary>SURPLUS (docs/Design/Game_AI.md 5e): while the bank is
         /// overflowing (AIBudget surplusSupplies / surplusIron) up to this
         /// many level-ups are queued per think instead of one — the capital

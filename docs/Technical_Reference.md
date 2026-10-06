@@ -191,9 +191,9 @@ produce veilstone / veilsteel (research in
 
 ### Vault Banking (Vault of Almierra / Runai Vault)
 
-- Interest rate: `interestPerMinute` on the Vault SO, scaled by each level SO's `interestMultiplier` (applies from L1 and grows with level)
+- Interest rate: `interestPerMinute` on the Vault SO, replaced by the SO's `coffersRate` / `merchantChartersRate` / `sovereignBondsRate` once that banking grade is researched (highest wins), then scaled by each level SO's `interestMultiplier` (applies from L1 and grows with level)
 - A lock timer follows each deposit/withdraw
-- Continuous compounding: `amount += amount * rate * dt / 60`
+- Simple, capped interest (decision 41, 2026-10-05): `StoredAmount += min(Principal, interestPrincipalCap) * rate * dt / 60`. `VaultStorage.Principal` is the stored amount as of the last deposit (`CommandRouter.VaultTransferDirect` re-bases it on deposit, zeroes it on withdraw); interest is never added to it, so nothing compounds, and stored amount above the SO's `interestPrincipalCap` earns nothing
 
 ### Trade Economy (Runai)
 
@@ -384,7 +384,7 @@ the building SO in `Assets/GameData/TechTree/Age0/Buildings/<Building>/`.
 | Building | Notes |
 |----------|-------|
 | Temple of Ridan | Costs Religion Points (see the SO / Religion.md). One per faction, no levels. Trains the Litharch and hosts the heal aura (`TempleHealSystem`). The Shrine of Ridan is deleted |
-| Vault of Almierra | Banking: compounding interest from `interestPerMinute`, scaled per level. Deposit/withdraw with a lock timer |
+| Vault of Almierra | Banking: simple interest on the deposited principal up to the SO's `interestPrincipalCap`, at `interestPerMinute` (or the researched banking grade's SO rate), scaled per level. Deposit/withdraw with a lock timer |
 | Fiendstone Keep | Training speed aura, ranged attack, Berserker conversion (values on the SO; Feraldis pass pending) |
 
 ### Runai Culture Buildings
@@ -630,11 +630,17 @@ Spatial hashing via NativeParallelMultiHashMap. Reduces neighbor scan from O(n^2
 ```
 AIBrain {
     Faction Owner;
-    float UpdateInterval;
-    AIPersonality: Balanced | Aggressive | Defensive | Economic | Rush;
+    byte IsActive;
+    AIPersonality: Balanced | Aggressive | Defensive | Economic | Rush | TechBoom | Turtle;
     AIDifficulty: Easy | Normal | Hard | Expert;
 }
 ```
+
+The personality is a row of numbers on `Assets/Resources/AISettings.asset`
+(`AISettingsSO.PersonalityBlock`: plan affinities, military floor, attack
+threshold, risk, raiding, hut and production targets, age-up push, basics
+appetite, tower / wall scales) -- see docs/Design/Game_AI.md § 3. The
+difficulty is one of the four `AIDifficultyProfileSO` assets.
 
 ### AI Managers
 

@@ -17,7 +17,7 @@ namespace TheWaningBorder.Entities
     public static class VaultOfAlmierra
     {
         /// <summary>
-        /// Create Vault of Almiérra — compound interest resource storage.
+        /// Create Vault of Almiérra — simple, capped-interest resource storage.
         /// </summary>
         public static Entity Create(EntityManager em, float3 position, Faction faction)
         {
@@ -52,6 +52,7 @@ namespace TheWaningBorder.Entities
             {
                 ResourceType = 0,
                 StoredAmount = 0f,
+                Principal = 0f,
                 InterestRate = def.interestPerMinute,   // the SO (VaultOfAlmierra.asset)
                 LockTimer = 0f,
                 LockDuration = 180f
@@ -98,6 +99,7 @@ namespace TheWaningBorder.Entities
             {
                 ResourceType = 0,
                 StoredAmount = 0f,
+                Principal = 0f,
                 InterestRate = def.interestPerMinute,   // the SO (VaultOfAlmierra.asset)
                 LockTimer = 0f,
                 LockDuration = 180f

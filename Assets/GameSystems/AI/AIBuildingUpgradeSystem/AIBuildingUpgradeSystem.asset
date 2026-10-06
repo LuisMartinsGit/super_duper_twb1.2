@@ -18,5 +18,6 @@ MonoBehaviour:
   reserveIron: 50
   reserveVeilstone: 20
   capitalPriorityLevel: 3
+  capitalEssentialLevel: 2
   surplusUpgradesPerThink: 3
   hutUpgradeHeadroomMax: 40

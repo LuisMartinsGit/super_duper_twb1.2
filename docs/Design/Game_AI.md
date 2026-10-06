@@ -36,37 +36,199 @@ labeled with their multiplier (AoE4's hidden-Hardest-cheat backlash).
 | Counter-composition strength (`counterResponse`, §5d) | 0.4 | 0.75 | 1.0 | 1.15 |
 | Basics share scale (`basicsShareScale`, §5d) | 1.35 | 1.0 | 0.85 | 0.75 |
 | Claim squads out at once (`expansionDrive` x `claimMaxParallelSquads`, §5b) | 0.5x | 1x | 1.25x | 1.5x |
+| Capital level is a savings goal (`reserveForCapitalLevel`, §5h) | off | off | on | on |
+| Economy levels first (`economyUpgradesPerThink`, §5h) | none | none | some | most |
+| Production queue depth (`productionQueueDepth`, §5h) | uncapped | uncapped | shallow | current unit only |
+| Fortress savings goal (`fortressReserve*`, §5c) | always | always | always | always |
+| Units before economy (`unitsBeforeEconomy`, §5h) | off | off | on | on |
+| The army never pays for a Fortress (`armyBeforeSaves`, §5f) | off | off | on | on |
+| Capital savings hold capped (`capitalReserveMaxHoldSeconds`, `capitalReserveRestSeconds`, §5h) | n/a | n/a | capped | capped |
+| Home production per line (`homeProductionPerLine`, §5g) | below Normal | the home floor | the home floor | the home floor |
+| Production per province (`provinceProductionPerTerritory`, §5g) | one | one | one | one |
+| Extra production: busy share and how long (`productionSaturationThreshold`, `productionSaturationSeconds`, §5g) | stricter, longer | baseline | looser, shorter | loosest, shortest |
+| Standing army a wave never drafts (`standingArmyFloorFraction`, §6a) | none | small | small | small |
+| Wave minimum as a share of the standing army (`waveMinArmyFraction`, §6a) | none | small | small | small |
+| Age-up savings protected from the Age 0 wave (`protectAgeUpSavings`, §5h) | off | off | off | off |
+| Curse hunt waits for the capital (`curseHuntMinCapitalLevel`, §5h) | no | no | aged up | aged up |
+| Vault share / withdraw on need (`vaultDepositShare`, `vaultWithdrawOnNeed`, §5h) | small / timer only | half / yes | most / yes | most / yes |
 | Optional build-step skip chance | 25% | 10% | 0% | 0% |
 | Forward staging before attacks | off | off | on | on |
-| Sustained army cap | 200 | 200 | 200 | 200 |
+| Sustained army cap (`sustainArmyCap`, a hard ceiling) | 60 | 120 | 180 | 200 |
 | Expansion (extra GathererHuts near untapped deposits) | off | on | on | on |
+| Counter-aware target choice / focus-fire weight (`tactics`, §6e) | off / off | 0.5 / 0.6 | 0.85 / 0.85 | 1 / 1 |
+| Ranged hold a line behind the melee (§6e) | off | on | on | on |
+| Kiting (§6e) | off | off | on | on |
+| Flanking share of the fast melee (§6e) | 0 | 0 | 20% | 30% |
+| Fall back to regroup at enemy/own power (re-engage at) (§6e) | never | 1.8 (0.8) | 1.5 (0.9) | 1.35 (0.95) |
+| Casts unit abilities; AoE needs N enemies (§6e) | no; 2 | yes; 3 | yes; 4 | yes; 4 |
 
-**The army cap is NOT a difficulty knob (2026-09-12).** Every tier sustains
-up to 200 — the population ceiling — and difficulty is expressed entirely in
-the quality and speed of decisions: how often the brain thinks, how stale its
-intel is allowed to be, how long before it first attacks, how often waves go
-out, whether it counter-composes, raids or stages forward, and how often it
-skips an optional build step.
+| Claim / develop / extractor cadence (`territoryCadenceScale`, §5b, §5g) | slowest | slow | baseline | fastest |
+| Fortress after a territory qualifies (`fortressDelaySeconds`, §5c) | late | later than Hard | soon | at once |
+| Retakes rival ground (`reconquestMargin`, §5b) | never | at a wide margin | yes | at a narrow margin |
+| Late strength-gated wave needs (`strengthWaveRatioScale`, §6a) | the biggest edge | a bigger edge | baseline | a smaller edge |
+| How much of its personality it plays (`personalityWeight`, §3) | all of it | most | some | a little |
+| Armies per wave (`concurrentArmies`, §6f) | one | one | two | three |
+| Waves aim at the enemy's income (`incomeTargeting`, §6f) | no | no | yes | yes |
 
-Capping the army instead was doing the same job by simply giving the weaker
-tier fewer soldiers, which is the least interesting way to lose. It also made
-Easy read as passive rather than as clumsy: a capped AI stops producing and
-then stands still, which looks like a broken opponent rather than a beatable
-one. A slow, badly-aimed full-sized army is a better teacher and a better
-fight than a small well-aimed one.
+(The values are the four profile assets'; the table says which way each knob leans.)
+
+**Pace is the ladder (2026-10-05, Mirror Marches v3-v4).** With the
+holding-back knobs flattened, Easy stopped winning but kept placing second:
+on this map the whole economy is territory, and taking, developing and
+fortifying territory ran at one cadence for every tier, so Easy claimed as
+fast as Expert and built eight Fortresses to its one. The tiers now differ
+in exactly those paces — how often a claim round goes out, how often a
+territory's next building is placed and an extractor walk runs, how long a
+qualified territory waits for its Fortress, whether and at what margin the
+tier retakes ground, and how big an edge the late wave waits for. Easy is
+slow and never retakes; Expert is fastest and fortifies at once. Nothing
+here is a cheat: every tier plays the same rules at a different speed.
+
+**The holding-back ladder was inverted (2026-10-05, Mirror Marches
+M1-M6).** On a map with every seat on identical ground, Expert finished first
+in none of five matches and Easy won two; Expert's first wave went out at
+13-18 minutes against a 180 s earliest, it built one Fortress to Easy's eight,
+and 60% of its trainers stood idle. The ladder had been stacking restraint on
+the harder tier: a standing floor of 40% of the army, a wave minimum of a
+quarter of the rest, the Age 0 strike switched off, twice the trainers with a
+one-deep queue, and the Fortress "waited for the bank" that a 0.25 s think
+never let fill. Those knobs now lean the other way or are flat: the floor
+and wave minimum are small on every tier above Easy, no tier protects its
+age-up savings from the opening strike, trainers start at the home floor and
+one per province and grow only by saturation (§ 5g), the Fortress is always
+saved for (§ 5c), and Expert's ultimates are no longer spent at a 1.15
+disadvantage. What still separates the tiers is reaction speed, claim
+parallelism, economy levels, tactics (§ 6e) and the in-fight skills — not
+how much of its army a tier keeps at home.
+
+**More trainers, not a smaller army (2026-10-05).** Developer: "Having less
+time between attacks in higher difficulties should not come at the cost of
+army count. Harder AIs should have more parallel military training facilities
+to make up for this." Measured in Headless33-35 (same maps and seeds): Normal
+stood with a larger army than Expert at every checkpoint, Expert had no more
+production buildings, and it spent markedly less on units, because the
+economy drive took the money and the short wave interval kept drafting
+everything idle into small waves. Expert's tactics still won its fights. So a
+harder tier now (a) builds more production in parallel (the home floor per
+line, production per province, and an earlier saturation gate for extras,
+§ 5g), (b) keeps a standing army at home that waves and reinforcements never
+draft, so faster waves draw only the surplus, and makes each wave a real share
+of the army (§ 6a), and (c) spends on the economy drive only once the money
+can no longer become units (§ 5h). Normal's values are what shipped before;
+Easy sits below Normal. The numbers are in the four profile assets.
+
+**Decision rate is not difficulty (2026-10-04).** The think interval stays
+(it is how often the brain re-plans its economy and dispatch), but it was never
+why an AI lost fights. What separates the tiers now is what an army does IN a
+fight — the `tactics` block on each profile asset (§6e): whether it picks
+targets by counter relationship, kites, flanks, falls back to regroup, keeps its
+shooters behind its melee, and how patient its abilities are. Micro runs on its
+own fixed cadence for every tier (`AITactics.asset`), so a slower-thinking tier
+is not a slower-reacting army; Easy simply has the skills switched off.
+
+**The army cap IS a difficulty knob (2026-10-05, operator directive;
+supersedes the 2026-09-12 rule below).** Expert plays its saves — the
+Fortress pot, the capital level, trade — and that is what makes it Expert;
+Easy saves for nothing and simply trains. With every tier allowed the same
+200 soldiers, the tier that never saved out-produced the one that did: Easy
+beat Expert in both seats of a v9 1v1 (34.5k to 14.8k and 28.7k to 16.1k)
+and finished ahead of it in half of fourteen matches. Decision quality
+cannot win a match against three times the army, so the ladder caps what
+each tier may keep: Easy 60, Normal 120, Hard 180, Expert 200 (the
+population ceiling, so unrestricted). `sustainArmyCap` is a HARD ceiling on
+the desired army — the plan's `ArmyScale` shapes the target under it (a
+Mass plan at Easy still stops at 60), the per-territory keep-up (§3a) is
+clamped to it, the escalator never passes it, and every think ends by
+clamping the target back under it — the wave strength gate, the curse hunt
+and the per-unit escalator all used to raise it past the cap (Easy read 83
+against a cap of 60 in the first v16 pair). Only Easy's cap is a real
+restriction in play; the middle steps are there so the order holds.
+
+*Historical, superseded:* **The army cap is NOT a difficulty knob
+(2026-09-12).** Every tier sustained up to 200 — the population ceiling —
+and difficulty was expressed entirely in the quality and speed of
+decisions: how often the brain thinks, how stale its intel is allowed to
+be, how long before it first attacks, how often waves go out, whether it
+counter-composes, raids or stages forward, and how often it skips an
+optional build step. Capping the army was judged "the least interesting way
+to lose"; the measurement above showed it is also the only way the tiers
+finish in order.
 
 The shipped assets had drifted far from the old table anyway (55 / 100 / 125 /
 150 against a documented 10 / 16 / 24 / 32), so nothing was reading it.
 
 ## 3. Personalities (weights, not scripts)
 
-Five personalities (Balanced / Aggressive / Defensive / Economic / Rush),
-assigned per faction (lobby-overridable later). Personality scales the
-utility weights and thresholds — it does not change code:
-attack threshold, military/worker floors, raid cadence, risk tolerance
-(target scoring), defense budget. Strategy (the opening build order) and
-personality remain separate axes, but personality biases the deterministic
-strategy roll (Aggressive → Rush/Balanced openings, Economic → EcoBoom…).
+**Dampened by tier (2026-10-05, approved).** A personality pulled every tier
+by the same amount, and in mixed matches the pull outweighed the tier: an
+Expert that drew Defensive or Economic played a slow-army plan and finished
+third behind a Hard Rush. Each tier now plays its personality at the
+profile's `personalityWeight` — every numeric value of the block, the plan
+affinities and the army mix are blended from Balanced toward the personality
+by that weight (a flag takes the personality's value from one half). Easy
+plays its flavour in full; Expert takes a fraction, so flavour stays visible
+and a higher tier never loses to a lower one for having drawn it.
+
+Seven personalities: **Balanced / Aggressive / Defensive / Economic / Rush /
+TechBoom / Turtle**. The lobby's strategy dropdown picks one per AI slot
+(`AIBootstrap.LobbyToPersonality`; Aggressive has no dropdown entry), RANDOM
+falls back to the colour table (Red / Orange Rush, Yellow TechBoom, Green
+Economic, Blue Turtle, White Aggressive) and then to a seeded roll
+(`AIBootstrap.ResolvePersonality`), and the AI keeps it for the whole match. **A personality is one row of numbers,
+nothing else** -- `AISettingsSO.PersonalityBlock`, authored on
+`Assets/Resources/AISettings.asset`, which is the single source of every
+value in this section. There is no coded default table and no per-personality
+script: the scripted Age 0 build orders (`AIBuildOrder` step lists) were
+deleted on 2026-10-05, because their step pointer never advanced and no step
+of any order was ever issued -- every opening the AI ever played was the
+maintenance loop below, steered by these numbers. Every field is a how-much,
+never a which: no unit id may ever appear on the row (unit choice is layer 3,
+§ 5d).
+
+What the row decides, and where each field is read:
+
+| Field | What it steers | Read by |
+|-------|----------------|---------|
+| `boomAffinity` / `massAffinity` / `rushAffinity` / `techAffinity` / `fortressAffinity` | **Plan affinity** -- a score bonus on each strategic plan when a plan is chosen (§ 5, `AIPlans.Affinity`). The board is read the same way for everybody; this is the only thing that keeps four AIs on one board from reaching one answer, and it is sized so an ambiguous board splits them while a decisive one (deathball, base under attack) still collapses them onto the right plan | `SimpleAISystem.Plan` |
+| `militaryFloor` | **Standing army** (§ 3a) -- multiplied by the plan's `ArmyScale`, never by difficulty | `Economy`, `Goals` |
+| `attackThreshold` | Idle units before the brain flips to Pressure posture | `Posture` |
+| `riskMultiplier` | **Risk** -- multiplies the risk term of target scoring and the wave's strength gate; above 1 is cautious, below 1 takes the fight | `Targeting`, `Military` |
+| `raidingEnabled` | **Raiding** -- whether a wave launch also peels a fast raid party at the enemy economy | `Military` |
+| `gathererHutTarget` | **Hut cap** -- the early-game Gatherer's Hut ceiling; doubles over the match for gathering cultures, Feraldis (Raider Camps) stays hard-capped at the smaller of it and `feraldisRaiderCampCap` | `Economy` |
+| `productionBuildingTarget` | Production buildings per line (`/2` in Age 0, `/4` after age-up, min 2) | `Goals` |
+| `ageUpPushSeconds` | **Age-up push** -- game time after which the AI stops founding huts, treats the age-up as its advancement gate and banks for it (Aggressive / Rush first push their one Age 0 wave) | `SimpleAISystem`, `Goals`, `Economy` |
+| `basicsAppetite` | **Army mix** -- multiplier on the cheap basics' share of the army plan (§ 5d); the role mix itself is `RoleBudget.For` in `AIComposition.cs`, still code | `Composition` |
+| `towerCoverageScale` | **Towers** -- multiplier on how much ground the personality wants covered by watch towers (1 = Balanced) | the fortification pass (being wired) |
+| `wallPriorityScale` | **Walls** -- multiplier on the priority of wall work against the rest of the build list (1 = Balanced) | the fortification pass (being wired) |
+
+Workers are NOT on the row: the worker target is the one rule in § 4
+(`economyWorkerFloor` + one per conquered territory, `SimpleAISystem.asset`),
+the same for every personality. Culture is only leaned, not chosen:
+`AIBuildOrder.CultureLeanFor` gives the prior (Rush and Balanced toward
+Feraldis, Defensive and Turtle toward Alanthor) that `AICultureChoice` bends
+with scouted intel.
+
+How the seven read, from the values on the asset (relative, not restated --
+open the asset for the numbers):
+
+- **Balanced** -- the reference row: every scale 1, a mild lean to Mass and
+  Tech, raids, mid floor and hut cap.
+- **Aggressive** -- strongest Rush and Mass affinity after Rush itself, low
+  risk aversion, raids, a higher floor and more production buildings, fewer
+  huts, pushes the age-up late (after its wave), light on towers and walls.
+- **Defensive** -- Fortress first, Tech second; cautious targeting, no raids,
+  a big floor, the most towers and walls after Turtle.
+- **Economic** -- Boom first, Tech second; the smallest floor and the highest
+  hut cap, pushes the age-up early, no raids, slightly under par on
+  fortification.
+- **Rush** -- the strongest single affinity in the table (Rush), the lowest
+  risk aversion, the fewest huts and the most production buildings, raids,
+  pushes the age-up last, builds almost no towers or walls.
+- **TechBoom** -- Tech first with a little Boom; the earliest age-up push,
+  the lowest basics appetite (its veilstone goes into role units), no raids,
+  par fortification.
+- **Turtle** -- Fortress with a little Mass; the highest risk aversion, the
+  biggest floor and attack threshold, no raids, the most towers and walls.
 
 ### 3a. The standing army (military floor)
 
@@ -74,23 +236,15 @@ Each personality carries a **military floor**: the standing army the AI keeps
 before it considers anything else military. It is multiplied by the PLAN's
 army scale, not by difficulty -- difficulty sets the army CAP, the wave base
 and how fast the brain thinks, never the floor -- so every tier keeps the same
-standing army and differs in how well it uses it.
+standing army and differs in how well it uses it. The floors run Economic <
+TechBoom < Balanced < Aggressive = Rush < Defensive < Turtle; the values are
+`militaryFloor` on `AISettings.asset`.
 
-| Personality | Floor |
-|-------------|-------|
-| Economic    | 12 |
-| TechBoom    | 14 |
-| Balanced    | 16 |
-| Aggressive  | 20 |
-| Rush        | 20 |
-| Defensive   | 24 |
-| Turtle      | 28 |
-
-**Doubled on 2026-09-12** (operator directive) from 6/7/8/10/10/12/14. The old
-floors were set when the army cap was small; with the cap at 200 they left
-every faction fielding single figures deep into a match, and the whole muster
-chain downstream of them -- wave bar, mission size, reinforcement -- can only
-ever divide up an army that was never raised.
+**Doubled on 2026-09-12** (operator directive). The old floors were set when
+the army cap was small; with the cap at 200 they left every faction fielding
+single figures deep into a match, and the whole muster chain downstream of
+them -- wave bar, mission size, reinforcement -- can only ever divide up an
+army that was never raised.
 
 **Age 0 still clamps the floor to 8**, and that clamp is NOT doubled. It exists
 because Age 0 has exactly one combat unit, so supplies past a garrison buy a
@@ -98,6 +252,16 @@ longer identical spear age instead of the age-up that ends it: measured on
 Veilmarch, factions held 87-unit spear armies while 42 of 48 never aged up in
 30 minutes. Doubling the floor therefore changes Age 1 onward, which is where
 an army means something.
+
+**The army keeps up with the ground (2026-10-05).** The desired army used
+to grow by one per unit bought, and the escalator stopped under any
+savings hold, so a tier that saves (the Fortress pot, the capital level)
+froze its target near the opening floor and spent every surplus on the
+economy — Expert lost to Easy in both seats of a 1v1 with a third of its
+unit spend. After the age-up the target is at least `armyPerTerritory` per
+territory held (capped at the plan's army cap), whatever the saves; below
+`armyEssentialFraction` of that target a combat unit passes the ordinary
+holds (§ 5f).
 
 ## 4. Economy manager
 
@@ -136,9 +300,14 @@ an army means something.
   with what stands within `religionHuntAssessRadius` (40 m) of the node,
   using the attack waves' assessment (`AIEngagement.AssessAssault`). If it
   wins, it attacks with all of its free army, and units freed in the next
-  `religionHuntReinforceSeconds` (90) join that attack — but only while the
-  fight is still being won (newcomers plus the hunters already there); a
-  losing hunt is called off and judged afresh. If not, it raises
+  `religionHuntReinforceSeconds` (90) join that attack. The hunt's power is
+  its **roster** — every unit sent, wherever it stands. It used to count only
+  units inside the node's radius, so a hunt still on the road read "losing
+  (0+0)" five seconds after launch. A hunt whose roster plus newcomers falls
+  below `religionHuntCallOffMargin` of the curse estimate is called off, and
+  its hunters are **walked home**. Before this, a called-off hunt left them
+  attack-moving into the node to die. The node is always judged by the
+  **curse estimate** (§ 5i rule 2), never the bare reading. If not, it raises
   its army target and trains toward what the node needs. With no curse
   node seen yet it waits for the scouts. Logged as `RELIGION`.
 - **The reclaim squad never feeds a losing fight, and the age-up comes first**
@@ -196,7 +365,41 @@ it instead of re-asking:
 - the claim picker scores each uncursed outcrop `claimVeilstoneNodeBonus` extra
   (and goes after curse-held outcrops — § Veilstone-driven conquest below).
 
+**The glut rule — the Outposts stop buying past what the army needs**
+(2026-10-05). Buying veilstone spends supplies and iron. An Expert Blue
+held 4,900 veilstone and 14,000 iron at 27 minutes, with 409 supplies and
+an army of 29. Over the match its four Outposts put more supplies into
+trade than its whole army cost. So the Outposts BUY only while the bank
+holds less veilstone than the army plan needs. The need is the plan's
+veilstone spend a minute at full production (each role's share, its SO price
+and training time, times the military trainers) for
+`outpostVeilstoneNeedMinutes`, never below `outpostVeilstoneNeedFloor`.
+Above the need:
+- they **forge** the surplus into veilsteel. One of them **sells** veilsteel
+  for supplies and iron once Veilsteel Export is researched. Without the
+  sale, forging runs only up to `outpostVeilsteelTarget`;
+- any post with nothing to do is set to **Hold** (Veilstone_Economy.md §3.1);
+- the Outpost researches Veilsteel Forging, then Veilsteel Export. Forge then
+  Sell is the way back from veilstone to supplies.
+
+Buying resumes when veilstone falls below `outpostBuyResumeFraction` of the
+need. It also resumes at once when the army is short of veilstone (the rule
+above). The composition reacts too. While veilstone (the glut) or iron
+(`glutIronAbove`) piles up and the army is short of supplies, every role's
+share is tilted by `glutCompositionTilt` toward units paid mostly in iron and
+veilstone. The basics cap and the role locks still apply. Logged as `TRADE:
+outposts buy off (veilstone v > need n)`, `TRADE: outposts buy off: s sell /
+f forge / h hold (...)`, `TRADE: outposts buy on (...)`, and `| glut tilt` on
+the composition line.
+
 Numbers: `SimpleAISystem.asset`, `AIBudget.asset`.
+
+**Supplies outrank a veilstone purchase (2026-10-05).** Buying veilstone
+trades supplies for it. While the army's refused purchases are short of
+SUPPLIES and not of veilstone, the Outposts hold or forge rather than buy —
+and the four-minute need is capped by `outpostVeilstoneNeedMax`, because with
+twenty-nine Outposts it read sixteen thousand and Expert bought at its whole
+supply income for twenty minutes with twelve thousand banked.
 
 ### 5b. Defend-based expansion and veilstone-driven conquest (2026-10-03, rewritten 2026-10-04)
 
@@ -233,7 +436,12 @@ then-limit refusing 504 claims.
   the attack waves draft, so claims take the idle army first, and while a
   round found no idle soldiers for open ground (within
   `claimWaveYieldWindowSeconds`) the waves yield — for at most
-  `claimWaveYieldMaxSeconds` in a row, then one wave goes anyway. While the
+  `claimWaveYieldMaxSeconds` in a row, then one wave goes anyway — and the
+  yield is then SPENT for a wave interval (2026-10-05): the attempt that
+  followed the bound used to fail on the idle count (the claim squads hold
+  the soldiers) and the claims re-armed another full yield twenty seconds
+  later, so Expert, the tier that claims most, held its first wave until
+  minute 15 while Hard attacked at 11. While the
   posture is Defend (a threat at home) no new claim leaves; squads already out
   stay.
 - **Stop when stretched, consolidate.** Before each round the AI compares its
@@ -291,6 +499,39 @@ claim on the same ground, clock restarted (`claimCurseTimeoutSeconds` bounds
 the assault itself). Members are claim-squad members, so waves never draft
 them mid-fight.
 
+**The idle army clears the curse (2026-10-05).** Curse-held ground was a
+candidate only while an Alanthor army was short of veilstone, so a faction
+whose every neighbour was curse-held logged "no claimable territory next to
+Fortress-linked ground" and stood its whole army at home (Yellow, 193 units,
+SunderedCrown). Now, after the age-up, when the army has **no wave out, no
+economy response and no Defend**, and holds at least `curseClearMinUnits`
+idle soldiers **above its standing floor**, the surplus marches on the
+**weakest** curse-held territory bordering its Fortress-linked ground —
+weakest by the curse's power (AIEngagement, mobile army and static
+defences) around the known node nearest home, nearest breaking ties. It goes
+only when it beats that power by `curseClearPowerMargin` (never at parity);
+otherwise it holds and says so. The sortie is a curse assault (above): one at
+a time, node to node, an ordinary claim once the last node falls, the ground
+skipped for a while if it is wiped or times out. Every `curseClearInterval`.
+Log: `CURSE CLEAR: n units -> territory <name> (curse node at (x,z), power a
+vs b)` / `CURSE CLEAR: held — ...`.
+
+**Reconquest (2026-10-05).** A rival's locked territory used to be off the
+claim table for good, so every side on a filled map logged "no claimable
+territory next to Fortress-linked ground" from minute 20 on, and ground lost
+at minute 11 stayed lost. A rival's territory is now a claim candidate when
+it borders the faction's Fortress-linked ground and is NOT the rival's walled
+home (the territory holding its capital — a wave's business, § 6a), scored
+below free land by `claimHostileTargetPenalty`. The squad is drafted like a
+curse assault (the free army up to `claimCurseSquadMax`, one assault out at a
+time) and goes only when `AIEngagement` says it beats what stands at the
+nearest known rival building there by the tier's `reconquestMargin` (0 on
+Easy: it never retakes ground). On the
+ground it walks building to building — the rival's extractors, houses and
+Fortress are what lock the territory (Territory_Claims.md §6) — and when the
+last one falls it becomes an ordinary claim on the freed ground, its clock
+restarted. Allies are never candidates (`Alliances.AreHostile`).
+
 ### 5c. Fortress expansion (2026-10-03)
 
 **The AI builds Fortresses in conquered ground.** After age-up, every
@@ -333,6 +574,24 @@ less `fortressDistanceWeight` per metre from the home capital.
 
 Each extra Fortress locks its territory and is a new link for §10
 connection (there is no territory limit for it to raise, 2026-10-04). Numbers: `SimpleAISystem.asset`.
+
+**Always saved for (2026-10-05).** The Fortress used to be a savings goal
+only while the faction was consolidating after a loss; otherwise the check
+"waited for the bank" to hold the cost plus a reserve at once. A tier that
+thinks every quarter second never has a bank — every surplus goes to
+something cheaper first — so Expert and Hard logged "waiting for a Fortress"
+twenty times a match and built exactly one, while Easy built eight and
+Fortress levels were the winners' largest income line. Now the moment a held
+territory qualifies (its resource buildings up, or cut off from every
+Fortress), the Fortress is the faction's non-strict `AIPivotalReserve` goal:
+the cost is what the bank must reach, and the `fortressReserve*` values on
+`SimpleAISystem.asset` are the buffer the goal keeps on top, not a second
+price. Essentials still carve through a non-strict goal (§ 5f). **And a
+budget reservation (2026-10-05, v4):** the pivotal hold breathes and pauses
+under distress, and every release let a fast tier spend the pot on levels
+and towers, so while the goal stands the Fortress cost is also
+`AIBudget.Reserve`d — held off the top of every wallet spend and of the
+building levels, above the working float — and cleared when it is ordered.
 
 ### 5d. Army composition by role, the dynamic basics share and veilstone priority (2026-10-03)
 
@@ -635,11 +894,48 @@ supplies and 190k iron. Iron fell to about 1,900. Of 1,655 level-ups, 481 were
 production lines. The rest were Gatherer's Huts (461), Watch Towers (269),
 Huts (101), Fortresses (77) and the Vault (38).
 
+**Units before economy is the stricter form, per tier** (2026-10-05, § 5h).
+On a tier with `unitsBeforeEconomy`, the economy drive (economy levels, the
+capital's levels past its essential one, Vault deposits, every
+non-production level, watch towers) waits for the army at its full target,
+not `armyFirstTargetFraction` of it, whenever an idle trainer could still
+start a unit. It is the same idea with one more condition (the trainers) and
+no reserve arithmetic. Production buildings and production levels are exempt
+from it exactly as from army first (developer ruling, unchanged).
+
 **Log:** `ARMYFIRST: upgrade <building> yields — <reason>` and `ARMYFIRST:
 research <tech> yields — <reason>`, at most once per `armyFirstLogInterval`
 per faction, with the number of yields since the last line. Numbers:
 `AIBudget.asset` (`armyFirstTargetFraction`, `armyFirstReserveUnits`,
 `armyFirstStatusMaxAge`, `armyFirstLogInterval`).
+
+**The army floor outranks every ordinary save (2026-10-05).** The Fortress
+pot and the capital-level pot used to hold combat units like any other
+spend: Expert in a 1v1 bought 1,622 of units against 20,000 of buildings,
+levels and trade between minutes 5 and 17, had no idle soldiers to claim
+with, read itself as stretched and stopped expanding. While the army is
+below `armyEssentialFraction` of its target (the Rebuild line), a combat
+unit passes the non-strict pivotal holds and the budget's lump-sum
+reservation; the age-up's strict hold still binds. Above that line the
+saves apply as before — on Easy and Normal.
+
+**On Hard and Expert the army NEVER pays for a Fortress (`armyBeforeSaves`,
+2026-10-05, operator directive: "Expert should not save for fortresses at
+the expense of the army; it should have an economy so powerful that it can
+spare building fortresses").** Measured across v9-v12, Expert's saving was
+the thing Easy beat: Easy saves for nothing and trains to its cap, Expert
+held units for the Fortress and capital pots and arrived second with a
+third of the army. On such a tier a combat unit passes every non-strict
+savings goal and the budget's lump-sum reservation at any army size, and the
+income levels (Gatherer's Hut, Trading Outpost — §5h) pass the Fortress
+reservation as well, because they raise the income the pot is filled from.
+The Fortress is then paid from what the economy makes BEYOND what
+production can spend: army spend is bounded by trainer throughput (one unit
+per trainer per tick, `productionQueueDepth`), so a strong economy
+overflows into the pot by itself, and a weak one builds its army first and
+its Fortress late — which is the right order. The age-up stays strict on
+every tier (Age 0 is the race); the Fortress and capital pots still hold
+discretionary spending (towers, walls, Vault, non-income buildings).
 
 ### 5g. Every territory is developed, in order (2026-10-04)
 
@@ -666,19 +962,51 @@ order. It places at most one building per walk:
    expansion (§ 5c) picks only territories whose step 1 is done, unless the
    territory is cut off from every Fortress (`fortressAfterResources`); a
    cut-off territory needs the Fortress to re-link it. It is placed on the
-   reserved spot (below). While the Fortress is due, steps 3 and 4 in that
+   reserved spot (below). While the Fortress is due, steps 3 to 5 in that
    territory wait for it. It does not hold them when it cannot happen:
    before the age-up, at the faction's Fortress ceiling, or while a site
    there was recently refused.
-3. **Watch Towers near the periphery.** Up to `towersPerTerritory` per
-   territory that borders unowned, curse-held or hostile ground. Each tower
-   faces one such neighbour in turn. Its search is anchored
-   `towerPeripheryFraction` of the way from the territory's seed toward the
-   neighbour's seed, and is locked inside the territory. Only cultures with
-   a Watch Tower take this step.
-4. **One production building** (`productionPerTerritory`) in each
-   province: **the line the army plan needs most** that the territory does
-   not already have. Per line, the plan's share is the composition's raw wish
+3. **Watch Towers.** Only cultures with a Watch Tower take this step.
+   - **The home** keeps its walls and its periphery towers: up to
+     `towersPerTerritory` when it borders unowned, curse-held or hostile
+     ground, each facing one such neighbour in turn, its search anchored
+     `towerPeripheryFraction` of the way from the seed toward that
+     neighbour's seed and locked inside the territory.
+   - **Every other province is secured by coverage** (operator, 2026-10-04:
+     "Players should scatter towers through the rest of the provinces so
+     they can secure them"). Its important ground is a set of weighted
+     points: every resource node in it (built on or free), its Fortress or
+     reserved Fortress spot, each production building (sites and plans
+     too), and each border sample facing an unowned, curse-held or hostile
+     neighbour (the crossings). The weights are config
+     (`towerWeightResource / Fortress / Production / Border`). A point is
+     covered while it lies within the reach of any own Watch Tower,
+     finished, site or plan, in any territory. The reach is read from the
+     tower's SO: its attack range, else its line of sight. It is never a
+     code number.
+   - **Siting is greedy and deterministic.** Each province has a fixed grid
+     of sample cells (`towerSampleStep`), flooded from its seed and built
+     once per map. The next site is the sample that brings the most
+     still-uncovered weight into reach. It must stand at least
+     `towerMinSpacingRangeFraction` of the reach from every own tower. Ties
+     go to the earlier sample. The tower is placed through the ordinary site
+     search, locked to the province and held within `towerSiteSearchRadius`
+     of the site, so the wall corridor, the seal check, the reserved
+     Fortress spot, curse and terrain rules all still apply. A site with no
+     legal footprint is set aside for `territoryBlockedStepSeconds`, and the
+     next best is tried (`towerSiteTriesPerWalk` per walk).
+   - **It stops** when `towerCoverageTarget` of the province's weight is
+     covered, at the province cap, or when no site adds `towerMinGainWeight`.
+     Then it is re-checked after `territoryBlockedStepSeconds`, since a new
+     production building or a new hostile neighbour adds points.
+   - Step 3 places only the first `towersProvinceFirst`. These are not
+     army-gated, and a money refusal holds step 4 as any step does. The rest
+     are step 5. Cut-off provinces get no new towers.
+4. **The province's production buildings** (`provinceProductionPerTerritory`,
+   per difficulty tier: one on Normal, more on Expert) in each province,
+   breadth-first (every line to one before any line to two): **the line the
+   army plan needs most** among those the territory has fewest of. Per
+   line, the plan's share is the composition's raw wish
    for the units that building's SO `trains[]`, over all four lines; its
    shortfall is that share minus the line's share of the faction's production
    buildings (sites and plans counted). The largest shortfall wins. The
@@ -689,7 +1017,9 @@ order. It places at most one building per walk:
 
    **The home keeps a floor instead** (operator, 2026-10-04: "Home province
    is larger, it should have at least 2 of each building"). The home
-   territory keeps `homeProductionPerLine` of **each** production line the
+   territory keeps `homeProductionPerLine` (per difficulty tier: Normal's is
+   the operator's two, harder tiers keep more, Easy fewer) of **each**
+   production line the
    faction can build: the Barracks always, and the Archery Range, Royal
    Stable and Siege Yard once the culture and age make them available (the
    same rule as above: an aged-up Alanthor faction). Finished buildings,
@@ -705,6 +1035,18 @@ order. It places at most one building per walk:
    line with no legal spot waits `territoryBlockedStepSeconds` while the
    other lines go on. This floor replaces the economy's redundant-Barracks
    floor (§ 6c); there is one rule, not two.
+5. **More coverage towers in each province**, up to
+   `towersPerProvinceMax`, sited by the same coverage rule. This step comes
+   **after** the province's production building, and is **army first**: it
+   waits while the alive army is below `towerExtraArmyFraction` of its
+   target. Towers are not production buildings, and they must never starve
+   the army that defends the province. They pay from the Military wallet,
+   as the first towers do.
+
+   Logs: `TOWERS: <province> n/max placed at (x,z) — covers k/N points`
+   (k = the points in that tower's reach, N = the province's points, with
+   the coverage before and after), and `TOWERS: <province> coverage p% —
+   done` when the province stops.
 
 **Blocked steps.** A step blocked by money (bank, wallet, savings hold)
 holds the steps below it in that territory. That holding is the priority.
@@ -737,12 +1079,17 @@ economy's per-line growth, the siege program), passes one gate
 - **Saturated.** At least `productionSaturationThreshold` of the faction's
   finished production buildings have work in their queue, and that has held
   without a break for `productionSaturationSeconds`. Sampled every think.
+  Both are per difficulty tier: a harder tier counts as saturated at a lower
+  busy share and sooner, so it adds trainers in parallel earlier.
 - **The army is below its target** (alive combat units under the floor's
   desired size).
 - **No production building is still rising**, so one extra lands before the
   next is judged.
 - **It is the line the army plan needs most** (the step 4 rule, over the
-  whole faction). A request for another line is refused.
+  whole faction). A request for another line is refused. **A line whose
+  last extra found no legal spot does not count** (2026-10-05): it sits out
+  `territoryBlockedStepSeconds` and the next-needed line is asked instead,
+  so an unplaceable Siege Yard can no longer veto every other trainer.
 
 After an extra is placed the saturation window starts again. Four things
 pass without the gate: a province's own step 4, the home floor, the
@@ -789,8 +1136,288 @@ plan N% vs N% of N trainer(s))`, `PRODUCTION: home floor <line> n/N
 (<why this line>)`, `PRODUCTION: extra <line> — saturated (N%
 busy over Ns, army a/target)` and `PRODUCTION: extra held — <why> [<line>
 asked]` (not saturated, army at target, one still rising, or the plan needs
-another line; at most once per `productionLogInterval`). Numbers:
-`SimpleAISystem.asset`.
+another line; at most once per `productionLogInterval`), and once per match
+per faction `PRODUCTION: capacity home x/line, province y, extras at z% busy
+for Ns (<tier>)`. Numbers: the difficulty profiles
+(`AISimpleDifficulty/Profiles/`: `homeProductionPerLine`,
+`provinceProductionPerTerritory`, `productionSaturationThreshold`,
+`productionSaturationSeconds`) and `SimpleAISystem.asset` (the rest).
+
+**Why the capacity is per tier (2026-10-05).** A harder tier attacks more
+often. It must pay for that with more trainers working in parallel, never with
+a smaller standing army (§ 2). Production placement and production levels
+stay exempt from army first and from every other army-protecting gate.
+
+### 5h. The economic drive, the Vault and the economy's ceiling (2026-10-04)
+
+**What was measured** (Headless33 all-Normal, Headless34 Red-Expert and
+all-Expert, from `MapTrace.txt` + the AI logs). Building on held ground is
+NOT the bottleneck: a claimed territory gets its first extractor site within
+about a minute and every slot covered within one to four, sites finish in
+seconds, and "no idle worker" was the rarest reason an extractor waited
+(about one block in ten; the bank and free nodes were the rest), so the
+worker rule (3 + 1 per conquered territory) is not what binds. What separates a rich faction
+from a poor one is **levels**, above all the **capital's**: a territory's
+slots are multiplied by its Fortress's level (x1 / x2 / x4,
+`TerritoryIncomeSystem.HallMultiplier`), so the home capital at L2 and L3 is
+by far the highest-return purchase in the game and pays itself back in about
+a minute. Factions whose capital reached L3 by ~20 minutes earned three to
+six times the income of those stuck at L1, and a capital stuck at L1 meant
+the extractor levels never came either. The faction that stayed at L1 was
+always the one that spent every supply on units as it arrived (the Rush
+personality, Expert included): the capital's price never formed. Second:
+extractor levels came 13-30 minutes after the extractor, only as surplus.
+Third, a rusher saved for the age-up only after its Age 0 wave, ageing up
+four to six minutes after everyone else, and the first-Religion-Point hunt
+fought curse nodes at even power and lost.
+
+**The rules** (every tier runs them; the difficulty profile says how hard):
+
+- **The capital's price is a savings goal** (`reserveForCapitalLevel`). When
+  the home capital is below its priority level and the bank cannot pay, its
+  price is registered with the savings hold (`AIPivotalReserve`, key
+  `CapitalLevel`), so discretionary army spending of the short resource
+  pauses until it forms. The army floors stay exempt (§ 3a: the essential
+  units below the claim gate always train), and the hold is lifted while
+  the posture is Defend. A tier without the flag behaves as before.
+- **Economy levels first** (`economyUpgradesPerThink`). Before the upgrade
+  rotation, up to that many economy levels a think: the Gatherer's Hut
+  (highest first, as § 5e) and the Trading Outpost (cheapest first). They do
+  not yield to the army (§ 5f) — a level is income, which is what the army
+  is waiting on — but they respect the savings hold and leave the army's
+  veilstone earmark in the bank. 0 = only the rotation and the surplus pass,
+  as before.
+- **Production queues stay shallow** (`productionQueueDepth`). Units are
+  paid for when queued, so a deep queue locks money that could start a unit
+  in another, idle building. A tier with a depth queues into a building only
+  while its whole queue (units, research, levels) is shorter than the depth,
+  always into the least busy one; 1 means only the unit in training, and the
+  next one is started on the think after it finishes. The army plan then
+  re-decides what to train every time. 0 = no AI-side cap (the building's
+  16-slot cap only).
+- **Units before economy** (`unitsBeforeEconomy`, 2026-10-05). On a tier
+  with the flag the economy drive spends only when the money can no longer
+  become units. The drive is: the economy-level pass, the capital's levels
+  past its essential one, every other non-production level in the upgrade
+  rotation, Vault deposits, and the discretionary non-production buildings
+  (the home's periphery towers, the provinces' coverage towers, the
+  endgame's extra towers). It spends when ANY of these holds, and otherwise
+  the money goes to units:
+  - the army (alive + queued) is at or above its target, or cannot take money
+    (every trainer full, population capped, no trainer), or there is no fresh
+    reading;
+  - every finished production building is training at the tier's queue depth
+    (one item on a tier with no cap), so no more units can start;
+  - the bank is overflowing (§ 5e), so the units are not absorbing it;
+  - the army is waiting on a resource this spend does not cost (veilstone,
+    usually).
+  Never deferred: production buildings and their levels, housing,
+  extractors, the Fortress, the landmark, the Temple, and the Gatherer's Hut
+  levelled as the supply engine while the capital's essential price forms.
+- **The capital's essential level, and a cap on its savings hold.** Capital
+  levels up to `capitalEssentialLevel` (`AIBuildingUpgradeSystem.asset`; L2,
+  which doubles the home territory's income) stay essential: bought and saved
+  for ahead of everything. Levels above it, up to the priority level, are
+  economy drive under the rule above. The savings hold itself is capped: once
+  it has held the bank unbroken for `capitalReserveMaxHoldSeconds` it is
+  released for `capitalReserveRestSeconds` (the upgrade rotation runs
+  meanwhile), so the capital cannot starve production for long. The capital
+  is still bought whenever the bank can pay.
+- **The age-up savings are protected** (`protectAgeUpSavings`). A tier with
+  the flag does not make the Age 0 wave even as Aggressive / Rush: it saves
+  for the landmark from the start with the 4-unit garrison every other
+  personality keeps (§ 3a), and attacks after the age-up.
+- **The curse hunt waits for the economy, and never fights at parity.** The
+  first-Religion-Point hunt (§ 6) launches only when the army's power beats
+  the node's by `religionHuntPowerMargin` (every tier), and a tier with
+  `curseHuntMinCapitalLevel` defers it, without growing the army for it,
+  until its capital stands at that level (1 = aged up).
+- **The basics share is not a way to shrink the army.** Expert's lower
+  `basicsShareScale` leans on role units only while veilstone flows. When
+  the plan is veilstone-starved (its economy scale below 1), the basics
+  scale is raised toward 1 by the same amount, so a veilstone-bound army
+  is not also capped on the basics it can afford.
+
+**The Vault of Almiérra is used by every AI** (2026-10-04, developer: "All
+AIs should be able to use the market"). The Vault pass runs
+(every `econPassInterval`, per Vault, while unlocked):
+
+- **Deposit** when the Vault is empty and the posture is not Defend: the
+  resource with the largest idle surplus — the bank above
+  `vaultKeep<Resource>` and above every pending savings goal — that the
+  design lets it deposit (supplies always; iron after Iron Subsidies,
+  veilstone after Veilstone Monetization, veilsteel after Veilsteel Bonds,
+  [Age_0.md § Vault](Age_0.md)), never veilstone the army is waiting on.
+  It deposits `vaultDepositShare` of that surplus, at least
+  `vaultMinDeposit`.
+- **Withdraw** everything when the hold time `vaultHoldSeconds` has run;
+  earlier, on a tier with `vaultWithdrawOnNeed`, when a purchase is waiting
+  on the stored resource (the army is short of it, or a savings goal is);
+  and always when the Vault is damaged below `vaultDamagedFraction` of its
+  health or the posture turns Defend (stored resources die with the Vault).
+
+Difficulty scales how much is deposited and how cleverly it is withdrawn,
+never whether the Vault is used.
+
+**The ceiling and the easier tiers.** With the rules above, an Expert's
+income is bounded by what it holds and how fast levels can be bought —
+which the developer's batches show is reached by the best Normal factions
+too. The levers that keep the easier tiers below it, all difficulty data
+and none of them a resource cheat, are listed in the 2026-10-04 economy
+report (capital-level priority, economy upgrades per think, queue depth,
+Vault share, age-up protection, think interval). None is implemented as a
+cap yet.
+
+**Logs:** `ECON: node <id> built in Ns after claim (<territory>)`,
+`ECON: idle crew n of m`, `ECON: upgrade <building> -> Ln`, `ECON: capital
+L<n> saving (<price>)`, `ECON: capital L<n> saving released after Ns (units
+and production first for Ns)`, `ECON: deferred (army a/t, trainers idle k) —
+<what> (n deferral(s) since the last line)` (at most once per
+`armyFirstLogInterval` per faction), `PRODUCTION: parallel n buildings training, queue
+depth d`, `VAULT: deposit <n> <resource>` / `VAULT: withdraw <n> <resource>
+(<why>)`, `RELIGION: hunt deferred (economy first)`. Numbers: the
+difficulty profiles (`AISimpleDifficulty/Profiles/`) and
+`SimpleAISystem.asset` (`religionHuntPowerMargin`, `econPassInterval`, `vault*`,
+`econLogInterval`).
+
+### 5i. Defending and rebuilding the economy; the savings pause (2026-10-05)
+
+An in-editor SunderedCrown match: Blue (Expert) started beside a curse node
+whose garrison razed its supply sites all match — 13 Gatherer's Huts, 8
+Huts, 6 Mines — and its supply income fell from ~19/s to ~4/s while the
+capital's L2 saving, the Fortress pot and the Outpost pot kept holding every
+trickle (the army floor read "pivotal hold (saving) short supplies"). Its
+army never grew; a rival's wave razed its Fortress at 25:47. Four rules:
+
+**1. An attack on the economy gets a response.** An extractor (Gatherer's
+Hut, Mine, Veilstone Mine, Trading Outpost), a house or a worker **in held
+ground** whose last attacker is alive, hostile — **the curse included** —
+and still beside it (`economyDefenceProbeRadius`) is an incident, one per
+20 m. After the tier's `economyDefenceDelaySeconds` the standing army
+answers: the attacker's power is read with AIEngagement
+(`economyDefenceAssessRadius`, mobile army plus static defences), and free
+soldiers — not in a wave, a claim, another response or a player's order,
+not already fighting, within `economyDefenceDraftRadius` — are drafted
+**nearest first until our power there (units already in the band and
+responders on the road included) beats the attacker's by the tier's
+`economyDefenceMargin`**, never at parity. When everything free is not
+enough, **nothing is sent** (a feeder squad is the failure this replaces)
+and the hold is logged. A response is topped up at most every
+`economyDefenceTopUpSeconds`, and released — its soldiers walk home — when
+no hostile power is left there or after `economyDefenceTimeoutSeconds`.
+Responders count as claim-squad members, so no wave, reclaim or claim drafts
+them, and the posture's recall leaves them on their fight. Harder tiers
+answer sooner and stronger (delay and margin are profile fields).
+The posture's own Defend response to a building under attack now names the
+curse as a threat too: it used to skip Border units, so a curse raid entered
+Defend, disbanded every mission and dispatched no one.
+
+**2. Curse nodes are attacked in force or not at all.** The reclaim squad
+(curse at the doorstep, veilstone poverty, the RP hunt) needs **the squad
+alone** — our units already fighting at the node do not count — to beat the
+node by `religionHuntPowerMargin`, and at least `reclaimMinSquadSize`
+soldiers: when its first `reclaimSquadSize` fall short it takes more free
+ones, nearest first, up to `claimCurseSquadMax`. After a squad marched on a
+node no other marches on it for `reclaimRetrySeconds`, so a live attempt is
+not fed piecemeal and a failed one is not repeated at once. The first-RP
+hunt reinforces only a fight won by the same margin, and only with groups of
+at least `reclaimMinSquadSize`. (Blue logged "1 units vs curse node" eleven
+times in one minute; Red sent 59 sorties.)
+
+**The curse is judged by what it will field, not by what stands there**
+(2026-10-05). Red (Easy) lost 124 units at two curse nodes although the curse
+sent it no wave. Its hunts launched at "power 160 vs 78", "216 vs 87" and
+"252 vs 99". The same node had read 249-288 a minute earlier, and the
+garrison was back at full strength once the fight started. Every path that
+attacks a curse node uses one estimate: the first-RP hunt, the reclaim squad,
+the curse-clearing sortie and the claim's curse assault. The estimate is the
+**maximum** of three readings:
+- **visible** — curse power in the band now, with the Crystalling pack's
+  damage bonus for the count standing there (the strength scale cannot see
+  it);
+- **last seen** — the highest reading this faction took while the node was
+  in sight. It decays with half-life `curseIntelLastSeenHalfLifeSeconds`, and
+  a lower reading never replaces it;
+- **baseline** — the garrison the curse's own rules give a node by now
+  (`garrisonCap` x `armyGrowth`^n, n = spawns so far, capped by
+  `maxCurseUnits` shared among the live nodes, at the match minute's army
+  tier, pack included), x `curseIntelBaselineFraction`.
+
+A node no one has had in sight for `curseIntelLookSeconds` is multiplied by
+`curseIntelStaleFactor`, and every estimate by `curseIntelGroundFactor` for
+the cursed ground's slow and burn. Logged as `INTEL: curse node (x,z) power
+est e (visible v [...], last-seen m, baseline b)`.
+
+**3. A lost extractor is rebuilt first — but not into the same reach.** A
+drop in an extractor count makes that kind **owed** a rebuild for
+`extractorRebuildWindowSeconds` (or until the count is back): a **strict**
+savings goal holds its price, above the capital's level, the Fortress and the
+Outposts, and the extractor walk runs every `extractorRebuildAttemptInterval`
+with the owed kind first. The debt is dropped when no free node of the kind
+is left in held ground, when the culture cannot build it, or after
+`extractorRebuildMaxRefusals` walks in which every free node refused it.
+**Sites that keep dying wait:** a site lost once is not rebuilt while a live
+curse node stands within `extractorCurseKeepoutRadius` of it (the reclaim
+squad and the curse-clearing sortie are what free it — Blue's hut 35 m from a
+node died ten times), and a site lost `extractorSiteMaxLosses` times to
+anyone rests `extractorSiteBlockSeconds`. A faction with **no worker at all**
+retrains one bank-direct, past the wallets.
+
+**4. Distress pauses the savings.** Every think, after the budget measures
+income, the economy is in **distress** while:
+- supply income is **collapsed** — below `economyCollapseIncomeFraction` of
+  the **expected** income, the best supply income the faction has measured,
+  decaying with `economyExpectedHalfLifeSeconds` and allowed to climb only
+  `economyExpectedRisePerSecond` (a windfall is not the norm); no collapse is
+  read while the expected income is under `economyCollapseMinExpected` (the
+  opening). It recovers past `economyRecoveredIncomeFraction` (hysteresis);
+- or the economy is **under attack** — Defend posture, a response out, or an
+  incident in the last `economyAttackLingerSeconds`;
+- or an extractor rebuild is **owed**.
+
+While it is, every **ordinary** savings goal pauses
+(`AIPivotalReserve.SetSuspended`: the goals still exist but hold nothing and
+count toward no shortfall) — the capital's level saving
+(AIBuildingUpgradeSystem does not arm it at all), the Fortress and Outpost
+pots, the hero and siege pots — so the trickle reaches the rebuild and the
+army floor again. **Strict** goals keep holding: the age-up landmark, a lost
+sole trainer, the extractor rebuild. The Vault deposits nothing and releases
+its supplies. Units-before-economy is unchanged: it never holds production
+or the army, and with the pots paused the floor trains again on a trickle.
+
+**Logs:** `DEFEND: response n vs attacker at (x,z) (power a vs b)`, `DEFEND:
+held at (x,z): ...`, `DEFEND: response at (x,z) released (...)`, `ECON: lost
+n <id> — rebuilding first (c/t)`, `ECON: rebuild of <id> dropped ...`, `ECON:
+savings paused (supply income x/s of expected y/s[; economy under attack][;
+rebuilding <id>])`, `ECON: savings resumed (...)`, `ECON: no workers left —
+retraining one at once`, `RECLAIM: n units vs curse node at (x,z) (power a vs
+b)`, `EXTRACT: blocked: ... site(s) skipped: lost there before`. Numbers: the
+difficulty profiles (`economyDefenceDelaySeconds`, `economyDefenceMargin`)
+and `SimpleAISystem.asset`.
+
+**The pause is confirmed, not sampled (2026-10-05).** The collapse reading
+has to hold for `economyCollapseConfirmSeconds` before the pause flips on or
+off: on Mirror Marches the income estimate read spiky against the ledger's
+tick and the pause flipped nineteen times in five minutes, each flip a window
+for the economy levels to spend the Fortress savings.
+
+**No idle worker is not a rollback (2026-10-05).** When the AI's placement
+found no idle worker to send, it refunded and destroyed the building — and
+a fast tier placed it again next think: dozens of pay-and-refund cycles a
+minute, a bank that read one building short whenever Expert checked whether
+it could afford a soldier, and a quarter of Easy's unit spend in the opening.
+A worker-raised building is a plan (Planned_Buildings.md), so it now stands
+and the nearest busy worker takes it as its next job; idle workers adopt
+unattended plans on their own.
+
+**Ground being taken is an incident (2026-10-05).** A hostile standing on
+held, unlocked ground drains its meter (Territory_Claims.md §2) without
+touching a building, and the economy defence only ever saw attacks on
+extractors, houses and workers — Expert lost the strip north of its home to
+Easy at minute 11 and never answered. Every held territory whose last-tick
+challenger is a hostile player now raises an incident at that side's unit
+nearest the territory's seed, answered on the tier's delay and margin like a
+raid.
 
 ## 6. Military manager
 
@@ -832,6 +1459,14 @@ another line; at most once per `productionLogInterval`). Numbers:
 Two rules that sound like implementation detail and are not — between them
 they decided whether any wave ever left home at all.
 
+**A wave's follow-up objective is a player's building** (2026-10-05). After
+an objective falls, the army presses on only to a hostile PLAYER's building
+or sighting. A curse node or structure is never a wave objective. Red's raid
+on a stray eco building "pressed on" to two curse nodes 30 m away six times,
+and fed 6-7 units into garrisons it never assessed. Curse nodes fall only to
+the margin-checked curse paths (§ 4, § 5b, § 5i). With no player objective
+left, the wave walks home (`WAVE: no player objective — returning`).
+
 **Only fighting is busy.** A unit is unavailable to a wave in exactly three
 cases: it is already on the mission roster, it is swinging at something
 (`AttackCommand`), or the human player gave it an order of their own. Merely
@@ -860,6 +1495,22 @@ an impossible number leaves an impossible one: measured on Veilmarch
 2026-09-12, Green stood at 200/200 population with an army of 157 and logged
 "need 160 idle" indefinitely, so the strongest faction in the match was the one
 that stopped attacking. A target the population cap forbids is not a target.
+
+**The standing army is never drafted** (2026-10-05, per difficulty tier).
+A tier with `standingArmyFloorFraction` keeps that share of its desired army
+at home, capped at a third of the population ceiling like the bar. A wave,
+and every reinforcement column after it, drafts only the standing army above
+that floor; the units nearest home are the ones kept. The standing army is
+every draftable combat unit not already on a mission roster (fighting at home
+and walking included). The bar's "half the desired army" term becomes half
+of the desired army above the floor, so a faster wave cadence spends the
+surplus and never the army count. A tier with `waveMinArmyFraction` also
+makes every wave at least that share of the standing army, so frequent waves
+are real pushes and not feeder trickles. Normal and Easy keep neither (they
+draft every idle unit, as before). Logged at each launch as `WAVE: standing
+floor n kept (s standing at home, k idle held back; wave w, min m)`, and from
+the reinforcement pass as `WAVE: standing floor n kept (k held back from
+reinforcing wave w, s standing)`.
 
 **Late waves launch on STRENGTH, not on a head count** (2026-10-04; replaced
 the 2026-09-12 "full population past minute 25" rule). Before
@@ -899,6 +1550,57 @@ is free, and the wave commutes to unreachable ground for the rest of the
 match. This is the third instance of one bug shape in this system -- an
 action fails, nothing records the failure, and the next decision repeats it.
 The claim planner's `_siteBlocked` is the same rule for build sites.
+
+**No stalling for intel (2026-10-05).** A wave whose objective is on ground
+nobody has seen still requests recon, but recon no longer gates it for
+long: an objective at a **player start position** (within
+`startHallKnownRadius` of a start marker — public knowledge) is marched on
+at once, and any other unseen objective holds at most
+`waveIntelHoldMaxSeconds`, then the army advances itself and fights what it
+meets on the way, the curse included (the tactical layer engages it like any
+other enemy). The scored-target recon gate is skipped for such a blind
+advance. Yellow, the last strong side on SunderedCrown, held 193 units at
+home logging "holding — no intel on (75,75)" every think because its scouts
+could not reach the last enemy's start through the curse. Log: `WAVE:
+advancing without intel on (x,z) after Ns (a start position: public
+knowledge | recon timed out)`.
+
+**The holdings outside the walls first; the march is on the clock; the
+wall in the way (2026-10-05).** Three findings from Mirror Marches M1-M6:
+
+- 45 of 60 wave objectives were "no sighting — marching on the nearest
+  hostile start Hall", and every capital on a developed board stands behind
+  150-240 wall pieces that the Wall Rule (Combat_Pacing.md) keeps infantry
+  off. The wave stood under the towers until its clock ran out (87 units,
+  480 s, 3 kills). The doctrine now sends a wave at the victim's nearest
+  KNOWN eco or military building on ground that does not hold its capital
+  (`IsWalledGround`) before it considers the Hall; the raze chain presses on
+  from there. The Hall is the objective only when nothing else of the
+  victim's is known. Sightings whose building is already razed, and ground a
+  timed-out mission blacklisted, are skipped.
+- `missionTimeoutSeconds` ran from launch, and on a 1024 m map the muster and
+  march alone took 500-1500 s, so missions timed out on arrival. A mission's
+  deadline is now the flat timeout plus the march at
+  `missionMarchSpeedForTimeout`, re-armed at every chain.
+- The wave bar read half of DesiredMilitary — 200 from the age-up on — and
+  was clamped to a third of the population cap, so the tier that houses
+  fastest had the highest bar: Expert's read 66-73 by minute 15 against
+  Easy's 30, and Expert attacked at 22-25 minutes. A wave now also goes once
+  `waveLiveArmyShare` of the LIVE army above the floor stands idle (never
+  below the tier's base bar); the strength gate still judges whether that
+  army is enough.
+- The overdue release (a wave goes once it is `waveOverdueSeconds` late,
+  whatever the odds) is capped: while the assault at the objective reads
+  worse than `waveOverdueMaxRatio` against, the wave keeps holding and the
+  army keeps growing. It had sent a 13-unit first wave into a base it read at
+  2.3 to 1 and lost it.
+- A striking army that stands still short of its objective for
+  `wallBreachAfterSeconds` with a hostile wall piece within
+  `wallBreachRadius` is stopped by that wall. With at least
+  `wallBreachMinSiege` engines along, the engines are set on the nearest
+  piece and the rest attack-move to it (the chain then presses on through
+  the breach); with none, the mission ends at once instead of feeding the
+  towers for the rest of its clock.
 
 ### 6b. Building spacing yields to being able to fight
 
@@ -1129,6 +1831,21 @@ target, and the new building is the line the army plan needs most. Each
 province's own one (§ 5g step 4) is the baseline. The text below is the
 earlier per-line form of the rule; its targets now sit under that gate.
 
+**Every line trains** (2026-10-05). The army floor orders its deficit
+through the composition's pick, which is the plan's most-behind role. When
+the pick's own trainer refuses, the rest of the deficit goes to the plan's
+other rows, most-behind first, each into its own trainers. A trainer refuses
+when its queue is full, it is missing or still building, or it is below the
+level the unit needs. The basics cap still holds. Without a plan, the rest
+goes to every trainable combat unit. A budget refusal does not spread: that
+is the army saving for its role unit. Why: an Expert Blue (queue depth 1)
+spent the last ten minutes of a match logging "floor blocked: deficit 112 x
+Alanthor_Ballista — trainer queue full (depth 1)". It had "1 buildings
+training (of 7)", an army of 80 of 200, and a bank of 99,860 iron and 21,820
+supplies. One single-trainer role held the whole army program. Low
+saturation followed from that too, so no extra production was ever added.
+Logged as `MILITARY: X blocked (...) — n unit(s) trained on other lines`.
+
 **A full queue is a build order.** When every trainer of a kind has a full
 production queue, that line is the bottleneck and the AI must raise another
 building of that kind. There is no fixed ceiling on how many: the target for a
@@ -1151,8 +1868,9 @@ each is now removed:
   queues were.
 - **The build crew.** Only `crew` sites may be open at once, and the crew was
   a flat three to five, so a faction with five sites in flight could not start
-  a sixth however rich it was. The crew now grows with the work waiting:
-  `workerFloor + open sites`, capped at 12.
+  a sixth however rich it was. The crew is now the faction's alive workers
+  (open-site cap `max(2, workers)`, `SimpleAISystem.Building`), and the
+  worker count follows the § 4 rule, so it grows with the territory.
 - **The savings hold.** A production line whose queues are all full is an
   essential purchase and spends past the claim reservation, exactly as housing
   and the first of each line already do.
@@ -1201,7 +1919,7 @@ Headless28 logged 160 `lost sole trainer` refusals (73 in Headless27).
   is never orphaned.
 
 **Redundancy** is the home production floor (§ 5g step 4): from
-`homeProductionFloorAfterSeconds` the home keeps `homeProductionPerLine` of
+`homeProductionFloorAfterSeconds` the home keeps the tier's `homeProductionPerLine` of
 every line it can build, so a single loss never zeroes the army line. The
 faction-wide redundant-Barracks floor that stood here is folded into it.
 
@@ -1221,7 +1939,8 @@ one)`, `... rebuild refused (<reason>; Ns without one) — saving for it
 restored after Ns`, `lost sole trainer: <id> site queued on N busy
 worker(s)`. Numbers: `SimpleAISystem.asset` (`lostTrainerRetrySeconds`,
 `lostTrainerSaveStrict`, `lostTrainerSearchRetrySeconds`,
-`homeProductionPerLine`, `homeProductionFloorAfterSeconds`,
+`homeProductionFloorAfterSeconds`; `homeProductionPerLine` is in the
+difficulty profiles,
 `noTrainerLogInterval`).
 
 Measured before this rule, Hollow Table 2026-09-12: Blue held ONE Barracks
@@ -1234,6 +1953,141 @@ trained soldiers. Its army was four units at minute 29.
 research is bought before which, remains the military strategy's decision and
 may change over the match. The snowball rule only says that a saturated line
 gets another building; it never says which line to open first.
+
+## 6e. Tactics: what an army does in a fight (2026-10-04)
+
+The developer's diagnosis: an Expert AI should win fights when outnumbered
+through kiting, flanking and clever use of abilities, and did none of these;
+it fired abilities anywhere the moment they came off cooldown; it did not
+prioritise targets that are good against its composition. Rules:
+
+- **Target priority (counter-aware focus).** An engaged army scores every
+  hostile unit in contact by danger, how nearly dead it is, whether it is
+  high value (hero, siege, healer, caster) and its COUNTER relationship to
+  this army — the enemy's `bonusVsTags` against our units' tags (it counters
+  us: kill it first) and ours against its tags (we counter it). Tags and
+  bonuses are the unit SOs' own. The army keeps a short list of the best few
+  and each member takes the best of THAT list by its own counter edge and
+  distance, so the army still concentrates while spearmen take the horses.
+  A member keeps its target unless the new pick is clearly better.
+- **Ranged behind melee.** A shooter only takes a target it can reach from
+  where it stands; otherwise it holds a firing line behind the melee front
+  instead of walking through its own front rank.
+- **Kiting.** A ranged unit that has just fired (reloading) with hostile melee
+  closing inside the trigger band, and the legs to open the gap, takes one
+  step straight back, then fires again. Bounded by a drift allowance from
+  where its kiting began, so the stance leash and the army's cohesion still
+  rule. Siege and emplaced engines never kite.
+- **Flanking.** When a fight opens against enough enemies, a share of the
+  army's FAST melee (cavalry, or clearly faster than the army) swings round
+  the enemy's lighter wing to a point beside and behind its line, then
+  strikes the nearest bodies from there — the side / rear the flanking damage
+  rule pays for. They stay on that target until it dies and rejoin the army
+  when the fight ends. Heroes never flank.
+- **Fall back and regroup.** An engaged army reading live enemy power above
+  its tier's ratio over its own (towers counted on both sides) walks back as
+  one formation to the nearest friendly tower / Fortress that is not deeper
+  into the enemy, else toward the capital, and turns round when the odds there
+  drop to its re-engage ratio (or the enemy did not follow). Still outmatched
+  after the timeout, it falls back to the capital. Never at home (base defence
+  owns that) and never for a handful of units. The old go-home-and-disband
+  retreat stays as the last resort.
+- **Abilities wait for value (AI factions only — players keep their own
+  casting).** By effect, never "it is off cooldown": area damage / control
+  only when at least N enemies are inside it (N per tier); heals only when
+  enough of the allied HP pool in the circle is missing; ally buffs only with
+  enough allies affected and an enemy inside the radius or about to be;
+  self-defence (Liquid Courage) only in combat when hurt, out-powered or
+  swarmed; escapes (Full Gallop) only in contact when hurt or out-powered;
+  ultimates (Honour thy Pledge, Death Ward, Invulnerable) only when the fight
+  is pivotal (enemy power at or past the tier's pivotal ratio over ours).
+  Sect powers aim only at FIGHTS — the ones the armies report, plus the base
+  while it is under attack — and Bulwark / Cleanse only while the base is.
+  Two casters never spend the same area card over the same ground at once.
+  A held ability logs why.
+
+Per-tier values: the `tactics` block on the four difficulty profiles (table
+in §2). Shared geometry and weights: `AITactics.asset`. Code:
+`SimpleAISystem.Tactics.cs` (army: focus, ranged line, flank, fall back),
+`AITactics/AITacticsMicroSystem.cs` (kiting, unit abilities),
+`AIAlanthorEndgameSystem.Sects.cs` (sect powers), `AITactics/AITactics.cs`
+(scoring, live power, fight sites). Logs: `TACTICS: kite n units`,
+`TACTICS: flank group n -> angle`, `TACTICS: retreat (power a vs b)`,
+`TACTICS: re-engage`, `TARGET: focus <unit> (counter|finish|high value|danger)`,
+`ABILITY: <id> cast (k enemies)`, `ABILITY: <id> held (reason)` (rate-limited).
+
+## 6f. Many armies, many directions, the enemy's income (2026-10-05)
+
+**Operator directive:** "Harder levels should sport many coordinated armies
+instead of a single one. Attacking in multiple directions and going after
+enemies' resource generation instead of blindly going for resources."
+
+Until now every tier fought the same way: one wave, one blob, one objective
+— the nearest known thing of the victim, or its capital. The higher tiers
+differed in cadence and in-fight skill only. Two rules change that, both on
+the difficulty profile so Easy and Normal keep the single blob:
+
+**The enemy's income is the objective (`incomeTargeting`: Hard, Expert).**
+Income is territory, and an extractor on a held slot is where it is made
+(Veilstone_Economy.md §5). An income-targeting wave ranks every KNOWN
+hostile building outside its owner's walls by what it is worth to the
+enemy — extractors (Gatherer's Hut, Mine, Veilstone Mine, Trading Outpost)
+first, military buildings next, houses and the rest last; the weights are
+`incomeWeight*` on `SimpleAISystem.asset`, charged for distance, the
+garrison seen there and the age of the report at the target scorer's
+rates — and marches on the best of them. The victim is still the board
+leader (or any hostile when nobody leads); the opportunity hijack and the
+LATE finishing doctrine (past `closeoutAfterSeconds`, §6a) are unchanged,
+because the first is already an income strike and the second must end the
+match. The hostile-COUNT closeout ("a duel is always the closeout") does not
+suppress it: a 1v1 is closeout from the first second, and the first v15
+smoke match had Expert marching blind on the start Hall for 25 minutes with
+the doctrine never firing. Razed, walled, blacklisted and unseen ground is
+never ranked. The log says `income: <victim>'s <what>`.
+
+**The scouts go where the income is.** The zone director explores outward
+from home, so in that same smoke match Expert's scouts spent nine minutes
+in its own corner and reported the first enemy eco building at minute 18 —
+an income-targeting tier cannot hit what it has not seen. While fewer than
+`incomeReconMinKnown` hostile income buildings are known, such a tier files
+a recon request every `incomeReconIntervalSeconds` at the nearest hostile
+START position (public knowledge) and then at points
+`incomeReconSpreadMeters` around it — toward home first, then the flanks,
+then the far side — which the scout director serves before exploration
+(§7). Log: `SCOUT: income recon: n known — scouting the enemy's holdings at …`.
+
+**Many armies strike together from many sides (`concurrentArmies`: Hard 2,
+Expert 3).** A wave on such a tier splits its draft into that many bodies.
+The main army takes the objective chosen above; each sister army takes a
+further income objective of the same victim whose approach bearing — read
+from the victim's capital when the scouts have reported it, from home
+otherwise — is at least `armySeparationDegrees` from every objective
+already chosen and at least `armySeparationMeters` away from it, and which
+the army's share could take (`AIEngagement.AssessAssault` — never waived:
+an overdue wave that cannot afford sisters goes as one blob). The units nearest each objective form its army. Fewer
+armies launch when the draft cannot give each `armyMinUnits`, or when no
+second objective separates enough from the first — never two armies at one
+spot. (The bearing bar is deliberately low and the distance bar is the real
+one: on a mirrored 1v1 every holding of the enemy lies in the band between
+the two bases, so two targets 300 m apart read only 14° apart from its
+capital.) "Outside its walls" means wall pieces of the owner actually stand
+in the territory — the capital's territory is not walled by definition, or
+on a start-territory economy nothing is ever reachable. Each army musters, marches to a stage point on its own line and then
+HOLDS there until every sister has staged (at most `armySyncTimeoutSeconds`
+after the first), so the victim is hit from every direction at once; from
+the strike on, each army runs its own lifecycle (raze chain, breach,
+retreat, timeout) exactly as a lone army does.
+
+**What stays single.** The reinforcement stream still follows ONE
+objective — the main army's; a sister's raze chain never repoints it, and
+only a reinforcement column (never a sister army mustering nearby) is
+absorbed into an army. The wave cadence, the bar, the standing floor and the
+strength gate are unchanged: a many-army wave is the same draft divided,
+not a bigger one. Code: `PickSisterTargets`, `RankIncomeTargets`,
+`DispatchArmy`, `GroupReadyToStrike`, `OwnsWaveTarget` in
+`SimpleAISystem.Military.cs`. Logs: `wave of N armies against <victim>: …`,
+`main army: objective …`, `sister army: objective …`, `staged at … —
+waiting for the sister armies`.
 
 ## 7. Scouting
 

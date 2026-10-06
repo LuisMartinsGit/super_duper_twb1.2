@@ -51,6 +51,17 @@ namespace TheWaningBorder.Core.Diagnostics
         private const string SummaryFileName = "Summary.txt";
 
         private static string _matchFolder;
+
+        /// <summary>
+        /// Extra "Key : value" lines describing the RUN rather than the match
+        /// (a headless batch's -twbLabel and its resolved per-faction AI
+        /// difficulty / personality). Set once, before the match starts, by
+        /// whoever launched it; written into the match header in Console.log
+        /// AND into Summary.txt, so the report can title the match with it
+        /// even when the summary was never written (a crash). Null = nothing.
+        /// One "Key : value" pair per line; keys must not contain ':'.
+        /// </summary>
+        public static string RunInfo { get; set; }
         private static StreamWriter _console;
         private static readonly object _consoleLock = new object();
         private static bool _hooked;
@@ -227,6 +238,7 @@ namespace TheWaningBorder.Core.Diagnostics
             WriteConsoleLine($"=== Match started {DateTime.Now:yyyy-MM-dd HH:mm:ss} "
                            + $"on {mapName} ===");
             if (!string.IsNullOrEmpty(extraHeader)) WriteConsoleLine(extraHeader);
+            if (!string.IsNullOrEmpty(RunInfo)) WriteConsoleLine(RunInfo);
 
             Prune();
         }
@@ -277,6 +289,9 @@ namespace TheWaningBorder.Core.Diagnostics
                 // report point at exactly one build, and it is machine-readable
                 // for the log uploader.
                 sb.AppendLine($"Fingerprint : {BuildFingerprint.Short}");
+                if (!string.IsNullOrEmpty(RunInfo)) sb.AppendLine(RunInfo);
+                string score = MatchScore.SummaryLine();
+                if (score != null) sb.AppendLine(score);
                 System.IO.File.WriteAllText(Path.Combine(_matchFolder, SummaryFileName), sb.ToString());
             }
             catch { }

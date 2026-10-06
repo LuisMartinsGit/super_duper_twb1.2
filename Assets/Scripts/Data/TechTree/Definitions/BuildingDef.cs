@@ -49,10 +49,24 @@ namespace TheWaningBorder.Data
         /// override a rung (BuildingLevelDefSO.slotIncomePerMinute).
         /// TerritoryIncomeSystem reads it.</summary>
         public float[] slotIncomePerMinute;
-        /// <summary>Interest a stored resource earns per minute (0.25 = 25 %).
-        /// The Vault of Almierra only; its levels scale it
-        /// (BuildingLevelDefSO.interestMultiplier).</summary>
+        /// <summary>SIMPLE interest the stored PRINCIPAL earns per minute
+        /// (0.05 = 5 %), paid on at most <see cref="interestPrincipalCap"/> of
+        /// it. The Vault of Almierra only; its levels scale the rate
+        /// (BuildingLevelDefSO.interestMultiplier) and the banking techs
+        /// replace it (<see cref="coffersRate"/> and siblings).
+        /// VaultInterestSystem reads them. Simple, capped interest since
+        /// 2026-10-05 (decision 41) — compounding was a money printer.</summary>
         public float interestPerMinute;
+        /// <summary>The most stored principal that earns interest. Anything
+        /// stored above it earns nothing.</summary>
+        public float interestPrincipalCap;
+        /// <summary>Interest per minute once Coffers is researched (replaces
+        /// <see cref="interestPerMinute"/>).</summary>
+        public float coffersRate;
+        /// <summary>Interest per minute once Merchant Charters is researched.</summary>
+        public float merchantChartersRate;
+        /// <summary>Interest per minute once Sovereign Bonds is researched.</summary>
+        public float sovereignBondsRate;
         /// <summary>The stone-wall level (WallTiers) a wall must stand at for
         /// this building to be mounted on it. The emplacements only.</summary>
         public int minWallLevel;

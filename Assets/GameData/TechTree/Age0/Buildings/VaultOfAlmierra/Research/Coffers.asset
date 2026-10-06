@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Coffers
   role: Banking
   effect: 
-  desc: "Safe storage: Vault interest rises to 50 percent per minute."
+  desc: "Safe storage: the Vault's interest rises to banking grade 1."
   researchAt: VaultOfAlmierra
   minBuildingLevel: 0
   researchTime: 30

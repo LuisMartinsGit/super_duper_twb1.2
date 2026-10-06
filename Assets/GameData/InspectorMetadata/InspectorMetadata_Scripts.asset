@@ -112,11 +112,50 @@ MonoBehaviour:
   - typeName: "TheWaningBorder.Data.AI.AISettingsSO+PersonalityBlock"
     fields:
     - field: "attackThreshold"
-      header: 
+      header:
       tooltip: "Min idle units before a maintenance attack launches."
+    - field: "militaryFloor"
+      header:
+      tooltip: "Standing army kept before anything else military. Multiplied by the plan's ArmyScale, never by difficulty."
     - field: "riskMultiplier"
-      header: 
+      header:
       tooltip: "Multiplier on the risk term of the target scorer. >1 = cautious."
+    - field: "gathererHutTarget"
+      header: "Economy / tech"
+      tooltip: "Early-game Gatherer's Hut cap. Doubles over the match for gathering cultures; Feraldis stays hard-capped."
+    - field: "productionBuildingTarget"
+      header:
+      tooltip: "Military production buildings to build toward (per line: /2 in Age 0, /4 after age-up)."
+    - field: "ageUpPushSeconds"
+      header:
+      tooltip: "Game time (s) at which this AI stops founding huts and banks for the age-up. Lower = techs sooner."
+    - field: "raidingEnabled"
+      header: "Military stances"
+      tooltip: "Peel a fast raid party at the enemy economy when a wave launches with units to spare."
+    - field: "basicsAppetite"
+      header:
+      tooltip: "Multiplier on the cheap basics' (Spearman / Archer) share of the army plan."
+    - field: "boomAffinity"
+      header: "Plan affinity (score bonus per strategic plan)"
+      tooltip: "Bonus added to the Boom plan's score when a plan is chosen."
+    - field: "massAffinity"
+      header:
+      tooltip: "Bonus added to the Mass plan's score."
+    - field: "rushAffinity"
+      header:
+      tooltip: "Bonus added to the Rush plan's score."
+    - field: "techAffinity"
+      header:
+      tooltip: "Bonus added to the Tech plan's score."
+    - field: "fortressAffinity"
+      header:
+      tooltip: "Bonus added to the Fortress plan's score."
+    - field: "towerCoverageScale"
+      header: "Fortification"
+      tooltip: "Multiplier on how much ground this personality wants covered by watch towers. 1 = Balanced."
+    - field: "wallPriorityScale"
+      header:
+      tooltip: "Multiplier on the priority of wall work against the rest of the build list. 1 = Balanced."
   - typeName: "TheWaningBorder.Data.TechTreeCatalog"
     fields:
     - field: "units"

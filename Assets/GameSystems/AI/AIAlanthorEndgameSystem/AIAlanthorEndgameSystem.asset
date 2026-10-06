@@ -28,4 +28,3 @@ MonoBehaviour:
   wallSlotOccupiedRadius: 7
   thinkInterval: 5
   maxTrainQueue: 5
-  lossesBeforeDefensiveFlip: 2
