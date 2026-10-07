@@ -33,6 +33,7 @@ MonoBehaviour:
   slotIncomePerMinute: []
   interestPerMinute: 0.05
   interestPrincipalCap: 3000
+  interestMaxSeconds: 600
   coffersRate: 0.08
   merchantChartersRate: 0.11
   sovereignBondsRate: 0.15

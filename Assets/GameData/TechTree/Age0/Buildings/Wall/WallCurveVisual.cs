@@ -93,6 +93,11 @@ namespace TheWaningBorder.Rendering
             _renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
             _mpb = new MaterialPropertyBlock();
             if (_em.Exists(Segment)) _tier = TheWaningBorder.Entities.WallTiers.Of(_em, Segment);
+            // Start at the cells' real construction progress. _progress
+            // defaults to 1, so a freshly laid wall used to be built FULL
+            // height on its first frame and only sank to its foundation at
+            // the first poll -- a finished-wall flash on every placement.
+            _progress = ReadProgress();
             ApplyMaterials();
             // Stagger the poll so a wall placed in one go does not poll every
             // segment on the same frame forever after.
@@ -169,8 +174,49 @@ namespace TheWaningBorder.Rendering
             _renderer.SetPropertyBlock(_mpb, slot);
         }
 
+        /// <summary>The segment's construction progress, read straight from
+        /// its cell buffer (the poll's rule: the first cell still under
+        /// construction speaks for the run; none means finished).</summary>
+        float ReadProgress()
+        {
+            if (Segment == Entity.Null || !_em.Exists(Segment)
+                || !_em.HasBuffer<WallInstanceRef>(Segment)) return 1f;
+            var buf = _em.GetBuffer<WallInstanceRef>(Segment);
+            for (int i = 0; i < buf.Length; i++)
+            {
+                var c = buf[i].Instance;
+                if (!_em.Exists(c) || !_em.HasComponent<UnderConstruction>(c)) continue;
+                var uc = _em.GetComponentData<UnderConstruction>(c);
+                return uc.Progress / math.max(0.01f, uc.Total);
+            }
+            return 1f;
+        }
+
         void LateUpdate()
         {
+            // A moved root is checked EVERY frame, not at the poll, and
+            // rebuilt at once, outside the budget. The mesh is baked in the
+            // root's frame, so between a move and its rebuild the whole
+            // curtain is drawn displaced (and, through the building +180,
+            // mirrored). LateUpdate runs after SyncTransforms moved the root,
+            // so rebuilding here means the stale pose never reaches the
+            // screen. Roots only move on spawn and when a segment is
+            // re-aimed (a split for a branch hub), so this is rare.
+            if (_valid && _builtProgress >= 0f
+                && transform.localToWorldMatrix != _builtLocalToWorld)
+            {
+                var mw = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+                if (mw != null && mw.IsCreated)
+                {
+                    if (_em != mw.EntityManager) _em = mw.EntityManager;
+                    if (Segment != Entity.Null && _em.Exists(Segment))
+                    {
+                        _rebuildPending = false;
+                        Rebuild();
+                    }
+                }
+            }
+
             if (_valid && _rebuildPending && TakeRebuildBudget())
             {
                 _rebuildPending = false;

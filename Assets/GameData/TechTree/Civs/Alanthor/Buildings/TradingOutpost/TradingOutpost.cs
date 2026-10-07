@@ -35,10 +35,14 @@ namespace TheWaningBorder.Entities
     public static class TradingOutpost
     {
         /// <summary>
-        /// Reuses the shared Runai Trading Post / Practice Range visual (355).
-        /// ART PASS: give the Outpost its own Alanthor mesh.
+        /// The Outpost's own presentation id. It used to share 355 with the
+        /// Runai Trading Post, which made the SO prefab unassignable: the
+        /// catalog maps prefabs BY presentation id, so art on one would have
+        /// drawn on both. Must equal presentationId on TradingOutpost.asset,
+        /// whose prefab is the visual (a placeholder House model until the
+        /// ART PASS gives the Outpost its own Alanthor mesh).
         /// </summary>
-        public const int PresentationID = 355;
+        public const int PresentationID = 523;
 
         public const string BuildingId = "Alanthor_TradingOutpost";
 

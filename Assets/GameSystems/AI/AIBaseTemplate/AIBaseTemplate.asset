@@ -1,0 +1,122 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 69e4f012cf24485cb24fb43d7391d1de, type: 3}
+  m_Name: AIBaseTemplate
+  m_EditorClassIdentifier: 
+  enabled: 1
+  mainCamp:
+  - '.......WW.......WW.......WW......'
+  - '.......WW.......WW.......WW......'
+  - '.................................'
+  - '.................................'
+  - '.......TT.BBBB.BBBB.BBBB.TT......'
+  - '.......TT.BBBB.BBBB.BBBB.TT......'
+  - 'WW..TT....BBBB.BBBB.BBBB.........'
+  - 'WW..TT....BBBB.BBBB.BBBB...TT..WW'
+  - '.........HHHHHH....HHHHHH..TT..WW'
+  - '....AAAA.HHHHHHBBBBHHHHHH........'
+  - '....AAAA.HHHHHHBBBB......YYYY....'
+  - '....AAAA.HHHHHHBBBBHHHHHHYYYY....'
+  - '....AAAA.HHHHHHBBBBHHHHHHYYYY....'
+  - '.........HHHHHH....HHHHHHYYYY....'
+  - '....AAAA.AAAA.FFFFFHHHHHH........'
+  - 'WW..AAAA.AAAA.FFFFF.YYYY.YYYY....'
+  - 'WW..AAAA.AAAA.FFFFF.YYYY.YYYY..WW'
+  - '....AAAA.AAAA.FFFFF.YYYY.YYYY..WW'
+  - '..............FFFFF.YYYY.YYYY....'
+  - '....AAAA.PPPP....................'
+  - '....AAAA.PPPP.SSSS..VVVV.YYYY....'
+  - '....AAAA.PPPP.SSSS..VVVV.YYYY....'
+  - '....AAAA.PPPP.SSSS..VVVV.YYYY....'
+  - '.........HHHH.SSSS..VVVV.YYYY....'
+  - 'WW..TT...HHHH....................'
+  - 'WW..TT...SSSS.SSSS.SSSS....TT..WW'
+  - '.........SSSS.SSSS.SSSS....TT..WW'
+  - '......TT.SSSS.SSSS.SSSS.TT.......'
+  - '......TT.SSSS.SSSS.SSSS.TT.......'
+  - '.................................'
+  - '.................................'
+  - '......WW.......WW.......WW.......'
+  - '......WW.......WW.......WW.......'
+  outpost:
+  - '................................'
+  - '................................'
+  - '................................'
+  - '................................'
+  - '................................'
+  - '................................'
+  - '................................'
+  - '......................TT........'
+  - '......................TT........'
+  - '.......TT.SSSS.SSSS.............'
+  - '.......TT.SSSS.SSSS.AAAA........'
+  - '..........SSSS.SSSS.AAAA........'
+  - '..........SSSS.SSSS.AAAA........'
+  - '....................AAAA........'
+  - '.........YYYY.FFFFF.............'
+  - '.........YYYY.FFFFF.AAAA........'
+  - '.........YYYY.FFFFF.AAAA........'
+  - '.........YYYY.FFFFF.AAAA........'
+  - '..............FFFFF.AAAA........'
+  - '.........YYYY...................'
+  - '.........YYYY.BBBB.BBBB.........'
+  - '.........YYYY.BBBB.BBBB.........'
+  - '.........YYYY.BBBB.BBBB.TT......'
+  - '..............BBBB.BBBB.TT......'
+  - '.........TT.....................'
+  - '.........TT.....................'
+  - '................................'
+  - '................................'
+  - '................................'
+  - '................................'
+  - '................................'
+  - '................................'
+  fortressSymbol: F
+  wallHubSymbol: W
+  legend:
+  - symbol: H
+    buildingIds:
+    - Hut
+    production: 0
+  - symbol: B
+    buildingIds:
+    - Barracks
+    production: 1
+  - symbol: A
+    buildingIds:
+    - ArcheryRange
+    production: 1
+  - symbol: Y
+    buildingIds:
+    - Alanthor_RoyalStable
+    production: 1
+  - symbol: S
+    buildingIds:
+    - Alanthor_SiegeYard
+    production: 1
+  - symbol: P
+    buildingIds:
+    - TempleOfRidan
+    production: 0
+  - symbol: V
+    buildingIds:
+    - VaultOfAlmierra
+    production: 0
+  - symbol: T
+    buildingIds:
+    - Alanthor_Tower
+    production: 0
+  slotSearchRadiusCells: 8
+  gatesPerRing: 4
+  emplacementEveryNthLink: 2
+  alternateTrebuchet: 1
+  variants: 1

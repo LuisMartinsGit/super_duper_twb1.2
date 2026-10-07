@@ -553,6 +553,13 @@ namespace TheWaningBorder.Input
                 || _em.HasComponent<VeilsteelDepositTag>(e))
                 return true;
 
+            // The Shardroot on the ground: selectable for its info panel. It
+            // is neither a unit nor a building (and its FactionTag is the
+            // neutral Border), so the tests below would refuse it. Owned by
+            // nobody, so it never takes an order.
+            if (_em.HasComponent<ShardrootPickupTag>(e))
+                return true;
+
             // Must have faction tag
             if (!_em.HasComponent<FactionTag>(e))
                 return false;

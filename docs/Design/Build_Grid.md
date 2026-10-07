@@ -176,7 +176,8 @@ exists**.
 | **Supply spot** | **2 x 2 cells — the Gatherer's Hut's own footprint — and PASSABLE: it is ground you build the hut ON, not a prop beside it. Snaps with even parity (cell boundary) so the hut centres on it exactly. (2026-08-29; was 1 cell)** |
 | Blight pocket / Small Node | 1 cell, impassable while alive |
 | Border Main Node (well) | **6 x 6 cells** — it is a structure, not a node |
-| Trees, rocks, bushes | 1 cell, impassable, at most one per cell |
+| Trees | **Decoration on ground that is already blocked (2026-10-06)** — inside Forest / Mountain regions or an impassable forest stand. Not snapped, and never block a cell by themselves. [Territory_And_Nature.md](Territory_And_Nature.md) header |
+| Rocks, bushes | 1 cell, impassable, at most one per cell |
 
 "Impassable until mined" means the block is tied to the node's lifetime: the
 node is removed when depleted, and removal releases the cell on both the nav
@@ -205,10 +206,10 @@ cost field and `PassabilityGrid`.
   AI's site search and the command executor. Refusal: *"Cannot build on a
   resource node — only its own extractor may stand there"*.
 
-Trees are baked as Unity terrain tree instances rather than entities, so they
-get the same treatment through the map generator: scattered positions quantise
-to cell centres, one instance per cell, and each occupied cell is painted into
-the terrain `NoWalk` layer that the passability bake already reads.
+Trees are baked as Unity terrain tree instances rather than entities.
+**Superseded 2026-10-06:** they no longer scatter over open ground, so they no
+longer need a cell each. The region kind (`NoWalk` paint) or the stand's disc
+(`NatureRegionBootstrap`) blocks the ground, and the trees only decorate it.
 
 ---
 

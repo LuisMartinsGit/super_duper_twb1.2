@@ -521,6 +521,25 @@ namespace TheWaningBorder.AI
         // budget and decided nothing.
         public float closeoutAfterSeconds;
 
+        /// <summary>ONE WAR AT A TIME (2026-10-07, Game_AI.md § 6i): failed
+        /// attacks in a row (a mission timed out, an army gave its objective
+        /// up) after which a faction abandons its war on a victim and may pick
+        /// another. A razed objective resets the count.</summary>
+        public int warMaxFailures;
+
+        /// <summary>THE ARMY CAP RISES WITH UNSPENT MONEY (2026-10-07, § 6j):
+        /// unspent supplies + iron at or above which the cap rises.</summary>
+        public int armyCapRaiseThreshold;
+        /// <summary>Units of cap added per raise.</summary>
+        public int armyCapRaiseStep;
+        /// <summary>Seconds between raises while the bank stays above the threshold.</summary>
+        public float armyCapRaiseInterval;
+
+        /// <summary>PILE-ON (2026-10-07, § 6i): a hostile faction whose board
+        /// score is at most this share of the score of the faction at war with
+        /// it is LOSING its war, and other factions join against it.</summary>
+        public float pileOnLosingShare;
+
         /// <summary>A building sighting with at most this much recorded
         /// garrison reads as STRAY — roughly three soldiers on the
         /// UnitStrength scale (dmg x2 + hp/10; a spearman is ~40).</summary>
@@ -1325,6 +1344,11 @@ namespace TheWaningBorder.AI
         public float incomeWeightExtractor;
         public float incomeWeightMilitary;
         public float incomeWeightHouse;
+
+        /// <summary>Score taken off an income target standing in its owner's
+        /// capital territory, so the surrounding holdings fall first (2026-10-07,
+        /// Game_AI.md § 6h).</summary>
+        public float incomeCapitalPenalty;
 
         /// <summary>Income recon (§ 6f): while fewer than this many hostile
         /// income buildings are known, an income-targeting tier files a

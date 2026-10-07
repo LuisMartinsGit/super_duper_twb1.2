@@ -758,6 +758,25 @@ namespace TheWaningBorder.AI
 
             bool placingGHut = buildingId == "GatherersHut";
 
+            // THE DRAWN BASE FIRST (2026-10-06, Game_AI.md § 6g): a building
+            // the territory's layout has a slot for takes its next free slot
+            // (moved to the nearest legal spot if blocked as drawn). The ring
+            // search below runs only when every slot of its kind is used up.
+            if (buildingId != "Fortress"
+                && !TheWaningBorder.World.Regions.TerritoryOwnership.IsExtractor(buildingId)
+                && !TheWaningBorder.World.Regions.TerritoryOwnership.IsClaimStructure(buildingId))
+            {
+                int slot = TryTemplateSlot(em, faction, buildingId, size, anchor, out pos);
+                if (slot == SlotFound) return true;
+                if (slot == SlotBudgetSpent)
+                {
+                    inconclusive = true;
+                    _siteRefusalTally = "validation budget spent (base layout)";
+                    pos = default;
+                    return false;
+                }
+            }
+
             // THE HOUSE QUARTER (2026-10-02, operator: "AI should clump all
             // the houses together"). Once a faction has one House, every
             // later one is searched outward from the middle of the ones it
@@ -1051,6 +1070,9 @@ namespace TheWaningBorder.AI
                             // THE RESERVED FORTRESS SPOTS stay clear, like
                             // the wall corridor (AIBaseLayout, Game_AI.md 5g).
                             if (!AIBaseLayout.FootprintClearOfFortressSpots(candidate, size, buildingId))
+                            { nSpot++; continue; }
+                            // …and so do the drawn layout's free slots (§ 6g).
+                            if (!AIBaseTemplate.FootprintClearOfFreeSlots(em, faction, candidate, size))
                             { nSpot++; continue; }
                         }
 

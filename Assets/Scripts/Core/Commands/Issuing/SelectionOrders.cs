@@ -540,11 +540,14 @@ namespace TheWaningBorder.Core.Commands.Issuing
         // FormationMoveCommandHelper / FormationGroupSystem — the input
         // layer only collects the selection and picks the formation shape.
         /// <summary>
-        /// Walk the selection onto a Shardroot pickup. Claiming is the
-        /// 20 s attunement in ShardrootCarrySystem, which starts on its own
-        /// once a unit stands within ShardrootPickupRadius; a hero in range
-        /// is preferred as the attuner, so ordering King Lexor onto it makes
-        /// him the carrier even with an escort at his side.
+        /// Walk the selection onto a Shardroot pickup. The claim is instant
+        /// in ShardrootCarrySystem: the first unit within
+        /// ShardrootPickupRadius takes it that tick. A HERO in the selection
+        /// (King Lexor) is sent straight onto the artifact with a plain move,
+        /// so his destination IS the pickup — that is what gives him right of
+        /// way over his own escort, who would otherwise reach it a step ahead
+        /// from their formation slots and take it first. The rest of the
+        /// selection formation-moves there as usual.
         /// </summary>
         public void IssuePickupMove(Entity pickup)
         {
@@ -553,7 +556,17 @@ namespace TheWaningBorder.Core.Commands.Issuing
             var units = CollectOwnedMovableSelection();
             if (units.Count == 0) return;
             float3 at = _em.GetComponentData<LocalTransform>(pickup).Position;
-            CommandRouter.IssueFormationMove(_em, units, at, Shape, CommandSource.LocalPlayer);
+
+            var escort = new List<Entity>(units.Count);
+            for (int i = 0; i < units.Count; i++)
+            {
+                if (_em.HasComponent<TheWaningBorder.Abilities.UniqueUnitTag>(units[i]))
+                    CommandRouter.IssueMove(_em, units[i], at, CommandSource.LocalPlayer);
+                else
+                    escort.Add(units[i]);
+            }
+            if (escort.Count > 0)
+                CommandRouter.IssueFormationMove(_em, escort, at, Shape, CommandSource.LocalPlayer);
         }
 
         public void IssueFormationMove(float3 clickWorld)

@@ -43,8 +43,8 @@ MonoBehaviour:
   research: []
   minEra: 0
   cost:
-    Supplies: 10
-    Iron: 5
+    Supplies: 20
+    Iron: 10
     Veilstone: 0
     Veilsteel: 0
   tags:

@@ -43,9 +43,9 @@ MonoBehaviour:
   - 'Building'
   attack:
     enabled: 1
-    damage: 28
+    damage: 20
     damageType: ranged
     range: 30
     cooldown: 1.5
-    maxTargets: 4
+    maxTargets: 2
   presentationId: 416

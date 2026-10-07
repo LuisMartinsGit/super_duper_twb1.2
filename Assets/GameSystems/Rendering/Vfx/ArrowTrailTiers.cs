@@ -267,6 +267,23 @@ namespace TheWaningBorder.Rendering
         public static float BeginFade(GameObject arrow)
         {
             if (arrow == null) return 0f;
+
+            // The tier tip (Veilstone / Veilsteel projectile effect) IS the
+            // arrowhead, so it goes with the arrow: cleared and switched off
+            // now, never left to fade. Its looping particles (and their world-
+            // space sub-trails) otherwise kept glowing at the landing point for
+            // their full lifetime — seconds after the arrow itself was gone.
+            // ResetAfterFade switches it back on for the next flight.
+            var tip = arrow.transform.Find(TierTipName);
+            if (tip != null)
+            {
+                foreach (var ps in tip.GetComponentsInChildren<ParticleSystem>(true))
+                    ps.Stop(false, ParticleSystemStopBehavior.StopEmittingAndClear);
+                foreach (var tr in tip.GetComponentsInChildren<TrailRenderer>(true))
+                { tr.emitting = false; tr.Clear(); }
+                tip.gameObject.SetActive(false);
+            }
+
             float linger = 0f;
             foreach (var t in arrow.GetComponentsInChildren<TrailRenderer>(false))
             {
@@ -291,6 +308,8 @@ namespace TheWaningBorder.Rendering
         {
             if (arrow == null) return;
             foreach (var r in arrow.GetComponentsInChildren<MeshRenderer>(true)) r.enabled = true;
+            var tip = arrow.transform.Find(TierTipName);
+            if (tip != null) tip.gameObject.SetActive(true);   // switched off by BeginFade
         }
 
         /// <summary>

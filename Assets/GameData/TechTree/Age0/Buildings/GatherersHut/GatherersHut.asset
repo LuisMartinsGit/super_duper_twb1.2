@@ -32,8 +32,8 @@ MonoBehaviour:
   suppliesInterval: 0
   slotIncomePerMinute:
   - 110
-  - 160
-  - 260
+  - 135
+  - 185
   interestPerMinute: 0
   minWallLevel: 0
   garrisonSlots: 0

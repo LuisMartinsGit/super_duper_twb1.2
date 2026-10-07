@@ -385,6 +385,10 @@ the principal cap and the three grade rates are on
 `Civs/Alanthor/Buildings/VaultOfAlmierra/VaultOfAlmierra_Lvl1..3`. HP, upgrade
 prices and times are on the same SOs. No trainable units.
 
+**A hard time cap (2026-10-07):** a deposit earns interest for at most the
+Vault SO's `interestMaxSeconds` (10 minutes); after that it earns nothing
+until it is withdrawn and deposited again. Each deposit restarts the clock.
+
 > Why simple and capped: under compounding the Vault was a money printer —
 > one test saw 2,645 iron become 7.5 million eleven minutes later. The point
 > of the Vault is a modest, safe return on idle resources, not an economy.

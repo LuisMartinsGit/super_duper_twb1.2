@@ -60,11 +60,11 @@ MonoBehaviour:
   - Building
   attack:
     enabled: 1
-    damage: 45
+    damage: 20
     damageType: ranged
     range: 34
     cooldown: 2
-    maxTargets: 2
+    maxTargets: 1
     siegeShotDamage: 0
   levels: []
   unitUpgrades: []

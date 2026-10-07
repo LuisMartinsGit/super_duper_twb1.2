@@ -31,7 +31,7 @@ MonoBehaviour:
   interestMultiplier: 0
   attack:
     enabled: 1
-    damage: 15
+    damage: 10
     damageType: ranged
     range: 24
     cooldown: 1.8

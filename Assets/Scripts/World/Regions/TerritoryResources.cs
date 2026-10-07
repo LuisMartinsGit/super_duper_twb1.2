@@ -39,9 +39,9 @@ namespace TheWaningBorder.World.Regions
         private const int VeilstonePerOutcrop = 900;
         /// <summary>Iron deposits' legacy amount, in marker units of 50.</summary>
         private const int IronDepositUnits = 30;
-        /// <summary>Home nodes stay at least this far from the start point,
-        /// clear of the Fortress and the opening base.</summary>
-        private const float HomeClearRadius = 20f;
+        // No node within the START CLEARING (2026-10-06): every node keeps
+        // StartClearing.asset's radius clear of EVERY player start, in any
+        // territory — enforced by ResourceNodeSite, skipped up front here.
         private const float RingStep = 6f;
         private const float MaxRing = 60f;
         private const int RingSamples = 12;
@@ -211,7 +211,6 @@ namespace TheWaningBorder.World.Regions
 
                 bool home = homeCentre.TryGetValue(t, out var hc);
                 float3 centre = home ? hc : centres[t];
-                float minR = home ? HomeClearRadius : 0f;
                 var mine = new List<float3>();
                 if (partners != null) _record = new List<(float3, int)>();
 
@@ -297,8 +296,8 @@ namespace TheWaningBorder.World.Regions
         /// One node of <paramref name="kind"/> at a RANDOM legal spot inside
         /// territory <paramref name="t"/> — anywhere in it, at least
         /// <see cref="BorderInset"/> from its border, <see cref="NodeSpacing"/>
-        /// from the territory's other nodes and, in a home, outside the start
-        /// clearing. Falls back to the ring search when the random draws all
+        /// from the territory's other nodes and outside every start's
+        /// clearing (<see cref="StartClearing"/>). Falls back to the ring search when the random draws all
         /// miss (a sliver of a territory).
         /// </summary>
         private static bool PlaceRandom(EntityManager em, int t, bool home, float3 centre,
@@ -308,17 +307,34 @@ namespace TheWaningBorder.World.Regions
             {
                 var d = new float3(rng.NextFloat(min.x, max.x), 0f, rng.NextFloat(min.y, max.y));
                 if (!InsideWithInset(d, t)) continue;
-                if (home && math.distancesq(d.xz, centre.xz) < HomeClearRadius * HomeClearRadius) continue;
+                if (StartClearing.Covers(d, BuildGrid.ResourceNodeHalf)) continue;
+                if (home && !OnHomeEdge(d, centre)) continue;
                 if (TooClose(d, mine)) continue;
                 d.y = TerrainUtility.GetHeight(d.x, d.z);
                 if (!ResourceNodeSite.TryResolve(em, d, out var site)) continue;
                 if (!InsideWithInset(site, t) || TooClose(site, mine)) continue;
-                if (home && math.distancesq(site.xz, centre.xz) < HomeClearRadius * HomeClearRadius) continue;
+                if (StartClearing.Covers(site, BuildGrid.ResourceNodeHalf)) continue;
+                if (home && !OnHomeEdge(site, centre)) continue;
                 Create(em, site, kind);
                 mine.Add(site);
                 return true;
             }
-            return Place(em, t, centre, home ? HomeClearRadius : 0f, mine, kind);
+            // A home's ring search starts outside the start clearing AND the
+            // main camp (the edge band below).
+            return Place(em, t, centre,
+                         home ? math.max(StartClearing.Radius + BuildGrid.ResourceNodeMeters,
+                                         Cfg.homeNodeMinOffset) : 0f,
+                         mine, kind);
+        }
+
+        /// <summary>A home node keeps homeNodeMinOffset from the start on at
+        /// least one axis — the band along the home territory's edge, outside
+        /// the AI's main camp (docs/Design/Territory_Claims.md §11).</summary>
+        private static bool OnHomeEdge(float3 p, float3 start)
+        {
+            float off = Cfg.homeNodeMinOffset;
+            if (off <= 0f) return true;
+            return math.max(math.abs(p.x - start.x), math.abs(p.z - start.z)) >= off;
         }
 
         private static bool InsideWithInset(float3 p, int t)
@@ -402,7 +418,7 @@ namespace TheWaningBorder.World.Regions
         /// fallback for a territory too thin for the random draw.</summary>
         private static bool Place(EntityManager em, int t, float3 centre, float minR, List<float3> mine, int kind)
         {
-            for (float r = minR; r <= MaxRing; r += RingStep)
+            for (float r = minR; r <= minR + MaxRing; r += RingStep)
             {
                 int samples = r <= 0f ? 1 : RingSamples;
                 // A per-ring, per-territory phase so neighbouring rings do not line up.
@@ -414,6 +430,7 @@ namespace TheWaningBorder.World.Regions
                     // The same band as the random draw: a thin territory may
                     // come up short (logged) rather than seed the wall's path.
                     if (!InsideWithInset(desired, t)) continue;
+                    if (StartClearing.Covers(desired, BuildGrid.ResourceNodeHalf)) continue;
                     if (TooClose(desired, mine)) continue;
                     desired.y = TerrainUtility.GetHeight(desired.x, desired.z);
                     if (!ResourceNodeSite.TryResolve(em, desired, out var site)) continue;

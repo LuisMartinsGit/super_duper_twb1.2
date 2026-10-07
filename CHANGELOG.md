@@ -13,6 +13,56 @@ build always name the same number.
 
 ---
 
+## [0.0.36] — 2026-10-07
+
+Everyone in a multiplayer match needs 0.0.36.
+
+### Added
+
+- **AI towns follow a plan.** The AI builds its home base to a fixed layout —
+  houses, production, Temple, Vault and towers around the Fortress, closed in
+  by a stone wall ring with gates and wall emplacements — and a smaller
+  layout around every other Fortress it raises (no walls there). Each town is
+  turned, mirrored and shuffled, so no two look alike.
+- **The Shardroot can be selected** and right-clicked to send a unit to it,
+  and picking it up is now instant.
+- **Clear starts.** The ground around every player start is free of
+  impassable patches, trees and resource nodes.
+
+### Changed
+
+- **Mirror Marches is half the size**: the same layout with smaller
+  territories, for faster matches. Home resource nodes now sit along the edge
+  of each home territory, away from the base.
+- **Defences hit less hard.** Fortresses and Watch Towers deal much less
+  damage and hit fewer targets at once; armies are no longer melted by them.
+- **Fortifications cost twice as much**: walls, palisades, gates, wall
+  towers, Watch Towers and emplacements.
+- **Resource buildings gain less per level.** Each level of a Guild, Mine,
+  Gatherer's Hut, Veilstone Mine or Trading Outpost adds half what it did.
+- **The Vault pays interest for at most 10 minutes per deposit.**
+- **Barracks are 4 x 4**, like the other production buildings.
+- **The Trading Outpost** has a model (a placeholder for now).
+- **The AI fights to win.** It picks one enemy and keeps after it until that
+  enemy falls; when one player is clearly losing a war, the others join in.
+  Its armies retreat to the nearest safe ground instead of all the way home,
+  regroup and come back, or switch to an undefended enemy economy nearby, and
+  they hit an enemy's outlying economy before its main base. Its army keeps
+  growing while it has money to spend, and it no longer marches through
+  cursed ground.
+
+### Fixed
+
+- After age-up the build menu shows the cultured names (House, Garrison,
+  Guild) instead of the Age 0 ones.
+- A wall no longer flashes in the wrong place for a moment when placed.
+- Veilsteel and veilstone arrowheads no longer leave their glow behind after
+  the arrow lands.
+- King Lexor no longer glows far too brightly.
+- Mirror Marches and Veilmarch no longer have scattered impassable patches.
+
+---
+
 ## [0.0.35] — 2026-10-06
 
 Everyone in a multiplayer match needs 0.0.35.

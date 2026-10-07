@@ -369,7 +369,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
         }
 
         static bool Passable(Kind k) =>
-            k == Kind.Normal || k == Kind.PlayerStart || k == Kind.Forest;
+            k == Kind.Normal || k == Kind.PlayerStart;
 
         #endregion
 

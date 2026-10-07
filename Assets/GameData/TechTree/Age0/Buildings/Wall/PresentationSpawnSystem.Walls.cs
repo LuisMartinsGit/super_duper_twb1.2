@@ -259,7 +259,26 @@ public partial class PresentationSpawnSystem
     private GameObject CreateProceduralCurvedWall(Vector3 center, Entity entity)
     {
         var root = new GameObject($"WallCurve_{entity.Index}");
-        root.transform.position = Vector3.zero;     // the mesh is in world space
+        // The mesh is baked in world space through the root's worldToLocal
+        // matrix AT BUILD TIME, and Init builds it immediately. So the root
+        // must already stand where SyncView is about to put it (the segment's
+        // midpoint, turned by the building +180) — it used to start at the
+        // origin with identity rotation, and the SyncTransforms pass later the
+        // same frame then carried the world-space mesh off to the midpoint and
+        // spun it 180 degrees: the curtain flashed at a wrong spot until the
+        // visual's next poll noticed the move. Same pose SyncView writes.
+        if (_em.HasComponent<LocalTransform>(entity))
+        {
+            var lt = _em.GetComponentData<LocalTransform>(entity);
+            Vector3 p = lt.Position;
+            p.y = global::TheWaningBorder.World.Terrain.TerrainUtility.GetSurfaceHeight(p.x, p.z, lt.Position.y);
+            root.transform.SetPositionAndRotation(p, VisualRotation(entity, lt.Rotation));
+            root.transform.localScale = Vector3.one * lt.Scale;
+        }
+        else
+        {
+            root.transform.position = Vector3.zero;
+        }
         var vis = root.AddComponent<WallCurveVisual>();
         vis.Segment = entity;
         vis.Init(_em);

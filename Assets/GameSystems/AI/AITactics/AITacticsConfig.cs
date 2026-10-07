@@ -186,6 +186,33 @@ namespace TheWaningBorder.AI
         /// defence, and there is nowhere better to go.</summary>
         public float fallbackSafeHomeRadius;
 
+        // ── Safe ground, staging and retargeting (2026-10-07, Game_AI.md § 6h) ──
+
+        /// <summary>How far from the army safe ground (an own Fortress,
+        /// tower or held territory) is looked for, metres.</summary>
+        public float fallbackStageSearch;
+
+        /// <summary>Radius of the hostile-strength read that decides whether
+        /// a candidate spot is safe, metres.</summary>
+        public float fallbackSafeRadius;
+
+        /// <summary>A spot is safe while the hostile strength round it is at
+        /// most this share of the retreating army's.</summary>
+        public float fallbackSafeShare;
+
+        /// <summary>How far from the staging ground an undefended enemy
+        /// economic building is looked for as the new objective, metres.</summary>
+        public float fallbackRetargetRadius;
+
+        /// <summary>A retarget objective qualifies while the hostile strength
+        /// round it is at most this share of the army's.</summary>
+        public float fallbackRetargetShare;
+
+        /// <summary>Holds at the staging ground (each fallbackTimeout long,
+        /// gathering reinforcements) before the army gives the objective up
+        /// and walks to the nearest own Fortress.</summary>
+        public int fallbackMaxHolds;
+
         // ── Ability value ────────────────────────────────────────────────
 
         /// <summary>Radius of the per-caster enemy / ally read.</summary>

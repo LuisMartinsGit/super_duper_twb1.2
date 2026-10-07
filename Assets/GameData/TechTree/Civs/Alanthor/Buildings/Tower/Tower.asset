@@ -44,15 +44,15 @@ MonoBehaviour:
   research: []
   minEra: 0
   cost:
-    Supplies: 140
-    Iron: 70
+    Supplies: 280
+    Iron: 140
     Veilstone: 0
     Veilsteel: 0
   tags:
   - Building
   attack:
     enabled: 1
-    damage: 15
+    damage: 10
     damageType: ranged
     range: 24
     cooldown: 1.8

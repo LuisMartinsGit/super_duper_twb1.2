@@ -107,6 +107,15 @@ namespace TheWaningBorder.AI
             if (TryEnsureRingGates(faction, em, brainEntity, hallPos))
                 return;
 
+            // ── THE DRAWN RING IS PART OF THE BASE (2026-10-07, Game_AI.md
+            //    § 6g/6h). Developer: "AI never finished walling off" — in a
+            //    92-minute match every AI logged "holding — the army is short"
+            //    for the whole game and raised at most 3 of 12 hubs. A ring
+            //    drawn by the base layout is not a luxury the army outranks:
+            //    it builds whenever the bank can actually pay, past the
+            //    army-short and personality holds and the Economy wallet. ──
+            _drawnRingSpend = IsDrawnRing(em, faction, hallPos);
+
             // ── WALLS ARE A PERSONALITY (2026-10-05, Game_AI.md § 3). The
             //    block's wallPriorityScale: below 1 the doctrine waits until
             //    the army has reached that much of its target (a rusher
@@ -119,7 +128,7 @@ namespace TheWaningBorder.AI
                 wallPriority = AISettings.Get().For(wb.Personality,
                     AISimpleDifficulty.GetProfile(wb.Difficulty).PersonalityWeight).wallPriorityScale;
             }
-            if (wallPriority < 1f && AIBudget.TryGetArmyStatus(faction, out int armyAlive, out int armyDesired)
+            if (!_drawnRingSpend && wallPriority < 1f && AIBudget.TryGetArmyStatus(faction, out int armyAlive, out int armyDesired)
                 && armyDesired > 0 && armyAlive < armyDesired * (1f - wallPriority))
             {
                 LogWallsThrottled(faction,
@@ -127,8 +136,9 @@ namespace TheWaningBorder.AI
                     $"{(1f - wallPriority) * 100f:F0}% of its target ({armyAlive}/{armyDesired})");
                 return;
             }
-            if (AIBudget.IsMilitaryShort(faction, AIBudget.ResSupplies)
-                || AIBudget.IsMilitaryShort(faction, AIBudget.ResIron))
+            if (!_drawnRingSpend
+                && (AIBudget.IsMilitaryShort(faction, AIBudget.ResSupplies)
+                    || AIBudget.IsMilitaryShort(faction, AIBudget.ResIron)))
             {
                 LogWallsThrottled(faction, "Alanthor walls: holding — the army is short of supplies or iron");
                 return;
@@ -251,7 +261,8 @@ namespace TheWaningBorder.AI
                         hubEntities, hubPositions))
                     return;
 
-                TryConvertPlannedTower(faction, em, slots);
+                if (TryConvertPlannedTower(faction, em, slots)) return;
+                TryMountPlannedEmplacement(faction, em, slots);
             }
             finally
             {
@@ -331,8 +342,23 @@ namespace TheWaningBorder.AI
         /// never take the army's share — and the bank must cover it.
         /// </summary>
         private static bool WallSpendAllowed(EntityManager em, Faction faction, Cost cost)
-            => AIBudget.CanSpend(faction, AIBudgetCategory.EconomyExpansion, cost)
+            => (_drawnRingSpend || AIBudget.CanSpend(faction, AIBudgetCategory.EconomyExpansion, cost))
                && FactionEconomy.CanAfford(em, faction, cost);
+
+        /// <summary>This think's wall doctrine is building a drawn base ring
+        /// (AIBaseTemplate): it spends whatever the bank holds (set at the top
+        /// of TryBuildWallDefenses, main thread only).</summary>
+        private static bool _drawnRingSpend;
+
+        /// <summary>The home wall is a ring drawn by the base layout
+        /// (AIBaseTemplate, Game_AI.md § 6g).</summary>
+        private static bool IsDrawnRing(EntityManager em, Faction faction, float3 hallPos)
+            => AIBaseTemplate.Enabled
+               && TheWaningBorder.World.Regions.RegionMap.Ready
+               && AIBaseTemplate.TryGetOrigin(em, faction,
+                      TheWaningBorder.World.Regions.RegionMap.RegionAt(hallPos.x, hallPos.z),
+                      out _, out var layout)
+               && layout.Hubs.Count >= 3;
 
         /// <summary>Charge a wall order to the Economy wallet (the executor
         /// spends the real bank).</summary>
@@ -1236,10 +1262,10 @@ namespace TheWaningBorder.AI
         /// WallUpgradeState, UpgradeType 1). One conversion per think tick.
         /// A slot whose nearest instance already carries WallTowerTag is
         /// done and skipped.</summary>
-        private static void TryConvertPlannedTower(Faction faction, EntityManager em,
+        private static bool TryConvertPlannedTower(Faction faction, EntityManager em,
             NativeArray<AIWallPlanSlot> slots)
         {
-            if (!BuildCosts.TryGet("Alanthor_WallTower", out var towerCost)) return;
+            if (!BuildCosts.TryGet("Alanthor_WallTower", out var towerCost)) return false;
 
             var instEnts = new NativeList<Entity>(Allocator.Temp);
             var instPos = new NativeList<float3>(Allocator.Temp);
@@ -1282,7 +1308,7 @@ namespace TheWaningBorder.AI
                     if (em.HasComponent<WallGateRegionTag>(inst)) continue;
                     if (em.HasComponent<UnderConstruction>(inst)) continue; // still rising
 
-                    if (!WallSpendAllowed(em, faction, towerCost)) return;
+                    if (!WallSpendAllowed(em, faction, towerCost)) return false;
                     // Spend + stamp through the charged executor: it
                     // validates again and charges the same bank on every
                     // peer, replacing the local Spend + AddComponentData
@@ -1296,7 +1322,7 @@ namespace TheWaningBorder.AI
                     AILogger.Log(faction, "BUILDING",
                         $"Alanthor walls: tower conversion at " +
                         $"({slots[i].Position.x:F0},{slots[i].Position.z:F0})");
-                    return; // one per tick
+                    return true; // one per tick
                 }
             }
             finally
@@ -1304,6 +1330,92 @@ namespace TheWaningBorder.AI
                 instEnts.Dispose();
                 instPos.Dispose();
             }
+            return false;
+        }
+
+        /// <summary>Mount an emplacement on the wall module nearest the
+        /// midpoint of each emplacement-flagged link (a drawn base ring,
+        /// AIBaseTemplate / Game_AI.md § 6g) — Ballista, or Trebuchet on
+        /// alternate links when the layout asks for it. Same path as the
+        /// player's fitting (WallUpgradeCharged, types 4 / 5); the executor
+        /// re-checks the wall level and the free run. One per think tick.</summary>
+        private static bool TryMountPlannedEmplacement(Faction faction, EntityManager em,
+            NativeArray<AIWallPlanSlot> slots)
+        {
+            var instEnts = new NativeList<Entity>(Allocator.Temp);
+            var instPos = new NativeList<float3>(Allocator.Temp);
+            {
+                var q = QC_WallInstanceTagFactionTagLocalTransform.Get(em, QT_WallInstanceTagFactionTagLocalTransform);
+                using var ents = q.ToEntityArray(Allocator.Temp);
+                using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+                using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+                for (int i = 0; i < ents.Length; i++)
+                {
+                    if (facs[i].Value != faction) continue;
+                    instEnts.Add(ents[i]);
+                    instPos.Add(xfs[i].Position);
+                }
+            }
+
+            try
+            {
+                for (int i = 0; i < slots.Length; i++)
+                {
+                    if ((slots[i].Flags & AIWallPlanner.FlagEmplacement) == 0) continue;
+                    if ((slots[i].Flags & AIWallPlanner.FlagDead) != 0) continue;
+                    if (!_chainMayConvert[slots[i].Chain]) continue;
+                    int j = NextLiveSlot(slots, i, cyclic: true);
+                    if (j < 0) continue;
+                    float3 mid = (slots[i].Position + slots[j].Position) * 0.5f;
+                    // Alternate engines along the ring, by link order.
+                    int nth = 0;
+                    for (int k = 0; k < i; k++)
+                        if ((slots[k].Flags & AIWallPlanner.FlagEmplacement) != 0
+                            && slots[k].Chain == slots[i].Chain) nth++;
+                    bool trebuchet = AIBaseTemplate.AlternateTrebuchet && (nth & 1) == 1;
+
+                    int best = -1;
+                    float bestD2 = 6f * 6f;
+                    for (int k = 0; k < instEnts.Length; k++)
+                    {
+                        float dx = instPos[k].x - mid.x;
+                        float dz = instPos[k].z - mid.z;
+                        float d2 = dx * dx + dz * dz;
+                        if (d2 < bestD2) { bestD2 = d2; best = k; }
+                    }
+                    if (best < 0) continue;
+                    Entity inst = instEnts[best];
+                    if (!em.Exists(inst)) continue;
+                    if (em.HasComponent<EmplacementTag>(inst)) continue;    // done
+                    if (em.HasComponent<WallUpgradeState>(inst)) continue;  // converting
+                    if (em.HasComponent<WallTowerTag>(inst)) continue;
+                    if (em.HasComponent<WallGateTag>(inst)) continue;
+                    if (em.HasComponent<WallGateRegionTag>(inst)) continue;
+                    if (em.HasComponent<UnderConstruction>(inst)) continue;
+                    // The wall level gates the engine (a Trebuchet needs the
+                    // higher one): fall back to a Ballista until it allows it.
+                    if (trebuchet && !AlanthorWall.CanConvertToEmplacement(em, inst, trebuchet: true))
+                        trebuchet = false;
+                    if (!AlanthorWall.CanConvertToEmplacement(em, inst, trebuchet)) continue;
+
+                    string id = trebuchet ? "Alanthor_TrebuchetEmplacement" : "Alanthor_BallistaEmplacement";
+                    if (!BuildCosts.TryGet(id, out var cost)) continue;
+                    if (!WallSpendAllowed(em, faction, cost)) return false;
+                    CommandRouter.IssueWallUpgradeCharged(em, inst, trebuchet ? 5 : 4, 10f,
+                        TheWaningBorder.Core.Commands.CommandSource.AI);
+                    RecordWallSpend(faction, cost);
+                    AILogger.Log(faction, "BUILDING",
+                        $"Alanthor walls: {(trebuchet ? "trebuchet" : "ballista")} emplacement at " +
+                        $"({mid.x:F0},{mid.z:F0})");
+                    return true; // one per tick
+                }
+            }
+            finally
+            {
+                instEnts.Dispose();
+                instPos.Dispose();
+            }
+            return false;
         }
 
         // DEAD CODE REMOVED (2026-09-05): PlaceAutoBuildWallHub and

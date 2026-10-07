@@ -1,17 +1,23 @@
 // MapBuilderMirrorMarches.cs
-// EDITOR-ONLY: generate "Mirror Marches" — the 1024 m, 4-player FAIR map.
-//   Waning Border > Maps > Build Mirror Marches (1024m, 4 players)
+// EDITOR-ONLY: generate "Mirror Marches" — the 512 m, 4-player FAIR map.
+//   Waning Border > Maps > Build Mirror Marches (512m, 4 players)
+//
+// HALVED 2026-10-07 (developer: "the match feels sluggish — reduce the map
+// by half, keep the layout, just smaller territories"): the same 52
+// territories in the same pattern at half the size — 64-cell homes, 32-cell
+// squares. A home still holds the AI main camp (66 m across) with room to
+// spare; its nodes line the home's edge (TerritoryResources.homeNodeMinOffset).
 //
 // THE DESIGN (2026-10-05): a test bed where the seat cannot decide the match.
-//   * 512 x 512 build cells (1024 m), mirrored across BOTH axes. Height,
+//   * 256 x 256 build cells (512 m), mirrored across BOTH axes. Height,
 //     territory shapes and territory types are mirror-symmetric by
 //     construction, and TerritoryResources detects the symmetry and copies
 //     one quadrant's nodes to the other three, so every seat opens on the
 //     same ground.
 //   * Territories are authored RECTANGLES (RegionSeedMarker.Shape), not
-//     Voronoi cells. Along each edge: 128 | 64 64 64 64 | 128 cells. Each
-//     player starts in a 128 x 128-cell corner territory; every other
-//     territory is a 64 x 64-cell square — 4 homes + 48 squares.
+//     Voronoi cells. Along each edge: 64 | 32 32 32 32 | 64 cells. Each
+//     player starts in a 64 x 64-cell corner territory; every other
+//     territory is a 32 x 32-cell square — 4 homes + 48 squares.
 //   * The curse holds the 4 central squares (Veilstone rich: they start
 //     cursed). No territory is Empty. Per quadrant: Start, 2 Normal,
 //     4 Normal + veilstone, 2 Normal + iron, 2 Iron rich, 1 Sanctum, and
@@ -39,37 +45,38 @@ namespace TheWaningBorder.Core.Maps.EditorTools
         private const string TerrainMatPath = "Assets/Resources/TWBTerrain.mat";
 
         // ── dimensions ──────────────────────────────────────────────────────
-        private const float MapMetres = 1024f;
+        private const float MapMetres = 512f;
         private const float Half = MapMetres * 0.5f;
         private const float MaxHeight = 60f;
-        private const int HeightRes = 1025;     // 1 m per texel; texel 512 sits on the axis
-        private const int AlphaRes = 1024;      // 1 m per texel (NoWalk per 2 m cell)
-        private const int DetailRes = 512;
+        private const int HeightRes = 513;      // 1 m per texel; texel 256 sits on the axis
+        private const int AlphaRes = 512;       // 1 m per texel (NoWalk per 2 m cell)
+        private const int DetailRes = 256;
+        /// <summary>A home territory's side (a quarter of the map) and a
+        /// square territory's side (an eighth).</summary>
+        private const float HomeSide = MapMetres / 4f;
+        private const float Square = MapMetres / 8f;
 
         // Heights against PassabilityGrid/RegionMap thresholds (Water 4 m,
         // Mountain 24 m).
         private const float PlainY = 8f;
         private const float RimY = 40f;
-        // The rim is kept thin: the edge squares are only 128 m deep.
-        private const float RimMetres = 10f;
-        private const float RimRamp = 14f;
-
-        // Territory edges along one axis, in metres from the map's west edge:
-        // 256 | 128 x4 | 256 (128 | 64 x4 | 128 build cells).
-        private static readonly float[] Bands = { 0f, 256f, 384f, 512f, 640f, 768f, 1024f };
+        // The rim is kept thin: the edge squares are only 64 m deep, and the
+        // main camp's wall ring stands 32 m from a home's outer edges.
+        private const float RimMetres = 6f;
+        private const float RimRamp = 10f;
 
         private static readonly Faction[] StartFactions =
             { Faction.Blue, Faction.Red, Faction.Green, Faction.Yellow };
 
         // ── entry points ────────────────────────────────────────────────────
 
-        [MenuItem("Waning Border/Maps/Build Mirror Marches (1024m, 4 players)")]
+        [MenuItem("Waning Border/Maps/Build Mirror Marches (512m, 4 players)")]
         public static void Build()
         {
             if (!EditorUtility.DisplayDialog(MapName,
                     $"Generate {MapName}?\n\n" +
-                    "  1024 x 1024 m, 4 players, mirrored on both axes\n" +
-                    "  128-cell corner homes, 64-cell squares, curse in the centre 4\n\n" +
+                    "  512 x 512 m, 4 players, mirrored on both axes\n" +
+                    "  64-cell corner homes, 32-cell squares, curse in the centre 4\n\n" +
                     $"Overwrites {SceneName}.unity and its TerrainData.",
                     "Build", "Cancel"))
                 return;
@@ -120,13 +127,16 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                 MapFolder = Folder,
                 Size = (int)MapMetres,
                 Seed = 0x3A1F,
-                TreeCount = 1600,
+                TreeCount = 400,
                 TreeScale = 0.5f,
                 GrassScale = 2.0f,
                 DetailDensity = 2,
                 CanPlant = CanPlant,
             });
 
+            // The flora pass's NoWalk patches are stripped again (2026-10-06,
+            // MapNoWalkCleaner): the developer wants this map free.
+            MapNoWalkCleaner.Clear(terrain.terrainData);
             int bad = Validate();
 
             EditorSceneManager.MarkSceneDirty(scene);
@@ -265,8 +275,8 @@ namespace TheWaningBorder.Core.Maps.EditorTools
         /// <summary>
         /// The type of the square at band (i, j) of the 6 x 6 band grid, read
         /// in one quadrant: (qi, qj) are 0 at the map edge and 3 at the centre
-        /// (band 0 is the 256 m home band, split into two 128 m squares for
-        /// the edge strips; qi/qj count 128 m steps from the edge).
+        /// (band 0 is the home band, a quarter of the map, split into two squares for
+        /// the edge strips; qi/qj count square steps from the edge).
         /// </summary>
         private static ResourceType TypeOf(int qi, int qj)
         {
@@ -286,7 +296,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             var regionRoot = new GameObject("Regions").transform;
             int idx = 0;
 
-            // The four homes, 256 m corners. Starts at each corner square's
+            // The four homes, a quarter of the map on a side. Starts at each corner square's
             // centre; mirrored by construction.
             var corners = new[]
             {
@@ -296,16 +306,16 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             for (int c = 0; c < 4; c++)
             {
                 var (sgn, name) = corners[c];
-                var centre = new Vector2(sgn.x * (Half - 128f), sgn.y * (Half - 128f));
+                var centre = new Vector2(sgn.x * (Half - HomeSide * 0.5f), sgn.y * (Half - HomeSide * 0.5f));
                 var go = NewMarker($"P{c + 1} Start ({StartFactions[c]}) - {name}", centre, startsRoot);
                 go.AddComponent<PlayerStartMarker>().Faction = StartFactions[c];
 
-                float x0 = sgn.x < 0 ? -Half : Half - 256f, z0 = sgn.y < 0 ? -Half : Half - 256f;
-                NewSeed(regionRoot, ref idx, centre, $"{name} Home", Rect(x0, z0, 256f, 256f),
+                float x0 = sgn.x < 0 ? -Half : Half - HomeSide, z0 = sgn.y < 0 ? -Half : Half - HomeSide;
+                NewSeed(regionRoot, ref idx, centre, $"{name} Home", Rect(x0, z0, HomeSide, HomeSide),
                         ResourceType.Start, RegionSeedMarker.RegionKind.PlayerStart);
             }
 
-            // Every 128 m square outside the homes. A 128 m step grid over the
+            // Every square outside the homes. A square-step grid over the
             // whole map (8 x 8); the 2 x 2 blocks in each corner are the homes.
             for (int gz = 0; gz < 8; gz++)
                 for (int gx = 0; gx < 8; gx++)
@@ -314,8 +324,8 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                     if (homeX && homeZ) continue;
                     int qi = gx < 4 ? gx : 7 - gx;     // 0 at the edge, 3 at the centre
                     int qj = gz < 4 ? gz : 7 - gz;
-                    float x0 = -Half + gx * 128f, z0 = -Half + gz * 128f;
-                    var centre = new Vector2(x0 + 64f, z0 + 64f);
+                    float x0 = -Half + gx * Square, z0 = -Half + gz * Square;
+                    var centre = new Vector2(x0 + Square * 0.5f, z0 + Square * 0.5f);
                     var type = TypeOf(qi, qj);
                     string label = type switch
                     {
@@ -327,7 +337,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                         _ => "March",
                     };
                     NewSeed(regionRoot, ref idx, centre, $"{label} {(char)('A' + gx)}{gz + 1}",
-                            Rect(x0, z0, 128f, 128f), type, RegionSeedMarker.RegionKind.Normal);
+                            Rect(x0, z0, Square, Square), type, RegionSeedMarker.RegionKind.Normal);
                 }
         }
 
@@ -384,7 +394,8 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                 if (s.Resources == ResourceType.VeilstoneRich)
                 {
                     curse++;
-                    if (c.x * c.x + c.y * c.y > 2 * 64 * 64 + 1)
+                    float hs = Square * 0.5f;
+                    if (c.x * c.x + c.y * c.y > 2 * hs * hs + 1)
                     { Debug.LogError($"[{MapName}] curse territory {s.name} is not central."); bad++; }
                 }
             }

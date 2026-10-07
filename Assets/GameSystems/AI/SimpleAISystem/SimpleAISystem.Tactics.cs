@@ -139,9 +139,7 @@ namespace TheWaningBorder.AI
                         mission.Engaged = false;
                         mission.Focus = Entity.Null;
                         EndFlank(mission);
-                        CommandRouter.IssueFormationAttackMove(
-                            em, mission.Members, mission.TargetPos,
-                            FormationShape.Box, CommandSource.AI);
+                        March(em, faction, mission, mission.TargetPos, true, centroid);
                         AILogger.Log(faction, "TACTICS",
                             $"army disengaged ({mission.Members.Count} left), " +
                             $"resuming march on ({mission.TargetPos.x:F0},{mission.TargetPos.z:F0})");
@@ -187,6 +185,7 @@ namespace TheWaningBorder.AI
                 if (!mission.Engaged)
                 {
                     mission.Engaged = true;
+                    mission.Route.Clear();   // the fight owns the army now (§ 6k)
                     AILogger.Log(faction, "TACTICS",
                         $"army in contact at ({centroid.x:F0},{centroid.z:F0}) — " +
                         $"{body.Count} in formation, {strays.Count} recalled");
@@ -560,34 +559,31 @@ namespace TheWaningBorder.AI
             float3 hallPos = hasHall ? em.GetComponentData<LocalTransform>(hall).Position : centroid;
             if (hasHall && math.distance(centroid.xz, hallPos.xz) <= tc.fallbackSafeHomeRadius) return false;
 
-            float3 dest;
-            string where;
-            float toEnemy = math.distance(centroid.xz, enemyCentroid.xz);
-            if (AIStrengthMap.NearestFriendlyDefence(em, faction, centroid, tc.fallbackAnchorSearch,
-                    out float3 anchor, out int anchorPower)
-                && math.distance(anchor.xz, enemyCentroid.xz) > toEnemy)
+            // THE NEAREST SAFE GROUND, NOT HOME (2026-10-07, Game_AI.md § 6h).
+            // An own Fortress, tower or held territory no deeper toward the
+            // enemy and not itself under threat; with none in reach, a staging
+            // point straight away from the enemy. The army regroups there and
+            // the reinforcement stream gathers on it (TickFallback).
+            if (!TryFindSafeGround(em, faction, centroid, enemyCentroid, myPower, allowDeeper: false,
+                    out float3 dest, out string where))
             {
-                dest = anchor;
-                where = $"tower/fortress (power {anchorPower})";
-            }
-            else
-            {
-                float2 home = hasHall
-                    ? math.normalizesafe(hallPos.xz - centroid.xz)
-                    : math.normalizesafe(centroid.xz - enemyCentroid.xz);
-                if (math.lengthsq(home) < 1e-4f) return false;
-                float2 p = centroid.xz + home * tc.fallbackDistance;
+                float2 away = math.normalizesafe(centroid.xz - enemyCentroid.xz);
+                if (math.lengthsq(away) < 1e-4f)
+                    away = hasHall ? math.normalizesafe(hallPos.xz - centroid.xz) : new float2(1f, 0f);
+                float2 p = centroid.xz + away * tc.fallbackDistance;
                 dest = new float3(p.x, centroid.y, p.y);
-                where = hasHall ? "toward the capital" : "away from the enemy";
+                where = "to a staging point away from the enemy";
             }
 
             mission.FallingBack = true;
             mission.FallbackPos = dest;
             mission.FallbackStart = now;
+            mission.FallbackHolds = 0;
+            mission.Deadline = math.max(mission.Deadline, now + tc.fallbackTimeout * (tc.fallbackMaxHolds + 1));
             mission.Engaged = false;
             mission.Focus = Entity.Null;
             EndFlank(mission);
-            CommandRouter.IssueFormationMove(em, mission.Members, dest, FormationShape.Box, CommandSource.AI);
+            March(em, faction, mission, dest, false, centroid);
             AILogger.Log(faction, "TACTICS",
                 $"retreat (power {myPower} vs {enemyPower}, ratio {enemyPower / (float)math.max(1, myPower):F2} > {skill.retreatRatio:F2}) " +
                 $"— {mission.Members.Count} fall back {where} at ({dest.x:F0},{dest.z:F0})");
@@ -595,11 +591,14 @@ namespace TheWaningBorder.AI
         }
 
         /// <summary>
-        /// While falling back: after fallbackHoldSeconds, re-engage when the
-        /// odds around the army have dropped to reengageRatio (towers count
-        /// for us now) or the enemy did not follow; after fallbackTimeout with
-        /// the enemy still stronger, fall back to the capital, and stop
-        /// managing it once there.
+        /// While falling back (Game_AI.md § 6h): after fallbackHoldSeconds,
+        /// re-engage when the odds have dropped to reengageRatio or the enemy
+        /// did not follow. Still outmatched where it stands: move on to the
+        /// next safe ground. At the staging ground: take a softer objective
+        /// near it if one is known (an undefended enemy economic building),
+        /// else hold there while reinforcements gather, fallbackMaxHolds
+        /// times; then give the objective up at the nearest own safe ground.
+        /// Never a march to the capital for its own sake.
         /// </summary>
         private void TickFallback(EntityManager em, Faction faction, Mission mission,
             float3 centroid, float now, in AITacticsSkill skill)
@@ -609,7 +608,7 @@ namespace TheWaningBorder.AI
             if (elapsed < tc.fallbackHoldSeconds) return;
 
             AITactics.LivePowerAround(em, faction, centroid, tc.powerRadius, _tacticsScratch,
-                out int enemyPower, out int ownStatic, out _, out _);
+                out int enemyPower, out int ownStatic, out float3 enemyCentroid, out _);
             int myPower = ownStatic;
             for (int i = 0; i < mission.Members.Count; i++)
                 myPower += AITactics.LiveStrength(em, mission.Members[i]);
@@ -619,38 +618,212 @@ namespace TheWaningBorder.AI
             bool odds = enemyPower <= myPower * math.max(0f, skill.reengageRatio);
             bool timedOut = elapsed > tc.fallbackTimeout;
 
-            if ((enemyPower == 0 && (arrived || timedOut)) || (enemyPower > 0 && odds))
+            if ((enemyPower == 0 && (arrived || timedOut) && mission.FallbackHolds == 0)
+                || (enemyPower > 0 && odds))
             {
                 mission.FallingBack = false;
-                CommandRouter.IssueFormationAttackMove(
-                    em, mission.Members, mission.TargetPos, FormationShape.Box, CommandSource.AI);
+                mission.FallbackHolds = 0;
+                March(em, faction, mission, mission.TargetPos, true, centroid);
                 AILogger.Log(faction, "TACTICS",
                     $"re-engage (power {myPower} vs {enemyPower}) — {mission.Members.Count} march on " +
                     $"({mission.TargetPos.x:F0},{mission.TargetPos.z:F0})");
                 return;
             }
+
+            // Followed and still losing: the next safe ground.
+            if (enemyPower > 0 && skill.retreatRatio > 0f && enemyPower > myPower * skill.retreatRatio
+                && TryFindSafeGround(em, faction, centroid, enemyCentroid, myPower, allowDeeper: false,
+                       out float3 safer, out string saferWhat)
+                && math.distance(safer.xz, mission.FallbackPos.xz) > tc.fallbackArriveRadius)
+            {
+                mission.FallbackPos = safer;
+                mission.FallbackStart = now;
+                March(em, faction, mission, safer, false, centroid);
+                AILogger.Log(faction, "TACTICS",
+                    $"still outmatched (power {myPower} vs {enemyPower}) — {mission.Members.Count} fall back " +
+                    $"{saferWhat} at ({safer.x:F0},{safer.z:F0})");
+                return;
+            }
+
+            if (!arrived && !timedOut) return;
+
+            // A softer objective near the staging ground.
+            if (TryFindSoftTarget(em, faction, centroid, myPower, now,
+                    out float3 softPos, out Entity softEnt, out string softWhat))
+            {
+                mission.FallingBack = false;
+                mission.FallbackHolds = 0;
+                mission.Target = softEnt;
+                mission.TargetPos = softPos;
+                mission.Deadline = now + math.max(1f, Cfg.missionTimeoutSeconds);
+                March(em, faction, mission, softPos, true, centroid);
+                AILogger.Log(faction, "TACTICS",
+                    $"retarget (power {myPower} vs {enemyPower}) — {mission.Members.Count} " +
+                    $"strike {softWhat} at ({softPos.x:F0},{softPos.z:F0})");
+                return;
+            }
+
             if (!timedOut) return;
 
-            Entity hall = FindFactionBuilding<HallTag>(em, faction);
-            if (hall == Entity.Null || !em.HasComponent<LocalTransform>(hall))
+            // Hold the staging ground while reinforcements gather.
+            if (++mission.FallbackHolds < math.max(1, tc.fallbackMaxHolds))
             {
-                mission.FallingBack = false;
-                return;
-            }
-            float3 hallPos = em.GetComponentData<LocalTransform>(hall).Position;
-            if (math.distance(mission.FallbackPos.xz, hallPos.xz) <= tc.fallbackArriveRadius)
-            {
-                // Already home: base defence owns it from here.
-                mission.FallingBack = false;
+                mission.FallbackStart = now;
+                mission.Deadline = math.max(mission.Deadline, now + tc.fallbackTimeout + 5f);
                 AILogger.Log(faction, "TACTICS",
-                    $"fall-back ended at the capital (power {myPower} vs {enemyPower})");
+                    $"holding the staging ground at ({mission.FallbackPos.x:F0},{mission.FallbackPos.z:F0}) — " +
+                    $"power {myPower} vs {enemyPower}, gathering reinforcements " +
+                    $"({mission.FallbackHolds}/{tc.fallbackMaxHolds})");
                 return;
             }
-            mission.FallbackPos = hallPos;
-            mission.FallbackStart = now;
-            CommandRouter.IssueFormationMove(em, mission.Members, hallPos, FormationShape.Box, CommandSource.AI);
+
+            // Give the objective up at the nearest own safe ground; the
+            // mission ends there (UpdateMissions sees the deadline).
+            NoteWarFailure(faction, faction);
+            mission.FallingBack = false;
+            mission.FallbackHolds = 0;
+            mission.Deadline = now;
+            float3 refuge = RefugeFor(em, faction, centroid, myPower, out string refugeWhat);
+            mission.FallbackPos = refuge;
+            CommandRouter.IssueFormationMove(em, mission.Members, refuge, FormationShape.Box, CommandSource.AI);
             AILogger.Log(faction, "TACTICS",
-                $"retreat (power {myPower} vs {enemyPower}) — still outmatched, falling back to the capital");
+                $"objective given up (power {myPower} vs {enemyPower}) — {mission.Members.Count} hold " +
+                $"{refugeWhat} at ({refuge.x:F0},{refuge.z:F0})");
+        }
+
+        // ─────────────────────────────────────────────────────────────────
+        // SAFE GROUND, REFUGE, SOFT TARGETS (2026-10-07, Game_AI.md § 6h)
+        // ─────────────────────────────────────────────────────────────────
+
+        static readonly ComponentType[] QT_OwnAnchorBuildings =
+        {
+            ComponentType.ReadOnly<BuildingTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.Exclude<UnderConstruction>(),
+        };
+        static CachedEntityQuery QC_OwnAnchorBuildings;
+
+        /// <summary>
+        /// The nearest safe spot within fallbackStageSearch of
+        /// <paramref name="from"/>: an own capital, Fortress or Watch Tower,
+        /// or the centre of a territory this faction holds — with hostile
+        /// strength round it at most fallbackSafeShare of <paramref name="myPower"/>,
+        /// and (unless <paramref name="allowDeeper"/>) no nearer the enemy than
+        /// the army is now.
+        /// </summary>
+        private bool TryFindSafeGround(EntityManager em, Faction faction, float3 from, float3 enemyCentroid,
+            int myPower, bool allowDeeper, out float3 dest, out string what)
+        {
+            var tc = AITactics.Cfg;
+            float maxD2 = tc.fallbackStageSearch * tc.fallbackStageSearch;
+            float fromEnemy = math.distance(from.xz, enemyCentroid.xz);
+            float safeCap = math.max(1f, myPower * tc.fallbackSafeShare);
+            float bestD2 = float.MaxValue;
+            float3 best = default;
+            string bestWhat = null;
+
+            void Consider(float3 p, string kind)
+            {
+                float dx = p.x - from.x, dz = p.z - from.z;
+                float d2 = dx * dx + dz * dz;
+                if (d2 > maxD2 || d2 >= bestD2) return;
+                if (!allowDeeper && math.distance(p.xz, enemyCentroid.xz) < fromEnemy) return;
+                int hostile = TacticalQuery.EnemyStrengthInRadius(em, faction, p, tc.fallbackSafeRadius)
+                              + AIEngagement.StaticDefencePower(em, faction, p, tc.fallbackSafeRadius);
+                if (hostile > safeCap) return;
+                bestD2 = d2; best = p; bestWhat = kind;
+            }
+
+            var q = QC_OwnAnchorBuildings.Get(em, QT_OwnAnchorBuildings);
+            using (var ents = q.ToEntityArray(Allocator.Temp))
+            using (var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp))
+            using (var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp))
+            {
+                for (int i = 0; i < ents.Length; i++)
+                {
+                    if (facs[i].Value != faction) continue;
+                    var e = ents[i];
+                    if (em.HasComponent<HallTag>(e)) Consider(xfs[i].Position, "to the capital");
+                    else if (em.HasComponent<FortressTag>(e)) Consider(xfs[i].Position, "to a Fortress");
+                    else if (em.HasComponent<WatchTowerTag>(e)) Consider(xfs[i].Position, "to a tower");
+                }
+            }
+            if (TheWaningBorder.World.Regions.RegionMap.Ready && TheWaningBorder.World.Regions.TerritoryOwnership.Ready)
+            {
+                for (int r = 0; r < TheWaningBorder.World.Regions.RegionMap.Count; r++)
+                {
+                    if (TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(r) != (int)faction) continue;
+                    var sd = TheWaningBorder.World.Regions.RegionMap.SeedOf(r);
+                    var p = new float3(sd.x, 0f, sd.y);
+                    p.y = TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(p.x, p.z);
+                    Consider(p, "into own territory");
+                }
+            }
+            dest = best; what = bestWhat;
+            return bestWhat != null;
+        }
+
+        /// <summary>Where an army that has given its objective up (or finished
+        /// it with nothing left to press on to) goes: the nearest safe own
+        /// ground, deeper or not; the capital only when nothing else serves.</summary>
+        private float3 RefugeFor(EntityManager em, Faction faction, float3 from, int myPower, out string what)
+        {
+            if (TryFindSafeGround(em, faction, from, from, math.max(1, myPower), allowDeeper: true,
+                    out float3 dest, out what))
+                return dest;
+            Entity hall = FindFactionBuilding<HallTag>(em, faction);
+            if (hall != Entity.Null && em.HasComponent<LocalTransform>(hall))
+            {
+                what = "at the capital";
+                return em.GetComponentData<LocalTransform>(hall).Position;
+            }
+            what = "where it stands";
+            return from;
+        }
+
+        /// <summary>
+        /// The nearest known hostile economic building within
+        /// fallbackRetargetRadius whose surroundings hold at most
+        /// fallbackRetargetShare of <paramref name="myPower"/> — outside its
+        /// owner's capital territory first (§ 6h: surrounding holdings before
+        /// the main base). Sightings only; never the curse.
+        /// </summary>
+        private bool TryFindSoftTarget(EntityManager em, Faction faction, float3 from, int myPower, float now,
+            out float3 pos, out Entity ent, out string what)
+        {
+            pos = default; ent = Entity.Null; what = null;
+            var tc = AITactics.Cfg;
+            Entity brain = FindBrainEntity(em, faction);
+            if (brain == Entity.Null || !em.HasBuffer<EnemySightingRecord>(brain)) return false;
+            var buf = em.GetBuffer<EnemySightingRecord>(brain);
+            float maxD2 = tc.fallbackRetargetRadius * tc.fallbackRetargetRadius;
+            float cap = math.max(1f, myPower * tc.fallbackRetargetShare);
+            float best = float.MaxValue;
+            for (int i = 0; i < buf.Length; i++)
+            {
+                var sg = buf[i];
+                if (sg.OwnerFaction == Faction.Border || !Alliances.AreHostile(faction, sg.OwnerFaction)) continue;
+                if (sg.Category != IntelCategory.EcoBuilding) continue;
+                if (sg.Enemy == Entity.Null || !em.Exists(sg.Enemy)) continue;
+                if (!WarAllows(em, faction, sg.OwnerFaction)) continue;   // § 6i: the war's victim only
+                float dx = sg.Position.x - from.x, dz = sg.Position.z - from.z;
+                float d2 = dx * dx + dz * dz;
+                if (d2 > maxD2) continue;
+                int r = TheWaningBorder.World.Regions.RegionMap.RegionAt(sg.Position.x, sg.Position.z);
+                if (IsWalledGround(em, sg.OwnerFaction, r)) continue;
+                if (WaveTargetBlocked(faction, sg.Position, now)) continue;
+                // Surrounding holdings before the main base: a building in its
+                // owner's capital territory ranks after every other.
+                float score = math.sqrt(d2) + (IsCapitalTerritory(em, sg.OwnerFaction, r) ? 10000f : 0f);
+                if (score >= best) continue;
+                int hostile = TacticalQuery.EnemyStrengthInRadius(em, faction, sg.Position, tc.fallbackSafeRadius)
+                              + AIEngagement.StaticDefencePower(em, faction, sg.Position, tc.fallbackSafeRadius);
+                if (hostile > cap) continue;
+                best = score; pos = sg.Position; ent = sg.Enemy;
+                what = $"{sg.OwnerFaction}'s economic building";
+            }
+            return ent != Entity.Null;
         }
     }
 }

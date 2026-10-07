@@ -106,6 +106,11 @@ MonoBehaviour:
   missionTimeoutSeconds: 480
   razeChainRadius: 90
   closeoutAfterSeconds: 900
+  warMaxFailures: 3
+  armyCapRaiseThreshold: 1000
+  armyCapRaiseStep: 10
+  armyCapRaiseInterval: 30
+  pileOnLosingShare: 0.6
   strayDefenseMax: 120
   opportunityMaxAgeSeconds: 240
   leadMargin: 1.35
@@ -443,6 +448,7 @@ MonoBehaviour:
   incomeWeightExtractor: 4
   incomeWeightMilitary: 2
   incomeWeightHouse: 1
+  incomeCapitalPenalty: 1000
   incomeReconMinKnown: 3
   incomeReconIntervalSeconds: 45
   incomeReconSpreadMeters: 120

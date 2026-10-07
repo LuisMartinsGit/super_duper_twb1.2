@@ -42,4 +42,5 @@ MonoBehaviour:
     Veilsteel: 0
   tags:
   - 'Building'
-  presentationId: 355
+  prefab: {fileID: 5421486725868418053, guid: 184d26b7cd924a248861dbda4269a8e5, type: 3}
+  presentationId: 523

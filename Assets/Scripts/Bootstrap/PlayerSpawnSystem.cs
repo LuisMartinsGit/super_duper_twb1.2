@@ -312,6 +312,18 @@ namespace TheWaningBorder.Bootstrap
         {
             const string HutId = "Hut";
             var size = BuildingSizeConfig.GetSize(HutId);
+
+            // THE DRAWN BASE (2026-10-06, Game_AI.md § 6g): the starting House
+            // takes the main camp's nearest House slot in this faction's
+            // variant, so the opening never stands where the layout puts
+            // something else. The diagonal below is the fallback.
+            if (TheWaningBorder.AI.AIBaseTemplate.TryStartingHouseSlot(em, faction, fortress, HutId,
+                    out float3 slot))
+            {
+                BuildingFactory.Create(em, HutId, slot, faction);
+                return;
+            }
+
             float[] rings = { 10f, 14f };
             float2[] dirs = { new float2(1, 1), new float2(-1, 1), new float2(1, -1), new float2(-1, -1) };
 

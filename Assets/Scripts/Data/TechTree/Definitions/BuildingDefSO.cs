@@ -39,6 +39,7 @@ namespace TheWaningBorder.Data
         public float[] slotIncomePerMinute;
         public float interestPerMinute;
         public float interestPrincipalCap;
+        public float interestMaxSeconds;
         public float coffersRate;
         public float merchantChartersRate;
         public float sovereignBondsRate;
@@ -110,6 +111,7 @@ namespace TheWaningBorder.Data
             def.slotIncomePerMinute = slotIncomePerMinute ?? System.Array.Empty<float>();
             def.interestPerMinute  = interestPerMinute;
             def.interestPrincipalCap = interestPrincipalCap;
+            def.interestMaxSeconds = interestMaxSeconds;
             def.coffersRate          = coffersRate;
             def.merchantChartersRate = merchantChartersRate;
             def.sovereignBondsRate   = sovereignBondsRate;
@@ -154,6 +156,7 @@ namespace TheWaningBorder.Data
                 ? System.Array.Empty<float>() : (float[])def.slotIncomePerMinute.Clone();
             interestPerMinute  = def.interestPerMinute;
             interestPrincipalCap = def.interestPrincipalCap;
+            interestMaxSeconds = def.interestMaxSeconds;
             coffersRate          = def.coffersRate;
             merchantChartersRate = def.merchantChartersRate;
             sovereignBondsRate   = def.sovereignBondsRate;

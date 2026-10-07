@@ -1511,7 +1511,14 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             bool hasProceduralVariant = false;
             bool hasCultureOverride = CulturePrefabOverrides.ContainsKey((pid, culture));
 
-            if (!hasProceduralVariant && !hasCultureOverride)
+            // A building CONVERTED at age-up is the same entity under a new
+            // PresentationId — the Alanthor Veilstone Mine becomes a Trading
+            // Outpost (TradingOutpost.ConvertMinesForCulture, which runs just
+            // before this). Its view is still the mine's, so it must be rebuilt
+            // from the new id or the outpost keeps rendering as a mine.
+            bool convertedAtAgeUp = _em.HasComponent<TradingOutpostTag>(entity);
+
+            if (!hasProceduralVariant && !hasCultureOverride && !convertedAtAgeUp)
             {
                 // No culture-specific visual for this building — just refresh colors.
                 if (EntityViewManager.Instance.TryGetView(entity, out var existGo) && existGo != null)

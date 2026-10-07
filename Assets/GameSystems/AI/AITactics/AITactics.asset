@@ -54,6 +54,12 @@ MonoBehaviour:
   fallbackTimeout: 30
   fallbackMinArmy: 4
   fallbackSafeHomeRadius: 45
+  fallbackStageSearch: 260
+  fallbackSafeRadius: 30
+  fallbackSafeShare: 0.5
+  fallbackRetargetRadius: 220
+  fallbackRetargetShare: 0.6
+  fallbackMaxHolds: 3
   abilityScanRadius: 18
   contactDistance: 10
   defensiveHpFraction: 0.45

@@ -386,6 +386,17 @@ namespace TheWaningBorder.UI.Data
                     info.Description = cadState.Depleted == 1 ? "Depleted" : "Harvestable veilstone";
                 }
             }
+            else if (em.HasComponent<ShardrootPickupTag>(entity))
+            {
+                // The Shardroot lying on the ground (Curse_And_Shardroot.md
+                // §3.1): owned by nobody, no health, nothing to fight.
+                info.Type = "Artifact";
+                info.Name = "Shardroot";
+                info.Faction = "Neutral";
+                info.CurrentHealth = null;
+                info.MaxHealth = null;
+                info.Description = Loc.T("The Shardroot lies here. Any unit that reaches it takes it at once -- right-click it with a unit to claim it. King Lexor bears it as the Shardbound King.");
+            }
 
             // Temple: the faction's Religion Points (the Temple has no levels)
             if (em.HasComponent<TempleOfRidanTag>(entity) && em.HasComponent<FactionTag>(entity))

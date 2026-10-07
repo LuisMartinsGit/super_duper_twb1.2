@@ -559,6 +559,7 @@ namespace TheWaningBorder.World.Terrain
                 waterLevel = float.MinValue;
 
             var counts = FillCellsFromTerrain(waterLevel);
+            _waterLevel = waterLevel;
 
             // Sanity check: a water line that swallows (nearly) the whole map
             // does not describe this terrain. A flat hand-authored terrain at
@@ -578,6 +579,7 @@ namespace TheWaningBorder.World.Terrain
                     "this map. If the map has real water, add a WaterPlane whose waterLevel matches " +
                     "the terrain's actual sea level.");
                 counts = FillCellsFromTerrain(float.MinValue);
+                _waterLevel = float.MinValue;
             }
 
             _blockedCellCount = counts.Blocked;
@@ -670,48 +672,8 @@ namespace TheWaningBorder.World.Terrain
                     float wz = worldPos.y;
 
                     // ── 1. Is the GROUND itself walkable, by the normal rules? ──
-                    bool groundBlocked;
-                    bool waterCause = false;
-                    bool paintCause = false;
-                    bool slopeCause = false;
-
-                    if (_paintOnly)
-                    {
-                        // Paint-only mode: the NoWalk paint decides everything.
-                        groundBlocked = IsNoWalkPainted(wx, wz);
-                        paintCause = groundBlocked;
-                    }
-                    else
-                    {
-                        float hCenter = TerrainUtility.GetHeight(wx, wz);
-
-                        if (hCenter <= waterLevel)
-                        {
-                            groundBlocked = true;
-                            waterCause = true;
-                        }
-                        else if (IsNoWalkPainted(wx, wz))
-                        {
-                            // Hand-painted NoWalk layer: blocked regardless of slope.
-                            groundBlocked = true;
-                            paintCause = true;
-                        }
-                        else
-                        {
-                            // Mountain / cliff blocking is handled entirely by
-                            // the slope check. 4-point slope sample.
-                            float hL = TerrainUtility.GetHeight(wx - SlopeCheckStep, wz);
-                            float hR = TerrainUtility.GetHeight(wx + SlopeCheckStep, wz);
-                            float hD = TerrainUtility.GetHeight(wx, wz - SlopeCheckStep);
-                            float hU = TerrainUtility.GetHeight(wx, wz + SlopeCheckStep);
-
-                            float dX = (hR - hL) / (SlopeCheckStep * 2f);
-                            float dZ = (hU - hD) / (SlopeCheckStep * 2f);
-                            float slope = math.sqrt(dX * dX + dZ * dZ);
-                            groundBlocked = slope > MaxWalkableSlope;
-                            slopeCause = groundBlocked;
-                        }
-                    }
+                    bool groundBlocked = GroundBlocked(wx, wz, waterLevel,
+                        out bool waterCause, out bool paintCause, out bool slopeCause);
 
                     // ── 2. Bridges add the DECK as a second surface ────────────
                     // Walkable ground stays plain-walkable (units may pass
@@ -767,6 +729,104 @@ namespace TheWaningBorder.World.Terrain
                 }
             }
             return counts;
+        }
+
+        /// <summary>
+        /// The terrain rules for one world point — water line, NoWalk paint,
+        /// incline budget (or the NoWalk paint alone in paint-only mode). The
+        /// one test both the whole-grid fill and
+        /// <see cref="ReleaseTerrainInCircles"/> use, so the two cannot drift.
+        /// </summary>
+        private bool GroundBlocked(float wx, float wz, float waterLevel,
+            out bool waterCause, out bool paintCause, out bool slopeCause)
+        {
+            waterCause = paintCause = slopeCause = false;
+
+            if (_paintOnly)
+            {
+                // Paint-only mode: the NoWalk paint decides everything.
+                paintCause = IsNoWalkPainted(wx, wz);
+                return paintCause;
+            }
+
+            float hCenter = TerrainUtility.GetHeight(wx, wz);
+            if (hCenter <= waterLevel)
+            {
+                waterCause = true;
+                return true;
+            }
+            if (IsNoWalkPainted(wx, wz))
+            {
+                // Hand-painted NoWalk layer: blocked regardless of slope.
+                paintCause = true;
+                return true;
+            }
+
+            // Mountain / cliff blocking is handled entirely by the slope
+            // check. 4-point slope sample.
+            float hL = TerrainUtility.GetHeight(wx - SlopeCheckStep, wz);
+            float hR = TerrainUtility.GetHeight(wx + SlopeCheckStep, wz);
+            float hD = TerrainUtility.GetHeight(wx, wz - SlopeCheckStep);
+            float hU = TerrainUtility.GetHeight(wx, wz + SlopeCheckStep);
+
+            float dX = (hR - hL) / (SlopeCheckStep * 2f);
+            float dZ = (hU - hD) / (SlopeCheckStep * 2f);
+            float slope = math.sqrt(dX * dX + dZ * dZ);
+            slopeCause = slope > MaxWalkableSlope;
+            return slopeCause;
+        }
+
+        /// <summary>The water line the finished mask was built with (after the
+        /// "water swallows the map" fallback), kept so a partial re-test
+        /// applies the same rule.</summary>
+        private float _waterLevel = float.MinValue;
+
+        /// <summary>
+        /// THE START CLEARING (StartClearing.cs, docs/Design/Territory_Claims.md
+        /// §11): after the terrain's NoWalk paint has been removed around the
+        /// player starts, re-test every <see cref="TerrainBlocked"/> cell within
+        /// <paramref name="radius"/> of a centre against the CURRENT terrain and
+        /// open the ones no rule blocks any more. Only terrain-blocked cells
+        /// are touched — building and obstacle stamps already in the grid (the
+        /// Fortress, the starting House) stay exactly as they are, which a full
+        /// <see cref="GenerateFromTerrain"/> would wipe. Bumps
+        /// <see cref="MaskGeneration"/> when anything opened, so the nav cost
+        /// field re-bakes its terrain layer. Pure function of the terrain data
+        /// and the centres, so every lockstep peer opens the same cells.
+        /// Returns how many cells opened.
+        /// </summary>
+        public int ReleaseTerrainInCircles(System.Collections.Generic.IReadOnlyList<float3> centres,
+            float radius)
+        {
+            if (!_maskReady || !_cells.IsCreated || centres == null || radius <= 0f) return 0;
+
+            // The paint has just changed — re-read it.
+            LoadNoWalkMask();
+
+            int released = 0;
+            for (int i = 0; i < centres.Count; i++)
+            {
+                IterateCellsInRadius(centres[i], radius, (int index, byte current) =>
+                {
+                    if (current != TerrainBlocked) return;
+                    var xz = CellToWorldXZ(new int2(index % _width, index / _width));
+                    if (GroundBlocked(xz.x, xz.y, _waterLevel, out _, out _, out _)) return;
+
+                    _cells[index] = Passable;
+                    released++;
+                    if (_bridgeMount != null && BridgeSurface.HasAny
+                        && BridgeSurface.TryGetDeckHeight(xz.x, xz.y, out float deckY)
+                        && deckY > TerrainUtility.GetHeight(xz.x, xz.y))
+                        _bridgeMount[index] = true;
+                });
+            }
+
+            if (released > 0)
+            {
+                _blockedCellCount = math.max(0, _blockedCellCount - released);
+                _maskGeneration++;
+            }
+            return released;
         }
 
         // ── Bridge deck-only mask ───────────────────────────────────────────

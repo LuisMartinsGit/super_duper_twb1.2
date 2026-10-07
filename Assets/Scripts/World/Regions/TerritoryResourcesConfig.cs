@@ -29,5 +29,12 @@ namespace TheWaningBorder.World.Regions
         // territory, inclusive range. ──
         public int normalVeilstoneOutcropsMin;
         public int normalVeilstoneOutcropsMax;
+
+        /// <summary>HOME NODES ALONG THE EDGE (2026-10-07): in a home
+        /// territory, a node's centre stands at least this far from the start
+        /// on either axis (a square, like the territory), so the AI's main
+        /// camp and its wall ring stay clear and the nodes line the
+        /// territory's edge. Metres; 0 = anywhere outside the start clearing.</summary>
+        public float homeNodeMinOffset;
     }
 }

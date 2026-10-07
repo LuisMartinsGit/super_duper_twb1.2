@@ -2089,6 +2089,184 @@ not a bigger one. Code: `PickSisterTargets`, `RankIncomeTargets`,
 `main army: objective …`, `sister army: objective …`, `staged at … —
 waiting for the sister armies`.
 
+## 6g. The drawn base: main camp and outposts (2026-10-06)
+
+**Developer directive:** the AI builds its bases to a drawn layout — a **main
+camp** round the home Fortress and a smaller **outpost** round every other
+Fortress it raises. Both layouts are character grids in
+`Assets/GameSystems/AI/AIBaseTemplate/AIBaseTemplate.asset`, one character per
+2 m build cell, north up, anchored on the Fortress block (`F`):
+
+| Symbol | Slot |
+|---|---|
+| `F` | the Fortress (the anchor) |
+| `H` | House (the main camp holds 20) |
+| `B` `A` `Y` `S` | production: Barracks, Archery Range, Royal Stable, Siege Yard |
+| `P` | Temple of Ridan |
+| `V` | Vault of Almiérra |
+| `T` | Watch Tower |
+| `W` | wall hub — the hubs form ONE closed ring |
+
+The outpost has no Houses, Temple or Vault: production, towers and its ring.
+Which building a symbol stands for is the asset's `legend`; a symbol's block
+is tiled into as many footprints of its building as fit (a 6 x 6 House block is
+nine Houses).
+
+**The rules:**
+
+1. **A slotted building takes the next free slot of its kind**, nearest the
+   Fortress first. A production building whose own slots are all used may take
+   a free slot of another production kind. Only when every slot it may take is
+   used does it fall back to the ordinary site search (§ 6b), which keeps off
+   the free slots the way it keeps off the wall corridor.
+2. **A slot that cannot be used as drawn moves to the nearest legal spot**
+   within `slotSearchRadiusCells` (something already stands there, a node, a
+   cliff, cursed ground) and is remembered there, so the next building of
+   that kind moves on to the next slot. A moved slot also keeps off the wall
+   corridor, the other free slots and the reserved Fortress spots, and must
+   not seal the base.
+3. **The wall is the drawn ring**, for the HOME territory only (secondary
+   bases are not walled — 2026-10-07, developer directive; the outpost layout
+   carries no hubs). "Home" is the territory of the faction's FIRST capital
+   this match: when that capital falls and a secondary Fortress becomes the
+   capital, its territory is still not walled: the hubs in bearing order,
+   closed, with a gate on the link nearest each of `gatesPerRing` bearings
+   (north first). The executor places, nudges and links the hubs as before
+   (§ Walls), so a hub that cannot stand where drawn moves to the nearest
+   spot, and a blocked link is routed round its blocker — the ring is closed.
+4. **Emplacements on the wall.** Every `emplacementEveryNthLink`-th non-gate
+   link carries an engine on the module nearest its midpoint — a Ballista,
+   alternating with a Trebuchet (`alternateTrebuchet`) where the wall level
+   allows one (Age_1_Alanthor.md § What a module may become). Mounted after
+   the ring is closed and its towers converted, one per think.
+
+5. **No two towns alike (`variants`).** Each base is drawn in one of the
+   eight orientations of its grid (a quarter turn 0-3 times, mirrored or not)
+   and its production blocks are dealt out to the four production buildings in
+   one of 24 orders. A main camp's orientation steps through the eight by
+   faction from the match seed, so no two factions share one in a match; an
+   outpost's comes from a hash of the seed, faction and territory. Every peer
+   draws the same town.
+6. **The opening agrees with the layout.** Every faction's starting House
+   stands on its main camp's nearest House slot (in its variant), not on the
+   old diagonal, which remains the fallback when that slot is illegal.
+
+`enabled: 0` on the asset restores the ring search and the border-traced wall.
+Logs: `base layout: <id> slot <n> moved <d> cell(s) …`, `Alanthor walls: plan
+= along the home territory border (… drawn main camp ring, 12 hubs …)`,
+`Alanthor walls: ballista emplacement at (x,z)`.
+
+## 6h. Retreat to safe ground, regroup, and the holdings before the base (2026-10-07)
+
+**Developer report:** "AI never finished walling off. AI retreats to main
+base, always. It should either retreat to nearest safe location, create a
+staging area and gather more soldiers or change target to a nearby
+undefended territory/resource building. AI should aim to neutralize enemy
+economic buildings in surrounding territories before going for the main
+base." Measured in the 2026-10-06 92-minute Mirror Marches match: every
+retreat logged "fall back toward the capital", and every AI held its walls
+for the whole game ("the army is short of supplies or iron"), raising at most
+3 of 12 hubs.
+
+1. **The drawn ring builds whenever the bank can pay.** A ring drawn by the
+   base layout (§ 6g) is part of the base: the army-short hold, the
+   personality's wall hold and the Economy-wallet check do not apply to it;
+   only what the bank actually holds does. Nor do the endgame's two outer
+   gates — the Age-2 ladder (an AI with no Religion Point never finishes its
+   Temple, so the ladder stayed "busy" all match and the ring stopped at 3
+   hubs in the 2026-10-07 batch) and the pivotal savings hold.
+2. **Retreat goes to the nearest SAFE ground, never home by default.** Safe
+   ground is an own capital, Fortress or Watch Tower, or the centre of a held
+   territory, within `fallbackStageSearch`, no nearer the enemy than the army
+   is, with hostile strength round it of at most `fallbackSafeShare` of the
+   army's. With none, a staging point `fallbackDistance` straight away from
+   the enemy. Both retreat paths (the tactical fall-back and the per-mission
+   retreat) use it, and the mission is KEPT, not dropped.
+3. **The staging ground gathers reinforcements.** While the main army falls
+   back, the reinforcement stream (`WaveTarget`) points at its staging ground;
+   when it moves on, the stream follows the objective again.
+4. **At the staging ground:** re-engage once the odds drop to
+   `reengageRatio`; still followed and losing, fall back again to the next
+   safe ground; otherwise **retarget** to the nearest known enemy economic
+   building within `fallbackRetargetRadius` whose surroundings hold at most
+   `fallbackRetargetShare` of the army's strength (outside capital
+   territories first); otherwise hold, up to `fallbackMaxHolds` times
+   `fallbackTimeout`, then give the objective up at the nearest safe own
+   ground.
+5. **A finished mission does not walk home.** An attack whose objective is
+   down takes the next soft economic target near it; any ending army holds
+   the nearest safe own ground (the capital only when nothing nearer serves).
+6. **The surrounding holdings before the main base.** Income targeting runs
+   on every tier now (was Hard / Expert); a target in its owner's capital
+   territory scores `incomeCapitalPenalty` below every other; the raze chain
+   takes the next known income building outside a capital territory before
+   any Hall or military sighting.
+
+Logs: `TACTICS: retreat … fall back to a Fortress/to a tower/into own
+territory/to a staging point`, `holding the staging ground … (n/N)`,
+`retarget …`, `objective given up …`, `WAVE: site empty — the next income
+building …`, `objective done — on to …`, `mission over — … hold …`.
+
+## 6i. One war at a time (2026-10-07)
+
+**Developer report:** "Blue (southwest) attacks Red to the east and defeats
+its forces, then abandons the fight and marches diagonally to attack another
+faction. If it kept pressing it would have defeated Red." Measured in the
+2026-10-07 batch: the closeout doctrine re-picked "the weakest" on every
+wave (Red, then Green at 26:26 and back to Red), and the § 6h retarget took
+any hostile's building, so Blue's armies hit a third faction's economy.
+
+**The rule.** A faction that picks a victim keeps it. The first wave's
+objective owner (or the doctrine's pick) starts the WAR; from then on every
+wave, opportunity strike, raze-chain step and fall-back retarget stays on
+that victim until it is out of the game (no capital) or `warMaxFailures`
+attacks on it in a row have failed (a mission timed out, or an army gave
+its objective up). A razed objective resets the count. Then a new victim may
+be picked.
+
+Logs: `WAR: war on <faction> — every wave stays on it until it falls`,
+`WAR: war on <faction> over — … out of the game`, `WAR: war on <faction>
+abandoned after N failed attack(s)`.
+
+## 6j. The army grows with the bank; the pile-on (2026-10-07)
+
+**Why:** in the 2026-10-07 batch every survivor reached the tier's
+`sustainArmyCap` by minute 30 and stopped, while supplies and iron sat at the
+100,000 bank cap from minute 45: four equal armies, one-on-one wars that never
+ended, one elimination per 90-minute match, and only where two AIs happened to
+attack the same faction.
+
+1. **The army cap rises with unspent money** (developer: "army cap raises if
+   there are 1000 resources unspent"). Every `armyCapRaiseInterval` seconds a
+   faction whose unspent supplies + iron are at least `armyCapRaiseThreshold`
+   gets `armyCapRaiseStep` more cap, up to the population ceiling; the raise
+   is kept. A richer economy now fields a bigger army.
+2. **The pile-on** (extends § 6i). A hostile faction whose board score is at
+   most `pileOnLosingShare` of its attacker's is LOSING its war; every other
+   faction drops its own war and joins against it, so wars end two-on-one
+   instead of cycling. In a one-on-one there is no third party: the pile-on
+   never fires, and the duel is decided by point 1 — the economy that can
+   keep buying past the old cap.
+
+## 6k. Armies march round the curse (2026-10-07)
+
+**Developer report:** "AI is marching through cursed territories and losing
+their army to the DOT." Cursed ground is a radius (`nodeAuraRadius`) round
+every living curse node, and exposure there turns into damage over time
+(VeilExposureSystem). The nav layer takes the shortest way, so diagonal
+marches on Mirror Marches crossed the curse at the centre of the map.
+
+**The rule.** A long march (muster to stage, the raze chain, a retreat, a
+retarget, a resumed march after a fight) whose straight line passes within
+`nodeAuraRadius` + `marginMeters` (AICurseRoute.asset) of a curse node is
+replaced by waypoints round it: A* on a `cellMeters` grid whose blocked cells
+are those circles, string-pulled to the fewest legs. The army walks the legs
+as its centre reaches each one (`arriveMeters`). A stage or rally point inside
+cursed ground is pushed out of it; an objective standing in it is not (the
+army still goes there, by the shortest cursed path that remains). An army in a
+fight drops its route; the tactics layer re-routes it when the march resumes.
+Logs: `ROUTE: N march round the curse to (x,z) — k waypoint(s)`.
+
 ## 7. Scouting
 
 Keep the information-driven `ScoutDirectorSystem` (zone staleness scoring,

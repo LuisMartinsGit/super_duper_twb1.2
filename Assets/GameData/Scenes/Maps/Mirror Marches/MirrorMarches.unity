@@ -119,7 +119,7 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &61835505
+--- !u!1 &11342237
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -127,53 +127,53 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 61835506}
-  - component: {fileID: 61835507}
+  - component: {fileID: 11342238}
+  - component: {fileID: 11342239}
   m_Layer: 0
-  m_Name: Region 12 - March A3
+  m_Name: Region 47 - Veil March F7
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &61835506
+--- !u!4 &11342238
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 61835505}
+  m_GameObject: {fileID: 11342237}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -448, y: 7.5414796, z: -192}
+  m_LocalPosition: {x: 96, y: 8.207271, z: 160}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1299785333}
+  m_Father: {fileID: 484094590}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &61835507
+--- !u!114 &11342239
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 61835505}
+  m_GameObject: {fileID: 11342237}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   SnapToTerrain: 1
-  RegionName: March A3
+  RegionName: Veil March F7
   ValueMultiplier: 1
   Shape:
-  - {x: -512, y: -256}
-  - {x: -384, y: -256}
-  - {x: -384, y: -128}
-  - {x: -512, y: -128}
+  - {x: 64, y: 128}
+  - {x: 128, y: 128}
+  - {x: 128, y: 192}
+  - {x: 64, y: 192}
   Kind: 0
-  Resources: 2
---- !u!1 &79679785
+  Resources: 4
+--- !u!1 &38170908
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -181,53 +181,107 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 79679786}
-  - component: {fileID: 79679787}
+  - component: {fileID: 38170909}
+  - component: {fileID: 38170910}
   m_Layer: 0
-  m_Name: Region 06 - Ironfield E1
+  m_Name: Region 15 - Veil March D3
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &79679786
+--- !u!4 &38170909
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 79679785}
+  m_GameObject: {fileID: 38170908}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 64, y: 7.568687, z: -448}
+  m_LocalPosition: {x: -32, y: 8.407891, z: -96}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1299785333}
+  m_Father: {fileID: 484094590}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &79679787
+--- !u!114 &38170910
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 79679785}
+  m_GameObject: {fileID: 38170908}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   SnapToTerrain: 1
-  RegionName: Ironfield E1
+  RegionName: Veil March D3
   ValueMultiplier: 1
   Shape:
-  - {x: 0, y: -512}
-  - {x: 128, y: -512}
-  - {x: 128, y: -384}
-  - {x: 0, y: -384}
+  - {x: -64, y: -128}
+  - {x: 0, y: -128}
+  - {x: 0, y: -64}
+  - {x: -64, y: -64}
+  Kind: 0
+  Resources: 4
+--- !u!1 &51202743
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 51202744}
+  - component: {fileID: 51202745}
+  m_Layer: 0
+  m_Name: Region 20 - Ironfield A4
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &51202744
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 51202743}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -224, y: 8.068874, z: -32}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 484094590}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &51202745
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 51202743}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Ironfield A4
+  ValueMultiplier: 1
+  Shape:
+  - {x: -256, y: -64}
+  - {x: -192, y: -64}
+  - {x: -192, y: 0}
+  - {x: -256, y: 0}
   Kind: 0
   Resources: 7
---- !u!1 &280679016
+--- !u!1 &91573344
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -235,147 +289,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 280679019}
-  - component: {fileID: 280679018}
-  - component: {fileID: 280679017}
-  m_Layer: 0
-  m_Name: Terrain
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 2147483647
-  m_IsActive: 1
---- !u!154 &280679017
-TerrainCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 280679016}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 2
-  m_TerrainData: {fileID: 15600000, guid: 43fad236cbf3b5c4b87c5b452e353611, type: 2}
-  m_EnableTreeColliders: 1
---- !u!218 &280679018
-Terrain:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 280679016}
-  m_Enabled: 1
-  serializedVersion: 6
-  m_TerrainData: {fileID: 15600000, guid: 43fad236cbf3b5c4b87c5b452e353611, type: 2}
-  m_TreeDistance: 260
-  m_TreeBillboardDistance: 120
-  m_TreeCrossFadeLength: 5
-  m_TreeMaximumFullLODCount: 50
-  m_DetailObjectDistance: 110
-  m_DetailObjectDensity: 0.8
-  m_HeightmapPixelError: 8
-  m_SplatMapDistance: 220
-  m_HeightmapMinimumLODSimplification: 0
-  m_HeightmapMaximumLOD: 0
-  m_ShadowCastingMode: 2
-  m_DrawHeightmap: 1
-  m_DrawInstanced: 1
-  m_DrawTreesAndFoliage: 1
-  m_StaticShadowCaster: 0
-  m_IgnoreQualitySettings: 0
-  m_ReflectionProbeUsage: 1
-  m_MaterialTemplate: {fileID: 2100000, guid: c5d8e1f2a3b44c67890d1e2f3a4b5c6d, type: 2}
-  m_BakeLightProbesForTrees: 1
-  m_PreserveTreePrototypeLayers: 0
-  m_DeringLightProbesForTrees: 1
-  m_ReceiveGI: 1
-  m_ScaleInLightmap: 0.025
-  m_LightmapParameters: {fileID: 15203, guid: 0000000000000000f000000000000000, type: 0}
-  m_GroupingID: 0
-  m_RenderingLayerMask: 1
-  m_AllowAutoConnect: 1
-  m_EnableHeightmapRayTracing: 1
-  m_EnableTreesAndDetailsRayTracing: 0
-  m_TreeMotionVectorModeOverride: 3
---- !u!4 &280679019
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 280679016}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -512, y: 0, z: -512}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &299797966
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 299797967}
-  - component: {fileID: 299797968}
-  m_Layer: 0
-  m_Name: P2 Start (Red) - Southeast
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &299797967
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 299797966}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 384, y: 7.0609093, z: -384}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1811718076}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &299797968
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 299797966}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 995a3f5e761151a42bc21c9181a4d382, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  Faction: 1
---- !u!1 &310181342
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 310181343}
-  - component: {fileID: 310181344}
+  - component: {fileID: 91573345}
+  - component: {fileID: 91573346}
   m_Layer: 0
   m_Name: Region 11 - Veil March F2
   m_TagString: Untagged
@@ -383,28 +298,28 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &310181343
+--- !u!4 &91573345
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 310181342}
+  m_GameObject: {fileID: 91573344}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 192, y: 8.207271, z: -320}
+  m_LocalPosition: {x: 96, y: 8.207271, z: -160}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1299785333}
+  m_Father: {fileID: 484094590}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &310181344
+--- !u!114 &91573346
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 310181342}
+  m_GameObject: {fileID: 91573344}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
@@ -414,761 +329,67 @@ MonoBehaviour:
   RegionName: Veil March F2
   ValueMultiplier: 1
   Shape:
-  - {x: 128, y: -384}
-  - {x: 256, y: -384}
-  - {x: 256, y: -256}
-  - {x: 128, y: -256}
-  Kind: 0
-  Resources: 4
---- !u!1 &334813942
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 334813943}
-  - component: {fileID: 334813944}
-  m_Layer: 0
-  m_Name: Region 29 - Iron March B5
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &334813943
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 334813942}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -320, y: 7, z: 64}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1299785333}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &334813944
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 334813942}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Iron March B5
-  ValueMultiplier: 1
-  Shape:
-  - {x: -384, y: 0}
-  - {x: -256, y: 0}
-  - {x: -256, y: 128}
-  - {x: -384, y: 128}
-  Kind: 0
-  Resources: 3
---- !u!1 &355449282
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 355449283}
-  - component: {fileID: 355449284}
-  m_Layer: 0
-  m_Name: Region 10 - Iron March E2
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &355449283
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 355449282}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 64, y: 7.8586073, z: -320}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1299785333}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &355449284
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 355449282}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Iron March E2
-  ValueMultiplier: 1
-  Shape:
-  - {x: 0, y: -384}
-  - {x: 128, y: -384}
-  - {x: 128, y: -256}
-  - {x: 0, y: -256}
-  Kind: 0
-  Resources: 3
---- !u!1 &382300315
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 382300316}
-  - component: {fileID: 382300317}
-  m_Layer: 0
-  m_Name: Region 34 - Iron March G5
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &382300316
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 382300315}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 320, y: 7, z: 64}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1299785333}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &382300317
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 382300315}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Iron March G5
-  ValueMultiplier: 1
-  Shape:
-  - {x: 256, y: 0}
-  - {x: 384, y: 0}
-  - {x: 384, y: 128}
-  - {x: 256, y: 128}
-  Kind: 0
-  Resources: 3
---- !u!1 &394398417
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 394398418}
-  - component: {fileID: 394398419}
-  m_Layer: 0
-  m_Name: Region 14 - Sanctum C3
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &394398418
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 394398417}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -192, y: 8.063876, z: -192}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1299785333}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &394398419
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 394398417}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Sanctum C3
-  ValueMultiplier: 1
-  Shape:
-  - {x: -256, y: -256}
-  - {x: -128, y: -256}
-  - {x: -128, y: -128}
-  - {x: -256, y: -128}
-  Kind: 0
-  Resources: 8
---- !u!1 &397956820
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 397956821}
-  - component: {fileID: 397956822}
-  m_Layer: 0
-  m_Name: Region 38 - Sanctum C6
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &397956821
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 397956820}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -192, y: 8.063876, z: 192}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1299785333}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &397956822
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 397956820}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Sanctum C6
-  ValueMultiplier: 1
-  Shape:
-  - {x: -256, y: 128}
-  - {x: -128, y: 128}
-  - {x: -128, y: 256}
-  - {x: -256, y: 256}
-  Kind: 0
-  Resources: 8
---- !u!1 &433129517
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 433129518}
-  - component: {fileID: 433129519}
-  m_Layer: 0
-  m_Name: Region 08 - Veil March C2
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &433129518
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 433129517}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -192, y: 8.207271, z: -320}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1299785333}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &433129519
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 433129517}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Veil March C2
-  ValueMultiplier: 1
-  Shape:
-  - {x: -256, y: -384}
-  - {x: -128, y: -384}
-  - {x: -128, y: -256}
-  - {x: -256, y: -256}
-  Kind: 0
-  Resources: 4
---- !u!1 &469888379
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 469888380}
-  - component: {fileID: 469888381}
-  m_Layer: 0
-  m_Name: Region 03 - Northwest Home
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &469888380
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 469888379}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -384, y: 7.0609093, z: 384}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1299785333}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &469888381
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 469888379}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Northwest Home
-  ValueMultiplier: 1
-  Shape:
-  - {x: -512, y: 256}
-  - {x: -256, y: 256}
-  - {x: -256, y: 512}
-  - {x: -512, y: 512}
-  Kind: 1
-  Resources: 1
---- !u!1 &483153584
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 483153585}
-  - component: {fileID: 483153586}
-  m_Layer: 0
-  m_Name: Region 26 - Iron March G4
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &483153585
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 483153584}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 320, y: 7, z: -64}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1299785333}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &483153586
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 483153584}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Iron March G4
-  ValueMultiplier: 1
-  Shape:
-  - {x: 256, y: -128}
-  - {x: 384, y: -128}
-  - {x: 384, y: 0}
-  - {x: 256, y: 0}
-  Kind: 0
-  Resources: 3
---- !u!1 &501788308
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 501788309}
-  - component: {fileID: 501788310}
-  m_Layer: 0
-  m_Name: Region 19 - March H3
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &501788309
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 501788308}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 448, y: 7.5414796, z: -192}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1299785333}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &501788310
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 501788308}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: March H3
-  ValueMultiplier: 1
-  Shape:
-  - {x: 384, y: -256}
-  - {x: 512, y: -256}
-  - {x: 512, y: -128}
-  - {x: 384, y: -128}
-  Kind: 0
-  Resources: 2
---- !u!1 &508610825
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 508610826}
-  - component: {fileID: 508610827}
-  m_Layer: 0
-  m_Name: P1 Start (Blue) - Southwest
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &508610826
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 508610825}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -384, y: 7.0609093, z: -384}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1811718076}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &508610827
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 508610825}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 995a3f5e761151a42bc21c9181a4d382, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  Faction: 0
---- !u!1 &546937170
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 546937171}
-  - component: {fileID: 546937172}
-  m_Layer: 0
-  m_Name: Region 18 - Veil March G3
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &546937171
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 546937170}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 320, y: 7.5891123, z: -192}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1299785333}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &546937172
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 546937170}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Veil March G3
-  ValueMultiplier: 1
-  Shape:
-  - {x: 256, y: -256}
-  - {x: 384, y: -256}
-  - {x: 384, y: -128}
-  - {x: 256, y: -128}
-  Kind: 0
-  Resources: 4
---- !u!1 &555904342
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 555904343}
-  - component: {fileID: 555904344}
-  m_Layer: 0
-  m_Name: Region 51 - March F8
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &555904343
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 555904342}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 192, y: 7.7900653, z: 448}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1299785333}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &555904344
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 555904342}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: March F8
-  ValueMultiplier: 1
-  Shape:
-  - {x: 128, y: 384}
-  - {x: 256, y: 384}
-  - {x: 256, y: 512}
-  - {x: 128, y: 512}
-  Kind: 0
-  Resources: 2
---- !u!1 &587919435
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 587919436}
-  - component: {fileID: 587919437}
-  m_Layer: 0
-  m_Name: Region 21 - Iron March B4
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &587919436
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 587919435}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -320, y: 7, z: -64}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1299785333}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &587919437
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 587919435}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Iron March B4
-  ValueMultiplier: 1
-  Shape:
-  - {x: -384, y: -128}
-  - {x: -256, y: -128}
-  - {x: -256, y: 0}
-  - {x: -384, y: 0}
-  Kind: 0
-  Resources: 3
---- !u!1 &603576600
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 603576601}
-  - component: {fileID: 603576602}
-  m_Layer: 0
-  m_Name: Region 16 - Veil March E3
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &603576601
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 603576600}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 64, y: 8.407891, z: -192}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1299785333}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &603576602
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 603576600}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Veil March E3
-  ValueMultiplier: 1
-  Shape:
-  - {x: 0, y: -256}
-  - {x: 128, y: -256}
+  - {x: 64, y: -192}
+  - {x: 128, y: -192}
   - {x: 128, y: -128}
+  - {x: 64, y: -128}
+  Kind: 0
+  Resources: 4
+--- !u!1 &99837118
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 99837119}
+  - component: {fileID: 99837120}
+  m_Layer: 0
+  m_Name: Region 09 - Iron March D2
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &99837119
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 99837118}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -32, y: 7.8586073, z: -160}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 484094590}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &99837120
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 99837118}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Iron March D2
+  ValueMultiplier: 1
+  Shape:
+  - {x: -64, y: -192}
+  - {x: 0, y: -192}
   - {x: 0, y: -128}
+  - {x: -64, y: -128}
   Kind: 0
-  Resources: 4
---- !u!1 &617307116
+  Resources: 3
+--- !u!1 &104901921
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1176,332 +397,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 617307117}
-  - component: {fileID: 617307118}
-  m_Layer: 0
-  m_Name: Region 23 - Heart D4
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &617307117
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 617307116}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -64, y: 8.174568, z: -64}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1299785333}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &617307118
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 617307116}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Heart D4
-  ValueMultiplier: 1
-  Shape:
-  - {x: -128, y: -128}
-  - {x: 0, y: -128}
-  - {x: 0, y: 0}
-  - {x: -128, y: 0}
-  Kind: 0
-  Resources: 6
---- !u!1 &693771445
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 693771446}
-  - component: {fileID: 693771447}
-  m_Layer: 0
-  m_Name: Region 25 - Veil March F4
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &693771446
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 693771445}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 192, y: 8.252748, z: -64}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1299785333}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &693771447
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 693771445}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Veil March F4
-  ValueMultiplier: 1
-  Shape:
-  - {x: 128, y: -128}
-  - {x: 256, y: -128}
-  - {x: 256, y: 0}
-  - {x: 128, y: 0}
-  Kind: 0
-  Resources: 4
---- !u!1 &726741332
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 726741333}
-  - component: {fileID: 726741334}
-  m_Layer: 0
-  m_Name: Region 42 - Veil March G6
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &726741333
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 726741332}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 320, y: 7.5891123, z: 192}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1299785333}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &726741334
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 726741332}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Veil March G6
-  ValueMultiplier: 1
-  Shape:
-  - {x: 256, y: 128}
-  - {x: 384, y: 128}
-  - {x: 384, y: 256}
-  - {x: 256, y: 256}
-  Kind: 0
-  Resources: 4
---- !u!1 &739193914
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 739193915}
-  - component: {fileID: 739193916}
-  m_Layer: 0
-  m_Name: Region 41 - Sanctum F6
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &739193915
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 739193914}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 192, y: 8.063876, z: 192}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1299785333}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &739193916
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 739193914}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Sanctum F6
-  ValueMultiplier: 1
-  Shape:
-  - {x: 128, y: 128}
-  - {x: 256, y: 128}
-  - {x: 256, y: 256}
-  - {x: 128, y: 256}
-  Kind: 0
-  Resources: 8
---- !u!1 &893459129
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 893459130}
-  - component: {fileID: 893459131}
-  m_Layer: 0
-  m_Name: Region 39 - Veil March D6
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &893459130
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 893459129}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -64, y: 8.407891, z: 192}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1299785333}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &893459131
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 893459129}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Veil March D6
-  ValueMultiplier: 1
-  Shape:
-  - {x: -128, y: 128}
-  - {x: 0, y: 128}
-  - {x: 0, y: 256}
-  - {x: -128, y: 256}
-  Kind: 0
-  Resources: 4
---- !u!1 &903507367
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 903507368}
-  - component: {fileID: 903507369}
-  m_Layer: 0
-  m_Name: Region 44 - Veil March C7
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &903507368
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 903507367}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -192, y: 8.207271, z: 320}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1299785333}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &903507369
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 903507367}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Veil March C7
-  ValueMultiplier: 1
-  Shape:
-  - {x: -256, y: 256}
-  - {x: -128, y: 256}
-  - {x: -128, y: 384}
-  - {x: -256, y: 384}
-  Kind: 0
-  Resources: 4
---- !u!1 &987210189
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 987210190}
-  - component: {fileID: 987210191}
+  - component: {fileID: 104901922}
+  - component: {fileID: 104901923}
   m_Layer: 0
   m_Name: Region 45 - Iron March D7
   m_TagString: Untagged
@@ -1509,28 +406,28 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &987210190
+--- !u!4 &104901922
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 987210189}
+  m_GameObject: {fileID: 104901921}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -64, y: 7.8586073, z: 320}
+  m_LocalPosition: {x: -32, y: 7.8586073, z: 160}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1299785333}
+  m_Father: {fileID: 484094590}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &987210191
+--- !u!114 &104901923
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 987210189}
+  m_GameObject: {fileID: 104901921}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
@@ -1540,13 +437,13 @@ MonoBehaviour:
   RegionName: Iron March D7
   ValueMultiplier: 1
   Shape:
-  - {x: -128, y: 256}
-  - {x: 0, y: 256}
-  - {x: 0, y: 384}
-  - {x: -128, y: 384}
+  - {x: -64, y: 128}
+  - {x: 0, y: 128}
+  - {x: 0, y: 192}
+  - {x: -64, y: 192}
   Kind: 0
   Resources: 3
---- !u!1 &993323350
+--- !u!1 &114104010
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1554,53 +451,53 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 993323351}
-  - component: {fileID: 993323352}
+  - component: {fileID: 114104011}
+  - component: {fileID: 114104012}
   m_Layer: 0
-  m_Name: Region 31 - Heart D5
+  m_Name: Region 44 - Veil March C7
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &993323351
+--- !u!4 &114104011
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 993323350}
+  m_GameObject: {fileID: 114104010}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -64, y: 8.174568, z: 64}
+  m_LocalPosition: {x: -96, y: 8.207271, z: 160}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1299785333}
+  m_Father: {fileID: 484094590}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &993323352
+--- !u!114 &114104012
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 993323350}
+  m_GameObject: {fileID: 114104010}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   SnapToTerrain: 1
-  RegionName: Heart D5
+  RegionName: Veil March C7
   ValueMultiplier: 1
   Shape:
-  - {x: -128, y: 0}
-  - {x: 0, y: 0}
-  - {x: 0, y: 128}
   - {x: -128, y: 128}
+  - {x: -64, y: 128}
+  - {x: -64, y: 192}
+  - {x: -128, y: 192}
   Kind: 0
-  Resources: 6
---- !u!1 &1099882927
+  Resources: 4
+--- !u!1 &126707241
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1608,53 +505,107 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1099882928}
-  - component: {fileID: 1099882929}
+  - component: {fileID: 126707242}
+  - component: {fileID: 126707243}
   m_Layer: 0
-  m_Name: Region 50 - Ironfield E8
+  m_Name: Region 51 - March F8
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &1099882928
+--- !u!4 &126707242
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1099882927}
+  m_GameObject: {fileID: 126707241}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 64, y: 7.568687, z: 448}
+  m_LocalPosition: {x: 96, y: 7.7900653, z: 224}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1299785333}
+  m_Father: {fileID: 484094590}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1099882929
+--- !u!114 &126707243
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1099882927}
+  m_GameObject: {fileID: 126707241}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   SnapToTerrain: 1
-  RegionName: Ironfield E8
+  RegionName: March F8
   ValueMultiplier: 1
   Shape:
-  - {x: 0, y: 384}
-  - {x: 128, y: 384}
-  - {x: 128, y: 512}
-  - {x: 0, y: 512}
+  - {x: 64, y: 192}
+  - {x: 128, y: 192}
+  - {x: 128, y: 256}
+  - {x: 64, y: 256}
+  Kind: 0
+  Resources: 2
+--- !u!1 &128241326
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 128241327}
+  - component: {fileID: 128241328}
+  m_Layer: 0
+  m_Name: Region 05 - Ironfield D1
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &128241327
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 128241326}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -32, y: 7.568687, z: -224}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 484094590}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &128241328
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 128241326}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Ironfield D1
+  ValueMultiplier: 1
+  Shape:
+  - {x: -64, y: -256}
+  - {x: 0, y: -256}
+  - {x: 0, y: -192}
+  - {x: -64, y: -192}
   Kind: 0
   Resources: 7
---- !u!1 &1111695101
+--- !u!1 &135226949
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1662,8 +613,170 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1111695102}
-  - component: {fileID: 1111695103}
+  - component: {fileID: 135226950}
+  - component: {fileID: 135226951}
+  m_Layer: 0
+  m_Name: Region 17 - Sanctum F3
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &135226950
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 135226949}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 96, y: 8.063876, z: -96}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 484094590}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &135226951
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 135226949}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Sanctum F3
+  ValueMultiplier: 1
+  Shape:
+  - {x: 64, y: -128}
+  - {x: 128, y: -128}
+  - {x: 128, y: -64}
+  - {x: 64, y: -64}
+  Kind: 0
+  Resources: 8
+--- !u!1 &254323724
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 254323725}
+  - component: {fileID: 254323726}
+  m_Layer: 0
+  m_Name: Region 24 - Heart E4
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &254323725
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 254323724}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 32, y: 8.174568, z: -32}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 484094590}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &254323726
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 254323724}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Heart E4
+  ValueMultiplier: 1
+  Shape:
+  - {x: 0, y: -64}
+  - {x: 64, y: -64}
+  - {x: 64, y: 0}
+  - {x: 0, y: 0}
+  Kind: 0
+  Resources: 6
+--- !u!1 &254693204
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 254693205}
+  - component: {fileID: 254693206}
+  m_Layer: 0
+  m_Name: Region 40 - Veil March E6
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &254693205
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 254693204}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 32, y: 8.407891, z: 96}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 484094590}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &254693206
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 254693204}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Veil March E6
+  ValueMultiplier: 1
+  Shape:
+  - {x: 0, y: 64}
+  - {x: 64, y: 64}
+  - {x: 64, y: 128}
+  - {x: 0, y: 128}
+  Kind: 0
+  Resources: 4
+--- !u!1 &283823719
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 283823720}
+  - component: {fileID: 283823721}
   m_Layer: 0
   m_Name: Region 37 - Veil March B6
   m_TagString: Untagged
@@ -1671,28 +784,28 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &1111695102
+--- !u!4 &283823720
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1111695101}
+  m_GameObject: {fileID: 283823719}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -320, y: 7.5891123, z: 192}
+  m_LocalPosition: {x: -160, y: 7.5891123, z: 96}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1299785333}
+  m_Father: {fileID: 484094590}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1111695103
+--- !u!114 &283823721
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1111695101}
+  m_GameObject: {fileID: 283823719}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
@@ -1702,13 +815,13 @@ MonoBehaviour:
   RegionName: Veil March B6
   ValueMultiplier: 1
   Shape:
-  - {x: -384, y: 128}
-  - {x: -256, y: 128}
-  - {x: -256, y: 256}
-  - {x: -384, y: 256}
+  - {x: -192, y: 64}
+  - {x: -128, y: 64}
+  - {x: -128, y: 128}
+  - {x: -192, y: 128}
   Kind: 0
   Resources: 4
---- !u!1 &1125290203
+--- !u!1 &426549161
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1716,8 +829,253 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1125290204}
-  - component: {fileID: 1125290205}
+  - component: {fileID: 426549162}
+  - component: {fileID: 426549163}
+  m_Layer: 0
+  m_Name: Region 06 - Ironfield E1
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &426549162
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 426549161}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 32, y: 7.568687, z: -224}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 484094590}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &426549163
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 426549161}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Ironfield E1
+  ValueMultiplier: 1
+  Shape:
+  - {x: 0, y: -256}
+  - {x: 64, y: -256}
+  - {x: 64, y: -192}
+  - {x: 0, y: -192}
+  Kind: 0
+  Resources: 7
+--- !u!1 &441151636
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 441151637}
+  - component: {fileID: 441151638}
+  m_Layer: 0
+  m_Name: Region 22 - Veil March C4
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &441151637
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 441151636}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -96, y: 8.252748, z: -32}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 484094590}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &441151638
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 441151636}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Veil March C4
+  ValueMultiplier: 1
+  Shape:
+  - {x: -128, y: -64}
+  - {x: -64, y: -64}
+  - {x: -64, y: 0}
+  - {x: -128, y: 0}
+  Kind: 0
+  Resources: 4
+--- !u!1 &484094589
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 484094590}
+  m_Layer: 0
+  m_Name: Regions
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &484094590
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 484094589}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1500837317}
+  - {fileID: 1045753342}
+  - {fileID: 522490122}
+  - {fileID: 1648941887}
+  - {fileID: 1405517868}
+  - {fileID: 128241327}
+  - {fileID: 426549162}
+  - {fileID: 1309664788}
+  - {fileID: 1630969882}
+  - {fileID: 99837119}
+  - {fileID: 2119511088}
+  - {fileID: 91573345}
+  - {fileID: 873076077}
+  - {fileID: 600507090}
+  - {fileID: 1350925259}
+  - {fileID: 38170909}
+  - {fileID: 1639894274}
+  - {fileID: 135226950}
+  - {fileID: 1057858454}
+  - {fileID: 2114171666}
+  - {fileID: 51202744}
+  - {fileID: 1225774935}
+  - {fileID: 441151637}
+  - {fileID: 1382413022}
+  - {fileID: 254323725}
+  - {fileID: 604955433}
+  - {fileID: 1095837436}
+  - {fileID: 623843324}
+  - {fileID: 2046451428}
+  - {fileID: 1359386527}
+  - {fileID: 1399254939}
+  - {fileID: 1819680761}
+  - {fileID: 1584322395}
+  - {fileID: 677728505}
+  - {fileID: 1849307823}
+  - {fileID: 543316231}
+  - {fileID: 1841522626}
+  - {fileID: 283823720}
+  - {fileID: 714899790}
+  - {fileID: 1200705457}
+  - {fileID: 254693205}
+  - {fileID: 1631289088}
+  - {fileID: 1645346362}
+  - {fileID: 1845808760}
+  - {fileID: 114104011}
+  - {fileID: 104901922}
+  - {fileID: 1337484347}
+  - {fileID: 11342238}
+  - {fileID: 1820171798}
+  - {fileID: 628988318}
+  - {fileID: 1499649806}
+  - {fileID: 126707242}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &522490121
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 522490122}
+  - component: {fileID: 522490123}
+  m_Layer: 0
+  m_Name: Region 02 - Northeast Home
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &522490122
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 522490121}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 192, y: 7.0609093, z: 192}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 484094590}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &522490123
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 522490121}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Northeast Home
+  ValueMultiplier: 1
+  Shape:
+  - {x: 128, y: 128}
+  - {x: 256, y: 128}
+  - {x: 256, y: 256}
+  - {x: 128, y: 256}
+  Kind: 1
+  Resources: 1
+--- !u!1 &543316230
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 543316231}
+  - component: {fileID: 543316232}
   m_Layer: 0
   m_Name: Region 35 - Ironfield H5
   m_TagString: Untagged
@@ -1725,28 +1083,28 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &1125290204
+--- !u!4 &543316231
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1125290203}
+  m_GameObject: {fileID: 543316230}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 448, y: 8.068874, z: 64}
+  m_LocalPosition: {x: 224, y: 8.068874, z: 32}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1299785333}
+  m_Father: {fileID: 484094590}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1125290205
+--- !u!114 &543316232
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1125290203}
+  m_GameObject: {fileID: 543316230}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
@@ -1756,13 +1114,13 @@ MonoBehaviour:
   RegionName: Ironfield H5
   ValueMultiplier: 1
   Shape:
-  - {x: 384, y: 0}
-  - {x: 512, y: 0}
-  - {x: 512, y: 128}
-  - {x: 384, y: 128}
+  - {x: 192, y: 0}
+  - {x: 256, y: 0}
+  - {x: 256, y: 64}
+  - {x: 192, y: 64}
   Kind: 0
   Resources: 7
---- !u!1 &1133085049
+--- !u!1 &563375354
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1770,278 +1128,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1133085050}
-  - component: {fileID: 1133085051}
-  m_Layer: 0
-  m_Name: Region 48 - March C8
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1133085050
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1133085049}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -192, y: 7.7900653, z: 448}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1299785333}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1133085051
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1133085049}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: March C8
-  ValueMultiplier: 1
-  Shape:
-  - {x: -256, y: 384}
-  - {x: -128, y: 384}
-  - {x: -128, y: 512}
-  - {x: -256, y: 512}
-  Kind: 0
-  Resources: 2
---- !u!1 &1145684354
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1145684355}
-  - component: {fileID: 1145684356}
-  m_Layer: 0
-  m_Name: Region 04 - March C1
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1145684355
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1145684354}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -192, y: 7.7900653, z: -448}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1299785333}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1145684356
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1145684354}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: March C1
-  ValueMultiplier: 1
-  Shape:
-  - {x: -256, y: -512}
-  - {x: -128, y: -512}
-  - {x: -128, y: -384}
-  - {x: -256, y: -384}
-  Kind: 0
-  Resources: 2
---- !u!1 &1175719219
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1175719220}
-  - component: {fileID: 1175719221}
-  m_Layer: 0
-  m_Name: Region 28 - Ironfield A5
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1175719220
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1175719219}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -448, y: 8.068874, z: 64}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1299785333}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1175719221
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1175719219}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Ironfield A5
-  ValueMultiplier: 1
-  Shape:
-  - {x: -512, y: 0}
-  - {x: -384, y: 0}
-  - {x: -384, y: 128}
-  - {x: -512, y: 128}
-  Kind: 0
-  Resources: 7
---- !u!1 &1195776155
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1195776156}
-  - component: {fileID: 1195776157}
-  m_Layer: 0
-  m_Name: Region 46 - Iron March E7
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1195776156
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1195776155}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 64, y: 7.8586073, z: 320}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1299785333}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1195776157
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1195776155}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Iron March E7
-  ValueMultiplier: 1
-  Shape:
-  - {x: 0, y: 256}
-  - {x: 128, y: 256}
-  - {x: 128, y: 384}
-  - {x: 0, y: 384}
-  Kind: 0
-  Resources: 3
---- !u!1 &1204245875
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1204245876}
-  - component: {fileID: 1204245877}
-  m_Layer: 0
-  m_Name: Region 49 - Ironfield D8
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1204245876
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1204245875}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -64, y: 7.568687, z: 448}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1299785333}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1204245877
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1204245875}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Ironfield D8
-  ValueMultiplier: 1
-  Shape:
-  - {x: -128, y: 384}
-  - {x: 0, y: 384}
-  - {x: 0, y: 512}
-  - {x: -128, y: 512}
-  Kind: 0
-  Resources: 7
---- !u!1 &1205495209
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1205495211}
-  - component: {fileID: 1205495210}
+  - component: {fileID: 563375356}
+  - component: {fileID: 563375355}
   m_Layer: 0
   m_Name: Sun
   m_TagString: Untagged
@@ -2049,13 +1137,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!108 &1205495210
+--- !u!108 &563375355
 Light:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1205495209}
+  m_GameObject: {fileID: 563375354}
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 1
@@ -2114,13 +1202,13 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
---- !u!4 &1205495211
+--- !u!4 &563375356
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1205495209}
+  m_GameObject: {fileID: 563375354}
   serializedVersion: 2
   m_LocalRotation: {x: 0.14002554, y: 0.8593653, z: -0.36477894, w: 0.32987946}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -2129,7 +1217,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1207048370
+--- !u!1 &567286858
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -2137,45 +1225,45 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1207048371}
-  - component: {fileID: 1207048372}
+  - component: {fileID: 567286859}
+  - component: {fileID: 567286860}
   m_Layer: 0
-  m_Name: P3 Start (Green) - Northeast
+  m_Name: P2 Start (Red) - Southeast
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &1207048371
+--- !u!4 &567286859
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1207048370}
+  m_GameObject: {fileID: 567286858}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 384, y: 7.0609093, z: 384}
+  m_LocalPosition: {x: 192, y: 7.0609093, z: -192}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1811718076}
+  m_Father: {fileID: 2109822208}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1207048372
+--- !u!114 &567286860
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1207048370}
+  m_GameObject: {fileID: 567286858}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 995a3f5e761151a42bc21c9181a4d382, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   SnapToTerrain: 1
-  Faction: 2
---- !u!1 &1256117065
+  Faction: 1
+--- !u!1 &600507089
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -2183,406 +1271,53 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1256117066}
-  - component: {fileID: 1256117067}
+  - component: {fileID: 600507090}
+  - component: {fileID: 600507091}
   m_Layer: 0
-  m_Name: Region 40 - Veil March E6
+  m_Name: Region 13 - Veil March B3
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &1256117066
+--- !u!4 &600507090
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1256117065}
+  m_GameObject: {fileID: 600507089}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 64, y: 8.407891, z: 192}
+  m_LocalPosition: {x: -160, y: 7.5891123, z: -96}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1299785333}
+  m_Father: {fileID: 484094590}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1256117067
+--- !u!114 &600507091
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1256117065}
+  m_GameObject: {fileID: 600507089}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   SnapToTerrain: 1
-  RegionName: Veil March E6
+  RegionName: Veil March B3
   ValueMultiplier: 1
   Shape:
-  - {x: 0, y: 128}
-  - {x: 128, y: 128}
-  - {x: 128, y: 256}
-  - {x: 0, y: 256}
-  Kind: 0
-  Resources: 4
---- !u!1 &1277636681
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1277636682}
-  - component: {fileID: 1277636683}
-  m_Layer: 0
-  m_Name: Region 33 - Veil March F5
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1277636682
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1277636681}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 192, y: 8.252748, z: 64}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1299785333}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1277636683
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1277636681}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Veil March F5
-  ValueMultiplier: 1
-  Shape:
-  - {x: 128, y: 0}
-  - {x: 256, y: 0}
-  - {x: 256, y: 128}
-  - {x: 128, y: 128}
-  Kind: 0
-  Resources: 4
---- !u!1 &1299785332
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1299785333}
-  m_Layer: 0
-  m_Name: Regions
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1299785333
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1299785332}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 2013650934}
-  - {fileID: 1917474288}
-  - {fileID: 1724731724}
-  - {fileID: 469888380}
-  - {fileID: 1145684355}
-  - {fileID: 1430793063}
-  - {fileID: 79679786}
-  - {fileID: 1815516357}
-  - {fileID: 433129518}
-  - {fileID: 1724316677}
-  - {fileID: 355449283}
-  - {fileID: 310181343}
-  - {fileID: 61835506}
-  - {fileID: 1853074751}
-  - {fileID: 394398418}
-  - {fileID: 2076004350}
-  - {fileID: 603576601}
-  - {fileID: 1415949731}
-  - {fileID: 546937171}
-  - {fileID: 501788309}
-  - {fileID: 1669504308}
-  - {fileID: 587919436}
-  - {fileID: 1523380244}
-  - {fileID: 617307117}
-  - {fileID: 1329717561}
-  - {fileID: 693771446}
-  - {fileID: 483153585}
-  - {fileID: 1526084351}
-  - {fileID: 1175719220}
-  - {fileID: 334813943}
-  - {fileID: 1713638148}
-  - {fileID: 993323351}
-  - {fileID: 1828141148}
-  - {fileID: 1277636682}
-  - {fileID: 382300316}
-  - {fileID: 1125290204}
-  - {fileID: 2126236008}
-  - {fileID: 1111695102}
-  - {fileID: 397956821}
-  - {fileID: 893459130}
-  - {fileID: 1256117066}
-  - {fileID: 739193915}
-  - {fileID: 726741333}
-  - {fileID: 1545894028}
-  - {fileID: 903507368}
-  - {fileID: 987210190}
-  - {fileID: 1195776156}
-  - {fileID: 1903365252}
-  - {fileID: 1133085050}
-  - {fileID: 1204245876}
-  - {fileID: 1099882928}
-  - {fileID: 555904343}
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1329717560
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1329717561}
-  - component: {fileID: 1329717562}
-  m_Layer: 0
-  m_Name: Region 24 - Heart E4
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1329717561
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1329717560}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 64, y: 8.174568, z: -64}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1299785333}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1329717562
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1329717560}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Heart E4
-  ValueMultiplier: 1
-  Shape:
-  - {x: 0, y: -128}
-  - {x: 128, y: -128}
-  - {x: 128, y: 0}
-  - {x: 0, y: 0}
-  Kind: 0
-  Resources: 6
---- !u!1 &1415949730
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1415949731}
-  - component: {fileID: 1415949732}
-  m_Layer: 0
-  m_Name: Region 17 - Sanctum F3
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1415949731
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1415949730}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 192, y: 8.063876, z: -192}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1299785333}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1415949732
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1415949730}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Sanctum F3
-  ValueMultiplier: 1
-  Shape:
-  - {x: 128, y: -256}
-  - {x: 256, y: -256}
-  - {x: 256, y: -128}
-  - {x: 128, y: -128}
-  Kind: 0
-  Resources: 8
---- !u!1 &1430793062
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1430793063}
-  - component: {fileID: 1430793064}
-  m_Layer: 0
-  m_Name: Region 05 - Ironfield D1
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1430793063
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1430793062}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -64, y: 7.568687, z: -448}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1299785333}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1430793064
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1430793062}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Ironfield D1
-  ValueMultiplier: 1
-  Shape:
-  - {x: -128, y: -512}
-  - {x: 0, y: -512}
-  - {x: 0, y: -384}
-  - {x: -128, y: -384}
-  Kind: 0
-  Resources: 7
---- !u!1 &1523380243
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1523380244}
-  - component: {fileID: 1523380245}
-  m_Layer: 0
-  m_Name: Region 22 - Veil March C4
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1523380244
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1523380243}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -192, y: 8.252748, z: -64}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1299785333}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1523380245
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1523380243}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Veil March C4
-  ValueMultiplier: 1
-  Shape:
-  - {x: -256, y: -128}
+  - {x: -192, y: -128}
   - {x: -128, y: -128}
-  - {x: -128, y: 0}
-  - {x: -256, y: 0}
+  - {x: -128, y: -64}
+  - {x: -192, y: -64}
   Kind: 0
   Resources: 4
---- !u!1 &1526084350
+--- !u!1 &604955432
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -2590,8 +1325,62 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1526084351}
-  - component: {fileID: 1526084352}
+  - component: {fileID: 604955433}
+  - component: {fileID: 604955434}
+  m_Layer: 0
+  m_Name: Region 25 - Veil March F4
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &604955433
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 604955432}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 96, y: 8.252748, z: -32}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 484094590}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &604955434
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 604955432}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Veil March F4
+  ValueMultiplier: 1
+  Shape:
+  - {x: 64, y: -64}
+  - {x: 128, y: -64}
+  - {x: 128, y: 0}
+  - {x: 64, y: 0}
+  Kind: 0
+  Resources: 4
+--- !u!1 &623843323
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 623843324}
+  - component: {fileID: 623843325}
   m_Layer: 0
   m_Name: Region 27 - Ironfield H4
   m_TagString: Untagged
@@ -2599,28 +1388,28 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &1526084351
+--- !u!4 &623843324
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1526084350}
+  m_GameObject: {fileID: 623843323}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 448, y: 8.068874, z: -64}
+  m_LocalPosition: {x: 224, y: 8.068874, z: -32}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1299785333}
+  m_Father: {fileID: 484094590}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1526084352
+--- !u!114 &623843325
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1526084350}
+  m_GameObject: {fileID: 623843323}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
@@ -2630,13 +1419,13 @@ MonoBehaviour:
   RegionName: Ironfield H4
   ValueMultiplier: 1
   Shape:
-  - {x: 384, y: -128}
-  - {x: 512, y: -128}
-  - {x: 512, y: 0}
-  - {x: 384, y: 0}
+  - {x: 192, y: -64}
+  - {x: 256, y: -64}
+  - {x: 256, y: 0}
+  - {x: 192, y: 0}
   Kind: 0
   Resources: 7
---- !u!1 &1545894027
+--- !u!1 &628988317
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -2644,107 +1433,53 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1545894028}
-  - component: {fileID: 1545894029}
+  - component: {fileID: 628988318}
+  - component: {fileID: 628988319}
   m_Layer: 0
-  m_Name: Region 43 - March H6
+  m_Name: Region 49 - Ironfield D8
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &1545894028
+--- !u!4 &628988318
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1545894027}
+  m_GameObject: {fileID: 628988317}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 448, y: 7.5414796, z: 192}
+  m_LocalPosition: {x: -32, y: 7.568687, z: 224}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1299785333}
+  m_Father: {fileID: 484094590}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1545894029
+--- !u!114 &628988319
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1545894027}
+  m_GameObject: {fileID: 628988317}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   SnapToTerrain: 1
-  RegionName: March H6
+  RegionName: Ironfield D8
   ValueMultiplier: 1
   Shape:
-  - {x: 384, y: 128}
-  - {x: 512, y: 128}
-  - {x: 512, y: 256}
-  - {x: 384, y: 256}
-  Kind: 0
-  Resources: 2
---- !u!1 &1669504307
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1669504308}
-  - component: {fileID: 1669504309}
-  m_Layer: 0
-  m_Name: Region 20 - Ironfield A4
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1669504308
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1669504307}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -448, y: 8.068874, z: -64}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1299785333}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1669504309
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1669504307}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Ironfield A4
-  ValueMultiplier: 1
-  Shape:
-  - {x: -512, y: -128}
-  - {x: -384, y: -128}
-  - {x: -384, y: 0}
-  - {x: -512, y: 0}
+  - {x: -64, y: 192}
+  - {x: 0, y: 192}
+  - {x: 0, y: 256}
+  - {x: -64, y: 256}
   Kind: 0
   Resources: 7
---- !u!1 &1713638147
+--- !u!1 &677728504
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -2752,53 +1487,53 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1713638148}
-  - component: {fileID: 1713638149}
+  - component: {fileID: 677728505}
+  - component: {fileID: 677728506}
   m_Layer: 0
-  m_Name: Region 30 - Veil March C5
+  m_Name: Region 33 - Veil March F5
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &1713638148
+--- !u!4 &677728505
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1713638147}
+  m_GameObject: {fileID: 677728504}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -192, y: 8.252748, z: 64}
+  m_LocalPosition: {x: 96, y: 8.252748, z: 32}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1299785333}
+  m_Father: {fileID: 484094590}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1713638149
+--- !u!114 &677728506
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1713638147}
+  m_GameObject: {fileID: 677728504}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   SnapToTerrain: 1
-  RegionName: Veil March C5
+  RegionName: Veil March F5
   ValueMultiplier: 1
   Shape:
-  - {x: -256, y: 0}
-  - {x: -128, y: 0}
-  - {x: -128, y: 128}
-  - {x: -256, y: 128}
+  - {x: 64, y: 0}
+  - {x: 128, y: 0}
+  - {x: 128, y: 64}
+  - {x: 64, y: 64}
   Kind: 0
   Resources: 4
---- !u!1 &1724316676
+--- !u!1 &714899789
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -2806,53 +1541,53 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1724316677}
-  - component: {fileID: 1724316678}
+  - component: {fileID: 714899790}
+  - component: {fileID: 714899791}
   m_Layer: 0
-  m_Name: Region 09 - Iron March D2
+  m_Name: Region 38 - Sanctum C6
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &1724316677
+--- !u!4 &714899790
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1724316676}
+  m_GameObject: {fileID: 714899789}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -64, y: 7.8586073, z: -320}
+  m_LocalPosition: {x: -96, y: 8.063876, z: 96}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1299785333}
+  m_Father: {fileID: 484094590}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1724316678
+--- !u!114 &714899791
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1724316676}
+  m_GameObject: {fileID: 714899789}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   SnapToTerrain: 1
-  RegionName: Iron March D2
+  RegionName: Sanctum C6
   ValueMultiplier: 1
   Shape:
-  - {x: -128, y: -384}
-  - {x: 0, y: -384}
-  - {x: 0, y: -256}
-  - {x: -128, y: -256}
+  - {x: -128, y: 64}
+  - {x: -64, y: 64}
+  - {x: -64, y: 128}
+  - {x: -128, y: 128}
   Kind: 0
-  Resources: 3
---- !u!1 &1724731723
+  Resources: 8
+--- !u!1 &873076076
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -2860,53 +1595,107 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1724731724}
-  - component: {fileID: 1724731725}
+  - component: {fileID: 873076077}
+  - component: {fileID: 873076078}
   m_Layer: 0
-  m_Name: Region 02 - Northeast Home
+  m_Name: Region 12 - March A3
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &1724731724
+--- !u!4 &873076077
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1724731723}
+  m_GameObject: {fileID: 873076076}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 384, y: 7.0609093, z: 384}
+  m_LocalPosition: {x: -224, y: 7.5414796, z: -96}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1299785333}
+  m_Father: {fileID: 484094590}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1724731725
+--- !u!114 &873076078
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1724731723}
+  m_GameObject: {fileID: 873076076}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   SnapToTerrain: 1
-  RegionName: Northeast Home
+  RegionName: March A3
   ValueMultiplier: 1
   Shape:
-  - {x: 256, y: 256}
-  - {x: 512, y: 256}
-  - {x: 512, y: 512}
-  - {x: 256, y: 512}
+  - {x: -256, y: -128}
+  - {x: -192, y: -128}
+  - {x: -192, y: -64}
+  - {x: -256, y: -64}
+  Kind: 0
+  Resources: 2
+--- !u!1 &1045753341
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1045753342}
+  - component: {fileID: 1045753343}
+  m_Layer: 0
+  m_Name: Region 01 - Southeast Home
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1045753342
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1045753341}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 192, y: 7.0609093, z: -192}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 484094590}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1045753343
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1045753341}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Southeast Home
+  ValueMultiplier: 1
+  Shape:
+  - {x: 128, y: -256}
+  - {x: 256, y: -256}
+  - {x: 256, y: -128}
+  - {x: 128, y: -128}
   Kind: 1
   Resources: 1
---- !u!1 &1740102790
+--- !u!1 &1057858453
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -2914,8 +1703,116 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1740102791}
-  - component: {fileID: 1740102792}
+  - component: {fileID: 1057858454}
+  - component: {fileID: 1057858455}
+  m_Layer: 0
+  m_Name: Region 18 - Veil March G3
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1057858454
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1057858453}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 160, y: 7.5891123, z: -96}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 484094590}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1057858455
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1057858453}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Veil March G3
+  ValueMultiplier: 1
+  Shape:
+  - {x: 128, y: -128}
+  - {x: 192, y: -128}
+  - {x: 192, y: -64}
+  - {x: 128, y: -64}
+  Kind: 0
+  Resources: 4
+--- !u!1 &1095837435
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1095837436}
+  - component: {fileID: 1095837437}
+  m_Layer: 0
+  m_Name: Region 26 - Iron March G4
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1095837436
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1095837435}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 160, y: 7, z: -32}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 484094590}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1095837437
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1095837435}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Iron March G4
+  ValueMultiplier: 1
+  Shape:
+  - {x: 128, y: -64}
+  - {x: 192, y: -64}
+  - {x: 192, y: 0}
+  - {x: 128, y: 0}
+  Kind: 0
+  Resources: 3
+--- !u!1 &1188445847
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1188445848}
+  - component: {fileID: 1188445849}
   m_Layer: 0
   m_Name: P4 Start (Yellow) - Northwest
   m_TagString: Untagged
@@ -2923,28 +1820,28 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &1740102791
+--- !u!4 &1188445848
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1740102790}
+  m_GameObject: {fileID: 1188445847}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -384, y: 7.0609093, z: 384}
+  m_LocalPosition: {x: -192, y: 7.0609093, z: 192}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1811718076}
+  m_Father: {fileID: 2109822208}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1740102792
+--- !u!114 &1188445849
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1740102790}
+  m_GameObject: {fileID: 1188445847}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 995a3f5e761151a42bc21c9181a4d382, type: 3}
@@ -2952,7 +1849,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   SnapToTerrain: 1
   Faction: 3
---- !u!1 &1811718075
+--- !u!1 &1200705456
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -2960,34 +1857,53 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1811718076}
+  - component: {fileID: 1200705457}
+  - component: {fileID: 1200705458}
   m_Layer: 0
-  m_Name: PlayerStarts
+  m_Name: Region 39 - Veil March D6
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &1811718076
+--- !u!4 &1200705457
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1811718075}
+  m_GameObject: {fileID: 1200705456}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: -32, y: 8.407891, z: 96}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 508610826}
-  - {fileID: 299797967}
-  - {fileID: 1207048371}
-  - {fileID: 1740102791}
-  m_Father: {fileID: 0}
+  m_Children: []
+  m_Father: {fileID: 484094590}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1815516356
+--- !u!114 &1200705458
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1200705456}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Veil March D6
+  ValueMultiplier: 1
+  Shape:
+  - {x: -64, y: 64}
+  - {x: 0, y: 64}
+  - {x: 0, y: 128}
+  - {x: -64, y: 128}
+  Kind: 0
+  Resources: 4
+--- !u!1 &1225774934
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -2995,8 +1911,62 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1815516357}
-  - component: {fileID: 1815516358}
+  - component: {fileID: 1225774935}
+  - component: {fileID: 1225774936}
+  m_Layer: 0
+  m_Name: Region 21 - Iron March B4
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1225774935
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1225774934}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -160, y: 7, z: -32}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 484094590}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1225774936
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1225774934}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Iron March B4
+  ValueMultiplier: 1
+  Shape:
+  - {x: -192, y: -64}
+  - {x: -128, y: -64}
+  - {x: -128, y: 0}
+  - {x: -192, y: 0}
+  Kind: 0
+  Resources: 3
+--- !u!1 &1309664787
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1309664788}
+  - component: {fileID: 1309664789}
   m_Layer: 0
   m_Name: Region 07 - March F1
   m_TagString: Untagged
@@ -3004,28 +1974,28 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &1815516357
+--- !u!4 &1309664788
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1815516356}
+  m_GameObject: {fileID: 1309664787}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 192, y: 7.7900653, z: -448}
+  m_LocalPosition: {x: 96, y: 7.7900653, z: -224}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1299785333}
+  m_Father: {fileID: 484094590}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1815516358
+--- !u!114 &1309664789
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1815516356}
+  m_GameObject: {fileID: 1309664787}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
@@ -3035,13 +2005,13 @@ MonoBehaviour:
   RegionName: March F1
   ValueMultiplier: 1
   Shape:
-  - {x: 128, y: -512}
-  - {x: 256, y: -512}
-  - {x: 256, y: -384}
-  - {x: 128, y: -384}
+  - {x: 64, y: -256}
+  - {x: 128, y: -256}
+  - {x: 128, y: -192}
+  - {x: 64, y: -192}
   Kind: 0
   Resources: 2
---- !u!1 &1828141147
+--- !u!1 &1337484346
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -3049,8 +2019,486 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1828141148}
-  - component: {fileID: 1828141149}
+  - component: {fileID: 1337484347}
+  - component: {fileID: 1337484348}
+  m_Layer: 0
+  m_Name: Region 46 - Iron March E7
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1337484347
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1337484346}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 32, y: 7.8586073, z: 160}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 484094590}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1337484348
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1337484346}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Iron March E7
+  ValueMultiplier: 1
+  Shape:
+  - {x: 0, y: 128}
+  - {x: 64, y: 128}
+  - {x: 64, y: 192}
+  - {x: 0, y: 192}
+  Kind: 0
+  Resources: 3
+--- !u!1 &1350925258
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1350925259}
+  - component: {fileID: 1350925260}
+  m_Layer: 0
+  m_Name: Region 14 - Sanctum C3
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1350925259
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1350925258}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -96, y: 8.063876, z: -96}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 484094590}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1350925260
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1350925258}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Sanctum C3
+  ValueMultiplier: 1
+  Shape:
+  - {x: -128, y: -128}
+  - {x: -64, y: -128}
+  - {x: -64, y: -64}
+  - {x: -128, y: -64}
+  Kind: 0
+  Resources: 8
+--- !u!1 &1359386526
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1359386527}
+  - component: {fileID: 1359386528}
+  m_Layer: 0
+  m_Name: Region 29 - Iron March B5
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1359386527
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1359386526}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -160, y: 7, z: 32}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 484094590}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1359386528
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1359386526}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Iron March B5
+  ValueMultiplier: 1
+  Shape:
+  - {x: -192, y: 0}
+  - {x: -128, y: 0}
+  - {x: -128, y: 64}
+  - {x: -192, y: 64}
+  Kind: 0
+  Resources: 3
+--- !u!1 &1382413021
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1382413022}
+  - component: {fileID: 1382413023}
+  m_Layer: 0
+  m_Name: Region 23 - Heart D4
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1382413022
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1382413021}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -32, y: 8.174568, z: -32}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 484094590}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1382413023
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1382413021}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Heart D4
+  ValueMultiplier: 1
+  Shape:
+  - {x: -64, y: -64}
+  - {x: 0, y: -64}
+  - {x: 0, y: 0}
+  - {x: -64, y: 0}
+  Kind: 0
+  Resources: 6
+--- !u!1 &1399254938
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1399254939}
+  - component: {fileID: 1399254940}
+  m_Layer: 0
+  m_Name: Region 30 - Veil March C5
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1399254939
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1399254938}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -96, y: 8.252748, z: 32}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 484094590}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1399254940
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1399254938}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Veil March C5
+  ValueMultiplier: 1
+  Shape:
+  - {x: -128, y: 0}
+  - {x: -64, y: 0}
+  - {x: -64, y: 64}
+  - {x: -128, y: 64}
+  Kind: 0
+  Resources: 4
+--- !u!1 &1405517867
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1405517868}
+  - component: {fileID: 1405517869}
+  m_Layer: 0
+  m_Name: Region 04 - March C1
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1405517868
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1405517867}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -96, y: 7.7900653, z: -224}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 484094590}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1405517869
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1405517867}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: March C1
+  ValueMultiplier: 1
+  Shape:
+  - {x: -128, y: -256}
+  - {x: -64, y: -256}
+  - {x: -64, y: -192}
+  - {x: -128, y: -192}
+  Kind: 0
+  Resources: 2
+--- !u!1 &1447150115
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1447150116}
+  - component: {fileID: 1447150117}
+  m_Layer: 0
+  m_Name: P1 Start (Blue) - Southwest
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1447150116
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1447150115}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -192, y: 7.0609093, z: -192}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2109822208}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1447150117
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1447150115}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 995a3f5e761151a42bc21c9181a4d382, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  Faction: 0
+--- !u!1 &1499649805
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1499649806}
+  - component: {fileID: 1499649807}
+  m_Layer: 0
+  m_Name: Region 50 - Ironfield E8
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1499649806
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1499649805}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 32, y: 7.568687, z: 224}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 484094590}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1499649807
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1499649805}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Ironfield E8
+  ValueMultiplier: 1
+  Shape:
+  - {x: 0, y: 192}
+  - {x: 64, y: 192}
+  - {x: 64, y: 256}
+  - {x: 0, y: 256}
+  Kind: 0
+  Resources: 7
+--- !u!1 &1500837316
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1500837317}
+  - component: {fileID: 1500837318}
+  m_Layer: 0
+  m_Name: Region 00 - Southwest Home
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1500837317
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1500837316}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -192, y: 7.0609093, z: -192}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 484094590}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1500837318
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1500837316}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Southwest Home
+  ValueMultiplier: 1
+  Shape:
+  - {x: -256, y: -256}
+  - {x: -128, y: -256}
+  - {x: -128, y: -128}
+  - {x: -256, y: -128}
+  Kind: 1
+  Resources: 1
+--- !u!1 &1584322394
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1584322395}
+  - component: {fileID: 1584322396}
   m_Layer: 0
   m_Name: Region 32 - Heart E5
   m_TagString: Untagged
@@ -3058,28 +2506,28 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &1828141148
+--- !u!4 &1584322395
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1828141147}
+  m_GameObject: {fileID: 1584322394}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 64, y: 8.174568, z: 64}
+  m_LocalPosition: {x: 32, y: 8.174568, z: 32}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1299785333}
+  m_Father: {fileID: 484094590}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1828141149
+--- !u!114 &1584322396
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1828141147}
+  m_GameObject: {fileID: 1584322394}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
@@ -3090,12 +2538,12 @@ MonoBehaviour:
   ValueMultiplier: 1
   Shape:
   - {x: 0, y: 0}
-  - {x: 128, y: 0}
-  - {x: 128, y: 128}
-  - {x: 0, y: 128}
+  - {x: 64, y: 0}
+  - {x: 64, y: 64}
+  - {x: 0, y: 64}
   Kind: 0
   Resources: 6
---- !u!1 &1853074750
+--- !u!1 &1591405021
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -3103,53 +2551,192 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1853074751}
-  - component: {fileID: 1853074752}
+  - component: {fileID: 1591405024}
+  - component: {fileID: 1591405023}
+  - component: {fileID: 1591405022}
   m_Layer: 0
-  m_Name: Region 13 - Veil March B3
+  m_Name: Terrain
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
+  m_StaticEditorFlags: 2147483647
   m_IsActive: 1
---- !u!4 &1853074751
+--- !u!154 &1591405022
+TerrainCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1591405021}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_TerrainData: {fileID: 15600000, guid: 43fad236cbf3b5c4b87c5b452e353611, type: 2}
+  m_EnableTreeColliders: 1
+--- !u!218 &1591405023
+Terrain:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1591405021}
+  m_Enabled: 1
+  serializedVersion: 6
+  m_TerrainData: {fileID: 15600000, guid: 43fad236cbf3b5c4b87c5b452e353611, type: 2}
+  m_TreeDistance: 260
+  m_TreeBillboardDistance: 120
+  m_TreeCrossFadeLength: 5
+  m_TreeMaximumFullLODCount: 50
+  m_DetailObjectDistance: 110
+  m_DetailObjectDensity: 0.8
+  m_HeightmapPixelError: 8
+  m_SplatMapDistance: 220
+  m_HeightmapMinimumLODSimplification: 0
+  m_HeightmapMaximumLOD: 0
+  m_ShadowCastingMode: 2
+  m_DrawHeightmap: 1
+  m_DrawInstanced: 1
+  m_DrawTreesAndFoliage: 1
+  m_StaticShadowCaster: 0
+  m_IgnoreQualitySettings: 0
+  m_ReflectionProbeUsage: 1
+  m_MaterialTemplate: {fileID: 2100000, guid: c5d8e1f2a3b44c67890d1e2f3a4b5c6d, type: 2}
+  m_BakeLightProbesForTrees: 1
+  m_PreserveTreePrototypeLayers: 0
+  m_DeringLightProbesForTrees: 1
+  m_ReceiveGI: 1
+  m_ScaleInLightmap: 0.05
+  m_LightmapParameters: {fileID: 15203, guid: 0000000000000000f000000000000000, type: 0}
+  m_GroupingID: 0
+  m_RenderingLayerMask: 1
+  m_AllowAutoConnect: 1
+  m_EnableHeightmapRayTracing: 1
+  m_EnableTreesAndDetailsRayTracing: 0
+  m_TreeMotionVectorModeOverride: 3
+--- !u!4 &1591405024
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1853074750}
+  m_GameObject: {fileID: 1591405021}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -320, y: 7.5891123, z: -192}
+  m_LocalPosition: {x: -256, y: 0, z: -256}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1299785333}
+  m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1853074752
+--- !u!1 &1601439925
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1601439926}
+  - component: {fileID: 1601439927}
+  m_Layer: 0
+  m_Name: P3 Start (Green) - Northeast
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1601439926
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1601439925}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 192, y: 7.0609093, z: 192}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2109822208}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1601439927
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1853074750}
+  m_GameObject: {fileID: 1601439925}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 995a3f5e761151a42bc21c9181a4d382, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  Faction: 2
+--- !u!1 &1630969881
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1630969882}
+  - component: {fileID: 1630969883}
+  m_Layer: 0
+  m_Name: Region 08 - Veil March C2
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1630969882
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1630969881}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -96, y: 8.207271, z: -160}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 484094590}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1630969883
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1630969881}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   SnapToTerrain: 1
-  RegionName: Veil March B3
+  RegionName: Veil March C2
   ValueMultiplier: 1
   Shape:
-  - {x: -384, y: -256}
-  - {x: -256, y: -256}
-  - {x: -256, y: -128}
-  - {x: -384, y: -128}
+  - {x: -128, y: -192}
+  - {x: -64, y: -192}
+  - {x: -64, y: -128}
+  - {x: -128, y: -128}
   Kind: 0
   Resources: 4
---- !u!1 &1903365251
+--- !u!1 &1631289087
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -3157,53 +2744,107 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1903365252}
-  - component: {fileID: 1903365253}
+  - component: {fileID: 1631289088}
+  - component: {fileID: 1631289089}
   m_Layer: 0
-  m_Name: Region 47 - Veil March F7
+  m_Name: Region 41 - Sanctum F6
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &1903365252
+--- !u!4 &1631289088
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1903365251}
+  m_GameObject: {fileID: 1631289087}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 192, y: 8.207271, z: 320}
+  m_LocalPosition: {x: 96, y: 8.063876, z: 96}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1299785333}
+  m_Father: {fileID: 484094590}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1903365253
+--- !u!114 &1631289089
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1903365251}
+  m_GameObject: {fileID: 1631289087}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   SnapToTerrain: 1
-  RegionName: Veil March F7
+  RegionName: Sanctum F6
   ValueMultiplier: 1
   Shape:
-  - {x: 128, y: 256}
-  - {x: 256, y: 256}
-  - {x: 256, y: 384}
-  - {x: 128, y: 384}
+  - {x: 64, y: 64}
+  - {x: 128, y: 64}
+  - {x: 128, y: 128}
+  - {x: 64, y: 128}
+  Kind: 0
+  Resources: 8
+--- !u!1 &1639894273
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1639894274}
+  - component: {fileID: 1639894275}
+  m_Layer: 0
+  m_Name: Region 16 - Veil March E3
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1639894274
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1639894273}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 32, y: 8.407891, z: -96}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 484094590}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1639894275
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1639894273}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Veil March E3
+  ValueMultiplier: 1
+  Shape:
+  - {x: 0, y: -128}
+  - {x: 64, y: -128}
+  - {x: 64, y: -64}
+  - {x: 0, y: -64}
   Kind: 0
   Resources: 4
---- !u!1 &1917474287
+--- !u!1 &1645346361
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -3211,53 +2852,107 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1917474288}
-  - component: {fileID: 1917474289}
+  - component: {fileID: 1645346362}
+  - component: {fileID: 1645346363}
   m_Layer: 0
-  m_Name: Region 01 - Southeast Home
+  m_Name: Region 42 - Veil March G6
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &1917474288
+--- !u!4 &1645346362
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1917474287}
+  m_GameObject: {fileID: 1645346361}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 384, y: 7.0609093, z: -384}
+  m_LocalPosition: {x: 160, y: 7.5891123, z: 96}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1299785333}
+  m_Father: {fileID: 484094590}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1917474289
+--- !u!114 &1645346363
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1917474287}
+  m_GameObject: {fileID: 1645346361}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   SnapToTerrain: 1
-  RegionName: Southeast Home
+  RegionName: Veil March G6
   ValueMultiplier: 1
   Shape:
-  - {x: 256, y: -512}
-  - {x: 512, y: -512}
-  - {x: 512, y: -256}
-  - {x: 256, y: -256}
+  - {x: 128, y: 64}
+  - {x: 192, y: 64}
+  - {x: 192, y: 128}
+  - {x: 128, y: 128}
+  Kind: 0
+  Resources: 4
+--- !u!1 &1648941886
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1648941887}
+  - component: {fileID: 1648941888}
+  m_Layer: 0
+  m_Name: Region 03 - Northwest Home
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1648941887
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1648941886}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -192, y: 7.0609093, z: 192}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 484094590}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1648941888
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1648941886}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Northwest Home
+  ValueMultiplier: 1
+  Shape:
+  - {x: -256, y: 128}
+  - {x: -128, y: 128}
+  - {x: -128, y: 256}
+  - {x: -256, y: 256}
   Kind: 1
   Resources: 1
---- !u!1 &1978637644
+--- !u!1 &1819680760
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -3265,8 +2960,475 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1978637646}
-  - component: {fileID: 1978637645}
+  - component: {fileID: 1819680761}
+  - component: {fileID: 1819680762}
+  m_Layer: 0
+  m_Name: Region 31 - Heart D5
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1819680761
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1819680760}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -32, y: 8.174568, z: 32}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 484094590}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1819680762
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1819680760}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Heart D5
+  ValueMultiplier: 1
+  Shape:
+  - {x: -64, y: 0}
+  - {x: 0, y: 0}
+  - {x: 0, y: 64}
+  - {x: -64, y: 64}
+  Kind: 0
+  Resources: 6
+--- !u!1 &1820171797
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1820171798}
+  - component: {fileID: 1820171799}
+  m_Layer: 0
+  m_Name: Region 48 - March C8
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1820171798
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1820171797}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -96, y: 7.7900653, z: 224}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 484094590}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1820171799
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1820171797}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: March C8
+  ValueMultiplier: 1
+  Shape:
+  - {x: -128, y: 192}
+  - {x: -64, y: 192}
+  - {x: -64, y: 256}
+  - {x: -128, y: 256}
+  Kind: 0
+  Resources: 2
+--- !u!1 &1841522625
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1841522626}
+  - component: {fileID: 1841522627}
+  m_Layer: 0
+  m_Name: Region 36 - March A6
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1841522626
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1841522625}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -224, y: 7.5414796, z: 96}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 484094590}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1841522627
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1841522625}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: March A6
+  ValueMultiplier: 1
+  Shape:
+  - {x: -256, y: 64}
+  - {x: -192, y: 64}
+  - {x: -192, y: 128}
+  - {x: -256, y: 128}
+  Kind: 0
+  Resources: 2
+--- !u!1 &1845808759
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1845808760}
+  - component: {fileID: 1845808761}
+  m_Layer: 0
+  m_Name: Region 43 - March H6
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1845808760
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1845808759}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 224, y: 7.5414796, z: 96}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 484094590}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1845808761
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1845808759}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: March H6
+  ValueMultiplier: 1
+  Shape:
+  - {x: 192, y: 64}
+  - {x: 256, y: 64}
+  - {x: 256, y: 128}
+  - {x: 192, y: 128}
+  Kind: 0
+  Resources: 2
+--- !u!1 &1849307822
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1849307823}
+  - component: {fileID: 1849307824}
+  m_Layer: 0
+  m_Name: Region 34 - Iron March G5
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1849307823
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1849307822}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 160, y: 7, z: 32}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 484094590}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1849307824
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1849307822}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Iron March G5
+  ValueMultiplier: 1
+  Shape:
+  - {x: 128, y: 0}
+  - {x: 192, y: 0}
+  - {x: 192, y: 64}
+  - {x: 128, y: 64}
+  Kind: 0
+  Resources: 3
+--- !u!1 &2046451427
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2046451428}
+  - component: {fileID: 2046451429}
+  m_Layer: 0
+  m_Name: Region 28 - Ironfield A5
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2046451428
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2046451427}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -224, y: 8.068874, z: 32}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 484094590}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2046451429
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2046451427}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Ironfield A5
+  ValueMultiplier: 1
+  Shape:
+  - {x: -256, y: 0}
+  - {x: -192, y: 0}
+  - {x: -192, y: 64}
+  - {x: -256, y: 64}
+  Kind: 0
+  Resources: 7
+--- !u!1 &2109822207
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2109822208}
+  m_Layer: 0
+  m_Name: PlayerStarts
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2109822208
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2109822207}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1447150116}
+  - {fileID: 567286859}
+  - {fileID: 1601439926}
+  - {fileID: 1188445848}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &2114171665
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2114171666}
+  - component: {fileID: 2114171667}
+  m_Layer: 0
+  m_Name: Region 19 - March H3
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2114171666
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2114171665}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 224, y: 7.5414796, z: -96}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 484094590}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2114171667
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2114171665}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: March H3
+  ValueMultiplier: 1
+  Shape:
+  - {x: 192, y: -128}
+  - {x: 256, y: -128}
+  - {x: 256, y: -64}
+  - {x: 192, y: -64}
+  Kind: 0
+  Resources: 2
+--- !u!1 &2119511087
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2119511088}
+  - component: {fileID: 2119511089}
+  m_Layer: 0
+  m_Name: Region 10 - Iron March E2
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2119511088
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2119511087}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 32, y: 7.8586073, z: -160}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 484094590}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2119511089
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2119511087}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Iron March E2
+  ValueMultiplier: 1
+  Shape:
+  - {x: 0, y: -192}
+  - {x: 64, y: -192}
+  - {x: 64, y: -128}
+  - {x: 0, y: -128}
+  Kind: 0
+  Resources: 3
+--- !u!1 &2143915008
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2143915010}
+  - component: {fileID: 2143915009}
   m_Layer: 0
   m_Name: Directional Light
   m_TagString: Untagged
@@ -3274,13 +3436,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!108 &1978637645
+--- !u!108 &2143915009
 Light:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1978637644}
+  m_GameObject: {fileID: 2143915008}
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 1
@@ -3339,13 +3501,13 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
---- !u!4 &1978637646
+--- !u!4 &2143915010
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1978637644}
+  m_GameObject: {fileID: 2143915008}
   serializedVersion: 2
   m_LocalRotation: {x: 0.40821788, y: -0.23456968, z: 0.10938163, w: 0.8754261}
   m_LocalPosition: {x: 0, y: 3, z: 0}
@@ -3354,174 +3516,12 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 50, y: -30, z: 0}
---- !u!1 &2013650933
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 2013650934}
-  - component: {fileID: 2013650935}
-  m_Layer: 0
-  m_Name: Region 00 - Southwest Home
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &2013650934
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2013650933}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -384, y: 7.0609093, z: -384}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1299785333}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &2013650935
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2013650933}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Southwest Home
-  ValueMultiplier: 1
-  Shape:
-  - {x: -512, y: -512}
-  - {x: -256, y: -512}
-  - {x: -256, y: -256}
-  - {x: -512, y: -256}
-  Kind: 1
-  Resources: 1
---- !u!1 &2076004349
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 2076004350}
-  - component: {fileID: 2076004351}
-  m_Layer: 0
-  m_Name: Region 15 - Veil March D3
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &2076004350
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2076004349}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -64, y: 8.407891, z: -192}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1299785333}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &2076004351
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2076004349}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Veil March D3
-  ValueMultiplier: 1
-  Shape:
-  - {x: -128, y: -256}
-  - {x: 0, y: -256}
-  - {x: 0, y: -128}
-  - {x: -128, y: -128}
-  Kind: 0
-  Resources: 4
---- !u!1 &2126236007
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 2126236008}
-  - component: {fileID: 2126236009}
-  m_Layer: 0
-  m_Name: Region 36 - March A6
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &2126236008
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2126236007}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -448, y: 7.5414796, z: 192}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1299785333}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &2126236009
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2126236007}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: March A6
-  ValueMultiplier: 1
-  Shape:
-  - {x: -512, y: 128}
-  - {x: -384, y: 128}
-  - {x: -384, y: 256}
-  - {x: -512, y: 256}
-  Kind: 0
-  Resources: 2
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 1978637646}
-  - {fileID: 280679019}
-  - {fileID: 1205495211}
-  - {fileID: 1811718076}
-  - {fileID: 1299785333}
+  - {fileID: 2143915010}
+  - {fileID: 1591405024}
+  - {fileID: 563375356}
+  - {fileID: 2109822208}
+  - {fileID: 484094590}

@@ -1,7 +1,7 @@
 // ShardrootCarrySystem.cs
 // The Shardroot artifact's carry chain (Curse_And_Shardroot.md §3.1):
 //   1. despawn timer — the Shardroot itself is PERSISTENT and exempt
-//   2. a unit standing on it long enough claims it and becomes the bearer
+//   2. a unit reaching it claims it at once and becomes the bearer
 //   3. the bearer reaching their Temple ENSHRINES it (sect powers amplified)
 //   4. the bearer dying drops it in place, for anyone to claim again
 //
@@ -88,12 +88,22 @@ namespace TheWaningBorder.Systems.Economy
             }
             expiredPickups.Dispose();
 
-            // ── Phase 2: attunement claim (spec refinement #4) ─────────
-            // 20-second visible attunement — no instant-on-touch claim.
-            // First non-Border unit in range becomes the Attuner. If they
-            // move out of range, die, or change faction, AttunementProgress
-            // resets and another in-range unit can take over (fight-over-
-            // loot). On completion, transfer to ShardrootBearer + destroy pickup.
+            // ── Phase 2: instant claim (2026-10-06) ────────────────────
+            // The pickup is taken the TICK a living non-Border unit stands
+            // within ShardrootPickupRadius — no channel. The old 20 s
+            // attunement locked in whichever unit arrived first, so an
+            // escort reaching the artifact a step ahead of King Lexor held
+            // the attunement and the king, ordered onto it, never got it.
+            //
+            // Who claims, when several are in range this tick:
+            //   1. a HERO (UniqueUnitTag) in range — the player who walks the
+            //      king onto the artifact means him to carry it;
+            //   2. otherwise the first other unit in snapshot order, EXCEPT a
+            //      unit whose own faction has a hero currently ordered onto
+            //      the artifact (its DesiredDestination lies within the
+            //      pickup radius): the hero has right of way over his own
+            //      escort. Enemies are never held back — interception stays.
+            // Snapshot order is chunk order, which every peer shares.
             var ecb = new EntityCommandBuffer(Allocator.Temp);
 
             // Snapshot units so the per-pickup loop doesn't re-query.
@@ -115,72 +125,60 @@ namespace TheWaningBorder.Systems.Economy
             {
                 ref var state = ref stateRW.ValueRW;
                 var pickupPos = pickupTransform.ValueRO.Position;
+                var pickupXZ = new float2(pickupPos.x, pickupPos.z);
 
-                // Validate current attuner — still in range, alive, non-Border?
-                bool attunerValid = false;
-                if (state.Attuner != Entity.Null && em.Exists(state.Attuner))
+                // No channel any more: nothing is ever mid-attunement.
+                state.Attuner = Entity.Null;
+                state.AttunementProgress = 0f;
+
+                // Factions with a living hero ordered onto this pickup.
+                uint heroBound = 0u;
+                for (int i = 0; i < unitEnts.Length; i++)
                 {
-                    if (em.HasComponent<Health>(state.Attuner)
-                        && em.GetComponentData<Health>(state.Attuner).Value > 0
-                        && em.HasComponent<FactionTag>(state.Attuner)
-                        && em.GetComponentData<FactionTag>(state.Attuner).Value != Faction.Border
-                        && em.HasComponent<LocalTransform>(state.Attuner))
-                    {
-                        var aPos = em.GetComponentData<LocalTransform>(state.Attuner).Position;
-                        float dxz = math.distance(
-                            new float2(aPos.x, aPos.z),
-                            new float2(pickupPos.x, pickupPos.z));
-                        if (dxz <= ShardrootPickupRadius) attunerValid = true;
-                    }
-                }
-                if (!attunerValid)
-                {
-                    state.Attuner = Entity.Null;
-                    state.AttunementProgress = 0f;
+                    if (unitHealths[i].Value <= 0) continue;
+                    int fi = (int)unitFactions[i].Value;
+                    if (fi < 0 || fi >= 32) continue;
+                    if (!em.HasComponent<TheWaningBorder.Abilities.UniqueUnitTag>(unitEnts[i])) continue;
+                    if (!em.HasComponent<DesiredDestination>(unitEnts[i])) continue;
+                    var dd = em.GetComponentData<DesiredDestination>(unitEnts[i]);
+                    if (dd.Has == 0) continue;
+                    if (math.distance(new float2(dd.Position.x, dd.Position.z), pickupXZ)
+                        <= ShardrootPickupRadius)
+                        heroBound |= 1u << fi;
                 }
 
-                // Find new attuner if none. A HERO in range wins over the
-                // rank and file (2026-09-15): the player who walks King Lexor
-                // onto the artifact means him to carry it, and with an escort
-                // at his side the first unit in chunk order was a Swordsman.
-                // Otherwise the first valid unit in the snapshot.
-                if (state.Attuner == Entity.Null)
+                int chosen = -1;
+                bool chosenIsHero = false;
+                for (int i = 0; i < unitEnts.Length; i++)
                 {
-                    int chosen = -1;
-                    for (int i = 0; i < unitEnts.Length; i++)
-                    {
-                        if (unitHealths[i].Value <= 0) continue;
-                        if (unitFactions[i].Value == Faction.Border) continue;
+                    if (unitHealths[i].Value <= 0) continue;
+                    if (unitFactions[i].Value == Faction.Border) continue;
 
-                        var uPos = unitTransforms[i].Position;
-                        float dxz = math.distance(
-                            new float2(uPos.x, uPos.z),
-                            new float2(pickupPos.x, pickupPos.z));
-                        if (dxz > ShardrootPickupRadius) continue;
+                    var uPos = unitTransforms[i].Position;
+                    if (math.distance(new float2(uPos.x, uPos.z), pickupXZ) > ShardrootPickupRadius)
+                        continue;
 
-                        bool hero = em.HasComponent<TheWaningBorder.Abilities.UniqueUnitTag>(unitEnts[i]);
-                        if (chosen < 0 || hero) chosen = i;
-                        if (hero) break;
-                    }
-                    if (chosen >= 0)
+                    bool hero = em.HasComponent<TheWaningBorder.Abilities.UniqueUnitTag>(unitEnts[i]);
+                    if (hero)
                     {
-                        state.Attuner = unitEnts[chosen];
-                        state.AttunementProgress = 0f;
-                        TWBLog.Log($"[Shardroot] {unitFactions[chosen].Value} unit begins attuning ({ShardrootAttunementTime:F0}s)");
+                        chosen = i;
+                        chosenIsHero = true;
+                        break;
                     }
+                    if (chosen >= 0) continue;
+
+                    int fi = (int)unitFactions[i].Value;
+                    if (fi >= 0 && fi < 32 && (heroBound & (1u << fi)) != 0) continue;
+                    chosen = i;
                 }
 
-                // Tick attunement.
-                if (state.Attuner != Entity.Null)
+                if (chosen >= 0)
                 {
-                    state.AttunementProgress += dt;
-                    if (state.AttunementProgress >= ShardrootAttunementTime)
-                    {
-                        claimedPickups.Add(pickupEntity);
-                        claimers.Add(state.Attuner);
-                        claimedAmounts.Add(state.Amount);
-                        claimedSources.Add(state.Source);
-                    }
+                    claimedPickups.Add(pickupEntity);
+                    claimers.Add(unitEnts[chosen]);
+                    claimedAmounts.Add(state.Amount);
+                    claimedSources.Add(state.Source);
+                    TWBLog.Log($"[Shardroot] {unitFactions[chosen].Value} {(chosenIsHero ? "hero" : "unit")} takes the pickup");
                 }
             }
 
@@ -209,7 +207,7 @@ namespace TheWaningBorder.Systems.Economy
 
                     Faction f = em.HasComponent<FactionTag>(unit)
                         ? em.GetComponentData<FactionTag>(unit).Value : Faction.Blue;
-                    UnityEngine.Debug.Log($"[Shardroot] {f} attunement complete — picked up {amount} Shardroot (carrying {merged.Amount})");
+                    UnityEngine.Debug.Log($"[Shardroot] {f} picked up {amount} Shardroot (carrying {merged.Amount})");
 
                     // The Shardroot hops from the pickup onto the claimer:
                     // the carrier is now the artifact's embodiment (visible

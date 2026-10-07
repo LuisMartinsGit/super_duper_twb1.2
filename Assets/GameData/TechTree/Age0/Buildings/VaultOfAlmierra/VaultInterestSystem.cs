@@ -55,6 +55,16 @@ namespace TheWaningBorder.Systems.Economy
                 float earning = math.min(vault.ValueRO.Principal, vaultDef.interestPrincipalCap);
                 if (earning <= 0f) continue;
 
+                // THE HARD CAP (2026-10-07, developer: "a 10 minute hard cap
+                // on the vault"): a deposit earns for at most the SO's
+                // interestMaxSeconds, then nothing until it is withdrawn and
+                // deposited again.
+                if (vaultDef.interestMaxSeconds > 0f)
+                {
+                    if (vault.ValueRO.EarningSeconds >= vaultDef.interestMaxSeconds) continue;
+                    vault.ValueRW.EarningSeconds += dt;
+                }
+
                 float rate = vault.ValueRO.InterestRate;
 
                 // Banking-grade tech ladder (Age 0 design): the highest

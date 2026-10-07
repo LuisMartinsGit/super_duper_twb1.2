@@ -442,6 +442,9 @@ namespace TheWaningBorder.AI
                     // …and off every reserved Fortress spot (AIBaseLayout).
                     if (!AIBaseLayout.FootprintClearOfFortressSpots(candidate, buildingSize, buildingId))
                         continue;
+                    // …and off the drawn base layout's free slots (AIBaseTemplate).
+                    if (!AIBaseTemplate.FootprintClearOfFreeSlotsForOwner(em, candidate, buildingSize))
+                        continue;
                     if (snap.IsValidBuildPosition(em, candidate, buildingSize, null))
                     {
                         // Flush is allowed; sealing the base is not

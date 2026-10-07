@@ -606,10 +606,13 @@ namespace TheWaningBorder.UI.Data
                             + (requirement != null ? "\n" + requirement : "");
                     }
 
-                    // The capital is the Shelter in Age 0 (its SO name) and the
-                    // Fortress once the faction has aged up.
-                    string buildingName = building.id == "Fortress" && factionCulture != Cultures.None
-                        ? Fortress.AgedName : building.name;
+                    // After age-up a building is offered under the name it will
+                    // carry once raised — its culture's level-1 name (Hut ->
+                    // House, Barracks -> Garrison, Shelter -> Fortress), since
+                    // BuildingCultureAutoLevelSystem bumps it to level 1. Age 0
+                    // keeps the SO name.
+                    string buildingName = EntityInfoExtractor.CulturedBuildName(building.id, factionCulture)
+                        ?? building.name;
 
                     string tooltip = BuildTooltip(
                         building.id == "Alanthor_Wall"

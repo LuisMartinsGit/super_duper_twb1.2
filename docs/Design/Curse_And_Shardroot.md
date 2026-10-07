@@ -1021,7 +1021,12 @@ it drops from a detonated holder (§3.1).
 
 - **Drop & carry**: a physical, **persistent** pickup; any unit carries
   it; the carrier is **visible to every player on the minimap**; carrier
-  dies → drops in place; it walks, never teleports.
+  dies → drops in place; it walks, never teleports. **Taking it is
+  instant** (2026-10-06): the first unit to reach it carries it, with no
+  channel. A hero in reach wins over other units, and a hero ordered onto
+  it has right of way over his own side's units (enemies can still snatch
+  it first). The pickup is selectable (info panel) and a right-click on it
+  orders the selection onto it.
 - **Store — one choice, no backsies** per holding-cycle:
   - **Hall** → awaken the culture's **Shardbound Hero** (three unique
     heroes): **Feraldis — Shardbound Warlord** *(name TBD)*, melee

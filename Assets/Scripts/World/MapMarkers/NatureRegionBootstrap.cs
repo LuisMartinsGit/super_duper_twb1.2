@@ -53,6 +53,17 @@ namespace TheWaningBorder.World.MapMarkers
                 blocked++;
             }
 
+            // THE START CLEARING (StartClearing.cs, Territory_Claims.md §11):
+            // no stand blocks the ground around a player start. Nothing else
+            // is obstacle-blocked yet (the resource nodes spawn after this),
+            // so releasing the disc only takes back what the stands stamped.
+            // StartClearing.Apply has already removed the trees there.
+            var starts = StartClearing.Starts;
+            float clear = StartClearing.Radius;
+            if (clear > 0f)
+                for (int i = 0; i < starts.Count; i++)
+                    grid.UnblockObstacle(starts[i], clear);
+
             TWBLog.Log($"[NatureRegionBootstrap] Blocked {blocked} nature region(s)");
         }
     }

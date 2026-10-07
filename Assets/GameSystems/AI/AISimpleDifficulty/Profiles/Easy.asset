@@ -27,7 +27,7 @@ MonoBehaviour:
   personalityWeight: 1
   sustainArmyCap: 60
   concurrentArmies: 1
-  incomeTargeting: 0
+  incomeTargeting: 1
   supportThinkScale: 1.5
   counterResponse: 0.4
   basicsShareScale: 1.35

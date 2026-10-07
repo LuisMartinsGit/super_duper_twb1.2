@@ -465,7 +465,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
         /// prop to its cell. Returns 0 when nothing measurable is found, in
         /// which case the caller leaves the prop's scale alone.
         /// </summary>
-        private static float MeasurePrefabWidth(GameObject prefab)
+        internal static float MeasurePrefabWidth(GameObject prefab)
         {
             if (prefab == null) return 0f;
 
@@ -548,7 +548,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
         /// <summary>Index of the NoWalk terrain layer, matching the
         /// case-insensitive name scan PassabilityGrid.LoadNoWalkMask uses.
         /// </summary>
-        private static int FindNoWalkLayer(TerrainData data)
+        internal static int FindNoWalkLayer(TerrainData data)
         {
             var layers = data.terrainLayers;
             if (layers == null) return -1;
@@ -823,7 +823,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
         }
 
-        private static List<GameObject> FindPrefabs(string[] namePrefixes, int max)
+        internal static List<GameObject> FindPrefabs(string[] namePrefixes, int max)
         {
             var found = new List<GameObject>();
             if (!AssetDatabase.IsValidFolder(SyntyEnv)) return found;

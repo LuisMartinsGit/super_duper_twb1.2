@@ -46,7 +46,7 @@ namespace TheWaningBorder.World.MapMarkers
             Normal = 0,
             /// <summary>A start region: the same, with a richer opening node set.</summary>
             PlayerStart = 1,
-            /// <summary>Claimable, but planted with trees to the region's shape.</summary>
+            /// <summary>Planted solid with trees to the shape. Unclaimable, impassable.</summary>
             Forest = 2,
             /// <summary>Excavated to the shape. Unclaimable, impassable.</summary>
             Water = 3,

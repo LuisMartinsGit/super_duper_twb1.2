@@ -226,6 +226,9 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                 CanPlant = CanPlant,
             });
             FillForestStands(terrain.terrainData);
+            // The flora pass's NoWalk patches are stripped again (2026-10-06,
+            // MapNoWalkCleaner): the developer wants this map free.
+            MapNoWalkCleaner.Clear(terrain.terrainData);
 
             int bad = ValidatePlacements();
             bad += ValidateRegionAreas();

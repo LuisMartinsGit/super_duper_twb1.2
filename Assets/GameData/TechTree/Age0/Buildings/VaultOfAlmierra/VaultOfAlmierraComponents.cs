@@ -28,4 +28,5 @@ public struct VaultStorage : IComponentData
     public float InterestRate;   // Base per minute from the SO (0.05 = 5%)
     public float LockTimer;      // Remaining lock seconds (0 = unlocked)
     public float LockDuration;   // Seconds to lock after deposit/withdraw (180 = 3 min)
+    public float EarningSeconds; // Seconds of interest paid since the last deposit (capped by the SO's interestMaxSeconds)
 }

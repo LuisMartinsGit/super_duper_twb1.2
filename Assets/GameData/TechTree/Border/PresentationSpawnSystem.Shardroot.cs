@@ -73,6 +73,15 @@ public partial class PresentationSpawnSystem
         scaleTag.BaseScale = baseScale;
         root.transform.localScale = Vector3.one * baseScale;
 
+        // The ground pickup must be clickable: left-click selects it (info
+        // panel), right-click orders the selection onto it. ScreenPick only
+        // sees colliders, and the gem prefab ships none, so without this box
+        // the artifact was invisible to every click (2026-10-06). The Maw's
+        // embedded artifact gets NO collider: it floats inside the host
+        // well, and a box there would steal the clicks that verb the well.
+        if (!embedded)
+            FitSelectionCollider(root, entity, _em, minWorldXZ: 1.5f, minWorldY: 1.5f);
+
         var er = root.AddComponent<EntityReference>();
         er.Entity = entity;
         return root;

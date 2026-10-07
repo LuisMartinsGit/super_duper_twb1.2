@@ -161,7 +161,15 @@ namespace TheWaningBorder.AI
                 threatHint = nodePos;
 
             int2 towerSize = BuildingSizeConfig.GetSize(towerId);
-            bool found = TryFindTowerSpot(em, hallPos, threatHint, ownTowers, towerSize, out float3 pos);
+            // THE DRAWN TOWER SLOTS FIRST (Game_AI.md § 6g): the home layout's
+            // free tower slots, as drawn, before any scan of its own.
+            float3 pos = default;
+            bool found = TheWaningBorder.World.Regions.RegionMap.Ready
+                && AIBaseTemplate.TryFirstFreeDrawnSlot(em, faction,
+                       TheWaningBorder.World.Regions.RegionMap.RegionAt(hallPos.x, hallPos.z),
+                       towerId, towerSize, out pos);
+            if (found) threatHint = pos;
+            else found = TryFindTowerSpot(em, hallPos, threatHint, ownTowers, towerSize, out pos);
             // HUT COVERAGE (endgame completeness): when the chokepoint /
             // directed-ring passes come up empty (anti-clump spacing
             // saturates the threat arc over a long match), spend the
@@ -332,6 +340,8 @@ namespace TheWaningBorder.AI
             if (!AIWallCorridor.FootprintClearForOwner(em, pos, size)) return false;
             // …and off every reserved Fortress spot (AIBaseLayout).
             if (!AIBaseLayout.FootprintClearOfFortressSpots(pos, size, "Alanthor_Tower")) return false;
+            // …and off the drawn base layout's free slots (AIBaseTemplate).
+            if (!AIBaseTemplate.FootprintClearOfFreeSlotsForOwner(em, pos, size)) return false;
             if (!BuildCommandHelper.IsValidBuildPosition(em, pos, size)) return false;
             // Flush is allowed; sealing the base is not (Game_AI.md 6b).
             return !AIEndgameCommon.SealsOwnersBase(em, pos, size, "Alanthor_Tower");

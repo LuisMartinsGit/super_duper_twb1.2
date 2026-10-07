@@ -829,6 +829,8 @@ namespace TheWaningBorder.Core.Commands
                 // 41): a deposit re-bases the principal to everything stored,
                 // and VaultInterestSystem never adds its own payout to it.
                 vault.Principal = vault.StoredAmount;
+                // ...and restarts the interest clock (the 10-minute cap).
+                vault.EarningSeconds = 0f;
             }
             else
             {
@@ -838,6 +840,7 @@ namespace TheWaningBorder.Core.Commands
                     em, faction, VaultTransferCost(vault.ResourceType, withdraw), TheWaningBorder.Economy.IncomeSource.Vault);
                 vault.StoredAmount = 0f;
                 vault.Principal = 0f;
+                vault.EarningSeconds = 0f;
                 vault.ResourceType = 0;
             }
             vault.LockTimer = vault.LockDuration;

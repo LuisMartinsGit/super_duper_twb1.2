@@ -7,8 +7,9 @@
 //
 //   1. A NODE SITE is legal only when that whole square is buildable ground
 //      (inside the map, no water, no slope over 15°, every passability cell
-//      open, no building or obstacle on it) and it keeps one clear cell from
-//      every other node. Every node factory resolves its position through
+//      open, no building or obstacle on it), outside every player start's
+//      clearing (StartClearing, Territory_Claims.md §11), and it keeps one
+//      clear cell from every other node. Every node factory resolves its position through
 //      TryResolve, so the authored markers, the fallback scatters, the
 //      coverage passes and the curse's precipitation all obey it. An illegal
 //      authored spot is moved to the NEAREST legal grid site (a fixed search
@@ -147,6 +148,10 @@ namespace TheWaningBorder.Entities
             var max = new float2(c.x + h, c.z + h);
 
             if (!BuildCommandHelper.InsideMapBounds(min, max)) return false;
+
+            // THE START CLEARING (Territory_Claims.md §11): no node's square
+            // reaches into the clear ground around a player start.
+            if (StartClearing.Covers(c, h)) return false;
 
             // Other nodes: footprints may not overlap, and keep one cell clear.
             const float reach = BuildGrid.ResourceNodeMeters + Gap;

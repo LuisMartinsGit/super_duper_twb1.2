@@ -60,6 +60,11 @@ namespace TheWaningBorder.Data
         /// <summary>The most stored principal that earns interest. Anything
         /// stored above it earns nothing.</summary>
         public float interestPrincipalCap;
+
+        /// <summary>THE VAULT'S HARD CAP (2026-10-07): a deposit earns interest
+        /// for at most this many seconds; after that it only waits to be
+        /// withdrawn. 0 = no cap.</summary>
+        public float interestMaxSeconds;
         /// <summary>Interest per minute once Coffers is researched (replaces
         /// <see cref="interestPerMinute"/>).</summary>
         public float coffersRate;

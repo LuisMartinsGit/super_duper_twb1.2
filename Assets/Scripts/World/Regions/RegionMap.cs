@@ -97,11 +97,13 @@ namespace TheWaningBorder.World.Regions
         /// <summary>True when at least one region states its kind.</summary>
         public static bool HasAuthoredKinds => _anyKind;
 
-        /// <summary>Water, mountain and obstacle regions hold nothing and block.</summary>
+        /// <summary>Water, mountain, obstacle and forest regions hold nothing and
+        /// block. A Forest region is a wooded obstacle (Regions.md §1, 2026-10-06).</summary>
         public static bool KindBlocks(MapMarkers.RegionSeedMarker.RegionKind kind) =>
             kind == MapMarkers.RegionSeedMarker.RegionKind.Water
             || kind == MapMarkers.RegionSeedMarker.RegionKind.Mountain
-            || kind == MapMarkers.RegionSeedMarker.RegionKind.Obstacle;
+            || kind == MapMarkers.RegionSeedMarker.RegionKind.Obstacle
+            || kind == MapMarkers.RegionSeedMarker.RegionKind.Forest;
 
         public static Vector2[] ShapeOf(int region) =>
             region >= 0 && region < _shapes.Length ? _shapes[region] : null;
@@ -289,12 +291,6 @@ namespace TheWaningBorder.World.Regions
         private const float WaterHeight = 4f;
         private const float MountainHeight = 24f;
 
-        /// <summary>
-        /// True when ground at this position can belong to a region at all.
-        /// Forests are deliberately still claimable: they are impassable, but
-        /// they are nature that takes on its owner's look
-        /// (Territory_And_Nature.md), so they belong to whoever holds them.
-        /// </summary>
         /// <summary>
         /// Whether ground can be held and built on.
         ///

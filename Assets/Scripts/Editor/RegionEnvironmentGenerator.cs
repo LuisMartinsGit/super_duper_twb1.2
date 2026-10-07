@@ -12,7 +12,9 @@
 //   Water     excavated to the region's shape
 //   Mountain  raised to the shape, then a noise + erosion pass
 //   Obstacle  nothing generated; RegionMap already reports it impassable
-//   Forest    tree PREFABS planted inside the shape, with a clear edge band
+//   Forest    walled like a mountain, planted solid with terrain trees
+//             (RegionTreePlanter — which also plants mountain fringes and
+//             forest nature stands)
 //   Normal    randomized resource nodes
 //   Start     a richer node set
 //
@@ -51,12 +53,6 @@ namespace TheWaningBorder.Core.Maps.EditorTools
 
         /// <summary>Smoothing passes over the generated relief — the erosion pass.</summary>
         const int ErosionPasses = 3;
-
-        /// <summary>Metres of forest left clear at the edge, so a Forester can sit there.</summary>
-        const float ForestEdgeClear = 8f;
-
-        /// <summary>Metres between planted trees.</summary>
-        const float TreeSpacing = 6f;
 
         /// <summary>Nodes per region.</summary>
         const int NormalNodesMin = 1, NormalNodesMax = 3, StartNodes = 5;
@@ -97,7 +93,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             Paint(terrain);
 
             var root = FreshRoot();
-            int trees = PlantForests(markers, root, min, max);
+            int trees = RegionTreePlanter.Plant(terrain, markers);
             int nodes = ScatterNodes(markers, root, min, max);
             int water_planes = FloodWater(markers, root, min, max);
 
@@ -266,59 +262,13 @@ namespace TheWaningBorder.Core.Maps.EditorTools
 
         #endregion
 
-        #region Forests and nodes
+        #region Nodes
 
         static GameObject FreshRoot()
         {
             var existing = GameObject.Find(GeneratedRoot);
             if (existing != null) Object.DestroyImmediate(existing);
             return new GameObject(GeneratedRoot);
-        }
-
-        static int PlantForests(RegionSeedMarker[] markers, GameObject root,
-                                Vector2 min, Vector2 max)
-        {
-            var prefabs = ForestPrefabs();
-            if (prefabs.Count == 0)
-            {
-                Debug.LogWarning("[RegionGen] no tree prefabs found — forests will be empty.");
-                return 0;
-            }
-
-            var parent = new GameObject("Forests");
-            parent.transform.SetParent(root.transform, false);
-
-            int planted = 0;
-
-            foreach (var m in markers)
-            {
-                if (m.Kind != Kind.Forest || m.Shape == null || m.Shape.Length < 3) continue;
-
-                PolyBounds(m.Shape, out Vector2 lo, out Vector2 hi);
-
-                for (float z = lo.y; z <= hi.y; z += TreeSpacing)
-                for (float x = lo.x; x <= hi.x; x += TreeSpacing)
-                {
-                    // Jitter, or the stand reads as a plantation grid.
-                    float jx = x + Random.Range(-TreeSpacing, TreeSpacing) * 0.35f;
-                    float jz = z + Random.Range(-TreeSpacing, TreeSpacing) * 0.35f;
-
-                    if (!InBounds(jx, jz, min, max)) continue;
-                    if (!Inside(m.Shape, jx, jz)) continue;
-
-                    // Leave the rim clear: a Forester is placed at the EDGE of a
-                    // forest, and a tree standing on that edge blocks the plot.
-                    if (EdgeDistance(m.Shape, jx, jz) < ForestEdgeClear) continue;
-
-                    var prefab = prefabs[Random.Range(0, prefabs.Count)];
-                    var tree = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent.transform);
-                    tree.transform.position = new Vector3(jx, MapGenKit.SampleHeight(jx, jz), jz);
-                    tree.transform.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
-                    tree.transform.localScale = Vector3.one * Random.Range(0.85f, 1.25f);
-                    planted++;
-                }
-            }
-            return planted;
         }
 
         static int ScatterNodes(RegionSeedMarker[] markers, GameObject root,
@@ -332,7 +282,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             foreach (var m in markers)
             {
                 bool start = m.Kind == Kind.PlayerStart;
-                if (!start && m.Kind != Kind.Normal && m.Kind != Kind.Forest) continue;
+                if (!start && m.Kind != Kind.Normal) continue;
 
                 int want = start ? StartNodes : Random.Range(NormalNodesMin, NormalNodesMax + 1);
 
@@ -398,20 +348,6 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             return t.terrainData.GetSteepness(u, v);
         }
 
-        static List<GameObject> ForestPrefabs()
-        {
-            var found = new List<GameObject>();
-            foreach (var guid in AssetDatabase.FindAssets("t:Prefab tree"))
-            {
-                var path = AssetDatabase.GUIDToAssetPath(guid);
-                if (path.Contains("/Editor/")) continue;
-                var go = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-                if (go != null) found.Add(go);
-                if (found.Count >= 12) break;
-            }
-            return found;
-        }
-
         #endregion
 
         #region Paint and water
@@ -442,7 +378,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                 NoWalk = (wx, wz) =>
                 {
                     var k = KindAt(wx, wz);
-                    return k == Kind.Mountain || k == Kind.Obstacle ? 1f : 0f;
+                    return k == Kind.Mountain || k == Kind.Obstacle || k == Kind.Forest ? 1f : 0f;
                 },
 
                 // Bare where the water sits: this is the lakebed, and it has to
@@ -541,14 +477,6 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                 if (x < poly[i].x + t * (poly[j].x - poly[i].x)) inside = !inside;
             }
             return inside;
-        }
-
-        static float EdgeDistance(Vector2[] poly, float x, float z)
-        {
-            float best = float.MaxValue;
-            for (int i = 0, j = poly.Length - 1; i < poly.Length; j = i++)
-                best = Mathf.Min(best, DistanceToSegment(x, z, poly[j], poly[i]));
-            return best;
         }
 
         #endregion

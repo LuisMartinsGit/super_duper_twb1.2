@@ -276,7 +276,10 @@ namespace TheWaningBorder.AI
                 // ─── 6b. Wall doctrine ────────────────────────────────
                 // Terrain-aware plan execution — endgame only (the ladder
                 // keeps priority on the bank while it is building).
-                if (!wallsHeld && !ladderBusy)
+                // A DRAWN BASE RING skips both (2026-10-07, Game_AI.md § 6h):
+                // an AI with no Religion Point keeps the ladder busy for the
+                // whole match (the Temple), and its ring never grew past 3 hubs.
+                if ((!wallsHeld && !ladderBusy) || IsDrawnRing(em, faction, hallPos))
                     TryBuildWallDefenses(faction, em, entity, hallPos);
                 // …except the gates: a ring with no gate seals the army in,
                 // so cutting one ignores the ladder and the savings holds

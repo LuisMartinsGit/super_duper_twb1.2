@@ -89,6 +89,14 @@ namespace TheWaningBorder.Bootstrap
             // promoted state on their first tick.
             StartAgePromoter.PromoteAllFactions();
 
+            // THE START CLEARING (docs/Design/Territory_Claims.md §11): the
+            // ground around every start loses its NoWalk paint and trees, the
+            // passability cells under them reopen, and from here on no
+            // resource node (nor the curse node on one) may stand there.
+            // BEFORE the nature regions, reachability and every node spawn,
+            // all of which read it; same sorted starts on every peer.
+            TheWaningBorder.World.Terrain.StartClearing.Apply(StartPositions());
+
             // Nature regions (forests / rock fields) become impassable BEFORE
             // reachability is computed, or the reachability pass would route
             // players through stands that are about to be walls.

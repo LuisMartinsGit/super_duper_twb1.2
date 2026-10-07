@@ -1,5 +1,29 @@
 # Territory & Nature
 
+> **2026-10-06 — trees are decoration on blocked ground (user direction).**
+> Forests are **impassable and purely decorative**: they block movement and
+> building, and do nothing else — no income, no sight blocking, no fuel that
+> opens a path. Trees appear in exactly two places:
+>
+> 1. **Inside or beside an obstacle that is already impassable** — scattered
+>    on the lower slopes of Mountain regions, or packed into an impassable
+>    forest stand (`NatureRegionMarker`) sitting inside a player territory.
+> 2. **Forest regions** — un-ownable territories that are obstacles, planted
+>    solid with trees (`RegionSeedMarker.Kind = Forest`, [Regions.md §1](Regions.md)).
+>
+> A tree never blocks ground on its own. It stands on ground that the region
+> kind or the stand's disc has already blocked, so the trees and the
+> passability can never disagree. Trees are Unity **terrain tree instances**
+> (`TerrainData.treeInstances`), planted in the editor by
+> `Waning Border > Maps > Plant Trees From Regions` and baked into the map.
+> There are no random maps, so nothing plants trees at runtime.
+>
+> What this overturns below: the **Feraldis burn-down exception (§3)** is
+> withdrawn, because a forest can no longer become passable. The per-owner
+> looks (§2) still apply, but only to stands inside claimable territories;
+> Forest regions and mountain fringes are never owned, so they stay Wild.
+> Forests do not block sight, which answers §10 Q3.
+
 > **Nature regions are the map's territory readout.** Forests, thickets and
 > groves are impassable terrain that **changes appearance to show who owns the
 > ground under them** — wild at the start, then blossoming under Alanthor,
@@ -79,6 +103,9 @@ signal; passability stays constant. This is the conservative choice on purpose:
 making large areas flip between passable and blocked mid-match would rewrite
 chokepoints under the players' feet, and every path, formation and flow-field
 consumer would have to tolerate it.
+
+**WITHDRAWN 2026-10-06** — forests are never passable (header note). The
+exception below is kept as a record of the idea, not as a rule.
 
 **The one deliberate exception: Feraldis burns it down.**
 

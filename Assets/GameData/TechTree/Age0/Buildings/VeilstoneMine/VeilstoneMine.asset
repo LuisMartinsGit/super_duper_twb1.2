@@ -30,8 +30,8 @@ MonoBehaviour:
   buildTime: 30
   slotIncomePerMinute:
   - 100
-  - 200
-  - 400
+  - 150
+  - 250
   interestPerMinute: 0
   minWallLevel: 0
   garrisonSlots: 0

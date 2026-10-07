@@ -143,6 +143,10 @@ namespace TheWaningBorder.AI
         /// <summary>The link to the NEXT live slot has stood connected (so a
         /// break now was a loss, not a refusal).</summary>
         public const byte FlagLinked = 32;
+        /// <summary>Mount an emplacement on the wall module nearest the
+        /// midpoint of the link from this slot to the NEXT live slot (a drawn
+        /// base ring, AIBaseTemplate; Game_AI.md § 6g).</summary>
+        public const byte FlagEmplacement = 64;
         /// <summary>Orders a slot's hub or link may have outstanding before
         /// the AI decides the executor refused them.</summary>
         public const byte MaxWallTries = 3;
@@ -432,7 +436,18 @@ namespace TheWaningBorder.AI
                 var sb = new System.Text.StringBuilder(96);
                 for (int i = 0; i < regions.Count && i < 255; i++)
                 {
-                    EmitBorderLoop(em, faction, regions[i], anchors[i], (byte)i, slots, out string part);
+                    // A territory with a drawn layout gets the drawn ring
+                    // (AIBaseTemplate, Game_AI.md § 6g), not a border trace.
+                    string part;
+                    if (AIBaseTemplate.TryGetOrigin(em, faction, regions[i], out float3 origin,
+                            out var layout) && layout.Hubs.Count >= 3)
+                    {
+                        int before = slots.Length;
+                        AIBaseTemplate.EmitRing(faction, regions[i], layout, origin, (byte)i, slots);
+                        part = $"drawn {(AIBaseTemplate.IsMain(layout) ? "main camp" : "outpost")} ring, " +
+                               $"{slots.Length - before} hubs";
+                    }
+                    else EmitBorderLoop(em, faction, regions[i], anchors[i], (byte)i, slots, out part);
                     if (i > 0) sb.Append("; ");
                     sb.Append(regions[i] == home ? "home: " : $"territory {regions[i]}: ");
                     sb.Append(part);
@@ -690,13 +705,32 @@ namespace TheWaningBorder.AI
                 || !TheWaningBorder.World.Regions.TerritoryOwnership.Ready) return;
 
             int home = HomeRegion(homePos);
+            // THE START TERRITORY ONLY (2026-10-07). "Home" is the capital the
+            // faction holds NOW; when its first capital falls, a secondary
+            // Fortress becomes the capital and its territory used to be
+            // walled as the main camp (Red, 2026-10-07 batch: a full ring
+            // with gates and emplacements round a secondary base). The
+            // walled territory is pinned to the first home seen this match.
+            if (_startRegionEpoch != SimCadence.Epoch) { _startRegionEpoch = SimCadence.Epoch; _startRegion.Clear(); }
+            if (home != TheWaningBorder.World.Regions.RegionMap.None
+                && !_startRegion.ContainsKey((int)faction))
+                _startRegion[(int)faction] = home;
+            if (_startRegion.TryGetValue((int)faction, out int start) && start != home) return;
             if (home != TheWaningBorder.World.Regions.RegionMap.None
                 && TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(home) == (int)faction)
             {
                 regions.Add(home);
                 anchors.Add(homePos);
             }
+            // (Secondary bases are NOT walled — 2026-10-07, developer: "the
+            // secondary bases should not have walls"; Game_AI.md § 6g.)
         }
+
+        /// <summary>Per faction, the territory of its first capital this match
+        /// (the only one ever walled).</summary>
+        private static readonly System.Collections.Generic.Dictionary<int, int> _startRegion
+            = new System.Collections.Generic.Dictionary<int, int>();
+        private static int _startRegionEpoch = int.MinValue;
 
         /// <summary>Owned by this faction, on the map, and not impassable
         /// region kind — the ground a border wall stands inside.</summary>

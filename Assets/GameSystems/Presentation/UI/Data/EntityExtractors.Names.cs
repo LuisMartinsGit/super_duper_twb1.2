@@ -86,6 +86,8 @@ namespace TheWaningBorder.UI.Data
             if (em.HasComponent<VeilsteelDepositTag>(entity)) return VeilsteelNodeName;
             if (em.HasComponent<IronMineTag>(entity)) return "Iron Deposit";
             if (em.HasComponent<VeilstoneOutcroppingTag>(entity)) return "Veilstone Node";
+            // The Shardroot on the ground: built outside the factories too.
+            if (em.HasComponent<ShardrootPickupTag>(entity)) return "Shardroot";
 
             if (em.HasComponent<BuildingTag>(entity)) return GetBuildingName(entity, em);
             return GetUnitName(entity, em);
@@ -140,16 +142,7 @@ namespace TheWaningBorder.UI.Data
             // § The Shelter). There is no cultured HQ name any more.
             if (isHall) return TheWaningBorder.Entities.Fortress.AgedName;
 
-            if (isBarracks)
-            {
-                return culture switch
-                {
-                    Cultures.Alanthor => "Garrison",
-                    Cultures.Runai    => "Route Guard",
-                    Cultures.Feraldis => "War Hall",
-                    _ => null,
-                };
-            }
+            if (isBarracks) return CulturedBarracksName(culture);
 
             // NOTE: the Archery Range is NOT in this table at all. It is an
             // Alanthor-only era-2 building (2026-08-27) — no other culture ever
@@ -163,6 +156,40 @@ namespace TheWaningBorder.UI.Data
             // Gatherer's Hut: Feraldis huts ARE Raider Camps (they stop
             // gathering entirely), so the name has to say so.
             return em.HasComponent<RaiderCampTag>(entity) ? "Raider Camp" : null;
+        }
+
+        /// <summary>The Barracks' cultured name; null with no culture.</summary>
+        private static string CulturedBarracksName(byte culture) => culture switch
+        {
+            Cultures.Alanthor => "Garrison",
+            Cultures.Runai    => "Route Guard",
+            Cultures.Feraldis => "War Hall",
+            _ => null,
+        };
+
+        /// <summary>
+        /// The name a building id will carry once a faction of
+        /// <paramref name="culture"/> raises it — for UI that has only the id
+        /// in hand (the worker's build palette). A building placed after
+        /// age-up is auto-bumped to level 1 (BuildingCultureAutoLevelSystem),
+        /// so its name is the culture's level-1 SO name (Hut -> House,
+        /// Barracks -> Garrison, Gatherer's Hut -> Guild); cultures whose
+        /// levels are not SOs yet fall back to the same rename table the
+        /// selection header uses. Null when no rename applies.
+        /// </summary>
+        internal static string CulturedBuildName(string buildingId, byte culture)
+        {
+            if (culture == Cultures.None || string.IsNullOrEmpty(buildingId)) return null;
+            if (TechCatalog.TryGetBuildingLevel(culture, buildingId, 1, out var lvl)
+                && !string.IsNullOrEmpty(lvl.displayName))
+                return lvl.displayName;
+            switch (buildingId)
+            {
+                case "Fortress":     return TheWaningBorder.Entities.Fortress.AgedName;
+                case "Barracks":     return CulturedBarracksName(culture);
+                case "GatherersHut": return culture == Cultures.Feraldis ? "Raider Camp" : null;
+                default:             return null;
+            }
         }
 
         private static string ArmorTypeDisplayName(ArmorType type)

@@ -25,7 +25,7 @@ MonoBehaviour:
   hpMultiplier: 1.2
   trainTimeMultiplier: 0.71428573
   attackCooldownMultiplier: 0.8333333
-  maxTargets: 6
+  maxTargets: 3
   populationProvided: 0
   slotIncomePerMinute: 0
   interestMultiplier: 0

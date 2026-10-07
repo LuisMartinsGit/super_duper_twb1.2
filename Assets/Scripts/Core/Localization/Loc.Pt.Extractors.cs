@@ -143,6 +143,12 @@ namespace TheWaningBorder.Core.Localization
             t["Warbrand Foundry"] = "Fundição Warbrand";
             t["War Hall"] = "Salão de Guerra";
             t["Garrison"] = "Guarnição";
+            // Alanthor level-1 names (BuildingLevelDefSO.displayName), shown on
+            // the worker's build palette after age-up.
+            t["House"] = "Casa";
+            t["Guild"] = "Guilda";
+            t["Route Guard"] = "Guarda de Rota";
+            t["Trading Outpost"] = "Entreposto Comercial";
             t["Thrower Camp"] = "Acampamento de Lançadores";
             t["Raider Camp"] = "Acampamento de Salteadores";
             t["Veilsteel Mine"] = "Mina de Veilsteel";

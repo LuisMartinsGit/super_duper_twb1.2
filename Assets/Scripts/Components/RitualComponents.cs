@@ -136,10 +136,10 @@ public struct ShardrootPickupTag : IComponentData { }
 /// Per-pickup state. Pickup window counts down — if no one claims within
 /// the window, the Shardroot despawns (spec §4.5: 30-60s pickup window).
 ///
-/// Spec refinement #4: claim is a 20-second attunement, not an instant
-/// transfer. A unit must stand within ShardrootPickupRadius for
-/// ShardrootAttunementTime uninterrupted; if they move out of range or
-/// die, progress resets and another unit in range can take over.
+/// The claim is INSTANT (2026-10-06; the 20 s attunement is gone): the
+/// first eligible unit within ShardrootPickupRadius takes it that tick
+/// (ShardrootCarrySystem). Attuner / AttunementProgress are vestigial and
+/// stay Null / 0.
 /// </summary>
 public struct ShardrootPickupState : IComponentData
 {

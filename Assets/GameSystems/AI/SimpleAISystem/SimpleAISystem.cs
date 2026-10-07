@@ -167,6 +167,11 @@ namespace TheWaningBorder.AI
                 float now = (float)SystemAPI.Time.ElapsedTime - _matchTimeAnchor;
                 _thinkNow = now;
 
+                // THE ARMY CAP RISES WITH UNSPENT MONEY (§ 6j): every reader of
+                // the profile below, and ProfileOf, sees the raised cap.
+                profile.SustainArmyCap += ArmyCapBonus(em, brain.Owner, profile.SustainArmyCap, now);
+                NoteProfile(brain.Owner, profile, brain.Personality);
+
                 // Worker tasking is gone: income comes from held territory, not
                 // from workers on deposits (Regions.md §4). The AI's economic
                 // decision is now WHERE TO CLAIM, which belongs in the build

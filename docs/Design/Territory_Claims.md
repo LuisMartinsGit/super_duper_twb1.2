@@ -503,8 +503,8 @@ markers no longer decide anything; nodes are generated from the type.
 | **Sanctum** | none — its holder earns **1 Religion Point a minute** |
 
 **Placement is random inside the territory** (2026-10-01): each node lands on
-a random legal spot, 9 m from the territory's other nodes and, in a home,
-20 m clear of the start — from a per-territory seeded stream, so every peer
+a random legal spot, 9 m from the territory's other nodes and outside every
+**start clearing** (below) — from a per-territory seeded stream, so every peer
 lays the same map. **Never in the restriction zone (2026-10-02):** a node's
 whole 4 m footprint keeps **10 m** clear of any OTHER territory — covering
 the band inside every border where the border wall runs and no AI building
@@ -533,6 +533,37 @@ the outcrop range are `TerritoryResources.asset` (beside `TerritoryResources.cs`
 Implemented in `TerritoryResources` (resolve + generation), the
 `SpawnDelayHelper` resource step, `CurseNodeSeeding.CurseVeilstoneRich` and
 `SanctumSystem`. The territory hover overlay shows a Sanctum's +1 RP/min.
+
+**Home nodes line the edge (2026-10-07).** In a home territory every node
+stands at least `homeNodeMinOffset` (TerritoryResources.asset) from the start
+on one axis or the other — a square band along the territory's edge — so
+the AI's main camp and its wall ring (Game_AI.md § 6g) are never built round
+a node. Applies to every map; a home too small for the band comes up short
+and says so in the log.
+
+**The start clearing (2026-10-06).** Every player start opens on clear,
+walkable ground. Within `StartClearing.asset` → `radiusCells` build cells of
+each start position (where the Fortress was placed), in whatever territory
+that ground lies:
+
+- **no resource node stands** — supply, iron, veilstone or veilsteel, and so
+  no curse node either (the curse rises only on resource nodes). It is a
+  node-site legality rule (`ResourceNodeSite`), so generated nodes, mirrored
+  copies, marker-path nodes and the curse's later precipitation all obey it;
+- **no impassable paint survives** — the `NoWalk` terrain layer is removed
+  from the circle and its weight handed to the dominant walkable layer
+  around the start, so the ground looks walkable as well as being walkable,
+  and the passability grid and nav cost field are re-derived for it;
+- **no trees, and no forest stand blocks a cell.**
+
+The heightmap is not touched: ground blocked by the incline budget or the
+water line (a cliff, a lake) stays blocked — that is a map-authoring matter.
+The clearing is applied once at match load, from the map's terrain data and
+the sorted start positions, so every lockstep peer clears the same cells. A
+home too small to fit its nodes outside the clearing comes up short and the
+generator logs it, as for any thin territory. Implemented in `StartClearing`
+(`Scripts/World/Terrain/`), called from `SpawnDelayHelper` before the nature
+regions, reachability and node generation.
 
 **An authored Start territory stays a Start (2026-10-05)** whether or not a
 player is seated there. It used to be re-dealt as an ordinary type when no

@@ -17,8 +17,8 @@ MonoBehaviour:
   level: 3
   displayName: Watch Tower
   upgradeCost:
-    Supplies: 280
-    Iron: 120
+    Supplies: 560
+    Iron: 240
     Veilstone: 0
     Veilsteel: 0
   upgradeSeconds: 40
@@ -31,11 +31,11 @@ MonoBehaviour:
   interestMultiplier: 0
   attack:
     enabled: 1
-    damage: 15
+    damage: 10
     damageType: ranged
     range: 32
     cooldown: 1.2
-    maxTargets: 3
-    siegeShotDamage: 30
+    maxTargets: 2
+    siegeShotDamage: 20
   lineOfSight: 36
   prefab: {fileID: 0}

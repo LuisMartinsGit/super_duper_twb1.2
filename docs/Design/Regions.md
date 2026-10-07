@@ -33,9 +33,9 @@ same way and drawn the same way, distinguished only by a **kind** tag:
 |---|---|---|---|
 | **Normal** | yes | yes | randomized resource nodes |
 | **PlayerStart** | yes | yes | a richer node set — the opening economy |
-| **Forest** | yes | yes | trees planted to the region SHAPE |
+| **Forest** | **no** | **no** | trees planted solid to the region SHAPE — an obstacle territory that is wooded (2026-10-06; was claimable and passable) |
 | **Water** | no | no | terrain excavated to the region shape |
-| **Mountain** | no | no | terrain raised, then a noise / erosion pass |
+| **Mountain** | no | no | terrain raised, then a noise / erosion pass; trees scattered sparsely on its lower slopes (2026-10-06) |
 | **Obstacle** | no | no | nothing generated; it simply blocks |
 
 **The authoring direction is inverted.** Claimability and passability used to be

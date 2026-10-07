@@ -17,3 +17,4 @@ MonoBehaviour:
   normalVeilstoneWeight: 4
   normalVeilstoneOutcropsMin: 1
   normalVeilstoneOutcropsMax: 2
+  homeNodeMinOffset: 38

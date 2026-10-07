@@ -49,6 +49,27 @@ entries — flat bonus damage vs a target tag, added **after** armor and
 ignoring it. Tags: Infantry, Cavalry, Ranged, Siege, Heavy, Light,
 Building, Worker, Religious, Ship.
 
+### Buildings support armies; they do not replace them (2026-10-07)
+
+Developer: "building attack value is too high and towers melt through any
+army — rebalance in favour of armies." A capital or a tower is a deterrent
+that makes a small raid costly; it must never out-damage the army sent to
+take it. The rule the SOs follow: a fully levelled Fortress or Watch Tower
+deals no more damage per second than a handful of line infantry, and hits
+few targets at once. The Fortress, Watch Tower (all levels) and Renewal's
+raised defences were cut to fit on 2026-10-07; the values are on their SOs
+and in `tools/calculator/TechTree.html`.
+
+### Fortifications cost real money (2026-10-07)
+
+Developer: "increase fortification prices". With 100,000-unit banks a stone
+wall cost next to nothing. Every fortification's price was doubled on its SO
+(wall hub and module, palisade hub and module, gate, wall tower, Watch Tower
+and its level-ups, both emplacements). And the extractors' level-ups pay less:
+each level's gain over level 1 was halved on the slot-income ladders (Guild,
+Mine, Gatherer's Hut, Veilstone Mine) and the Trading Outpost's trade-rate
+ladder, so levelling is a modest step, not a doubling.
+
 ### Flanking (2026-10-04)
 
 **A melee hit that lands on a unit's side or back deals more damage.** The
