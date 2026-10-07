@@ -106,6 +106,7 @@ MonoBehaviour:
   missionTimeoutSeconds: 480
   razeChainRadius: 90
   closeoutAfterSeconds: 900
+  crippledTerritories: 4
   warMaxFailures: 3
   armyCapRaiseThreshold: 1000
   armyCapRaiseStep: 10
@@ -452,3 +453,12 @@ MonoBehaviour:
   incomeReconMinKnown: 3
   incomeReconIntervalSeconds: 45
   incomeReconSpreadMeters: 120
+  incomeWorkerBonus: 60
+  incomeWorkerRadius: 25
+  incomeWorkerMaxAgeSeconds: 120
+  incomeWorkerMaxCounted: 4
+  raidMaxConcurrent: 2
+  raidChainRadius: 120
+  wallGuardIntervalSeconds: 20
+  wallGuardInsetMeters: 8
+  wallGuardArriveMeters: 10

@@ -98,9 +98,9 @@ public static class TransientState
     // The full pre-add set, ONE structural change per spawn. The sect lever
     // stamp buffer rides along: "already processed" is read from the buffer's
     // CONTENT, so an empty pre-add is behaviour-neutral and stops the lever
-    // pass from splitting every unit archetype in two. FirstStrike stays
-    // lazy: it is an Alanthor tech grant and Set() converges each granted
-    // unit to a stable archetype anyway.
+    // pass from splitting every unit archetype in two. FirstStrike joined the
+    // pre-add in UnitSet3 (2026-10-07): it is granted with TransientState.Set,
+    // which on a pre-added unit only flips the bit.
     static readonly ComponentType[] UnitSet =
     {
         // Target is NOT here: factories already add it always-present with
@@ -139,6 +139,69 @@ public static class TransientState
         ComponentType.ReadWrite<HeroXpAwarded>(),
     };
 
+    // Third and fourth halves (2026-10-07). The 8-player headless matches
+    // crashed at 60-80 minutes with the SAME BlockAllocator overflow the first
+    // pre-add cured: the world held ~3,300 entities but ~5,000 archetypes
+    // (4,700+ empty), and the per-match census (WorldCensus NEWARCH lines)
+    // named what was still being added and removed per fight — the ability
+    // engine's timed buffs, the legacy sect-unit ability effects, every
+    // Alanthor sect power's stamp, the formation membership pair and the
+    // command-queue markers. They are IEnableableComponent now and ride the
+    // same pre-add. Readers test TransientState.Active<T>, never HasComponent.
+    static readonly ComponentType[] UnitSet3 =
+    {
+        ComponentType.ReadWrite<TheWaningBorder.Abilities.Charging>(),
+        ComponentType.ReadWrite<TheWaningBorder.Abilities.ChargeDamageBonus>(),
+        ComponentType.ReadWrite<TheWaningBorder.Abilities.NextChargePct>(),
+        ComponentType.ReadWrite<TheWaningBorder.Abilities.TempDisarm>(),
+        ComponentType.ReadWrite<TheWaningBorder.Abilities.SelfDoT>(),
+        ComponentType.ReadWrite<TheWaningBorder.Abilities.LifeCling>(),
+        ComponentType.ReadWrite<TheWaningBorder.Abilities.AbilityAftermath>(),
+        ComponentType.ReadWrite<TheWaningBorder.Abilities.AbilityCastState>(),
+        ComponentType.ReadWrite<AbilityActivated>(),
+        ComponentType.ReadWrite<TheWaningBorder.Abilities.VolleyBuff>(),
+        ComponentType.ReadWrite<TheWaningBorder.Abilities.NextShotBonus>(),
+        ComponentType.ReadWrite<TheWaningBorder.Abilities.FirstStrike>(),
+        ComponentType.ReadWrite<SpellDebuff>(),
+        ComponentType.ReadWrite<Condemned>(),
+        ComponentType.ReadWrite<Fortified>(),
+    };
+
+    static readonly ComponentType[] UnitSet4 =
+    {
+        ComponentType.ReadWrite<HealOverTime>(),
+        ComponentType.ReadWrite<SectDisordered>(),
+        ComponentType.ReadWrite<SectRegenTail>(),
+        ComponentType.ReadWrite<SectDeathWard>(),
+        ComponentType.ReadWrite<SectVeiled>(),
+        ComponentType.ReadWrite<SectCurseWard>(),
+        ComponentType.ReadWrite<StealthTag>(),
+        ComponentType.ReadWrite<SectHaste>(),
+        ComponentType.ReadWrite<SectBlinded>(),
+        ComponentType.ReadWrite<StealthRevealed>(),
+        ComponentType.ReadWrite<Invulnerable>(),
+        ComponentType.ReadWrite<MarkedForSentence>(),
+        ComponentType.ReadWrite<VenerationFervor>(),
+        ComponentType.ReadWrite<FormationMemberState>(),
+        ComponentType.ReadWrite<FormationSpeedOverride>(),
+    };
+
+    // CommandQueueActive / QueuedMoveStep are enableable flags. AntiquityKills
+    // and AttainderLedger are PLAIN counters pre-added at zero: a zero tally
+    // reads exactly as absent to every reader (the damage bonus needs n > 0,
+    // the Writ bills Against(faction) == 0), so presence means nothing.
+    // HoldPositionTag is deliberately NOT here: the emplacement factories add
+    // it ENABLED before this runs, and a set-add cannot tell which types were
+    // already there, so the disable below would wipe their hold. It is
+    // enableable and toggled with Set/Clear, so a unit gains it at most once.
+    static readonly ComponentType[] UnitSet5 =
+    {
+        ComponentType.ReadWrite<CommandQueueActive>(),
+        ComponentType.ReadWrite<QueuedMoveStep>(),
+        ComponentType.ReadWrite<AntiquityKills>(),
+        ComponentType.ReadWrite<AttainderLedger>(),
+    };
+
     /// <summary>Pre-add the full transient set, disabled, on a freshly
     /// created unit. Called once by UnitFactory's dispatcher; the entity
     /// then keeps one archetype for life.</summary>
@@ -146,6 +209,9 @@ public static class TransientState
     {
         em.AddComponent(e, new ComponentTypeSet(UnitSet));
         em.AddComponent(e, new ComponentTypeSet(UnitSet2));
+        em.AddComponent(e, new ComponentTypeSet(UnitSet3));
+        em.AddComponent(e, new ComponentTypeSet(UnitSet4));
+        em.AddComponent(e, new ComponentTypeSet(UnitSet5));
 
         em.SetComponentEnabled<TheWaningBorder.Core.Commands.Types.AttackCommand>(e, false);
         em.SetComponentEnabled<TheWaningBorder.Core.Commands.Types.AttackMoveCommand>(e, false);
@@ -163,6 +229,38 @@ public static class TransientState
         em.SetComponentEnabled<LastDamagedByFaction>(e, false);
         em.SetComponentEnabled<VeilDebuffTag>(e, false);
         em.SetComponentEnabled<HeroXpAwarded>(e, false);
+        em.SetComponentEnabled<TheWaningBorder.Abilities.Charging>(e, false);
+        em.SetComponentEnabled<TheWaningBorder.Abilities.ChargeDamageBonus>(e, false);
+        em.SetComponentEnabled<TheWaningBorder.Abilities.NextChargePct>(e, false);
+        em.SetComponentEnabled<TheWaningBorder.Abilities.TempDisarm>(e, false);
+        em.SetComponentEnabled<TheWaningBorder.Abilities.SelfDoT>(e, false);
+        em.SetComponentEnabled<TheWaningBorder.Abilities.LifeCling>(e, false);
+        em.SetComponentEnabled<TheWaningBorder.Abilities.AbilityAftermath>(e, false);
+        em.SetComponentEnabled<TheWaningBorder.Abilities.AbilityCastState>(e, false);
+        em.SetComponentEnabled<AbilityActivated>(e, false);
+        em.SetComponentEnabled<TheWaningBorder.Abilities.VolleyBuff>(e, false);
+        em.SetComponentEnabled<TheWaningBorder.Abilities.NextShotBonus>(e, false);
+        em.SetComponentEnabled<TheWaningBorder.Abilities.FirstStrike>(e, false);
+        em.SetComponentEnabled<SpellDebuff>(e, false);
+        em.SetComponentEnabled<Condemned>(e, false);
+        em.SetComponentEnabled<Fortified>(e, false);
+        em.SetComponentEnabled<HealOverTime>(e, false);
+        em.SetComponentEnabled<SectDisordered>(e, false);
+        em.SetComponentEnabled<SectRegenTail>(e, false);
+        em.SetComponentEnabled<SectDeathWard>(e, false);
+        em.SetComponentEnabled<SectVeiled>(e, false);
+        em.SetComponentEnabled<SectCurseWard>(e, false);
+        em.SetComponentEnabled<StealthTag>(e, false);
+        em.SetComponentEnabled<SectHaste>(e, false);
+        em.SetComponentEnabled<SectBlinded>(e, false);
+        em.SetComponentEnabled<StealthRevealed>(e, false);
+        em.SetComponentEnabled<Invulnerable>(e, false);
+        em.SetComponentEnabled<MarkedForSentence>(e, false);
+        em.SetComponentEnabled<VenerationFervor>(e, false);
+        em.SetComponentEnabled<FormationMemberState>(e, false);
+        em.SetComponentEnabled<FormationSpeedOverride>(e, false);
+        em.SetComponentEnabled<CommandQueueActive>(e, false);
+        em.SetComponentEnabled<QueuedMoveStep>(e, false);
     }
 
     /// <summary>ECB twin of <see cref="PreAddUnitSet(EntityManager,Entity)"/>
@@ -171,6 +269,9 @@ public static class TransientState
     {
         ecb.AddComponent(e, new ComponentTypeSet(UnitSet));
         ecb.AddComponent(e, new ComponentTypeSet(UnitSet2));
+        ecb.AddComponent(e, new ComponentTypeSet(UnitSet3));
+        ecb.AddComponent(e, new ComponentTypeSet(UnitSet4));
+        ecb.AddComponent(e, new ComponentTypeSet(UnitSet5));
 
         ecb.SetComponentEnabled<TheWaningBorder.Core.Commands.Types.AttackCommand>(e, false);
         ecb.SetComponentEnabled<TheWaningBorder.Core.Commands.Types.AttackMoveCommand>(e, false);
@@ -188,5 +289,37 @@ public static class TransientState
         ecb.SetComponentEnabled<LastDamagedByFaction>(e, false);
         ecb.SetComponentEnabled<VeilDebuffTag>(e, false);
         ecb.SetComponentEnabled<HeroXpAwarded>(e, false);
+        ecb.SetComponentEnabled<TheWaningBorder.Abilities.Charging>(e, false);
+        ecb.SetComponentEnabled<TheWaningBorder.Abilities.ChargeDamageBonus>(e, false);
+        ecb.SetComponentEnabled<TheWaningBorder.Abilities.NextChargePct>(e, false);
+        ecb.SetComponentEnabled<TheWaningBorder.Abilities.TempDisarm>(e, false);
+        ecb.SetComponentEnabled<TheWaningBorder.Abilities.SelfDoT>(e, false);
+        ecb.SetComponentEnabled<TheWaningBorder.Abilities.LifeCling>(e, false);
+        ecb.SetComponentEnabled<TheWaningBorder.Abilities.AbilityAftermath>(e, false);
+        ecb.SetComponentEnabled<TheWaningBorder.Abilities.AbilityCastState>(e, false);
+        ecb.SetComponentEnabled<AbilityActivated>(e, false);
+        ecb.SetComponentEnabled<TheWaningBorder.Abilities.VolleyBuff>(e, false);
+        ecb.SetComponentEnabled<TheWaningBorder.Abilities.NextShotBonus>(e, false);
+        ecb.SetComponentEnabled<TheWaningBorder.Abilities.FirstStrike>(e, false);
+        ecb.SetComponentEnabled<SpellDebuff>(e, false);
+        ecb.SetComponentEnabled<Condemned>(e, false);
+        ecb.SetComponentEnabled<Fortified>(e, false);
+        ecb.SetComponentEnabled<HealOverTime>(e, false);
+        ecb.SetComponentEnabled<SectDisordered>(e, false);
+        ecb.SetComponentEnabled<SectRegenTail>(e, false);
+        ecb.SetComponentEnabled<SectDeathWard>(e, false);
+        ecb.SetComponentEnabled<SectVeiled>(e, false);
+        ecb.SetComponentEnabled<SectCurseWard>(e, false);
+        ecb.SetComponentEnabled<StealthTag>(e, false);
+        ecb.SetComponentEnabled<SectHaste>(e, false);
+        ecb.SetComponentEnabled<SectBlinded>(e, false);
+        ecb.SetComponentEnabled<StealthRevealed>(e, false);
+        ecb.SetComponentEnabled<Invulnerable>(e, false);
+        ecb.SetComponentEnabled<MarkedForSentence>(e, false);
+        ecb.SetComponentEnabled<VenerationFervor>(e, false);
+        ecb.SetComponentEnabled<FormationMemberState>(e, false);
+        ecb.SetComponentEnabled<FormationSpeedOverride>(e, false);
+        ecb.SetComponentEnabled<CommandQueueActive>(e, false);
+        ecb.SetComponentEnabled<QueuedMoveStep>(e, false);
     }
 }

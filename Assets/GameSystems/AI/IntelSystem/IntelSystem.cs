@@ -1,4 +1,4 @@
-﻿// IntelSystem.cs
+// IntelSystem.cs
 // Perception backbone of the full-scale AI (docs/AI_Assessment_and_Plan.md M1).
 //
 // Every tick (1 s), for each AIBrain faction:
@@ -28,6 +28,8 @@ namespace TheWaningBorder.AI
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial class IntelSystem : SystemBase
     {
+        private double _simClockLast = -1d;
+
         #region Cached queries
 
         // CreateEntityQuery registers a new query with the world on EVERY
@@ -69,10 +71,10 @@ namespace TheWaningBorder.AI
             // run on the host alone in multiplayer. docs/Multiplayer_LAN_Readiness.md
             if (!GameSettings.ShouldRunAIBrains()) return;
 
-            if (!_acc.Due(SystemAPI.Time.DeltaTime, Cfg.tickInterval)) return;
+            if (!_acc.Due(AIClock.Delta(ref _simClockLast), Cfg.tickInterval)) return;
 
             var em = EntityManager;
-            float now = (float)SystemAPI.Time.ElapsedTime;
+            float now = TheWaningBorder.Core.SimClock.Now;
             var fog = FogOfWarManager.Instance;
 
             ThreatMaps.DecayAll();

@@ -175,6 +175,9 @@ namespace TheWaningBorder.AI
             // Source 2: the ring the doctrine WILL draw. Only a culture that
             // walls (Alanthor) or one still to choose (Age 0) reserves it.
             if (culture != Cultures.None && culture != Cultures.Alanthor) { Clear(ring, 3u); return ring; }
+            // A personality that never walls (Rush, Game_AI.md § 3b) keeps no
+            // corridor free for a ring it will not build.
+            if (!AIPersonalityLookup.WallsEnabled(em, faction)) { Clear(ring, 4u); return ring; }
             if (!RegionMap.Ready || !TerritoryOwnership.Ready) { Clear(ring, 0u); return ring; }
 
             uint sig = AIWallPlanner.WallTerritorySignature(em, faction, home);
@@ -289,9 +292,12 @@ namespace TheWaningBorder.AI
 
         static bool SealedBetween(NativeArray<AIWallPlanSlot> slots, int i, int j)
         {
+            // Only this chain's slots lie between i and j (a plan may carry
+            // several chains — the home ring and frontier lines, § 3b).
             int n = slots.Length;
+            byte chain = slots[i].Chain;
             for (int k = (i + 1) % n, guard = 0; k != j && guard < n; k = (k + 1) % n, guard++)
-                if ((slots[k].Flags & AIWallPlanner.FlagTerrainSealed) != 0) return true;
+                if (slots[k].Chain == chain && (slots[k].Flags & AIWallPlanner.FlagTerrainSealed) != 0) return true;
             return false;
         }
 

@@ -1,4 +1,4 @@
-﻿// AICommon.cs
+// AICommon.cs
 // Helpers every AI system shares — culture-neutral AND phase-neutral.
 //
 // AIEndgameCommon exists for the same reason one level down: it holds what the
@@ -153,7 +153,7 @@ namespace TheWaningBorder.AI
             for (int i = 0; i < members.Count; i++)
             {
                 var u = members[i];
-                if (!em.Exists(u) || em.HasComponent<FormationMemberState>(u)) continue;
+                if (!em.Exists(u) || TransientState.Active<FormationMemberState>(em, u)) continue;
                 if (em.HasComponent<Target>(u) && em.GetComponentData<Target>(u).Value != Entity.Null) continue;
                 if (em.HasComponent<DesiredDestination>(u)
                     && em.GetComponentData<DesiredDestination>(u).Has != 0) loose++;
@@ -406,5 +406,84 @@ namespace TheWaningBorder.AI
         }
 
         #endregion
+    }
+
+    /// <summary>
+    /// THE PERSONALITY OF A FACTION, for helpers that hold no brain — the
+    /// base template, the wall planner and its corridor (2026-10-07,
+    /// docs/Design/Game_AI.md § 3b). Reads the AIBrain components through a
+    /// cached query, once per frame. A faction with no brain (a human) reads
+    /// as Balanced. <see cref="Row"/> is the row AS AUTHORED: the structural
+    /// knobs it is used for (walls on or off, the ring's scale, the frontier
+    /// walls) are the same at every tier.
+    /// </summary>
+    public static class AIPersonalityLookup
+    {
+        static readonly ComponentType[] QT_Brains = { ComponentType.ReadOnly<AIBrain>() };
+        static CachedEntityQuery QC_Brains;
+
+        private const int Slots = 16;   // array size, not tuning: Faction is a byte enum (0..7 + Border)
+        static readonly byte[] _has = new byte[Slots];
+        static readonly AIPersonality[] _kind = new AIPersonality[Slots];
+        static int _frame = -1;
+
+        static void Refresh(EntityManager em)
+        {
+            int frame = UnityEngine.Time.frameCount;
+            if (frame == _frame) return;
+            _frame = frame;
+            System.Array.Clear(_has, 0, Slots);
+            var q = QC_Brains.Get(em, QT_Brains);
+            using var brains = q.ToComponentDataArray<AIBrain>(Allocator.Temp);
+            for (int i = 0; i < brains.Length; i++)
+            {
+                int k = (int)brains[i].Owner;
+                if (k < 0 || k >= Slots) continue;
+                _has[k] = 1;
+                _kind[k] = brains[i].Personality;
+            }
+        }
+
+        /// <summary>The faction's personality; false (Balanced) when it has no brain.</summary>
+        public static bool TryGet(EntityManager em, Faction faction, out AIPersonality personality)
+        {
+            Refresh(em);
+            int k = (int)faction;
+            bool has = k >= 0 && k < Slots && _has[k] != 0;
+            personality = has ? _kind[k] : AIPersonality.Balanced;
+            return has;
+        }
+
+        /// <summary>The faction's personality row as authored (never dampened by tier).</summary>
+        public static TheWaningBorder.Data.AI.AISettingsSO.PersonalityBlock Row(EntityManager em, Faction faction)
+        {
+            TryGet(em, faction, out var p);
+            return TheWaningBorder.Data.AI.AISettings.Get().For(p);
+        }
+
+        /// <summary>Does this faction build walls at all (the row's wallsEnabled)?</summary>
+        public static bool WallsEnabled(EntityManager em, Faction faction) => Row(em, faction).wallsEnabled;
+    }
+
+    /// <summary>
+    /// THE AI RUNS ON SIMULATED TIME (2026-10-07). Every AI timer used to read
+    /// the WORLD clock (SystemAPI.Time), which advances once per rendered frame
+    /// with a capped delta, so on a heavy frame it falls behind the simulation:
+    /// in the 8-player batch the AI clock reached 3,350 s of a 6,640 s match and
+    /// every wave interval, mission clock and think cadence ran at half speed.
+    /// Seconds an AI decision waits are seconds of GAME, which is SimClock.
+    /// </summary>
+    public static class AIClock
+    {
+        /// <summary>Simulated seconds since the last call with this stamp
+        /// (0 on the first, or after the clock was reset for a new match).</summary>
+        public static float Delta(ref double last)
+        {
+            double now = TheWaningBorder.Core.SimClock.Elapsed;
+            if (last < 0d || now < last) { last = now; return 0f; }
+            float dt = (float)(now - last);
+            last = now;
+            return dt;
+        }
     }
 }

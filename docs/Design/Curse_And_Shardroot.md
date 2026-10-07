@@ -1073,6 +1073,20 @@ it drops from a detonated holder (§3.1).
   carrying it, or the artifact lying on the ground, is no holder: the curse
   does not hunt itself. The per-spawn `shardrootChance` (4 %, §2.13 rule 5)
   is unchanged.
+  *Revised 2026-10-07 ([Territory_Claims.md §6.6](Territory_Claims.md),
+  which is canonical):* the hunt no longer takes the harassment/expansion
+  dispatch — it runs on its own clock (`shardrootHuntSeconds`), drafting
+  hunt parties of `shardrootHuntPartySize` at the holder wherever they are,
+  at most `shardrootMaxHunts` at once, while the curse keeps claiming
+  ground. A garrison goes for the holder first when the holder comes within
+  `shardrootHolderAggroRadius` of its node, and attack waves come faster
+  (`shardrootHolderWaveIntervalMult`). **The curse defends the Shardroot:**
+  while the artifact lies on the ground it keeps a guard of
+  `shardrootGuardPartySize` on it (engaging within `shardrootGuardRadius`,
+  leashed at `shardrootGuardLeashRadius`) that denies the pickup by
+  fighting — curse units still never pick it up — and that guard becomes a
+  hunt party the moment a player takes it. A curse unit bearing the
+  artifact is never drafted away from its garrison.
 - The Shardroot **does not win the game by itself** — it is the power
   that helps you take or defend wells. Victory is § 2.4 (or conquest).
 

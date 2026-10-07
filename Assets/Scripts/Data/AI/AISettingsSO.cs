@@ -105,6 +105,48 @@ namespace TheWaningBorder.Data.AI
             /// rest of the build list. 1 = Balanced.</summary>
             public float wallPriorityScale;
 
+            // ── Personality doctrines (2026-10-07, Game_AI.md § 3b) ──
+            // STRUCTURAL knobs — whether a thing happens at all, and the
+            // shape of the base — are taken from the personality's row at
+            // every tier (For(p, weight) copies them unblended): a Rush that
+            // walls a little, or a Turtle with a slightly wider ring, is not
+            // a weaker flavour, it is a different one. MAGNITUDE knobs blend
+            // toward Balanced like every other number on the row.
+
+            /// <summary>STRUCTURAL. Off: the faction builds no walls at all
+            /// (no plan, no ring corridor kept free). Every row but Rush.</summary>
+            public bool wallsEnabled;
+            /// <summary>STRUCTURAL. Multiplier on the drawn main-camp ring's
+            /// hub offsets from the Fortress (1 = as drawn). A wider ring
+            /// fences more building ground; a hub that would leave the home
+            /// territory is pulled back toward the drawn ring.</summary>
+            public float homeRingScale;
+            /// <summary>STRUCTURAL. Besides the home ring, up to this many
+            /// held territories bordering hostile ground are walled along
+            /// their outer border (0 = home only).</summary>
+            public int frontierWallTerritories;
+            /// <summary>MAGNITUDE. Share of the idle standing army posted on
+            /// the home ring's gates each think (0 = none).</summary>
+            public float wallGuardShare;
+            /// <summary>STRUCTURAL. Seconds between independent raid parties
+            /// sent at the enemy's extractors, on their own timer (0 = raids
+            /// only peel off a wave at launch).</summary>
+            public float raidIntervalSeconds;
+            /// <summary>MAGNITUDE. Multiplier on the raid party size.</summary>
+            public float raidPartyScale;
+            /// <summary>STRUCTURAL. Game time from which every wave must pass
+            /// the strength test (the earlier of this and the config's
+            /// strengthWaveAfterSeconds).</summary>
+            public float strengthGateFromSeconds;
+            /// <summary>STRUCTURAL. On: an overdue wave is never released
+            /// past the assessment, nor past the Defend veto.</summary>
+            public bool noOverdueRelease;
+            /// <summary>MAGNITUDE. Multiplier on the Fortress expansion: the
+            /// ceiling, the pace (check interval and the tier's delay are
+            /// divided by it) and the bonus for ground bordering a rival.
+            /// 1 = Balanced.</summary>
+            public float fortressAppetite;
+
             /// <summary>The affinity for one plan, by plan id.</summary>
             public float AffinityFor(AIPlan plan) => plan switch
             {
@@ -161,6 +203,17 @@ namespace TheWaningBorder.Data.AI
                 fortressAffinity = L(b.fortressAffinity, target.fortressAffinity),
                 towerCoverageScale = L(b.towerCoverageScale, target.towerCoverageScale),
                 wallPriorityScale = L(b.wallPriorityScale, target.wallPriorityScale),
+                // Structural knobs: the personality's own value at every tier.
+                wallsEnabled = target.wallsEnabled,
+                homeRingScale = target.homeRingScale,
+                frontierWallTerritories = target.frontierWallTerritories,
+                raidIntervalSeconds = target.raidIntervalSeconds,
+                strengthGateFromSeconds = target.strengthGateFromSeconds,
+                noOverdueRelease = target.noOverdueRelease,
+                // Magnitudes blend.
+                wallGuardShare = L(b.wallGuardShare, target.wallGuardShare),
+                raidPartyScale = L(b.raidPartyScale, target.raidPartyScale),
+                fortressAppetite = L(b.fortressAppetite, target.fortressAppetite),
             };
         }
 

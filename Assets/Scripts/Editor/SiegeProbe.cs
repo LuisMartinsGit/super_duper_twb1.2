@@ -355,7 +355,7 @@ namespace TheWaningBorder.EditorTools
                 {
                     if (em.GetComponentData<FactionTag>(ents[i]).Value != faction) continue;
                     units++;
-                    if (em.HasComponent<FormationMemberState>(ents[i])) form++;
+                    if (TransientState.Active<FormationMemberState>(em, ents[i])) form++;
                     if (em.HasComponent<Target>(ents[i])
                         && em.GetComponentData<Target>(ents[i]).Value != Entity.Null) fight++;
                 }
@@ -639,7 +639,7 @@ namespace TheWaningBorder.EditorTools
                     var e = ents[i];
                     c[0]++;
                     if (em.HasComponent<DesiredDestination>(e) && em.GetComponentData<DesiredDestination>(e).Has != 0) c[1]++;
-                    if (em.HasComponent<FormationMemberState>(e)) c[2]++;
+                    if (TransientState.Active<FormationMemberState>(em, e)) c[2]++;
                     if (em.HasComponent<Target>(e) && em.GetComponentData<Target>(e).Value != Entity.Null) c[3]++;
                 }
                 foreach (var kv in per)
@@ -696,7 +696,7 @@ namespace TheWaningBorder.EditorTools
                 {
                     var e = ents[i];
                     waves.Add(em.GetComponentData<CurseWaveMember>(e).WaveId);
-                    if (em.HasComponent<FormationMemberState>(e)) inFormation++;
+                    if (TransientState.Active<FormationMemberState>(em, e)) inFormation++;
                     if (em.HasComponent<Target>(e) && em.GetComponentData<Target>(e).Value != Entity.Null) fighting++;
                     if (em.HasComponent<DesiredDestination>(e) && em.GetComponentData<DesiredDestination>(e).Has != 0) marching++;
                 }
@@ -853,7 +853,7 @@ namespace TheWaningBorder.EditorTools
                     var p = em.GetComponentData<LocalTransform>(e).Position;
                     int flags = 0;
                     if (em.HasComponent<DesiredDestination>(e) && em.GetComponentData<DesiredDestination>(e).Has != 0) flags |= 1;
-                    if (em.HasComponent<FormationMemberState>(e)) flags |= 2;
+                    if (TransientState.Active<FormationMemberState>(em, e)) flags |= 2;
                     if (em.HasComponent<Target>(e) && em.GetComponentData<Target>(e).Value != Entity.Null) flags |= 4;
                     W("P", ts, id, F(p.x), F(p.z), flags);
                 }

@@ -196,12 +196,12 @@ namespace TheWaningBorder.Systems.Combat
 
                 // Full Gallop: cavalry mid-sprint cannot swing. They keep chasing —
                 // only the attack is suppressed for the burst's duration.
-                if (em.HasComponent<TheWaningBorder.Abilities.TempDisarm>(entity)) continue;
+                if (TransientState.Active<TheWaningBorder.Abilities.TempDisarm>(em, entity)) continue;
 
                 // Fix #211: skip targets that are currently Invulnerable (set by
                 // SpellBuffSystem). Without this guard, protected units still
                 // took full damage, making the buff a no-op.
-                if (em.HasComponent<Invulnerable>(tgt.Value)) continue;
+                if (TransientState.Active<Invulnerable>(em, tgt.Value)) continue;
 
                 var myPos = transform.ValueRO.Position;
                 var targetXf = em.GetComponentData<LocalTransform>(tgt.Value);
@@ -274,7 +274,7 @@ namespace TheWaningBorder.Systems.Combat
                             : 0;
 
                         // Fortified armor bonus on target
-                        if (em.HasComponent<Fortified>(tgt.Value))
+                        if (TransientState.Active<Fortified>(em, tgt.Value))
                         {
                             var fort = em.GetComponentData<Fortified>(tgt.Value);
                             defenseValue += (int)fort.ArmorBonus;

@@ -232,7 +232,7 @@ namespace TheWaningBorder.Systems.Sect
                 if (blind.ValueRO.TimeRemaining > 0f) continue;
 
                 los.ValueRW.Radius = blind.ValueRO.OriginalRadius;
-                ecb.RemoveComponent<SectBlinded>(e);
+                ecb.SetComponentEnabled<SectBlinded>(e, false); // enableable — TransientState.cs
             }
         }
     }

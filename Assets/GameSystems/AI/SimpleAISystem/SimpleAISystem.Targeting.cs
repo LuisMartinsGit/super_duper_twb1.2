@@ -264,8 +264,10 @@ namespace TheWaningBorder.AI
         }
 
 
+        /// <param name="only">When set, only that faction's start Hall (the
+        /// war victim's) — never a start Hall someone else now holds.</param>
         private static Entity FindEnemyStartHall(
-            EntityManager em, Faction myFaction, float3 originPos)
+            EntityManager em, Faction myFaction, float3 originPos, Faction only = Faction.Border)
         {
             var starts = TheWaningBorder.World.MapMarkers.MapMarkerRegistry.PlayerStarts;
             if (starts == null || starts.Count == 0) return Entity.Null;
@@ -280,6 +282,7 @@ namespace TheWaningBorder.AI
             for (int i = 0; i < ents.Length; i++)
             {
                 if (!Alliances.AreHostile(myFaction, facs[i].Value)) continue;
+                if (only != Faction.Border && facs[i].Value != only) continue;
                 if (em.HasComponent<UnderConstruction>(ents[i])) continue;
 
                 bool atStart = false;

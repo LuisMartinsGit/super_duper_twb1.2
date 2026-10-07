@@ -124,7 +124,7 @@ namespace TheWaningBorder.AI
         public void OnUpdate(ref SystemState state)
         {
             if (!GameSettings.ShouldRunAIBrains()) return;
-            float time = (float)SystemAPI.Time.ElapsedTime;
+            float time = TheWaningBorder.Core.SimClock.Now;
             var em = state.EntityManager;
 
             // Snapshot brain entities first — we make structural changes
@@ -279,12 +279,16 @@ namespace TheWaningBorder.AI
                 // A DRAWN BASE RING skips both (2026-10-07, Game_AI.md § 6h):
                 // an AI with no Religion Point keeps the ladder busy for the
                 // whole match (the Temple), and its ring never grew past 3 hubs.
-                if ((!wallsHeld && !ladderBusy) || IsDrawnRing(em, faction, hallPos))
+                // A PERSONALITY THAT NEVER WALLS (Rush, Game_AI.md § 3b): no
+                // plan, no hubs, no gates — the row as authored, every tier.
+                bool wallsEnabled = TheWaningBorder.Data.AI.AISettings.Get().For(brain.Personality).wallsEnabled;
+                if (wallsEnabled
+                    && ((!wallsHeld && !ladderBusy) || IsDrawnRing(em, faction, hallPos)))
                     TryBuildWallDefenses(faction, em, entity, hallPos);
                 // …except the gates: a ring with no gate seals the army in,
                 // so cutting one ignores the ladder and the savings holds
                 // (TryBuildWallDefenses runs it first when it runs at all).
-                else
+                else if (wallsEnabled)
                     TryEnsureRingGates(faction, em, entity, hallPos);
 
                 // ─── 7. (Armoured-unit production moved to the composition

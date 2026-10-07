@@ -91,6 +91,11 @@ namespace TheWaningBorder.AI
         /// caster), scaled by focusFireWeight.</summary>
         public float highValueBonus;
 
+        /// <summary>Bonus for an enemy WORKER, at every tier (not scaled by
+        /// focusFireWeight): armies treat the builders as high-value targets
+        /// (Game_AI.md § 3b). Also read by AIEngagement.PickPriorityTarget.</summary>
+        public float workerTargetBonus;
+
         /// <summary>How many of the best army-scored candidates each member
         /// chooses among — the concentration of the focus.</summary>
         public int focusTopK;

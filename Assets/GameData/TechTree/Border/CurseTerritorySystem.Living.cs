@@ -12,17 +12,26 @@
 //                   `armyGrowth`^n (2.13; per node since 2026-10-03,
 //                   Territory_Claims.md §6.3). Nothing regrows between
 //                   spawns: kill the army and the node is open.
+//   TickShardrootGuard  while the Shardroot lies on the ground the curse
+//                   keeps a GUARD party (role 4) on it, topped up each check;
+//                   when a player takes it the guard becomes a hunt party
+//                   (Territory_Claims.md §6.6, 2026-10-07).
+//   TickShardrootHunt   every `shardrootHuntSeconds` while a player holds
+//                   the Shardroot, a HUNT party is drafted at the holder (at
+//                   most `shardrootMaxHunts` out). Its own clock: it never
+//                   takes the expansion slot.
 //   TryExpand       every `expansionSeconds` the curse sends a CLAIM party
 //                   at an adjacent, unlocked territory it does not hold, or
-//                   fills a free node in ground it holds. It advances only
-//                   on ground it can take: no raids (§6.7, 2026-10-03).
+//                   fills a free node in ground it holds — up to
+//                   `maxConcurrentClaims` parties out at once, reconquest and
+//                   unlocked player ground first (§6.5, 2026-10-07). Locked
+//                   ground is the conquest waves' (§6.8).
 //   (every spawn)   one `shardrootChance` roll that a unit carries the
 //                   Shardroot (2.13 rule 5); the wells then hold it no more.
-//   (the holder)    "the curse wants it back" (§3.1): a player holding the
-//                   Shardroot in a territory ADJACENT to the curse draws the
-//                   harassment party as a HUNT aimed at the holder, and a
-//                   garrison with the holder inside its territory goes for
-//                   the holder before any other intruder.
+//   (the holder)    "the curse wants it back" (§6.6): a garrison whose node
+//                   has the holder within `shardrootHolderAggroRadius` goes
+//                   for the holder before any other intruder, and waves come
+//                   faster.
 //   ShepherdLiving  each defender GUARDS its node: it engages hostiles
 //                   within `guardRadius` of it, and past `guardLeashRadius`
 //                   drops the fight and walks back (§6.7, 2026-10-03). Merge parties march to the node,
@@ -34,8 +43,9 @@
 //                   long as anyone holds it, then walks home as garrison.
 //   TickAttackWaves  every `waveIntervalSeconds` waveDraftFraction of the
 //                   garrison is DRAFTED into an ATTACK WAVE that marches on a
-//                   player (Territory_Claims.md §6.8, 2026-10-04) --
-//                   CurseTerritorySystem.Waves.cs.
+//                   player (Territory_Claims.md §6.8, 2026-10-04) -- a
+//                   CONQUEST wave when the target has locked ground beside
+//                   the curse -- CurseTerritorySystem.Waves.cs.
 //
 // ONE SPAWNER (§6.8, 2026-10-04). TickGarrisons is the only thing in the
 // living path that raises units. Claim, fill and hunt parties and attack
@@ -72,7 +82,8 @@ namespace TheWaningBorder.Systems.Border
         /// <summary>Home territory index (RegionMap).</summary>
         public int Home;
         /// <summary>0 = garrison, 1 = merge party, 2 = raid (Shardroot hunt),
-        /// 3 = attack wave (Territory_Claims.md §6.8).</summary>
+        /// 3 = attack wave (Territory_Claims.md §6.8), 4 = Shardroot guard
+        /// (§6.6).</summary>
         public byte Role;
         /// <summary>Merge party / raid id, or -1 for garrison.</summary>
         public int Party;
@@ -87,6 +98,9 @@ namespace TheWaningBorder.Systems.Border
         private const byte RoleGarrison = 0;
         private const byte RoleMerge = 1;
         private const byte RoleRaid = 2;
+        /// <summary>Guards the Shardroot lying on the ground (§6.6). 3 is
+        /// RoleWave (CurseTerritorySystem.Waves.cs).</summary>
+        private const byte RoleGuard = 4;
 
         private const byte MergeMarching = 0;
         private const byte MergeMerging = 1;
@@ -140,6 +154,12 @@ namespace TheWaningBorder.Systems.Border
             _nextExpandAt = -1.0;
             _noNodeSince = -1.0;
             _shardrootGuaranteed = false;
+            _nextHuntAt = -1.0;
+            _guardParty = -1;
+            _guardHome = -1;
+            _guardAnchor = default;
+            _guardIntruders.Clear();
+            _lostGround.Clear();
             ResetAttackWaves();
         }
 
@@ -426,6 +446,227 @@ namespace TheWaningBorder.Systems.Border
             return territory != RegionMap.None;
         }
 
+        // ── the Shardroot: guard and hunt (§6.6, 2026-10-07) ────────────────
+
+        private static readonly ComponentType[] QT_ShardrootPickup =
+        {
+            ComponentType.ReadOnly<ShardrootTag>(),
+            ComponentType.ReadOnly<ShardrootPickupTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        private static CachedEntityQuery QC_ShardrootPickup;
+
+        /// <summary>Sim time the next Shardroot hunt may leave, or -1 while
+        /// no player holds the artifact (the first hunt then leaves at once).</summary>
+        private double _nextHuntAt = -1.0;
+
+        /// <summary>Party id of the guard around the Shardroot on the ground,
+        /// or -1. There is only ever one Shardroot, so one guard.</summary>
+        private int _guardParty = -1;
+        /// <summary>Curse territory the guard was drafted nearest (its
+        /// home when it turns into a hunt).</summary>
+        private int _guardHome = -1;
+        /// <summary>Where the artifact lies (the guard's post).</summary>
+        private float3 _guardAnchor;
+        /// <summary>Hostile units within the guard's leash of the artifact,
+        /// rebuilt once per check by ShepherdLiving.</summary>
+        private readonly List<float3> _guardIntruders = new();
+
+        /// <summary>The Shardroot lying on the ground as a pickup (dropped by
+        /// a dead carrier or a ruined Temple), lowest entity index first so
+        /// every peer reads the same one. Curse units never pick it up
+        /// (ShardrootCarrySystem); the curse GUARDS it instead.</summary>
+        private static bool TryShardrootPickup(EntityManager em, out float3 pos)
+        {
+            pos = default;
+            var q = QC_ShardrootPickup.Get(em, QT_ShardrootPickup);
+            if (q.IsEmptyIgnoreFilter) return false;
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            int best = -1;
+            for (int i = 0; i < ents.Length; i++)
+                if (best < 0 || ents[i].Index < ents[best].Index) best = i;
+            if (best < 0) return false;
+            pos = xfs[best].Position;
+            return true;
+        }
+
+        /// <summary>
+        /// THE CURSE DEFENDS THE SHARDROOT (Territory_Claims.md §6.6,
+        /// 2026-10-07). While the artifact lies on the ground a GUARD party
+        /// (role 4) of shardrootGuardPartySize is drafted from the garrisons
+        /// nearest it, anchored on it and topped up every check; any hunt
+        /// party out (it just killed the holder) folds into it. When a player
+        /// takes the artifact the guard becomes a HUNT party on the holder;
+        /// when it leaves the ground any other way (a curse unit bears it,
+        /// it timed out) the guard rejoins the garrison.
+        /// </summary>
+        private void TickShardrootGuard(EntityManager em, double now, BorderSettingsSO s)
+        {
+            if (TryShardrootPickup(em, out float3 at))
+            {
+                bool fresh = _guardParty < 0;
+                if (fresh)
+                {
+                    _guardParty = _nextPartyId++;
+                    SnapshotAllNodes();
+                    int n = NearestCurseNode(at);
+                    _guardHome = n >= 0 ? _allNodes[n].t : -1;
+                }
+                _guardAnchor = at;
+                FoldRaidsIntoGuard(em, at);
+
+                int have = 0;
+                var q = QC_Living.Get(em, QT_Living);
+                using (var members = q.ToComponentDataArray<CurseLivingMember>(Allocator.Temp))
+                    for (int i = 0; i < members.Length; i++)
+                        if (members[i].Role == RoleGuard && members[i].Party == _guardParty) have++;
+
+                int need = math.max(0, s.shardrootGuardPartySize) - have;
+                if (need <= 0) return;
+                int got = DraftFromGarrisons(em, s, at, -1, need, _scratchWave);
+                if (got == 0)
+                {
+                    if (fresh)
+                        UnityEngine.Debug.Log($"[CurseTerritory] SHARDROOT GUARD -- no garrison to spare above " +
+                            $"{s.garrisonMinPerNode} per node (wanted {need}).");
+                    return;
+                }
+                Enlist(em, _scratchWave, RoleGuard, _guardParty, _guardHome, at);
+                TheWaningBorder.Core.Commands.Types.FormationMoveCommandHelper.Execute(
+                    em, _scratchWave, at, FormationShape.Box, attackMove: true);
+                if (fresh) SimSignals.Ping(at, SimPingKind.Curse, 10f);
+                UnityEngine.Debug.Log($"[CurseTerritory] SHARDROOT GUARD -- party {_guardParty}: {got} drafted " +
+                    $"({have + got}/{s.shardrootGuardPartySize}) to guard the artifact at ({at.x:F0},{at.z:F0}).");
+                return;
+            }
+
+            if (_guardParty < 0) return;
+
+            // The artifact has left the ground: collect the guard.
+            int party = _guardParty;
+            _guardParty = -1;
+            var gq = QC_Living.Get(em, QT_Living);
+            _scratchWave.Clear();
+            using (var ents = gq.ToEntityArray(Allocator.Temp))
+            using (var members = gq.ToComponentDataArray<CurseLivingMember>(Allocator.Temp))
+                for (int i = 0; i < ents.Length; i++)
+                    if (members[i].Role == RoleGuard && members[i].Party == party) _scratchWave.Add(ents[i]);
+            if (_scratchWave.Count == 0) return;
+
+            if (TryShardrootHolder(em, out var holder, out float3 holderPos, out int holderTerritory))
+            {
+                // A player took it: the guard hunts the holder (§6.6).
+                int home = _guardHome;
+                if (home < 0 || !_anchors.ContainsKey(home))
+                {
+                    SnapshotAllNodes();
+                    int n = NearestCurseNode(holderPos);
+                    home = n >= 0 ? _allNodes[n].t : home;
+                }
+                Enlist(em, _scratchWave, RoleRaid, party, home, holderPos);
+                _raids[party] = new RaidState
+                {
+                    Home = home, Target = holderTerritory, Objective = holderPos,
+                    StartedAt = now, NextThinkAt = 0.0, Returning = false,
+                };
+                TheWaningBorder.Core.Commands.Types.FormationMoveCommandHelper.Execute(
+                    em, _scratchWave, holderPos, FormationShape.Box, attackMove: true);
+                UnityEngine.Debug.Log($"[CurseTerritory] SHARDROOT GUARD party {party} of {_scratchWave.Count} " +
+                    $"turns HUNT -- {holder} took the artifact.");
+                return;
+            }
+
+            // Gone some other way: back to the garrison of the nearest node.
+            SnapshotAllNodes();
+            for (int i = 0; i < _scratchWave.Count; i++)
+            {
+                var e = _scratchWave[i];
+                var m = em.GetComponentData<CurseLivingMember>(e);
+                var p = em.GetComponentData<LocalTransform>(e).Position;
+                int n = NearestCurseNode(p);
+                if (n >= 0) { m.Home = _allNodes[n].t; m.Guard = _allNodes[n].p; }
+                m.Role = RoleGarrison; m.Party = -1;
+                em.SetComponentData(e, m);
+                TheWaningBorder.Core.Commands.Types.MoveCommandHelper.Execute(em, e, m.Guard);
+            }
+            UnityEngine.Debug.Log($"[CurseTerritory] SHARDROOT GUARD party {party} stands down -- " +
+                $"the artifact is off the ground; {_scratchWave.Count} unit(s) rejoin the garrison.");
+        }
+
+        /// <summary>Every Shardroot hunt party out becomes part of the guard
+        /// on the artifact it has just put back on the ground (§6.6).</summary>
+        private void FoldRaidsIntoGuard(EntityManager em, float3 at)
+        {
+            if (_raids.Count == 0) return;
+            var q = QC_Living.Get(em, QT_Living);
+            _scratchWave.Clear();
+            using (var ents = q.ToEntityArray(Allocator.Temp))
+            using (var members = q.ToComponentDataArray<CurseLivingMember>(Allocator.Temp))
+                for (int i = 0; i < ents.Length; i++)
+                    if (members[i].Role == RoleRaid) _scratchWave.Add(ents[i]);
+            _raids.Clear();
+            if (_scratchWave.Count == 0) return;
+            Enlist(em, _scratchWave, RoleGuard, _guardParty, -1, at);
+            TheWaningBorder.Core.Commands.Types.FormationMoveCommandHelper.Execute(
+                em, _scratchWave, at, FormationShape.Box, attackMove: true);
+            UnityEngine.Debug.Log($"[CurseTerritory] SHARDROOT -- {_scratchWave.Count} hunter(s) stand guard " +
+                $"over the dropped artifact (party {_guardParty}).");
+        }
+
+        /// <summary>
+        /// THE CURSE WANTS IT BACK (Territory_Claims.md §6.6, 2026-10-07):
+        /// while a player holds the Shardroot, every shardrootHuntSeconds a
+        /// HUNT party of shardrootHuntPartySize (x the holder bonus) is
+        /// drafted from the garrisons nearest the holder — at most
+        /// shardrootMaxHunts out at once. Its own clock: the expansion slot
+        /// is untouched, so the curse keeps claiming ground while it hunts.
+        /// </summary>
+        private void TickShardrootHunt(EntityManager em, double now, BorderSettingsSO s, float bonus)
+        {
+            if (!TryShardrootHolder(em, out var holder, out float3 holderPos, out int holderTerritory))
+            {
+                _nextHuntAt = -1.0;
+                return;
+            }
+            if (_nextHuntAt < 0.0) _nextHuntAt = now;      // a new holder: the first hunt leaves at once
+            if (now < _nextHuntAt) return;
+            _nextHuntAt = now + math.max(5f, s.shardrootHuntSeconds);
+
+            int active = 0;
+            foreach (var kv in _raids) if (!kv.Value.Returning) active++;   // a count: order not read
+            if (active >= s.shardrootMaxHunts) return;
+
+            SnapshotAllNodes();
+            int n = NearestCurseNode(holderPos);
+            if (n < 0) return;
+            int from = _allNodes[n].t;
+            float3 origin = _allNodes[n].p;
+
+            int want = (int)math.round(math.max(1, s.shardrootHuntPartySize) * bonus);
+            int got = DraftFromGarrisons(em, s, holderPos, from, want, _scratchWave);
+            if (got == 0)
+            {
+                UnityEngine.Debug.Log($"[CurseTerritory] HUNT skipped -- no garrison to spare above " +
+                    $"{s.garrisonMinPerNode} per node (wanted {want}).");
+                return;
+            }
+
+            int party = _nextPartyId++;
+            Enlist(em, _scratchWave, RoleRaid, party, from, origin);
+            _raids[party] = new RaidState
+            {
+                Home = from, Target = holderTerritory, Objective = holderPos,
+                StartedAt = now, NextThinkAt = 0.0, Returning = false,
+            };
+            TheWaningBorder.Core.Commands.Types.FormationMoveCommandHelper.Execute(
+                em, _scratchWave, holderPos, FormationShape.Box, attackMove: true);
+            SimSignals.Ping(holderPos, SimPingKind.Curse, 10f);
+            UnityEngine.Debug.Log($"[CurseTerritory] HUNT — party {party} of {got}/{want} hunts the Shardroot " +
+                $"holder ({holder}) in territory {holderTerritory} ({RegionMap.NameOf(holderTerritory)}); " +
+                $"{active + 1}/{s.shardrootMaxHunts} out, next in {s.shardrootHuntSeconds:F0}s.");
+        }
+
         // ── expansion ───────────────────────────────────────────────────────
 
         /// <summary>Resource nodes of ANY kind standing in a territory
@@ -463,9 +704,14 @@ namespace TheWaningBorder.Systems.Border
         /// does not hold and CAN TAKE — unclaimed, or claimed but not locked:
         /// it stands on the ground until the meter turns it, then raises a
         /// curse node on one of its resource nodes (the merge bar). Locked
-        /// ground is never picked: the curse advances only to take, so there
-        /// are no raids (2026-10-03). While a player holds the Shardroot the
-        /// party goes for the holder instead, wherever they are (§6.6).
+        /// ground is never picked here: it is the conquest waves' work (§6.8).
+        ///
+        /// CONQUEST FOCUS (2026-10-07): up to maxConcurrentClaims claim / fill
+        /// parties may be out at once (was one); a territory or node a party
+        /// is already on is not picked again; and the pick PREFERS ground the
+        /// curse lost (reconquest), then unlocked player ground, over natural
+        /// ground. The Shardroot hunt has its own clock (TickShardrootHunt)
+        /// and no longer blocks claims.
         /// </summary>
         private void TryExpand(EntityManager em, double now, BorderSettingsSO s, float bonus)
         {
@@ -482,6 +728,7 @@ namespace TheWaningBorder.Systems.Border
                 if (_held.Contains(r)) continue;
                 if (RegionMap.KindBlocks(RegionMap.KindOf(r))) continue;
                 if (TerritoryOwnership.IsLocked(r)) continue;   // cannot be taken: not a target (§6.7)
+                if (IsMergeTarget(r)) continue;                 // a party is already on it
                 bool adjacent = false;
                 foreach (int h in _held)
                     if (AreAdjacent(h, r)) { adjacent = true; break; }
@@ -494,36 +741,26 @@ namespace TheWaningBorder.Systems.Border
             // whatever the branch below.
             int draw = _rng.NextInt(0, math.max(1, _scratchCandidates.Count));
 
-            bool hunt = TryShardrootHolder(em, out var holderFaction, out float3 holderPos, out int holderTerritory);
+            // HOW MANY AT ONCE (§6.5, 2026-10-07).
+            if (_merges.Count >= math.max(1, s.maxConcurrentClaims)) return;
 
             // FILL BEFORE SPREADING (2026-09-29): the curse takes EVERY
             // resource node in the ground it holds before it reaches for new
             // ground. A held territory with a node still free gets the merge
             // party — from that territory itself — and a curse node rises on
-            // it. Only the Shardroot hunt outranks this.
-            if (!hunt && _merges.Count == 0
-                && TryFindUntakenNode(em, out int fillT, out Entity fillNode, out float3 fillPos))
+            // it.
+            if (TryFindUntakenNode(em, out int fillT, out Entity fillNode, out float3 fillPos))
             {
                 SendFillParty(em, now, s, bonus, fillT, fillNode, fillPos);
                 return;
             }
 
-            int pick;
-            if (hunt)
-            {
-                // THE CURSE IGNORES EVERYONE BUT THE HOLDER (§6.6).
-                pick = holderTerritory;
-            }
-            else
-            {
-                if (_merges.Count > 0) return;   // one takeover at a time: it is the curse's whole attention
-                if (graced > 0)
-                    UnityEngine.Debug.Log($"[CurseTerritory] GRACE: party held (before first wave) — " +
-                        $"{graced} player-held territor{(graced == 1 ? "y is" : "ies are")} off limits until " +
-                        $"{s.claimGraceSeconds:F0}s; {_scratchCandidates.Count} unclaimed candidate(s) left.");
-                if (_scratchCandidates.Count == 0) return;
-                pick = _scratchCandidates[draw];
-            }
+            if (graced > 0)
+                UnityEngine.Debug.Log($"[CurseTerritory] GRACE: party held (before first wave) — " +
+                    $"{graced} player-held territor{(graced == 1 ? "y is" : "ies are")} off limits until " +
+                    $"{s.claimGraceSeconds:F0}s; {_scratchCandidates.Count} unclaimed candidate(s) left.");
+            if (_scratchCandidates.Count == 0) return;
+            int pick = PreferredCandidate(draw, out string why);
 
             // Which held territory sends the party: one with a node (a
             // garrison source), nearest to the pick by seed, index breaking
@@ -545,8 +782,6 @@ namespace TheWaningBorder.Systems.Border
             if (from < 0) return;
             float3 origin = WaveOrigin(em, from);
 
-            bool claim = !hunt;
-
             // DRAFTED, NOT SPAWNED (§6.8, 2026-10-04): the party comes out of
             // the garrisons — the sending territory's first, then the nearest
             // others — and no node is left with fewer than garrisonMinPerNode.
@@ -554,53 +789,84 @@ namespace TheWaningBorder.Systems.Border
             int got = DraftFromGarrisons(em, s, origin, from, want, _scratchWave);
             if (got == 0)
             {
-                UnityEngine.Debug.Log($"[CurseTerritory] {(claim ? "CLAIM" : "HUNT")} skipped -- no garrison " +
+                UnityEngine.Debug.Log($"[CurseTerritory] CLAIM skipped -- no garrison " +
                     $"to spare above {s.garrisonMinPerNode} per node (wanted {want}).");
                 return;
             }
             if (got < want)
-                UnityEngine.Debug.Log($"[CurseTerritory] {(claim ? "CLAIM" : "HUNT")} party short -- " +
+                UnityEngine.Debug.Log($"[CurseTerritory] CLAIM party short -- " +
                     $"{got} of {want} drafted (garrisons keep {s.garrisonMinPerNode} per node).");
             NodesIn(em, pick, _scratchNodes);
 
             int party = _nextPartyId++;
-            Enlist(em, _scratchWave, claim ? RoleMerge : RoleRaid, party, from, origin);
+            Enlist(em, _scratchWave, RoleMerge, party, from, origin);
 
-            if (claim)
-            {
-                // Stand by a node when the territory has one (the node the
-                // curse will raise its own on); by the seed otherwise.
-                Entity node = Entity.Null;
-                float3 stand;
-                if (_scratchNodes.Count > 0) (node, stand) = _scratchNodes[0];
-                else stand = new float3(pickSeed.x, TerrainUtility.GetHeight(pickSeed.x, pickSeed.y), pickSeed.y);
+            // Stand by a node when the territory has one (the node the
+            // curse will raise its own on); by the seed otherwise.
+            Entity node = Entity.Null;
+            float3 stand;
+            if (_scratchNodes.Count > 0) (node, stand) = _scratchNodes[0];
+            else stand = new float3(pickSeed.x, TerrainUtility.GetHeight(pickSeed.x, pickSeed.y), pickSeed.y);
 
-                _merges[party] = new MergeState
-                {
-                    Territory = pick, Node = node, NodePos = stand,
-                    Progress = 0f, Phase = MergeMarching, StartedAt = now, NextThinkAt = 0.0,
-                };
-                TheWaningBorder.Core.Commands.Types.FormationMoveCommandHelper.Execute(
-                    em, _scratchWave, stand, FormationShape.Box, attackMove: true);
-                SimSignals.Ping(stand, SimPingKind.Curse, 10f, big: true);
-                UnityEngine.Debug.Log($"[CurseTerritory] CLAIM — party {party} of {_scratchWave.Count} " +
-                    $"marches to stand on territory {pick} ({RegionMap.NameOf(pick)}) from {from}.");
-            }
-            else
+            _merges[party] = new MergeState
             {
-                float3 target = holderPos;
-                _raids[party] = new RaidState
-                {
-                    Home = from, Target = pick, Objective = target,
-                    StartedAt = now, NextThinkAt = 0.0, Returning = false,
-                };
-                TheWaningBorder.Core.Commands.Types.FormationMoveCommandHelper.Execute(
-                    em, _scratchWave, target, FormationShape.Box, attackMove: true);
-                SimSignals.Ping(target, SimPingKind.Curse, 10f);
-                UnityEngine.Debug.Log($"[CurseTerritory] HUNT — party {party} of {_scratchWave.Count} hunts " +
-                    $"the Shardroot holder ({holderFaction}) in territory {pick} ({RegionMap.NameOf(pick)}).");
-            }
+                Territory = pick, Node = node, NodePos = stand,
+                Progress = 0f, Phase = MergeMarching, StartedAt = now, NextThinkAt = 0.0,
+            };
+            TheWaningBorder.Core.Commands.Types.FormationMoveCommandHelper.Execute(
+                em, _scratchWave, stand, FormationShape.Box, attackMove: true);
+            SimSignals.Ping(stand, SimPingKind.Curse, 10f, big: true);
+            UnityEngine.Debug.Log($"[CurseTerritory] CLAIM — party {party} of {_scratchWave.Count} " +
+                $"marches to stand on territory {pick} ({RegionMap.NameOf(pick)}) from {from} ({why}; " +
+                $"{_merges.Count}/{math.max(1, s.maxConcurrentClaims)} parties out).");
         }
+
+        /// <summary>A claim or fill party is already on its way to, or
+        /// merging in, territory <paramref name="t"/>. Membership only, so the
+        /// dictionary's order is never read.</summary>
+        private bool IsMergeTarget(int t)
+        {
+            foreach (var kv in _merges)
+                if (kv.Value.Territory == t) return true;
+            return false;
+        }
+
+        /// <summary>A claim or fill party is already on its way to resource
+        /// node <paramref name="node"/>.</summary>
+        private bool IsMergeNode(Entity node)
+        {
+            if (node == Entity.Null) return false;
+            foreach (var kv in _merges)
+                if (kv.Value.Node == node) return true;
+            return false;
+        }
+
+        private readonly List<int> _scratchPreferred = new();
+
+        /// <summary>
+        /// The claim pick (§6.5, 2026-10-07): from the sorted candidates, the
+        /// highest preference class present — ground the curse LOST
+        /// (reconquest), then UNLOCKED PLAYER ground, then natural ground —
+        /// and within it the entry the dispatch's one draw lands on. The draw
+        /// is made before this on every peer whatever the branch, so the RNG
+        /// stream never depends on which class won.
+        /// </summary>
+        private int PreferredCandidate(int draw, out string why)
+        {
+            int best = 0;
+            for (int i = 0; i < _scratchCandidates.Count; i++)
+                best = math.max(best, CandidateClass(_scratchCandidates[i]));
+            _scratchPreferred.Clear();
+            for (int i = 0; i < _scratchCandidates.Count; i++)
+                if (CandidateClass(_scratchCandidates[i]) == best) _scratchPreferred.Add(_scratchCandidates[i]);
+            why = best == 2 ? "reconquest" : best == 1 ? "player ground" : "unclaimed ground";
+            return _scratchPreferred[draw % _scratchPreferred.Count];
+        }
+
+        /// <summary>2 = the curse held it and lost it, 1 = a player's
+        /// (unlocked) territory, 0 = natural ground.</summary>
+        private int CandidateClass(int t)
+            => _lostGround.Contains(t) ? 2 : TerritoryOwnership.OwnerOf(t) >= 0 ? 1 : 0;
 
         /// <summary>
         /// The first free resource node (any kind) in ground the curse holds:
@@ -633,7 +899,7 @@ namespace TheWaningBorder.Systems.Border
                         float dx = bx[b].Position.x - p.x, dz = bx[b].Position.z - p.z;
                         taken = dx * dx + dz * dz <= 2.5f * 2.5f;
                     }
-                    if (taken) continue;
+                    if (taken || IsMergeNode(_scratchNodes[n].e)) continue;   // a fill party is on it
                     territory = t; node = _scratchNodes[n].e; pos = p;
                     return true;
                 }
@@ -735,6 +1001,9 @@ namespace TheWaningBorder.Systems.Border
                 _draftGuardCounts.TryGetValue(g, out int c);
                 _draftGuardCounts[g] = c + 1;
                 if (em.HasComponent<Target>(e) && em.GetComponentData<Target>(e).Value != Entity.Null) continue;
+                // A curse unit BEARING the Shardroot stays home with its
+                // garrison: it is never sent out in a party or a wave (§6.6).
+                if (em.HasComponent<ShardrootTag>(e)) continue;
                 _draftCandidates.Add((i, members[i].Home == preferTerritory,
                                       Distance2(members[i].Guard, near), e.Index));
             }
@@ -841,6 +1110,7 @@ namespace TheWaningBorder.Systems.Border
             // target players choose to attack, not a force that roams.
             float guardR2 = s.guardRadius * s.guardRadius;
             float leashR2 = s.guardLeashRadius * s.guardLeashRadius;
+            float aggroR2 = s.shardrootHolderAggroRadius * s.shardrootHolderAggroRadius;
             for (int i = 0; i < ents.Length; i++)
             {
                 var m = members[i];
@@ -878,6 +1148,15 @@ namespace TheWaningBorder.Systems.Border
                     continue;
                 }
 
+                // THE HOLDER FIRST (§6.6, 2026-10-07): the Shardroot holder
+                // within shardrootHolderAggroRadius of the node is attacked
+                // ahead of any other intruder (the leash above still holds).
+                if (holderKnown && !moving && aggroR2 > 0f && Distance2(holderAt, m.Guard) <= aggroR2)
+                {
+                    TheWaningBorder.Core.Commands.Types.AttackMoveCommandHelper.Execute(em, e, holderAt);
+                    continue;
+                }
+
                 // Idle and off its post: walk back.
                 if (fromGuard > guardR2)
                 {
@@ -898,6 +1177,69 @@ namespace TheWaningBorder.Systems.Border
                 }
                 if (found)
                     TheWaningBorder.Core.Commands.Types.AttackMoveCommandHelper.Execute(em, e, best);
+            }
+
+            // ── the Shardroot guard (§6.6, 2026-10-07) ──
+            // Shepherded like a garrison, with the artifact as its post: it
+            // engages hostiles within shardrootGuardRadius of the artifact and
+            // drops a fight past shardrootGuardLeashRadius. Intruders are read
+            // from the artifact's territory and its neighbours, in index
+            // order, once per check.
+            _guardIntruders.Clear();
+            if (_guardParty >= 0)
+            {
+                float gLeash2 = s.shardrootGuardLeashRadius * s.shardrootGuardLeashRadius;
+                int gt = RegionMap.NearestRegion(_guardAnchor.x, _guardAnchor.z);
+                if (gt != RegionMap.None)
+                    for (int r = 0; r < RegionMap.Count; r++)
+                    {
+                        if (r != gt && !AreAdjacent(gt, r)) continue;
+                        if (!hostiles.TryGetValue(r, out var list)) continue;
+                        for (int k = 0; k < list.Count; k++)
+                            if (Distance2(list[k], _guardAnchor) <= gLeash2) _guardIntruders.Add(list[k]);
+                    }
+            }
+            float sgR2 = s.shardrootGuardRadius * s.shardrootGuardRadius;
+            float sgLeash2 = s.shardrootGuardLeashRadius * s.shardrootGuardLeashRadius;
+            for (int i = 0; i < ents.Length; i++)
+            {
+                var m = members[i];
+                if (m.Role != RoleGuard) continue;
+                var e = ents[i];
+                if (_guardParty < 0 || m.Party != _guardParty)
+                {
+                    // A stray of a guard that no longer exists: back to the
+                    // garrison of its home node.
+                    m.Role = RoleGarrison; m.Party = -1; m.Guard = WaveOrigin(em, m.Home);
+                    em.SetComponentData(e, m);
+                    TheWaningBorder.Core.Commands.Types.MoveCommandHelper.Execute(em, e, m.Guard);
+                    continue;
+                }
+                SetCurseStance(em, e, UnitStanceMode.Defensive);
+                if (Distance2(m.Guard, _guardAnchor) > 4f) { m.Guard = _guardAnchor; em.SetComponentData(e, m); }
+
+                float fromPost = Distance2(xfs[i].Position, m.Guard);
+                bool hasTarget = em.HasComponent<Target>(e) && em.GetComponentData<Target>(e).Value != Entity.Null;
+                bool moving = em.HasComponent<DesiredDestination>(e)
+                              && em.GetComponentData<DesiredDestination>(e).Has != 0;
+                if (hasTarget)
+                {
+                    if (fromPost > sgLeash2)
+                        TheWaningBorder.Core.Commands.Types.MoveCommandHelper.Execute(em, e, m.Guard);
+                    continue;
+                }
+                if (moving) continue;
+
+                float bestD = sgR2; float3 best = default; bool found = false;
+                for (int k = 0; k < _guardIntruders.Count; k++)
+                {
+                    float d = Distance2(_guardIntruders[k], m.Guard);
+                    if (d <= bestD) { bestD = d; best = _guardIntruders[k]; found = true; }
+                }
+                if (found)
+                    TheWaningBorder.Core.Commands.Types.AttackMoveCommandHelper.Execute(em, e, best);
+                else if (fromPost > sgR2)
+                    TheWaningBorder.Core.Commands.Types.MoveCommandHelper.Execute(em, e, m.Guard);
             }
 
             // ── merge parties ──
@@ -1008,7 +1350,9 @@ namespace TheWaningBorder.Systems.Border
             // ── Shardroot hunt parties (§6.6) ──
             // The only party that goes for a player rather than for ground.
             // It presses the holder for as long as anyone holds the Shardroot,
-            // then walks home and rejoins the garrison.
+            // then walks home and rejoins the garrison — unless the artifact
+            // is back on the ground, when TickShardrootGuard folds it into
+            // the guard first.
             _scratchHeld.Clear();
             foreach (var kv in _raids) _scratchHeld.Add(kv.Key);
             _scratchHeld.Sort();

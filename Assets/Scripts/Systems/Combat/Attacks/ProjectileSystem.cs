@@ -377,7 +377,7 @@ namespace TheWaningBorder.Systems.Combat
             // BEFORE the on-hit riders: an Invulnerable target used to take
             // the Axe Thrower's bleed here and walk out of LockdownVault
             // already bleeding (docs/Design/Fire.md, DOT contract).
-            if (em.HasComponent<Invulnerable>(targetEntity)) return;
+            if (TransientState.Active<Invulnerable>(em, targetEntity)) return;
 
             // Feraldis on-hit riders carried by the shot (Axe Thrower bleed,
             // Firethrower blood ignition). No-op for every other projectile.
@@ -559,7 +559,7 @@ namespace TheWaningBorder.Systems.Combat
                 // line 293 is honored, AOE splash had no equivalent guard so a
                 // LockdownVault target inside the splash radius still took damage.
                 // (task-062 C-4)
-                if (em.HasComponent<Invulnerable>(entities[i])) continue;
+                if (TransientState.Active<Invulnerable>(em, entities[i])) continue;
 
                 // The Wall Rule: non-siege splash passes over wall pieces.
                 if (CombatDamageHelper.WallRuleBlocks(em, entities[i], proj.DmgType)) continue;

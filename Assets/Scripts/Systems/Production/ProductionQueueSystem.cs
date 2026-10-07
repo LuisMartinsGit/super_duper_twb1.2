@@ -138,9 +138,9 @@ namespace TheWaningBorder.Systems.Production
             switch (kind)
             {
                 case ProductionKind.Research:
-                    return !em.HasComponent<SectShutdown>(e);
+                    return !TransientState.Active<SectShutdown>(em, e);
                 case ProductionKind.Train:
-                    return !em.HasComponent<SectShutdown>(e) && !em.HasComponent<AgeUpState>(e);
+                    return !TransientState.Active<SectShutdown>(em, e) && !em.HasComponent<AgeUpState>(e);
                 default:
                     return true;
             }

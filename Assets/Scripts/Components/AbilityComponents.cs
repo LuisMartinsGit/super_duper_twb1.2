@@ -50,7 +50,7 @@ public struct UnitAbility : IComponentData
 /// <summary>
 /// Transient one-frame command tag. Added when ability fires, consumed by UnitAbilitySystem.
 /// </summary>
-public struct AbilityActivated : IComponentData
+public struct AbilityActivated : IComponentData, IEnableableComponent
 {
     /// <summary>Target entity (Entity.Null for self-cast abilities)</summary>
     public Entity Target;
@@ -74,7 +74,7 @@ public struct AbilityActivated : IComponentData
 /// Judicator's Condemn mark - target takes bonus damage from all sources.
 /// Ticked down and removed by UnitAbilitySystem.
 /// </summary>
-public struct Condemned : IComponentData
+public struct Condemned : IComponentData, IEnableableComponent
 {
     /// <summary>Damage multiplier (1.25 = +25% damage taken)</summary>
     public float DamageMultiplier;
@@ -87,7 +87,7 @@ public struct Condemned : IComponentData
 /// StoneWarden's Fortify - self-immobilization + armor bonus.
 /// Ticked down and removed by UnitAbilitySystem.
 /// </summary>
-public struct Fortified : IComponentData
+public struct Fortified : IComponentData, IEnableableComponent
 {
     /// <summary>Flat armor bonus added to all defense types</summary>
     public float ArmorBonus;
@@ -126,7 +126,7 @@ public struct VoidStrikeBuff : IComponentData
 /// ScarGuard's RapidMend - heal over time effect.
 /// Ticked and removed by UnitAbilitySystem.
 /// </summary>
-public struct HealOverTime : IComponentData
+public struct HealOverTime : IComponentData, IEnableableComponent
 {
     /// <summary>Total healing to deliver over the full duration</summary>
     public float TotalHealing;
@@ -160,7 +160,7 @@ public struct BurningGround : IComponentData
 /// <summary>
 /// Stealthed entity - invisible to enemies for a duration.
 /// </summary>
-public struct StealthTag : IComponentData
+public struct StealthTag : IComponentData, IEnableableComponent
 {
     public float TimeRemaining;
 }

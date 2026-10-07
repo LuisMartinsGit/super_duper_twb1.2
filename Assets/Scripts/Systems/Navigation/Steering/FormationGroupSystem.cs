@@ -194,7 +194,7 @@ namespace TheWaningBorder.Systems.Navigation
 
                     // Re-ordered into another group / individually: the
                     // member state no longer points here — just drop it.
-                    if (!em.HasComponent<FormationMemberState>(u)
+                    if (!TransientState.Active<FormationMemberState>(em, u)
                         || em.GetComponentData<FormationMemberState>(u).Group != groupEntity)
                         continue;
 
@@ -215,7 +215,7 @@ namespace TheWaningBorder.Systems.Navigation
                         m.Engaged = 1;
                         engagedCount++;
                         keep.Add(m);
-                        if (em.HasComponent<FormationSpeedOverride>(u)) toUnspeed.Add(u);
+                        if (TransientState.Active<FormationSpeedOverride>(em, u)) toUnspeed.Add(u);
                         continue;
                     }
 
@@ -291,8 +291,8 @@ namespace TheWaningBorder.Systems.Navigation
                     Detach(em, toDetach[i]);
                 toDetach.Dispose();
                 for (int i = 0; i < toUnspeed.Length; i++)
-                    if (em.Exists(toUnspeed[i]) && em.HasComponent<FormationSpeedOverride>(toUnspeed[i]))
-                        em.RemoveComponent<FormationSpeedOverride>(toUnspeed[i]);
+                    if (em.Exists(toUnspeed[i]))
+                        TransientState.Clear<FormationSpeedOverride>(em, toUnspeed[i]);
                 toUnspeed.Dispose();
 
                 if (keep.Length == 0)
@@ -698,11 +698,11 @@ namespace TheWaningBorder.Systems.Navigation
                     {
                         var pu = pre[i].Unit;
                         if (pre[i].Engaged != 0) continue;   // fighting at its own speed
-                        if (em.Exists(pu) && !em.HasComponent<FormationSpeedOverride>(pu))
+                        if (em.Exists(pu) && !TransientState.Active<FormationSpeedOverride>(em, pu))
                             missing.Add(pu);
                     }
                     for (int i = 0; i < missing.Length; i++)
-                        em.AddComponentData(missing[i],
+                        TransientState.Set(em, missing[i],
                             new FormationSpeedOverride { Value = g.GroupSpeed });
                     missing.Dispose();
                 }
@@ -806,7 +806,7 @@ namespace TheWaningBorder.Systems.Navigation
                     // integrator multiplies the override by it again, so a
                     // slowed member is commanded exactly the speed its spot
                     // needs instead of the slowed version of it.
-                    if (em.HasComponent<FormationSpeedOverride>(u))
+                    if (TransientState.Active<FormationSpeedOverride>(em, u))
                     {
                         float cmdSpeed = math.min(wantSpeed, catchUpSpeed);
                         float mult = UnitSpeedModifiers.Multiplier(em, u);
@@ -858,10 +858,8 @@ namespace TheWaningBorder.Systems.Navigation
         /// order it is executing, at its own speed.</summary>
         private static void Detach(EntityManager em, Entity u)
         {
-            if (em.HasComponent<FormationMemberState>(u))
-                em.RemoveComponent<FormationMemberState>(u);
-            if (em.HasComponent<FormationSpeedOverride>(u))
-                em.RemoveComponent<FormationSpeedOverride>(u);
+            TransientState.Clear<FormationMemberState>(em, u);
+            TransientState.Clear<FormationSpeedOverride>(em, u);
         }
 
         /// <summary>

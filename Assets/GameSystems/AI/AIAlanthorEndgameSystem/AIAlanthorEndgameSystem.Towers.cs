@@ -116,7 +116,18 @@ namespace TheWaningBorder.AI
         {
             const string towerId = "Alanthor_Tower";
             int existing = CountFactionBuildings(em, faction, towerId);
-            if (existing >= TowerBudget(difficulty)) return;
+            // TOWERS ARE A PERSONALITY (Game_AI.md § 3): the tier's budget is
+            // stretched or shrunk by the row's towerCoverageScale (dampened by
+            // tier, like the province towers in SimpleAISystem.TowerCoverage) —
+            // a Defensive or Turtle AI spreads more of them, a Rush fewer.
+            float towerScale = 1f;
+            if (em.HasComponent<AIBrain>(brainEntity))
+            {
+                var tb = em.GetComponentData<AIBrain>(brainEntity);
+                towerScale = math.max(0f, TheWaningBorder.Data.AI.AISettings.Get().For(tb.Personality,
+                    AISimpleDifficulty.GetProfile(tb.Difficulty).PersonalityWeight).towerCoverageScale);
+            }
+            if (existing >= (int)math.round(TowerBudget(difficulty) * towerScale)) return;
 
             // NOT BEFORE THERE IS AN ARMY TO DEFEND WITH. This path spends
             // straight from the bank, outside the budget wallets, so every

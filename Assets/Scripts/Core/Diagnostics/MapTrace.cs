@@ -280,7 +280,7 @@ namespace TheWaningBorder.Core.Diagnostics
                     int flags = 0;
                     if (em.HasComponent<DesiredDestination>(e)
                         && em.GetComponentData<DesiredDestination>(e).Has != 0) flags |= 1;
-                    if (em.HasComponent<FormationMemberState>(e)) flags |= 2;
+                    if (TransientState.Active<FormationMemberState>(em, e)) flags |= 2;
                     if (em.HasComponent<Target>(e)
                         && em.GetComponentData<Target>(e).Value != Entity.Null) flags |= 4;
                     W("P", ts, id, F(p.x), F(p.z), flags);

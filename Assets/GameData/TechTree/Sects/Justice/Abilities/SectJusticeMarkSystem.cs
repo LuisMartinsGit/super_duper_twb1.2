@@ -62,8 +62,8 @@ namespace TheWaningBorder.Systems.Sect
             }
             for (int i = 0; i < expired.Length; i++)
             {
-                if (em.Exists(expired[i]) && em.HasComponent<MarkedForSentence>(expired[i]))
-                    em.RemoveComponent<MarkedForSentence>(expired[i]);
+                if (em.Exists(expired[i]))
+                    TransientState.Clear<MarkedForSentence>(em, expired[i]);
             }
             expired.Dispose();
 
@@ -109,7 +109,7 @@ namespace TheWaningBorder.Systems.Sect
                 var p = pendingMarks[i];
                 if (!em.Exists(p.Killer)) continue;
 
-                if (em.HasComponent<MarkedForSentence>(p.Killer))
+                if (TransientState.Active<MarkedForSentence>(em, p.Killer))
                 {
                     // Refresh: take the harsher mark (longer duration / higher
                     // bonus) if multiple Justice factions both lost a unit to
@@ -129,7 +129,9 @@ namespace TheWaningBorder.Systems.Sect
                 }
                 else
                 {
-                    em.AddComponentData(p.Killer, p.Mark);
+                    // Enableable, pre-added on units (TransientState.cs);
+                    // a killer building gains it once and toggles after.
+                    TransientState.Set(em, p.Killer, p.Mark);
                 }
             }
 

@@ -152,7 +152,7 @@ namespace TheWaningBorder.Abilities
                     if (chargeBonus > 0 && em.HasComponent<ArmorTypeData>(units[i]) &&
                         em.GetComponentData<ArmorTypeData>(units[i]).Value == ArmorType.Cavalry)
                     {
-                        AddOrSet(em, units[i], new ChargeDamageBonus { Bonus = chargeBonus, TimeRemaining = BuffRefresh });
+                        TransientState.Set(em, units[i], new ChargeDamageBonus { Bonus = chargeBonus, TimeRemaining = BuffRefresh });
                     }
                 }
             }
@@ -179,7 +179,7 @@ namespace TheWaningBorder.Abilities
 
             foreach (var led in ledgers)
             {
-                bool casting = em.HasComponent<AbilityCastState>(led) || em.HasComponent<AbilityActivated>(led);
+                bool casting = TransientState.Active<AbilityCastState>(em, led) || TransientState.Active<AbilityActivated>(em, led);
                 var cds = em.HasComponent<AbilityCooldowns>(led) ? em.GetComponentData<AbilityCooldowns>(led) : default;
 
                 Faction fac = em.GetComponentData<FactionTag>(led).Value;
@@ -200,7 +200,7 @@ namespace TheWaningBorder.Abilities
                 for (int i = 0; i < bldgs.Length; i++)
                 {
                     if (bldgFac[i].Value != fac) continue;
-                    if (em.HasComponent<UnderAutomation>(bldgs[i]) || em.HasComponent<AutoYieldBoost>(bldgs[i])) continue;
+                    if (TransientState.Active<UnderAutomation>(em, bldgs[i]) || TransientState.Active<AutoYieldBoost>(em, bldgs[i])) continue;
                     if (!IsEconomyBuilding(em, bldgs[i])) continue;
                     float2 d = new float2(bldgXf[i].Position.x - pos.x, bldgXf[i].Position.z - pos.z);
                     float sq = math.dot(d, d);
@@ -222,7 +222,7 @@ namespace TheWaningBorder.Abilities
                         // Slot -1 = "first ready active", the behaviour this
                         // had before slots became selectable. The Ledger has
                         // exactly one active, so naming it would be noise.
-                        AddOrSet(em, led, new AbilityActivated { Target = best, Slot = -1 });
+                        TransientState.Set(em, led, new AbilityActivated { Target = best, Slot = -1 });
                 }
                 else if (!casting)
                 {
@@ -310,7 +310,7 @@ namespace TheWaningBorder.Abilities
                 if (dist > 2.5f) chargers.Add(e); // still closing (outside melee reach)
             }
             for (int i = 0; i < chargers.Length; i++)
-                AddOrSet(em, chargers[i], new Charging { TimeRemaining = 1.5f });
+                TransientState.Set(em, chargers[i], new Charging { TimeRemaining = 1.5f });
             chargers.Dispose();
         }
 

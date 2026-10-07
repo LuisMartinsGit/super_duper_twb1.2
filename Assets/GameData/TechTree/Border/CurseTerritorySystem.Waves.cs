@@ -26,6 +26,14 @@
 //                        units become garrison of the nearest curse node and
 //                        the §6.7 leash walks them back.
 //
+// CONQUEST WAVES (§6.8, 2026-10-07, `conquestWaves`): when the target holds a
+// LOCKED territory bordering curse ground, the wave marches on that
+// territory instead, its objectives the structures that lock it (extractors,
+// Fortresses — TerritoryClaimSystem.IsLocking). The moment the territory is
+// unlocked the wave does not go home: it becomes a claim party (a merge) on
+// it. While a player holds the Shardroot the wave interval is multiplied by
+// shardrootHolderWaveIntervalMult (§6.6).
+//
 // Waves raise nothing, so the cap (§6.8, CurseUnitCap) touches them only
 // through the garrisons they are drafted from.
 //
@@ -42,6 +50,7 @@ using TheWaningBorder.Core;
 using TheWaningBorder.Core.Localization;
 using TheWaningBorder.Data.Border;
 using TheWaningBorder.World.Regions;
+using TheWaningBorder.World.Terrain;
 
 namespace TheWaningBorder.Systems.Border
 {
@@ -61,6 +70,7 @@ namespace TheWaningBorder.Systems.Border
             public double StartedAt;
             public double NextThinkAt;
             public bool HuntsHolder;    // §6.6: aimed at the Shardroot holder
+            public bool Conquest;       // §6.8 (2026-10-07): takes Territory once it is unlocked
         }
 
         private readonly Dictionary<int, AttackWaveState> _attackWaves = new();
@@ -96,6 +106,7 @@ namespace TheWaningBorder.Systems.Border
             public Faction F;
             public float3 P;
             public bool Production;   // trains units (carries a RallyPoint)
+            public bool Locking;      // finished, and LOCKS its territory (§3)
         }
 
         private readonly List<PlayerBuilding> _playerBuildings = new();
@@ -121,6 +132,8 @@ namespace TheWaningBorder.Systems.Border
                 {
                     E = ents[i], F = f, P = xfs[i].Position,
                     Production = em.HasComponent<RallyPoint>(ents[i]),
+                    Locking = !em.HasComponent<UnderConstruction>(ents[i])
+                              && global::TheWaningBorder.Systems.World.TerritoryClaimSystem.IsLocking(em, ents[i]),
                 });
             }
             _playerBuildings.Sort((a, b) => a.E.Index.CompareTo(b.E.Index));
@@ -159,8 +172,10 @@ namespace TheWaningBorder.Systems.Border
         /// <summary>The target faction's building to strike in territory
         /// <paramref name="territory"/>: its production building nearest
         /// <paramref name="from"/> for preference, else its nearest building
-        /// there. -1 when it has none in that territory.</summary>
-        private int ObjectiveIn(Faction f, int territory, float3 from)
+        /// there. -1 when it has none in that territory.
+        /// <paramref name="lockingOnly"/>: only the structures that LOCK the
+        /// territory (a conquest wave's objectives, §6.8).</summary>
+        private int ObjectiveIn(Faction f, int territory, float3 from, bool lockingOnly = false)
         {
             int bestProd = -1, bestAny = -1;
             float dProd = float.MaxValue, dAny = float.MaxValue;
@@ -168,6 +183,7 @@ namespace TheWaningBorder.Systems.Border
             {
                 var b = _playerBuildings[i];
                 if (b.F != f) continue;
+                if (lockingOnly && !b.Locking) continue;
                 if (RegionMap.NearestRegion(b.P.x, b.P.z) != territory) continue;
                 float d = Distance2(b.P, from);
                 if (d < dAny) { dAny = d; bestAny = i; }
@@ -202,9 +218,14 @@ namespace TheWaningBorder.Systems.Border
         {
             if (_nextAttackWaveAt < 0.0) _nextAttackWaveAt = s.firstWaveSeconds;
             if (now < _nextAttackWaveAt) return;
+            // §6.6 (2026-10-07): while a player holds the Shardroot the waves
+            // come faster, and every wave goes for the holder.
+            bool huntsHolder = TryShardrootHolder(em, out var holder, out float3 holderPos, out int holderTerritory);
+            float interval = s.waveIntervalSeconds
+                             * (huntsHolder ? math.clamp(s.shardrootHolderWaveIntervalMult, 0.1f, 1f) : 1f);
             // The clock runs on whatever happens below: a slot that cannot
             // send is skipped, not banked.
-            _nextAttackWaveAt = now + s.waveIntervalSeconds;
+            _nextAttackWaveAt = now + interval;
 
             // One draw per slot, on every peer whichever branch below is
             // taken. The target pick no longer uses it (2026-10-05: the
@@ -225,7 +246,7 @@ namespace TheWaningBorder.Systems.Border
             int territory;
             float3 objective;
             int living = ComputeWaveShares(em, s);
-            bool huntsHolder = TryShardrootHolder(em, out var holder, out float3 holderPos, out int holderTerritory);
+            bool conquest = false;
             if (huntsHolder)
             {
                 // §6.6: every offensive curse force goes for the
@@ -262,22 +283,36 @@ namespace TheWaningBorder.Systems.Border
                 }
                 target = (Faction)pickF;
 
-                // Where: the target's building nearest any curse node, and
-                // that node as the origin.
-                float bestD = float.MaxValue; int bestB = -1, bestN = -1;
-                for (int b = 0; b < _playerBuildings.Count; b++)
+                // CONQUEST (§6.8, 2026-10-07): the target's locked ground
+                // beside the curse comes first — the wave strikes what locks it.
+                int cObj = -1, cNode = -1;
+                int cTerr = s.conquestWaves ? PickConquestTerritory(target, out cObj, out cNode) : -1;
+                if (cTerr >= 0)
                 {
-                    if (_playerBuildings[b].F != target) continue;
-                    int n = NearestCurseNode(_playerBuildings[b].P);
-                    float d = Distance2(_allNodes[n].p, _playerBuildings[b].P);
-                    if (d < bestD) { bestD = d; bestB = b; bestN = n; }
+                    conquest = true;
+                    territory = cTerr;
+                    originNode = cNode;
+                    objective = _playerBuildings[cObj].P;
                 }
-                if (bestB < 0) return;   // unreachable: living means a building
-                originNode = bestN;
-                var near = _playerBuildings[bestB].P;
-                territory = RegionMap.NearestRegion(near.x, near.z);
-                int obj = ObjectiveIn(target, territory, _allNodes[originNode].p);
-                objective = obj >= 0 ? _playerBuildings[obj].P : near;
+                else
+                {
+                    // Where: the target's building nearest any curse node, and
+                    // that node as the origin.
+                    float bestD = float.MaxValue; int bestB = -1, bestN = -1;
+                    for (int b = 0; b < _playerBuildings.Count; b++)
+                    {
+                        if (_playerBuildings[b].F != target) continue;
+                        int n = NearestCurseNode(_playerBuildings[b].P);
+                        float d = Distance2(_allNodes[n].p, _playerBuildings[b].P);
+                        if (d < bestD) { bestD = d; bestB = b; bestN = n; }
+                    }
+                    if (bestB < 0) return;   // unreachable: living means a building
+                    originNode = bestN;
+                    var near = _playerBuildings[bestB].P;
+                    territory = RegionMap.NearestRegion(near.x, near.z);
+                    int obj = ObjectiveIn(target, territory, _allNodes[originNode].p);
+                    objective = obj >= 0 ? _playerBuildings[obj].P : near;
+                }
             }
             if (originNode < 0) return;
 
@@ -333,7 +368,7 @@ namespace TheWaningBorder.Systems.Border
             {
                 Number = _attackWavesSent, Home = home, Target = target, Territory = territory,
                 Objective = objective, Size = count, StartedAt = now,
-                NextThinkAt = now + WaveThinkSeconds, HuntsHolder = huntsHolder,
+                NextThinkAt = now + WaveThinkSeconds, HuntsHolder = huntsHolder, Conquest = conquest,
             };
             TheWaningBorder.Core.Commands.Types.FormationMoveCommandHelper.Execute(
                 em, _scratchWave, objective, FormationShape.Box, attackMove: true);
@@ -343,12 +378,12 @@ namespace TheWaningBorder.Systems.Border
             if (target == GameSettings.LocalPlayerFaction)
                 SimSignals.Notify(Loc.T("A curse wave marches on your lands!"));
             UnityEngine.Debug.Log($"[CurseTerritory] WAVE {_attackWavesSent} -> {target}" +
-                $"{(huntsHolder ? " (Shardroot holder)" : "")} (share {share:F2}, size {count} vs power {targetPower:F0}; " +
+                $"{(huntsHolder ? " (Shardroot holder)" : "")}{(conquest ? " (CONQUEST)" : "")} (share {share:F2}, size {count} vs power {targetPower:F0}; " +
                 $"wave power {wavePower:F0}, budget {budget:F0} = {s.waveSizeVsPower:F2} x power x {DifficultyName(difficulty)} " +
                 $"{diffMult:F2}; ceiling {want} of {garrison} garrison) — drafted nearest territory {home} " +
                 $"({RegionMap.NameOf(home)}), marching on territory {territory} " +
                 $"({RegionMap.NameOf(territory)}) at ({objective.x:F0},{objective.z:F0}); " +
-                $"curse units {CurseUnitCap.Live(em)}/{CurseUnitCap.Max}; next in {s.waveIntervalSeconds:F0}s.");
+                $"curse units {CurseUnitCap.Live(em)}/{CurseUnitCap.Max}; next in {interval:F0}s.");
         }
 
         // ── shepherding a wave ──────────────────────────────────────────────
@@ -402,6 +437,14 @@ namespace TheWaningBorder.Systems.Border
                 }
                 centre /= _scratchWave.Count;
 
+                // CONQUEST (§6.8, 2026-10-07): the ground it came for is no
+                // longer locked — the wave stays and claims it.
+                if (ws.Conquest && !_held.Contains(ws.Territory) && !TerritoryOwnership.IsLocked(ws.Territory))
+                {
+                    ConquestWaveClaims(em, now, s, party, ws);
+                    continue;
+                }
+
                 // Time is up, or the wave is broken: home.
                 if (now - ws.StartedAt >= s.waveDurationSeconds)
                 {
@@ -440,7 +483,13 @@ namespace TheWaningBorder.Systems.Border
                 // nearest building anywhere (whose territory becomes the one).
                 if (!snapped) { SnapshotPlayerBuildings(em); snapped = true; }
                 float3 next = default; bool found = false;
-                if (_hostilesByTerritory.TryGetValue(ws.Territory, out var intruders))
+                if (ws.Conquest)
+                {
+                    // A conquest wave goes for what LOCKS the ground first.
+                    int lb = ObjectiveIn(ws.Target, ws.Territory, centre, lockingOnly: true);
+                    if (lb >= 0) { next = _playerBuildings[lb].P; found = true; }
+                }
+                if (!found && _hostilesByTerritory.TryGetValue(ws.Territory, out var intruders))
                 {
                     float bestD = float.MaxValue;
                     for (int i = 0; i < intruders.Count; i++)
@@ -456,7 +505,10 @@ namespace TheWaningBorder.Systems.Border
                     {
                         b = NearestBuildingOf(ws.Target, centre);
                         if (b >= 0)
+                        {
                             ws.Territory = RegionMap.NearestRegion(_playerBuildings[b].P.x, _playerBuildings[b].P.z);
+                            ws.Conquest = false;   // a new territory: an ordinary wave now
+                        }
                     }
                     if (b >= 0) { next = _playerBuildings[b].P; found = true; }
                 }
@@ -469,6 +521,97 @@ namespace TheWaningBorder.Systems.Border
                 TheWaningBorder.Core.Commands.Types.FormationMoveCommandHelper.Execute(
                     em, _scratchWave, next, FormationShape.Box, attackMove: true);
             }
+        }
+
+        /// <summary>
+        /// The conquest target for a wave on <paramref name="f"/> (§6.8,
+        /// 2026-10-07): a territory <paramref name="f"/> holds and has LOCKED,
+        /// bordering ground the curse holds, with a finished locking structure
+        /// of <paramref name="f"/> in it. Of those, the one whose locking
+        /// structure stands nearest a curse node; buildings are walked in
+        /// entity order and only a strictly nearer one wins, so every peer
+        /// picks the same. Returns the territory (or -1), the structure's
+        /// index in _playerBuildings and the origin node's index in _allNodes.
+        /// </summary>
+        private int PickConquestTerritory(Faction f, out int objective, out int node)
+        {
+            objective = -1; node = -1;
+            int best = -1; float bestD = float.MaxValue;
+            for (int b = 0; b < _playerBuildings.Count; b++)
+            {
+                var pb = _playerBuildings[b];
+                if (pb.F != f || !pb.Locking) continue;
+                int t = RegionMap.NearestRegion(pb.P.x, pb.P.z);
+                if (t == RegionMap.None || _held.Contains(t)) continue;
+                if (TerritoryOwnership.OwnerOf(t) != (int)f || !TerritoryOwnership.IsLocked(t)) continue;
+                bool adjacent = false;
+                foreach (int h in _held)
+                    if (AreAdjacent(h, t)) { adjacent = true; break; }
+                if (!adjacent) continue;
+                int n = NearestCurseNode(pb.P);
+                if (n < 0) continue;
+                float d = Distance2(_allNodes[n].p, pb.P);
+                if (d < bestD) { bestD = d; best = t; objective = b; node = n; }
+            }
+            return best;
+        }
+
+        /// <summary>
+        /// A conquest wave's territory is unlocked (§6.8, 2026-10-07): the
+        /// wave becomes a claim party on it — the same merge a claim party
+        /// runs (stand until the meter turns it, then raise a curse node on a
+        /// free resource node) — instead of walking home. It keeps its party
+        /// id; the target's wave cooldown starts as for any wave that ends.
+        /// Not bounded by maxConcurrentClaims: the ground was won in battle.
+        /// </summary>
+        private void ConquestWaveClaims(EntityManager em, double now, BorderSettingsSO s,
+                                        int party, AttackWaveState ws)
+        {
+            StartWaveCooldown(ws.Target, now, s);
+            int t = ws.Territory;
+
+            // Stand by a free resource node (no building on it) when there is
+            // one, entity order; by the seed otherwise.
+            Entity node = Entity.Null;
+            float3 stand = default;
+            bool have = false;
+            NodesIn(em, t, _scratchNodes);
+            var bq = QueryXf<BuildingTag>(em);
+            using (var bx = bq.ToComponentDataArray<LocalTransform>(Allocator.Temp))
+                for (int n = 0; n < _scratchNodes.Count && !have; n++)
+                {
+                    var p = _scratchNodes[n].p;
+                    if (IsMergeNode(_scratchNodes[n].e)) continue;
+                    bool taken = false;
+                    for (int b = 0; b < bx.Length && !taken; b++)
+                    {
+                        float dx = bx[b].Position.x - p.x, dz = bx[b].Position.z - p.z;
+                        taken = dx * dx + dz * dz <= 2.5f * 2.5f;
+                    }
+                    if (taken) continue;
+                    node = _scratchNodes[n].e; stand = p; have = true;
+                }
+            if (!have)
+            {
+                var seed = RegionMap.SeedOf(t);
+                stand = new float3(seed.x, TerrainUtility.GetHeight(seed.x, seed.y), seed.y);
+            }
+
+            Enlist(em, _scratchWave, RoleMerge, party, ws.Home, stand);
+            _attackWaves.Remove(party);
+            _merges[party] = new MergeState
+            {
+                Territory = t, Node = node, NodePos = stand,
+                Progress = 0f, Phase = MergeMarching, StartedAt = now, NextThinkAt = 0.0,
+            };
+            TheWaningBorder.Core.Commands.Types.FormationMoveCommandHelper.Execute(
+                em, _scratchWave, stand, FormationShape.Box, attackMove: true);
+            SimSignals.Ping(stand, SimPingKind.Curse, 12f, big: true);
+            if (ws.Target == GameSettings.LocalPlayerFaction)
+                SimSignals.Notify(Loc.T("The curse is taking your territory!"));
+            UnityEngine.Debug.Log($"[CurseTerritory] CONQUEST — wave {ws.Number} broke the lock on territory {t} " +
+                $"({RegionMap.NameOf(t)}) of {ws.Target}; {_scratchWave.Count} unit(s) stay to claim it " +
+                $"(party {party}{(have ? "" : ", no free node")}).");
         }
 
         /// <summary>The wave turns back (§6.8): its units become garrison of

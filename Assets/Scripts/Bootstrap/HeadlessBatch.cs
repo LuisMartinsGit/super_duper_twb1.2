@@ -243,10 +243,15 @@ namespace TheWaningBorder.Bootstrap
             // A match that can never decide now runs forever, on purpose.
             // The runner's stop file and -TimeoutMin are the ways back out;
             // neither is on by default when the limit is off.
-            if (_limit <= 0f || _t < _limit) return;
+            // The limit is SIMULATED match time (2026-10-07): the sim's step is
+            // capped at the world's maximum delta, so under a heavy 3x load it
+            // runs behind the scaled clock above — "-twbLimit 7200" used to end
+            // an 8-player match after about 60 simulated minutes.
+            float simT = TheWaningBorder.Core.SimClock.Now;
+            if (_limit <= 0f || simT < _limit) return;
 
             _done = true;
-            Debug.Log($"[HeadlessBatch] limit reached at {_t:F0}s — dumping metrics");
+            Debug.Log($"[HeadlessBatch] limit reached at {simT:F0} simulated s ({_t:F0}s scaled) — dumping metrics");
             try { MatchMetrics.DumpFinal(); }
             catch (Exception e) { Debug.LogError($"[HeadlessBatch] dump failed: {e.Message}"); }
             Application.Quit();

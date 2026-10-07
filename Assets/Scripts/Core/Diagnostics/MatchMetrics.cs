@@ -155,13 +155,22 @@ namespace TheWaningBorder.Core.Diagnostics
 
         private float _t;
         private float _next;
+        private float _lastSim = -1f;
         private bool _headers;
         private EntityWorld _world;
 
         private void Update()
         {
             if (!Enabled) return;
-            _t += Time.deltaTime;
+            // SIMULATED seconds (2026-10-07): the simulation's step is capped
+            // at the world's maximum delta, so on a heavy headless frame at 3x
+            // it falls behind Time.deltaTime — an 8-player "120-minute" batch
+            // match had simulated about 60. The metrics are about the match,
+            // so they count the match's own clock.
+            float sim = TheWaningBorder.Core.SimClock.Now;
+            if (_lastSim < 0f || sim < _lastSim) _lastSim = sim;
+            _t += sim - _lastSim;
+            _lastSim = sim;
             MatchTime = _t;
             if (_t < _next) return;
             _next = _t + SampleInterval;

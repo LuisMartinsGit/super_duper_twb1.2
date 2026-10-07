@@ -59,7 +59,7 @@ namespace TheWaningBorder.Economy
 
                     int amount = (int)(income.ValueRO.PerTick * ticks);
                     // Ability: Automate Facility temporary yield boost (Ledger).
-                    if (state.EntityManager.HasComponent<TheWaningBorder.Abilities.AutoYieldBoost>(e))
+                    if (TransientState.Active<TheWaningBorder.Abilities.AutoYieldBoost>(state.EntityManager, e))
                         amount = (int)(amount * state.EntityManager.GetComponentData<TheWaningBorder.Abilities.AutoYieldBoost>(e).Mult);
                     if (amount <= 0) continue;
 

@@ -13,6 +13,50 @@ build always name the same number.
 
 ---
 
+## [0.0.37] — 2026-10-07
+
+Everyone in a multiplayer match needs 0.0.37.
+
+### Added
+
+- **Mirror Marches seats eight.** The map is now 768 m with two homes per
+  quadrant, a contested Iron rich corner between them, and natural, uneven
+  territory borders. It is still mirrored on both axes, so every seat opens
+  on the same ground. The curse starts in a different set of four territories
+  every match.
+- **Resource node purity.** Every node is Pure, Normal or Poor, paying more or
+  less than a normal node. Start territories are all Pure; the rest are a mix,
+  mostly Poor. The node's name shows its purity.
+- **AI personalities play differently.** Turtles build a wider home wall, wall
+  their frontier and post troops on the walls; Rush AIs build no walls and
+  raid economic buildings on their own timer; Defensive AIs wait for a sure
+  win, and build more towers and Fortresses.
+- **The AI goes for the Shardroot**, brings it home and hands it to King
+  Lexor, and the king now rides out with the army.
+- **The AI uses Litharchs and sects.** It now builds its Temple, adopts sects,
+  casts sect powers and keeps Litharch healers with its armies.
+- **The curse conquers.** It pushes to take and hold territory, its army grows
+  with the territories it holds, it guards a dropped Shardroot and hunts
+  whoever carries it.
+
+### Changed
+
+- **Enemy workers are priority targets** for AI armies.
+- **AI armies finish what they start.** With no sighting of the faction they
+  are at war with, they march on that faction's own ground instead of a
+  random start; a beaten faction's capital is attacked directly rather than
+  its outlying buildings.
+- AI timers run on game time.
+
+### Fixed
+
+- **Crash in long 8-player matches** (around minute 60-80): units no longer
+  pile up endless combinations of temporary effects.
+- The AI never built its Temple, so it never adopted a sect or trained a
+  Litharch.
+
+---
+
 ## [0.0.36] — 2026-10-07
 
 Everyone in a multiplayer match needs 0.0.36.

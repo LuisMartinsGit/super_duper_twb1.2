@@ -228,6 +228,9 @@ namespace TheWaningBorder.AI
                 score += (hp.Max - hp.Value) * 0.10f;                // nearly dead
                 score -= hp.Max * 0.02f;                             // fragile first
                 score -= math.sqrt(d2) * 0.5f;                       // mild proximity pull
+                // Workers are high-value targets (Game_AI.md § 3b) — the same
+                // bonus the tactics layer's army scoring gives them.
+                if (em.HasComponent<WorkerTag>(e)) score += AITacticsConfig.I.workerTargetBonus;
 
                 if (score > bestScore
                     || (score == bestScore && best != Entity.Null && e.Index < best.Index))

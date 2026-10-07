@@ -36,5 +36,25 @@ namespace TheWaningBorder.World.Regions
         /// camp and its wall ring stay clear and the nodes line the
         /// territory's edge. Metres; 0 = anywhere outside the start clearing.</summary>
         public float homeNodeMinOffset;
+
+        /// <summary>THE CURSE STARTS SOMEWHERE NEW EVERY MATCH (2026-10-07):
+        /// the authored curse territories (Veilstone rich) swap types with
+        /// territories drawn from the match seed — on a mirrored map one per
+        /// quadrant, mirrored, so the map stays fair; never a home or a
+        /// territory bordering one.</summary>
+        public bool randomizeCurseTerritories;
+
+        /// <summary>NODE PURITY (2026-10-07, Territory_Claims.md § 11.2): what a
+        /// Pure / Normal / Poor node's slot pays, as a multiplier on its rate.</summary>
+        public float purityPureMultiplier;
+        public float purityNormalMultiplier;
+        public float purityPoorMultiplier;
+
+        /// <summary>The bag every node outside a start territory is dealt from:
+        /// this many Pure, Normal and Poor per bag, shuffled, refilled when
+        /// empty. Start territories' nodes are all Pure.</summary>
+        public int purityBagPure;
+        public int purityBagNormal;
+        public int purityBagPoor;
     }
 }

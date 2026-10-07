@@ -79,7 +79,7 @@ public struct LorekeeperTag : IComponentData { }
 /// Stamped on a stealthed enemy inside a Lorekeeper's detection radius —
 /// TargetingSystem treats the unit as visible while this holds.
 /// </summary>
-public struct StealthRevealed : IComponentData
+public struct StealthRevealed : IComponentData, IEnableableComponent
 {
     public float TimeRemaining;
 }

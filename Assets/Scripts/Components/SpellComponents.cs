@@ -42,7 +42,7 @@ public struct SpellBuff : IComponentData, IEnableableComponent
 /// Temporary debuff applied by a spell. Ticked down by SpellBuffSystem.
 /// Removed automatically when TimeRemaining reaches 0.
 /// </summary>
-public struct SpellDebuff : IComponentData
+public struct SpellDebuff : IComponentData, IEnableableComponent
 {
     /// <summary>Speed reduction as a fraction (0.30 = -30% speed)</summary>
     public float SpeedReduction;
@@ -58,7 +58,7 @@ public struct SpellDebuff : IComponentData
 /// Makes an entity temporarily invulnerable (takes no damage).
 /// Applied by LockdownVault spell. Removed when TimeRemaining reaches 0.
 /// </summary>
-public struct Invulnerable : IComponentData
+public struct Invulnerable : IComponentData, IEnableableComponent
 {
     public float TimeRemaining;
 }
@@ -97,7 +97,7 @@ public struct WitnessVisionApplied : IComponentData
 ///     units of the marker faction.
 /// Self-removed by SpellBuffSystem when TimeRemaining hits 0.
 /// </summary>
-public struct MarkedForSentence : IComponentData
+public struct MarkedForSentence : IComponentData, IEnableableComponent
 {
     /// <summary>Faction that placed the mark (the avenger).</summary>
     public Faction MarkerFaction;
@@ -119,7 +119,7 @@ public struct MarkedForSentence : IComponentData
 ///   Lv III: +5% / +5% / +5% move, 4s  (Phase 4)
 /// Removed by SpellBuffSystem when TimeRemaining hits 0.
 /// </summary>
-public struct VenerationFervor : IComponentData
+public struct VenerationFervor : IComponentData, IEnableableComponent
 {
     /// <summary>Number of kills currently stacked on this unit.</summary>
     public byte Stacks;
@@ -215,7 +215,7 @@ public struct InBloodPool : IComponentData { }
 ///
 /// Ticked by WarSectEffectSystem; read by CombatDamageHelper.GetHasteCooldownMult.
 /// </summary>
-public struct SectHaste : IComponentData
+public struct SectHaste : IComponentData, IEnableableComponent
 {
     public float Multiplier;
     public float TimeRemaining;

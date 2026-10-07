@@ -18,3 +18,10 @@ MonoBehaviour:
   normalVeilstoneOutcropsMin: 1
   normalVeilstoneOutcropsMax: 2
   homeNodeMinOffset: 38
+  randomizeCurseTerritories: 1
+  purityPureMultiplier: 1.5
+  purityNormalMultiplier: 1
+  purityPoorMultiplier: 0.5
+  purityBagPure: 2
+  purityBagNormal: 3
+  purityBagPoor: 10

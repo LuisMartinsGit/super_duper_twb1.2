@@ -242,7 +242,7 @@ namespace TheWaningBorder.AI
 
             // Walk complete: bucket and publish.
             _back.Bucket(math.max(4f, Cfg.cellSize));
-            _back.BuiltAt = em.World.Time.ElapsedTime;
+            _back.BuiltAt = TheWaningBorder.Core.SimClock.Elapsed;
             (_front, _back) = (_back, _front);
             _walking = false;
         }
@@ -296,7 +296,7 @@ namespace TheWaningBorder.AI
             // A picture older than two refresh windows means the walk was
             // parked (nobody read for a while) — do not hand it out.
             if (_front.Complete
-                && em.World.Time.ElapsedTime - _front.BuiltAt <= 2.0 * Cfg.refreshSeconds)
+                && TheWaningBorder.Core.SimClock.Elapsed - _front.BuiltAt <= 2.0 * Cfg.refreshSeconds)
                 return _front;
             if (!_walking) BeginWalk(em);
             StepWalk(em, int.MaxValue);

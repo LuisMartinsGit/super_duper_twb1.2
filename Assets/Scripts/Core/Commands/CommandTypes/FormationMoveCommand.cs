@@ -317,16 +317,11 @@ namespace TheWaningBorder.Core.Commands.Types
                 if (!plan.Member[i]) continue;
                 var unit = plan.Units[i];
                 var stateData = new FormationMemberState { Group = group, Slot = plan.SlotLocal[i] };
-                if (em.HasComponent<FormationMemberState>(unit))
-                    em.SetComponentData(unit, stateData);
-                else
-                    em.AddComponentData(unit, stateData);
+                // Both enableable, pre-added on units (TransientState.cs).
+                TransientState.Set(em, unit, stateData);
 
                 var speed = new FormationSpeedOverride { Value = plan.GroupSpeed };
-                if (em.HasComponent<FormationSpeedOverride>(unit))
-                    em.SetComponentData(unit, speed);
-                else
-                    em.AddComponentData(unit, speed);
+                TransientState.Set(em, unit, speed);
 
                 // Remember the slot so the NEXT order can keep this unit in it.
                 // Written after IssuePlanOrders on purpose: the per-unit move

@@ -1233,7 +1233,13 @@ namespace TheWaningBorder.AI
 
             int key = (int)faction;
             if (_nextFortressCheck.TryGetValue(key, out float next) && now < next) return;
-            _nextFortressCheck[key] = now + Cfg.fortressCheckInterval;
+            // FORTRESS APPETITE (Game_AI.md § 3b): a Defensive AI spreads
+            // Fortresses — a higher ceiling, a faster pace (the check interval
+            // and the tier's delay divided by it) and more weight on ground
+            // that borders a rival. 1 = Balanced.
+            float appetite = math.max(0.1f, PersonalityOf(faction).fortressAppetite);
+            _nextFortressCheck[key] = now + Cfg.fortressCheckInterval / appetite;
+            int fortressCeiling = (int)math.round(Cfg.fortressMaxPerFaction * appetite);
 
             // After age-up only: in Age 0 the limit is the start territory.
             if (!FactionEconomy.TryGetBank(em, faction, out var bank)
@@ -1269,10 +1275,10 @@ namespace TheWaningBorder.AI
                 LogFortress(faction, now, "a Fortress is already going up");
                 return;
             }
-            if (own >= Cfg.fortressMaxPerFaction)
+            if (own >= fortressCeiling)
             {
                 AIPivotalReserve.Clear(faction, FortressReserveKey);
-                LogFortress(faction, now, $"at the Fortress ceiling ({own}/{Cfg.fortressMaxPerFaction})");
+                LogFortress(faction, now, $"at the Fortress ceiling ({own}/{fortressCeiling})");
                 return;
             }
 
@@ -1336,7 +1342,7 @@ namespace TheWaningBorder.AI
                 {
                     if (!_fortressQualifiedSince.TryGetValue((key, r), out float qSince))
                         _fortressQualifiedSince[(key, r)] = qSince = now;
-                    if (now - qSince < ProfileOf(faction).FortressDelaySeconds)
+                    if (now - qSince < ProfileOf(faction).FortressDelaySeconds / appetite)
                     {
                         developing++;
                         continue;
@@ -1347,7 +1353,7 @@ namespace TheWaningBorder.AI
 
                 float score = (outcrops * Cfg.fortressOutcropWeight
                                + frontier * Cfg.fortressFrontierOutcropWeight) * outcropScale
-                    + (hostileBorder ? Cfg.fortressBorderBonus : 0f)
+                    + (hostileBorder ? Cfg.fortressBorderBonus * appetite : 0f)
                     + (cutOff ? Cfg.fortressDisconnectedBonus : 0f)
                     - dist * Cfg.fortressDistanceWeight;
                 // Strict > over held territories in index order: deterministic.

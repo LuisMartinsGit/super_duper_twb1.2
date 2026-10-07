@@ -140,7 +140,7 @@ namespace TheWaningBorder.Systems.Combat
                 // Hold position units: do NOT return to guard point or chase
                 // They stay exactly where they are. So does an emplaced
                 // engine, which is bolted to its platform.
-                if (em.HasComponent<HoldPositionTag>(entity) || IsFixedMount(em, entity))
+                if (TransientState.Active<HoldPositionTag>(em, entity) || IsFixedMount(em, entity))
                     continue;
 
                 // Attack-move units: resume advancing toward destination after combat
@@ -220,7 +220,7 @@ namespace TheWaningBorder.Systems.Combat
                     var stance = EffectiveStance(em, entity);
                     bool scanDue = ((tick + eng.ValueRO.ScanPhase) & (AcquireStagger - 1)) == 0;
                     if (hasLiveDest && scanDue && clock >= eng.ValueRO.NextAcquireAt
-                        && !em.HasComponent<SectVeiled>(entity)   // veiled: may move, nothing else
+                        && !TransientState.Active<SectVeiled>(em, entity)   // veiled: may move, nothing else
                         && em.HasComponent<Damage>(entity)
                         && em.GetComponentData<Damage>(entity).Value > 0)
                     {

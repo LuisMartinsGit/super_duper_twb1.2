@@ -31,7 +31,7 @@ namespace TheWaningBorder.Core.Commands.Types
                 return;
             }
 
-            bool wasHold = em.HasComponent<HoldPositionTag>(unit);
+            bool wasHold = TransientState.Active<HoldPositionTag>(em, unit);
             Apply(em, unit, mode);
 
             // Leaving Hold: the spot it was holding is where it now guards
@@ -62,16 +62,18 @@ namespace TheWaningBorder.Core.Commands.Types
             else em.AddComponentData(unit, stance);
 
             bool hold = mode == UnitStanceMode.Hold;
-            bool hasTag = em.HasComponent<HoldPositionTag>(unit);
-            if (hold && !hasTag) em.AddComponent<HoldPositionTag>(unit);
-            else if (!hold && hasTag) em.RemoveComponent<HoldPositionTag>(unit);
+            bool hasTag = TransientState.Active<HoldPositionTag>(em, unit);
+            // Enableable (TransientState.cs): a unit gains the tag once, then
+            // the stance flips its bit — never an add/remove per stance change.
+            if (hold && !hasTag) TransientState.SetFlag<HoldPositionTag>(em, unit);
+            else if (!hold && hasTag) TransientState.Clear<HoldPositionTag>(em, unit);
         }
 
         /// <summary>The stance a unit is actually in. HoldPositionTag wins —
         /// scenarios add it directly.</summary>
         public static UnitStanceMode Effective(EntityManager em, Entity unit)
         {
-            if (em.HasComponent<HoldPositionTag>(unit)) return UnitStanceMode.Hold;
+            if (TransientState.Active<HoldPositionTag>(em, unit)) return UnitStanceMode.Hold;
             if (em.HasComponent<UnitStance>(unit)) return em.GetComponentData<UnitStance>(unit).Value;
             return UnitStanceMode.Aggressive;   // the default for every unit (Stances.md §4)
         }

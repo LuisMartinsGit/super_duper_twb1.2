@@ -125,12 +125,12 @@ namespace TheWaningBorder.Systems.Abilities
             foreach (var (nb, e) in SystemAPI.Query<RefRW<NextShotBonus>>().WithEntityAccess())
             {
                 var v = nb.ValueRO; v.TimeRemaining -= dt; nb.ValueRW = v;
-                if (v.TimeRemaining <= 0f) ecb.RemoveComponent<NextShotBonus>(e);
+                if (v.TimeRemaining <= 0f) ecb.SetComponentEnabled<NextShotBonus>(e, false); // enableable: never removed (TransientState.cs)
             }
             foreach (var (vb, e) in SystemAPI.Query<RefRW<VolleyBuff>>().WithEntityAccess())
             {
                 var v = vb.ValueRO; v.TimeRemaining -= dt; vb.ValueRW = v;
-                if (v.TimeRemaining <= 0f) ecb.RemoveComponent<VolleyBuff>(e);
+                if (v.TimeRemaining <= 0f) ecb.SetComponentEnabled<VolleyBuff>(e, false);
             }
             ecb.Playback(state.EntityManager);
             ecb.Dispose();

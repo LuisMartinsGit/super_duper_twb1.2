@@ -478,7 +478,7 @@ namespace TheWaningBorder.Multiplayer
                 anyNav = true;
             }
 
-            if (em.HasComponent<FormationSpeedOverride>(e))
+            if (TransientState.Active<FormationSpeedOverride>(em, e))
             {
                 snap.HasFormSpeed = 1;
                 snap.FormSpeed = math.asuint(em.GetComponentData<FormationSpeedOverride>(e).Value);

@@ -1308,7 +1308,7 @@ namespace TheWaningBorder.Bootstrap
             if (e == Entity.Null) return CreateInvincibleDummy(em, position, faction);
             em.SetComponentData(e, new Health { Value = 1_000_000_000, Max = 1_000_000_000 });
             if (em.HasComponent<Damage>(e)) em.SetComponentData(e, new Damage { Value = 0 });
-            if (!em.HasComponent<HoldPositionTag>(e)) em.AddComponent<HoldPositionTag>(e);
+            TransientState.SetFlag<HoldPositionTag>(em, e);
             return e;
         }
 
@@ -1441,8 +1441,7 @@ namespace TheWaningBorder.Bootstrap
                 // chase branch from overwriting the patrol's DesiredDestination
                 // when a soldier exits maxRange. The in-range branch no
                 // longer touches movement on its own.
-                if (!em.HasComponent<HoldPositionTag>(entity))
-                    em.AddComponent<HoldPositionTag>(entity);
+                TransientState.SetFlag<HoldPositionTag>(em, entity);
 
                 // PatrolTag flags the unit as an "active scanner" in
                 // TargetingSystem — without it, the auto-acquire skips any
@@ -1663,8 +1662,7 @@ namespace TheWaningBorder.Bootstrap
                         cd.Cooldown = 0.6f;
                         em.SetComponentData(enemy, cd);
                     }
-                    if (!em.HasComponent<HoldPositionTag>(enemy))
-                        em.AddComponent<HoldPositionTag>(enemy);
+                    TransientState.SetFlag<HoldPositionTag>(em, enemy);
                     // Hold is passive now (docs/Design/Stances.md §1): the
                     // fixed-mount flag is what keeps it swinging at whatever
                     // walks into reach without ever leaving its spot.
@@ -1754,8 +1752,7 @@ namespace TheWaningBorder.Bootstrap
                     // Hold the line — don't chase out-of-range enemies, but
                     // DO shoot what is in range: Hold alone is passive now
                     // (docs/Design/Stances.md §1), the fixed-mount flag fires.
-                    if (!em.HasComponent<HoldPositionTag>(e))
-                        em.AddComponent<HoldPositionTag>(e);
+                    TransientState.SetFlag<HoldPositionTag>(em, e);
                     if (!em.HasComponent<StationaryAutoFire>(e))
                         em.AddComponent<StationaryAutoFire>(e);
                 }
@@ -2156,8 +2153,7 @@ namespace TheWaningBorder.Bootstrap
                     // range first, and four lanes drifting at slightly
                     // different speeds is exactly what makes trails hard to
                     // compare.
-                    if (!em.HasComponent<HoldPositionTag>(bow))
-                        em.AddComponent<HoldPositionTag>(bow);
+                    TransientState.SetFlag<HoldPositionTag>(em, bow);
                     // An ordered target is chased even on Hold now; the
                     // fixed-mount flag keeps the lane shooter planted.
                     if (!em.HasComponent<StationaryAutoFire>(bow))

@@ -127,7 +127,19 @@ MonoBehaviour:
   - 1
   - 1.25
   claimGraceSeconds: 480
-  maxCurseUnits: 250
+  maxCurseUnits: 1000
+  curseUnitsBase: 40
+  curseUnitsPerTerritory: 40
+  maxConcurrentClaims: 2
+  conquestWaves: 1
+  shardrootHuntSeconds: 45
+  shardrootHuntPartySize: 10
+  shardrootMaxHunts: 2
+  shardrootGuardPartySize: 12
+  shardrootGuardRadius: 25
+  shardrootGuardLeashRadius: 40
+  shardrootHolderAggroRadius: 40
+  shardrootHolderWaveIntervalMult: 0.6
   initialNodes: 0
   reseedSeconds: 180
   nodeAuraRadius: 20

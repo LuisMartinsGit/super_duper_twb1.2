@@ -74,12 +74,12 @@ namespace TheWaningBorder.Abilities
                     int slot = act.Slot >= 0 && act.Slot < 4
                         ? (RequestedSlotUsable(slots, em, e, act.Slot) ? act.Slot : -1)
                         : FirstActiveSlot(slots, em, e);
-                    em.RemoveComponent<AbilityActivated>(e);
+                    TransientState.Clear<AbilityActivated>(em, e);
                     if (slot < 0) continue;
                     // One channel at a time. The cooldown is only charged when
                     // a channel COMPLETES, so without this a second click during
                     // the channel would find the slot "ready" and restart it.
-                    if (em.HasComponent<AbilityCastState>(e)) continue;
+                    if (TransientState.Active<AbilityCastState>(em, e)) continue;
                     // The dead and the airborne cast nothing.
                     if (IsInterrupted(em, e)) continue;
                     // Drop the activation BEFORE the cooldown is charged, so a
@@ -93,7 +93,7 @@ namespace TheWaningBorder.Abilities
                     // rather than the map. Same rule as the global silence: the
                     // activation is dropped before the cooldown is charged, and
                     // anything already winding up still resolves.
-                    if (em.HasComponent<SectBlinded>(e)
+                    if (TransientState.Active<SectBlinded>(em, e)
                         && em.GetComponentData<SectBlinded>(e).LocksAbilities != 0) continue;
 
                     int idx = slots.Get(slot);
@@ -111,7 +111,7 @@ namespace TheWaningBorder.Abilities
                             Slot = slot, CastTotal = card.CastTime,
                         };
                         SnapshotOrders(em, e, ref cast);
-                        AddOrSet(em, e, cast);
+                        TransientState.Set(em, e, cast);
                     }
                     else
                     {
@@ -136,12 +136,12 @@ namespace TheWaningBorder.Abilities
                 cast.ValueRW = c;
                 if (c.CastRemaining <= 0f) castDone.Add(e);
             }
-            foreach (var e in castBroken) em.RemoveComponent<AbilityCastState>(e);
+            foreach (var e in castBroken) TransientState.Clear<AbilityCastState>(em, e);
             castBroken.Dispose();
             foreach (var e in castDone)
             {
                 var c = em.GetComponentData<AbilityCastState>(e);
-                em.RemoveComponent<AbilityCastState>(e);
+                TransientState.Clear<AbilityCastState>(em, e);
                 var card = AbilityCatalog.Get(c.AbilityIndex);
                 if (card == null) continue;
                 SetCooldown(em, e, c.Slot, card.EffectiveCooldown);
@@ -161,7 +161,7 @@ namespace TheWaningBorder.Abilities
             foreach (var e in afterDone)
             {
                 var a = em.GetComponentData<AbilityAftermath>(e);
-                em.RemoveComponent<AbilityAftermath>(e);
+                TransientState.Clear<AbilityAftermath>(em, e);
                 var parent = AbilityCatalog.Get(a.AbilityIndex);
                 if (parent?.Aftermath == null) continue;
                 foreach (var name in parent.Aftermath)
@@ -184,14 +184,14 @@ namespace TheWaningBorder.Abilities
                 {
                     d.FractionalAccumulator -= whole;
                     var h = hp.ValueRO;
-                    int floor = em.HasComponent<LifeCling>(e) ? em.GetComponentData<LifeCling>(e).Floor : 0;
+                    int floor = TransientState.Active<LifeCling>(em, e) ? em.GetComponentData<LifeCling>(e).Floor : 0;
                     h.Value = math.max(floor, h.Value - whole);
                     hp.ValueRW = h;
                 }
                 dot.ValueRW = d;
                 if (d.TimeRemaining <= 0f) dotDone.Add(e);
             }
-            foreach (var e in dotDone) em.RemoveComponent<SelfDoT>(e);
+            foreach (var e in dotDone) TransientState.Clear<SelfDoT>(em, e);
             dotDone.Dispose();
 
             // ---- 6. Timed markers: decrement TimeRemaining, remove at 0 ----
@@ -199,35 +199,35 @@ namespace TheWaningBorder.Abilities
                 var done = new NativeList<Entity>(Allocator.Temp);
                 foreach (var (c, e) in SystemAPI.Query<RefRW<LifeCling>>().WithEntityAccess())
                 { var v = c.ValueRO; v.TimeRemaining -= dt; c.ValueRW = v; if (v.TimeRemaining <= 0f) done.Add(e); }
-                foreach (var e in done) em.RemoveComponent<LifeCling>(e);
+                foreach (var e in done) TransientState.Clear<LifeCling>(em, e);
                 done.Dispose();
             }
             {
                 var done = new NativeList<Entity>(Allocator.Temp);
                 foreach (var (c, e) in SystemAPI.Query<RefRW<AutoYieldBoost>>().WithEntityAccess())
                 { var v = c.ValueRO; v.TimeRemaining -= dt; c.ValueRW = v; if (v.TimeRemaining <= 0f) done.Add(e); }
-                foreach (var e in done) em.RemoveComponent<AutoYieldBoost>(e);
+                foreach (var e in done) TransientState.Clear<AutoYieldBoost>(em, e);
                 done.Dispose();
             }
             {
                 var done = new NativeList<Entity>(Allocator.Temp);
                 foreach (var (c, e) in SystemAPI.Query<RefRW<UnderAutomation>>().WithEntityAccess())
                 { var v = c.ValueRO; v.TimeRemaining -= dt; c.ValueRW = v; if (v.TimeRemaining <= 0f) done.Add(e); }
-                foreach (var e in done) em.RemoveComponent<UnderAutomation>(e);
+                foreach (var e in done) TransientState.Clear<UnderAutomation>(em, e);
                 done.Dispose();
             }
             {
                 var done = new NativeList<Entity>(Allocator.Temp);
                 foreach (var (c, e) in SystemAPI.Query<RefRW<Charging>>().WithEntityAccess())
                 { var v = c.ValueRO; v.TimeRemaining -= dt; c.ValueRW = v; if (v.TimeRemaining <= 0f) done.Add(e); }
-                foreach (var e in done) em.RemoveComponent<Charging>(e);
+                foreach (var e in done) TransientState.Clear<Charging>(em, e);
                 done.Dispose();
             }
             {
                 var done = new NativeList<Entity>(Allocator.Temp);
                 foreach (var (c, e) in SystemAPI.Query<RefRW<ChargeDamageBonus>>().WithEntityAccess())
                 { var v = c.ValueRO; v.TimeRemaining -= dt; c.ValueRW = v; if (v.TimeRemaining <= 0f) done.Add(e); }
-                foreach (var e in done) em.RemoveComponent<ChargeDamageBonus>(e);
+                foreach (var e in done) TransientState.Clear<ChargeDamageBonus>(em, e);
                 done.Dispose();
             }
             {
@@ -236,7 +236,7 @@ namespace TheWaningBorder.Abilities
                 var done = new NativeList<Entity>(Allocator.Temp);
                 foreach (var (c, e) in SystemAPI.Query<RefRW<NextChargePct>>().WithEntityAccess())
                 { var v = c.ValueRO; v.TimeRemaining -= dt; c.ValueRW = v; if (v.TimeRemaining <= 0f) done.Add(e); }
-                foreach (var e in done) em.RemoveComponent<NextChargePct>(e);
+                foreach (var e in done) TransientState.Clear<NextChargePct>(em, e);
                 done.Dispose();
             }
             {
@@ -244,7 +244,7 @@ namespace TheWaningBorder.Abilities
                 var done = new NativeList<Entity>(Allocator.Temp);
                 foreach (var (c, e) in SystemAPI.Query<RefRW<TempDisarm>>().WithEntityAccess())
                 { var v = c.ValueRO; v.TimeRemaining -= dt; c.ValueRW = v; if (v.TimeRemaining <= 0f) done.Add(e); }
-                foreach (var e in done) em.RemoveComponent<TempDisarm>(e);
+                foreach (var e in done) TransientState.Clear<TempDisarm>(em, e);
                 done.Dispose();
             }
 

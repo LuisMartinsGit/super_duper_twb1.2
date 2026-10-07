@@ -66,7 +66,7 @@ namespace TheWaningBorder.Rendering
 
                 int gained = h.Value - last.value;
                 if (gained <= 0 || gained < cfg.minHealFraction * h.Max) continue;
-                if (em.HasComponent<TheWaningBorder.Abilities.LifeCling>(e) || em.HasComponent<SectDeathWard>(e)) continue;
+                if (TransientState.Active<TheWaningBorder.Abilities.LifeCling>(em, e) || TransientState.Active<SectDeathWard>(em, e)) continue;
                 if (_nextAllowed.TryGetValue(e, out var next) && Time.time < next) continue;
                 if (!VfxSpawn.TryVisibleView(e, out var view)) continue;
 

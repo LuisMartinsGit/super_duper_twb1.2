@@ -118,7 +118,7 @@ namespace TheWaningBorder.Core.Diagnostics
 
                     float nominal = em.HasComponent<MoveSpeed>(u)
                         ? em.GetComponentData<MoveSpeed>(u).Value : 0f;
-                    float commanded = em.HasComponent<FormationSpeedOverride>(u)
+                    float commanded = TransientState.Active<FormationSpeedOverride>(em, u)
                         ? em.GetComponentData<FormationSpeedOverride>(u).Value
                         : nominal;
                     float actual = MeasureSpeed(u, pos, dt);

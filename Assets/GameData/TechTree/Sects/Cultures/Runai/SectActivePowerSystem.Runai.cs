@@ -145,7 +145,7 @@ namespace TheWaningBorder.Systems.Sect
 
                 var los = em.GetComponentData<LineOfSight>(e);
 
-                if (em.HasComponent<SectBlinded>(e))
+                if (TransientState.Active<SectBlinded>(em, e))
                 {
                     // Re-cast REFRESHES rather than stacking, and must not
                     // re-record the already-zeroed radius as the original.
@@ -156,7 +156,7 @@ namespace TheWaningBorder.Systems.Sect
                     continue;
                 }
 
-                ecb.AddComponent(e, new SectBlinded
+                TransientState.Set(ecb, e, new SectBlinded
                 {
                     TimeRemaining  = duration,
                     OriginalRadius = los.Radius,

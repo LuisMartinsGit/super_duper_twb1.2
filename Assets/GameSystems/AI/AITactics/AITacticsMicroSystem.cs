@@ -169,7 +169,7 @@ namespace TheWaningBorder.AI
                 // caster would lose its cast; an airborne unit cannot step.
                 if (em.HasComponent<SiegeTag>(e) || em.HasComponent<EmplacedEngineTag>(e)
                     || em.HasComponent<StationaryAutoFire>(e)) continue;
-                if (em.HasComponent<AbilityCastState>(e) || em.HasComponent<Launched>(e)) continue;
+                if (TransientState.Active<AbilityCastState>(em, e) || em.HasComponent<Launched>(e)) continue;
                 if (em.GetComponentData<Health>(e).Value <= 0) continue;
                 var archer = em.GetComponentData<ArcherState>(e);
                 if (archer.CooldownTimer < Cfg.kiteMinReloadSeconds) continue;
@@ -343,7 +343,7 @@ namespace TheWaningBorder.AI
                 var e = ents[i];
                 if (!em.HasComponent<UnitTag>(e)) continue;   // buildings / Ledger targets
                 if (em.GetComponentData<Health>(e).Value <= 0) continue;
-                if (em.HasComponent<AbilityCastState>(e) || em.HasComponent<AbilityActivated>(e)
+                if (TransientState.Active<AbilityCastState>(em, e) || TransientState.Active<AbilityActivated>(em, e)
                     || em.HasComponent<Launched>(e)) continue;
 
                 if (CastPending(e)) continue;
@@ -542,7 +542,7 @@ namespace TheWaningBorder.AI
                 if (fi < 0 || fi >= MaxF || !_abilityDue[fi]) continue;
                 var e = ents[i];
                 if (em.GetComponentData<Health>(e).Value <= 0) continue;
-                if (em.HasComponent<AbilityActivated>(e) || em.HasComponent<Launched>(e)) continue;
+                if (TransientState.Active<AbilityActivated>(em, e) || em.HasComponent<Launched>(e)) continue;
                 var ab = em.GetComponentData<UnitAbility>(e);
                 if (ab.Id == AbilityId.None || ab.CooldownRemaining > 0f) continue;
                 if (CastPending(e)) continue;
@@ -670,7 +670,7 @@ namespace TheWaningBorder.AI
             {
                 var h = _cand[i];
                 bool buffed = TransientState.Active<SpellBuff>(em, h) || em.HasComponent<IgniteBuff>(h)
-                              || em.HasComponent<VoidStrikeBuff>(h) || em.HasComponent<Fortified>(h);
+                              || em.HasComponent<VoidStrikeBuff>(h) || TransientState.Active<Fortified>(em, h);
                 if (!buffed) continue;
                 float d = math.distance(em.GetComponentData<LocalTransform>(h).Position.xz, me.xz);
                 if (range > 0f && d > range) continue;

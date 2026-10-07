@@ -37,7 +37,7 @@ namespace TheWaningBorder.Systems.Combat
         public static float IncomingScale(EntityManager em, Entity victim, bool isFire)
         {
             if (victim == Entity.Null || !em.Exists(victim)) return 0f;
-            if (em.HasComponent<Invulnerable>(victim)) return 0f;
+            if (TransientState.Active<Invulnerable>(em, victim)) return 0f;
             if (isFire && em.HasComponent<FireImmune>(victim)) return 0f;
             return AbilityDamageHooks.IncomingMultiplier(em, victim);
         }
@@ -86,9 +86,9 @@ namespace TheWaningBorder.Systems.Combat
             damage = toHealth;
 
             int floor = 0;
-            if (em.HasComponent<LifeCling>(victim))
+            if (TransientState.Active<LifeCling>(em, victim))
                 floor = math.max(floor, em.GetComponentData<LifeCling>(victim).Floor);
-            if (em.HasComponent<SectDeathWard>(victim))
+            if (TransientState.Active<SectDeathWard>(em, victim))
                 floor = math.max(floor, 1);
             // A floor never HEALS: an entity already under it stays where it is.
             floor = math.min(floor, hp.Value);

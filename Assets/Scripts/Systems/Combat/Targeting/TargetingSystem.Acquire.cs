@@ -292,7 +292,7 @@ namespace TheWaningBorder.Systems.Combat
                 // only cleared when that attacker died: one graze from an
                 // archer that lived on released the unit for good.)
                 if (hasAttackMove
-                    && em.HasComponent<FormationMemberState>(entity)
+                    && TransientState.Active<FormationMemberState>(em, entity)
                     && em.HasComponent<GuardPoint>(entity))
                 {
                     var fgp = em.GetComponentData<GuardPoint>(entity);
@@ -310,7 +310,7 @@ namespace TheWaningBorder.Systems.Combat
                 // Walking a QUEUED plain-move route: waypoints outweigh the
                 // stance until the queue is done (2026-09-29) — a route that
                 // fights at every stop is an attack-move, queued as such.
-                if (!isActiveScanner && em.HasComponent<QueuedMoveStep>(entity)) continue;
+                if (!isActiveScanner && TransientState.Active<QueuedMoveStep>(em, entity)) continue;
 
                 // Idle units skip while moving to a destination — including the
                 // walk home from a broken leash. Return-to-guard owns
@@ -488,8 +488,8 @@ namespace TheWaningBorder.Systems.Combat
                             // reveal range (3u) or exposed by a Lorekeeper
                             // (Antiquity detection stamp). Read live, not
                             // cached: stealth comes and goes.
-                            if (dist > 3f && em.HasComponent<StealthTag>(cand)
-                                && !em.HasComponent<StealthRevealed>(cand))
+                            if (dist > 3f && TransientState.Active<StealthTag>(em, cand)
+                                && !TransientState.Active<StealthRevealed>(em, cand))
                                 continue;
 
                             // DEFENSIVE / SUPPORT: return fire only -- the
@@ -675,7 +675,7 @@ namespace TheWaningBorder.Systems.Combat
         /// <summary>The stance a unit is actually in (HoldPositionTag wins).</summary>
         private static UnitStanceMode EffectiveStance(EntityManager em, Entity e)
         {
-            if (em.HasComponent<HoldPositionTag>(e)) return UnitStanceMode.Hold;
+            if (TransientState.Active<HoldPositionTag>(em, e)) return UnitStanceMode.Hold;
             if (em.HasComponent<UnitStance>(e)) return em.GetComponentData<UnitStance>(e).Value;
             return UnitStanceMode.Aggressive;   // the default for every unit (Stances.md §4)
         }

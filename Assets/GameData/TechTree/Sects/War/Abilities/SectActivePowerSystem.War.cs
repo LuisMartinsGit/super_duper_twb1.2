@@ -85,14 +85,14 @@ namespace TheWaningBorder.Systems.Sect
                     var stamp = new SectHaste { Multiplier = haste, TimeRemaining = duration };
                     // A stronger or longer Blood Rain wins on both axes; a
                     // weaker one landing mid-effect must not cut the first short.
-                    if (em.HasComponent<SectHaste>(e))
+                    if (TransientState.Active<SectHaste>(em, e))
                     {
                         var cur = em.GetComponentData<SectHaste>(e);
                         stamp.Multiplier    = math.max(cur.Multiplier, haste);
                         stamp.TimeRemaining = math.max(cur.TimeRemaining, duration);
                         em.SetComponentData(e, stamp);
                     }
-                    else ecb.AddComponent(e, stamp);
+                    else TransientState.Set(ecb, e, stamp);
                 }
                 ecb.Playback(em);
                 ecb.Dispose();

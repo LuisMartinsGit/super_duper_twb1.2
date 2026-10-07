@@ -229,7 +229,7 @@ public struct FormationMember : IBufferElementData
 /// Per-unit back-reference to the formation group the unit travels with.
 /// Removed when the unit detaches (combat, new individual order, arrival).
 /// </summary>
-public struct FormationMemberState : IComponentData
+public struct FormationMemberState : IComponentData, IEnableableComponent
 {
     public Entity Group;
     public float2 Slot;

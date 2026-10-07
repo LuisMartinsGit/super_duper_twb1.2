@@ -16,6 +16,7 @@
 
 using System.Collections.Generic;
 using Unity.Entities;
+using Unity.Mathematics;
 
 namespace TheWaningBorder.AI
 {
@@ -131,6 +132,54 @@ namespace TheWaningBorder.AI
 
         /// <summary>May an army of <paramref name="faction"/> strike a building
         /// of <paramref name="owner"/>? Only its war victim's while a war is on.</summary>
+        /// <summary>
+        /// THE VICTIM'S GROUND (2026-10-07, Game_AI.md § 6i). With no sighting
+        /// of the war victim, armies used to march on "the nearest hostile
+        /// start Hall" — any hostile's, often a dead faction's start somebody
+        /// else now held — arrive at nothing, log "no player objective" and
+        /// walk home, wave after wave (8-player batch: a third to a half of
+        /// all launches). Territory ownership is public (every border is drawn
+        /// in its owner's colour), so the army goes to the victim's nearest
+        /// held territory instead; whatever holds it — a building, a Fortress,
+        /// standing troops — is there to be fought. <paramref name="avoid"/>
+        /// skips the ground the army is standing on.
+        /// </summary>
+        private static bool TryVictimGround(EntityManager em, Faction victim, float3 from, float3 avoid,
+            out float3 pos, out string what)
+        {
+            pos = default; what = null;
+            if (victim == Faction.Border || !TheWaningBorder.World.Regions.RegionMap.Ready) return false;
+            float best = float.MaxValue;
+            int n = TheWaningBorder.World.Regions.RegionMap.Count;
+            for (int t = 0; t < n; t++)
+            {
+                if (TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(t) != (int)victim) continue;
+                var s = TheWaningBorder.World.Regions.RegionMap.SeedOf(t);
+                var p = new float3(s.x, 0f, s.y);
+                if (math.distancesq(p.xz, avoid.xz) < 40f * 40f) continue;
+                float d = math.distancesq(p.xz, from.xz);
+                if (d < best)
+                {
+                    best = d; pos = p;
+                    what = $"{victim}'s ground at {TheWaningBorder.World.Regions.RegionMap.NameOf(t)}";
+                }
+            }
+            if (best == float.MaxValue) return false;
+            pos.y = TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(pos.x, pos.z);
+            return true;
+        }
+
+        /// <summary>Territories <paramref name="f"/> holds (public: every
+        /// border is drawn in its owner's colour).</summary>
+        private static int TerritoriesHeld(Faction f)
+        {
+            if (!TheWaningBorder.World.Regions.RegionMap.Ready) return int.MaxValue;
+            int n = 0, c = TheWaningBorder.World.Regions.RegionMap.Count;
+            for (int t = 0; t < c; t++)
+                if (TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(t) == (int)f) n++;
+            return n;
+        }
+
         private bool WarAllows(EntityManager em, Faction faction, Faction owner)
             => !TryGetWarVictim(em, faction, out var v) || owner == v;
     }

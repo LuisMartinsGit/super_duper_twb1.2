@@ -50,7 +50,7 @@ namespace TheWaningBorder.Systems.Combat
                 debuff.ValueRW.TimeRemaining -= dt;
                 if (debuff.ValueRO.TimeRemaining <= 0f)
                 {
-                    ecb.RemoveComponent<SpellDebuff>(entity);
+                    TransientState.Clear<SpellDebuff>(state.EntityManager, ecb, entity);
                 }
             }
 
@@ -60,7 +60,7 @@ namespace TheWaningBorder.Systems.Combat
                 invuln.ValueRW.TimeRemaining -= dt;
                 if (invuln.ValueRO.TimeRemaining <= 0f)
                 {
-                    ecb.RemoveComponent<Invulnerable>(entity);
+                    TransientState.Clear<Invulnerable>(state.EntityManager, ecb, entity);
                 }
             }
 

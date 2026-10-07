@@ -137,7 +137,7 @@ $MapPlayers = @{
     "SunderedCrown" = 4
     "TwinSpans"     = 6
     "Veilmarch"     = 8
-    "MirrorMarches" = 4
+    "MirrorMarches" = 8
 }
 
 function PlayersFor([string]$m) {

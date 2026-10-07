@@ -92,7 +92,7 @@ namespace TheWaningBorder.Systems.Sect
 
                 // Add or refresh the stack.
                 int newStacks;
-                if (em.HasComponent<VenerationFervor>(p.Killer))
+                if (TransientState.Active<VenerationFervor>(em, p.Killer))
                 {
                     var fervor = em.GetComponentData<VenerationFervor>(p.Killer);
                     if (fervor.Stacks < MaxStacks) fervor.Stacks++;
@@ -102,7 +102,8 @@ namespace TheWaningBorder.Systems.Sect
                 }
                 else
                 {
-                    em.AddComponentData(p.Killer, new VenerationFervor
+                    // Enableable, pre-added on units (TransientState.cs).
+                    TransientState.Set(em, p.Killer, new VenerationFervor
                     {
                         Stacks = 1,
                         TimeRemaining = p.Duration,
@@ -150,8 +151,8 @@ namespace TheWaningBorder.Systems.Sect
             }
             for (int i = 0; i < ecb.Length; i++)
             {
-                if (em.Exists(ecb[i]) && em.HasComponent<VenerationFervor>(ecb[i]))
-                    em.RemoveComponent<VenerationFervor>(ecb[i]);
+                if (em.Exists(ecb[i]))
+                    TransientState.Clear<VenerationFervor>(em, ecb[i]);
             }
             ecb.Dispose();
         }

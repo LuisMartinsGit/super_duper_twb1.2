@@ -817,11 +817,8 @@ namespace TheWaningBorder.Core.Commands
             int slot = -1)
         {
             if (unit == Entity.Null || !em.Exists(unit)) return;
-            var act = new AbilityActivated { Target = target, Slot = slot };
-            if (em.HasComponent<AbilityActivated>(unit))
-                em.SetComponentData(unit, act);
-            else
-                em.AddComponentData(unit, act);
+            // Enableable, pre-added disabled on units (TransientState.cs).
+            TransientState.Set(em, unit, new AbilityActivated { Target = target, Slot = slot });
         }
 
         /// <summary>
@@ -2504,14 +2501,11 @@ namespace TheWaningBorder.Core.Commands
             // order (docs/Design/Stances.md §1). Only choosing another stance
             // (StanceCommandHelper) removes it — which also keeps an emplaced
             // engine, bolted to its platform, holding for ever.
-            if (em.HasComponent<AbilityActivated>(unit))
-                em.RemoveComponent<AbilityActivated>(unit);
-            if (em.HasComponent<CommandQueueActive>(unit))
-                em.RemoveComponent<CommandQueueActive>(unit);
+            TransientState.Clear<AbilityActivated>(em, unit);
+            TransientState.Clear<CommandQueueActive>(em, unit);
             if (em.HasBuffer<QueuedCommand>(unit))
                 em.GetBuffer<QueuedCommand>(unit).Clear();
-            if (em.HasComponent<QueuedMoveStep>(unit))
-                em.RemoveComponent<QueuedMoveStep>(unit);
+            TransientState.Clear<QueuedMoveStep>(em, unit);
             if (em.HasComponent<QueuedAttackTarget>(unit))
                 em.RemoveComponent<QueuedAttackTarget>(unit);
             // Cancel a pending or in-progress ritual when any other command
@@ -2527,10 +2521,8 @@ namespace TheWaningBorder.Core.Commands
             // Formation travel state: Stop (or any full reset) detaches the
             // unit from its group and drops the group-speed override so the
             // next order runs at the unit's own speed.
-            if (em.HasComponent<FormationMemberState>(unit))
-                em.RemoveComponent<FormationMemberState>(unit);
-            if (em.HasComponent<FormationSpeedOverride>(unit))
-                em.RemoveComponent<FormationSpeedOverride>(unit);
+            TransientState.Clear<FormationMemberState>(em, unit);
+            TransientState.Clear<FormationSpeedOverride>(em, unit);
             // Out of the formation for good, so forget the slot too —
             // otherwise a later formation order would put this unit back
             // into a rank it has long since left.

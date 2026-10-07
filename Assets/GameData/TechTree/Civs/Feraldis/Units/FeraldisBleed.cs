@@ -31,7 +31,7 @@ namespace TheWaningBorder.Systems.Combat
             // An Invulnerable victim is not cut at all — it must not come out
             // of LockdownVault with a bleed waiting (every route: melee,
             // whirl, projectile).
-            if (em.HasComponent<Invulnerable>(victim)) return;
+            if (TransientState.Active<Invulnerable>(em, victim)) return;
             // Buildings don't bleed.
             if (!em.HasComponent<UnitTag>(victim)) return;
 

@@ -205,11 +205,68 @@ namespace TheWaningBorder.Data.Border
             => waveSizeByDifficulty != null && difficulty >= 0 && difficulty < waveSizeByDifficulty.Length
                 ? Mathf.Max(0f, waveSizeByDifficulty[difficulty]) : 1f;
 
-        /// <summary>HARD CAP on live curse units (every BorderUnitTag unit,
-        /// whatever raised it). Every spawn path raises at most the headroom
-        /// left under it (§6.8, CurseUnitCap); in the living curse the only
-        /// spawner is the garrison, so this bounds the garrisons.</summary>
-        [Min(0)] public int maxCurseUnits = 250;
+        /// <summary>CEILING on live curse units (every BorderUnitTag unit,
+        /// whatever raised it). The cap in force is curseUnitsBase +
+        /// curseUnitsPerTerritory x the territories the curse holds, never
+        /// above this (§6.8, 2026-10-07, CurseUnitCap). Every spawn path
+        /// raises at most the headroom left under the cap; in the living
+        /// curse the only spawner is the garrison, so it bounds the garrisons.</summary>
+        [Min(0)] public int maxCurseUnits = 1000;
+
+        /// <summary>Curse units allowed whatever ground it holds — the part
+        /// of the cap that does not scale with territories (§6.8).</summary>
+        [Min(0)] public int curseUnitsBase = 40;
+
+        /// <summary>Curse units the cap grows by for every territory the curse
+        /// holds (§6.8, 2026-10-07: "proportional to territories held").</summary>
+        [Min(0)] public int curseUnitsPerTerritory = 40;
+
+        // ── §6.5 / §6.8 (2026-10-07): conquest and holding ──
+
+        /// <summary>Claim and fill parties the curse may have out at once
+        /// (§6.5). Each expansion check sends at most one more.</summary>
+        [Min(1)] public int maxConcurrentClaims = 2;
+
+        /// <summary>CONQUEST WAVES (§6.8, 2026-10-07): an attack wave may march
+        /// on a LOCKED territory of its target that borders curse ground,
+        /// strike the structures that lock it, and — once it is unlocked —
+        /// stay as a claim party that takes it, instead of walking home.</summary>
+        public bool conquestWaves = true;
+
+        // ── §6.6 (2026-10-07): the Shardroot — hunt and guard ──
+
+        /// <summary>Seconds between Shardroot hunt dispatches while a player
+        /// holds it (§6.6). The hunt has its own clock: it no longer takes the
+        /// expansion slot, so the curse keeps claiming while it hunts.</summary>
+        [Min(5f)] public float shardrootHuntSeconds = 45f;
+
+        /// <summary>Units drafted into each Shardroot hunt party (x the
+        /// holder bonus, shardrootCurseBonus).</summary>
+        [Min(1)] public int shardrootHuntPartySize = 10;
+
+        /// <summary>Hunt parties that may press the holder at once.</summary>
+        [Min(0)] public int shardrootMaxHunts = 2;
+
+        /// <summary>Units the curse keeps around the Shardroot while it lies
+        /// on the ground (§6.6), topped up every check.</summary>
+        [Min(0)] public int shardrootGuardPartySize = 12;
+
+        /// <summary>The Shardroot guard engages hostiles within this many
+        /// metres of the artifact.</summary>
+        [Min(1f)] public float shardrootGuardRadius = 25f;
+
+        /// <summary>A guard unit fighting farther than this from the artifact
+        /// drops the fight and walks back.</summary>
+        [Min(1f)] public float shardrootGuardLeashRadius = 40f;
+
+        /// <summary>A garrison goes for the Shardroot holder, ahead of any
+        /// other intruder, when the holder is within this many metres of the
+        /// node it guards (§6.6).</summary>
+        [Min(0f)] public float shardrootHolderAggroRadius = 40f;
+
+        /// <summary>While a player holds the Shardroot the attack-wave
+        /// interval is multiplied by this (§6.6): below 1 = waves come faster.</summary>
+        [Range(0.1f, 1f)] public float shardrootHolderWaveIntervalMult = 0.6f;
 
         // ── Territory_Claims.md §6 (2026-09-29): the curse as a claimant ──
 
@@ -451,7 +508,19 @@ namespace TheWaningBorder.Data.Border
             waveSizeVsPower = 0.6f;
             waveSizeByDifficulty = new[] { 0.5f, 1f, 1f, 1.25f };
             claimGraceSeconds = 480f;
-            maxCurseUnits = 250;
+            maxCurseUnits = 1000;
+            curseUnitsBase = 40;
+            curseUnitsPerTerritory = 40;
+            maxConcurrentClaims = 2;
+            conquestWaves = true;
+            shardrootHuntSeconds = 45f;
+            shardrootHuntPartySize = 10;
+            shardrootMaxHunts = 2;
+            shardrootGuardPartySize = 12;
+            shardrootGuardRadius = 25f;
+            shardrootGuardLeashRadius = 40f;
+            shardrootHolderAggroRadius = 40f;
+            shardrootHolderWaveIntervalMult = 0.6f;
             initialNodes = 0;
             reseedSeconds = 180f;
             nodeAuraRadius = 20f;

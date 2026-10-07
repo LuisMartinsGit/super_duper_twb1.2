@@ -183,7 +183,7 @@ namespace TheWaningBorder.Systems.Navigation
                 // stall release, tether fuse, settle timeout). Treat them as
                 // having no live intent so a member that leaves the group
                 // starts a clean measurement.
-                if (dd.ValueRO.Has == 0 || em.HasComponent<FormationMemberState>(entity))
+                if (dd.ValueRO.Has == 0 || TransientState.Active<FormationMemberState>(em, entity))
                 {
                     // No live intent — reset so the next order starts clean.
                     t.BestDist = float.MaxValue;

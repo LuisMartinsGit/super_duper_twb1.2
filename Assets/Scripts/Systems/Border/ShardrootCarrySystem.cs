@@ -318,7 +318,7 @@ namespace TheWaningBorder.Systems.Economy
                 // AFTER this system runs, so a clinging king at 0 HP survives
                 // the tick. Dropping here made him lose the artifact and live
                 // (2026-09-15). The floor is what decides; mirror it.
-                if (em.HasComponent<TheWaningBorder.Abilities.LifeCling>(entity)
+                if (TransientState.Active<TheWaningBorder.Abilities.LifeCling>(em, entity)
                     && em.GetComponentData<TheWaningBorder.Abilities.LifeCling>(entity).Floor > 0) continue;
                 dropList.Add(entity);
                 dropPositions.Add(transform.ValueRO.Position);

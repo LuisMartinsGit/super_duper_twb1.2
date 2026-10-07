@@ -232,7 +232,7 @@ namespace TheWaningBorder.AI
 
             // One clock for the cache whoever calls (the brain's think clock
             // is match-relative, the endgame systems' is the world's).
-            var w = GetWindow(em, faction, region, (float)em.World.Time.ElapsedTime);
+            var w = GetWindow(em, faction, region, TheWaningBorder.Core.SimClock.Now);
             if (!w.Valid) return null;
 
             // The candidate's cells, local to the window.
@@ -327,7 +327,7 @@ namespace TheWaningBorder.AI
             EnsureEpoch();
             // The world clock, whichever clock the caller passed.
             var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
-            if (world != null && world.IsCreated) now = (float)world.Time.ElapsedTime;
+            if (world != null && world.IsCreated) now = TheWaningBorder.Core.SimClock.Now;
             int key = (int)faction;
             if (_nextSealLog.TryGetValue(key, out float next) && now < next) return;
             _nextSealLog[key] = now + math.max(0f, Cfg.sealLogInterval);

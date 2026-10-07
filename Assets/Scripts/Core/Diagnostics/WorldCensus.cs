@@ -32,6 +32,15 @@ namespace TheWaningBorder.Core.Diagnostics
         private static float _next;
         private static int _prevEntities, _prevArchetypes, _prevChunks;
 
+        /// <summary>Archetype count past which the census warns, once per
+        /// process. The EntityQueryManager's 16MB BlockAllocator overflowed
+        /// at ~5,000 (7,782 in 0.0.19, ~5,000 in the 0.0.36 8-player
+        /// headless runs) and archetypes are never freed, so a world this far
+        /// along is heading for the access-violation crash — the warning puts
+        /// the NEWARCH lines just above it in the right light.</summary>
+        private const int ArchetypeWarnThreshold = 4000;
+        private static bool _warnedArchetypes;
+
         /// <summary>Take a census if the interval has elapsed. Call once a
         /// frame; it returns immediately on every frame but one in ~900.</summary>
         public static void Tick()
@@ -87,6 +96,17 @@ namespace TheWaningBorder.Core.Diagnostics
             // instead of leaving it as a number that only goes up.
             if (_prevArchetypes > 0 && archetypeCount > _prevArchetypes)
                 DescribeNewArchetypes(em, _prevArchetypes);
+
+            if (!_warnedArchetypes && archetypeCount > ArchetypeWarnThreshold)
+            {
+                _warnedArchetypes = true;
+                string msg = $"archetypes={archetypeCount} exceeds {ArchetypeWarnThreshold} "
+                    + $"({emptyArchetypes} empty) -- runtime component churn; the "
+                    + "BlockAllocator overflow crash sits near 5,000. See the NEWARCH "
+                    + "lines for the components being added/removed (TransientState.cs).";
+                PerfSpikeLog.Report("ARCHWARN", 0, msg, 0.0);
+                Debug.LogWarning("[WorldCensus] " + msg);
+            }
 
             _prevEntities = entities;
             _prevArchetypes = archetypeCount;

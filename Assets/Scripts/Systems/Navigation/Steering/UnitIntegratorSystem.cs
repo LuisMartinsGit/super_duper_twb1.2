@@ -233,7 +233,7 @@ namespace TheWaningBorder.Systems.Navigation
 
                 // Resolve effective speed: FormationSpeedOverride > MoveSpeed > default.
                 float speed = DefaultMoveSpeed;
-                if (em.HasComponent<FormationSpeedOverride>(entity))
+                if (TransientState.Active<FormationSpeedOverride>(em, entity))
                 {
                     var fso = em.GetComponentData<FormationSpeedOverride>(entity);
                     if (fso.Value > 0) speed = fso.Value;
@@ -360,7 +360,7 @@ namespace TheWaningBorder.Systems.Navigation
                 // They also get a tighter window than a loose unit. 0.5 m of
                 // slop is invisible on a single unit walking to a flag and very
                 // visible across eight units meant to be standing in a line.
-                bool inFormation = em.HasComponent<FormationMemberState>(entity);
+                bool inFormation = TransientState.Active<FormationMemberState>(em, entity);
                 float stop = inFormation ? FormationStopDistance : StopDistance;
 
                 bool arrived = distSqr <= (stop * stop);
@@ -385,9 +385,9 @@ namespace TheWaningBorder.Systems.Navigation
                     // lifecycle and removes it on Detach; stripping it here
                     // hands the unit back its own speed in the middle of a
                     // march it is supposed to be marching in step with.
-                    if (!em.HasComponent<FormationMemberState>(entity)
-                        && em.HasComponent<FormationSpeedOverride>(entity))
-                        ecb.RemoveComponent<FormationSpeedOverride>(entity);
+                    if (!TransientState.Active<FormationMemberState>(em, entity)
+                        && TransientState.Active<FormationSpeedOverride>(em, entity))
+                        ecb.SetComponentEnabled<FormationSpeedOverride>(entity, false);
                     continue;
                 }
 
@@ -573,7 +573,7 @@ namespace TheWaningBorder.Systems.Navigation
                                 }
                             }
 
-                            if (!escaped && em.HasComponent<FormationMemberState>(entity))
+                            if (!escaped && TransientState.Active<FormationMemberState>(em, entity))
                             {
                                 // A FORMATION MEMBER DOES NOT ABANDON ITS ORDER
                                 // HERE. Clearing Has made FormationGroupSystem's
@@ -592,8 +592,8 @@ namespace TheWaningBorder.Systems.Navigation
                                 dd.ValueRW.Has = 0;
                                 TransientState.Clear<UserMoveOrder>(em, ecb, entity);
                                 TransientState.Clear<AttackMoveTag>(em, ecb, entity);
-                                if (em.HasComponent<FormationSpeedOverride>(entity))
-                                    ecb.RemoveComponent<FormationSpeedOverride>(entity);
+                                if (TransientState.Active<FormationSpeedOverride>(em, entity))
+                                    ecb.SetComponentEnabled<FormationSpeedOverride>(entity, false);
                                 ecb.SetComponent(entity, new StuckState { Counter = 0, LastAttempt = 0 });
 
                                 // Tell the leash the order is abandoned, or

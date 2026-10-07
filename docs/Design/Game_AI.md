@@ -193,13 +193,25 @@ What the row decides, and where each field is read:
 | `militaryFloor` | **Standing army** (§ 3a) -- multiplied by the plan's `ArmyScale`, never by difficulty | `Economy`, `Goals` |
 | `attackThreshold` | Idle units before the brain flips to Pressure posture | `Posture` |
 | `riskMultiplier` | **Risk** -- multiplies the risk term of target scoring and the wave's strength gate; above 1 is cautious, below 1 takes the fight | `Targeting`, `Military` |
-| `raidingEnabled` | **Raiding** -- whether a wave launch also peels a fast raid party at the enemy economy | `Military` |
+| `raidingEnabled` | **Raiding** -- whether a wave launch also peels a fast raid party at the enemy economy, and whether the independent raids of `raidIntervalSeconds` may go | `Military` |
 | `gathererHutTarget` | **Hut cap** -- the early-game Gatherer's Hut ceiling; doubles over the match for gathering cultures, Feraldis (Raider Camps) stays hard-capped at the smaller of it and `feraldisRaiderCampCap` | `Economy` |
 | `productionBuildingTarget` | Production buildings per line (`/2` in Age 0, `/4` after age-up, min 2) | `Goals` |
 | `ageUpPushSeconds` | **Age-up push** -- game time after which the AI stops founding huts, treats the age-up as its advancement gate and banks for it (Aggressive / Rush first push their one Age 0 wave) | `SimpleAISystem`, `Goals`, `Economy` |
 | `basicsAppetite` | **Army mix** -- multiplier on the cheap basics' share of the army plan (§ 5d); the role mix itself is `RoleBudget.For` in `AIComposition.cs`, still code | `Composition` |
-| `towerCoverageScale` | **Towers** -- multiplier on how much ground the personality wants covered by watch towers (1 = Balanced) | the fortification pass (being wired) |
-| `wallPriorityScale` | **Walls** -- multiplier on the priority of wall work against the rest of the build list (1 = Balanced) | the fortification pass (being wired) |
+| `towerCoverageScale` | **Towers** -- multiplier on how much ground the personality wants covered by watch towers (1 = Balanced): the per-province tower cap and coverage, and the Alanthor endgame's tower budget per tier | `TowerCoverage`, `AIAlanthorEndgameSystem.Towers` |
+| `wallPriorityScale` | **Walls** -- below 1 the wall doctrine waits until the army stands at that share of its target (a drawn home ring is exempt, § 6h); 1 and above it holds only while the army is short | `AIAlanthorEndgameSystem.Walls` |
+| `wallsEnabled` | **No walls at all** when off (Rush): no plan, no ring corridor kept free -- *structural* | `AIAlanthorEndgameSystem`, `AIWallCorridor` |
+| `homeRingScale` | **Ring width** -- multiplier on the drawn main-camp ring's hub offsets (§ 3b) -- *structural* | `AIBaseTemplate.HubPositions` |
+| `frontierWallTerritories` | **Frontier walls** -- how many held territories bordering hostile ground are walled besides the home (§ 3b) -- *structural* | `AIWallPlanner.CollectWallTerritories` |
+| `wallGuardShare` | **Wall guard** -- share of the idle standing army posted at the home ring's gates (§ 3b) | `Posture` (`TickWallGuard`) |
+| `raidIntervalSeconds` / `raidPartyScale` | **Independent raids** -- seconds between raid parties sent at the enemy's extractors on their own timer (0 = raids only split off a wave), and the multiplier on the party size (§ 3b); the interval is *structural* | `Military` (`TickRaids`) |
+| `strengthGateFromSeconds` / `noOverdueRelease` | **Only fights it can win** -- the time from which every wave must pass the strength test (the earlier of it and `strengthWaveAfterSeconds`), and whether an overdue wave is ever released past the assessment or the Defend veto (§ 3b) -- *structural* | `Military` |
+| `fortressAppetite` | **Fortress spread** -- multiplier on the Fortress ceiling, pace and rival-border weight (§ 3b, § 5c) | `Expansion` (`EnsureFortressExpansion`) |
+
+A *structural* field is read from the personality's row as authored at every
+tier (`For(p, weight)` copies it unblended): whether a Rush walls, or how wide
+a Turtle's ring is, is the flavour itself, not a strength that dampening
+should soften. Every other field blends toward Balanced as above.
 
 Workers are NOT on the row: the worker target is the one rule in § 4
 (`economyWorkerFloor` + one per conquered territory, `SimpleAISystem.asset`),
@@ -217,18 +229,27 @@ open the asset for the numbers):
   risk aversion, raids, a higher floor and more production buildings, fewer
   huts, pushes the age-up late (after its wave), light on towers and walls.
 - **Defensive** -- Fortress first, Tech second; cautious targeting, no raids,
-  a big floor, the most towers and walls after Turtle.
+  the biggest floor and attack threshold in the table; **attacks only when it
+  is sure to win**: every wave passes the strength test from the first minute
+  and is never released as overdue; **spreads towers and Fortresses** -- the
+  most tower coverage, and the largest Fortress appetite (more of them,
+  sooner, toward its rivals). Walls after Turtle.
 - **Economic** -- Boom first, Tech second; the smallest floor and the highest
   hut cap, pushes the age-up early, no raids, slightly under par on
   fortification.
 - **Rush** -- the strongest single affinity in the table (Rush), the lowest
-  risk aversion, the fewest huts and the most production buildings, raids,
-  pushes the age-up last, builds almost no towers or walls.
+  risk aversion, the fewest huts and the most production buildings, pushes
+  the age-up last, builds almost no towers and **no walls at all**; **harasses
+  the enemy economy**: after its age-up it sends larger raid parties at
+  extractors on their own timer, between waves as well as with them.
 - **TechBoom** -- Tech first with a little Boom; the earliest age-up push,
   the lowest basics appetite (its veilstone goes into role units), no raids,
   par fortification.
-- **Turtle** -- Fortress with a little Mass; the highest risk aversion, the
-  biggest floor and attack threshold, no raids, the most towers and walls.
+- **Turtle** -- Fortress with a little Mass; the highest risk aversion, a big
+  floor, no raids, the most walls; **a wider home ring** that fences more
+  building ground, **walls along its frontier** territories against
+  invaders, and **defends its walls**: part of its idle army stands at the
+  ring's gates.
 
 ### 3a. The standing army (military floor)
 
@@ -237,8 +258,9 @@ before it considers anything else military. It is multiplied by the PLAN's
 army scale, not by difficulty -- difficulty sets the army CAP, the wave base
 and how fast the brain thinks, never the floor -- so every tier keeps the same
 standing army and differs in how well it uses it. The floors run Economic <
-TechBoom < Balanced < Aggressive = Rush < Defensive < Turtle; the values are
-`militaryFloor` on `AISettings.asset`.
+TechBoom < Balanced < Aggressive = Rush < Turtle < Defensive (Defensive
+overtook Turtle on 2026-10-07, § 3b: it builds a large army before it
+attacks); the values are `militaryFloor` on `AISettings.asset`.
 
 **Doubled on 2026-09-12** (operator directive). The old floors were set when
 the army cap was small; with the cap at 200 they left every faction fielding
@@ -262,6 +284,85 @@ unit spend. After the age-up the target is at least `armyPerTerritory` per
 territory held (capped at the plan's army cap), whatever the saves; below
 `armyEssentialFraction` of that target a combat unit passes the ordinary
 holds (§ 5f).
+
+### 3b. Personality doctrines: walls, raids, caution, and workers as targets (2026-10-07)
+
+**Developer directives:** "Turtle: a wider wall around the main base, so more
+buildings fit inside; builds walls along its territories to stop invaders;
+defends its walls with the army. Rush: ditches walls completely; focuses on
+harassing enemy economic buildings. Defensive: builds a large army and only
+attacks when it is sure it can win; spreads towers and Fortresses. Armies
+treat enemy workers as high-value targets."
+
+Every number below is a field on the personality row (`AISettings.asset`,
+table in § 3) or on `SimpleAISystem.asset` / `AITactics.asset` /
+`AIBaseTemplate.asset`; none is restated here.
+
+1. **The wider ring (Turtle, `homeRingScale`).** The drawn main-camp ring
+   (§ 6g) is drawn with every hub's offset from the Fortress multiplied by
+   the scale. A hub that would leave the home territory, or stand within the
+   wall inset of its border, is pulled back toward its drawn spot (never
+   inside it). A ring drawn wider gets an extra hub on every link longer than
+   `ringMaxLinkMeters`, so the wall doctrine's link radius still spans every
+   link. The building slots keep the drawn town's shape; the extra ground
+   inside the ring is the ordinary site search's (§ 6b), which keeps base
+   buildings inside the ring.
+2. **Frontier walls (Turtle, `frontierWallTerritories`).** Besides the home
+   ring, up to that many held territories are walled: claimed,
+   Fortress-connected and bordering a hostile faction's or the curse's
+   ground — those with the faction's own Fortress first, then those next to
+   home. Each is traced like the old border wall, but only along stretches
+   that face ground the faction does not hold; the border with its own
+   territories stays open, so the wall never fences in its own army. The
+   picks are kept while held, so the plan is redrawn only when one is lost or
+   a slot opens. This is the one exception to "secondary bases are not
+   walled" (§ 6g rule 3), and only for a personality that asks for it. The
+   doctrine's hub cap counts per walled territory.
+3. **The wall guard (Turtle, `wallGuardShare`).** Every
+   `wallGuardIntervalSeconds` that share of the idle standing army (not on a
+   mission, a claim or an economy response) is posted
+   `wallGuardInsetMeters` inside the home ring's built gates, round-robin by
+   entity index; a unit within `wallGuardArriveMeters` of its post is left
+   alone. Posted units attack-move, so they meet an attacker at the wall, and
+   stay draftable by the next wave. Not in Defend posture (the defence owns
+   the army then).
+4. **No walls (Rush, `wallsEnabled` off).** No wall plan, no hubs, no gates,
+   and no ring corridor kept free in the base layout.
+5. **Raids on their own timer (Rush, `raidIntervalSeconds`,
+   `raidPartyScale`).** After its age-up, every interval a raiding
+   personality sends a party (`raidPartySize` x the scale; also the size of
+   the raid split at wave launch) of its fastest idle units above the
+   standing floor at the best-ranked income target (§ 6f: extractors first,
+   then houses; never military buildings; the war's victim only while a war
+   is on, § 6i) that the party can take (AIEngagement assessment), with at
+   most `raidMaxConcurrent` raids out. A raid whose objective falls moves on
+   to the next extractor within `raidChainRadius` before it heads for safe
+   ground. Not in Defend posture.
+6. **Only fights it can win (Defensive, `strengthGateFromSeconds`,
+   `noOverdueRelease`).** The wave strength test (§ 6a) applies from the
+   personality's time instead of only past `strengthWaveAfterSeconds`; before
+   that mark the head-count bar still applies as well, so it attacks with a
+   big army that can win. Its waves are never overdue: no release past the
+   assessment, none past the Defend veto. A held wave raises the desired army
+   toward what the defence demands, up to the tier's cap.
+7. **Fortresses spread (Defensive, `fortressAppetite`).** The Fortress
+   ceiling is multiplied by it, the check interval and the tier's
+   `fortressDelaySeconds` divided by it, and the bonus for ground bordering a
+   rival or the curse multiplied by it (§ 5c). Towers spread through the
+   higher `towerCoverageScale` (§ 3 table).
+8. **Workers are high-value targets (every personality).** In a fight the
+   tactics layer's army scoring and `AIEngagement.PickPriorityTarget` add
+   `workerTargetBonus` (`AITactics.asset`) to an enemy worker — flat, at
+   every tier, not scaled by the tier's focus-fire skill. In income targeting
+   (§ 6f) an extractor scores `incomeWorkerBonus` more per enemy worker of its
+   owner seen within `incomeWorkerRadius` in the last
+   `incomeWorkerMaxAgeSeconds` (at most `incomeWorkerMaxCounted`). The
+   shared `TargetingSystem` is unchanged: this is the AI's choice, not a
+   rule of the simulation.
+
+Logs: `RAID: n fast unit(s) at <faction>'s <building> …`, `RAID: objective
+down — on to …`, `WALL GUARD: n unit(s) to the ring's k gate(s) …`, the wall
+plan line's `territory N: border trace (frontier): …`.
 
 ## 4. Economy manager
 
@@ -1340,7 +1441,7 @@ the curse-clearing sortie and the claim's curse assault. The estimate is the
   a lower reading never replaces it;
 - **baseline** — the garrison the curse's own rules give a node by now
   (`garrisonCap` x `armyGrowth`^n, n = spawns so far, capped by
-  `maxCurseUnits` shared among the live nodes, at the match minute's army
+  the curse's territory-scaled cap (`CurseUnitCap.Max`) shared among the live nodes, at the match minute's army
   tier, pack included), x `curseIntelBaselineFraction`.
 
 A node no one has had in sight for `curseIntelLookSeconds` is multiplied by
@@ -2127,7 +2228,8 @@ nine Houses).
    not seal the base.
 3. **The wall is the drawn ring**, for the HOME territory only (secondary
    bases are not walled — 2026-10-07, developer directive; the outpost layout
-   carries no hubs). "Home" is the territory of the faction's FIRST capital
+   carries no hubs; a Turtle's frontier walls and wider ring are the
+   personality exceptions, § 3b). "Home" is the territory of the faction's FIRST capital
    this match: when that capital falls and a secondary Fortress becomes the
    capital, its territory is still not walled: the hubs in bearing order,
    closed, with a gate on the link nearest each of `gatesPerRing` bearings
@@ -2228,6 +2330,21 @@ Logs: `WAR: war on <faction> — every wave stays on it until it falls`,
 `WAR: war on <faction> over — … out of the game`, `WAR: war on <faction>
 abandoned after N failed attack(s)`.
 
+**Finding the victim, finishing the victim (2026-10-07, 8-player batch).**
+- *The victim's ground.* With no sighting of the war victim a wave used to
+  march on "the nearest hostile start Hall" -- any hostile's, often a dead
+  faction's start someone else now held -- found nothing and walked home
+  (a third to a half of all launches). It now marches on the victim's OWN
+  start Hall, else on the victim's nearest held territory: territory
+  ownership is public, and whatever holds the ground is fought there. An
+  attack whose objective fell with nothing scouted near it presses on to
+  the victim's next held territory instead of going home.
+- *Go for the throat.* In the closeout, a victim holding
+  `crippledTerritories` or fewer is beaten: the wave skips its outlying
+  buildings (what it keeps rebuilding) and goes for its Hall and the
+  lifelines round it. Seven AIs at war with one beaten faction had spent an
+  hour razing the huts it rebuilt outside its walls.
+
 ## 6j. The army grows with the bank; the pile-on (2026-10-07)
 
 **Why:** in the 2026-10-07 batch every survivor reached the tier's
@@ -2266,6 +2383,54 @@ cursed ground is pushed out of it; an objective standing in it is not (the
 army still goes there, by the shortest cursed path that remains). An army in a
 fight drops its route; the tactics layer re-routes it when the march resumes.
 Logs: `ROUTE: N march round the curse to (x,z) — k waypoint(s)`.
+
+## 6l. The Shardroot and the king (2026-10-07)
+
+Developer: "No one goes for the shardroot and no one uses king lexor's
+heightened form." Nothing in the AI looked at the artifact; units took it only
+when a wave happened to fight on top of it, and the wave marched the carrier
+on until it died. The Shardbound King (Lexor bearing the artifact) is Lexor's
+only heightened form, so both halves were one gap.
+`SimpleAISystem.Shardroot.cs`, knobs on `AIShardroot.asset`, every
+`thinkInterval`:
+
+1. **Ours** — the carrier leaves every mission and walks to the nearest own
+   Hall, which hands the artifact to the living king (he becomes the
+   Shardbound King). If he already holds it, nothing more to do.
+2. **On the ground, or held by an enemy or the curse, where we have seen it**
+   (not before `earliestSeconds`) — a strike party of free combat units (the
+   first-RP hunt's eligibility rules), at least `minPartySize`, goes only when
+   its power beats what stands within `assessRadius` by `launchMargin`;
+   otherwise the army target rises toward what it needs. A strike is
+   reinforced for `reinforceSeconds`. With `kingLeadsStrike` the king goes too
+   and is walked onto a pickup himself: a hero ordered onto it has right of way
+   over his escort, so he carries it at once.
+3. **Otherwise** (`kingJoinsArmy`) an idle king rides with the biggest mission
+   of at least `kingJoinMinArmy`, so his fight abilities meet fights instead
+   of holding "not in combat" at home.
+
+Logs: `SHARDROOT: …`.
+
+## 6m. Litharchs heal the army (2026-10-07)
+
+Developer: "AI does not use Litharchs as healers." Three gates: the Temple was
+never placed (the age-2 ladder's ring search refused every free slot of the
+drawn base layout, the Temple's own `P` slot included — it now takes the drawn
+slot first, as towers do, and logs a failed placement once a minute as
+`BUILDING: X not placed: why`); the composition layer names no Support unit;
+and every draft site takes combat classes only. `SimpleAISystem.Support.cs`,
+knobs on `AISupport.asset`:
+
+- **Train** — with a finished Temple, one healer per `combatUnitsPerHealer`
+  combat units, at most `maxHealers`, one in the queue at a time.
+- **Follow** — a healer farther than `followDistance` from the biggest mission
+  (at least `minArmyToFollow`) walks to `followBehind` metres behind its centre,
+  on the home side. Inside that distance it is left alone: its own auto-heal
+  search does the healing, and a move order would cancel it.
+
+The Temple fix also unblocks the sect layer: adoption, sect buildings and
+`TryFireSectPowers` (§ 7b) all waited on a standing Temple.
+Logs: `SUPPORT: …`.
 
 ## 7. Scouting
 

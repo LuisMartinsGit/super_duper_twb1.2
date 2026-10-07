@@ -66,6 +66,12 @@ namespace TheWaningBorder.AI
         /// territory, from the match seed) so no two towns look alike. Off:
         /// every base exactly as drawn.</summary>
         public bool variants;
+
+        /// <summary>A main-camp ring scaled wider by the personality
+        /// (homeRingScale, Game_AI.md § 3b) gets an extra hub on every link
+        /// longer than this, in metres, so its hubs stay well inside the wall
+        /// doctrine's link radius (hubSpacing + 3).</summary>
+        public float ringMaxLinkMeters;
     }
 
     /// <summary>One symbol of a base layout and the buildings it is for.</summary>

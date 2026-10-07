@@ -106,7 +106,7 @@ namespace TheWaningBorder.Systems.Navigation
                 if (em.HasComponent<UnderConstruction>(e)) continue;
                 if (em.HasComponent<NotControllableTag>(e)) continue;
                 if (em.HasComponent<PlundererTag>(e)) continue;
-                if (em.HasComponent<FormationMemberState>(e)) continue;
+                if (TransientState.Active<FormationMemberState>(em, e)) continue;
                 if (TransientState.Active<AttackMoveTag>(em, e)) continue;
                 if (TransientState.Active<AttackCommand>(em, e)) continue;
                 if (TransientState.Active<MoveCommand>(em, e)) continue;
@@ -116,7 +116,7 @@ namespace TheWaningBorder.Systems.Navigation
                 if (em.HasComponent<BuildCommand>(e)) continue;
                 if (em.HasComponent<PatrolTag>(e)) continue;
                 // Hold Position never moves on its own — not even to tidy up.
-                if (em.HasComponent<HoldPositionTag>(e)) continue;
+                if (TransientState.Active<HoldPositionTag>(em, e)) continue;
                 if (em.HasComponent<Target>(e)
                     && em.GetComponentData<Target>(e).Value != Entity.Null) continue;
                 if (em.HasComponent<DesiredDestination>(e)

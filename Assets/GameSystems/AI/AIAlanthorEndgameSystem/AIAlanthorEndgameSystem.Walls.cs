@@ -241,7 +241,13 @@ namespace TheWaningBorder.AI
                         if (math.distancesq(hubPositions[h].xz, slots[i].Position.xz)
                             <= Cfg.wallSlotOccupiedRadius * Cfg.wallSlotOccupiedRadius)
                         { planHubs++; break; }
-                if (planHubs < Cfg.maxWallHubs
+                // The cap is per walled territory: a Turtle's frontier lines
+                // (Game_AI.md § 3b) are chains of their own and must not
+                // starve the home ring, nor it them.
+                int chains = 0;
+                for (int i = 0; i < slots.Length; i++)
+                    if (i == 0 || slots[i].Chain != slots[i - 1].Chain) chains++;
+                if (planHubs < Cfg.maxWallHubs * math.max(1, chains)
                     && TryPlacePlannedHub(faction, em, brainEntity, slots,
                         hubEntities, hubPositions))
                     return;
@@ -886,9 +892,12 @@ namespace TheWaningBorder.AI
         /// seal: the plan leaves that stretch to the mountain.</summary>
         private static bool SealedBetween(NativeArray<AIWallPlanSlot> slots, int i, int j)
         {
+            // Only this chain's slots lie between i and j (a plan may carry
+            // several chains — the home ring and frontier lines, § 3b).
             int n = slots.Length;
+            byte chain = slots[i].Chain;
             for (int k = (i + 1) % n, guard = 0; k != j && guard < n; k = (k + 1) % n, guard++)
-                if ((slots[k].Flags & AIWallPlanner.FlagTerrainSealed) != 0) return true;
+                if (slots[k].Chain == chain && (slots[k].Flags & AIWallPlanner.FlagTerrainSealed) != 0) return true;
             return false;
         }
 

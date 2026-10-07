@@ -304,7 +304,9 @@ namespace TheWaningBorder.Systems.Navigation
             // Members settle one by one on their own slots (design §2.9), so
             // the arrival damping they need is the integrator's tight
             // formation stop window, not this crowd fade.
-            bool inFormation = MemberLookup.HasComponent(self);
+            // FormationMemberState is enableable and pre-added on every unit
+            // (TransientState.cs): membership is the ENABLED bit, not presence.
+            bool inFormation = MemberLookup.HasComponent(self) && MemberLookup.IsComponentEnabled(self);
             // Which group, so a neighbour in the SAME formation can be
             // recognised below. Entity.Null when this unit travels alone.
             Entity myGroup = inFormation ? MemberLookup[self].Group : Entity.Null;
@@ -438,6 +440,7 @@ namespace TheWaningBorder.Systems.Navigation
                         // reports no key, so a melee still separates.
                         bool sameFormation = (myGroup != Entity.Null
                                 && MemberLookup.HasComponent(other)
+                                && MemberLookup.IsComponentEnabled(other)
                                 && MemberLookup[other].Group == myGroup)
                             || (myKey != 0 && FormationKinKey(other) == myKey);
 

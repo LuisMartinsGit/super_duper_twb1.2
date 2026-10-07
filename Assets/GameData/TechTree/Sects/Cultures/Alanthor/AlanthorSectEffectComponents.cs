@@ -35,7 +35,7 @@ public static class SectEffectDuration
 /// training, no research, no resource output — until this expires. Readers
 /// gate on presence, not on the value.
 /// </summary>
-public struct SectShutdown : IComponentData
+public struct SectShutdown : IComponentData, IEnableableComponent
 {
     public float TimeRemaining;
 }
@@ -45,7 +45,7 @@ public struct SectShutdown : IComponentData
 /// faction, and everything is hostile to it. <c>OriginalFaction</c> is kept
 /// so the unit can be handed back when the effect is not permanent.
 /// </summary>
-public struct SectDisordered : IComponentData
+public struct SectDisordered : IComponentData, IEnableableComponent
 {
     public float TimeRemaining;   // SectEffectDuration.Permanent at Lv III
     public Faction OriginalFaction;
@@ -57,7 +57,7 @@ public struct SectDisordered : IComponentData
 /// The regen tail on Hands of Plenty III: after the burst lands, healing
 /// continues for 10 s. <c>FractionPerSecond</c> is of max HP.
 /// </summary>
-public struct SectRegenTail : IComponentData
+public struct SectRegenTail : IComponentData, IEnableableComponent
 {
     public float TimeRemaining;
     public float FractionPerSecond;
@@ -67,7 +67,7 @@ public struct SectRegenTail : IComponentData
 /// Second Wind. While present the unit cannot drop below 1 HP. On expiry it
 /// heals <c>HealOnExpiry</c> (a fraction of max HP; 0 below Lv III).
 /// </summary>
-public struct SectDeathWard : IComponentData
+public struct SectDeathWard : IComponentData, IEnableableComponent
 {
     public float TimeRemaining;
     public float HealOnExpiry;
@@ -86,7 +86,7 @@ public struct SectDeathWard : IComponentData
 /// gathering, building or capturing — but it MOVES, faster than normal.
 /// Sect powers still reach it, friendly and hostile alike.
 /// </summary>
-public struct SectVeiled : IComponentData
+public struct SectVeiled : IComponentData, IEnableableComponent
 {
     public float TimeRemaining;
     public float SpeedBonus;        // fraction added to move speed while veiled
@@ -98,7 +98,7 @@ public struct SectVeiled : IComponentData
 /// take back exactly what it gave rather than re-deriving a fraction of a
 /// max that may have changed in the meantime.
 /// </summary>
-public struct SectBulwark : IComponentData
+public struct SectBulwark : IComponentData, IEnableableComponent
 {
     public float TimeRemaining;
     public int   GrantedHp;
@@ -138,7 +138,7 @@ public struct SectInfluenceBurst : IComponentData
 /// Veil-Touched. Immunity to curse damage, plus a cursed-ground move bonus
 /// at Lv III.
 /// </summary>
-public struct SectCurseWard : IComponentData
+public struct SectCurseWard : IComponentData, IEnableableComponent
 {
     public float TimeRemaining;
     public float CursedGroundSpeedBonus;

@@ -329,7 +329,10 @@ namespace TheWaningBorder.Systems.Visibility
                         // our vision area unless one of our units is within proximity
                         // (mirrors TargetingSystem's 3u reveal - keeps "I can shoot it"
                         // and "I can see it" consistent).
-                        if (isVisible && isStealth
+                        // StealthTag is enableable and pre-added on every unit
+                        // (TransientState.cs): the chunk test only says the
+                        // archetype CAN be stealthed; the bit says it is.
+                        if (isVisible && isStealth && chunk.IsComponentEnabled(ref stealthHandle, i)
                             && !AnySourceWithin(position, buckets, invCell,
                                 playerPositions, playerLOSRadii, false,
                                 StealthProximityReveal * StealthProximityReveal))

@@ -600,7 +600,7 @@ namespace TheWaningBorder.AI
             if (!TechCatalog.TryGetBuilding(buildingId, out var def) || def == null)
             { reason = "no catalog def"; return false; }
             var cost = AICommon.ToCost(def.cost);
-            if (!AIBudget.TryAfford(faction, cat, cost, (float)SystemAPI.Time.ElapsedTime, honourReservation))
+            if (!AIBudget.TryAfford(faction, cat, cost, TheWaningBorder.Core.SimClock.Now, honourReservation))
             { reason = "wallet short"; return false; }
             int prevLock = _siteRegionLock;
             _siteRegionLock = region;

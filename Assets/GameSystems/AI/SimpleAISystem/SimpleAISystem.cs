@@ -73,7 +73,7 @@ namespace TheWaningBorder.AI
             // docs/Multiplayer_LAN_Readiness.md
             if (!GameSettings.ShouldRunAIBrains()) return;
 
-            float dt = SystemAPI.Time.DeltaTime;
+            float dt = AIClock.Delta(ref _simClockLast);
             var em = EntityManager;
             double perfT0 = UnityEngine.Time.realtimeSinceStartupAsDouble;
             int perfThinks = 0;
@@ -163,8 +163,8 @@ namespace TheWaningBorder.AI
                 // on the first think of this world; menu return disposes the
                 // world, so the anchor resets per match.
                 if (_matchTimeAnchor < 0f)
-                    _matchTimeAnchor = (float)SystemAPI.Time.ElapsedTime;
-                float now = (float)SystemAPI.Time.ElapsedTime - _matchTimeAnchor;
+                    _matchTimeAnchor = TheWaningBorder.Core.SimClock.Now;
+                float now = TheWaningBorder.Core.SimClock.Now - _matchTimeAnchor;
                 _thinkNow = now;
 
                 // THE ARMY CAP RISES WITH UNSPENT MONEY (§ 6j): every reader of
@@ -258,6 +258,9 @@ namespace TheWaningBorder.AI
                 // army -> Rebuild; assembled army + healthy bank -> Pressure)
                 // and act on Defend (recall + repair) / M6 retreat.
                 EvaluatePosture(em, brain.Owner, ref aiState, settings, personality);
+                // THE WALL GUARD (Game_AI.md § 3b): a Turtle posts part of its
+                // idle army at the home ring's gates.
+                TickWallGuard(em, brainEntity, brain.Owner, in aiState, personality, now);
 
                 // ATTACK WAVES (2026-08-04): pressure is a RHYTHM, not a
                 // one-off. Runs in BOTH phases — during the build order
@@ -296,6 +299,16 @@ namespace TheWaningBorder.AI
                     && SavingForAgeUp(brain.Personality, aiState, now, personality.ageUpPushSeconds);
                 if (!TryHuntFirstReligionPoint(em, brain.Owner, ref aiState, now))
                     TryReclaimCorruptedPatches(em, brain.Owner, savingAgeUpNow, now);
+
+                // THE SHARDROOT AND THE HEALERS (2026-10-07, Game_AI.md § 6l-6m):
+                // strike for the artifact / bring it home / king rides out;
+                // Litharchs trained at the Temple and walked after the army.
+                TickShardroot(em, brain.Owner, ref aiState, now);
+                {
+                    Entity home = FindFactionBuilding<HallTag>(em, brain.Owner);
+                    if (home != Entity.Null && em.HasComponent<LocalTransform>(home))
+                        TickSupport(em, brain.Owner, em.GetComponentData<LocalTransform>(home).Position, now);
+                }
 
                 // ALWAYS-ON ECONOMY (2026-08-04 rev.2): the worker floor and
                 // the Gatherer's Hut pipeline run in BOTH phases — observed
@@ -474,6 +487,8 @@ namespace TheWaningBorder.AI
             }
         }
 
+
+        private double _simClockLast = -1d;
 
         // Match-relative clock anchor: world ElapsedTime at the first think
         // (see the OnUpdate comment). -1 = not yet anchored.

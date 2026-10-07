@@ -59,7 +59,7 @@ namespace TheWaningBorder.Systems.Combat
                 // docs/Design/Teams.md
                 if (!Alliances.AreHostile(attackerFaction,
                         em.GetComponentData<FactionTag>(e).Value)) continue;
-                if (em.HasComponent<Invulnerable>(e)) continue;
+                if (TransientState.Active<Invulnerable>(em, e)) continue;
                 if (TransientState.Active<DeathAnimationState>(em, e)) continue;
 
                 float3 p = em.GetComponentData<LocalTransform>(e).Position;

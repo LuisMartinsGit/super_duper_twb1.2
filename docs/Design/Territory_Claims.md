@@ -223,8 +223,9 @@ peer agrees. Two exclusions and one fairness rule:
 **Fill before spreading (2026-09-29).** The curse takes EVERY resource node in
 ground it holds before it reaches for new ground: while a held territory has a
 free node (no curse node, no building on it), the dispatch goes there instead —
-a merge party from that territory, raising a curse node on it. Only the
-Shardroot hunt outranks this.
+a merge party from that territory, raising a curse node on it. ~~Only the
+Shardroot hunt outranks this.~~ The hunt no longer competes for this slot
+(2026-10-07, §6.6).
 
 Every `expansionSeconds` the curse sends a party of `mergePartySize` from a
 held territory to an adjacent one it does not hold (the §2.13 harassment
@@ -247,6 +248,23 @@ party). There the party **stands** and claims by the meter:
   it (it works the curse's own ground). Default: the same second as
   `firstWaveSeconds`.
 
+**Conquest focus (2026-10-07).** Developer directive: *"Curse should focus on
+conquering and holding territories."*
+
+- **Several claims at once.** Up to `maxConcurrentClaims` claim and fill
+  parties may be out together (it used to be one: a single takeover was the
+  curse's whole attention). Each expansion check still sends at most one
+  more, and a territory or node a party is already on is never picked twice.
+- **Reconquest first.** Among the territories it can take, the curse prefers
+  ground it **held and lost**, then **unlocked player ground**, then natural
+  ground; within the preferred group the pick is the one seeded draw the
+  check always makes (the same on every peer, whichever group wins).
+- **Locked ground is taken by conquest waves** (§6.8), not by claim parties:
+  a wave breaks the lock, then stays and claims.
+- **Holding.** No draft — party, wave, hunt or guard — takes a node's
+  garrison below `garrisonMinPerNode` (§6.8), so every held node keeps its
+  defenders while the curse advances.
+
 **If the curse holds no node at all**, it re-seeds one after `reseedSeconds`
 (default 180 s) under the §6.4 rules. The curse can be driven back, never out:
 it is the only source of religion points (Religion.md).
@@ -262,15 +280,39 @@ There are no wells, so there is no host well and no Maw backstop.
 - **Carry / store / detonate**: unchanged from Curse_And_Shardroot.md §3.1,
   with **Fortress** in place of Hall as the store that awakens the Shardbound
   Hero (for Alanthor, King Lexor).
-- **The curse hunts the holder, and only the holder.** While any player holds
-  it (carrier, hero or enshrining Temple):
+- **The curse hunts the holder (revised 2026-10-07).** Developer directive:
+  *"Curse defends the Shardroot and focuses its attention on the player who
+  owns it."* While any player holds it (carrier, hero or enshrining Temple):
   - the curse's garrison size and spawn rate rise by `shardrootCurseBonus`
-    (**+50 %**: size ×1.5, interval ÷1.5);
-  - **every offensive curse force** (harassment, raid and claim parties, and
-    the §6.8 attack waves) goes
-    for the holder's territories and **ignores every other player**;
-  - garrisons still defend their own territory against any intruder — the
-    curse ignores non-holders, it does not let them walk in.
+    (size × (1 + bonus), interval ÷ (1 + bonus));
+  - **hunt parties on their own clock.** Every `shardrootHuntSeconds` (the
+    first at once when a player takes it) a hunt party of
+    `shardrootHuntPartySize` (× the bonus) is drafted from the garrisons
+    nearest the holder and presses the holder for as long as they hold it,
+    then walks home. At most `shardrootMaxHunts` are out at once. The hunt
+    **no longer takes the expansion slot**: claims and fills (§6.5) go on
+    while the curse hunts;
+  - **every attack wave goes for the holder** (§6.8), and waves come faster:
+    the interval is multiplied by `shardrootHolderWaveIntervalMult`;
+  - **garrisons go for the holder first**: a garrison whose node has the
+    holder within `shardrootHolderAggroRadius` attacks the holder ahead of
+    any other intruder (its `guardLeashRadius` still holds). Garrisons still
+    defend their own node against anyone else — the curse ignores
+    non-holders, it does not let them walk in.
+- **The curse guards the Shardroot on the ground (2026-10-07).** Curse units
+  still cannot pick the artifact up. While it lies on the ground (a dead
+  carrier's drop, a ruined Temple's), the curse drafts a **guard** of
+  `shardrootGuardPartySize` from the garrisons nearest it, topped up every
+  check. The guard stands Defensive on the artifact: it engages hostiles
+  within `shardrootGuardRadius` of it and drops a fight past
+  `shardrootGuardLeashRadius` — it denies the pickup by fighting near it.
+  A hunt party that has just put the artifact back on the ground joins the
+  guard. When a player takes it, the guard **becomes a hunt party** on the
+  holder; when it leaves the ground any other way, the guard rejoins the
+  garrison.
+- **A curse bearer stays home.** The curse unit that carries the Shardroot
+  out of a spawn is never drafted into a party, guard or wave: it stays with
+  its garrison, so the artifact sits behind the curse's defences.
 
 ### 6.7 The curse defends; it advances only to take (2026-10-03)
 
@@ -304,8 +346,9 @@ The curse is a **defensive** force that spreads, not an army that hunts.
   garrisons (never below `garrisonMinPerNode` a node) — the garrison is the
   curse's only spawner. A unit still on garrison duty never leaves: the
   rules above are unchanged by waves.
-- **The Shardroot hunt is unchanged** (§6.6): while a player holds it,
-  offensive parties go for the holder.
+- **The Shardroot hunt and guard** (§6.6, revised 2026-10-07) are the two
+  other forces that leave home: hunt parties go for the holder, and a guard
+  stands over the artifact while it lies on the ground.
 - Why: the curse is the only source of religion points (Religion.md), and a
   curse that roams and raids punishes everyone at random. A curse that sits
   on its nodes is a target players choose to attack, and the reward is theirs.
@@ -328,8 +371,10 @@ attack waves below are **drafted out of the garrison pool**:
   fighting stays in it.
 - **No node is stripped bare:** a draft never takes a node's garrison below
   `garrisonMinPerNode`.
-- A party (claim, fill, hunt) wants `mergePartySize` units (× the §6.6
-  bonus while someone holds the Shardroot). It takes them from the sending
+- A party wants `mergePartySize` units for a claim or fill,
+  `shardrootHuntPartySize` for a hunt and `shardrootGuardPartySize` for the
+  Shardroot guard (claims, fills and hunts × the §6.6 bonus while someone
+  holds the Shardroot). The unit bearing the Shardroot is never drafted. It takes them from the sending
   territory's garrisons first, then from the guard posts nearest it. If
   there are not enough spare units, the party goes **smaller**; if there are
   none at all, it is **skipped** (logged either way).
@@ -340,8 +385,9 @@ attack waves below are **drafted out of the garrison pool**:
 **Attack waves.**
 
 - **When.** The first wave forms at `firstWaveSeconds` of match time, then
-  one every `waveIntervalSeconds`. The clock runs on whether or not a wave
-  could actually be sent.
+  one every `waveIntervalSeconds` (× `shardrootHolderWaveIntervalMult` while
+  a player holds the Shardroot, §6.6). The clock runs on whether or not a
+  wave could actually be sent.
 - **Whom — the strong carry the curse (2026-10-05).** Supersedes the
   nearest-player rule and its `waveTargetDistanceSlack` rotation, which the
   2026-10-05 Sundered Crown log showed feeding the weakest player: the
@@ -393,6 +439,16 @@ attack waves below are **drafted out of the garrison pool**:
   in that territory, else the nearest of the player's buildings there, else
   the player's nearest building anywhere (whose territory becomes the new
   one). A wave hunting the Shardroot holder re-aims at the holder instead.
+- **Conquest waves (2026-10-07, `conquestWaves`).** When the target holds a
+  **locked** territory that borders curse ground, the wave marches on that
+  territory instead — the one whose locking structure stands nearest a curse
+  node — and its objectives are **the structures that lock it** (extractors,
+  Trading Outposts, Fortresses — §3). Idle, it goes for the next locking
+  structure there before any unit. The moment the territory is **unlocked**,
+  the wave does not go home: it **becomes a claim party** on it (§6.5 — it
+  stands until the meter turns, then raises a curse node on a free resource
+  node). That claim is not counted against `maxConcurrentClaims`: the ground
+  was won in battle. Logged `[CurseTerritory] CONQUEST — …`.
 - **Going home.** After `waveDurationSeconds`, or once it is reduced below
   `waveRetreatFraction` of the size it set out with, or when the target
   player has nothing left standing, the wave turns back: its units **become
@@ -405,8 +461,15 @@ attack waves below are **drafted out of the garrison pool**:
 - Waves stand on player ground and therefore claim it (§6.1, §6.2) — that is
   intended: a wave left alone in a territory drains it.
 
-**The cap.** Live curse units — every curse creature, whatever raised it —
-never exceed `maxCurseUnits`. There is **one gate**: every spawn path asks
+**The cap.** ~~Live curse units never exceed `maxCurseUnits`.~~
+**The cap follows the ground (2026-10-07).** Developer directive: *"Curse
+unit cap should be proportional to territories held (max of 1000 units)."*
+Live curse units — every curse creature, whatever raised it — never exceed
+`curseUnitsBase` + `curseUnitsPerTerritory` × the territories the curse
+holds, and never `maxCurseUnits` (the ceiling, the directive's maximum).
+A curse that conquers fields more; a curse driven back fields less — its
+surplus is not culled, it is simply not replaced. The held count is the
+ownership meter's, so every peer reads the same cap. There is **one gate**: every spawn path asks
 how much room is left under the cap (live units counted once per ask) and
 raises at most that many. In the living curse the only spawner is the
 garrison, so **the cap bounds the garrisons**, and waves and parties — being
@@ -441,7 +504,12 @@ and (2026-10-04, §6.8) `firstWaveSeconds`, `waveIntervalSeconds`,
 `waveDraftFraction`, `waveMinSize`, `garrisonMinPerNode`, `waveDurationSeconds`,
 `waveRetreatFraction`, `maxCurseUnits`, and (2026-10-05, §6.5, §6.8)
 `claimGraceSeconds`, `waveShareTerritoryWeight`, `waveShareFloor`,
-`wavePlayerCooldownSeconds`, `waveSizeVsPower`, `waveSizeByDifficulty`.
+`wavePlayerCooldownSeconds`, `waveSizeVsPower`, `waveSizeByDifficulty`, and
+(2026-10-07, §6.5, §6.6, §6.8) `curseUnitsBase`, `curseUnitsPerTerritory`
+(`maxCurseUnits` is now the ceiling), `maxConcurrentClaims`, `conquestWaves`,
+`shardrootHuntSeconds`, `shardrootHuntPartySize`, `shardrootMaxHunts`,
+`shardrootGuardPartySize`, `shardrootGuardRadius`, `shardrootGuardLeashRadius`,
+`shardrootHolderAggroRadius`, `shardrootHolderWaveIntervalMult`.
 `waveTargetDistanceSlack` is retired with the nearest-player rule.
 `raidSeconds` is retired with the raids.
 
@@ -534,6 +602,13 @@ Implemented in `TerritoryResources` (resolve + generation), the
 `SpawnDelayHelper` resource step, `CurseNodeSeeding.CurseVeilstoneRich` and
 `SanctumSystem`. The territory hover overlay shows a Sanctum's +1 RP/min.
 
+**The curse starts somewhere new each match (2026-10-07).** The authored
+curse territories (Veilstone rich) swap types with territories drawn from
+the match seed (`randomizeCurseTerritories`, TerritoryResources.asset). On a
+mirrored map the draw is one territory and its three mirror images, so every
+seat faces the same curse; it is never a home or a territory bordering one.
+The log names them: `the curse starts in … this match`.
+
 **Home nodes line the edge (2026-10-07).** In a home territory every node
 stands at least `homeNodeMinOffset` (TerritoryResources.asset) from the start
 on one axis or the other — a square band along the territory's edge — so
@@ -587,3 +662,27 @@ layouts (homes with 6-8 nodes, territories with no ore, 4-veilstone centres)
 are simply ignored. The supply/iron/veilstone/veilsteel/well/blight-pocket
 markers in the scenes are now inert and can be stripped on the next re-bake.
 None of the five maps authors a region `Kind` other than Normal.
+
+### 11.2 Node purity (2026-10-07)
+
+Developer: "Add 3 levels of purity to resource nodes. 1 - Pure produces 150%
+of resources, 2 - Normal produces 100%, 3 - Poor produces 50%. Starting node
+resources are all pure. The rest is a mixture: 2 pure nodes for every 3
+normal and for every 10 poor."
+
+- Every generated node — supply, iron and veilstone alike — has a **purity**:
+  Pure, Normal or Poor. It scales everything the node's slot pays, empty or
+  built, at every extractor level and through every research and Fortress
+  multiplier; a node pays (and drains its reserve) at its purity's rate.
+- **Start territories are all Pure**, seated or not, so the opening is the
+  same as before purity existed.
+- **Every other node is dealt from a shuffled bag** of 2 Pure : 3 Normal :
+  10 Poor, refilled when empty, in territory order from the match seed, so
+  every peer deals the same grades and the mix is exact over each 15 nodes
+  rather than likely. On a mirrored map a node's mirror images take ITS
+  purity, so every seat still opens on the same ground.
+- A node made any other way (scenario fixtures, curse refills of an emptied
+  outcrop keep the node they refill) is Normal unless it was dealt a grade.
+- The purity is shown with the node's name (Pure / Poor; Normal is unmarked).
+- The three multipliers and the bag's mix are on `TerritoryResources.asset`.
+

@@ -1160,8 +1160,8 @@ namespace TheWaningBorder.Core.Commands
             // the waypoints but its copy of the unit never moved (2026-08-16
             // sweep, B3). Adding it here makes the direct path (SP) and the
             // replicated path (every MP peer) behave identically.
-            if (!em.HasComponent<CommandQueueActive>(unit))
-                em.AddComponent<CommandQueueActive>(unit);
+            // Enableable, pre-added on units (TransientState.cs).
+            TransientState.SetFlag<CommandQueueActive>(em, unit);
         }
     }
 }

@@ -5,7 +5,11 @@
 // and ten near-identical systems would each pay the query and scheduling cost
 // for a handful of entities. The per-effect logic that is NOT shared (a
 // building shutdown gating training, a veiled unit refusing orders) lives at
-// the consuming site, gated on the component's presence.
+// the consuming site, gated on the component being ACTIVE.
+//
+// Every effect component here is IEnableableComponent (2026-10-07): expiry
+// DISABLES it rather than removing it, so a unit or building keeps one
+// archetype however many powers land on it — see TransientState.cs.
 //
 // SystemBase, not ISystem: Cleanse writes to PlayerInfluenceMap, a managed
 // static, and Harvest the Veil credits the faction bank through the managed
@@ -65,7 +69,7 @@ namespace TheWaningBorder.Systems.Sect
             foreach (var (shutdown, e) in SystemAPI.Query<RefRW<SectShutdown>>().WithEntityAccess())
             {
                 shutdown.ValueRW.TimeRemaining -= dt;
-                if (shutdown.ValueRO.TimeRemaining <= 0f) ecb.RemoveComponent<SectShutdown>(e);
+                if (shutdown.ValueRO.TimeRemaining <= 0f) ecb.SetComponentEnabled<SectShutdown>(e, false);
             }
         }
 
@@ -82,7 +86,7 @@ namespace TheWaningBorder.Systems.Sect
                 // Hand the unit back to the faction it started in.
                 if (em.HasComponent<FactionTag>(e))
                     ecb.SetComponent(e, new FactionTag { Value = disorder.ValueRO.OriginalFaction });
-                ecb.RemoveComponent<SectDisordered>(e);
+                ecb.SetComponentEnabled<SectDisordered>(e, false);
             }
         }
 
@@ -101,7 +105,7 @@ namespace TheWaningBorder.Systems.Sect
                 }
 
                 tail.ValueRW.TimeRemaining -= dt;
-                if (tail.ValueRO.TimeRemaining <= 0f) ecb.RemoveComponent<SectRegenTail>(e);
+                if (tail.ValueRO.TimeRemaining <= 0f) ecb.SetComponentEnabled<SectRegenTail>(e, false);
             }
         }
 
@@ -124,7 +128,7 @@ namespace TheWaningBorder.Systems.Sect
                     int v = health.ValueRO.Value + heal;
                     health.ValueRW.Value = v > health.ValueRO.Max ? health.ValueRO.Max : v;
                 }
-                ecb.RemoveComponent<SectDeathWard>(e);
+                ecb.SetComponentEnabled<SectDeathWard>(e, false);
             }
         }
 
@@ -148,8 +152,8 @@ namespace TheWaningBorder.Systems.Sect
                     TransientState.Set(ecb, e, buff);
                 }
 
-                ecb.RemoveComponent<SectVeiled>(e);
-                if (em.HasComponent<StealthTag>(e)) ecb.RemoveComponent<StealthTag>(e);
+                ecb.SetComponentEnabled<SectVeiled>(e, false);
+                TransientState.Clear<StealthTag>(em, ecb, e);
             }
         }
 
@@ -169,7 +173,7 @@ namespace TheWaningBorder.Systems.Sect
                 if (health.ValueRO.Value > max) health.ValueRW.Value = max;
                 if (health.ValueRO.Value < 1)   health.ValueRW.Value = 1;
 
-                ecb.RemoveComponent<SectBulwark>(e);
+                ecb.SetComponentEnabled<SectBulwark>(e, false);
             }
         }
 
@@ -260,7 +264,7 @@ namespace TheWaningBorder.Systems.Sect
             foreach (var (ward, e) in SystemAPI.Query<RefRW<SectCurseWard>>().WithEntityAccess())
             {
                 ward.ValueRW.TimeRemaining -= dt;
-                if (ward.ValueRO.TimeRemaining <= 0f) ecb.RemoveComponent<SectCurseWard>(e);
+                if (ward.ValueRO.TimeRemaining <= 0f) ecb.SetComponentEnabled<SectCurseWard>(e, false);
             }
         }
     }

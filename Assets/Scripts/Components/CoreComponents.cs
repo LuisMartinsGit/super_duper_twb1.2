@@ -191,7 +191,7 @@ public struct AttackMoveTag : IComponentData, IEnableableComponent { }
 /// When present, MovementSystem uses this speed instead of MoveSpeed.
 /// Removed when destination is reached.
 /// </summary>
-public struct FormationSpeedOverride : IComponentData
+public struct FormationSpeedOverride : IComponentData, IEnableableComponent
 {
     public float Value;
 }
@@ -276,7 +276,7 @@ public struct ChaseAnchor : IComponentData, IEnableableComponent
 /// Units with this tag attack enemies within range but do NOT chase or move to pursue.
 /// Cleared when any new command is issued (move, attack, gather, etc.).
 /// </summary>
-public struct HoldPositionTag : IComponentData { }
+public struct HoldPositionTag : IComponentData, IEnableableComponent { }
 
 // ==================== Patrol System ====================
 

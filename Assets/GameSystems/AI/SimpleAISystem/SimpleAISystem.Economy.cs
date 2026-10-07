@@ -1054,7 +1054,7 @@ namespace TheWaningBorder.AI
             { reason = "no catalog def"; return false; }
             var cost = AICommon.ToCost(def.cost);
             if (!AIBudget.TryAfford(faction, cat, cost,
-                    (float)SystemAPI.Time.ElapsedTime, honourReservation))
+                    TheWaningBorder.Core.SimClock.Now, honourReservation))
             { reason = "wallet short"; return false; }
             if (!TryBuildBuildingWithReason(em, faction, buildingId, out reason)) return false;
             AIBudget.RecordSpend(faction, cat, cost);

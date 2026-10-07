@@ -19,12 +19,19 @@
 // Determinism: the count is pure sim state and every caller runs in-sim on
 // every peer in system order, so every peer reads the same headroom.
 //
-// The limit itself is BorderSettings.asset `maxCurseUnits` (250).
+// THE CAP FOLLOWS THE GROUND (§6.8, 2026-10-07): the limit is
+// curseUnitsBase + curseUnitsPerTerritory x the territories the curse holds
+// (TerritoryOwnership.CurseHeldCount), never above maxCurseUnits — all three
+// on BorderSettings.asset. The curse that conquers fields more; the curse
+// that is driven back fields less, and its surplus is simply not replaced
+// (nothing is culled). The held count is the ownership array the lockstep
+// claim tick writes, so every peer reads the same cap.
 
 using Unity.Entities;
 using Unity.Mathematics;
 using TheWaningBorder.Core;
 using TheWaningBorder.Data.Border;
+using TheWaningBorder.World.Regions;
 
 namespace TheWaningBorder.Systems.Border
 {
@@ -34,8 +41,20 @@ namespace TheWaningBorder.Systems.Border
             { ComponentType.ReadOnly<BorderUnitTag>() };
         private static CachedEntityQuery QC_CurseUnits;
 
-        /// <summary>The cap, from BorderSettings.asset.</summary>
-        public static int Max => math.max(0, BorderSettings.Get().maxCurseUnits);
+        /// <summary>The cap NOW: min(maxCurseUnits, curseUnitsBase +
+        /// curseUnitsPerTerritory x territories the curse holds), from
+        /// BorderSettings.asset (Territory_Claims.md §6.8).</summary>
+        public static int Max
+        {
+            get
+            {
+                var s = BorderSettings.Get();
+                int ceiling = math.max(0, s.maxCurseUnits);
+                long scaled = (long)math.max(0, s.curseUnitsBase)
+                            + (long)math.max(0, s.curseUnitsPerTerritory) * TerritoryOwnership.CurseHeldCount;
+                return (int)math.min((long)ceiling, scaled);
+            }
+        }
 
         /// <summary>Curse units alive right now.</summary>
         public static int Live(EntityManager em)

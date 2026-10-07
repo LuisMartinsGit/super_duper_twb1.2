@@ -95,7 +95,7 @@ namespace TheWaningBorder.AI
             if (!GameSettings.ShouldRunAIBrains()) return;
 
             var em = state.EntityManager;
-            float now = (float)SystemAPI.Time.ElapsedTime;
+            float now = TheWaningBorder.Core.SimClock.Now;
             var sw = System.Diagnostics.Stopwatch.StartNew();
 
             // Snapshot brains before any structural change.

@@ -166,6 +166,8 @@ namespace TheWaningBorder.World.Regions
                 _types[auto[k]] = fillers[pick];
             }
 
+            if (Cfg.randomizeCurseTerritories) RandomizeCurse(startSet, seed);
+
             int specialsMissing = 0;
             foreach (var special in specials)
                 if (TerritoriesOf(special).Count == 0) specialsMissing++;
@@ -199,6 +201,11 @@ namespace TheWaningBorder.World.Regions
             var partners = MirrorPartners(n, centres, boxMin, boxMax, out float2 mid);
 
             int placed = 0, short_ = 0;
+            // NODE PURITY (Territory_Claims.md § 11.2): one map-wide bag, its
+            // own stream, dealt in territory order — the same on every peer,
+            // and node POSITIONS draw from the territory streams untouched.
+            _purityRng = new Unity.Mathematics.Random(math.hash(new uint2(seed, 0x9A17E5u)) | 1u);
+            _purityBag.Clear();
             for (int t = 0; t < n; t++)
             {
                 if (partners != null && partners[t].x < 0) continue;   // laid by its canonical twin
@@ -212,7 +219,9 @@ namespace TheWaningBorder.World.Regions
                 bool home = homeCentre.TryGetValue(t, out var hc);
                 float3 centre = home ? hc : centres[t];
                 var mine = new List<float3>();
-                if (partners != null) _record = new List<(float3, int)>();
+                if (partners != null) _record = new List<(float3, int, byte)>();
+                // A start territory, seated or not, is all Pure.
+                _dealPure = home || TypeOf(t) == ResourceType.Start;
 
                 for (int i = 0; i < veil; i++)
                     short_ += PlaceRandom(em, t, home, centre, boxMin[t], boxMax[t], mine, 2, ref rng) ? 0 : 1;
@@ -231,21 +240,25 @@ namespace TheWaningBorder.World.Regions
                     {
                         int p = k == 0 ? twins.y : k == 1 ? twins.z : twins.w;
                         float2 sign = k == 0 ? new float2(-1f, 1f) : k == 1 ? new float2(1f, -1f) : new float2(-1f, -1f);
-                        foreach (var (site, kind) in laid)
+                        foreach (var (site, kind, grade) in laid)
                         {
                             var want = new float3(mid.x + sign.x * (site.x - mid.x), 0f,
                                                   mid.y + sign.y * (site.z - mid.y));
                             want.y = TerrainUtility.GetHeight(want.x, want.z);
                             if (ResourceNodeSite.TryResolve(em, want, out var twin)
                                 && RegionMap.RegionAt(twin.x, twin.z) == p)
-                            { Create(em, twin, kind); placed++; }
+                            { Create(em, twin, kind, grade); placed++; }
                             else short_++;
                         }
                     }
                 }
             }
+            _dealPure = false;
             if (partners != null)
                 Debug.Log("[TerritoryResources] mirrored map: nodes laid in one quadrant and copied across both axes.");
+            Debug.Log($"[TerritoryResources] node purity dealt: {_dealt[NodePurityGrade.Pure]} pure, " +
+                      $"{_dealt[NodePurityGrade.Normal]} normal, {_dealt[NodePurityGrade.Poor]} poor.");
+            _dealt[0] = _dealt[1] = _dealt[2] = 0;
             Debug.Log($"[TerritoryResources] {placed} node(s) laid from territory types" +
                       (short_ > 0 ? $"; {short_} could not find legal ground." : "."));
         }
@@ -361,7 +374,126 @@ namespace TheWaningBorder.World.Regions
 
         /// <summary>While non-null, every node Create lays is noted here —
         /// the canonical quadrant's list a mirrored map copies.</summary>
-        private static List<(float3, int)> _record;
+        private static List<(float3, int, byte)> _record;
+
+        // ── node purity (Territory_Claims.md § 11.2) ────────────────────
+        private static Unity.Mathematics.Random _purityRng;
+        private static readonly List<byte> _purityBag = new List<byte>(16);
+        private static bool _dealPure;
+        private static readonly int[] _dealt = new int[3];
+
+        /// <summary>The next grade: Pure inside a start territory, otherwise
+        /// the next one out of the shuffled bag.</summary>
+        private static byte DealGrade()
+        {
+            if (_dealPure) return NodePurityGrade.Pure;
+            if (_purityBag.Count == 0)
+            {
+                var c = Cfg;
+                for (int i = 0; i < math.max(0, c.purityBagPure); i++) _purityBag.Add(NodePurityGrade.Pure);
+                for (int i = 0; i < math.max(0, c.purityBagNormal); i++) _purityBag.Add(NodePurityGrade.Normal);
+                for (int i = 0; i < math.max(0, c.purityBagPoor); i++) _purityBag.Add(NodePurityGrade.Poor);
+                if (_purityBag.Count == 0) return NodePurityGrade.Normal;
+                for (int i = _purityBag.Count - 1; i > 0; i--)
+                {
+                    int j = _purityRng.NextInt(0, i + 1);
+                    (_purityBag[i], _purityBag[j]) = (_purityBag[j], _purityBag[i]);
+                }
+            }
+            byte g = _purityBag[_purityBag.Count - 1];
+            _purityBag.RemoveAt(_purityBag.Count - 1);
+            return g;
+        }
+
+        /// <summary>What a node of this grade pays, as a multiplier on its rate.</summary>
+        public static float PurityMultiplier(byte grade)
+        {
+            var c = Cfg;
+            return grade == NodePurityGrade.Pure ? c.purityPureMultiplier
+                 : grade == NodePurityGrade.Poor ? c.purityPoorMultiplier
+                 : c.purityNormalMultiplier;
+        }
+
+        /// <summary>The node's purity multiplier (Normal for a node without one).</summary>
+        public static float PurityMultiplier(EntityManager em, Entity node)
+            => PurityMultiplier(PurityOf(em, node));
+
+        public static byte PurityOf(EntityManager em, Entity node)
+            => em.HasComponent<NodePurity>(node) ? em.GetComponentData<NodePurity>(node).Grade : NodePurityGrade.Normal;
+
+        /// <summary>"Pure " / "Poor " / "" — the prefix a node's name shows.</summary>
+        public static string PurityPrefix(byte grade)
+            => grade == NodePurityGrade.Pure ? "Pure " : grade == NodePurityGrade.Poor ? "Poor " : "";
+
+        /// <summary>
+        /// THE CURSE STARTS SOMEWHERE NEW (2026-10-07, developer: "randomize
+        /// the curse starting positions (4 territories)"). The authored curse
+        /// territories (Veilstone rich, which the curse holds at the start)
+        /// swap types with territories drawn from the match seed — the same
+        /// draw on every peer. On a mirrored map the draw is ONE canonical
+        /// territory and its three mirror images, so every seat still faces
+        /// the same curse; otherwise as many territories as the authoring
+        /// cursed, at random. Never a home, never a territory bordering a home.
+        /// </summary>
+        private static void RandomizeCurse(HashSet<int> startSet, uint seed)
+        {
+            int n = RegionMap.Count;
+            var curse = TerritoriesOf(ResourceType.VeilstoneRich);
+            if (curse.Count == 0) return;
+            var rng = new Unity.Mathematics.Random(math.hash(new uint2(seed, 0xC0A5E5u)) | 1u);   // hashed: neighbouring seeds must not draw alike
+
+            bool Eligible(int t)
+            {
+                if (t < 0 || t >= n) return false;
+                var ty = _types[t];
+                if (ty == ResourceType.VeilstoneRich || ty == ResourceType.Start || ty == ResourceType.Empty) return false;
+                if (startSet.Contains(t) || RegionMap.KindBlocks(RegionMap.KindOf(t))) return false;
+                for (int u = 0; u < n; u++)
+                    if (_types[u] == ResourceType.Start && RegionMap.AreAdjacent(t, u)) return false;
+                return true;
+            }
+
+            var centres = Centroids(n, out var bmin, out var bmax);
+            var partners = MirrorPartners(n, centres, bmin, bmax, out _);
+            var pick = new List<int>();
+            if (partners != null)
+            {
+                var canon = new List<int>();
+                for (int t = 0; t < n; t++)
+                {
+                    var p = partners[t];
+                    if (p.x < 0 || !Eligible(t) || !Eligible(p.y) || !Eligible(p.z) || !Eligible(p.w)) continue;
+                    canon.Add(t);
+                }
+                if (canon.Count == 0) return;
+                var c = canon[rng.NextInt(0, canon.Count)];
+                var cp = partners[c];
+                pick.Add(cp.x); pick.Add(cp.y); pick.Add(cp.z); pick.Add(cp.w);
+                if (pick.Count != curse.Count) return;   // the authoring is not one curse group per quadrant
+            }
+            else
+            {
+                var pool = new List<int>();
+                for (int t = 0; t < n; t++) if (Eligible(t)) pool.Add(t);
+                for (int k = 0; k < curse.Count && pool.Count > 0; k++)
+                {
+                    int i = rng.NextInt(0, pool.Count);
+                    pick.Add(pool[i]);
+                    pool.RemoveAt(i);
+                }
+                if (pick.Count != curse.Count) return;
+            }
+
+            // Swap: the old curse ground takes the new ground's types.
+            for (int k = 0; k < pick.Count; k++)
+            {
+                _types[curse[k]] = _types[pick[k]];
+                _types[pick[k]] = ResourceType.VeilstoneRich;
+            }
+            var names = new System.Text.StringBuilder();
+            for (int k = 0; k < pick.Count; k++) { if (k > 0) names.Append(", "); names.Append(RegionMap.NameOf(pick[k])); }
+            Debug.Log($"[TerritoryResources] the curse starts in {names} this match (seed {seed}).");
+        }
 
         /// <summary>
         /// Null unless the territories are mirror-symmetric across BOTH axes
@@ -403,13 +535,22 @@ namespace TheWaningBorder.World.Regions
         }
 
         private static void Create(EntityManager em, float3 site, int kind)
+            => Create(em, site, kind, DealGrade());
+
+        private static void Create(EntityManager em, float3 site, int kind, byte grade)
         {
-            _record?.Add((site, kind));
-            switch (kind)
+            _record?.Add((site, kind, grade));
+            Entity e = kind switch
             {
-                case 0: SupplyNode.Create(em, site); break;
-                case 1: TheWaningBorder.Bootstrap.IronDepositBootstrap.SpawnQuotaNode(em, site, IronDepositUnits); break;
-                default: VeilstoneOutcropping.Create(em, site, VeilstonePerOutcrop); break;
+                0 => SupplyNode.Create(em, site),
+                1 => TheWaningBorder.Bootstrap.IronDepositBootstrap.SpawnQuotaNode(em, site, IronDepositUnits),
+                _ => VeilstoneOutcropping.Create(em, site, VeilstonePerOutcrop),
+            };
+            if (e != Entity.Null && em.Exists(e))
+            {
+                if (em.HasComponent<NodePurity>(e)) em.SetComponentData(e, new NodePurity { Grade = grade });
+                else em.AddComponentData(e, new NodePurity { Grade = grade });
+                if (grade <= 2) _dealt[grade]++;
             }
         }
 

@@ -104,7 +104,7 @@ namespace TheWaningBorder.Systems.Combat
             {
                 if (health.ValueRO.Value <= 0)
                 {
-                    if (state.EntityManager.HasComponent<TheWaningBorder.Abilities.LifeCling>(entity))
+                    if (TransientState.Active<TheWaningBorder.Abilities.LifeCling>(state.EntityManager, entity))
                         lifeClinged.Add(entity);
                     else if (FeraldisDeathInterceptor.WantsIntercept(state.EntityManager, entity))
                         feraldisIntercept.Add(entity);

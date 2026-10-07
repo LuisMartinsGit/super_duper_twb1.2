@@ -55,7 +55,7 @@ namespace TheWaningBorder.Systems.Combat
             if (!friendlyFire && em.HasComponent<FactionTag>(victim)
                 && !Alliances.AreHostile(source, em.GetComponentData<FactionTag>(victim).Value))
                 return 0;
-            if (em.HasComponent<Invulnerable>(victim)) return 0;
+            if (TransientState.Active<Invulnerable>(em, victim)) return 0;
             if (CombatDamageHelper.WallRuleBlocks(em, victim, type)) return 0;
 
             int dmg = Mitigate(em, victim, amount, type);
@@ -79,7 +79,7 @@ namespace TheWaningBorder.Systems.Combat
 
             int baseDefense = CombatDamageHelper.BaseDefense(em, victim, type);
             int defense = baseDefense;
-            if (em.HasComponent<Fortified>(victim))
+            if (TransientState.Active<Fortified>(em, victim))
                 defense += (int)em.GetComponentData<Fortified>(victim).ArmorBonus;
             defense += CombatDamageHelper.GetSpellBuffArmorBonus(em, victim, baseDefense);
 

@@ -102,7 +102,7 @@ namespace TheWaningBorder.Systems.Border
                 {
                     // Skip Invulnerable target — Godsplinter siege damage previously
                     // bypassed LockdownVault. (task-062 C-4)
-                    if (em.HasComponent<Invulnerable>(tgt.Value)) continue;
+                    if (TransientState.Active<Invulnerable>(em, tgt.Value)) continue;
 
                     gs.IsSieging = 1;
 
@@ -213,7 +213,7 @@ namespace TheWaningBorder.Systems.Border
                     gs.IsSieging = 0;
 
                     // Hold position units do NOT chase
-                    if (em.HasComponent<HoldPositionTag>(entity))
+                    if (TransientState.Active<HoldPositionTag>(em, entity))
                     {
                         tgt.Value = Entity.Null;
                         continue;

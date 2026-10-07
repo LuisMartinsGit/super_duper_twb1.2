@@ -1,4 +1,4 @@
-﻿// ScoutDirectorSystem.cs
+// ScoutDirectorSystem.cs
 // Information-driven scouting (AI plan M3). Replaces SimpleAISystem's random
 // scout wandering with zone-based exploration plus a recon channel:
 //
@@ -32,6 +32,8 @@ namespace TheWaningBorder.AI
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial class ScoutDirectorSystem : SystemBase
     {
+        private double _simClockLast = -1d;
+
         #region Cached queries
 
         // CreateEntityQuery registers a new query with the world on EVERY
@@ -149,7 +151,7 @@ namespace TheWaningBorder.AI
                     // Hurt units are no use out alone.
                     if (hps[i].Max > 0 && hps[i].Value < hps[i].Max * 0.6f) continue;
                     // Never strip a wave of a body it is counting on.
-                    if (em.HasComponent<FormationMemberState>(ents[i])) continue;
+                    if (TransientState.Active<FormationMemberState>(em, ents[i])) continue;
 
                     bool isOutrider = em.HasComponent<UnitTypeId>(ents[i])
                         && em.GetComponentData<UnitTypeId>(ents[i]).Value
@@ -184,10 +186,10 @@ namespace TheWaningBorder.AI
             // the host alone in multiplayer. docs/Multiplayer_LAN_Readiness.md
             if (!GameSettings.ShouldRunAIBrains()) return;
 
-            if (!_acc.Due(SystemAPI.Time.DeltaTime, Cfg.tickInterval)) return;
+            if (!_acc.Due(AIClock.Delta(ref _simClockLast), Cfg.tickInterval)) return;
 
             var em = EntityManager;
-            float now = (float)SystemAPI.Time.ElapsedTime;
+            float now = TheWaningBorder.Core.SimClock.Now;
             var settings = AISettings.Get();
 
             // Zone grid covers the ACTUAL terrain rectangle (corner-anchored,
@@ -322,7 +324,7 @@ namespace TheWaningBorder.AI
                             // Between legs of a chain the destination reads
                             // empty for a frame while the queue hands over the
                             // next one; re-ordering then would wipe the chain.
-                            if (sDds[i].Has == 0 && !em.HasComponent<CommandQueueActive>(scout))
+                            if (sDds[i].Has == 0 && !TransientState.Active<CommandQueueActive>(em, scout))
                                 CommandRouter.IssueMove(em, scout, plan.Target, CommandSource.AI);
                             continue;
                         }

@@ -195,7 +195,7 @@ namespace TheWaningBorder.AI
         public void OnUpdate(ref SystemState state)
         {
             if (!GameSettings.ShouldRunAIBrains()) return;
-            float time = (float)SystemAPI.Time.ElapsedTime;
+            float time = TheWaningBorder.Core.SimClock.Now;
             var em = state.EntityManager;
 
             // Snapshot brains — we make structural changes (BuildingUpgrading

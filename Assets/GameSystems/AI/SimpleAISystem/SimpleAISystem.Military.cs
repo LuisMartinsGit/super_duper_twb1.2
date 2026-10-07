@@ -174,6 +174,9 @@ namespace TheWaningBorder.AI
             public float Score;
             public string What;
             public Faction Owner;
+            /// <summary>An extractor (Gatherer's Hut, Mine, Veilstone Mine,
+            /// Trading Outpost) — where the income is made.</summary>
+            public bool Extractor;
         }
         private readonly System.Collections.Generic.List<IncomeTarget> _scratchIncome
             = new System.Collections.Generic.List<IncomeTarget>();
@@ -455,32 +458,230 @@ namespace TheWaningBorder.AI
                 if (WaveTargetBlocked(faction, s.Position, now)) continue;
                 if (!IsKnownGround(faction, s.Position)) continue;
 
-                float weight; string what;
+                float weight; string what; bool extractor = false;
                 Entity e = s.Enemy;
                 if (s.Category == IntelCategory.MilitaryBuilding) { weight = Cfg.incomeWeightMilitary; what = "military building"; }
-                else if (em.HasComponent<TradingOutpostTag>(e)) { weight = Cfg.incomeWeightExtractor; what = "trading outpost"; }
-                else if (em.HasComponent<VeilstoneMineTag>(e)) { weight = Cfg.incomeWeightExtractor; what = "veilstone mine"; }
-                else if (em.HasComponent<MineTag>(e) || em.HasComponent<IronMineTag>(e)) { weight = Cfg.incomeWeightExtractor; what = "mine"; }
-                else if (em.HasComponent<GathererHutTag>(e)) { weight = Cfg.incomeWeightExtractor; what = "gatherer's hut"; }
+                else if (em.HasComponent<TradingOutpostTag>(e)) { weight = Cfg.incomeWeightExtractor; what = "trading outpost"; extractor = true; }
+                else if (em.HasComponent<VeilstoneMineTag>(e)) { weight = Cfg.incomeWeightExtractor; what = "veilstone mine"; extractor = true; }
+                else if (em.HasComponent<MineTag>(e) || em.HasComponent<IronMineTag>(e)) { weight = Cfg.incomeWeightExtractor; what = "mine"; extractor = true; }
+                else if (em.HasComponent<GathererHutTag>(e)) { weight = Cfg.incomeWeightExtractor; what = "gatherer's hut"; extractor = true; }
                 else if (em.HasComponent<HutTag>(e)) { weight = Cfg.incomeWeightHouse; what = "house"; }
                 else { weight = Cfg.incomeWeightHouse; what = "eco building"; }
+
+                // WORKERS ARE HIGH-VALUE TARGETS (2026-10-07, Game_AI.md §
+                // 3b): an extractor with the owner's workers seen round it is
+                // worth more — the army that razes it kills the builders too.
+                float workerBonus = 0f;
+                if (extractor && Cfg.incomeWorkerBonus > 0f)
+                {
+                    int workers = KnownWorkersNear(buf, s.OwnerFaction, s.Position, simNow);
+                    if (workers > 0) workerBonus = Cfg.incomeWorkerBonus * math.min(workers, math.max(1, Cfg.incomeWorkerMaxCounted));
+                }
 
                 float dx = s.Position.x - origin.x, dz = s.Position.z - origin.z;
                 // THE SURROUNDING HOLDINGS BEFORE THE MAIN BASE (2026-10-07,
                 // Game_AI.md § 6h): anything in its owner's capital territory
                 // ranks below every holding outside it.
                 float mainBase = IsCapitalTerritory(em, s.OwnerFaction, r) ? Cfg.incomeCapitalPenalty : 0f;
-                float score = weight * 100f - mainBase
+                float score = weight * 100f - mainBase + workerBonus
                               - math.sqrt(dx * dx + dz * dz) * settings.travelCostPerMeter
                               - s.EstStrength * settings.riskPerDefenseStrength * risk
                               - math.max(0f, simNow - s.LastSeenTime) * settings.intelAgePenaltyPerSecond;
-                into.Add(new IncomeTarget { Ent = e, Pos = s.Position, Score = score, What = what, Owner = s.OwnerFaction });
+                into.Add(new IncomeTarget { Ent = e, Pos = s.Position, Score = score, What = what,
+                    Owner = s.OwnerFaction, Extractor = extractor });
             }
             into.Sort((x, y) =>
             {
                 int c = y.Score.CompareTo(x.Score);
                 return c != 0 ? c : x.Ent.Index.CompareTo(y.Ent.Index);
             });
+        }
+
+        /// <summary>Hostile workers of <paramref name="owner"/> this faction has
+        /// seen within incomeWorkerRadius of <paramref name="pos"/>, no older
+        /// than incomeWorkerMaxAgeSeconds (Game_AI.md § 3b).</summary>
+        private static int KnownWorkersNear(DynamicBuffer<EnemySightingRecord> buf, Faction owner,
+            float3 pos, float simNow)
+        {
+            float r2 = Cfg.incomeWorkerRadius * Cfg.incomeWorkerRadius;
+            int n = 0;
+            for (int i = 0; i < buf.Length; i++)
+            {
+                var w = buf[i];
+                if (w.Category != IntelCategory.Worker || w.OwnerFaction != owner) continue;
+                if (simNow - w.LastSeenTime > Cfg.incomeWorkerMaxAgeSeconds) continue;
+                float dx = w.Position.x - pos.x, dz = w.Position.z - pos.z;
+                if (dx * dx + dz * dz <= r2) n++;
+            }
+            return n;
+        }
+
+        // ─────────────────────────────────────────────────────────────────
+        // INDEPENDENT RAIDS (2026-10-07, developer: "Rush ditches walls
+        // completely; focuses on harassing enemy economic buildings";
+        // docs/Design/Game_AI.md § 3b). A personality with raidIntervalSeconds
+        // sends a raid party at the enemy's extractors on its OWN timer, not
+        // only as a split off a wave at launch: the fastest idle units above
+        // the standing floor, at the best-ranked income target
+        // (RankIncomeTargets — extractors first, the surrounding holdings
+        // before the capital, the war's victim while a war is on) that the
+        // party can take. A raid whose objective falls moves on to the next
+        // extractor within raidChainRadius before it heads home.
+        // ─────────────────────────────────────────────────────────────────
+
+        private readonly System.Collections.Generic.Dictionary<int, float> _nextRaidAt
+            = new System.Collections.Generic.Dictionary<int, float>();
+        private int _raidEpoch = -1;
+        private readonly System.Collections.Generic.List<Entity> _raidScratch
+            = new System.Collections.Generic.List<Entity>();
+
+        /// <summary>The raid party's size: raidPartySize x the personality's
+        /// raidPartyScale.</summary>
+        private static int RaidPartySize(AISettingsSO.PersonalityBlock personality)
+            => math.max(1, (int)math.round(Cfg.raidPartySize
+                * math.max(0.1f, personality != null && personality.raidPartyScale > 0f ? personality.raidPartyScale : 1f)));
+
+        private void TickRaids(EntityManager em, Entity brainEntity, Faction faction, ref SimpleAIState aiState,
+            AISettingsSO settings, AISettingsSO.PersonalityBlock personality, float now)
+        {
+            if (personality == null || !personality.raidingEnabled || personality.raidIntervalSeconds <= 0f) return;
+            if (GameSettings.TutorialActive) return;
+            if (_raidEpoch != SimCadence.Epoch) { _raidEpoch = SimCadence.Epoch; _nextRaidAt.Clear(); }
+            int fk = (int)faction;
+            if (_nextRaidAt.TryGetValue(fk, out float at) && now < at) return;
+            // Nothing sent: look again after the wave retry; something sent:
+            // the personality's interval.
+            _nextRaidAt[fk] = now + math.max(1f, Cfg.waveRetrySeconds);
+
+            // Age 0 is for the age-up (Age_0.md § The AI and the age-up), and
+            // a base under attack keeps its army.
+            if (!HasAgedUp(em, faction)) return;
+            if (aiState.Posture == AIPosture.Defend) return;
+
+            var missions = MissionsFor(faction);
+            int liveRaids = 0;
+            for (int i = 0; i < missions.Count; i++)
+                if (missions[i].Type == MissionType.Raid && missions[i].Members.Count > 0) liveRaids++;
+            if (liveRaids >= math.max(1, Cfg.raidMaxConcurrent)) return;
+
+            Entity myHall = FindFactionBuilding<HallTag>(em, faction);
+            if (myHall == Entity.Null || !em.HasComponent<LocalTransform>(myHall)) return;
+            float3 origin = em.GetComponentData<LocalTransform>(myHall).Position;
+
+            // ── The party: idle, fastest first, never below the standing floor. ──
+            var enrolled = _scratchEnrolled;   // pooled, cleared per use
+            enrolled.Clear();
+            foreach (var m in missions)
+                foreach (var member in m.Members)
+                    enrolled.Add(member);
+            var idle = _raidScratch;
+            idle.Clear();
+            int standing = 0;
+            var q = QC_UnitTagFactionTagLocalTransform.Get(em, QT_UnitTagFactionTagLocalTransform);
+            using (var ents = q.ToEntityArray(Allocator.Temp))
+            using (var tags = q.ToComponentDataArray<UnitTag>(Allocator.Temp))
+            using (var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp))
+            {
+                for (int i = 0; i < ents.Length; i++)
+                {
+                    if (facs[i].Value != faction || !IsCombatClass(tags[i].Class)) continue;
+                    Entity e = ents[i];
+                    if (em.HasComponent<UnderConstruction>(e) || IsVerbUnit(em, e)) continue;
+                    if (IsClaimSquadMember(e) || em.HasComponent<NotControllableTag>(e)) continue;
+                    if (enrolled.Contains(e)) continue;
+                    standing++;
+                    if (TransientState.Active<AttackCommand>(em, e)) continue;
+                    if (TransientState.Active<UserMoveOrder>(em, e)) continue;
+                    idle.Add(e);
+                }
+            }
+            int size = RaidPartySize(personality);
+            int floor = StandingArmyFloor(faction, ProfileOf(faction), aiState.DesiredMilitary);
+            if (math.min(idle.Count, standing - floor) < size) return;
+            idle.Sort((a, b) =>
+            {
+                float sa = em.HasComponent<MoveSpeed>(a) ? em.GetComponentData<MoveSpeed>(a).Value : 0f;
+                float sb = em.HasComponent<MoveSpeed>(b) ? em.GetComponentData<MoveSpeed>(b).Value : 0f;
+                int c = sb.CompareTo(sa);
+                return c != 0 ? c : a.Index.CompareTo(b.Index);
+            });
+            if (idle.Count > size) idle.RemoveRange(size, idle.Count - size);
+
+            // ── The target: the best extractor (then house) the party can take. ──
+            Faction victim = TryGetWarVictim(em, faction, out var warOn) ? warOn : faction;
+            RankIncomeTargets(em, brainEntity, faction, victim, origin, now, personality.riskMultiplier,
+                settings, _scratchIncome);
+            int pick = -1;
+            for (int pass = 0; pass < 2 && pick < 0; pass++)
+                for (int i = 0; i < _scratchIncome.Count && pick < 0; i++)
+                {
+                    var t = _scratchIncome[i];
+                    if (t.What == "military building") continue;
+                    if ((pass == 0) != t.Extractor) continue;
+                    if (RaidAlreadyOn(missions, t.Ent)) continue;
+                    if (!AIEngagement.AssessAssault(em, faction, idle, t.Pos).ShouldFight) continue;
+                    pick = i;
+                }
+            if (pick < 0) return;
+            var top = _scratchIncome[pick];
+
+            var raid = new Mission
+            {
+                Type = MissionType.Raid,
+                Target = top.Ent,
+                TargetPos = top.Pos,
+                StartTime = now,
+                LegStartTime = now,
+                Deadline = DeadlineFor(now, origin, top.Pos),
+                LastCentroid = origin,
+            };
+            raid.Members.AddRange(idle);
+            missions.Add(raid);
+            March(em, faction, raid, top.Pos, true, origin);
+            _nextRaidAt[fk] = now + personality.raidIntervalSeconds;
+            AILogger.Log(faction, "WAVE",
+                $"RAID: {raid.Members.Count} fast unit(s) at {top.Owner}'s {top.What} " +
+                $"({top.Pos.x:0},{top.Pos.z:0}); next raid in {(int)personality.raidIntervalSeconds}s");
+        }
+
+        private static bool RaidAlreadyOn(System.Collections.Generic.List<Mission> missions, Entity target)
+        {
+            if (target == Entity.Null) return false;
+            for (int i = 0; i < missions.Count; i++)
+                if (missions[i].Type == MissionType.Raid && missions[i].Target == target) return true;
+            return false;
+        }
+
+        /// <summary>A raid whose objective fell: the next extractor (then
+        /// house) within raidChainRadius of it, the war's victim's only while
+        /// a war is on. False when nothing is left to harass there.</summary>
+        private bool TryChainRaid(EntityManager em, Entity brainEntity, Faction faction, Mission raid,
+            AISettingsSO settings, float now)
+        {
+            if (Cfg.raidChainRadius <= 0f) return false;
+            Faction victim = TryGetWarVictim(em, faction, out var warOn) ? warOn : faction;
+            RankIncomeTargets(em, brainEntity, faction, victim, raid.TargetPos, now, 1f, settings, _scratchIncome);
+            float r2 = Cfg.raidChainRadius * Cfg.raidChainRadius;
+            var missions = MissionsFor(faction);
+            for (int pass = 0; pass < 2; pass++)
+                for (int i = 0; i < _scratchIncome.Count; i++)
+                {
+                    var t = _scratchIncome[i];
+                    if (t.What == "military building" || (pass == 0) != t.Extractor) continue;
+                    if (math.distancesq(t.Pos.xz, raid.TargetPos.xz) > r2) continue;
+                    if (RaidAlreadyOn(missions, t.Ent)) continue;
+                    float3 from = math.lengthsq(raid.LastCentroid) > 1e-4f ? raid.LastCentroid : raid.TargetPos;
+                    raid.Target = t.Ent;
+                    raid.TargetPos = t.Pos;
+                    raid.StartTime = now;
+                    raid.LegStartTime = now;
+                    raid.Deadline = DeadlineFor(now, from, t.Pos);
+                    March(em, faction, raid, t.Pos, true, from);
+                    AILogger.Log(faction, "WAVE",
+                        $"RAID: objective down — on to {t.Owner}'s {t.What} at ({t.Pos.x:0},{t.Pos.z:0})");
+                    return true;
+                }
+            return false;
         }
 
         private readonly System.Collections.Generic.Dictionary<int, float> _incomeReconAt
@@ -1051,6 +1252,9 @@ namespace TheWaningBorder.AI
             // the army past the cadence IS the "armies trained but never
             // used" bug, so an overdue wave attacks the best target it has.
             bool overdue = now - aiState.WaveStartTime > Cfg.waveOverdueSeconds;
+            // …except for a personality that only attacks when it is sure to
+            // win (Defensive, Game_AI.md § 3b): its waves are never overdue.
+            if (personality != null && personality.noOverdueRelease) overdue = false;
 
             // DEFEND HOLDS THE ARMY HOME — BUT NOT FOREVER (2026-08-31
             // balance investigation). Under sustained raiding a victim sits
@@ -1302,7 +1506,15 @@ namespace TheWaningBorder.AI
                     // they are reachable, and the raze chain presses on from
                     // there. The Hall is the objective only when nothing else
                     // of the victim's is known.
-                    if (TryNearestUnwalledSighting(em, brainEntity, faction, victim, originPos, now,
+                    // GO FOR THE THROAT (§ 6i): a beaten victim's outlying
+                    // buildings are what it rebuilds; its Hall is what ends it.
+                    // (8-player batch 2026-10-07: seven AIs at war with one
+                    // faction for an hour, every wave sent at a rebuilt hut
+                    // outside its walls, the Fortress untouched until 69 min.)
+                    bool crippled = closeout && Cfg.crippledTerritories > 0
+                        && TerritoriesHeld(victim) <= Cfg.crippledTerritories;
+                    if (crippled) _lastDoctrine = $"closeout: {victim} is beaten — for the throat";
+                    if (!crippled && TryNearestUnwalledSighting(em, brainEntity, faction, victim, originPos, now,
                             out float3 uPos, out Entity uEnt, out string uWhat))
                     {
                         target = uEnt;
@@ -1338,8 +1550,18 @@ namespace TheWaningBorder.AI
                         // public knowledge (the start-hall fallback already
                         // exists for exactly this), so the killing push goes
                         // to the nearest hostile start Hall.
-                        Entity sh = FindEnemyStartHall(em, faction, originPos);
-                        if (sh != Entity.Null && em.HasComponent<LocalTransform>(sh))
+                        Entity sh = FindEnemyStartHall(em, faction, originPos, victim);
+                        if (sh == Entity.Null
+                            && TryVictimGround(em, victim, originPos, new float3(float.MaxValue),
+                                   out float3 vgPos, out string vgWhat))
+                        {
+                            target = Entity.Null;     // a location march: what holds it is fought there
+                            targetPos = vgPos;
+                            scored = false;
+                            sightingObjective = true;
+                            _lastDoctrine = $"closeout: no sighting of {victim} — marching on {vgWhat}";
+                        }
+                        else if (sh != Entity.Null && em.HasComponent<LocalTransform>(sh))
                         {
                             target = sh;
                             targetPos = em.GetComponentData<LocalTransform>(sh).Position;
@@ -1355,6 +1577,15 @@ namespace TheWaningBorder.AI
                             AILogger.Log(faction, "WAVE",
                                 $"closeout wants {victim} but no Hall stands at any start — scouts first");
                         }
+                    }
+                    else if (TryVictimGround(em, victim, originPos, new float3(float.MaxValue),
+                                 out float3 vgPos2, out string vgWhat2))
+                    {
+                        target = Entity.Null;
+                        targetPos = vgPos2;
+                        scored = false;
+                        sightingObjective = true;
+                        _lastDoctrine = $"{victim} leads the board, no sighting — marching on {vgWhat2}";
                     }
                     else
                     {
@@ -1569,8 +1800,9 @@ namespace TheWaningBorder.AI
             // (workers / eco buildings) while the main army takes the scored
             // objective. Two simultaneous pressure points instead of one blob.
             var missions = MissionsFor(faction);
+            int raidSize = RaidPartySize(personality);
             if (!rerouted && personality.raidingEnabled
-                && idleMilitary.Count >= minUnits + Cfg.raidPartySize + Cfg.raidSurplus)
+                && idleMilitary.Count >= minUnits + raidSize + Cfg.raidSurplus)
             {
                 Entity raidTarget = ChooseAttackTargetScored(
                     em, brainEntity, faction, originPos, settings, personality, now,
@@ -1593,7 +1825,7 @@ namespace TheWaningBorder.AI
                         TargetPos = raidPos,
                         StartTime = now,
                     };
-                    for (int i = 0; i < Cfg.raidPartySize && idleMilitary.Count > 0; i++)
+                    for (int i = 0; i < raidSize && idleMilitary.Count > 0; i++)
                     {
                         Entity u = idleMilitary[0];
                         idleMilitary.RemoveAt(0);
@@ -2154,6 +2386,36 @@ namespace TheWaningBorder.AI
                             $"({nextPos.x:0},{nextPos.z:0})");
                         continue;
                     }
+                }
+
+                // A RAID MOVES ON (Game_AI.md § 3b): the next extractor near
+                // the one it razed, before it heads for safe ground.
+                if (objectiveDown && !timedOut && mission.Type == MissionType.Raid
+                    && TryChainRaid(em, brainEntity, faction, mission, settings, now))
+                    continue;
+
+                // THE WAR GOES ON (§ 6i): an attack whose objective fell, with
+                // nothing scouted near it, marches on the war victim's next
+                // held ground instead of going home.
+                if (objectiveDown && !timedOut && mission.Type == MissionType.Attack
+                    && mission.Members.Count >= math.max(1, Cfg.reclaimMinSquadSize)
+                    && TryGetWarVictim(em, faction, out Faction warVictim)
+                    && TryVictimGround(em, warVictim, mission.LastCentroid, mission.TargetPos,
+                           out float3 vgNext, out string vgNextWhat))
+                {
+                    mission.Deadline = DeadlineFor(now, mission.TargetPos, vgNext);
+                    mission.Breaching = false;
+                    mission.StalledSince = now;
+                    mission.Target = Entity.Null;
+                    mission.TargetPos = vgNext;
+                    if (OwnsWaveTarget(missions, mission)) aiState.WaveTarget = vgNext;
+                    mission.StartTime = now;
+                    mission.LegStartTime = now;
+                    mission.Phase = MissionPhase.Striking;
+                    March(em, faction, mission, vgNext, true, mission.LastCentroid);
+                    AILogger.Log(faction, "WAVE",
+                        $"objective down — the war goes on: marching on {vgNextWhat} ({vgNext.x:0},{vgNext.z:0})");
+                    continue;
                 }
 
                 if (objectiveDown || timedOut)
@@ -2955,6 +3217,10 @@ namespace TheWaningBorder.AI
             // point is to feed the live push continuously between waves.
             ReinforceActiveWave(em, faction, ref aiState, now);
 
+            // A raiding personality harasses the enemy's extractors on its
+            // own timer (Game_AI.md § 3b), between waves as well as with them.
+            TickRaids(em, brainEntity, faction, ref aiState, settings, personality, now);
+
             if (now < aiState.NextWaveTime) return;
 
             // CLAIMS OUTRANK WAVES while open ground waits for soldiers and
@@ -3022,8 +3288,15 @@ namespace TheWaningBorder.AI
             // objective (TryLaunchAttack) -- with a head-count FLOOR so a tiny
             // army never trickles out at an undefended target. Like the rule
             // it replaced, it outranks the overdue release.
-            bool strengthGate = now >= Cfg.strengthWaveAfterSeconds;
-            if (strengthGate)
+            // A CAUTIOUS PERSONALITY TESTS EVERY WAVE (Game_AI.md § 3b): from
+            // its strengthGateFromSeconds (Defensive: from the start) the wave
+            // must beat the known defence too. Before the config's mark the
+            // head-count bar above still applies as well — a big army that
+            // can win, not a small one that happens to.
+            float gateFrom = Cfg.strengthWaveAfterSeconds;
+            if (personality != null) gateFrom = math.min(gateFrom, personality.strengthGateFromSeconds);
+            bool strengthGate = now >= gateFrom;
+            if (strengthGate && now >= Cfg.strengthWaveAfterSeconds)
                 minUnits = math.min(affordable, math.max(2, (int)math.round(
                     Cfg.strengthWaveMinArmy * PlanProfileOf(faction).WaveBarScale)));
 

@@ -113,7 +113,7 @@ namespace TheWaningBorder.Abilities
                     && em.GetComponentData<SiegeScreens>(entities[i]).Ready == 0) continue;
 
                 if (dryRun) return true;
-                AddOrSet(em, entities[i], new NextShotBonus { Pct = RangingShotPct, TimeRemaining = RangingShotWindow });
+                TransientState.Set(em, entities[i], new NextShotBonus { Pct = RangingShotPct, TimeRemaining = RangingShotWindow });
                 armed++;
             }
 
@@ -150,7 +150,7 @@ namespace TheWaningBorder.Abilities
             if (IsGarrisonInfantry(unitId))
             {
                 if (rs.HasResearched(faction, "Charge"))
-                    AddOrSet(em, e, ChargeFromTech("Charge"));
+                    SetEnabled(em, e, ChargeFromTech("Charge"));
                 if (rs.HasResearched(faction, "ShieldWall"))
                     AddOrSet(em, e, new ShieldWallState { Pct = 30f });
             }
@@ -178,7 +178,7 @@ namespace TheWaningBorder.Abilities
             {
                 // The Royal Stable's charge — same passive, cavalry roster.
                 if (rs.HasResearched(faction, "CavalryCharge"))
-                    AddOrSet(em, e, ChargeFromTech("CavalryCharge"));
+                    SetEnabled(em, e, ChargeFromTech("CavalryCharge"));
             }
             // Not an Alanthor passive: Field Hospital is the Sect of Renewal's
             // research, so any culture that adopts Renewal arms its Litharchs.
@@ -205,6 +205,15 @@ namespace TheWaningBorder.Abilities
             RearmSeconds = TechCatalog.TechEffect(techId, "ChargeRearmSeconds"),
             Ready = 1,
         };
+
+        /// <summary>FirstStrike is enableable and pre-added DISABLED on every
+        /// unit (TransientState.cs): a plain set would leave the charge off.</summary>
+        private static void SetEnabled<T>(EntityManager em, Entity e, T value)
+            where T : unmanaged, IComponentData, IEnableableComponent
+        {
+            if (!em.Exists(e)) return;
+            TransientState.Set(em, e, value);
+        }
 
         private static void AddOrSet<T>(EntityManager em, Entity e, T value) where T : unmanaged, IComponentData
         {

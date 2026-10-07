@@ -94,7 +94,7 @@ namespace TheWaningBorder.Systems.Combat
                 {
                     // ── 1. RapidMend (ScarGuard): self heal-over-time ──
                     case AbilityId.RapidMend:
-                        ecb.AddComponent(entity, new HealOverTime
+                        TransientState.Set(ecb, entity, new HealOverTime
                         {
                             TotalHealing = 50f,
                             Duration = 3f,
@@ -109,7 +109,7 @@ namespace TheWaningBorder.Systems.Combat
 
                     // ── 3. Fortify (StoneWarden): self armor + immobile ──
                     case AbilityId.Fortify:
-                        ecb.AddComponent(entity, new Fortified
+                        TransientState.Set(ecb, entity, new Fortified
                         {
                             ArmorBonus = 5f,
                             TimeRemaining = 8f
@@ -121,16 +121,13 @@ namespace TheWaningBorder.Systems.Combat
                         if (target != Entity.Null && em.Exists(target))
                         {
                             TransientState.Clear<SpellBuff>(em, target);
-                            if (em.HasComponent<SpellDebuff>(target))
-                                ecb.RemoveComponent<SpellDebuff>(target);
-                            if (em.HasComponent<Condemned>(target))
-                                ecb.RemoveComponent<Condemned>(target);
+                            TransientState.Clear<SpellDebuff>(em, ecb, target);
+                            TransientState.Clear<Condemned>(em, ecb, target);
                             if (em.HasComponent<IgniteBuff>(target))
                                 ecb.RemoveComponent<IgniteBuff>(target);
                             if (em.HasComponent<VoidStrikeBuff>(target))
                                 ecb.RemoveComponent<VoidStrikeBuff>(target);
-                            if (em.HasComponent<Fortified>(target))
-                                ecb.RemoveComponent<Fortified>(target);
+                            TransientState.Clear<Fortified>(em, ecb, target);
                         }
                         break;
 
@@ -138,7 +135,7 @@ namespace TheWaningBorder.Systems.Combat
                     case AbilityId.Sanction:
                         if (target != Entity.Null && em.Exists(target))
                         {
-                            ecb.AddComponent(target, new SpellDebuff
+                            TransientState.Set(ecb, target, new SpellDebuff
                             {
                                 SpeedReduction = 1.0f,
                                 SuppliesDrainPerSecond = 0f,
@@ -170,7 +167,7 @@ namespace TheWaningBorder.Systems.Combat
                     case AbilityId.Condemn:
                         if (target != Entity.Null && em.Exists(target))
                         {
-                            ecb.AddComponent(target, new Condemned
+                            TransientState.Set(ecb, target, new Condemned
                             {
                                 DamageMultiplier = 1.25f,
                                 TimeRemaining = 6f
@@ -196,7 +193,7 @@ namespace TheWaningBorder.Systems.Combat
                     case AbilityId.ChainBind:
                         if (target != Entity.Null && em.Exists(target))
                         {
-                            ecb.AddComponent(target, new SpellDebuff
+                            TransientState.Set(ecb, target, new SpellDebuff
                             {
                                 SpeedReduction = 1.0f,
                                 SuppliesDrainPerSecond = 0f,
@@ -219,7 +216,7 @@ namespace TheWaningBorder.Systems.Combat
                 ability.ValueRW.CooldownRemaining = ability.ValueRO.CooldownDuration;
 
                 // Remove the activation tag
-                ecb.RemoveComponent<AbilityActivated>(entity);
+                TransientState.Clear<AbilityActivated>(em, ecb, entity);
             }
 
             // ══════════════════════════════════════════════════════════
@@ -258,7 +255,7 @@ namespace TheWaningBorder.Systems.Combat
                         ref var hp = ref health.ValueRW;
                         hp.Value = math.min(hp.Value + 1, hp.Max);
                     }
-                    ecb.RemoveComponent<HealOverTime>(entity);
+                    TransientState.Clear<HealOverTime>(em, ecb, entity);
                 }
             }
 
@@ -270,7 +267,7 @@ namespace TheWaningBorder.Systems.Combat
                 fortified.ValueRW.TimeRemaining -= dt;
                 if (fortified.ValueRO.TimeRemaining <= 0f)
                 {
-                    ecb.RemoveComponent<Fortified>(entity);
+                    TransientState.Clear<Fortified>(em, ecb, entity);
                 }
             }
 
@@ -282,7 +279,7 @@ namespace TheWaningBorder.Systems.Combat
                 condemned.ValueRW.TimeRemaining -= dt;
                 if (condemned.ValueRO.TimeRemaining <= 0f)
                 {
-                    ecb.RemoveComponent<Condemned>(entity);
+                    TransientState.Clear<Condemned>(em, ecb, entity);
                 }
             }
         }
@@ -311,7 +308,7 @@ namespace TheWaningBorder.Systems.Combat
                 if (entities[i] == caster) continue;
                 if (!Alliances.AreHostile(casterFaction, factions[i].Value)) continue;
                 // Skip Invulnerable (task-062 C-4)
-                if (em.HasComponent<Invulnerable>(entities[i])) continue;
+                if (TransientState.Active<Invulnerable>(em, entities[i])) continue;
 
                 float3 pos = transforms[i].Position;
                 float distSq = math.distancesq(
@@ -404,7 +401,7 @@ namespace TheWaningBorder.Systems.Combat
 
                 if (distSq <= radiusSq)
                 {
-                    ecb.AddComponent(entities[i], new SpellDebuff
+                    TransientState.Set(ecb, entities[i], new SpellDebuff
                     {
                         SpeedReduction = 0.30f,
                         SuppliesDrainPerSecond = 0f,

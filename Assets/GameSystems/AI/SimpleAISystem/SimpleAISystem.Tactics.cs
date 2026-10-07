@@ -230,7 +230,7 @@ namespace TheWaningBorder.AI
                 for (int i = 0; i < body.Count; i++)
                 {
                     var u = body[i];
-                    if (em.HasComponent<AbilityCastState>(u)) continue;
+                    if (TransientState.Active<AbilityCastState>(em, u)) continue;
                     if (StrikingFlanker(em, mission, u)) continue;
                     if (!switched && TransientState.Active<AttackCommand>(em, u)
                         && em.GetComponentData<AttackCommand>(u).Target == focus)
@@ -339,7 +339,7 @@ namespace TheWaningBorder.AI
             for (int i = 0; i < body.Count; i++)
             {
                 var u = body[i];
-                if (em.HasComponent<AbilityCastState>(u)) continue;
+                if (TransientState.Active<AbilityCastState>(em, u)) continue;
                 if (StrikingFlanker(em, mission, u)) continue;
                 float3 up = em.GetComponentData<LocalTransform>(u).Position;
                 uint uMask = AITactics.TagsOf(em, u);

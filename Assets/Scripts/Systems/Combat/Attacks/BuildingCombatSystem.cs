@@ -418,7 +418,7 @@ namespace TheWaningBorder.Systems.Combat
             if (em.GetComponentData<Health>(target).Value <= 0) return false;
             if (!Alliances.AreHostile(em.GetComponentData<FactionTag>(building).Value,
                                       em.GetComponentData<FactionTag>(target).Value)) return false;
-            if (em.HasComponent<SectVeiled>(target) || em.HasComponent<NodeUntargetable>(target)
+            if (TransientState.Active<SectVeiled>(em, target) || em.HasComponent<NodeUntargetable>(target)
                 || em.HasComponent<NodeNoAutoAcquire>(target)) return false;
             if (CombatDamageHelper.WallRuleBlocks(em, target, MainDamageType(em, building))) return false;
             return true;

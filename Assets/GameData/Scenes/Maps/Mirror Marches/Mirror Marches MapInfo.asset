@@ -14,20 +14,24 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   SceneName: MirrorMarches
   DisplayName: Mirror Marches
-  PlayerCount: 4
+  PlayerCount: 8
   SizeTag: OPEN
   Description: 
   Thumbnail: {fileID: 2800000, guid: e80150d35854d3548853dab4e8fa2a35, type: 3}
   PlayerStarts:
-  - {x: 0.125, y: 0.125}
-  - {x: 0.875, y: 0.125}
-  - {x: 0.875, y: 0.875}
-  - {x: 0.125, y: 0.875}
-  PlayerStartFactions: 00010203
+  - {x: 0.083333336, y: 0.33333334}
+  - {x: 0.6666667, y: 0.083333336}
+  - {x: 0.9166667, y: 0.6666667}
+  - {x: 0.33333334, y: 0.9166667}
+  - {x: 0.9166667, y: 0.33333334}
+  - {x: 0.6666667, y: 0.9166667}
+  - {x: 0.083333336, y: 0.6666667}
+  - {x: 0.33333334, y: 0.083333336}
+  PlayerStartFactions: 0001020304050607
   PlayerStartTeams: 
   IronDeposits: []
   VeilstoneNodes: []
   VeilsteelNodes: []
   CurseNodes: []
   SupplyNodes: []
-  RegionStamp: 0BAD0660B5BC3F2F
+  RegionStamp: 1625AD32194ABBBD

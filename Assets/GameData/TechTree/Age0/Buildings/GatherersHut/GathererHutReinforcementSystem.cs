@@ -219,7 +219,7 @@ namespace TheWaningBorder.Economy
 
                 // Refresh only when at least as strong as an existing debuff, so
                 // a slow burst never downgrades a stronger debuff already present.
-                if (em.HasComponent<SpellDebuff>(unit))
+                if (TransientState.Active<SpellDebuff>(em, unit))
                 {
                     var existing = em.GetComponentData<SpellDebuff>(unit);
                     if (reduction >= existing.SpeedReduction)
@@ -227,7 +227,8 @@ namespace TheWaningBorder.Economy
                 }
                 else
                 {
-                    ecb.AddComponent(unit, debuff);
+                    // Enableable, pre-added on units (TransientState.cs).
+                    TransientState.Set(ecb, unit, debuff);
                 }
             }
             ecb.Playback(em);

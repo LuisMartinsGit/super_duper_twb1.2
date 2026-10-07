@@ -18,7 +18,7 @@ namespace TheWaningBorder.Systems.Navigation
         public static float Multiplier(EntityManager em, Entity e)
         {
             float m = 1f;
-            if (em.HasComponent<SpellDebuff>(e))
+            if (TransientState.Active<SpellDebuff>(em, e))
                 m *= 1f - em.GetComponentData<SpellDebuff>(e).SpeedReduction;
             // The Veil / Suppression auras: BorderDebuff.SpeedPenalty was
             // authored but never consumed — units wading through veil crust
@@ -29,7 +29,7 @@ namespace TheWaningBorder.Systems.Navigation
                 if (bd.SpeedPenalty > 0f)
                     m *= 1f - math.min(0.9f, bd.SpeedPenalty);
             }
-            if (em.HasComponent<Fortified>(e)) return 0f;
+            if (TransientState.Active<Fortified>(em, e)) return 0f;
             if (TransientState.Active<SpellBuff>(em, e))
             {
                 var buff = em.GetComponentData<SpellBuff>(e);

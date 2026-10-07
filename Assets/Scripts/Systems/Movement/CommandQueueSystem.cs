@@ -130,8 +130,8 @@ namespace TheWaningBorder.Systems.Movement
             foreach (var e in clear)
             {
                 if (!em.Exists(e)) continue;
-                if (em.HasComponent<CommandQueueActive>(e)) em.RemoveComponent<CommandQueueActive>(e);
-                if (em.HasComponent<QueuedMoveStep>(e)) em.RemoveComponent<QueuedMoveStep>(e);
+                TransientState.Clear<CommandQueueActive>(em, e);
+                TransientState.Clear<QueuedMoveStep>(em, e);
                 if (em.HasComponent<QueuedAttackTarget>(e)) em.RemoveComponent<QueuedAttackTarget>(e);
             }
 
@@ -168,7 +168,7 @@ namespace TheWaningBorder.Systems.Movement
             if (em.HasComponent<BuildCommand>(e) || em.HasComponent<BuildOrder>(e)) return true;
             if (em.HasComponent<RepairOrder>(e)) return true;
             if (em.HasComponent<HealCommand>(e)) return true;
-            if (em.HasComponent<FormationMemberState>(e)) return true;
+            if (TransientState.Active<FormationMemberState>(em, e)) return true;
             return false;
         }
 
@@ -296,9 +296,10 @@ namespace TheWaningBorder.Systems.Movement
         private static void MarkStep(EntityManager em, Entity e, QueuedCommand step)
         {
             bool move = step.Type == QueuedCommandType.Move;
-            bool has = em.HasComponent<QueuedMoveStep>(e);
-            if (move && !has) em.AddComponent<QueuedMoveStep>(e);
-            else if (!move && has) em.RemoveComponent<QueuedMoveStep>(e);
+            bool has = TransientState.Active<QueuedMoveStep>(em, e);
+            // Enableable, pre-added on units (TransientState.cs).
+            if (move && !has) TransientState.SetFlag<QueuedMoveStep>(em, e);
+            else if (!move && has) TransientState.Clear<QueuedMoveStep>(em, e);
             if (step.Type != QueuedCommandType.Attack && em.HasComponent<QueuedAttackTarget>(e))
                 em.RemoveComponent<QueuedAttackTarget>(e);
         }
@@ -315,7 +316,7 @@ namespace TheWaningBorder.Systems.Movement
             buf.Clear();
             for (int i = 0; i < saved.Length; i++) buf.Add(saved[i]);
             saved.Dispose();
-            if (!em.HasComponent<CommandQueueActive>(e)) em.AddComponent<CommandQueueActive>(e);
+            TransientState.SetFlag<CommandQueueActive>(em, e);
         }
 
         private static void SetOrAdd<T>(EntityManager em, Entity e, T value) where T : unmanaged, IComponentData

@@ -49,7 +49,7 @@ public struct QueuedCommand : IBufferElementData
 /// auto-acquire until the queue is done — a route that fights at every
 /// waypoint is an attack-move, which the queue can hold explicitly.
 /// </summary>
-public struct QueuedMoveStep : IComponentData { }
+public struct QueuedMoveStep : IComponentData, IEnableableComponent { }
 
 /// <summary>Limits of the per-unit command queue.</summary>
 public static class CommandQueueLimits
@@ -67,7 +67,7 @@ public static class CommandQueueLimits
 /// Marker tag: entity is currently draining its command queue.
 /// CommandQueueSystem processes the next command when the current one completes.
 /// </summary>
-public struct CommandQueueActive : IComponentData { }
+public struct CommandQueueActive : IComponentData, IEnableableComponent { }
 
 /// <summary>
 /// Marker tag: entity's command queue is paused. CommandQueueSystem ignores

@@ -88,7 +88,7 @@ namespace TheWaningBorder.Abilities
     /// <summary>Siege Yard "Ranging Shot" active. The next shot deals +Pct% damage.
     /// Applied by the ability cast (which requires the engine to have been
     /// stationary), consumed by the shot that lands.</summary>
-    public struct NextShotBonus : IComponentData
+    public struct NextShotBonus : IComponentData, IEnableableComponent
     {
         public float Pct;              // 100 = double damage
         public float TimeRemaining;
@@ -96,7 +96,7 @@ namespace TheWaningBorder.Abilities
 
     /// <summary>Choreographed Volleys — faction-wide archer fire-rate buff. While
     /// present the unit's attack cooldown is divided by Mult.</summary>
-    public struct VolleyBuff : IComponentData
+    public struct VolleyBuff : IComponentData, IEnableableComponent
     {
         public float Mult;             // 2 = double fire rate
         public float TimeRemaining;

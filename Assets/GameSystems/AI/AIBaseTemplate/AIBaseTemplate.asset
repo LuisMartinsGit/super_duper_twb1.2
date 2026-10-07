@@ -120,3 +120,4 @@ MonoBehaviour:
   emplacementEveryNthLink: 2
   alternateTrebuchet: 1
   variants: 1
+  ringMaxLinkMeters: 26

@@ -43,7 +43,7 @@ namespace TheWaningBorder.Abilities
     /// is charged and it is removed. A new order, a stun (Launched) or death
     /// removes it first -- the cast is lost and NO cooldown is charged
     /// (docs/Design/Spells.md, "Cast and interrupt").</summary>
-    public struct AbilityCastState : IComponentData
+    public struct AbilityCastState : IComponentData, IEnableableComponent
     {
         public int AbilityIndex;   // AbilityCatalog index
         public float CastRemaining; // seconds of cast time left (0 = apply now)
@@ -70,7 +70,7 @@ namespace TheWaningBorder.Abilities
     /// of AbilityIndex's card is cast on this entity. Fires the Liquid Courage ->
     /// Veilshift Withdrawal + Life Cling and Automate Facility -> Under Automation
     /// chains.</summary>
-    public struct AbilityAftermath : IComponentData
+    public struct AbilityAftermath : IComponentData, IEnableableComponent
     {
         public int AbilityIndex;
         public float Remaining;
@@ -81,7 +81,7 @@ namespace TheWaningBorder.Abilities
 
     /// <summary>Self damage-over-time (Veilshift Withdrawal). Damages the owner's
     /// own Health. Ticked by AbilityEffectTickSystem.</summary>
-    public struct SelfDoT : IComponentData
+    public struct SelfDoT : IComponentData, IEnableableComponent
     {
         public float Dps;
         public float TimeRemaining;
@@ -91,7 +91,7 @@ namespace TheWaningBorder.Abilities
     /// <summary>Life Cling — while present, the owner's HP is clamped so it never
     /// drops below Floor. Read at the damage-application sites via
     /// AbilityDamageHooks.</summary>
-    public struct LifeCling : IComponentData
+    public struct LifeCling : IComponentData, IEnableableComponent
     {
         public int Floor;
         public float TimeRemaining;
@@ -99,14 +99,14 @@ namespace TheWaningBorder.Abilities
 
     /// <summary>A cavalry unit currently charging (closed distance fast toward its
     /// target). Set/cleared by AbilityChargeSystem; read on-hit for charge bonus.</summary>
-    public struct Charging : IComponentData
+    public struct Charging : IComponentData, IEnableableComponent
     {
         public float TimeRemaining;
     }
 
     /// <summary>Flat bonus damage this unit adds on a charge hit (granted by
     /// King's Call to allied cavalry). Added/removed by AbilityAuraSystem.</summary>
-    public struct ChargeDamageBonus : IComponentData
+    public struct ChargeDamageBonus : IComponentData, IEnableableComponent
     {
         public int Bonus;
         public float TimeRemaining; // refreshed by the King's Call aura; fades when out of range
@@ -123,7 +123,7 @@ namespace TheWaningBorder.Abilities
 
     /// <summary>War Horn: the next charge hit deals +Pct% damage. Consumed at the
     /// damage site (removed the moment it lands), or expires with the window.</summary>
-    public struct NextChargePct : IComponentData
+    public struct NextChargePct : IComponentData, IEnableableComponent
     {
         public float Pct;
         public float TimeRemaining;
@@ -132,7 +132,7 @@ namespace TheWaningBorder.Abilities
     /// <summary>Full Gallop: the unit is sprinting and cannot attack while the
     /// speed burst lasts. Checked at the fire gates; ticked down by
     /// AbilityLifecycleSystem.</summary>
-    public struct TempDisarm : IComponentData
+    public struct TempDisarm : IComponentData, IEnableableComponent
     {
         public float TimeRemaining;
     }
@@ -142,7 +142,7 @@ namespace TheWaningBorder.Abilities
     /// <summary>Temporary resource-yield multiplier on an economy building
     /// (Automate Facility → +30% for 30s). Read by income systems; ticked by
     /// AbilityEffectTickSystem.</summary>
-    public struct AutoYieldBoost : IComponentData
+    public struct AutoYieldBoost : IComponentData, IEnableableComponent
     {
         public float Mult;          // e.g. 1.30
         public float TimeRemaining;
@@ -150,7 +150,7 @@ namespace TheWaningBorder.Abilities
 
     /// <summary>Lockout marker (Under Automation): the building cannot be
     /// re-automated while present. Ticked by AbilityEffectTickSystem.</summary>
-    public struct UnderAutomation : IComponentData
+    public struct UnderAutomation : IComponentData, IEnableableComponent
     {
         public float TimeRemaining;
     }

@@ -155,7 +155,7 @@ namespace TheWaningBorder.Systems.Combat
                 }
 
                 // Fix #211: skip targets that are currently Invulnerable.
-                if (em.HasComponent<Invulnerable>(tgt.Value)) continue;
+                if (TransientState.Active<Invulnerable>(em, tgt.Value)) continue;
 
                 // Archers cannot FIRE while moving — but they must keep
                 // steering. The old `continue` here was the pursue-jiggle bug:
@@ -276,7 +276,7 @@ namespace TheWaningBorder.Systems.Combat
 
                     // Full Gallop: a sprinting unit cannot shoot either (mounted
                     // archers keep the same rule as melee cavalry).
-                    if (em.HasComponent<TheWaningBorder.Abilities.TempDisarm>(entity)) continue;
+                    if (TransientState.Active<TheWaningBorder.Abilities.TempDisarm>(em, entity)) continue;
 
                     // Trebuchet pack/unpack: an undeployed trebuchet plants and
                     // faces (StopAndFace above) but must finish its 3 s set-up
@@ -353,7 +353,7 @@ namespace TheWaningBorder.Systems.Combat
                         // gone — baseline 1.0×. Phase 2 reintroduces per-sect levers.
 
                         // Fortified armor bonus on target (flat defense increase)
-                        if (em.HasComponent<Fortified>(tgt.Value))
+                        if (TransientState.Active<Fortified>(em, tgt.Value))
                         {
                             var fort = em.GetComponentData<Fortified>(tgt.Value);
                             int fortReduction = (int)fort.ArmorBonus;
@@ -454,7 +454,7 @@ namespace TheWaningBorder.Systems.Combat
                         // attack-speed effect) fires faster too.
                         cooldownValue *= CombatDamageHelper.GetHasteCooldownMult(em, entity);
                         // Choreographed Volleys: faction-wide archer fire-rate burst.
-                        if (em.HasComponent<TheWaningBorder.Abilities.VolleyBuff>(entity))
+                        if (TransientState.Active<TheWaningBorder.Abilities.VolleyBuff>(em, entity))
                         {
                             float m = em.GetComponentData<TheWaningBorder.Abilities.VolleyBuff>(entity).Mult;
                             if (m > 1f) cooldownValue /= m;

@@ -141,8 +141,8 @@ namespace TheWaningBorder.Systems.Sect
                 if (dx * dx + dz * dz > r2) continue;
 
                 var stamp = new SectShutdown { TimeRemaining = duration };
-                if (em.HasComponent<SectShutdown>(e)) ecb.SetComponent(e, stamp);
-                else                                  ecb.AddComponent(e, stamp);
+                // Enableable (TransientState.cs): add once, then flip the bit.
+                TransientState.Set(ecb, e, stamp);
                 if (single) break;
             }
 
@@ -174,13 +174,13 @@ namespace TheWaningBorder.Systems.Sect
                 // Do not re-stamp an already-disordered unit: that would
                 // overwrite OriginalFaction with the disordered faction and
                 // strand the unit permanently.
-                if (em.HasComponent<SectDisordered>(e)) continue;
+                if (TransientState.Active<SectDisordered>(em, e)) continue;
 
                 float3 p = em.GetComponentData<LocalTransform>(e).Position;
                 float dx = p.x - center.x, dz = p.z - center.z;
                 if (dx * dx + dz * dz > r2) continue;
 
-                ecb.AddComponent(e, new SectDisordered
+                TransientState.Set(ecb, e, new SectDisordered
                 {
                     TimeRemaining   = stored,
                     OriginalFaction = owner,
@@ -241,8 +241,7 @@ namespace TheWaningBorder.Systems.Sect
                     TimeRemaining     = duration,
                     FractionPerSecond = fraction / duration,
                 };
-                if (em.HasComponent<SectRegenTail>(e)) ecb.SetComponent(e, tail);
-                else                                   ecb.AddComponent(e, tail);
+                TransientState.Set(ecb, e, tail);
             }
 
             ecb.Playback(em);
@@ -325,8 +324,7 @@ namespace TheWaningBorder.Systems.Sect
                     TimeRemaining = duration,
                     HealOnExpiry  = healOnExpiry,
                 };
-                if (em.HasComponent<SectDeathWard>(e)) ecb.SetComponent(e, ward);
-                else                                   ecb.AddComponent(e, ward);
+                TransientState.Set(ecb, e, ward);
             });
         }
 
@@ -353,12 +351,10 @@ namespace TheWaningBorder.Systems.Sect
                     SpeedBonus     = VeilSpeedBonus,
                     DamageOnExpiry = damageOnExpiry,
                 };
-                if (em.HasComponent<SectVeiled>(e)) ecb.SetComponent(e, veil);
-                else                                ecb.AddComponent(e, veil);
+                TransientState.Set(ecb, e, veil);
 
                 var stealth = new StealthTag { TimeRemaining = duration };
-                if (em.HasComponent<StealthTag>(e)) ecb.SetComponent(e, stealth);
-                else                                ecb.AddComponent(e, stealth);
+                TransientState.Set(ecb, e, stealth);
 
                 // The move bonus rides the ordinary speed buff rather than a
                 // bespoke path, so the movement stack needs no knowledge of
@@ -395,7 +391,7 @@ namespace TheWaningBorder.Systems.Sect
                 if (!Alliances.AreAllied(faction, em.GetComponentData<FactionTag>(e).Value)) continue;
                 // Already bulwarked: refreshing would grant a second block of HP
                 // on top of the first and never give it back.
-                if (em.HasComponent<SectBulwark>(e)) continue;
+                if (TransientState.Active<SectBulwark>(em, e)) continue;
 
                 float3 p = em.GetComponentData<LocalTransform>(e).Position;
                 float dx = p.x - center.x, dz = p.z - center.z;
@@ -408,7 +404,7 @@ namespace TheWaningBorder.Systems.Sect
                 hp.Value += granted;
                 em.SetComponentData(e, hp);
 
-                ecb.AddComponent(e, new SectBulwark
+                TransientState.Set(ecb, e, new SectBulwark
                 {
                     TimeRemaining = duration,
                     GrantedHp     = granted,
@@ -435,8 +431,7 @@ namespace TheWaningBorder.Systems.Sect
             StampOnAlliedUnits(em, faction, center, radius, (ecb, e) =>
             {
                 var inv = new Invulnerable { TimeRemaining = duration };
-                if (em.HasComponent<Invulnerable>(e)) ecb.SetComponent(e, inv);
-                else                                  ecb.AddComponent(e, inv);
+                TransientState.Set(ecb, e, inv);
             });
         }
 
@@ -524,8 +519,7 @@ namespace TheWaningBorder.Systems.Sect
                     TimeRemaining          = duration,
                     CursedGroundSpeedBonus = speedBonus,
                 };
-                if (em.HasComponent<SectCurseWard>(e)) ecb.SetComponent(e, ward);
-                else                                   ecb.AddComponent(e, ward);
+                TransientState.Set(ecb, e, ward);
             });
         }
 

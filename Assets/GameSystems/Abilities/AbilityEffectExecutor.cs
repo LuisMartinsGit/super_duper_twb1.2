@@ -58,7 +58,7 @@ namespace TheWaningBorder.Abilities
             // Accumulate the SpellBuff/SpellDebuff so multiple stat effects on one
             // ability produce a single component.
             var buff = TransientState.Active<SpellBuff>(em, caster) ? em.GetComponentData<SpellBuff>(caster) : default;
-            var debuff = em.HasComponent<SpellDebuff>(caster) ? em.GetComponentData<SpellDebuff>(caster) : default;
+            var debuff = TransientState.Active<SpellDebuff>(em, caster) ? em.GetComponentData<SpellDebuff>(caster) : default;
             bool touchBuff = false, touchDebuff = false;
 
             var effects = card.Effects;
@@ -306,10 +306,12 @@ namespace TheWaningBorder.Abilities
             TheWaningBorder.Systems.Sect.SectActivePowerHelper.SpawnReveal(em, fac, pos, radius, dur);
         }
 
-        private static void AddOrSet<T>(EntityManager em, Entity e, T value) where T : unmanaged, IComponentData
-        {
-            if (em.HasComponent<T>(e)) em.SetComponentData(e, value);
-            else em.AddComponentData(e, value);
-        }
+        // Every component this executor stamps is an enableable transient,
+        // pre-added disabled on units (TransientState.cs): activating one is a
+        // bit flip, never an add. Buildings (AutoYieldBoost/UnderAutomation)
+        // gain the component once and toggle it from then on.
+        private static void AddOrSet<T>(EntityManager em, Entity e, T value)
+            where T : unmanaged, IComponentData, IEnableableComponent
+            => TransientState.Set(em, e, value);
     }
 }

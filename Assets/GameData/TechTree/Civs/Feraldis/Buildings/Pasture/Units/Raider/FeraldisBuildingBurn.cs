@@ -28,7 +28,7 @@ namespace TheWaningBorder.Systems.Combat
             if (!em.HasComponent<BuildingTag>(victim)) return;
             if (!em.HasComponent<Health>(victim)) return;
             if (em.HasComponent<BuildingCollapseState>(victim)) return;
-            if (em.HasComponent<Invulnerable>(victim)) return; // LockdownVault
+            if (TransientState.Active<Invulnerable>(em, victim)) return; // LockdownVault
 
             var spec = em.GetComponentData<InflictsBuildingBurn>(attacker);
             if (spec.DamagePerSecond <= 0f || spec.Duration <= 0f) return;

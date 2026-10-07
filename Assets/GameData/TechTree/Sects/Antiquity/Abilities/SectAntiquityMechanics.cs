@@ -140,8 +140,8 @@ namespace TheWaningBorder.Systems.Sect
             }
             for (int i = 0; i < expired.Length; i++)
             {
-                if (em.Exists(expired[i]) && em.HasComponent<StealthRevealed>(expired[i]))
-                    em.RemoveComponent<StealthRevealed>(expired[i]);
+                if (em.Exists(expired[i]))
+                    TransientState.Clear<StealthRevealed>(em, expired[i]);
             }
             expired.Dispose();
 
@@ -186,10 +186,8 @@ namespace TheWaningBorder.Systems.Sect
             {
                 var e = toStamp[i];
                 if (!em.Exists(e)) continue;
-                if (em.HasComponent<StealthRevealed>(e))
-                    em.SetComponentData(e, new StealthRevealed { TimeRemaining = RevealHold });
-                else
-                    em.AddComponentData(e, new StealthRevealed { TimeRemaining = RevealHold });
+                // Enableable, pre-added on units (TransientState.cs).
+                TransientState.Set(em, e, new StealthRevealed { TimeRemaining = RevealHold });
             }
             toStamp.Dispose();
         }

@@ -195,7 +195,7 @@ namespace TheWaningBorder.Systems.Border
                 // take no exposure at all, and their accrued seconds stop
                 // climbing so the ward is a real reprieve rather than a pause
                 // before the same death. docs/Design/Sects.md section 4.
-                if (em.HasComponent<SectCurseWard>(ents[i])) continue;
+                if (TransientState.Active<SectCurseWard>(em, ents[i])) continue;
 
                 byte sat = field.SaturationAt(xfs[i].Position);
                 bool onCrust = sat >= VeilField.CrustThreshold;

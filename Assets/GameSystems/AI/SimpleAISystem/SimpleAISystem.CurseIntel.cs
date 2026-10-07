@@ -127,7 +127,7 @@ namespace TheWaningBorder.AI
         /// <summary>
         /// Garrison power the curse's rules give one node at match second
         /// <paramref name="now"/>: garrisonCap x armyGrowth^n (n = garrison
-        /// spawns so far, one per armySpawnSeconds), capped by maxCurseUnits
+        /// spawns so far, one per armySpawnSeconds), capped by the curse unit cap
         /// shared among the live nodes, at the army tier the match minute has
         /// reached (minutesPerTier), pack bonus included. Every number is
         /// BorderSettingsSO's or the curse units' SOs.
@@ -137,11 +137,15 @@ namespace TheWaningBorder.AI
             if (s == null || s.garrisonCap <= 0) return 0f;
             int n = (int)math.floor(now / math.max(10f, s.armySpawnSeconds));
             float size = s.garrisonCap * math.pow(math.max(1f, s.armyGrowth), n);
-            if (s.maxCurseUnits > 0)
+            // The cap scales with the territories the curse holds
+            // (Territory_Claims.md §6.8, CurseUnitCap.Max), never above
+            // maxCurseUnits.
+            int cap = global::TheWaningBorder.Systems.Border.CurseUnitCap.Max;
+            if (cap > 0)
             {
                 var nq = QC_SmallNodeTagLocalTransformHealth.Get(em, QT_SmallNodeTagLocalTransformHealth);
                 int nodes = math.max(1, nq.CalculateEntityCount());
-                size = math.min(size, s.maxCurseUnits / (float)nodes);
+                size = math.min(size, cap / (float)nodes);
             }
             return size * CurseUnitPower(s, now, size);
         }

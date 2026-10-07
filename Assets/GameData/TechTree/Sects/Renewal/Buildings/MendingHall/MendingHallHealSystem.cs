@@ -82,7 +82,7 @@ namespace TheWaningBorder.Systems.Sect
                     && em.GetComponentData<Health>(halls[i]).Value <= 0) continue;
                 // Heavy Bureaucracy (Antiquity) stops a building producing
                 // anything at all - healing included.
-                if (em.HasComponent<SectShutdown>(halls[i])) continue;
+                if (TransientState.Active<SectShutdown>(em, halls[i])) continue;
                 live.Add(halls[i]);
             }
             if (live.Length == 0) { live.Dispose(); return; }

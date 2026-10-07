@@ -92,7 +92,7 @@ namespace TheWaningBorder.Abilities
             out float progress, out float remaining)
         {
             slot = -1; progress = 0f; remaining = 0f;
-            if (unit == Entity.Null || !em.Exists(unit) || !em.HasComponent<AbilityCastState>(unit))
+            if (unit == Entity.Null || !em.Exists(unit) || !TransientState.Active<AbilityCastState>(em, unit))
                 return false;
             var c = em.GetComponentData<AbilityCastState>(unit);
             slot = c.Slot;

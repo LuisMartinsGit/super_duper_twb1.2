@@ -29,6 +29,7 @@ MonoBehaviour:
   counterEdgeScale: 1
   heroThreatBonus: 30
   highValueBonus: 25
+  workerTargetBonus: 40
   focusTopK: 6
   memberDistanceScale: 0.6
   switchMargin: 12

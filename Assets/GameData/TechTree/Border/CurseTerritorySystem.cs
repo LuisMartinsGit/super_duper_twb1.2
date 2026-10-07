@@ -247,6 +247,11 @@ namespace TheWaningBorder.Systems.Border
                 RefreshHostiles(em);
                 TickGarrisons(em, now, borderSettings, bonus);
                 TickShardrootGuarantee(em, now, borderSettings);
+                // §6.6 (2026-10-07): the Shardroot guard drafts first (the
+                // artifact on the ground), then the hunt on its own clock —
+                // neither takes the expansion slot any more.
+                TickShardrootGuard(em, now, borderSettings);
+                TickShardrootHunt(em, now, borderSettings, bonus);
                 if (now >= _nextExpandAt)
                 {
                     TryExpand(em, now, borderSettings, bonus);
@@ -361,9 +366,17 @@ namespace TheWaningBorder.Systems.Border
             // everyone else, and its nodes lock that ground. So the held set is
             // read from the meter, and the anchors are whatever curse nodes
             // stand in it now (a node the curse raised, or one seeded at start).
+            _scratchPrevHeld.Clear();
+            foreach (int t in _held) _scratchPrevHeld.Add(t);
             _held.Clear();
             for (int t = 0; t < RegionMap.Count; t++)
                 if (TerritoryOwnership.OwnerOf(t) == TerritoryOwnership.Curse) _held.Add(t);
+            // GROUND THE CURSE LOST (§6.5, 2026-10-07): remembered so the
+            // claim dispatch reaches for it first; forgotten once retaken.
+            // Membership only — no order is read off these sets.
+            for (int i = 0; i < _scratchPrevHeld.Count; i++)
+                if (!_held.Contains(_scratchPrevHeld[i])) _lostGround.Add(_scratchPrevHeld[i]);
+            foreach (int t in _held) _lostGround.Remove(t);
 
             _scratchNodeAnchors.Clear();
             // Every live curse node, by territory, in entity order — each one
@@ -410,6 +423,10 @@ namespace TheWaningBorder.Systems.Border
         }
 
         private readonly Dictionary<int, Entity> _scratchNodeAnchors = new();
+        private readonly List<int> _scratchPrevHeld = new();
+        /// <summary>Territories the curse held and lost, until it retakes
+        /// them (§6.5 reconquest preference). Cleared per match.</summary>
+        private readonly HashSet<int> _lostGround = new();
 
         /// <summary>Territory -> position of every live curse node in it, in
         /// entity order (rebuilt each sync; lists are emptied, never dropped).</summary>

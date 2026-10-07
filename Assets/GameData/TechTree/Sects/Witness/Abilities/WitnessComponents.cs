@@ -71,7 +71,7 @@ public struct SpyExposure : IComponentData
 /// its LineOfSight radius is zeroed and <see cref="OriginalRadius"/> holds
 /// what to give back.
 /// </summary>
-public struct SectBlinded : IComponentData
+public struct SectBlinded : IComponentData, IEnableableComponent
 {
     public float TimeRemaining;
     public float OriginalRadius;

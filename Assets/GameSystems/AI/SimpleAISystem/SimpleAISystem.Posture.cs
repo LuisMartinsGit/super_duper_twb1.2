@@ -325,7 +325,7 @@ namespace TheWaningBorder.AI
                     Target = threatEnt,
                     TargetPos = threatPos,
                     StagePos = hallPos,
-                    StartTime = (float)SystemAPI.Time.ElapsedTime,
+                    StartTime = TheWaningBorder.Core.SimClock.Now,
                 };
                 defence.Members.AddRange(defenders);
                 MissionsFor(faction).Add(defence);
@@ -358,6 +358,129 @@ namespace TheWaningBorder.AI
                 CommandRouter.IssueRepair(em, cEnts[i], worst, CommandSource.AI);
                 break;
             }
+        }
+
+        // ─────────────────────────────────────────────────────────────────
+        // THE WALL GUARD (2026-10-07, developer: "Turtle defends its walls
+        // with the army"; docs/Design/Game_AI.md § 3b). A personality with a
+        // wallGuardShare posts that share of its idle standing army just
+        // inside the home ring's gates — the ring's built gate links — so the
+        // army meets an attacker at the wall rather than at the Fortress.
+        // Round-robin over the gates in plan order, units by entity index,
+        // so the same unit keeps the same post; only a unit farther than
+        // wallGuardArriveMeters from its post is ordered (an attack-move, so
+        // it fights what it meets). Defend posture owns the army and skips
+        // it; posted units stay draftable by the next wave.
+        // ─────────────────────────────────────────────────────────────────
+
+        private readonly System.Collections.Generic.Dictionary<int, float> _nextWallGuard
+            = new System.Collections.Generic.Dictionary<int, float>();
+        private int _wallGuardEpoch = -1;
+        private readonly System.Collections.Generic.List<float3> _guardPosts
+            = new System.Collections.Generic.List<float3>();
+        private readonly System.Collections.Generic.List<Entity> _guardIdle
+            = new System.Collections.Generic.List<Entity>();
+        private readonly System.Collections.Generic.List<Entity> _guardGroup
+            = new System.Collections.Generic.List<Entity>();
+
+        private void TickWallGuard(EntityManager em, Entity brainEntity, Faction faction,
+            in SimpleAIState aiState, AISettingsSO.PersonalityBlock personality, float now)
+        {
+            if (personality == null || personality.wallGuardShare <= 0f) return;
+            if (aiState.Posture == AIPosture.Defend) return;
+            if (_wallGuardEpoch != SimCadence.Epoch) { _wallGuardEpoch = SimCadence.Epoch; _nextWallGuard.Clear(); }
+            int fk = (int)faction;
+            if (_nextWallGuard.TryGetValue(fk, out float at) && now < at) return;
+            _nextWallGuard[fk] = now + math.max(1f, Cfg.wallGuardIntervalSeconds);
+
+            if (!em.HasComponent<AIWallPlan>(brainEntity) || !em.HasBuffer<AIWallPlanSlot>(brainEntity)) return;
+            var buf = em.GetBuffer<AIWallPlanSlot>(brainEntity, true);
+            if (buf.Length < 3) return;
+
+            // The home ring is chain 0's (AIWallPlanner.CollectWallTerritories
+            // lists the home first); its centre is the inward reference.
+            byte home = buf[0].Chain;
+            float3 centre = float3.zero;
+            int ringSlots = 0;
+            for (int i = 0; i < buf.Length; i++)
+                if (buf[i].Chain == home) { centre += buf[i].Position; ringSlots++; }
+            if (ringSlots < 3) return;
+            centre /= ringSlots;
+
+            _guardPosts.Clear();
+            for (int i = 0; i < buf.Length; i++)
+            {
+                var s = buf[i];
+                if (s.Chain != home || (s.Flags & AIWallPlanner.FlagGateAfter) == 0) continue;
+                if ((s.Flags & (AIWallPlanner.FlagDead | AIWallPlanner.FlagHubBuilt)) != AIWallPlanner.FlagHubBuilt) continue;
+                int j = -1;
+                for (int k = i + 1; k < buf.Length && j < 0; k++)
+                    if (buf[k].Chain == home && (buf[k].Flags & AIWallPlanner.FlagDead) == 0) j = k;
+                for (int k = 0; k < i && j < 0; k++)
+                    if (buf[k].Chain == home && (buf[k].Flags & AIWallPlanner.FlagDead) == 0) j = k;
+                if (j < 0 || (buf[j].Flags & AIWallPlanner.FlagHubBuilt) == 0) continue;
+                float3 mid = (s.Position + buf[j].Position) * 0.5f;
+                float3 inward = centre - mid; inward.y = 0f;
+                float len = math.length(inward);
+                float3 post = len > 1e-3f
+                    ? mid + inward / len * math.min(len, math.max(0f, Cfg.wallGuardInsetMeters))
+                    : mid;
+                post.y = TerrainUtility.GetHeight(post.x, post.z);
+                _guardPosts.Add(post);
+            }
+            if (_guardPosts.Count == 0) return;
+
+            // The idle standing army: not on a mission, not holding a claim or
+            // answering an economy raid, not fighting, not under a player's order.
+            var enrolled = _scratchEnrolled;   // pooled, cleared per use
+            enrolled.Clear();
+            foreach (var m in MissionsFor(faction))
+                foreach (var member in m.Members)
+                    enrolled.Add(member);
+            _guardIdle.Clear();
+            var q = QC_UnitTagFactionTagLocalTransform.Get(em, QT_UnitTagFactionTagLocalTransform);
+            using (var ents = q.ToEntityArray(Allocator.Temp))
+            using (var tags = q.ToComponentDataArray<UnitTag>(Allocator.Temp))
+            using (var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp))
+            {
+                for (int i = 0; i < ents.Length; i++)
+                {
+                    if (facs[i].Value != faction || !IsCombatClass(tags[i].Class)) continue;
+                    Entity e = ents[i];
+                    if (em.HasComponent<UnderConstruction>(e) || IsVerbUnit(em, e)) continue;
+                    if (IsClaimSquadMember(e) || em.HasComponent<NotControllableTag>(e)) continue;
+                    if (enrolled.Contains(e)) continue;
+                    if (TransientState.Active<AttackCommand>(em, e)) continue;
+                    if (TransientState.Active<UserMoveOrder>(em, e)) continue;
+                    _guardIdle.Add(e);
+                }
+            }
+            if (_guardIdle.Count == 0) return;
+            _guardIdle.Sort((a, b) => a.Index.CompareTo(b.Index));
+            int posted = math.min(_guardIdle.Count,
+                (int)math.ceil(_guardIdle.Count * math.saturate(personality.wallGuardShare)));
+
+            float arrive2 = Cfg.wallGuardArriveMeters * Cfg.wallGuardArriveMeters;
+            int ordered = 0;
+            for (int p = 0; p < _guardPosts.Count; p++)
+            {
+                _guardGroup.Clear();
+                for (int k = p; k < posted; k += _guardPosts.Count)
+                {
+                    var u = _guardIdle[k];
+                    if (em.HasComponent<LocalTransform>(u)
+                        && math.distancesq(em.GetComponentData<LocalTransform>(u).Position.xz, _guardPosts[p].xz) <= arrive2)
+                        continue;
+                    _guardGroup.Add(u);
+                }
+                if (_guardGroup.Count == 0) continue;
+                AICommon.IssueGroupOrder(em, _guardGroup, _guardPosts[p], attackMove: true);
+                ordered += _guardGroup.Count;
+            }
+            if (ordered > 0)
+                AILogger.Log(faction, "POSTURE",
+                    $"WALL GUARD: {ordered} unit(s) to the ring's {_guardPosts.Count} gate(s) " +
+                    $"({posted} of {_guardIdle.Count} idle posted)");
         }
     }
 }

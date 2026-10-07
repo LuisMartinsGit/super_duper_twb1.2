@@ -50,7 +50,7 @@ namespace TheWaningBorder.Systems.Sect
                 .Query<RefRW<SectHaste>>().WithEntityAccess())
             {
                 haste.ValueRW.TimeRemaining -= dt;
-                if (haste.ValueRO.TimeRemaining <= 0f) ecb.RemoveComponent<SectHaste>(e);
+                if (haste.ValueRO.TimeRemaining <= 0f) ecb.SetComponentEnabled<SectHaste>(e, false); // enableable — TransientState.cs
             }
 
             ecb.Playback(state.EntityManager);

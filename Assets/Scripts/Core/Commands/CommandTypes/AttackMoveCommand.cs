@@ -76,10 +76,8 @@ namespace TheWaningBorder.Core.Commands.Types
             // note on MoveCommandHelper.Execute.
             if (!keepFormation)
             {
-                if (em.HasComponent<FormationMemberState>(unit))
-                    em.RemoveComponent<FormationMemberState>(unit);
-                if (em.HasComponent<FormationSpeedOverride>(unit))
-                    em.RemoveComponent<FormationSpeedOverride>(unit);
+                TransientState.Clear<FormationMemberState>(em, unit);
+                TransientState.Clear<FormationSpeedOverride>(em, unit);
                 // Out of the formation for good, so forget the slot too —
                 // otherwise a later formation order would put this unit back
                 // into a rank it has long since left.

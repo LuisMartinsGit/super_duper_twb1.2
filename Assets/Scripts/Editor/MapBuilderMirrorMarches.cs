@@ -1,6 +1,17 @@
 // MapBuilderMirrorMarches.cs
-// EDITOR-ONLY: generate "Mirror Marches" — the 512 m, 4-player FAIR map.
-//   Waning Border > Maps > Build Mirror Marches (512m, 4 players)
+// EDITOR-ONLY: generate "Mirror Marches" — the 768 m, 8-player FAIR map.
+//   Waning Border > Maps > Build Mirror Marches (768m, 8 players)
+//
+// EIGHT SEATS 2026-10-07 (developer: "change the map so it supports 8
+// players"). The map grew to a 12 x 12 lattice of the same 64 m squares
+// (768 m), so a seat has about the ground a 4-player seat had on the 512 m
+// map. Each quadrant holds TWO homes (2 x 2 squares), one on each outer edge,
+// mirror images of each other across the quadrant's diagonal — neither may
+// straddle a mirror axis, or TerritoryResources stops copying the quadrant's
+// nodes and the seats stop opening on the same ground. Between a quadrant's
+// two homes, in the map corner, is a contested 2 x 2 Iron rich block. Seats
+// 1-4 are one per quadrant, so a 4-player match on it is still spread out.
+// Everything below about the 512 m / 52-territory layout is history.
 //
 // HALVED 2026-10-07 (developer: "the match feels sluggish — reduce the map
 // by half, keep the layout, just smaller territories"): the same 52
@@ -45,16 +56,19 @@ namespace TheWaningBorder.Core.Maps.EditorTools
         private const string TerrainMatPath = "Assets/Resources/TWBTerrain.mat";
 
         // ── dimensions ──────────────────────────────────────────────────────
-        private const float MapMetres = 512f;
+        private const float MapMetres = 768f;
         private const float Half = MapMetres * 0.5f;
         private const float MaxHeight = 60f;
-        private const int HeightRes = 513;      // 1 m per texel; texel 256 sits on the axis
-        private const int AlphaRes = 512;       // 1 m per texel (NoWalk per 2 m cell)
-        private const int DetailRes = 256;
+        private const int HeightRes = 1025;     // 0.75 m per texel; texel 512 sits on the axis
+        private const int AlphaRes = 1024;      // 0.75 m per texel
+        private const int DetailRes = 512;
         /// <summary>A home territory's side (a quarter of the map) and a
         /// square territory's side (an eighth).</summary>
-        private const float HomeSide = MapMetres / 4f;
-        private const float Square = MapMetres / 8f;
+        private const float Square = MapMetres / Lattice;
+        private const float HomeSide = Square * 2f;
+        /// <summary>Squares along a side, and half that (the mirror axis).</summary>
+        private const int Lattice = 12;
+        private const int HalfLattice = Lattice / 2;
 
         // Heights against PassabilityGrid/RegionMap thresholds (Water 4 m,
         // Mountain 24 m).
@@ -66,17 +80,20 @@ namespace TheWaningBorder.Core.Maps.EditorTools
         private const float RimRamp = 10f;
 
         private static readonly Faction[] StartFactions =
-            { Faction.Blue, Faction.Red, Faction.Green, Faction.Yellow };
+        {
+            Faction.Blue, Faction.Red, Faction.Green, Faction.Yellow,
+            Faction.Purple, Faction.Orange, Faction.Teal, Faction.White,
+        };
 
         // ── entry points ────────────────────────────────────────────────────
 
-        [MenuItem("Waning Border/Maps/Build Mirror Marches (512m, 4 players)")]
+        [MenuItem("Waning Border/Maps/Build Mirror Marches (768m, 8 players)")]
         public static void Build()
         {
             if (!EditorUtility.DisplayDialog(MapName,
                     $"Generate {MapName}?\n\n" +
-                    "  512 x 512 m, 4 players, mirrored on both axes\n" +
-                    "  64-cell corner homes, 32-cell squares, curse in the centre 4\n\n" +
+                    "  768 x 768 m, 8 players, mirrored on both axes\n" +
+                    "  two edge homes per quadrant, 32-cell squares, curse in the centre 4\n\n" +
                     $"Overwrites {SceneName}.unity and its TerrainData.",
                     "Build", "Cancel"))
                 return;
@@ -127,7 +144,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                 MapFolder = Folder,
                 Size = (int)MapMetres,
                 Seed = 0x3A1F,
-                TreeCount = 400,
+                TreeCount = 900,
                 TreeScale = 0.5f,
                 GrassScale = 2.0f,
                 DetailDensity = 2,
@@ -272,22 +289,41 @@ namespace TheWaningBorder.Core.Maps.EditorTools
 
         // ── markers ─────────────────────────────────────────────────────────
 
+        /// <summary>Quadrant coordinate of lattice index g: 0 at the map
+        /// edge, HalfLattice - 1 beside the mirror axis.</summary>
+        private static int Q(int g) => g < HalfLattice ? g : Lattice - 1 - g;
+
+        /// <summary>A home square: (qi, qj) with one coordinate 0-1 (the
+        /// outer edge) and the other 3-4.</summary>
+        private static bool IsHomeCell(int qi, int qj)
+        {
+            int a = Mathf.Min(qi, qj), b = Mathf.Max(qi, qj);
+            return a <= 1 && (b == 3 || b == 4);
+        }
+
+        /// <summary>The contested corner block between a quadrant's two homes.</summary>
+        private static bool IsCornerCell(int qi, int qj) => qi <= 1 && qj <= 1;
+
         /// <summary>
-        /// The type of the square at band (i, j) of the 6 x 6 band grid, read
-        /// in one quadrant: (qi, qj) are 0 at the map edge and 3 at the centre
-        /// (band 0 is the home band, a quarter of the map, split into two squares for
-        /// the edge strips; qi/qj count square steps from the edge).
+        /// The type of a single square at quadrant coordinate (qi, qj), 0 at
+        /// the map edge and 5 beside the axis. Symmetric in (qi, qj), so a
+        /// quadrant's two homes (mirror images across its diagonal) see the
+        /// same ground.
         /// </summary>
         private static ResourceType TypeOf(int qi, int qj)
         {
-            // Diagonal-symmetric within the quadrant too: (a, b) == (b, a).
             int a = Mathf.Min(qi, qj), b = Mathf.Max(qi, qj);
-            if (a == 3 && b == 3) return ResourceType.VeilstoneRich;   // the curse: centre 4
-            if (a == 2 && b == 2) return ResourceType.Sanctum;
-            if (a == 2 && b == 3) return ResourceType.NormalVeilstone;
-            // Edge strips beside a home (a in 0..1, b in 2..3).
-            if (b == 2) return a == 0 ? ResourceType.Normal : ResourceType.NormalVeilstone;
-            return a == 0 ? ResourceType.IronRich : ResourceType.NormalIron;   // b == 3, on the mirror axis
+            if (a == 5 && b == 5) return ResourceType.VeilstoneRich;    // the curse: centre 4
+            if (a == 3 && b == 3) return ResourceType.Sanctum;          // between the two homes' fronts
+            if (a == 4 && b == 4) return ResourceType.IronRich;
+            if (a <= 1 && b == 2) return a == 0 ? ResourceType.Normal : ResourceType.NormalVeilstone;
+            if (a <= 1 && b == 5) return a == 0 ? ResourceType.NormalIron : ResourceType.Normal;
+            if (a == 2 && b == 2) return ResourceType.Normal;
+            if (a == 2 && (b == 3 || b == 4)) return ResourceType.NormalVeilstone;   // a home's front
+            if (a == 2 && b == 5) return ResourceType.NormalIron;
+            if (a == 3 && b == 4) return ResourceType.Normal;
+            if (a == 3 && b == 5) return ResourceType.NormalVeilstone;
+            return ResourceType.Normal;                                   // (4, 5)
         }
 
         private static void PlaceMarkers()
@@ -296,34 +332,46 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             var regionRoot = new GameObject("Regions").transform;
             int idx = 0;
 
-            // The four homes, a quarter of the map on a side. Starts at each corner square's
-            // centre; mirrored by construction.
-            var corners = new[]
+            // The eight homes. (sx, sz) is the quadrant; edgeX = the home on
+            // the quadrant's west/east map edge, otherwise its south/north
+            // edge. Seats 1-4 take one home per quadrant, turning round the
+            // map, so a 4-player match is spread out too.
+            var homes = new[]
             {
-                (new Vector2(-1f, -1f), "Southwest"), (new Vector2(1f, -1f), "Southeast"),
-                (new Vector2(1f, 1f), "Northeast"), (new Vector2(-1f, 1f), "Northwest"),
+                (-1, -1, true,  "Southwest (west edge)"),  (1, -1, false, "Southeast (south edge)"),
+                (1, 1, true,    "Northeast (east edge)"),   (-1, 1, false, "Northwest (north edge)"),
+                (1, -1, true,   "Southeast (east edge)"),   (1, 1, false,  "Northeast (north edge)"),
+                (-1, 1, true,   "Northwest (west edge)"),   (-1, -1, false, "Southwest (south edge)"),
             };
-            for (int c = 0; c < 4; c++)
+            for (int c = 0; c < homes.Length; c++)
             {
-                var (sgn, name) = corners[c];
-                var centre = new Vector2(sgn.x * (Half - HomeSide * 0.5f), sgn.y * (Half - HomeSide * 0.5f));
+                var (sx, sz, edgeX, name) = homes[c];
+                // Quadrant block origin: (0, 3) on the west edge, (3, 0) on the south edge.
+                int qx = edgeX ? 0 : 3, qz = edgeX ? 3 : 0;
+                int gx = sx < 0 ? qx : Lattice - 2 - qx;
+                int gz = sz < 0 ? qz : Lattice - 2 - qz;
+                var centre = new Vector2(-Half + (gx + 1) * Square, -Half + (gz + 1) * Square);
                 var go = NewMarker($"P{c + 1} Start ({StartFactions[c]}) - {name}", centre, startsRoot);
                 go.AddComponent<PlayerStartMarker>().Faction = StartFactions[c];
-
-                float x0 = sgn.x < 0 ? -Half : Half - HomeSide, z0 = sgn.y < 0 ? -Half : Half - HomeSide;
-                NewSeed(regionRoot, ref idx, centre, $"{name} Home", Rect(x0, z0, HomeSide, HomeSide),
+                NewSeed(regionRoot, ref idx, centre, $"{name} Home", Block(gx, gz, 2, 2),
                         ResourceType.Start, RegionSeedMarker.RegionKind.PlayerStart);
             }
 
-            // Every square outside the homes. A square-step grid over the
-            // whole map (8 x 8); the 2 x 2 blocks in each corner are the homes.
-            for (int gz = 0; gz < 8; gz++)
-                for (int gx = 0; gx < 8; gx++)
+            // The four contested corners, 2 x 2 squares each.
+            foreach (var (sx, sz, name) in new[] { (-1, -1, "Southwest"), (1, -1, "Southeast"), (1, 1, "Northeast"), (-1, 1, "Northwest") })
+            {
+                int gx = sx < 0 ? 0 : Lattice - 2, gz = sz < 0 ? 0 : Lattice - 2;
+                var centre = new Vector2(-Half + (gx + 1) * Square, -Half + (gz + 1) * Square);
+                NewSeed(regionRoot, ref idx, centre, $"{name} Ironhold", Block(gx, gz, 2, 2),
+                        ResourceType.IronRich, RegionSeedMarker.RegionKind.Normal);
+            }
+
+            // Every other square.
+            for (int gz = 0; gz < Lattice; gz++)
+                for (int gx = 0; gx < Lattice; gx++)
                 {
-                    bool homeX = gx < 2 || gx > 5, homeZ = gz < 2 || gz > 5;
-                    if (homeX && homeZ) continue;
-                    int qi = gx < 4 ? gx : 7 - gx;     // 0 at the edge, 3 at the centre
-                    int qj = gz < 4 ? gz : 7 - gz;
+                    int qi = Q(gx), qj = Q(gz);
+                    if (IsHomeCell(qi, qj) || IsCornerCell(qi, qj)) continue;
                     float x0 = -Half + gx * Square, z0 = -Half + gz * Square;
                     var centre = new Vector2(x0 + Square * 0.5f, z0 + Square * 0.5f);
                     var type = TypeOf(qi, qj);
@@ -337,8 +385,98 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                         _ => "March",
                     };
                     NewSeed(regionRoot, ref idx, centre, $"{label} {(char)('A' + gx)}{gz + 1}",
-                            Rect(x0, z0, Square, Square), type, RegionSeedMarker.RegionKind.Normal);
+                            Block(gx, gz, 1, 1), type, RegionSeedMarker.RegionKind.Normal);
                 }
+        }
+
+        // ── natural borders (2026-10-07) ────────────────────────────────────
+        // Developer: "randomize the boundaries of the territories a bit so it
+        // looks more natural." The territories are still the 8 x 8 square
+        // lattice (homes are 2 x 2 blocks of it), but every lattice corner is
+        // nudged by up to CornerJitter and every lattice edge is cut into
+        // EdgeSegments pieces that wobble by up to EdgeWobble. All of it is
+        // generated in ONE quadrant's coordinates and mirrored across both
+        // axes, so the map stays exactly fair; corners on a mirror axis slide
+        // only along it, corners on the map's edge only along the edge, and
+        // edges lying on an axis or the map edge stay straight. Neighbours
+        // share each edge point for point, so the territories still tile.
+
+        private const float CornerJitter = 10f;
+        private const float EdgeWobble = 5f;
+        private const int EdgeSegments = 4;
+        private const uint BorderSeed = 0x5EEDu;
+
+        /// <summary>A deterministic value in [-1, 1] for an integer key.</summary>
+        private static float Hash(int a, int b, int c, int d)
+        {
+            uint h = BorderSeed;
+            h = (h ^ (uint)a) * 0x9E3779B1u; h ^= h >> 15;
+            h = (h ^ (uint)b) * 0x85EBCA77u; h ^= h >> 13;
+            h = (h ^ (uint)c) * 0xC2B2AE3Du; h ^= h >> 16;
+            h = (h ^ (uint)d) * 0x27D4EB2Fu; h ^= h >> 15;
+            return (h & 0xFFFFFF) / (float)0xFFFFFF * 2f - 1f;
+        }
+
+        /// <summary>Lattice corner (i, j), i/j in 0..Lattice, after its nudge.</summary>
+        private static Vector2 Corner(int i, int j)
+        {
+            const int H = HalfLattice;
+            int ci = Mathf.Abs(i - H), cj = Mathf.Abs(j - H);
+            float sx = Mathf.Sign(i - H), sz = Mathf.Sign(j - H);
+            float dx = (ci == 0 || ci == H) ? 0f : Hash(ci, cj, 1, 0) * CornerJitter;
+            float dz = (cj == 0 || cj == H) ? 0f : Hash(ci, cj, 2, 0) * CornerJitter;
+            return new Vector2(-Half + i * Square + sx * dx, -Half + j * Square + sz * dz);
+        }
+
+        /// <summary>The points of the lattice edge from (i0, j0) to (i1, j1)
+        /// (one step apart), first corner included, last excluded.</summary>
+        private static void EdgePoints(int i0, int j0, int i1, int j1, List<Vector2> into)
+        {
+            Vector2 a = Corner(i0, j0), bb = Corner(i1, j1);
+            bool horizontal = j0 == j1;
+            // Canonical (one-quadrant) key of the edge and its direction there.
+            const int H = HalfLattice;
+            int ca0 = Mathf.Abs(i0 - H), cb0 = Mathf.Abs(j0 - H), ca1 = Mathf.Abs(i1 - H), cb1 = Mathf.Abs(j1 - H);
+            bool flip = horizontal ? ca1 < ca0 : cb1 < cb0;
+            int ka = Mathf.Min(ca0, ca1), kb = Mathf.Min(cb0, cb1);
+            // The wobble is perpendicular to the edge; none on an axis or the map edge.
+            int fixedIdx = horizontal ? j0 : i0;
+            int cFixed = Mathf.Abs(fixedIdx - H);
+            bool straight = cFixed == 0 || cFixed == H;
+            float sPerp = Mathf.Sign(fixedIdx - H);
+            into.Add(a);
+            for (int k = 1; k < EdgeSegments; k++)
+            {
+                float t = k / (float)EdgeSegments;
+                var p = Vector2.Lerp(a, bb, t);
+                if (!straight)
+                {
+                    int kc = flip ? EdgeSegments - k : k;
+                    float n = Hash(ka, kb, horizontal ? 3 : 4, kc) * EdgeWobble * sPerp;
+                    if (horizontal) p.y += n; else p.x += n;
+                }
+                into.Add(p);
+            }
+        }
+
+        /// <summary>The outline of the block of lattice cells starting at
+        /// (gx, gz), w x h cells, counter-clockwise from its SW corner.</summary>
+        private static Vector2[] Block(int gx, int gz, int w, int h)
+        {
+            var pts = new List<Vector2>();
+            for (int i = gx; i < gx + w; i++) EdgePoints(i, gz, i + 1, gz, pts);                 // south, west -> east
+            for (int j = gz; j < gz + h; j++) EdgePoints(gx + w, j, gx + w, j + 1, pts);         // east, south -> north
+            for (int i = gx + w; i > gx; i--) EdgePoints(i, gz + h, i - 1, gz + h, pts);         // north, east -> west
+            for (int j = gz + h; j > gz; j--) EdgePoints(gx, j, gx, j - 1, pts);                 // west, north -> south
+            return pts.ToArray();
+        }
+
+        private static float PolygonArea(Vector2[] r)
+        {
+            float a = 0f;
+            for (int i = 0, j = r.Length - 1; i < r.Length; j = i++)
+                a += r[j].x * r[i].y - r[i].x * r[j].y;
+            return Mathf.Abs(a) * 0.5f;
         }
 
         /// <summary>A rectangle outline, counter-clockwise from its SW corner.</summary>
@@ -376,8 +514,10 @@ namespace TheWaningBorder.Core.Maps.EditorTools
         {
             int bad = 0;
             var seeds = Object.FindObjectsByType<RegionSeedMarker>(FindObjectsSortMode.None);
-            if (seeds.Length != 52)
-            { Debug.LogError($"[{MapName}] {seeds.Length} territories, want 52."); bad++; }
+            // 8 homes + 4 corner blocks + 96 single squares.
+            const int Want = 108;
+            if (seeds.Length != Want)
+            { Debug.LogError($"[{MapName}] {seeds.Length} territories, want {Want}."); bad++; }
 
             float area = 0f;
             var byCentre = new Dictionary<Vector2Int, ResourceType>();
@@ -385,9 +525,11 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             foreach (var s in seeds)
             {
                 var r = s.Shape;
-                area += (r[2].x - r[0].x) * (r[2].y - r[0].y);
-                var c = new Vector2Int(Mathf.RoundToInt((r[0].x + r[2].x) * 0.5f),
-                                       Mathf.RoundToInt((r[0].y + r[2].y) * 0.5f));
+                area += PolygonArea(r);
+                // The seed point (the cell's nominal centre) is exact and
+                // mirrored; the outline is jittered.
+                var c = new Vector2Int(Mathf.RoundToInt(s.transform.position.x),
+                                       Mathf.RoundToInt(s.transform.position.z));
                 byCentre[c] = s.Resources;
                 if (s.Resources == ResourceType.Empty || s.Resources == ResourceType.Auto)
                 { Debug.LogError($"[{MapName}] {s.name} is {s.Resources}."); bad++; }
@@ -416,7 +558,10 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                 if (y <= 4f + 2.85f || y >= 24f - 2.85f)
                 { Debug.LogError($"[{MapName}] {st.name} on unstandable ground (y={y:0.0})."); bad++; }
             }
-            if (bad == 0) Debug.Log($"[{MapName}] layout validated: 52 territories, mirrored, curse centre 4.");
+            int starts = Object.FindObjectsByType<PlayerStartMarker>(FindObjectsSortMode.None).Length;
+            if (starts != 8)
+            { Debug.LogError($"[{MapName}] {starts} player starts, want 8."); bad++; }
+            if (bad == 0) Debug.Log($"[{MapName}] layout validated: {Want} territories, 8 starts, mirrored, curse centre 4.");
             return bad;
         }
     }

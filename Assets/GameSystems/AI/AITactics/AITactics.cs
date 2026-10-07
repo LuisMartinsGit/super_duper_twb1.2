@@ -109,7 +109,7 @@ namespace TheWaningBorder.AI
         private static Unity.Entities.World _world;
 
         /// <summary>Sim clock every reader here agrees on.</summary>
-        public static double Now(EntityManager em) => em.World.Time.ElapsedTime;
+        public static double Now(EntityManager em) => TheWaningBorder.Core.SimClock.Elapsed;
 
         private static void ResetIfStale(EntityManager em)
         {
@@ -401,6 +401,10 @@ namespace TheWaningBorder.AI
             float danger = dmg * c.dangerScale;
             float finish = (hp.Max - hp.Value) * c.finishScale * skill.focusFireWeight;
             float value = IsHighValue(em, e) ? c.highValueBonus * skill.focusFireWeight : 0f;
+            // WORKERS ARE HIGH-VALUE TARGETS (2026-10-07, Game_AI.md § 3b): a
+            // flat bonus at every tier, outside focusFireWeight — killing the
+            // builders stops the rebuild, whatever the tier's focus skill.
+            if (em.HasComponent<WorkerTag>(e)) value += c.workerTargetBonus;
 
             float counter = 0f;
             if (skill.counterTargetWeight > 0f)

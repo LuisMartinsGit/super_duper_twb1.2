@@ -52,7 +52,7 @@ namespace TheWaningBorder.Systems.Combat
                 if (!em.HasComponent<UnitStance>(e))
                 {
                     UnitStanceMode mode = DefaultFor(em, e);
-                    if (em.HasComponent<HoldPositionTag>(e)) mode = UnitStanceMode.Hold;
+                    if (TransientState.Active<HoldPositionTag>(em, e)) mode = UnitStanceMode.Hold;
                     em.AddComponentData(e, new UnitStance { Value = mode });
                 }
 

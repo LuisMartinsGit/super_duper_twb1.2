@@ -132,7 +132,7 @@ namespace TheWaningBorder.Systems.Combat
                 // Blast respects alliance, not just ownership — allies were
                 // eating the full 45 (docs/Design/Teams.md).
                 if (!Alliances.AreHostile(owner, em.GetComponentData<FactionTag>(e).Value)) continue;
-                if (em.HasComponent<Invulnerable>(e)) continue;
+                if (TransientState.Active<Invulnerable>(em, e)) continue;
 
                 var hp = em.GetComponentData<Health>(e);
                 if (hp.Value <= 0) continue;

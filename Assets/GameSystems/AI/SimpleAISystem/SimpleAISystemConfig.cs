@@ -521,6 +521,12 @@ namespace TheWaningBorder.AI
         // budget and decided nothing.
         public float closeoutAfterSeconds;
 
+        /// <summary>GO FOR THE THROAT (2026-10-07, Game_AI.md § 6i): in the
+        /// closeout, a victim holding this many territories or fewer is
+        /// beaten — the wave goes straight for its Hall and the lifelines
+        /// round it, not the outlying buildings it keeps rebuilding. 0 = off.</summary>
+        public int crippledTerritories;
+
         /// <summary>ONE WAR AT A TIME (2026-10-07, Game_AI.md § 6i): failed
         /// attacks in a row (a mission timed out, an army gave its objective
         /// up) after which a faction abandons its war on a victim and may pick
@@ -1357,5 +1363,31 @@ namespace TheWaningBorder.AI
         public int incomeReconMinKnown;
         public float incomeReconIntervalSeconds;
         public float incomeReconSpreadMeters;
+
+        // ── Personality doctrines (Game_AI.md § 3b, 2026-10-07) ──
+
+        /// <summary>Workers are high-value targets: an extractor scores this
+        /// much more per hostile worker of its owner seen within
+        /// incomeWorkerRadius in the last incomeWorkerMaxAgeSeconds, counting
+        /// at most incomeWorkerMaxCounted of them.</summary>
+        public float incomeWorkerBonus;
+        public float incomeWorkerRadius;
+        public float incomeWorkerMaxAgeSeconds;
+        public int incomeWorkerMaxCounted;
+
+        /// <summary>Independent raids (a personality's raidIntervalSeconds):
+        /// at most this many raid parties out at once.</summary>
+        public int raidMaxConcurrent;
+
+        /// <summary>A raid whose objective fell moves on to the next income
+        /// building within this many metres of it (0 = it heads home).</summary>
+        public float raidChainRadius;
+
+        /// <summary>The wall guard (a personality's wallGuardShare): seconds
+        /// between postings, how far inside the ring a gate's post stands, and
+        /// how near its post a unit counts as posted (not re-ordered).</summary>
+        public float wallGuardIntervalSeconds;
+        public float wallGuardInsetMeters;
+        public float wallGuardArriveMeters;
     }
 }

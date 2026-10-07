@@ -102,7 +102,7 @@ namespace TheWaningBorder.Systems.Border
                 // observation: external Target writes from MonoBehaviour or a
                 // sibling ISystem were being zeroed before this system's read.
                 bool isScenarioPatrol =
-                    em.HasComponent<PatrolTag>(entity) && em.HasComponent<HoldPositionTag>(entity);
+                    em.HasComponent<PatrolTag>(entity) && TransientState.Active<HoldPositionTag>(em, entity);
                 if (isScenarioPatrol)
                 {
                     var selfPos = transform.ValueRO.Position;
@@ -318,7 +318,7 @@ namespace TheWaningBorder.Systems.Border
                     // both Target and AimTimer every frame the target was
                     // out of range, which combined with an inbound target
                     // meant the Veilstinger never finished an aim cycle.
-                    if (em.HasComponent<HoldPositionTag>(entity))
+                    if (TransientState.Active<HoldPositionTag>(em, entity))
                     {
                         vs.IsFiring = 0;
                         continue;

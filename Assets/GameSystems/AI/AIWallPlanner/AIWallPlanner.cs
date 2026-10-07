@@ -443,11 +443,14 @@ namespace TheWaningBorder.AI
                             out var layout) && layout.Hubs.Count >= 3)
                     {
                         int before = slots.Length;
-                        AIBaseTemplate.EmitRing(faction, regions[i], layout, origin, (byte)i, slots);
+                        AIBaseTemplate.EmitRing(em, faction, regions[i], layout, origin, (byte)i, slots);
                         part = $"drawn {(AIBaseTemplate.IsMain(layout) ? "main camp" : "outpost")} ring, " +
                                $"{slots.Length - before} hubs";
                     }
-                    else EmitBorderLoop(em, faction, regions[i], anchors[i], (byte)i, slots, out part);
+                    // A FRONTIER territory (a Turtle's, § 3b) is walled only
+                    // where it faces ground the faction does not hold.
+                    else EmitBorderLoop(em, faction, regions[i], anchors[i], (byte)i, slots, out part,
+                        frontierOnly: regions[i] != home);
                     if (i > 0) sb.Append("; ");
                     sb.Append(regions[i] == home ? "home: " : $"territory {regions[i]}: ");
                     sb.Append(part);
@@ -711,7 +714,7 @@ namespace TheWaningBorder.AI
             // walled as the main camp (Red, 2026-10-07 batch: a full ring
             // with gates and emplacements round a secondary base). The
             // walled territory is pinned to the first home seen this match.
-            if (_startRegionEpoch != SimCadence.Epoch) { _startRegionEpoch = SimCadence.Epoch; _startRegion.Clear(); }
+            if (_startRegionEpoch != SimCadence.Epoch) { _startRegionEpoch = SimCadence.Epoch; _startRegion.Clear(); _frontierPicks.Clear(); _frontierPickVersion.Clear(); }
             if (home != TheWaningBorder.World.Regions.RegionMap.None
                 && !_startRegion.ContainsKey((int)faction))
                 _startRegion[(int)faction] = home;
@@ -722,9 +725,112 @@ namespace TheWaningBorder.AI
                 regions.Add(home);
                 anchors.Add(homePos);
             }
+            else return;
             // (Secondary bases are NOT walled — 2026-10-07, developer: "the
             // secondary bases should not have walls"; Game_AI.md § 6g.)
+            //
+            // …EXCEPT A TURTLE'S FRONTIER (2026-10-07, developer: "builds
+            // walls along its territories to stop invaders"; Game_AI.md § 3b).
+            // Up to the personality's frontierWallTerritories held territories
+            // that border hostile ground are walled too, along the stretches
+            // that face ground the faction does not hold (EmitBorderLoop,
+            // frontierOnly). The picks are STICKY — kept while held — so the
+            // plan (and WallTerritorySignature) is not redrawn every time a
+            // neighbour changes hands. The home stays first: chain 0 is the
+            // ring the corridor's inside-the-ring test reads.
+            int want = AIPersonalityLookup.Row(em, faction).frontierWallTerritories;
+            if (want <= 0) return;
+            if (!_frontierPicks.TryGetValue((int)faction, out var picks))
+                _frontierPicks[(int)faction] = picks = new System.Collections.Generic.List<int>(4);
+            for (int i = picks.Count - 1; i >= 0; i--)
+                if (picks[i] == home
+                    || TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(picks[i]) != (int)faction)
+                    picks.RemoveAt(i);
+            // Top up only when the ownership map has changed since the last
+            // look (this runs every frame through the corridor cache).
+            int ver = TheWaningBorder.World.Regions.TerritoryOwnership.Version;
+            if (picks.Count < want
+                && (!_frontierPickVersion.TryGetValue((int)faction, out int seen) || seen != ver))
+            {
+                _frontierPickVersion[(int)faction] = ver;
+                PickFrontierTerritories(em, faction, home, want, picks);
+            }
+            for (int i = 0; i < picks.Count; i++)
+            {
+                int r = picks[i];
+                float3 anchor;
+                if (!AIBaseLayout.TryGetOwnFortressIn(em, faction, r, out anchor))
+                {
+                    var seed = TheWaningBorder.World.Regions.RegionMap.SeedOf(r);
+                    anchor = new float3(seed.x, TerrainUtility.GetHeight(seed.x, seed.y), seed.y);
+                }
+                if (TheWaningBorder.World.Regions.RegionMap.RegionAt(anchor.x, anchor.z) != r) continue;
+                regions.Add(r);
+                anchors.Add(anchor);
+            }
         }
+
+        /// <summary>Per faction, the frontier territories it walls (sticky
+        /// while held; reset per match with the start territory).</summary>
+        private static readonly System.Collections.Generic.Dictionary<int, System.Collections.Generic.List<int>> _frontierPicks
+            = new System.Collections.Generic.Dictionary<int, System.Collections.Generic.List<int>>();
+        private static readonly System.Collections.Generic.List<int> _frontierScratch
+            = new System.Collections.Generic.List<int>(16);
+        private static readonly System.Collections.Generic.Dictionary<int, int> _frontierPickVersion
+            = new System.Collections.Generic.Dictionary<int, int>();
+
+        /// <summary>
+        /// Top up <paramref name="picks"/> to <paramref name="want"/> with held,
+        /// claimed, Fortress-connected territories that border a hostile
+        /// faction's or the curse's ground: those with the faction's own
+        /// Fortress first, then those bordering the home territory, then by
+        /// territory index. Deterministic.
+        /// </summary>
+        private static void PickFrontierTerritories(EntityManager em, Faction faction, int home, int want,
+            System.Collections.Generic.List<int> picks)
+        {
+            int count = TheWaningBorder.World.Regions.RegionMap.Count;
+            _frontierScratch.Clear();
+            var mine = TheWaningBorder.World.Regions.TerritoryOwnership.TerritoriesOf(faction);
+            for (int i = 0; i < mine.Count; i++)
+            {
+                int r = mine[i];
+                if (r == home || picks.Contains(r)) continue;
+                if (!TheWaningBorder.World.Regions.TerritoryOwnership.IsClaimed(r)) continue;
+                if (TheWaningBorder.World.Regions.RegionMap.KindBlocks(
+                        TheWaningBorder.World.Regions.RegionMap.KindOf(r))) continue;
+                if (!TheWaningBorder.Systems.World.TerritoryClaimSystem.IsConnected(r, faction)) continue;
+                bool hostile = false;
+                for (int o = 0; o < count && !hostile; o++)
+                {
+                    if (o == r || !TheWaningBorder.World.Regions.RegionMap.AreAdjacent(r, o)) continue;
+                    int owner = TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(o);
+                    hostile = owner == TheWaningBorder.World.Regions.TerritoryOwnership.Curse
+                              || (owner >= 0 && owner != (int)faction
+                                  && Alliances.AreHostile(faction, (Faction)owner));
+                }
+                if (hostile) _frontierScratch.Add(r);
+            }
+            // Rank: own Fortress first (0), then bordering home (+1 if not).
+            for (int i = 0; i < _frontierScratch.Count; i++)
+            {
+                int r = _frontierScratch[i];
+                int rank = (AIBaseLayout.TryGetOwnFortressIn(em, faction, r, out _) ? 0 : 2)
+                           + (home != TheWaningBorder.World.Regions.RegionMap.None
+                              && TheWaningBorder.World.Regions.RegionMap.AreAdjacent(r, home) ? 0 : 1);
+                _frontierRank[r] = rank;
+            }
+            _frontierScratch.Sort((a, b) =>
+            {
+                int c = _frontierRank[a].CompareTo(_frontierRank[b]);
+                return c != 0 ? c : a.CompareTo(b);
+            });
+            for (int i = 0; i < _frontierScratch.Count && picks.Count < want; i++)
+                picks.Add(_frontierScratch[i]);
+        }
+
+        private static readonly System.Collections.Generic.Dictionary<int, int> _frontierRank
+            = new System.Collections.Generic.Dictionary<int, int>();
 
         /// <summary>Per faction, the territory of its first capital this match
         /// (the only one ever walled).</summary>
@@ -768,8 +874,12 @@ namespace TheWaningBorder.AI
         /// Pure function of replicated state (region map, ownership, terrain):
         /// every lockstep peer draws the same wall.
         /// </summary>
+        /// <param name="frontierOnly">A frontier territory (§ 3b): only the
+        /// stretches near ground the faction does NOT hold are walled — never
+        /// the border with its own territories, which stays open.</param>
         private static void EmitBorderLoop(EntityManager em, Faction faction, int region,
-            float3 hallPos, byte chain, NativeList<AIWallPlanSlot> slots, out string why)
+            float3 hallPos, byte chain, NativeList<AIWallPlanSlot> slots, out string why,
+            bool frontierOnly = false)
         {
             const float cs = 1f;
             float R = Cfg.borderScanMax;
@@ -777,9 +887,11 @@ namespace TheWaningBorder.AI
             float ox = hallPos.x - n * cs * 0.5f, oz = hallPos.z - n * cs * 0.5f;
             int N = n * n;
 
-            // 1. Owned and foreign ground.
+            // 1. Owned and foreign ground (and, for a frontier, ground the
+            // faction does not hold at all).
             var owned = new bool[N];
             var foreign = new bool[N];
+            var outside = frontierOnly ? new bool[N] : null;
             for (int z = 0; z < n; z++)
                 for (int x = 0; x < n; x++)
                 {
@@ -793,6 +905,9 @@ namespace TheWaningBorder.AI
                         && TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(t) == (int)faction)
                         owned[z * n + x] = true;
                     else foreign[z * n + x] = true;
+                    if (outside != null
+                        && TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(t) != (int)faction)
+                        outside[z * n + x] = true;
                 }
 
             int hx = n / 2, hz = n / 2;
@@ -834,6 +949,9 @@ namespace TheWaningBorder.AI
                     }
                     dist[i] = d;
                 }
+
+            // 2b. A frontier: distance to ground the faction does not hold.
+            float[] distOut = outside != null ? Chamfer(outside, n, cs) : null;
 
             // 3. Inside the inset, connected to the Hall, holes filled.
             float inset = Cfg.borderInset;
@@ -877,11 +995,12 @@ namespace TheWaningBorder.AI
                 // Far from it, the outline is running along a lake shore or a
                 // mountain the map closes. Too near the Hall: never walled.
                 open[k] = dist[ck] <= openReach
+                          && (distOut == null || distOut[ck] <= openReach)
                           && math.distance(pts[k], hallPos.xz) >= Cfg.borderMinRadius;
                 if (open[k]) openCount++;
             }
 
-            why = $"border trace: outline {m} m, {openCount} m walled, inset {inset:F1} m";
+            why = $"border trace{(frontierOnly ? " (frontier)" : "")}: outline {m} m, {openCount} m walled, inset {inset:F1} m";
             if (openCount < 2) return;
 
             // 6. Runs of open outline -> hubs at bends and every HubSpacing.
@@ -931,6 +1050,47 @@ namespace TheWaningBorder.AI
             {
                 var s = slots[i]; s.Flags |= FlagTower; slots[i] = s;
             }
+        }
+
+        /// <summary>Two-pass chamfer distance (metres) from every cell to the
+        /// nearest cell set in <paramref name="src"/> — the transform the
+        /// border trace runs for foreign ground, for the frontier test.</summary>
+        private static float[] Chamfer(bool[] src, int n, float cs)
+        {
+            int N = n * n;
+            var dist = new float[N];
+            const float Far = 1e9f;
+            float D1 = cs, D2 = cs * 1.41421356f;
+            for (int i = 0; i < N; i++) dist[i] = src[i] ? 0f : Far;
+            for (int z = 0; z < n; z++)
+                for (int x = 0; x < n; x++)
+                {
+                    int i = z * n + x;
+                    float d = dist[i];
+                    if (x > 0) d = math.min(d, dist[i - 1] + D1);
+                    if (z > 0)
+                    {
+                        d = math.min(d, dist[i - n] + D1);
+                        if (x > 0) d = math.min(d, dist[i - n - 1] + D2);
+                        if (x < n - 1) d = math.min(d, dist[i - n + 1] + D2);
+                    }
+                    dist[i] = d;
+                }
+            for (int z = n - 1; z >= 0; z--)
+                for (int x = n - 1; x >= 0; x--)
+                {
+                    int i = z * n + x;
+                    float d = dist[i];
+                    if (x < n - 1) d = math.min(d, dist[i + 1] + D1);
+                    if (z < n - 1)
+                    {
+                        d = math.min(d, dist[i + n] + D1);
+                        if (x < n - 1) d = math.min(d, dist[i + n + 1] + D2);
+                        if (x > 0) d = math.min(d, dist[i + n - 1] + D2);
+                    }
+                    dist[i] = d;
+                }
+            return dist;
         }
 
         /// <summary>

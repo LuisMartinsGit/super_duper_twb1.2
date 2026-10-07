@@ -45,6 +45,15 @@ MonoBehaviour:
     fortressAffinity: 0
     towerCoverageScale: 1
     wallPriorityScale: 1
+    wallsEnabled: 1
+    homeRingScale: 1
+    frontierWallTerritories: 0
+    wallGuardShare: 0
+    raidIntervalSeconds: 0
+    raidPartyScale: 1
+    strengthGateFromSeconds: 100000
+    noOverdueRelease: 0
+    fortressAppetite: 1
   - personality: 1
     attackThreshold: 2
     militaryFloor: 20
@@ -61,9 +70,18 @@ MonoBehaviour:
     fortressAffinity: 0
     towerCoverageScale: 0.7
     wallPriorityScale: 0.6
+    wallsEnabled: 1
+    homeRingScale: 1
+    frontierWallTerritories: 0
+    wallGuardShare: 0
+    raidIntervalSeconds: 0
+    raidPartyScale: 1
+    strengthGateFromSeconds: 100000
+    noOverdueRelease: 0
+    fortressAppetite: 1
   - personality: 2
-    attackThreshold: 5
-    militaryFloor: 24
+    attackThreshold: 8
+    militaryFloor: 34
     riskMultiplier: 1.5
     gathererHutTarget: 16
     productionBuildingTarget: 22
@@ -75,8 +93,17 @@ MonoBehaviour:
     rushAffinity: 0
     techAffinity: 22
     fortressAffinity: 46
-    towerCoverageScale: 1.5
+    towerCoverageScale: 1.8
     wallPriorityScale: 1.4
+    wallsEnabled: 1
+    homeRingScale: 1
+    frontierWallTerritories: 0
+    wallGuardShare: 0
+    raidIntervalSeconds: 0
+    raidPartyScale: 1
+    strengthGateFromSeconds: 0
+    noOverdueRelease: 1
+    fortressAppetite: 2
   - personality: 3
     attackThreshold: 4
     militaryFloor: 12
@@ -93,6 +120,15 @@ MonoBehaviour:
     fortressAffinity: 0
     towerCoverageScale: 0.9
     wallPriorityScale: 0.9
+    wallsEnabled: 1
+    homeRingScale: 1
+    frontierWallTerritories: 0
+    wallGuardShare: 0
+    raidIntervalSeconds: 0
+    raidPartyScale: 1
+    strengthGateFromSeconds: 100000
+    noOverdueRelease: 0
+    fortressAppetite: 1
   - personality: 4
     attackThreshold: 2
     militaryFloor: 20
@@ -109,6 +145,15 @@ MonoBehaviour:
     fortressAffinity: 0
     towerCoverageScale: 0.5
     wallPriorityScale: 0.4
+    wallsEnabled: 0
+    homeRingScale: 1
+    frontierWallTerritories: 0
+    wallGuardShare: 0
+    raidIntervalSeconds: 90
+    raidPartyScale: 1.7
+    strengthGateFromSeconds: 100000
+    noOverdueRelease: 0
+    fortressAppetite: 1
   - personality: 5
     attackThreshold: 4
     militaryFloor: 14
@@ -125,6 +170,15 @@ MonoBehaviour:
     fortressAffinity: 0
     towerCoverageScale: 1
     wallPriorityScale: 1
+    wallsEnabled: 1
+    homeRingScale: 1
+    frontierWallTerritories: 0
+    wallGuardShare: 0
+    raidIntervalSeconds: 0
+    raidPartyScale: 1
+    strengthGateFromSeconds: 100000
+    noOverdueRelease: 0
+    fortressAppetite: 1
   - personality: 6
     attackThreshold: 6
     militaryFloor: 28
@@ -141,3 +195,12 @@ MonoBehaviour:
     fortressAffinity: 46
     towerCoverageScale: 1.6
     wallPriorityScale: 1.6
+    wallsEnabled: 1
+    homeRingScale: 1.6
+    frontierWallTerritories: 2
+    wallGuardShare: 0.5
+    raidIntervalSeconds: 0
+    raidPartyScale: 1
+    strengthGateFromSeconds: 100000
+    noOverdueRelease: 0
+    fortressAppetite: 1

@@ -90,13 +90,14 @@ namespace TheWaningBorder.AI
         /// link nearest each of gatesPerRing bearings from north, and an
         /// emplacement on every emplacementEveryNthLink-th other link.
         /// </summary>
-        public static void EmitRing(Faction faction, int region, Layout layout, float3 origin, byte chain,
-            NativeList<AIWallPlanSlot> slots)
+        public static void EmitRing(EntityManager em, Faction faction, int region, Layout layout, float3 origin,
+            byte chain, NativeList<AIWallPlanSlot> slots)
         {
-            int n = layout.Hubs.Count;
-            if (n < 3) return;
+            if (layout.Hubs.Count < 3) return;
             int2 hubSize = BuildingSizeConfig.GetSize("Alanthor_Wall");
-            var hubs = HubPositions(faction, region, layout, origin, hubSize);
+            var hubs = HubPositions(em, faction, region, layout, origin, hubSize);
+            int n = hubs.Count;
+            if (n < 3) return;
             var pos = new float3[n];
             for (int i = 0; i < n; i++)
             {
@@ -401,14 +402,28 @@ namespace TheWaningBorder.AI
         /// The layout's hub centres round <paramref name="origin"/>, snapped,
         /// in ring order (by bearing) for this base's variant.
         /// </summary>
-        public static List<float3> HubPositions(Faction faction, int region, Layout layout, float3 origin, int2 hubSize)
+        /// <remarks>
+        /// THE TURTLE'S WIDER RING (2026-10-07, Game_AI.md § 3b): a main camp's
+        /// hub offsets are multiplied by the personality's homeRingScale
+        /// (read unblended — the shape of the base is the same at every
+        /// tier). A scaled hub that would stand off the territory, or within
+        /// the wall inset of its border, is pulled back toward its drawn spot
+        /// (never inside it); and a scaled ring gets an extra hub on every
+        /// link longer than ringMaxLinkMeters, so the doctrine's link radius
+        /// still spans every link. The building slots are not scaled: the
+        /// drawn town keeps its shape and the ordinary site search fills the
+        /// extra ground inside the ring.
+        /// </remarks>
+        public static List<float3> HubPositions(EntityManager em, Faction faction, int region, Layout layout,
+            float3 origin, int2 hubSize)
         {
             var v = VariantOf(faction, region, layout);
+            float scale = IsMain(layout) ? RingScale(em, faction) : 1f;
             var list = new List<float3>(layout.Hubs.Count);
             for (int i = 0; i < layout.Hubs.Count; i++)
             {
                 var o = Orient(layout.Hubs[i], v);
-                list.Add(BuildGrid.Snap(new float3(origin.x + o.x, 0f, origin.z + o.y), hubSize));
+                list.Add(ScaledHub(origin, o, scale, region, hubSize));
             }
             list.Sort((a, b) =>
             {
@@ -417,7 +432,55 @@ namespace TheWaningBorder.AI
                 if (bb < 0f) bb += 2f * math.PI;
                 return aa.CompareTo(bb);
             });
+            if (scale > 1f && Cfg.ringMaxLinkMeters > 0f && list.Count >= 3)
+            {
+                var dense = new List<float3>(list.Count * 2);
+                for (int i = 0; i < list.Count; i++)
+                {
+                    float3 a = list[i], b = list[(i + 1) % list.Count];
+                    dense.Add(a);
+                    float d = math.distance(a.xz, b.xz);
+                    int parts = (int)math.ceil(d / Cfg.ringMaxLinkMeters);
+                    for (int k = 1; k < parts; k++)
+                        dense.Add(BuildGrid.Snap(math.lerp(a, b, k / (float)parts), hubSize));
+                }
+                list = dense;
+            }
             return list;
+        }
+
+        /// <summary>The faction's homeRingScale (its personality row as
+        /// authored); 1 for a faction with no brain or an unset row.</summary>
+        static float RingScale(EntityManager em, Faction faction)
+        {
+            float s = AIPersonalityLookup.Row(em, faction).homeRingScale;
+            return s > 0f ? s : 1f;
+        }
+
+        /// <summary>One hub at <paramref name="scale"/> times its drawn offset,
+        /// stepped back toward the drawn spot (scale 1, always accepted, as
+        /// before) while it would stand off <paramref name="region"/> or within
+        /// the wall inset of its border.</summary>
+        static float3 ScaledHub(float3 origin, float2 off, float scale, int region, int2 hubSize)
+        {
+            const float Step = 0.1f;   // loop resolution, not tuning
+            for (float s = scale; s > 1f; s -= Step)
+            {
+                var p = BuildGrid.Snap(new float3(origin.x + off.x * s, 0f, origin.z + off.y * s), hubSize);
+                if (OnOwnTerritory(p, region, hubSize)) return p;
+            }
+            return BuildGrid.Snap(new float3(origin.x + off.x, 0f, origin.z + off.y), hubSize);
+        }
+
+        static bool OnOwnTerritory(float3 p, int region, int2 hubSize)
+        {
+            if (region == RegionMap.None || !RegionMap.Ready) return true;
+            float m = math.max(hubSize.x, hubSize.y) * 0.5f + AIWallPlannerConfig.I.borderInset;
+            return RegionMap.RegionAt(p.x, p.z) == region
+                && RegionMap.RegionAt(p.x + m, p.z) == region
+                && RegionMap.RegionAt(p.x - m, p.z) == region
+                && RegionMap.RegionAt(p.x, p.z + m) == region
+                && RegionMap.RegionAt(p.x, p.z - m) == region;
         }
 
         /// <summary>

@@ -338,7 +338,7 @@ namespace TheWaningBorder.UI.Data
             else if (em.HasComponent<IronMineTag>(entity))
             {
                 info.Type = "Resource";
-                info.Name = "Iron Deposit";
+                info.Name = WithPurity(entity, em, "Iron Deposit");
                 info.HasResourceInfo = true;
                 if (em.HasComponent<IronDepositState>(entity))
                 {
@@ -375,7 +375,7 @@ namespace TheWaningBorder.UI.Data
             else if (em.HasComponent<VeilstoneOutcroppingTag>(entity))
             {
                 info.Type = "Resource";
-                info.Name = "Veilstone Node";
+                info.Name = WithPurity(entity, em, "Veilstone Node");
                 info.HasResourceInfo = true;
                 if (em.HasComponent<VeilstoneOutcroppingState>(entity))
                 {

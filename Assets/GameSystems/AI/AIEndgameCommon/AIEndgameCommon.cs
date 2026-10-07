@@ -385,7 +385,7 @@ namespace TheWaningBorder.AI
             if (t == TheWaningBorder.World.Regions.RegionMap.None) return false;
             int owner = TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(t);
             if (owner < 0) return false;
-            float now = (float)em.World.Time.ElapsedTime;
+            float now = TheWaningBorder.Core.SimClock.Now;
             string what = AIBaseLayout.WouldSeal(em, (Faction)owner, candidate, size, buildingId, now);
             if (what == null) return false;
             AIBaseLayout.LogSeal((Faction)owner, buildingId ?? "building", candidate, what, now);

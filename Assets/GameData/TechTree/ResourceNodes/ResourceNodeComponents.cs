@@ -83,6 +83,26 @@ public struct NodeReserve : IComponentData
     public float Initial;
 }
 
+/// <summary>
+/// NODE PURITY (2026-10-07, docs/Design/Territory_Claims.md § 11.2): Pure,
+/// Normal or Poor — a multiplier on everything the node's slot pays. Dealt by
+/// TerritoryResources when the node is laid; a node without one is Normal.
+/// The multipliers are on TerritoryResources.asset.
+/// </summary>
+public struct NodePurity : IComponentData
+{
+    /// <summary><see cref="NodePurityGrade"/>.</summary>
+    public byte Grade;
+}
+
+/// <summary>The three grades. Normal is 0, so a default component is Normal.</summary>
+public static class NodePurityGrade
+{
+    public const byte Normal = 0;
+    public const byte Pure = 1;
+    public const byte Poor = 2;
+}
+
 /// <summary>Marker tag for iron mine/deposit entities.</summary>
 public struct IronMineTag : IComponentData { }
 

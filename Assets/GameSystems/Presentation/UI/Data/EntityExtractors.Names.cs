@@ -23,7 +23,17 @@ namespace TheWaningBorder.UI.Data
         public static string GetSelectionDisplayName(Entity entity, EntityManager em)
         {
             string name = ResolveSelectionName(entity, em);
-            return em.HasComponent<BuildingTag>(entity) ? WithLevel(entity, em, name) : name;
+            return em.HasComponent<BuildingTag>(entity) ? WithLevel(entity, em, name) : WithPurity(entity, em, name);
+        }
+
+        /// <summary>A resource node names its purity: "Pure Iron Deposit",
+        /// "Poor Veilstone Node"; Normal is unmarked (Territory_Claims.md § 11.2).</summary>
+        internal static string WithPurity(Entity entity, EntityManager em, string name)
+        {
+            if (!em.HasComponent<NodePurity>(entity)) return name;
+            string prefix = TheWaningBorder.World.Regions.TerritoryResources.PurityPrefix(
+                em.GetComponentData<NodePurity>(entity).Grade);
+            return prefix.Length == 0 ? name : Loc.T(prefix.Trim()) + " " + name;
         }
 
         /// <summary>

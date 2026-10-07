@@ -101,7 +101,7 @@ namespace TheWaningBorder.AI
 
             // Pre-flight: need an idle worker. Don't spend cost on a foundation
             // nobody will work on.
-            if (AICommon.CountIdleWorkers(em, faction) == 0) return false;
+            if (AICommon.CountIdleWorkers(em, faction) == 0) { LadderMiss(faction, buildingId, "no idle worker"); return false; }
 
             int2 size = BuildingSizeConfig.GetSize(buildingId);
             // The base rings clog up over a long match (gatherer huts tile the
@@ -110,15 +110,28 @@ namespace TheWaningBorder.AI
             // forever — an outlying stable beats no stable.
             // A flush search (the House quarter) lets footprints touch.
             float3 pos;
-            if (flush)
+            // The drawn base layout first (2026-10-07): the ring search
+            // rejects every free slot of the layout — the Temple's own P slot
+            // included — so a templated main camp left the Temple nowhere to
+            // stand and the whole religious layer (sects, Litharchs) never
+            // started. Same lookup the towers use.
+            if (!flush
+                && TheWaningBorder.World.Regions.RegionMap.Ready
+                && AIBaseTemplate.TryFirstFreeDrawnSlot(em, faction,
+                       TheWaningBorder.World.Regions.RegionMap.RegionAt(hallPos.x, hallPos.z),
+                       buildingId, size, out pos))
+            {
+                AILogger.Log(faction, "BUILDING", $"base layout: {buildingId} -> drawn slot");
+            }
+            else if (flush)
             {
                 if (!AIEndgameCommon.TryFindBuildSpotRingGap(em, hallPos, size, ringMin, ringMax * 1.6f,
                         angleSamples: 24, radiusStep: 4f, seededStart: true, gap: 0f, out pos, buildingId))
-                    return false;
+                { LadderMiss(faction, buildingId, "no flush spot"); return false; }
             }
             else if (!TryFindBuildPositionRing(em, hallPos, size, ringMin, ringMax, out pos)
                 && !TryFindBuildPositionRing(em, hallPos, size, ringMax, ringMax * 1.6f, out pos))
-                return false;
+            { LadderMiss(faction, buildingId, "no spot in the ring or the drawn layout"); return false; }
 
             // No AI-side Spend: PlaceBuildingDirect charges the cost on
             // every peer (docs/Multiplayer_LAN_Readiness.md).
@@ -146,6 +159,19 @@ namespace TheWaningBorder.AI
             AILogger.Log(faction, "BUILDING", $"Alanthor age-2 ladder: queued {buildingId}");
             return true;
         }
+        static readonly System.Collections.Generic.Dictionary<(Faction, string), float> _ladderMissAt
+            = new System.Collections.Generic.Dictionary<(Faction, string), float>();
+
+        /// <summary>A ladder placement failure, logged at most once a minute
+        /// per building — these used to fail silently every think.</summary>
+        private static void LadderMiss(Faction faction, string buildingId, string why)
+        {
+            float t = UnityEngine.Time.time;
+            if (_ladderMissAt.TryGetValue((faction, buildingId), out float last) && t - last < 60f) return;
+            _ladderMissAt[(faction, buildingId)] = t;
+            AILogger.Log(faction, "BUILDING", $"{buildingId} not placed: {why}");
+        }
+
         /// <summary>Count this faction's buildings by marker tag (completed
         /// AND under construction — expansion targets are totals).</summary>
         private static int CountFactionBuildingsByTag<T>(EntityManager em, Faction faction)

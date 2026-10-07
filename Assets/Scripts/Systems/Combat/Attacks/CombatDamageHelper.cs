@@ -116,7 +116,7 @@ namespace TheWaningBorder.Systems.Combat
         /// </summary>
         public static float GetHasteCooldownMult(EntityManager em, Entity attacker)
         {
-            if (!em.HasComponent<SectHaste>(attacker)) return 1f;
+            if (!TransientState.Active<SectHaste>(em, attacker)) return 1f;
             var haste = em.GetComponentData<SectHaste>(attacker);
             if (haste.TimeRemaining <= 0f) return 1f;
             return haste.Multiplier <= 0f ? 1f : 1f / haste.Multiplier;
@@ -232,7 +232,7 @@ namespace TheWaningBorder.Systems.Combat
             // come through here. A queue the sim only writes — never read back.
             if (em.HasComponent<UnitTag>(target))
                 TheWaningBorder.Core.CombatVfxSignals.Post(target, source,
-                    em.HasComponent<TheWaningBorder.Abilities.Charging>(attacker),
+                    TransientState.Active<TheWaningBorder.Abilities.Charging>(em, attacker),
                     em.HasComponent<FactionTag>(attacker) ? em.GetComponentData<FactionTag>(attacker).Value : default);
 
             // SpellBuff.DamageMultiplier on attacker (Empower-style timed buff)
@@ -255,16 +255,16 @@ namespace TheWaningBorder.Systems.Combat
 
             // Charge payoff. Percentages first (the unit's own innate charge plus a
             // one-shot War Horn window), then King's Call's flat bonus on top.
-            if (em.HasComponent<TheWaningBorder.Abilities.Charging>(attacker))
+            if (TransientState.Active<TheWaningBorder.Abilities.Charging>(em, attacker))
             {
                 float chargePct = 0f;
                 if (em.HasComponent<TheWaningBorder.Abilities.InnateChargePct>(attacker))
                     chargePct += em.GetComponentData<TheWaningBorder.Abilities.InnateChargePct>(attacker).Pct;
-                if (em.HasComponent<TheWaningBorder.Abilities.NextChargePct>(attacker))
+                if (TransientState.Active<TheWaningBorder.Abilities.NextChargePct>(em, attacker))
                 {
                     chargePct += em.GetComponentData<TheWaningBorder.Abilities.NextChargePct>(attacker).Pct;
                     // War Horn is a NEXT-charge window: spend it on this hit.
-                    ecb.RemoveComponent<TheWaningBorder.Abilities.NextChargePct>(attacker);
+                    TransientState.Clear<TheWaningBorder.Abilities.NextChargePct>(em, ecb, attacker);
                 }
 
                 if (chargePct > 0f) final = (int)(final * (1f + chargePct / 100f));
@@ -272,14 +272,14 @@ namespace TheWaningBorder.Systems.Combat
                 // Ability: flat charge bonus while the attacker is charging (King's
                 // Call grants ChargeDamageBonus to allied cavalry; King Lexor gains
                 // it from his own aura).
-                if (em.HasComponent<TheWaningBorder.Abilities.ChargeDamageBonus>(attacker))
+                if (TransientState.Active<TheWaningBorder.Abilities.ChargeDamageBonus>(em, attacker))
                     final += em.GetComponentData<TheWaningBorder.Abilities.ChargeDamageBonus>(attacker).Bonus;
             }
             // (Liquid Courage's incoming-damage reduction is applied uniformly at
             // every HP-application site via AbilityDamageHooks.ScaleIncoming, not here.)
 
             // Condemned mark: target takes bonus damage
-            if (em.HasComponent<Condemned>(target))
+            if (TransientState.Active<Condemned>(em, target))
             {
                 var condemned = em.GetComponentData<Condemned>(target);
                 final = (int)(final * condemned.DamageMultiplier);
@@ -289,7 +289,7 @@ namespace TheWaningBorder.Systems.Combat
             // by the attacker's faction, the marker faction's units deal bonus
             // damage. Other factions attacking the same target don't get the
             // bonus — the mark is per-marker. (task-063 phase 2c)
-            if (em.HasComponent<MarkedForSentence>(target)
+            if (TransientState.Active<MarkedForSentence>(em, target)
                 && em.HasComponent<FactionTag>(attacker))
             {
                 var mark = em.GetComponentData<MarkedForSentence>(target);
@@ -443,10 +443,10 @@ namespace TheWaningBorder.Systems.Combat
                     ecb.SetComponent(attacker, fs);
                 }
             }
-            if (em.HasComponent<TheWaningBorder.Abilities.NextShotBonus>(attacker))
+            if (TransientState.Active<TheWaningBorder.Abilities.NextShotBonus>(em, attacker))
             {
                 final = (int)(final * (1f + em.GetComponentData<TheWaningBorder.Abilities.NextShotBonus>(attacker).Pct / 100f));
-                ecb.RemoveComponent<TheWaningBorder.Abilities.NextShotBonus>(attacker);
+                TransientState.Clear<TheWaningBorder.Abilities.NextShotBonus>(em, ecb, attacker);
             }
 
             // Defender side. Shield Wall eats the first hit while planted; Deploy
@@ -464,7 +464,7 @@ namespace TheWaningBorder.Systems.Combat
                 }
             }
             if (em.HasComponent<TheWaningBorder.Abilities.StakesState>(target)
-                && em.HasComponent<TheWaningBorder.Abilities.Charging>(attacker))
+                && TransientState.Active<TheWaningBorder.Abilities.Charging>(em, attacker))
             {
                 var st = em.GetComponentData<TheWaningBorder.Abilities.StakesState>(target);
                 if (st.Ready != 0)

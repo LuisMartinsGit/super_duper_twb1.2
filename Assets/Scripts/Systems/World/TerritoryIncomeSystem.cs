@@ -10,6 +10,9 @@
 //     from the SOs (2026-10-03, unification item 34): the building's own
 //     `slotIncomePerMinute` ladder, or its owner culture's level SO when one
 //     is authored (Alanthor's Guild and Mine levels).
+//   * every slot's pay is scaled by its node's PURITY (Pure / Normal /
+//     Poor, docs/Design/Territory_Claims.md § 11.2, 2026-10-07), empty or
+//     built, before every other multiplier
 //   * the capital's own supplies are NOT paid here: the Fortress carries a
 //     SuppliesIncome from its SO (ResourceTickSystem pays it). The flat
 //     50/min this system added on top was cut (unification item 10).
@@ -416,8 +419,9 @@ namespace TheWaningBorder.Systems.World
             }
             else if (em.HasComponent<GathererHutTag>(building) && !em.HasComponent<RaiderCampTag>(building))
             {
-                if (NearAny(em, QC_Supply.Get(em, QT_Supply), p, r2))
-                    y.Supplies += LadderFor(HutId, culture).At(level) * hall;
+                if (NearAny(em, QC_Supply.Get(em, QT_Supply), p, r2, out Entity supplyNode))
+                    y.Supplies += LadderFor(HutId, culture).At(level) * hall
+                                  * TerritoryResources.PurityMultiplier(em, supplyNode);
             }
             else if (em.HasComponent<MineTag>(building))
             {
@@ -441,7 +445,8 @@ namespace TheWaningBorder.Systems.World
                     if (em.HasComponent<NodeReserve>(o.Node[i])
                         && em.GetComponentData<NodeReserve>(o.Node[i]).Remaining <= 0f) continue;
                     y.Veilstone += LadderFor(VeilstoneMineId, culture).At(level) * mult * hall
-                                   * SurveyMultiplier(owner, VeilstoneSurveyLadder);
+                                   * SurveyMultiplier(owner, VeilstoneSurveyLadder)
+                                   * TerritoryResources.PurityMultiplier(em, o.Node[i]);
                 }
             }
             return y;
@@ -475,18 +480,21 @@ namespace TheWaningBorder.Systems.World
                     var res = em.GetComponentData<NodeReserve>(node);
                     if (res.Initial > 0f) scale = Mathf.Max(DepletionFloor, res.Remaining / res.Initial);
                 }
-                total += ladder.At(level) * scale;
+                total += ladder.At(level) * scale * TerritoryResources.PurityMultiplier(em, node);
             }
             return total;
         }
 
-        private static bool NearAny(EntityManager em, EntityQuery q, Unity.Mathematics.float3 p, float r2)
+        private static bool NearAny(EntityManager em, EntityQuery q, Unity.Mathematics.float3 p, float r2,
+            out Entity node)
         {
+            node = Entity.Null;
+            using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
             using var xfs = q.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
             for (int i = 0; i < xfs.Length; i++)
             {
                 float dx = xfs[i].Position.x - p.x, dz = xfs[i].Position.z - p.z;
-                if (dx * dx + dz * dz <= r2) return true;
+                if (dx * dx + dz * dz <= r2) { node = ents[i]; return true; }
             }
             return false;
         }
@@ -564,7 +572,7 @@ namespace TheWaningBorder.Systems.World
             for (int i = 0; i < c.SupplyRegion.Count; i++)
                 if (c.SupplyRegion[i] == territory)
                 {
-                    float rate = hutLadder.At(c.SupplyHutLevel[i]);
+                    float rate = hutLadder.At(c.SupplyHutLevel[i]) * c.SupplyPurity[i];
                     y.Supplies += rate;
                     if (split != null) split[c.SupplyHutLevel[i] > 0 ? 1 : 0] += rate;
                 }
@@ -662,6 +670,8 @@ namespace TheWaningBorder.Systems.World
         {
             public readonly List<int> SupplyRegion = new List<int>();
             public readonly List<int> SupplyHutLevel = new List<int>();
+            /// <summary>Each supply slot's purity multiplier (§ 11.2).</summary>
+            public readonly List<float> SupplyPurity = new List<float>();
             public readonly List<int> HallRegion = new List<int>();
             public readonly List<int> HallLevel = new List<int>();
             public readonly OreCensus[] Ore = { new OreCensus(), new OreCensus() };
@@ -669,7 +679,7 @@ namespace TheWaningBorder.Systems.World
 
             public void Build(EntityManager em)
             {
-                SupplyRegion.Clear(); SupplyHutLevel.Clear();
+                SupplyRegion.Clear(); SupplyHutLevel.Clear(); SupplyPurity.Clear();
                 HallRegion.Clear(); HallLevel.Clear();
 
                 // Gatherer's Huts, built, not Raider Camps (converted huts that
@@ -686,6 +696,7 @@ namespace TheWaningBorder.Systems.World
                     {
                         var np = xfs[i].Position;
                         SupplyRegion.Add(RegionOfStatic(ents[i], np.x, np.z));
+                        SupplyPurity.Add(TerritoryResources.PurityMultiplier(em, ents[i]));
                         // The best hut level on the slot (0 = empty).
                         int best = 0;
                         for (int h = 0; h < _built.Count; h++)
@@ -850,7 +861,8 @@ namespace TheWaningBorder.Systems.World
                 if (veilstone && TheWaningBorder.Systems.Economy.VeilstoneNodeStateSystem.KindOf(em, node)
                                  != VeilstoneNodeKind.Inactive) continue;
 
-                float rate = ladder.At(o.ExtractorLevels[i]) * multiplier;
+                float rate = ladder.At(o.ExtractorLevels[i]) * multiplier
+                             * TerritoryResources.PurityMultiplier(em, node);
                 // A slot with its extractor on it earns that extractor's
                 // research (the Mine ladder); an empty slot does not.
                 if (o.ExtractorLevels[i] > 0) rate *= extractorMultiplier;
