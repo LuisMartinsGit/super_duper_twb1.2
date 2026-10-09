@@ -900,7 +900,13 @@ namespace TheWaningBorder.Systems.Navigation
                         };
                         if (!cache.SlotIndex.TryGetValue(key, out int slot)) continue;
                         var meta = cache.Slots[slot];
-                        if (meta.Valid == 0) continue;
+                        // Valid == 1 only: a slot at 2 is being integrated on
+                        // worker threads RIGHT NOW (GoalFlowFieldSystem's
+                        // detached batch), so its bytes depend on job timing.
+                        // Reading it forked the 0.0.38 multiplayer match at
+                        // tick 13620 (Pos/Rot/Nav). FlowFollowSystem has
+                        // always required 1.
+                        if (meta.Valid != 1) continue;
                         byte d = cache.DirPool[meta.DirOffset + lz * grid.Width + lx];
                         // NoDirection AND NotCovered (the seeker-bounded
                         // sweep stopped short of the leader's cell) both

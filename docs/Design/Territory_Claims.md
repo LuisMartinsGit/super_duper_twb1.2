@@ -759,6 +759,8 @@ supply nodes never thinned at all.
   are on `TerritoryIncomeSystem.asset` (a floor above zero brings back a
   permanent trickle).
 
+**Revised 2026-10-09: nodes are spent by minute 60.** Developer: "increase the resource timers to exhaust at 60 minutes instead of 30" (`nodeLifetimeMinutes` on `TerritoryIncomeSystem.asset`). The text below keeps its original wording; read its "minute 30" as the node lifetime.
+
 **Every node is spent by minute 30 (2026-10-08).** Developer: "Late game
 comes at 30 minutes; from there onward players are expected to start
 falling. Adjust all nodes to be spent by minute 30."

@@ -211,6 +211,10 @@ namespace TheWaningBorder.UI.Ingame
             // ActionsPanelPrefabBinder.RenderUnitFormations.
             _hostCanvasRect.gameObject.AddComponent<SpellsPanelBinder>();
 
+            // Idle-builder button (2026-10-09): cycles the local player's
+            // inactive builders, panning to each — hidden while spectating.
+            SpawnCodeBuilt<IdleBuilderButton>("GameUI_IdleBuilders");
+
             // Replay playback bar — only while a replay is being watched
             // (docs/Design/Replays_And_Saves.md). Before the pause menu so the
             // menu's scrim covers it.

@@ -298,6 +298,10 @@ namespace TheWaningBorder.Systems.Core
             }
 
             // ── Decided when no hostile pair remains among the living. ──
+            // A slot that never spawned (an Empty lobby slot still counted in
+            // TotalPlayers) is no opponent: it can never be eliminated, so it
+            // kept a one-team match running forever (2026-10-09, 0.0.38 MP).
+            alive.RemoveAll(f => !_everSeenAlive.Contains(f));
             bool anyHostilePair = false;
             for (int a = 0; a < alive.Count && !anyHostilePair; a++)
                 for (int b = a + 1; b < alive.Count; b++)

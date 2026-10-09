@@ -13,6 +13,32 @@ build always name the same number.
 
 ---
 
+## [0.0.39] — 2026-10-09
+
+Everyone in a multiplayer match needs 0.0.39.
+
+### Added
+
+- **Idle builders button.** A button above the bottom-left panel shows how
+  many of your builders have nothing to do; click it to select the next one
+  and move the camera to it (the **B** key does the same).
+
+### Changed
+
+- **Resource nodes last longer.** Nodes now run dry around minute 60 instead
+  of earlier in the match, so armies can still be rebuilt in the late game.
+
+### Fixed
+
+- **Multiplayer desync** a few minutes into a match when formations moved
+  (new in 0.0.38).
+- **Ascension did not end the match.** A Temple that held the Shardroot for
+  the full countdown now wins the game.
+- **A match with only one team left kept running** when a lobby slot was
+  empty. It now ends when no opposing team remains.
+
+---
+
 ## [0.0.38] — 2026-10-09
 
 Everyone in a multiplayer match needs 0.0.38. 0.0.37 was never published, so

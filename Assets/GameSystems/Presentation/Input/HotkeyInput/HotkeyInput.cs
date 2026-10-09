@@ -28,21 +28,6 @@ namespace TheWaningBorder.Input
     /// </summary>
     public sealed class HotkeyInput
     {
-        // Cached — CycleIdleWorkers created an undisposed query on every
-        // press of the idle-worker key.
-        private static readonly ComponentType[] IdleWorkerQueryTypes =
-        {
-            ComponentType.ReadOnly<UnitTag>(),
-            ComponentType.ReadOnly<CanBuild>(),
-            ComponentType.ReadOnly<FactionTag>(),
-            ComponentType.ReadOnly<LocalTransform>(),
-        };
-        private TheWaningBorder.Core.CachedEntityQuery _idleWorkerQuery;
-
-        // Last-cycled worker, so subsequent presses advance through the list
-        // instead of re-selecting the same unit.
-        private int _workerCycleIndex = -1;
-
         private readonly EntityManager _em;
         private readonly SelectionOrders _orders;
         private readonly InputModes _modes;
@@ -141,36 +126,10 @@ namespace TheWaningBorder.Input
         }
 
         /// <summary>
-        /// Selects the next idle worker of the local player faction (and
-        /// centers the camera on it). An "idle" worker is one with the
-        /// CanBuild component and no active BuildOrder or RepairOrder.
-        /// Press repeatedly to cycle. (Spec: 'b' cycles through idle workers.)
+        /// Selects the next idle worker of the local player faction and
+        /// centres the camera on it — IdleWorkerCycler, shared with the HUD's
+        /// idle-builder button. Press repeatedly to cycle.
         /// </summary>
-        private void CycleIdleWorkers()
-        {
-            var query = _idleWorkerQuery.Get(_em, IdleWorkerQueryTypes);
-            using var entities = query.ToEntityArray(Allocator.Temp);
-
-            var idle = new List<Entity>();
-            foreach (var e in entities)
-            {
-                if (_em.GetComponentData<FactionTag>(e).Value != GameSettings.LocalPlayerFaction)
-                    continue;
-                if (_em.HasComponent<BuildOrder>(e)) continue;
-                if (_em.HasComponent<RepairOrder>(e)) continue;
-                idle.Add(e);
-            }
-
-            if (idle.Count == 0) return;
-
-            _workerCycleIndex = (_workerCycleIndex + 1) % idle.Count;
-            var pick = idle[_workerCycleIndex];
-
-            SelectionSystem.ClearSelection();
-            SelectionSystem.AddToSelection(pick);
-
-            var pos = _em.GetComponentData<LocalTransform>(pick).Position;
-            CameraController.FocusOn(new Vector3(pos.x, pos.y, pos.z));
-        }
+        private void CycleIdleWorkers() => IdleWorkerCycler.SelectNext(_em);
     }
 }

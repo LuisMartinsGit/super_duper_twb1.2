@@ -155,7 +155,7 @@ military units over economy units when both are inside the box.
 | **D** | Stance: **Defensive** (the default for your units) — returns fire on whatever attacks it, if it can reach it from where it stands; never pursues. |
 | **G** | Stance: **Aggressive** — engages anything it can see and pursues it up to 30 m from its post, then walks back. |
 | **X** | Cycle formation shape: Box → Line → Wedge → Staggered. Re-slots the current selection immediately (AoE4-style). |
-| **B** | Cycle through idle Workers and center the camera. |
+| **B** | Cycle through idle Workers and center the camera. The **Idle builders** button above the bottom-left panel does the same and shows how many stand idle. |
 | **Z** | Enter / exit Planning Mode (queue commands visually, execute on confirm). |
 | **Esc** | Cascading: close menu → exit mode → clear selection → open menu. |
 | **1–9** | Recall control group. |

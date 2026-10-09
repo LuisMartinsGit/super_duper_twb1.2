@@ -397,6 +397,10 @@ namespace TheWaningBorder.Systems.Border
         /// </summary>
         private void TickAscension(EntityManager em, ref ShardrootState state, float dt)
         {
+            // Done is final: EliminationSystem reads AscensionFaction, so it
+            // must not be reset once the countdown has run out (0.0.38's
+            // first ascension won, then cleared itself the next tick).
+            if (state.AscensionDone != 0) return;
             float total = TheWaningBorder.Entities.ShardrootEmpowermentConfig.I.ascensionSeconds;
             Faction temple = Faction.Border;
             float3 templePos = default;
