@@ -927,6 +927,8 @@ namespace TheWaningBorder.Systems.Sect
                 var e = entities[i];
                 // Enemy-only power: allies are spared. docs/Design/Teams.md
                 if (!Alliances.AreHostile(faction, em.GetComponentData<FactionTag>(e).Value)) continue;
+                // The Shardbound King cannot be disabled (Curse_And_Shardroot.md § 3.1b).
+                if (em.HasComponent<TheWaningBorder.Entities.ShardboundKing>(e)) continue;
                 float3 p = em.GetComponentData<LocalTransform>(e).Position;
                 float dx = p.x - center.x, dz = p.z - center.z;
                 if (dx * dx + dz * dz > r2) continue;

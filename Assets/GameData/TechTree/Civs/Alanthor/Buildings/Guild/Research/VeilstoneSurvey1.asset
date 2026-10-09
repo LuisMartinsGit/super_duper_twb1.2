@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Veilstone Survey I
   role: Economy
   effect: 
-  desc: "Alanthor Guild. Faction-wide: Gatherer's Huts also generate Veilstone (+6/min)."
+  desc: "Alanthor Guild. Faction-wide: every Guild also produces Veilstone (+6/min at Guild L1, scaled by Guild level), drawn from no node, so it keeps paying after the nodes run dry."
   researchAt: GatherersHut
   minBuildingLevel: 2
   researchTime: 40

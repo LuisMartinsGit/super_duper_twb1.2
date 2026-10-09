@@ -22,3 +22,5 @@ MonoBehaviour:
   kingLeadsStrike: 1
   kingJoinsArmy: 1
   kingJoinMinArmy: 12
+  kingRetreatHpFraction: 0.4
+  kingRecoveredHpFraction: 0.9

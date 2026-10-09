@@ -172,6 +172,24 @@ public struct ShardrootBearer : IComponentData
 
     /// <summary>RitualKind that originally produced the carried glow (preserved through hand-offs).</summary>
     public RitualKind Source;
+
+    /// <summary>Where this courier means to deliver the Shardroot
+    /// (Curse_And_Shardroot.md § 3.1b): one of <see cref="ShardrootIntent"/>.
+    /// None (a player's courier) delivers at whichever of its own Hall or
+    /// Temple it reaches first; Hall / Temple make the other building's
+    /// delivery ignore it, so an AI courier routed to one is not intercepted
+    /// by the other on the way. Set by the AI; reset on a fresh pickup.</summary>
+    public byte Intent;
+}
+
+/// <summary>Values of <see cref="ShardrootBearer.Intent"/>.</summary>
+public static class ShardrootIntent
+{
+    public const byte None = 0;
+    /// <summary>The King road: deliver at the Hall (ShardrootSystem.AwakenHero).</summary>
+    public const byte Hall = 1;
+    /// <summary>Enshrine at the Temple of Ridan (ShardrootCarrySystem).</summary>
+    public const byte Temple = 2;
 }
 
 // ==================== Shardroot Storage (spec refinement #2) ====================

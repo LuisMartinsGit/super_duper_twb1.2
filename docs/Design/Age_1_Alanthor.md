@@ -252,8 +252,12 @@ decision 17): a developed hut ring is Alanthor's late-game mine.
 The survey drips **scale with the hut's Guild level** (2026-08-11, "fully
 developed huts are the late-game mine"): map iron deposits are finite and run
 dry around mid-game, and a maxed hut ring with the top survey is designed to
-carry the iron economy from there. Rates and the level scaling are on the
-tech and level SOs.
+carry the iron economy from there. **Since 2026-10-08 this is literal:**
+every completed survey tier makes every Guild pay a flat amount of its
+resource, scaled by that Guild's level, **drawn from no node** — it keeps
+paying after the nodes run dry at minute 30 (Territory_Claims.md § 11.3) —
+and a survey no longer multiplies the Mines. The per-tier rates and the
+level scaling are on `TerritoryIncomeSystem.asset`.
 
 **Reinforcement track** — the hut defends itself.
 

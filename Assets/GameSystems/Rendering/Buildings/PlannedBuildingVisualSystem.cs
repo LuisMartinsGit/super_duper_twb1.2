@@ -32,7 +32,7 @@ namespace TheWaningBorder.Rendering
             {
                 if (!views.TryGetView(entity, out var go) || go == null) continue;
                 // Owner-only, even with fog of war switched off.
-                if (fac.ValueRO.Value != me && !GameSettings.IsObserver)
+                if (fac.ValueRO.Value != me && !GameSettings.IsSpectating)
                 {
                     if (go.activeSelf) go.SetActive(false);
                     continue;

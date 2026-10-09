@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Alanthor_Swordsman
   displayName: Swordsman
   unitClass: human_melee
-  hp: 145
+  hp: 120
   speed: 5.5
   trainingTime: 16.8
   damage: 14

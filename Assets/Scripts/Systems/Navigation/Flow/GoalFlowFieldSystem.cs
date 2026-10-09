@@ -181,6 +181,17 @@ namespace TheWaningBorder.Systems.Navigation
         /// direct-bearing for the tick or two it takes.</summary>
         public const int MaxIntegrationsPerTick = 4;
 
+        /// <summary>
+        /// Under deterministic lockstep a detached batch goes live exactly
+        /// this many ticks after it was scheduled — a TICK count, never "when
+        /// the job happens to finish", so every peer and every replay flips
+        /// the same fields on the same tick. Engine-side (job latency), not
+        /// tuning. 2026-10-09: the old synchronous lockstep path stalled the
+        /// main thread on every integration — 73% of a headless 8-player
+        /// match's slow-frame time, and solo lockstep made every skirmish pay it.
+        /// </summary>
+        public const int LockstepFlipLatencyTicks = 2;
+
         /// <summary>Ring radius (cells) for snapping a blocked goal cell to
         /// the nearest walkable one.</summary>
         public const int GoalSnapRadius = 8;
@@ -258,13 +269,17 @@ namespace TheWaningBorder.Systems.Navigation
         //   * the slots flip to Valid = 1 at the top of the NEXT update —
         //     the jobs had the whole previous frame on worker threads, so
         //     the Complete() there is normally free.
-        // Under multiplayer deterministic lockstep the synchronous path is
-        // kept: field availability must not depend on frame rate there.
+        // Under deterministic lockstep the batch is detached too, but it
+        // flips live LockstepFlipLatencyTicks ticks after it was scheduled
+        // (Complete() then, blocking only if the workers are still busy), so
+        // field availability depends on the tick count, never the frame rate.
         private NativeArray<byte> _costSnapshot;
         private NativeArray<byte> _flagsSnapshot;
         private NativeList<int> _pendingSlots;
         private Unity.Jobs.JobHandle _pendingHandle;
         private int _pendingGeneration;
+        // The cache TickCounter the pending batch was scheduled on (lockstep flip).
+        private int _pendingTick;
         // The cost Generation the snapshot above was copied at. The copy is
         // taken only when the field has actually changed since (every cost
         // writer bumps Generation), not once per detached batch.
@@ -380,6 +395,18 @@ namespace TheWaningBorder.Systems.Navigation
             {
                 _lastEpoch = epoch;
                 cacheSingleton.TickCounter = 0;
+                // A batch scheduled in the machine-dependent pre-match frames
+                // must not flip on a peer-dependent tick: drain and drop it.
+                if (_pendingSlots.Length > 0)
+                {
+                    _pendingHandle.Complete();
+                    for (int i = 0; i < _pendingSlots.Length; i++)
+                    {
+                        var dropped = cacheSingleton.Slots[_pendingSlots[i]];
+                        if (dropped.Valid == 2) { dropped.Valid = 0; cacheSingleton.Slots[_pendingSlots[i]] = dropped; }
+                    }
+                    _pendingSlots.Clear();
+                }
             }
             cacheSingleton.TickCounter++;
 
@@ -398,7 +425,11 @@ namespace TheWaningBorder.Systems.Navigation
             // IsCompleted is the overwhelmingly common case and the
             // Complete() is free (contrast: the old same-tick Complete
             // stalled the main thread for the full integration).
-            if (_pendingSlots.Length > 0 && _pendingHandle.IsCompleted)
+            bool lockstep = GameSettings.UsesLockstep && GameSettings.DeterministicLockstep;
+            bool flipDue = lockstep
+                ? cacheSingleton.TickCounter - _pendingTick >= LockstepFlipLatencyTicks
+                : _pendingHandle.IsCompleted;
+            if (_pendingSlots.Length > 0 && flipDue)
             {
                 _pendingHandle.Complete();
                 for (int i = 0; i < _pendingSlots.Length; i++)
@@ -553,9 +584,10 @@ namespace TheWaningBorder.Systems.Navigation
             // own doc says so, and nothing ever sets it false) — the raw
             // read here kept every single-player match on the synchronous
             // main-thread stall path the detached design exists to avoid.
-            bool synchronous = GameSettings.IsMultiplayer
-                && GameSettings.DeterministicLockstep;
-            if (!synchronous && _pendingSlots.Length > 0) budget = 0;
+            // 2026-10-09: no synchronous path any more — lockstep detaches
+            // too and flips on a fixed tick (LockstepFlipLatencyTicks).
+            bool synchronous = false;
+            if (_pendingSlots.Length > 0) budget = 0;
 
             if (budget > 0)
             {
@@ -763,6 +795,7 @@ namespace TheWaningBorder.Systems.Navigation
                     // Detached: run through the frame on worker threads;
                     // flip at the top of the next update.
                     _pendingHandle = combined;
+                    _pendingTick = cacheSingleton.TickCounter;
                     for (int i = 0; i < budget; i++)
                         _pendingSlots.Add(slots[i]);
                 }

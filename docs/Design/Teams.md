@@ -104,6 +104,11 @@ The match ends when exactly one **team** remains, counting unteamed factions
 as teams of one. Eliminating an ally's last building does not advance you
 toward victory on your own.
 
+Elimination is **per faction** ([Territory_Claims.md § 7](Territory_Claims.md)):
+a faction that holds no territory of its own for the grace period is
+eliminated even while its allies hold plenty. Allies do not pool territory to
+keep each other alive.
+
 Well-domination victory (see [Curse_And_Shardroot.md](Curse_And_Shardroot.md))
 remains a **per-faction** condition: a single faction must hold all N wells at
 once. Teams do not pool well control — allies help you get there, they do not

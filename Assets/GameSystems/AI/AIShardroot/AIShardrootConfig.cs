@@ -54,5 +54,14 @@ namespace TheWaningBorder.AI
         /// <summary>The king joins a mission only once it has at least this
         /// many members.</summary>
         public int kingJoinMinArmy;
+
+        /// <summary>King Lexor is pulled out of the fight to the nearest Hall
+        /// when his health falls to this fraction of his max (2026-10-09:
+        /// the AI threw him away, and the Shardroot with him). 0 = never.</summary>
+        public float kingRetreatHpFraction;
+
+        /// <summary>...and stays out until he has healed back to this
+        /// fraction.</summary>
+        public float kingRecoveredHpFraction;
     }
 }

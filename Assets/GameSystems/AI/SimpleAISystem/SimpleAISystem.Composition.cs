@@ -437,6 +437,20 @@ namespace TheWaningBorder.AI
                 1f - budget.RangedFrac - budget.CavalryFrac - budget.SiegeFrac,
                 1f - balanced.RangedFrac - balanced.CavalryFrac - balanced.SiegeFrac);
 
+            // THE DOCTRINE (Game_AI.md § 6r, 2026-10-09): commit, don't hedge.
+            // One per faction per match, from the seed; it weights the classes
+            // and damps the enemy read, so armies differ and matchups are
+            // lopsided instead of two identical blobs grinding.
+            int d = DoctrineOf(faction);
+            if (d >= 0)
+            {
+                classFactor[ClassInfantry] *= Cfg.doctrineInfantry[d];
+                classFactor[ClassRanged]   *= Cfg.doctrineRanged[d];
+                classFactor[ClassCavalry]  *= Cfg.doctrineCavalry[d];
+                classFactor[ClassSiege]    *= Cfg.doctrineSiege[d];
+                p.CounterResponse *= math.max(0f, Cfg.doctrineCounterResponseScale);
+            }
+
             // ECONOMY: the veilstone the Outposts deliver a minute (on Buy),
             // or a bank that already holds plenty.
             p.VeilstoneIncome = OutpostVeilstoneIncome(em, faction);
@@ -517,6 +531,30 @@ namespace TheWaningBorder.AI
             }
             p.BasicsShare = b;
         }
+
+        /// <summary>The faction's doctrine index for this match, or -1 when
+        /// none are authored. A pure hash of the seed and the faction, so
+        /// every peer and every replay agrees.</summary>
+        private static int DoctrineOf(Faction faction)
+        {
+            var names = Cfg.doctrineNames;
+            int n = names == null ? 0 : names.Length;
+            if (n == 0 || Cfg.doctrineInfantry == null || Cfg.doctrineInfantry.Length < n
+                || Cfg.doctrineRanged == null || Cfg.doctrineRanged.Length < n
+                || Cfg.doctrineCavalry == null || Cfg.doctrineCavalry.Length < n
+                || Cfg.doctrineSiege == null || Cfg.doctrineSiege.Length < n) return -1;
+            uint h = (uint)GameSettings.SpawnSeed * 2654435761u + (uint)faction * 40503u + 7u;
+            h ^= h >> 13; h *= 0x5bd1e995u; h ^= h >> 15;
+            int d = (int)(h % (uint)n);
+            int k = (int)faction;
+            if (k >= 0 && k < _doctrineLogged.Length && !_doctrineLogged[k])
+            {
+                _doctrineLogged[k] = true;
+                AILogger.Log(faction, "MILITARY", $"doctrine for this match: {names[d]}");
+            }
+            return d;
+        }
+        private static readonly bool[] _doctrineLogged = new bool[16];
 
         // Host-only scratch for the plan build (no per-think garbage).
         private static readonly float[] _readSums = new float[ReadCount];

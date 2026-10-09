@@ -352,7 +352,7 @@ namespace TheWaningBorder.UI.Ingame
         /// </summary>
         public static void TriggerBuildingPlacement(string buildingId)
         {
-            if (GameSettings.IsObserver) return;
+            if (GameSettings.IsSpectating) return;
 
             var instance = FindFirstObjectByType<WorkerCommandPanel>();
             if (instance == null) return;
@@ -992,9 +992,9 @@ namespace TheWaningBorder.UI.Ingame
                 return;
             }
 
-            if (GameSettings.IsMultiplayer)
+            if (GameSettings.UsesLockstep)
             {
-                // Multiplayer: queue via lockstep — building created on all
+                // Lockstep (multiplayer AND single-player): queue via lockstep — building created on all
                 // clients at same tick. A Hall carries the worker standing at
                 // its site; the executor re-checks that worker at that tick.
                 CommandRouter.IssuePlaceBuilding(_em, id, pos, fac, hallWorker, out _,
@@ -1306,7 +1306,7 @@ namespace TheWaningBorder.UI.Ingame
                 return;
             }
 
-            if (GameSettings.IsMultiplayer)
+            if (GameSettings.UsesLockstep)
             {
                 CommandRouter.IssuePlaceWallHub(_em, pos, fac, palisade: PlacingPalisade);
 
@@ -1450,7 +1450,7 @@ namespace TheWaningBorder.UI.Ingame
         /// </summary>
         public static void TriggerHubBuildWall(Entity sourceHub)
         {
-            if (GameSettings.IsObserver) return;
+            if (GameSettings.IsSpectating) return;
             var instance = FindFirstObjectByType<WorkerCommandPanel>();
             if (instance == null) return;
 

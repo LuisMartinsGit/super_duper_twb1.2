@@ -34,7 +34,7 @@ namespace TheWaningBorder.Systems.Border
             // Dev tool, single-player only: the break request mutates the veil
             // field on the clicking peer alone, and the field drives
             // precipitation spawns — an unreplicated break forks the match.
-            if (GameSettings.IsMultiplayer) return;
+            if (GameSettings.UsesLockstep) return;
             if (!UnityEngine.Input.GetKey(KeyCode.LeftAlt)) return;
             if (!UnityEngine.Input.GetMouseButtonDown(0)) return;
             if (!TryCursorToWorld(out float wx, out float wz)) return;

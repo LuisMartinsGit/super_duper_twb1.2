@@ -33,8 +33,10 @@ namespace TheWaningBorder.UI.Menus
         /// of a tester:
         ///   Campaign    — not implemented
         ///   Scenarios   — dev harness; its scenes are not in the build anyway
-        ///   Load Game   — save/load is incomplete, and a broken load reads as
-        ///                 a lost session to the tester
+        ///
+        /// Load Game UNHIDDEN 2026-10-08: saved games and replays exist
+        /// (docs/Design/Replays_And_Saves.md) and LoadGameMenuButton opens
+        /// their screen.
         ///
         /// Multiplayer UNHIDDEN 2026-08-16: the lockstep pair survived a
         /// two-editor match after the determinism sweep
@@ -51,7 +53,6 @@ namespace TheWaningBorder.UI.Menus
         {
             "Menu_Item_Campaign",
             "Menu_Item_Scenarios",
-            "Menu_Item_LoadGame",
         };
 
         /// <summary>

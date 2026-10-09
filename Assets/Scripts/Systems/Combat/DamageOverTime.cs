@@ -54,7 +54,7 @@ namespace TheWaningBorder.Systems.Combat
             accumulator += amount * s;
             int whole = (int)accumulator;
             if (whole > 0) accumulator -= whole;
-            return whole;
+            return TheWaningBorder.Entities.ShardboundKingRules.CapIncoming(em, victim, whole);
         }
 
         /// <summary>Scale one whole tick (for DOTs with no per-victim
@@ -65,7 +65,7 @@ namespace TheWaningBorder.Systems.Combat
         {
             float s = IncomingScale(em, victim, isFire);
             if (s <= 0f || amount <= 0f) return 0;
-            return math.max(1, (int)(amount * s));
+            return TheWaningBorder.Entities.ShardboundKingRules.CapIncoming(em, victim, math.max(1, (int)(amount * s)));
         }
 
         /// <summary>Subtract already-scaled whole damage from the victim's

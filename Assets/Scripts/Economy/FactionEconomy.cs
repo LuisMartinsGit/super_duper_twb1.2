@@ -189,9 +189,14 @@ namespace TheWaningBorder.Economy
             r.Clamp();
 
             em.SetComponentData(bank, r);
+            // Credit is NOT gated on Recording (2026-10-08): its lifetime
+            // totals are the Score's Economy part in every match, and the
+            // post-game Muster Rolls reads them. Behind the gate a player's
+            // match (metrics off) scored 0 economy. Credit itself skips the
+            // per-period metric tables when not recording.
+            EconomyLedger.Credit(fac, source, c);
             if (EconomyLedger.Recording)
             {
-                EconomyLedger.Credit(fac, source, c);
                 EconomyLedger.Debit(fac, SpendCategory.Overflow,
                     unclamped.Supplies - r.Supplies, unclamped.Iron - r.Iron,
                     unclamped.Veilstone - r.Veilstone, unclamped.Veilsteel - r.Veilsteel);

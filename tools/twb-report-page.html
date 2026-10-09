@@ -456,10 +456,10 @@ function renderRuns(){
         (L?' · <span class="swatch" style="background:'+fhue(L[0])+'"></span>'+esc(fnmOf(m,L[0]))+' '+fmtScore(L[1]):'')+
         '</span>'+
       (m.live
-        ? '<span class="v live">'+esc(liveState().word)+'</span>'
+        ? '<span class="v live">'+esc(liveState(m._live).word)+'</span>'
         : '<span class="v '+(bad?"bad":"ok")+'">'+(bad?"FORK":"agreed")+
           (m.fidelity==="trace"?" · traced":"")+
-          (LIVE.m&&LIVE.m.liveKey===m.key?" · live now":"")+'</span>');
+          (liveEntry(m.key)?" · live now":"")+'</span>');
     b.addEventListener("click",function(){ selectMatch(i); });
     host.appendChild(b);
   });
@@ -2035,8 +2035,8 @@ var RES_NAMES=["Supplies","Iron","Veilstone","Veilsteel"];
 var IN_GROUPS=[
   ["Extractors",["gatherersHut","mine","veilstoneMine"]],
   ["Empty slots",["emptySlot"]],
-  ["Fortress level",["fortressLevel"]],
-  ["Capital",["capital"]],
+  ["Capital & Fortress level",["capital","fortressLevel"]],
+  ["Claims & Guild surveys",["territoryClaim","guildSurvey"]],
   ["Trade",["trade"]],
   ["Loot & curse kills",["loot","curseKill"]],
   ["Refunds",["refund"]],
@@ -2343,7 +2343,8 @@ function selectMatch(i,after){
      replay, and a new snapshot never pulls the page away from it */
   LIVE.follow=!!(m&&m.live);
   if(LIVE.ready&&!(m&&m.live)) LIVE.picked=true;   /* the reader chose a replay */
-  if(m&&m.live&&LIVE.doc) liveApply(m,LIVE.doc);
+  if(LIVE.ready&&m&&m.live&&!LIVE.auto) LIVE.touched=true;  /* the reader chose this live match */
+  if(m&&m.live&&m._live){ LIVE.last=m._live; if(m._live.doc) liveApply(m,m._live.doc); }
   liveBar();
   if(m && m.file && !m._loaded){
     setPlay(false); renderRuns();
@@ -2366,9 +2367,11 @@ function selectMatch(i,after){
 
 /* ── LIVE MODE (2026-10-05) ──────────────────────────────────────────────
    Published as an artifact with the `db` capability, the page subscribes to
-   ONE document, live/state, written every 20-30 s by the publisher from
-   tools/twb-live-snapshot.py. Each new snapshot becomes (or refreshes) a
-   synthetic match record at the top of the run strip -- the "LIVE" entry --
+   the `live` COLLECTION (2026-10-08: several matches at once): one document
+   per running match, live/m1, live/m2, ... (and the older lone live/state),
+   each written every 20-30 s by the publisher from
+   tools/twb-live-snapshot.py. Each match (by its matchKey) becomes (or
+   refreshes) a synthetic match record at the front of the run strip -- a "LIVE" entry --
    shaped like any other match, so draw(), the territory layer, the roster
    and the tables all read it unchanged: one position frame (every unit at the
    snapshot second), buildings standing from t=0, territory owners and meters
@@ -2378,11 +2381,34 @@ function selectMatch(i,after){
    document: nothing here runs and the page is exactly the replay viewer.
    Only window.claude.use is ever read (the runtime contract promises
    nothing else); the subscription is opened once and never from a render. */
-var LIVE={m:null,doc:null,follow:true,seq:null,key:null,err:null,ready:false,picked:false};
+/* LIVE.E: matchKey -> entry {key, m, doc, seq, src}; one run-strip entry per
+   MATCH, so two documents carrying the same matchKey (live/state left over
+   beside live/m1) show once. LIVE.byDoc: document id -> the matchKey it
+   carries now; a document that switches to a new matchKey replaces its old
+   entry (unless another document still carries it). LIVE.last: the live
+   entry the reader last had open, which the bar offers while a replay shows. */
+var LIVE={E:{},byDoc:{},last:null,follow:true,err:null,ready:false,picked:false,
+          touched:false,auto:false};
 var LIVE_STALE=5*60*1000;          /* no snapshot for this long: STALE, not LIVE */
+var LIVE_DOCS=["m1","m2","m3","m4","m5","m6","m7","m8","state"];  /* per-doc fallback */
 
-function liveState(){
-  var d=LIVE.doc;
+function liveEntry(k){
+  return (k!=null&&Object.prototype.hasOwnProperty.call(LIVE.E,k))?LIVE.E[k]:null;
+}
+function liveList(){
+  /* the live entries in run-strip order */
+  return M.filter(function(m){ return m.live&&m._live; }).map(function(m){ return m._live; });
+}
+/* The entry the bar is about: the selected match when it is live, else the
+   one the reader last watched, else the first in the strip. */
+function liveTarget(){
+  var s=M[sel];
+  if(s&&s.live&&s._live) return s._live;
+  if(LIVE.last&&M.indexOf(LIVE.last.m)>=0) return LIVE.last;
+  var L=liveList(); return L.length?L[0]:null;
+}
+function liveState(e){
+  var d=e&&e.doc;
   if(!d) return {word:"LIVE",cls:"on",age:0};
   var age=Math.max(0,Date.now()-(d.wrote||Date.now()));
   if(d.finished) return {word:"ENDED",cls:"ended",age:age};
@@ -2399,17 +2425,18 @@ function ago(ms){
    only -- it is refreshed once a second and never touches the canvas. */
 function liveBar(){
   var bar=document.getElementById("livebar"); if(!bar) return;
-  var d=LIVE.doc;
-  if(!d||!LIVE.m){ bar.hidden=true; return; }
+  var e=liveTarget(), d=e&&e.doc;
+  if(!d||!e.m){ bar.hidden=true; return; }
   bar.hidden=false;
-  var st=liveState(), on=(M[sel]===LIVE.m);
+  var st=liveState(e), on=(M[sel]===e.m), n=liveList().length;
   var badge=document.getElementById("livebadge");
   badge.textContent=st.word; badge.className="livebadge "+st.cls;
-  var shown=LIVE.m.tmax||0, behind=(on&&!LIVE.follow&&d.t>shown);
+  var shown=e.m.tmax||0, behind=(on&&!LIVE.follow&&d.t>shown);
   var txt='<b>'+esc((d.label?"["+d.label+"] ":"")+d.map)+'</b> · game time <b>'+mmss(d.t)+'</b> · updated '+
     esc(ago(st.age))+(d.finished&&d.outcome?' · '+esc(d.outcome):'')+
     (behind?' · <span class="warn">paused at '+mmss(shown)+'</span>':'')+
     (!on?' · you are viewing a replay':'')+
+    (n>1?' · '+n+' live matches in the strip':'')+
     (LIVE.err?' · <span class="warn">live feed stopped ('+esc(LIVE.err)+')</span>':'');
   setHTML("livetext",txt);
   var fb=document.getElementById("livefollow");
@@ -2417,10 +2444,11 @@ function liveBar(){
   fb.textContent=on?(LIVE.follow?"Following live":"Follow live"):"Go to live";
 }
 function liveFollowClick(){
-  var i=M.indexOf(LIVE.m); if(i<0) return;
-  if(M[sel]!==LIVE.m){ selectMatch(i); return; }
+  var e=liveTarget(); if(!e) return;
+  var i=M.indexOf(e.m); if(i<0) return;
+  if(M[sel]!==e.m){ selectMatch(i); return; }
   LIVE.follow=!LIVE.follow;
-  if(LIVE.follow&&LIVE.doc) liveRefresh();
+  if(LIVE.follow&&e.doc) liveRefresh(e);
   liveBar();
 }
 
@@ -2519,41 +2547,98 @@ function liveApply(m,d){
   m._loaded=true;
 }
 
-/* Redraw the live entry in place: no view reset, no replay clock reset. */
-function liveRefresh(){
-  var m=LIVE.m; if(!m||M[sel]!==m) return;
-  liveApply(m,LIVE.doc);
+/* Redraw a live entry in place: no view reset, no replay clock reset. */
+function liveRefresh(e){
+  var m=e&&e.m; if(!m||M[sel]!==m||!e.doc) return;
+  liveApply(m,e.doc);
   R.t=m.tmax; RS.sig="";
   renderRuns(); renderHead(); renderScore(); renderStanding(); renderComposition(); renderStructures();
   renderCharts(); draw(); renderRoster(true); liveBar();
 }
 
-/* One snapshot arrived (or the first one did). */
-function liveArrive(d){
+/* Put the live entries at the front of M, in document order (live/m1,
+   m2, ..., then live/state), the replays after them in their own order.
+   The selection is kept by REFERENCE: indices move, the match does not
+   (and the view stays tied to it). Every index-carrying view -- the
+   ledger's data-i rows -- is re-rendered by the caller. */
+function liveOrder(){
+  var keep=M[sel]||null, tied=(VW.sel===sel);
+  var L=[];
+  for(var k in LIVE.E) if(Object.prototype.hasOwnProperty.call(LIVE.E,k)) L.push(LIVE.E[k]);
+  L.sort(function(a,b){
+    var sa=String(a.src), sb=String(b.src);
+    if(sa!==sb) return sa<sb?-1:1;
+    return String(a.key)<String(b.key)?-1:(String(a.key)>String(b.key)?1:0);
+  });
+  var rest=M.filter(function(m){ return !m.live; });
+  M.length=0;
+  L.forEach(function(e){ M.push(e.m); });
+  rest.forEach(function(m){ M.push(m); });
+  var i=keep?M.indexOf(keep):-1;
+  if(i>=0){ sel=i; if(tied) VW.sel=i; }
+  else if(sel>=M.length) sel=Math.max(0,M.length-1);
+}
+
+/* Is the matchKey still carried by some document? */
+function liveCarried(k){
+  for(var id in LIVE.byDoc)
+    if(Object.prototype.hasOwnProperty.call(LIVE.byDoc,id)&&LIVE.byDoc[id]===k) return true;
+  return false;
+}
+
+/* One snapshot of document live/<id> arrived (or the first one did). */
+function liveArrive(id,d){
   if(!d||typeof d!=="object"||!d.matchKey||!d.facs) return;
-  var same=(LIVE.key===d.matchKey&&LIVE.seq===d.seq);
-  LIVE.doc=d;
-  if(same){ liveBar(); return; }               /* rewritten, nothing new: no redraw */
-  var fresh=(LIVE.key!==d.matchKey);
-  LIVE.key=d.matchKey; LIVE.seq=d.seq;
-  if(!LIVE.m||fresh){
-    var keepSel=M[sel]||null, wasLive=!!(keepSel&&keepSel.live);
-    if(LIVE.m){ var oi=M.indexOf(LIVE.m); if(oi>=0) M.splice(oi,1); }
-    LIVE.m={};
-    liveApply(LIVE.m,d);
-    M.unshift(LIVE.m);
-    /* the indices moved: keep the selection (and the view tied to it) */
-    if(keepSel&&!wasLive){ sel=M.indexOf(keepSel); VW.sel=sel; }
-    renderLedger();
-    var st=liveState(), linked=/[?&]m=/.test(location.search||"");
-    /* open on the live match while it is running -- unless a deep link chose
-       a replay, or the reader picked one: never pull a reader off a replay */
-    if(wasLive||!keepSel||(!LIVE.picked&&!linked&&st.cls==="on")){ selectMatch(0); return; }
-    LIVE.follow=false; renderRuns(); liveBar();
+  var k=String(d.matchKey), prev=LIVE.byDoc[id];
+  LIVE.byDoc[id]=k;
+  /* the document moved on to another match: its old entry goes, unless
+     another document still carries that match */
+  var dropped=null;
+  if(prev!=null&&prev!==k){
+    var pe=liveEntry(prev);
+    if(!liveCarried(prev)){
+      dropped=pe;
+      if(dropped){ delete LIVE.E[prev]; if(LIVE.last===dropped) LIVE.last=null; }
+    } else if(pe&&pe.src===id){
+      /* still carried elsewhere: it now sorts under the document that has it */
+      for(var od2 in LIVE.byDoc)
+        if(Object.prototype.hasOwnProperty.call(LIVE.byDoc,od2)&&LIVE.byDoc[od2]===prev){ pe.src=od2; break; }
+    }
+  }
+  var keepSel=M[sel]||null, wasSel=!!(dropped&&keepSel===dropped.m);
+  var e=liveEntry(k);
+  if(e){
+    /* two documents on one match: the newer snapshot wins */
+    var od=e.doc, newer=(e.src===id)||!od||(d.seq>e.seq)||
+      (d.seq===e.seq&&(d.wrote||0)>=(od.wrote||0));
+    var same=(e.seq===d.seq);
+    if(newer){ e.doc=d; if(e.src!==id&&d.seq>e.seq) e.src=id; }
+    if(dropped){
+      liveOrder(); renderLedger();
+      if(wasSel){ LIVE.auto=true; selectMatch(M.indexOf(e.m)); LIVE.auto=false; return; }
+      renderRuns(); liveBar(); return;
+    }
+    if(!newer||same){ liveBar(); return; }     /* rewritten, nothing new: no redraw */
+    e.seq=d.seq;
+    if(M[sel]===e.m&&LIVE.follow) liveRefresh(e);
+    else { renderRuns(); liveBar(); }
     return;
   }
-  if(M[sel]===LIVE.m&&LIVE.follow) liveRefresh();
-  else { renderRuns(); liveBar(); }
+  /* a match the strip has not seen: a new live entry */
+  e={key:k,m:{},doc:d,seq:d.seq,src:id};
+  liveApply(e.m,d); e.m._live=e;
+  LIVE.E[k]=e;
+  liveOrder(); renderLedger();
+  var st=liveState(e), linked=/[?&]m=/.test(location.search||"");
+  var onLive=!!(keepSel&&keepSel.live&&!wasSel);
+  /* open on a running live match -- unless a deep link chose a replay, the
+     reader picked a replay, or the reader is already on a live match they
+     chose (or one still running): never pull a reader off what they watch */
+  var take=wasSel||!keepSel||
+    (!onLive&&!LIVE.picked&&!linked&&st.cls==="on")||
+    (onLive&&!LIVE.touched&&st.cls==="on"&&liveState(keepSel._live).cls!=="on");
+  if(take){ LIVE.auto=true; selectMatch(M.indexOf(e.m)); LIVE.auto=false; return; }
+  renderRuns(); liveBar();
 }
 
 function liveStart(){
@@ -2562,13 +2647,33 @@ function liveStart(){
   LIVE.ready=true;
   var fb=document.getElementById("livefollow"); if(fb) fb.onclick=liveFollowClick;
   var p; try{ p=c.use("db"); }catch(_){ return; }
+  function take(id,snap){
+    if(!snap||!snap.exists) return;          /* a missing document is simply not live */
+    try{ liveArrive(id,snap.data()); }catch(e){ if(window.console) console.error("live snapshot",e); }
+  }
+  function fail(err){ LIVE.err=(err&&err.code)||"error"; liveBar(); }
+  var perDocOn=false;
+  /* fallback: one subscription per known document id; absent ones are ignored */
+  function perDoc(db){
+    if(perDocOn) return; perDocOn=true;
+    LIVE_DOCS.forEach(function(id){
+      var ref; try{ ref=db.doc("live/"+id); }catch(_){ return; }
+      ref.onSnapshot(function(snap){ take(id,snap); },fail);
+    });
+  }
   Promise.resolve(p).then(function(db){
     if(!db) return;
-    var ref; try{ ref=db.doc("live/state"); }catch(_){ return; }
-    ref.onSnapshot(function(snap){
-      if(!snap||!snap.exists) return;
-      try{ liveArrive(snap.data()); }catch(e){ if(window.console) console.error("live snapshot",e); }
-    },function(err){ LIVE.err=(err&&err.code)||"error"; liveBar(); });
+    /* the whole `live` collection in ONE subscription: live/m1..mN and the
+       older live/state alike, each delivered with its document id */
+    var col=null; try{ col=db.collection("live"); }catch(_){ col=null; }
+    if(!col||typeof col.onSnapshot!=="function") perDoc(db);
+    else col.onSnapshot(function(qs){
+      (qs&&qs.docs||[]).forEach(function(ds){ if(ds) take(ds.id,ds); });
+    },function(err){
+      var code=err&&err.code;
+      if(code==="revoked"||code==="not_granted"||code==="capability_disabled"){ fail(err); return; }
+      perDoc(db);                               /* collection listener refused: per document */
+    });
     setInterval(liveBar,1000);
   },function(){});
 }

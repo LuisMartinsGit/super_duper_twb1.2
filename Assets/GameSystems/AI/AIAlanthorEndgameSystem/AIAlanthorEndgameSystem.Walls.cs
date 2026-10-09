@@ -582,7 +582,7 @@ namespace TheWaningBorder.AI
                             return s;
                         });
 
-                    if (GameSettings.IsMultiplayer)
+                    if (GameSettings.UsesLockstep)
                     {
                         CommandRouter.IssuePlaceWallHub(em, pos, faction,
                             autoBuild: true, CommandSource.AI);

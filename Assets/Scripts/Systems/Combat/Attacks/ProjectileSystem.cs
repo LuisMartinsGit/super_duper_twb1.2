@@ -463,7 +463,7 @@ namespace TheWaningBorder.Systems.Combat
             }
 
             // Ability: scale total incoming damage (Liquid Courage 90% DR) before HP.
-            int appliedDamage = TheWaningBorder.Abilities.AbilityDamageHooks.ScaleIncoming(em, targetEntity, impactDamage);
+            int appliedDamage = TheWaningBorder.Abilities.AbilityDamageHooks.ScaleIncoming(em, targetEntity, impactDamage, shooter);
             // Shield points are hit points: the shield pays first.
             var targetHealth = em.GetComponentData<Health>(targetEntity);
             targetHealth.Value -= ShieldDamage.Absorb(em, targetEntity, appliedDamage);
@@ -600,7 +600,7 @@ namespace TheWaningBorder.Systems.Combat
                     int chip = (int)(splashDmg * 0.3f);
                     splashDmg = chip < 1 ? 1 : chip;
                 }
-                splashDmg = TheWaningBorder.Abilities.AbilityDamageHooks.ScaleIncoming(em, entities[i], splashDmg);
+                splashDmg = TheWaningBorder.Abilities.AbilityDamageHooks.ScaleIncoming(em, entities[i], splashDmg, shooter);
 
                 hp.Value = math.max(0, hp.Value - ShieldDamage.Absorb(em, entities[i], splashDmg));
                 em.SetComponentData(entities[i], hp);

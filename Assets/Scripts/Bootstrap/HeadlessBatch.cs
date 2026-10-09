@@ -93,11 +93,82 @@ namespace TheWaningBorder.Bootstrap
         {
             Active = true;
 
+            // -twbReplay <file>: re-simulate a recorded match and report
+            // whether every recorded state hash still matches (R7 of
+            // docs/Save_And_Replay_Plan.md). Exit 0 = identical, 42 = diverged,
+            // 3 = the file could not be played.
+            string replayArg = ArgStr(args, "-twbReplay");
+            if (!string.IsNullOrEmpty(replayArg))
+            {
+                BeginReplayVerify(replayArg);
+                return;
+            }
+
+            // -twbOracle <save> -twbOracleReplay <replay>: THE SNAPSHOT ORACLE.
+            // Restore the save's snapshot, then feed the original match's
+            // commands from the save's tick on and check its recorded hashes.
+            // Every hash matching means the snapshot captured the whole
+            // simulation. Exit 0 identical, 42 diverged, 3 unreadable.
+            string oracleSave = ArgStr(args, "-twbOracle");
+            if (!string.IsNullOrEmpty(oracleSave))
+            {
+                _verify = true;
+                _verifyFile = oracleSave;
+                if (!TheWaningBorder.Core.Replay.ReplaySession.PrepareWatchFromSave(
+                        oracleSave, ArgStr(args, "-twbOracleReplay"), out string oerr))
+                {
+                    Debug.LogError($"[HeadlessBatch] ORACLE could not start: {oerr}");
+                    _done = true;
+                    Application.Quit(3);
+                    return;
+                }
+                TheWaningBorder.Core.Replay.ReplaySession.Unthrottled = true;
+                MatchLogSession.RunInfo = "Snapshot oracle: " + System.IO.Path.GetFileName(oracleSave);
+                Debug.Log($"[HeadlessBatch] ORACLE from tick {TheWaningBorder.Core.Replay.ReplaySession.StartTick} " +
+                          $"to {TheWaningBorder.Core.Replay.ReplaySession.StopTick}");
+                SceneManager.LoadScene(GameSettings.SelectedMapScene);
+                return;
+            }
+
+            // -twbResume <save>: load a saved game (fast-forward to its marker,
+            // hand over to the AI) and play on until -twbLimit simulated
+            // seconds — the save/load path without a menu.
+            string resumeArg = ArgStr(args, "-twbResume");
+            if (!string.IsNullOrEmpty(resumeArg))
+            {
+                _limit = ArgInt(args, "-twbLimit", 1200);
+                _speed = Mathf.Clamp(ArgInt(args, "-twbSpeed", 3), 0.25f, 8f);
+                if (!TheWaningBorder.Core.Replay.ReplaySession.Prepare(
+                        resumeArg, TheWaningBorder.Core.Replay.ReplayMode.Resume, out string rerr))
+                {
+                    Debug.LogError($"[HeadlessBatch] RESUME could not load {resumeArg}: {rerr}");
+                    _done = true;
+                    Application.Quit(3);
+                    return;
+                }
+                MatchLogSession.RunInfo = "Resume: " + System.IO.Path.GetFileName(resumeArg);
+                Debug.Log($"[HeadlessBatch] RESUME {resumeArg} at tick " +
+                          $"{TheWaningBorder.Core.Replay.ReplaySession.File.SaveTick}, map {GameSettings.SelectedMapScene}, " +
+                          $"limit {_limit}s");
+                TheWaningBorder.Core.Replay.ReplaySession.HandedOver += () =>
+                    Debug.Log($"[HeadlessBatch] RESUME handed over at sim {TheWaningBorder.Core.SimClock.Now:F1}s — " +
+                              $"{TheWaningBorder.Core.Replay.ReplaySession.HashesVerified} hashes verified, diverged=" +
+                              $"{TheWaningBorder.Core.Replay.ReplaySession.Diverged}");
+                SceneManager.LoadScene(GameSettings.SelectedMapScene);
+                return;
+            }
+
             int players = ArgInt(args, "-twbPlayers", 4);
             _limit = ArgInt(args, "-twbLimit", 1200);
             float speed = ArgInt(args, "-twbSpeed", 3);
             int seed = ArgInt(args, "-twbSeed", UnityEngine.Random.Range(1, 99999));
             _rich = Array.IndexOf(args, "-twbRich") >= 0;
+            // -twbSaveAt <sim seconds>: write a saved game mid-match (the match
+            // carries on, recording its replay) — the input to -twbOracle.
+            _saveAt = ArgInt(args, "-twbSaveAt", 0);
+            // The RICH top-up writes the banks outside the command stream, so
+            // its replay could never reproduce the match: write none.
+            TheWaningBorder.Core.Replay.ReplayRecorder.Suppressed = _rich;
 
             // -twbMap <SceneName>: run on a specific map. Without it the
             // batch inherits GameSettings.SelectedMapScene's static default,
@@ -186,6 +257,11 @@ namespace TheWaningBorder.Bootstrap
                 if (!em.HasComponent<TheWaningBorder.Economy.FactionResources>(bank)) continue;
 
                 var res = em.GetComponentData<TheWaningBorder.Economy.FactionResources>(bank);
+                // Booked as a Grant (2026-10-08) so a RICH run's metrics do
+                // not show the top-up as "untracked" income.
+                int cap = TheWaningBorder.Economy.FactionResources.ResourceCap;
+                TheWaningBorder.Economy.EconomyLedger.Credit(faction, TheWaningBorder.Economy.IncomeSource.Grant,
+                    cap - res.Supplies, cap - res.Iron, cap - res.Veilstone, cap - res.Veilsteel);
                 res.Supplies  = TheWaningBorder.Economy.FactionResources.ResourceCap;
                 res.Iron      = TheWaningBorder.Economy.FactionResources.ResourceCap;
                 res.Veilstone = TheWaningBorder.Economy.FactionResources.ResourceCap;
@@ -194,9 +270,51 @@ namespace TheWaningBorder.Bootstrap
             }
         }
 
+        private bool _verify;
+        private string _verifyFile;
+        private float _saveAt;
+        private bool _saved;
+
+        private void BeginReplayVerify(string path)
+        {
+            _verify = true;
+            _verifyFile = path;
+            if (!TheWaningBorder.Core.Replay.ReplaySession.Prepare(
+                    path, TheWaningBorder.Core.Replay.ReplayMode.Watch, out string error))
+            {
+                Debug.LogError($"[HeadlessBatch] REPLAY VERIFY could not play {path}: {error}");
+                _done = true;
+                Application.Quit(3);
+                return;
+            }
+            TheWaningBorder.Core.Replay.ReplaySession.Unthrottled = true;
+            MatchLogSession.RunInfo = "Replay verify: " + System.IO.Path.GetFileName(path);
+            Debug.Log($"[HeadlessBatch] REPLAY VERIFY {path} — map {GameSettings.SelectedMapScene}, " +
+                      $"{TheWaningBorder.Core.Replay.ReplaySession.StopTick} ticks, " +
+                      $"{TheWaningBorder.Core.Replay.ReplaySession.File.Hashes.Count} recorded hashes");
+            SceneManager.LoadScene(GameSettings.SelectedMapScene);
+        }
+
+        private void UpdateReplayVerify()
+        {
+            if (!TheWaningBorder.Core.Replay.ReplaySession.Ended) return;
+            _done = true;
+            bool diverged = TheWaningBorder.Core.Replay.ReplaySession.Diverged;
+            string verdict = diverged
+                ? $"DIVERGED at tick {TheWaningBorder.Core.Replay.ReplaySession.DivergedTick}"
+                : "IDENTICAL";
+            Debug.Log($"[HeadlessBatch] REPLAY VERIFY {verdict} — " +
+                      $"{TheWaningBorder.Core.Replay.ReplaySession.HashesVerified} of " +
+                      $"{TheWaningBorder.Core.Replay.ReplaySession.File?.Hashes.Count ?? 0} hashes matched " +
+                      $"({System.IO.Path.GetFileName(_verifyFile)})");
+            MatchLogSession.RecordOutcome("REPLAY VERIFY " + verdict);
+            Application.Quit(diverged ? 42 : 0);
+        }
+
         private void Update()
         {
             if (_done) return;
+            if (_verify) { UpdateReplayVerify(); return; }
 
             // RE-ASSERT EVERY FRAME. Begin() runs BeforeSceneLoad; GameBootstrap
             // then calls GameSpeedControl.Apply() on match start, which sets
@@ -248,6 +366,17 @@ namespace TheWaningBorder.Bootstrap
             // runs behind the scaled clock above — "-twbLimit 7200" used to end
             // an 8-player match after about 60 simulated minutes.
             float simT = TheWaningBorder.Core.SimClock.Now;
+
+            if (_saveAt > 0f && !_saved && simT >= _saveAt
+                && TheWaningBorder.Core.Save.SaveGameWriter.CanSave)
+            {
+                _saved = true;
+                if (TheWaningBorder.Core.Save.SaveGameWriter.Save($"headless {simT:0}s", out string sp, out string serr))
+                    Debug.Log($"[HeadlessBatch] SAVED at {simT:F1}s → {sp}");
+                else
+                    Debug.LogError($"[HeadlessBatch] SAVE FAILED at {simT:F1}s: {serr}");
+            }
+
             if (_limit <= 0f || simT < _limit) return;
 
             _done = true;

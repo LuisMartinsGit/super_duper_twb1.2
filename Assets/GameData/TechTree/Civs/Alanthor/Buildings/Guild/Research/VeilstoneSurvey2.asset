@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Veilstone Survey II
   role: Economy
   effect: 
-  desc: "Alanthor Guild. Raises Gatherer's Hut Veilstone output to +18/min."
+  desc: "Alanthor Guild. Every Guild's survey Veilstone rises by another +6/min (scaled by Guild level)."
   researchAt: GatherersHut
   minBuildingLevel: 3
   researchTime: 45

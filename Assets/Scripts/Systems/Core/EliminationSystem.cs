@@ -19,12 +19,21 @@
 // VictoryConditionSystem keeps everything presentational: it OBSERVES the
 // buffer and the verdict and drives banners / stats / MatchLifecycle from
 // the local player's perspective.
+//
+// TWO RULES (docs/Design/Territory_Claims.md § 7, 2026-10-08):
+//   1. no lifeline - no Hall/Fortress, no military building, no worker;
+//   2. no territory - a faction that has held ground at least once and then
+//      holds NONE for noTerritoryGraceSeconds of continuous sim time.
+// Both retire the faction the same way: an EliminatedFactionRecord and
+// Health = 0 on every asset it still owns, so no remnant can stand on a
+// territory and claim or hold it. Timing lives on EliminationSystem.asset.
 
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
 using TheWaningBorder.Core;
 using TheWaningBorder.Data;
+using TheWaningBorder.World.Regions;
 
 /// <summary>Sim-authoritative match verdict. Decided flips exactly once,
 /// on the same tick on every lockstep peer.</summary>
@@ -48,14 +57,35 @@ namespace TheWaningBorder.Systems.Core
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial class EliminationSystem : SystemBase
     {
-        private const float CheckInterval = 2f;   // same cadence the Mono used
-        private const float GracePeriod = 10f;    // same start grace
+        /// <summary>Faction slots the per-faction arrays cover (Blue..White
+        /// plus Border). Sizes data, not tuning.</summary>
+        private const int MaxFactions = 9;
+
+        private static readonly ComponentType[] QT_Verdict =
+            { ComponentType.ReadOnly<MatchVerdictState>() };
+        private static CachedEntityQuery QC_Verdict;
+
+        private static readonly ComponentType[] QT_FactionHealth =
+            { ComponentType.ReadOnly<FactionTag>(), ComponentType.ReadWrite<Health>() };
+        private static CachedEntityQuery QC_FactionHealth;
 
         private SimCadence.Periodic _acc;
         private int _epoch = -1;
         private float _matchSeconds;
         private readonly HashSet<Faction> _everSeenAlive = new();
         private Entity _verdictEntity;
+
+        // The no-territory rule (Territory_Claims.md § 7). Sim state on the
+        // lockstep clock, reset per match with the rest.
+        /// <summary>The faction has held at least one territory this match.</summary>
+        private readonly bool[] _everHeldTerritory = new bool[MaxFactions];
+        /// <summary>Match second its last territory was seen gone; -1 while
+        /// it holds ground.</summary>
+        private readonly float[] _landlessSince = new float[MaxFactions];
+        // Rule 3 (2026-10-09): a faction that has had a building and now has
+        // none, since when (sim seconds), or -1.
+        private readonly bool[] _everHadBuilding = new bool[MaxFactions];
+        private readonly float[] _buildinglessSince = new float[MaxFactions];
 
         protected override void OnUpdate()
         {
@@ -68,6 +98,13 @@ namespace TheWaningBorder.Systems.Core
                 _matchSeconds = 0f;
                 _everSeenAlive.Clear();
                 _verdictEntity = Entity.Null;
+                for (int i = 0; i < MaxFactions; i++)
+                {
+                    _everHeldTerritory[i] = false;
+                    _landlessSince[i] = -1f;
+                    _everHadBuilding[i] = false;
+                    _buildinglessSince[i] = -1f;
+                }
             }
 
             // Tick-locked match clock: nothing accrues before tick 0 or
@@ -76,8 +113,10 @@ namespace TheWaningBorder.Systems.Core
             if (lockstep != null && !lockstep.IsSimulationRunning) return;
             _matchSeconds += SystemAPI.Time.DeltaTime;
 
-            if (!_acc.Due(SystemAPI.Time.DeltaTime, CheckInterval)) return;
-            if (_matchSeconds < GracePeriod) return;
+            var cfg = EliminationSystemConfig.I;
+            if (cfg == null) return;   // Require already logged the data bug
+            if (!_acc.Due(SystemAPI.Time.DeltaTime, cfg.checkIntervalSeconds)) return;
+            if (_matchSeconds < cfg.startGraceSeconds) return;
 
             var em = EntityManager;
 
@@ -85,7 +124,7 @@ namespace TheWaningBorder.Systems.Core
             if (_verdictEntity == Entity.Null || !em.Exists(_verdictEntity)
                 || !em.HasComponent<MatchVerdictState>(_verdictEntity))
             {
-                var q = em.CreateEntityQuery(ComponentType.ReadOnly<MatchVerdictState>());
+                var q = QC_Verdict.Get(em, QT_Verdict);
                 if (q.IsEmptyIgnoreFilter)
                 {
                     _verdictEntity = em.CreateEntity(typeof(MatchVerdictState));
@@ -96,7 +135,6 @@ namespace TheWaningBorder.Systems.Core
                     using var ents = q.ToEntityArray(Allocator.Temp);
                     _verdictEntity = ents[0];
                 }
-                q.Dispose();
             }
 
             var verdict = em.GetComponentData<MatchVerdictState>(_verdictEntity);
@@ -119,8 +157,8 @@ namespace TheWaningBorder.Systems.Core
             // ── Lifelines: Hall OR military building OR worker — the same
             // survival rule the Mono computed (2026-08-07 rewrite), read at
             // an identical tick on every peer now. ──
-            const int MaxFactions = 9;
             var hasHall = new bool[MaxFactions];
+            var hasBuilding = new bool[MaxFactions];
             var hasMilitary = new bool[MaxFactions];
             var hasWorker = new bool[MaxFactions];
 
@@ -133,6 +171,8 @@ namespace TheWaningBorder.Systems.Core
                 {
                     int fi = (int)facs[i].Value;
                     if (fi < 0 || fi >= MaxFactions) continue;
+                    // Rule 3 counts sites too (plans carry no BuildingTag).
+                    hasBuilding[fi] = true;
                     if (em.HasComponent<UnderConstruction>(ents[i])) continue;
                     if (em.HasComponent<HallTag>(ents[i])) { hasHall[fi] = true; continue; }
                     if (!hasMilitary[fi] && IsMilitaryBuilding(em, ents[i]))
@@ -155,16 +195,96 @@ namespace TheWaningBorder.Systems.Core
                 }
             }
 
+            // ── Territory held, per faction (Territory_Claims.md § 7). The
+            // meter is sim state advanced by TerritoryClaimSystem on the
+            // lockstep clock; walked in territory-index order. A map with no
+            // region partition cannot apply the rule. ──
+            var territories = new int[MaxFactions];
+            bool territoryRule = cfg.noTerritoryGraceSeconds > 0f
+                && TerritoryOwnership.Ready && RegionMap.Count > 0;
+            if (territoryRule)
+            {
+                int count = RegionMap.Count;
+                for (int t = 0; t < count; t++)
+                {
+                    int owner = TerritoryOwnership.OwnerOf(t);
+                    if (owner >= 0 && owner < MaxFactions) territories[owner]++;
+                }
+            }
+
             // ── Retire the fallen, in faction order (deterministic). ──
             var newly = new List<Faction>();
+            var reason = new Dictionary<Faction, string>();
             foreach (var f in alive)
             {
                 int fi = (int)f;
+                if (fi < 0 || fi >= MaxFactions) continue;
                 bool canRebuild = hasHall[fi] || hasMilitary[fi] || hasWorker[fi];
-                if (canRebuild) { _everSeenAlive.Add(f); continue; }
-                if (!_everSeenAlive.Contains(f)) continue;  // never spawned yet
+                if (canRebuild) _everSeenAlive.Add(f);
+
+                if (!canRebuild)
+                {
+                    if (!_everSeenAlive.Contains(f)) continue;  // never spawned yet
+                    newly.Add(f);
+                    reason[f] = "no Hall, no military building, no workers.";
+                    continue;
+                }
+
+                // ── Rule 3: no buildings (2026-10-09, § 7) — the zombie
+                // remnant of three units holding a territory forever. ──
+                if (hasBuilding[fi]) { _everHadBuilding[fi] = true; _buildinglessSince[fi] = -1f; }
+                else if (_everHadBuilding[fi] && cfg.noTerritoryGraceSeconds > 0f)
+                {
+                    if (_buildinglessSince[fi] < 0f)
+                    {
+                        _buildinglessSince[fi] = _matchSeconds;
+                        TheWaningBorder.AI.AILogger.Log(f, "VICTORY",
+                            $"NO BUILDINGS at {_matchSeconds:0}s - eliminated in " +
+                            $"{cfg.noTerritoryGraceSeconds:0}s unless one is placed.");
+                    }
+                    else if (_matchSeconds - _buildinglessSince[fi] >= cfg.noTerritoryGraceSeconds)
+                    {
+                        newly.Add(f);
+                        reason[f] = $"no buildings for {_matchSeconds - _buildinglessSince[fi]:0}s.";
+                        continue;
+                    }
+                }
+
+                if (!territoryRule) continue;
+                if (territories[fi] > 0)
+                {
+                    if (_landlessSince[fi] >= 0f)
+                        TheWaningBorder.AI.AILogger.Log(f, "VICTORY",
+                            $"ground held again at {_matchSeconds:0}s - the no-territory clock stops.");
+                    _everHeldTerritory[fi] = true;
+                    _landlessSince[fi] = -1f;
+                    continue;
+                }
+                // Never held ground yet (the start territory is claimed by its
+                // Fortress on the first claim ticks): not landless.
+                if (!_everHeldTerritory[fi]) continue;
+                if (_landlessSince[fi] < 0f)
+                {
+                    _landlessSince[fi] = _matchSeconds;
+                    TheWaningBorder.AI.AILogger.Log(f, "VICTORY",
+                        $"LANDLESS at {_matchSeconds:0}s - eliminated in " +
+                        $"{cfg.noTerritoryGraceSeconds:0}s unless a territory is held again.");
+                    continue;
+                }
+                if (_matchSeconds - _landlessSince[fi] < cfg.noTerritoryGraceSeconds) continue;
                 newly.Add(f);
+                reason[f] = $"no territory held for {_matchSeconds - _landlessSince[fi]:0}s.";
             }
+            // ── Ascension (§ 7 exception, Curse_And_Shardroot.md §3.1c): the
+            // enshrining Temple outlasted its countdown — every faction
+            // hostile to the ascendant falls. ──
+            if (TryAscendant(em, out var ascendant))
+                foreach (var f in alive)
+                    if (f != ascendant && Alliances.AreHostile(f, ascendant) && !newly.Contains(f))
+                    {
+                        newly.Add(f);
+                        reason[f] = $"{ascendant} ascended with the Shardroot.";
+                    }
             newly.Sort();
 
             foreach (var f in newly)
@@ -174,7 +294,7 @@ namespace TheWaningBorder.Systems.Core
                   .Add(new EliminatedFactionRecord { Value = f, AtSimSeconds = _matchSeconds });
                 SelfDestructFactionAssets(em, f);
                 TheWaningBorder.AI.AILogger.Log(f, "VICTORY",
-                    $"ELIMINATED at {_matchSeconds:0}s - no Hall, no military building, no workers.");
+                    $"ELIMINATED at {_matchSeconds:0}s - {reason[f]}");
             }
 
             // ── Decided when no hostile pair remains among the living. ──
@@ -192,16 +312,30 @@ namespace TheWaningBorder.Systems.Core
             }
         }
 
+        private static readonly ComponentType[] QT_Shardroot = { ComponentType.ReadOnly<ShardrootState>() };
+        private static CachedEntityQuery QC_Shardroot;
+
+        private static bool TryAscendant(EntityManager em, out Faction ascendant)
+        {
+            ascendant = Faction.Border;
+            var q = QC_Shardroot.Get(em, QT_Shardroot);
+            if (q.IsEmptyIgnoreFilter) return false;
+            using var s = q.ToComponentDataArray<ShardrootState>(Allocator.Temp);
+            if (s[0].AscensionDone == 0 || s[0].AscensionFaction == Faction.Border) return false;
+            ascendant = s[0].AscensionFaction;
+            return true;
+        }
+
         /// <summary>Health = 0 for every asset of a retired faction —
         /// DeathSystem owns the destruction (unit-death contract). Runs on
-        /// every peer at the same tick, so the wipe is lockstep-identical.</summary>
+        /// every peer at the same tick, so the wipe is lockstep-identical.
+        /// Both elimination rules end here: nothing of an eliminated faction
+        /// survives to stand on, claim or hold a territory.</summary>
         private static void SelfDestructFactionAssets(EntityManager em, Faction faction)
         {
-            var q = em.CreateEntityQuery(
-                ComponentType.ReadOnly<FactionTag>(), ComponentType.ReadWrite<Health>());
+            var q = QC_FactionHealth.Get(em, QT_FactionHealth);
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            q.Dispose();
             for (int i = 0; i < ents.Length; i++)
             {
                 if (facs[i].Value != faction) continue;

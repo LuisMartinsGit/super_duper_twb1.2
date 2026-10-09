@@ -110,7 +110,7 @@ namespace TheWaningBorder.UI.Ingame
             // on one peer and drop on the other. SP keeps the direct call for
             // the instant error message.
             bool has = SectActivePowerHelper.HasShardrootAllocated(em, faction, view.SectId);
-            if (GameSettings.IsMultiplayer)
+            if (GameSettings.UsesLockstep)
             {
                 TheWaningBorder.Core.Commands.CommandRouter.IssueSectShardrootAlloc(
                     em, faction, view.SectId, allocate: !has);

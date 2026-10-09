@@ -1263,7 +1263,9 @@ namespace TheWaningBorder.AI
             // while being farmed for 242 kills. Past the overdue window the
             // veto yields — a counter-raid at the raider's own ground is
             // usually the best defence there is.
-            if (aiState.Posture == AIPosture.Defend && !overdue)
+            // THE ALL-IN (§ 6n): home is the home guard's; the army goes.
+            bool allIn = AllInArmed(faction);
+            if (aiState.Posture == AIPosture.Defend && !overdue && !allIn)
                 return false;
 
             // Pressure posture commits with a slightly smaller wave.
@@ -1336,7 +1338,7 @@ namespace TheWaningBorder.AI
             // A WAVE IS A PUSH, NOT A FEEDER (2026-10-05, Game_AI.md 6a): on
             // a tier with waveMinArmyFraction the wave is at least that share
             // of the standing army, so frequent waves stay real pushes.
-            if (profile.WaveMinArmyFraction > 0f)
+            if (profile.WaveMinArmyFraction > 0f && !allIn)
                 minUnits = math.max(minUnits,
                     (int)math.ceil(standing * math.saturate(profile.WaveMinArmyFraction)));
 
@@ -1491,7 +1493,17 @@ namespace TheWaningBorder.AI
                 // doctrine's pick of the moment.
                 victim = CommitWarVictim(em, faction, victim, now);
                 waveVictim = victim;
-                if (victim != faction)
+                if (victim != faction && TryShardrootObjective(em, faction, victim, out Entity hEnt, out float3 hPos))
+                {
+                    // § 6p: the holder itself — carrier, Shardbound King or
+                    // the enshrining Temple (the ascension's clock is on).
+                    target = hEnt;
+                    targetPos = hPos;
+                    scored = false;
+                    sightingObjective = true;
+                    _lastDoctrine = $"{victim} holds the Shardroot — everyone against it";
+                }
+                else if (victim != faction)
                 {
                     // The KNOWN world only: the victim's Hall as the scouts
                     // last reported it. No sighting means the scouts owe us
@@ -1697,7 +1709,10 @@ namespace TheWaningBorder.AI
                 // full-population rule asked for, kept as the release valve.
                 PopulationHelper.TryGetFactionPopulation(faction, out int sgPop, out int sgMax);
                 bool atCeiling = sgMax > 0 && sgPop >= sgMax;
-                if (assault.MyPower < need && !atCeiling)
+                // THE ALL-IN (§ 6n) holds only against an objective that
+                // outweighs the army allInMaxEnemyRatio times over.
+                bool allInGo = allIn && known < assault.MyPower * math.max(1f, Cfg.allInMaxEnemyRatio);
+                if (assault.MyPower < need && !atCeiling && !allInGo)
                 {
                     // At least as large as the defence demands, so the army
                     // the faction keeps growing is the one that can win.
@@ -1717,9 +1732,23 @@ namespace TheWaningBorder.AI
                 }
                 AILogger.Log(faction, "WAVE", assault.MyPower >= need
                     ? $"strength {assault.MyPower} beats known defence {known} x{ratio:0.00} — launching"
-                    : $"strength {assault.MyPower} short of {need:0} but population is full " +
-                      $"({sgPop}/{sgMax}) — launching with everything");
+                    : atCeiling
+                    ? $"strength {assault.MyPower} short of {need:0} but population is full " +
+                      $"({sgPop}/{sgMax}) — launching with everything"
+                    : $"ALL-IN: strength {assault.MyPower} short of {need:0} but known defence {known} " +
+                      $"is under x{Cfg.allInMaxEnemyRatio:0.0} — launching with everything");
             }
+            else if (allIn && !assault.ShouldFight
+                     && assault.Ratio > math.max(1f, Cfg.allInMaxEnemyRatio))
+            {
+                AILogger.Log(faction, "WAVE",
+                    $"ALL-IN hold — assault at ({targetPos.x:0},{targetPos.z:0}) reads {assault.Ratio:0.00} " +
+                    $"against, past x{Cfg.allInMaxEnemyRatio:0.0}");
+                return false;
+            }
+            else if (allIn && !assault.ShouldFight)
+                AILogger.Log(faction, "WAVE",
+                    $"ALL-IN — attacking at ratio {assault.Ratio:0.00} (committed)");
             else if (target != Entity.Null && !assault.ShouldFight && !overdue)
             {
                 AILogger.Log(faction, "WAVE",
@@ -2122,14 +2151,19 @@ namespace TheWaningBorder.AI
             // never less than the floor, so reinforcement arrives as a
             // company that matters at the front line it joins.
             int want = math.max(Cfg.reinforceMinGroup, committed / 2);
-            if (reinforcements.Count > 0 && reinforcements.Count < want)
+            // THE ALL-IN STREAMS (§ 6n): the company hold is cut to
+            // allInReinforceMaxHoldSeconds.
+            float maxHold = AllInArmed(faction)
+                ? math.min(Cfg.reinforceMaxHold, math.max(0f, Cfg.allInReinforceMaxHoldSeconds))
+                : Cfg.reinforceMaxHold;
+            if (reinforcements.Count > 0 && reinforcements.Count < want && maxHold > 0f)
             {
                 if (aiState.ReinforceHoldSince <= 0f) aiState.ReinforceHoldSince = now;
-                if (now - aiState.ReinforceHoldSince < Cfg.reinforceMaxHold)
+                if (now - aiState.ReinforceHoldSince < maxHold)
                 {
                     AILogger.Log(faction, "WAVE",
                         $"holding {reinforcements.Count}/{want} reinforcement(s) for company " +
-                        $"({now - aiState.ReinforceHoldSince:0}s of {Cfg.reinforceMaxHold:0}s)");
+                        $"({now - aiState.ReinforceHoldSince:0}s of {maxHold:0}s)");
                     return;
                 }
             }
@@ -2600,7 +2634,7 @@ namespace TheWaningBorder.AI
                 if (myStr <= 0) continue;
                 float ratio = mission.Type == MissionType.Raid
                     ? settings.retreatStrengthRatio * 0.65f
-                    : settings.retreatStrengthRatio;
+                    : AllInRetreatRatio(faction, settings.retreatStrengthRatio);
                 if (enemyStr <= myStr * ratio) continue;
 
                 // Retreat (2026-10-07, Game_AI.md § 6h): to the nearest safe
@@ -2780,6 +2814,9 @@ namespace TheWaningBorder.AI
         /// an impossible desired army cannot freeze every wave. 0 = no floor.</summary>
         private static int StandingArmyFloor(Faction faction, in AIDifficultyProfile profile, int desired)
         {
+            // THE ALL-IN (Game_AI.md § 6n): past allInAfterSeconds the floor
+            // is the home guard — the share the personality does not commit.
+            if (AllInArmed(faction)) return _allInGuard[(int)faction];
             if (profile.StandingArmyFloorFraction <= 0f || desired <= 0) return 0;
             PopulationHelper.TryGetFactionPopulation(faction, out int pop, out int cap);
             int ceiling = math.max(4, (cap > 0 ? cap : pop) / 3);
@@ -3226,7 +3263,9 @@ namespace TheWaningBorder.AI
             // CLAIMS OUTRANK WAVES while open ground waits for soldiers and
             // nothing threatens home (Game_AI.md § 5b) — bounded, so a wave
             // still goes after claimWaveYieldMaxSeconds.
-            if (ClaimsYieldWave(faction, aiState.Posture, now)) return;
+            // (Not under the all-in, § 6n: the claim squads are released.)
+            bool allIn = AllInArmed(faction);
+            if (!allIn && ClaimsYieldWave(faction, aiState.Posture, now)) return;
 
             // A TARGET, NOT A DOORSTEP (2026-09-12, Game_AI.md 8). WaveBaseUnits
             // is 4 to 6, so the bar was met the moment a couple of bodies came
@@ -3300,6 +3339,10 @@ namespace TheWaningBorder.AI
                 minUnits = math.min(affordable, math.max(2, (int)math.round(
                     Cfg.strengthWaveMinArmy * PlanProfileOf(faction).WaveBarScale)));
 
+            // THE ALL-IN TAKES EVERYTHING IDLE ABOVE THE HOME GUARD (§ 6n):
+            // the bar is a token head count, never a share of the army.
+            if (allIn) minUnits = math.max(2, Cfg.allInMinWaveUnits);
+
             if (TryLaunchAttack(em, brainEntity, faction, minUnits, strengthGate,
                     ref aiState, settings, personality, profile, now, out int waveSize))
             {
@@ -3312,6 +3355,8 @@ namespace TheWaningBorder.AI
                 // Never slower than the five-minute cadence, whatever the tier.
                 float interval = math.min(profile.AttackWaveIntervalSeconds, Cfg.waveOverdueSeconds)
                     * (aiState.Posture == AIPosture.Pressure ? 0.5f : 1f);
+                if (allIn && Cfg.allInWaveIntervalSeconds > 0f)
+                    interval = math.min(interval, Cfg.allInWaveIntervalSeconds);
                 aiState.NextWaveTime = now + interval;
                 AILogger.Log(faction, "WAVE",
                     $"wave {aiState.WaveNumber} LAUNCHED at {(int)now}s with {waveSize} unit(s) " +

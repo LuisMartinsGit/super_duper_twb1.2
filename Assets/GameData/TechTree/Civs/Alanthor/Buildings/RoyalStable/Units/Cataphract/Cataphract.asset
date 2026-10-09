@@ -47,5 +47,5 @@ MonoBehaviour:
   - Heavy
   bonusVsTags:
   - vsTag: 'Ranged'
-    amount: 10
+    amount: 20
   presentationId: 336

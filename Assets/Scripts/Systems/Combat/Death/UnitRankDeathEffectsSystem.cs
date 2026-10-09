@@ -104,7 +104,7 @@ namespace TheWaningBorder.Systems.Combat
                 if (distSqr > r2) continue;
 
                 var hp = em.GetComponentData<Health>(e);
-                hp.Value = math.max(0, hp.Value - ShieldDamage.Absorb(em, e, dmg));
+                hp.Value = math.max(0, hp.Value - ShieldDamage.Absorb(em, e, TheWaningBorder.Abilities.AbilityDamageHooks.ScaleIncoming(em, e, dmg)));
                 em.SetComponentData(e, hp);
 
                 if (push && distSqr > 0.001f)

@@ -198,18 +198,17 @@ namespace TheWaningBorder.Systems.Sect
 
         private static void PayHarvest(EntityManager em, Faction faction, byte level)
         {
-            if (!FactionEconomy.TryGetBank(em, faction, out var bank)) return;
-
             SectLeverEffects.HarvestYield(level, out int supplies, out int iron,
                                           out int veilstone, out int veilsteel);
 
-            var res = em.GetComponentData<FactionResources>(bank);
-            res.Supplies  += supplies;
-            res.Iron      += iron;
-            res.Veilstone += veilstone;
-            res.Veilsteel += veilsteel;
-            res.Clamp();
-            em.SetComponentData(bank, res);
+            // Through FactionEconomy (2026-10-08): this was a direct bank
+            // write, so the income ledger saw it only as "untracked". Same
+            // arithmetic (add, clamp to the cap); a faction with no bank is
+            // still skipped (Add returns false).
+            FactionEconomy.Add(em, faction, new TheWaningBorder.Core.Cost
+            {
+                Supplies = supplies, Iron = iron, Veilstone = veilstone, Veilsteel = veilsteel,
+            }, IncomeSource.Other);
         }
 
         private void TickInfluenceBurst(EntityManager em, EntityCommandBuffer ecb, float dt)

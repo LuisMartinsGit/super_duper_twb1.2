@@ -310,7 +310,7 @@ namespace TheWaningBorder.UI.Ingame
                 if (!em.Exists(e)) continue;
                 if (!em.HasBuffer<ProductionQueueItem>(e)) continue;
                 if (!em.HasComponent<FactionTag>(e)) continue;
-                if (!GameSettings.IsObserver
+                if (!GameSettings.IsSpectating
                     && em.GetComponentData<FactionTag>(e).Value != GameSettings.LocalPlayerFaction)
                     continue;
                 _queueBuilding = e;

@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Iron Survey III
   role: Economy
   effect: 
-  desc: "Alanthor Guild. Raises Gatherer's Hut Iron output to +42/min."
+  desc: "Alanthor Guild. Every Guild's survey Iron rises by another +8/min (scaled by Guild level)."
   researchAt: GatherersHut
   minBuildingLevel: 3
   researchTime: 45

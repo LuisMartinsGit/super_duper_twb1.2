@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: ComponentConfigCatalog
   m_EditorClassIdentifier: 
   configs:
+  - {fileID: 11400000, guid: ed2cbf6e986a4176a273c6fc4f7c8b30, type: 2}
   - {fileID: 11400000, guid: e7556f6cf7a04c14af3c973985d6bcc2, type: 2}
   - {fileID: 11400000, guid: 50462f786c83478a86e997528f35bbb8, type: 2}
   - {fileID: 11400000, guid: 9d979ac2fcac41f3a7c55b438a335910, type: 2}
@@ -72,3 +73,10 @@ MonoBehaviour:
   - {fileID: 11400000, guid: a0e8a5c974b24ec2aa55c1fb239ff574, type: 2}
   - {fileID: 11400000, guid: 2d7e5b19c4a04f6e8b3d1a9c7e5f2b10, type: 2}
   - {fileID: 11400000, guid: 919b72241bd24629afaf4237fad12dc1, type: 2}
+  - {fileID: 11400000, guid: 821b602c04244641a9ee734c52d23fa6, type: 2}
+  - {fileID: 11400000, guid: 2f350e163a45459e80d7dad35cbbcac1, type: 2}
+  - {fileID: 11400000, guid: 5f2c1f8b232440d3884d5d17c515fd09, type: 2}
+  - {fileID: 11400000, guid: 48942beb80c7478aa776d9c2341c7566, type: 2}
+  - {fileID: 11400000, guid: b5e78e4c0c2648808b5d4a0fb51d9f8c, type: 2}
+  - {fileID: 11400000, guid: d2e1c60f13894590a193dc73250e05da, type: 2}
+  - {fileID: 11400000, guid: f34632d722c045ca804a059eb2f4edaa, type: 2}

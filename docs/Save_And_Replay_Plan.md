@@ -1,5 +1,11 @@
 # Saved games and replays — plan (2026-09-07)
 
+> **Built 2026-10-08** — R1–R3, R5–R7, and saved games as design B (world
+> snapshot, S3–S6; design A was built first and replaced the same day: loading
+> must come only from the snapshot). The oracle of S5 is `-twbOracle`. The rule
+> now lives in [Design/Replays_And_Saves.md](Design/Replays_And_Saves.md); this
+> page is kept as the reasoning.
+
 What the codebase has today, what each feature needs, and the order to build
 them in. Companion to [Multiplayer_LAN_Readiness.md](Multiplayer_LAN_Readiness.md):
 both features stand on the same foundation as multiplayer — a deterministic

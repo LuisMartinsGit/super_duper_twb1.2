@@ -85,7 +85,13 @@ namespace TheWaningBorder.Bootstrap
                 // menu — and the "already bootstrapped" latch would still be
                 // set, so the NEXT match never bootstraps and inherits the
                 // dead one's panels, selection and entities.
+                // A replay or a loaded save belongs to the match it booted;
+                // the next match from the menu is a fresh one. Only when a
+                // match was actually left: the very first menu load must not
+                // clear a session armed before it (the headless verifier).
+                bool wasLive = _matchLive;
                 TeardownAfterMatch();
+                if (wasLive) TheWaningBorder.Core.Replay.ReplaySession.Clear();
                 return;
             }
             if (_setupFrame == Time.frameCount) return;   // duplicate callback, one load
@@ -137,6 +143,7 @@ namespace TheWaningBorder.Bootstrap
         {
             if (!_matchLive) return;   // nothing to clean up
             _matchLive = false;
+            GameSettings.SoloLockstepActive = false;
 
             // The pause menu freezes the clock; leaving while paused must not
             // strand the menu at timeScale 0.
@@ -267,6 +274,9 @@ namespace TheWaningBorder.Bootstrap
             TheWaningBorder.Core.MatchLifecycle.MapPopulated = false;
             TheWaningBorder.Core.MatchLifecycle.MatchEpoch++;
 
+            // A replay restarted from its pause menu plays from the top again.
+            TheWaningBorder.Core.Replay.ReplaySession.ResetPlayback();
+
             // Same idea for periodic-system phase. In multiplayer this is only
             // the first of two bumps: the sim keeps running per-frame after
             // this point, so LockstepFixedStep.Install re-phases again at the
@@ -305,6 +315,16 @@ namespace TheWaningBorder.Bootstrap
                 Trace("before InitializeLockstepNow");
                 LockstepBootstrap.Instance.InitializeLockstepNow();
                 Trace("after InitializeLockstepNow");
+                yield return null;
+            }
+            else if (LockstepBootstrap.SoloEligible())
+            {
+                // Single-player through the same command stream as multiplayer
+                // (solo lockstep): the match records a replay and can be saved.
+                // docs/Design/Replays_And_Saves.md
+                Trace("before InitializeSoloNow");
+                LockstepBootstrap.InitializeSoloNow();
+                Trace("after InitializeSoloNow");
                 yield return null;
             }
             else if (GameSettings.IsMultiplayer)
@@ -664,6 +684,7 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<UnitIndicatorSystem>();
             managersGO.AddComponent<TheWaningBorder.UI.World.BuildingSelectionContour>(); // footprint contour under selected buildings     // Direction arrows + state circles
             managersGO.AddComponent<GameStatsTracker>();          // Resource/population timeline tracker (data only)
+            managersGO.AddComponent<TheWaningBorder.Core.Diagnostics.MatchRecording.MatchRecorder>(); // in-memory match record for the post-game Muster Rolls
             // InGameMenuPanel / EndGameButton / PostGameStatsUI removed with
             // the old UI (2026-07-17). VictoryConditionSystem null-guards
             // their statics; the final UI will own menus and post-game.
@@ -832,6 +853,17 @@ namespace TheWaningBorder.Bootstrap
 
         private static void InitializeFactions()
         {
+            // A saved game restores its snapshot instead of spawning a match:
+            // the banks, bases and nodes are all in it.
+            // docs/Design/Replays_And_Saves.md §3
+            var save = TheWaningBorder.Core.Replay.ReplaySession.SaveFile;
+            if (save != null)
+            {
+                var loader = new GameObject("SnapshotLoader").AddComponent<SpawnDelayHelper>();
+                loader.StartCoroutine(loader.RestoreSnapshot(save));
+                return;
+            }
+
             // Initialize economy banks first
             EconomyBootstrap.EnsureFactionBanks(GameSettings.TotalPlayers);
 
@@ -849,6 +881,14 @@ namespace TheWaningBorder.Bootstrap
             // Sandbox / PathfindingTest: no AI opponents
             if (GameSettings.IsSandbox || GameSettings.Mode == GameMode.PathfindingTest)
             {
+                return;
+            }
+
+            // A restored game already has its AI brain entities; the AI's
+            // managed memory starts fresh and re-plans from the board.
+            if (TheWaningBorder.Core.Replay.ReplaySession.SaveFile != null)
+            {
+                AIBootstrap.InitializeManagedState();
                 return;
             }
 

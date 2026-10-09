@@ -258,7 +258,7 @@ public static class GameSettings
     /// local player. Observer: the selected asset's owner, or null for
     /// full reveal.
     /// </summary>
-    public static Faction? ViewFaction => IsObserver ? ObserverViewFaction : LocalPlayerFaction;
+    public static Faction? ViewFaction => IsSpectating ? ObserverViewFaction : LocalPlayerFaction;
 
     /// <summary>ViewFaction with the local player as fallback, for readers
     /// that need a concrete faction.</summary>
@@ -504,7 +504,54 @@ public static class GameSettings
     /// Every AI system's OnUpdate must open with this test.
     /// docs/Multiplayer_LAN_Readiness.md
     /// </summary>
-    public static bool ShouldRunAIBrains() => !IsMultiplayer || IsHost();
+    public static bool ShouldRunAIBrains() => !WatchingReplay && (!IsMultiplayer || IsHost());
+
+    // ==================== Lockstep / Replay Settings ====================
+
+    /// <summary>
+    /// True when this match's simulation runs through the lockstep command
+    /// stream: every multiplayer match, and every single-player skirmish
+    /// since solo lockstep (2026-10-08, docs/Design/Replays_And_Saves.md).
+    /// Set by the bootstrap when the lockstep driver is installed and cleared
+    /// at teardown.
+    ///
+    /// This is the test for "must this order travel as a command?" — the
+    /// question many sites used to ask as <c>IsMultiplayer</c>, back when
+    /// only multiplayer had a command stream. Ask IsMultiplayer only for
+    /// genuinely network things (sockets, lobby, peer names).
+    /// </summary>
+    public static bool UsesLockstep => IsMultiplayer || SoloLockstepActive;
+
+    /// <summary>Single-player match driven by the lockstep manager with no
+    /// sockets. Written by LockstepBootstrap.InitializeSoloNow / teardown.</summary>
+    public static bool SoloLockstepActive = false;
+
+    /// <summary>
+    /// The simulation is being fed from a replay file rather than from the
+    /// players: watching a replay, or fast-forwarding a loaded save to its
+    /// marker tick. Local orders are refused and AI brains do not think —
+    /// every decision they made is already in the recorded stream.
+    /// </summary>
+    public static bool WatchingReplay = false;
+
+    /// <summary>
+    /// The local VIEW is a spectator's: no command panels, full reveal or the
+    /// selected faction's eyes. Presentation reads this; the simulation reads
+    /// <see cref="IsObserver"/>, which is a match setting that changes who
+    /// spawns and who the AI plays — a replay must keep the recorded value of
+    /// that one, and only borrows the observer's VIEW.
+    /// </summary>
+    public static bool IsSpectating => IsObserver || WatchingReplay;
+
+    /// <summary>
+    /// Replays and loaded saves only: the recorded answer to "which factions
+    /// were human", as a bit mask over Faction ordinals; -1 = not replaying
+    /// (use the live rule below). A multiplayer match replayed offline has
+    /// IsMultiplayer false, so without this the live rule would call every
+    /// remote human an AI and the steering/stance code that asks would take a
+    /// different path from the one recorded.
+    /// </summary>
+    public static int ReplayHumanMask = -1;
 
     /// <summary>The network role of this instance (None for single-player).</summary>
     public static NetworkRole NetworkRole = NetworkRole.None;
@@ -542,6 +589,9 @@ public static class GameSettings
     /// </summary>
     public static bool IsFactionHumanControlled(Faction faction)
     {
+        if (ReplayHumanMask >= 0)
+            return (ReplayHumanMask & (1 << (int)faction)) != 0;
+
         // Observer mode: no faction is human-controlled — AI plays all sides
         if (IsObserver) return false;
 

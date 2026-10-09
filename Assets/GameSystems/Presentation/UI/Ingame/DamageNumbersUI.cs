@@ -197,7 +197,7 @@ namespace TheWaningBorder.UI.Ingame
 
                     // Only surface numbers the local player can actually see
                     // (observers see everything).
-                    if (!GameSettings.IsObserver
+                    if (!GameSettings.IsSpectating
                         && !FogOfWarSystem.IsVisibleToFaction(local, pos)) continue;
 
                     bool isOwn = _em.HasComponent<FactionTag>(e)

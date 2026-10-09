@@ -85,7 +85,7 @@ namespace TheWaningBorder.UI.World
 
             // The cursor on a UI panel is not on the map.
             bool overUi = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
-            if (overUi || GameSettings.IsObserver)
+            if (overUi || GameSettings.IsSpectating)
             {
                 Hide(_territory);
                 Hide(_building);

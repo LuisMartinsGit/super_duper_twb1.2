@@ -15,6 +15,7 @@ using TheWaningBorder.Core.Multiplayer;
 using TheWaningBorder.Core.Commands;
 using EntityWorld = Unity.Entities.World;
 using TheWaningBorder.Core.Commands.Types;
+using TheWaningBorder.Core.Replay;
 
 namespace TheWaningBorder.Multiplayer
 {
@@ -385,6 +386,11 @@ namespace TheWaningBorder.Multiplayer
                 return;
             }
 
+            // Watching a replay, or fast-forwarding a save to its marker: the
+            // tick stream comes from the file, and an order from this machine
+            // would be one the recorded match never had.
+            if (GameSettings.WatchingReplay) return;
+
             cmd.PlayerIndex = _localPlayerIndex;
             cmd.Tick = _currentTick + INPUT_DELAY_TICKS;
             cmd.CommandIndex = _localCommandBuffer.Count;
@@ -469,6 +475,7 @@ namespace TheWaningBorder.Multiplayer
             LockstepTiming.Reset();
             LockstepLog.Close();
             LockstepTrace.Close();
+            ReplayRecorder.End(-1, null);
 
             // Release the cached query; guard against the world being torn
             // down first (disposing a query of a dead world throws).
@@ -498,6 +505,14 @@ namespace TheWaningBorder.Multiplayer
             // ready does not broadcast, so the other one runs out of its primed
             // confirmations and waits — which is exactly the behaviour wanted.
             if (!_worldReady && !IsWorldReady()) return;
+
+            // Replay / saved-game playback: the ticks come from the file, paced
+            // by the replay controls (or flat out while fast-forwarding).
+            if (_replayFeed)
+            {
+                UpdateReplayFeed();
+                return;
+            }
 
             _tickAccumulator += Time.deltaTime;
 
@@ -589,6 +604,8 @@ namespace TheWaningBorder.Multiplayer
             // the overlay: the AI acts, income accrues and the curse spreads
             // in seconds the player never sees, and the game time they are
             // shown does not match the game they played.
+            // Exception: a loaded save fast-forwards to its marker BEHIND the
+            // loading screen - that is the whole point of keeping it up.
             if (TheWaningBorder.Core.PresentationState.LoadingOverlayVisible) return NotYet();
 
             // LAST-LINE ASSERTION before the clock starts: in deterministic
@@ -930,6 +947,211 @@ namespace TheWaningBorder.Multiplayer
         }
 
         /// <summary>
+        /// Single-player lockstep (docs/Design/Replays_And_Saves.md): this
+        /// manager with no sockets and no peers. Every order still becomes a
+        /// command stamped one tick ahead, and the world steps at the fixed
+        /// tick rate — which is what makes a single-player match a stream that
+        /// can be recorded, replayed and resumed from a save.
+        /// <paramref name="replayFeed"/>: the ticks come from
+        /// <see cref="ReplaySession"/> instead of from this machine.
+        /// </summary>
+        public void InitializeSolo(bool replayFeed)
+        {
+            _isHost = true;
+            _localPlayerIndex = 0;
+            _localPort = 0;
+            _remotePlayers.Clear();
+            _expectedPlayers.Clear();
+            _replayFeed = replayFeed;
+        }
+
+        /// <summary>True while ticks are fed from a replay or a save being loaded.</summary>
+        private bool _replayFeed;
+
+        /// <summary>
+        /// One frame of replay playback. Watch mode advances on the replay
+        /// clock (Time.deltaTime — the replay controls put the speed into
+        /// timeScale); a save being loaded, a seek, or the headless verifier
+        /// runs flat out inside a per-frame time budget.
+        /// </summary>
+        private void UpdateReplayFeed()
+        {
+            var file = ReplaySession.File;
+            if (file == null) { _replayFeed = false; return; }
+
+            var cfg = ReplayRecorderConfig.I;
+            float budgetMs = cfg != null ? cfg.fastForwardFrameBudgetMs : 100f;
+            int maxPerFrame = cfg != null ? Mathf.Max(1, cfg.watchMaxTicksPerFrame) : 64;
+
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            bool fast = ReplaySession.FastForwarding;
+            if (!fast)
+            {
+                _tickAccumulator += Time.deltaTime;
+                float cap = maxPerFrame * TICK_DURATION;
+                if (_tickAccumulator > cap) _tickAccumulator = cap;
+            }
+
+            int ran = 0;
+            while (true)
+            {
+                if (_currentTick >= ReplaySession.StopTick)
+                {
+                    FinishReplay();
+                    return;
+                }
+
+                // The recorded match was loaded from a save here: restore that
+                // snapshot (a reload of the map), exactly as the player did.
+                if (ReplaySession.SnapshotDue(_currentTick))
+                {
+                    // Stop BEFORE the reload: the scene unloads a frame later,
+                    // and this manager must not run a live tick in between.
+                    _isSimulationRunning = false;
+                    ReplaySession.JumpToSnapshot(_currentTick);
+                    return;
+                }
+
+                if (fast)
+                {
+                    if (clock.Elapsed.TotalMilliseconds >= budgetMs) break;
+                }
+                else
+                {
+                    if (_tickAccumulator < TICK_DURATION || ran >= maxPerFrame) break;
+                    if (clock.Elapsed.TotalMilliseconds >= budgetMs) break;
+                    _tickAccumulator -= TICK_DURATION;
+                }
+
+                InjectRecordedTick(_currentTick, file);
+                ProcessTick(_currentTick);
+                _currentTick++;
+                ReplaySession.CurrentTick = _currentTick;
+                ran++;
+                // Fast-forward runs many ticks per frame; keep the post-game
+                // record sampled on sim time anyway.
+                if (fast) TheWaningBorder.Core.Diagnostics.MatchRecording.MatchRecorder.Pump();
+
+                if (ReplaySession.SeekTick >= 0 && _currentTick >= ReplaySession.SeekTick)
+                {
+                    ReplaySession.SeekTick = -1;
+                    _tickAccumulator = 0f;
+                }
+                fast = ReplaySession.FastForwarding;
+            }
+        }
+
+        /// <summary>
+        /// Hand the recorded tick to ProcessTick through the same buffer remote
+        /// commands arrive in. Copies, because a replay restarted from its
+        /// pause menu feeds the same file again and executors must never see a
+        /// command object a previous run touched.
+        /// </summary>
+        private void InjectRecordedTick(int tick, ReplayFile file)
+        {
+            _remoteCommands.Remove(tick);
+            if (!file.Commands.TryGetValue(tick, out var recorded) || recorded.Count == 0) return;
+
+            var byPlayer = new Dictionary<int, List<LockstepCommand>>();
+            foreach (var src in recorded)
+            {
+                if (!byPlayer.TryGetValue(src.PlayerIndex, out var list))
+                    byPlayer[src.PlayerIndex] = list = new List<LockstepCommand>(recorded.Count);
+                list.Add(new LockstepCommand
+                {
+                    Type = src.Type,
+                    PlayerIndex = src.PlayerIndex,
+                    Tick = tick,
+                    CommandIndex = src.CommandIndex,
+                    EntityNetworkId = src.EntityNetworkId,
+                    TargetPosition = src.TargetPosition,
+                    TargetEntityId = src.TargetEntityId,
+                    SecondaryTargetId = src.SecondaryTargetId,
+                    BuildingId = src.BuildingId,
+                });
+            }
+            _remoteCommands[tick] = byPlayer;
+        }
+
+        /// <summary>A recorded state hash against the re-simulated world. The
+        /// first disagreement is the tick the replay stopped being the match
+        /// that was played — reported once, and playback carries on.</summary>
+        private void VerifyReplayHash(int tick, uint total)
+        {
+            var file = ReplaySession.File;
+            if (file == null || !file.Hashes.TryGetValue(tick, out uint recorded)) return;
+            if (recorded == total)
+            {
+                ReplaySession.HashesVerified++;
+                return;
+            }
+            if (ReplaySession.Diverged) return;
+            ReplaySession.Diverged = true;
+            ReplaySession.DivergedTick = tick;
+            UnityEngine.Debug.LogError(
+                $"[Replay] DIVERGED at tick {tick} ({tick * TICK_DURATION:0.0}s): recorded hash " +
+                $"{recorded}, re-simulated {total}. {ReplaySession.HashesVerified} earlier hashes matched. " +
+                "Something in the simulation changed state outside the command stream.");
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // SAVED GAMES — the commands already in flight at the save
+        // ═══════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Every command already issued for a tick that has not run yet: the
+        /// local buffer (stamped one input delay ahead) and anything scheduled in
+        /// the tick table. A saved game carries them so the first ticks after a
+        /// load execute exactly what the player had ordered.
+        /// </summary>
+        public List<LockstepCommand> CapturePendingCommands()
+        {
+            var list = new List<LockstepCommand>();
+            foreach (var kv in _remoteCommands)
+            {
+                if (kv.Key < _currentTick) continue;
+                foreach (var perPlayer in kv.Value.Values) list.AddRange(perPlayer);
+            }
+            list.AddRange(_localCommandBuffer);
+            return list;
+        }
+
+        /// <summary>Put a saved game's pending commands back on their ticks.</summary>
+        public void InjectPendingCommands(List<LockstepCommand> pending)
+        {
+            if (pending == null) return;
+            foreach (var cmd in pending)
+            {
+                if (cmd.Tick < _currentTick) continue;
+                if (!_remoteCommands.TryGetValue(cmd.Tick, out var byPlayer))
+                    _remoteCommands[cmd.Tick] = byPlayer = new Dictionary<int, List<LockstepCommand>>();
+                if (!byPlayer.TryGetValue(cmd.PlayerIndex, out var list))
+                    byPlayer[cmd.PlayerIndex] = list = new List<LockstepCommand>();
+                list.Add(cmd);
+            }
+        }
+
+        private void FinishReplay()
+        {
+            if (ReplaySession.Ended) return;
+            ReplaySession.Ended = true;
+            TheWaningBorder.Core.Diagnostics.MatchRecording.MatchRecorder.Finish();
+            UnityEngine.Debug.Log($"[Replay] Finished at tick {_currentTick}: " +
+                $"{ReplaySession.HashesVerified} hashes verified" +
+                (ReplaySession.Diverged ? $", DIVERGED at tick {ReplaySession.DivergedTick}" : ", no divergence") + ".");
+
+            // A match the replay saw decided already has its end screen up.
+            if (TheWaningBorder.Core.MatchLifecycle.MatchDecided) return;
+            string outcome = ReplaySession.File?.Outcome;
+            TheWaningBorder.Core.SimSignals.MatchEnded(
+                TheWaningBorder.Core.Localization.Loc.T("REPLAY ENDED"),
+                string.IsNullOrEmpty(outcome) || outcome == "quit"
+                    ? TheWaningBorder.Core.Localization.Loc.T("The recording stops here.")
+                    : outcome,
+                localWon: false);
+        }
+
+        /// <summary>
         /// Start the lockstep simulation
         /// </summary>
         public void StartSimulation()
@@ -975,13 +1197,29 @@ namespace TheWaningBorder.Multiplayer
             LockstepLog.Begin(_localPlayerIndex, _isHost);
             LockstepTrace.Begin();
 
+            // Every lockstep match records its replay (docs/Design/Replays_And_Saves.md)
+            // - except one that IS a replay being watched. A loaded save does
+            // record: its fast-forwarded ticks are re-written, so the new file
+            // is the whole match again and can itself be saved or watched.
+            // A loaded save CONTINUES its replay: the saved ticks first, then
+            // this match's.
+            if (ReplaySession.SaveFile != null && !ReplaySession.Watching)
+                ReplayRecorder.BeginContinuation(ReplaySession.SaveFile.ReplayText, GameSettings.SelectedMapScene,
+                    ReplaySession.SaveFile.Tick, ReplaySession.SaveFile.RawBytes);
+            else if (!ReplaySession.Watching)
+                ReplayRecorder.Begin(ReplayHeader.CaptureCurrent());
+
+            // A snapshot load resumes the clock at the save's tick.
+            _currentTick = ReplaySession.StartTick;
+            ReplaySession.CurrentTick = _currentTick;
+
             // Initialize confirmed ticks — start at INPUT_DELAY_TICKS so the first
             // CanAdvanceTick() calls succeed. Without this, both host and client deadlock
             // waiting for each other's tick confirmation before either can broadcast.
-            _confirmedTicks[_localPlayerIndex] = INPUT_DELAY_TICKS;
+            _confirmedTicks[_localPlayerIndex] = _currentTick + INPUT_DELAY_TICKS;
             foreach (int playerIndex in _expectedPlayers)
             {
-                _confirmedTicks[playerIndex] = INPUT_DELAY_TICKS;
+                _confirmedTicks[playerIndex] = _currentTick + INPUT_DELAY_TICKS;
             }
             
         }
@@ -998,6 +1236,12 @@ namespace TheWaningBorder.Multiplayer
             LockstepLog.Event(_currentTick, "simulation stopped");
             LockstepLog.Close();
             LockstepTrace.Close();
+
+            string outcome = TheWaningBorder.Core.MatchLifecycle.MatchDecided
+                     && !string.IsNullOrEmpty(TheWaningBorder.Core.MatchLifecycle.MatchWinner)
+                ? TheWaningBorder.Core.MatchLifecycle.MatchWinner + " wins"
+                : "quit";
+            ReplayRecorder.End(_currentTick - 1, outcome);
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -1110,6 +1354,7 @@ namespace TheWaningBorder.Multiplayer
             // This is the line two peers' logs are diffed on; writing it after
             // execution would lose it if a command threw.
             LockstepLog.Tick(tick, allCommands);
+            ReplayRecorder.Tick(tick, allCommands);
 
             foreach (var cmd in allCommands)
             {
@@ -1135,8 +1380,11 @@ namespace TheWaningBorder.Multiplayer
             // Desync 2026-08-18 was localised only to ticks 3421-3450 for
             // exactly this reason: positions were bit-identical at 3420 and
             // wrong at 3450, with no way to narrow it further.
+            // Single-player (solo lockstep, replays) has no peer to diff against,
+            // so it hashes on the sync interval only - that is what the replay
+            // records and verifies, and it keeps the every-tick cost off SP.
             bool syncTick = tick % SYNC_CHECK_INTERVAL == 0;
-            if (syncTick || GameSettings.DeterministicLockstep)
+            if (syncTick || (GameSettings.DeterministicLockstep && GameSettings.IsMultiplayer))
             {
                 var hash = ComputeSimStateHash();
 
@@ -1150,6 +1398,9 @@ namespace TheWaningBorder.Multiplayer
 
                 if (syncTick)
                 {
+                    ReplayRecorder.Hash(tick, hash.Total);
+                    VerifyReplayHash(tick, hash.Total);
+
                     _checksums[tick] = hash.Total;
                     _checksumDetails[tick] = hash;
                     BroadcastSync(tick, in hash);
@@ -1286,7 +1537,12 @@ namespace TheWaningBorder.Multiplayer
                     {
                         if (!em.HasComponent<RallyPoint>(entity))
                             em.AddComponent<RallyPoint>(entity);
-                        em.SetComponentData(entity, new RallyPoint { Position = cmd.TargetPosition, Has = 1 });
+                        Entity rallyTarget = cmd.TargetEntityId > 0
+                            ? FindEntityByNetworkId(cmd.TargetEntityId) : Entity.Null;
+                        em.SetComponentData(entity, new RallyPoint
+                        {
+                            Position = cmd.TargetPosition, Has = 1, TargetEntity = rallyTarget,
+                        });
                         if (LogCommands) TWBLog.Log($"[Lockstep] Executed RallyPoint from player {cmd.PlayerIndex}");
                     }
                     break;

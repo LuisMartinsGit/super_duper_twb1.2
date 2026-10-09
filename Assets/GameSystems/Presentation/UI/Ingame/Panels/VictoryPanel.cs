@@ -26,9 +26,19 @@ namespace TheWaningBorder.UI.Ingame
         public static VictoryPanel Instance { get; private set; }
         public static bool IsOpen { get; private set; }
 
+        /// <summary>
+        /// Extension point: raised every time the panel opens, with the
+        /// container extra buttons go into (between "Muster Rolls" and
+        /// "Return to Main Menu"). The container is emptied before each
+        /// raise, so a subscriber simply adds its buttons again — use
+        /// <see cref="AddButton"/> so they match the panel's style.
+        /// </summary>
+        public static event System.Action<Transform> ExtraButtons;
+
         private RectTransform _root;
         private TMP_Text _title;
         private TMP_Text _subtitle;
+        private RectTransform _extras;
 
         private void Awake()
         {
@@ -60,8 +70,26 @@ namespace TheWaningBorder.UI.Ingame
             _title.color = victory ? GameUIKit.Gold : new Color(0.94f, 0.36f, 0.32f);
             _subtitle.text = subtitle ?? string.Empty;
             _subtitle.gameObject.SetActive(!string.IsNullOrEmpty(subtitle));
+            RebuildExtras();
             _root.gameObject.SetActive(true);
             IsOpen = true;
+        }
+
+        private void RebuildExtras()
+        {
+            for (int i = _extras.childCount - 1; i >= 0; i--)
+            {
+                var child = _extras.GetChild(i).gameObject;
+                child.SetActive(false);   // out of the layout this frame
+                Destroy(child);
+            }
+            var handlers = ExtraButtons;
+            if (handlers == null) return;
+            foreach (System.Action<Transform> h in handlers.GetInvocationList())
+            {
+                try { h(_extras); }
+                catch (System.Exception e) { Debug.LogException(e); }
+            }
         }
 
         // ── Construction ────────────────────────────────────────────────
@@ -96,12 +124,29 @@ namespace TheWaningBorder.UI.Ingame
                 TextAlignmentOptions.Center, wrap: true);
             GameUIKit.FixHeight(_subtitle.gameObject, 44f);
 
+            // The post-game report (docs/Design/Muster_Rolls_PostGame.md).
+            MakeButton(panel, "musterrolls", Loc.T("Muster Rolls"), () => MusterRollsPanel.Open());
+
+            // Buttons other code adds through ExtraButtons.
+            _extras = GameUIKit.Rect(panel, "extras");
+            var ev = _extras.gameObject.AddComponent<VerticalLayoutGroup>();
+            ev.spacing = 20f;
+            ev.childControlWidth = true;
+            ev.childControlHeight = true;
+            ev.childForceExpandWidth = true;
+            ev.childForceExpandHeight = false;
+
             MakeButton(panel, "mainmenu", Loc.T("Return to Main Menu"), ToMainMenu);
 
             _root.gameObject.SetActive(false);
         }
 
-        private void MakeButton(Transform parent, string name, string label,
+        /// <summary>Add a button styled like the panel's own to
+        /// <paramref name="parent"/> (the ExtraButtons container).</summary>
+        public static RectTransform AddButton(Transform parent, string label, System.Action click)
+            => MakeButton(parent, "extra", label, click);
+
+        private static RectTransform MakeButton(Transform parent, string name, string label,
             System.Action click)
         {
             var rt = GameUIKit.Rect(parent, name);
@@ -116,6 +161,7 @@ namespace TheWaningBorder.UI.Ingame
             relay.OnLeftClick = click;
             relay.OnEnter = () => bg.color = GameUIKit.BarBlue * 0.5f;
             relay.OnExit = () => bg.color = GameUIKit.ButtonBg;
+            return rt;
         }
 
         private void ToMainMenu()

@@ -250,6 +250,111 @@ namespace TheWaningBorder.Bootstrap
                 world.EntityManager, starts, count, (uint)(GameSettings.SpawnSeed ^ 0x5EEDC0DE));
         }
 
+        // ═══════════════════════════════════════════════════════════════
+        // SAVED GAME: restore the snapshot instead of spawning the match
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// The load half of a saved game (docs/Design/Replays_And_Saves.md §3).
+        /// Runs where <see cref="WaitForTerrainAndSpawn"/> would: the map is
+        /// booted, nothing is spawned, and the snapshot's entities, statics and
+        /// system fields take the place of the starting match. Only map-derived
+        /// state is rebuilt here — the start clearing, nature blocks,
+        /// reachability, territory types and the resource nodes' passability.
+        /// </summary>
+        public IEnumerator RestoreSnapshot(TheWaningBorder.Core.Save.SaveGameFile save)
+        {
+            LoadingScreen.SetStatus("Waiting for terrain…");
+            LoadingScreen.SetProgress(0.55f);
+            float waited = 0f;
+            while (waited < 120f && !TerrainUtility.IsReady())
+            {
+                waited += Time.unscaledDeltaTime;
+                yield return null;
+            }
+
+            MapMarkerRegistry.Refresh();
+            TheWaningBorder.World.Regions.RegionMap.BuildFromMarkers();
+
+            LoadingScreen.SetStatus("Restoring the saved match…");
+            LoadingScreen.SetProgress(0.62f);
+            yield return null;
+
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            var em = world.EntityManager;
+            int moved = TheWaningBorder.Core.Save.WorldSnapshot.Restore(em, save.World);
+
+            // Entity handles cached from before the move point at nothing now.
+            FactionEconomy.ClearCache();
+            FactionResourcesHelper.ClearCache();
+            PopulationHelper.ClearCache();
+
+            TheWaningBorder.Core.Save.SnapshotState.Restore(world, save.State, out string stateReport);
+
+            // The world clock every absolute timestamp in the components is
+            // measured against, and the orders already in flight at the save.
+            if (TheWaningBorder.Multiplayer.LockstepFixedStep.RateManager != null)
+                TheWaningBorder.Multiplayer.LockstepFixedStep.RateManager.Elapsed = save.WorldElapsed;
+            TheWaningBorder.Multiplayer.LockstepManager.Instance?.InjectPendingCommands(save.Pending);
+
+            // ShardrootState carries its own epoch stamp IN the component: a
+            // stale one makes ShardrootSystem reset the artefact on tick one.
+            var shardQ = em.CreateEntityQuery(typeof(ShardrootState));
+            using (var shards = shardQ.ToEntityArray(Allocator.Temp))
+                foreach (var e in shards)
+                {
+                    var st = em.GetComponentData<ShardrootState>(e);
+                    if (st.MatchEpoch != 0) { st.MatchEpoch = SimCadence.Epoch; em.SetComponentData(e, st); }
+                }
+            shardQ.Dispose();
+
+            LoadingScreen.SetProgress(0.70f);
+            yield return null;
+
+            // Map-derived state, from the SAVED start positions (restored by the
+            // "spawn" snapshot section) — the starts, not today's Fortresses.
+            var starts = StartPositions();
+            TheWaningBorder.World.Terrain.StartClearing.Apply(starts);
+            TheWaningBorder.World.MapMarkers.NatureRegionBootstrap.BlockNatureRegions();
+            BlockRestoredObstacles(em);
+            ComputePlayerReachability(starts);
+            if (TheWaningBorder.World.Regions.RegionMap.Ready && TheWaningBorder.World.Regions.RegionMap.Count > 0)
+                TheWaningBorder.World.Regions.TerritoryResources.Resolve(
+                    starts, (uint)(GameSettings.SpawnSeed ^ 0x7E4417u));
+
+            TheWaningBorder.Core.MatchLifecycle.MapPopulated = true;
+            Debug.Log($"[SaveLoad] Restored tick {save.Tick} ({save.Seconds:0}s): {moved} entities, " +
+                      $"{stateReport}, {save.Pending.Count} pending command(s), {clock.ElapsedMilliseconds} ms.");
+
+            FocusCameraOnHall();
+            LoadingScreen.SetStatus("Warming shader variants…");
+            LoadingScreen.SetProgress(0.88f);
+            yield return null;
+            yield return StartCoroutine(BuildingPrefabPrewarm.PrewarmAll());
+
+            TheWaningBorder.Core.Replay.ReplaySession.SnapshotRestored();
+            LoadingScreen.SetProgress(1f);
+            LoadingScreen.SetStatus("Ready");
+            yield return null;
+            LoadingScreen.NotifyReady();
+            Destroy(gameObject);
+        }
+
+        /// <summary>
+        /// Resource nodes block passability from their factories at creation —
+        /// which a restored node never went through. Re-block every one.
+        /// </summary>
+        private static void BlockRestoredObstacles(EntityManager em)
+        {
+            var grid = PassabilityGrid.Instance;
+            if (grid == null) return;
+            var q = em.CreateEntityQuery(typeof(ObstacleTag), typeof(LocalTransform));
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            q.Dispose();
+            foreach (var xf in xfs) grid.BlockObstacle(xf.Position, BuildGrid.ResourceNodeBlockRadius);
+        }
+
         /// <summary>The players' start positions, sorted by faction.</summary>
         private static System.Collections.Generic.List<Unity.Mathematics.float3> StartPositions()
         {
@@ -262,6 +367,15 @@ namespace TheWaningBorder.Bootstrap
                 starts.Add(new Unity.Mathematics.float3(p.x, p.y, p.z));
             }
             return starts;
+        }
+
+        /// <summary>Reachability from explicit positions — a restored game
+        /// uses the saved starts, not whatever Halls stand today.</summary>
+        private static void ComputePlayerReachability(System.Collections.Generic.List<Unity.Mathematics.float3> starts)
+        {
+            var grid = PassabilityGrid.Instance;
+            if (grid == null || starts == null || starts.Count == 0) return;
+            grid.ComputePlayerReachability(starts.ToArray());
         }
 
         private static void ComputePlayerReachability()

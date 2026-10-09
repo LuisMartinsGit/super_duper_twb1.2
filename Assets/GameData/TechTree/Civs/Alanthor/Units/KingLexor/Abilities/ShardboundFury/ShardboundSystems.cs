@@ -54,9 +54,13 @@ namespace TheWaningBorder.Entities
             {
                 var e = grant[i];
                 em.AddComponent<ShardboundKing>(e);
+                // He is bound with a full second of the swarm cap in hand.
+                if (em.HasComponent<Health>(e))
+                    em.SetComponentData(e, new ShardboundKing
+                    { DamageBudget = ShardboundKingRules.BudgetMax(em.GetComponentData<Health>(e)) });
                 AbilityAssignment.AddAbility(em, e, fury);
                 var f = em.HasComponent<FactionTag>(e) ? em.GetComponentData<FactionTag>(e).Value : Faction.Blue;
-                SimSignals.Notify(string.Format(Loc.T("{0}'s King Lexor is SHARDBOUND."), f));
+                SimSignals.Notify(string.Format(Loc.T("{0}'s King Lexor is SHARDBOUND — nearly invincible!"), f));
                 TWBLog.Log($"[Shardbound] {f}: King Lexor bears the Shardroot -- cleave + Fury granted");
             }
             for (int i = 0; i < revoke.Length; i++)

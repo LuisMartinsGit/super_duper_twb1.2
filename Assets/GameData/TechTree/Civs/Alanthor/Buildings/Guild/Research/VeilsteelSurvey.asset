@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Veilsteel Survey
   role: Economy
   effect: 
-  desc: "Alanthor Guild. Faction-wide: Gatherer's Huts also generate a slow trickle of Veilsteel (+6/min)."
+  desc: "Alanthor Guild. Faction-wide: every Guild also produces a slow trickle of Veilsteel (+3/min at Guild L1, scaled by Guild level), drawn from no node."
   researchAt: GatherersHut
   minBuildingLevel: 3
   researchTime: 50

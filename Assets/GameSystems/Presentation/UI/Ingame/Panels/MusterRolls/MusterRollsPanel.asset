@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ce31060469614a4186ae9dfe6a6623a7, type: 3}
+  m_Name: MusterRollsPanel
+  m_EditorClassIdentifier:
+  playbackSpeeds:
+  - 1
+  - 4
+  - 8
+  - 30
+  - 120
+  defaultSpeedIndex: 3
+  deathFadeSeconds: 10
+  thumbnailAlpha: 0.85
+  territoryFillAlpha: 0.32
+  territoryBorderAlpha: 0.9
+  unitSymbolSize: 14
+  maxZoom: 16
+  chartMaxPoints: 320
+  chartLineWidth: 4
+  curseColor: {r: 0.62, g: 0.3, b: 0.85, a: 1}

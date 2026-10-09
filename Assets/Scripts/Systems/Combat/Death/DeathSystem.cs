@@ -204,6 +204,9 @@ namespace TheWaningBorder.Systems.Combat
                         TheWaningBorder.Core.Diagnostics.MatchMetrics.RecordUnitDeath(
                             victim, killer, attributed, dpos.x, dpos.z);
                         TheWaningBorder.Core.Diagnostics.MatchScore.NoteUnitDeath(victim, killer, attributed);
+                        // The post-game Muster Rolls map (every match, in memory).
+                        TheWaningBorder.Core.Diagnostics.MatchRecording.MatchRecorder.NoteUnitDeath(
+                            victim, dpos.x, dpos.z);
                     }
                     // A RAZED BUILDING COUNTS FOR THE SCORE (docs/Design/Score.md):
                     // the razer is whoever last damaged it, when that is known.

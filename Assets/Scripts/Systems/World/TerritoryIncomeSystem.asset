@@ -1,0 +1,41 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a856fd59fa94ef5b5c94394ed0a1169, type: 3}
+  m_Name: TerritoryIncomeSystem
+  m_EditorClassIdentifier: 
+  supplyNodeReserve: 5000
+  ironNodeReserve: 10000
+  veilstoneNodeReserve: 4000
+  pureReserveMultiplier: 2.5
+  normalReserveMultiplier: 1
+  poorReserveMultiplier: 0.4
+  depletionFloor: 0
+  nodeLifetimeMinutes: 22
+  emptySlotPerMinute: 10
+  ironYieldMultiplier: 1
+  deepShaftsMultiplier: 1.2
+  richSeamsMultiplier: 1.4
+  feraldisVeilstoneMultiplier: 1.5
+  fortressLevelIncomeMultipliers:
+  - 1
+  - 2
+  - 4
+  guildSurveyIronPerTier: 8
+  guildSurveyVeilstonePerTier: 6
+  guildSurveyVeilsteelPerTier: 3
+  guildSurveyLevelScale:
+  - 1
+  - 1.25
+  - 1.5
+  claimSuppliesPerMinute: 50
+  claimIronPerMinute: 10
+  claimVeilstonePerMinute: 5

@@ -286,6 +286,12 @@ namespace TheWaningBorder.Data.Border
         /// Shardroot if it is not out yet (§6.6 backstop).</summary>
         [Min(0f)] public float shardrootGuaranteeSeconds = 720f;
 
+        /// <summary>THE DESCENT (Curse_And_Shardroot.md §3.1c, 2026-10-09):
+        /// religion points earned by all players together that make the
+        /// Shardroot descend into a random living curse node. 0 = off (the
+        /// old spawn roll and guarantee above apply instead).</summary>
+        [Min(0)] public int shardrootDescentReligionPoints;
+
         /// <summary>While a player holds the Shardroot the curse's garrison
         /// size and spawn rate rise by this fraction (§6.6): 0.5 = size x1.5,
         /// interval / 1.5.</summary>

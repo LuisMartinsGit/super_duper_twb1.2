@@ -191,6 +191,70 @@ namespace TheWaningBorder.Multiplayer
             _initialized = true;
         }
 
+        // ═══════════════════════════════════════════════════════════════════════
+        // SOLO LOCKSTEP — single-player through the same command stream
+        // ═══════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// True when this single-player match should run through solo lockstep
+        /// (docs/Design/Replays_And_Saves.md): ordinary skirmishes, and every
+        /// replay or saved game. Scenarios, the sandbox and the tutorial stay
+        /// frame-driven — their tools write the world directly, so a recording
+        /// of them could never reproduce the match. <c>-twbNoSoloLockstep</c>
+        /// turns it off for diagnosis.
+        /// </summary>
+        public static bool SoloEligible()
+        {
+            if (GameSettings.IsMultiplayer) return false;
+            if (TheWaningBorder.Core.Replay.ReplaySession.Active) return true;
+            if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-twbNoSoloLockstep") >= 0)
+                return false;
+            if (GameSettings.TutorialActive || GameSettings.IsSandbox) return false;
+            return GameSettings.Mode == GameMode.FreeForAll || GameSettings.Mode == GameMode.SoloVsBorder;
+        }
+
+        /// <summary>
+        /// Single-player lockstep: a LockstepManager with no sockets, driving
+        /// the ECS world at the fixed tick rate. Called by GameBootstrap at the
+        /// same point it initializes multiplayer lockstep — before the AI exists,
+        /// so the AI's very first order already travels as a command.
+        /// </summary>
+        public static void InitializeSoloNow()
+        {
+            var replay = TheWaningBorder.Core.Replay.ReplaySession.File;
+            bool feed = TheWaningBorder.Core.Replay.ReplaySession.Watching;
+            bool fromFile = replay != null && TheWaningBorder.Core.Replay.ReplaySession.Active;
+
+            // One tick of input delay: nothing to wait for but ourselves, and
+            // 33 ms is below what a player can feel. A replay keeps the delay
+            // it was recorded with — commands are stamped with their tick, so
+            // the value only matters for a save once the players take over.
+            TheWaningBorder.Core.Multiplayer.LockstepTiming.InputDelayTicks =
+                fromFile ? replay.Header.InputDelayTicks : TheWaningBorder.Core.Multiplayer.LockstepTiming.MinInputDelayTicks;
+            if (fromFile)
+                TheWaningBorder.Core.Multiplayer.LockstepTiming.TicksPerSecond = replay.Header.TicksPerSecond;
+            GameSettings.DeterministicLockstep = true;
+
+            var lockstep = LockstepManager.Instance;
+            if (lockstep == null)
+            {
+                var go = new GameObject("LockstepManager");
+                lockstep = go.AddComponent<LockstepManager>();
+            }
+
+            lockstep.InitializeSolo(feed);
+            lockstep.StartSimulation();
+            LockstepFixedStep.Install(Unity.Entities.World.DefaultGameObjectInjectionWorld,
+                LockstepManager.TICK_DURATION);
+            GameSettings.SoloLockstepActive = true;
+
+            TWBLog.Log($"[Lockstep] Solo lockstep at " +
+                       $"{TheWaningBorder.Core.Multiplayer.LockstepTiming.TicksPerSecond} Hz, input delay " +
+                       $"{TheWaningBorder.Core.Multiplayer.LockstepTiming.InputDelayTicks} tick(s)" +
+                       (feed ? $", fed from {TheWaningBorder.Core.Replay.ReplaySession.Mode} " +
+                               $"{System.IO.Path.GetFileName(TheWaningBorder.Core.Replay.ReplaySession.Path)}" : "") + ".");
+        }
+
         private IEnumerator InitializeLockstepDeferred()
         {
             // Fallback path — only used if GameBootstrap didn't call InitializeLockstepNow()

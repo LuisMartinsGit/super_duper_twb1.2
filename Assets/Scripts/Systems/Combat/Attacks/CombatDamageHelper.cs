@@ -485,7 +485,7 @@ namespace TheWaningBorder.Systems.Combat
                         if (paid > 0)
                         {
                             var atkHealth = em.GetComponentData<Health>(attacker);
-                            atkHealth.Value -= ShieldDamage.Absorb(em, attacker, paid);
+                            atkHealth.Value -= ShieldDamage.Absorb(em, attacker, TheWaningBorder.Abilities.AbilityDamageHooks.ScaleIncoming(em, attacker, paid));
                             em.SetComponentData(attacker, atkHealth);
                         }
                     }
@@ -545,7 +545,7 @@ namespace TheWaningBorder.Systems.Combat
             // siege, so it must not chip the tower. The Wall Rule.
             if (em.HasComponent<WallTag>(attacker)) return;
             var attackerHealth = em.GetComponentData<Health>(attacker);
-            attackerHealth.Value -= ShieldDamage.Absorb(em, attacker, reflected);
+            attackerHealth.Value -= ShieldDamage.Absorb(em, attacker, TheWaningBorder.Abilities.AbilityDamageHooks.ScaleIncoming(em, attacker, reflected));
             em.SetComponentData(attacker, attackerHealth);
         }
 

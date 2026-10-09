@@ -53,7 +53,7 @@ MonoBehaviour:
   - Heavy
   bonusVsTags:
   - vsTag: Cavalry
-    amount: 15
+    amount: 22
   abilities: []
   prefab: {fileID: 7272246701288170288, guid: eb15e7657d9fa9347ab3798ee994cc1b, type: 3}
   presentationId: 368

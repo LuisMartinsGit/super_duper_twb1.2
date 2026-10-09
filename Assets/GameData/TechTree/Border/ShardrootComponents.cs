@@ -74,6 +74,22 @@ public struct ShardrootState : IComponentData
     /// scenario, never reset.</summary>
     public int MatchEpoch;
 
+    /// <summary>THE DESCENT (§3.1c, 2026-10-09): religion points earned by
+    /// every player so far, and how many make the Shardroot descend. Written
+    /// by CurseTerritorySystem; read by the UI and the AI.</summary>
+    public int DescentEarned;
+    public int DescentNeeded;
+
+    /// <summary>THE ASCENSION (§3.1c): the faction whose Temple enshrines the
+    /// artifact (Faction.Border = none), sim seconds its countdown has run,
+    /// and 1 once it ran out with the Temple standing — EliminationSystem
+    /// then retires every faction hostile to it.</summary>
+    public Faction AscensionFaction;
+    public float AscensionElapsed;
+    public byte AscensionDone;
+    /// <summary>Whole minutes left at the last countdown notice.</summary>
+    public int AscensionNoticeMinutes;
+
     /// <summary>Shardroot quanta the artifact embodies — drives god-power
     /// scaling and the Temple detonation magnitude via existing paths.</summary>
     public const int ShardrootPower = 12;

@@ -109,7 +109,7 @@ namespace TheWaningBorder.Systems.Economy
                     int dealt = (int)math.max(1, damage * falloff);
 
                     var h = em.GetComponentData<Health>(victimEnts[v]);
-                    h.Value = math.max(0, h.Value - ShieldDamage.Absorb(em, victimEnts[v], dealt));
+                    h.Value = math.max(0, h.Value - ShieldDamage.Absorb(em, victimEnts[v], TheWaningBorder.Abilities.AbilityDamageHooks.ScaleIncoming(em, victimEnts[v], dealt)));
                     em.SetComponentData(victimEnts[v], h);
                 }
             }

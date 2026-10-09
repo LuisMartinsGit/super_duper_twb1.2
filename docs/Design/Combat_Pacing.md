@@ -289,6 +289,27 @@ the bow ladder in damage and reach. Giving them the anti-infantry leg as well
 would leave them strong against two classes of three, which is exactly what
 makes the cavalry counter load-bearing.
 
+### Counters are decisive (2026-10-09)
+
+The triangle above was authored as flat damage add-ons that move a fight by a
+little: in the 2026-10-09 v8 batch nobody's army was ever punished for its mix,
+and fights between the near-identical armies of Game_AI.md § 6r were
+attrition. Developer: "Eliminations should come from asymmetries between
+players, like rock paper scissors, or Pokémon."
+
+- **A hard counter wins the fight**, not a few percent of it: each leg of the
+  triangle is retuned so the countering class trades roughly two-for-one or
+  better against the class it counters, at equal cost. The amounts stay on
+  the unit SOs (`bonusVsTags`), never here.
+- **Every class has a clear weakness.** In particular the **Swordsman stops
+  being the safe default**: it was the most-built unit (26% of all armies)
+  because it carries 145 HP, heavy armour and no exposure the triangle
+  punishes. Its weakness (2026-10-09): less HP than the other heavy foot, so
+  massed bows and a cavalry flank actually break it; its role is anti-siege
+  and line holding.
+- **Fights are lethal**: decisive engagements end in seconds, not minutes, so
+  a bad matchup loses an army instead of bleeding both.
+
 ### Tags are what make any of this fire
 
 A bonus matches the target's `tags`, so **a unit with no tags cannot be

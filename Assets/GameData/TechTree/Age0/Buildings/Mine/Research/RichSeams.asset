@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Rich Seams
   role: Economy
   effect: 
-  desc: "Every iron slot one of your Mines works pays +100% (replaces Deep Shafts)."
+  desc: "Every iron slot one of your Mines works pays +40% (replaces Deep Shafts)."
   researchAt: Mine
   minBuildingLevel: 0
   researchTime: 60

@@ -211,6 +211,12 @@ namespace TheWaningBorder.UI.Ingame
             // ActionsPanelPrefabBinder.RenderUnitFormations.
             _hostCanvasRect.gameObject.AddComponent<SpellsPanelBinder>();
 
+            // Replay playback bar — only while a replay is being watched
+            // (docs/Design/Replays_And_Saves.md). Before the pause menu so the
+            // menu's scrim covers it.
+            if (TheWaningBorder.Core.Replay.ReplaySession.Watching)
+                SpawnCodeBuilt<ReplayControlsPanel>("GameUI_ReplayControls");
+
             // Pause menu (Esc). Spawned on its own full-canvas host and last
             // in sibling order so its scrim covers every other panel; it also
             // owns the Escape cascade for the whole HUD.
@@ -219,6 +225,10 @@ namespace TheWaningBorder.UI.Ingame
             // End-of-match screen — spawned after the pause menu so its scrim
             // covers it. Hidden until VictoryConditionSystem calls TryShow.
             SpawnCodeBuilt<VictoryPanel>("GameUI_VictoryScreen");
+
+            // Post-game Muster Rolls (charts + map replay) — after the victory
+            // screen so it covers it; hidden until MusterRollsPanel.Open().
+            SpawnCodeBuilt<MusterRollsPanel>("GameUI_MusterRolls");
 
             // Tutorial coach — only for a match launched from the TUTORIAL
             // menu entry. It needs a canvas parent, so it is spawned here
@@ -851,7 +861,7 @@ namespace TheWaningBorder.UI.Ingame
         {
             if (_deleteButton == null) return;
             bool plans = false, sites = false, buildings = false, units = false;
-            if (selection != null && !GameSettings.IsObserver)
+            if (selection != null && !GameSettings.IsSpectating)
             {
                 var me = GameSettings.LocalPlayerFaction;
                 for (int i = 0; i < selection.Count; i++)
@@ -878,7 +888,7 @@ namespace TheWaningBorder.UI.Ingame
         private void DeleteSelection()
         {
             var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
-            if (world == null || !world.IsCreated || GameSettings.IsObserver) return;
+            if (world == null || !world.IsCreated || GameSettings.IsSpectating) return;
             var em = world.EntityManager;
             var selection = TheWaningBorder.Input.SelectionSystem.CurrentSelection;
             if (selection == null) return;

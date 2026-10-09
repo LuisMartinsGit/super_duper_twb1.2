@@ -487,9 +487,53 @@ whatever room is left at the moment they fire, and raise nothing at the cap
 standing wins. The curse cannot win; if the last players fall together, the
 match is a draw.
 
-A faction is eliminated when it has **no Fortress, no military building and no
-Worker** — the existing lifeline in `EliminationSystem`, with Fortress in place
-of Hall.
+**One exception (2026-10-09): ascension** — a faction whose enshrining
+Temple survives the Shardroot's 10-minute countdown wins
+([Curse_And_Shardroot.md §3.1c](Curse_And_Shardroot.md)).
+
+A faction is eliminated by **any** of three rules (`EliminationSystem`, all
+checked on the lockstep clock, so every peer drops the same faction on the
+same tick):
+
+1. **No lifeline** — no Fortress, no military building and no Worker (the
+   original rule, with Fortress in place of Hall).
+2. **No territory** (2026-10-08, developer: "Players die when they have no
+   territories.") — the faction has held **no territory at all** for a
+   continuous grace period (`noTerritoryGraceSeconds` on
+   `EliminationSystem.asset`, beside `EliminationSystem.cs`). Holding one
+   territory again at any moment inside the grace cancels it; the clock starts
+   over the next time the last territory is lost. The rule arms only once the
+   faction has held ground at least once, so a start that has not been claimed
+   yet is never a death sentence. Ground is the economy (§1) and the only
+   place a faction may build (§5); a faction with none can never recover it
+   (claims need ground bordering Fortress-linked territory, §10), so it is
+   already out of the game — the rule ends the match for it instead of
+   letting a landless remnant linger for an hour.
+
+3. **No buildings** (2026-10-09). Developer approved: "OK". The v8 batch ended
+   two of three matches at the 90-minute cap because of **zombie factions** —
+   Blue (match 2) held one territory from minute 60 to 90 with **0 buildings
+   and 3 units**; Red (match 3) held two territories with 0 buildings and 3
+   units. Standing units keep a territory's ownership meter, so rule 2 never
+   fired, and no AI sends an army after three stragglers. As in StarCraft, a
+   faction with **no buildings left** (finished or under construction; plans
+   do not count, Planned_Buildings.md) is eliminated after the same
+   `noTerritoryGraceSeconds` grace; placing any building inside the grace
+   cancels it.
+
+**What happens to an eliminated faction's leftovers** (all rules alike): every
+unit and building it still owns is destroyed on the tick of elimination
+(Health 0 — DeathSystem does the destruction, as for any death). Nothing of an
+eliminated faction stays on the map, so a remnant army can never stand on a
+territory and claim or hold it, and a surviving building can never lock one.
+This is the convention the lifeline rule already had; the territory rule keeps
+it.
+
+**Superseded in timing (2026-10-09):** developer: "I need deaths to start occurring from minute 15 or even earlier", with ~45-minute 8-player matches. The late game now comes earlier (the minute is `allInAfterSeconds` on `SimpleAISystem.asset` and `nodeLifetimeMinutes` on `TerritoryIncomeSystem.asset`), and stalled factions are hunted before it ([Game_AI.md § 6o](Game_AI.md)). Read "minute 30" below as "the late game".
+
+**Late game.** Late game starts around minute 30, and from there players are
+expected to start falling (developer, 2026-10-08). The AI's side of that is the
+all-in doctrine ([Game_AI.md § 6n](Game_AI.md)).
 
 ## 8. Knobs
 
@@ -672,8 +716,9 @@ normal and for every 10 poor."
 
 - Every generated node — supply, iron and veilstone alike — has a **purity**:
   Pure, Normal or Poor. It scales everything the node's slot pays, empty or
-  built, at every extractor level and through every research and Fortress
-  multiplier; a node pays (and drains its reserve) at its purity's rate.
+  built, at every extractor level and through every research multiplier; a
+  node pays (and drains its reserve) at its purity's rate. (The Fortress
+  level no longer scales slots at all since 2026-10-08, § 11.3.)
 - **Start territories are all Pure**, seated or not, so the opening is the
   same as before purity existed.
 - **Every other node is dealt from a shuffled bag** of 2 Pure : 3 Normal :
@@ -685,4 +730,64 @@ normal and for every 10 poor."
   outcrop keep the node they refill) is Normal unless it was dealt a grade.
 - The purity is shown with the node's name (Pure / Poor; Normal is unmarked).
 - The three multipliers and the bag's mix are on `TerritoryResources.asset`.
+
+### 11.3 Nodes run dry (2026-10-07)
+
+Developer: "Why does the economy stop mattering? Add decay to the nodes."
+In the 8-player batch every faction reached the population cap by about
+minute 40 and the resource cap soon after: income kept rising on research,
+Fortress levels and breadth while there was nothing left to buy, so losing
+an army cost nothing. Iron nodes only thinned to a permanent floor, and
+supply nodes never thinned at all.
+
+- **Every supply and iron node has a reserve**, and every unit a slot pays
+  (empty or built, at its purity) is drawn from it. Veilstone keeps its own
+  rule (fast and finite, Veilstone_Economy.md).
+- **Yield falls with the reserve and stops when it is gone** -- a worked node
+  runs dry. The late game is then paid for by taking fresh ground, not by
+  sitting on old ground.
+- **Purity sets the reserve as well as the yield** (developer: "Pure supply
+  must have higher yield and last longer than poor ones"). A Pure node holds
+  much more than a Normal one -- more than its higher yield draws -- and a Poor
+  node holds less, so Pure pays more AND lasts longer, Poor pays less and
+  runs out first.
+- **Better extraction drains faster** (developer: "higher tech buildings
+  means you drain the nodes faster"). Everything that raises what a slot
+  pulls out of the ground is taken from the reserve: the extractor's level
+  and the Mine research.
+- The reserve sizes, the per-purity reserve multipliers and the yield floor
+  are on `TerritoryIncomeSystem.asset` (a floor above zero brings back a
+  permanent trickle).
+
+**Every node is spent by minute 30 (2026-10-08).** Developer: "Late game
+comes at 30 minutes; from there onward players are expected to start
+falling. Adjust all nodes to be spent by minute 30."
+
+- **A node has a lifetime as well as a reserve.** Besides what extraction
+  draws, a node's reserve is capped by a line that falls from its full
+  reserve at the start of the match to nothing at `nodeLifetimeMinutes`
+  (`TerritoryIncomeSystem.asset`) of **simulated match time** — the
+  lockstep clock, so every peer caps the same nodes on the same tick. Its
+  yield follows what is left as before, so every node's pay — supply, iron
+  and veilstone, empty or built — falls to nothing by then. Heavy
+  extraction empties a node sooner; a Poor node, with the smallest reserve,
+  first; an untouched node simply fades out on the line.
+- **An empty slot on a spent node pays nothing** either; with the yield
+  floor at zero there is no permanent trickle.
+- **Veilstone keeps its own shape**: an outcrop pays its full rate while
+  anything is left, so under the line it pays at the rate the line falls,
+  and it is Depleted when the line reaches zero. **The curse's refill of an
+  outcrop is capped by the same line** (Veilstone_Economy.md §2), so after
+  minute 30 the curse taking an outcrop cannot resurrect its income. A
+  Depleted outcrop still hosts its Trading Outposts — late veilstone is
+  trade.
+- **What pays after minute 30** is what draws on no node: the Fortress's
+  own income (raised by its level), the Vault, trade, **territory claims**
+  (a flat rate per held territory once its holder has aged up) and the
+  Alanthor **Guild surveys** (Veilstone_Economy.md §5).
+- **The Fortress level no longer scales slots.** It used to multiply
+  everything its territory paid — Mines included — which made iron soar in
+  the middle of the match (developer: "reduce the upgrade power"). It now
+  multiplies only that Fortress's own supplies income, and the surveys no
+  longer multiply the Mines (they pay the Guilds instead).
 

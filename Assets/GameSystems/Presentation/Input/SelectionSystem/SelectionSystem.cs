@@ -609,7 +609,7 @@ namespace TheWaningBorder.Input
         /// </summary>
         private void UpdateObserverViewFaction()
         {
-            if (!GameSettings.IsObserver) return;
+            if (!GameSettings.IsSpectating) return;
             Faction? view = null;
             for (int i = 0; i < _selection.Count; i++)
             {

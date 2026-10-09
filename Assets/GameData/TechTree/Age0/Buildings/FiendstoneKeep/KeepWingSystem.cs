@@ -85,13 +85,11 @@ namespace TheWaningBorder.Systems.Buildings
                     var faction = em.GetComponentData<FactionTag>(ents[i]).Value;
                     int amount = (int)math.round(perSecond * tick);
                     if (amount <= 0) continue;
-                    if (FactionEconomy.TryGetBank(em, faction, out var bank))
-                    {
-                        var res = em.GetComponentData<FactionResources>(bank);
-                        res.Supplies += amount;
-                        res.Clamp();
-                        em.SetComponentData(bank, res);
-                    }
+                    // Through FactionEconomy (2026-10-08): this was a direct
+                    // bank write, invisible to the income ledger ("untracked").
+                    // Same arithmetic: add, then clamp to the cap.
+                    FactionEconomy.Add(em, faction, new TheWaningBorder.Core.Cost { Supplies = amount },
+                        IncomeSource.BuildingPassive);
                 }
             }
         }

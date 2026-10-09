@@ -138,6 +138,8 @@ namespace TheWaningBorder.Systems.Sect
                 var e = entities[i];
                 if (!Alliances.AreHostile(faction, em.GetComponentData<FactionTag>(e).Value)) continue;
                 if (!em.HasComponent<LineOfSight>(e)) continue;
+                // The Shardbound King cannot be disabled (Curse_And_Shardroot.md § 3.1b).
+                if (em.HasComponent<TheWaningBorder.Entities.ShardboundKing>(e)) continue;
 
                 float3 p = em.GetComponentData<LocalTransform>(e).Position;
                 float dx = p.x - center.x, dz = p.z - center.z;

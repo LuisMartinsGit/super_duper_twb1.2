@@ -137,7 +137,7 @@ namespace TheWaningBorder.Input
             UpdateHover();
 
             // Observer mode: block all commands but allow hover/selection
-            if (GameSettings.IsObserver)
+            if (GameSettings.IsSpectating)
                 return;
 
             _hotkeys.Tick();

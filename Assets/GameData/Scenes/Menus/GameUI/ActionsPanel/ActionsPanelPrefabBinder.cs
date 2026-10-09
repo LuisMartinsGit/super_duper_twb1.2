@@ -264,7 +264,7 @@ namespace TheWaningBorder.UI.Ingame
         private void Refresh()
         {
             var em = EM(out bool ok);
-            if (!ok || GameSettings.IsObserver) { SetShown(false); return; }
+            if (!ok || GameSettings.IsSpectating) { SetShown(false); return; }
 
             _entity = ActionsPanelBinder.FirstOwnedSelected(em);
             if (_entity == Entity.Null) { SetShown(false); return; }

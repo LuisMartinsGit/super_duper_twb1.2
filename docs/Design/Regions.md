@@ -215,10 +215,9 @@ overlap — instead of a generic "invalid placement". (Not enough resources is
 the ordinary affordability notice, at the escalated price.)
 
 **What this still does not cover:** a faction that has lost every territory
-holds nothing to be adjacent to, so it cannot claim again. That is currently
-elimination in all but name (the Fortress is its home claim); whether a
-landless faction may re-found somewhere is an open design question, not
-implemented.
+holds nothing to be adjacent to, so it cannot claim again. **Decided
+2026-10-08: a landless faction is eliminated** after a short grace —
+[Territory_Claims.md § 7](Territory_Claims.md). There is no re-founding.
 
 ### Losing and taking
 

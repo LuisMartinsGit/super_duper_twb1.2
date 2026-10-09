@@ -77,6 +77,18 @@ namespace TheWaningBorder.World.FogOfWar
 
         int Idx(int x, int y) => y * _w + x;
 
+        /// <summary>The explored-ground map, for a saved game
+        /// (docs/Design/Replays_And_Saves.md). Null before Awake.</summary>
+        public byte[] ExportRevealed() => _revealed.IsCreated ? _revealed.ToArray() : null;
+
+        /// <summary>Restore what <see cref="ExportRevealed"/> wrote. Ignored if the
+        /// map's fog grid has a different size.</summary>
+        public void ImportRevealed(byte[] data)
+        {
+            if (data == null || !_revealed.IsCreated || data.Length != _revealed.Length) return;
+            _revealed.CopyFrom(data);
+        }
+
         // Map any enum to a safe slice [0..MaxFactions-1]
         int FOfs(Faction f)
         {

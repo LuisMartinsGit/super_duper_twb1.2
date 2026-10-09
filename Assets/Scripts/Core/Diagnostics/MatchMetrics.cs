@@ -216,7 +216,7 @@ namespace TheWaningBorder.Core.Diagnostics
         {
             "emptySlot", "gatherersHut", "mine", "veilstoneMine", "fortressLevel",
             "capital", "buildingPassive", "trade", "vault", "curseKill", "loot",
-            "refund", "grant", "other",
+            "refund", "grant", "guildSurvey", "territoryClaim", "other",
         };
         private static readonly string[] SpendNames =
         {

@@ -1,5 +1,9 @@
 # Religion
 
+> **2026-10-09:** every religion point any player earns also counts down
+> the global "religion points until the Shardroot descends" counter
+> ([Curse_And_Shardroot.md §3.1c](Curse_And_Shardroot.md)).
+
 > **Doc version: 2026-09-29. Canon for religion points, the Temple, chapels and
 > sect heroes.** Supersedes:
 >

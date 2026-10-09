@@ -756,7 +756,7 @@ namespace TheWaningBorder.UI.Ingame
         private void Refresh()
         {
             var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
-            bool ok = world != null && world.IsCreated && !GameSettings.IsObserver;
+            bool ok = world != null && world.IsCreated && !GameSettings.IsSpectating;
             if (!ok)
             {
                 HideAll();

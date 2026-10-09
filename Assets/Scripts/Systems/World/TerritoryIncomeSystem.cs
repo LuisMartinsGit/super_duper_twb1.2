@@ -19,6 +19,18 @@
 //   * a cursed or depleted veilstone outcrop pays nothing, and there is no
 //     veilsteel node at all (docs/Design/Veilstone_Economy.md, 2026-10-01)
 //
+// THE LATE GAME COMES AT 30 MINUTES (2026-10-08). Every node's reserve is
+// capped by a lifetime line that reaches 0 at `nodeLifetimeMinutes` of
+// simulated match time, so by then no slot — empty or built — pays anything.
+// What still pays after it, and is paid here:
+//   * the Guild surveys — every Alanthor Guild pays a flat amount per
+//     completed survey tier, scaled by its level, drawn from no node
+//   * territory claims — every held territory pays a flat rate once its
+//     holder has aged up
+//   * the Fortress level — the share above x1 of each Fortress's OWN
+//     supplies income. It no longer multiplies the territory's slots.
+// (Trade and the Vault pay through their own systems.)
+//
 // A player's economy is therefore a map position. Losing a territory is losing
 // income, immediately and visibly, which is what makes the claim game the game.
 //
@@ -70,8 +82,9 @@ namespace TheWaningBorder.Systems.World
         /// What an EMPTY slot pays — a supply, iron or uncursed veilstone node
         /// in held ground with no extractor on it. Small on purpose: holding a
         /// node is worth something, building on it is worth five times more.
+        /// On TerritoryIncomeSystem.asset (2026-10-08).
         /// </summary>
-        private const float EmptySlotPerMinute = 10f;
+        private static float EmptySlotPerMinute => Cfg.emptySlotPerMinute;
 
         /// <summary>The three extractors whose `slotIncomePerMinute` ladders
         /// this system pays (GatherersHut.asset, Mine.asset, VeilstoneMine.asset
@@ -81,38 +94,36 @@ namespace TheWaningBorder.Systems.World
         private const string VeilstoneMineId = "VeilstoneMine";
 
         /// <summary>
-        /// EVERY IRON SOURCE PAYS 20 % MORE (2026-10-02, Veilstone_Economy.md
-        /// §6): empty iron slots and Mines alike. Iron was the resource every
-        /// faction starved on — 8-AI batches ended on ~10k unspent supplies
-        /// and under 60 iron each.
+        /// A flat multiplier on every iron line, empty slots and Mines alike
+        /// (2026-10-02, Veilstone_Economy.md §6). Was a 1.2 constant; on the
+        /// asset since 2026-10-08, when the iron mid-game spike was cut.
         /// </summary>
-        private const float IronYieldMultiplier = 1.2f;
+        private static float IronYieldMultiplier => Cfg.ironYieldMultiplier;
 
         /// <summary>
-        /// The MINE's own research ladder (2026-10-02): Deep Shafts makes every
-        /// iron slot a Mine works pay +50 %, Rich Seams +100 % (they do not
-        /// stack — Rich Seams replaces Deep Shafts). Mine-worked slots only:
-        /// an empty slot is not mined.
+        /// The MINE's own research ladder (2026-10-02): Deep Shafts raises
+        /// every iron slot a Mine works, Rich Seams raises it further (they do
+        /// not stack — Rich Seams replaces Deep Shafts). Mine-worked slots
+        /// only: an empty slot is not mined. Both multipliers are on the asset
+        /// (toned down 2026-10-08: "reduce the upgrade power").
         /// </summary>
         private const string DeepShaftsTech = "DeepShafts";
         private const string RichSeamsTech = "RichSeams";
-        private const float DeepShaftsMultiplier = 1.5f;
-        private const float RichSeamsMultiplier = 2f;
 
         /// <summary>The Mine-tech multiplier this faction's Mines earn on iron.</summary>
         private static float MineTechMultiplier(Faction faction)
         {
             var research = FactionResearchState.Instance;
             if (research == null) return 1f;
-            if (research.HasResearched(faction, RichSeamsTech)) return RichSeamsMultiplier;
-            if (research.HasResearched(faction, DeepShaftsTech)) return DeepShaftsMultiplier;
+            if (research.HasResearched(faction, RichSeamsTech)) return Cfg.richSeamsMultiplier;
+            if (research.HasResearched(faction, DeepShaftsTech)) return Cfg.deepShaftsMultiplier;
             return 1f;
         }
 
         /// <summary>Feraldis mine fast and burn the outcrop out
         /// (Veilstone_Economy.md §3.2). Every unit paid is drawn from the
         /// reserve, so the multiplier is also how much faster they deplete it.</summary>
-        private const float FeraldisVeilstoneMultiplier = 1.5f;
+        private static float FeraldisVeilstoneMultiplier => Cfg.feraldisVeilstoneMultiplier;
 
         /// <summary>How close a Mine must be to a node to count as built ON it.
         /// Generous by a build cell: the mine is placed against the node, not
@@ -130,7 +141,9 @@ namespace TheWaningBorder.Systems.World
         /// make the map a countdown; one that never empties makes the opening
         /// land grab the entire economy.
         /// </summary>
-        private const float NodeReserveUnits = 4000f;
+        // NODES RUN DRY (2026-10-07, Territory_Claims.md § 11.3): the reserve
+        // sizes and the yield floor live on TerritoryIncomeSystem.asset.
+        private static TerritoryIncomeSystemConfig Cfg => TerritoryIncomeSystemConfig.I;
 
         /// <summary>
         /// Yield floor as a fraction of the node's fresh rate. A spent node
@@ -138,7 +151,7 @@ namespace TheWaningBorder.Systems.World
         /// would be worth holding for nothing at all, which turns the late game
         /// into a map of dead ground nobody contests.
         /// </summary>
-        private const float DepletionFloor = 0.25f;
+        private static float DepletionFloor => Cfg.depletionFloor;
 
         // SimCadence-phased, NOT a raw float accumulator (2026-09-04, MP
         // harness catch #7 class): a raw `_timer -= dt` carries a
@@ -202,6 +215,7 @@ namespace TheWaningBorder.Systems.World
             var em = EntityManager;
             TerritoryOwnership.Recompute(em);
             EnsureNodeReserves(em);
+            ApplyNodeLifetime(em);
 
             float minutes = TickInterval / 60f;
             int count = RegionMap.Count;
@@ -243,44 +257,38 @@ namespace TheWaningBorder.Systems.World
 
         // -- Ledger attribution (observation only) --------------------------
         //
-        // Yield() writes each slot's pre-Fortress-level rate into this scratch
-        // array when the ledger is recording. Nothing in the payout reads it,
-        // so it cannot change what is paid. Layout:
-        //   0 supply empty   1 supply hut   2 iron empty   3 iron mine
-        //   4 veil empty     5 veil mine    6 the territory's level multiplier
-        private readonly float[] _ledgerSplit = new float[7];
+        // Yield() writes each line's per-minute rate into this scratch array
+        // when the ledger is recording. Nothing in the payout reads it, so it
+        // cannot change what is paid. Layout: [part * 4 + resource], resource
+        // 0 supplies, 1 iron, 2 veilstone, 3 veilsteel, and part:
+        //   0 empty slot   1 extractor (hut / Mine / Veilstone Mine)
+        //   2 Guild survey 3 territory claim   4 Fortress level
+        private const int SplitParts = 5;
+        private const int PartEmpty = 0, PartExtractor = 1, PartSurvey = 2, PartClaim = 3, PartFortress = 4;
+        private readonly float[] _ledgerSplit = new float[SplitParts * 4];
+
+        private static readonly IncomeSource[] ExtractorSourceByResource =
+            { IncomeSource.GatherersHut, IncomeSource.Mine, IncomeSource.VeilstoneMine, IncomeSource.Other };
 
         /// <summary>
         /// Book one territory's paid yield by source. The tick has just booked
         /// it as <see cref="IncomeSource.Other"/> (whole units, after the
         /// carry); this moves the same float amount out of Other and into its
-        /// real sources, so per resource the sources sum to what the territory
-        /// paid. The level multiplier's share - everything above the x1 base -
-        /// is booked as <see cref="IncomeSource.FortressLevel"/>.
+        /// real sources. Since 2026-10-08 nothing multiplies the whole
+        /// territory, so every line is booked as computed.
         /// </summary>
         private static void BookSplit(Faction owner, TerritoryYield y, float[] split, float minutes)
         {
             EconomyLedger.Credit(owner, IncomeSource.Other,
                 -y.Supplies * minutes, -y.Iron * minutes, -y.Veilstone * minutes, -y.Veilsteel * minutes);
-            float m = split[6] > 1f ? split[6] : 1f;
-            BookResource(owner, 0, y.Supplies * minutes, m, split[0], split[1], IncomeSource.GatherersHut);
-            BookResource(owner, 1, y.Iron * minutes, m, split[2], split[3], IncomeSource.Mine);
-            BookResource(owner, 2, y.Veilstone * minutes, m, split[4], split[5], IncomeSource.VeilstoneMine);
-            if (y.Veilsteel != 0f) LedgerCredit(owner, IncomeSource.Other, 3, y.Veilsteel * minutes);
-        }
-
-        private static void BookResource(Faction owner, int resource, float paid, float levelMult,
-            float emptyPart, float builtPart, IncomeSource extractor)
-        {
-            if (paid <= 0f) return;
-            float baseAmt = paid / levelMult;
-            float bonus = paid - baseAmt;
-            float parts = emptyPart + builtPart;
-            float emptyAmt = parts > 0f ? baseAmt * emptyPart / parts : 0f;
-            float builtAmt = baseAmt - emptyAmt;
-            LedgerCredit(owner, IncomeSource.EmptySlot, resource, emptyAmt);
-            LedgerCredit(owner, extractor, resource, builtAmt);
-            LedgerCredit(owner, IncomeSource.FortressLevel, resource, bonus);
+            for (int r = 0; r < 4; r++)
+            {
+                LedgerCredit(owner, IncomeSource.EmptySlot,      r, split[PartEmpty * 4 + r] * minutes);
+                LedgerCredit(owner, ExtractorSourceByResource[r], r, split[PartExtractor * 4 + r] * minutes);
+                LedgerCredit(owner, IncomeSource.GuildSurvey,    r, split[PartSurvey * 4 + r] * minutes);
+                LedgerCredit(owner, IncomeSource.TerritoryClaim, r, split[PartClaim * 4 + r] * minutes);
+                LedgerCredit(owner, IncomeSource.FortressLevel,  r, split[PartFortress * 4 + r] * minutes);
+            }
         }
 
         private static void LedgerCredit(Faction owner, IncomeSource src, int resource, float amount)
@@ -405,28 +413,42 @@ namespace TheWaningBorder.Systems.World
                 _displayCensusWorld = em.World;
             }
             var c = _displayCensus;
-            float hall = HallMultiplier(c, territory);
             int level = LevelOf(em, building);
             float r2 = MineToNodeRange * MineToNodeRange;
 
             byte culture = CultureConfig.GetCompletedCulture(em, owner);
             if (em.HasComponent<FortressTag>(building))
             {
-                // The capital's own SuppliesIncome (its SO's 50 per 15 s),
-                // paid by ResourceTickSystem — not by the territory.
+                // The capital's own SuppliesIncome (its SO's rate), paid by
+                // ResourceTickSystem, times its level multiplier — the share
+                // above x1 paid by the territory tick (2026-10-08).
                 if (em.HasComponent<SuppliesIncome>(building))
-                    y.Supplies += em.GetComponentData<SuppliesIncome>(building).PerMinute;
+                    y.Supplies += em.GetComponentData<SuppliesIncome>(building).PerMinute
+                                  * FortressLevelMultiplier(level);
             }
             else if (em.HasComponent<GathererHutTag>(building) && !em.HasComponent<RaiderCampTag>(building))
             {
                 if (NearAny(em, QC_Supply.Get(em, QT_Supply), p, r2, out Entity supplyNode))
-                    y.Supplies += LadderFor(HutId, culture).At(level) * hall
+                {
+                    float scale = 1f;
+                    if (em.HasComponent<NodeReserve>(supplyNode))
+                    {
+                        var res = em.GetComponentData<NodeReserve>(supplyNode);
+                        if (res.Initial > 0f) scale = Mathf.Max(DepletionFloor, res.Remaining / res.Initial);
+                    }
+                    y.Supplies += LadderFor(HutId, culture).At(level) * scale
                                   * TerritoryResources.PurityMultiplier(em, supplyNode);
+                }
+                // The Guild surveys: flat, not drawn from the node.
+                if (culture == Cultures.Alanthor)
+                {
+                    var s = GuildSurveyPerGuild(owner, level);
+                    y.Iron += s.Iron; y.Veilstone += s.Veilstone; y.Veilsteel += s.Veilsteel;
+                }
             }
             else if (em.HasComponent<MineTag>(building))
             {
-                y.Iron += NodeLevelYield(em, c.Ore[0], p, r2, level, LadderFor(MineId, culture)) * hall
-                          * SurveyMultiplier(owner, IronSurveyLadder)
+                y.Iron += NodeLevelYield(em, c.Ore[0], p, r2, level, LadderFor(MineId, culture))
                           * IronYieldMultiplier
                           * (level > 0 ? MineTechMultiplier(owner) : 1f);
             }
@@ -444,22 +466,26 @@ namespace TheWaningBorder.Systems.World
                         != VeilstoneNodeKind.Inactive) continue;
                     if (em.HasComponent<NodeReserve>(o.Node[i])
                         && em.GetComponentData<NodeReserve>(o.Node[i]).Remaining <= 0f) continue;
-                    y.Veilstone += LadderFor(VeilstoneMineId, culture).At(level) * mult * hall
-                                   * SurveyMultiplier(owner, VeilstoneSurveyLadder)
+                    y.Veilstone += LadderFor(VeilstoneMineId, culture).At(level) * mult
                                    * TerritoryResources.PurityMultiplier(em, o.Node[i]);
                 }
             }
             return y;
         }
 
-        /// <summary>The Hall multiplier on a territory: x1 / x2 / x4 by level.</summary>
-        private static float HallMultiplier(Census c, int territory)
+        /// <summary>
+        /// A Fortress's multiplier on its OWN supplies income at
+        /// <paramref name="level"/> (L1 = entry 0), from the asset. Since
+        /// 2026-10-08 it scales nothing else: it used to multiply every slot
+        /// in the Fortress's territory, which is what made iron soar
+        /// mid-match.
+        /// </summary>
+        private static float FortressLevelMultiplier(int level)
         {
-            int hallLevel = 0;
-            for (int i = 0; i < c.HallRegion.Count; i++)
-                if (c.HallRegion[i] == territory && c.HallLevel[i] > hallLevel)
-                    hallLevel = c.HallLevel[i];
-            return hallLevel > 1 ? Pow2(hallLevel - 1) : 1f;
+            var ladder = Cfg.fortressLevelIncomeMultipliers;
+            if (ladder == null || ladder.Length == 0 || level < 1) return 1f;
+            float m = ladder[Mathf.Min(level, ladder.Length) - 1];
+            return m > 0f ? m : 1f;
         }
 
         /// <summary>One extractor's slot rate on the ore nodes it stands on,
@@ -573,43 +599,88 @@ namespace TheWaningBorder.Systems.World
                 if (c.SupplyRegion[i] == territory)
                 {
                     float rate = hutLadder.At(c.SupplyHutLevel[i]) * c.SupplyPurity[i];
+                    // § 11.3: a supply node thins as it empties and runs dry.
+                    var sNode = c.SupplyNode[i];
+                    if (em.HasComponent<NodeReserve>(sNode))
+                    {
+                        var res = em.GetComponentData<NodeReserve>(sNode);
+                        if (res.Initial > 0f) rate *= Mathf.Max(DepletionFloor, res.Remaining / res.Initial);
+                        if (drainMinutes > 0f && res.Remaining > 0f)
+                        {
+                            res.Remaining = Mathf.Max(0f, res.Remaining - rate * drainMinutes);
+                            em.SetComponentData(sNode, res);
+                        }
+                    }
                     y.Supplies += rate;
-                    if (split != null) split[c.SupplyHutLevel[i] > 0 ? 1 : 0] += rate;
+                    if (split != null)
+                        split[(c.SupplyHutLevel[i] > 0 ? PartExtractor : PartEmpty) * 4 + 0] += rate;
                 }
 
-            // Ore slots. Survey research scales each line. There is no
-            // veilsteel line — veilsteel is MADE (the Trading Outpost), never
-            // mined.
+            // Ore slots. There is no veilsteel line — veilsteel is MADE (the
+            // Trading Outpost), never mined. The surveys no longer scale the
+            // Mines (2026-10-08): they are the Guild's own income, below.
             y.Iron = OreSlotYield(em, c.Ore[0], territory, drainMinutes, LadderFor(MineId, culture),
-                                  IronYieldMultiplier, false, MineTechMultiplier(owner), split, 2)
-                     * SurveyMultiplier(owner, IronSurveyLadder);
+                                  IronYieldMultiplier, false, MineTechMultiplier(owner), split, 1);
             float veilMult = culture == Cultures.Feraldis ? FeraldisVeilstoneMultiplier : 1f;
             y.Veilstone = OreSlotYield(em, c.Ore[1], territory, drainMinutes, LadderFor(VeilstoneMineId, culture),
-                                       veilMult, true, 1f, split, 4)
-                          * SurveyMultiplier(owner, VeilstoneSurveyLadder);
+                                       veilMult, true, 1f, split, 2);
 
-            // ── The Hall doubles everything the territory earns ──────────
+            // ── The Guild surveys (Veilstone_Economy.md § 5.1) ───────────
             //
-            // A territory's income is its Hall's income, so the Hall standing
-            // in it is the single biggest lever on the whole economy: L1 x1,
-            // L2 x2, L3 x4, applied to supplies AND ore. Deepening one
-            // holding is meant to beat spreading into another, and this is
-            // the multiplier that makes that true.
+            // Every built Guild (the Alanthor Gatherer's Hut, any level) in
+            // this held territory pays a flat amount per completed survey
+            // tier, scaled by its level. NOT drawn from any node, so it
+            // outlives the node the Guild stands on — the late-game income a
+            // developed hut ring earns.
+            if (culture == Cultures.Alanthor)
+                for (int i = 0; i < c.GuildRegion.Count; i++)
+                {
+                    if (c.GuildRegion[i] != territory || c.GuildFaction[i] != owner) continue;
+                    var s = GuildSurveyPerGuild(owner, c.GuildLevel[i]);
+                    y.Iron += s.Iron; y.Veilstone += s.Veilstone; y.Veilsteel += s.Veilsteel;
+                    if (split != null)
+                    {
+                        split[PartSurvey * 4 + 1] += s.Iron;
+                        split[PartSurvey * 4 + 2] += s.Veilstone;
+                        split[PartSurvey * 4 + 3] += s.Veilsteel;
+                    }
+                }
+
+            // ── Territory claims ─────────────────────────────────────────
             //
-            // The Fortress carries HallTag too, so a capital scales its home
-            // territory exactly as an expansion Hall scales its own.
-            int hallLevel = 0;
-            for (int i = 0; i < c.HallRegion.Count; i++)
-                if (c.HallRegion[i] == territory && c.HallLevel[i] > hallLevel)
-                    hallLevel = c.HallLevel[i];
-            if (split != null) split[6] = hallLevel > 1 ? Pow2(hallLevel - 1) : 1f;
-            if (hallLevel > 1)
+            // Held ground pays its holder a flat rate, nodes or not, once the
+            // holder has aged up (claims open at age-up — Age 0 holds only its
+            // start territory, so the opening is untouched). The income that
+            // does not run dry: after minute 30 it is what territory is worth.
+            if (culture != Cultures.None)
             {
-                float m = Pow2(hallLevel - 1);
-                y.Supplies  *= m;
-                y.Iron      *= m;
-                y.Veilstone *= m;
-                y.Veilsteel *= m;
+                var cfg = Cfg;
+                y.Supplies  += cfg.claimSuppliesPerMinute;
+                y.Iron      += cfg.claimIronPerMinute;
+                y.Veilstone += cfg.claimVeilstonePerMinute;
+                if (split != null)
+                {
+                    split[PartClaim * 4 + 0] += cfg.claimSuppliesPerMinute;
+                    split[PartClaim * 4 + 1] += cfg.claimIronPerMinute;
+                    split[PartClaim * 4 + 2] += cfg.claimVeilstonePerMinute;
+                }
+            }
+
+            // ── The Fortress level: its OWN income only (2026-10-08) ──────
+            //
+            // The Fortress level used to multiply EVERYTHING its territory
+            // paid (x2 / x4), Mines and huts included — the lever behind the
+            // mid-match iron spike. It now scales only the Fortress's own
+            // supplies income (its SO's SuppliesIncome, which
+            // ResourceTickSystem pays at x1): the share above x1 is paid
+            // here, while the territory is held.
+            for (int i = 0; i < c.HallRegion.Count; i++)
+            {
+                if (c.HallRegion[i] != territory || c.HallFaction[i] != owner) continue;
+                float bonus = c.HallSuppliesPerMinute[i] * (FortressLevelMultiplier(c.HallLevel[i]) - 1f);
+                if (bonus <= 0f) continue;
+                y.Supplies += bonus;
+                if (split != null) split[PartFortress * 4 + 0] += bonus;
             }
 
             return y;
@@ -623,6 +694,8 @@ namespace TheWaningBorder.Systems.World
         static readonly ComponentType[] QT_Veilstone = { ComponentType.ReadOnly<VeilstoneOutcroppingTag>(), ComponentType.ReadOnly<LocalTransform>() };
         static readonly ComponentType[] QT_Mine = { ComponentType.ReadOnly<MineTag>(), ComponentType.ReadOnly<LocalTransform>() };
         static readonly ComponentType[] QT_VeilstoneMine = { ComponentType.ReadOnly<VeilstoneMineTag>(), ComponentType.ReadOnly<LocalTransform>() };
+        static readonly ComponentType[] QT_MissingSupply = { ComponentType.ReadOnly<SupplyNodeTag>(), ComponentType.ReadOnly<LocalTransform>(), ComponentType.Exclude<NodeReserve>() };
+        static CachedEntityQuery QC_MissingSupply;
         static readonly ComponentType[] QT_MissingIron = { ComponentType.ReadOnly<IronMineTag>(), ComponentType.ReadOnly<LocalTransform>(), ComponentType.Exclude<NodeReserve>() };
         static readonly ComponentType[] QT_MissingVeilstone = { ComponentType.ReadOnly<VeilstoneOutcroppingTag>(), ComponentType.ReadOnly<LocalTransform>(), ComponentType.Exclude<NodeReserve>() };
         static CachedEntityQuery QC_Supply, QC_Hut, QC_Hall, QC_Iron, QC_Veilstone,
@@ -672,21 +745,42 @@ namespace TheWaningBorder.Systems.World
             public readonly List<int> SupplyHutLevel = new List<int>();
             /// <summary>Each supply slot's purity multiplier (§ 11.2).</summary>
             public readonly List<float> SupplyPurity = new List<float>();
+            /// <summary>Each supply slot's node, for its reserve (§ 11.3).</summary>
+            public readonly List<Entity> SupplyNode = new List<Entity>();
             public readonly List<int> HallRegion = new List<int>();
             public readonly List<int> HallLevel = new List<int>();
+            /// <summary>Each Fortress's owner and its OWN supplies rate per
+            /// minute (SuppliesIncome), for the level bonus (2026-10-08).</summary>
+            public readonly List<Faction> HallFaction = new List<Faction>();
+            public readonly List<float> HallSuppliesPerMinute = new List<float>();
+            /// <summary>Every built Gatherer's Hut (not a Raider Camp): its
+            /// territory, owner and level, for the Guild surveys.</summary>
+            public readonly List<int> GuildRegion = new List<int>();
+            public readonly List<Faction> GuildFaction = new List<Faction>();
+            public readonly List<int> GuildLevel = new List<int>();
             public readonly OreCensus[] Ore = { new OreCensus(), new OreCensus() };
             private readonly List<Vector3> _built = new List<Vector3>();   // x, z, level
+            private readonly List<Entity> _builtEntity = new List<Entity>();
 
             public void Build(EntityManager em)
             {
-                SupplyRegion.Clear(); SupplyHutLevel.Clear(); SupplyPurity.Clear();
-                HallRegion.Clear(); HallLevel.Clear();
+                SupplyRegion.Clear(); SupplyHutLevel.Clear(); SupplyPurity.Clear(); SupplyNode.Clear();
+                HallRegion.Clear(); HallLevel.Clear(); HallFaction.Clear(); HallSuppliesPerMinute.Clear();
+                GuildRegion.Clear(); GuildFaction.Clear(); GuildLevel.Clear();
 
                 // Gatherer's Huts, built, not Raider Camps (converted huts that
                 // KEEP GathererHutTag — AgeUpSystem adds RaiderCampTag to the
                 // same entity — so a Feraldis player does not draw the slot's
                 // supplies on top of what its raiders steal).
                 GatherBuilt(em, QC_Hut.Get(em, QT_Hut), true);
+                for (int h = 0; h < _builtEntity.Count; h++)
+                {
+                    var hut = _builtEntity[h];
+                    if (!em.HasComponent<FactionTag>(hut)) continue;
+                    GuildRegion.Add(RegionOfStatic(hut, _built[h].x, _built[h].y));
+                    GuildFaction.Add(em.GetComponentData<FactionTag>(hut).Value);
+                    GuildLevel.Add((int)_built[h].z);
+                }
                 float r2 = MineToNodeRange * MineToNodeRange;
                 {
                     var q = QC_Supply.Get(em, QT_Supply);
@@ -697,6 +791,7 @@ namespace TheWaningBorder.Systems.World
                         var np = xfs[i].Position;
                         SupplyRegion.Add(RegionOfStatic(ents[i], np.x, np.z));
                         SupplyPurity.Add(TerritoryResources.PurityMultiplier(em, ents[i]));
+                        SupplyNode.Add(ents[i]);
                         // The best hut level on the slot (0 = empty).
                         int best = 0;
                         for (int h = 0; h < _built.Count; h++)
@@ -719,6 +814,10 @@ namespace TheWaningBorder.Systems.World
                         var p = em.GetComponentData<LocalTransform>(ents[i]).Position;
                         HallRegion.Add(RegionOfStatic(ents[i], p.x, p.z));
                         HallLevel.Add(LevelOf(em, ents[i]));
+                        HallFaction.Add(em.HasComponent<FactionTag>(ents[i])
+                            ? em.GetComponentData<FactionTag>(ents[i]).Value : (Faction)byte.MaxValue);
+                        HallSuppliesPerMinute.Add(em.HasComponent<SuppliesIncome>(ents[i])
+                            ? em.GetComponentData<SuppliesIncome>(ents[i]).PerMinute : 0f);
                     }
                 }
 
@@ -757,6 +856,7 @@ namespace TheWaningBorder.Systems.World
             private void GatherBuilt(EntityManager em, EntityQuery q, bool excludeRaiderCamps)
             {
                 _built.Clear();
+                _builtEntity.Clear();
                 using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
                 for (int i = 0; i < ents.Length; i++)
                 {
@@ -764,6 +864,7 @@ namespace TheWaningBorder.Systems.World
                     if (excludeRaiderCamps && em.HasComponent<RaiderCampTag>(ents[i])) continue;
                     var p = em.GetComponentData<LocalTransform>(ents[i]).Position;
                     _built.Add(new Vector3(p.x, p.z, LevelOf(em, ents[i])));
+                    _builtEntity.Add(ents[i]);
                 }
             }
         }
@@ -774,33 +875,49 @@ namespace TheWaningBorder.Systems.World
                 ? Mathf.Max(1, em.GetComponentData<BuildingUpgradeState>(e).Level)
                 : 1;
 
-        /// <summary>2^n for the small n this model uses (level 0-3).</summary>
-        private static float Pow2(int n) => n <= 0 ? 1f : (1 << Mathf.Min(n, 16));
-
-        // ── Survey ladders ──────────────────────────────────────────────
-        // Ordered cheapest-first; each tier researched multiplies the trickle
-        // once more. Read LIVE (no stamped state to get stale), and this is now
-        // their ONLY consumer — the hut's area-income system used to read them
-        // and was deleted with the area model.
+        // ── Guild surveys (Veilstone_Economy.md § 5.1) ──────────────────
+        // The Alanthor Guild's survey research (researched at the Guild, the
+        // cultured Gatherer's Hut). Since 2026-10-08 a survey no longer
+        // multiplies the Mines: each completed tier makes EVERY Guild pay a
+        // flat amount of its resource, scaled by that Guild's level, from no
+        // node — so it keeps paying after the nodes are spent. Read LIVE (no
+        // stamped state to get stale).
         private static readonly string[] IronSurveyLadder =
             { "IronSurveying1", "IronSurveying2", "IronSurveying3" };
         private static readonly string[] VeilstoneSurveyLadder =
-            { "VeilstoneSurvey1", "VeilstoneSurvey2", "VeilsteelSurvey" };
+            { "VeilstoneSurvey1", "VeilstoneSurvey2" };
+        private static readonly string[] VeilsteelSurveyLadder =
+            { "VeilsteelSurvey" };
 
-        /// <summary>Per-tier multiplier on a surveyed resource's yield.</summary>
-        private const float SurveyTierMultiplier = 1.5f;
-
-        /// <summary>Compound multiplier from however many tiers of a survey
-        /// ladder this faction has finished. 1.0 with none, so an unresearched
-        /// faction is paid exactly the authored rate.</summary>
-        private static float SurveyMultiplier(Faction faction, string[] ladder)
+        /// <summary>How many tiers of a survey ladder this faction has finished.</summary>
+        private static int SurveyTiers(Faction faction, string[] ladder)
         {
             var research = FactionResearchState.Instance;
-            if (research == null) return 1f;
-            float mult = 1f;
+            if (research == null) return 0;
+            int n = 0;
             for (int i = 0; i < ladder.Length; i++)
-                if (research.HasResearched(faction, ladder[i])) mult *= SurveyTierMultiplier;
-            return mult;
+                if (research.HasResearched(faction, ladder[i])) n++;
+            return n;
+        }
+
+        /// <summary>
+        /// What ONE Guild of <paramref name="faction"/> at
+        /// <paramref name="level"/> pays per minute from the surveys (iron,
+        /// veilstone, veilsteel; supplies stay 0). The caller checks the
+        /// culture — only an Alanthor hut is a Guild.
+        /// </summary>
+        private static TerritoryYield GuildSurveyPerGuild(Faction faction, int level)
+        {
+            var y = new TerritoryYield();
+            var cfg = Cfg;
+            float scale = 1f;
+            var ladder = cfg.guildSurveyLevelScale;
+            if (ladder != null && ladder.Length > 0)
+                scale = ladder[Mathf.Clamp(level, 1, ladder.Length) - 1];
+            y.Iron      = SurveyTiers(faction, IronSurveyLadder)      * cfg.guildSurveyIronPerTier      * scale;
+            y.Veilstone = SurveyTiers(faction, VeilstoneSurveyLadder) * cfg.guildSurveyVeilstonePerTier * scale;
+            y.Veilsteel = SurveyTiers(faction, VeilsteelSurveyLadder) * cfg.guildSurveyVeilsteelPerTier * scale;
+            return y;
         }
 
         /// <summary>
@@ -851,7 +968,7 @@ namespace TheWaningBorder.Systems.World
         /// </summary>
         private static float OreSlotYield(EntityManager em, OreCensus o, int territory,
             float drainMinutes, SlotLadder ladder, float multiplier, bool veilstone,
-            float extractorMultiplier = 1f, float[] split = null, int splitIndex = 0)
+            float extractorMultiplier = 1f, float[] split = null, int resource = 0)
         {
             float total = 0f;
             for (int i = 0; i < o.Node.Count; i++)
@@ -893,9 +1010,8 @@ namespace TheWaningBorder.Systems.World
                 }
                 total += rate;
                 // Ledger only: which half of the slot line this rate is.
-                // BookSplit uses only the proportions, so the survey multiplier
-                // applied after the sum does not need repeating here.
-                if (split != null) split[splitIndex + (o.ExtractorLevels[i] > 0 ? 1 : 0)] += rate;
+                if (split != null)
+                    split[(o.ExtractorLevels[i] > 0 ? PartExtractor : PartEmpty) * 4 + resource] += rate;
             }
             return total;
         }
@@ -911,19 +1027,78 @@ namespace TheWaningBorder.Systems.World
         /// </summary>
         private static void EnsureNodeReserves(EntityManager em)
         {
-            AddMissingReserves(em, QC_MissingIron.Get(em, QT_MissingIron));
-            AddMissingReserves(em, QC_MissingVeilstone.Get(em, QT_MissingVeilstone));
+            AddMissingReserves(em, QC_MissingIron.Get(em, QT_MissingIron), Cfg.ironNodeReserve);
+            AddMissingReserves(em, QC_MissingSupply.Get(em, QT_MissingSupply), Cfg.supplyNodeReserve);
+            AddMissingReserves(em, QC_MissingVeilstone.Get(em, QT_MissingVeilstone), Cfg.veilstoneNodeReserve);
         }
 
-        private static void AddMissingReserves(EntityManager em, EntityQuery q)
+        /// <summary>
+        /// THE LATE GAME (2026-10-08, Territory_Claims.md § 11.3): the share of
+        /// a node's fresh reserve still allowed to exist at this moment of the
+        /// match — 1 at the start, falling linearly to 0 at
+        /// `nodeLifetimeMinutes` of SIMULATED match time (SimClock, so every
+        /// lockstep peer reads the same value on the same tick). 1 when the
+        /// lifetime is off.
+        /// </summary>
+        public static float NodeLifetimeFraction()
+        {
+            float life = Cfg.nodeLifetimeMinutes;
+            if (life <= 0f) return 1f;
+            float minutes = (float)(SimClock.Elapsed / 60.0);
+            return Mathf.Clamp01(1f - minutes / life);
+        }
+
+        /// <summary>
+        /// Cap every node's reserve at its lifetime share of its fresh one:
+        /// Remaining = min(Remaining, Initial × fraction). Extraction drains a
+        /// node below the line sooner; the line itself reaches 0 at the
+        /// lifetime, so every node — worked or not, supply, iron or veilstone
+        /// — pays nothing after it. A min is order-independent, so the walk
+        /// order cannot change the result.
+        /// </summary>
+        private static void ApplyNodeLifetime(EntityManager em)
+        {
+            float f = NodeLifetimeFraction();
+            if (f >= 1f) return;
+            CapReserves(em, QC_Supply.Get(em, QT_Supply), f);
+            CapReserves(em, QC_Iron.Get(em, QT_Iron), f);
+            CapReserves(em, QC_Veilstone.Get(em, QT_Veilstone), f);
+        }
+
+        private static void CapReserves(EntityManager em, EntityQuery q, float fraction)
+        {
+            if (q.IsEmptyIgnoreFilter) return;
+            using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (!em.HasComponent<NodeReserve>(ents[i])) continue;
+                var res = em.GetComponentData<NodeReserve>(ents[i]);
+                float cap = res.Initial * fraction;
+                if (res.Remaining <= cap) continue;
+                res.Remaining = cap;
+                em.SetComponentData(ents[i], res);
+            }
+        }
+
+        /// <summary>§ 11.3: a Pure node holds more (and outlasts its higher
+        /// yield), a Poor one less.</summary>
+        private static float PurityReserve(EntityManager em, Entity node)
+        {
+            byte g = TerritoryResources.PurityOf(em, node);
+            return g == NodePurityGrade.Pure ? Cfg.pureReserveMultiplier
+                 : g == NodePurityGrade.Poor ? Cfg.poorReserveMultiplier
+                 : Cfg.normalReserveMultiplier;
+        }
+
+        private static void AddMissingReserves(EntityManager em, EntityQuery q, float units)
         {
             if (q.IsEmptyIgnoreFilter) return;
             var missing = q.ToEntityArray(Unity.Collections.Allocator.Temp);
             for (int i = 0; i < missing.Length; i++)
                 em.AddComponentData(missing[i], new NodeReserve
                 {
-                    Remaining = NodeReserveUnits,
-                    Initial = NodeReserveUnits,
+                    Remaining = units * PurityReserve(em, missing[i]),
+                    Initial = units * PurityReserve(em, missing[i]),
                 });
             missing.Dispose();
         }

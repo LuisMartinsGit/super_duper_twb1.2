@@ -8,10 +8,20 @@
 // he has, so both halves of that report were this one gap.
 //
 // Per faction, every AIShardroot.thinkInterval:
-//   * OUR CARRIER — pull it out of every mission and walk it to the nearest
-//     own Hall: the Hall hands the artifact to the living king
-//     (ShardrootSystem.AwakenHero), which makes him the Shardbound King.
-//   * ON THE GROUND, or HELD BY AN ENEMY / THE CURSE, where we have seen it —
+//   * OUR CARRIER — pull it out of every mission and bring it home by the
+//     road this personality takes (Curse_And_Shardroot.md § 3.1b):
+//       - THE KING (PersonalityBlock.shardrootToKing: Rush, Aggressive,
+//         Balanced) — the nearest own Hall, which hands the artifact to the
+//         living king (ShardrootSystem.AwakenHero): the Shardbound King;
+//       - THE TEMPLE (Turtle, Defensive, Economic, TechBoom) — the nearest
+//         finished Temple of Ridan, which enshrines it and empowers the army.
+//     A road that is closed (no living king / no finished Temple) gives way
+//     to the other; with neither, the Hall (the placeholder champion). The
+//     choice is written on the carrier (ShardrootBearer.Intent) so the other
+//     building's delivery does not intercept it on the way.
+//   * ON THE GROUND, or HELD BY AN ENEMY / THE CURSE — carrier, Shardbound
+//     King or enshrining Temple (everyone targets the bearer) — where we have
+//     seen it —
 //     a strike party of free combat units (the RP hunt's eligibility rules),
 //     weighed against what stands round it (AIEngagement.AssessAssault) and
 //     sent only with launchMargin to spare. The king goes with it and is
@@ -43,6 +53,7 @@ namespace TheWaningBorder.AI
             public float LaunchedAt = -1f;
             public float3 Target;
             public float NextLog;
+            public bool KingRetreat;
             public readonly List<Entity> Roster = new List<Entity>();
         }
 
@@ -61,10 +72,16 @@ namespace TheWaningBorder.AI
             var cfg = AIShardroot.Cfg;
             if (!cfg.enabled) return;
             var s = ShardrootFor(faction);
+            // The king's retreat is judged every think, not on the slower
+            // Shardroot cadence: he can lose a lot in five seconds.
+            Entity livingKing = AIShardroot.LivingKing(em, faction);
+            TickKingRetreat(em, faction, livingKing, s);
             if (now < s.NextThink) return;
             s.NextThink = now + math.max(1f, cfg.thinkInterval);
 
-            Entity king = AIShardroot.LivingKing(em, faction);
+            // A retreating king is nobody's fighter: he neither joins the
+            // army nor leads a strike until he has healed.
+            Entity king = s.KingRetreat ? Entity.Null : livingKing;
             var where = AIShardroot.Locate(em, faction, out Entity holder, out float3 pos);
 
             // ── Ours: bring it home. ──
@@ -73,14 +90,7 @@ namespace TheWaningBorder.AI
                 s.Roster.Clear(); s.LaunchedAt = -1f;
                 if (em.HasComponent<ShardboundHeroTag>(holder)) { KingJoinsArmy(em, faction, king, now); return; }
                 ReleaseFromMissions(faction, holder);
-                if (AIShardroot.TryNearestHall(em, faction, pos, out float3 hall)
-                    && math.distance(hall.xz, pos.xz) > ShardrootState.HallDeliverRadius * 0.5f
-                    && !TransientState.Active<UserMoveOrder>(em, holder))
-                {
-                    CommandRouter.IssueMove(em, holder, hall, CommandSource.AI);
-                    AILogger.Log(faction, "SHARDROOT",
-                        $"we carry the Shardroot — bringing it to the Hall at ({hall.x:0},{hall.z:0})");
-                }
+                BringShardrootHome(em, faction, livingKing, holder, pos);
                 return;
             }
 
@@ -156,8 +166,60 @@ namespace TheWaningBorder.AI
             SendKingOnto(em, king, pos, where);
             AILogger.Log(faction, "SHARDROOT",
                 $"{_shardrootFree.Count} units{(king != Entity.Null && AIShardroot.Cfg.kingLeadsStrike ? " and the king" : "")} " +
-                $"strike for the Shardroot ({(where == AIShardroot.Where.Ground ? "on the ground" : "held by an enemy")}) at " +
+                $"strike for the Shardroot ({(where == AIShardroot.Where.Ground ? "on the ground" : em.HasComponent<TempleOfRidanTag>(holder) ? "enshrined in an enemy Temple" : "held by an enemy")}) at " +
                 $"({pos.x:0},{pos.z:0}) — power {a.MyPower} vs {a.EnemyPower}");
+        }
+
+        /// <summary>Our carrier goes home by the personality's road (§ 3.1b):
+        /// King (Hall) or Temple, the other when the preferred one is closed,
+        /// the Hall when neither is open. The road is stamped on the carrier
+        /// so only that building's delivery takes it.</summary>
+        private void BringShardrootHome(EntityManager em, Faction faction, Entity king,
+            Entity holder, float3 pos)
+        {
+            bool hasHall = AIShardroot.TryNearestHall(em, faction, pos, out float3 hall);
+            bool hasTemple = AIShardroot.TryNearestTemple(em, faction, pos, out Entity temple, out float3 templePos);
+            bool kingRoad = hasHall && king != Entity.Null;
+            bool preferKing = PersonalityOf(faction).shardrootToKing;
+
+            byte intent;
+            if (preferKing && kingRoad) intent = ShardrootIntent.Hall;
+            else if (!preferKing && hasTemple) intent = ShardrootIntent.Temple;
+            else if (kingRoad) intent = ShardrootIntent.Hall;
+            else if (hasTemple) intent = ShardrootIntent.Temple;
+            else if (hasHall) intent = ShardrootIntent.Hall;   // the placeholder champion
+            else return;
+
+            if (em.HasComponent<ShardrootBearer>(holder))
+            {
+                var b = em.GetComponentData<ShardrootBearer>(holder);
+                if (b.Intent != intent)
+                {
+                    b.Intent = intent;
+                    em.SetComponentData(holder, b);
+                    AILogger.Log(faction, "SHARDROOT", intent == ShardrootIntent.Temple
+                        ? "the Shardroot goes to the Temple — to be enshrined"
+                        : king != Entity.Null
+                            ? "the Shardroot goes to the Hall — for the king"
+                            : "the Shardroot goes to the Hall — no king lives");
+                }
+            }
+            if (TransientState.Active<UserMoveOrder>(em, holder)) return;
+
+            if (intent == ShardrootIntent.Temple)
+            {
+                // Measured to the wall, as the enshrine is (ShardrootCarrySystem).
+                if (TargetGeometry.SurfaceDistXZ(em, pos, templePos, temple)
+                    <= TheWaningBorder.Core.Config.BorderConstants.ShardrootDepositRadius * 0.5f) return;
+                CommandRouter.IssueMove(em, holder, templePos, CommandSource.AI);
+                AILogger.Log(faction, "SHARDROOT",
+                    $"we carry the Shardroot — bringing it to the Temple at ({templePos.x:0},{templePos.z:0})");
+                return;
+            }
+            if (math.distance(hall.xz, pos.xz) <= ShardrootState.HallDeliverRadius * 0.5f) return;
+            CommandRouter.IssueMove(em, holder, hall, CommandSource.AI);
+            AILogger.Log(faction, "SHARDROOT",
+                $"we carry the Shardroot — bringing it to the Hall at ({hall.x:0},{hall.z:0})");
         }
 
         /// <summary>The king walks ONTO a pickup (plain move: his
@@ -189,6 +251,48 @@ namespace TheWaningBorder.AI
             CommandRouter.IssueAttackMove(em, king, best.LastCentroid, CommandSource.AI);
             AILogger.Log(faction, "SHARDROOT",
                 $"King Lexor rides out to the army ({best.Members.Count} strong) at ({best.LastCentroid.x:0},{best.LastCentroid.z:0})");
+        }
+
+        /// <summary>
+        /// THE KING RETREATS (2026-10-09, Game_AI.md § 6l): at
+        /// kingRetreatHpFraction of his health King Lexor leaves every
+        /// mission and walks to the nearest Hall, re-ordered each think if
+        /// anything turned him round, until he has healed to
+        /// kingRecoveredHpFraction. Losing him loses the Shardroot he bears.
+        /// </summary>
+        private void TickKingRetreat(EntityManager em, Faction faction, Entity king, ShardrootStrike s)
+        {
+            var cfg = AIShardroot.Cfg;
+            if (king == Entity.Null || cfg.kingRetreatHpFraction <= 0f
+                || !em.HasComponent<Health>(king) || !em.HasComponent<LocalTransform>(king))
+            { s.KingRetreat = false; return; }
+            var hp = em.GetComponentData<Health>(king);
+            float frac = hp.Max > 0 ? hp.Value / (float)hp.Max : 1f;
+            bool bound = em.HasComponent<ShardboundKing>(king);
+
+            if (!s.KingRetreat)
+            {
+                if (frac > cfg.kingRetreatHpFraction) return;
+                s.KingRetreat = true;
+                AILogger.Log(faction, "SHARDROOT",
+                    $"King Lexor{(bound ? " (Shardbound)" : "")} at {frac * 100f:F0}% health -- pulled back to heal");
+            }
+            else if (frac >= cfg.kingRecoveredHpFraction)
+            {
+                s.KingRetreat = false;
+                AILogger.Log(faction, "SHARDROOT",
+                    $"King Lexor healed to {frac * 100f:F0}% -- back to the fight");
+                return;
+            }
+
+            if (TransientState.Active<UserMoveOrder>(em, king)) return;
+            ReleaseFromMissions(faction, king);
+            float3 kp = em.GetComponentData<LocalTransform>(king).Position;
+            if (!AIShardroot.TryNearestHall(em, faction, kp, out float3 hall)) return;
+            if (math.distance(kp.xz, hall.xz) <= ShardrootState.HallDeliverRadius) return;
+            if (TransientState.Active<MoveCommand>(em, king)
+                && math.distance(em.GetComponentData<MoveCommand>(king).Destination.xz, hall.xz) < 1f) return;
+            CommandRouter.IssueMove(em, king, hall, CommandSource.AI);
         }
 
         /// <summary>Our carrier stops being a soldier: no mission re-orders it.</summary>

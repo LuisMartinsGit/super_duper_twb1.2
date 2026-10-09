@@ -52,7 +52,7 @@ MonoBehaviour:
   - Light
   bonusVsTags:
   - vsTag: Infantry
-    amount: 6
+    amount: 10
   abilities: []
   prefab: {fileID: 128967838436804, guid: ba392ed4d9a4500e0ac46ca62b0384bf, type: 3}
   presentationId: 202

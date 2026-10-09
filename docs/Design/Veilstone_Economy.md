@@ -1,6 +1,6 @@
 # Veilstone Economy
 
-> **Doc version: 2026-10-04. Canon for where veilstone and veilsteel come
+> **Doc version: 2026-10-08. Canon for where veilstone and veilsteel come
 > from.** Numbers (prices, trade rates, income ladders) live on the SOs and in
 > `TradingOutpostSystem.asset`; on a conflict they win (2026-10-03,
 > [Unification decisions](Unification_Decisions_2026-10-03.md)). Supersedes:
@@ -49,7 +49,11 @@ Every veilstone outcrop on the map is in exactly one state:
   pays nothing.
 - **The curse replenishes.** When the curse raises a node on a depleted
   outcrop, the outcrop's reserve refills to full. Pacify it later and it is
-  a full Inactive node again.
+  a full Inactive node again. **The refill is capped by the node lifetime**
+  (Territory_Claims.md § 11.3, 2026-10-08): it restores only what the
+  lifetime still allows, so after minute 30 taking an outcrop restores
+  nothing — a spent outcrop stays Depleted, and its Trading Outposts keep
+  trading beside it.
 - **Destroying a curse node pacifies the outcrop** for everyone: it returns to
   Inactive. Who destroyed it decides what else happens (§3).
 
@@ -82,7 +86,7 @@ the map, in contested ground, that anyone can burn.
 | Locks territory | Yes, like an extractor (Territory_Claims.md §3) |
 | **Buy Veilstone** (default) | supplies + iron in, veilstone out |
 | **Forge Veilsteel** (research: Veilsteel Forging) | veilstone in, veilsteel out |
-| **Sell Veilsteel** (research: Veilsteel Export, after Forging) | veilsteel in, iron + supplies out |
+| **Sell Veilsteel** (research: Veilsteel Export, after Forging) | veilsteel in, iron out (**no supplies since 2026-10-08** — late-game supplies come only from the Fortress, the Vault and territory claims, §5) |
 | **Hold** (always available; 2026-10-05) | the post trades nothing — nothing spent, nothing earned — until set to a trade again. A bank that already holds more veilstone than it can use stops paying supplies and iron for more |
 | **Trade Agreements I / II / III** (research, chained) | every trade's INPUTS cost progressively less |
 | **Swift Caravans** (research, after Trade Agreements I; 2026-10-03) | every trade runs faster — Buy, Forge and Sell alike, inputs and outputs scaled together, on every Outpost the faction owns. The percentage is on the tech SO (`effectsList`, `TradeSpeed` on `building:Alanthor_TradingOutpost`) |
@@ -138,21 +142,45 @@ cheaper per veilstone as well as faster.
 
 ## 5. Territory income (2026-10-01; data moved onto the SOs 2026-10-03)
 
+**Superseded in timing (2026-10-09):** developer: "I need deaths to start occurring from minute 15 or even earlier", with ~45-minute 8-player matches. The late game now comes earlier (the minute is `allInAfterSeconds` on `SimpleAISystem.asset` and `nodeLifetimeMinutes` on `TerritoryIncomeSystem.asset`), and stalled factions are hunted before it ([Game_AI.md § 6o](Game_AI.md)). Read "minute 30" below as "the late game".
+
+**The late game comes at 30 minutes (2026-10-08).** Developer: "Late game
+comes at 30 minutes; from there onward players are expected to start
+falling. Adjust all nodes to be spent by minute 30." Every node — supply,
+iron, veilstone — is spent by then (Territory_Claims.md § 11.3), so the
+economy has two halves:
+
+| Resource | Early and mid game (the nodes) | Late game (after the nodes) |
+|---|---|---|
+| **Supplies** | Guilds / Gatherer's Huts on supply nodes, depleting them | **only** the Fortress's own income, the Vault and territory claims |
+| **Iron** | Mines on iron nodes, depleting them | **only** trade, the Vault and territory claims |
+| **Veilstone** | Trading Outposts (Alanthor) / Veilstone Mines on outcrops | **only** trade, the Vault and territory claims |
+| **Veilsteel** | trade and the Vault | trade and the Vault |
+
+On top of these, **the Guild surveys** (§5.1) pay every resource but
+supplies from upgraded Guilds, from no node — the late-game income a
+developed Alanthor hut ring earns.
+
 Who pays, and where the number lives — the doc does not restate the rates
 (decisions 9, 10 and 34):
 
 | Source | Pays | The number lives on |
 |---|---|---|
 | **The capital** (Shelter / Fortress) | its **own SO income** — supplies on a fixed interval. There is **no separate territory supply for the capital** any more: `TerritoryIncomeSystem`'s extra flat capital line was dropped (decision 10) | `Fortress.asset` (`suppliesPerTick` / `suppliesInterval`) |
+| **The Fortress level** (2026-10-08) | multiplies **that Fortress's own supplies income** and nothing else — it no longer scales the territory's slots (that was the mid-game iron spike). The share above L1 is paid by the territory tick while the ground is held | `TerritoryIncomeSystem.asset` (`fortressLevelIncomeMultipliers`) |
+| **Territory claim** (2026-10-08) | every held territory pays its holder a flat amount of supplies, iron and veilstone, nodes or not, **once the holder has aged up** (claims open at age-up, so the Age 0 opening is unchanged). It never runs dry: after minute 30 it is what ground is worth | `TerritoryIncomeSystem.asset` (`claim*PerMinute`) |
 | **Empty slot** (supply / iron / uncursed veilstone node in held ground) | a small trickle of its resource | `TerritoryIncomeSystem` |
 | **Gatherer's Hut** on a supply slot | its **slot-income ladder**, one rate per level — and nothing else: the construction safety-net income is gone (decision 9) | `GatherersHut.asset` `slotIncomePerMinute` |
-| **Mine** on an iron slot | its slot-income ladder | `Mine.asset` `slotIncomePerMinute` |
+| **Mine** on an iron slot | its slot-income ladder, raised by the Mine research (§6) — not by the surveys or the Fortress level | `Mine.asset` `slotIncomePerMinute` |
 | **Veilstone Mine** on a veilstone slot | its slot-income ladder (Feraldis scaled up, drains the outcrop) | `VeilstoneMine.asset` |
 | **Alanthor** (after age-up): Guild (the Gatherer's Hut) and Mine | the Alanthor level SOs' own slot income | `Civs/Alanthor/Buildings/Guild/Guild_Lvl1..3`, `Mine/Mine_Lvl1..3` |
 | **Alanthor Trading Outpost** (up to four beside one outcrop) | not a slot: each post runs its own trade every cycle, scaled by the faction's research and the post's level (§3.1) | `TradingOutpostSystem.asset` (rates), `Civs/Alanthor/Buildings/TradingOutpost/TradingOutpost_Lvl1..3` (`tradeRateMultiplier`) |
 
-A built slot REPLACES its empty trickle, it does not add to it. The Fortress
-level multiplier and the survey research still scale the territory. The iron
+A built slot REPLACES its empty trickle, it does not add to it. Every slot,
+empty or built, draws on its node and falls silent when the node is spent
+(Territory_Claims.md § 11.3). **Neither the Fortress level nor the survey
+research scales a slot any more (2026-10-08, developer: "Iron income still
+soars in the middle of the match — reduce the upgrade power").** The iron
 Mine's old patch income (`MineIncomeSystem`) is retired. **Every source pays
 every second** — the territory tick and every Trading Outpost (fractional
 carry keeps the per-minute numbers exact). **A resource the faction's trades
@@ -173,8 +201,19 @@ deliberate exception:** researched at the Guild (the cultured Gatherer's Hut),
 Surveying line does the same for iron). It is a research reward for a
 developed hut ring, not a node — no outcrop, no curse interaction. Their gates
 are the Guild levels on the tech SOs (Veilstone Survey I at L2, II at L3;
-Veilsteel Survey at L3); the rates are in the tech SOs' descriptions and
-effects.
+Veilsteel Survey at L3).
+
+**How it pays (2026-10-08).** Each completed survey tier makes **every
+Guild** (the built Alanthor Gatherer's Hut, any level) pay a flat amount of
+that survey's resource a minute — Iron Surveying I-III iron, Veilstone
+Survey I-II veilstone, Veilsteel Survey veilsteel — scaled by the Guild's
+level. It is **drawn from no node** and so keeps paying after the Guild's
+supply node is spent: it is the late-game Guild income. It is paid by the
+territory tick only while the Guild's territory is held, and booked in the
+match metrics as `guildSurvey`. A survey does **not** multiply the Mines or
+Veilstone Mines (until 2026-10-08 it did, which is what made iron soar
+mid-match while the surveys paid the Guilds nothing). The per-tier rates and
+the level scaling are on `TerritoryIncomeSystem.asset`.
 
 **Forests pay nothing and the Sawyer is gone (2026-10-01).** The armour
 ladders live at the buildings that train what they protect — Plate (melee) at
@@ -193,7 +232,7 @@ the ladders (decision 23: the upper tiers were raised).
 | Change | Rule (values on the SOs / configs) |
 |---|---|
 | **Start territory** | one more iron node than before (Territory_Claims.md §11 Start type) |
-| **Iron yield** | every iron line pays a flat bonus — empty slots and Mines alike (`TerritoryIncomeSystem.IronYieldMultiplier`) |
+| **Iron yield** | every iron line pays a flat bonus — empty slots and Mines alike (`ironYieldMultiplier`, `TerritoryIncomeSystem.asset`; set back to no bonus on 2026-10-08) |
 | **Mine** and **Veilstone Mine** cost | supplies and a little veilstone, **no iron** (decision 15) |
 | **Palisade** hub | supplies only, no iron |
 | **House (Hut)** | supplies only, its level-ups included |
@@ -208,9 +247,11 @@ stack, and an empty slot is not mined so it does not benefit:
 | **Rich Seams** | Mine | raises them further (replaces Deep Shafts) | Deep Shafts |
 
 Prices, times and percentages are on the tech SOs
-(`Age0/Buildings/Mine/Research/`). These multiply with everything else on the
-iron line (the iron yield bonus, the Fortress level multiplier, the Iron
-Surveying ladder). The AI researches Deep Shafts right after Iron Surveying I
+(`Age0/Buildings/Mine/Research/`); the multipliers themselves, and the flat
+iron yield bonus, are on `TerritoryIncomeSystem.asset` (toned down
+2026-10-08, "reduce the upgrade power"). Since 2026-10-08 they are the ONLY
+multipliers on a Mine's iron — the Fortress level and the Iron Surveying
+ladder no longer scale it. The AI researches Deep Shafts right after Iron Surveying I
 and Rich Seams after Iron Surveying II (Feraldis: after Iron Plunder /
 Raiding II); its extractor walk reads the Mine's cost from the SO, so the
 cheaper Mine needs no AI change of its own.

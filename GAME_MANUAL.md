@@ -356,9 +356,10 @@ There are **three paths to victory**, plus the threat of being eliminated.
 
 ### Path 1 — Last Faction Standing
 
-A faction is **eliminated** when it owns **zero completed buildings**. The
-check runs every 2 seconds after a 10-second grace period. If only one
-player faction remains, that player wins.
+A faction is **eliminated** when it has **no Fortress, no military building
+and no Worker**, or when it has held **no territory** for a short grace period
+(docs/Design/Territory_Claims.md § 7). Everything an eliminated faction still
+owns is destroyed. If only one player faction (or team) remains, it wins.
 
 - If you are eliminated → **DEFEAT** screen.
 - If you alone remain → **VICTORY** screen.
@@ -379,6 +380,38 @@ ends.
 ### Path 3 — Surrender
 
 The **End Game** button lets you concede the match (recorded as a defeat).
+
+### After the Match — the Muster Rolls
+
+The victory / defeat screen has a **Muster Rolls** button that opens the
+post-game report: a **Standings** table (Score with its Economy / Strategy /
+Military parts, K/D, kills, deaths, territories, Fortresses, techs) with the
+score over time, **Charts** of every faction's banks, army, population,
+buildings and territories over the match (click a faction in the legend to
+hide or show it), and a **Map** that replays the whole match from above —
+territories by owner, buildings, units and deaths — with Play / Pause, five
+speeds, a timeline scrubber, mouse-wheel zoom and drag to pan. **Close**
+returns to the victory screen. Every match is recorded for it automatically
+(docs/Design/Muster_Rolls_PostGame.md).
+
+### Saving, Loading and Replays
+
+Single-player skirmishes can be saved and every one is recorded
+(docs/Design/Replays_And_Saves.md):
+
+- **Save Game** — pause menu (**Esc**). Saves go to the `Saves` folder next to
+  the game.
+- **Load Game** — main menu. The **Saved Games** tab resumes a save: every
+  unit, building and order comes back exactly where it was and you are back in
+  control. The AI picks up from the board as it stands.
+- **Replays** — the same screen's **Replays** tab, or **Watch Replay** on the
+  end-of-match screen. A replay shows the whole match with full vision; click a
+  unit or building to see through that player's eyes. The bar at the top has
+  pause (**Space**), speeds, skip ahead, and a timeline you can click to jump.
+  It also says whether the replay is still *in sync* with the match that was
+  played.
+- Saves and replays only open on the game version that made them.
+- Scenarios, the sandbox and the tutorial are not recorded and cannot be saved.
 
 ### Game Modes Without Victory
 

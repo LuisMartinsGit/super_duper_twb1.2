@@ -337,7 +337,7 @@ namespace TheWaningBorder.Systems.Combat
 
                         // Ability: scale total incoming damage by the target's
                         // damage-taken multiplier (Liquid Courage 90% DR) before HP.
-                        finalDamage = TheWaningBorder.Abilities.AbilityDamageHooks.ScaleIncoming(em, tgt.Value, finalDamage);
+                        finalDamage = TheWaningBorder.Abilities.AbilityDamageHooks.ScaleIncoming(em, tgt.Value, finalDamage, entity);
 
                         // Apply damage — use immediate write so multiple attackers
                         // in the same frame correctly stack damage (not last-write-wins via ECB)
@@ -533,7 +533,7 @@ namespace TheWaningBorder.Systems.Combat
                 float dx = p.x - centre.x, dz = p.z - centre.z;
                 if (dx * dx + dz * dz > r2) continue;
                 var h = hps[i];
-                h.Value = math.max(0, h.Value - ShieldDamage.Absorb(em, ents[i], share));
+                h.Value = math.max(0, h.Value - ShieldDamage.Absorb(em, ents[i], TheWaningBorder.Abilities.AbilityDamageHooks.ScaleIncoming(em, ents[i], share)));
                 em.SetComponentData(ents[i], h);
             }
         }

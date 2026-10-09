@@ -550,9 +550,13 @@ namespace TheWaningBorder.AI
             in AITacticsSkill skill)
         {
             var tc = AITactics.Cfg;
-            if (skill.retreatRatio <= 0f) return false;
+            // THE ALL-IN FIGHTS ON (Game_AI.md § 6n): a committed army falls
+            // back only when badly outmatched. Raids keep their own nerve.
+            float retreatRatio = mission.Type == MissionType.Raid
+                ? skill.retreatRatio : AllInRetreatRatio(faction, skill.retreatRatio);
+            if (retreatRatio <= 0f) return false;
             if (mission.Members.Count < tc.fallbackMinArmy) return false;
-            if (enemyPower <= 0 || enemyPower <= myPower * skill.retreatRatio) return false;
+            if (enemyPower <= 0 || enemyPower <= myPower * retreatRatio) return false;
 
             Entity hall = FindFactionBuilding<HallTag>(em, faction);
             bool hasHall = hall != Entity.Null && em.HasComponent<LocalTransform>(hall);
@@ -585,7 +589,7 @@ namespace TheWaningBorder.AI
             EndFlank(mission);
             March(em, faction, mission, dest, false, centroid);
             AILogger.Log(faction, "TACTICS",
-                $"retreat (power {myPower} vs {enemyPower}, ratio {enemyPower / (float)math.max(1, myPower):F2} > {skill.retreatRatio:F2}) " +
+                $"retreat (power {myPower} vs {enemyPower}, ratio {enemyPower / (float)math.max(1, myPower):F2} > {retreatRatio:F2}) " +
                 $"— {mission.Members.Count} fall back {where} at ({dest.x:F0},{dest.z:F0})");
             return true;
         }
@@ -631,7 +635,9 @@ namespace TheWaningBorder.AI
             }
 
             // Followed and still losing: the next safe ground.
-            if (enemyPower > 0 && skill.retreatRatio > 0f && enemyPower > myPower * skill.retreatRatio
+            float retreatRatio = mission.Type == MissionType.Raid
+                ? skill.retreatRatio : AllInRetreatRatio(faction, skill.retreatRatio);
+            if (enemyPower > 0 && retreatRatio > 0f && enemyPower > myPower * retreatRatio
                 && TryFindSafeGround(em, faction, centroid, enemyCentroid, myPower, allowDeeper: false,
                        out float3 safer, out string saferWhat)
                 && math.distance(safer.xz, mission.FallbackPos.xz) > tc.fallbackArriveRadius)

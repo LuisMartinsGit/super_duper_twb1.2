@@ -37,6 +37,15 @@ namespace TheWaningBorder.Bootstrap
         public static System.Collections.Generic.IReadOnlyDictionary<Faction, Vector3>
             SpawnPositions => _spawnPositions;
 
+        /// <summary>Put a saved game's start positions back (the restored match
+        /// never runs <see cref="SpawnAllFactions"/>). docs/Design/Replays_And_Saves.md</summary>
+        internal static void RestoreSpawnPositions(
+            System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Faction, Vector3>> positions)
+        {
+            _spawnPositions.Clear();
+            foreach (var kv in positions) _spawnPositions[kv.Key] = kv.Value;
+        }
+
         /// <summary>
         /// Spawn starting bases and units for all active factions.
         /// Call from GameBootstrap after world initialization.

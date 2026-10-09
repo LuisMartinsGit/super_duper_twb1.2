@@ -2394,11 +2394,27 @@ only heightened form, so both halves were one gap.
 `SimpleAISystem.Shardroot.cs`, knobs on `AIShardroot.asset`, every
 `thinkInterval`:
 
-1. **Ours** — the carrier leaves every mission and walks to the nearest own
-   Hall, which hands the artifact to the living king (he becomes the
-   Shardbound King). If he already holds it, nothing more to do.
+1. **Ours** — the carrier leaves every mission and goes home by the road its
+   personality takes (the choice of
+   [Curse_And_Shardroot.md § 3.1b](Curse_And_Shardroot.md)), the
+   personality row's `shardrootToKing` on `AISettings.asset`:
+   - **The King** (Rush, Aggressive, Balanced) — the nearest own Hall, which
+     hands the artifact to the living king (he becomes the Shardbound King).
+   - **The Temple** (Turtle, Defensive, Economic, TechBoom) — the nearest
+     finished Temple of Ridan, which enshrines it and empowers the army.
+   A closed road (no living king; no finished Temple) gives way to the
+   other; with neither, the Hall (the placeholder champion). The road is
+   written on the carrier (`ShardrootBearer.Intent`), and the other
+   building's delivery ignores a carrier bound elsewhere, so a courier walking
+   to the Temple past its Hall is not handed to the king on the way, and the
+   reverse. A player's courier carries no intent and delivers at whichever of
+   its own Hall or Temple it reaches first. If the king already holds it as
+   the Shardbound King, nothing more to do.
 2. **On the ground, or held by an enemy or the curse, where we have seen it**
-   (not before `earliestSeconds`) — a strike party of free combat units (the
+   — held means a carrier, a Shardbound King, **or a Temple with the artifact
+   enshrined**: everyone targets the bearer (§ 3.1b), so an enemy's
+   enshrining Temple is a strike target like a carrier, at the Temple.
+   Not before `earliestSeconds`, a strike party of free combat units (the
    first-RP hunt's eligibility rules), at least `minPartySize`, goes only when
    its power beats what stands within `assessRadius` by `launchMargin`;
    otherwise the army target rises toward what it needs. A strike is
@@ -2408,6 +2424,14 @@ only heightened form, so both halves were one gap.
 3. **Otherwise** (`kingJoinsArmy`) an idle king rides with the biggest mission
    of at least `kingJoinMinArmy`, so his fight abilities meet fights instead
    of holding "not in combat" at home.
+4. **The king retreats (2026-10-09).** Developer: "AI needs to retreat king
+   lexor when he is close to dying because they sacrifice him too eagerly and
+   lose the shardroot." Checked every AI think (not the slower Shardroot
+   cadence): at `kingRetreatHpFraction` of his health the king leaves every
+   mission and walks to the nearest own Hall, re-ordered if anything turned him
+   round, and neither joins the army nor leads a strike until he has healed to
+   `kingRecoveredHpFraction`. Shardbound or not — a dead king costs a revival
+   either way, and a Shardbound one drops the artifact.
 
 Logs: `SHARDROOT: …`.
 
@@ -2431,6 +2455,131 @@ knobs on `AISupport.asset`:
 The Temple fix also unblocks the sect layer: adoption, sect buildings and
 `TryFireSectPowers` (§ 7b) all waited on a standing Temple.
 Logs: `SUPPORT: …`.
+
+## 6n. The late-game all-in (2026-10-08)
+
+**Superseded in timing (2026-10-09):** developer: "I need deaths to start occurring from minute 15 or even earlier", with ~45-minute 8-player matches. The late game now comes earlier (the minute is `allInAfterSeconds` on `SimpleAISystem.asset` and `nodeLifetimeMinutes` on `TerritoryIncomeSystem.asset`), and stalled factions are hunted before it (§ 6o). Read "minute 30" below as "the late game".
+
+
+Developer: "Late game comes at 30 minutes; from there onward players are
+expected to start falling." — "AI is too conservative with troops, I expect
+70-90% army commitment on late game." — "Maybe the AI needs to commit more
+fully to attacking, even if it means it will die if caught overextended."
+Measured in the 2026-10-08 8-player batch: a wave took about a third of the
+army; the rest stood as the standing floor, wall guards, claim squads and held
+reinforcements, and an army fell back the moment a fight turned.
+
+**The doctrine.** From `allInAfterSeconds` of match time
+(`SimpleAISystem.asset`) every AI goes all-in. It arms once per match and logs
+`ALL-IN: armed at Ns — commit X% of the army, home guard N`. From then on:
+
+1. **The standing floor (§ 6a) becomes a home guard**: the share of the army
+   the personality does NOT commit, never fewer than `allInHomeGuardMinUnits`.
+   The commitment is the personality row's `allInCommitment` on
+   `AISettings.asset` — a structural knob, taken from the row at every tier:
+   Rush and Aggressive commit the most, Balanced, Economic and TechBoom less,
+   Defensive and Turtle the least (the values are on the asset, within the
+   developer's 70-90% band).
+2. **The wave takes everything idle above the home guard.** The head-count bar
+   drops to `allInMinWaveUnits`, the "wave is at least a share of the army"
+   bar is off, claims no longer hold a wave back, the Defend veto no longer
+   holds it, and the strength test holds it only when the objective is
+   `allInMaxEnemyRatio` times stronger than the army or more. The next wave
+   is never more than `allInWaveIntervalSeconds` away.
+3. **Reinforcements stream** to the army that is out: the "gather a company
+   first" hold lasts at most `allInReinforceMaxHoldSeconds`.
+4. **Wall guards and claim squads are released** into the army (curse-clearing
+   sorties included); no new claim round and no idle curse clearing is sent.
+   An all-in army takes ground by standing on what it razes.
+5. **The army fights on.** Both retreat tests (the mission's strength check
+   and the tactics fall-back, § 6h) use at least `allInRetreatRatio`: a
+   committed army falls back only when it is badly outmatched. A tier that
+   never retreats (ratio 0) still never retreats.
+6. **Home is the home guard's.** Entering Defend no longer disbands the
+   missions or recalls the field army: the home guard and the economy
+   responders (§ 5i) fight at home while the army keeps attacking. The base
+   may fall while the army is away — that is the accepted price.
+
+The war (§ 6i), the pile-on (§ 6j) and the march round the curse (§ 6k) are
+untouched: the all-in changes how much goes, not where it goes or how it
+gets there.
+
+**Elimination by territory.** A faction that holds no territory for
+`noTerritoryGraceSeconds` is eliminated (Territory_Claims.md § 7). For the AI
+this means a faction stripped to its capital territory dies the moment that
+falls, whatever army it still has in the field — which is why the all-in keeps
+a home guard instead of sending everything. For the attacker it means the
+closeout's "go for the throat" (§ 6i) finishes a beaten victim by taking its
+last held ground, not by hunting every last unit.
+
+## 6o. The hunt — graduated pressure (2026-10-09)
+
+Developer: "I need deaths to start occurring from minute 15 or even earlier."
+Chosen model: **graduated pressure**, with the 8-player match aiming at about
+45 minutes. Measured in the 2026-10-09 v8 batch: one to three factions per
+match were still on 1-2 territories at minute 10 and every one of them was
+among the first eliminated — but only from minute 34 on, because before the
+all-in every wave was held back by the standing floor (`wave 1 BLOCKED ...
+above standing floor`).
+
+1. **Prey.** From `preyAfterSeconds`, a hostile player holding at most
+   `preyMaxTerritories` territories — **or at most `preyMaxShareOfHunter` of
+   the hunter's own territories** — is prey. (The relative bar was added the
+   same day: in the first v10 batch nobody stalled below 4 territories while
+   the leaders held 13-15, so the absolute bar alone hunted no one.) Territory ownership is public, so
+   no sighting is needed. The curse is never prey.
+2. **Hunters.** A faction holding at least `preyHunterMinTerritories` that
+   sees prey goes to war on the **nearest** one (its nearest held territory to
+   our capital) — the hunt outranks the pile-on (§ 6j) and any war already on
+   — and arms the all-in doctrine (§ 6n) early, so its waves take everything
+   above the home guard. Logs `HUNT: ...` and `WAR: war on X — the hunt`.
+3. **The late game comes earlier.** `allInAfterSeconds` and the node lifetime
+   (Territory_Claims.md § 11.3) move together so the whole match compresses
+   toward ~45 minutes; the values are on the assets.
+
+The stalled player dies first, early; the strong ones still fight it out
+after the all-in. All knobs on `SimpleAISystem.asset`.
+
+## 6p. Everyone against the Shardroot holder (2026-10-09)
+
+Developer: "Gang up on the player who has the Shardroot regardless of road
+chosen." While any hostile player holds the Shardroot — a carrier, the
+Shardbound King or an enshrining Temple — that player is **every AI's war
+victim**, ahead of the hunt (§ 6o), the pile-on (§ 6j) and any war already
+on, and every AI arms the all-in doctrine (§ 6n) against it. While an
+ascension countdown runs ([Curse_And_Shardroot.md §3.1c](Curse_And_Shardroot.md))
+the objective is the enshrining Temple itself. A Shardroot strike (§ 6l)
+still goes for an artifact on the ground. When the holder falls, wars resume
+by the usual rules.
+
+## 6q. A full army attacks (2026-10-09)
+
+The v8 batch: survivors sat at a third of their population cap on 20-60k
+banked supplies while their wars stalled. As StarCraft's AI attacks at max
+supply, an AI whose army is near its population cap, or whose bank is far
+above what its production queue can spend, launches its next wave at once,
+whatever the posture and wave timers say. The thresholds are on
+`SimpleAISystem.asset`.
+
+## 6r. Army doctrines — commit, don't hedge (2026-10-09)
+
+The v8 batch: armies were nearly identical across all eight factions (mean
+pairwise cosine similarity of army mixes 0.86 at minute 15, about 0.7
+after); Swordsman, Archer and Spearman were 65% of every army. The
+composition layer (§ 5d) adds a covering counter for every enemy type it has
+seen, so every AI converges on the same hedge, and two identical blobs grind
+each other down instead of one beating the other.
+
+- **Each AI rolls one doctrine per match**, a hash of the match seed and its
+  faction (so peers and replays agree): Cavalry, Shieldwall, Bowline or
+  Siegecraft. A doctrine is a set of class weights (infantry / ranged /
+  cavalry / siege) multiplied into the composition shares on top of the
+  personality's, and it damps the enemy read (`doctrineCounterResponseScale`),
+  so only a minority of the army follows the enemy-sighting counters of § 5d.
+- The point is **lopsided matchups**: a cavalry army meeting an archer army
+  should win decisively and the archer player can fall; the cavalry player is
+  then exposed to its own counter — Combat_Pacing.md § The triangle.
+- The doctrine table (names and class weights) is on `SimpleAISystem.asset`.
 
 ## 7. Scouting
 

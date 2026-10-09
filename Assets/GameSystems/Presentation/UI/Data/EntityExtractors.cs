@@ -1067,7 +1067,7 @@ namespace TheWaningBorder.UI.Data
                 Icon = null,
             });
 
-            if (faction == GameSettings.LocalPlayerFaction && !GameSettings.IsObserver)
+            if (faction == GameSettings.LocalPlayerFaction && !GameSettings.IsSpectating)
                 info.Actions.Add(new ActionButton
                 {
                     Id = "CancelWallLevel",

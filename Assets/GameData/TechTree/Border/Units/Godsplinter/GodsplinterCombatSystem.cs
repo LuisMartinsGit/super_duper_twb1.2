@@ -147,7 +147,7 @@ namespace TheWaningBorder.Systems.Border
                     // Apply direct damage to target — use immediate write so multiple attackers
                     // in the same frame correctly stack damage (not last-write-wins via ECB)
                     var health = em.GetComponentData<Health>(tgt.Value);
-                    health.Value -= ShieldDamage.Absorb(em, tgt.Value, siegeFinal);
+                    health.Value -= ShieldDamage.Absorb(em, tgt.Value, TheWaningBorder.Abilities.AbilityDamageHooks.ScaleIncoming(em, tgt.Value, siegeFinal, entity));
                     if (health.Value < 0) health.Value = 0;
                     em.SetComponentData(tgt.Value, health);
 

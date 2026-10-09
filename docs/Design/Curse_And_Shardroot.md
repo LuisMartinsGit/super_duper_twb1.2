@@ -1058,6 +1058,9 @@ it drops from a detonated holder (§3.1).
     within `DetonationRadius` is launched skyward and killed on landing,
     friend and foe alike, and buildings in the radius take
     `DetonationBuildingDamage`. The artifact drops in the crater.
+  - **Nearly invincible** (§ 3.1b) — he takes only a fraction of every hit,
+    regenerates, and cannot be thrown or disabled; the numbers are on
+    `ShardboundKing.asset` beside `ShardboundKing.cs`.
   - The **Hall choice** for Alanthor therefore routes the artifact to the
     king: a courier reaching the Hall hands it to a living King Lexor;
     only if he is dead does the Hall awaken the placeholder champion.
@@ -1090,6 +1093,149 @@ it drops from a detonated holder (§3.1).
 - The Shardroot **does not win the game by itself** — it is the power
   that helps you take or defend wells. Victory is § 2.4 (or conquest).
 
+### 3.1b The Shardroot is the tiebreaker (2026-10-07, CURRENT — supersedes the Store bullets above where they differ)
+
+Developer: "The Shardroot should be the tiebreaker. King Lexor becomes
+nearly invincible with it, and holding it in the Temple empowers all
+civilization units — that's the choice the player makes. Everyone targets
+the bearer."
+
+Eight-player test matches ended with three to six equal factions at the
+population cap and the artifact a hot potato that weakened whoever held it:
+the only beneficiary was one hero, and holding it made you everyone's
+target. The artifact is now the asymmetry that decides a match.
+
+- **The choice.** A courier carrying the Shardroot home picks one:
+  - **The King (Hall).** A living King Lexor takes it and becomes the
+    **Shardbound King**, now **nearly invincible**: he takes only a small
+    fraction of all damage, regenerates, and cannot be thrown or disabled,
+    on top of his cleave, Shardbound Fury and death detonation (above). He
+    is an army in one body, and the war goes where he goes.
+    **He cannot be swarmed (2026-10-09).** Developer: "King Lexor needs to
+    be stronger when holding the shardroot, he is easily overwhelmed." A
+    damage fraction alone scales with the number of attackers: a big enough
+    blob still melts him in seconds. So he also loses **at most a fixed share
+    of his max HP per second**, however many strike him; the cap sits just
+    above his regeneration, so an army that surrounds him wears him down
+    slowly — a minute and more — and he survives anything he can walk away
+    from.
+  - **The Temple (enshrine).** The artifact rests in the faction's Temple
+    of Ridan and **empowers every unit of the civilization** — they deal
+    more damage and take less — on top of the sect-cooldown cut. The power
+    is spread over the whole army instead of one hero.
+  The choice holds until the holder falls: the king dies, or the Temple is
+  destroyed (it detonates, above), and the artifact drops for anyone to
+  take. A player may also choose to walk a carrier to the other building
+  before delivering it.
+- **Everyone targets the bearer.** The holder — carrier, Shardbound King
+  or enshrining Temple — is the target of the curse's hunt (§3.1 "The
+  curse wants it back") AND of every rival: the AI's war and strike
+  logic goes for the holder (Game_AI.md § 6l). Power and exposure are the
+  same thing.
+- **The AI chooses** by its personality and its king: aggressive
+  personalities take the King road when he is alive; defensive and
+  economic ones enshrine (Game_AI.md § 6l).
+- The numbers — the king's damage fraction, regeneration and per-second
+  damage cap, the civilization's damage and protection bonuses — live in their config
+  assets (`ShardboundKing.asset` beside King Lexor's Shardbound Fury,
+  `ShardrootEmpowerment.asset` beside the Temple of Ridan), never here.
+
+### 3.1c The Wonder and the Ring-lord (2026-10-09, CURRENT — supersedes §3's host well / Maw / spawn roll, and §3.1b where they differ)
+
+**Why.** The 2026-10-09 eight-player batch (three matches, v8): two of three
+matches hit the 90-minute cap; the artifact was enshrined four times and every
+enshrining Temple was destroyed (enshrining was a pure liability), and King
+Lexor took it twice, both after minute 90. Developer: "I want the shardroot to
+mimic what the One Ring represents in Battle for Middle-earth 2. A player who
+owns it is almost unstoppable, and that makes the reward from stopping Sauron
+or Galadriel very good to experience. I also like Age of Empires' wonder
+system, as a dynamic point defence that awards you the game."
+
+The two roads of §3.1b keep their shape and gain an end state each:
+
+| Road | Model | How it wins |
+|---|---|---|
+| **The King** (Hall) | the Ring-lord of BFME2 | **Conquest only.** He is almost unstoppable; his army ends players. No clock. |
+| **The Temple** (enshrine) | the Age of Empires Wonder | **A 10-minute ascension countdown.** If the enshrining Temple still stands when it runs out, that faction **wins the match**. |
+
+#### The Shardroot descends (replaces the host well, the Maw and the spawn roll)
+
+- **A global counter, shown to every player:** "religion points until the
+  Shardroot descends". Every religion point any player earns
+  ([Religion.md](Religion.md)) counts it down — the artifact answers the
+  world's faith, not one player's. The threshold is a config value on the
+  curse settings asset, never here.
+- **It descends into one living curse node, chosen at random** from the
+  match's seeded random stream (so every peer and every replay picks the
+  same node), among the curse nodes standing at that moment. Every player is
+  told and the node is pinged on the minimap, fog-ignorant.
+- **Taking it is a fight with the curse:** the node's garrison guards it as
+  the curse already guards a dropped artifact (§3.1 "The curse defends the
+  Shardroot"); clearing the node frees it for the first unit to reach it.
+- **Almost random:** WHEN depends on how much faith the whole map makes,
+  WHERE on which curse nodes still live — nobody can plan to be next to it,
+  and a player who cleared the curse near home has made it descend
+  elsewhere.
+- After a holder falls the artifact drops where it fell, as today; it does
+  not return to the counter.
+
+#### Both roads are insanely expensive
+
+Developer: "Both roads should be insanely expensive, so players can't contend
+with only having the shardroot." Delivering the artifact is a **price**, not
+a free upgrade:
+
+- **Binding the King** (Hall road) and **enshrining** (Temple road) each cost
+  a very large price, paid when the courier delivers. The price is a config
+  value beside each road (`ShardboundKing.asset`, `ShardrootEmpowerment.asset`),
+  never here.
+- **A faction that cannot pay cannot deliver:** its courier waits at the
+  building, carrying the artifact and hunted by everyone, until the bank
+  covers it or the courier dies. Taking the Shardroot is therefore a
+  commitment a weak faction cannot make: you need the economy AND the army.
+
+#### The Wonder road: enshrine and hold for 10 minutes
+
+- Enshrining starts the **ascension countdown — 10 minutes**, visible to every
+  player: a HUD timer, a minimap ping on the Temple and a notice ("Purple has
+  enshrined the Shardroot — 10:00 to ascension").
+- **The clock runs regardless**, as an Age of Empires Wonder's does: enemies
+  standing at the Temple do not pause it; only destroying the Temple stops it.
+- **The Temple destroyed** — it detonates and the artifact drops in the crater
+  (§3.1, unchanged); the countdown is gone. A re-enshrine (paying again)
+  starts a fresh full countdown.
+- The enshrining civilization keeps its damage and protection bonus (§3.1b),
+  so the defence of the Wonder is a real fight at one point — the dynamic
+  point defence the developer wants.
+- Victory by ascension is the one exception to "elimination is the only
+  victory" ([Territory_Claims.md §7](Territory_Claims.md)); see §5.
+
+#### The Ring-lord road: the King is the One Ring
+
+- The Shardbound King stays **almost unstoppable** (§3.1b: damage fraction,
+  regeneration, the per-second damage cap so no swarm can delete him — it
+  takes a sustained, deliberate effort).
+- **Conquest is his only victory**: no clock.
+- **Stopping him must feel great** (the "stop Sauron" moment): killing the
+  Shardbound King pays a **bounty** to the faction that lands the killing blow
+  — a config value beside `ShardboundKing.asset`, in addition to the artifact
+  dropping where he falls for the taking. Open: what the bounty is (resources,
+  religion points, a temporary army-wide rally) — see §9.
+
+#### Everyone gangs up on the holder — whichever road
+
+Developer: "Definitely join, and also gang up on the player who has the
+Shardroot regardless of road chosen."
+
+- **The curse joins:** while any player holds the Shardroot (carrier,
+  Shardbound King or enshrining Temple), the curse's hunt goes for the holder
+  first, and while an ascension countdown runs it throws its attack waves at
+  the enshrining Temple instead of anyone else.
+- **Every rival joins:** the holder becomes every AI's war victim, ahead of
+  any war, hunt or pile-on already on (Game_AI.md § 6p). A Shardroot holder
+  fights the world — which is why it must be insanely expensive and why
+  holding it is the match's decisive moment, not a side bonus.
+
 ### 3.2 Discovery aids
 
 A fully-bloomed perched scout (expanding-vision design, [Game_AI.md § 7](Game_AI.md))
@@ -1114,7 +1260,9 @@ emergent.
 ## 5. Victory conditions (summary)
 
 1. **Conquest** — eliminate all rivals (unchanged).
-2. **Well domination** — all N wells simultaneously in your verb-state.
+2. ~~**Well domination**~~ — removed with the wells (Territory_Claims.md §7).
+3. **Ascension** (2026-10-09, §3.1c) — enshrine the Shardroot and keep the
+   Temple standing through the 10-minute countdown.
 
 ## 6. Glow removal — role reassignment
 

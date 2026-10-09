@@ -49,6 +49,10 @@ namespace TheWaningBorder.UI.Ingame
         /// <summary>Restored on close — never assume it was 1.</summary>
         private float _resumeTimeScale = 1f;
 
+        /// <summary>"Save Game" — shown only when this match can be saved.</summary>
+        private GameObject _saveButton;
+        private TMP_Text _saveLabel;
+
         private void Awake()
         {
             IsOpen = false;
@@ -96,6 +100,10 @@ namespace TheWaningBorder.UI.Ingame
 
             MakeButton(panel, "resume", "Resume", "Close this menu and carry on (Esc).",
                 Close);
+            _saveButton = MakeButton(panel, "save", "Save Game",
+                "Save this match. Load it again from Load Game on the main menu.",
+                SaveGame);
+            _saveLabel = _saveButton.GetComponentInChildren<TMP_Text>(true);
             MakeButton(panel, "restart", "Restart Match",
                 "Reload this map from the beginning. All progress in the current " +
                 "match is lost.",
@@ -112,7 +120,7 @@ namespace TheWaningBorder.UI.Ingame
             _root.gameObject.SetActive(false);
         }
 
-        private void MakeButton(Transform parent, string name, string label, string tooltip,
+        private GameObject MakeButton(Transform parent, string name, string label, string tooltip,
             System.Action click)
         {
             var rt = GameUIKit.Rect(parent, name);
@@ -138,6 +146,7 @@ namespace TheWaningBorder.UI.Ingame
                 text.color = GameUIKit.TextMain;
             };
             UITooltip.Bind(bg.gameObject, Loc.T(tooltip));
+            return rt.gameObject;
         }
 
         /// <summary>Yes/no strip for the three destructive entries — a
@@ -208,6 +217,10 @@ namespace TheWaningBorder.UI.Ingame
                 return;
             }
 
+            // The post-game Muster Rolls screen sits over the victory panel;
+            // Esc steps back out of it rather than opening this menu on top.
+            if (MusterRollsPanel.IsOpen) { MusterRollsPanel.CloseIfOpen(); return; }
+
             // Modes that own Esc themselves — WorkerCommandPanel cancels
             // placement, GroundTargeting cancels the aim ring. Both run their
             // own key check this frame, so this must not also fire.
@@ -235,6 +248,14 @@ namespace TheWaningBorder.UI.Ingame
             _root.transform.SetAsLastSibling();
             _root.gameObject.SetActive(true);
 
+            // A save is a snapshot of the world plus the replay so far, so it
+            // exists only where a replay does: a single-player lockstep match
+            // that is being played (not watched, not decided).
+            // docs/Design/Replays_And_Saves.md
+            bool canSave = TheWaningBorder.Core.Save.SaveGameWriter.CanSave;
+            _saveButton.SetActive(canSave);
+            if (_saveLabel != null) _saveLabel.text = Loc.T("Save Game");
+
             // Lockstep peers cannot be frozen by one player's menu.
             if (!GameSettings.IsMultiplayer)
             {
@@ -260,6 +281,31 @@ namespace TheWaningBorder.UI.Ingame
         }
 
         // ── Actions ────────────────────────────────────────────────────────
+
+        private void SaveGame()
+        {
+            var ls = TheWaningBorder.Core.Multiplayer.LockstepServiceLocator.Instance;
+            if (ls == null || !ls.IsSimulationRunning) return;
+
+            int tick = ls.CurrentTick;
+            float seconds = tick * TheWaningBorder.Core.Multiplayer.LockstepTiming.TickDuration;
+            var entry = TheWaningBorder.Core.Maps.MapRegistry.GetEntry(GameSettings.SelectedMapScene);
+            string map = entry.SceneName == GameSettings.SelectedMapScene && !string.IsNullOrEmpty(entry.DisplayName)
+                ? entry.DisplayName : GameSettings.SelectedMapScene;
+            int min = (int)(seconds / 60f), sec = (int)seconds % 60;
+            string label = $"{map} — {min}:{sec:00}";
+
+            if (TheWaningBorder.Core.Save.SaveGameWriter.Save(label, out _, out string error))
+            {
+                if (_saveLabel != null) _saveLabel.text = Loc.T("Game Saved");
+                TheWaningBorder.Core.SimSignals.Notify(Loc.T("Game saved") + ": " + label);
+            }
+            else
+            {
+                if (_saveLabel != null) _saveLabel.text = Loc.T("Save Failed");
+                TheWaningBorder.Core.SimSignals.NotifyError(error);
+            }
+        }
 
         private void Restart()
         {

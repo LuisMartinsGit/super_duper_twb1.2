@@ -104,8 +104,13 @@ namespace TheWaningBorder.AI
                     // All hands home: standing missions are void when the
                     // base itself is under attack (the imperative exception
                     // to command follow-through).
-                    DisbandAllMissions(faction);
-                    DefendBase(em, faction, hallPos, settings);
+                    // …except under the all-in (Game_AI.md § 6n): the home
+                    // guard defends, the field army keeps attacking.
+                    bool allIn = AllInArmed(faction);
+                    if (!allIn) DisbandAllMissions(faction);
+                    else AILogger.Log(faction, "ALL-IN",
+                        "base under attack — the home guard defends, the army stays in the field");
+                    DefendBase(em, faction, hallPos, settings, recallField: !allIn);
                 }
                 return;
             }
@@ -136,10 +141,12 @@ namespace TheWaningBorder.AI
                 {
                     AILogger.Log(faction, "POSTURE",
                         $"{prevPosture} -> Defend (building under attack at ({attackedPos.x:0},{attackedPos.z:0}))");
-                    DisbandAllMissions(faction);
+                    // Under the all-in (§ 6n) the field army stays out.
+                    bool allIn = AllInArmed(faction);
+                    if (!allIn) DisbandAllMissions(faction);
                     // Rally at the ATTACKED building, not the Hall — the
                     // defenders converge on the actual fight.
-                    DefendBase(em, faction, attackedPos, settings, includeCurse: true);
+                    DefendBase(em, faction, attackedPos, settings, includeCurse: true, recallField: !allIn);
                 }
                 return;
             }
@@ -213,8 +220,11 @@ namespace TheWaningBorder.AI
         /// (the threat search skipped Border units) — Blue lost 13 huts that
         /// way (2026-10-05, Game_AI.md § 5i). The Hall-ring entry keeps the
         /// old rule: curse units idling near home are not an assault.</param>
+        /// <param name="recallField">False under the all-in (Game_AI.md § 6n):
+        /// units away from home — and any still serving a mission — are left
+        /// where they are; only those at home defend.</param>
         private void DefendBase(EntityManager em, Faction faction, float3 hallPos, AISettingsSO settings,
-            bool includeCurse = false)
+            bool includeCurse = false, bool recallField = true)
         {
             float defendRadiusSq = settings.defendRadius * settings.defendRadius;
 
@@ -288,9 +298,11 @@ namespace TheWaningBorder.AI
                 if (!home)
                 {
                     // Fielded army: recall toward the base, as a body.
-                    recalled.Add(ents[i]);
+                    if (recallField) recalled.Add(ents[i]);
                     continue;
                 }
+                // Under the all-in a mission member passing home keeps its mission.
+                if (!recallField && IsEnrolledInMission(faction, ents[i])) continue;
 
                 // HOME defenders ENGAGE the intruder — but never yank a unit
                 // already fighting (Target set) or already ordered.
@@ -388,6 +400,10 @@ namespace TheWaningBorder.AI
         {
             if (personality == null || personality.wallGuardShare <= 0f) return;
             if (aiState.Posture == AIPosture.Defend) return;
+            // THE ALL-IN (Game_AI.md § 6n): no gate posts — the idle army is
+            // the wave's (posted units were always draftable; this stops the
+            // posting order pulling them back to the ring between waves).
+            if (AllInArmed(faction)) return;
             if (_wallGuardEpoch != SimCadence.Epoch) { _wallGuardEpoch = SimCadence.Epoch; _nextWallGuard.Clear(); }
             int fk = (int)faction;
             if (_nextWallGuard.TryGetValue(fk, out float at) && now < at) return;

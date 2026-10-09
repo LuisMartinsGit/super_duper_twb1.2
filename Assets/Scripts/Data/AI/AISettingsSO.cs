@@ -146,6 +146,18 @@ namespace TheWaningBorder.Data.AI
             /// divided by it) and the bonus for ground bordering a rival.
             /// 1 = Balanced.</summary>
             public float fortressAppetite;
+            /// <summary>STRUCTURAL. The Shardroot choice (Curse_And_Shardroot.md
+            /// § 3.1b, Game_AI.md § 6l): on, a carrier brought home goes to the
+            /// Hall so a living King Lexor becomes the Shardbound King; off, it
+            /// is enshrined at the finished Temple of Ridan. The other road is
+            /// taken when the preferred one is unavailable.</summary>
+            public bool shardrootToKing;
+
+            /// <summary>STRUCTURAL. The late-game all-in (Game_AI.md § 6n): the
+            /// share of the army committed once the config's allInAfterSeconds
+            /// has passed; the rest is the home guard. Within the developer's
+            /// 0.7-0.9 band.</summary>
+            public float allInCommitment;
 
             /// <summary>The affinity for one plan, by plan id.</summary>
             public float AffinityFor(AIPlan plan) => plan switch
@@ -210,6 +222,8 @@ namespace TheWaningBorder.Data.AI
                 raidIntervalSeconds = target.raidIntervalSeconds,
                 strengthGateFromSeconds = target.strengthGateFromSeconds,
                 noOverdueRelease = target.noOverdueRelease,
+                shardrootToKing = target.shardrootToKing,
+                allInCommitment = target.allInCommitment,
                 // Magnitudes blend.
                 wallGuardShare = L(b.wallGuardShare, target.wallGuardShare),
                 raidPartyScale = L(b.raidPartyScale, target.raidPartyScale),

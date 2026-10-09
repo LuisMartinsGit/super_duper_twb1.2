@@ -487,11 +487,10 @@ namespace TheWaningBorder.Core.Commands
 
             if (ShouldQueueForLockstep(source))
             {
-                // Lockstep queue currently doesn't replicate targetEntity —
-                // single-player sets it directly; multiplayer falls back to
-                // a position-only rally. Networked target sync can be added
-                // later by extending the lockstep payload.
-                QueueRallyPointForLockstep(em, building, position);
+                // The target travels as its NetworkId in TargetEntityId
+                // (2026-10-08: single-player now runs through lockstep too,
+                // and used to keep the target by setting it directly).
+                QueueRallyPointForLockstep(em, building, position, targetEntity);
             }
             else
             {
@@ -2380,8 +2379,9 @@ namespace TheWaningBorder.Core.Commands
 
         private static bool ShouldQueueForLockstep(CommandSource source)
         {
-            // Only queue if in multiplayer with active lockstep
-            if (!GameSettings.IsMultiplayer) return false;
+            // Only queue when the match runs through the lockstep command
+            // stream (multiplayer, or single-player solo lockstep).
+            if (!GameSettings.UsesLockstep) return false;
 
             var lockstep = LockstepServiceLocator.Instance;
             if (lockstep == null || !lockstep.IsSimulationRunning)
@@ -2410,6 +2410,12 @@ namespace TheWaningBorder.Core.Commands
         /// </summary>
         public static bool ShouldDropCommand(CommandSource source)
         {
+            // A replay (or a save fast-forwarding to its marker) is fed from
+            // the recorded stream: a live order from this machine would be a
+            // command the original match never had.
+            if (GameSettings.WatchingReplay
+                && (source == CommandSource.LocalPlayer || source == CommandSource.AI)) return true;
+
             if (source != CommandSource.AI) return false;
             if (!GameSettings.IsMultiplayer) return false;
 

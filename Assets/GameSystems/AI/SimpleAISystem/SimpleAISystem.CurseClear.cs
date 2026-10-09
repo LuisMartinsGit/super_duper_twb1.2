@@ -53,6 +53,8 @@ namespace TheWaningBorder.AI
         {
             ResetEconomyDefenceIfNewMatch();
             if (!RegionMap.Ready || !TerritoryOwnership.Ready) return;
+            // THE ALL-IN (Game_AI.md § 6n): the idle army is the wave's.
+            if (AllInArmed(faction)) return;
             int key = (int)faction;
             if (_nextCurseClear.TryGetValue(key, out float next) && now < next) return;
             _nextCurseClear[key] = now + math.max(1f, Cfg.curseClearInterval);

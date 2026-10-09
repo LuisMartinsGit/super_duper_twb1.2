@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Deep Shafts
   role: Economy
   effect: 
-  desc: "Every iron slot one of your Mines works pays +50%."
+  desc: "Every iron slot one of your Mines works pays +20%."
   researchAt: Mine
   minBuildingLevel: 0
   researchTime: 40

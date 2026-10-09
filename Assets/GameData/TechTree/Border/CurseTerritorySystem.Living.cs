@@ -154,6 +154,7 @@ namespace TheWaningBorder.Systems.Border
             _nextExpandAt = -1.0;
             _noNodeSince = -1.0;
             _shardrootGuaranteed = false;
+            _descentQuarter = 0;
             _nextHuntAt = -1.0;
             _guardParty = -1;
             _guardHome = -1;
@@ -208,8 +209,88 @@ namespace TheWaningBorder.Systems.Border
         /// </summary>
         private void TickShardrootGuarantee(EntityManager em, double now, BorderSettingsSO s)
         {
+            if (s.shardrootDescentReligionPoints > 0) { TickShardrootDescent(em, s); return; }
             if (s.shardrootGuaranteeSeconds <= 0f || now < s.shardrootGuaranteeSeconds) return;
             _shardrootGuaranteed = true;
+        }
+
+        /// <summary>Quarter of the descent counter last announced (0-3).</summary>
+        private int _descentQuarter;
+
+        private static readonly ComponentType[] QT_ReligionBanks =
+            { ComponentType.ReadOnly<TheWaningBorder.Economy.FactionReligionPoints>() };
+        private static CachedEntityQuery QC_ReligionBanks;
+
+        private static readonly ComponentType[] QT_CurseNodes =
+        {
+            ComponentType.ReadOnly<SmallNodeTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        private static CachedEntityQuery QC_CurseNodes;
+
+        /// <summary>
+        /// THE SHARDROOT DESCENDS (Curse_And_Shardroot.md §3.1c, 2026-10-09).
+        /// Every religion point any player has earned (curse kills and the
+        /// Temple's trickle — KillRp — and Tithes bought) counts toward
+        /// shardrootDescentReligionPoints; at the threshold the artifact
+        /// descends into one LIVING curse node, picked on the curse's seeded
+        /// RNG among the nodes in entity order, so every peer and every
+        /// replay picks the same one. The guard (TickShardrootGuard) then
+        /// holds it like any dropped artifact.
+        /// </summary>
+        private void TickShardrootDescent(EntityManager em, BorderSettingsSO s)
+        {
+            var q = QC_ShardrootState.Get(em, QT_ShardrootState);
+            if (q.IsEmptyIgnoreFilter) return;
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            var state = em.GetComponentData<ShardrootState>(ents[0]);
+            if (state.Found != 0) return;
+
+            int earned = 0;
+            var bq = QC_ReligionBanks.Get(em, QT_ReligionBanks);
+            using (var rps = bq.ToComponentDataArray<TheWaningBorder.Economy.FactionReligionPoints>(Allocator.Temp))
+                for (int i = 0; i < rps.Length; i++) earned += rps[i].KillRp + rps[i].TithesBought;
+            int need = s.shardrootDescentReligionPoints;
+            state.DescentEarned = earned;
+            state.DescentNeeded = need;
+
+            int quarter = math.min(3, earned * 4 / math.max(1, need));
+            if (quarter > _descentQuarter && earned < need)
+            {
+                _descentQuarter = quarter;
+                SimSignals.Notify(string.Format(Loc.T("The Shardroot stirs — {0} religion points until it descends."),
+                    need - earned));
+                UnityEngine.Debug.Log($"[Shardroot] descent {earned}/{need} religion points");
+            }
+            if (earned < need) { em.SetComponentData(ents[0], state); return; }
+
+            // The living curse nodes, in entity order (deterministic).
+            var nq = QC_CurseNodes.Get(em, QT_CurseNodes);
+            var nodes = new List<(int index, float3 pos)>();
+            using (var nEnts = nq.ToEntityArray(Allocator.Temp))
+            using (var nFacs = nq.ToComponentDataArray<FactionTag>(Allocator.Temp))
+            using (var nXfs = nq.ToComponentDataArray<LocalTransform>(Allocator.Temp))
+                for (int i = 0; i < nEnts.Length; i++)
+                {
+                    if (nFacs[i].Value != Faction.Border) continue;
+                    if (em.HasComponent<Health>(nEnts[i]) && em.GetComponentData<Health>(nEnts[i]).Value <= 0) continue;
+                    nodes.Add((nEnts[i].Index, nXfs[i].Position));
+                }
+            if (nodes.Count == 0) { em.SetComponentData(ents[0], state); return; }  // waits for a reseed
+            nodes.Sort((a, b) => a.index.CompareTo(b.index));
+            var at = nodes[_rng.NextInt(0, nodes.Count)].pos + new float3(4f, 0f, 4f);
+
+            state.Found = 1;
+            em.SetComponentData(ents[0], state);
+            var pickup = TheWaningBorder.Entities.ShardrootPickup.Create(em, at,
+                RitualKind.ViolentExtraction, ShardrootState.ShardrootPower);
+            em.AddComponent<ShardrootTag>(pickup);
+            ShardrootSystem.MakePersistent(em, pickup);
+            SimSignals.Notify(Loc.T("The SHARDROOT DESCENDS into the curse!"));
+            SimSignals.Ping(at, SimPingKind.Discovery, 20f, big: true);
+            UnityEngine.Debug.Log($"[Shardroot] DESCENT -- {earned}/{need} religion points: the artifact " +
+                $"descends into a curse node at ({at.x:F0},{at.z:F0}) ({nodes.Count} living nodes)");
         }
 
         /// <summary>Set once the guarantee time has passed: the next roll

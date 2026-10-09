@@ -13,6 +13,57 @@ build always name the same number.
 
 ---
 
+## [0.0.38] — 2026-10-09
+
+Everyone in a multiplayer match needs 0.0.38. 0.0.37 was never published, so
+this release also brings everything listed under 0.0.37 below.
+
+### Added
+
+- **The Shardroot descends.** A counter every player can see — "religion
+  points until the Shardroot descends" — falls with every religion point
+  anyone earns. At zero, the Shardroot descends into one of the curse's living
+  nodes, chosen at random, and the curse guards it.
+- **Two roads, both very expensive.** Taking the Shardroot home costs a
+  fortune in supplies, veilstone and veilsteel. A player who cannot pay
+  cannot use it — the courier waits, carrying it, hunted by everyone.
+  - **The King road.** King Lexor bound to the Shardroot is almost
+    unstoppable: however many enemies strike him, he loses only a little
+    health each second. He wins by conquest. Whoever kills him earns a king's
+    ransom.
+  - **The Temple road — ascension.** Enshrining the Shardroot starts a
+    10-minute countdown everyone can see. If the Temple still stands when it
+    ends, that player wins the match. Destroying the Temple breaks it.
+- **Everyone against the holder.** Whoever holds the Shardroot — by either
+  road — is attacked by every AI and by the curse.
+- **Saved games and replays.** Single-player skirmishes can be saved and
+  loaded, and every match records a replay you can watch from the start.
+- **The Muster Rolls.** A post-game screen with standings, charts and an
+  animated map of the match, opened from the end-of-match panel.
+- **AI armies have a doctrine.** Each AI commits to a style for the match —
+  cavalry, shield wall, bow line or siege — instead of every army being the
+  same mix, so some matchups are won decisively.
+
+### Changed
+
+- **Counters hit harder.** Spearmen and Crossbowmen against cavalry, Outriders
+  and Cataphracts against ranged, and Archers against infantry all deal much
+  more of their bonus damage. Swordsmen have less health and are no longer the
+  safe answer to everything.
+- **Players fall earlier and matches end.** A player left with no buildings,
+  or no territory, for 30 seconds is eliminated. From minute 12 the AI hunts
+  players who have fallen far behind, an AI with a full army or an overflowing
+  bank attacks, and the late-game all-in comes earlier.
+- **The economy has a late game.** Resource nodes run dry as the match goes
+  on; later income comes from your Fortress, held territory, trade, the Vault
+  and Guild surveys. Pure nodes pay more and last longer than Poor ones.
+- **The AI pulls King Lexor back** to heal when he is badly hurt, instead of
+  losing him (and the Shardroot).
+- **Smoother large battles.** Pathfinding no longer stalls the game while
+  many units are ordered at once.
+
+---
+
 ## [0.0.37] — 2026-10-07
 
 Everyone in a multiplayer match needs 0.0.37.

@@ -264,6 +264,9 @@ namespace TheWaningBorder.Systems.Border
                     .WithNone<ShardboundHeroTag>()
                     .WithEntityAccess())
                 {
+                    // A courier bound for the Temple (§ 3.1b, set by the AI)
+                    // passes its Halls without handing the artifact over.
+                    if (carrier.ValueRO.Intent == ShardrootIntent.Temple) break;
                     courier = entity;
                     courierPos = xf.ValueRO.Position;
                     courierFaction = fac.ValueRO.Value;
@@ -274,7 +277,15 @@ namespace TheWaningBorder.Systems.Border
                     && TryFindOwnHall(em, courierFaction, courierPos,
                         ShardrootState.HallDeliverRadius, out _))
                 {
-                    AwakenHero(em, courier, courierPos, courierFaction);
+                    // THE PRICE (§3.1c, 2026-10-09): binding is paid on
+                    // delivery; a faction that cannot pay waits at the Hall.
+                    var price = TheWaningBorder.Entities.ShardboundKingConfig.I.BindPrice;
+                    if (TheWaningBorder.Economy.FactionEconomy.Spend(em, courierFaction, price,
+                            TheWaningBorder.Economy.SpendCategory.Religion))
+                        AwakenHero(em, courier, courierPos, courierFaction);
+                    else if (_priceNoticeAcc.Due(SystemAPI.Time.DeltaTime, 30f))
+                        UnityEngine.Debug.Log($"[Shardroot] {courierFaction}'s courier waits at the Hall -- " +
+                            $"the binding costs {price.Supplies}s/{price.Iron}i/{price.Veilstone}v/{price.Veilsteel}vs");
                 }
             }
 
@@ -295,6 +306,8 @@ namespace TheWaningBorder.Systems.Border
                     break;
                 }
             }
+            TickAscension(em, ref state, SystemAPI.Time.DeltaTime);
+
             if (state.HolderFaction != prevHolder)
                 UnityEngine.Debug.Log(state.HolderFaction == Faction.Border
                     ? $"[Shardroot] {prevHolder} no longer holds the artifact"
@@ -342,6 +355,7 @@ namespace TheWaningBorder.Systems.Border
         }
 
         private SimCadence.Periodic _beaconAcc;
+        private SimCadence.Periodic _priceNoticeAcc;
         private const float BeaconInterval = 4f;
 
         /// <summary>
@@ -374,8 +388,61 @@ namespace TheWaningBorder.Systems.Border
                 $"drops the artifact{(fromMaw ? " (it was embedded in the Maw)" : "")}");
         }
 
+        /// <summary>
+        /// THE ASCENSION (§3.1c, 2026-10-09): an enshrining Temple runs a
+        /// public countdown of ascensionSeconds; enemies at the Temple do not
+        /// pause it, only its destruction (the artifact then leaves it) stops
+        /// it. When it runs out AscensionDone = 1 and EliminationSystem retires
+        /// every faction hostile to the ascendant.
+        /// </summary>
+        private void TickAscension(EntityManager em, ref ShardrootState state, float dt)
+        {
+            float total = TheWaningBorder.Entities.ShardrootEmpowermentConfig.I.ascensionSeconds;
+            Faction temple = Faction.Border;
+            float3 templePos = default;
+            if (total > 0f && state.AscensionDone == 0)
+                foreach (var (fac, xf, hp) in SystemAPI
+                    .Query<RefRO<FactionTag>, RefRO<LocalTransform>, RefRO<Health>>()
+                    .WithAll<ShardrootTag, TempleOfRidanTag>())
+                {
+                    if (hp.ValueRO.Value <= 0) continue;
+                    temple = fac.ValueRO.Value; templePos = xf.ValueRO.Position;
+                    break;
+                }
+
+            if (temple != state.AscensionFaction)
+            {
+                if (state.AscensionFaction != Faction.Border && state.AscensionDone == 0)
+                    SimSignals.Notify(string.Format(Loc.T("{0}'s ascension is broken!"), state.AscensionFaction));
+                state.AscensionFaction = temple;
+                state.AscensionElapsed = 0f;
+                state.AscensionNoticeMinutes = -1;
+                if (temple != Faction.Border)
+                    UnityEngine.Debug.Log($"[Shardroot] ASCENSION -- {temple} enshrines the artifact: " +
+                        $"{total:0}s to victory");
+            }
+            if (temple == Faction.Border) return;
+
+            state.AscensionElapsed += dt;
+            float left = math.max(0f, total - state.AscensionElapsed);
+            int minutes = (int)math.ceil(left / 60f);
+            if (minutes != state.AscensionNoticeMinutes
+                && (minutes >= 10 || minutes == 5 || minutes == 3 || minutes <= 2))
+            {
+                state.AscensionNoticeMinutes = minutes;
+                SimSignals.Notify(string.Format(Loc.T("{0} has enshrined the Shardroot — {1}:00 to ascension!"),
+                    temple, minutes));
+                SimSignals.Ping(templePos, SimPingKind.Discovery, 15f, big: true);
+            }
+            if (left > 0f) return;
+            state.AscensionDone = 1;
+            SimSignals.Notify(string.Format(Loc.T("{0} ASCENDS — the Shardroot is theirs!"), temple));
+            UnityEngine.Debug.Log($"[Shardroot] ASCENSION COMPLETE -- {temple} wins after {state.AscensionElapsed:0}s");
+        }
+
         private static ShardrootState FreshState() => new ShardrootState
         {
+            AscensionFaction = Faction.Border,
             HostNode = Entity.Null,
             HostChosen = 0,
             Found = 0,

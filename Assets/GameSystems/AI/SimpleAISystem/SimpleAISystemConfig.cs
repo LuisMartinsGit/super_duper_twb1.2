@@ -1389,5 +1389,62 @@ namespace TheWaningBorder.AI
         public float wallGuardIntervalSeconds;
         public float wallGuardInsetMeters;
         public float wallGuardArriveMeters;
+
+        // ── The late-game all-in (Game_AI.md § 6n, 2026-10-08) ──
+
+        /// <summary>Match seconds from which every AI goes all-in (0 = never).
+        /// The share committed is the personality row's allInCommitment.</summary>
+        public float allInAfterSeconds;
+        /// <summary>The all-in home guard never drops below this many units.</summary>
+        public int allInHomeGuardMinUnits;
+        /// <summary>Under the all-in, the wave's head-count bar.</summary>
+        public int allInMinWaveUnits;
+        /// <summary>Under the all-in, a wave holds only when the objective
+        /// (known defence / assessment) is at least this many times the
+        /// army's power.</summary>
+        public float allInMaxEnemyRatio;
+        /// <summary>Under the all-in, the next wave is never further away.</summary>
+        public float allInWaveIntervalSeconds;
+        /// <summary>Under the all-in, reinforcements wait at most this long to
+        /// gather a company (0 = they stream at once).</summary>
+        public float allInReinforceMaxHoldSeconds;
+        /// <summary>Under the all-in, both retreat tests use at least this
+        /// enemy/own power ratio (a tier that never retreats still never does).</summary>
+        public float allInRetreatRatio;
+
+        // ── The hunt (Game_AI.md § 6o, 2026-10-09) ──
+
+        /// <summary>Match seconds from which a stalled faction is prey
+        /// (0 = never). Before the all-in, a hunter goes all-in on it.</summary>
+        public float preyAfterSeconds;
+        /// <summary>A hostile holding at most this many territories is prey.</summary>
+        public int preyMaxTerritories;
+        /// <summary>Only a faction holding at least this many territories hunts.</summary>
+        public int preyHunterMinTerritories;
+        /// <summary>A hostile is also prey when it holds at most this share
+        /// of the hunter's territories (0 = only the absolute bar).</summary>
+        public float preyMaxShareOfHunter;
+
+        // ── A full army attacks (Game_AI.md § 6q, 2026-10-09) ──
+
+        /// <summary>At this share of its population cap the AI arms the
+        /// all-in doctrine whatever the clock (0 = off).</summary>
+        public float maxedPopShare;
+        /// <summary>...or with this many supplies banked (0 = off).</summary>
+        public int maxedBankSupplies;
+
+        // ── Army doctrines (Game_AI.md § 6r, 2026-10-09) ──
+
+        /// <summary>One entry per doctrine: its name and the class weights
+        /// (infantry / ranged / cavalry / siege) that multiply the
+        /// composition shares. Each AI rolls one per match from the seed.</summary>
+        public string[] doctrineNames;
+        public float[] doctrineInfantry;
+        public float[] doctrineRanged;
+        public float[] doctrineCavalry;
+        public float[] doctrineSiege;
+        /// <summary>Multiplier on the difficulty's counterResponse under a
+        /// doctrine: how much of the army still follows the enemy read.</summary>
+        public float doctrineCounterResponseScale;
     }
 }

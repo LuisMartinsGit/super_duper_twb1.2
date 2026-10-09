@@ -99,7 +99,7 @@ namespace TheWaningBorder.UI.Ingame
         private void Refresh()
         {
             var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
-            if (world == null || !world.IsCreated || GameSettings.IsObserver) { Hide(); return; }
+            if (world == null || !world.IsCreated || GameSettings.IsSpectating) { Hide(); return; }
             var em = world.EntityManager;
 
             var entity = ActionsPanelBinder.FirstOwnedSelected(em);

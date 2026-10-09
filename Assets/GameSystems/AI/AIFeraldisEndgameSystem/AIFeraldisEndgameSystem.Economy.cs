@@ -121,7 +121,7 @@ namespace TheWaningBorder.AI
                 // multiplayer the workers still march (the attack-move
                 // replicates); they simply are not RE-CLASSED as soldiers
                 // until conscription gets a replicated command of its own.
-                if (!GameSettings.IsMultiplayer)
+                if (!GameSettings.UsesLockstep)
                     em.AddComponent<ConscriptedTag>(w);
                 CommandRouter.IssueAttackMove(em, w, rally, CommandSource.AI);
                 sent++;

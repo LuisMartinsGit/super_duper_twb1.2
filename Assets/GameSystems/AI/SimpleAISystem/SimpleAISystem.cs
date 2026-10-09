@@ -172,6 +172,10 @@ namespace TheWaningBorder.AI
                 profile.SustainArmyCap += ArmyCapBonus(em, brain.Owner, profile.SustainArmyCap, now);
                 NoteProfile(brain.Owner, profile, brain.Personality);
 
+                // THE LATE-GAME ALL-IN (Game_AI.md § 6n): armed past
+                // allInAfterSeconds, before anything below drafts the army.
+                TickAllInDoctrine(em, brain.Owner, personality, now);
+
                 // Worker tasking is gone: income comes from held territory, not
                 // from workers on deposits (Regions.md §4). The AI's economic
                 // decision is now WHERE TO CLAIM, which belongs in the build

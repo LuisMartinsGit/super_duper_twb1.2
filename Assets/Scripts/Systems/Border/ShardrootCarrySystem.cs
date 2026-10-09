@@ -2,7 +2,9 @@
 // The Shardroot artifact's carry chain (Curse_And_Shardroot.md §3.1):
 //   1. despawn timer — the Shardroot itself is PERSISTENT and exempt
 //   2. a unit reaching it claims it at once and becomes the bearer
-//   3. the bearer reaching their Temple ENSHRINES it (sect powers amplified)
+//   3. the bearer reaching their Temple ENSHRINES it (sect powers amplified,
+//      and the whole army empowered -- ShardrootEmpowermentSystem, § 3.1b)
+//      unless the AI routed it to the Hall (ShardrootBearer.Intent)
 //   4. the bearer dying drops it in place, for anyone to claim again
 //
 // This was GlowFlowSystem, the Glow economy's carry loop. Glow is gone; the
@@ -193,13 +195,15 @@ namespace TheWaningBorder.Systems.Economy
                 {
                     int existing = 0;
                     RitualKind keepSrc = src;
+                    byte keepIntent = ShardrootIntent.None; // a fresh courier has no intent
                     if (em.HasComponent<ShardrootBearer>(unit))
                     {
                         var car = em.GetComponentData<ShardrootBearer>(unit);
                         existing = car.Amount;
                         keepSrc = car.Source; // first ritual wins for the source label
+                        keepIntent = car.Intent;
                     }
-                    var merged = new ShardrootBearer { Amount = existing + amount, Source = keepSrc };
+                    var merged = new ShardrootBearer { Amount = existing + amount, Source = keepSrc, Intent = keepIntent };
                     if (em.HasComponent<ShardrootBearer>(unit))
                         em.SetComponentData(unit, merged);
                     else
@@ -250,6 +254,9 @@ namespace TheWaningBorder.Systems.Economy
                 {
                     if (unitHealth.ValueRO.Value <= 0) continue;
                     if (carrierRW.ValueRO.Amount <= 0) continue;
+                    // A courier bound for the Hall (the King road, § 3.1b)
+                    // walks past its Temple without enshrining.
+                    if (carrierRW.ValueRO.Intent == ShardrootIntent.Hall) continue;
 
                     Faction f = unitFaction.ValueRO.Value;
                     var unitPos = unitTransform.ValueRO.Position;
@@ -264,10 +271,21 @@ namespace TheWaningBorder.Systems.Economy
                         // carry ShardrootStored — skip gracefully rather than crash.
                         if (!em.HasComponent<ShardrootStored>(templeEnts[i])) continue;
 
-                        var dxz = math.distance(
-                            new float2(unitPos.x, unitPos.z),
-                            new float2(templeTransforms[i].Position.x, templeTransforms[i].Position.z));
+                        // Measured to the Temple's WALL, not its pivot
+                        // (2026-10-07): the Temple's footprint puts its pivot
+                        // further from its own wall than the deposit radius,
+                        // so on centre distance no courier could ever reach
+                        // it and the enshrine never fired.
+                        var dxz = TargetGeometry.SurfaceDistXZ(em, unitPos,
+                            templeTransforms[i].Position, templeEnts[i]);
                         if (dxz > ShardrootDepositRadius) continue;
+
+                        // THE PRICE (§3.1c, 2026-10-09): enshrining is paid on
+                        // delivery; a faction that cannot pay waits here.
+                        if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, f,
+                                TheWaningBorder.Entities.ShardrootEmpowermentConfig.I.EnshrinePrice,
+                                TheWaningBorder.Economy.SpendCategory.Religion))
+                            break;
 
                         int delivered = carrierRW.ValueRO.Amount;
                         var stored = em.GetComponentData<ShardrootStored>(templeEnts[i]);
@@ -285,7 +303,7 @@ namespace TheWaningBorder.Systems.Economy
                             ecb.RemoveComponent<ShardrootTag>(unitEntity);
                             ecb.AddComponent<ShardrootTag>(templeEnts[i]);
                             SimSignals.Notify(
-                                string.Format(Loc.T("{0} has ENSHRINED the Shardroot — their powers surge!"), f));
+                                string.Format(Loc.T("{0} enshrines the Shardroot — its army is empowered!"), f));
                         }
 
                         UnityEngine.Debug.Log($"[Shardroot] {f} deposited {delivered} Shardroot at Temple of Ridan (stored: {stored.Amount})");

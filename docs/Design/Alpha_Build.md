@@ -18,9 +18,8 @@ development is unaffected:
 |---|---|
 | Campaign | not implemented |
 | Scenarios | a dev harness; its scenes are not in the build anyway |
-| Load Game | there is no save system, so the button does nothing |
 
-Left in: **Skirmish**, **Multiplayer**, **Tutorial**, **Settings**, **Quit**.
+Left in: **Skirmish**, **Multiplayer**, **Load Game** (unhidden 2026-10-08), **Tutorial**, **Settings**, **Quit**.
 
 ### Multiplayer (unhidden 2026-08-16)
 
@@ -49,11 +48,14 @@ The list lives in `ShipGateMenuTrim.AlphaHiddenMenuItems`, which already
 existed to hide Scenarios when its scenes are excluded from the build. Removing
 an entry from that array puts the menu item back.
 
-### Saved games
+### Saved games and replays (unhidden 2026-10-08)
 
-There is nothing to disable. No save system exists in the codebase — no
-`SaveSystem`, no autosave, no save entry in the pause menu. "Load Game" was a
-dead button, and hiding it is the entire change.
+Saved games and replays exist ([Replays_And_Saves.md](Replays_And_Saves.md)):
+Save Game in the pause menu, Load Game on the main menu with a Saved Games
+tab and a Replays tab. Every single-player skirmish records a replay into
+`Replays/` beside the exe; saved games go to `Saves/`. Both play only on the
+build that made them, so a tester who updates loses access to older files —
+the list shows them greyed out with the build that made them.
 
 ---
 

@@ -175,6 +175,8 @@ namespace TheWaningBorder.Systems.Sect
                 // overwrite OriginalFaction with the disordered faction and
                 // strand the unit permanently.
                 if (TransientState.Active<SectDisordered>(em, e)) continue;
+                // The Shardbound King cannot be disabled (Curse_And_Shardroot.md § 3.1b).
+                if (em.HasComponent<TheWaningBorder.Entities.ShardboundKing>(e)) continue;
 
                 float3 p = em.GetComponentData<LocalTransform>(e).Position;
                 float dx = p.x - center.x, dz = p.z - center.z;

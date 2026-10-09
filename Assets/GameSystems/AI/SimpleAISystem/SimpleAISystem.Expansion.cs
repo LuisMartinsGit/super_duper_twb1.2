@@ -212,6 +212,26 @@ namespace TheWaningBorder.AI
             TrackTerritoryLosses(faction, now);
             _consolidating[key] = false;
 
+            // THE ALL-IN (Game_AI.md § 6n): every claim squad — curse-clearing
+            // sorties included — is released into the army, and no new round
+            // goes out. The army takes ground by standing on what it razes.
+            if (AllInArmed(faction))
+            {
+                if (squads.Count > 0)
+                {
+                    int freed = 0;
+                    for (int i = 0; i < squads.Count; i++)
+                    {
+                        freed += squads[i].Members.Count;
+                        ReleaseClaimSquad(squads[i]);
+                    }
+                    AILogger.Log(faction, "ALL-IN",
+                        $"{squads.Count} claim squad(s) released into the army ({freed} unit(s))");
+                    squads.Clear();
+                }
+                return;
+            }
+
             // APPETITE IS THE PLAN'S, with a floor: territory is the income
             // that pays for every plan's army, so nobody opts out of eating.
             float appetite = math.max(PlanProfileOf(faction).ClaimAppetite, 1f);

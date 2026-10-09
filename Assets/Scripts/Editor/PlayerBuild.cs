@@ -95,7 +95,10 @@ namespace TheWaningBorder.EditorTools
                 locationPathName = exe,
                 target = BuildTarget.StandaloneWindows64,
                 targetGroup = BuildTargetGroup.Standalone,
-                options = BuildOptions.None,
+                // -twbDevelopment: a profiling player (ENABLE_PROFILER on, so
+                // EcsSystemProfiler can time every system). Never shipped.
+                options = Array.IndexOf(Environment.GetCommandLineArgs(), "-twbDevelopment") >= 0
+                    ? BuildOptions.Development : BuildOptions.None,
             };
 
             Debug.Log($"[PlayerBuild] Building {PlayerSettings.productName} " +

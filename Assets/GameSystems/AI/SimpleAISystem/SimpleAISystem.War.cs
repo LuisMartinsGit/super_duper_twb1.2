@@ -67,6 +67,18 @@ namespace TheWaningBorder.AI
         /// doctrine's pick, which starts a war.</summary>
         private Faction CommitWarVictim(EntityManager em, Faction faction, Faction doctrinePick, float now)
         {
+            // THE HUNT (§ 6o, 2026-10-09): a stalled faction is everyone's
+            // war first — that is what makes the early deaths.
+            if (HuntedPrey(faction, out var prey))
+            {
+                bool hunting = TryGetWarVictim(em, faction, out var cur0) && cur0 == prey;
+                if (!hunting)
+                {
+                    _wars[(int)faction] = new War { Victim = prey, Since = now };
+                    AILogger.Log(faction, "WAR", $"war on {prey} — the hunt: it holds next to nothing");
+                }
+                return prey;
+            }
             // PILE-ON (§ 6i, 2026-10-07): a faction that is LOSING a war to
             // someone else draws this faction in too — two-on-one is what
             // ends a match; one-on-one wars between equal armies deadlocked.

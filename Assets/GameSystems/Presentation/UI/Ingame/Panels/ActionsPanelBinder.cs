@@ -303,7 +303,7 @@ namespace TheWaningBorder.UI.Ingame
         private void Refresh()
         {
             var em = EM(out bool ok);
-            if (!ok || GameSettings.IsObserver) { Hide(); return; }
+            if (!ok || GameSettings.IsSpectating) { Hide(); return; }
 
             _entity = FirstOwnedSelected(em);
             if (_entity == Entity.Null) { Hide(); return; }

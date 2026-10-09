@@ -46,14 +46,21 @@ namespace TheWaningBorder.AI
         /// </summary>
         /// <param name="totalPlayers">Total number of players (including human)</param>
         /// <param name="humanPlayerFaction">Faction controlled by human (typically Blue/0)</param>
-        public static void InitializeAIPlayers(int totalPlayers, Faction humanPlayerFaction = Faction.Blue)
+        /// <summary>The AI's managed per-match state, fresh — without creating
+        /// brain entities. A restored saved game uses this: its brains are in
+        /// the snapshot. docs/Design/Replays_And_Saves.md §3</summary>
+        public static void InitializeManagedState()
         {
-            // Initialize per-faction AI logging (clears old logs)
-            AILogger.Initialize();
-            AIBudget.Initialize();     // M-A budget wallets (fresh per match)
+            AILogger.Initialize();           // per-faction AI logging (clears old logs)
+            AIBudget.Initialize();           // M-A budget wallets (fresh per match)
             AIRequestBus.Initialize();
             AIPivotalReserve.Initialize();   // savings goals (fresh per match)
             AIEndgameCommon.Initialize();    // temple back-off counters
+        }
+
+        public static void InitializeAIPlayers(int totalPlayers, Faction humanPlayerFaction = Faction.Blue)
+        {
+            InitializeManagedState();
 
             var world = EntityWorld.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated)

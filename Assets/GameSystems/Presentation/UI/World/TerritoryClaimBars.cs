@@ -110,7 +110,7 @@ namespace TheWaningBorder.UI.World
         private void Collect()
         {
             _entries.Clear();
-            if (!RegionMap.Ready || !TerritoryOwnership.Ready || GameSettings.IsObserver) return;
+            if (!RegionMap.Ready || !TerritoryOwnership.Ready || GameSettings.IsSpectating) return;
 
             int me = (int)GameSettings.LocalPlayerFaction;
             for (int t = 0; t < RegionMap.Count; t++)

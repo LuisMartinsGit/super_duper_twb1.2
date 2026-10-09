@@ -4,8 +4,9 @@
 //
 //   * ShardboundKing        -- on Lexor while he carries the artifact; the
 //                              empowerment marker (cleave, the ability, the
-//                              detonation). ShardboundKingSystem adds and
-//                              removes it as the artifact comes and goes.
+//                              detonation, and the near-invincibility of
+//                              ShardboundKing.cs). ShardboundKingSystem adds
+//                              and removes it as the artifact comes and goes.
 //   * Launched              -- a unit in the air. LaunchSystem flies it on a
 //                              parabola the sim owns (so every peer sees the
 //                              same arc and the view simply follows the sim
@@ -27,8 +28,8 @@ using TheWaningBorder.World.Terrain;
 
 namespace TheWaningBorder.Entities
 {
-    /// <summary>King Lexor bearing the Shardroot.</summary>
-    public struct ShardboundKing : IComponentData { }
+    // ShardboundKing (the marker on Lexor while he bears the artifact) lives
+    // in ShardboundKing.cs with his invincibility (§ 3.1b).
 
     /// <summary>A unit hurled into the air. Immobile, cannot attack or be
     /// ordered until it lands; LandDamage applies on landing.</summary>
@@ -171,6 +172,8 @@ namespace TheWaningBorder.Entities
                 if (em.HasComponent<EmplacedEngineTag>(e)) continue;
                 if (em.HasComponent<Launched>(e)) continue;
                 if (TransientState.Active<DeathAnimationState>(em, e)) continue;
+                // The Shardbound King cannot be thrown (§ 3.1b).
+                if (em.HasComponent<ShardboundKing>(e)) continue;
 
                 float d = math.sqrt(d2);
                 float t = radius > 0f ? math.saturate(d / radius) : 1f;   // 0 at the centre, 1 at the rim

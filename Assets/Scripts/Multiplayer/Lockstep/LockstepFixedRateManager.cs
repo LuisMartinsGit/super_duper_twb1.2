@@ -43,6 +43,12 @@ namespace TheWaningBorder.Multiplayer
 
         public float Timestep { get => _timestep; set => _timestep = value; }
 
+        /// <summary>The world's ElapsedTime as of the last step. A saved game
+        /// records it and a load puts it back, so every system that stamps
+        /// absolute times into components keeps reading one continuous clock.
+        /// docs/Design/Replays_And_Saves.md</summary>
+        public double Elapsed { get => _elapsed; set => _elapsed = value; }
+
         /// <summary>True while a time this manager pushed is still on the
         /// world's time stack (popped on the NEXT ShouldGroupUpdate call).
         /// Uninstall must pop it explicitly — tearing the manager down with a

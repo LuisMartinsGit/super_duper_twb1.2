@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Iron Surveying I
   role: Economy
   effect: 
-  desc: "Alanthor Guild. Faction-wide: every Gatherer's Hut also generates Iron (+12/min, doubled inside your influence border)."
+  desc: "Alanthor Guild. Faction-wide: every Guild also produces Iron (+8/min at Guild L1, x1.25 at L2, x1.5 at L3), drawn from no node, so it keeps paying after the nodes run dry. Paid while the Guild's territory is held."
   researchAt: GatherersHut
   minBuildingLevel: 0
   researchTime: 35

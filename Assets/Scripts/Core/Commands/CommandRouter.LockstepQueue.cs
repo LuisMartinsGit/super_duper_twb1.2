@@ -44,7 +44,7 @@ namespace TheWaningBorder.Core.Commands
         /// </summary>
         private static bool MayExecuteLocally(EntityManager em, Entity e, string what, Entity other = default)
         {
-            if (!GameSettings.IsMultiplayer) return true;
+            if (!GameSettings.UsesLockstep) return true;
             var ls = LockstepServiceLocator.Instance;
             if (ls == null || !ls.IsSimulationRunning) return true;
             // Name BOTH sides of a two-entity order and say which one lacks the
@@ -347,22 +347,28 @@ namespace TheWaningBorder.Core.Commands
             LockstepServiceLocator.Instance.QueueCommand(cmd);
         }
 
-        private static void QueueRallyPointForLockstep(EntityManager em, Entity building, float3 position)
+        private static void QueueRallyPointForLockstep(EntityManager em, Entity building, float3 position,
+            Entity targetEntity = default)
         {
             int buildingId = GetNetworkId(em, building);
 
             if (buildingId <= 0)
             {
                 if (!MayExecuteLocally(em, building, "SetRallyPoint")) return;
-                SetRallyPointDirect(em, building, position);
+                SetRallyPointDirect(em, building, position, targetEntity);
                 return;
             }
 
+            // 0 = no follow-up target (also how older commands decode). A
+            // target with no NetworkId cannot replicate and falls back to a
+            // position-only rally, exactly as every rally did before.
+            int targetId = GetNetworkId(em, targetEntity);
             var cmd = new LockstepCommand
             {
                 Type = LockstepCommandType.SetRally,
                 EntityNetworkId = buildingId,
-                TargetPosition = position
+                TargetPosition = position,
+                TargetEntityId = targetId > 0 ? targetId : 0,
             };
             LockstepServiceLocator.Instance.QueueCommand(cmd);
         }

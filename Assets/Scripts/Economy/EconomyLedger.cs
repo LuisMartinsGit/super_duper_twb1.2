@@ -41,8 +41,9 @@ namespace TheWaningBorder.Economy
         Mine,
         /// <summary>A Veilstone Mine working an outcrop.</summary>
         VeilstoneMine,
-        /// <summary>The capital-level (Hall/Fortress L2 x2, L3 x4) share of
-        /// a territory's yield: everything above the x1 base.</summary>
+        /// <summary>The Fortress-level share of a Fortress's OWN supplies
+        /// income: everything above its L1 rate (2026-10-08: the level no
+        /// longer scales the territory's slots).</summary>
         FortressLevel,
         /// <summary>The capital's own SuppliesIncome (ResourceTickSystem).</summary>
         Capital,
@@ -62,6 +63,13 @@ namespace TheWaningBorder.Economy
         Refund,
         /// <summary>Scripted grants (start-age bonus, tutorial).</summary>
         Grant,
+        /// <summary>The Alanthor Guild surveys: every Guild's flat iron /
+        /// veilstone / veilsteel per completed survey tier, not drawn from
+        /// any node (Veilstone_Economy.md § 5.1, 2026-10-08).</summary>
+        GuildSurvey,
+        /// <summary>The flat income every held territory pays once its
+        /// holder has aged up, nodes or not (2026-10-08).</summary>
+        TerritoryClaim,
         /// <summary>Sect / well / anything else tagged but uncategorised.</summary>
         Other,
         Count

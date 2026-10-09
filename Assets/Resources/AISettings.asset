@@ -54,6 +54,8 @@ MonoBehaviour:
     strengthGateFromSeconds: 100000
     noOverdueRelease: 0
     fortressAppetite: 1
+    shardrootToKing: 1
+    allInCommitment: 0.8
   - personality: 1
     attackThreshold: 2
     militaryFloor: 20
@@ -79,6 +81,8 @@ MonoBehaviour:
     strengthGateFromSeconds: 100000
     noOverdueRelease: 0
     fortressAppetite: 1
+    shardrootToKing: 1
+    allInCommitment: 0.9
   - personality: 2
     attackThreshold: 8
     militaryFloor: 34
@@ -104,6 +108,8 @@ MonoBehaviour:
     strengthGateFromSeconds: 0
     noOverdueRelease: 1
     fortressAppetite: 2
+    shardrootToKing: 0
+    allInCommitment: 0.7
   - personality: 3
     attackThreshold: 4
     militaryFloor: 12
@@ -129,6 +135,8 @@ MonoBehaviour:
     strengthGateFromSeconds: 100000
     noOverdueRelease: 0
     fortressAppetite: 1
+    shardrootToKing: 0
+    allInCommitment: 0.8
   - personality: 4
     attackThreshold: 2
     militaryFloor: 20
@@ -154,6 +162,8 @@ MonoBehaviour:
     strengthGateFromSeconds: 100000
     noOverdueRelease: 0
     fortressAppetite: 1
+    shardrootToKing: 1
+    allInCommitment: 0.9
   - personality: 5
     attackThreshold: 4
     militaryFloor: 14
@@ -179,6 +189,8 @@ MonoBehaviour:
     strengthGateFromSeconds: 100000
     noOverdueRelease: 0
     fortressAppetite: 1
+    shardrootToKing: 0
+    allInCommitment: 0.8
   - personality: 6
     attackThreshold: 6
     militaryFloor: 28
@@ -204,3 +216,5 @@ MonoBehaviour:
     strengthGateFromSeconds: 100000
     noOverdueRelease: 0
     fortressAppetite: 1
+    shardrootToKing: 0
+    allInCommitment: 0.7

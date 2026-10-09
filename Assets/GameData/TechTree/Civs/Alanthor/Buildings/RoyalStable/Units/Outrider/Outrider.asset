@@ -47,5 +47,5 @@ MonoBehaviour:
   - Light
   bonusVsTags:
   - vsTag: 'Ranged'
-    amount: 6
+    amount: 12
   presentationId: 349

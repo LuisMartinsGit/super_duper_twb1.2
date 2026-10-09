@@ -108,7 +108,7 @@ namespace TheWaningBorder.Systems.Border
             // computed different respawn positions and desynced state at
             // the moment Veilstone extinction triggered. (task-058 F-2 / MB-21)
             uint seed;
-            if (GameSettings.IsMultiplayer && LockstepServiceLocator.IsActive)
+            if (GameSettings.UsesLockstep && LockstepServiceLocator.IsActive)
                 seed = (uint)(LockstepServiceLocator.Instance.CurrentTick * 4217 + GameSettings.SpawnSeed + 99);
             else
                 seed = (uint)(World.Time.ElapsedTime * 1000 + GameSettings.SpawnSeed + 99);
