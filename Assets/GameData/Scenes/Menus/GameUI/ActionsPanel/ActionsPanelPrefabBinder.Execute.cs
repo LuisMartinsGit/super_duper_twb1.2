@@ -120,7 +120,7 @@ namespace TheWaningBorder.UI.Ingame
                     // on every peer (docs/Multiplayer_LAN_Readiness.md).
                     if (!FactionEconomy.CanAfford(em, faction, b.Cost))
                     {
-                        PlayerNotificationSystem.NotifyError(Loc.T("Not enough resources"));
+                        PlayerNotificationSystem.NotifyError(TheWaningBorder.UI.Common.UIHelpers.CantAfford(em, faction, b.Cost));
                         return;
                     }
                     var pos = em.GetComponentData<Unity.Transforms.LocalTransform>(entity).Position;
@@ -157,7 +157,8 @@ namespace TheWaningBorder.UI.Ingame
             if (b.Id.StartsWith("OutpostMode_", System.StringComparison.Ordinal)
                 && int.TryParse(b.Id.Substring("OutpostMode_".Length), out int recipe))
             {
-                CommandRouter.IssueSetOutpostMode(em, entity, (TradeRecipe)recipe);
+                // Every selected outpost of ours takes the trade.
+                TheWaningBorder.Input.OutpostOrders.SetModeForSelection(em, entity, (TradeRecipe)recipe);
                 return;
             }
 
@@ -213,7 +214,7 @@ namespace TheWaningBorder.UI.Ingame
             // (docs/Multiplayer_LAN_Readiness.md).
             if (!FactionEconomy.CanAfford(em, OwnFaction(em), b.Cost))
             {
-                PlayerNotificationSystem.NotifyError(Loc.T("Not enough resources"));
+                PlayerNotificationSystem.NotifyError(TheWaningBorder.UI.Common.UIHelpers.CantAfford(em, OwnFaction(em), b.Cost));
                 return;
             }
             float duration = TheWaningBorder.Core.Settings.KeepWingConfig.BuildDuration;
@@ -238,7 +239,7 @@ namespace TheWaningBorder.UI.Ingame
             int popCost = PopulationHelper.GetUnitPopulationCost(b.Id);
             if (!PopulationHelper.HasPopulationCapacity(faction, popCost))
             {
-                PlayerNotificationSystem.Notify(Loc.T("Population cap reached"));
+                PlayerNotificationSystem.NotifyError(TheWaningBorder.UI.Common.UIHelpers.PopulationCapped(em, faction));
                 return false;
             }
             // Affordability CHECK only — TrainCommandDirect spends on every
@@ -246,7 +247,7 @@ namespace TheWaningBorder.UI.Ingame
             var cost = WarSectCostHelper.MilitaryDiscount(em, faction, b.Id, b.Cost);
             if (!FactionEconomy.CanAfford(em, faction, cost))
             {
-                PlayerNotificationSystem.NotifyError(Loc.T("Not enough resources"));
+                PlayerNotificationSystem.NotifyError(TheWaningBorder.UI.Common.UIHelpers.CantAfford(em, faction, cost));
                 return false;
             }
             // b.Revival is None for every ordinary train; a fallen hero's
@@ -269,7 +270,7 @@ namespace TheWaningBorder.UI.Ingame
             // every peer (docs/Multiplayer_LAN_Readiness.md).
             if (!FactionEconomy.CanAfford(em, faction, b.Cost))
             {
-                PlayerNotificationSystem.NotifyError(Loc.T("Not enough resources"));
+                PlayerNotificationSystem.NotifyError(TheWaningBorder.UI.Common.UIHelpers.CantAfford(em, faction, b.Cost));
                 return;
             }
             CommandRouter.IssueResearch(em, entity, b.Id);

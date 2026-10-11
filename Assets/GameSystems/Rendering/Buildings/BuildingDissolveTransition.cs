@@ -223,6 +223,9 @@ namespace TheWaningBorder.Rendering
                             mat.SetFloat("_Smoothness", src.GetFloat("_Glossiness"));
                     }
 
+                    // Player colour rides on _TWB_FactionHSV, not the albedo.
+                    BuildingFactionColorMarker.CopyFactionProperties(src, mat);
+
                     mat.SetFloat("_Inverted",      inverted);
                     mat.SetFloat("_WaveOriginY",   _originY);
                     mat.SetFloat("_WaveSpan",      _span);

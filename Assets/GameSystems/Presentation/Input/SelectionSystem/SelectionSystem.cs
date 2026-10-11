@@ -181,6 +181,7 @@ namespace TheWaningBorder.Input
             if (ShouldBlockSelection())
             {
                 _isDragging = false;
+                DragActive = false;
                 return;
             }
 
@@ -199,8 +200,13 @@ namespace TheWaningBorder.Input
                 return true;
 
             // Final game UI (uGUI): standard EventSystem hover check covers
-            // every authored panel, current and future.
-            if (UnityEngine.EventSystems.EventSystem.current != null
+            // every authored panel, current and future. It only stops a drag
+            // from STARTING on the UI: a box already being dragged keeps
+            // tracking when the cursor crosses a panel and completes on
+            // release, instead of being dropped with its rectangle left
+            // drawn on screen.
+            if (!_isDragging
+                && UnityEngine.EventSystems.EventSystem.current != null
                 && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject())
                 return true;
 
@@ -228,6 +234,15 @@ namespace TheWaningBorder.Input
                 _dragStartScreen = UnityEngine.Input.mousePosition;
                 _dragScreenRect = new Rect(_dragStartScreen.x, _dragStartScreen.y, 0, 0);
                 DragRect = _dragScreenRect;
+                DragActive = false;
+            }
+
+            // A release this component never saw (focus lost mid-drag):
+            // drop the box rather than leave it stuck to the cursor.
+            if (_isDragging && !UnityEngine.Input.GetMouseButton(0)
+                && !UnityEngine.Input.GetMouseButtonUp(0))
+            {
+                _isDragging = false;
                 DragActive = false;
             }
 

@@ -197,6 +197,19 @@ wear-in is running (it has to read as continuous under the erosion),
 every 0.5 s when only reclaims are — and not at all when the network is
 still. The direction mask is rewritten only when a route appears or dies.
 
+**Routing never stalls a frame (2026-10-10).** Routing is a queue drained
+against a per-frame time budget (`routeBudgetMs`, ~1 ms; a larger
+`startupRouteBudgetMs` for the opening trails), and a search that does not
+finish carries over to the next frame — a road may appear a few frames after
+its building, never with a hitch. A pair that found no route (§3.3) is
+retried only when a site **vanishes or moves** inside its search box — a new
+site cannot open a way, since only the edge's own endpoints are exempt — and
+no sooner than a back-off that doubles per failure (`failRetrySeconds` up to
+`failRetryMaxSeconds`). Before this, a site fading out counted as a fresh
+change on every sync for its whole 75 s fade, so failed searches near any
+razed building ran again every second: 130 s of main thread in one
+8-player match.
+
 ## 7. Data
 
 - **`_TWB_RoadMask`**, 512² RGBA32, world-aligned with the culture mask

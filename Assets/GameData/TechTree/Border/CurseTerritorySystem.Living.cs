@@ -287,7 +287,7 @@ namespace TheWaningBorder.Systems.Border
                 RitualKind.ViolentExtraction, ShardrootState.ShardrootPower);
             em.AddComponent<ShardrootTag>(pickup);
             ShardrootSystem.MakePersistent(em, pickup);
-            SimSignals.Notify(Loc.T("The SHARDROOT DESCENDS into the curse!"));
+            SimSignals.Announce(Loc.T("The SHARDROOT DESCENDS into the curse!"));
             SimSignals.Ping(at, SimPingKind.Discovery, 20f, big: true);
             UnityEngine.Debug.Log($"[Shardroot] DESCENT -- {earned}/{need} religion points: the artifact " +
                 $"descends into a curse node at ({at.x:F0},{at.z:F0}) ({nodes.Count} living nodes)");
@@ -501,7 +501,7 @@ namespace TheWaningBorder.Systems.Border
             em.AddComponentData(bearer, new ShardrootBearer
                 { Amount = ShardrootState.ShardrootPower, Source = RitualKind.ViolentExtraction });
             em.AddComponent<ShardrootTag>(bearer);
-            SimSignals.Notify(Loc.T("The SHARDROOT walks with the curse!"));
+            SimSignals.Announce(Loc.T("The SHARDROOT walks with the curse!"));
             var p = em.GetComponentData<LocalTransform>(bearer).Position;
             SimSignals.Ping(p, SimPingKind.Curse, 12f, big: true);
             UnityEngine.Debug.Log($"[CurseTerritory] SHARDROOT -- a unit of the {what} carries it " +

@@ -611,6 +611,23 @@ public static class TechCatalog
         return _controllerByPid.TryGetValue(presentationId, out controller);
     }
 
+    /// <summary>
+    /// Every distinct prefab a building can show: each building SO's own and
+    /// each building-level SO's. The loading screen renders them once so no
+    /// level-up or age-up meets one for the first time mid-match.
+    /// </summary>
+    public static List<GameObject> AllBuildingPrefabs()
+    {
+        EnsureLoaded();
+        var seen = new HashSet<GameObject>();
+        var list = new List<GameObject>();
+        foreach (var so in _buildingSOsById.Values)
+            if (so != null && so.prefab != null && seen.Add(so.prefab)) list.Add(so.prefab);
+        foreach (var lvl in _buildingLevels.Values)
+            if (lvl != null && lvl.prefab != null && seen.Add(lvl.prefab)) list.Add(lvl.prefab);
+        return list;
+    }
+
     public static IReadOnlyDictionary<string, UnitDef> AllUnits { get { EnsureLoaded(); return _unitsById; } }
     public static IReadOnlyDictionary<string, BuildingDef> AllBuildings { get { EnsureLoaded(); return _buildingsById; } }
     public static IReadOnlyDictionary<string, TechnologyDef> AllTechnologies { get { EnsureLoaded(); return _technologiesById; } }

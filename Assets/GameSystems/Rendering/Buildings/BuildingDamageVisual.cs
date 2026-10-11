@@ -172,6 +172,9 @@ namespace TheWaningBorder.Rendering
                     if (srcMat.HasProperty(MetallicID))   dm.SetFloat(MetallicID, srcMat.GetFloat(MetallicID));
                     if (srcMat.HasProperty(SmoothnessID)) dm.SetFloat(SmoothnessID, srcMat.GetFloat(SmoothnessID));
                     dm.SetFloat(DamageID, 0f);
+                    // Player colour is a shader property now, not baked into
+                    // the albedo, so it has to be carried across explicitly.
+                    BuildingFactionColorMarker.CopyFactionProperties(srcMat, dm);
 
                     dst[s] = dm;
                     _owned.Add(dm);
@@ -180,8 +183,8 @@ namespace TheWaningBorder.Rendering
                 renderer.materials = dst;
             }
             // Deliberately NOT calling BuildingFactionColorMarker.Reapply here:
-            // the faction color already rides across in the _BaseMap/_BaseColor
-            // copy above, and a Reapply would go through the renderer.materials
+            // the faction color already rides across in the _BaseColor and
+            // _TWB_FactionHSV copies above, and a Reapply would go through the renderer.materials
             // GETTER, which instantiates copies of `dst` — leaving _owned (and
             // therefore the per-frame _Damage writes) pointing at materials the
             // renderer no longer uses.

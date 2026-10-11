@@ -16,6 +16,9 @@ Shader "TheWaningBorder/BuildingLitDissolve"
         _BaseColor          ("Base Color", Color)               = (1,1,1,1)
         _BaseMap            ("Base Map", 2D)                    = "white" {}
         _UseBaseMap         ("Use Base Map", Range(0,1))        = 0
+        // Player colour (TWBFactionColor.hlsl): copied from the source material.
+        [HideInInspector] _TWB_FactionHSV ("Faction HSV", Vector) = (0,0,0,0)
+        [HideInInspector][NoScaleOffset] _TWB_FactionMask ("Faction Mask", 2D) = "black" {}
         _DetailAlbedoMap    ("Detail Albedo Map", 2D)           = "white" {}
         _UseDetailMap       ("Use Detail Map", Range(0,1))      = 0
         _Metallic           ("Metallic", Range(0,1))            = 0
@@ -77,6 +80,9 @@ Shader "TheWaningBorder/BuildingLitDissolve"
 
             sampler2D _BaseMap;
             float4    _BaseMap_ST;
+            float4    _TWB_FactionHSV;   // player colour, see TWBFactionColor.hlsl
+            #include "Assets/Shaders/Include/TWBFactionColor.hlsl"
+            SAMPLER(sampler_TWB_FactionMask);
             sampler2D _DetailAlbedoMap;
             float4    _DetailAlbedoMap_ST;
             float4    _BaseColor;
@@ -177,7 +183,7 @@ Shader "TheWaningBorder/BuildingLitDissolve"
                 half3 albedo = _BaseColor.rgb;
                 if (_UseBaseMap > 0.5)
                 {
-                    half3 baseTex = tex2D(_BaseMap, IN.baseUV).rgb;
+                    half3 baseTex = TWB_FactionRecolor(tex2D(_BaseMap, IN.baseUV).rgb, IN.baseUV, sampler_TWB_FactionMask);
                     albedo *= baseTex;
                 }
                 if (_UseDetailMap > 0.5)

@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f215d34071ce477083a4b8060e8e64fe, type: 3}
+  m_Name: TradeMenu
+  m_EditorClassIdentifier: 
+  buttonPosition: {x: 456, y: 680}
+  buttonSize: {x: 300, y: 96}
+  menuOffset: {x: 0, y: 8}
+  menuWidth: 1180
+  padding: 18
+  rowHeight: 52
+  gap: 6
+  nameColumnWidth: 330
+  maxRows: 12
+  titleFontSize: 34
+  fontSize: 26
+  cellFontSize: 22
+  refreshSeconds: 0.5

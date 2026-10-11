@@ -292,6 +292,13 @@ namespace TheWaningBorder.Data.Border
         /// old spawn roll and guarantee above apply instead).</summary>
         [Min(0)] public int shardrootDescentReligionPoints;
 
+        /// <summary>THE SHARDROOT IS ALWAYS SEEN (2026-10-11): radius (m) of
+        /// line of sight every player has around the artifact, wherever it
+        /// is — on the ground, carried, garrisoned in a wall or tower (the
+        /// circle stands on the building), enshrined, or embedded in its
+        /// host well. FogOfWarSystem stamps it for all eight player slots.</summary>
+        [Min(0f)] public float shardrootRevealRadius;
+
         /// <summary>While a player holds the Shardroot the curse's garrison
         /// size and spawn rate rise by this fraction (§6.6): 0.5 = size x1.5,
         /// interval / 1.5.</summary>

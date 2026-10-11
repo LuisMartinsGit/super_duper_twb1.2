@@ -5,7 +5,9 @@
 //
 //   * TERRITORY — hover ground you hold: what that territory pays per minute
 //     (TerritoryIncomeSystem.ComputeYieldForDisplay — the number the income
-//     tick pays, so the readout cannot drift from the bank).
+//     tick pays, so the readout cannot drift from the bank), plus what the
+//     Trading Outposts standing in it sell and buy
+//     (TerritoryIncomeSystem.TerritoryTradeForDisplay).
 //   * BUILDING — hover one of your buildings: what THAT building adds or
 //     spends per minute (TerritoryIncomeSystem.BuildingYieldForDisplay).
 //
@@ -62,6 +64,8 @@ namespace TheWaningBorder.UI.World
         private readonly StringBuilder _sb = new StringBuilder(128);
         /// <summary>One extra line for the territory panel (a Sanctum's RP).</summary>
         private string _extraLine;
+        /// <summary>How many lines <see cref="_extraLine"/> spans.</summary>
+        private int _extraLines;
 
         public void Init(GameUICatalog.ChromeSet chrome)
         {
@@ -126,8 +130,13 @@ namespace TheWaningBorder.UI.World
                 _extraLine = TerritoryResources.IsSanctum(t)
                     ? Loc("Sanctum") + ":  <color=#C9A8FF>+1</color> " + Loc("Religion Point") + " <size=75%>/min</size>"
                     : null;
+                _extraLines = 0;
+                if (TerritoryIncomeSystem.TerritoryTradeForDisplay(em, t, me, out var sold, out var bought))
+                    _extraLine = TradeLines(_extraLine, sold, bought, out _extraLines);
+                else if (_extraLine != null) _extraLines = 1;
                 Show(_territory, RegionMap.NameOf(t), y, centre, Loc("Nothing — build on it"));
                 _extraLine = null;
+                _extraLines = 0;
             }
             else Hide(_territory);
 
@@ -162,7 +171,7 @@ namespace TheWaningBorder.UI.World
             {
                 if (_sb.Length > 0) _sb.Append('\n');
                 _sb.Append(_extraLine);
-                lines++;
+                lines += Mathf.Max(1, _extraLines);
             }
             if (lines == 0)
             {
@@ -181,7 +190,7 @@ namespace TheWaningBorder.UI.World
 
         /// <summary>"[icon] +190 /min", green for income, red for spending.
         /// Zero lines are left out. Returns 1 when a line was written.</summary>
-        private int Line(string resource, string fallback, float perMinute)
+        private int Line(string resource, string fallback, float perMinute, string suffix = null)
         {
             int v = Mathf.RoundToInt(perMinute);
             if (v == 0) return 0;
@@ -190,8 +199,37 @@ namespace TheWaningBorder.UI.World
             var c = v > 0 ? Gain : Spend;
             _sb.Append(icon).Append("  <color=#").Append(ColorUtility.ToHtmlStringRGB(c)).Append('>')
                .Append(v > 0 ? "+" : "").Append(v).Append("</color>")
-               .Append(" <size=75%>").Append(Loc("/min")).Append("</size>");
+               .Append(" <size=75%>").Append(Loc("/min"));
+            if (suffix != null) _sb.Append(' ').Append(suffix);
+            _sb.Append("</size>");
             return 1;
+        }
+
+        /// <summary>
+        /// The territory's Trading Outposts: a "Trading Outposts" header, then
+        /// what they sell out of the bank (red) and what that buys (green).
+        /// Appended after <paramref name="head"/> (the Sanctum line, or null).
+        /// </summary>
+        private string TradeLines(string head, TerritoryYield sold, TerritoryYield bought, out int count)
+        {
+            var saved = _sb.ToString();
+            _sb.Clear();
+            count = 0;
+            if (head != null) { _sb.Append(head); count++; }
+            if (_sb.Length > 0) _sb.Append('\n');
+            _sb.Append("<color=#E8C77A>").Append(Loc("Trading Outposts")).Append("</color>");
+            count++;
+            count += Line(ResourceIcons.Supplies, "S", -sold.Supplies, Loc("selling"));
+            count += Line(ResourceIcons.Iron, "Fe", -sold.Iron, Loc("selling"));
+            count += Line(ResourceIcons.Veilstone, "Vs", -sold.Veilstone, Loc("selling"));
+            count += Line(ResourceIcons.Veilsteel, "St", -sold.Veilsteel, Loc("selling"));
+            count += Line(ResourceIcons.Supplies, "S", bought.Supplies, Loc("bought"));
+            count += Line(ResourceIcons.Iron, "Fe", bought.Iron, Loc("bought"));
+            count += Line(ResourceIcons.Veilstone, "Vs", bought.Veilstone, Loc("bought"));
+            count += Line(ResourceIcons.Veilsteel, "St", bought.Veilsteel, Loc("bought"));
+            string s = _sb.ToString();
+            _sb.Clear().Append(saved);
+            return s;
         }
 
         private static void Hide(Panel panel)

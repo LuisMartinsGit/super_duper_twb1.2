@@ -53,9 +53,7 @@ namespace TheWaningBorder.World.Roads
                     Vector2 d = pts[j] - pi;
                     float d2 = d.sqrMagnitude;
                     if (d2 <= 0f) { AddCandidate(cand, i, j); continue; }
-                    float ang = Mathf.Atan2(d.y, d.x);                 // -π..π
-                    int sector = (int)((ang + Mathf.PI) * (3f / Mathf.PI));
-                    if (sector > 5) sector = 5; else if (sector < 0) sector = 0;
+                    int sector = Sector(d);
                     if (d2 < bestD[sector]) { bestD[sector] = d2; best[sector] = j; }
                     else if (d2 == bestD[sector]) scratch.Tied.Add(new int2(sector, j));
                 }
@@ -89,6 +87,28 @@ namespace TheWaningBorder.World.Roads
                 }
                 if (!blocked) edges.Add(new int2(i, j));
             }
+        }
+
+        /// <summary>
+        /// Which of six 60° cones around the point <paramref name="d"/> lies
+        /// in, counted from -π like the atan2 form it replaces (cone 0 =
+        /// [-π, -2π/3) ... cone 5 = [2π/3, π]). Comparisons only: the atan2 per
+        /// pair was most of the graph's cost on a late-game merged network.
+        /// The cones only pick candidates — the exact lune test below decides
+        /// every edge — so a boundary point falling either side changes nothing.
+        /// </summary>
+        static int Sector(Vector2 d)
+        {
+            const float Root3 = 1.7320508f;
+            if (d.y >= 0f)
+            {
+                if (d.y < Root3 * d.x) return 3;    // [0, π/3)
+                if (d.y < -Root3 * d.x) return 5;   // (2π/3, π]
+                return 4;
+            }
+            if (-d.y < Root3 * d.x) return 2;       // (-π/3, 0)
+            if (-d.y < -Root3 * d.x) return 0;      // [-π, -2π/3)
+            return 1;
         }
 
         static void AddCandidate(List<long> cand, int a, int b)
@@ -165,77 +185,122 @@ namespace TheWaningBorder.World.Roads
 
         /// <summary>
         /// A* from <paramref name="from"/> to <paramref name="to"/> on the
-        /// nav grid. <paramref name="passable"/> answers per cell (the
-        /// caller wraps NavGridQuery). Step cost is distance × (1 + slope
-        /// penalty × |Δheight|) so a road prefers the flat way round. Returns
-        /// false when no route exists within <paramref name="maxExpansions"/>
-        /// — an island site simply gets no road.
+        /// nav grid, run to completion. <paramref name="passable"/> answers per
+        /// cell (the caller wraps NavGridQuery). Step cost is distance × (1 +
+        /// slope penalty × |Δheight|) so a road prefers the flat way round.
+        /// Returns false when no route exists within
+        /// <paramref name="maxExpansions"/> — an island site simply gets no road.
+        /// The road network itself runs the same search through
+        /// <see cref="Search"/>, a few hundred expansions at a time.
         /// </summary>
         public static bool Route<TPass>(in Grid grid, Scratch s, ref TPass passable,
                                  Vector2 from, Vector2 to, float slopePenalty, int maxExpansions,
                                  float corridorMetres, List<Vector2> outPath)
             where TPass : struct, ICellTest
         {
-            outPath.Clear();
-            int cells = grid.Width * grid.Height;
-            s.Ensure(cells);
-            s.Generation++;
-            int gen = s.Generation;
+            var search = new Search();
+            if (!search.Begin(grid, s, from, to, corridorMetres)) { outPath.Clear(); return false; }
+            return search.Step(s, ref passable, slopePenalty, maxExpansions, int.MaxValue, outPath)
+                   == SearchState.Found;
+        }
 
-            int2 a = grid.CellOf(from), b = grid.CellOf(to);
-            if (!grid.InBounds(a) || !grid.InBounds(b)) return false;
-            int start = a.y * grid.Width + a.x, goal = b.y * grid.Width + b.x;
-            // The search stays inside the endpoints' box grown by the
-            // corridor: a road that has to leave it to get round a wall is
-            // not a road anyone would build, and an unroutable pair then
-            // fails after a bounded search instead of flooding the map.
-            int pad = (int)math.ceil(corridorMetres / math.max(1e-3f, grid.CellSize));
-            int2 lo = math.max(math.min(a, b) - pad, int2.zero);
-            int2 hi = math.min(math.max(a, b) + pad, new int2(grid.Width - 1, grid.Height - 1));
+        public enum SearchState { Running, Found, Failed }
 
-            s.Open.Clear(); s.OpenF.Clear();
-            s.Stamp[start] = gen; s.G[start] = 0f; s.Parent[start] = -1;
-            HeapPush(s, start, Octile(a, b) * grid.CellSize);
+        /// <summary>
+        /// One A* that can stop and carry on (2026-10-10). A capped failure is
+        /// 20 000 expansions — ~8 ms on the main thread in one go, which was
+        /// the RoadNetwork.Sync spike; stepped a budget per frame it costs the
+        /// same total and no frame pays it at once. The open set, G and parent
+        /// live in the shared <see cref="Scratch"/>, so only ONE search may be
+        /// in flight per scratch. Same expansion order, costs and heuristic as
+        /// the one-shot search it replaces, so the routes are identical.
+        /// </summary>
+        public sealed class Search
+        {
+            private Grid _grid;
+            private int _gen, _start, _goal, _expanded;
+            private int2 _b, _lo, _hi;
 
-            int expanded = 0;
-            while (s.Open.Count > 0 && expanded < maxExpansions)
+            public bool Begin(in Grid grid, Scratch s, Vector2 from, Vector2 to, float corridorMetres)
             {
-                int cur = HeapPop(s);
-                if (cur == goal)
-                {
-                    for (int c = goal; c != -1; c = s.Parent[c])
-                        outPath.Add(grid.CentreOf(new int2(c % grid.Width, c / grid.Width)));
-                    outPath.Reverse();
-                    return true;
-                }
-                expanded++;
-                int2 cc = new int2(cur % grid.Width, cur / grid.Width);
-                float hCur = HeightAt(s, grid, cur, cc);
+                _grid = grid;
+                int cells = grid.Width * grid.Height;
+                s.Ensure(cells);
+                s.Generation++;
+                _gen = s.Generation;
+                _expanded = 0;
 
-                for (int k = 0; k < 8; k++)
-                {
-                    int2 nc = cc + Steps[k];
-                    if (nc.x < lo.x || nc.y < lo.y || nc.x > hi.x || nc.y > hi.y) continue;
-                    int ni = nc.y * grid.Width + nc.x;
-                    // Endpoints may sit inside a stamped footprint (the site
-                    // itself); everything in between must be walkable.
-                    if (ni != goal && !passable.Passable(nc)) continue;
-                    // No corner cutting between two blocked orthogonals.
-                    if (k >= 4)
-                    {
-                        if (!passable.Passable(new int2(cc.x + Steps[k].x, cc.y)) ||
-                            !passable.Passable(new int2(cc.x, cc.y + Steps[k].y))) continue;
-                    }
-                    float dist = (k < 4 ? 1f : 1.41421356f) * grid.CellSize;
-                    float dh = math.abs(HeightAt(s, grid, ni, nc) - hCur);
-                    float step = dist * (1f + slopePenalty * dh);
-                    float g = s.G[cur] + step;
-                    if (s.Stamp[ni] == gen && g >= s.G[ni]) continue;
-                    s.Stamp[ni] = gen; s.G[ni] = g; s.Parent[ni] = cur;
-                    HeapPush(s, ni, g + Octile(nc, b) * grid.CellSize);
-                }
+                int2 a = grid.CellOf(from);
+                _b = grid.CellOf(to);
+                if (!grid.InBounds(a) || !grid.InBounds(_b)) return false;
+                _start = a.y * grid.Width + a.x;
+                _goal = _b.y * grid.Width + _b.x;
+                // The search stays inside the endpoints' box grown by the
+                // corridor: a road that has to leave it to get round a wall is
+                // not a road anyone would build, and an unroutable pair then
+                // fails after a bounded search instead of flooding the map.
+                int pad = (int)math.ceil(corridorMetres / math.max(1e-3f, grid.CellSize));
+                _lo = math.max(math.min(a, _b) - pad, int2.zero);
+                _hi = math.min(math.max(a, _b) + pad, new int2(grid.Width - 1, grid.Height - 1));
+
+                s.Open.Clear(); s.OpenF.Clear();
+                s.Stamp[_start] = _gen; s.G[_start] = 0f; s.Parent[_start] = -1;
+                HeapPush(s, _start, Octile(a, _b) * grid.CellSize);
+                return true;
             }
-            return false;
+
+            /// <summary>Expand up to <paramref name="budget"/> cells. The path is
+            /// written to <paramref name="outPath"/> on <see cref="SearchState.Found"/>.</summary>
+            public SearchState Step<TPass>(Scratch s, ref TPass passable, float slopePenalty,
+                                           int maxExpansions, int budget, List<Vector2> outPath)
+                where TPass : struct, ICellTest
+            {
+                var grid = _grid;
+                int gen = _gen, goal = _goal;
+                int2 b = _b, lo = _lo, hi = _hi;
+                int stepped = 0;
+                while (s.Open.Count > 0 && _expanded < maxExpansions)
+                {
+                    if (stepped >= budget) return SearchState.Running;
+                    int cur = HeapPop(s);
+                    if (cur == goal)
+                    {
+                        outPath.Clear();
+                        for (int c = goal; c != -1; c = s.Parent[c])
+                            outPath.Add(grid.CentreOf(new int2(c % grid.Width, c / grid.Width)));
+                        outPath.Reverse();
+                        return SearchState.Found;
+                    }
+                    _expanded++;
+                    stepped++;
+                    int2 cc = new int2(cur % grid.Width, cur / grid.Width);
+                    float hCur = HeightAt(s, grid, cur, cc);
+
+                    for (int k = 0; k < 8; k++)
+                    {
+                        int2 nc = cc + Steps[k];
+                        if (nc.x < lo.x || nc.y < lo.y || nc.x > hi.x || nc.y > hi.y) continue;
+                        int ni = nc.y * grid.Width + nc.x;
+                        // Endpoints may sit inside a stamped footprint (the site
+                        // itself); everything in between must be walkable.
+                        if (ni != goal && !passable.Passable(nc)) continue;
+                        // No corner cutting between two blocked orthogonals.
+                        if (k >= 4)
+                        {
+                            if (!passable.Passable(new int2(cc.x + Steps[k].x, cc.y)) ||
+                                !passable.Passable(new int2(cc.x, cc.y + Steps[k].y))) continue;
+                        }
+                        float dist = (k < 4 ? 1f : 1.41421356f) * grid.CellSize;
+                        float dh = math.abs(HeightAt(s, grid, ni, nc) - hCur);
+                        float step = dist * (1f + slopePenalty * dh);
+                        float g = s.G[cur] + step;
+                        if (s.Stamp[ni] == gen && g >= s.G[ni]) continue;
+                        s.Stamp[ni] = gen; s.G[ni] = g; s.Parent[ni] = cur;
+                        HeapPush(s, ni, g + Octile(nc, b) * grid.CellSize);
+                    }
+                }
+                return SearchState.Failed;
+            }
         }
 
         static float HeightAt(Scratch s, in Grid grid, int idx, int2 c)

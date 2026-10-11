@@ -62,6 +62,18 @@ namespace TheWaningBorder.Core.Localization
             t["Veilstone"] = "Veilstone";
             t["Veilsteel"] = "Veilsteel";
             t["Glow"] = "Fulgor";
+
+            // Resource bar income tooltip + territory overlay trade lines.
+            t["Producing {0}/min"] = "A produzir {0}/min";
+            t["Selling {0}/min"] = "A vender {0}/min";
+            t["Territory: {0}"] = "Território: {0}";
+            t["Buildings: {0}"] = "Edifícios: {0}";
+            t["Trading Outposts: {0}"] = "Postos Comerciais: {0}";
+            t["Trading Outposts"] = "Postos Comerciais";
+            t["selling"] = "a vender";
+            t["bought"] = "comprado";
+            t["Vault withdrawals, caravans and loot are not counted."] =
+                "Levantamentos do Cofre, caravanas e saque não são contados.";
             t["Empty"] = "Vazio";
             t["Interest: {0:F0}%/min (simple, on the deposit)   Stored: {1}"] =
                 "Juros: {0:F0}%/min (simples, sobre o depósito)   Armazenado: {1}";

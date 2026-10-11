@@ -145,6 +145,7 @@ MonoBehaviour:
   nodeAuraRadius: 20
   shardrootGuaranteeSeconds: 0
   shardrootDescentReligionPoints: 30
+  shardrootRevealRadius: 6
   shardrootCurseBonus: 0.5
   feraldisNodeVeilsteel: 40
   minutesPerTier: 8

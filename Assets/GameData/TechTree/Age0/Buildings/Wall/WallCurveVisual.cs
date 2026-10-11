@@ -61,9 +61,17 @@ namespace TheWaningBorder.Rendering
         Mesh _mesh;
         readonly List<float3> _curve = new List<float3>();
         readonly List<Entity> _cells = new List<Entity>();
-        readonly List<bool> _alive = new List<bool>();
+        /// <summary>Per cell, how much of the curve it leaves open
+        /// (WallOpenings): &lt; 0 solid curtain, 0 a breach, &gt; 0 the
+        /// half-length of a piece that draws its own masonry.</summary>
+        readonly List<float> _openHalf = new List<float>();
         readonly List<float> _arcs = new List<float>();   // each cell's arc length along the curve
-        int _aliveCount = -1;
+        /// <summary>Cells that EXIST, as of the last rebuild — the poll
+        /// compares the same count. It used to compare it with the SOLID
+        /// count, which a gate never is, so every segment holding a gate,
+        /// tower or emplacement rebuilt four times a second forever and ate
+        /// the shared rebuild budget other walls were waiting on.</summary>
+        int _existCount = -1;
         float _nextPoll;
         EntityManager _em;
         bool _valid;
@@ -260,7 +268,7 @@ namespace TheWaningBorder.Rendering
             // mesh lives in the root's frame, so a moved root means a rebuild.
             bool moved = transform.localToWorldMatrix != _builtLocalToWorld;
             bool finished = progress >= 1f && _builtProgress < 1f;
-            if (alive != _aliveCount || moved || _tier != _builtTier || finished
+            if (alive != _existCount || moved || _tier != _builtTier || finished
                 || Mathf.Abs(progress - _builtProgress) >= ProgressStep)
             {
                 if (TakeRebuildBudget()) { _rebuildPending = false; Rebuild(); }
@@ -277,7 +285,8 @@ namespace TheWaningBorder.Rendering
                 var buf = _em.GetBuffer<WallCurvePoint>(Segment);
                 for (int i = 0; i < buf.Length; i++) _curve.Add(buf[i].Position);
             }
-            _cells.Clear(); _alive.Clear(); _arcs.Clear();
+            _cells.Clear(); _openHalf.Clear(); _arcs.Clear();
+            int exist = 0;
             if (_em.HasBuffer<WallInstanceRef>(Segment))
             {
                 // A cell's place on the curve comes from its STORED position:
@@ -289,17 +298,12 @@ namespace TheWaningBorder.Rendering
                 {
                     var cell = buf[i].Instance;
                     _cells.Add(cell);
-                    // A GATE cell is not curtain: the gatehouse is its own
-                    // structure three modules wide, and its two neighbours
-                    // were destroyed to make room. Leaving the span open is
-                    // what stops a wall being drawn across the gateway.
-                    bool solid = _em.Exists(cell) && !_em.HasComponent<WallGateTag>(cell);
-                    _alive.Add(solid);
+                    if (_em.Exists(cell)) exist++;
+                    _openHalf.Add(OpenHalfOf(cell));
                     _arcs.Add(cum != null ? TheWaningBorder.Entities.AlanthorWall.ArcLengthAlong(_curve, cum, buf[i].Position) : 0f);
                 }
             }
-            _aliveCount = 0;
-            foreach (var a in _alive) if (a) _aliveCount++;
+            _existCount = exist;
 
             _builtLocalToWorld = transform.localToWorldMatrix;
             _builtProgress = _progress;
@@ -312,12 +316,40 @@ namespace TheWaningBorder.Rendering
 
             _mesh = _art != null
                 ? WallArtMesh.Build(_art, _curve, TheWaningBorder.Entities.AlanthorWall.HubInsetMetres,
-                                    _arcs, i => i < _alive.Count && _alive[i],
+                                    _arcs, i => i < _openHalf.Count ? _openHalf[i] : -1f,
                                     _progress, _mesh, transform.worldToLocalMatrix)
                 : WallCurveMesh.Build(_curve, TheWaningBorder.Entities.AlanthorWall.HubInsetMetres,
-                                      _arcs, i => i < _alive.Count && _alive[i],
+                                      _arcs, i => i < _openHalf.Count ? _openHalf[i] : -1f,
                                       _progress, _mesh, transform.worldToLocalMatrix, _tier);
             _filter.sharedMesh = _mesh;
+        }
+
+        /// <summary>
+        /// How much of the curve <paramref name="cell"/> leaves open. A dead
+        /// cell opens its own span (the breach). A piece that draws its own
+        /// masonry opens EXACTLY what it draws, so the curtain meets it edge
+        /// to edge and never runs through it: the gatehouse its
+        /// WallGateSpan (as BuildWallGatehouse sizes it - its two flanking
+        /// modules were destroyed to make room), a tower or an emplacement
+        /// one module (both are fitted to one module's length). A legacy
+        /// gate-group flank draws one module too.
+        /// </summary>
+        float OpenHalfOf(Entity cell)
+        {
+            const float module = TheWaningBorder.Entities.AlanthorWall.InstanceSpacing;
+            if (!_em.Exists(cell)) return 0f;
+            if (_em.HasComponent<WallGateTag>(cell))
+            {
+                bool leader = !_em.HasComponent<WallGateGroup>(cell)
+                    || _em.GetComponentData<WallGateGroup>(cell).Leader == cell;
+                float span = leader && _em.HasComponent<WallGateSpan>(cell)
+                    ? math.max(module, _em.GetComponentData<WallGateSpan>(cell).Metres)
+                    : module;
+                return span * 0.5f;
+            }
+            if (_em.HasComponent<WallTowerTag>(cell) || _em.HasComponent<EmplacementTag>(cell))
+                return module * 0.5f;
+            return -1f;
         }
 
         void OnDestroy()

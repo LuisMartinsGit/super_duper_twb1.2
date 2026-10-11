@@ -15,6 +15,17 @@
 // animating, at a rate matched to the fastest active fade; when the
 // network is still, nothing runs per frame. No per-tick CreateEntityQuery:
 // every query is a CachedEntityQuery with its ComponentType[] hoisted.
+//
+// NO ROUTE IS EVER PAID FOR IN ONE FRAME (2026-10-10). Routing is a queue
+// drained against a per-frame time budget (routeBudgetMs), and each A* is
+// resumable (RoadGraph.Search), so a 20 000-expansion failure is spread over
+// several frames instead of being an 8 ms stall. The 8-player Veilmarch match
+// that motivated this spent 130 s of main thread in RoadNetwork.Sync: a
+// fading-out site counted as "changed" on EVERY sync for its whole 75 s fade,
+// so every failed route near a razed building was re-searched — and failed
+// again at the cap — every second or so. Now only a site that VANISHES or
+// MOVES re-arms failures near it, once, and a pair that keeps failing waits
+// out a doubling back-off (failRetrySeconds .. failRetryMaxSeconds).
 
 using System.Collections.Generic;
 using Unity.Collections;
@@ -76,6 +87,9 @@ namespace TheWaningBorder.World.Roads
             public Site Data;
             public float Strength;
             public bool Live;
+            /// <summary>Live at the previous sync: a live→dead flip is the
+            /// one moment a vanished site can open a way.</summary>
+            public bool WasLive;
         }
 
         /// <summary>A road with a life of its own.</summary>
@@ -89,6 +103,9 @@ namespace TheWaningBorder.World.Roads
             public bool Finished;
             public float Strength;
             public bool Live;
+            /// <summary>This route's slice of the raster's point list
+            /// (rebuilt only when a route appears or goes).</summary>
+            public int PointStart, PointCount;
         }
 
         // Buildings with a footprint; walls, gates, towers, chapels and the
@@ -123,8 +140,34 @@ namespace TheWaningBorder.World.Roads
         private bool _dirDirty;         // routes changed: the direction mask must be rewritten too
         private bool _animating;
         private bool _synced;           // the first sync snaps: the map's trails pre-exist
-        private int _routedThisSync;    // edges routed in the last poll (perf detail)
+        private int _routedThisSync;    // routes finished this frame (perf detail)
         private bool _topologyRan;      // whether the last poll rebuilt the graph (perf detail)
+
+        // Routing queue (see the header): keys waiting for a route, and the
+        // one search in flight. A key may be queued twice; the stale copy is
+        // skipped because its edge no longer NeedsRoute.
+        private readonly Queue<long> _routeQueue = new Queue<long>();
+        private readonly RoadGraph.Search _search = new RoadGraph.Search();
+        private bool _searchActive;
+        private long _searchKey;
+        private RoadCellTest _searchTest;
+        private Site _searchA, _searchB;
+        private float _searchCorridor;
+        private readonly System.Diagnostics.Stopwatch _routeWatch = new System.Diagnostics.Stopwatch();
+        /// <summary>Expansions per step between budget checks (~0.1 ms).</summary>
+        private const int SearchChunk = 256;
+        /// <summary>The first sync's trails pre-exist; they route at the
+        /// startup budget until the queue first runs dry.</summary>
+        private bool _startupRouting = true;
+        /// <summary>A route appeared or went: the raster's point list is stale.</summary>
+        private bool _pointsDirty = true;
+        // Once-a-minute summary for Perf.log: what routing cost, and whether
+        // it is keeping up (a queue that never drains is the old symptom).
+        private int _sumSearches, _sumFound, _sumFailed;
+        private double _sumRouteMs;
+        private float _nextSummary;
+        /// <summary>Each faction's completed culture, read once per poll.</summary>
+        private readonly byte[] _cultureOf = new byte[32];
         // Topology change detection (Roads.md: "rebuilt on construction
         // events, never per frame"): an order-independent hash of every
         // site's identity, position, footprint, finished flag and region.
@@ -133,7 +176,6 @@ namespace TheWaningBorder.World.Roads
         private ulong _siteHash;
         private ulong _lastSyncHash;
         private int _lastSyncRegionVersion = -1;
-        private int _pendingRoutes;     // live edges still waiting for a route (budget)
 
         // ─── Mask ─────────────────────────────────────────────────────────
         private Texture2D _mask;        // R coverage, G finished, B plaza, A lateral
@@ -176,10 +218,11 @@ namespace TheWaningBorder.World.Roads
         private readonly Stack<List<EdgePair>> _edgeListPool = new Stack<List<EdgePair>>();
         // Routes that failed, and the box their search covered. A pair that
         // failed is not re-searched when its edge flickers back; it is
-        // re-armed only when a site appears, moves or vanishes inside that
-        // box (the only change this presentation layer can see that might
-        // open a way).
-        private struct FailedRoute { public Vector2 Min, Max; }
+        // re-armed only when a site vanishes or moves inside that box (the
+        // only change this presentation layer can see that might open a way —
+        // a new site cannot: the search only exempts the edge's own two
+        // discs), and no sooner than its back-off allows.
+        private struct FailedRoute { public Vector2 Min, Max; public int Fails; public float RetryAt; }
         private readonly Dictionary<long, FailedRoute> _failedRoutes = new Dictionary<long, FailedRoute>();
         private readonly List<long> _failedRearm = new List<long>();
         private readonly List<Vector2> _changedSitePos = new List<Vector2>();
@@ -199,28 +242,40 @@ namespace TheWaningBorder.World.Roads
             var gridQ = QC_Grid.Get(em, QT_Grid);
             if (gridQ.IsEmptyIgnoreFilter) return;
 
+            var nav = gridQ.GetSingleton<NavGridSingleton>();
+            var grid = new RoadGraph.Grid { Width = nav.Width, Height = nav.Height, CellSize = nav.CellSize, Origin = nav.Origin };
+
             if (Time.time >= _nextPoll)
             {
                 _nextPoll = Time.time + Cfg.pollSeconds;
-                var nav = gridQ.GetSingleton<NavGridSingleton>();
-                var grid = new RoadGraph.Grid { Width = nav.Width, Height = nav.Height, CellSize = nav.CellSize, Origin = nav.Origin };
                 double t0 = Time.realtimeSinceStartupAsDouble;
-                _routedThisSync = 0;
                 _topologyRan = false;
                 GatherSites(em);
                 if (!_synced || _siteHash != _lastSyncHash || _lastSyncRegionVersion != RegionMap.Version)
                 {
-                    SyncTopology(grid);
+                    SyncTopology();
                     _lastSyncHash = _siteHash;
                     _lastSyncRegionVersion = RegionMap.Version;
                     _topologyRan = true;
                 }
-                else if (_pendingRoutes > 0)
-                    RouteDeferred(grid);
-                if (_topologyRan || _routedThisSync > 0)
-                    TheWaningBorder.Core.Diagnostics.PerfSpikeLog.Report("RoadNetwork.Sync",
-                        (Time.realtimeSinceStartupAsDouble - t0) * 1000.0,
-                        $"sites={_sites.Count} routed={_routedThisSync}");
+                double ms = (Time.realtimeSinceStartupAsDouble - t0) * 1000.0;
+                if (_topologyRan && ms >= TheWaningBorder.Core.Diagnostics.PerfSpikeLog.DefaultThresholdMs)
+                    TheWaningBorder.Core.Diagnostics.PerfSpikeLog.Report("RoadNetwork.Sync", ms,
+                        $"sites={_sites.Count} queued={_routeQueue.Count} failed={_failedRoutes.Count}");
+            }
+
+            PumpRoutes(grid);
+            if (Time.unscaledTime >= _nextSummary)
+            {
+                _nextSummary = Time.unscaledTime + 60f;
+                int routed = 0;
+                foreach (var kv in _edgeStates) if (kv.Value.Route != null) routed++;
+                TheWaningBorder.Core.Diagnostics.PerfSpikeLog.Report("RoadNetwork.Minute", _sumRouteMs,
+                    $"searches={_sumSearches} found={_sumFound} failed={_sumFailed} sites={_sites.Count} " +
+                    $"edges={_edgeStates.Count} routed={routed} queued={_routeQueue.Count} failedPairs={_failedRoutes.Count}",
+                    thresholdMs: 0);
+                _sumSearches = _sumFound = _sumFailed = 0;
+                _sumRouteMs = 0;
             }
 
             Animate(Time.deltaTime);
@@ -289,11 +344,19 @@ namespace TheWaningBorder.World.Roads
         {
             var q = QC_Buildings.Get(em, QT_Buildings);
             using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
+            using var sizes = q.ToComponentDataArray<BuildingSize>(Unity.Collections.Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
+            // One culture read per faction per poll, not two Hall-query copies
+            // per building.
+            CultureConfig.GetCompletedCultures(em, _cultureOf);
             for (int i = 0; i < ents.Length; i++)
             {
                 var e = ents[i];
-                var lt = em.GetComponentData<LocalTransform>(e);
-                var sz = em.GetComponentData<BuildingSize>(e);
+                var lt = xfs[i];
+                var sz = sizes[i];
+                var faction = facs[i].Value;
+                int fi = (int)faction;
                 var pos = new Vector2(lt.Position.x, lt.Position.z);
                 _sites.Add(new Site
                 {
@@ -301,15 +364,14 @@ namespace TheWaningBorder.World.Roads
                     Disc = Mathf.Max(sz.Width, sz.Height) * 0.5f + Cfg.plazaMargin,
                     Finished = !em.HasComponent<UnderConstruction>(e),
                     IsBuilding = true,
-                    Faction = em.GetComponentData<FactionTag>(e).Value,
+                    Faction = faction,
                     Region = RegionOf(e, pos),
                     Size = new Vector2(sz.Width, sz.Height),
                     // THE ALANTHOR PAD (Roads.md §4b, 2026-09-30): once its
                     // owner has chosen Alanthor, every building stands on a
                     // square of Alanthor paving, its footprint plus
                     // alanthorPadMarginCells build cells on every side.
-                    Pad = CultureConfig.GetCompletedCulture(em,
-                              em.GetComponentData<FactionTag>(e).Value) == Cultures.Alanthor,
+                    Pad = fi >= 0 && fi < _cultureOf.Length && _cultureOf[fi] == Cultures.Alanthor,
                 });
                 _siteHash += SiteHash(_sites[_sites.Count - 1]);
             }
@@ -368,12 +430,14 @@ namespace TheWaningBorder.World.Roads
         /// things mark the raster dirty. Edges are the relative-neighbourhood
         /// graph of the LIVE sites, per merged territory (Roads.md §3).
         /// </summary>
-        private void SyncTopology(RoadGraph.Grid grid)
+        private void SyncTopology()
         {
-            // Sites. Every site that appears, moves or vanishes is also a
-            // place where a failed route may have become routable.
+            // Sites. A site that MOVES or VANISHES is a place where a failed
+            // route may have become routable — once, at the flip. (Appearing
+            // cannot open a way, and a site fading out for 75 s is not a new
+            // change on every sync; counting it as one was the re-search loop.)
             _changedSitePos.Clear();
-            foreach (var kv in _siteStates) kv.Value.Live = false;
+            foreach (var kv in _siteStates) { kv.Value.WasLive = kv.Value.Live; kv.Value.Live = false; }
             for (int i = 0; i < _sites.Count; i++)
             {
                 var s = _sites[i];
@@ -382,19 +446,18 @@ namespace TheWaningBorder.World.Roads
                     bool moved = (st.Data.Pos - s.Pos).sqrMagnitude > 0.01f;
                     if (st.Data.Finished != s.Finished || st.Data.Region != s.Region || moved)
                         _dirty = true;
-                    if (moved) _changedSitePos.Add(s.Pos);
-                    if (!st.Live) { _dirty = true; _changedSitePos.Add(s.Pos); }   // resurrected while fading out
+                    if (moved) { _changedSitePos.Add(s.Pos); _changedSitePos.Add(st.Data.Pos); }
+                    if (!st.WasLive) _dirty = true;   // resurrected while fading out
                     st.Data = s; st.Live = true;
                 }
                 else
                 {
                     _siteStates[s.Entity] = new SiteState { Data = s, Strength = _synced ? 0f : 1f, Live = true };
                     _dirty = true;
-                    _changedSitePos.Add(s.Pos);
                 }
             }
             foreach (var kv in _siteStates)
-                if (!kv.Value.Live && kv.Value.Strength > 0f)
+                if (kv.Value.WasLive && !kv.Value.Live)
                 {
                     _dirty = true;
                     _changedSitePos.Add(kv.Value.Data.Pos);
@@ -473,15 +536,15 @@ namespace TheWaningBorder.World.Roads
                     if (_edgeStates.TryGetValue(key, out var es))
                     {
                         if (!es.Live || es.Finished != finished || es.HalfWidthMetres != halfWidth) _dirty = true;
+                        if (!es.Live && es.NeedsRoute) _routeQueue.Enqueue(key);   // back before it was routed
                         es.Live = true; es.Finished = finished; es.HalfWidthMetres = halfWidth;
                         es.SiteA = a; es.SiteB = b;
                         continue;
                     }
 
-                    // Routing is the expensive part (A* + spline per edge), so
-                    // only a budget of edges is routed per poll; the rest wait
-                    // half a second. At match start that spreads ~40 trails
-                    // over a few polls instead of one 40 ms hitch.
+                    // Routing is the expensive part (A* + spline per edge):
+                    // the edge joins the queue PumpRoutes drains against the
+                    // per-frame budget.
                     es = new EdgeState
                     {
                         A = a.Entity, B = b.Entity, Finished = finished,
@@ -490,12 +553,8 @@ namespace TheWaningBorder.World.Roads
                     };
                     if (_failedRoutes.ContainsKey(key))
                         es.NeedsRoute = false;           // known unroutable; a nearby change re-arms it
-                    else if (_routedThisSync < Cfg.maxRoutesPerPoll)
-                    {
-                        es.Route = RouteEdge(grid, key, a, b);
-                        es.NeedsRoute = false;
-                        _routedThisSync++;
-                    }
+                    else
+                        _routeQueue.Enqueue(key);
                     _edgeStates[key] = es;
                     _dirty = true; _dirDirty = true;
                 }
@@ -514,37 +573,111 @@ namespace TheWaningBorder.World.Roads
                 if (_liveEdgeKeys.Contains(kv.Key)) continue;
                 if (kv.Value.Live) { kv.Value.Live = false; _dirty = true; _dirDirty = true; }
             }
-            RouteDeferred(grid);
             _synced = true;
         }
 
-        /// <summary>Deferred routes, within what is left of this poll's
-        /// budget. Counts what is still waiting, so a quiet poll knows
-        /// whether it has anything to do.</summary>
-        private void RouteDeferred(RoadGraph.Grid grid)
+        /// <summary>
+        /// Route queued edges until this frame's budget is spent. The search in
+        /// flight carries over to the next frame, so the budget holds even for
+        /// a route that runs to the expansion cap.
+        /// </summary>
+        private void PumpRoutes(RoadGraph.Grid grid)
         {
-            _pendingRoutes = 0;
-            foreach (var kv in _edgeStates)
+            _routedThisSync = 0;
+            if (!_searchActive && _routeQueue.Count == 0) { _startupRouting = false; return; }
+
+            float budgetMs = _startupRouting ? Cfg.startupRouteBudgetMs : Cfg.routeBudgetMs;
+            _routeWatch.Restart();
+            while (_routeWatch.Elapsed.TotalMilliseconds < budgetMs)
             {
-                var es = kv.Value;
-                if (!es.NeedsRoute || !es.Live) continue;
-                if (_routedThisSync >= Cfg.maxRoutesPerPoll) { _pendingRoutes++; continue; }
-                es.Route = RouteEdge(grid, kv.Key, es.SiteA, es.SiteB);
-                es.NeedsRoute = false;
-                _routedThisSync++;
-                _dirty = true; _dirDirty = true;
+                if (!_searchActive && !BeginNextRoute(grid)) break;
+
+                var state = _search.Step(_scratch, ref _searchTest, Cfg.slopePenalty,
+                                         Cfg.maxRouteExpansions, SearchChunk, _path);
+                if (state == RoadGraph.SearchState.Running) continue;
+                FinishRoute(grid, state == RoadGraph.SearchState.Found);
             }
+            double ms = _routeWatch.Elapsed.TotalMilliseconds;
+            _sumRouteMs += ms;
+            if (ms >= TheWaningBorder.Core.Diagnostics.PerfSpikeLog.DefaultThresholdMs)
+                TheWaningBorder.Core.Diagnostics.PerfSpikeLog.Report("RoadNetwork.Route", ms,
+                    $"finished={_routedThisSync} queued={_routeQueue.Count}");
         }
 
-        /// <summary>A failed pair is retried only when a site appeared,
-        /// moved or vanished inside the box its search covered.</summary>
+        /// <summary>Start the next queued edge that still wants a route.</summary>
+        private bool BeginNextRoute(RoadGraph.Grid grid)
+        {
+            while (_routeQueue.Count > 0)
+            {
+                long key = _routeQueue.Dequeue();
+                if (!_edgeStates.TryGetValue(key, out var es) || !es.NeedsRoute) continue;
+                if (!es.Live) continue;   // stays NeedsRoute; re-queued if it comes back
+                var a = es.SiteA; var b = es.SiteB;
+                _searchTest = new RoadCellTest
+                {
+                    Grid = grid, PA = a.Pos, PB = b.Pos, DA2 = a.Disc * a.Disc, DB2 = b.Disc * b.Disc,
+                };
+                _searchCorridor = Cfg.routeCorridorMargin + Cfg.routeCorridorFraction * (a.Pos - b.Pos).magnitude;
+                _searchKey = key; _searchA = a; _searchB = b;
+                _searchActive = true;
+                if (!_search.Begin(grid, _scratch, a.Pos, b.Pos, _searchCorridor))
+                {
+                    FinishRoute(grid, found: false);
+                    continue;
+                }
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// The search for <see cref="_searchKey"/> is over: shape the path into
+        /// a road (Roads.md §3.3), or record the failure with its back-off. The
+        /// edge may have faded away meanwhile — then the result is dropped.
+        /// </summary>
+        private void FinishRoute(RoadGraph.Grid grid, bool found)
+        {
+            _searchActive = false;
+            _routedThisSync++;
+            _sumSearches++;
+            if (found) _sumFound++; else _sumFailed++;
+            long key = _searchKey;
+            List<Vector2> route = null;
+            if (found)
+            {
+                route = ShapeRoute(grid, _searchTest, _searchA, _searchB);
+                _failedRoutes.Remove(key);
+            }
+            else
+            {
+                int fails = _failedRoutes.TryGetValue(key, out var prev) ? prev.Fails + 1 : 1;
+                float wait = Mathf.Min(Cfg.failRetrySeconds * Mathf.Pow(2f, fails - 1), Cfg.failRetryMaxSeconds);
+                _failedRoutes[key] = new FailedRoute
+                {
+                    Min = Vector2.Min(_searchA.Pos, _searchB.Pos) - Vector2.one * _searchCorridor,
+                    Max = Vector2.Max(_searchA.Pos, _searchB.Pos) + Vector2.one * _searchCorridor,
+                    Fails = fails, RetryAt = Time.time + wait,
+                };
+            }
+            if (!_edgeStates.TryGetValue(key, out var es)) return;
+            es.Route = route;
+            es.NeedsRoute = false;
+            _dirty = true; _dirDirty = true; _pointsDirty = true;
+        }
+
+        /// <summary>A failed pair is retried only when a site moved or
+        /// vanished inside the box its search covered, and its back-off is
+        /// over. The failure record stays until a route is found, so the
+        /// back-off keeps doubling while the pair keeps failing.</summary>
         private void RearmFailedRoutes()
         {
             if (_failedRoutes.Count == 0 || _changedSitePos.Count == 0) return;
             _failedRearm.Clear();
+            float now = Time.time;
             foreach (var kv in _failedRoutes)
             {
                 var f = kv.Value;
+                if (now < f.RetryAt) continue;
                 for (int i = 0; i < _changedSitePos.Count; i++)
                 {
                     var p = _changedSitePos[i];
@@ -555,8 +688,11 @@ namespace TheWaningBorder.World.Roads
             for (int i = 0; i < _failedRearm.Count; i++)
             {
                 long key = _failedRearm[i];
-                _failedRoutes.Remove(key);
-                if (_edgeStates.TryGetValue(key, out var es) && es.Route == null) es.NeedsRoute = true;
+                if (_edgeStates.TryGetValue(key, out var es) && es.Route == null && !es.NeedsRoute)
+                {
+                    es.NeedsRoute = true;
+                    _routeQueue.Enqueue(key);
+                }
             }
         }
 
@@ -577,29 +713,11 @@ namespace TheWaningBorder.World.Roads
             }
         }
 
-        /// <summary>Route one edge: A* cell path → bend points → a meandering
-        /// Unity spline (Roads.md §3.3), or the rounded cell path if the
-        /// spline cannot stay on passable ground. Null when unroutable.</summary>
-        private List<Vector2> RouteEdge(RoadGraph.Grid grid, long key, Site a, Site b)
+        /// <summary>The found cell path (<see cref="_path"/>) → bend points →
+        /// a meandering Unity spline (Roads.md §3.3), or the rounded cell path
+        /// if the spline cannot stay on passable ground.</summary>
+        private List<Vector2> ShapeRoute(RoadGraph.Grid grid, RoadCellTest test, Site a, Site b)
         {
-            // Endpoints may sit inside their own stamped footprint: the
-            // search may enter a cell within either site's disc.
-            var test = new RoadCellTest
-            {
-                Grid = grid, PA = a.Pos, PB = b.Pos, DA2 = a.Disc * a.Disc, DB2 = b.Disc * b.Disc,
-            };
-            float corridor = Cfg.routeCorridorMargin + Cfg.routeCorridorFraction * (a.Pos - b.Pos).magnitude;
-            if (!RoadGraph.Route(grid, _scratch, ref test, a.Pos, b.Pos,
-                                 Cfg.slopePenalty, Cfg.maxRouteExpansions, corridor, _path))
-            {
-                _failedRoutes[key] = new FailedRoute
-                {
-                    Min = Vector2.Min(a.Pos, b.Pos) - Vector2.one * corridor,
-                    Max = Vector2.Max(a.Pos, b.Pos) + Vector2.one * corridor,
-                };
-                return null;
-            }
-
             RoadGraph.Simplify(_path, Cfg.simplifyTolerance, _waypoints);
             System.Func<Vector2, bool> walkable = w => test.Passable(grid.CellOf(w));
             if (!RoadGraph.Meander(_waypoints, Cfg.meanderAmplitude, Cfg.meanderWavelength,
@@ -646,7 +764,12 @@ namespace TheWaningBorder.World.Roads
                     if (es.Strength <= 0f) _deadEdges.Add(kv.Key); else _animating = true;
                 }
             }
-            for (int i = 0; i < _deadEdges.Count; i++) { _edgeStates.Remove(_deadEdges[i]); _dirty = true; _dirDirty = true; }
+            for (int i = 0; i < _deadEdges.Count; i++)
+            {
+                _edgeStates.Remove(_deadEdges[i]);
+                _failedRoutes.Remove(_deadEdges[i]);
+                _dirty = true; _dirDirty = true; _pointsDirty = true;
+            }
         }
 
         private bool AnyFastFade()
@@ -662,7 +785,28 @@ namespace TheWaningBorder.World.Roads
             EnsureMask();
             float texelsPerMetre = _res / _worldSize.x;
 
-            _discCmds.Clear(); _polyCmds.Clear(); _polyPoints.Clear(); _squareCmds.Clear();
+            _discCmds.Clear(); _polyCmds.Clear(); _squareCmds.Clear();
+            // Route points in texel space change only when a route appears or
+            // goes; rebuilding all ~50-100k of them on every raster (12 Hz while
+            // anything wears in) was the raster's whole main-thread cost.
+            if (_pointsDirty)
+            {
+                _polyPoints.Clear();
+                foreach (var kv in _edgeStates)
+                {
+                    var es = kv.Value;
+                    es.PointStart = _polyPoints.Length;
+                    es.PointCount = 0;
+                    if (es.Route == null) continue;
+                    for (int i = 0; i < es.Route.Count; i++)
+                    {
+                        var t = ToTexel(es.Route[i]);
+                        _polyPoints.Add(new float2(t.x, t.y));
+                    }
+                    es.PointCount = es.Route.Count;
+                }
+                _pointsDirty = false;
+            }
             float padMargin = Cfg.alanthorPadMarginCells * BuildGrid.CellSize;
             foreach (var kv in _siteStates)
             {
@@ -691,16 +835,10 @@ namespace TheWaningBorder.World.Roads
             foreach (var kv in _edgeStates)
             {
                 var es = kv.Value;
-                if (es.Route == null) continue;
-                int start = _polyPoints.Length;
-                for (int i = 0; i < es.Route.Count; i++)
-                {
-                    var t = ToTexel(es.Route[i]);
-                    _polyPoints.Add(new float2(t.x, t.y));
-                }
+                if (es.Route == null || es.PointCount == 0) continue;
                 _polyCmds.Add(new PolyCmd
                 {
-                    Start = start, Count = es.Route.Count,
+                    Start = es.PointStart, Count = es.PointCount,
                     HalfWidth = es.HalfWidthMetres * texelsPerMetre, EdgeFade = Cfg.roadEdgeFade,
                     Finished = (byte)(es.Finished ? 1 : 0), Strength = Ease(es.Strength),
                 });
@@ -731,10 +869,23 @@ namespace TheWaningBorder.World.Roads
         /// and ends gently, a reclaim likewise.</summary>
         private static float Ease(float s) => s * s * (3f - 2f * s);
 
+        /// <summary>
+        /// Order-independent key of an entity pair, Version included: keyed on
+        /// Index alone, a new building on a recycled index inherited the dead
+        /// one's road geometry and its failure record. Two 64-bit identities
+        /// are mixed into one 64-bit key; a collision among the few thousand
+        /// edges of a match is ~1e-11 likely, and costs one wrong road.
+        /// </summary>
         private static long RouteKey(Entity a, Entity b)
         {
-            int lo = Mathf.Min(a.Index, b.Index), hi = Mathf.Max(a.Index, b.Index);
-            return ((long)lo << 32) | (uint)hi;
+            ulong ia = ((ulong)(uint)a.Index << 32) | (uint)a.Version;
+            ulong ib = ((ulong)(uint)b.Index << 32) | (uint)b.Version;
+            ulong lo = ia < ib ? ia : ib, hi = ia < ib ? ib : ia;
+            ulong h = lo * 0x9E3779B97F4A7C15UL;
+            h ^= h >> 31;
+            h += hi * 0xC2B2AE3D27D4EB4FUL;
+            h ^= h >> 29; h *= 0xBF58476D1CE4E5B9UL; h ^= h >> 32;
+            return (long)h;
         }
 
         private static int Slot(int region, int regions) => region == RegionMap.None ? regions - 1 : region;
@@ -783,6 +934,7 @@ namespace TheWaningBorder.World.Roads
             if (!_polyPoints.IsCreated) _polyPoints = new NativeList<float2>(8192, Allocator.Persistent);
             _globalsBound = false;
             _dirDirty = true;
+            _pointsDirty = true;
         }
 
         private void BindGlobals()

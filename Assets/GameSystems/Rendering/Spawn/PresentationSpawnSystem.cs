@@ -386,6 +386,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         // per frame — the prime suspect for the unattributed FRAME spikes.
         double t0 = UnityEngine.Time.realtimeSinceStartupAsDouble;
         CleanupDestroyedEntities();
+        DrainFactionRefreshes();
         SpawnMissingVisuals();
         SyncTransforms();
         TheWaningBorder.Core.Diagnostics.PerfSpikeLog.Report("PresentSync",
@@ -1483,9 +1484,38 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         entities.Dispose();
     }
 
+    // ── Deferred faction refresh (2026-10-10) ─────────────────────────
+    //
+    // AgeUpSystem runs inside the simulation tick; a visual rebuild there
+    // stalls every lockstep peer for as long as it takes, whoever aged up.
+    // It queues the faction instead and the rebuild runs here, one faction
+    // per frame, on the presentation side.
+    private static readonly List<Faction> _pendingRefreshes = new();
+
+    /// <summary>
+    /// Ask for <see cref="RefreshFactionVisuals"/> on the next presentation
+    /// frame. Safe to call from the simulation: it touches no GameObject.
+    /// </summary>
+    public static void RequestFactionRefresh(Faction faction)
+    {
+        if (!_pendingRefreshes.Contains(faction)) _pendingRefreshes.Add(faction);
+    }
+
+    private void DrainFactionRefreshes()
+    {
+        if (_pendingRefreshes.Count == 0) return;
+        var faction = _pendingRefreshes[0];
+        _pendingRefreshes.RemoveAt(0);
+        double t0 = UnityEngine.Time.realtimeSinceStartupAsDouble;
+        RefreshFactionVisuals(faction);
+        TheWaningBorder.Core.Diagnostics.PerfSpikeLog.Report("RefreshFactionVisuals",
+            (UnityEngine.Time.realtimeSinceStartupAsDouble - t0) * 1000.0, faction.ToString());
+    }
+
     /// <summary>
     /// Rebuild all building visuals for a faction with culture-aware procedural generation.
     /// Called after age-up completion to retrofit existing Era 1 buildings with culture tone.
+    /// From the simulation, use <see cref="RequestFactionRefresh"/>.
     /// </summary>
     public void RefreshFactionVisuals(Faction faction)
     {
@@ -2058,6 +2088,6 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         if (_fallbackUnitPrefab != null) Destroy(_fallbackUnitPrefab);
         if (_fallbackBuildingPrefab != null) Destroy(_fallbackBuildingPrefab);
 
-        if (Instance == this) Instance = null;
+        if (Instance == this) { Instance = null; _pendingRefreshes.Clear(); }
     }
 }

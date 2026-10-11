@@ -49,8 +49,9 @@ namespace TheWaningBorder.UI.Common
 
             for (int i = 0; i < MaxPerFrame && SimSignals.TryDrainNotice(out var n); i++)
             {
-                if (n.IsError) PlayerNotificationSystem.NotifyError(n.Text);
-                else           PlayerNotificationSystem.Notify(n.Text);
+                if (n.IsError)      PlayerNotificationSystem.NotifyError(n.Text);
+                else if (n.IsMajor) PlayerNotificationSystem.Announce(n.Text);
+                else                PlayerNotificationSystem.Notify(n.Text);
             }
 
             for (int i = 0; i < MaxPerFrame && SimSignals.TryDrainPing(out var p); i++)

@@ -49,8 +49,8 @@ namespace TheWaningBorder.Rendering
         static readonly List<Vector3> _srcNorms = new List<Vector3>();
         static readonly List<Vector2> _srcUvs = new List<Vector2>();
         static readonly List<int> _srcTris = new List<int>();
-        // Cells by arc length, for the per-copy nearest-cell lookup.
-        static readonly List<int> _cellOrder = new List<int>();
+        // The solid runs between openings (WallOpenings), per rebuild.
+        static readonly List<(float a, float b)> _runs = new List<(float a, float b)>();
 
         static SourcePiece SourceOf(Mesh mesh, int subMesh)
         {
@@ -75,13 +75,13 @@ namespace TheWaningBorder.Rendering
         /// Build the segment's mesh from <paramref name="art"/>.
         /// <paramref name="curve"/> runs hub centre to hub centre and the wall
         /// occupies [inset, total − inset]; <paramref name="cellArcs"/> gives
-        /// each sim cell's arc length and <paramref name="cellSolid"/> answers
+        /// each sim cell's arc length and <paramref name="cellOpenHalf"/> answers
         /// per cell index, exactly as WallCurveMesh takes them.
         /// <paramref name="heightScale"/> squashes the wall toward the ground
         /// while it is being built.
         /// </summary>
         public static Mesh Build(WallModuleArt art, IReadOnlyList<float3> curve, float inset,
-                                 IReadOnlyList<float> cellArcs, System.Func<int, bool> cellSolid,
+                                 IReadOnlyList<float> cellArcs, System.Func<int, float> cellOpenHalf,
                                  float heightScale, Mesh reuse, Matrix4x4? worldToLocal)
         {
             var mesh = reuse != null ? reuse : new Mesh { name = "WallArt" };
@@ -97,12 +97,6 @@ namespace TheWaningBorder.Rendering
             float total = cum[n - 1];
             float s0 = inset, s1 = total - inset;
             if (s1 - s0 < 0.5f) { s0 = math.max(0f, total * 0.5f - 0.75f); s1 = math.min(total, total * 0.5f + 0.75f); }
-            float span = s1 - s0;
-
-            // Divide the run into whole modules and stretch the pitch to fit
-            // exactly — a fraction of a module at the end would read as a gap.
-            int copies = Mathf.Max(1, Mathf.RoundToInt(span / art.Length));
-            float pitch = span / copies;
             float halfLen = art.Length * 0.5f;
 
             _verts.Clear(); _norms.Clear(); _uvs.Clear();
@@ -110,33 +104,40 @@ namespace TheWaningBorder.Rendering
             for (int i = 0; i < _subs.Count; i++) _subs[i].Clear();
 
             var toLocal = worldToLocal ?? Matrix4x4.identity;
-            int cellCount = cellArcs != null ? cellArcs.Count : 0;
-            if (cellCount > 0) SortCellsByArc(cellArcs);
 
-            for (int c = 0; c < copies; c++)
+            // The solid runs between openings (WallOpenings). Each run is
+            // divided into whole modules with the pitch stretched to fit
+            // exactly, so a run meets a gatehouse / tower / emplacement edge
+            // to edge — a fraction of a module would read as a gap.
+            WallOpenings.SolidRuns(s0, s1, cellArcs, cellOpenHalf, _runs);
+            foreach (var run in _runs)
             {
-                float sA = s0 + pitch * c;
-                float sAt = sA + pitch * 0.5f;
-                if (cellCount > 0 && cellSolid != null && !cellSolid(NearestCellSorted(cellArcs, sAt))) continue;
-
-                // The module's frame along the curve, sampled finely enough
-                // that a bent face reads smooth; the ground blended between
-                // the two seams, so neighbours meet at the same height.
-                float hA = SeamHeight(curve, cum, sA), hB = SeamHeight(curve, cum, sA + pitch);
-                for (int k = 0; k <= BendSteps; k++)
+                float span = run.b - run.a;
+                int copies = Mathf.Max(1, Mathf.RoundToInt(span / art.Length));
+                float pitch = span / copies;
+                for (int c = 0; c < copies; c++)
                 {
-                    float3 p = TheWaningBorder.Entities.AlanthorWall.SampleCurve(
-                        curve, cum, sA + pitch * k / (float)BendSteps, out float3 tan);
-                    _framePos[k] = new Vector3(p.x, 0f, p.z);
-                    var f = new Vector3(tan.x, 0f, tan.z).normalized;
-                    _frameFwd[k] = f;
-                    _frameRight[k] = new Vector3(f.z, 0f, -f.x);
-                }
+                    float sA = run.a + pitch * c;
 
-                for (int i = 0; i < art.Pieces.Count; i++)
-                {
-                    var piece = art.Pieces[i];
-                    AppendBent(piece, piece.Local, halfLen, hA, hB, hs, toLocal, _subs[piece.MaterialSlot]);
+                    // The module's frame along the curve, sampled finely enough
+                    // that a bent face reads smooth; the ground blended between
+                    // the two seams, so neighbours meet at the same height.
+                    float hA = SeamHeight(curve, cum, sA), hB = SeamHeight(curve, cum, sA + pitch);
+                    for (int k = 0; k <= BendSteps; k++)
+                    {
+                        float3 p = TheWaningBorder.Entities.AlanthorWall.SampleCurve(
+                            curve, cum, sA + pitch * k / (float)BendSteps, out float3 tan);
+                        _framePos[k] = new Vector3(p.x, 0f, p.z);
+                        var f = new Vector3(tan.x, 0f, tan.z).normalized;
+                        _frameFwd[k] = f;
+                        _frameRight[k] = new Vector3(f.z, 0f, -f.x);
+                    }
+
+                    for (int i = 0; i < art.Pieces.Count; i++)
+                    {
+                        var piece = art.Pieces[i];
+                        AppendBent(piece, piece.Local, halfLen, hA, hB, hs, toLocal, _subs[piece.MaterialSlot]);
+                    }
                 }
             }
 
@@ -225,66 +226,6 @@ namespace TheWaningBorder.Rendering
             }
             var srcTris = src.Tris;
             for (int i = 0; i < srcTris.Length; i++) tris.Add(baseIndex + srcTris[i]);
-        }
-
-        static IReadOnlyList<float> _sortArcs;
-        static readonly System.Comparison<int> _byArc = (a, b) =>
-        {
-            int c = _sortArcs[a].CompareTo(_sortArcs[b]);
-            return c != 0 ? c : a.CompareTo(b);
-        };
-
-        static void SortCellsByArc(IReadOnlyList<float> arcs)
-        {
-            _cellOrder.Clear();
-            for (int i = 0; i < arcs.Count; i++) _cellOrder.Add(i);
-            _sortArcs = arcs;
-            _cellOrder.Sort(_byArc);
-            _sortArcs = null;
-        }
-
-        /// <summary><see cref="NearestCell"/> by binary search over the
-        /// arc-sorted cells: the nearer of the two cells either side of
-        /// <paramref name="s"/>, lowest index on a tie — the same pick as the
-        /// linear scan.</summary>
-        static int NearestCellSorted(IReadOnlyList<float> arcs, float s)
-        {
-            int n = _cellOrder.Count;
-            int lo = 0, hi = n;                       // first position with arc >= s
-            while (lo < hi)
-            {
-                int mid = (lo + hi) >> 1;
-                if (arcs[_cellOrder[mid]] < s) lo = mid + 1; else hi = mid;
-            }
-            int best = -1; float bestD = float.MaxValue;
-            if (lo < n)
-            {
-                best = _cellOrder[lo];               // lowest index of its arc value
-                bestD = math.abs(arcs[best] - s);
-            }
-            if (lo > 0)
-            {
-                // Lowest index among the cells sharing the value just below s.
-                int k = lo - 1;
-                float v = arcs[_cellOrder[k]];
-                while (k > 0 && arcs[_cellOrder[k - 1]] == v) k--;
-                int cand = _cellOrder[k];
-                float d = math.abs(v - s);
-                if (d < bestD || (d == bestD && cand < best)) { best = cand; bestD = d; }
-            }
-            return best < 0 ? 0 : best;
-        }
-
-        /// <summary>Index of the cell whose arc position is nearest <paramref name="s"/>.</summary>
-        static int NearestCell(IReadOnlyList<float> arcs, float s)
-        {
-            int best = 0; float bestD = float.MaxValue;
-            for (int i = 0; i < arcs.Count; i++)
-            {
-                float d = math.abs(arcs[i] - s);
-                if (d < bestD) { bestD = d; best = i; }
-            }
-            return best;
         }
     }
 }

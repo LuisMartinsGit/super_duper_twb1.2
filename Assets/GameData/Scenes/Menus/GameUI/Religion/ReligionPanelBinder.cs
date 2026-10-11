@@ -181,6 +181,10 @@ namespace TheWaningBorder.UI.Ingame
                 _picker.SetActive(false);
             }
 
+            CaptureSlotGeometry();
+            BuildSlideTab();
+            TintPickerRows();
+
             if (_slots.Count == 0)
                 TWBLog.Log("[GameUI] ReligionPanel: no Slot nodes found — check prefab names.");
         }
@@ -189,6 +193,7 @@ namespace TheWaningBorder.UI.Ingame
 
         private void Update()
         {
+            AnimateSlide();
             _timer += Time.unscaledDeltaTime;
             if (_timer < RefreshInterval) return;
             _timer = 0f;
@@ -226,6 +231,7 @@ namespace TheWaningBorder.UI.Ingame
 
             RefreshTempleInfo(em, temple);
             RefreshSlots(em, faction, temple);
+            LayoutSlots();
             if (_picker != null && _picker.activeSelf)
                 RefreshPicker(em, faction, temple, rp);
         }
@@ -276,8 +282,6 @@ namespace TheWaningBorder.UI.Ingame
         private const float StripWidth = 4f * AbilitySize + 3f * AbilityGap + 10f;
 
         private static readonly Color AbilityLocked = new Color(0.10f, 0.10f, 0.12f, 0.55f);
-        private static readonly Color AbilityReady  = new Color(0.16f, 0.34f, 0.52f, 0.95f);
-        private static readonly Color AbilityCool   = new Color(0.20f, 0.18f, 0.12f, 0.90f);
         private static readonly Color PassiveLive   = new Color(0.16f, 0.13f, 0.05f, 0.92f);
         private static readonly Color GlyphLive     = new Color(1f, 0.86f, 0.45f);
         private static readonly Color GlyphDormant  = new Color(0.45f, 0.42f, 0.35f);

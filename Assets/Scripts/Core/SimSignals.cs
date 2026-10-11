@@ -48,10 +48,15 @@ namespace TheWaningBorder.Core
         /// so routing a message no longer loses which kind it was.</summary>
         public readonly bool IsError;
 
-        public SimNotice(string text, bool isError)
+        /// <summary>A match-level event every player should catch (the
+        /// Shardroot, territory): shown longer and brighter.</summary>
+        public readonly bool IsMajor;
+
+        public SimNotice(string text, bool isError, bool isMajor = false)
         {
             Text = text;
             IsError = isError;
+            IsMajor = isMajor;
         }
     }
 
@@ -111,11 +116,16 @@ namespace TheWaningBorder.Core
         /// <summary>Something the player asked for could not happen.</summary>
         public static void NotifyError(string text) => Post(text, isError: true);
 
-        private static void Post(string text, bool isError)
+        /// <summary>A match-level event (the Shardroot descending or changing
+        /// hands, a territory taken or lost): the HUD holds it on screen
+        /// longer than an ordinary notice.</summary>
+        public static void Announce(string text) => Post(text, isError: false, isMajor: true);
+
+        private static void Post(string text, bool isError, bool isMajor = false)
         {
             if (string.IsNullOrEmpty(text)) return;
             if (_notices.Count >= MaxQueued) _notices.Dequeue();
-            _notices.Enqueue(new SimNotice(text, isError));
+            _notices.Enqueue(new SimNotice(text, isError, isMajor));
         }
 
         /// <summary>Mark a spot on the minimap.</summary>

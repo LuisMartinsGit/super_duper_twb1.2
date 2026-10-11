@@ -51,11 +51,34 @@ namespace TheWaningBorder.Input
                 var e = ents[i];
                 if (facs[i].Value != local) continue;
                 if (em.HasComponent<Health>(e) && em.GetComponentData<Health>(e).Value <= 0) continue;
-                if (em.HasComponent<BuildOrder>(e) || em.HasComponent<RepairOrder>(e)) continue;
-                if (TransientState.Active<MoveCommand>(em, e)) continue;
+                if (!IsIdle(em, e)) continue;
                 _idle.Add(e);
             }
             _idle.Sort((a, b) => a.Index.CompareTo(b.Index));
+        }
+
+        /// <summary>
+        /// Nothing to do: no build or repair (in flight, current or queued),
+        /// no move / attack order, no queued waypoints, not walking anywhere
+        /// and not fighting. Any one of these is work, so a builder carrying
+        /// it is skipped by the count and the cycle.
+        /// </summary>
+        private static bool IsIdle(EntityManager em, Entity e)
+        {
+            if (em.HasComponent<BuildCommand>(e)
+                || em.HasComponent<BuildOrder>(e)
+                || em.HasComponent<RepairOrder>(e)) return false;
+            if (em.HasBuffer<QueuedBuildSite>(e) && em.GetBuffer<QueuedBuildSite>(e).Length > 0) return false;
+            if (em.HasBuffer<QueuedCommand>(e) && em.GetBuffer<QueuedCommand>(e).Length > 0) return false;
+            if (TransientState.Active<MoveCommand>(em, e)
+                || TransientState.Active<AttackCommand>(em, e)
+                || TransientState.Active<UserMoveOrder>(em, e)
+                || TransientState.Active<AttackMoveTag>(em, e)) return false;
+            if (em.HasComponent<DesiredDestination>(e)
+                && em.GetComponentData<DesiredDestination>(e).Has != 0) return false;
+            if (em.HasComponent<Target>(e)
+                && em.GetComponentData<Target>(e).Value != Entity.Null) return false;
+            return true;
         }
 
         /// <summary>How many builders stand idle right now.</summary>

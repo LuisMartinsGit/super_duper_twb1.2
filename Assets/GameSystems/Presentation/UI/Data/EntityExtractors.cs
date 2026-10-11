@@ -917,7 +917,21 @@ namespace TheWaningBorder.UI.Data
                 earn.Supplies *= lvl; earn.Iron *= lvl; earn.Veilstone *= lvl; earn.Veilsteel *= lvl;
             }
             bool unlocked = TheWaningBorder.Systems.Economy.TradingOutpostSystem.IsUnlocked(me, recipe);
-            bool isActive = recipe == active;
+            // With several outposts selected the button sets them all, so it
+            // only reads as "running" once every selected post runs it.
+            int others = 0, othersRunning = 0;
+            var sel = TheWaningBorder.Input.SelectionSystem.CurrentSelection;
+            if (sel != null)
+                for (int i = 0; i < sel.Count; i++)
+                {
+                    var e = sel[i];
+                    if (e == outpost || !em.Exists(e) || !em.HasComponent<TradingOutpostTag>(e)) continue;
+                    if (em.HasComponent<UnderConstruction>(e) || !em.HasComponent<FactionTag>(e)
+                        || em.GetComponentData<FactionTag>(e).Value != me) continue;
+                    others++;
+                    if (TheWaningBorder.Entities.TradingOutpost.RecipeOf(em, e) == recipe) othersRunning++;
+                }
+            bool isActive = recipe == active && othersRunning == others;
             string tip = label + "\n" + PerMinuteLine(spend, "-") + "  ->  " + PerMinuteLine(earn, "+")
                          + " " + Loc.T("per minute");
             if (!unlocked && !string.IsNullOrEmpty(requiredTech))
@@ -926,7 +940,11 @@ namespace TheWaningBorder.UI.Data
                     ? (t.name ?? requiredTech) : requiredTech;
                 tip += "\n" + string.Format(Loc.T("Requires research: {0}"), techName);
             }
-            else if (isActive) tip += "\n" + Loc.T("This Outpost is running this trade.");
+            else if (isActive) tip += "\n" + (others > 0
+                ? Loc.T("Every selected Outpost is running this trade.")
+                : Loc.T("This Outpost is running this trade."));
+            else if (others > 0)
+                tip += "\n" + string.Format(Loc.T("Sets all {0} selected Outposts."), others + 1);
             return new ActionButton
             {
                 Id = "OutpostMode_" + (int)recipe,

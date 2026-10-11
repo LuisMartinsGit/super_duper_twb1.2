@@ -162,9 +162,10 @@ namespace TheWaningBorder.Systems.Work
                 // timber (docs/Design/Age_0.md § Palisade). Lv2 and Lv3 are
                 // bought at the Wall Hub (TechEffectSystem).
 
-                // 6. Rebuild building visuals with culture tone
-                if (PresentationSpawnSystem.Instance != null)
-                    PresentationSpawnSystem.Instance.RefreshFactionVisuals(faction);
+                // 6. Rebuild building visuals with culture tone — on the next
+                //    presentation frame, not inside this tick (a visual rebuild
+                //    here stalls every lockstep peer).
+                PresentationSpawnSystem.RequestFactionRefresh(faction);
 
                 // 7. Remove AgeUpState — age-up is complete
                 em.RemoveComponent<AgeUpState>(hallEntity);

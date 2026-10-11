@@ -81,9 +81,19 @@ namespace TheWaningBorder.World.Roads
 
         /// <summary>How often the site set is re-read, seconds.</summary>
         public float pollSeconds;
-        /// <summary>Edges routed (A* + spline) per poll at most; the rest wait
-        /// for the next poll. Spreads the match-start burst.</summary>
-        public int maxRoutesPerPoll;
+        /// <summary>Main-thread milliseconds per frame spent routing (A* +
+        /// spline). A search that does not finish carries over to the next
+        /// frame, so no frame pays a whole route.</summary>
+        public float routeBudgetMs;
+        /// <summary>The same budget while the map's opening trails are routed
+        /// (until the queue first runs dry) — the loading screen / first
+        /// seconds, when a few ms buys the trails being there at once.</summary>
+        public float startupRouteBudgetMs;
+        /// <summary>A pair whose search failed waits this long before a nearby
+        /// change may retry it; each further failure doubles the wait.</summary>
+        public float failRetrySeconds;
+        /// <summary>Cap on that doubling wait, seconds.</summary>
+        public float failRetryMaxSeconds;
 
         // -- Fades (Roads.md 6) --
         /// <summary>A new plaza or road wears in over this many seconds.</summary>

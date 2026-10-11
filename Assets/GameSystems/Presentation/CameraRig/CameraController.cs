@@ -212,6 +212,7 @@ namespace TheWaningBorder.CameraRig
         {
             HandleMousePan();
             HandleEdgeScrolling();
+            HandleKeyPan();
             // Scroll wheel behavior is overruled when placing a building.
             // Read fresh each frame: as a field initialiser this was captured
             // once at construction and never changed again.
@@ -346,6 +347,37 @@ namespace TheWaningBorder.CameraRig
                              * Cfg.edgeScrollSpeed * Time.deltaTime;
             ClampPositionToBounds(ref _targetPosition);
         }
+        /// <summary>
+        /// Arrow keys pan the camera along the ground, relative to where it
+        /// looks (2026-10-11). Not while a text field has focus (chat, a save
+        /// name), so typing never scrolls the map.
+        /// </summary>
+        private void HandleKeyPan()
+        {
+            if (!Application.isFocused) return;
+            var es = UnityEngine.EventSystems.EventSystem.current;
+            if (es != null && es.currentSelectedGameObject != null
+                && (es.currentSelectedGameObject.GetComponent<TMPro.TMP_InputField>() != null
+                    || es.currentSelectedGameObject.GetComponent<UnityEngine.UI.InputField>() != null))
+                return;
+
+            Vector3 dir = Vector3.zero;
+            if (UnityEngine.Input.GetKey(KeyCode.LeftArrow))  dir.x -= 1f;
+            if (UnityEngine.Input.GetKey(KeyCode.RightArrow)) dir.x += 1f;
+            if (UnityEngine.Input.GetKey(KeyCode.DownArrow))  dir.z -= 1f;
+            if (UnityEngine.Input.GetKey(KeyCode.UpArrow))    dir.z += 1f;
+            if (dir.sqrMagnitude <= 0.01f) return;
+
+            Vector3 forward = Vector3.ProjectOnPlane(transform.forward, Vector3.up).normalized;
+            Vector3 right = Vector3.ProjectOnPlane(transform.right, Vector3.up).normalized;
+
+            // Unscaled: the camera pans while the game is paused too, like
+            // the mouse pan does.
+            _targetPosition += (forward * dir.z + right * dir.x).normalized
+                             * Cfg.keyPanSpeed * Time.unscaledDeltaTime;
+            ClampPositionToBounds(ref _targetPosition);
+        }
+
         private void HandleWheel()
         {
             float scroll = UnityEngine.Input.GetAxis("Mouse ScrollWheel");

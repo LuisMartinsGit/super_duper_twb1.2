@@ -128,6 +128,49 @@ namespace TheWaningBorder.UI.Common
         /// Format a cost with rich text coloring.
         /// Resources the player cannot afford are shown in red; affordable ones in the given color hex.
         /// </summary>
+        /// <summary>
+        /// The "you cannot afford this" notice, naming what is short:
+        /// "Not enough resources - need 30 more iron, 10 more veilstone"
+        /// (2026-10-11; it used to be a bare "Not enough resources"). Falls
+        /// back to the bare line when the bank cannot be read.
+        /// </summary>
+        public static string CantAfford(Unity.Entities.EntityManager em, Faction faction,
+                                        TheWaningBorder.Core.Cost cost)
+        {
+            string head = TheWaningBorder.Core.Localization.Loc.T("Not enough resources");
+            if (!TheWaningBorder.Economy.FactionEconomy.TryGetResources(em, faction, out var bank))
+                return head;
+            var sb = new System.Text.StringBuilder();
+            void Short(int need, int have, string name)
+            {
+                int missing = need - have;
+                if (missing <= 0) return;
+                sb.Append(sb.Length == 0 ? "" : ", ")
+                  .Append(string.Format(TheWaningBorder.Core.Localization.Loc.T("{0} more {1}"), missing, name));
+            }
+            Short(cost.Supplies, bank.Supplies, TheWaningBorder.Core.Localization.Loc.T("supplies"));
+            Short(cost.Iron, bank.Iron, TheWaningBorder.Core.Localization.Loc.T("iron"));
+            Short(cost.Veilstone, bank.Veilstone, TheWaningBorder.Core.Localization.Loc.T("veilstone"));
+            Short(cost.Veilsteel, bank.Veilsteel, TheWaningBorder.Core.Localization.Loc.T("veilsteel"));
+            return sb.Length == 0 ? head
+                : head + " - " + TheWaningBorder.Core.Localization.Loc.T("need") + " " + sb;
+        }
+
+        /// <summary>The population-cap notice with the numbers and the way
+        /// out: "Population cap reached (40/40) - build more housing".</summary>
+        public static string PopulationCapped(Unity.Entities.EntityManager em, Faction faction)
+        {
+            string tail = TheWaningBorder.Core.Localization.Loc.T("build more housing");
+            if (TheWaningBorder.Economy.FactionEconomy.TryGetBank(em, faction, out var bank)
+                && em.HasComponent<TheWaningBorder.Economy.FactionPopulation>(bank))
+            {
+                var pop = em.GetComponentData<TheWaningBorder.Economy.FactionPopulation>(bank);
+                return string.Format(TheWaningBorder.Core.Localization.Loc.T("Population cap reached ({0}/{1}) - {2}"),
+                    pop.Current, pop.Max, tail);
+            }
+            return TheWaningBorder.Core.Localization.Loc.T("Population cap reached") + " - " + tail;
+        }
+
         public static string FormatCostRich(TheWaningBorder.Core.Cost cost, TheWaningBorder.Core.Cost available, string affordHex = "#b8e6b8")
         {
             if (cost.IsZero) return "Free";

@@ -23,6 +23,9 @@ Shader "TheWaningBorder/BuildingDamage"
         _BaseColor   ("Base Color", Color)            = (1,1,1,1)
         _BaseMap     ("Base Map", 2D)                 = "white" {}
         _UseBaseMap  ("Use Base Map", Range(0,1))     = 1
+        // Player colour (TWBFactionColor.hlsl): copied from the source material.
+        [HideInInspector] _TWB_FactionHSV ("Faction HSV", Vector) = (0,0,0,0)
+        [HideInInspector][NoScaleOffset] _TWB_FactionMask ("Faction Mask", 2D) = "black" {}
         _Metallic    ("Metallic", Range(0,1))         = 0
         _Smoothness  ("Smoothness", Range(0,1))       = 0.35
 
@@ -102,6 +105,9 @@ Shader "TheWaningBorder/BuildingDamage"
 
             sampler2D _BaseMap;
             float4    _BaseMap_ST;
+            float4    _TWB_FactionHSV;   // player colour, see TWBFactionColor.hlsl
+            #include "Assets/Shaders/Include/TWBFactionColor.hlsl"
+            SAMPLER(sampler_TWB_FactionMask);
             float4    _BaseColor;
             float     _UseBaseMap;
             float     _Metallic;
@@ -213,7 +219,8 @@ Shader "TheWaningBorder/BuildingDamage"
 
                 // ---- ALBEDO ------------------------------------------------
                 half3 albedo = _BaseColor.rgb;
-                if (_UseBaseMap > 0.5) albedo *= tex2D(_BaseMap, IN.baseUV).rgb;
+                if (_UseBaseMap > 0.5)
+                    albedo *= TWB_FactionRecolor(tex2D(_BaseMap, IN.baseUV).rgb, IN.baseUV, sampler_TWB_FactionMask);
 
                 // ---- CRACKS: the main "alive / repairable" damage. Grow from
                 //      ~8% so a battle-worn (but salvageable) building is mostly

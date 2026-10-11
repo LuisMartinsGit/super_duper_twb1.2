@@ -41,6 +41,10 @@ namespace TheWaningBorder.Systems.Visibility
 
         private EntityQuery _staticQuery;
         private EntityQuery _mobileQuery;
+        private EntityQuery _shardrootQuery;
+        private EntityQuery _embeddedQuery;
+        private readonly System.Collections.Generic.List<float3> _shardrootSpots =
+            new System.Collections.Generic.List<float3>(2);
 
         protected override void OnCreate()
         {
@@ -60,6 +64,16 @@ namespace TheWaningBorder.Systems.Visibility
                 ComponentType.ReadOnly<FactionTag>(),
                 ComponentType.ReadOnly<UnitTag>(),
                 ComponentType.Exclude<BorderTag>());
+            // The Shardroot's holder INCLUDING a disabled one: a unit
+            // garrisoned in a wall or watch tower is Disabled, and the
+            // artifact must stay seen while it is inside.
+            _shardrootQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<ShardrootTag>()
+                .WithOptions(EntityQueryOptions.IncludeDisabledEntities)
+                .Build(this);
+            _embeddedQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<ShardrootEmbedded, LocalTransform>()
+                .Build(this);
         }
 
         protected override void OnUpdate()
@@ -78,6 +92,7 @@ namespace TheWaningBorder.Systems.Visibility
 
             var statics = BuildCommands(_staticQuery, out ulong staticHash);
             var mobiles = BuildCommands(_mobileQuery, out _);
+            AppendShardrootReveal(ref mobiles);
 
             // Clear + static layer + unit stamps, one Burst worker per faction.
             mgr.StampPass(statics, statics.Length, staticHash, mobiles, mobiles.Length);
@@ -90,6 +105,72 @@ namespace TheWaningBorder.Systems.Visibility
 
             TheWaningBorder.Core.Diagnostics.PerfSpikeLog.Report("FogStamp",
                 (UnityEngine.Time.realtimeSinceStartupAsDouble - t0) * 1000.0);
+        }
+
+        /// <summary>
+        /// THE SHARDROOT IS ALWAYS SEEN (2026-10-11): every player gets a
+        /// shardrootRevealRadius circle of sight (BorderSettings.asset) on
+        /// the artifact, wherever it is — on the ground, carried, enshrined,
+        /// embedded in its host well, or inside a wall / watch tower with its
+        /// garrisoned carrier (the circle then stands on the building). Added
+        /// to the per-pass unit stamps, so it moves with its holder.
+        /// </summary>
+        private void AppendShardrootReveal(ref NativeArray<FogOfWarManager.StampCommand> mobiles)
+        {
+            var settings = TheWaningBorder.Data.Border.BorderSettings.Get();
+            float radius = settings != null ? settings.shardrootRevealRadius : 0f;
+            if (radius <= 0f) return;
+
+            var em = EntityManager;
+            _shardrootSpots.Clear();
+            if (!_shardrootQuery.IsEmptyIgnoreFilter)
+            {
+                using var ents = _shardrootQuery.ToEntityArray(Allocator.Temp);
+                for (int i = 0; i < ents.Length; i++)
+                    if (TryShardrootSpot(em, ents[i], out var p)) _shardrootSpots.Add(p);
+            }
+            if (!_embeddedQuery.IsEmptyIgnoreFilter)
+            {
+                using var xfs = _embeddedQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+                for (int i = 0; i < xfs.Length; i++) _shardrootSpots.Add(xfs[i].Position);
+            }
+            if (_shardrootSpots.Count == 0) return;
+
+            const int players = 8;   // Faction.Blue (0) .. Faction.White (7)
+            var grown = new NativeArray<FogOfWarManager.StampCommand>(
+                mobiles.Length + _shardrootSpots.Count * players, Allocator.Temp);
+            NativeArray<FogOfWarManager.StampCommand>.Copy(mobiles, grown, mobiles.Length);
+            int at = mobiles.Length;
+            for (int s = 0; s < _shardrootSpots.Count; s++)
+                for (int f = 0; f < players; f++)
+                    grown[at++] = new FogOfWarManager.StampCommand
+                    {
+                        Position = (Vector3)_shardrootSpots[s],
+                        Radius = radius,
+                        Faction = (Faction)f,
+                    };
+            mobiles.Dispose();
+            mobiles = grown;
+        }
+
+        /// <summary>Where the artifact physically stands: its holder, or the
+        /// wall / tower module a garrisoned holder is inside.</summary>
+        private static bool TryShardrootSpot(EntityManager em, Entity e, out float3 pos)
+        {
+            pos = default;
+            if (!em.Exists(e)) return false;
+            if (em.HasComponent<WallGarrisonedIn>(e))
+            {
+                var module = em.GetComponentData<WallGarrisonedIn>(e).Module;
+                if (em.Exists(module) && em.HasComponent<LocalTransform>(module))
+                {
+                    pos = em.GetComponentData<LocalTransform>(module).Position;
+                    return true;
+                }
+            }
+            if (!em.HasComponent<LocalTransform>(e)) return false;
+            pos = em.GetComponentData<LocalTransform>(e).Position;
+            return true;
         }
 
         /// <summary>Snapshot a query into stamp commands, plus an

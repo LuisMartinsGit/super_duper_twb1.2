@@ -32,6 +32,10 @@ namespace TheWaningBorder.UI.Ingame
     {
         public bool Show;
         public bool Enabled;
+        /// <summary>The bank covers the price. An unaffordable upgrade is
+        /// still Enabled (clickable, drawn as poor) so the click can say
+        /// what is short instead of doing nothing (2026-10-11).</summary>
+        public bool CanAfford;
         /// <summary>0..1 while an upgrade is running; -1 when none is.</summary>
         public float Progress;
         public string Label;
@@ -96,7 +100,8 @@ namespace TheWaningBorder.UI.Ingame
             var available = EntityActionExtractor.GetFactionResourcesAsCostPublic(em, faction);
 
             info.Show = true;
-            info.Enabled = canAfford;
+            info.Enabled = true;
+            info.CanAfford = canAfford;
             info.Cost = cost;
             info.Label = string.Format(Loc.T("Upgrade\nLv {0}"), nextLevel);
             // "\n" + Loc.T("Cost: ") is the marker the actions panels re-split
@@ -160,7 +165,9 @@ namespace TheWaningBorder.UI.Ingame
             {
                 case UpgradeBuildingResult.CannotAfford:
                     PlayerNotificationSystem.NotifyError(
-                        Loc.T("Not enough resources to upgrade"));
+                        UpgradeBuildingCommandHelper.TryGetNextCost(em, building, out var cost, out _)
+                            ? UIHelpers.CantAfford(em, em.GetComponentData<FactionTag>(building).Value, cost)
+                            : Loc.T("Not enough resources to upgrade"));
                     break;
                 case UpgradeBuildingResult.NoCulture:
                     PlayerNotificationSystem.NotifyError(

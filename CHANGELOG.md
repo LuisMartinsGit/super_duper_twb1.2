@@ -13,6 +13,62 @@ build always name the same number.
 
 ---
 
+## [0.0.40] — 2026-10-11
+
+Everyone in a multiplayer match needs 0.0.40.
+
+### Added
+
+- **Messages at the top of the screen.** Game messages were never shown
+  before; they now appear at the top centre. Big events stay up longer: the
+  Shardroot descending, a player taking, dropping or seizing it, and your
+  territories being claimed or lost (naming who took them). Other players'
+  claims and losses show briefly.
+- **Clearer "can't afford" messages.** They now say what you are short of
+  ("need 30 more iron, 10 more veilstone"). The population-cap message shows
+  your numbers and tells you to build more housing.
+- **Trade menu** (Alanthor). A **Trade** button beside the idle builders
+  button opens a menu listing your Trading Outposts and the trade each one
+  runs. Click to move an outpost to a trade, or click a trade's header to move
+  them all. The top line shows your net trade per minute across all
+  territories.
+- **Arrow keys pan the camera.**
+- **Hide the religion panel.** A tab on its left edge slides it off screen.
+
+### Changed
+
+- **New Trading Outposts start on Hold Trade.** That includes Veilstone Mines
+  converted at age-up. Assign them a trade in the Trade menu.
+- **Several Trading Outposts at once.** With several selected, a trade button
+  sets all of them.
+- **The Shardroot is always in sight.** Every player sees a small area around
+  it, wherever it is: on the ground, carried, inside a wall or tower, or in a
+  Temple.
+- **Income shows everything you earn.** The resource bar now shows what you
+  actually earned over the last minute, including Mines, trade, loot and the
+  Vault, less what your Trading Outposts spend.
+- **Population cap no longer stalls a building.** When a finished unit is
+  waiting for room, the next research or upgrade in that building's queue runs
+  meanwhile. Units wait until it is done.
+- **The Temple panel shows only the slots you use,** plus one free slot while
+  you can still adopt a sect.
+- **Religion buttons are colour-coded:** red for military, purple for the
+  curse, green for healing and buffs, blue for economy and buildings.
+- **Idle builders** no longer counts builders that are walking, fighting or
+  have orders queued.
+
+### Fixed
+
+- **Losing the Temple wiped your religion.** A rebuilt Temple now gets back
+  every sect you adopted, with its levels and powers.
+- **Box selection got stuck** when the cursor crossed the interface.
+- **Walls with gates, towers or emplacements** showed gaps or overlapping
+  masonry beside them.
+- **The building upgrade button did nothing** when you could not afford it.
+  It now tells you what is missing.
+
+---
+
 ## [0.0.39] — 2026-10-09
 
 Everyone in a multiplayer match needs 0.0.39.

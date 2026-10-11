@@ -37,7 +37,10 @@ MonoBehaviour:
   edgeFeather: 0.35
   earthenDarken: 1.15
   pollSeconds: 0.5
-  maxRoutesPerPoll: 10
+  routeBudgetMs: 1
+  startupRouteBudgetMs: 12
+  failRetrySeconds: 10
+  failRetryMaxSeconds: 160
   fadeInSeconds: 2.5
   fadeOutSeconds: 75
   fastRasterSeconds: 0.083

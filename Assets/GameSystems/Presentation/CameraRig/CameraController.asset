@@ -20,6 +20,7 @@ MonoBehaviour:
   moveDamping: 0.15
   edgeScrollSpeed: 30
   edgeScrollBorder: 15
+  keyPanSpeed: 40
   zoomSpeed: 10
   minZoom: 15
   maxZoom: 80

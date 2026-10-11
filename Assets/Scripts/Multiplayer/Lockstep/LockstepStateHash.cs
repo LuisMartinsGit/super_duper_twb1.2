@@ -631,6 +631,7 @@ namespace TheWaningBorder.Multiplayer
                     // The recorded Call to Arms multiplier is what the refund
                     // reads, so a fork in it is a fork in the banks later.
                     Mix(ref hTech, math.asuint(q[i].PaidCostMultiplier));
+                    Mix(ref hTech, q[i].Trained);
                 }
             }
 

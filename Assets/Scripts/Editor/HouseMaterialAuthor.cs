@@ -23,7 +23,8 @@ namespace TheWaningBorder.EditorTools
         const string Model = Root + "House_test_project.fbx";
         const string TexRoot = Root + "Textures/";
         const string MatRoot = Root + "Materials/";
-        const string LitShader = "Universal Render Pipeline/Lit";
+        // Building materials carry the GPU player colour (BuildingFactionColorMarker).
+        const string LitShader = "TheWaningBorder/BuildingLit";
 
         /// <summary>FBX material name → texture folder, file prefix, parallax strength.</summary>
         static readonly (string fbx, string folder, string prefix, float parallax)[] Parts =

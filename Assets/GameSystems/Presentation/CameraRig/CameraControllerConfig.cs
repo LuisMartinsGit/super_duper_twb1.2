@@ -33,6 +33,9 @@ namespace TheWaningBorder.CameraRig
         public float edgeScrollSpeed;
         public float edgeScrollBorder;
 
+        /// <summary>Arrow-key pan speed, world metres per second.</summary>
+        public float keyPanSpeed;
+
         public float zoomSpeed;
         public float minZoom;
         public float maxZoom;

@@ -75,7 +75,7 @@ namespace TheWaningBorder.Entities
             em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             em.AddComponent<TradingOutpostTag>(entity);
-            em.AddComponentData(entity, new TradingOutpostMode { Recipe = TradeRecipe.BuyVeilstone });
+            em.AddComponentData(entity, new TradingOutpostMode { Recipe = TradeRecipe.Hold });
             em.AddComponent<TradingOutpostCarry>(entity);
             // Hosts its own research: the two trade unlocks and the discount
             // ladder (Research/ beside this file) — Barracks pattern.
@@ -105,7 +105,7 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             ecb.AddComponent<TradingOutpostTag>(entity);
-            ecb.AddComponent(entity, new TradingOutpostMode { Recipe = TradeRecipe.BuyVeilstone });
+            ecb.AddComponent(entity, new TradingOutpostMode { Recipe = TradeRecipe.Hold });
             ecb.AddComponent<TradingOutpostCarry>(entity);
             ecb.AddComponent(entity, new ProductionState { Busy = 0, Remaining = 0 });
             ecb.AddBuffer<ProductionQueueItem>(entity);
@@ -525,7 +525,7 @@ namespace TheWaningBorder.Entities
                 if (em.HasBuffer<ProductionQueueItem>(e)) em.GetBuffer<ProductionQueueItem>(e).Clear();
 
                 em.AddComponent<TradingOutpostTag>(e);
-                em.AddComponentData(e, new TradingOutpostMode { Recipe = TradeRecipe.BuyVeilstone });
+                em.AddComponentData(e, new TradingOutpostMode { Recipe = TradeRecipe.Hold });
                 if (!em.HasComponent<TradingOutpostCarry>(e)) em.AddComponent<TradingOutpostCarry>(e);
                 if (!em.HasComponent<ProductionState>(e))
                     em.AddComponentData(e, new ProductionState { Busy = 0, Remaining = 0 });
@@ -641,10 +641,10 @@ namespace TheWaningBorder.Entities
                 if (facs[i].Value == faction) into.Add(ents[i]);
         }
 
-        /// <summary>The trade this Outpost runs (Buy Veilstone if unset).</summary>
+        /// <summary>The trade this Outpost runs (Hold Trade if unset).</summary>
         public static TradeRecipe RecipeOf(EntityManager em, Entity outpost)
             => em.HasComponent<TradingOutpostMode>(outpost)
                ? em.GetComponentData<TradingOutpostMode>(outpost).Recipe
-               : TradeRecipe.BuyVeilstone;
+               : TradeRecipe.Hold;
     }
 }

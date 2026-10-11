@@ -67,6 +67,15 @@ public struct ProductionQueueItem : IBufferElementData
     /// difference. The refund reads this field instead. 0 for the other kinds.
     /// </summary>
     public float PaidCostMultiplier;
+
+    /// <summary>
+    /// Train: 1 once this unit's training has FINISHED and it is only
+    /// waiting for population room (2026-10-11). While it waits, the first
+    /// research or level-up queued behind it is moved ahead of it and runs;
+    /// when that is done this unit is back at the head and leaves the moment
+    /// there is room, without training again. 0 otherwise.
+    /// </summary>
+    public byte Trained;
 }
 
 /// <summary>
@@ -79,7 +88,8 @@ public struct ProductionQueueItem : IBufferElementData
 ///
 /// A finished unit that the population cap will not admit holds here with
 /// Busy = 1 and Remaining = 0 until room frees, then spawns — the item stays
-/// at the head, paid for, and nothing behind it starts.
+/// paid for, and no UNIT behind it starts; a research or level-up queued
+/// behind it is moved ahead of it and runs meanwhile (ProductionQueueItem.Trained).
 /// </summary>
 public struct ProductionState : IComponentData
 {

@@ -168,4 +168,18 @@ public static class FactionColors
     {
         return f.ToString();
     }
+
+    /// <summary>
+    /// A faction as notification text: "You" for the local player, otherwise
+    /// the name of its lobby colour, rich-text tinted in that colour (the
+    /// lobby can give Blue's seat a red swatch, so the colour name is what
+    /// the player recognises).
+    /// </summary>
+    public static string RichName(Faction f)
+    {
+        if (f == GameSettings.LocalPlayerFaction && !GameSettings.IsSpectating)
+            return TheWaningBorder.Core.Localization.Loc.T("You");
+        return "<color=#" + ColorUtility.ToHtmlStringRGB(Get(f)) + ">"
+            + TheWaningBorder.Core.Localization.Loc.T(GetColorName(f)) + "</color>";
+    }
 }

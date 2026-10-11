@@ -214,6 +214,10 @@ namespace TheWaningBorder.UI.Ingame
             // Idle-builder button (2026-10-09): cycles the local player's
             // inactive builders, panning to each — hidden while spectating.
             SpawnCodeBuilt<IdleBuilderButton>("GameUI_IdleBuilders");
+            // Trade routes: the Trading Outposts' assignments and net trade
+            // (docs/Design/Veilstone_Economy.md § 3.1). Shown only while the
+            // player has a finished Outpost.
+            SpawnCodeBuilt<TradeMenu>("GameUI_TradeMenu");
 
             // Replay playback bar — only while a replay is being watched
             // (docs/Design/Replays_And_Saves.md). Before the pause menu so the
@@ -261,6 +265,7 @@ namespace TheWaningBorder.UI.Ingame
                 _housing   = FindAmountLabel(_resourcePanel.transform, "Housing");
                 BuildReligionRow(_resourcePanel.transform, catalog.hud);
                 RegisterResourceIcons(_resourcePanel.transform);
+                BindIncomeTooltips(_resourcePanel.transform);
                 if (_supplies == null)
                     TWBLog.Log("[GameUI] ResourcePanel: no Supplies/amount label found — " +
                         "row names changed?");
@@ -367,7 +372,9 @@ namespace TheWaningBorder.UI.Ingame
             if (catalog.notificationStack != null)
                 SpawnPanel(catalog.notificationStack, "GameUI_Notifications");
             else
-                TWBLog.Log("[GameUI] GameUICatalog.notificationStack is unassigned - no toasts.");
+                // No authored stack: the notifier builds its own (it used to
+                // log "no toasts" here and drop every notice the game posted).
+                SpawnCodeBuilt<PlayerNotificationSystem>("GameUI_Notifications");
 
             if (catalog.planningModeHud != null)
                 SpawnPanel(catalog.planningModeHud, "GameUI_PlanningMode");
@@ -733,6 +740,7 @@ namespace TheWaningBorder.UI.Ingame
                 if (_housing != null)   _housing.text   = "-";
                 if (_religion != null)  _religion.text  = "-";
                 if (_religionRing != null) _religionRing.fillAmount = 0f;
+                _incomeKnown = false;
                 return;
             }
             var faction = view.Value;
@@ -745,16 +753,21 @@ namespace TheWaningBorder.UI.Ingame
             for (int i = 0; i < tags.Length; i++)
             {
                 if (tags[i].Value != faction) continue;
-                if (_supplies != null)  _supplies.text  = banks[i].Supplies.ToString();
-                if (_iron != null)      _iron.text      = banks[i].Iron.ToString();
-                if (_veilstone != null) _veilstone.text = banks[i].Veilstone.ToString();
-                if (_veilsteel != null) _veilsteel.text = banks[i].Veilsteel.ToString();
+
+                // THE WHOLE PICTURE: each amount carries the faction's net
+                // income per minute; hovering the row splits it into what is
+                // produced and what the Trading Outposts sell.
+                _income = TheWaningBorder.Systems.World.TerritoryIncomeSystem.FactionIncomeForDisplay(em, faction);
+                var net = FullNetRate(em, faction);
+                SetAmount(_supplies,  banks[i].Supplies,  net.Supplies);
+                SetAmount(_iron,      banks[i].Iron,      net.Iron);
+                SetAmount(_veilstone, banks[i].Veilstone, net.Veilstone);
+                SetAmount(_veilsteel, banks[i].Veilsteel, net.Veilsteel);
 
                 // RED WHEN DRAINING (docs/Design/Veilstone_Economy.md §5): a
                 // resource the faction's trades consume faster than it is
                 // produced turns red, so a Trading Outpost eating the bank is
                 // visible before the bank is empty.
-                var net = TheWaningBorder.Systems.World.TerritoryIncomeSystem.FactionNetForDisplay(em, faction);
                 Tint(_supplies,  net.Supplies);
                 Tint(_iron,      net.Iron);
                 Tint(_veilstone, net.Veilstone);
@@ -769,6 +782,152 @@ namespace TheWaningBorder.UI.Ingame
                 }
                 return;
             }
+        }
+
+        // ── Income per minute on the resource bar ──
+        private TheWaningBorder.Systems.World.TerritoryIncomeSystem.FactionIncome _income;
+        private bool _incomeKnown;
+        private readonly System.Text.StringBuilder _incomeSb = new System.Text.StringBuilder(256);
+
+        // ── The FULL rate: what the faction really earned last minute ──
+        // The computed income knows only the steady sources it was taught
+        // (territory, flat building income, Trading Outposts); Mines, Keep
+        // wings, held wells, sect harvests, trader deliveries, Vault
+        // withdrawals and loot all pay the bank without appearing in it. The
+        // bar therefore shows the MEASURED rate: every credit the
+        // EconomyLedger booked for the faction over the last minute of game
+        // time (refunds and scripted grants are not income), less what its
+        // Trading Outposts spend. A shorter window is scaled up; under
+        // IncomeMinWindowSeconds it falls back to the computed rate.
+        // Presentation only — the ledger is observation-only.
+        private const float IncomeWindowSeconds = 60f;
+        private const float IncomeMinWindowSeconds = 10f;
+        private struct IncomeSample { public double T; public float S, I, Vs, Vt; }
+        private readonly System.Collections.Generic.List<IncomeSample> _incomeSamples =
+            new System.Collections.Generic.List<IncomeSample>();
+        private int _incomeSampleFaction = -1;
+        private TheWaningBorder.Systems.World.TerritoryYield _measuredGross;
+        private bool _measured;
+
+        private static float LedgerTotal(int f, int r)
+        {
+            float sum = 0f;
+            for (int s = 0; s < (int)TheWaningBorder.Economy.IncomeSource.Count; s++)
+            {
+                var src = (TheWaningBorder.Economy.IncomeSource)s;
+                if (src == TheWaningBorder.Economy.IncomeSource.Refund
+                    || src == TheWaningBorder.Economy.IncomeSource.Grant) continue;
+                sum += TheWaningBorder.Economy.EconomyLedger.LifetimeIncomeOf(f, src, r);
+            }
+            return sum;
+        }
+
+        private TheWaningBorder.Systems.World.TerritoryYield FullNetRate(EntityManager em, Faction faction)
+        {
+            int f = (int)faction;
+            _measured = false;
+            if (f < 0 || f >= TheWaningBorder.Economy.EconomyLedger.Factions) return _income.Net;
+
+            double now = em.World.Time.ElapsedTime;
+            var cur = new IncomeSample
+            {
+                T = now, S = LedgerTotal(f, 0), I = LedgerTotal(f, 1),
+                Vs = LedgerTotal(f, 2), Vt = LedgerTotal(f, 3),
+            };
+            // A new viewed faction or a new match (time or the lifetime
+            // totals went backwards): start the window over.
+            int n = _incomeSamples.Count;
+            if (_incomeSampleFaction != f
+                || (n > 0 && (now < _incomeSamples[n - 1].T || cur.S < _incomeSamples[n - 1].S)))
+            {
+                _incomeSamples.Clear();
+                _incomeSampleFaction = f;
+            }
+            if (_incomeSamples.Count == 0 || now > _incomeSamples[_incomeSamples.Count - 1].T)
+                _incomeSamples.Add(cur);
+            while (_incomeSamples.Count > 2 && now - _incomeSamples[1].T >= IncomeWindowSeconds)
+                _incomeSamples.RemoveAt(0);
+
+            var first = _incomeSamples[0];
+            double span = now - first.T;
+            if (span < IncomeMinWindowSeconds) return _income.Net;
+
+            float k = (float)(60.0 / span);
+            _measuredGross = new TheWaningBorder.Systems.World.TerritoryYield
+            {
+                Supplies  = (cur.S  - first.S)  * k,
+                Iron      = (cur.I  - first.I)  * k,
+                Veilstone = (cur.Vs - first.Vs) * k,
+                Veilsteel = (cur.Vt - first.Vt) * k,
+            };
+            _measured = true;
+            var sold = _income.Sold;
+            return new TheWaningBorder.Systems.World.TerritoryYield
+            {
+                Supplies  = _measuredGross.Supplies  - sold.Supplies,
+                Iron      = _measuredGross.Iron      - sold.Iron,
+                Veilstone = _measuredGross.Veilstone - sold.Veilstone,
+                Veilsteel = _measuredGross.Veilsteel - sold.Veilsteel,
+            };
+        }
+
+        /// <summary>"1250 +100/min" — the bank, then the net rate small.</summary>
+        private void SetAmount(TMP_Text label, int amount, float netPerMinute)
+        {
+            _incomeKnown = true;
+            if (label == null) return;
+            int rate = Mathf.RoundToInt(netPerMinute);
+            string colour = rate > 0 ? "#9FE08A" : rate < 0 ? "#FF6A5E" : "#B8B8B8";
+            label.textWrappingMode = TextWrappingModes.NoWrap;
+            label.text = amount + " <size=50%><color=" + colour + ">"
+                + (rate > 0 ? "+" : "") + rate + Loc.T("/min") + "</color></size>";
+        }
+
+        /// <summary>A hover tooltip on each resource row: net, produced (by
+        /// source) and sold.</summary>
+        private void BindIncomeTooltips(Transform panelRoot)
+        {
+            foreach (var row in panelRoot.GetComponentsInChildren<Transform>(true))
+            {
+                int r = row.name == TheWaningBorder.UI.Common.ResourceIcons.Supplies ? 0
+                      : row.name == TheWaningBorder.UI.Common.ResourceIcons.Iron ? 1
+                      : row.name == TheWaningBorder.UI.Common.ResourceIcons.Veilstone ? 2
+                      : row.name == TheWaningBorder.UI.Common.ResourceIcons.Veilsteel ? 3 : -1;
+                if (r < 0) continue;
+                string res = row.name;
+                UITooltip.Bind(row.gameObject, () => IncomeTooltip(res, r));
+            }
+        }
+
+        private static float Pick(TheWaningBorder.Systems.World.TerritoryYield y, int r)
+            => r == 0 ? y.Supplies : r == 1 ? y.Iron : r == 2 ? y.Veilstone : y.Veilsteel;
+
+        private string IncomeTooltip(string resource, int r)
+        {
+            if (!_incomeKnown || GameSettings.ViewFaction == null) return null;
+            int sold = Mathf.RoundToInt(Pick(_income.Sold, r));
+            int steady = Mathf.RoundToInt(Pick(_income.Produced, r));
+            int produced = _measured ? Mathf.RoundToInt(Pick(_measuredGross, r)) : steady;
+            int net = produced - sold;
+            int territory = Mathf.RoundToInt(Pick(_income.Territory, r));
+            int buildings = Mathf.RoundToInt(Pick(_income.Buildings, r));
+            int bought = Mathf.RoundToInt(Pick(_income.Bought, r));
+
+            var sb = _incomeSb;
+            sb.Clear();
+            sb.Append("<b>").Append(Loc.T(resource)).Append("</b>: ")
+              .Append(net > 0 ? "+" : "").Append(net).Append(Loc.T("/min")).Append('\n');
+            sb.Append(string.Format(Loc.T("Earning {0}/min"), produced));
+            if (territory != 0) sb.Append("\n   ").Append(string.Format(Loc.T("Territory: {0}"), territory));
+            if (buildings != 0) sb.Append("\n   ").Append(string.Format(Loc.T("Buildings: {0}"), buildings));
+            if (bought != 0)    sb.Append("\n   ").Append(string.Format(Loc.T("Trading Outposts: {0}"), bought));
+            if (_measured && produced != steady)
+                sb.Append("\n   ").Append(string.Format(Loc.T("Mines, trade, loot and other: {0}"), produced - steady));
+            sb.Append('\n').Append(string.Format(Loc.T("Selling {0}/min"), sold));
+            sb.Append("\n<i>").Append(_measured
+                ? Loc.T("Everything earned over the last minute of play.")
+                : Loc.T("Steady income only, until the first minute is measured.")).Append("</i>");
+            return sb.ToString();
         }
 
         private static readonly Color DrainingRed = new Color(1f, 0.35f, 0.3f);
@@ -953,11 +1112,11 @@ namespace TheWaningBorder.UI.Ingame
             {
                 string label = upgrade.Label.Replace('\n', ' ');
                 if (_upgradeButtonLabel.text != label) _upgradeButtonLabel.text = label;
-                _upgradeButtonLabel.color = upgrade.Enabled ? GameUIKit.Gold : GameUIKit.TextDim;
+                _upgradeButtonLabel.color = upgrade.Enabled && upgrade.CanAfford ? GameUIKit.Gold : GameUIKit.TextDim;
             }
             if (_upgradeButtonBg != null)
-                _upgradeButtonBg.color = upgrade.Enabled
-                    ? GameUIKit.ButtonBg : GameUIKit.ButtonBgLocked;
+                _upgradeButtonBg.color = !upgrade.Enabled ? GameUIKit.ButtonBgLocked
+                    : upgrade.CanAfford ? GameUIKit.ButtonBg : GameUIKit.ButtonBgPoor;
         }
 
         private void RefreshSelection(EntityManager em)

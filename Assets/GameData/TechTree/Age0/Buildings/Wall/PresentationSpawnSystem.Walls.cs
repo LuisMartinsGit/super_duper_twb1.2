@@ -911,13 +911,14 @@ public partial class PresentationSpawnSystem
 
         // Authored gatehouse art wins, at the curtain's scale for the same
         // reason the hub is (see CreateProceduralWallHub).
-        // A level-authored gatehouse is a wall | gate | wall row built to be
-        // fitted to the full span; the timber gate keeps the curtain's scale.
+        // Every gatehouse is FITTED to the span (2026-10-11): the curtain's
+        // swept mesh leaves exactly WallGateSpan open for it (WallOpenings),
+        // so a gatehouse drawn at any other length showed a sliver of
+        // missing wall at each side. The timber gate used to keep the
+        // curtain's scale, and was the one that did.
         byte gateTier = WallTierOf(entity);
-        bool tierGate = WallModuleArt.TierPrefab(WallModuleArt.WallPart.Gate, gateTier) != null;
         var gateArt = WallModuleArt.ForTier(WallModuleArt.WallPart.Gate, gateTier,
-            TheWaningBorder.Entities.AlanthorWall.GatePresentationID, span, orientAlongZ: true,
-            explicitScale: tierGate ? (float?)null : WallArtScale(gateTier));
+            TheWaningBorder.Entities.AlanthorWall.GatePresentationID, span, orientAlongZ: true);
         if (WallModuleArt.Instantiate(gateArt, root.transform, "Gatehouse") != null)
         {
             // The doors are part of the authored model: any child whose name

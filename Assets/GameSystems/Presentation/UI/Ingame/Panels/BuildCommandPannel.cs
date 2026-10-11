@@ -855,7 +855,7 @@ namespace TheWaningBorder.UI.Ingame
             var total = CommandRouter.WallPathCost(tool.Points, tool.Kinds, PlacingPalisade);
             if (!FactionEconomy.CanAfford(_em, fac, total))
             {
-                PlayerNotificationSystem.NotifyError(Loc.T("Not enough resources"));
+                PlayerNotificationSystem.NotifyError(TheWaningBorder.UI.Common.UIHelpers.CantAfford(_em, fac, total));
                 CancelPlacementPreviewOnly();
                 return;
             }
@@ -988,7 +988,7 @@ namespace TheWaningBorder.UI.Ingame
             // (docs/Multiplayer_LAN_Readiness.md).
             if (!FactionEconomy.CanAfford(_em, fac, cost))
             {
-                PlayerNotificationSystem.NotifyError(Loc.T("Not enough resources"));
+                PlayerNotificationSystem.NotifyError(TheWaningBorder.UI.Common.UIHelpers.CantAfford(_em, fac, cost));
                 return;
             }
 
@@ -1302,7 +1302,7 @@ namespace TheWaningBorder.UI.Ingame
             if (!BuildCosts.TryGet(WallHubId, out var cost)) cost = default;
             if (!FactionEconomy.CanAfford(_em, fac, cost))
             {
-                PlayerNotificationSystem.NotifyError(Loc.T("Not enough resources"));
+                PlayerNotificationSystem.NotifyError(TheWaningBorder.UI.Common.UIHelpers.CantAfford(_em, fac, cost));
                 return;
             }
 
@@ -1390,7 +1390,7 @@ namespace TheWaningBorder.UI.Ingame
                 cost = cost + CommandRouter.WallRunCost(PlacingPalisade, math.distance(srcPos.xz, pos.xz));
                 if (!FactionEconomy.CanAfford(_em, fac, cost))
                 {
-                    PlayerNotificationSystem.NotifyError(Loc.T("Not enough resources"));
+                    PlayerNotificationSystem.NotifyError(TheWaningBorder.UI.Common.UIHelpers.CantAfford(_em, fac, cost));
                     return;
                 }
             }

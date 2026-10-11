@@ -275,7 +275,7 @@ namespace TheWaningBorder.UI.Ingame
                 Tooltip = upgrade.Tooltip,
                 Cost = upgrade.Cost,
                 Enabled = upgrade.Enabled,
-                CanAfford = upgrade.Enabled,
+                CanAfford = upgrade.CanAfford,
             };
             var slot = _slots[index];
             FillSlot(slot, button, Category.Research, null,

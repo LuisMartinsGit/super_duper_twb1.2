@@ -227,7 +227,7 @@ namespace TheWaningBorder.Systems.Border
                             RitualKind.Purification, ShardrootState.ShardrootPower);
                         em.AddComponent<ShardrootTag>(pickup);
                         MakePersistent(em, pickup);
-                        SimSignals.Notify(Loc.T("The SHARDROOT has been unearthed!"));
+                        SimSignals.Announce(Loc.T("The SHARDROOT has been unearthed!"));
                         UnityEngine.Debug.Log($"[Shardroot] artifact surfaced by fallback at ({dropPos.x:F0},{dropPos.z:F0}) " +
                             "(host lost, or claimed/destroyed without an award)");
                     }
@@ -295,9 +295,13 @@ namespace TheWaningBorder.Systems.Border
             Faction prevHolder = state.HolderFaction;
             state.HolderFaction = Faction.Border;
             state.HolderPos = default;
+            // IncludeDisabled: a carrier garrisoned in a wall or watch tower
+            // is Disabled but still HOLDS the artifact — without this the
+            // holder read as nobody the moment it stepped inside.
             foreach (var (fac, xf) in SystemAPI
                 .Query<RefRO<FactionTag>, RefRO<LocalTransform>>()
-                .WithAll<ShardrootTag>())
+                .WithAll<ShardrootTag>()
+                .WithOptions(EntityQueryOptions.IncludeDisabledEntities))
             {
                 if (fac.ValueRO.Value != Faction.Border)
                 {
@@ -308,6 +312,8 @@ namespace TheWaningBorder.Systems.Border
             }
             TickAscension(em, ref state, SystemAPI.Time.DeltaTime);
 
+            if (state.HolderFaction != prevHolder)
+                AnnounceHolder(prevHolder, state.HolderFaction);
             if (state.HolderFaction != prevHolder)
                 UnityEngine.Debug.Log(state.HolderFaction == Faction.Border
                     ? $"[Shardroot] {prevHolder} no longer holds the artifact"
@@ -359,6 +365,25 @@ namespace TheWaningBorder.Systems.Border
         private const float BeaconInterval = 4f;
 
         /// <summary>
+        /// Tell every player who took or lost the Shardroot (2026-10-11). The
+        /// holder is tracked here every tick; a change is a pickup (nobody ->
+        /// X), a drop (X -> nobody: its carrier died, or the hero / Temple
+        /// fell) or a seizure (X -> Y in one tick). Presentation only — it
+        /// posts a notice and pings the minimap, nothing in the sim reads it.
+        /// </summary>
+        private static void AnnounceHolder(Faction from, Faction to)
+        {
+            bool had = from != Faction.Border, has = to != Faction.Border;
+            string text = had && has
+                ? string.Format(Loc.T("{0} seized the Shardroot from {1}!"),
+                    FactionColors.RichName(to), FactionColors.RichName(from))
+                : has
+                    ? string.Format(Loc.T("{0} took the Shardroot!"), FactionColors.RichName(to))
+                    : string.Format(Loc.T("{0} dropped the Shardroot!"), FactionColors.RichName(from));
+            SimSignals.Announce(text);
+        }
+
+        /// <summary>
         /// Called by the verb systems when a well is claimed (Cleansed /
         /// Converted / Destroyed). If the well is the seeded host and the
         /// artifact hasn't surfaced yet, it drops here — announced to all.
@@ -383,7 +408,7 @@ namespace TheWaningBorder.Systems.Border
             em.AddComponent<ShardrootTag>(pickup);
             MakePersistent(em, pickup);
 
-            SimSignals.Notify(Loc.T("The SHARDROOT has been unearthed!"));
+            SimSignals.Announce(Loc.T("The SHARDROOT has been unearthed!"));
             UnityEngine.Debug.Log($"[Shardroot] AWARDED -- {kind} on the host well at ({pos.x:F0},{pos.z:F0}) " +
                 $"drops the artifact{(fromMaw ? " (it was embedded in the Maw)" : "")}");
         }
@@ -478,7 +503,7 @@ namespace TheWaningBorder.Systems.Border
             em.SetComponentData(marker, new ShardrootEmbedded { Well = state.HostNode });
 
             SimSignals.Ping(wellPos, SimPingKind.Discovery, BeaconInterval * 3f, big: true);
-            SimSignals.Notify(Loc.T("The SHARDROOT gleams in the heart of a Maw -- verb that well to claim it!"));
+            SimSignals.Announce(Loc.T("The SHARDROOT gleams in the heart of a Maw -- verb that well to claim it!"));
             UnityEngine.Debug.Log($"[Shardroot] MAW -- the host well at ({wellPos.x:F0},{wellPos.z:F0}) stood Wild " +
                 $"for {state.HostWildSeconds:F0}s unverbed; the artifact is now visibly embedded in it");
         }

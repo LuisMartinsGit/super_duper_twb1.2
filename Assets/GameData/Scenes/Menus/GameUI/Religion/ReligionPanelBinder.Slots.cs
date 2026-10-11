@@ -226,7 +226,10 @@ namespace TheWaningBorder.UI.Ingame
 
                 if (btn.targetGraphic is Image img)
                 {
-                    Color c = !owned ? AbilityLocked : ready ? AbilityReady : AbilityCool;
+                    // Coloured by what the power does (red military, purple
+                    // curse, green healing / buffs, blue economy / buildings),
+                    // darkened while it cools; grey while not yet bought.
+                    Color c = !owned ? AbilityLocked : AbilityColor(view.SectId, tier, ready);
                     if (img.color != c) img.color = c;
                 }
 

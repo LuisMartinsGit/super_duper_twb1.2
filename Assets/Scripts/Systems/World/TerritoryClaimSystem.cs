@@ -300,7 +300,7 @@ namespace TheWaningBorder.Systems.World
                 {
                     anyLoss = true;
                     CollapseBuildings(em, t, SideOf(loser));
-                    Announce(t, loser, lost: true);
+                    Announce(t, loser, lost: true, by: holder);
                 }
                 if (justClaimed) Announce(t, holder, lost: false);
             }
@@ -647,20 +647,42 @@ namespace TheWaningBorder.Systems.World
         private static bool Hostile(int a, int b)
             => Alliances.AreHostile((Faction)a, (Faction)b);
 
-        /// <summary>Tell the local player when ground changes hands with
-        /// them on either side of it. Presentation only — no sim state.</summary>
-        private static void Announce(int t, int side, bool lost)
+        /// <summary>
+        /// TERRITORY NOTICES (2026-10-11). The local player's own gains and
+        /// losses are ANNOUNCEMENTS (held on screen longer) and a loss names
+        /// who is taking the ground; any other player's claim or loss is a
+        /// short notice. The curse's captures announce themselves
+        /// (CurseTerritorySystem), so a curse side is skipped here. A
+        /// spectator hears everything as plain notices. Presentation only —
+        /// no sim state.
+        /// </summary>
+        private static void Announce(int t, int side, bool lost, int by = TerritoryOwnership.Natural)
         {
-            int local = (int)GameSettings.LocalPlayerFaction;
-            if (side != local) return;
+            if (side < 0 || side >= CurseSide) return;   // the curse and nobody
+            var L = (System.Func<string, string>)TheWaningBorder.Core.Localization.Loc.T;
             string name = RegionMap.NameOf(t);
-            if (string.IsNullOrEmpty(name)) name = TheWaningBorder.Core.Localization.Loc.T("a territory");
-            if (lost)
-                SimSignals.NotifyError(string.Format(
-                    TheWaningBorder.Core.Localization.Loc.T("Lost {0} — its buildings collapse"), name));
-            else
-                SimSignals.Notify(string.Format(
-                    TheWaningBorder.Core.Localization.Loc.T("Claimed {0}"), name));
+            if (string.IsNullOrEmpty(name)) name = L("a territory");
+            var who = (Faction)side;
+            bool mine = !GameSettings.IsSpectating && who == GameSettings.LocalPlayerFaction;
+
+            if (mine)
+            {
+                if (!lost)
+                    SimSignals.Announce(string.Format(L("You claimed {0}"), name));
+                else if (by == TerritoryOwnership.Curse)
+                    SimSignals.Announce(string.Format(L("The curse took {0} from you — its buildings collapse"), name));
+                else if (by >= 0 && by < CurseSide)
+                    SimSignals.Announce(string.Format(L("{0} took {1} from you — its buildings collapse"),
+                        FactionColors.RichName((Faction)by), name));
+                else
+                    SimSignals.Announce(string.Format(L("You lost {0} — its buildings collapse"), name));
+                return;
+            }
+
+            string text = lost
+                ? string.Format(L("{0} lost {1}"), FactionColors.RichName(who), name)
+                : string.Format(L("{0} claimed {1}"), FactionColors.RichName(who), name);
+            SimSignals.Notify(text);
         }
     }
 }

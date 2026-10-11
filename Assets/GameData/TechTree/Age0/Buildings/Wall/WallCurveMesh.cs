@@ -100,15 +100,15 @@ namespace TheWaningBorder.Rendering
         /// Build the mesh. <paramref name="curve"/> runs hub centre to hub
         /// centre; the wall occupies [inset, total − inset]. <paramref name="cellArcs"/>
         /// gives each cell's arc length along the curve (from its stored
-        /// position — AlanthorWall.ArcLengthAlong), every station belongs to
-        /// the nearest cell, and <paramref name="cellSolid"/> answers per cell
-        /// index: false leaves that cell's stations OPEN (dead, or a gate,
-        /// which builds its own masonry). Positions rather than even spans,
+        /// position — AlanthorWall.ArcLengthAlong) and <paramref name="cellOpenHalf"/>
+        /// how much of the curve each cell leaves OPEN (WallOpenings: dead
+        /// cells their own span, a gate / tower / emplacement exactly the
+        /// masonry it draws itself). Positions rather than even spans,
         /// because a segment split at a hub keeps its cells where they were
         /// while its span changes under them.
         /// </summary>
         public static Mesh Build(IReadOnlyList<float3> curve, float inset, IReadOnlyList<float> cellArcs,
-                                 System.Func<int, bool> cellSolid, float heightScale = 1f, Mesh reuse = null,
+                                 System.Func<int, float> cellOpenHalf, float heightScale = 1f, Mesh reuse = null,
                                  Matrix4x4? worldToLocal = null,
                                  byte tier = TheWaningBorder.Entities.WallTiers.Palisade)
         {
@@ -127,21 +127,7 @@ namespace TheWaningBorder.Rendering
             float total = cum[n - 1];
             float s0 = inset, s1 = total - inset;
             if (s1 - s0 < 0.5f) { s0 = math.max(0f, total * 0.5f - 0.75f); s1 = math.min(total, total * 0.5f + 0.75f); }
-            float span = s1 - s0;
-            int cellCount = cellArcs != null ? cellArcs.Count : 0;
-
-            int stations = math.max(2, (int)math.ceil(span / Step) + 1);
-            var pos = new Vector3[stations];
-            var right = new Vector3[stations];
-            var arc = new float[stations];
-            for (int i = 0; i < stations; i++)
-            {
-                float s = s0 + span * i / (stations - 1);
-                arc[i] = s;
-                float3 p = TheWaningBorder.Entities.AlanthorWall.SampleCurve(curve, cum, s, out float3 tan);
-                pos[i] = new Vector3(p.x, TerrainUtility.GetHeight(p.x, p.z), p.z);
-                right[i] = new Vector3(tan.z, 0f, -tan.x);   // across the wall (+ = outer face)
-            }
+            WallOpenings.SolidRuns(s0, s1, cellArcs, cellOpenHalf, _runs);
 
             var verts = new List<Vector3>();
             var norms = new List<Vector3>();
@@ -149,26 +135,42 @@ namespace TheWaningBorder.Rendering
             var subs = new List<int>[Bands];
             for (int b = 0; b < Bands; b++) subs[b] = new List<int>();
 
-            for (int i = 0; i < stations - 1; i++)
+            // Each solid run gets its own stations, so it starts and ends
+            // exactly where the opening beside it does.
+            foreach (var run in _runs)
             {
-                float mid = (arc[i] + arc[i + 1]) * 0.5f;
-                if (cellCount > 0 && cellSolid != null && !cellSolid(NearestCell(cellArcs, mid))) continue;
-
-                for (int b = 0; b < Bands && b < profile.Length; b++)
+                float span = run.b - run.a;
+                int stations = math.max(2, (int)math.ceil(span / Step) + 1);
+                var pos = new Vector3[stations];
+                var right = new Vector3[stations];
+                var arc = new float[stations];
+                for (int i = 0; i < stations; i++)
                 {
-                    var band = profile[b];
-                    if (!band.Used) continue;
-                    bool here = !band.Broken || Block(arc[i], band);
-                    bool next = !band.Broken || Block(arc[i + 1], band);
-                    if (band.Broken && !(here && next))
+                    float s = run.a + span * i / (stations - 1);
+                    arc[i] = s;
+                    float3 p = TheWaningBorder.Entities.AlanthorWall.SampleCurve(curve, cum, s, out float3 tan);
+                    pos[i] = new Vector3(p.x, TerrainUtility.GetHeight(p.x, p.z), p.z);
+                    right[i] = new Vector3(tan.z, 0f, -tan.x);   // across the wall (+ = outer face)
+                }
+
+                for (int i = 0; i < stations - 1; i++)
+                {
+                    for (int b = 0; b < Bands && b < profile.Length; b++)
                     {
-                        // The face closing a block where the band steps down.
-                        if (here != next) EndFace(verts, norms, uvs, subs[b], here ? pos[i] : pos[i + 1],
-                                                 here ? right[i] : right[i + 1], band, facingForward: here,
-                                                 pos[i + 1] - pos[i], hs);
-                        continue;
+                        var band = profile[b];
+                        if (!band.Used) continue;
+                        bool here = !band.Broken || Block(arc[i], band);
+                        bool next = !band.Broken || Block(arc[i + 1], band);
+                        if (band.Broken && !(here && next))
+                        {
+                            // The face closing a block where the band steps down.
+                            if (here != next) EndFace(verts, norms, uvs, subs[b], here ? pos[i] : pos[i + 1],
+                                                     here ? right[i] : right[i + 1], band, facingForward: here,
+                                                     pos[i + 1] - pos[i], hs);
+                            continue;
+                        }
+                        Extrude(verts, norms, uvs, subs[b], pos[i], right[i], pos[i + 1], right[i + 1], band, arc[i], arc[i + 1], hs);
                     }
-                    Extrude(verts, norms, uvs, subs[b], pos[i], right[i], pos[i + 1], right[i + 1], band, arc[i], arc[i + 1], hs);
                 }
             }
             // Closed ends of the wall body at both hubs would be inside the hub; skip.
@@ -193,18 +195,7 @@ namespace TheWaningBorder.Rendering
             return mesh;
         }
 
-        /// <summary>Index of the cell whose arc position is nearest <paramref name="s"/>.
-        /// Cells are few (a module every 3 m); a linear scan per station is fine.</summary>
-        static int NearestCell(IReadOnlyList<float> arcs, float s)
-        {
-            int best = 0; float bestD = float.MaxValue;
-            for (int i = 0; i < arcs.Count; i++)
-            {
-                float d = math.abs(arcs[i] - s);
-                if (d < bestD) { bestD = d; best = i; }
-            }
-            return best;
-        }
+        static readonly List<(float a, float b)> _runs = new List<(float a, float b)>();
 
         static bool Block(float s, in Band band) => math.frac(s / band.Period) < band.Duty;
 

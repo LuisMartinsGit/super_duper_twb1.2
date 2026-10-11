@@ -121,7 +121,7 @@ military units over economy units when both are inside the box.
 
 | Action | Control |
 |---|---|
-| Pan | Hold **Middle Mouse** + drag, or push the cursor to a **screen edge** |
+| Pan | Hold **Middle Mouse** + drag, push the cursor to a **screen edge**, or hold the **arrow keys** |
 | Zoom | **Mouse wheel** (range ~15–80 units) |
 | Rotate | **Ctrl + Mouse wheel** |
 | Centre here | **Left-click the minimap** |
@@ -135,9 +135,11 @@ military units over economy units when both are inside the box.
 > facing, so a blip's position on the minimap matches where it is on screen
 > without any mental rotation.
 >
-> **There is no keyboard pan.** Arrow-key panning was removed (2026-08-28) so
-> **A** stays unambiguously attack-move and **D** unambiguously the Defensive stance.
-> Pan with the middle mouse button, the screen edge, or the minimap.
+> **The arrow keys pan (2026-10-11); WASD does not.** WASD panning was removed
+> (2026-08-28) so **A** stays unambiguously attack-move and **D** unambiguously the
+> Defensive stance; the arrow keys clash with neither. They pan relative to where the
+> camera looks, also while paused, and not while you are typing in a text field.
+> Speed is `keyPanSpeed` in `CameraController.asset`.
 >
 > Edge panning does **not** fire while the cursor is over the interface — the
 > minimap sits in the bottom-left corner, which is inside the edge band, so

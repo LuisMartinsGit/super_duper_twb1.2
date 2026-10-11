@@ -1027,6 +1027,14 @@ it drops from a detonated holder (§3.1).
   it has right of way over his own side's units (enemies can still snatch
   it first). The pickup is selectable (info panel) and a right-click on it
   orders the selection onto it.
+- **Always in sight (2026-10-11)**: every player has line of sight in a
+  small radius around the artifact at all times — on the ground, carried,
+  inside a wall or watch tower with its garrisoned carrier (the circle
+  stands on the building), enshrined in a Temple, or embedded in its host
+  well. The radius is `shardrootRevealRadius` in `BorderSettings.asset`.
+  Taking it, losing it and its descent are announced to every player at
+  the top of the screen (who took it, who dropped it, who seized it from
+  whom).
 - **Store — one choice, no backsies** per holding-cycle:
   - **Hall** → awaken the culture's **Shardbound Hero** (three unique
     heroes): **Feraldis — Shardbound Warlord** *(name TBD)*, melee

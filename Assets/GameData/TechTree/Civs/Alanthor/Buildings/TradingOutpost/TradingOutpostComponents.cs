@@ -6,8 +6,9 @@ using Unity.Entities;
 /// <summary>Marks an Alanthor Trading Outpost.</summary>
 public struct TradingOutpostTag : IComponentData { }
 
-/// <summary>The three trades an Outpost can run. Buy is the default; the other
-/// two are unlocked by research at the Outpost.</summary>
+/// <summary>The trades an Outpost can run. Hold is the default (2026-10-11: a
+/// new post trades nothing until the player assigns it a trade); Forge and Sell
+/// are unlocked by research at the Outpost.</summary>
 public enum TradeRecipe : byte
 {
     /// <summary>Supplies + iron → veilstone.</summary>

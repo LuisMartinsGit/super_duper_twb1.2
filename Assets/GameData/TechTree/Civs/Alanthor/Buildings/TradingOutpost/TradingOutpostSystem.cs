@@ -79,7 +79,7 @@ namespace TheWaningBorder.Systems.Economy
         public static bool IsUnlocked(Faction faction, TradeRecipe recipe)
         {
             var cfg = Cfg;
-            if (cfg == null) return recipe == TradeRecipe.BuyVeilstone;
+            if (cfg == null) return recipe == TradeRecipe.BuyVeilstone || recipe == TradeRecipe.Hold;
             string tech = recipe switch
             {
                 TradeRecipe.ForgeVeilsteel => cfg.forgeTech,

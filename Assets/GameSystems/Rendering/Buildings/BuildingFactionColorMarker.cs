@@ -1,20 +1,19 @@
 // Faction-color masking for hand-authored building prefabs that share a
 // single color ATLAS texture. Artists paint dynamic team-color regions
-// in the atlas with a flat marker hue (default: pure blue, RGB 0,0,1).
-// At spawn / swap time we walk each material, take the atlas texture,
-// produce a per-faction copy with the marker pixels replaced by the
-// faction color, and reassign that copy to the material instance.
+// in the atlas in a blue marker hue band.
 //
-// Per (source atlas, faction color) the swapped texture is cached and
-// reused — at most one allocation per atlas per faction per session
-// (≤ 8 player factions × small handful of atlases = bounded memory).
+// PLAYER COLOUR IS A SHADER PROPERTY (2026-10-10). The recolour runs per
+// pixel on the GPU (Assets/Shaders/Include/TWBFactionColor.hlsl, used by
+// TheWaningBorder/BuildingLit, BuildingDamage and BuildingLitDissolve); this
+// class only sets `_TWB_FactionHSV` (the faction's HSV + a mode) on each
+// material. It used to copy every albedo atlas per faction on the CPU —
+// GetPixels32 + RGBToHSV over ~4 M pixels per 2048² texture, ~170 MB of
+// garbage — and the first sight of a new prefab for a faction (the Trading
+// Outpost's House_1 at age-up) froze the game for 1-3 s, once per player.
 //
-// Read/Write Enabled on the atlas is the FAST path. When it is off we
-// take a GPU copy (Blit into a temporary sRGB RenderTexture, ReadPixels
-// back) and swap that instead, so the recolor no longer depends on an
-// import flag being remembered per asset. Before this, an unreadable
-// atlas silently produced no team color at all — that is what left the
-// Gatherer's Hut rings authored-blue for every player.
+// Building materials are TheWaningBorder/BuildingLit on disk (Waning Border >
+// Buildings > Convert Materials To BuildingLit). A URP Lit material that
+// slipped through is switched to it at runtime, with a one-time warning.
 
 using System.Collections.Generic;
 using UnityEngine;
@@ -79,55 +78,44 @@ namespace TheWaningBorder.Rendering
         /// Euclidean distance squared, channels 0..1).</summary>
         public static float ToleranceSquared = 0.04f;
 
-        /// <summary>
-        /// Diagnostic — log the first replacement statistics for each
-        /// distinct atlas processed (texture name, dimensions, matched
-        /// pixel count and percentage). Helps tune Marker / ToleranceSquared
-        /// without staring at the model. Set false in production.
-        /// </summary>
-        public static bool LogReplacementStats = false;
-
         // ──────────────────────────────────────────────────────────────────
-        // CACHES
+        // SHADER CONTRACT (TWBFactionColor.hlsl)
         // ──────────────────────────────────────────────────────────────────
 
+        /// <summary>`_TWB_FactionHSV.w`: no recolour.</summary>
+        public const float ModeOff = 0f;
+        /// <summary>`_TWB_FactionHSV.w`: marker-hue atlas swap.</summary>
+        public const float ModeHueSwap = 1f;
+        /// <summary>`_TWB_FactionHSV.w`: tint under `_TWB_FactionMask`.</summary>
+        public const float ModeMask = 2f;
+
+        private static readonly int FactionHsvId  = Shader.PropertyToID("_TWB_FactionHSV");
+        private static readonly int FactionMaskId = Shader.PropertyToID("_TWB_FactionMask");
+        private static readonly int HueBandId     = Shader.PropertyToID("_TWB_FactionHueBand");
+        private static readonly int SwapId        = Shader.PropertyToID("_TWB_FactionSwap");
+
+        /// <summary>The URP Lit copy that carries the recolour.</summary>
+        public const string BuildingLitShaderName = "TheWaningBorder/BuildingLit";
+        private const string UrpLitShaderName = "Universal Render Pipeline/Lit";
+        private static Shader _buildingLit;
+        private static bool _buildingLitMissing;
+
+        // Materials reported as not converted on disk — once each.
+        private static readonly HashSet<string> _reportedUnconverted = new HashSet<string>();
+
         /// <summary>
-        /// One cache slot per (source texture, faction RGB key).
-        /// <para>
-        /// HadMarkerPixels is stored SEPARATELY from Swapped on purpose. The
-        /// cache used to be a plain texture-or-null dictionary where null meant
-        /// "this atlas has no marker pixels, never look again" — but the swapped
-        /// textures are runtime objects, and a destroyed one compares equal to
-        /// null through Unity's overloaded operator. So the moment a swapped
-        /// atlas died (scene unload between matches), its slot silently turned
-        /// into a permanent negative hit and every building using that atlas
-        /// stayed authored-blue for the rest of the session. With the flag kept
-        /// apart, a dead texture is rebuilt and only a genuine no-marker atlas
-        /// short-circuits.
-        /// </para>
+        /// Carry a material's player colour onto a material built from it (the
+        /// battle-damage and level-up dissolve materials copy the albedo and
+        /// would otherwise render the authored blue).
         /// </summary>
-        private struct SwapEntry
+        public static void CopyFactionProperties(Material from, Material to)
         {
-            public Texture2D Swapped;
-            public bool HadMarkerPixels;
+            if (from == null || to == null) return;
+            if (!from.HasProperty(FactionHsvId) || !to.HasProperty(FactionHsvId)) return;
+            to.SetVector(FactionHsvId, from.GetVector(FactionHsvId));
+            if (from.HasProperty(FactionMaskId) && to.HasProperty(FactionMaskId))
+                to.SetTexture(FactionMaskId, from.GetTexture(FactionMaskId));
         }
-
-        private static readonly Dictionary<(Texture2D, int), SwapEntry> _swappedCache
-            = new Dictionary<(Texture2D, int), SwapEntry>();
-
-        // Reverse map for the textures WE generated: clone -> (original source,
-        // faction key it was built for). Re-applying the rule to an already
-        // recolored material would otherwise feed our own clone back into
-        // BuildSwappedAtlas — which finds no marker hue (they are the faction
-        // hue now), caches a fresh negative entry per clone, and grows the
-        // dictionary on every upgrade / tech-visual refresh.
-        private static readonly Dictionary<Texture2D, (Texture2D Source, int FactionKey)> _cloneOrigin
-            = new Dictionary<Texture2D, (Texture2D, int)>();
-
-        // Textures we've reported as needing the slow GPU-copy path — so we
-        // don't repeat the message once per frame for the same asset.
-        private static readonly HashSet<Texture2D> _reportedUnreadable
-            = new HashSet<Texture2D>();
 
         // ──────────────────────────────────────────────────────────────────
         // PUBLIC API
@@ -143,6 +131,8 @@ namespace TheWaningBorder.Rendering
         ///   2. GameObject named *roof*   → solid dark slate (albedo whited out; §4)
         ///   3. GameObject named *stripe* → faction tint over the authored albedo
         ///   4. otherwise                 → atlas pixel swap (marker hue → faction),
+        ///      unless the model has a rule-0/1 part, which is then the ONLY
+        ///      part that takes the colour,
         ///      falling back to flat _BaseColor replacement for untextured materials
         /// plus _StripeColor on every material that exposes it.
         /// </summary>
@@ -150,7 +140,9 @@ namespace TheWaningBorder.Rendering
         {
             if (!Enabled || go == null) return;
 
-            int factionKey = PackKey(factionColor);
+            PushGlobals();
+            Color.RGBToHSV(factionColor, out float facH, out float facS, out float facV);
+            var hsv = new Vector4(facH, facS, facV, 0f);
 
             // Remember the owner's color ON the visual so any later pass that
             // rewrites materials (the level-up dissolve, the battle-damage
@@ -166,9 +158,16 @@ namespace TheWaningBorder.Rendering
             // branches are already off. Active-only meant those renderers kept the
             // authored BLUE roof forever and only ever got recolored if that exact
             // branch happened to be re-shown later — the "blue roof after upgrade"
-            // bug. Color the whole hierarchy up front; the atlas swap is cached per
-            // (texture, faction) so the extra renderers cost lookups, not pixels.
+            // bug. Color the whole hierarchy up front; it is property writes, not pixels.
             var renderers = go.GetComponentsInChildren<Renderer>(true);
+
+            // A model that NAMES its player-colour part (a painted mask, or a
+            // material called *playercolor*) is coloured there and nowhere
+            // else: the hue swap is a guess for atlas art with no such slot,
+            // and on hand-textured parts (the Alanthor House's walls, door,
+            // lanterns) it caught any bluish pixel. Only the named part adapts.
+            bool namedSlot = HasNamedPlayerColorSlot(renderers);
+
             for (int r = 0; r < renderers.Length; r++)
             {
                 var renderer = renderers[r];
@@ -196,13 +195,15 @@ namespace TheWaningBorder.Rendering
                     // A textured part with a painted player-colour mask (the
                     // Hut's roof tiles). Before every other rule: the mask says
                     // exactly where the colour goes, so nothing may guess.
-                    if (TryApplyMaskedColor(mat, factionColor, factionKey)) continue;
+                    if (TryApplyMaskedColor(mat, hsv)) continue;
 
+                    // The rules below paint the part themselves, so the shader
+                    // must not recolour on top of them (ModeOff).
                     // An artist-authored player-colour slot: the model names the
                     // MATERIAL, so the colour is exact and needs no atlas marker.
                     // Checked before the roof rule so a roof mesh can still carry
                     // a player-colour trim. Instances read "Playercolor (Instance)".
-                    if (IsPlayerColorMaterial(mat)) { PaintSolid(mat, factionColor); continue; }
+                    if (IsPlayerColorMaterial(mat)) { SetMode(mat, hsv, ModeOff); PaintSolid(mat, factionColor); continue; }
 
                     // The castle kit's SLATE (Castle_Roof_01 — cone and pyramid
                     // roofs, hoarding galleries) takes the player's colour,
@@ -210,17 +211,14 @@ namespace TheWaningBorder.Rendering
                     // supersedes "roofs are dark slate" for the castle set —
                     // docs/Design/Art_Direction.md §4). By MATERIAL, so the
                     // gallery's timber and the roof's finial are untouched.
-                    if (IsCastleRoofMaterial(mat)) { SetTint(mat, factionColor); continue; }
+                    if (IsCastleRoofMaterial(mat)) { SetMode(mat, hsv, ModeOff); SetTint(mat, factionColor); continue; }
 
-                    // Name-tagged parts are a flat solid faction color. They must
-                    // NOT also run the atlas swap: the roof rule assigns
-                    // Texture2D.whiteTexture, which the swap would then try to
-                    // read back on every re-apply — a pointless GPU copy of a
-                    // 4x4 white texture that can never contain a marker pixel.
-                    if (isRoof)   { PaintSolid(mat, RoofSlate);    continue; }
-                    if (isStripe) { SetTint(mat, factionColor);    continue; }
+                    // Name-tagged parts are a flat solid faction color.
+                    if (isRoof)   { SetMode(mat, hsv, ModeOff); PaintSolid(mat, RoofSlate);    continue; }
+                    if (isStripe) { SetMode(mat, hsv, ModeOff); SetTint(mat, factionColor);    continue; }
 
-                    if (TryReplaceAtlasTexture(mat, factionColor, factionKey)) continue;
+                    if (namedSlot) { SetMode(mat, hsv, ModeOff); continue; }
+                    if (TryHueSwap(mat, hsv)) continue;
                     TryReplaceFlatColor(mat, factionColor);
                 }
             }
@@ -249,6 +247,28 @@ namespace TheWaningBorder.Rendering
             if (stamp == null) return false;
             Apply(stamp.gameObject, stamp.Value);
             return true;
+        }
+
+        /// <summary>Does any material under these renderers carry a rule-0 mask
+        /// or a rule-1 player-colour name?</summary>
+        private static bool HasNamedPlayerColorSlot(Renderer[] renderers)
+        {
+            for (int r = 0; r < renderers.Length; r++)
+            {
+                var renderer = renderers[r];
+                if (renderer == null) continue;
+                var mats = renderer.sharedMaterials;
+                for (int m = 0; m < mats.Length; m++)
+                {
+                    var mat = mats[m];
+                    if (mat == null) continue;
+                    if (IsPlayerColorMaterial(mat)) return true;
+                    if (mat.HasProperty(MaskProp) && mat.GetTexture(MaskProp) is Texture2D mask && mask != null
+                        && mask.name.IndexOf(MaskNameTag, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                        return true;
+                }
+            }
+            return false;
         }
 
         /// <summary>The castle kit's slate roof material (Castle_Roof_01; instances read "(Instance)").</summary>
@@ -282,293 +302,108 @@ namespace TheWaningBorder.Rendering
         // MASKED PATH (a per-part texture set with a painted colour mask)
         // ──────────────────────────────────────────────────────────────────
 
-        // URP Lit has no player-colour slot, so the mask rides in _DetailMask:
-        // Lit only samples it when a detail albedo is also set, which a masked
-        // material never has, so it costs nothing on screen. The texture NAME
-        // is the opt-in — a detail mask that is not a player-colour mask (the
-        // GatherersHut's MULX2 detail setup) must keep going down the old rules.
+        // URP Lit has no player-colour slot, so the artist's mask rides in
+        // _DetailMask: Lit only samples it when a detail albedo is also set,
+        // which a masked material never has. The texture NAME is the opt-in — a
+        // detail mask that is not a player-colour mask (the GatherersHut's
+        // MULX2 detail setup) must keep going down the other rules. The shader
+        // reads it from _TWB_FactionMask, on the albedo's UVs.
         private const string MaskProp = "_DetailMask";
         private const string MaskNameTag = "playercolormask";
 
-        private static readonly Dictionary<(Texture2D, Texture2D, int), SwapEntry> _maskedCache
-            = new Dictionary<(Texture2D, Texture2D, int), SwapEntry>();
-
         /// <summary>
-        /// Rule 0. Recolor the albedo wherever the mask is white; the mask's
-        /// grey levels blend. Returns true when the material carries a
-        /// player-colour mask at all — even if the recolor could not be built —
-        /// so the hue-guessing atlas swap never runs over a masked texture set.
+        /// Rule 0. Tint the albedo wherever the mask is white; the mask's grey
+        /// levels blend. Returns true when the material carries a player-colour
+        /// mask at all, so the hue-guessing swap never runs over a masked set.
         /// </summary>
-        private static bool TryApplyMaskedColor(Material mat, Color factionColor, int factionKey)
+        private static bool TryApplyMaskedColor(Material mat, Vector4 hsv)
         {
             if (!mat.HasProperty(MaskProp) || !mat.HasProperty("_BaseMap")) return false;
             var mask = mat.GetTexture(MaskProp) as Texture2D;
             if (mask == null ||
                 mask.name.IndexOf(MaskNameTag, System.StringComparison.OrdinalIgnoreCase) < 0)
                 return false;
-
-            var source = mat.GetTexture("_BaseMap") as Texture2D;
-            if (source == null) return true;
-
-            // Re-apply: same clone-origin handling as the atlas path.
-            if (_cloneOrigin.TryGetValue(source, out var origin))
-            {
-                if (origin.FactionKey == factionKey) return true;
-                source = origin.Source;
-                if (source == null) return true;
-            }
-
-            var key = (source, mask, factionKey);
-            if (!_maskedCache.TryGetValue(key, out var entry) ||
-                (entry.Swapped == null && entry.HadMarkerPixels))
-            {
-                var built = BuildMaskedAlbedo(source, mask, factionColor);
-                entry = new SwapEntry { Swapped = built, HadMarkerPixels = built != null };
-                _maskedCache[key] = entry;
-                if (built != null) _cloneOrigin[built] = (source, factionKey);
-            }
-            if (entry.Swapped == null) return true;
-
-            mat.SetTexture("_BaseMap", entry.Swapped);
-            if (mat.HasProperty("_MainTex")) mat.SetTexture("_MainTex", entry.Swapped);
+            if (mat.GetTexture("_BaseMap") == null) return true;
+            if (!EnsureRecolorShader(mat)) return true;
+            mat.SetTexture(FactionMaskId, mask);
+            SetMode(mat, hsv, ModeMask);
             return true;
         }
 
-        /// <summary>
-        /// A copy of <paramref name="source"/> with every masked pixel pulled
-        /// toward the faction colour: the faction's hue and saturation, the
-        /// pixel's own VALUE (times the faction's), so the painted shading
-        /// survives. Per-pixel on purpose — normalising to the masked region's
-        /// mean brightness was tried and failed, because a mask exported with
-        /// the UV padding filled white averages the padding in with the part.
-        /// Null when either texture cannot be read or the mask is empty.
-        /// </summary>
-        private static Texture2D BuildMaskedAlbedo(Texture2D source, Texture2D mask, Color factionColor)
-        {
-            var pixels = ReadPixels(source);
-            var maskPixels = ReadPixels(mask);
-            if (pixels == null || maskPixels == null) return null;
-
-            Color.RGBToHSV(factionColor, out float facH, out float facS, out float facV);
-
-            int w = source.width, h = source.height;
-            int mw = mask.width, mh = mask.height;
-            int replaced = 0;
-            for (int y = 0; y < h; y++)
-            {
-                int mRow = (y * mh / h) * mw;
-                for (int x = 0; x < w; x++)
-                {
-                    float m = maskPixels[mRow + x * mw / w].r / 255f;
-                    if (m <= 0f) continue;
-                    int i = y * w + x;
-                    var p = pixels[i];
-                    float v = Mathf.Max(p.r, Mathf.Max(p.g, p.b)) / 255f;
-                    var tinted = Color.HSVToRGB(facH, facS, v * facV);
-                    pixels[i].r = MaskBlend(p.r, tinted.r, m);
-                    pixels[i].g = MaskBlend(p.g, tinted.g, m);
-                    pixels[i].b = MaskBlend(p.b, tinted.b, m);
-                    replaced++;
-                }
-            }
-            if (replaced == 0) return null;
-
-            var clone = new Texture2D(w, h, TextureFormat.RGBA32,
-                mipChain: source.mipmapCount > 1, linear: false);
-            clone.name = $"{source.name}_Faction_{PackKey(factionColor):X6}";
-            clone.hideFlags = HideFlags.HideAndDontSave;
-            clone.wrapMode = source.wrapMode;
-            clone.filterMode = source.filterMode;
-            clone.anisoLevel = source.anisoLevel;
-            clone.SetPixels32(pixels);
-            clone.Apply(updateMipmaps: clone.mipmapCount > 1, makeNoLongerReadable: false);
-            return clone;
-        }
-
-        private static byte MaskBlend(byte authored, float tinted, float mask)
-            => (byte)Mathf.Clamp(Mathf.RoundToInt(Mathf.Lerp(authored / 255f, tinted, mask) * 255f), 0, 255);
-
         // ──────────────────────────────────────────────────────────────────
-        // ATLAS TEXTURE PATH (preferred — used by hand-authored prefabs)
+        // ATLAS HUE SWAP (preferred — used by hand-authored prefabs)
         // ──────────────────────────────────────────────────────────────────
 
-        // Only the MAIN ALBEDO slots are candidates for the recolor swap.
-        // Walking every texture property was actively harmful:
-        //   * normal maps are blue-dominant BY ENCODING (128,128,255 = hue
-        //     ~240) — the hue matcher would repaint the entire bump map and
-        //     shred the lighting;
-        //   * detail/mask/metallic maps carry non-color data with their own
-        //     sampling semantics (e.g. the GatherersHut renders through a
-        //     detail-albedo MULX2 with a white base — swapping that slot
-        //     blew the whole building out to white).
-        private static readonly string[] AlbedoProps = { "_BaseMap", "_MainTex" };
-
-        private static bool TryReplaceAtlasTexture(Material mat, Color factionColor, int factionKey)
+        /// <summary>
+        /// Rule 4. A textured material: the shader swaps the marker hue band to
+        /// the faction colour, keeping each pixel's value. False for an
+        /// untextured material (the flat-colour fallback handles those).
+        /// </summary>
+        private static bool TryHueSwap(Material mat, Vector4 hsv)
         {
-            bool replacedAny = false;
-            for (int p = 0; p < AlbedoProps.Length; p++)
-            {
-                string prop = AlbedoProps[p];
-                if (!mat.HasProperty(prop)) continue;
-                Texture2D source = mat.GetTexture(prop) as Texture2D;
-                if (source == null) continue;
-                // The two albedo aliases often point at the same texture on
-                // URP materials — swapping one is enough.
-                if (p == 1 && replacedAny) break;
+            Texture albedo = mat.HasProperty("_BaseMap") ? mat.GetTexture("_BaseMap") : null;
+            if (albedo == null && mat.HasProperty("_MainTex")) albedo = mat.GetTexture("_MainTex");
+            if (albedo == null || albedo == Texture2D.whiteTexture) { SetMode(mat, hsv, ModeOff); return false; }
+            if (!EnsureRecolorShader(mat)) return false;
+            SetMode(mat, hsv, ModeHueSwap);
+            return true;
+        }
 
-                // The slot may already hold one of OUR clones (re-apply after a
-                // level-up / dissolve / damage swap). Same faction: nothing to
-                // do. Different faction: rebuild from the ORIGINAL atlas, never
-                // from the clone — recoloring a recolor compounds the hue.
-                if (_cloneOrigin.TryGetValue(source, out var origin))
-                {
-                    if (origin.FactionKey == factionKey) { replacedAny = true; continue; }
-                    source = origin.Source;
-                    if (source == null) continue;
-                }
-
-                var key = (source, factionKey);
-                if (_swappedCache.TryGetValue(key, out var cached))
-                {
-                    // A cached texture that has since been destroyed (scene
-                    // unload) must be rebuilt, NOT read as "no marker pixels".
-                    if (cached.Swapped != null)
-                    {
-                        mat.SetTexture(prop, cached.Swapped);
-                        replacedAny = true;
-                        continue;
-                    }
-                    if (!cached.HadMarkerPixels) continue; // genuine negative hit
-                }
-
-                var swapped = BuildSwappedAtlas(source, factionColor);
-                _swappedCache[key] = new SwapEntry
-                {
-                    Swapped         = swapped,
-                    HadMarkerPixels = swapped != null,
-                };
-                if (swapped == null) continue;
-
-                _cloneOrigin[swapped] = (source, factionKey);
-                mat.SetTexture(prop, swapped);
-                replacedAny = true;
-            }
-            return replacedAny;
+        private static void SetMode(Material mat, Vector4 hsv, float mode)
+        {
+            if (!mat.HasProperty(FactionHsvId)) return;
+            hsv.w = mode;
+            mat.SetVector(FactionHsvId, hsv);
         }
 
         /// <summary>
-        /// Pixels of <paramref name="source"/>, whether or not the asset was
-        /// imported with Read/Write Enabled. Readable textures are read
-        /// directly; the rest go around through the GPU (Blit into a temporary
-        /// sRGB RenderTexture, ReadPixels back), which costs one copy per atlas
-        /// per faction and is cached exactly like the fast path.
+        /// True when the material's shader carries the recolour. A stock URP
+        /// Lit material (not converted on disk) is switched to BuildingLit — it
+        /// has every Lit property and keyword, so nothing else changes — and
+        /// named once in the log so the asset can be converted. Any other
+        /// shader cannot be recoloured and is named too.
         /// </summary>
-        private static Color32[] ReadPixels(Texture2D source)
+        private static bool EnsureRecolorShader(Material mat)
         {
-            if (source.isReadable) return source.GetPixels32();
-
-            if (_reportedUnreadable.Add(source))
+            if (mat.HasProperty(FactionHsvId)) return true;
+            var shader = mat.shader;
+            if (shader != null && shader.name == UrpLitShaderName && BuildingLit != null)
             {
-                Debug.Log(
-                    $"[BuildingFactionColorMarker] Texture '{source.name}' is not Read/Write enabled — " +
-                    "taking a GPU copy to recolor it. Enabling Read/Write in its import settings skips " +
-                    "the copy (run Waning Border > Buildings > Audit Faction Colors to fix them all).");
+                mat.shader = BuildingLit;
+                if (_reportedUnconverted.Add(mat.name))
+                    Debug.LogWarning($"[BuildingFactionColorMarker] Material '{mat.name}' is URP Lit, not " +
+                        $"{BuildingLitShaderName}; switched at runtime. Run Waning Border > Buildings > " +
+                        "Convert Materials To BuildingLit so its variants ship with the build.");
+                return mat.HasProperty(FactionHsvId);
             }
+            if (_reportedUnconverted.Add(mat.name))
+                Debug.LogWarning($"[BuildingFactionColorMarker] Material '{mat.name}' uses " +
+                    $"'{(shader != null ? shader.name : "null")}', which has no player colour — team colour skipped.");
+            return false;
+        }
 
-            RenderTexture rt = null;
-            Texture2D readable = null;
-            var previous = RenderTexture.active;
-            try
+        private static Shader BuildingLit
+        {
+            get
             {
-                rt = RenderTexture.GetTemporary(source.width, source.height, 0,
-                    RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
-                Graphics.Blit(source, rt);
-                RenderTexture.active = rt;
-
-                readable = new Texture2D(source.width, source.height, TextureFormat.RGBA32,
-                    mipChain: false, linear: false);
-                readable.ReadPixels(new Rect(0f, 0f, source.width, source.height), 0, 0);
-                readable.Apply(updateMipmaps: false, makeNoLongerReadable: false);
-                return readable.GetPixels32();
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogWarning($"[BuildingFactionColorMarker] GPU copy of '{source.name}' failed " +
-                                 $"({e.Message}) — team color skipped for this atlas.");
-                return null;
-            }
-            finally
-            {
-                RenderTexture.active = previous;
-                if (rt != null) RenderTexture.ReleaseTemporary(rt);
-                if (readable != null) Object.Destroy(readable);
+                if (_buildingLit != null || _buildingLitMissing) return _buildingLit;
+                _buildingLit = Shader.Find(BuildingLitShaderName);
+                if (_buildingLit == null)
+                {
+                    _buildingLitMissing = true;
+                    Debug.LogError($"[BuildingFactionColorMarker] Shader '{BuildingLitShaderName}' not found — " +
+                        "no building can take team colour.");
+                }
+                return _buildingLit;
             }
         }
 
-        /// <summary>
-        /// Allocate a new RGBA32 Texture2D the same size as <paramref name="source"/>
-        /// and copy pixels with the marker hue replaced by <paramref name="factionColor"/>.
-        /// Returns null if the atlas contains no marker pixels (caller treats this
-        /// as a negative-cache hit so the source isn't reprocessed).
-        /// </summary>
-        private static Texture2D BuildSwappedAtlas(Texture2D source, Color factionColor)
+        /// <summary>The hue band and the interim swap levels, as the shader's
+        /// globals. Cheap; set on every Apply so a tweak to the statics lands.</summary>
+        private static void PushGlobals()
         {
-            var pixels = ReadPixels(source);
-            if (pixels == null) return null;
-
-            // Faction hue/saturation replace the pixel's; the pixel's VALUE
-            // is kept so the atlas shading (shadow/highlight painting on the
-            // blue regions) carries through to the recolored building.
-            Color.RGBToHSV(factionColor, out float facH, out float facS, out float facV);
-
-            int replaced = 0;
-            for (int i = 0; i < pixels.Length; i++)
-            {
-                var p = pixels[i];
-                var c = new Color(p.r / 255f, p.g / 255f, p.b / 255f, 1f);
-                Color.RGBToHSV(c, out float h, out float s, out float v);
-
-                float hueDeg = h * 360f;
-                if (hueDeg < HueMin || hueDeg > HueMax) continue;
-                if (s < MinSaturation) continue;
-
-                // Keep the pixel's brightness; take the faction's hue and a
-                // saturation blended toward the faction's (fully faction-
-                // saturated highlights look plasticky, so weight by the
-                // pixel's own saturation).
-                // INTERIM: see InterimSwapValue. Applied after the blend so the
-                // pixel's own shading survives, just darker and calmer.
-                var outColor = Color.HSVToRGB(facH,
-                    facS * Mathf.Clamp01(s / Mathf.Max(0.001f, facS)) * InterimSwapSaturation,
-                    v * InterimSwapValue);
-                pixels[i].r = (byte)Mathf.Clamp(Mathf.RoundToInt(outColor.r * 255f), 0, 255);
-                pixels[i].g = (byte)Mathf.Clamp(Mathf.RoundToInt(outColor.g * 255f), 0, 255);
-                pixels[i].b = (byte)Mathf.Clamp(Mathf.RoundToInt(outColor.b * 255f), 0, 255);
-                replaced++;
-            }
-
-            if (LogReplacementStats)
-            {
-                float pct = pixels.Length > 0 ? (100f * replaced / pixels.Length) : 0f;
-                Debug.Log($"[BuildingFactionColorMarker] '{source.name}' " +
-                          $"{source.width}x{source.height}: {replaced}/{pixels.Length} pixels matched " +
-                          $"(~{pct:F1}%) — hue [{HueMin:F0}..{HueMax:F0}], minSat {MinSaturation:F2}");
-            }
-
-            if (replaced == 0) return null;
-
-            var clone = new Texture2D(source.width, source.height, TextureFormat.RGBA32,
-                mipChain: source.mipmapCount > 1, linear: false);
-            clone.name = $"{source.name}_Faction_{PackKey(factionColor):X6}";
-            // The cache outlives any single scene; without this an
-            // UnloadUnusedAssets sweep can reap a clone that is only reachable
-            // from runtime material instances.
-            clone.hideFlags = HideFlags.HideAndDontSave;
-            clone.wrapMode  = source.wrapMode;
-            clone.filterMode = source.filterMode;
-            clone.SetPixels32(pixels);
-            clone.Apply(updateMipmaps: clone.mipmapCount > 1, makeNoLongerReadable: false);
-            return clone;
+            Shader.SetGlobalVector(HueBandId, new Vector4(HueMin / 360f, HueMax / 360f, MinSaturation, 0f));
+            Shader.SetGlobalVector(SwapId, new Vector4(InterimSwapSaturation, InterimSwapValue, 0f, 0f));
         }
 
         // ──────────────────────────────────────────────────────────────────
@@ -586,18 +421,6 @@ namespace TheWaningBorder.Rendering
             if (dr * dr + dg * dg + db * db > ToleranceSquared) return;
             if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", factionColor);
             else if (mat.HasProperty("_Color")) mat.color = factionColor;
-        }
-
-        // ──────────────────────────────────────────────────────────────────
-        // INTERNAL HELPERS
-        // ──────────────────────────────────────────────────────────────────
-
-        private static int PackKey(Color c)
-        {
-            int r = Mathf.Clamp(Mathf.RoundToInt(c.r * 255f), 0, 255);
-            int g = Mathf.Clamp(Mathf.RoundToInt(c.g * 255f), 0, 255);
-            int b = Mathf.Clamp(Mathf.RoundToInt(c.b * 255f), 0, 255);
-            return (r << 16) | (g << 8) | b;
         }
     }
 }

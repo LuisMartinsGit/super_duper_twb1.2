@@ -388,11 +388,7 @@ namespace TheWaningBorder.Systems.World
             // Paid straight to the faction, wherever it stands.
             if (em.HasComponent<TradingOutpostTag>(building))
             {
-                if (!OutpostSites.HasLiveOutcrop(em, p.x, p.z)) return y;
-                // The post's own rate (recipe, research, its level) — the
-                // number TradingOutpostSystem's cycle pays.
-                TheWaningBorder.Systems.Economy.TradingOutpostSystem.PerMinuteFor(em, building,
-                    out var spend, out var earn);
+                if (!OutpostRates(em, building, out var spend, out var earn)) return y;
                 y.Supplies = earn.Supplies - spend.Supplies;
                 y.Iron = earn.Iron - spend.Iron;
                 y.Veilstone = earn.Veilstone - spend.Veilstone;
@@ -525,58 +521,231 @@ namespace TheWaningBorder.Systems.World
             return false;
         }
 
-        // ── Faction net rate (the resource bar's red numbers) ────────────
+        // ── Faction income picture (the resource bar) ────────────────────
 
         static readonly ComponentType[] QT_Outposts =
         {
             ComponentType.ReadOnly<TradingOutpostTag>(),
             ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
         };
         static CachedEntityQuery QC_Outposts;
 
-        private static TerritoryYield _netCache;
-        private static Faction _netCacheFaction;
-        private static double _netCacheAt = double.NegativeInfinity;
+        // Flat per-building income components, paid by ResourceTickSystem
+        // (the Fortress's own supplies, Feraldis lodges, ...).
+        static readonly ComponentType[] QT_PassiveSupplies =
+            { ComponentType.ReadOnly<SuppliesIncome>(), ComponentType.ReadOnly<FactionTag>(), ComponentType.Exclude<UnderConstruction>() };
+        static readonly ComponentType[] QT_PassiveIron =
+            { ComponentType.ReadOnly<IronIncome>(), ComponentType.ReadOnly<FactionTag>(), ComponentType.Exclude<UnderConstruction>() };
+        static readonly ComponentType[] QT_PassiveVeilstone =
+            { ComponentType.ReadOnly<VeilstoneIncome>(), ComponentType.ReadOnly<FactionTag>(), ComponentType.Exclude<UnderConstruction>() };
+        static readonly ComponentType[] QT_PassiveVeilsteel =
+            { ComponentType.ReadOnly<VeilsteelIncome>(), ComponentType.ReadOnly<FactionTag>(), ComponentType.Exclude<UnderConstruction>() };
+        static CachedEntityQuery QC_PassiveSupplies, QC_PassiveIron, QC_PassiveVeilstone, QC_PassiveVeilsteel;
 
         /// <summary>
-        /// The faction's NET income per minute across every source: each
-        /// territory it holds plus every Trading Outpost's spend and earn. A
+        /// A faction's steady income per minute, by where it comes from.
+        /// PRODUCED is Territory + Buildings + Bought; SOLD is what its
+        /// Trading Outposts pay out of the bank to buy with. Lumpy income
+        /// (Vault withdrawals, caravans, loot, kill rewards) is not a rate
+        /// and is not in it.
+        /// </summary>
+        public struct FactionIncome
+        {
+            /// <summary>Every held territory's yield (slots, claims, surveys,
+            /// Fortress level) — what TerritoryIncomeSystem pays.</summary>
+            public TerritoryYield Territory;
+            /// <summary>Flat building income (the Fortress's own supplies,
+            /// lodges...) — what ResourceTickSystem pays.</summary>
+            public TerritoryYield Buildings;
+            /// <summary>What the Trading Outposts make (veilstone, veilsteel).</summary>
+            public TerritoryYield Bought;
+            /// <summary>What the Trading Outposts spend to make it.</summary>
+            public TerritoryYield Sold;
+
+            public TerritoryYield Produced => new TerritoryYield
+            {
+                Supplies  = Territory.Supplies  + Buildings.Supplies  + Bought.Supplies,
+                Iron      = Territory.Iron      + Buildings.Iron      + Bought.Iron,
+                Veilstone = Territory.Veilstone + Buildings.Veilstone + Bought.Veilstone,
+                Veilsteel = Territory.Veilsteel + Buildings.Veilsteel + Bought.Veilsteel,
+            };
+
+            public TerritoryYield Net
+            {
+                get
+                {
+                    var p = Produced;
+                    return new TerritoryYield
+                    {
+                        Supplies = p.Supplies - Sold.Supplies, Iron = p.Iron - Sold.Iron,
+                        Veilstone = p.Veilstone - Sold.Veilstone, Veilsteel = p.Veilsteel - Sold.Veilsteel,
+                    };
+                }
+            }
+        }
+
+        private const int IncomeCacheSlots = 16;
+        private static readonly FactionIncome[] _incomeCache = new FactionIncome[IncomeCacheSlots];
+        private static readonly double[] _incomeCacheAt = NewStamps();
+        private static Unity.Entities.World _incomeCacheWorld;
+
+        private static double[] NewStamps()
+        {
+            var a = new double[IncomeCacheSlots];
+            for (int i = 0; i < a.Length; i++) a[i] = double.NegativeInfinity;
+            return a;
+        }
+
+        /// <summary>
+        /// The faction's NET income per minute across every steady source. A
         /// negative line means its trades consume more of that resource than
         /// it produces — the resource bar turns that number red. Presentation
         /// only (cached for half a second of real time).
         /// </summary>
         public static TerritoryYield FactionNetForDisplay(EntityManager em, Faction faction)
-        {
-            double now = UnityEngine.Time.realtimeSinceStartupAsDouble;
-            if (_netCacheFaction == faction && now - _netCacheAt <= DisplayCensusSeconds && now >= _netCacheAt)
-                return _netCache;
+            => FactionIncomeForDisplay(em, faction).Net;
 
-            var net = new TerritoryYield();
+        /// <summary>
+        /// The faction's whole income picture (<see cref="FactionIncome"/>).
+        /// Presentation only: cached per faction for half a second of real
+        /// time, so never call it from the simulation.
+        /// </summary>
+        public static FactionIncome FactionIncomeForDisplay(EntityManager em, Faction faction)
+        {
+            int slot = (int)faction;
+            bool cacheable = slot >= 0 && slot < IncomeCacheSlots;
+            double now = UnityEngine.Time.realtimeSinceStartupAsDouble;
+            if (!ReferenceEquals(_incomeCacheWorld, em.World))
+            {
+                _incomeCacheWorld = em.World;
+                for (int i = 0; i < IncomeCacheSlots; i++) _incomeCacheAt[i] = double.NegativeInfinity;
+            }
+            if (cacheable && now - _incomeCacheAt[slot] <= DisplayCensusSeconds && now >= _incomeCacheAt[slot])
+                return _incomeCache[slot];
+
+            var inc = new FactionIncome();
             if (RegionMap.Ready)
             {
                 for (int t = 0; t < RegionMap.Count; t++)
                 {
                     if (TerritoryOwnership.OwnerOf(t) != (int)faction) continue;
-                    var y = ComputeYieldForDisplay(em, t, faction);
-                    net.Supplies += y.Supplies; net.Iron += y.Iron;
-                    net.Veilstone += y.Veilstone; net.Veilsteel += y.Veilsteel;
+                    Add(ref inc.Territory, ComputeYieldForDisplay(em, t, faction));
                 }
             }
+
+            inc.Buildings.Supplies = PassiveSupplies(em, faction);
+            inc.Buildings.Iron = PassivePerMinute<IronIncome>(
+                QC_PassiveIron.Get(em, QT_PassiveIron), faction, c => c.PerMinute);
+            inc.Buildings.Veilstone = PassivePerMinute<VeilstoneIncome>(
+                QC_PassiveVeilstone.Get(em, QT_PassiveVeilstone), faction, c => c.PerMinute);
+            inc.Buildings.Veilsteel = PassivePerMinute<VeilsteelIncome>(
+                QC_PassiveVeilsteel.Get(em, QT_PassiveVeilsteel), faction, c => c.PerMinute);
+
+            var q = QC_Outposts.Get(em, QT_Outposts);
+            using (var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp))
+            using (var facs = q.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp))
+            {
+                for (int i = 0; i < ents.Length; i++)
+                {
+                    if (facs[i].Value != faction) continue;
+                    if (!OutpostRates(em, ents[i], out var spend, out var earn)) continue;
+                    Add(ref inc.Bought, earn);
+                    Add(ref inc.Sold, spend);
+                }
+            }
+
+            if (cacheable)
+            {
+                _incomeCache[slot] = inc;
+                _incomeCacheAt[slot] = now;
+            }
+            return inc;
+        }
+
+        /// <summary>
+        /// What the faction's Trading Outposts standing in
+        /// <paramref name="territory"/> spend (<paramref name="sold"/>) and
+        /// make (<paramref name="bought"/>) per minute — the territory
+        /// overlay's trade lines. False when no post there is trading.
+        /// Presentation only.
+        /// </summary>
+        public static bool TerritoryTradeForDisplay(EntityManager em, int territory, Faction faction,
+            out TerritoryYield sold, out TerritoryYield bought)
+        {
+            sold = default;
+            bought = default;
+            if (territory < 0 || !RegionMap.Ready) return false;
+            bool any = false;
             var q = QC_Outposts.Get(em, QT_Outposts);
             using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
             using var facs = q.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
             for (int i = 0; i < ents.Length; i++)
             {
                 if (facs[i].Value != faction) continue;
-                var y = BuildingYieldForDisplay(em, ents[i]);
-                net.Supplies += y.Supplies; net.Iron += y.Iron;
-                net.Veilstone += y.Veilstone; net.Veilsteel += y.Veilsteel;
+                var p = xfs[i].Position;
+                if (RegionOfStatic(ents[i], p.x, p.z) != territory) continue;
+                if (!OutpostRates(em, ents[i], out var spend, out var earn)) continue;
+                Add(ref sold, spend);
+                Add(ref bought, earn);
+                any = true;
             }
+            return any;
+        }
 
-            _netCache = net;
-            _netCacheFaction = faction;
-            _netCacheAt = now;
-            return net;
+        /// <summary>
+        /// One Trading Outpost's per-minute spend and earn, exactly as
+        /// TradingOutpostSystem's cycle trades: nothing while it is
+        /// unfinished, on Hold, or its outcrop is dead.
+        /// </summary>
+        private static bool OutpostRates(EntityManager em, Entity outpost,
+            out TerritoryYield spend, out TerritoryYield earn)
+        {
+            spend = default;
+            earn = default;
+            if (!em.Exists(outpost) || em.HasComponent<UnderConstruction>(outpost)) return false;
+            if (!em.HasComponent<LocalTransform>(outpost)) return false;
+            if (em.HasComponent<TradingOutpostMode>(outpost)
+                && em.GetComponentData<TradingOutpostMode>(outpost).Recipe == TradeRecipe.Hold) return false;
+            var p = em.GetComponentData<LocalTransform>(outpost).Position;
+            if (!OutpostSites.HasLiveOutcrop(em, p.x, p.z)) return false;
+            // The post's own rate (recipe, research, its level) — the number
+            // TradingOutpostSystem's cycle pays.
+            TheWaningBorder.Systems.Economy.TradingOutpostSystem.PerMinuteFor(em, outpost, out spend, out earn);
+            return true;
+        }
+
+        private static float PassiveSupplies(EntityManager em, Faction faction)
+        {
+            var q = QC_PassiveSupplies.Get(em, QT_PassiveSupplies);
+            using var facs = q.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
+            using var inc = q.ToComponentDataArray<SuppliesIncome>(Unity.Collections.Allocator.Temp);
+            float total = 0f;
+            for (int i = 0; i < facs.Length; i++)
+                if (facs[i].Value == faction && inc[i].PerTick > 0f) total += inc[i].PerMinute;
+            return total;
+        }
+
+        private static float PassivePerMinute<T>(EntityQuery q, Faction faction, System.Func<T, int> perMinute)
+            where T : unmanaged, IComponentData
+        {
+            using var facs = q.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
+            using var inc = q.ToComponentDataArray<T>(Unity.Collections.Allocator.Temp);
+            float total = 0f;
+            for (int i = 0; i < facs.Length; i++)
+            {
+                if (facs[i].Value != faction) continue;
+                int pm = perMinute(inc[i]);
+                if (pm > 0) total += pm;
+            }
+            return total;
+        }
+
+        private static void Add(ref TerritoryYield into, TerritoryYield y)
+        {
+            into.Supplies += y.Supplies; into.Iron += y.Iron;
+            into.Veilstone += y.Veilstone; into.Veilsteel += y.Veilsteel;
         }
 
         private readonly Census _tickCensus = new Census();

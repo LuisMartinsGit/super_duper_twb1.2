@@ -251,6 +251,48 @@ namespace TheWaningBorder.EditorTools
             LoadingScreen.Show(GameSettings.SelectedMapScene);
         }
 
+        /// <summary>
+        /// The performance stress case (2026-10-10): eight Hard AIs on
+        /// Veilmarch with full banks, curse on — the match whose Perf.log
+        /// showed the road network and the sim tick sinking late-game.
+        /// </summary>
+        [MenuItem("Waning Border/Debug/Launch 8-AI FFA (Veilmarch, max resources)")]
+        public static void LaunchFfaEightAI()
+        {
+            if (!EditorApplication.isPlaying)
+            {
+                Debug.LogWarning("[FFA] enter play mode (any scene) first");
+                return;
+            }
+
+            GameSettings.IsMultiplayer = false;
+            GameSettings.NetworkRole = NetworkRole.None;
+            GameSettings.Mode = GameMode.FreeForAll;
+            GameSettings.TotalPlayers = 8;
+            LobbyConfig.SetupSinglePlayer(8);
+            for (int i = 0; i < 8; i++)
+            {
+                var slot = LobbyConfig.Slots[i];
+                slot.Type = SlotType.AI;
+                slot.AIDifficulty = LobbyAIDifficulty.Hard;
+                slot.TeamIndex = Alliances.NoTeam;
+                slot.StartIndex = PlayerSlot.AutoStart;
+            }
+            GameSettings.SelectedMapScene = "Veilmarch";
+            GameSettings.SpawnSeed = 20261010;
+            GameSettings.FogOfWarEnabled = true;
+            GameSettings.BorderEnabled = true;
+            GameSettings.MaxStartingResources = true;
+            GameSettings.IsObserver = true;
+            GameSettings.LocalPlayerFaction = Faction.Blue;
+            GameSettings.TutorialActive = false;
+            LobbyConfig.ApplyColorSelections();
+
+            Debug.Log("[FFA] launching 8-AI free-for-all on Veilmarch, max resources, seed "
+                      + GameSettings.SpawnSeed);
+            LoadingScreen.Show(GameSettings.SelectedMapScene);
+        }
+
         // ── FFA watch ──────────────────────────────────────────────────────
         // Runs until the simulation decides a winner. One table per interval
         // into FFA.log beside the match logs: what each faction holds, what it

@@ -6,6 +6,11 @@
 // shader variants and the building flashes its fallback colour while we're
 // already mid-dissolve. Running this during the loading screen pays the
 // cost up front so the dissolve renders cleanly every time.
+//
+// 2026-10-10: the list is every building and building-level SO's prefab
+// (TechCatalog.AllBuildingPrefabs) plus the legacy Resources art. It used to
+// be only the Resources list, which by then held none of the live TechTree
+// prefabs — the Trading Outpost's House_1 met its first frame at age-up.
 
 // HUMAN REVIEW: DONE
 
@@ -39,8 +44,16 @@ namespace TheWaningBorder.Bootstrap
 
             LoadingScreen.SetStatus("Loading Buildings...");
 
-            var paths = CollectPaths();
-            int total = paths.Count;
+            // The live prefabs come from the SOs (building + level); the
+            // Resources list below is the legacy art still reachable through
+            // the spawn path's Resources fallbacks.
+            var prefabs = TechCatalog.AllBuildingPrefabs();
+            foreach (var path in CollectPaths())
+            {
+                var legacy = Resources.Load<GameObject>(path);
+                if (legacy != null && !prefabs.Contains(legacy)) prefabs.Add(legacy);
+            }
+            int total = prefabs.Count;
             if (total == 0) yield break;
 
             // Off-screen camera that renders only the prewarm layer.
@@ -69,9 +82,9 @@ namespace TheWaningBorder.Bootstrap
 
             int loaded = 0;
             GameObject lastInstance = null;
-            for (int i = 0; i < paths.Count; i++)
+            for (int i = 0; i < prefabs.Count; i++)
             {
-                var prefab = Resources.Load<GameObject>(paths[i]);
+                var prefab = prefabs[i];
                 LoadingScreen.SetProgress(ProgressStart + ((float)i / total) * ProgressSpan);
 
                 if (prefab != null)
@@ -87,7 +100,7 @@ namespace TheWaningBorder.Bootstrap
 
                     // Hold onto the last instantiated prefab for the dissolve
                     // shader prewarm pass below; destroy the rest.
-                    if (i < paths.Count - 1) Object.Destroy(instance);
+                    if (i < prefabs.Count - 1) Object.Destroy(instance);
                     else lastInstance = instance;
                     loaded++;
                 }

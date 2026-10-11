@@ -23,7 +23,11 @@
 //      timer, so there is still exactly one clock.
 //   4. Complete -> spawn the unit / mark the tech researched / apply the
 //      level; pop the head. A unit the population cap will not admit holds
-//      at Remaining = 0 until room frees.
+//      at Remaining = 0 until room frees — BUT (2026-10-11) the queue does
+//      not stall behind it: the first research or level-up queued after it
+//      is moved to the head and runs, and no unit trains until that is done.
+//      The held unit is marked Trained, so when it is back at the head it
+//      only waits for room; it never trains twice.
 
 using System.Collections.Generic;
 using Unity.Collections;
@@ -204,8 +208,15 @@ namespace TheWaningBorder.Systems.Production
                         queue.RemoveAt(0);
                         return;
                     }
-                    Begin(em, e, ref ps, TrainingSystem.TrainDuration(
-                        em, e, unitId, faction, item.Level));
+                    float trainTime = TrainingSystem.TrainDuration(em, e, unitId, faction, item.Level);
+                    Begin(em, e, ref ps, trainTime);
+                    if (item.Trained != 0)
+                    {
+                        // Trained before a research overtook it: it is done,
+                        // and only needs room to leave (shown as complete).
+                        ps.Remaining = 0f;
+                        em.SetComponentData(e, ps);
+                    }
                     return;
                 }
 
@@ -308,8 +319,16 @@ namespace TheWaningBorder.Systems.Production
                 case ProductionKind.Train:
                     if (!TryReleaseTrained(em, e, faction, ref spawns, ref popThisTick))
                     {
-                        // No room. Hold here — Busy stays 1, the item stays
-                        // at the head, paid for — and try again next tick.
+                        // No room. The unit is finished: mark it, and let the
+                        // first research / level-up behind it go first.
+                        if (PromoteNonUnitPastHeldUnit(em, e))
+                        {
+                            Idle(em, e, ref ps);   // StartHead runs it next tick
+                            return;
+                        }
+                        // Nothing to run instead. Hold here — Busy stays 1,
+                        // the item stays at the head, paid for — and try again
+                        // next tick.
                         ps.Remaining = 0f;
                         em.SetComponentData(e, ps);
                         return;
@@ -329,6 +348,35 @@ namespace TheWaningBorder.Systems.Production
 
             em.GetBuffer<ProductionQueueItem>(e).RemoveAt(0);
             Idle(em, e, ref ps);
+        }
+
+        /// <summary>
+        /// The head is a finished unit the population cap will not admit.
+        /// Mark it Trained and move the first research or level-up queued
+        /// behind it to the head, so the building keeps working; every unit
+        /// waits until that item is done (it is the head now). False — and
+        /// nothing moved — when no such item is queued, or it may not run
+        /// right now (Heavy Bureaucracy halts research).
+        /// </summary>
+        private static bool PromoteNonUnitPastHeldUnit(EntityManager em, Entity e)
+        {
+            var queue = em.GetBuffer<ProductionQueueItem>(e);
+            if (queue.Length < 2 || queue[0].Kind != ProductionKind.Train) return false;
+
+            var head = queue[0];
+            head.Trained = 1;
+            queue[0] = head;
+
+            for (int j = 1; j < queue.Length; j++)
+            {
+                var item = queue[j];
+                if (item.Kind == ProductionKind.Train) continue;
+                if (!HeadMayRun(em, e, item.Kind)) return false;
+                queue.RemoveAt(j);
+                queue.Insert(0, item);
+                return true;
+            }
+            return false;
         }
 
         private static void Idle(EntityManager em, Entity e, ref ProductionState ps)
@@ -374,7 +422,10 @@ namespace TheWaningBorder.Systems.Production
             int extra = 0;
             popThisTick?.TryGetValue(faction, out extra);
             if (!TrainingSystem.HasPopulationCapacity(em, faction, requiredPop, extra))
+            {
+                NoticePopulationHold(em, faction);
                 return false;
+            }
 
             queue.RemoveAt(0);
             if (released > 1) queue.RemoveAt(0);
@@ -394,6 +445,31 @@ namespace TheWaningBorder.Systems.Production
 
             (popThisTick ??= new Dictionary<Faction, int>())[faction] = extra + requiredPop;
             return true;
+        }
+
+        /// <summary>Real time of the next population-hold notice.</summary>
+        private static float _nextPopNotice;
+
+        /// <summary>
+        /// A finished unit held at the door because the population cap is
+        /// full used to wait in silence. Tell the LOCAL player, at most every
+        /// 15 real seconds. Presentation only — no sim state changes.
+        /// </summary>
+        private static void NoticePopulationHold(EntityManager em, Faction faction)
+        {
+            if (faction != GameSettings.LocalPlayerFaction || GameSettings.IsSpectating) return;
+            float now = UnityEngine.Time.unscaledTime;
+            if (now < _nextPopNotice) return;
+            _nextPopNotice = now + 15f;
+            string counts = "";
+            if (FactionEconomy.TryGetBank(em, faction, out var bank) && em.HasComponent<FactionPopulation>(bank))
+            {
+                var pop = em.GetComponentData<FactionPopulation>(bank);
+                counts = " (" + pop.Current + "/" + pop.Max + ")";
+            }
+            SimSignals.NotifyError(string.Format(
+                TheWaningBorder.Core.Localization.Loc.T("Training waits: population cap reached{0} - build more housing"),
+                counts));
         }
     }
 }
