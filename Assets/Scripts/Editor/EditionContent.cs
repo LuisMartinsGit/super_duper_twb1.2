@@ -115,6 +115,8 @@ namespace TheWaningBorder.EditorTools
                 // appended last). A stripped card mid-list would renumber every
                 // card after it — refused loudly instead.
                 int cards = StripTrailingAbilities(cultures);
+                int wallSets = StripWallCultureSets(cultures);
+                if (wallSets > 0) Debug.Log($"[EditionContent] Stripped {wallSets} wall culture set(s).");
                 if (configs > 0 || cards > 0)
                     Debug.Log($"[EditionContent] Also stripped {configs} component config(s) and {cards} ability card(s).");
 
@@ -202,6 +204,26 @@ namespace TheWaningBorder.EditorTools
                 removed++;
             }
             if (removed > 0) EditorUtility.SetDirty(catalog);
+            return removed;
+        }
+
+        private const string WallArtPath = TechTreeRoot + "Age0/Buildings/Wall/WallModuleArt.asset";
+
+        /// <summary>WallModuleArt.asset carries one wall set per culture
+        /// (cultureSets); a stripped culture's set would pull its wall prefabs in.</summary>
+        private static int StripWallCultureSets(string[] cultures)
+        {
+            var cfg = AssetDatabase.LoadAssetAtPath<TheWaningBorder.Rendering.WallModuleArtConfig>(WallArtPath);
+            if (cfg == null || cfg.cultureSets == null) return 0;
+            var drop = new HashSet<byte>();
+            foreach (var c in cultures)
+                drop.Add(c == "Feraldis" ? Cultures.Feraldis : c == "Runai" ? Cultures.Runai : Cultures.None);
+            var kept = cfg.cultureSets.Where(set => set == null || !drop.Contains(set.culture)).ToArray();
+            int removed = cfg.cultureSets.Length - kept.Length;
+            if (removed == 0) return 0;
+            Backup(WallArtPath);
+            cfg.cultureSets = kept;
+            EditorUtility.SetDirty(cfg);
             return removed;
         }
 
@@ -313,6 +335,45 @@ namespace TheWaningBorder.EditorTools
             return leaks;
         }
 
+        /// <summary>
+        /// Strip for <paramref name="edition"/> WITHOUT building, list every
+        /// asset of a stripped culture still reachable from the build's
+        /// scenes and Resources, each with the kept asset that references it,
+        /// then restore. Bridge: <c>edition-dryrun A</c>. Returns the report.
+        /// </summary>
+        public static string DryRun(string edition, string[] scenes)
+        {
+            var folders = StrippedCultures(edition).SelectMany(CultureFolders).ToArray();
+            if (folders.Length == 0) return "nothing stripped";
+            bool Stripped(string path) => folders.Any(f => path.StartsWith(f, StringComparison.Ordinal));
+            using var scope = Strip(edition);
+            if (scope.Error != null) return scope.Error;
+
+            var roots = new List<string>(scenes);
+            foreach (var guid in AssetDatabase.FindAssets("", new[] { "Assets" }))
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                if (path.Contains("/Resources/") && !AssetDatabase.IsValidFolder(path)) roots.Add(path);
+            }
+            var all = AssetDatabase.GetDependencies(roots.ToArray(), true);
+            var byReferrer = new SortedDictionary<string, List<string>>();
+            foreach (var path in all)
+            {
+                if (Stripped(path) || path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)) continue;
+                foreach (var dep in AssetDatabase.GetDependencies(path, false))
+                {
+                    if (!Stripped(dep) || dep.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!byReferrer.TryGetValue(path, out var list)) byReferrer[path] = list = new List<string>();
+                    list.Add(dep);
+                }
+            }
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"Edition {edition}: {byReferrer.Count} kept asset(s) still reference stripped content");
+            foreach (var kv in byReferrer)
+                sb.AppendLine(kv.Key + " -> " + kv.Value.Count + " (first: " + kv.Value[0] + ")");
+            return sb.ToString();
+        }
+
         // ── backup / restore ──────────────────────────────────────────────
 
         private static void Backup(string assetPath)
@@ -338,8 +399,19 @@ namespace TheWaningBorder.EditorTools
                 restored.Add(parts[0]);
             }
 
+            // A stripped asset that stays loaded and DIRTY survives the
+            // reimport, and the next SaveAssets writes the stripped copy back
+            // over the restored file (2026-10-15: ComponentConfigCatalog lost
+            // the Feraldis/Runai configs that way). Discard the in-memory edit
+            // first, so the import reads the restored file.
             foreach (var path in restored)
+            {
+                foreach (var obj in AssetDatabase.LoadAllAssetsAtPath(path))
+                    if (obj != null) EditorUtility.ClearDirty(obj);
+                var main = AssetDatabase.LoadMainAssetAtPath(path);
+                if (main != null && !(main is GameObject)) Resources.UnloadAsset(main);
                 AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
+            }
             Directory.Delete(BackupDir, recursive: true);
 
             Debug.Log($"[EditionContent] Restored {restored.Count} stripped asset(s) ({why}).");

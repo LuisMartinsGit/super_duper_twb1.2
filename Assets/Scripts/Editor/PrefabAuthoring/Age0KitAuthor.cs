@@ -82,7 +82,8 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
 
         static void EnsureExtraMaterials()
         {
-            _ferVeilstone = AssetDatabase.LoadAssetAtPath<Material>(FerMatDir + "Fer_Veilstone.mat");
+            // Age 0 art must not borrow a culture's material: the demo strips Feraldis.
+            _ferVeilstone = AssetDatabase.LoadAssetAtPath<Material>("Assets/GameData/TechTree/Age0/Buildings/VeilstoneMine/Materials/Age0_Veilstone.mat");
             _ferEmber = AssetDatabase.LoadAssetAtPath<Material>(FerMatDir + "Fer_Ember.mat");
             if (_ferVeilstone == null || _ferEmber == null) throw new Exception("Fer_Veilstone / Fer_Ember palette materials missing");
             var shader = Shader.Find(BuildingLitShader);

@@ -606,7 +606,7 @@ PrefabInstance:
     - target: {fileID: 23831450276319766, guid: 3a84d9e1d10df3f46bda6e135b9f2ba9, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: da51cb8f5140510499530f64492607bb, type: 2}
+      objectReference: {fileID: 2100000, guid: bd953bbaa9dd49f6963617adba966bb4, type: 2}
     m_RemovedComponents:
     - {fileID: 64948697392123778, guid: 3a84d9e1d10df3f46bda6e135b9f2ba9, type: 3}
     m_RemovedGameObjects: []
@@ -1064,7 +1064,7 @@ PrefabInstance:
     - target: {fileID: 23049319128209930, guid: 94232f352b2d74147b811bba365ced64, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: da51cb8f5140510499530f64492607bb, type: 2}
+      objectReference: {fileID: 2100000, guid: bd953bbaa9dd49f6963617adba966bb4, type: 2}
     m_RemovedComponents:
     - {fileID: 64517352777580378, guid: 94232f352b2d74147b811bba365ced64, type: 3}
     m_RemovedGameObjects: []
@@ -1885,7 +1885,7 @@ PrefabInstance:
     - target: {fileID: 23831450276319766, guid: 3a84d9e1d10df3f46bda6e135b9f2ba9, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: da51cb8f5140510499530f64492607bb, type: 2}
+      objectReference: {fileID: 2100000, guid: bd953bbaa9dd49f6963617adba966bb4, type: 2}
     m_RemovedComponents:
     - {fileID: 64948697392123778, guid: 3a84d9e1d10df3f46bda6e135b9f2ba9, type: 3}
     m_RemovedGameObjects: []
@@ -2620,7 +2620,7 @@ PrefabInstance:
     - target: {fileID: 23049319128209930, guid: 94232f352b2d74147b811bba365ced64, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: da51cb8f5140510499530f64492607bb, type: 2}
+      objectReference: {fileID: 2100000, guid: bd953bbaa9dd49f6963617adba966bb4, type: 2}
     m_RemovedComponents:
     - {fileID: 64517352777580378, guid: 94232f352b2d74147b811bba365ced64, type: 3}
     m_RemovedGameObjects: []

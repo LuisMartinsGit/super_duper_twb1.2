@@ -28,6 +28,7 @@
 
 using System;
 using System.IO;
+using System.Linq;
 using System.Text;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -142,6 +143,18 @@ namespace TheWaningBorder.EditorTools
                     if (!EditorApplication.isPlaying) return "OK not playing";
                     EditorApplication.ExitPlaymode();
                     return "OK exiting play mode";
+
+                // `edition-dryrun A`: strip, list what still leaks and who
+                // references it, restore. Report in Temp/edition-dryrun.txt.
+                case "edition-dryrun":
+                {
+                    if (EditorApplication.isPlaying) return "ERROR in play mode; stop first";
+                    var scenes = TheWaningBorder.Core.Maps.EditorTools.MapSceneSync.ScenesForPlayerBuild(
+                        EditorBuildSettings.scenes.Where(s => s.enabled).Select(s => s.path).ToArray());
+                    string report = EditionContent.DryRun(string.IsNullOrEmpty(arg) ? "A" : arg.Trim().ToUpperInvariant(), scenes);
+                    File.WriteAllText(Path.Combine(Dir, "..", "edition-dryrun.txt"), report);
+                    return "OK " + report.Split('\n')[0];
+                }
 
                 // `set-version 0.0.42`: the bare release version, set in
                 // memory AND saved, so release.ps1 (which reads the file) and
