@@ -94,7 +94,13 @@ namespace TheWaningBorder.Core.Localization
             if (active.IsValid()) LocalizeScene(active);
         }
 
-        private static void OnSceneLoaded(Scene scene, LoadSceneMode mode) => LocalizeScene(scene);
+        // Only in Play / a player: the subscription outlives Play mode (no
+        // domain reload on exit), and translating an editor-loaded scene
+        // would edit and dirty it.
+        private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            if (UnityEngine.Application.isPlaying) LocalizeScene(scene);
+        }
 
         private static void LocalizeScene(Scene scene)
         {

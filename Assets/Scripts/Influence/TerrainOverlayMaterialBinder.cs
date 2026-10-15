@@ -42,6 +42,10 @@ namespace TheWaningBorder.Influence
 
         private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
+            // Edit mode: these hooks subscribe in Play and stay subscribed after it
+            // (no domain reload on exit), so an editor scene load would edit and
+            // dirty the authored scene. Only ever act in Play / a player.
+            if (!UnityEngine.Application.isPlaying) return;
             if (!MapRegistry.IsGameplayScene(scene.name)) return;
             if (Object.FindFirstObjectByType<TerrainOverlayMaterialBinder>() != null) return;
             new GameObject("[Terrain Overlay Material Binder]")

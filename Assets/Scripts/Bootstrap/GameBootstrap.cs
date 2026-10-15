@@ -76,6 +76,10 @@ namespace TheWaningBorder.Bootstrap
 
         private static void OnSceneLoadedHandler(Scene scene, LoadSceneMode mode)
         {
+            // Edit mode: these hooks subscribe in Play and stay subscribed after it
+            // (no domain reload on exit), so an editor scene load would edit and
+            // dirty the authored scene. Only ever act in Play / a player.
+            if (!UnityEngine.Application.isPlaying) return;
             // Only bootstrap registered gameplay scenes (the procedural
             // "Game" scene + any hand-authored maps in MapRegistry).
             if (!TheWaningBorder.Core.Maps.MapRegistry.IsGameplayScene(scene.name))

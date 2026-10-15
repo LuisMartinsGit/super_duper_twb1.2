@@ -41,6 +41,10 @@ namespace TheWaningBorder.Rendering
 
         static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
+            // Edit mode: these hooks subscribe in Play and stay subscribed after it
+            // (no domain reload on exit), so an editor scene load would edit and
+            // dirty the authored scene. Only ever act in Play / a player.
+            if (!UnityEngine.Application.isPlaying) return;
             if (!MapRegistry.IsGameplayScene(scene.name)) return;
             if (Object.FindFirstObjectByType<CurseBarrierVfx>() != null) return;
             new GameObject("[Curse Barrier]").AddComponent<CurseBarrierVfx>();

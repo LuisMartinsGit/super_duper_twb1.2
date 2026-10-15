@@ -156,6 +156,17 @@ namespace TheWaningBorder.EditorTools
                     return "OK " + report.Split('\n')[0];
                 }
 
+                // `save-copy <path>`: write the active scene AS IT IS IN
+                // MEMORY to <path> without touching the scene file, to diff
+                // what an open marked it dirty with.
+                case "save-copy":
+                {
+                    var active = SceneManager.GetActiveScene();
+                    return EditorSceneManager.SaveScene(active, arg, true)
+                        ? "OK copied " + active.name + " dirty=" + active.isDirty
+                        : "ERROR could not save a copy to " + arg;
+                }
+
                 // `set-version 0.0.42`: the bare release version, set in
                 // memory AND saved, so release.ps1 (which reads the file) and
                 // PlayerBuild (which reads memory) agree.

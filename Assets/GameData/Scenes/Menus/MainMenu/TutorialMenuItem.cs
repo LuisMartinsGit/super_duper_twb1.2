@@ -45,6 +45,10 @@ namespace TheWaningBorder.UI.Menus
 
         private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
+            // Edit mode: these hooks subscribe in Play and stay subscribed after it
+            // (no domain reload on exit), so an editor scene load would edit and
+            // dirty the authored scene. Only ever act in Play / a player.
+            if (!UnityEngine.Application.isPlaying) return;
             if (scene.name != TheWaningBorder.Core.SceneNames.Menu) return;
             if (FindInScene(scene, TutorialMenuItemName) != null) return;   // already added
 

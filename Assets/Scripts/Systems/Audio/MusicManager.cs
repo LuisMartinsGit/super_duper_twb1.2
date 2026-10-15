@@ -128,6 +128,10 @@ namespace TheWaningBorder.Systems.Audio
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
+            // Edit mode: these hooks subscribe in Play and stay subscribed after it
+            // (no domain reload on exit), so an editor scene load would edit and
+            // dirty the authored scene. Only ever act in Play / a player.
+            if (!UnityEngine.Application.isPlaying) return;
             PlayForScene(scene.name);
         }
 
