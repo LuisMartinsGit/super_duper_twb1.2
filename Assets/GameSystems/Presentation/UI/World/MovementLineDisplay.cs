@@ -1,4 +1,5 @@
-// Shows a line from selected moving units to their destinations, with a destination marker
+// Shows a line from selected moving units to their destinations, with a destination marker.
+// A formation group draws ONE line for the whole army (see DrawSelection).
 
 using System.Collections.Generic;
 using UnityEngine;
@@ -101,14 +102,39 @@ namespace TheWaningBorder.UI.World
             }
         }
 
+        // ONE LINE PER FORMATION (2026-10-15). A group order used to draw a
+        // line per unit — twenty parallel yellow strands for one army. A unit
+        // marching in a formation group (FormationMemberState -> a live
+        // FormationGroup) now contributes nothing of its own: the group draws
+        // one line from its virtual leader (the centre of the lattice) to the
+        // group destination, plus the queued chain. Grouping is read off the
+        // SIM's membership, not the selection, so it stays right after a
+        // reselect, a partial selection or a member dropping out (an outlier,
+        // a worker, a unit out of rank fighting) — those draw their own line.
+        // Groups already drawn this frame; cleared, never reallocated.
+        private readonly List<Entity> _groupsDrawn = new();
+
         private void DrawSelection(List<Entity> selection)
         {
+            _groupsDrawn.Clear();
             foreach (var entity in selection)
             {
                 if (!_em.Exists(entity)) continue;
                 if (!_em.HasComponent<UnitTag>(entity)) continue;
                 if (!_em.HasComponent<DesiredDestination>(entity)) continue;
                 if (!_em.HasComponent<LocalTransform>(entity)) continue;
+
+                bool attacking = _em.HasComponent<AttackCommand>(entity)
+                              && _em.IsComponentEnabled<AttackCommand>(entity);
+                if (!attacking && TryGetFormationGroup(entity, out var group))
+                {
+                    if (!_groupsDrawn.Contains(group))
+                    {
+                        _groupsDrawn.Add(group);
+                        DrawGroup(group, entity);
+                    }
+                    continue;
+                }
 
                 var dest = _em.GetComponentData<DesiredDestination>(entity);
                 bool hasActiveDest = dest.Has != 0;
@@ -119,26 +145,7 @@ namespace TheWaningBorder.UI.World
                 if (!hasActiveDest && !hasQueuedCommands) continue;
 
                 float3 pos = _em.GetComponentData<LocalTransform>(entity).Position;
-
-                // Determine command type for color
-                Color lColor, mColor;
-                if (_em.HasComponent<AttackCommand>(entity)
-                    && _em.IsComponentEnabled<AttackCommand>(entity))
-                {
-                    lColor = attackLineColor;
-                    mColor = attackMarkerColor;
-                }
-                else if (_em.HasComponent<BuildOrder>(entity)
-                      || _em.HasComponent<HealCommand>(entity))
-                {
-                    lColor = supportLineColor;
-                    mColor = supportMarkerColor;
-                }
-                else
-                {
-                    lColor = moveLineColor;
-                    mColor = moveMarkerColor;
-                }
+                PickColors(entity, out var lColor, out var mColor);
 
                 Vector3 unitWorld = new Vector3(pos.x, 0f, pos.z);
 
@@ -155,43 +162,99 @@ namespace TheWaningBorder.UI.World
                     chainEnd = destWorld;
                 }
 
-                // ── Queued chain (Shift+right-click, chained AI orders) ──
-                // Each queued step is drawn with the SAME lines that mark the
-                // live order (2026-09-29): red for an attack or attack-move,
-                // green for build / repair / heal, the move colour for moves
-                // and patrols — chained from the previous step's end. A
-                // targeted step follows its target's current position.
-                if (hasQueuedCommands)
+                if (hasQueuedCommands) DrawQueuedChain(entity, chainEnd);
+            }
+        }
+
+        /// <summary>The live formation group a unit marches in, if any.</summary>
+        private bool TryGetFormationGroup(Entity unit, out Entity group)
+        {
+            group = Entity.Null;
+            if (!TransientState.Active<FormationMemberState>(_em, unit)) return false;
+            group = _em.GetComponentData<FormationMemberState>(unit).Group;
+            return group != Entity.Null && _em.Exists(group)
+                && _em.HasComponent<FormationGroup>(group);
+        }
+
+        /// <summary>
+        /// The group's one line: virtual leader → destination while it
+        /// marches, then just the destination marker while the ranks settle
+        /// (the leader is already there), then the queued chain of the
+        /// representative member — a grouped Shift-click queues the same
+        /// point on every member, so any one of them carries the route.
+        /// </summary>
+        private void DrawGroup(Entity group, Entity representative)
+        {
+            var g = _em.GetComponentData<FormationGroup>(group);
+            PickColors(representative, out var lColor, out var mColor);
+
+            Vector3 destWorld = new Vector3(g.Destination.x, 0f, g.Destination.z);
+            if (g.State == FormationGroup.StateMoving)
+                DrawSegment(new Vector3(g.LeaderPos.x, 0f, g.LeaderPos.z), destWorld, lColor);
+            PlaceMarker(g.Destination, mColor);
+
+            if (_em.HasBuffer<QueuedCommand>(representative)
+                && _em.GetBuffer<QueuedCommand>(representative).Length > 0)
+                DrawQueuedChain(representative, destWorld);
+        }
+
+        // Line + marker colour for a unit's live order.
+        private void PickColors(Entity entity, out Color lColor, out Color mColor)
+        {
+            if (_em.HasComponent<AttackCommand>(entity)
+                && _em.IsComponentEnabled<AttackCommand>(entity))
+            {
+                lColor = attackLineColor;
+                mColor = attackMarkerColor;
+            }
+            else if (TransientState.Active<BuildOrder>(_em, entity)
+                  || _em.HasComponent<HealCommand>(entity))
+            {
+                lColor = supportLineColor;
+                mColor = supportMarkerColor;
+            }
+            else
+            {
+                lColor = moveLineColor;
+                mColor = moveMarkerColor;
+            }
+        }
+
+        // ── Queued chain (Shift+right-click, chained AI orders) ──
+        // Each queued step is drawn with the SAME lines that mark the
+        // live order (2026-09-29): red for an attack or attack-move,
+        // green for build / repair / heal, the move colour for moves
+        // and patrols — chained from the previous step's end. A
+        // targeted step follows its target's current position.
+        private void DrawQueuedChain(Entity entity, Vector3 chainEnd)
+        {
+            var buffer = _em.GetBuffer<QueuedCommand>(entity);
+            for (int q = 0; q < buffer.Length; q++)
+            {
+                var cmd = buffer[q];
+                float3 at = cmd.TargetPosition;
+                if (cmd.TargetEntity != Entity.Null && _em.Exists(cmd.TargetEntity)
+                    && _em.HasComponent<LocalTransform>(cmd.TargetEntity))
+                    at = _em.GetComponentData<LocalTransform>(cmd.TargetEntity).Position;
+
+                Color ql, qm;
+                switch (cmd.Type)
                 {
-                    var buffer = _em.GetBuffer<QueuedCommand>(entity);
-                    for (int q = 0; q < buffer.Length; q++)
-                    {
-                        var cmd = buffer[q];
-                        float3 at = cmd.TargetPosition;
-                        if (cmd.TargetEntity != Entity.Null && _em.Exists(cmd.TargetEntity)
-                            && _em.HasComponent<LocalTransform>(cmd.TargetEntity))
-                            at = _em.GetComponentData<LocalTransform>(cmd.TargetEntity).Position;
-
-                        Color ql, qm;
-                        switch (cmd.Type)
-                        {
-                            case QueuedCommandType.Attack:
-                            case QueuedCommandType.AttackMove:
-                                ql = attackLineColor; qm = attackMarkerColor; break;
-                            case QueuedCommandType.Build:
-                            case QueuedCommandType.Repair:
-                            case QueuedCommandType.Heal:
-                                ql = supportLineColor; qm = supportMarkerColor; break;
-                            default:
-                                ql = moveLineColor; qm = moveMarkerColor; break;
-                        }
-
-                        Vector3 wp = new Vector3(at.x, 0f, at.z);
-                        DrawSegment(chainEnd, wp, ql);
-                        PlaceMarker(at, qm);
-                        chainEnd = wp;
-                    }
+                    case QueuedCommandType.Attack:
+                    case QueuedCommandType.AttackMove:
+                        ql = attackLineColor; qm = attackMarkerColor; break;
+                    case QueuedCommandType.Build:
+                    case QueuedCommandType.Repair:
+                    case QueuedCommandType.Heal:
+                        ql = supportLineColor; qm = supportMarkerColor; break;
+                    default:
+                        ql = moveLineColor; qm = moveMarkerColor; break;
                 }
+
+                Vector3 wp = new Vector3(at.x, 0f, at.z);
+                DrawSegment(chainEnd, wp, ql);
+                PlaceMarker(at, qm);
+                chainEnd = wp;
             }
         }
 

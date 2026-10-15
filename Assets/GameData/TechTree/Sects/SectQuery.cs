@@ -36,6 +36,52 @@ namespace TheWaningBorder.Economy
 
         #endregion
 
+        #region Standing-building cache
+
+        /// <summary>
+        /// The ENTITY SET a standing-building query matches, kept until it can
+        /// have changed (2026-10-15 perf pass). PassiveLive / Arrow Slits /
+        /// the Treasury are asked per hit, per tower and per extractor, and
+        /// every ask used to copy the whole query out with
+        /// ToComponentDataArray.
+        ///
+        /// The set only changes on a STRUCTURAL change to an entity carrying
+        /// the building tag (built, finished — UnderConstruction removed —,
+        /// destroyed, Health / FactionTag added or removed), and every one of
+        /// those bumps the tag's component ORDER version. So the set is
+        /// re-read when that version moves, or when the world is a different
+        /// one (a new match world). Faction and Health are VALUES and are read
+        /// live on every ask, which keeps the answer exactly what the full
+        /// query walk returned — no tick key, nothing that can go stale inside
+        /// a tick or carry across matches.
+        /// </summary>
+        private sealed class StandingSet
+        {
+            private Unity.Entities.World _world;
+            private int _version;
+            private bool _valid;
+            public readonly System.Collections.Generic.List<Entity> Entities
+                = new System.Collections.Generic.List<Entity>(8);
+
+            /// <summary>Re-read the set from <paramref name="q"/> when the
+            /// tag's order version or the world changed.</summary>
+            public void Refresh(EntityManager em, EntityQuery q, int orderVersion)
+            {
+                var world = em.World;
+                if (_valid && ReferenceEquals(world, _world) && orderVersion == _version) return;
+                Entities.Clear();
+                using (var ents = q.ToEntityArray(Allocator.Temp))
+                    for (int i = 0; i < ents.Length; i++) Entities.Add(ents[i]);
+                _world = world;
+                _version = orderVersion;
+                _valid = true;
+            }
+        }
+
+        static readonly StandingSet TempleSet = new StandingSet();
+
+        #endregion
+
         /// <summary>
         /// Does this faction have a STANDING (completed) Temple of Ridan?
         ///
@@ -48,11 +94,11 @@ namespace TheWaningBorder.Economy
         public static bool HasStandingTemple(EntityManager em, Faction faction)
         {
             var q = QC_StandingTemple.Get(em, QT_StandingTemple);
-            using var factions = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var ents = q.ToEntityArray(Allocator.Temp);
-            for (int i = 0; i < ents.Length; i++)
+            TempleSet.Refresh(em, q, em.GetComponentOrderVersion<TempleOfRidanTag>());
+            var ents = TempleSet.Entities;
+            for (int i = 0; i < ents.Count; i++)
             {
-                if (factions[i].Value != faction) continue;
+                if (em.GetComponentData<FactionTag>(ents[i]).Value != faction) continue;
                 if (em.HasComponent<Health>(ents[i])
                     && em.GetComponentData<Health>(ents[i]).Value <= 0) continue;
                 return true;
@@ -124,14 +170,16 @@ namespace TheWaningBorder.Economy
                 ComponentType.Exclude<UnderConstruction>(),
             };
             static CachedEntityQuery QC;
+            static readonly StandingSet Set = new StandingSet();
 
             public static bool Any(EntityManager em, Faction faction)
             {
                 var q = QC.Get(em, QT);
-                using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-                using var hps = q.ToComponentDataArray<Health>(Allocator.Temp);
-                for (int i = 0; i < facs.Length; i++)
-                    if (facs[i].Value == faction && hps[i].Value > 0) return true;
+                Set.Refresh(em, q, em.GetComponentOrderVersion<T>());
+                var ents = Set.Entities;
+                for (int i = 0; i < ents.Count; i++)
+                    if (em.GetComponentData<FactionTag>(ents[i]).Value == faction
+                        && em.GetComponentData<Health>(ents[i]).Value > 0) return true;
                 return false;
             }
         }

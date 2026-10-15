@@ -97,6 +97,11 @@ namespace TheWaningBorder.Systems.Combat
             => em.HasComponent<NavLayerIndex>(unit)
                && em.GetComponentData<NavLayerIndex>(unit).Layer == NavLayerIndex.LayerRampart;
 
+        /// <summary><see cref="IsOnRampart(EntityManager, Entity)"/> through
+        /// the combat loops' shared lookups.</summary>
+        public static bool IsOnRampart(in CombatLookups lk, Entity unit)
+            => lk.NavLayer.TryGetComponent(unit, out var nav) && nav.Layer == NavLayerIndex.LayerRampart;
+
         // Fix #207: spatial-hash cell size for the enemy scan.
         // Cell=20 means a unit with LOS<=20 only visits a 3x3 neighborhood
         // (9 cells). Keeps per-unit inner-loop work bounded regardless of
@@ -133,14 +138,23 @@ namespace TheWaningBorder.Systems.Combat
             return !em.HasComponent<SiegeTag>(attacker) || em.HasComponent<BallistaShooterTag>(attacker);
         }
 
+        /// <summary><see cref="CanHitFlying(EntityManager, Entity)"/> through
+        /// the combat loops' shared lookups.</summary>
+        public static bool CanHitFlying(in CombatLookups lk, Entity attacker)
+        {
+            if (lk.Building.HasComponent(attacker)) return true;
+            if (!lk.Archer.HasComponent(attacker)) return false;
+            return !lk.Siege.HasComponent(attacker) || lk.BallistaShooter.HasComponent(attacker);
+        }
+
         // ── Cross-frame cache of the enemy set's peer-stable order ────────
         // Rebuilding the order needs a NetworkedEntity lookup per enemy plus
         // an O(N log N) sort, every frame, while the SET of enemies changes
         // only when something spawns, dies or changes archetype. The cache is
         // keyed on the exact entity array (same entities, same chunk order):
-        // any difference rebuilds it. Only kept while every enemy is
-        // networked — the position tiebreak for an unnetworked one changes as
-        // it moves.
+        // any difference rebuilds it. Unnetworked enemies (whose position
+        // tiebreak changes as they move) sort to the tail and only that tail
+        // is re-sorted per tick — see _cacheNetworkedCount.
         private NativeList<Entity> _cacheEnemies;
         private NativeList<int> _cacheOrder;
         private NativeList<byte> _cacheFlags;
@@ -148,6 +162,12 @@ namespace TheWaningBorder.Systems.Combat
         /// <summary>Per-enemy UnitTagsData mask (TargetPreference rules).</summary>
         private NativeList<uint> _cacheTags;
         private byte _cacheValid;
+        /// <summary>How many entries at the FRONT of _cacheOrder are
+        /// networked. They sort by NetworkId, which never changes, so that
+        /// prefix stays valid while the set does; only the unnetworked tail
+        /// (NetworkId = max, ordered by position) has to be re-sorted as its
+        /// members move. See RefreshEnemyCache.</summary>
+        private int _cacheNetworkedCount;
 
         // ── Own clock (seconds since the match epoch began) ──────────────
         // UnitEngagement's HitAt / NextAcquireAt are stamped against it.
@@ -250,7 +270,64 @@ namespace TheWaningBorder.Systems.Combat
             using var allEnemyFactions = enemyQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var allEnemyHealth = enemyQuery.ToComponentDataArray<Health>(Allocator.Temp);
 
-            RefreshEnemyCache(em, allEnemies, allEnemyTransforms);
+            // Lookups for the per-enemy reads (2026-10-15 perf pass): an
+            // EntityManager.HasComponent walks the archetype's ~100 types per
+            // call; a lookup caches the archetype, and consecutive enemies
+            // share one (chunk order), so most reads are O(1). Pure reads —
+            // every answer is the one the EntityManager gave.
+            var lk = new EnemyLookups
+            {
+                Net = SystemAPI.GetComponentLookup<TheWaningBorder.Core.Multiplayer.NetworkedEntity>(true),
+                Building = SystemAPI.GetComponentLookup<BuildingTag>(true),
+                Wall = SystemAPI.GetComponentLookup<WallTag>(true),
+                Worker = SystemAPI.GetComponentLookup<WorkerTag>(true),
+                CanBuild = SystemAPI.GetComponentLookup<CanBuild>(true),
+                Hero = SystemAPI.GetComponentLookup<HeroLevel>(true),
+                Caravan = SystemAPI.GetComponentLookup<CaravanTag>(true),
+                TraderWarrior = SystemAPI.GetComponentLookup<RunaiTraderWarrior>(true),
+                Escort = SystemAPI.GetComponentLookup<RunaiEscort>(true),
+                Flying = SystemAPI.GetComponentLookup<FlyingTag>(true),
+                UnitTags = SystemAPI.GetComponentLookup<UnitTagsData>(true),
+                Unit = SystemAPI.GetComponentLookup<UnitTag>(true),
+            };
+            RefreshEnemyCache(allEnemies, allEnemyTransforms, in lk);
+
+            // Per-enemy footprint, read ONCE per tick (N lookups) instead of
+            // once per scanner x candidate through the EntityManager. Read
+            // every tick, not cached with the flags: a value can change
+            // without the enemy set changing. Pad is the footprint's farthest
+            // reach from the pivot — the box's half-diagonal, the circle's
+            // radius — for the cheap reject in FindAutoTarget.
+            var sizeLookup = SystemAPI.GetComponentLookup<BuildingSize>(true);
+            var radiusLookup = SystemAPI.GetComponentLookup<Radius>(true);
+            int enemyCount = allEnemies.Length;
+            var enemyIsBox = new NativeArray<byte>(enemyCount, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
+            var enemyHalfW = new NativeArray<float>(enemyCount, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
+            var enemyHalfH = new NativeArray<float>(enemyCount, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
+            var enemyRadius = new NativeArray<float>(enemyCount, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
+            var enemyPad = new NativeArray<float>(enemyCount, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
+            for (int i = 0; i < enemyCount; i++)
+            {
+                var e = allEnemies[i];
+                if (sizeLookup.TryGetComponent(e, out var bs))
+                {
+                    float hw = bs.Width * 0.5f, hh = bs.Height * 0.5f;
+                    enemyIsBox[i] = 1;
+                    enemyHalfW[i] = hw;
+                    enemyHalfH[i] = hh;
+                    enemyRadius[i] = 0f;
+                    enemyPad[i] = math.sqrt(hw * hw + hh * hh);
+                }
+                else
+                {
+                    float r = radiusLookup.TryGetComponent(e, out var rad) ? rad.Value : 0f;
+                    enemyIsBox[i] = 0;
+                    enemyHalfW[i] = 0f;
+                    enemyHalfH[i] = 0f;
+                    enemyRadius[i] = r;
+                    enemyPad[i] = r;
+                }
+            }
 
             // Hostility table, once per tick instead of a team lookup per
             // candidate. Burst-safe variant (SharedStatic team table).
@@ -328,6 +405,14 @@ namespace TheWaningBorder.Systems.Combat
                 Map = spatialMap,
                 Hostile = hostile,
                 FactionPresent = factionPresent,
+                IsBox = enemyIsBox,
+                HalfW = enemyHalfW,
+                HalfH = enemyHalfH,
+                Radius = enemyRadius,
+                Pad = enemyPad,
+                Stealth = SystemAPI.GetComponentLookup<StealthTag>(true),
+                StealthRevealed = SystemAPI.GetComponentLookup<StealthRevealed>(true),
+                Targets = SystemAPI.GetComponentLookup<Target>(true),
             };
 
             // =============================================================================
@@ -343,6 +428,11 @@ namespace TheWaningBorder.Systems.Combat
             attackerCount.Dispose();
             hostile.Dispose();
             factionPresent.Dispose();
+            enemyIsBox.Dispose();
+            enemyHalfW.Dispose();
+            enemyHalfH.Dispose();
+            enemyRadius.Dispose();
+            enemyPad.Dispose();
 
             // =============================================================================
             // PHASE 4: Clean up stale AttackCommand components
@@ -358,16 +448,49 @@ namespace TheWaningBorder.Systems.Combat
         /// <summary>
         /// Rebuild the peer-stable insert order, the per-enemy flags and the
         /// priority classes — unless the enemy set is exactly last tick's.
+        ///
+        /// An UNNETWORKED enemy used to invalidate the whole cache every tick
+        /// (its position tiebreak changes as it moves), so one stray entity
+        /// without a NetworkedEntity cost a full rebuild — ~13 component reads
+        /// per enemy plus an N log N sort — for the rest of the match. Its
+        /// order key is (NetworkId = max, position), so every unnetworked
+        /// enemy sorts AFTER every networked one; the networked prefix never
+        /// moves while the set holds, and only the unnetworked tail is
+        /// re-sorted on its current positions (2026-10-15). The resulting
+        /// order is the full sort's order.
         /// </summary>
-        private void RefreshEnemyCache(EntityManager em, NativeArray<Entity> allEnemies,
-            NativeArray<LocalTransform> allEnemyTransforms)
+        private void RefreshEnemyCache(NativeArray<Entity> allEnemies,
+            NativeArray<LocalTransform> allEnemyTransforms, in EnemyLookups lk)
         {
             if (_cacheValid != 0 && _cacheEnemies.Length == allEnemies.Length)
             {
                 bool same = true;
                 for (int i = 0; i < allEnemies.Length; i++)
                     if (_cacheEnemies[i] != allEnemies[i]) { same = false; break; }
-                if (same) return;
+                if (same)
+                {
+                    int tail = allEnemies.Length - _cacheNetworkedCount;
+                    if (tail > 1)
+                    {
+                        var tailKeys = new NativeArray<TargetMapKey>(tail, Allocator.Temp,
+                            NativeArrayOptions.UninitializedMemory);
+                        for (int t = 0; t < tail; t++)
+                        {
+                            int idx = _cacheOrder[_cacheNetworkedCount + t];
+                            var pos = allEnemyTransforms[idx].Position;
+                            tailKeys[t] = new TargetMapKey
+                            {
+                                NetId = long.MaxValue,
+                                PosKey = ((ulong)math.asuint(pos.x) << 32) | math.asuint(pos.z),
+                                Index = idx,
+                            };
+                        }
+                        tailKeys.Sort(new TargetMapKey.Order());
+                        for (int t = 0; t < tail; t++) _cacheOrder[_cacheNetworkedCount + t] = tailKeys[t].Index;
+                        tailKeys.Dispose();
+                    }
+                    return;
+                }
             }
 
             int n = allEnemies.Length;
@@ -378,16 +501,17 @@ namespace TheWaningBorder.Systems.Combat
             _cachePrio.ResizeUninitialized(n);
             _cacheTags.ResizeUninitialized(n);
 
-            bool allNetworked = true;
+            int networked = 0;
             var order = new NativeArray<TargetMapKey>(n, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
             for (int i = 0; i < n; i++)
             {
                 var e = allEnemies[i];
                 long netId = long.MaxValue;
-                if (em.HasComponent<TheWaningBorder.Core.Multiplayer.NetworkedEntity>(e))
-                    netId = em.GetComponentData<TheWaningBorder.Core.Multiplayer.NetworkedEntity>(e).NetworkId;
-                else
-                    allNetworked = false;
+                if (lk.Net.TryGetComponent(e, out var net))
+                {
+                    netId = net.NetworkId;
+                    networked++;
+                }
                 var pos = allEnemyTransforms[i].Position;
                 order[i] = new TargetMapKey
                 {
@@ -397,24 +521,25 @@ namespace TheWaningBorder.Systems.Combat
                 };
 
                 byte flags = 0;
-                if (em.HasComponent<BuildingTag>(e)) flags |= FlagBuilding;
-                if (em.HasComponent<WallTag>(e)) flags |= FlagWall;
-                if (em.HasComponent<WorkerTag>(e) || em.HasComponent<CanBuild>(e)) flags |= FlagWorker;
-                if (em.HasComponent<HeroLevel>(e)) flags |= FlagHero;
-                if (em.HasComponent<CaravanTag>(e) || em.HasComponent<RunaiTraderWarrior>(e)
-                    || em.HasComponent<RunaiEscort>(e)) flags |= FlagCivilian;
-                if (em.HasComponent<FlyingTag>(e)) flags |= FlagFlying;
+                if (lk.Building.HasComponent(e)) flags |= FlagBuilding;
+                if (lk.Wall.HasComponent(e)) flags |= FlagWall;
+                if (lk.Worker.HasComponent(e) || lk.CanBuild.HasComponent(e)) flags |= FlagWorker;
+                if (lk.Hero.HasComponent(e)) flags |= FlagHero;
+                bool caravan = lk.Caravan.HasComponent(e);
+                if (caravan || lk.TraderWarrior.HasComponent(e)
+                    || lk.Escort.HasComponent(e)) flags |= FlagCivilian;
+                if (lk.Flying.HasComponent(e)) flags |= FlagFlying;
                 _cacheFlags[i] = flags;
-                _cacheTags[i] = em.HasComponent<UnitTagsData>(e) ? em.GetComponentData<UnitTagsData>(e).Mask : 0u;
+                _cacheTags[i] = lk.UnitTags.TryGetComponent(e, out var tags) ? tags.Mask : 0u;
 
                 // M2 (AI plan): tactical target priority per candidate. Within a
                 // bounded distance band (see FindAutoTarget), units prefer
                 // high-value classes — healers, siege, casters — over whatever is
                 // merely nearest. Buildings and workers stay lowest.
                 byte prio = 1;
-                if (em.HasComponent<UnitTag>(e))
+                if (lk.Unit.TryGetComponent(e, out var unit))
                 {
-                    prio = em.GetComponentData<UnitTag>(e).Class switch
+                    prio = unit.Class switch
                     {
                         UnitClass.Support => 5,
                         UnitClass.Magic   => 4,
@@ -424,7 +549,7 @@ namespace TheWaningBorder.Systems.Combat
                         _                 => 1,
                     };
                     // A Runai caravan wagon is worth breaking off for (§9).
-                    if (em.HasComponent<CaravanTag>(e)) prio = 4;
+                    if (caravan) prio = 4;
                 }
                 _cachePrio[i] = prio;
             }
@@ -432,7 +557,11 @@ namespace TheWaningBorder.Systems.Combat
             for (int o = 0; o < n; o++) _cacheOrder[o] = order[o].Index;
             order.Dispose();
 
-            _cacheValid = (byte)(allNetworked ? 1 : 0);
+            // Networked keys (NetworkId is an int) all sort before the
+            // unnetworked long.MaxValue ones, so the first `networked`
+            // entries are exactly the networked enemies.
+            _cacheNetworkedCount = networked;
+            _cacheValid = 1;
         }
 
         /// <summary>Everything the candidate scan reads, bundled so the two
@@ -449,6 +578,58 @@ namespace TheWaningBorder.Systems.Combat
             public NativeParallelMultiHashMap<int3, int> Map;
             public NativeArray<byte> Hostile;
             public NativeArray<byte> FactionPresent;
+
+            // Per-enemy footprint, filled once per tick (see OnUpdate).
+            public NativeArray<byte> IsBox;
+            public NativeArray<float> HalfW;
+            public NativeArray<float> HalfH;
+            public NativeArray<float> Radius;
+            public NativeArray<float> Pad;
+
+            // Live per-candidate reads for the candidates that survive the
+            // range test.
+            [ReadOnly] public ComponentLookup<StealthTag> Stealth;
+            [ReadOnly] public ComponentLookup<StealthRevealed> StealthRevealed;
+            [ReadOnly] public ComponentLookup<Target> Targets;
+
+            /// <summary>
+            /// TargetGeometry.SurfaceDistXZ for enemy <paramref name="i"/>, from
+            /// the per-tick arrays: the same arithmetic on the same values, so
+            /// the same float.
+            /// </summary>
+            public float SurfaceDist(int i, float3 fromPos, float3 enemyPos)
+            {
+                if (IsBox[i] != 0)
+                {
+                    float dx = math.max(math.abs(fromPos.x - enemyPos.x) - HalfW[i], 0f);
+                    float dz = math.max(math.abs(fromPos.z - enemyPos.z) - HalfH[i], 0f);
+                    return math.sqrt(dx * dx + dz * dz);
+                }
+                return math.max(DistXZ(fromPos, enemyPos) - Radius[i], 0f);
+            }
+
+            /// <summary>Stealthed and not exposed — the two
+            /// TransientState.Active tests, through lookups.</summary>
+            public bool IsHidden(Entity e)
+                => Stealth.HasComponent(e) && Stealth.IsComponentEnabled(e)
+                   && !(StealthRevealed.HasComponent(e) && StealthRevealed.IsComponentEnabled(e));
+        }
+
+        /// <summary>The flag lookups RefreshEnemyCache reads, built in OnUpdate.</summary>
+        private struct EnemyLookups
+        {
+            [ReadOnly] public ComponentLookup<TheWaningBorder.Core.Multiplayer.NetworkedEntity> Net;
+            [ReadOnly] public ComponentLookup<BuildingTag> Building;
+            [ReadOnly] public ComponentLookup<WallTag> Wall;
+            [ReadOnly] public ComponentLookup<WorkerTag> Worker;
+            [ReadOnly] public ComponentLookup<CanBuild> CanBuild;
+            [ReadOnly] public ComponentLookup<HeroLevel> Hero;
+            [ReadOnly] public ComponentLookup<CaravanTag> Caravan;
+            [ReadOnly] public ComponentLookup<RunaiTraderWarrior> TraderWarrior;
+            [ReadOnly] public ComponentLookup<RunaiEscort> Escort;
+            [ReadOnly] public ComponentLookup<FlyingTag> Flying;
+            [ReadOnly] public ComponentLookup<UnitTagsData> UnitTags;
+            [ReadOnly] public ComponentLookup<UnitTag> Unit;
         }
 
         // Cap how many MELEE attackers can target the same enemy at once.

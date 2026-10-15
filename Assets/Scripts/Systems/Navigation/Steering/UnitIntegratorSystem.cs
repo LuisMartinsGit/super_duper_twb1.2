@@ -107,16 +107,104 @@ namespace TheWaningBorder.Systems.Navigation
         // slopes never trip this; only ledges (bridge deck edges) do.
         private const float MaxLedgeDrop = 2f;
 
-        [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
+        // ── Per-unit lookups (perf pass 2026-10-15) ────────────────────
+        // Phase 2 used to make ~50 EntityManager calls per moving unit per
+        // tick (HasComponent / GetComponentData / IsComponentEnabled), each
+        // one a dependency check plus an archetype walk — the profiled
+        // ~88 ms late-game frame. Lookups answer the same questions with
+        // the same values; Update()d once per tick, which is enough because
+        // nothing in OnUpdate makes a main-thread structural change (every
+        // add / enable goes through the ECB).
+        //
+        // LocalTransform is written through _xform, NOT a RefRW query
+        // column: a RefRW column bumps the change version of every chunk it
+        // visits, so every unit read as "moved" to the presentation sync
+        // each tick whether it moved or not.
+        private ComponentLookup<LocalTransform> _xform;
+        private ComponentLookup<LayerTraversalState> _traversal;
+        private ComponentLookup<SmoothedDirection> _smoothed;
+        private ComponentLookup<StuckState> _stuck;
+        private ComponentLookup<FormationSpeedOverride> _speedOverride;
+        private ComponentLookup<MoveSpeed> _moveSpeed;
+        private ComponentLookup<ArcherTag> _archer;
+        private ComponentLookup<ArcherState> _archerState;
+        private ComponentLookup<Target> _target;
+        private ComponentLookup<Health> _health;
+        private ComponentLookup<UserMoveOrder> _userMove;
+        private ComponentLookup<AttackMoveTag> _attackMove;
+        private ComponentLookup<FormationMemberState> _member;
+        private ComponentLookup<FormationSlotMemory> _slotMemory;
+        private ComponentLookup<DeathAnimationState> _dying;
+        private ComponentLookup<GuardPoint> _guard;
+        private ComponentLookup<NavLayerIndex> _layer;
+        private ComponentLookup<FlyingTag> _flying;
+        private ComponentLookup<SteeringDesiredDir> _steerDir;
+        private ComponentLookup<FlowDesiredDir> _flowDir;
+        private ComponentLookup<FactionTag> _faction;
+        private EntityStorageInfoLookup _exists;
+        private UnitSpeedModifiers.Lookups _speedMods;
+
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
+
+            _xform = state.GetComponentLookup<LocalTransform>(false);
+            _traversal = state.GetComponentLookup<LayerTraversalState>(true);
+            _smoothed = state.GetComponentLookup<SmoothedDirection>(true);
+            _stuck = state.GetComponentLookup<StuckState>(true);
+            _speedOverride = state.GetComponentLookup<FormationSpeedOverride>(true);
+            _moveSpeed = state.GetComponentLookup<MoveSpeed>(true);
+            _archer = state.GetComponentLookup<ArcherTag>(true);
+            _archerState = state.GetComponentLookup<ArcherState>(true);
+            _target = state.GetComponentLookup<Target>(true);
+            _health = state.GetComponentLookup<Health>(true);
+            _userMove = state.GetComponentLookup<UserMoveOrder>(true);
+            _attackMove = state.GetComponentLookup<AttackMoveTag>(true);
+            _member = state.GetComponentLookup<FormationMemberState>(true);
+            _slotMemory = state.GetComponentLookup<FormationSlotMemory>(true);
+            _dying = state.GetComponentLookup<DeathAnimationState>(true);
+            _guard = state.GetComponentLookup<GuardPoint>(true);
+            _layer = state.GetComponentLookup<NavLayerIndex>(true);
+            _flying = state.GetComponentLookup<FlyingTag>(true);
+            _steerDir = state.GetComponentLookup<SteeringDesiredDir>(true);
+            _flowDir = state.GetComponentLookup<FlowDesiredDir>(true);
+            _faction = state.GetComponentLookup<FactionTag>(true);
+            _exists = state.GetEntityStorageInfoLookup();
+            _speedMods = UnitSpeedModifiers.Lookups.Create(ref state);
         }
 
         public void OnUpdate(ref SystemState state)
         {
             var em = state.EntityManager;
             float dt = SystemAPI.Time.DeltaTime;
+
+            // Main-thread pass reading through lookups: drain every job that
+            // touches the lookup types first (the EntityManager calls this
+            // replaced did that implicitly, one type at a time).
+            state.CompleteDependency();
+            _xform.Update(ref state);
+            _traversal.Update(ref state);
+            _smoothed.Update(ref state);
+            _stuck.Update(ref state);
+            _speedOverride.Update(ref state);
+            _moveSpeed.Update(ref state);
+            _archer.Update(ref state);
+            _archerState.Update(ref state);
+            _target.Update(ref state);
+            _health.Update(ref state);
+            _userMove.Update(ref state);
+            _attackMove.Update(ref state);
+            _member.Update(ref state);
+            _slotMemory.Update(ref state);
+            _dying.Update(ref state);
+            _guard.Update(ref state);
+            _layer.Update(ref state);
+            _flying.Update(ref state);
+            _steerDir.Update(ref state);
+            _flowDir.Update(ref state);
+            _faction.Update(ref state);
+            _exists.Update(ref state);
+            _speedMods.Update(ref state);
 
             var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
             var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
@@ -142,7 +230,7 @@ namespace TheWaningBorder.Systems.Navigation
                     continue;
                 }
 
-                if (em.HasComponent<GuardPoint>(entity))
+                if (TransientState.Active<GuardPoint>(em, entity))
                     ecb.SetComponent(entity, new GuardPoint { Position = mc.ValueRO.Destination, Has = 1 });
 
                 if (!em.HasComponent<DesiredDestination>(entity))
@@ -155,9 +243,9 @@ namespace TheWaningBorder.Systems.Navigation
 
                 TransientState.SetFlag<UserMoveOrder>(ecb, entity);
 
-                if (em.HasComponent<SmoothedDirection>(entity))
+                if (TransientState.Active<SmoothedDirection>(em, entity))
                     ecb.SetComponent(entity, new SmoothedDirection { Value = float3.zero });
-                if (em.HasComponent<StuckState>(entity))
+                if (TransientState.Active<StuckState>(em, entity))
                     ecb.SetComponent(entity, new StuckState { Counter = 0, LastAttempt = 0 });
 
                 TransientState.Clear<MoveCommand>(em, ecb, entity);
@@ -173,7 +261,7 @@ namespace TheWaningBorder.Systems.Navigation
                     continue;
                 }
 
-                if (em.HasComponent<GuardPoint>(entity))
+                if (TransientState.Active<GuardPoint>(em, entity))
                     ecb.SetComponent(entity, new GuardPoint { Position = amc.ValueRO.Destination, Has = 1 });
 
                 if (!em.HasComponent<DesiredDestination>(entity))
@@ -188,9 +276,9 @@ namespace TheWaningBorder.Systems.Navigation
 
                 TransientState.Clear<UserMoveOrder>(em, ecb, entity);
 
-                if (em.HasComponent<SmoothedDirection>(entity))
+                if (TransientState.Active<SmoothedDirection>(em, entity))
                     ecb.SetComponent(entity, new SmoothedDirection { Value = float3.zero });
-                if (em.HasComponent<StuckState>(entity))
+                if (TransientState.Active<StuckState>(em, entity))
                     ecb.SetComponent(entity, new StuckState { Counter = 0, LastAttempt = 0 });
 
                 TransientState.Clear<AttackMoveCommand>(em, ecb, entity);
@@ -201,7 +289,7 @@ namespace TheWaningBorder.Systems.Navigation
             // instantly and doesn't slide through its death animation — its
             // movement is cancelled the moment DeathSystem registers the death.
             foreach (var (xf, dd, entity) in SystemAPI
-                .Query<RefRW<LocalTransform>, RefRW<DesiredDestination>>()
+                .Query<RefRO<LocalTransform>, RefRW<DesiredDestination>>()
                 .WithAll<UnitTag>()
                 .WithNone<DeathAnimationState>()
                 .WithNone<TheWaningBorder.Entities.Launched>()   // airborne: LaunchSystem owns the transform
@@ -223,31 +311,33 @@ namespace TheWaningBorder.Systems.Navigation
                 // position while a climb / gate traversal is in flight.
                 // The integrator must not touch LocalTransform here or
                 // the two systems will fight over the same frame.
-                if (em.HasComponent<LayerTraversalState>(entity)) continue;
+                if (_traversal.HasComponent(entity)) continue;
 
-                // Lazy-add ECS scratch (deferred via ECB).
-                if (!em.HasComponent<SmoothedDirection>(entity))
-                    ecb.AddComponent(entity, new SmoothedDirection { Value = float3.zero });
-                if (!em.HasComponent<StuckState>(entity))
-                    ecb.AddComponent(entity, new StuckState { Counter = 0, LastAttempt = 0 });
+                // Lazy-enable ECS scratch (deferred via ECB). Pre-added
+                // DISABLED at spawn (TransientState UnitSet6); enabling is the
+                // old lazy add, minus the structural change.
+                if (!TransientState.Active(ref _smoothed, entity))
+                    TransientState.Set(ecb, entity, new SmoothedDirection { Value = float3.zero });
+                if (!TransientState.Active(ref _stuck, entity))
+                    TransientState.Set(ecb, entity, new StuckState { Counter = 0, LastAttempt = 0 });
 
                 // Resolve effective speed: FormationSpeedOverride > MoveSpeed > default.
                 float speed = DefaultMoveSpeed;
-                if (TransientState.Active<FormationSpeedOverride>(em, entity))
+                if (TransientState.Active(ref _speedOverride, entity))
                 {
-                    var fso = em.GetComponentData<FormationSpeedOverride>(entity);
+                    var fso = _speedOverride[entity];
                     if (fso.Value > 0) speed = fso.Value;
                 }
-                else if (em.HasComponent<MoveSpeed>(entity))
+                else if (_moveSpeed.HasComponent(entity))
                 {
-                    var ms = em.GetComponentData<MoveSpeed>(entity);
+                    var ms = _moveSpeed[entity];
                     if (ms.Value > 0) speed = ms.Value;
                 }
 
                 // Spell slows, veil / Suppression drag, Fortify, haste — one
                 // shared definition, so FormationGroupSystem can size a group's
                 // speed from exactly what this applies.
-                speed *= UnitSpeedModifiers.Multiplier(em, entity);
+                speed *= UnitSpeedModifiers.Multiplier(ref _speedMods, entity);
                 if (speed <= 0f) continue;
 
                 // Archers in firing range: ARRIVE, don't just halt. The old
@@ -271,18 +361,18 @@ namespace TheWaningBorder.Systems.Navigation
                 // TargetingSystem's auto-acquire does skip UserMoveOrder units,
                 // but a Target can reach a moving unit by other routes, so the
                 // exemption stays here.
-                if (em.HasComponent<ArcherTag>(entity)
-                    && em.HasComponent<Target>(entity)
-                    && !TransientState.Active<UserMoveOrder>(em, entity))
+                if (_archer.HasComponent(entity)
+                    && _target.HasComponent(entity)
+                    && !TransientState.Active(ref _userMove, entity))
                 {
-                    var tgt = em.GetComponentData<Target>(entity);
-                    if (tgt.Value != Entity.Null && em.Exists(tgt.Value)
-                        && em.HasComponent<LocalTransform>(tgt.Value)
-                        && em.HasComponent<Health>(tgt.Value)
-                        && em.GetComponentData<Health>(tgt.Value).Value > 0)
+                    var tgt = _target[entity];
+                    if (tgt.Value != Entity.Null && _exists.Exists(tgt.Value)
+                        && _xform.HasComponent(tgt.Value)
+                        && _health.HasComponent(tgt.Value)
+                        && _health[tgt.Value].Value > 0)
                     {
                         float3 myP = xf.ValueRO.Position;
-                        float3 tgtPos = em.GetComponentData<LocalTransform>(tgt.Value).Position;
+                        float3 tgtPos = _xform[tgt.Value].Position;
                         // minRange 0 is the DEFAULT and a valid value — only
                         // siege keeps a dead zone. This used to default to 10 m
                         // and then only overwrite it when the unit's own value
@@ -291,9 +381,9 @@ namespace TheWaningBorder.Systems.Navigation
                         // firing band. It has to agree with RangedCombatSystem
                         // or the two flip a unit between halt and retreat.
                         float maxRange = 25f, minRange = 0f;
-                        if (em.HasComponent<ArcherState>(entity))
+                        if (_archerState.HasComponent(entity))
                         {
-                            var ast = em.GetComponentData<ArcherState>(entity);
+                            var ast = _archerState[entity];
                             if (ast.MaxRange > 0) maxRange = ast.MaxRange;
                             minRange = math.max(0f, ast.MinRange);
                         }
@@ -333,8 +423,8 @@ namespace TheWaningBorder.Systems.Navigation
                 // would mean melee could never close. Combat approach keeps the
                 // behaviour it already had (see GoalWallSlideSuppressRadius in
                 // SteeringSystem, which owns the orbit-a-building case).
-                bool chasing = em.HasComponent<Target>(entity)
-                    && em.GetComponentData<Target>(entity).Value != Entity.Null;
+                bool chasing = _target.HasComponent(entity)
+                    && _target[entity].Value != Entity.Null;
 
                 // Arrived — either inside the ordinary stop window, or as close
                 // as the crowd physically permits. The second case matters
@@ -360,13 +450,13 @@ namespace TheWaningBorder.Systems.Navigation
                 // They also get a tighter window than a loose unit. 0.5 m of
                 // slop is invisible on a single unit walking to a flag and very
                 // visible across eight units meant to be standing in a line.
-                bool inFormation = TransientState.Active<FormationMemberState>(em, entity);
+                bool inFormation = TransientState.Active(ref _member, entity);
                 float stop = inFormation ? FormationStopDistance : StopDistance;
 
                 bool arrived = distSqr <= (stop * stop);
                 if (!arrived && !chasing && hasHash && !inFormation
                     && distSqr <= CrowdStopDistance * CrowdStopDistance)
-                    arrived = GoalTakenByCloserNeighbour(em, in navHash, goal, pos, entity, dist);
+                    arrived = GoalTakenByCloserNeighbour(in navHash, goal, pos, entity, dist);
 
                 if (arrived)
                 {
@@ -375,18 +465,18 @@ namespace TheWaningBorder.Systems.Navigation
                     // guard point: its stance takes over from here
                     // (docs/Design/Stances.md §2). Not for a chase, whose
                     // destination is the target's edge.
-                    if (!chasing && TransientState.Active<UserMoveOrder>(em, entity)
-                        && em.HasComponent<GuardPoint>(entity))
+                    if (!chasing && TransientState.Active(ref _userMove, entity)
+                        && TransientState.Active(ref _guard, entity))
                         ecb.SetComponent(entity, new GuardPoint { Position = pos, Has = 1 });
-                    TransientState.Clear<UserMoveOrder>(em, ecb, entity);
-                    TransientState.Clear<AttackMoveTag>(em, ecb, entity);
+                    TransientState.Clear(ref _userMove, ecb, entity);
+                    TransientState.Clear(ref _attackMove, ecb, entity);
                     // Only for a unit travelling ALONE. While it is still a
                     // formation member the group owns this component's
                     // lifecycle and removes it on Detach; stripping it here
                     // hands the unit back its own speed in the middle of a
                     // march it is supposed to be marching in step with.
-                    if (!TransientState.Active<FormationMemberState>(em, entity)
-                        && TransientState.Active<FormationSpeedOverride>(em, entity))
+                    if (!TransientState.Active(ref _member, entity)
+                        && TransientState.Active(ref _speedOverride, entity))
                         ecb.SetComponentEnabled<FormationSpeedOverride>(entity, false);
                     continue;
                 }
@@ -395,12 +485,12 @@ namespace TheWaningBorder.Systems.Navigation
 
                 // Which nav layer is this unit on (0 = Ground, 1 = Rampart)?
                 byte unitLayer = 0;
-                if (em.HasComponent<NavLayerIndex>(entity))
-                    unitLayer = em.GetComponentData<NavLayerIndex>(entity).Layer;
+                if (_layer.HasComponent(entity))
+                    unitLayer = _layer[entity].Layer;
                 bool onRampart = unitLayer == NavLayerIndex.LayerRampart;
                 // A FLYING unit (docs/Design/Age_1_Runai.md §6.4) ignores
                 // pathfinding: straight at the goal, over walls and cliffs.
-                bool flying = em.HasComponent<FlyingTag>(entity);
+                bool flying = _flying.HasComponent(entity);
 
                 // === PATHFINDING DIRECTION (M4 preference chain) ===
                 // task-112 M4: NavMesh corridor is gone. Preference chain is:
@@ -412,24 +502,24 @@ namespace TheWaningBorder.Systems.Navigation
                 // a wall-top unit off the wall. They walk straight toward
                 // their (garrison-slot) goal; the layer-aware passability
                 // check below keeps them on walkable rampart cells.
-                if (!onRampart && !flying && em.HasComponent<SteeringDesiredDir>(entity))
+                if (!onRampart && !flying && TransientState.Active(ref _steerDir, entity))
                 {
-                    var sdd = em.GetComponentData<SteeringDesiredDir>(entity);
+                    var sdd = _steerDir[entity];
                     if (sdd.HasValue != 0 && math.lengthsq(sdd.Value) > 1e-8f)
                         dir = math.normalize(new float3(sdd.Value.x, 0f, sdd.Value.z));
                 }
-                else if (!onRampart && !flying && em.HasComponent<FlowDesiredDir>(entity))
+                else if (!onRampart && !flying && TransientState.Active(ref _flowDir, entity))
                 {
-                    var fdd = em.GetComponentData<FlowDesiredDir>(entity);
+                    var fdd = _flowDir[entity];
                     if (fdd.HasValue != 0 && math.lengthsq(fdd.Value) > 1e-8f)
                         dir = math.normalize(new float3(fdd.Value.x, 0f, fdd.Value.z));
                 }
 
                 // === Smoothing ===
                 float3 smoothedDir = dir;
-                if (em.HasComponent<SmoothedDirection>(entity))
+                if (TransientState.Active(ref _smoothed, entity))
                 {
-                    var sd = em.GetComponentData<SmoothedDirection>(entity);
+                    var sd = _smoothed[entity];
                     if (math.lengthsq(sd.Value) > 1e-8f)
                         smoothedDir = math.normalizesafe(math.lerp(sd.Value, dir, math.saturate(SmoothRate * dt)));
                     ecb.SetComponent(entity, new SmoothedDirection { Value = smoothedDir });
@@ -466,8 +556,8 @@ namespace TheWaningBorder.Systems.Navigation
                 // made every gate a permanent hole in the wall for the enemy.
                 // The owner faction is in the cell's flag bits, so ask the
                 // faction-aware overload instead.
-                byte navFaction = em.HasComponent<FactionTag>(entity)
-                    ? (byte)em.GetComponentData<FactionTag>(entity).Value
+                byte navFaction = _faction.HasComponent(entity)
+                    ? (byte)_faction[entity].Value
                     : (byte)0xFF; // no faction -> never matches an owner
                 int2 nextCell = NavGridQuery.WorldToCellInt2(nextPos);
                 if (!flying && nextCell.x != int.MinValue
@@ -543,9 +633,9 @@ namespace TheWaningBorder.Systems.Navigation
                 // === STUCK DETECTION ===
                 if (blocked)
                 {
-                    if (em.HasComponent<StuckState>(entity))
+                    if (TransientState.Active(ref _stuck, entity))
                     {
-                        var stuck = em.GetComponentData<StuckState>(entity);
+                        var stuck = _stuck[entity];
                         stuck.Counter = (byte)math.min(stuck.Counter + 1, 255);
 
                         if (stuck.Counter > 30)
@@ -576,7 +666,7 @@ namespace TheWaningBorder.Systems.Navigation
                                 }
                             }
 
-                            if (!escaped && TransientState.Active<FormationMemberState>(em, entity))
+                            if (!escaped && TransientState.Active(ref _member, entity))
                             {
                                 // A FORMATION MEMBER DOES NOT ABANDON ITS ORDER
                                 // HERE. Clearing Has made FormationGroupSystem's
@@ -593,9 +683,9 @@ namespace TheWaningBorder.Systems.Navigation
                             else if (!escaped)
                             {
                                 dd.ValueRW.Has = 0;
-                                TransientState.Clear<UserMoveOrder>(em, ecb, entity);
-                                TransientState.Clear<AttackMoveTag>(em, ecb, entity);
-                                if (TransientState.Active<FormationSpeedOverride>(em, entity))
+                                TransientState.Clear(ref _userMove, ecb, entity);
+                                TransientState.Clear(ref _attackMove, ecb, entity);
+                                if (TransientState.Active(ref _speedOverride, entity))
                                     ecb.SetComponentEnabled<FormationSpeedOverride>(entity, false);
                                 ecb.SetComponent(entity, new StuckState { Counter = 0, LastAttempt = 0 });
 
@@ -603,9 +693,9 @@ namespace TheWaningBorder.Systems.Navigation
                                 // TargetingSystem's return-to-guard re-issues
                                 // this exact destination next tick and the unit
                                 // grinds back into the same blocker forever.
-                                if (em.HasComponent<GuardPoint>(entity))
+                                if (TransientState.Active(ref _guard, entity))
                                 {
-                                    var gp = em.GetComponentData<GuardPoint>(entity);
+                                    var gp = _guard[entity];
                                     if (gp.Has != 0)
                                     {
                                         TransientState.Set(ecb, entity, new GuardSuppressed { Point = gp.Position });
@@ -655,13 +745,21 @@ namespace TheWaningBorder.Systems.Navigation
                         }
                     }
 
-                    xf.ValueRW = t;
+                    _xform[entity] = t;
                     continue;
                 }
 
-                // Not blocked: reset stuck counter.
-                if (em.HasComponent<StuckState>(entity))
-                    ecb.SetComponent(entity, new StuckState { Counter = 0, LastAttempt = 0 });
+                // Not blocked: reset stuck counter. Skipped when it already
+                // reads zero: the only other StuckState writes in a tick are
+                // zero resets (Phase 1 above, MoveCommandHelper), so the
+                // command could only ever re-write a zero. It was one ECB
+                // command per walking unit per tick, for nothing.
+                if (TransientState.Active(ref _stuck, entity))
+                {
+                    var cur = _stuck[entity];
+                    if (cur.Counter != 0 || cur.LastAttempt != 0)
+                        ecb.SetComponent(entity, new StuckState { Counter = 0, LastAttempt = 0 });
+                }
 
                 // === Layer-aware height snap (task-112 M5) ===
                 // Layer 0 (Ground) -> walking-surface height (ground, or a
@@ -677,7 +775,7 @@ namespace TheWaningBorder.Systems.Navigation
                     nextPos.y = TerrainUtility.GetSurfaceHeight(nextPos.x, nextPos.z, t.Position.y);
 
                 t.Position = nextPos;
-                xf.ValueRW = t;
+                _xform[entity] = t;
             }
         }
 
@@ -692,11 +790,11 @@ namespace TheWaningBorder.Systems.Navigation
         /// result does not depend on bucket iteration order (determinism: the
         /// hash is populated in chunk-walk order, and this reads it read-only).
         /// </summary>
-        private static bool GoalTakenByCloserNeighbour(EntityManager em, in NavSpatialHash hash,
+        private bool GoalTakenByCloserNeighbour(in NavSpatialHash hash,
             float3 goal, float3 pos, Entity self, float myDist)
         {
             if (!hash.Map.IsCreated) return false;
-            uint myKey = FormationKinKey(em, self);
+            uint myKey = FormationKinKey(self);
 
             NavSpatialHash.WorldToCell(in goal, hash.CellSize, out int cx, out int cz);
             for (int dz = -1; dz <= 1; dz++)
@@ -708,7 +806,7 @@ namespace TheWaningBorder.Systems.Navigation
                     do
                     {
                         if (other == self) continue;
-                        if (!em.HasComponent<LocalTransform>(other)) continue;
+                        if (!_xform.HasComponent(other)) continue;
                         // A formation-mate does not block us: steering exempts
                         // units of the same formation order from pushing each
                         // other (SteeringSystem), so we can walk right up to a
@@ -716,12 +814,12 @@ namespace TheWaningBorder.Systems.Navigation
                         // a member released by the settle timeout call itself
                         // arrived up to 2 m off its slot, which is the "out of
                         // formation on arrival" the tight window exists to stop.
-                        if (myKey != 0 && FormationKinKey(em, other) == myKey) continue;
+                        if (myKey != 0 && FormationKinKey(other) == myKey) continue;
                         // A corpse mid-death-animation is about to stop
                         // occupying the point; don't settle behind it.
-                        if (TransientState.Active<DeathAnimationState>(em, other)) continue;
+                        if (TransientState.Active(ref _dying, other)) continue;
 
-                        float3 op = em.GetComponentData<LocalTransform>(other).Position;
+                        float3 op = _xform[other].Position;
 
                         float gx = op.x - goal.x, gz = op.z - goal.z;
                         float otherToGoal = math.sqrt(gx * gx + gz * gz);
@@ -753,12 +851,12 @@ namespace TheWaningBorder.Systems.Navigation
         /// <summary>The unit's remembered formation-order key
         /// (FormationSlotMemory.GroupKey), or 0 when it has none or is chasing
         /// a target. Mirrors SteeringSystem's push-exemption key exactly.</summary>
-        private static uint FormationKinKey(EntityManager em, Entity e)
+        private uint FormationKinKey(Entity e)
         {
-            if (!TransientState.Active<FormationSlotMemory>(em, e)) return 0;
-            if (em.HasComponent<Target>(e) && em.GetComponentData<Target>(e).Value != Entity.Null)
+            if (!TransientState.Active(ref _slotMemory, e)) return 0;
+            if (_target.HasComponent(e) && _target[e].Value != Entity.Null)
                 return 0;
-            return em.GetComponentData<FormationSlotMemory>(e).GroupKey;
+            return _slotMemory[e].GroupKey;
         }
 
         /// <summary>

@@ -25,19 +25,19 @@ namespace TheWaningBorder.Entities
         public const int PresentationID = 341;
 
         public static Entity Create(EntityManager em, float3 position, Faction faction)
-            => CreateInternal(new EmCreator(em), position, faction, controllable: true);
+            => EntityBuild.Done(CreateInternal(new EmCreator(em), position, faction, controllable: true));
 
         public static Entity Create(EntityCommandBuffer ecb, float3 position, Faction faction)
-            => CreateInternal(new EcbCreator(ecb), position, faction, controllable: true);
+            => EntityBuild.Done(CreateInternal(new EcbCreator(ecb), position, faction, controllable: true));
 
         /// <summary>House-spawned wave: identical unit, but the player can
         /// neither select nor command it.</summary>
         public static Entity CreateUncontrolled(EntityManager em, float3 position, Faction faction)
-            => CreateInternal(new EmCreator(em), position, faction, controllable: false);
+            => EntityBuild.Done(CreateInternal(new EmCreator(em), position, faction, controllable: false));
 
         /// <summary>House-spawned wave (ECB variant).</summary>
         public static Entity CreateUncontrolled(EntityCommandBuffer ecb, float3 position, Faction faction)
-            => CreateInternal(new EcbCreator(ecb), position, faction, controllable: false);
+            => EntityBuild.Done(CreateInternal(new EcbCreator(ecb), position, faction, controllable: false));
 
         private static Entity CreateInternal<TCreator>(TCreator creator, float3 position,
             Faction faction, bool controllable)

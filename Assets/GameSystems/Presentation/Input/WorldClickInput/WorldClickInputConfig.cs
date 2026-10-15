@@ -33,5 +33,36 @@ namespace TheWaningBorder.Input
         /// test is skipped.
         /// </summary>
         public float rampartRayEpsilon;
+
+        // ── Right-drag formation facing (2026-10-15) ──
+
+        /// <summary>
+        /// Screen pixels the cursor must travel with the right button held
+        /// before a ground press becomes a FACING DRAG. Below it the release is
+        /// a plain right-click and routes exactly as it always did.
+        /// </summary>
+        public float dragThresholdPixels;
+
+        /// <summary>Degrees the drag direction must turn before the ghost
+        /// layout is rebuilt (BuildPlan allocates; this keeps it off the
+        /// per-frame path while the cursor jitters).</summary>
+        public float previewRefreshDegrees;
+
+        /// <summary>Colour of one ghost slot marker.</summary>
+        public Color previewSlotColor;
+
+        /// <summary>Diameter of a ghost slot marker, in metres.</summary>
+        public float previewSlotSize;
+
+        /// <summary>Colour of the facing arrow drawn from the press point
+        /// along the drag.</summary>
+        public Color previewArrowColor;
+
+        /// <summary>Width of the facing arrow line, in metres.</summary>
+        public float previewArrowWidth;
+
+        /// <summary>Height above the terrain the ghost markers and arrow
+        /// float at, in metres.</summary>
+        public float previewYOffset;
     }
 }

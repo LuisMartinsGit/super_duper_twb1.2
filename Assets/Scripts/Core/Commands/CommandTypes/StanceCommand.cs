@@ -39,10 +39,10 @@ namespace TheWaningBorder.Core.Commands.Types
             if (wasHold && em.HasComponent<LocalTransform>(unit))
             {
                 var pos = em.GetComponentData<LocalTransform>(unit).Position;
-                if (em.HasComponent<GuardPoint>(unit))
+                if (TransientState.Active<GuardPoint>(em, unit))
                     em.SetComponentData(unit, new GuardPoint { Position = pos, Has = 1 });
                 else
-                    em.AddComponentData(unit, new GuardPoint { Position = pos, Has = 1 });
+                    TransientState.Set(em, unit, new GuardPoint { Position = pos, Has = 1 });
             }
         }
 
@@ -58,8 +58,9 @@ namespace TheWaningBorder.Core.Commands.Types
             if (em.HasComponent<EmplacedEngineTag>(unit)) mode = UnitStanceMode.Hold;
 
             var stance = new UnitStance { Value = mode };
-            if (em.HasComponent<UnitStance>(unit)) em.SetComponentData(unit, stance);
-            else em.AddComponentData(unit, stance);
+            // Enableable, pre-added disabled (TransientState UnitSet6):
+            // Set enables it, adding it only for a unit without the pre-add.
+            TransientState.Set(em, unit, stance);
 
             bool hold = mode == UnitStanceMode.Hold;
             bool hasTag = TransientState.Active<HoldPositionTag>(em, unit);
@@ -74,7 +75,7 @@ namespace TheWaningBorder.Core.Commands.Types
         public static UnitStanceMode Effective(EntityManager em, Entity unit)
         {
             if (TransientState.Active<HoldPositionTag>(em, unit)) return UnitStanceMode.Hold;
-            if (em.HasComponent<UnitStance>(unit)) return em.GetComponentData<UnitStance>(unit).Value;
+            if (TransientState.Active<UnitStance>(em, unit)) return em.GetComponentData<UnitStance>(unit).Value;
             return UnitStanceMode.Aggressive;   // the default for every unit (Stances.md §4)
         }
     }

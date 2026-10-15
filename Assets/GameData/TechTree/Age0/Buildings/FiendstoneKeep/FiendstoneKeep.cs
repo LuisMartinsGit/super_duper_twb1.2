@@ -33,7 +33,7 @@ namespace TheWaningBorder.Entities
             if (keepResearch != null && keepResearch.HasResearched(faction, "ReinforcedWalls"))
                 hp *= 1.2f;
 
-            var entity = em.CreateEntity(
+            var entity = EntityBuild.CreateEntity(em, 
                 typeof(PresentationId),
                 typeof(LocalTransform),
                 typeof(FactionTag),
@@ -44,38 +44,38 @@ namespace TheWaningBorder.Entities
                 typeof(PopulationProvider)
             );
 
-            em.SetComponentData(entity, new PresentationId { Id = 540 });
-            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            em.SetComponentData(entity, new FactionTag { Value = faction });
-            em.SetComponentData(entity, new BuildingTag { IsBase = 1 }); // Is a base building
-            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
-            em.SetComponentData(entity, new LineOfSight { Radius = los });
+            EntityBuild.Add(em, entity, new PresentationId { Id = 540 });
+            EntityBuild.Add(em, entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            EntityBuild.Add(em, entity, new FactionTag { Value = faction });
+            EntityBuild.Add(em, entity, new BuildingTag { IsBase = 1 }); // Is a base building
+            EntityBuild.Add(em, entity, new Health { Value = (int)hp, Max = (int)hp });
+            EntityBuild.Add(em, entity, new LineOfSight { Radius = los });
             var gridSize = BuildingSizeConfig.GetSize("FiendstoneKeep");
-            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            em.SetComponentData(entity, new PopulationProvider { Amount = 20 });
+            EntityBuild.Add(em, entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            EntityBuild.Add(em, entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+            EntityBuild.Add(em, entity, new PopulationProvider { Amount = 20 });
 
-            em.AddComponent<FiendstoneKeepTag>(entity);
-            em.AddComponent<ChoiceBuildingTag>(entity);
+            EntityBuild.Add(em, entity, default(FiendstoneKeepTag));
+            EntityBuild.Add(em, entity, default(ChoiceBuildingTag));
             // Auto-fire per Age 0 design (Q#3): 4 targets, 20 dmg / 2.0 s, range 30.
-            em.AddComponentData(entity, new BuildingRangedAttack
+            EntityBuild.Add(em, entity, new BuildingRangedAttack
             {
                 Range = 30f, Damage = 20, Cooldown = 2f, Timer = 0f, MaxTargets = 4
             });
 
             // Keep tech ladder (emplacements / towers / walls) researches here.
-            em.AddComponentData(entity, new ProductionState { Busy = 0, Remaining = 0 });
-            em.AddBuffer<ProductionQueueItem>(entity);
+            EntityBuild.Add(em, entity, new ProductionState { Busy = 0, Remaining = 0 });
+            EntityBuild.AddBuffer<ProductionQueueItem>(em, entity);
 
             // Wing slots (choice-building leveling): the Keep levels by
             // building up to three wings — see KeepWingSystem.
-            em.AddComponentData(entity, new KeepWings());
+            EntityBuild.Add(em, entity, new KeepWings());
 
             // Combat type tags
-            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            em.AddComponentData(entity, new DamageTypeData { Value = DamageType.Ranged });
+            EntityBuild.Add(em, entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            EntityBuild.Add(em, entity, new DamageTypeData { Value = DamageType.Ranged });
 
-            return entity;
+            return EntityBuild.Done(entity);
         }
 
         /// <summary>
@@ -88,40 +88,40 @@ namespace TheWaningBorder.Entities
             float los = def.lineOfSight;
             float radius = def.radius;
 
-            var entity = ecb.CreateEntity();
+            var entity = EntityBuild.CreateEntity(ecb);
 
-            ecb.AddComponent(entity, new PresentationId { Id = 540 });
-            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            ecb.AddComponent(entity, new FactionTag { Value = faction });
-            ecb.AddComponent(entity, new BuildingTag { IsBase = 1 }); // Is a base building
-            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
-            ecb.AddComponent(entity, new LineOfSight { Radius = los });
+            EntityBuild.Add(ecb, entity, new PresentationId { Id = 540 });
+            EntityBuild.Add(ecb, entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            EntityBuild.Add(ecb, entity, new FactionTag { Value = faction });
+            EntityBuild.Add(ecb, entity, new BuildingTag { IsBase = 1 }); // Is a base building
+            EntityBuild.Add(ecb, entity, new Health { Value = (int)hp, Max = (int)hp });
+            EntityBuild.Add(ecb, entity, new LineOfSight { Radius = los });
             var gridSize = BuildingSizeConfig.GetSize("FiendstoneKeep");
-            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            ecb.AddComponent(entity, new PopulationProvider { Amount = 20 });
+            EntityBuild.Add(ecb, entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            EntityBuild.Add(ecb, entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+            EntityBuild.Add(ecb, entity, new PopulationProvider { Amount = 20 });
 
-            ecb.AddComponent<FiendstoneKeepTag>(entity);
-            ecb.AddComponent<ChoiceBuildingTag>(entity);
+            EntityBuild.Add(ecb, entity, default(FiendstoneKeepTag));
+            EntityBuild.Add(ecb, entity, default(ChoiceBuildingTag));
             // Auto-fire per Age 0 design (Q#3): 4 targets, 20 dmg / 2.0 s, range 30.
-            ecb.AddComponent(entity, new BuildingRangedAttack
+            EntityBuild.Add(ecb, entity, new BuildingRangedAttack
             {
                 Range = 30f, Damage = 20, Cooldown = 2f, Timer = 0f, MaxTargets = 4
             });
 
             // Keep tech ladder (emplacements / towers / walls) researches here.
-            ecb.AddComponent(entity, new ProductionState { Busy = 0, Remaining = 0 });
-            ecb.AddBuffer<ProductionQueueItem>(entity);
+            EntityBuild.Add(ecb, entity, new ProductionState { Busy = 0, Remaining = 0 });
+            EntityBuild.AddBuffer<ProductionQueueItem>(ecb, entity);
 
             // Wing slots (choice-building leveling): the Keep levels by
             // building up to three wings — see KeepWingSystem.
-            ecb.AddComponent(entity, new KeepWings());
+            EntityBuild.Add(ecb, entity, new KeepWings());
 
             // Combat type tags
-            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Ranged });
+            EntityBuild.Add(ecb, entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            EntityBuild.Add(ecb, entity, new DamageTypeData { Value = DamageType.Ranged });
 
-            return entity;
+            return EntityBuild.Done(entity);
         }
     }
 }

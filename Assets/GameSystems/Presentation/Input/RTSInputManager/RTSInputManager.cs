@@ -123,6 +123,10 @@ namespace TheWaningBorder.Input
                 _orders.UnfreezeAllQueues();
             _shiftWasHeld = shiftHeldNow;
 
+            // Same reason again: a right-drag released over a panel never
+            // reaches WorldClickInput.Tick, so its ghost must be cleared here.
+            _clicks.CancelDragIfReleased();
+
             // Same reason: a formation shape requested by the actions panel
             // arrives WITH the cursor sitting on the button that sent it, so
             // draining it after the block guard means it only lands once the

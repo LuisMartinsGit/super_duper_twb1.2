@@ -135,7 +135,7 @@ namespace TheWaningBorder.Systems.Combat
                         SetDestination(em, ref ecb, entity, to);
                         // The spot it stepped to is its post, so return-to-guard
                         // does not walk it straight back into the fight.
-                        if (em.HasComponent<GuardPoint>(entity))
+                        if (TransientState.Active<GuardPoint>(em, entity))
                             ecb.SetComponent(entity, new GuardPoint { Position = to, Has = 1 });
                         // Time bound derived from the unit's own speed (a
                         // floor of 1 m/s so a slowed healer still ends it).
@@ -277,7 +277,7 @@ namespace TheWaningBorder.Systems.Combat
                         if (ThreatNear(armed, stand, myFaction, cfg.threatRadius + cfg.standSafetyMargin))
                         {
                             TheWaningBorder.Core.TargetGeometry.StopAndFace(ecb, em, entity, targetPos, dt);
-                            if (em.HasComponent<GuardPoint>(entity))
+                            if (TransientState.Active<GuardPoint>(em, entity))
                                 ecb.SetComponent(entity, new GuardPoint { Position = myPos, Has = 1 });
                             if (lithState.ValueRO.Ordered == 0)
                             {
@@ -300,7 +300,7 @@ namespace TheWaningBorder.Systems.Combat
                         // Guard from the stand point (NOT the patient), so
                         // return-to-guard neither snaps the healer home nor
                         // parks it on top of the fight when the heal ends.
-                        if (em.HasComponent<GuardPoint>(entity))
+                        if (TransientState.Active<GuardPoint>(em, entity))
                             ecb.SetComponent(entity, new GuardPoint { Position = stand, Has = 1 });
                     }
                     else

@@ -194,9 +194,9 @@ namespace TheWaningBorder.AI
         /// worker dispatched this frame still looks idle.
         /// </summary>
         public static bool IsCommittedWorker(EntityManager em, Entity worker)
-            => em.HasComponent<BuildCommand>(worker)
-            || em.HasComponent<BuildOrder>(worker)
-            || em.HasComponent<RepairOrder>(worker)
+            => TransientState.Active<BuildCommand>(em, worker)
+            || TransientState.Active<BuildOrder>(em, worker)
+            || TransientState.Active<RepairOrder>(em, worker)
             // A Feraldis slave crewing an extractor or the Forge, or walking to
             // one (or to the Altar), is working — pulling it off to build
             // drops the crew (docs/Design/Age_1_Feraldis.md §3.1).

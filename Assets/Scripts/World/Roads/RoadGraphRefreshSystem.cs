@@ -13,7 +13,13 @@ namespace TheWaningBorder.World.Roads
     public partial class RoadGraphRefreshSystem : SystemBase
     {
         // Engine cadence, not balance: how often the site set is re-hashed.
-        private const float RefreshSeconds = 2f;
+        // 10 s (was 2 s, 2026-10-15 perf): in a late 8-player match a
+        // building finishes every few seconds, so 2 s meant a full graph
+        // rebuild — and every caravan re-entering the network — almost every
+        // poll. A new site waiting up to 10 s for its road is invisible in
+        // play. Lockstep-safe: the cadence counts sim time, the same on
+        // every peer.
+        private const float RefreshSeconds = 10f;
         private SimCadence.Periodic _tick;
 
         protected override void OnUpdate()

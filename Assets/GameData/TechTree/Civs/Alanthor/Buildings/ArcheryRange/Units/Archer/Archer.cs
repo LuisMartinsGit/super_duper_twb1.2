@@ -20,11 +20,11 @@ namespace TheWaningBorder.Entities
 
         /// <summary>Create Archer using EntityManager.</summary>
         public static Entity Create(EntityManager em, float3 position, Faction faction)
-            => CreateInternal(new EmCreator(em), position, faction);
+            => EntityBuild.Done(CreateInternal(new EmCreator(em), position, faction));
 
         /// <summary>Create Archer using EntityCommandBuffer for deferred creation.</summary>
         public static Entity Create(EntityCommandBuffer ecb, float3 position, Faction faction)
-            => CreateInternal(new EcbCreator(ecb), position, faction);
+            => EntityBuild.Done(CreateInternal(new EcbCreator(ecb), position, faction));
 
         private static Entity CreateInternal<TCreator>(TCreator creator, float3 position, Faction faction)
             where TCreator : struct, IEntityCreator

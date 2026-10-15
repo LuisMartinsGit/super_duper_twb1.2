@@ -21,47 +21,51 @@ namespace TheWaningBorder.Entities
         public static Entity Create(EntityManager em, float3 position, Faction faction)
         {
             var def = TechCatalog.Building(BuildingId);
-            var e = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
+            var e = EntityBuild.CreateEntity(em, typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
                 typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius), typeof(ProductionState));
-            em.SetComponentData(e, new PresentationId { Id = PresentationID });
-            em.SetComponentData(e, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            em.SetComponentData(e, new FactionTag { Value = faction });
-            em.SetComponentData(e, new BuildingTag { IsBase = 0 });
-            em.SetComponentData(e, new Health { Value = (int)def.hp, Max = (int)def.hp });
-            em.SetComponentData(e, new LineOfSight { Radius = def.lineOfSight });
+            EntityBuild.Add(em, e, new PresentationId { Id = PresentationID });
+            EntityBuild.Add(em, e, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            EntityBuild.Add(em, e, new FactionTag { Value = faction });
+            EntityBuild.Add(em, e, new BuildingTag { IsBase = 0 });
+            EntityBuild.Add(em, e, new Health { Value = (int)def.hp, Max = (int)def.hp });
+            EntityBuild.Add(em, e, new LineOfSight { Radius = def.lineOfSight });
             var grid = BuildingSizeConfig.GetSize(BuildingId);
-            em.SetComponentData(e, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(grid) });
-            em.AddComponentData(e, new BuildingSize { Width = grid.x, Height = grid.y });
-            em.SetComponentData(e, new ProductionState { Busy = 0, Remaining = 0 });
-            em.AddBuffer<ProductionQueueItem>(e);
-            em.AddComponent<GreatForgeTag>(e);
-            em.AddComponent<BuildingUpgradeable>(e);
-            em.AddComponentData(e, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            em.AddComponentData(e, DefenseOf(def));
-            SeedBays(em.AddBuffer<ForgeBay>(e));
+            EntityBuild.Add(em, e, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(grid) });
+            EntityBuild.Add(em, e, new BuildingSize { Width = grid.x, Height = grid.y });
+            EntityBuild.Add(em, e, new ProductionState { Busy = 0, Remaining = 0 });
+            EntityBuild.AddBuffer<ProductionQueueItem>(em, e);
+            EntityBuild.Add(em, e, default(GreatForgeTag));
+            EntityBuild.Add(em, e, default(BuildingUpgradeable));
+            EntityBuild.Add(em, e, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            EntityBuild.Add(em, e, DefenseOf(def));
+            EntityBuild.AddBuffer<ForgeBay>(em, e);
+            EntityBuild.Done(e);   // one structural change, then seed
+            SeedBays(em.GetBuffer<ForgeBay>(e));
             return e;
         }
 
         public static Entity Create(EntityCommandBuffer ecb, float3 position, Faction faction)
         {
             var def = TechCatalog.Building(BuildingId);
-            var e = ecb.CreateEntity();
-            ecb.AddComponent(e, new PresentationId { Id = PresentationID });
-            ecb.AddComponent(e, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            ecb.AddComponent(e, new FactionTag { Value = faction });
-            ecb.AddComponent(e, new BuildingTag { IsBase = 0 });
-            ecb.AddComponent(e, new Health { Value = (int)def.hp, Max = (int)def.hp });
-            ecb.AddComponent(e, new LineOfSight { Radius = def.lineOfSight });
+            var e = EntityBuild.CreateEntity(ecb);
+            EntityBuild.Add(ecb, e, new PresentationId { Id = PresentationID });
+            EntityBuild.Add(ecb, e, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            EntityBuild.Add(ecb, e, new FactionTag { Value = faction });
+            EntityBuild.Add(ecb, e, new BuildingTag { IsBase = 0 });
+            EntityBuild.Add(ecb, e, new Health { Value = (int)def.hp, Max = (int)def.hp });
+            EntityBuild.Add(ecb, e, new LineOfSight { Radius = def.lineOfSight });
             var grid = BuildingSizeConfig.GetSize(BuildingId);
-            ecb.AddComponent(e, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(grid) });
-            ecb.AddComponent(e, new BuildingSize { Width = grid.x, Height = grid.y });
-            ecb.AddComponent(e, new ProductionState { Busy = 0, Remaining = 0 });
-            ecb.AddBuffer<ProductionQueueItem>(e);
-            ecb.AddComponent<GreatForgeTag>(e);
-            ecb.AddComponent<BuildingUpgradeable>(e);
-            ecb.AddComponent(e, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            ecb.AddComponent(e, DefenseOf(def));
-            SeedBays(ecb.AddBuffer<ForgeBay>(e));
+            EntityBuild.Add(ecb, e, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(grid) });
+            EntityBuild.Add(ecb, e, new BuildingSize { Width = grid.x, Height = grid.y });
+            EntityBuild.Add(ecb, e, new ProductionState { Busy = 0, Remaining = 0 });
+            EntityBuild.AddBuffer<ProductionQueueItem>(ecb, e);
+            EntityBuild.Add(ecb, e, default(GreatForgeTag));
+            EntityBuild.Add(ecb, e, default(BuildingUpgradeable));
+            EntityBuild.Add(ecb, e, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            EntityBuild.Add(ecb, e, DefenseOf(def));
+            EntityBuild.AddBuffer<ForgeBay>(ecb, e);
+            EntityBuild.Done(e);   // the build's adds, then SetBuffer seeds
+            SeedBays(ecb.SetBuffer<ForgeBay>(e));
             return e;
         }
 

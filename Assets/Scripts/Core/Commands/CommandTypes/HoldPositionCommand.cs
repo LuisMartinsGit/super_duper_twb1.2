@@ -37,13 +37,13 @@ namespace TheWaningBorder.Core.Commands.Types
             if (em.HasComponent<LocalTransform>(unit))
             {
                 var pos = em.GetComponentData<LocalTransform>(unit).Position;
-                if (em.HasComponent<GuardPoint>(unit))
+                if (TransientState.Active<GuardPoint>(em, unit))
                 {
                     em.SetComponentData(unit, new GuardPoint { Position = pos, Has = 1 });
                 }
                 else
                 {
-                    em.AddComponentData(unit, new GuardPoint { Position = pos, Has = 1 });
+                    TransientState.Set(em, unit, new GuardPoint { Position = pos, Has = 1 });
                 }
             }
         }

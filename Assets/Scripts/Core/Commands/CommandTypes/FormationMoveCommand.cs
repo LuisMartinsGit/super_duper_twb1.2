@@ -25,7 +25,8 @@ namespace TheWaningBorder.Core.Commands.Types
         public List<float2> SlotLocal;    // leader-local slot offsets (right, forward)
         public float GroupSpeed;          // slowest member speed
         public float3 Centroid;
-        public float3 Facing;             // unit-length travel direction
+        public float3 Facing;             // unit-length facing the slots are laid out around:
+                                          // the travel direction, or the ordered arrival facing
         public float3 Destination;        // walkable-snapped click point
         public byte FactionIdx;
         public List<int> SlotIndex;       // layout slot index per unit
@@ -251,8 +252,21 @@ namespace TheWaningBorder.Core.Commands.Types
         /// </summary>
         public static void Execute(EntityManager em, IReadOnlyList<Entity> units,
             float3 destination, FormationShape shape, bool attackMove)
+            => Execute(em, units, destination, shape, attackMove, float3.zero);
+
+        /// <summary>
+        /// Execute with an ORDERED ARRIVAL FACING (the right-drag order,
+        /// 2026-10-15): the final slots are laid out facing
+        /// <paramref name="arriveFacing"/> instead of the travel bearing. The
+        /// group still marches facing its route — the lattice wheels with the
+        /// leader as before — and the members settle onto the ordered pose
+        /// at the destination, because arrival steers to each member's
+        /// SlotWorld, which is built here. float3.zero = no override.
+        /// </summary>
+        public static void Execute(EntityManager em, IReadOnlyList<Entity> units,
+            float3 destination, FormationShape shape, bool attackMove, float3 arriveFacing)
         {
-            if (!BuildPlan(em, units, destination, shape, out var plan)) return;
+            if (!BuildPlan(em, units, destination, shape, arriveFacing, out var plan)) return;
 
             // Count members BEFORE issuing: a group of one gets no group, so
             // its membership really is ending and must still be stripped.
@@ -378,6 +392,17 @@ namespace TheWaningBorder.Core.Commands.Types
         /// </summary>
         public static bool BuildPlan(EntityManager em, IReadOnlyList<Entity> candidates,
             float3 destination, FormationShape shape, out FormationPlan plan)
+            => BuildPlan(em, candidates, destination, shape, float3.zero, out plan);
+
+        /// <summary>
+        /// <see cref="BuildPlan(EntityManager, IReadOnlyList{Entity}, float3, FormationShape, out FormationPlan)"/>
+        /// with an ordered arrival facing (XZ; float3.zero = face the travel
+        /// direction, the default). Read-only on the world, so the input layer
+        /// also calls it to PREVIEW a right-drag — the ghost slots are this
+        /// plan's SlotWorld, the same ones the order will use.
+        /// </summary>
+        public static bool BuildPlan(EntityManager em, IReadOnlyList<Entity> candidates,
+            float3 destination, FormationShape shape, float3 arriveFacing, out FormationPlan plan)
         {
             plan = default;
 
@@ -406,11 +431,20 @@ namespace TheWaningBorder.Core.Commands.Types
 
             // Facing = travel direction (AoE4: the formation faces its
             // direction of travel; the layout is perpendicular to it).
-            float3 facing = destination - centroid;
-            facing.y = 0f;
-            facing = math.lengthsq(facing) > 1e-4f
-                ? math.normalize(facing)
+            float3 travelFacing = destination - centroid;
+            travelFacing.y = 0f;
+            travelFacing = math.lengthsq(travelFacing) > 1e-4f
+                ? math.normalize(travelFacing)
                 : new float3(0f, 0f, 1f);
+
+            // An ORDERED arrival facing (right-drag) replaces the travel
+            // bearing for the final layout only. The starting pose below still
+            // falls back to the travel bearing, so an unformed blob sets off
+            // toward the destination rather than pointing the ordered way.
+            arriveFacing.y = 0f;
+            float3 facing = math.lengthsq(arriveFacing) > 1e-4f
+                ? math.normalize(arriveFacing)
+                : travelFacing;
             float3 right = math.cross(new float3(0f, 1f, 0f), facing);
 
             // ── Layout: one BLOCK PER UNIT TYPE, front to back, with a gap
@@ -701,7 +735,7 @@ namespace TheWaningBorder.Core.Commands.Types
             // and right = (facing.z, -facing.x), the residual is linear in
             // facing, so the best unit-length facing is just the normalised
             // accumulator below — no iteration, no trig, fully deterministic.
-            float3 startFacing = facing;
+            float3 startFacing = travelFacing;
             float3 startLeader = centroid;
             {
                 float3 pMean = float3.zero;

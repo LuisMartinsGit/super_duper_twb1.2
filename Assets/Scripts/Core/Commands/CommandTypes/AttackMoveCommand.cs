@@ -62,7 +62,7 @@ namespace TheWaningBorder.Core.Commands.Types
             }
             if (em.HasBuffer<NavPathPortal>(unit))
                 em.GetBuffer<NavPathPortal>(unit).Clear();
-            if (em.HasComponent<FlowDesiredDir>(unit))
+            if (TransientState.Active<FlowDesiredDir>(em, unit))
                 em.SetComponentData(unit, new FlowDesiredDir { HasValue = 0, Value = float3.zero });
 
             MoveCommandHelper.EmitNavPathRequest(em, unit, destination);
@@ -96,10 +96,10 @@ namespace TheWaningBorder.Core.Commands.Types
             // and compute the path lazily next frame. Legacy pre-warm gone with PR3.
 
             // Set GuardPoint to destination (unit resumes here after combat)
-            if (em.HasComponent<GuardPoint>(unit))
+            if (TransientState.Active<GuardPoint>(em, unit))
                 em.SetComponentData(unit, new GuardPoint { Position = destination, Has = 1 });
                 else
-                    em.AddComponentData(unit, new GuardPoint { Position = destination, Has = 1 });
+                    TransientState.Set(em, unit, new GuardPoint { Position = destination, Has = 1 });
 
             // Activate the AttackMoveTag marker
             TransientState.SetFlag<AttackMoveTag>(em, unit);

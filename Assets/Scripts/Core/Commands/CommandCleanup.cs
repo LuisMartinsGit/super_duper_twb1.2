@@ -30,10 +30,8 @@ namespace TheWaningBorder.Core.Commands
         /// </summary>
         public static void ClearWorkOrders(EntityManager em, Entity unit)
         {
-            if (em.HasComponent<Types.BuildCommand>(unit))
-                em.RemoveComponent<Types.BuildCommand>(unit);
-            if (em.HasComponent<BuildOrder>(unit))
-                em.RemoveComponent<BuildOrder>(unit);
+            TransientState.Clear<Types.BuildCommand>(em, unit);
+            TransientState.Clear<BuildOrder>(em, unit);
 
             if (em.HasComponent<Types.HealCommand>(unit))
                 em.RemoveComponent<Types.HealCommand>(unit);

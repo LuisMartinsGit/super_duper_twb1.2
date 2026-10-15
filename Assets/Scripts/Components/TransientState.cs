@@ -68,6 +68,27 @@ public static class TransientState
         where T : unmanaged, IComponentData, IEnableableComponent
         => em.HasComponent<T>(e) && em.IsComponentEnabled<T>(e);
 
+    // ── ComponentLookup ──────────────────────────────────────────────
+    // Same meanings as the EntityManager overloads, for per-unit loops that
+    // hold lookups instead of paying an EntityManager call per test.
+    // HasComponent ignores the enable bit, IsComponentEnabled reads it —
+    // exactly the EntityManager pair above.
+
+    /// <summary>Present AND enabled — lookup twin of
+    /// <see cref="Active{T}(EntityManager, Entity)"/>.</summary>
+    public static bool Active<T>(ref ComponentLookup<T> lookup, Entity e)
+        where T : unmanaged, IComponentData, IEnableableComponent
+        => lookup.HasComponent(e) && lookup.IsComponentEnabled(e);
+
+    /// <summary>Deactivate via ECB, presence tested through a lookup —
+    /// twin of <see cref="Clear{T}(EntityManager, EntityCommandBuffer, Entity)"/>.</summary>
+    public static void Clear<T>(ref ComponentLookup<T> lookup, EntityCommandBuffer ecb, Entity e)
+        where T : unmanaged, IComponentData, IEnableableComponent
+    {
+        if (lookup.HasComponent(e))
+            ecb.SetComponentEnabled<T>(e, false);
+    }
+
     // ── EntityCommandBuffer ──────────────────────────────────────────
     // ECB has no read access, so the add-if-absent guard cannot be recorded.
     // AddComponent on an entity that already has T is set-value at playback,
@@ -213,17 +234,65 @@ public static class TransientState
         ComponentType.ReadWrite<BountyMarked>(),
     };
 
+    // Movement scratch + stance (2026-10-15). These were added LAZILY, one at
+    // a time, the first time a unit moved or fought — SmoothedDirection and
+    // StuckState by the integrator, FlowDesiredDir / SteeringDesiredDir by the
+    // flow and steering systems, StuckTracker by StuckRedirectSystem,
+    // GuardPoint by TargetingSystem, UnitStance + UnitEngagement by
+    // UnitStanceSystem — and every order they landed in was a permanent
+    // (mostly empty) archetype per unit type. Each is IEnableableComponent
+    // now, pre-added DISABLED here; the lazy adds became TransientState.Set,
+    // and every reader that used presence tests Active<T>. Disabled reads as
+    // absent everywhere (queries, WithNone, the state hash), so behaviour is
+    // unchanged — including WHEN each one first appears.
+    static readonly ComponentType[] UnitSet6 =
+    {
+        ComponentType.ReadWrite<SmoothedDirection>(),
+        ComponentType.ReadWrite<StuckState>(),
+        ComponentType.ReadWrite<StuckTracker>(),
+        ComponentType.ReadWrite<FlowDesiredDir>(),
+        ComponentType.ReadWrite<SteeringDesiredDir>(),
+        ComponentType.ReadWrite<GuardPoint>(),
+        ComponentType.ReadWrite<UnitStance>(),
+        ComponentType.ReadWrite<UnitEngagement>(),
+    };
+
+    /// <summary>The six unit sets as one list, for EntityBuild's single
+    /// structural change.</summary>
+    public static readonly ComponentType[] UnitSetAll = Concat(UnitSet, UnitSet2, UnitSet3, UnitSet4, UnitSet5, UnitSet6);
+
+    private static ComponentType[] Concat(params ComponentType[][] sets)
+    {
+        int n = 0;
+        foreach (var a in sets) n += a.Length;
+        var all = new ComponentType[n];
+        int k = 0;
+        foreach (var a in sets) { a.CopyTo(all, k); k += a.Length; }
+        return all;
+    }
+
     /// <summary>Pre-add the full transient set, disabled, on a freshly
     /// created unit. Called once by UnitFactory's dispatcher; the entity
     /// then keeps one archetype for life.</summary>
     public static void PreAddUnitSet(EntityManager em, Entity e)
     {
+        // Inside a factory build the sets join the entity's single
+        // structural change (EntityBuild); the disables run after it.
+        if (TheWaningBorder.Entities.EntityBuild.RecordSet(em, e, UnitSetAll, DisableUnitSetEm)) return;
         em.AddComponent(e, new ComponentTypeSet(UnitSet));
         em.AddComponent(e, new ComponentTypeSet(UnitSet2));
         em.AddComponent(e, new ComponentTypeSet(UnitSet3));
         em.AddComponent(e, new ComponentTypeSet(UnitSet4));
         em.AddComponent(e, new ComponentTypeSet(UnitSet5));
+        em.AddComponent(e, new ComponentTypeSet(UnitSet6));
+        DisableUnitSetEm(em, e);
+    }
 
+    /// <summary>The disabled-at-spawn half of <see cref="PreAddUnitSet(EntityManager,Entity)"/>,
+    /// split out so a factory build (EntityBuild) can run it after its
+    /// single structural change.</summary>
+    public static void DisableUnitSetEm(EntityManager em, Entity e)
+    {
         em.SetComponentEnabled<TheWaningBorder.Core.Commands.Types.AttackCommand>(e, false);
         em.SetComponentEnabled<TheWaningBorder.Core.Commands.Types.AttackMoveCommand>(e, false);
         em.SetComponentEnabled<TheWaningBorder.Core.Commands.Types.MoveCommand>(e, false);
@@ -277,18 +346,53 @@ public static class TransientState
         em.SetComponentEnabled<Cauterized>(e, false);
         em.SetComponentEnabled<Taunted>(e, false);
         em.SetComponentEnabled<BountyMarked>(e, false);
+        em.SetComponentEnabled<SmoothedDirection>(e, false);
+        em.SetComponentEnabled<StuckState>(e, false);
+        em.SetComponentEnabled<StuckTracker>(e, false);
+        em.SetComponentEnabled<FlowDesiredDir>(e, false);
+        em.SetComponentEnabled<SteeringDesiredDir>(e, false);
+        em.SetComponentEnabled<GuardPoint>(e, false);
+        em.SetComponentEnabled<UnitStance>(e, false);
+        em.SetComponentEnabled<UnitEngagement>(e, false);
+    }
+
+    /// <summary>Disable a Worker's pre-added work orders (BuildCommand,
+    /// BuildOrder, RepairOrder), which Worker.Create adds in its single
+    /// structural change. Enableable, toggled with Set / Clear like the rest
+    /// of this file — never added or removed per order.</summary>
+    public static void DisableWorkerOrders(EntityManager em, Entity e)
+    {
+        em.SetComponentEnabled<TheWaningBorder.Core.Commands.Types.BuildCommand>(e, false);
+        em.SetComponentEnabled<BuildOrder>(e, false);
+        em.SetComponentEnabled<RepairOrder>(e, false);
+    }
+
+    public static void DisableWorkerOrders(EntityCommandBuffer ecb, Entity e)
+    {
+        ecb.SetComponentEnabled<TheWaningBorder.Core.Commands.Types.BuildCommand>(e, false);
+        ecb.SetComponentEnabled<BuildOrder>(e, false);
+        ecb.SetComponentEnabled<RepairOrder>(e, false);
     }
 
     /// <summary>ECB twin of <see cref="PreAddUnitSet(EntityManager,Entity)"/>
     /// for units created deferred.</summary>
     public static void PreAddUnitSet(EntityCommandBuffer ecb, Entity e)
     {
+        if (TheWaningBorder.Entities.EntityBuild.RecordSet(ecb, e, UnitSetAll, DisableUnitSetEcb)) return;
         ecb.AddComponent(e, new ComponentTypeSet(UnitSet));
         ecb.AddComponent(e, new ComponentTypeSet(UnitSet2));
         ecb.AddComponent(e, new ComponentTypeSet(UnitSet3));
         ecb.AddComponent(e, new ComponentTypeSet(UnitSet4));
         ecb.AddComponent(e, new ComponentTypeSet(UnitSet5));
+        ecb.AddComponent(e, new ComponentTypeSet(UnitSet6));
+        DisableUnitSetEcb(ecb, e);
+    }
 
+    /// <summary>The disabled-at-spawn half of <see cref="PreAddUnitSet(EntityCommandBuffer,Entity)"/>,
+    /// split out so a factory build (EntityBuild) can run it after its
+    /// single structural change.</summary>
+    public static void DisableUnitSetEcb(EntityCommandBuffer ecb, Entity e)
+    {
         ecb.SetComponentEnabled<TheWaningBorder.Core.Commands.Types.AttackCommand>(e, false);
         ecb.SetComponentEnabled<TheWaningBorder.Core.Commands.Types.AttackMoveCommand>(e, false);
         ecb.SetComponentEnabled<TheWaningBorder.Core.Commands.Types.MoveCommand>(e, false);
@@ -342,5 +446,13 @@ public static class TransientState
         ecb.SetComponentEnabled<Cauterized>(e, false);
         ecb.SetComponentEnabled<Taunted>(e, false);
         ecb.SetComponentEnabled<BountyMarked>(e, false);
+        ecb.SetComponentEnabled<SmoothedDirection>(e, false);
+        ecb.SetComponentEnabled<StuckState>(e, false);
+        ecb.SetComponentEnabled<StuckTracker>(e, false);
+        ecb.SetComponentEnabled<FlowDesiredDir>(e, false);
+        ecb.SetComponentEnabled<SteeringDesiredDir>(e, false);
+        ecb.SetComponentEnabled<GuardPoint>(e, false);
+        ecb.SetComponentEnabled<UnitStance>(e, false);
+        ecb.SetComponentEnabled<UnitEngagement>(e, false);
     }
 }

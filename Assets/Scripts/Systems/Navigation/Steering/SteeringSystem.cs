@@ -97,7 +97,7 @@ namespace TheWaningBorder.Systems.Navigation
                 var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
                 using var newEntities = _needsComponentQuery.ToEntityArray(Allocator.Temp);
                 for (int i = 0; i < newEntities.Length; i++)
-                    ecb.AddComponent(newEntities[i], new SteeringDesiredDir { HasValue = 0, Value = float3.zero });
+                    TransientState.Set(ecb, newEntities[i], new SteeringDesiredDir { HasValue = 0, Value = float3.zero });
             }
 
             if (_hasComponentQuery.IsEmpty) return;

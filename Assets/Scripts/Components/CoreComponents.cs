@@ -199,7 +199,7 @@ public struct FormationSpeedOverride : IComponentData, IEnableableComponent
 /// <summary>
 /// Position where a unit should return after combat or when idle.
 /// </summary>
-public struct GuardPoint : IComponentData
+public struct GuardPoint : IComponentData, IEnableableComponent
 {
     public float3 Position;
     public byte Has; // 0/1
@@ -209,7 +209,7 @@ public struct GuardPoint : IComponentData
 /// Per-unit smoothed movement direction for flow-field smoothing.
 /// Prevents cell-boundary oscillation by lerping toward the raw flow field direction.
 /// </summary>
-public struct SmoothedDirection : IComponentData
+public struct SmoothedDirection : IComponentData, IEnableableComponent
 {
     public float3 Value;
 }
@@ -218,7 +218,7 @@ public struct SmoothedDirection : IComponentData
 /// Tracks consecutive frames where movement was blocked by passability or slope.
 /// Used by MovementSystem to detect stuck units and try alternate directions.
 /// </summary>
-public struct StuckState : IComponentData
+public struct StuckState : IComponentData, IEnableableComponent
 {
     /// <summary>Consecutive frames where movement was blocked.</summary>
     public byte Counter;

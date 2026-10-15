@@ -223,6 +223,21 @@ the pose-fit tolerance makes the first order snap instead of continue.
   auto-engage by stance and are leashed to their guard point; units on ramparts never chase off
   the wall. (All existing behavior, kept.)
 - Move / attack-move orders on multi-selections use the current formation.
+- **Right-drag = ordered arrival facing** (2026-10-15). Press on open ground,
+  drag past a few pixels (`WorldClickInput.asset` `dragThresholdPixels`),
+  release: the formation is centred on the PRESS point and its final slots
+  face along the drag. The group still marches facing its route (the lattice
+  wheels with the leader as in §2); only the arrival layout — each member's
+  `SlotWorld` — is built around the ordered facing, so the ranks turn onto it
+  as they settle. The ghost shown while dragging is
+  `FormationMoveCommandHelper.BuildPlan` with the same facing, never a copy of
+  the layout. The facing rides the `FormationOrder` flag word as two 10-bit
+  signed components (`CommandRouter.PackFacing`), quantised before ANY path
+  uses it, so local, replayed and remote executions agree. A plain click (no
+  drag), Shift-queueing and every context target are unchanged; there is no
+  frontage control — the layout has no width parameter.
+- A selected formation draws **one** movement line, from its virtual leader to
+  its destination; units out of the group draw their own.
 - Rally points support target entities and shift-queued chains.
 
 ## 5. Gates, walls & overpass bridges (dual-level navigation)

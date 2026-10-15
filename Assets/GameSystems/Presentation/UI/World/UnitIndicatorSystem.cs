@@ -92,6 +92,10 @@ namespace TheWaningBorder.UI.World
             public float3 LastPos;
             public Vector3 IndicatorPos;
             public Material CircleMat;      // shared, per owner colour
+            /// <summary>The owner the disc material was picked for (faction
+            /// value, -1 = no FactionTag, int.MinValue = not yet), so the
+            /// colour → material lookup runs only when the owner changes.</summary>
+            public int OwnerKey = int.MinValue;
         }
 
         private readonly Dictionary<Entity, Indicators> _indicators = new();
@@ -107,6 +111,14 @@ namespace TheWaningBorder.UI.World
         private readonly HashSet<Entity> _selectedSet = new();
         private int _lastUnitOrderVersion = -1;
         private bool _spawnPending = true;
+        private float _nextSweep;
+        /// <summary>Engine cadence, not tuning: the fastest the unit sweep
+        /// repeats. The UnitTag order version moves on ANY structural change
+        /// to a unit chunk — a buff tag, a command component — which in a big
+        /// fight is nearly every frame, so gating on it alone still swept
+        /// every unit every frame. A new unit's disc may now appear up to
+        /// this late; its view spawns on the same order of delay.</summary>
+        private const float SweepIntervalSeconds = 0.25f;
 
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         private static readonly int ColorId = Shader.PropertyToID("_Color");
@@ -200,6 +212,8 @@ namespace TheWaningBorder.UI.World
             // entity every frame to find nothing new.
             int orderVersion = _em.GetComponentOrderVersion<UnitTag>();
             if (!_spawnPending && orderVersion == _lastUnitOrderVersion) return;
+            if (Time.unscaledTime < _nextSweep) return;   // still owed; swept at the next window
+            _nextSweep = Time.unscaledTime + SweepIntervalSeconds;
             _lastUnitOrderVersion = orderVersion;
             _spawnPending = false;
 
@@ -321,13 +335,20 @@ namespace TheWaningBorder.UI.World
                 {
                     if (justShown) ind.Circle.SetActive(true);
                     if (moved) ind.Circle.transform.position = ind.IndicatorPos;
-                    // Owner can change (conversion): swap the shared material
-                    // only when the colour does.
-                    var mat = SharedMat(OwnerColor(entity));
-                    if (mat != ind.CircleMat)
+                    // Owner can change (conversion): look the shared material
+                    // up only when the owner does — a Dictionary<Color, ...>
+                    // probe per unit per frame was most of this loop.
+                    int ownerKey = _em.HasComponent<FactionTag>(entity)
+                        ? (int)_em.GetComponentData<FactionTag>(entity).Value : -1;
+                    if (ownerKey != ind.OwnerKey)
                     {
-                        ind.CircleRenderer.sharedMaterial = mat;
-                        ind.CircleMat = mat;
+                        ind.OwnerKey = ownerKey;
+                        var mat = SharedMat(OwnerColor(entity));
+                        if (mat != ind.CircleMat)
+                        {
+                            ind.CircleRenderer.sharedMaterial = mat;
+                            ind.CircleMat = mat;
+                        }
                     }
                 }
 

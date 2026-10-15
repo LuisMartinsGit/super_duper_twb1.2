@@ -72,7 +72,7 @@ namespace TheWaningBorder.Systems.Movement
 
                 // Update guard point to current waypoint so after-combat return
                 // sends the unit back to its patrol path
-                if (em.HasComponent<GuardPoint>(entity))
+                if (TransientState.Active<GuardPoint>(em, entity))
                 {
                     ecb.SetComponent(entity, new GuardPoint
                     {

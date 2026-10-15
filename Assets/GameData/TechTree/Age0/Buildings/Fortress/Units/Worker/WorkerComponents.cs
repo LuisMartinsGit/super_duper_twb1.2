@@ -10,7 +10,7 @@ using Unity.Mathematics;
 /// <summary>
 /// Build order assigned to a worker unit.
 /// </summary>
-public struct BuildOrder : IComponentData
+public struct BuildOrder : IComponentData, IEnableableComponent
 {
     public Entity Site; // Building entity being constructed
 }
@@ -42,7 +42,7 @@ public struct QueuedBuildSite : IBufferElementData
 /// Worker walks to damaged building and repairs it, consuming resources.
 /// Cost = (missingHP / maxHP) * originalBuildCost * 1.2 penalty.
 /// </summary>
-public struct RepairOrder : IComponentData
+public struct RepairOrder : IComponentData, IEnableableComponent
 {
     public Entity Site;          // Building entity being repaired
     public byte CostPaid;        // 1 = resources already deducted, 0 = not yet

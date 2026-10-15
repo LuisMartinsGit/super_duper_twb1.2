@@ -240,7 +240,7 @@ namespace TheWaningBorder.Rendering
                 }
 
                 // Worker: check active BuildOrder
-                if (!isWorking && _em.HasComponent<BuildOrder>(LinkedEntity))
+                if (!isWorking && TransientState.Active<BuildOrder>(_em, LinkedEntity))
                 {
                     var order = _em.GetComponentData<BuildOrder>(LinkedEntity);
                     isWorking = order.Site != Entity.Null;
@@ -258,9 +258,9 @@ namespace TheWaningBorder.Rendering
             {
                 bool building = false, mining = false;
 
-                if (_em.HasComponent<BuildOrder>(LinkedEntity))
+                if (TransientState.Active<BuildOrder>(_em, LinkedEntity))
                     building = _em.GetComponentData<BuildOrder>(LinkedEntity).Site != Entity.Null;
-                if (!building && _em.HasComponent<RepairOrder>(LinkedEntity))
+                if (!building && TransientState.Active<RepairOrder>(_em, LinkedEntity))
                     building = _em.GetComponentData<RepairOrder>(LinkedEntity).Site != Entity.Null;
 
                 if (!building && _em.HasComponent<WorkerState>(LinkedEntity))

@@ -44,7 +44,7 @@ namespace TheWaningBorder.Entities
             const float Hp = 350f;
             const float Los = 8f;
 
-            var entity = em.CreateEntity(
+            var entity = EntityBuild.CreateEntity(em, 
                 typeof(PresentationId),
                 typeof(LocalTransform),
                 typeof(FactionTag),
@@ -56,20 +56,20 @@ namespace TheWaningBorder.Entities
                 typeof(ChapelTag)
             );
 
-            em.SetComponentData(entity, new PresentationId { Id = ChapelPresentationId });
-            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            em.SetComponentData(entity, new FactionTag { Value = faction });
-            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
-            em.SetComponentData(entity, new Health { Value = (int)Hp, Max = (int)Hp });
-            em.SetComponentData(entity, new LineOfSight { Radius = Los });
+            EntityBuild.Add(em, entity, new PresentationId { Id = ChapelPresentationId });
+            EntityBuild.Add(em, entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            EntityBuild.Add(em, entity, new FactionTag { Value = faction });
+            EntityBuild.Add(em, entity, new BuildingTag { IsBase = 0 });
+            EntityBuild.Add(em, entity, new Health { Value = (int)Hp, Max = (int)Hp });
+            EntityBuild.Add(em, entity, new LineOfSight { Radius = Los });
 
             // BuildingSizeConfig already returns (2, 2) for any Chapel_* via the
             // wildcard prefix branch — re-use that lookup for footprint + radius.
             var gridSize = BuildingSizeConfig.GetSize("Chapel_Sect_Antiquity"); // any chapel id matches the wildcard
-            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            em.SetComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+            EntityBuild.Add(em, entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            EntityBuild.Add(em, entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
 
-            em.SetComponentData(entity, new ChapelTag
+            EntityBuild.Add(em, entity, new ChapelTag
             {
                 SectId = new Unity.Collections.FixedString64Bytes(sectId ?? string.Empty)
             });
@@ -78,18 +78,18 @@ namespace TheWaningBorder.Entities
             // Lorekeeper / Tinker / etc.), so they carry a training queue
             // from birth. Sects whose unit isn't implemented yet simply
             // show no train button (GetChapelTrainingActions).
-            em.AddComponentData(entity, new ProductionState { Busy = 0, Remaining = 0 });
-            em.AddBuffer<ProductionQueueItem>(entity);
-            em.AddComponentData(entity, new RallyPoint
+            EntityBuild.Add(em, entity, new ProductionState { Busy = 0, Remaining = 0 });
+            EntityBuild.AddBuffer<ProductionQueueItem>(em, entity);
+            EntityBuild.Add(em, entity, new RallyPoint
             {
                 Position = position + new float3(3f, 0, 3f),
                 Has = 1
             });
 
             // Combat type tags
-            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            EntityBuild.Add(em, entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
 
-            return entity;
+            return EntityBuild.Done(entity);
         }
 
         /// <summary>ECB-deferred variant of <see cref="CreateChapel"/>.</summary>
@@ -99,36 +99,36 @@ namespace TheWaningBorder.Entities
             const float Hp = 350f;
             const float Los = 8f;
 
-            var entity = ecb.CreateEntity();
+            var entity = EntityBuild.CreateEntity(ecb);
 
-            ecb.AddComponent(entity, new PresentationId { Id = ChapelPresentationId });
-            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            ecb.AddComponent(entity, new FactionTag { Value = faction });
-            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
-            ecb.AddComponent(entity, new Health { Value = (int)Hp, Max = (int)Hp });
-            ecb.AddComponent(entity, new LineOfSight { Radius = Los });
+            EntityBuild.Add(ecb, entity, new PresentationId { Id = ChapelPresentationId });
+            EntityBuild.Add(ecb, entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            EntityBuild.Add(ecb, entity, new FactionTag { Value = faction });
+            EntityBuild.Add(ecb, entity, new BuildingTag { IsBase = 0 });
+            EntityBuild.Add(ecb, entity, new Health { Value = (int)Hp, Max = (int)Hp });
+            EntityBuild.Add(ecb, entity, new LineOfSight { Radius = Los });
 
             var gridSize = BuildingSizeConfig.GetSize("Chapel_Sect_Antiquity");
-            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+            EntityBuild.Add(ecb, entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            EntityBuild.Add(ecb, entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
 
-            ecb.AddComponent(entity, new ChapelTag
+            EntityBuild.Add(ecb, entity, new ChapelTag
             {
                 SectId = new Unity.Collections.FixedString64Bytes(sectId ?? string.Empty)
             });
 
             // Mirror CreateChapel: training queue for the sect's unique unit.
-            ecb.AddComponent(entity, new ProductionState { Busy = 0, Remaining = 0 });
-            ecb.AddBuffer<ProductionQueueItem>(entity);
-            ecb.AddComponent(entity, new RallyPoint
+            EntityBuild.Add(ecb, entity, new ProductionState { Busy = 0, Remaining = 0 });
+            EntityBuild.AddBuffer<ProductionQueueItem>(ecb, entity);
+            EntityBuild.Add(ecb, entity, new RallyPoint
             {
                 Position = position + new float3(3f, 0, 3f),
                 Has = 1
             });
 
-            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            EntityBuild.Add(ecb, entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
 
-            return entity;
+            return EntityBuild.Done(entity);
         }
     }
 }

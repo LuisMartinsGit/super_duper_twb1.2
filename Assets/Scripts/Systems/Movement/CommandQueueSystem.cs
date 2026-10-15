@@ -165,8 +165,8 @@ namespace TheWaningBorder.Systems.Movement
             if (dd.Has != 0) return true;
             if (t.Value != Entity.Null) return true;
             if (em.HasComponent<AttackCommand>(e) && em.IsComponentEnabled<AttackCommand>(e)) return true;
-            if (em.HasComponent<BuildCommand>(e) || em.HasComponent<BuildOrder>(e)) return true;
-            if (em.HasComponent<RepairOrder>(e)) return true;
+            if (TransientState.Active<BuildCommand>(em, e) || TransientState.Active<BuildOrder>(em, e)) return true;
+            if (TransientState.Active<RepairOrder>(em, e)) return true;
             if (em.HasComponent<HealCommand>(e)) return true;
             if (TransientState.Active<FormationMemberState>(em, e)) return true;
             return false;

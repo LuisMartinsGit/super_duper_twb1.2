@@ -113,7 +113,7 @@ namespace TheWaningBorder.Systems.Navigation
                 if (TransientState.Active<AttackMoveCommand>(em, e)) continue;
                 if (TransientState.Active<UserMoveOrder>(em, e)) continue;
                 if (TransientState.Active<DeathAnimationState>(em, e)) continue;
-                if (em.HasComponent<BuildCommand>(e)) continue;
+                if (TransientState.Active<BuildCommand>(em, e)) continue;
                 if (em.HasComponent<PatrolTag>(e)) continue;
                 // Hold Position never moves on its own — not even to tidy up.
                 if (TransientState.Active<HoldPositionTag>(em, e)) continue;
@@ -233,7 +233,7 @@ namespace TheWaningBorder.Systems.Navigation
                         bool known = formedSet.Contains(e)
                             || (dominantKey != 0 && GroupKeyOf(em, e) == dominantKey);
                         if (!known) { worthIt = true; break; }
-                        if (em.HasComponent<GuardPoint>(e))
+                        if (TransientState.Active<GuardPoint>(em, e))
                         {
                             var gp = em.GetComponentData<GuardPoint>(e);
                             float ddx = xfs[memberIdx[j]].Position.x - gp.Position.x;
@@ -253,8 +253,24 @@ namespace TheWaningBorder.Systems.Navigation
                     // caught (tick 120, Pos/Nav forked, banks agreed). AI
                     // source rides the lockstep queue like every other
                     // host-authoritative order.
+                    // Keep the way the cluster already faces: a re-form with
+                    // no facing defaults the lattice to north, which turned a
+                    // right-drag-faced army round on its first re-form. Mean
+                    // forward of the dominant formation's members (all of them
+                    // when there is none), summed in member order —
+                    // deterministic, and the router quantises it.
+                    float3 facing = float3.zero;
+                    for (int j = 0; j < members.Count; j++)
+                    {
+                        if (dominantKey != 0 && GroupKeyOf(em, members[j]) != dominantKey) continue;
+                        float3 fwd = math.mul(xfs[memberIdx[j]].Rotation, new float3(0f, 0f, 1f));
+                        facing.x += fwd.x; facing.z += fwd.z;
+                    }
+                    if (math.lengthsq(facing.xz) < 1e-4f) facing = float3.zero;
+                    else facing = math.normalize(new float3(facing.x, 0f, facing.z));
+
                     CommandRouter.IssueFormationMove(em, members, centroid,
-                        shape, CommandSource.AI);
+                        shape, facing, CommandSource.AI);
                     for (int j = 0; j < members.Count; j++) formedSet.Add(members[j]);
                     issuedAny = true;
                 }

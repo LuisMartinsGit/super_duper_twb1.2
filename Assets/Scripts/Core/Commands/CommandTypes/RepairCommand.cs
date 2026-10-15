@@ -44,8 +44,8 @@ namespace TheWaningBorder.Core.Commands.Types
             }
 
             // Set up repair order
-            if (!em.HasComponent<RepairOrder>(worker))
-                em.AddComponentData(worker, new RepairOrder
+            if (!TransientState.Active<RepairOrder>(em, worker))
+                TransientState.Set(em, worker, new RepairOrder
                 {
                     Site = building,
                     CostPaid = 0,

@@ -45,7 +45,7 @@ namespace TheWaningBorder.Entities
         /// Loads stats from TechTreeDB if available.
         /// </summary>
         public static Entity Create(EntityCommandBuffer ecb, float3 position, Faction faction)
-            => CreateInternal(new EcbCreator(ecb), position, faction);
+            => EntityBuild.Done(CreateInternal(new EcbCreator(ecb), position, faction));
 
         /// <summary>
         /// Create a Litharch entity using EntityManager (immediate).
@@ -57,7 +57,7 @@ namespace TheWaningBorder.Entities
         /// AI-trained Litharchs).
         /// </summary>
         public static Entity Create(EntityManager em, float3 position, Faction faction)
-            => CreateInternal(new EmCreator(em), position, faction);
+            => EntityBuild.Done(CreateInternal(new EmCreator(em), position, faction));
 
         private static Entity CreateInternal<TCreator>(TCreator creator, float3 position, Faction faction)
             where TCreator : struct, IEntityCreator

@@ -27,24 +27,24 @@ namespace TheWaningBorder.Entities
             float los = def.lineOfSight;
             float radius = def.radius;
 
-            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
+            var entity = EntityBuild.CreateEntity(em, typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
                 typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius), typeof(ProductionState));
-            em.SetComponentData(entity, new PresentationId { Id = 360 });
-            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            em.SetComponentData(entity, new FactionTag { Value = faction });
-            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
-            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
-            em.SetComponentData(entity, new LineOfSight { Radius = los });
+            EntityBuild.Add(em, entity, new PresentationId { Id = 360 });
+            EntityBuild.Add(em, entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            EntityBuild.Add(em, entity, new FactionTag { Value = faction });
+            EntityBuild.Add(em, entity, new BuildingTag { IsBase = 0 });
+            EntityBuild.Add(em, entity, new Health { Value = (int)hp, Max = (int)hp });
+            EntityBuild.Add(em, entity, new LineOfSight { Radius = los });
             var gridSize = BuildingSizeConfig.GetSize("Feraldis_Longhouse");
-            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            em.SetComponentData(entity, new ProductionState { Busy = 0, Remaining = 0 });
-            em.AddComponent<LonghouseTag>(entity);
-            em.AddComponent<BatchTrainingTag>(entity);
-            em.AddBuffer<ProductionQueueItem>(entity);
-            em.AddComponentData(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
-            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            return entity;
+            EntityBuild.Add(em, entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            EntityBuild.Add(em, entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+            EntityBuild.Add(em, entity, new ProductionState { Busy = 0, Remaining = 0 });
+            EntityBuild.Add(em, entity, default(LonghouseTag));
+            EntityBuild.Add(em, entity, default(BatchTrainingTag));
+            EntityBuild.AddBuffer<ProductionQueueItem>(em, entity);
+            EntityBuild.Add(em, entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
+            EntityBuild.Add(em, entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            return EntityBuild.Done(entity);
         }
 
         public static Entity Create(EntityCommandBuffer ecb, float3 position, Faction faction)
@@ -55,23 +55,23 @@ namespace TheWaningBorder.Entities
             float los = def.lineOfSight;
             float radius = def.radius;
 
-            var entity = ecb.CreateEntity();
-            ecb.AddComponent(entity, new PresentationId { Id = 360 });
-            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            ecb.AddComponent(entity, new FactionTag { Value = faction });
-            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
-            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
-            ecb.AddComponent(entity, new LineOfSight { Radius = los });
+            var entity = EntityBuild.CreateEntity(ecb);
+            EntityBuild.Add(ecb, entity, new PresentationId { Id = 360 });
+            EntityBuild.Add(ecb, entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            EntityBuild.Add(ecb, entity, new FactionTag { Value = faction });
+            EntityBuild.Add(ecb, entity, new BuildingTag { IsBase = 0 });
+            EntityBuild.Add(ecb, entity, new Health { Value = (int)hp, Max = (int)hp });
+            EntityBuild.Add(ecb, entity, new LineOfSight { Radius = los });
             var gridSize = BuildingSizeConfig.GetSize("Feraldis_Longhouse");
-            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            ecb.AddComponent(entity, new ProductionState { Busy = 0, Remaining = 0 });
-            ecb.AddComponent<LonghouseTag>(entity);
-            ecb.AddComponent<BatchTrainingTag>(entity);
-            ecb.AddBuffer<ProductionQueueItem>(entity);
-            ecb.AddComponent(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
-            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            return entity;
+            EntityBuild.Add(ecb, entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            EntityBuild.Add(ecb, entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+            EntityBuild.Add(ecb, entity, new ProductionState { Busy = 0, Remaining = 0 });
+            EntityBuild.Add(ecb, entity, default(LonghouseTag));
+            EntityBuild.Add(ecb, entity, default(BatchTrainingTag));
+            EntityBuild.AddBuffer<ProductionQueueItem>(ecb, entity);
+            EntityBuild.Add(ecb, entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
+            EntityBuild.Add(ecb, entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            return EntityBuild.Done(entity);
         }
     }
 }

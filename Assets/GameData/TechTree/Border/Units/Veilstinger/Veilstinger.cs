@@ -24,7 +24,7 @@ namespace TheWaningBorder.Entities
             // bypass UnitFactory's dispatcher, so the transient pre-add has
             // to happen here or the enable-bit machinery hard-crashes the
             // player on the first order this unit receives (TransientState).
-            var e = CreateInternal(new EmCreator(em), position, faction);
+            var e = EntityBuild.Done(CreateInternal(new EmCreator(em), position, faction));
             TransientState.PreAddUnitSet(em, e);
             // NETWORKED (2026-09-04, MP harness catch #12): curse wave units
             // carried no NetworkedEntity, so the whole curse army was
@@ -48,7 +48,7 @@ namespace TheWaningBorder.Entities
         /// </summary>
         public static Entity Create(EntityCommandBuffer ecb, float3 position, Faction faction)
         {
-            var e = CreateInternal(new EcbCreator(ecb), position, faction);
+            var e = EntityBuild.Done(CreateInternal(new EcbCreator(ecb), position, faction));
             TransientState.PreAddUnitSet(ecb, e);
             // Same networking as the EntityManager overload above.
             ecb.AddComponent(e, new TheWaningBorder.Core.Multiplayer.NetworkedEntity

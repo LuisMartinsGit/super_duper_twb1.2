@@ -27,9 +27,11 @@ namespace TheWaningBorder.Entities
         {
             var e = Worker.Create(ecb, position, faction);
             var def = TechCatalog.Unit("Feraldis_Slave");
-            ecb.AddComponent<SlaveTag>(e);
-            ecb.AddComponent<FeraldisWorkerTag>(e);
-            ecb.AddComponent<FeraldisUnitTag>(e);
+            // Recorded into the dispatcher's build (EntityBuild): the three
+            // tags land in its single structural change, not one each.
+            EntityBuild.Add(ecb, e, new SlaveTag());
+            EntityBuild.Add(ecb, e, new FeraldisWorkerTag());
+            EntityBuild.Add(ecb, e, new FeraldisUnitTag());
             ecb.SetComponent(e, new PopulationCost { Amount = def.populationCost });
             // ECB path: the ability is granted by the retrofit sweep once the
             // entity exists (FeraldisCultureRetrofitSystem).
@@ -39,9 +41,11 @@ namespace TheWaningBorder.Entities
         private static void Stamp(EntityManager em, Entity e)
         {
             var def = TechCatalog.Unit("Feraldis_Slave");
-            em.AddComponent<SlaveTag>(e);
-            if (!em.HasComponent<FeraldisWorkerTag>(e)) em.AddComponent<FeraldisWorkerTag>(e);
-            if (!em.HasComponent<FeraldisUnitTag>(e)) em.AddComponent<FeraldisUnitTag>(e);
+            // Recorded into the dispatcher's build (EntityBuild) when there is
+            // one; applied immediately otherwise.
+            EntityBuild.Add(em, e, new SlaveTag());
+            if (!em.HasComponent<FeraldisWorkerTag>(e)) EntityBuild.Add(em, e, new FeraldisWorkerTag());
+            if (!em.HasComponent<FeraldisUnitTag>(e)) EntityBuild.Add(em, e, new FeraldisUnitTag());
             em.SetComponentData(e, new PopulationCost { Amount = def.populationCost });
             if (em.HasComponent<Health>(e))
                 em.SetComponentData(e, new Health { Value = (int)def.hp, Max = (int)def.hp });

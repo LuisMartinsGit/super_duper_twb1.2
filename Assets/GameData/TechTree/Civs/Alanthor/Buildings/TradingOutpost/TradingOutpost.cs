@@ -61,60 +61,60 @@ namespace TheWaningBorder.Entities
         public static Entity Create(EntityManager em, float3 position, Faction faction)
         {
             var def = TechCatalog.Building(BuildingId);
-            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform),
+            var entity = EntityBuild.CreateEntity(em, typeof(PresentationId), typeof(LocalTransform),
                 typeof(FactionTag), typeof(BuildingTag), typeof(Health),
                 typeof(LineOfSight), typeof(Radius));
-            em.SetComponentData(entity, new PresentationId { Id = PresentationID });
-            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            em.SetComponentData(entity, new FactionTag { Value = faction });
-            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
-            em.SetComponentData(entity, new Health { Value = (int)def.hp, Max = (int)def.hp });
-            em.SetComponentData(entity, new LineOfSight { Radius = def.lineOfSight });
+            EntityBuild.Add(em, entity, new PresentationId { Id = PresentationID });
+            EntityBuild.Add(em, entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            EntityBuild.Add(em, entity, new FactionTag { Value = faction });
+            EntityBuild.Add(em, entity, new BuildingTag { IsBase = 0 });
+            EntityBuild.Add(em, entity, new Health { Value = (int)def.hp, Max = (int)def.hp });
+            EntityBuild.Add(em, entity, new LineOfSight { Radius = def.lineOfSight });
 
             var gridSize = BuildingSizeConfig.GetSize(BuildingId);
-            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            em.AddComponent<TradingOutpostTag>(entity);
-            em.AddComponentData(entity, new TradingOutpostMode { Recipe = TradeRecipe.Hold });
-            em.AddComponent<TradingOutpostCarry>(entity);
+            EntityBuild.Add(em, entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            EntityBuild.Add(em, entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+            EntityBuild.Add(em, entity, default(TradingOutpostTag));
+            EntityBuild.Add(em, entity, new TradingOutpostMode { Recipe = TradeRecipe.Hold });
+            EntityBuild.Add(em, entity, default(TradingOutpostCarry));
             // Hosts its own research: the two trade unlocks and the discount
             // ladder (Research/ beside this file) — Barracks pattern.
-            em.AddComponentData(entity, new ProductionState { Busy = 0, Remaining = 0 });
-            em.AddBuffer<ProductionQueueItem>(entity);
-            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            em.AddComponentData(entity, Defence(def));
+            EntityBuild.Add(em, entity, new ProductionState { Busy = 0, Remaining = 0 });
+            EntityBuild.AddBuffer<ProductionQueueItem>(em, entity);
+            EntityBuild.Add(em, entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            EntityBuild.Add(em, entity, Defence(def));
             // Levels 1-3 (Civs/Alanthor/Buildings/TradingOutpost/TradingOutpost_Lvl1..3):
             // L1 is granted by BuildingCultureAutoLevelSystem, L2/L3 are bought.
-            em.AddComponent<BuildingUpgradeable>(entity);
-            em.AddComponentData(entity, SiteFor(em, entity, position));
-            return entity;
+            EntityBuild.Add(em, entity, default(BuildingUpgradeable));
+            EntityBuild.Add(em, entity, SiteFor(em, entity, position));
+            return EntityBuild.Done(entity);
         }
 
         public static Entity Create(EntityCommandBuffer ecb, float3 position, Faction faction)
         {
             var def = TechCatalog.Building(BuildingId);
-            var entity = ecb.CreateEntity();
-            ecb.AddComponent(entity, new PresentationId { Id = PresentationID });
-            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            ecb.AddComponent(entity, new FactionTag { Value = faction });
-            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
-            ecb.AddComponent(entity, new Health { Value = (int)def.hp, Max = (int)def.hp });
-            ecb.AddComponent(entity, new LineOfSight { Radius = def.lineOfSight });
+            var entity = EntityBuild.CreateEntity(ecb);
+            EntityBuild.Add(ecb, entity, new PresentationId { Id = PresentationID });
+            EntityBuild.Add(ecb, entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            EntityBuild.Add(ecb, entity, new FactionTag { Value = faction });
+            EntityBuild.Add(ecb, entity, new BuildingTag { IsBase = 0 });
+            EntityBuild.Add(ecb, entity, new Health { Value = (int)def.hp, Max = (int)def.hp });
+            EntityBuild.Add(ecb, entity, new LineOfSight { Radius = def.lineOfSight });
 
             var gridSize = BuildingSizeConfig.GetSize(BuildingId);
-            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            ecb.AddComponent<TradingOutpostTag>(entity);
-            ecb.AddComponent(entity, new TradingOutpostMode { Recipe = TradeRecipe.Hold });
-            ecb.AddComponent<TradingOutpostCarry>(entity);
-            ecb.AddComponent(entity, new ProductionState { Busy = 0, Remaining = 0 });
-            ecb.AddBuffer<ProductionQueueItem>(entity);
-            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            ecb.AddComponent(entity, Defence(def));
-            ecb.AddComponent<BuildingUpgradeable>(entity);
+            EntityBuild.Add(ecb, entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            EntityBuild.Add(ecb, entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+            EntityBuild.Add(ecb, entity, default(TradingOutpostTag));
+            EntityBuild.Add(ecb, entity, new TradingOutpostMode { Recipe = TradeRecipe.Hold });
+            EntityBuild.Add(ecb, entity, default(TradingOutpostCarry));
+            EntityBuild.Add(ecb, entity, new ProductionState { Busy = 0, Remaining = 0 });
+            EntityBuild.AddBuffer<ProductionQueueItem>(ecb, entity);
+            EntityBuild.Add(ecb, entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            EntityBuild.Add(ecb, entity, Defence(def));
+            EntityBuild.Add(ecb, entity, default(BuildingUpgradeable));
             // TradingOutpostSite needs the world to resolve; TradingOutpostSystem
             // stamps it on its next cycle (the ECB path has no EntityManager).
-            return entity;
+            return EntityBuild.Done(entity);
         }
 
         private static Defense Defence(TheWaningBorder.Data.BuildingDef def)

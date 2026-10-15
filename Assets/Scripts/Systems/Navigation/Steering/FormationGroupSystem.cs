@@ -127,12 +127,59 @@ namespace TheWaningBorder.Systems.Navigation
 
         private EntityQuery _groupQuery;
 
+        // ── Per-member lookups (perf pass 2026-10-15) ──────────────────
+        // The prune, speed-restore and steer passes made a dozen
+        // EntityManager calls per member per tick (~15 ms late-game). Same
+        // reads through lookups. They go stale on every main-thread
+        // STRUCTURAL change (DestroyEntity, the rare add inside
+        // TransientState.Set), so RefreshLookups runs after each one; the
+        // enable-bit flips (Detach, Clear) and SetComponentData are not
+        // structural and leave them valid.
+        private ComponentLookup<LocalTransform> _xform;
+        private ComponentLookup<DeathAnimationState> _dying;
+        private ComponentLookup<FormationMemberState> _member;
+        private ComponentLookup<Target> _target;
+        private ComponentLookup<UnitEngagement> _engagement;
+        private ComponentLookup<DesiredDestination> _dest;
+        private ComponentLookup<MoveSpeed> _moveSpeed;
+        private ComponentLookup<FormationSpeedOverride> _speedOverride;
+        private ComponentLookup<FlowDesiredDir> _flowDir;
+        private EntityStorageInfoLookup _exists;
+        private UnitSpeedModifiers.Lookups _speedMods;
+
         public void OnCreate(ref SystemState state)
         {
             _groupQuery = state.GetEntityQuery(ComponentType.ReadWrite<FormationGroup>());
             state.RequireForUpdate(_groupQuery);
             state.RequireForUpdate<NavCostField>();
             state.RequireForUpdate<NavGridSingleton>();
+
+            _xform = state.GetComponentLookup<LocalTransform>(true);
+            _dying = state.GetComponentLookup<DeathAnimationState>(true);
+            _member = state.GetComponentLookup<FormationMemberState>(true);
+            _target = state.GetComponentLookup<Target>(true);
+            _engagement = state.GetComponentLookup<UnitEngagement>(true);
+            _dest = state.GetComponentLookup<DesiredDestination>(false);
+            _moveSpeed = state.GetComponentLookup<MoveSpeed>(true);
+            _speedOverride = state.GetComponentLookup<FormationSpeedOverride>(false);
+            _flowDir = state.GetComponentLookup<FlowDesiredDir>(false);
+            _exists = state.GetEntityStorageInfoLookup();
+            _speedMods = UnitSpeedModifiers.Lookups.Create(ref state);
+        }
+
+        private void RefreshLookups(ref SystemState state)
+        {
+            _xform.Update(ref state);
+            _dying.Update(ref state);
+            _member.Update(ref state);
+            _target.Update(ref state);
+            _engagement.Update(ref state);
+            _dest.Update(ref state);
+            _moveSpeed.Update(ref state);
+            _speedOverride.Update(ref state);
+            _flowDir.Update(ref state);
+            _exists.Update(ref state);
+            _speedMods.Update(ref state);
         }
 
         public void OnUpdate(ref SystemState state)
@@ -153,6 +200,8 @@ namespace TheWaningBorder.Systems.Navigation
             bool hasGoalCache = SystemAPI.TryGetSingleton<GoalFlowFieldCache>(out var goalCache);
             bool hasDirTable = SystemAPI.TryGetSingleton<DirectionTableSingleton>(out var dirTable);
 
+            RefreshLookups(ref state);
+
             using var groups = _groupQuery.ToEntityArray(Allocator.Temp);
             for (int gi = 0; gi < groups.Length; gi++)
             {
@@ -172,6 +221,15 @@ namespace TheWaningBorder.Systems.Navigation
                 // (they fight at their own); removal is structural, so it is
                 // collected and applied with the detaches.
                 var toUnspeed = new NativeList<Entity>(snapshot.Length, Allocator.Temp);
+                // Each kept member's UnitSpeedModifiers.Multiplier, parallel
+                // to `keep` (NaN = not computed). The steer pass reuses it:
+                // nothing between the two passes touches any of its inputs
+                // (only enable bits of FormationMemberState /
+                // FormationSpeedOverride and DesiredDestination change).
+                var keepMult = new NativeList<float>(snapshot.Length, Allocator.Temp);
+                // Whether the roster differs from the buffer (a drop or an
+                // Engaged flip) — see the buffer write below.
+                bool rosterChanged = false;
                 float slowest = float.MaxValue;
 
                 // Worst member->spot DISTANCE this tick, in any direction,
@@ -189,13 +247,13 @@ namespace TheWaningBorder.Systems.Navigation
                     var m = snapshot[i];
                     var u = m.Unit;
 
-                    if (u == Entity.Null || !em.Exists(u)) continue;
-                    if (TransientState.Active<DeathAnimationState>(em, u)) { toDetach.Add(u); continue; }
+                    if (u == Entity.Null || !_exists.Exists(u)) continue;
+                    if (TransientState.Active(ref _dying, u)) { toDetach.Add(u); continue; }
 
                     // Re-ordered into another group / individually: the
                     // member state no longer points here — just drop it.
-                    if (!TransientState.Active<FormationMemberState>(em, u)
-                        || em.GetComponentData<FormationMemberState>(u).Group != groupEntity)
+                    if (!TransientState.Active(ref _member, u)
+                        || _member[u].Group != groupEntity)
                         continue;
 
                     // -- Combat takes the member out of RANK, not out of the
@@ -204,18 +262,20 @@ namespace TheWaningBorder.Systems.Navigation
                     // roster, fighting at its own speed, so it can rejoin once
                     // the target is dead or leashed away. An explicit attack
                     // order is a different intent: that member leaves for good.
-                    Entity fightTarget = em.HasComponent<Target>(u)
-                        ? em.GetComponentData<Target>(u).Value : Entity.Null;
+                    Entity fightTarget = _target.HasComponent(u)
+                        ? _target[u].Value : Entity.Null;
                     if (fightTarget != Entity.Null)
                     {
-                        bool auto = em.HasComponent<UnitEngagement>(u)
-                            && em.GetComponentData<UnitEngagement>(u).AutoTarget == fightTarget;
+                        bool auto = TransientState.Active(ref _engagement, u)
+                            && _engagement[u].AutoTarget == fightTarget;
                         if (!auto) { toDetach.Add(u); continue; }
 
+                        if (m.Engaged == 0) rosterChanged = true;
                         m.Engaged = 1;
                         engagedCount++;
                         keep.Add(m);
-                        if (TransientState.Active<FormationSpeedOverride>(em, u)) toUnspeed.Add(u);
+                        keepMult.Add(float.NaN);
+                        if (TransientState.Active(ref _speedOverride, u)) toUnspeed.Add(u);
                         continue;
                     }
 
@@ -225,14 +285,16 @@ namespace TheWaningBorder.Systems.Navigation
                         // back to the slot and fall in again. Not counted in
                         // the lag this tick - it is legitimately out of place.
                         m.Engaged = 0;
-                        if (em.HasComponent<DesiredDestination>(u))
-                            em.SetComponentData(u, new DesiredDestination { Position = m.SlotWorld, Has = 1 });
+                        rosterChanged = true;
+                        if (_dest.HasComponent(u))
+                            _dest[u] = new DesiredDestination { Position = m.SlotWorld, Has = 1 };
                         keep.Add(m);
+                        keepMult.Add(float.NaN);
                         continue;
                     }
 
-                    bool hasDest = em.HasComponent<DesiredDestination>(u)
-                        && em.GetComponentData<DesiredDestination>(u).Has != 0;
+                    bool hasDest = _dest.HasComponent(u)
+                        && _dest[u].Has != 0;
 
                     if (!hasDest)
                     {
@@ -244,22 +306,24 @@ namespace TheWaningBorder.Systems.Navigation
                     }
 
                     keep.Add(m);
-                    if (em.HasComponent<MoveSpeed>(u))
+                    keepMult.Add(float.NaN);
+                    if (_moveSpeed.HasComponent(u))
                     {
                         // EFFECTIVE speed: base times the member's own slows
                         // and hastes, exactly as the integrator will apply them.
                         // A group paced on base speeds silently leaves a slowed
                         // member behind for the whole march. A member that
                         // cannot move at all (Fortified) does not set the pace.
-                        float mult = UnitSpeedModifiers.Multiplier(em, u);
-                        float sp = em.GetComponentData<MoveSpeed>(u).Value * mult;
+                        float mult = UnitSpeedModifiers.Multiplier(ref _speedMods, u);
+                        keepMult[keepMult.Length - 1] = mult;
+                        float sp = _moveSpeed[u].Value * mult;
                         if (sp > 0f && sp < slowest) slowest = sp;
                     }
 
-                    if (em.HasComponent<LocalTransform>(u))
+                    if (_xform.HasComponent(u))
                     {
                         float3 sp0 = g.LeaderPos + preRight * m.Slot.x + g.Facing * m.Slot.y;
-                        float3 p0 = em.GetComponentData<LocalTransform>(u).Position;
+                        float3 p0 = _xform[u].Position;
                         // OUT OF POSITION, in any direction. A member 40 cm off
                         // to the SIDE is just as out of formation as one 40 cm
                         // behind; slowing the leader for it is what buys it the
@@ -285,6 +349,7 @@ namespace TheWaningBorder.Systems.Navigation
                         if (offset > maxOffset) { maxOffset = offset; worstOffender = u; }
                     }
                 }
+                if (keep.Length != snapshot.Length) rosterChanged = true;
                 snapshot.Dispose();
 
                 for (int i = 0; i < toDetach.Length; i++)
@@ -298,15 +363,23 @@ namespace TheWaningBorder.Systems.Navigation
                 if (keep.Length == 0)
                 {
                     keep.Dispose();
+                    keepMult.Dispose();
                     em.DestroyEntity(groupEntity);
+                    RefreshLookups(ref state);
                     continue;
                 }
 
-                // Always rewritten: Engaged flags change without the length
-                // changing.
+                // Rewritten only when the roster changed. Every kept entry is
+                // its snapshot entry in snapshot order with at most Engaged
+                // flipped, so an equal length with no flip means `keep` IS the
+                // buffer, element for element — the rewrite was a no-op copy
+                // (plus a change-version bump) on every group, every tick.
                 var buffer = em.GetBuffer<FormationMember>(groupEntity);
-                buffer.Clear();
-                for (int i = 0; i < keep.Length; i++) buffer.Add(keep[i]);
+                if (rosterChanged)
+                {
+                    buffer.Clear();
+                    for (int i = 0; i < keep.Length; i++) buffer.Add(keep[i]);
+                }
 
                 if (slowest > 0f && slowest != float.MaxValue)
                     g.GroupSpeed = slowest;
@@ -634,7 +707,9 @@ namespace TheWaningBorder.Systems.Navigation
                     }
                     released.Dispose();
                     keep.Dispose();
+                    keepMult.Dispose();
                     em.DestroyEntity(groupEntity);
+                    RefreshLookups(ref state);
                     continue;
                 }
 
@@ -663,7 +738,9 @@ namespace TheWaningBorder.Systems.Navigation
                             if (em.Exists(settled[i])) Detach(em, settled[i]);
                         settled.Dispose();
                         keep.Dispose();
+                        keepMult.Dispose();
                         em.DestroyEntity(groupEntity);
+                        RefreshLookups(ref state);
                         continue;
                     }
                 }
@@ -698,12 +775,18 @@ namespace TheWaningBorder.Systems.Navigation
                     {
                         var pu = pre[i].Unit;
                         if (pre[i].Engaged != 0) continue;   // fighting at its own speed
-                        if (em.Exists(pu) && !TransientState.Active<FormationSpeedOverride>(em, pu))
+                        if (_exists.Exists(pu) && !TransientState.Active(ref _speedOverride, pu))
                             missing.Add(pu);
                     }
                     for (int i = 0; i < missing.Length; i++)
+                    {
+                        // Units carry the pre-add, so this is an enable-bit
+                        // flip; an entity without it gets a structural add.
+                        bool structural = !_speedOverride.HasComponent(missing[i]);
                         TransientState.Set(em, missing[i],
                             new FormationSpeedOverride { Value = g.GroupSpeed });
+                        if (structural) RefreshLookups(ref state);
+                    }
                     missing.Dispose();
                 }
 
@@ -713,8 +796,8 @@ namespace TheWaningBorder.Systems.Navigation
                     var u = buffer[i].Unit;
                     if (buffer[i].Engaged != 0) continue;   // out of rank, fighting
 
-                    if (!em.HasComponent<LocalTransform>(u)
-                        || !em.HasComponent<FlowDesiredDir>(u)) continue;
+                    if (!_xform.HasComponent(u)
+                        || !TransientState.Active(ref _flowDir, u)) continue;
 
                     float2 s = buffer[i].Slot;
                     // Settling: aim at the member's own FINAL slot, which is
@@ -726,7 +809,7 @@ namespace TheWaningBorder.Systems.Navigation
                     float3 spot = arrivedState
                         ? buffer[i].SlotWorld
                         : g.LeaderPos + right * s.x + g.Facing * s.y;
-                    float3 pos = em.GetComponentData<LocalTransform>(u).Position;
+                    float3 pos = _xform[u].Position;
                     float3 toSpot = spot - pos;
                     toSpot.y = 0f;
 
@@ -774,11 +857,11 @@ namespace TheWaningBorder.Systems.Navigation
 
                     if (HasLineOfSight(in grid, in cost, pos, spot, g.FactionIdx))
                     {
-                        em.SetComponentData(u, new FlowDesiredDir
+                        _flowDir[u] = new FlowDesiredDir
                         {
                             Value = math.normalizesafe(want, g.Facing),
                             HasValue = 1,
-                        });
+                        };
                     }
                     else
                     {
@@ -806,17 +889,23 @@ namespace TheWaningBorder.Systems.Navigation
                     // integrator multiplies the override by it again, so a
                     // slowed member is commanded exactly the speed its spot
                     // needs instead of the slowed version of it.
-                    if (TransientState.Active<FormationSpeedOverride>(em, u))
+                    if (TransientState.Active(ref _speedOverride, u))
                     {
                         float cmdSpeed = math.min(wantSpeed, catchUpSpeed);
-                        float mult = UnitSpeedModifiers.Multiplier(em, u);
+                        // Reuse the prune pass's value when it computed one
+                        // (buffer index == keep index: the buffer was built
+                        // from `keep` and the restore pass does not reorder it).
+                        float mult = i < keepMult.Length && !float.IsNaN(keepMult[i])
+                            ? keepMult[i]
+                            : UnitSpeedModifiers.Multiplier(ref _speedMods, u);
                         if (mult > 0.05f) cmdSpeed /= mult;
-                        em.SetComponentData(u, new FormationSpeedOverride { Value = cmdSpeed });
+                        _speedOverride[u] = new FormationSpeedOverride { Value = cmdSpeed };
                     }
                 }
 
                 em.SetComponentData(groupEntity, g);
                 keep.Dispose();
+                keepMult.Dispose();
 
                 // Structural change last: Detach removes components, which
                 // would invalidate the member buffer held above.

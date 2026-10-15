@@ -329,8 +329,8 @@ namespace TheWaningBorder.Systems.Training
             else
                 em.SetComponentData(unit, new DesiredDestination { Position = slotTarget, Has = 1 });
 
-            if (!em.HasComponent<GuardPoint>(unit))
-                em.AddComponentData(unit, new GuardPoint { Position = slotTarget, Has = 1 });
+            if (!TransientState.Active<GuardPoint>(em, unit))
+                TransientState.Set(em, unit, new GuardPoint { Position = slotTarget, Has = 1 });
             else
                 em.SetComponentData(unit, new GuardPoint { Position = slotTarget, Has = 1 });
         }

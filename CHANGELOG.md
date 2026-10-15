@@ -13,6 +13,38 @@ build always name the same number.
 
 ---
 
+## [0.0.43] — 2026-10-15
+
+Everyone in a multiplayer match needs 0.0.43. Saved games and replays from
+earlier versions do not load.
+
+### Added
+
+- **One movement line per formation.** Ordering a group to move draws a
+  single line from the formation to its destination, not one line per unit.
+- **Right-click and drag to face a formation.** Hold the right mouse button
+  on the ground, drag in the direction the army should face and release. A
+  preview shows where each unit will stand. A plain right-click works as
+  before.
+
+### Changed
+
+- **Large matches run much faster.** Late in an 8-player match the game
+  used to slow to a crawl as armies grew. Pathfinding, unit movement,
+  formations, tower and unit targeting, Runai trade roads and the AI now do
+  far less work per unit, and the game no longer piles up internal
+  bookkeeping as units spawn and fight. In testing, an 8-AI match on
+  Mirror Marches with about 3,000 units runs about twice as fast.
+- **Armies keep the way they face** when they tidy their ranks while idle.
+
+### Fixed
+
+- **Only one Great Forge per player**, and only one of each House of
+  Vaelith sect building (Reliquary, Mending Hall, Stonehold, Treasury). The
+  limit was not being enforced.
+- **Roads were sometimes drawn to the wrong place** after nearby buildings
+  changed.
+
 ## [0.0.42] — 2026-10-15
 
 Everyone in a multiplayer match needs 0.0.42. Saved games and replays from

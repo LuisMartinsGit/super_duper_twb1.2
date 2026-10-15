@@ -69,10 +69,10 @@ namespace TheWaningBorder.Core.Commands.Types
             em.SetComponentData(unit, new DesiredDestination { Position = destination, Has = 1 });
 
             // Set GuardPoint to the start position (unit returns here after max chase)
-            if (em.HasComponent<GuardPoint>(unit))
+            if (TransientState.Active<GuardPoint>(em, unit))
                 em.SetComponentData(unit, new GuardPoint { Position = startPos, Has = 1 });
                 else
-                    em.AddComponentData(unit, new GuardPoint { Position = startPos, Has = 1 });
+                    TransientState.Set(em, unit, new GuardPoint { Position = startPos, Has = 1 });
 
             // Do NOT activate UserMoveOrder - patrolling units should auto-acquire targets
             TransientState.Clear<UserMoveOrder>(em, unit);

@@ -117,10 +117,10 @@ namespace TheWaningBorder.Core.Commands.Types
                 }
 
                 // Update guard point so healer doesn't snap back to spawn
-                if (em.HasComponent<GuardPoint>(healer))
+                if (TransientState.Active<GuardPoint>(em, healer))
                     em.SetComponentData(healer, new GuardPoint { Position = targetPos, Has = 1 });
                     else
-                        em.AddComponentData(healer, new GuardPoint { Position = targetPos, Has = 1 });
+                        TransientState.Set(em, healer, new GuardPoint { Position = targetPos, Has = 1 });
             }
         }
     }

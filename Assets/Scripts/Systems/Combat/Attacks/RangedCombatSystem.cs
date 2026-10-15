@@ -52,9 +52,30 @@ namespace TheWaningBorder.Systems.Combat
         private const float ArrowSpeed = 39f;
         private const float BoltSpeed = 55f; // Siege projectiles (ballista bolts) fly faster
 
+        /// <summary>The per-unit reads, through lookups (2026-10-15 perf
+        /// pass — see CombatLookups). Created once, refreshed every update.</summary>
+        private CombatLookups _lk;
+
+        /// <summary>Every shot starts from this archetype (LocalTransform +
+        /// ArrowProjectile + Projectile): one structural step at playback
+        /// instead of create + three adds. The optional riders are still
+        /// added after it, so the final component set is unchanged.</summary>
+        private EntityArchetype _arrowArch;
+
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
+            _lk = CombatLookups.Create(ref state);
+            _arrowArch = state.EntityManager.CreateArchetype(
+                typeof(LocalTransform), typeof(ArrowProjectile), typeof(Projectile));
+        }
+
+        /// <summary>Drop the AttackCommand if it is live — TransientState.Active
+        /// + Clear, through the lookup (Active implies present).</summary>
+        private static void DropAttackCommand(in CombatLookups lk, EntityCommandBuffer ecb, Entity e)
+        {
+            if (CombatLookups.Active(in lk.AttackCommand, e))
+                ecb.SetComponentEnabled<AttackCommand>(e, false);
         }
 
         public void OnUpdate(ref SystemState state)
@@ -64,6 +85,8 @@ namespace TheWaningBorder.Systems.Combat
             var dt = SystemAPI.Time.DeltaTime;
             var time = SimCadence.MatchTimeOr(SystemAPI.Time.ElapsedTime);
             var em = state.EntityManager;
+            _lk.Update(ref state);
+            var lk = _lk;
 
             foreach (var (transform, target, archerState, damage, faction, entity) in SystemAPI
                 .Query<RefRO<LocalTransform>, RefRW<Target>, RefRW<ArcherState>, RefRO<Damage>, RefRO<FactionTag>>()
@@ -96,7 +119,7 @@ namespace TheWaningBorder.Systems.Combat
 
                 // Update cooldown timer. Frozen by Recall the Codex
                 // (Antiquity): cooldowns do not recover while CodexFrozen.
-                if (archer.CooldownTimer > 0 && !em.HasComponent<CodexFrozen>(entity))
+                if (archer.CooldownTimer > 0 && !lk.CodexFrozen.HasComponent(entity))
                 {
                     archer.CooldownTimer -= dt;
                 }
@@ -105,35 +128,25 @@ namespace TheWaningBorder.Systems.Combat
                 if (tgt.Value == Entity.Null || !em.Exists(tgt.Value))
                 {
                     tgt.Value = Entity.Null;
-                    if (TransientState.Active<AttackCommand>(em, entity))
-                    {
-                        TransientState.Clear<AttackCommand>(em, ecb, entity);
-                    }
+                    DropAttackCommand(in lk, ecb, entity);
                     continue;
                 }
 
                 // Fix #212: defensively check HasComponent<Health> before reading.
                 // If DeathSystem removed Health via ECB playback, GetComponentData
                 // would throw.
-                if (!em.HasComponent<Health>(tgt.Value))
+                if (!lk.Health.TryGetComponent(tgt.Value, out var targetHealth))
                 {
                     tgt.Value = Entity.Null;
-                    if (TransientState.Active<AttackCommand>(em, entity))
-                    {
-                        TransientState.Clear<AttackCommand>(em, ecb, entity);
-                    }
+                    DropAttackCommand(in lk, ecb, entity);
                     continue;
                 }
 
                 // Validate target is alive
-                var targetHealth = em.GetComponentData<Health>(tgt.Value);
                 if (targetHealth.Value <= 0)
                 {
                     tgt.Value = Entity.Null;
-                    if (TransientState.Active<AttackCommand>(em, entity))
-                    {
-                        TransientState.Clear<AttackCommand>(em, ecb, entity);
-                    }
+                    DropAttackCommand(in lk, ecb, entity);
                     continue;
                 }
 
@@ -142,20 +155,15 @@ namespace TheWaningBorder.Systems.Combat
                 // at one even when force-ordered. Same drop contract as the
                 // melee path; the targeting pass filters walls out the same
                 // way, so the re-pick lands elsewhere.
-                if (em.HasComponent<WallTag>(tgt.Value)
-                    && (!em.HasComponent<DamageTypeData>(entity)
-                        || em.GetComponentData<DamageTypeData>(entity).Value != DamageType.Siege))
+                if (lk.Wall.HasComponent(tgt.Value) && !lk.DealsSiege(entity))
                 {
                     tgt.Value = Entity.Null;
-                    if (TransientState.Active<AttackCommand>(em, entity))
-                    {
-                        TransientState.Clear<AttackCommand>(em, ecb, entity);
-                    }
+                    DropAttackCommand(in lk, ecb, entity);
                     continue;
                 }
 
                 // Fix #211: skip targets that are currently Invulnerable.
-                if (TransientState.Active<Invulnerable>(em, tgt.Value)) continue;
+                if (CombatLookups.Active(in lk.Invulnerable, tgt.Value)) continue;
 
                 // Archers cannot FIRE while moving — but they must keep
                 // steering. The old `continue` here was the pursue-jiggle bug:
@@ -169,11 +177,7 @@ namespace TheWaningBorder.Systems.Combat
                 // precisely because it re-issues its chase every frame. Now
                 // ranged does the same: movement intent is (re)written every
                 // frame; only the aim/fire block below is gated on standing.
-                bool isMoving = false;
-                if (em.HasComponent<DesiredDestination>(entity))
-                {
-                    isMoving = em.GetComponentData<DesiredDestination>(entity).Has != 0;
-                }
+                bool isMoving = lk.Destination.TryGetComponent(entity, out var dest) && dest.Has != 0;
                 if (isMoving)
                 {
                     archer.AimTimer = 0;
@@ -181,7 +185,7 @@ namespace TheWaningBorder.Systems.Combat
                 }
 
                 var myPos = transform.ValueRO.Position;
-                var targetPos = em.GetComponentData<LocalTransform>(tgt.Value).Position;
+                var targetPos = lk.Transform[tgt.Value].Position;
                 var dist = DistXZ(myPos, targetPos);
 
                 // Use archer's configured ranges or defaults
@@ -212,7 +216,7 @@ namespace TheWaningBorder.Systems.Combat
                 // below use this surface distance. (fix 2026-08-03)
                 // (Now shared with melee/targeting/arrival via TargetGeometry so
                 // every system agrees on how big a given building is.)
-                var extent = TargetGeometry.Extent(em, tgt.Value);
+                var extent = lk.Extent(tgt.Value);
                 float edgeDist = extent.SurfaceDistXZ(myPos);
 
                 // =============================================================================
@@ -224,13 +228,12 @@ namespace TheWaningBorder.Systems.Combat
                     // (docs/Design/Age_1_Alanthor.md § Ballista and Trebuchet
                     // emplacements): it cannot back off, so a target inside
                     // its dead zone is simply dropped for the next re-pick.
-                    if (TargetingSystem.IsFixedMount(em, entity))
+                    if (TargetingSystem.IsFixedMount(in lk, entity))
                     {
                         tgt.Value = Entity.Null;
                         archer.AimTimer = 0;
                         archer.IsRetreating = 0;
-                        if (TransientState.Active<AttackCommand>(em, entity))
-                            TransientState.Clear<AttackCommand>(em, ecb, entity);
+                        DropAttackCommand(in lk, ecb, entity);
                         continue;
                     }
 
@@ -241,7 +244,7 @@ namespace TheWaningBorder.Systems.Combat
                     var retreatDir = math.normalize(myPos - targetPos);
                     var retreatTarget = myPos + retreatDir * (minRange - edgeDist + 3f);
 
-                    if (!em.HasComponent<DesiredDestination>(entity))
+                    if (!lk.Destination.HasComponent(entity))
                     {
                         ecb.AddComponent(entity, new DesiredDestination
                         {
@@ -269,9 +272,10 @@ namespace TheWaningBorder.Systems.Combat
                     // plain archers loosed arrows over their own shoulder.
                     // Feraldis rigs that fire on the move (the War Rig; the Corpse
                     // Engine and Harpoon Rig with Fire on the Move) keep driving.
-                    bool firesOnMove = em.HasComponent<FiresOnMove>(entity);
+                    bool firesOnMove = lk.FiresOnMove.HasComponent(entity);
                     if (!firesOnMove)
-                        TargetGeometry.StopAndFace(ecb, em, entity, targetPos, dt);
+                        TargetGeometry.StopAndFace(ecb, em, in lk.Destination, in lk.Transform,
+                            entity, targetPos, dt);
 
                     // Still mid-step this frame — the stop write above lands at
                     // ECB playback; aim starts accumulating from the NEXT frame
@@ -280,7 +284,7 @@ namespace TheWaningBorder.Systems.Combat
 
                     // Full Gallop: a sprinting unit cannot shoot either (mounted
                     // archers keep the same rule as melee cavalry).
-                    if (TransientState.Active<TheWaningBorder.Abilities.TempDisarm>(em, entity)) continue;
+                    if (CombatLookups.Active(in lk.TempDisarm, entity)) continue;
 
                     // Trebuchet pack/unpack: an undeployed trebuchet plants and
                     // faces (StopAndFace above) but must finish its 3 s set-up
@@ -309,7 +313,7 @@ namespace TheWaningBorder.Systems.Combat
                     // catapult that looses mid-traverse throws the stone wide.
                     // The rotation itself is done by StopAndFace above (every
                     // ranged unit turns now); this is just the aim gate.
-                    bool isSiege = em.HasComponent<SiegeTag>(entity);
+                    bool isSiege = lk.Siege.HasComponent(entity);
                     if (isSiege)
                     {
                         float3 toTarget = targetPos - myPos;
@@ -437,7 +441,7 @@ namespace TheWaningBorder.Systems.Combat
                             : em.HasComponent<TrebuchetShooterTag>(entity) ? (byte)2 : (byte)0;
                         for (int shot = 0; shot < shotCount; shot++)
                         {
-                            CreateArrow(ref ecb, myPos, aimPos, aimDist, entity,
+                            CreateArrow(ref ecb, _arrowArch, myPos, aimPos, aimDist, entity,
                                 faction.ValueRO.Value, finalDamage, (float)time + shot * 0.001f, tgt.Value, dmgType,
                                 isAOE, aoeRadius, spawnYOffset,
                                 archer.Trajectory, archer.ProjectileSpeed, isCatapult,
@@ -483,12 +487,11 @@ namespace TheWaningBorder.Systems.Combat
                     // leashed (Aggressive / attack-move / patrol) engagement.
                     // A fixed mount (emplaced engine) never chases, whatever
                     // the order. Otherwise clear the target and stay put.
-                    if (!TargetingSystem.MayChase(em, entity, tgt.Value))
+                    if (!TargetingSystem.MayChase(in lk, entity, tgt.Value))
                     {
                         tgt.Value = Entity.Null;
                         archer.AimTimer = 0;
-                        if (TransientState.Active<AttackCommand>(em, entity))
-                            TransientState.Clear<AttackCommand>(em, ecb, entity);
+                        DropAttackCommand(in lk, ecb, entity);
                         continue;
                     }
 
@@ -510,7 +513,7 @@ namespace TheWaningBorder.Systems.Combat
                     float stopDist = (dist - edgeDist) + maxRange - 2f;
                     float3 chasePos = targetPos - dirToTarget * stopDist;
 
-                    if (!em.HasComponent<DesiredDestination>(entity))
+                    if (!lk.Destination.HasComponent(entity))
                     {
                         ecb.AddComponent(entity, new DesiredDestination
                         {
@@ -533,7 +536,7 @@ namespace TheWaningBorder.Systems.Combat
         /// <summary>
         /// Create an arrow projectile entity.
         /// </summary>
-        private void CreateArrow(ref EntityCommandBuffer ecb, float3 start, float3 targetPos,
+        private void CreateArrow(ref EntityCommandBuffer ecb, EntityArchetype arrowArch, float3 start, float3 targetPos,
             float distance, Entity shooter, Faction faction, int damage, float time, Entity targetEntity,
             DamageType dmgType = DamageType.Ranged, bool isAOE = false, float aoeRadius = 0f,
             float spawnYOffset = 1.5f, byte trajectory = ShotTrajectory.Low, float projectileSpeed = 0f,
@@ -588,16 +591,16 @@ namespace TheWaningBorder.Systems.Combat
             var estimatedFlightTime = distance / speed;
 
             // Create arrow entity
-            var arrow = ecb.CreateEntity();
+            var arrow = ecb.CreateEntity(arrowArch);
 
-            ecb.AddComponent(arrow, new LocalTransform
+            ecb.SetComponent(arrow, new LocalTransform
             {
                 Position = start + new float3(0, spawnYOffset, 0),
                 Rotation = quaternion.LookRotation(velocity, new float3(0, 1, 0)),
                 Scale = 1f
             });
 
-            ecb.AddComponent(arrow, new ArrowProjectile
+            ecb.SetComponent(arrow, new ArrowProjectile
             {
                 Velocity = velocity,
                 Gravity = 0f,
@@ -605,7 +608,7 @@ namespace TheWaningBorder.Systems.Combat
                 IsParabolic = false
             });
 
-            ecb.AddComponent(arrow, new Projectile
+            ecb.SetComponent(arrow, new Projectile
             {
                 Start = start,
                 End = targetPos,

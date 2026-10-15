@@ -13,8 +13,8 @@ namespace TheWaningBorder.Entities
         public const string BuildingId = "Runai_GrazingGrounds";
         public const int PresentationID = 591;   // GrazingGrounds.asset (borrows the Trade Hub's model)
 
-        public static Entity Create(EntityManager em, float3 p, Faction f) => Make(new EmCreator(em), p, f);
-        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => Make(new EcbCreator(ecb), p, f);
+        public static Entity Create(EntityManager em, float3 p, Faction f) => EntityBuild.Done(Make(new EmCreator(em), p, f));
+        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => EntityBuild.Done(Make(new EcbCreator(ecb), p, f));
 
         private static Entity Make<T>(T c, float3 p, Faction f) where T : struct, IEntityCreator
         {

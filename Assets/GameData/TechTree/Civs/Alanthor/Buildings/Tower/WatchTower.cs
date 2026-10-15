@@ -27,32 +27,34 @@ namespace TheWaningBorder.Entities
             float los = def.lineOfSight;
             float radius = def.radius;
 
-            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
+            var entity = EntityBuild.CreateEntity(em, typeof(PresentationId), typeof(LocalTransform), typeof(FactionTag),
                 typeof(BuildingTag), typeof(Health), typeof(LineOfSight), typeof(Radius));
-            em.SetComponentData(entity, new PresentationId { Id = 354 });
-            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            em.SetComponentData(entity, new FactionTag { Value = faction });
-            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
-            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
-            em.SetComponentData(entity, new LineOfSight { Radius = los });
+            EntityBuild.Add(em, entity, new PresentationId { Id = 354 });
+            EntityBuild.Add(em, entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            EntityBuild.Add(em, entity, new FactionTag { Value = faction });
+            EntityBuild.Add(em, entity, new BuildingTag { IsBase = 0 });
+            EntityBuild.Add(em, entity, new Health { Value = (int)hp, Max = (int)hp });
+            EntityBuild.Add(em, entity, new LineOfSight { Radius = los });
             var gridSize = BuildingSizeConfig.GetSize("Alanthor_Tower");
-            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            em.AddComponent<WatchTowerTag>(entity);
+            EntityBuild.Add(em, entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            EntityBuild.Add(em, entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+            EntityBuild.Add(em, entity, default(WatchTowerTag));
             // Level 1's attack IS the def's attack; L2 / L3 come from
             // def.levels when the upgrade lands (BuildingUpgradeSystem).
-            em.AddComponentData(entity, new BuildingRangedAttack
+            EntityBuild.Add(em, entity, new BuildingRangedAttack
             {
                 Range = def.attack.range, Damage = (int)def.attack.damage,
                 Cooldown = def.attack.cooldown, Timer = 0f, MaxTargets = def.attack.maxTargets,
             });
-            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            em.AddComponentData(entity, new DamageTypeData { Value = DamageType.Ranged });
+            EntityBuild.Add(em, entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            EntityBuild.Add(em, entity, new DamageTypeData { Value = DamageType.Ranged });
             // Lv1-3 ladder (BuildingUpgradeConfig "Alanthor_Tower").
-            em.AddComponent<BuildingUpgradeable>(entity);
+            EntityBuild.Add(em, entity, default(BuildingUpgradeable));
             // The garrison (Tower.asset garrisonSlots): foot units go inside
             // and each adds arrows to the tower's volley (WallGarrison).
-            var slots = em.AddBuffer<WallGarrisonSlot>(entity);
+            EntityBuild.AddBuffer<WallGarrisonSlot>(em, entity);
+            EntityBuild.Done(entity);   // one structural change, then fill
+            var slots = em.GetBuffer<WallGarrisonSlot>(entity);
             for (int i = 0; i < def.garrisonSlots; i++) slots.Add(new WallGarrisonSlot { Occupant = Entity.Null });
             return entity;
         }
@@ -64,28 +66,30 @@ namespace TheWaningBorder.Entities
             float los = def.lineOfSight;
             float radius = def.radius;
 
-            var entity = ecb.CreateEntity();
-            ecb.AddComponent(entity, new PresentationId { Id = 354 });
-            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            ecb.AddComponent(entity, new FactionTag { Value = faction });
-            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
-            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
-            ecb.AddComponent(entity, new LineOfSight { Radius = los });
+            var entity = EntityBuild.CreateEntity(ecb);
+            EntityBuild.Add(ecb, entity, new PresentationId { Id = 354 });
+            EntityBuild.Add(ecb, entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            EntityBuild.Add(ecb, entity, new FactionTag { Value = faction });
+            EntityBuild.Add(ecb, entity, new BuildingTag { IsBase = 0 });
+            EntityBuild.Add(ecb, entity, new Health { Value = (int)hp, Max = (int)hp });
+            EntityBuild.Add(ecb, entity, new LineOfSight { Radius = los });
             var gridSize = BuildingSizeConfig.GetSize("Alanthor_Tower");
-            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            ecb.AddComponent<WatchTowerTag>(entity);
-            ecb.AddComponent(entity, new BuildingRangedAttack
+            EntityBuild.Add(ecb, entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            EntityBuild.Add(ecb, entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+            EntityBuild.Add(ecb, entity, default(WatchTowerTag));
+            EntityBuild.Add(ecb, entity, new BuildingRangedAttack
             {
                 Range = def.attack.range, Damage = (int)def.attack.damage,
                 Cooldown = def.attack.cooldown, Timer = 0f, MaxTargets = def.attack.maxTargets,
             });
-            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            ecb.AddComponent(entity, new DamageTypeData { Value = DamageType.Ranged });
+            EntityBuild.Add(ecb, entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            EntityBuild.Add(ecb, entity, new DamageTypeData { Value = DamageType.Ranged });
             // Lv1-3 ladder (BuildingUpgradeConfig "Alanthor_Tower").
-            ecb.AddComponent<BuildingUpgradeable>(entity);
+            EntityBuild.Add(ecb, entity, default(BuildingUpgradeable));
             // The garrison (Tower.asset garrisonSlots) — see the EM overload.
-            var slots = ecb.AddBuffer<WallGarrisonSlot>(entity);
+            EntityBuild.AddBuffer<WallGarrisonSlot>(ecb, entity);
+            EntityBuild.Done(entity);   // the build's adds, then SetBuffer fills
+            var slots = ecb.SetBuffer<WallGarrisonSlot>(entity);
             for (int i = 0; i < def.garrisonSlots; i++) slots.Add(new WallGarrisonSlot { Occupant = Entity.Null });
             return entity;
         }

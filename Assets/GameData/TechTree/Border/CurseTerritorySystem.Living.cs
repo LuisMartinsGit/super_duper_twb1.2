@@ -1137,7 +1137,7 @@ namespace TheWaningBorder.Systems.Border
         /// carry it yet is set on the next check).</summary>
         private static void SetCurseStance(EntityManager em, Entity e, UnitStanceMode mode)
         {
-            if (!em.HasComponent<UnitStance>(e)) return;
+            if (!TransientState.Active<UnitStance>(em, e)) return;
             if (em.GetComponentData<UnitStance>(e).Value == mode) return;
             em.SetComponentData(e, new UnitStance { Value = mode });
         }

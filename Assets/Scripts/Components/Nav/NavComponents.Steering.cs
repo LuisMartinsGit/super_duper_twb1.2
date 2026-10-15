@@ -93,7 +93,7 @@ public struct NavSpatialHash : IComponentData
 ///   separation -> unit-avoidance -> obstacle-avoidance -> cohesion -> flow blend.
 /// Consumers should not re-order or post-process this vector.
 /// </summary>
-public struct SteeringDesiredDir : IComponentData
+public struct SteeringDesiredDir : IComponentData, IEnableableComponent
 {
     /// <summary>XZ-plane unit vector (y == 0). Length == 1 when
     /// <see cref="HasValue"/> != 0; length == 0 when no steering input

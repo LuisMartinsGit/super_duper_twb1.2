@@ -139,6 +139,11 @@ public struct GoalFlowSlot
     public int Generation;      // NavCostField.Generation at integration time
     public int IntegratedTick;  // TickCounter at last integration (refresh throttle)
     public byte Valid;
+    /// <summary>1 = the integration hit GoalFlowFieldSystem.MaxSettledCellsPerSweep
+    /// and stopped short. A NotCovered seeker cell on a capped field waits
+    /// out the stale cooldown instead of forcing an immediate re-integration
+    /// (which would only hit the same cap again next tick).</summary>
+    public byte Capped;
 }
 
 /// <summary>
@@ -190,7 +195,14 @@ namespace TheWaningBorder.Systems.Navigation
         /// main thread on every integration — 73% of a headless 8-player
         /// match's slow-frame time, and solo lockstep made every skirmish pay it.
         /// </summary>
-        public const int LockstepFlipLatencyTicks = 2;
+        /// 2 -> 6 (2026-10-15): LockstepManager runs up to 8 ticks in one
+        /// frame when it catches up, so a 2-tick latency flipped — and
+        /// Complete()d — a batch scheduled in the SAME frame, stalling the
+        /// main thread on the full integration exactly when the frame was
+        /// already over budget. Six ticks is ~0.1 s of extra direct-bearing
+        /// walking on a fresh order and almost always a whole frame of
+        /// worker time.
+        public const int LockstepFlipLatencyTicks = 6;
 
         /// <summary>Ring radius (cells) for snapping a blocked goal cell to
         /// the nearest walkable one.</summary>
@@ -213,6 +225,18 @@ namespace TheWaningBorder.Systems.Navigation
         /// extras are dropped for the batch — the coverage re-trigger picks
         /// any genuinely uncovered straggler up next tick.</summary>
         public const int MaxSeekersPerField = 1024;
+
+        /// <summary>Hard ceiling on cells one sweep may SETTLE (2026-10-15).
+        /// The seeker bound keeps ordinary sweeps small, but a seeker the
+        /// sweep cannot settle quickly (far off, or walled away) used to
+        /// flood the whole 1M-cell map — the 500 ms peaks. Past the cap the
+        /// sweep stops exactly like a seeker-bounded one (unreached cells
+        /// NotCovered, units there use the direct bearing) and the slot is
+        /// flagged Capped. Counted in cells, never time — deterministic.
+        /// Sized well above a typical march (a ~450 m radius of open ground at
+        /// 1 m cells) so only pathological sweeps meet it; lower it to trade
+        /// long-range routing for worker time.</summary>
+        public const int MaxSettledCellsPerSweep = 640_000;
 
         private Entity _cacheEntity;
         private byte _initialised;
@@ -238,6 +262,8 @@ namespace TheWaningBorder.Systems.Navigation
         /// <summary>Free the cache pools via the mirrors.</summary>
         private void ReleaseCache()
         {
+            if (_cappedFlags.IsCreated) _cappedFlags.Dispose();
+            _cappedFlags = default;
             if (_scratchBoxes.IsCreated) _scratchBoxes.Dispose();
             if (_dirBoxes.IsCreated) _dirBoxes.Dispose();
             if (_dirSentinels.IsCreated) _dirSentinels.Dispose();
@@ -297,6 +323,26 @@ namespace TheWaningBorder.Systems.Navigation
         // only written while no detached batch is pending).
         private NativeArray<int> _seekerPool;
 
+        // Per-cell "an impassable cell is among my 8 neighbours" (0/1),
+        // derived from the cost snapshot whenever it is re-copied. Relax
+        // used to re-derive it with 8 reads per relaxation — ~8x per settled
+        // cell. Bit-identical to the old NearWall() by construction.
+        private NativeArray<byte> _nearWallSnapshot;
+        private Unity.Jobs.JobHandle _nearWallHandle;
+
+        // Per-slot capped flag written by the job (disjoint DirSlot entry),
+        // copied into GoalFlowSlot.Capped when the batch flips live.
+        private NativeArray<byte> _cappedFlags;
+
+        // Units that never READ a goal field are not keys and not seekers
+        // (2026-10-15): the integrator ignores flow for rampart walkers and
+        // flyers, and does not move a unit mid layer-traversal at all. They
+        // used to request (and pin) fields nobody sampled.
+        private ComponentLookup<NavLayerIndex> _layerLookup;
+        private ComponentLookup<FlyingTag> _flyingLookup;
+        private ComponentLookup<LayerTraversalState> _traversalLookup;
+        private ComponentLookup<FormationMemberState> _memberLookup;
+
         public void OnCreate(ref SystemState state)
         {
             _initialised = 0;
@@ -311,6 +357,11 @@ namespace TheWaningBorder.Systems.Navigation
             _unitQuery = SystemAPI.QueryBuilder()
                 .WithAll<UnitTag, LocalTransform, DesiredDestination, FactionTag>()
                 .Build();
+
+            _layerLookup = state.GetComponentLookup<NavLayerIndex>(true);
+            _flyingLookup = state.GetComponentLookup<FlyingTag>(true);
+            _traversalLookup = state.GetComponentLookup<LayerTraversalState>(true);
+            _memberLookup = state.GetComponentLookup<FormationMemberState>(true);
         }
 
         public void OnUpdate(ref SystemState state)
@@ -362,6 +413,8 @@ namespace TheWaningBorder.Systems.Navigation
                 _scratchBoxes = new NativeArray<int4>(MaxIntegrationsPerTick, Allocator.Persistent);
                 _dirBoxes = new NativeArray<int4>(SlotCountDefault, Allocator.Persistent);
                 _dirSentinels = new NativeArray<byte>(SlotCountDefault, Allocator.Persistent);
+                _cappedFlags = new NativeArray<byte>(SlotCountDefault, Allocator.Persistent,
+                    NativeArrayOptions.ClearMemory);
                 for (int i = 0; i < _scratchBoxes.Length; i++) _scratchBoxes[i] = new int4(int.MinValue);
                 for (int i = 0; i < _dirBoxes.Length; i++) _dirBoxes[i] = new int4(int.MinValue);
                 _snapshotValid = 0;
@@ -441,6 +494,7 @@ namespace TheWaningBorder.Systems.Navigation
                     pendingMeta.Generation = _pendingGeneration;
                     pendingMeta.LastUsedTick = cacheSingleton.TickCounter;
                     pendingMeta.IntegratedTick = cacheSingleton.TickCounter;
+                    pendingMeta.Capped = _cappedFlags[pendingSlot];
                     pendingMeta.Valid = 1;
                     cacheSingleton.Slots[pendingSlot] = pendingMeta;
                 }
@@ -462,12 +516,34 @@ namespace TheWaningBorder.Systems.Navigation
             using var factions = _unitQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var xforms = _unitQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
+            // Units that never sample a goal field (see the lookups' note).
+            // A flying FORMATION MEMBER still counts: the group's virtual
+            // leader samples the field for its own bearing, and a member's
+            // key is what keeps that field alive.
+            _layerLookup.Update(ref state);
+            _flyingLookup.Update(ref state);
+            _traversalLookup.Update(ref state);
+            _memberLookup.Update(ref state);
+            using var unitEntities = _unitQuery.ToEntityArray(Allocator.Temp);
+            var ignoresField = new NativeArray<byte>(unitEntities.Length, Allocator.Temp);
+            for (int i = 0; i < unitEntities.Length; i++)
+            {
+                var ue = unitEntities[i];
+                bool onRampart = _layerLookup.HasComponent(ue)
+                    && _layerLookup[ue].Layer == NavLayerIndex.LayerRampart;
+                bool traversing = _traversalLookup.HasComponent(ue);
+                bool flyingLoose = _flyingLookup.HasComponent(ue)
+                    && !(_memberLookup.HasComponent(ue) && _memberLookup.IsComponentEnabled(ue));
+                ignoresField[i] = (byte)(onRampart || traversing || flyingLoose ? 1 : 0);
+            }
+
             var wanted = new NativeList<GoalFlowKey>(64, Allocator.Temp);
             var seen = new NativeHashMap<GoalFlowKey, byte>(64, Allocator.Temp);
 
             for (int i = 0; i < dests.Length; i++)
             {
                 if (dests[i].Has == 0) continue;
+                if (ignoresField[i] != 0) continue;
 
                 int gx = (int)math.floor((dests[i].Position.x - grid.Origin.x) / grid.CellSize);
                 int gz = (int)math.floor((dests[i].Position.z - grid.Origin.z) / grid.CellSize);
@@ -535,12 +611,27 @@ namespace TheWaningBorder.Systems.Navigation
                             // so re-integrate NOW (this unit is a seeker of
                             // the new sweep), bypassing both the fresh-hit
                             // skip and the stale cooldown.
+                            // A unit standing on a cell CLOSED to this key
+                            // (wall, foreign gate, deck strip in the ground
+                            // variant) counts as covered: no sweep ever
+                            // settles a closed cell, so its byte is always a
+                            // sentinel, and it used to force a re-integration
+                            // every tick, cooldown bypassed, forever. The
+                            // unit walks out on the direct bearing and is a
+                            // real seeker from its first open cell.
                             bool covered = true;
                             if (meta.Valid == 1)
                                 covered = cacheSingleton.DirPool[
                                         slot * cacheSingleton.CellCount
                                         + ucz * grid.Width + ucx]
-                                    != NavFlowConstants.NotCovered;
+                                    != NavFlowConstants.NotCovered
+                                    || !CellOpenFor(cost.Cost, cost.Flags,
+                                        ucz * grid.Width + ucx, factionIdx, variant);
+
+                            // An uncovered unit on a CAPPED field is not
+                            // urgent: re-integrating now hits the same cap.
+                            // It waits out the cooldown like a stale field.
+                            bool cappedMiss = !covered && meta.Capped != 0;
 
                             if (covered && meta.Valid == 1
                                 && meta.Generation == cost.Generation)
@@ -556,7 +647,7 @@ namespace TheWaningBorder.Systems.Navigation
                             // cells at most), so serve it and refresh at most
                             // once per cooldown window instead of every tick.
                             // Brand-new keys (no field at all) are unaffected.
-                            if (covered && meta.Valid == 1
+                            if ((covered || cappedMiss) && meta.Valid == 1
                                 && cacheSingleton.TickCounter - meta.IntegratedTick
                                     < ReintegrateCooldownTicks)
                                 continue;
@@ -591,8 +682,8 @@ namespace TheWaningBorder.Systems.Navigation
 
             if (budget > 0)
             {
-                var handles = new NativeArray<Unity.Jobs.JobHandle>(budget, Allocator.Temp);
-                var slots = new NativeArray<int>(budget, Allocator.Temp);
+                var handles = new NativeList<Unity.Jobs.JobHandle>(budget, Allocator.Temp);
+                var slots = new NativeList<int>(budget, Allocator.Temp);
 
                 // Batch keys are fixed before the seeker pass below needs
                 // to match units against them.
@@ -624,6 +715,17 @@ namespace TheWaningBorder.Systems.Navigation
                             Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
                         _snapshotValid = 0;
                     }
+                    // A mask job from a batch that scheduled no integrations
+                    // (every key deferred) is not covered by the pending gate.
+                    _nearWallHandle.Complete();
+                    int groundCells = grid.Width * grid.Height;
+                    if (!_nearWallSnapshot.IsCreated || _nearWallSnapshot.Length != groundCells)
+                    {
+                        if (_nearWallSnapshot.IsCreated) _nearWallSnapshot.Dispose();
+                        _nearWallSnapshot = new NativeArray<byte>(groundCells,
+                            Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+                        _snapshotValid = 0;
+                    }
                     if (_snapshotValid == 0 || _snapshotGeneration != cost.Generation
                         || _snapshotEpoch != SimCadence.Epoch)
                     {
@@ -632,6 +734,15 @@ namespace TheWaningBorder.Systems.Navigation
                         _snapshotGeneration = cost.Generation;
                         _snapshotEpoch = SimCadence.Epoch;
                         _snapshotValid = 1;
+                        // Re-derive the near-wall mask from the new snapshot,
+                        // on workers; this batch's integrations depend on it.
+                        _nearWallHandle = new NearWallMaskJob
+                        {
+                            Cost = _costSnapshot,
+                            NearWall = _nearWallSnapshot,
+                            Width = grid.Width,
+                            Height = grid.Height,
+                        }.Schedule(grid.Height, 16);
                     }
                     _pendingGeneration = cost.Generation;
                 }
@@ -664,9 +775,16 @@ namespace TheWaningBorder.Systems.Navigation
                 // seeker set; the per-field cap just drops extras (the
                 // coverage re-trigger catches any genuinely uncovered
                 // straggler next tick). Same clamp math as pass 1.
+                // Per batch key: seeker cells dropped as CLOSED to the key
+                // (see below). A key whose every seeker was closed still
+                // bounds its sweep (StopWithoutSeekers) instead of flooding.
+                var droppedClosed = new NativeArray<int>(budget, Allocator.Temp,
+                    NativeArrayOptions.ClearMemory);
+
                 for (int i = 0; i < dests.Length; i++)
                 {
                     if (dests[i].Has == 0) continue;
+                    if (ignoresField[i] != 0) continue;
 
                     int sgx = (int)math.floor((dests[i].Position.x - grid.Origin.x) / grid.CellSize);
                     int sgz = (int)math.floor((dests[i].Position.z - grid.Origin.z) / grid.CellSize);
@@ -690,6 +808,17 @@ namespace TheWaningBorder.Systems.Navigation
                         // its variants' sweeps.
                         if (!batchKeys[j].GoalCell.Equals(sBucket)
                             || batchKeys[j].FactionIdx != sFactionIdx) continue;
+                        // A seeker on a cell closed to THIS sweep (wall,
+                        // foreign gate, deck strip in the ground variant)
+                        // can never be settled, so it disabled the early-out
+                        // and every such field was a full-map flood. Tested
+                        // against the snapshot the job will read.
+                        if (!CellOpenFor(_costSnapshot, _flagsSnapshot, seekerCell,
+                                batchKeys[j].FactionIdx, batchKeys[j].Variant))
+                        {
+                            droppedClosed[j] = droppedClosed[j] + 1;
+                            continue;
+                        }
                         if (seekerCounts[j] >= MaxSeekersPerField) continue;
                         _seekerPool[j * MaxSeekersPerField + seekerCounts[j]] = seekerCell;
                         seekerCounts[j] = seekerCounts[j] + 1;
@@ -706,6 +835,11 @@ namespace TheWaningBorder.Systems.Navigation
                     if (!cacheSingleton.SlotIndex.TryGetValue(key, out slot))
                     {
                         slot = AllocateSlot(ref cacheSingleton);
+                        // Every slot is in use THIS tick: leave the key
+                        // unintegrated (its units walk the direct bearing)
+                        // rather than evict a field units are sampling now.
+                        // It re-collects next tick.
+                        if (slot < 0) continue;
                         cacheSingleton.SlotIndex.TryAdd(key, slot);
                         cacheSingleton.SlotKeys[slot] = key;
 
@@ -736,7 +870,7 @@ namespace TheWaningBorder.Systems.Navigation
                         claim.LastUsedTick = cacheSingleton.TickCounter;
                         cacheSingleton.Slots[slot] = claim;
                     }
-                    slots[i] = slot;
+                    slots.Add(slot);
 
                     // Seed = centre cell of the goal bucket (the job ring-
                     // snaps to walkable if that centre is blocked).
@@ -761,17 +895,27 @@ namespace TheWaningBorder.Systems.Navigation
                         SeekerPool = _seekerPool,
                         SeekerOffset = i * MaxSeekersPerField,
                         SeekerCount = seekerCounts[i],
+                        StopWithoutSeekers = (byte)(seekerCounts[i] == 0 && droppedClosed[i] > 0 ? 1 : 0),
                         CoverageMargin = CoverageMarginCost,
+                        MaxSettledCells = MaxSettledCellsPerSweep,
+                        NearWall = _nearWallSnapshot,
+                        CappedFlags = _cappedFlags,
                         ScratchBoxes = _scratchBoxes,
                         ScratchSlot = i,
                         DirBoxes = _dirBoxes,
                         DirSentinels = _dirSentinels,
                         DirSlot = slot,
                     };
-                    handles[i] = job.Schedule();
+                    handles.Add(job.Schedule(_nearWallHandle));
                 }
 
-                var combined = Unity.Jobs.JobHandle.CombineDependencies(handles);
+                handles.Add(_nearWallHandle);   // so completing the batch releases the mask too
+                var combined = Unity.Jobs.JobHandle.CombineDependencies(handles.AsArray());
+                // Kick the workers now — scheduled jobs otherwise sit in the
+                // batch queue until something else flushes it, which can be
+                // late in the frame.
+                Unity.Jobs.JobHandle.ScheduleBatchedJobs();
+                int scheduled = slots.Length;
 
                 if (synchronous)
                 {
@@ -779,7 +923,7 @@ namespace TheWaningBorder.Systems.Navigation
                     // depend on frame rate — pay the stall, flip in-tick.
                     combined.Complete();
 
-                    for (int i = 0; i < budget; i++)
+                    for (int i = 0; i < scheduled; i++)
                     {
                         var meta = cacheSingleton.Slots[slots[i]];
                         meta.DirOffset = slots[i] * cacheSingleton.CellCount;
@@ -796,7 +940,7 @@ namespace TheWaningBorder.Systems.Navigation
                     // flip at the top of the next update.
                     _pendingHandle = combined;
                     _pendingTick = cacheSingleton.TickCounter;
-                    for (int i = 0; i < budget; i++)
+                    for (int i = 0; i < scheduled; i++)
                         _pendingSlots.Add(slots[i]);
                 }
 
@@ -804,8 +948,10 @@ namespace TheWaningBorder.Systems.Navigation
                 slots.Dispose();
                 batchKeys.Dispose();
                 seekerCounts.Dispose();
+                droppedClosed.Dispose();
             }
 
+            ignoresField.Dispose();
             wanted.Dispose();
             seen.Dispose();
             SystemAPI.SetSingleton(cacheSingleton);
@@ -816,10 +962,12 @@ namespace TheWaningBorder.Systems.Navigation
             // Detached jobs may still be running against our arrays — drain
             // them before anything is disposed.
             _pendingHandle.Complete();
+            _nearWallHandle.Complete();
             if (_pendingSlots.IsCreated) _pendingSlots.Dispose();
             if (_seekerPool.IsCreated) _seekerPool.Dispose();
             if (_costSnapshot.IsCreated) _costSnapshot.Dispose();
             if (_flagsSnapshot.IsCreated) _flagsSnapshot.Dispose();
+            if (_nearWallSnapshot.IsCreated) _nearWallSnapshot.Dispose();
 
             // Mirrors, not the component — the entity may already be wiped.
             ReleaseCache();
@@ -829,7 +977,12 @@ namespace TheWaningBorder.Systems.Navigation
         // smallest slot index — deterministic). Slots claimed THIS tick
         // (Valid == 2, mid-batch) are never free and never eviction
         // candidates — handing one out twice is exactly the double-
-        // assignment this fix removed.
+        // assignment this fix removed. Nor is a slot USED this tick
+        // (LastUsedTick == TickCounter — the key collection bumps every
+        // wanted key): with more live destinations than slots, evicting one
+        // yanked a field out from under units sampling it, they re-requested
+        // it next tick, and it evicted another — LRU thrash, every tick.
+        // Returns -1 when nothing is evictable; the caller skips the key.
         private static int AllocateSlot(ref GoalFlowFieldCache cache)
         {
             for (int i = 0; i < cache.SlotCount; i++)
@@ -841,20 +994,70 @@ namespace TheWaningBorder.Systems.Navigation
             for (int i = 0; i < cache.SlotCount; i++)
             {
                 if (cache.Slots[i].Valid == 2) continue; // claimed mid-batch
+                if (cache.Slots[i].LastUsedTick == cache.TickCounter) continue; // in use now
                 if (cache.Slots[i].LastUsedTick < lruTick)
                 {
                     lru = i;
                     lruTick = cache.Slots[i].LastUsedTick;
                 }
             }
-            // Unreachable in practice (claims per tick <= MaxIntegrations-
-            // PerTick << SlotCount), but never hand out a claimed slot.
-            if (lru < 0) lru = 0;
+            if (lru < 0) return -1;
             cache.SlotIndex.Remove(cache.SlotKeys[lru]);
             var s = cache.Slots[lru];
             s.Valid = 0;
             cache.Slots[lru] = s;
             return lru;
+        }
+
+        /// <summary>The job's IsOpen for one cell, on the main thread:
+        /// walls never, gates for the owner's team, deck-only strips not in
+        /// the ground variant. MUST match IntegrateGoalFieldJob.IsOpen.</summary>
+        private static bool CellOpenFor(NativeArray<byte> costArr, NativeArray<byte> flagsArr,
+            int idx, byte factionIdx, byte variant)
+        {
+            byte c = costArr[idx];
+            if (c == NavCostField.CostImpassable) return false;
+            if (c == NavCostField.CostConditional)
+                return Alliances.AreAlliedBurst(
+                    (byte)(flagsArr[idx] & NavCostField.FlagOwnerMask), factionIdx);
+            if (variant == GoalFlowKey.VariantGround && c == NavCostField.CostBridgeDeckOnly)
+                return false;
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Near-wall mask for the integration's clearance bias: 1 where any of
+    /// the 8 in-bounds neighbours is impassable. Exactly the old per-relax
+    /// NearWall() — same neighbourhood, same bounds test, same layer-0 slice
+    /// of the (layered) cost array — computed once per cost snapshot.
+    /// </summary>
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
+    internal struct NearWallMaskJob : IJobParallelFor
+    {
+        [ReadOnly] public NativeArray<byte> Cost;
+        [NativeDisableParallelForRestriction]
+        public NativeArray<byte> NearWall;
+        public int Width;
+        public int Height;
+
+        public void Execute(int z)
+        {
+            for (int x = 0; x < Width; x++)
+            {
+                byte near = 0;
+                for (int dz = -1; dz <= 1 && near == 0; dz++)
+                {
+                    for (int dx = -1; dx <= 1; dx++)
+                    {
+                        if (dx == 0 && dz == 0) continue;
+                        int nx = x + dx, nz = z + dz;
+                        if (nx < 0 || nx >= Width || nz < 0 || nz >= Height) continue;
+                        if (Cost[nz * Width + nx] == NavCostField.CostImpassable) { near = 1; break; }
+                    }
+                }
+                NearWall[z * Width + x] = near;
+            }
         }
     }
 
@@ -895,7 +1098,18 @@ namespace TheWaningBorder.Systems.Navigation
         [ReadOnly] public NativeArray<int> SeekerPool;
         public int SeekerOffset;
         public int SeekerCount;
+        /// <summary>1 = every seeker of this key stood on a closed cell and
+        /// was dropped: stop at the goal plus CoverageMargin instead of
+        /// treating the empty set as "no early-out" (a full-map flood).</summary>
+        public byte StopWithoutSeekers;
         public uint CoverageMargin;
+        /// <summary>Settled-cell ceiling (GoalFlowFieldSystem.MaxSettledCellsPerSweep).</summary>
+        public int MaxSettledCells;
+        /// <summary>Precomputed near-wall mask (NearWallMaskJob), ground cells.</summary>
+        [ReadOnly] public NativeArray<byte> NearWall;
+        /// <summary>Out: 1 at DirSlot when the sweep hit MaxSettledCells.</summary>
+        [Unity.Collections.LowLevel.Unsafe.NativeDisableContainerSafetyRestriction]
+        public NativeArray<byte> CappedFlags;
         // Written-region bookkeeping (see the system's _scratchBoxes). Each
         // concurrently scheduled job touches only its own ScratchSlot /
         // DirSlot entry.
@@ -963,6 +1177,7 @@ namespace TheWaningBorder.Systems.Navigation
                         DirPool[DirOffset + i] = NavFlowConstants.NoDirection;
                     DirBoxes[DirSlot] = new int4(0, 0, -1, -1);
                     DirSentinels[DirSlot] = NavFlowConstants.NoDirection;
+                    CappedFlags[DirSlot] = 0;
                     return;
                 }
             }
@@ -1000,7 +1215,10 @@ namespace TheWaningBorder.Systems.Navigation
             _minX = goal.x; _maxX = goal.x; _minZ = goal.y; _maxZ = goal.y;
 
             uint stopCost = uint.MaxValue;
+            if (!mayStop && StopWithoutSeekers != 0) stopCost = CoverageMargin;
             bool stopped = false;
+            bool capped = false;
+            int settled = 0;
 
             for (uint sweep = 0; _pendingEntries > 0; sweep++)
             {
@@ -1015,6 +1233,12 @@ namespace TheWaningBorder.Systems.Navigation
                 {
                     int idx = bucket[i];
                     if (Integration[ScratchOffset + idx] != sweep) continue; // stale entry
+
+                    // Work cap: stop BEFORE settling the next cell, exactly
+                    // like the cost bound — what is left of the frontier
+                    // keeps its tentative values, the rest stays NotCovered.
+                    if (settled >= MaxSettledCells) { capped = true; break; }
+                    settled++;
 
                     if (mayStop && seekers.Remove(idx) && --seekersRemaining == 0)
                         stopCost = sweep + CoverageMargin;
@@ -1038,10 +1262,13 @@ namespace TheWaningBorder.Systems.Navigation
                         Relax(x - 1, z - 1, sweep + NavFlowConstants.StepDiagonal, hereCost, buckets);
                 }
 
+                if (capped) { stopped = true; break; }
+
                 _pendingEntries -= n;
                 bucket.Clear();
                 buckets[bi] = bucket;
             }
+            CappedFlags[DirSlot] = (byte)(capped ? 1 : 0);
 
             // A partial sweep leaves NotCovered (no verdict — samplers use
             // the direct bearing and the producer re-integrates on demand);
@@ -1180,7 +1407,7 @@ namespace TheWaningBorder.Systems.Navigation
                 if (outsideCost != NavCostField.CostBridgeMount) return;
             }
 
-            tentative += WallClearancePenalty * NearWall(x, z);
+            tentative += WallClearancePenalty * (uint)NearWall[idx];
             // Per-cell entry weight (deck-only premium / tiny mount marker) —
             // steers ground routes away from deck cells without forbidding
             // genuine bridge crossings.
@@ -1199,19 +1426,5 @@ namespace TheWaningBorder.Systems.Navigation
             }
         }
 
-        private uint NearWall(int x, int z)
-        {
-            for (int dz = -1; dz <= 1; dz++)
-            {
-                for (int dx = -1; dx <= 1; dx++)
-                {
-                    if (dx == 0 && dz == 0) continue;
-                    int nx = x + dx, nz = z + dz;
-                    if (nx < 0 || nx >= Width || nz < 0 || nz >= Height) continue;
-                    if (Cost[nz * Width + nx] == NavCostField.CostImpassable) return 1;
-                }
-            }
-            return 0;
-        }
     }
 }

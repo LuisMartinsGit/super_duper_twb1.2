@@ -46,7 +46,7 @@ using TheWaningBorder.Core.Commands.Types;
 /// <summary>Per-unit no-progress bookkeeping (global namespace per the
 /// project's ECS component convention). Added lazily by
 /// <see cref="TheWaningBorder.Systems.Navigation.StuckRedirectSystem"/>.</summary>
-public struct StuckTracker : IComponentData
+public struct StuckTracker : IComponentData, IEnableableComponent
 {
     public float3 TrackedDest;   // destination this record is measuring
     public float BestDist;       // closest we have ever been to it (XZ)
@@ -158,7 +158,7 @@ namespace TheWaningBorder.Systems.Navigation
                     .CreateCommandBuffer(World.Unmanaged);
                 using var ents = needQuery.ToEntityArray(Allocator.Temp);
                 for (int i = 0; i < ents.Length; i++)
-                    bootEcb.AddComponent(ents[i], new StuckTracker { BestDist = float.MaxValue });
+                    TransientState.Set(bootEcb, ents[i], new StuckTracker { BestDist = float.MaxValue });
             }
 
             float step = _acc.DueStep(SystemAPI.Time.DeltaTime, EvalInterval);
@@ -287,9 +287,9 @@ namespace TheWaningBorder.Systems.Navigation
                     continue;
                 }
 
-                bool hasWork = em.HasComponent<BuildCommand>(e)
-                    || em.HasComponent<BuildOrder>(e)
-                    || em.HasComponent<RepairOrder>(e)
+                bool hasWork = TransientState.Active<BuildCommand>(em, e)
+                    || TransientState.Active<BuildOrder>(em, e)
+                    || TransientState.Active<RepairOrder>(em, e)
                     || (em.HasComponent<Target>(e)
                         && em.GetComponentData<Target>(e).Value != Entity.Null);
 
@@ -341,7 +341,7 @@ namespace TheWaningBorder.Systems.Navigation
                 // the chase; only restart the measurement, so this unit gets a
                 // fresh fuse (the target may move, a gate may open). The AI
                 // re-plans its own orders, so its stuck chasers still drop.
-                bool auto = em.HasComponent<UnitEngagement>(entity)
+                bool auto = TransientState.Active<UnitEngagement>(em, entity)
                     && em.GetComponentData<UnitEngagement>(entity).AutoTarget == tgt;
                 bool playerOrder = !auto
                     && em.HasComponent<FactionTag>(entity)
@@ -404,9 +404,9 @@ namespace TheWaningBorder.Systems.Navigation
             // Detours spent — cancel the order outright. AI managers see an
             // idle worker and reassign; a player unit stops visibly instead
             // of orbiting forever.
-            if (em.HasComponent<BuildCommand>(entity)) em.RemoveComponent<BuildCommand>(entity);
-            if (em.HasComponent<BuildOrder>(entity)) em.RemoveComponent<BuildOrder>(entity);
-            if (em.HasComponent<RepairOrder>(entity)) em.RemoveComponent<RepairOrder>(entity);
+            TransientState.Clear<BuildCommand>(em, entity);
+            TransientState.Clear<BuildOrder>(em, entity);
+            TransientState.Clear<RepairOrder>(em, entity);
             TransientState.Clear<UserMoveOrder>(em, entity);
             TransientState.Clear<AttackMoveTag>(em, entity);
             ClearDest(em, entity);
@@ -427,7 +427,7 @@ namespace TheWaningBorder.Systems.Navigation
         /// <see cref="GuardSuppressed"/>.</summary>
         private static void SuppressGuard(EntityManager em, Entity entity)
         {
-            if (!em.HasComponent<GuardPoint>(entity)) return;
+            if (!TransientState.Active<GuardPoint>(em, entity)) return;
             var gp = em.GetComponentData<GuardPoint>(entity);
             if (gp.Has == 0) return;
 

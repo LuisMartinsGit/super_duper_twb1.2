@@ -63,7 +63,7 @@ namespace TheWaningBorder.AI
                 if (sfac[i].Value != faction) continue;
                 var s = slaves[i];
                 if (em.HasComponent<StaffAssignment>(s) || em.HasComponent<FeraldisErrand>(s)) continue;
-                if (em.HasComponent<BuildCommand>(s)) { free++; continue; }
+                if (TransientState.Active<BuildCommand>(em, s)) { free++; continue; }
                 idle.Add(s);
             }
             // Leave a building crew behind.
@@ -288,7 +288,7 @@ namespace TheWaningBorder.AI
             {
                 if (sfac[i].Value != faction) continue;
                 var s = slaves[i];
-                if (em.HasComponent<StaffAssignment>(s) || em.HasComponent<FeraldisErrand>(s) || em.HasComponent<BuildCommand>(s)) continue;
+                if (em.HasComponent<StaffAssignment>(s) || em.HasComponent<FeraldisErrand>(s) || TransientState.Active<BuildCommand>(em, s)) continue;
                 if (haveAltar)
                 {
                     CommandRouter.IssueFeraldisOrder(em, s, altar, FeraldisOp.Sacrifice, 0, default, CommandSource.AI);

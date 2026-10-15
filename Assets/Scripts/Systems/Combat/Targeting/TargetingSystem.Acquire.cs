@@ -92,9 +92,29 @@ namespace TheWaningBorder.Systems.Combat
         {
             if (IsFixedMount(em, e)) return false;
             if (em.HasComponent<RitualState>(e)) return false;
-            if (em.HasComponent<UnitEngagement>(e))
+            if (TransientState.Active<UnitEngagement>(em, e))
             {
                 var eng = em.GetComponentData<UnitEngagement>(e);
+                if (eng.AutoTarget != Entity.Null && eng.AutoTarget == target)
+                    return eng.Leash > 0f;
+            }
+            return true;
+        }
+
+        /// <summary><see cref="IsFixedMount(EntityManager, Entity)"/> through
+        /// the combat loops' shared lookups.</summary>
+        public static bool IsFixedMount(in CombatLookups lk, Entity e)
+            => lk.Emplaced.HasComponent(e) || lk.StationaryFire.HasComponent(e);
+
+        /// <summary><see cref="MayChase(EntityManager, Entity, Entity)"/>
+        /// through the combat loops' shared lookups — the same rules, in the
+        /// same order.</summary>
+        public static bool MayChase(in CombatLookups lk, Entity e, Entity target)
+        {
+            if (IsFixedMount(in lk, e)) return false;
+            if (lk.Ritual.HasComponent(e)) return false;
+            if (lk.Engagement.TryGetComponent(e, out var eng) && lk.Engagement.IsComponentEnabled(e))
+            {
                 if (eng.AutoTarget != Entity.Null && eng.AutoTarget == target)
                     return eng.Leash > 0f;
             }
@@ -293,7 +313,7 @@ namespace TheWaningBorder.Systems.Combat
                 // archer that lived on released the unit for good.)
                 if (hasAttackMove
                     && TransientState.Active<FormationMemberState>(em, entity)
-                    && em.HasComponent<GuardPoint>(entity))
+                    && TransientState.Active<GuardPoint>(em, entity))
                 {
                     var fgp = em.GetComponentData<GuardPoint>(entity);
                     if (fgp.Has != 0
@@ -340,7 +360,7 @@ namespace TheWaningBorder.Systems.Combat
                 float3 anchor = myPos;
                 if (!isActiveScanner && stance != UnitStanceMode.Hold
                     && !IsFixedMount(em, entity)
-                    && em.HasComponent<GuardPoint>(entity))
+                    && TransientState.Active<GuardPoint>(em, entity))
                 {
                     var guardPoint = em.GetComponentData<GuardPoint>(entity);
                     if (guardPoint.Has != 0)
@@ -420,6 +440,14 @@ namespace TheWaningBorder.Systems.Combat
             Entity lastAttacker = TransientState.Active<LastAttackerEntity>(em, self)
                 ? em.GetComponentData<LastAttackerEntity>(self).Value : Entity.Null;
 
+            // Conservative pivot reject (2026-10-15): a candidate whose pivot
+            // is farther than ScanRadius + its footprint reach (+ a float
+            // margin) cannot have a surface inside ScanRadius, so it is
+            // dropped before the surface distance is even computed. It only
+            // drops what `dist > ScanRadius` would drop: the accepted set and
+            // every distance are unchanged.
+            float rejectBase = rules.ScanRadius * 1.001f + 0.01f;
+
             int radius = (int)math.ceil(rules.ScanRadius / TargetingCellSize);
             var myCell = new int2(
                 (int)math.floor(myPos.x / TargetingCellSize),
@@ -451,16 +479,22 @@ namespace TheWaningBorder.Systems.Combat
                             // non-siege target scans.
                             if (rules.NonSiege != 0 && (flags & FlagWall) != 0) continue;
 
-                            var cand = scan.Entities[i];
                             var enemyPos = scan.Transforms[i].Position;
+                            float px = enemyPos.x - myPos.x, pz = enemyPos.z - myPos.z;
+                            float rejectR = rejectBase + scan.Pad[i];
+                            if (px * px + pz * pz > rejectR * rejectR) continue;
+
+                            var cand = scan.Entities[i];
                             // SURFACE distance, so a big building is judged by
                             // where its walls are, not where its pivot is. A
                             // 7x7 temple's pivot sits 3.5 m inside itself; on
                             // centre distance it read as further away than a
                             // hut standing right beside it, and the "nearest
                             // enemy" pick skipped the thing the unit was
-                            // literally touching.
-                            var dist = TargetGeometry.SurfaceDistXZ(em, myPos, enemyPos, cand);
+                            // literally touching. Read from the per-tick
+                            // footprint arrays — the same arithmetic as
+                            // TargetGeometry.SurfaceDistXZ, no EntityManager.
+                            var dist = scan.SurfaceDist(i, myPos, enemyPos);
                             if (dist > rules.ScanRadius) continue;
 
                             if ((flags & FlagFlying) != 0 && !hitsAir) continue;
@@ -504,14 +538,13 @@ namespace TheWaningBorder.Systems.Combat
                             // reveal range (3u) or exposed by a Lorekeeper
                             // (Antiquity detection stamp). Read live, not
                             // cached: stealth comes and goes.
-                            if (dist > 3f && TransientState.Active<StealthTag>(em, cand)
-                                && !TransientState.Active<StealthRevealed>(em, cand))
+                            if (dist > 3f && scan.IsHidden(cand))
                                 continue;
 
                             // DEFENSIVE / SUPPORT: return fire only -- the
                             // candidate must be attacking ME (Stances.md §1).
                             if (rules.ThreatsOnly != 0
-                                && !IsThreat(em, cand, self, lastAttacker, rules.HitRecently != 0))
+                                && !IsThreat(in scan.Targets, cand, self, lastAttacker, rules.HitRecently != 0))
                                 continue;
 
                             // TARGET PREFERENCE (Combat_Pacing.md § Target
@@ -600,12 +633,11 @@ namespace TheWaningBorder.Systems.Combat
         /// is me -- the shot may still be in the air. The Defensive stance and
         /// support units engage only these (docs/Design/Stances.md §1).
         /// </summary>
-        private static bool IsThreat(EntityManager em, Entity cand, Entity self, Entity lastAttacker,
-            bool hitRecently)
+        private static bool IsThreat(in ComponentLookup<Target> targets, Entity cand, Entity self,
+            Entity lastAttacker, bool hitRecently)
         {
             if (hitRecently && cand == lastAttacker) return true;
-            if (!em.HasComponent<Target>(cand)) return false;
-            return em.GetComponentData<Target>(cand).Value == self;
+            return targets.TryGetComponent(cand, out var t) && t.Value == self;
         }
 
         /// <summary>
@@ -662,7 +694,7 @@ namespace TheWaningBorder.Systems.Combat
 
                 // Walk home — for an attack-mover / patroller the guard point
                 // is its destination / waypoint, so this resumes the march.
-                if (em.HasComponent<GuardPoint>(entity))
+                if (TransientState.Active<GuardPoint>(em, entity))
                 {
                     var gp = em.GetComponentData<GuardPoint>(entity);
                     if (gp.Has != 0) SetDestination(em, ref ecb, entity, gp.Position);
@@ -692,7 +724,7 @@ namespace TheWaningBorder.Systems.Combat
         private static UnitStanceMode EffectiveStance(EntityManager em, Entity e)
         {
             if (TransientState.Active<HoldPositionTag>(em, e)) return UnitStanceMode.Hold;
-            if (em.HasComponent<UnitStance>(e)) return em.GetComponentData<UnitStance>(e).Value;
+            if (TransientState.Active<UnitStance>(em, e)) return em.GetComponentData<UnitStance>(e).Value;
             return UnitStanceMode.Aggressive;   // the default for every unit (Stances.md §4)
         }
 

@@ -108,8 +108,13 @@ namespace TheWaningBorder.World.Roads
             public float Strength;
             public bool Live;
             /// <summary>This route's slice of the raster's point list
-            /// (rebuilt only when a route appears or goes).</summary>
+            /// (rebuilt only when a route goes; a new route is appended).</summary>
             public int PointStart, PointCount;
+            /// <summary>The route in texel space, for <see cref="TexelEpoch"/>'s
+            /// mask size and world bounds — converted once per route, not
+            /// once per point-list rebuild.</summary>
+            public float2[] Texels;
+            public int TexelEpoch;
         }
 
         // Buildings with a footprint; walls, gates, towers, chapels and the
@@ -163,8 +168,14 @@ namespace TheWaningBorder.World.Roads
         /// <summary>The first sync's trails pre-exist; they route at the
         /// startup budget until the queue first runs dry.</summary>
         private bool _startupRouting = true;
-        /// <summary>A route appeared or went: the raster's point list is stale.</summary>
+        /// <summary>A route went (or the mask changed): the raster's point
+        /// list is rebuilt from the per-edge texel caches.</summary>
         private bool _pointsDirty = true;
+        /// <summary>Routes found since the last raster: appended to the point
+        /// list rather than rebuilding it.</summary>
+        private readonly List<EdgeState> _pointsAppend = new List<EdgeState>();
+        /// <summary>Bumped whenever texel space changes (mask size, world bounds).</summary>
+        private int _texelEpoch = 1;
         // Once-a-minute summary for Perf.log: what routing cost, and whether
         // it is keeping up (a queue that never drains is the old symptom).
         private int _sumSearches, _sumFound, _sumFailed;
@@ -354,11 +365,14 @@ namespace TheWaningBorder.World.Roads
             {
                 var p = RoadGraphSystem.NodePos(i);
                 var pos = new Vector2(p.x, p.y);
+                // A junction's id is its position (RoadGraphSystem.NodeEntity),
+                // so its territory is cached like any site's.
+                var je = RoadGraphSystem.NodeEntity(i);
                 _sites.Add(new Site
                 {
-                    Entity = RoadGraphSystem.NodeEntity(i), Pos = pos, Disc = Cfg.nodeDiscRadius,
+                    Entity = je, Pos = pos, Disc = Cfg.nodeDiscRadius,
                     Finished = true, IsBuilding = false, Faction = Faction.Border,
-                    Region = RegionMap.RawRegionAt(pos.x, pos.y),
+                    Region = RegionOf(je, pos),
                 });
                 _siteHash += SiteHash(_sites[_sites.Count - 1]);
             }
@@ -729,9 +743,15 @@ namespace TheWaningBorder.World.Roads
                 };
             }
             if (!_edgeStates.TryGetValue(key, out var es)) return;
+            bool hadPoints = es.PointCount > 0;
             es.Route = route;
+            es.Texels = null;
             es.NeedsRoute = false;
-            _dirty = true; _dirDirty = true; _pointsDirty = true;
+            _dirty = true; _dirDirty = true;
+            // A new route is appended to the raster's point list; only one
+            // that replaces a slice already in it needs the list rebuilt.
+            if (hadPoints) _pointsDirty = true;
+            else if (route != null) _pointsAppend.Add(es);
         }
 
         /// <summary>A failed pair is retried only when a site moved or
@@ -822,15 +842,18 @@ namespace TheWaningBorder.World.Roads
             }
             for (int i = 0; i < _deadSites.Count; i++) { _siteStates.Remove(_deadSites[i]); _dirty = true; }
 
+            // An edge with no route draws nothing, so its fade does not
+            // keep the raster running.
             _deadEdges.Clear();
             foreach (var kv in _edgeStates)
             {
                 var es = kv.Value;
-                if (es.Live) { if (es.Strength < 1f) { es.Strength = Mathf.Min(1f, es.Strength + up); _animating = true; } }
+                bool drawn = es.Route != null;
+                if (es.Live) { if (es.Strength < 1f) { es.Strength = Mathf.Min(1f, es.Strength + up); _animating |= drawn; } }
                 else
                 {
                     es.Strength = Mathf.Max(0f, es.Strength - down);
-                    if (es.Strength <= 0f) _deadEdges.Add(kv.Key); else _animating = true;
+                    if (es.Strength <= 0f) _deadEdges.Add(kv.Key); else _animating |= drawn;
                 }
             }
             for (int i = 0; i < _deadEdges.Count; i++)
@@ -841,11 +864,39 @@ namespace TheWaningBorder.World.Roads
             }
         }
 
+        /// <summary>A plaza wearing in is the one fade that needs the fast
+        /// raster. Roads wearing in take the slow cadence (2026-10-15, perf):
+        /// with a graph rebuild adding edges every few seconds in a busy
+        /// match, edge wear-ins alone held the mask at 12 Hz for most of it.</summary>
         private bool AnyFastFade()
         {
             foreach (var kv in _siteStates) if (kv.Value.Live && kv.Value.Strength < 1f) return true;
-            foreach (var kv in _edgeStates) if (kv.Value.Live && kv.Value.Strength < 1f) return true;
             return false;
+        }
+
+        /// <summary>The edge's route in texel space, converted once.</summary>
+        private float2[] TexelsOf(EdgeState es)
+        {
+            if (es.Texels != null && es.TexelEpoch == _texelEpoch) return es.Texels;
+            var t = es.Texels != null && es.Texels.Length == es.Route.Count ? es.Texels : new float2[es.Route.Count];
+            for (int i = 0; i < es.Route.Count; i++)
+            {
+                var v = ToTexel(es.Route[i]);
+                t[i] = new float2(v.x, v.y);
+            }
+            es.Texels = t;
+            es.TexelEpoch = _texelEpoch;
+            return t;
+        }
+
+        private void AppendPoints(EdgeState es)
+        {
+            es.PointStart = _polyPoints.Length;
+            es.PointCount = 0;
+            if (es.Route == null) return;
+            var t = TexelsOf(es);
+            for (int i = 0; i < t.Length; i++) _polyPoints.Add(t[i]);
+            es.PointCount = t.Length;
         }
 
         // ─── Raster ───────────────────────────────────────────────────────
@@ -857,25 +908,27 @@ namespace TheWaningBorder.World.Roads
             _discCmds.Clear(); _polyCmds.Clear(); _squareCmds.Clear();
             // Route points in texel space change only when a route appears or
             // goes; rebuilding all ~50-100k of them on every raster (12 Hz while
-            // anything wears in) was the raster's whole main-thread cost.
+            // anything wears in) was the raster's whole main-thread cost. Each
+            // edge keeps its own texel copy; a new route is appended, and only
+            // a route going rebuilds the list (from those copies).
             if (_pointsDirty)
             {
                 _polyPoints.Clear();
-                foreach (var kv in _edgeStates)
-                {
-                    var es = kv.Value;
-                    es.PointStart = _polyPoints.Length;
-                    es.PointCount = 0;
-                    if (es.Route == null) continue;
-                    for (int i = 0; i < es.Route.Count; i++)
-                    {
-                        var t = ToTexel(es.Route[i]);
-                        _polyPoints.Add(new float2(t.x, t.y));
-                    }
-                    es.PointCount = es.Route.Count;
-                }
+                foreach (var kv in _edgeStates) AppendPoints(kv.Value);
                 _pointsDirty = false;
             }
+            else
+            {
+                for (int i = 0; i < _pointsAppend.Count; i++)
+                {
+                    var es = _pointsAppend[i];
+                    // Gone or re-routed since (a rebuild then covered it).
+                    if (es.Route == null || es.PointCount > 0) continue;
+                    if (!_edgeStates.TryGetValue(RouteKey(es.A, es.B), out var cur) || cur != es) continue;
+                    AppendPoints(es);
+                }
+            }
+            _pointsAppend.Clear();
             float padMargin = Cfg.alanthorPadMarginCells * BuildGrid.CellSize;
             foreach (var kv in _siteStates)
             {
@@ -968,6 +1021,12 @@ namespace TheWaningBorder.World.Roads
         // ─── Mask + shader globals ────────────────────────────────────────
         private void EnsureMask()
         {
+            if (_worldMin != PlayerInfluenceMap.WorldMin || _worldSize != PlayerInfluenceMap.WorldSize)
+            {
+                // Texel space moved: every cached route conversion is stale.
+                _texelEpoch++;
+                _pointsDirty = true;
+            }
             _worldMin = PlayerInfluenceMap.WorldMin;
             _worldSize = PlayerInfluenceMap.WorldSize;
             int res = Mathf.Max(64, Cfg.maskResolution);
@@ -1004,6 +1063,7 @@ namespace TheWaningBorder.World.Roads
             _globalsBound = false;
             _dirDirty = true;
             _pointsDirty = true;
+            _texelEpoch++;
         }
 
         private void BindGlobals()

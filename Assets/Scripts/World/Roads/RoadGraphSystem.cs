@@ -128,6 +128,9 @@ namespace TheWaningBorder.World.Roads
 
         private static void Build()
         {
+            // The old goal trees go back to the pool before the graph changes.
+            foreach (var kv in _nextHop) _poolNext.Push(kv.Value);
+            foreach (var kv in _distTo) _poolDist.Push(kv.Value);
             _pos.Clear(); _adj.Clear(); _nextHop.Clear(); _distTo.Clear(); _rad.Clear();
             SiteCount = _sites.Count;
             _rngPts.Clear();
@@ -138,7 +141,16 @@ namespace TheWaningBorder.World.Roads
                 _adj.Add(new List<int>());
                 _rngPts.Add(new Vector2(_sites[i].P.x, _sites[i].P.y));
             }
-            if (_sites.Count < 2) return;
+            if (_sites.Count < 2) { BuildLookups(); return; }
+
+            // The fork scans ask "which site / junction is near this point";
+            // a grid over each answers it without walking every node.
+            _gridPts.Clear();
+            for (int i = 0; i < _sites.Count; i++) _gridPts.Add(_sites[i].P);
+            _siteGrid.Build(_gridPts);
+            _junctionGrid.Reset(_siteGrid.Min,
+                                _siteGrid.Min + new float2(_siteGrid.Width, _siteGrid.Height) * _siteGrid.Cell,
+                                _sites.Count, _sites.Count * 2);
 
             // 1. Connect everything: the relative-neighbourhood graph is
             //    connected, planar and hub-free.
@@ -173,6 +185,46 @@ namespace TheWaningBorder.World.Roads
                     Unlink(v, drop);
                 }
             }
+            BuildLookups();
+        }
+
+        // ── post-build lookups (2026-10-15, perf) ──────────────────────
+        // Edge lengths (a Bend + two distances) were recomputed on every
+        // Dijkstra relaxation, and Nearest walked every node per walker per
+        // tick. Both are pure functions of the finished graph, so they are
+        // computed once here: the values are bit-identical to the old ones.
+
+        private static int[] _csrStart = System.Array.Empty<int>();
+        private static int[] _csrNbr = System.Array.Empty<int>();
+        private static float[] _csrLen = System.Array.Empty<float>();
+        private static readonly List<float2> _gridPts = new List<float2>();
+        private static readonly RoadGraph.PointGrid _siteGrid = new RoadGraph.PointGrid();
+        private static readonly RoadGraph.PointGrid _junctionGrid = new RoadGraph.PointGrid();
+        /// <summary>Every node with at least one road — what Nearest may return.</summary>
+        private static readonly RoadGraph.PointGrid _nearGrid = new RoadGraph.PointGrid();
+        private static readonly List<int> _nearIdx = new List<int>();
+
+        private static void BuildLookups()
+        {
+            int n = _pos.Count;
+            int m = 0;
+            for (int v = 0; v < n; v++) m += _adj[v].Count;
+            _csrStart = new int[n + 1];
+            _csrNbr = new int[m];
+            _csrLen = new float[m];
+            int at = 0;
+            for (int v = 0; v < n; v++)
+            {
+                _csrStart[v] = at;
+                var nb = _adj[v];
+                for (int k = 0; k < nb.Count; k++) { _csrNbr[at] = nb[k]; _csrLen[at] = EdgeLength(v, nb[k]); at++; }
+            }
+            _csrStart[n] = at;
+
+            _gridPts.Clear(); _nearIdx.Clear();
+            for (int i = 0; i < n; i++)
+                if (_adj[i].Count > 0) { _gridPts.Add(_pos[i]); _nearIdx.Add(i); }
+            _nearGrid.Build(_gridPts);
         }
 
         private static void Link(int a, int b)
@@ -184,7 +236,13 @@ namespace TheWaningBorder.World.Roads
         private static void Unlink(int a, int b) { _adj[a].Remove(b); _adj[b].Remove(a); }
 
         private static readonly List<int> _byAngle = new List<int>();
-        private static readonly List<float> _angles = new List<float>();
+        private struct Angled { public float A; public int N; }
+        private static readonly List<Angled> _angled = new List<Angled>();
+        private sealed class AngledComparer : IComparer<Angled>
+        {
+            public static readonly AngledComparer Instance = new AngledComparer();
+            public int Compare(Angled x, Angled y) => x.A != y.A ? x.A.CompareTo(y.A) : x.N.CompareTo(y.N);
+        }
 
         private static void ForkAt(int v)
         {
@@ -195,15 +253,19 @@ namespace TheWaningBorder.World.Roads
             {
                 var nb = _adj[v];
                 if (nb.Count < 2) return;
-                _byAngle.Clear(); _byAngle.AddRange(nb);
-                // Sort by angle, ties by node index — deterministic.
+                // Sort by angle, ties by node index — deterministic. The
+                // angle is computed once per neighbour, not per comparison,
+                // and the comparer is static (no closure per fork).
                 float2 o = _pos[v];
-                _byAngle.Sort((x, y) =>
+                _angled.Clear();
+                for (int k = 0; k < nb.Count; k++)
                 {
-                    float ax = math.atan2(_pos[x].y - o.y, _pos[x].x - o.x);
-                    float ay = math.atan2(_pos[y].y - o.y, _pos[y].x - o.x);
-                    return ax != ay ? ax.CompareTo(ay) : x.CompareTo(y);
-                });
+                    int x = nb[k];
+                    _angled.Add(new Angled { A = math.atan2(_pos[x].y - o.y, _pos[x].x - o.x), N = x });
+                }
+                _angled.Sort(AngledComparer.Instance);
+                _byAngle.Clear();
+                for (int k = 0; k < _angled.Count; k++) _byAngle.Add(_angled[k].N);
 
                 int bestA = -1, bestB = -1; float bestGap = maxAngle;
                 for (int k = 0; k < _byAngle.Count; k++)
@@ -225,15 +287,24 @@ namespace TheWaningBorder.World.Roads
                 // Never on ground no one can stand on (a forest, a cliff, water).
                 if (!Standable(j)) return;
                 // Clear of every site, so a junction never sits on a building.
-                for (int s = 0; s < SiteCount; s++)
-                    if (s != v && math.distancesq(_pos[s], j) < cfg.minJunctionClearance * cfg.minJunctionClearance) return;
+                float clear2 = cfg.minJunctionClearance * cfg.minJunctionClearance;
+                _siteGrid.Range(j, cfg.minJunctionClearance * 1.0001f + 0.01f, out int2 slo, out int2 shi);
+                for (int cy = slo.y; cy <= shi.y; cy++)
+                for (int cx = slo.x; cx <= shi.x; cx++)
+                for (int s = _siteGrid.First(cx, cy); s >= 0; s = _siteGrid.Next(s))
+                    if (s != v && math.distancesq(_pos[s], j) < clear2) return;
 
                 // Join a nearby junction (a crossroads) or keep the spacing.
+                // Nearest wins, the lowest index on a tie — what the old
+                // in-order scan with a strict < picked.
                 int J = -1; float jd = cfg.minJunctionSpacing * cfg.minJunctionSpacing;
-                for (int k = SiteCount; k < _pos.Count; k++)
+                _junctionGrid.Range(j, cfg.minJunctionSpacing * 1.0001f + 0.01f, out int2 jlo, out int2 jhi);
+                for (int cy = jlo.y; cy <= jhi.y; cy++)
+                for (int cx = jlo.x; cx <= jhi.x; cx++)
+                for (int k = _junctionGrid.First(cx, cy); k >= 0; k = _junctionGrid.Next(k))
                 {
                     float d = math.distancesq(_pos[k], j);
-                    if (d < jd) { jd = d; J = k; }
+                    if (d < jd || (d == jd && J >= 0 && k < J)) { jd = d; J = k; }
                 }
                 if (J == v || J == bestA || J == bestB) return;
                 if (J >= 0 && _adj[J].Count + 3 > cap) return;
@@ -243,6 +314,7 @@ namespace TheWaningBorder.World.Roads
                     _pos.Add(j);
                     _rad.Add(0f);
                     _adj.Add(new List<int>());
+                    _junctionGrid.Insert(J, j);
                 }
                 Unlink(v, bestA); Unlink(v, bestB);
                 Link(v, J); Link(J, bestA); Link(J, bestB);
@@ -250,13 +322,15 @@ namespace TheWaningBorder.World.Roads
         }
 
         private static readonly Queue<int> _bfs = new Queue<int>();
-        private static bool[] _seen = new bool[0];
+        // Generation stamps instead of clearing a bool[] per search.
+        private static int[] _seen = new int[0];
+        private static int _seenGen;
 
         private static bool StillConnectedWithout(int a, int b)
         {
-            if (_seen.Length < _pos.Count) _seen = new bool[_pos.Count * 2];
-            System.Array.Clear(_seen, 0, _seen.Length);
-            _bfs.Clear(); _bfs.Enqueue(a); _seen[a] = true;
+            if (_seen.Length < _pos.Count) { _seen = new int[_pos.Count * 2]; _seenGen = 0; }
+            int gen = ++_seenGen;
+            _bfs.Clear(); _bfs.Enqueue(a); _seen[a] = gen;
             while (_bfs.Count > 0)
             {
                 int x = _bfs.Dequeue();
@@ -266,8 +340,8 @@ namespace TheWaningBorder.World.Roads
                 {
                     int y = nb[k];
                     if (x == a && y == b) continue;
-                    if (_seen[y]) continue;
-                    _seen[y] = true; _bfs.Enqueue(y);
+                    if (_seen[y] == gen) continue;
+                    _seen[y] = gen; _bfs.Enqueue(y);
                 }
             }
             return false;
@@ -299,52 +373,159 @@ namespace TheWaningBorder.World.Roads
         public static float2 NodePos(int i) => _pos[i];
 
         /// <summary>The entity a node stands for: the site's entity, or for
-        /// a junction a synthetic one (negative index) that is stable while
-        /// the junction count is — the renderer keys its roads by it.</summary>
+        /// a junction a synthetic one (negative index) keyed by its quantised
+        /// POSITION — the renderer keys its roads by it, so a junction that
+        /// moves in a rebuild is a new site with new routes, never the old id
+        /// still carrying a road to where the junction used to be (the old
+        /// index-in-list id did exactly that). Presentation only: nothing in
+        /// the simulation reads it.</summary>
         public static Entity NodeEntity(int i)
-            => i < SiteCount ? _sites[i].E : new Entity { Index = -(i - SiteCount + 1), Version = 1 };
+        {
+            if (i < SiteCount) return _sites[i].E;
+            float2 p = _pos[i];
+            uint h = math.hash(new int2((int)math.round(p.x * 10f), (int)math.round(p.y * 10f)));
+            return new Entity { Index = -(int)(h & 0x3fffffff) - 1, Version = 1 };
+        }
 
         public static bool IsJunction(int i) => i >= SiteCount;
         public static IReadOnlyList<int> Neighbours(int i) => _adj[i];
 
+        /// <summary>The nearest node with a road; the lowest index on a tie
+        /// (what the old in-order scan with a strict &lt; returned). A ring
+        /// search over the node grid: rings grow until no unsearched cell can
+        /// hold anything as near as the best found.</summary>
         private static int Nearest(float2 p)
         {
+            if (_nearIdx.Count == 0) return -1;
+            var g = _nearGrid;
+            int2 c = g.RawCellOf(p);
             int best = -1; float bd = float.MaxValue;
-            for (int i = 0; i < _pos.Count; i++)
+            // Rings that miss the grid entirely hold nothing: start at the
+            // first one that reaches it (a query point off the node box).
+            int r0 = math.max(0, math.max(math.max(-c.x, c.x - (g.Width - 1)), math.max(-c.y, c.y - (g.Height - 1))));
+            for (int r = r0; ; r++)
             {
-                if (_adj[i].Count == 0) continue;
-                float d = math.distancesq(_pos[i], p);
-                if (d < bd) { bd = d; best = i; }
+                int x0 = c.x - r, x1 = c.x + r, y0 = c.y - r, y1 = c.y + r;
+                for (int cy = math.max(y0, 0); cy <= math.min(y1, g.Height - 1); cy++)
+                {
+                    bool edgeRow = cy == y0 || cy == y1;
+                    for (int cx = math.max(x0, 0); cx <= math.min(x1, g.Width - 1); cx++)
+                    {
+                        if (!edgeRow && cx != x0 && cx != x1) continue;   // the ring only
+                        for (int k = g.First(cx, cy); k >= 0; k = g.Next(k))
+                        {
+                            int i = _nearIdx[k];
+                            float d = math.distancesq(_pos[i], p);
+                            if (d < bd || (d == bd && i < best)) { bd = d; best = i; }
+                        }
+                    }
+                }
+                // Everything outside the searched block is at least r cells
+                // away; the 1 cm margin covers float rounding.
+                float lim = r * g.Cell - 0.01f;
+                if (best >= 0 && lim > 0f && bd < lim * lim) break;
+                if (x0 <= 0 && y0 <= 0 && x1 >= g.Width - 1 && y1 >= g.Height - 1) break;
             }
             return best;
         }
 
         // ── shortest paths ─────────────────────────────────────────────
 
+        // Pooled per-goal arrays (returned on rebuild) and the heap scratch.
+        private static readonly Stack<int[]> _poolNext = new Stack<int[]>();
+        private static readonly Stack<float[]> _poolDist = new Stack<float[]>();
+        private static bool[] _done = new bool[0];
+        private static float[] _heapD = new float[0];
+        private static int[] _heapN = new int[0];
+        private static int _heapCount;
+
+        /// <summary>
+        /// Shortest-path tree toward <paramref name="goal"/>. A binary-heap
+        /// Dijkstra keyed (distance, node index): it settles nodes in exactly
+        /// the order the old O(V²) scan did (least distance, lowest index on a
+        /// tie) and relaxes with the same rule — including the equal-distance,
+        /// lower-index tie on an already settled node — so next-hop and
+        /// distance are bit-identical. Pooled arrays may be longer than the
+        /// node count; every reader stops at the node count.
+        /// </summary>
         private static void Tree(int goal, out int[] next, out float[] dist)
         {
             if (_nextHop.TryGetValue(goal, out next) && _distTo.TryGetValue(goal, out dist)) return;
             int n = _pos.Count;
-            next = new int[n]; dist = new float[n];
-            var done = new bool[n];
-            for (int i = 0; i < n; i++) { next[i] = -1; dist[i] = float.MaxValue; }
+            next = TakeNext(n); dist = TakeDist(n);
+            if (_done.Length < n) _done = new bool[n * 2];
+            for (int i = 0; i < n; i++) { next[i] = -1; dist[i] = float.MaxValue; _done[i] = false; }
             dist[goal] = 0f; next[goal] = goal;
-            // O(V²) Dijkstra: a few hundred nodes, one tree per distinct goal.
-            for (int it = 0; it < n; it++)
+            _heapCount = 0;
+            HeapPush(0f, goal);
+            while (_heapCount > 0)
             {
-                int u = -1; float ud = float.MaxValue;
-                for (int i = 0; i < n; i++) if (!done[i] && dist[i] < ud) { ud = dist[i]; u = i; }
-                if (u < 0) break;
-                done[u] = true;
-                var nb = _adj[u];
-                for (int k = 0; k < nb.Count; k++)
+                HeapPop(out float ud, out int u);
+                if (_done[u] || ud != dist[u]) continue;   // a stale entry
+                _done[u] = true;
+                for (int e = _csrStart[u], end = _csrStart[u + 1]; e < end; e++)
                 {
-                    int w = nb[k];
-                    float nd = ud + EdgeLength(u, w);
-                    if (nd < dist[w] || (nd == dist[w] && u < next[w])) { dist[w] = nd; next[w] = u; }
+                    int w = _csrNbr[e];
+                    float nd = ud + _csrLen[e];
+                    if (nd < dist[w]) { dist[w] = nd; next[w] = u; HeapPush(nd, w); }
+                    else if (nd == dist[w] && u < next[w]) next[w] = u;
                 }
             }
             _nextHop[goal] = next; _distTo[goal] = dist;
+        }
+
+        private static int[] TakeNext(int n)
+        {
+            while (_poolNext.Count > 0) { var a = _poolNext.Pop(); if (a.Length >= n) return a; }
+            return new int[n];
+        }
+
+        private static float[] TakeDist(int n)
+        {
+            while (_poolDist.Count > 0) { var a = _poolDist.Pop(); if (a.Length >= n) return a; }
+            return new float[n];
+        }
+
+        private static bool HeapLess(int a, int b)
+            => _heapD[a] < _heapD[b] || (_heapD[a] == _heapD[b] && _heapN[a] < _heapN[b]);
+
+        private static void HeapSwap(int a, int b)
+        {
+            (_heapD[a], _heapD[b]) = (_heapD[b], _heapD[a]);
+            (_heapN[a], _heapN[b]) = (_heapN[b], _heapN[a]);
+        }
+
+        private static void HeapPush(float d, int node)
+        {
+            if (_heapCount == _heapD.Length)
+            {
+                System.Array.Resize(ref _heapD, _heapCount * 2 + 16);
+                System.Array.Resize(ref _heapN, _heapCount * 2 + 16);
+            }
+            int i = _heapCount++;
+            _heapD[i] = d; _heapN[i] = node;
+            while (i > 0)
+            {
+                int p = (i - 1) >> 1;
+                if (!HeapLess(i, p)) break;
+                HeapSwap(i, p); i = p;
+            }
+        }
+
+        private static void HeapPop(out float d, out int node)
+        {
+            d = _heapD[0]; node = _heapN[0];
+            int last = --_heapCount;
+            _heapD[0] = _heapD[last]; _heapN[0] = _heapN[last];
+            int i = 0;
+            while (true)
+            {
+                int l = 2 * i + 1, r = l + 1, m = i;
+                if (l < _heapCount && HeapLess(l, m)) m = l;
+                if (r < _heapCount && HeapLess(r, m)) m = r;
+                if (m == i) break;
+                HeapSwap(i, m); i = m;
+            }
         }
 
         /// <summary>Distance from a to b along the roads (straight-line legs
@@ -385,7 +566,10 @@ namespace TheWaningBorder.World.Roads
                 int s = -1; float best = float.MaxValue, walk = 0f;
                 for (int i = 0; i < _pos.Count; i++)
                 {
-                    if (_adj[i].Count == 0 || distTo[i] == float.MaxValue) continue;
+                    // cost >= distTo, so a node whose road distance alone
+                    // is not below the best cannot win the strict < — skip
+                    // its square root. Same pick as the full scan.
+                    if (_adj[i].Count == 0 || distTo[i] >= best) continue;
                     float w = math.max(0f, math.distance(pos.xz, _pos[i]) - _rad[i]);
                     float cost = 2f * w + distTo[i];
                     if (cost < best) { best = cost; s = i; walk = w; }

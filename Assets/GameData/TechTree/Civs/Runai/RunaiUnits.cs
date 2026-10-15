@@ -73,8 +73,8 @@ namespace TheWaningBorder.Entities
     {
         public const string Id = "Runai_CaravanMaster";
         public const int PresentationID = 440;   // on its SO
-        public static Entity Create(EntityManager em, float3 p, Faction f) => Make(new EmCreator(em), p, f);
-        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => Make(new EcbCreator(ecb), p, f);
+        public static Entity Create(EntityManager em, float3 p, Faction f) => EntityBuild.Done(Make(new EmCreator(em), p, f));
+        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => EntityBuild.Done(Make(new EcbCreator(ecb), p, f));
         private static Entity Make<T>(T c, float3 p, Faction f) where T : struct, IEntityCreator
         {
             var e = RunaiUnitBody.Base(c, Id, PresentationID, UnitClass.Melee, p, f, DamageType.Melee, ArmorType.InfantryLight, out var def);
@@ -89,8 +89,8 @@ namespace TheWaningBorder.Entities
     {
         public const string Id = "Runai_Wayfinder";
         public const int PresentationID = 441;   // on its SO
-        public static Entity Create(EntityManager em, float3 p, Faction f) => Make(new EmCreator(em), p, f);
-        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => Make(new EcbCreator(ecb), p, f);
+        public static Entity Create(EntityManager em, float3 p, Faction f) => EntityBuild.Done(Make(new EmCreator(em), p, f));
+        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => EntityBuild.Done(Make(new EcbCreator(ecb), p, f));
         private static Entity Make<T>(T c, float3 p, Faction f) where T : struct, IEntityCreator
         {
             var e = RunaiUnitBody.Base(c, Id, PresentationID, UnitClass.Melee, p, f, DamageType.Melee, ArmorType.Cavalry, out var def);
@@ -110,8 +110,8 @@ namespace TheWaningBorder.Entities
     {
         public const string Id = "Runai_Skirmisher";
         public const int PresentationID = 331;   // on its SO
-        public static Entity Create(EntityManager em, float3 p, Faction f) => Make(new EmCreator(em), p, f);
-        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => Make(new EcbCreator(ecb), p, f);
+        public static Entity Create(EntityManager em, float3 p, Faction f) => EntityBuild.Done(Make(new EmCreator(em), p, f));
+        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => EntityBuild.Done(Make(new EcbCreator(ecb), p, f));
         private static Entity Make<T>(T c, float3 p, Faction f) where T : struct, IEntityCreator
         {
             var e = RunaiUnitBody.Base(c, Id, PresentationID, UnitClass.Ranged, p, f, DamageType.Ranged, ArmorType.Ranged, out var def);
@@ -125,8 +125,8 @@ namespace TheWaningBorder.Entities
     {
         public const string Id = "Runai_RoadWarden";
         public const int PresentationID = 442;   // on its SO
-        public static Entity Create(EntityManager em, float3 p, Faction f) => Make(new EmCreator(em), p, f);
-        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => Make(new EcbCreator(ecb), p, f);
+        public static Entity Create(EntityManager em, float3 p, Faction f) => EntityBuild.Done(Make(new EmCreator(em), p, f));
+        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => EntityBuild.Done(Make(new EcbCreator(ecb), p, f));
         private static Entity Make<T>(T c, float3 p, Faction f) where T : struct, IEntityCreator
             => RunaiUnitBody.Base(c, Id, PresentationID, UnitClass.Melee, p, f, DamageType.Melee, ArmorType.InfantryHeavy, out _);
     }
@@ -136,8 +136,8 @@ namespace TheWaningBorder.Entities
     {
         public const string Id = "Runai_Sandstrider";
         public const int PresentationID = 443;   // on its SO
-        public static Entity Create(EntityManager em, float3 p, Faction f) => Make(new EmCreator(em), p, f);
-        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => Make(new EcbCreator(ecb), p, f);
+        public static Entity Create(EntityManager em, float3 p, Faction f) => EntityBuild.Done(Make(new EmCreator(em), p, f));
+        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => EntityBuild.Done(Make(new EcbCreator(ecb), p, f));
         private static Entity Make<T>(T c, float3 p, Faction f) where T : struct, IEntityCreator
             => RunaiUnitBody.Base(c, Id, PresentationID, UnitClass.Melee, p, f, DamageType.Melee, ArmorType.InfantryLight, out _);
     }
@@ -149,8 +149,8 @@ namespace TheWaningBorder.Entities
     {
         public const string Id = "Runai_Raider";
         public const int PresentationID = 332;   // on its SO
-        public static Entity Create(EntityManager em, float3 p, Faction f) => Make(new EmCreator(em), p, f);
-        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => Make(new EcbCreator(ecb), p, f);
+        public static Entity Create(EntityManager em, float3 p, Faction f) => EntityBuild.Done(Make(new EmCreator(em), p, f));
+        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => EntityBuild.Done(Make(new EcbCreator(ecb), p, f));
         private static Entity Make<T>(T c, float3 p, Faction f) where T : struct, IEntityCreator
         {
             var e = RunaiUnitBody.Base(c, Id, PresentationID, UnitClass.Melee, p, f, DamageType.Melee, ArmorType.Cavalry, out _);
@@ -164,8 +164,8 @@ namespace TheWaningBorder.Entities
     {
         public const string Id = "Runai_HorseArcher";
         public const int PresentationID = 444;   // on its SO
-        public static Entity Create(EntityManager em, float3 p, Faction f) => Make(new EmCreator(em), p, f);
-        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => Make(new EcbCreator(ecb), p, f);
+        public static Entity Create(EntityManager em, float3 p, Faction f) => EntityBuild.Done(Make(new EmCreator(em), p, f));
+        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => EntityBuild.Done(Make(new EcbCreator(ecb), p, f));
         private static Entity Make<T>(T c, float3 p, Faction f) where T : struct, IEntityCreator
         {
             var e = RunaiUnitBody.Base(c, Id, PresentationID, UnitClass.Ranged, p, f, DamageType.Ranged, ArmorType.Cavalry, out var def);
@@ -181,8 +181,8 @@ namespace TheWaningBorder.Entities
     {
         public const string Id = "Runai_CamelLancer";
         public const int PresentationID = 445;   // on its SO
-        public static Entity Create(EntityManager em, float3 p, Faction f) => Make(new EmCreator(em), p, f);
-        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => Make(new EcbCreator(ecb), p, f);
+        public static Entity Create(EntityManager em, float3 p, Faction f) => EntityBuild.Done(Make(new EmCreator(em), p, f));
+        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => EntityBuild.Done(Make(new EcbCreator(ecb), p, f));
         private static Entity Make<T>(T c, float3 p, Faction f) where T : struct, IEntityCreator
         {
             var e = RunaiUnitBody.Base(c, Id, PresentationID, UnitClass.Melee, p, f, DamageType.Melee, ArmorType.Cavalry, out _);
@@ -198,8 +198,8 @@ namespace TheWaningBorder.Entities
     {
         public const string Id = "Runai_Catapult";
         public const int PresentationID = 337;   // on its SO
-        public static Entity Create(EntityManager em, float3 p, Faction f) => Make(new EmCreator(em), p, f);
-        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => Make(new EcbCreator(ecb), p, f);
+        public static Entity Create(EntityManager em, float3 p, Faction f) => EntityBuild.Done(Make(new EmCreator(em), p, f));
+        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => EntityBuild.Done(Make(new EcbCreator(ecb), p, f));
         private static Entity Make<T>(T c, float3 p, Faction f) where T : struct, IEntityCreator
         {
             var e = RunaiUnitBody.Base(c, Id, PresentationID, UnitClass.Siege, p, f, DamageType.Siege, ArmorType.Ranged, out var def);
@@ -219,13 +219,13 @@ namespace TheWaningBorder.Entities
         public const int PresentationID = 446;   // on its SO
         public static Entity Create(EntityManager em, float3 p, Faction f)
         {
-            var e = Make(new EmCreator(em), p, f);
+            var e = EntityBuild.Done(Make(new EmCreator(em), p, f));
             em.AddBuffer<WarRigPassenger>(e);
             return e;
         }
         public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f)
         {
-            var e = Make(new EcbCreator(ecb), p, f);
+            var e = EntityBuild.Done(Make(new EcbCreator(ecb), p, f));
             ecb.AddBuffer<WarRigPassenger>(e);
             return e;
         }
@@ -247,8 +247,8 @@ namespace TheWaningBorder.Entities
     {
         public const string Id = "Runai_SiegeCaravan";
         public const int PresentationID = 447;   // on its SO
-        public static Entity Create(EntityManager em, float3 p, Faction f) => Make(new EmCreator(em), p, f);
-        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => Make(new EcbCreator(ecb), p, f);
+        public static Entity Create(EntityManager em, float3 p, Faction f) => EntityBuild.Done(Make(new EmCreator(em), p, f));
+        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => EntityBuild.Done(Make(new EcbCreator(ecb), p, f));
         private static Entity Make<T>(T c, float3 p, Faction f) where T : struct, IEntityCreator
         {
             var e = RunaiUnitBody.Base(c, Id, PresentationID, UnitClass.Siege, p, f, DamageType.Siege, ArmorType.Ranged, out var def);
@@ -268,8 +268,8 @@ namespace TheWaningBorder.Entities
     {
         public const string Id = "Runai_Caravan";
         public const int PresentationID = 432;   // on its SO
-        public static Entity Create(EntityManager em, float3 p, Faction f) => Make(new EmCreator(em), p, f);
-        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => Make(new EcbCreator(ecb), p, f);
+        public static Entity Create(EntityManager em, float3 p, Faction f) => EntityBuild.Done(Make(new EmCreator(em), p, f));
+        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => EntityBuild.Done(Make(new EcbCreator(ecb), p, f));
         private static Entity Make<T>(T c, float3 p, Faction f) where T : struct, IEntityCreator
         {
             var e = RunaiUnitBody.Base(c, Id, PresentationID, UnitClass.Economy, p, f, DamageType.Melee, ArmorType.InfantryLight, out var def);
@@ -287,8 +287,8 @@ namespace TheWaningBorder.Entities
     {
         public const string Id = "Runai_TraderWarrior";
         public const int PresentationID = 448;   // on its SO
-        public static Entity Create(EntityManager em, float3 p, Faction f) => Make(new EmCreator(em), p, f);
-        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => Make(new EcbCreator(ecb), p, f);
+        public static Entity Create(EntityManager em, float3 p, Faction f) => EntityBuild.Done(Make(new EmCreator(em), p, f));
+        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => EntityBuild.Done(Make(new EcbCreator(ecb), p, f));
         private static Entity Make<T>(T c, float3 p, Faction f) where T : struct, IEntityCreator
         {
             var e = RunaiUnitBody.Base(c, Id, PresentationID, UnitClass.Melee, p, f, DamageType.Melee, ArmorType.InfantryLight, out _);
@@ -306,8 +306,8 @@ namespace TheWaningBorder.Entities
     {
         public const string Id = "Runai_DuneGuard";
         public const int PresentationID = 450;   // on its SO
-        public static Entity Create(EntityManager em, float3 p, Faction f) => Make(new EmCreator(em), p, f);
-        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => Make(new EcbCreator(ecb), p, f);
+        public static Entity Create(EntityManager em, float3 p, Faction f) => EntityBuild.Done(Make(new EmCreator(em), p, f));
+        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => EntityBuild.Done(Make(new EcbCreator(ecb), p, f));
         private static Entity Make<T>(T c, float3 p, Faction f) where T : struct, IEntityCreator
             => RunaiUnitBody.Base(c, Id, PresentationID, UnitClass.Melee, p, f, DamageType.Melee, ArmorType.InfantryLight, out _);
     }
@@ -319,8 +319,8 @@ namespace TheWaningBorder.Entities
     {
         public const string Id = "Runai_Slinger";
         public const int PresentationID = 451;   // on its SO
-        public static Entity Create(EntityManager em, float3 p, Faction f) => Make(new EmCreator(em), p, f);
-        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => Make(new EcbCreator(ecb), p, f);
+        public static Entity Create(EntityManager em, float3 p, Faction f) => EntityBuild.Done(Make(new EmCreator(em), p, f));
+        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => EntityBuild.Done(Make(new EcbCreator(ecb), p, f));
         private static Entity Make<T>(T c, float3 p, Faction f) where T : struct, IEntityCreator
         {
             var e = RunaiUnitBody.Base(c, Id, PresentationID, UnitClass.Ranged, p, f, DamageType.Ranged, ArmorType.Ranged, out var def);
@@ -334,8 +334,8 @@ namespace TheWaningBorder.Entities
     {
         public const string Id = "Runai_SunArcher";
         public const int PresentationID = 452;   // on its SO
-        public static Entity Create(EntityManager em, float3 p, Faction f) => Make(new EmCreator(em), p, f);
-        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => Make(new EcbCreator(ecb), p, f);
+        public static Entity Create(EntityManager em, float3 p, Faction f) => EntityBuild.Done(Make(new EmCreator(em), p, f));
+        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => EntityBuild.Done(Make(new EcbCreator(ecb), p, f));
         private static Entity Make<T>(T c, float3 p, Faction f) where T : struct, IEntityCreator
         {
             var e = RunaiUnitBody.Base(c, Id, PresentationID, UnitClass.Ranged, p, f, DamageType.Ranged, ArmorType.Ranged, out var def);
@@ -350,8 +350,8 @@ namespace TheWaningBorder.Entities
     {
         public const string Id = "Runai_SkyBarge";
         public const int PresentationID = 453;   // on its SO
-        public static Entity Create(EntityManager em, float3 p, Faction f) => Make(new EmCreator(em), p, f);
-        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => Make(new EcbCreator(ecb), p, f);
+        public static Entity Create(EntityManager em, float3 p, Faction f) => EntityBuild.Done(Make(new EmCreator(em), p, f));
+        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => EntityBuild.Done(Make(new EcbCreator(ecb), p, f));
         private static Entity Make<T>(T c, float3 p, Faction f) where T : struct, IEntityCreator
         {
             var e = RunaiUnitBody.Base(c, Id, PresentationID, UnitClass.Siege, p, f, DamageType.Siege, ArmorType.Ranged, out var def);
@@ -375,12 +375,12 @@ namespace TheWaningBorder.Entities
         public const int GuardPID = 454, ArcherPID = 455, RiderPID = 456;   // on their SOs
         public const string ReturnAbility = "Return to Wagons";
 
-        public static Entity CreateGuard(EntityManager em, float3 p, Faction f) => Make(new EmCreator(em), EscortKind.Guard, p, f);
-        public static Entity CreateGuard(EntityCommandBuffer ecb, float3 p, Faction f) => Make(new EcbCreator(ecb), EscortKind.Guard, p, f);
-        public static Entity CreateArcher(EntityManager em, float3 p, Faction f) => Make(new EmCreator(em), EscortKind.Archer, p, f);
-        public static Entity CreateArcher(EntityCommandBuffer ecb, float3 p, Faction f) => Make(new EcbCreator(ecb), EscortKind.Archer, p, f);
-        public static Entity CreateRider(EntityManager em, float3 p, Faction f) => Make(new EmCreator(em), EscortKind.Rider, p, f);
-        public static Entity CreateRider(EntityCommandBuffer ecb, float3 p, Faction f) => Make(new EcbCreator(ecb), EscortKind.Rider, p, f);
+        public static Entity CreateGuard(EntityManager em, float3 p, Faction f) => EntityBuild.Done(Make(new EmCreator(em), EscortKind.Guard, p, f));
+        public static Entity CreateGuard(EntityCommandBuffer ecb, float3 p, Faction f) => EntityBuild.Done(Make(new EcbCreator(ecb), EscortKind.Guard, p, f));
+        public static Entity CreateArcher(EntityManager em, float3 p, Faction f) => EntityBuild.Done(Make(new EmCreator(em), EscortKind.Archer, p, f));
+        public static Entity CreateArcher(EntityCommandBuffer ecb, float3 p, Faction f) => EntityBuild.Done(Make(new EcbCreator(ecb), EscortKind.Archer, p, f));
+        public static Entity CreateRider(EntityManager em, float3 p, Faction f) => EntityBuild.Done(Make(new EmCreator(em), EscortKind.Rider, p, f));
+        public static Entity CreateRider(EntityCommandBuffer ecb, float3 p, Faction f) => EntityBuild.Done(Make(new EcbCreator(ecb), EscortKind.Rider, p, f));
 
         private static Entity Make<T>(T c, EscortKind kind, float3 p, Faction f) where T : struct, IEntityCreator
         {
@@ -414,8 +414,8 @@ namespace TheWaningBorder.Entities
     {
         public const string Id = "Runai_MirageRider";
         public const int PresentationID = 449;   // on its SO
-        public static Entity Create(EntityManager em, float3 p, Faction f) => Make(new EmCreator(em), p, f);
-        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => Make(new EcbCreator(ecb), p, f);
+        public static Entity Create(EntityManager em, float3 p, Faction f) => EntityBuild.Done(Make(new EmCreator(em), p, f));
+        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => EntityBuild.Done(Make(new EcbCreator(ecb), p, f));
         private static Entity Make<T>(T c, float3 p, Faction f) where T : struct, IEntityCreator
         {
             var e = RunaiUnitBody.Base(c, Id, PresentationID, UnitClass.Melee, p, f, DamageType.Melee, ArmorType.Cavalry, out _);

@@ -27,7 +27,7 @@ namespace TheWaningBorder.Systems.Combat
                 .WithNone<BorderUnitTag>()
                 .WithEntityAccess())
             {
-                ecb.AddComponent(entity, new GuardPoint
+                TransientState.Set(ecb, entity, new GuardPoint
                 {
                     Position = transform.ValueRO.Position,
                     Has = 1
@@ -64,7 +64,7 @@ namespace TheWaningBorder.Systems.Combat
                     if (dd.Has != 0)
                     {
                         bool isReturningToGuard = false;
-                        if (em.HasComponent<GuardPoint>(entity))
+                        if (TransientState.Active<GuardPoint>(em, entity))
                         {
                             var gp = em.GetComponentData<GuardPoint>(entity);
                             if (gp.Has != 0)
@@ -111,7 +111,7 @@ namespace TheWaningBorder.Systems.Combat
                 }
 
                 // Set guard point if not already set
-                if (em.HasComponent<GuardPoint>(entity))
+                if (TransientState.Active<GuardPoint>(em, entity))
                 {
                     var gp = em.GetComponentData<GuardPoint>(entity);
                     if (gp.Has == 0)
@@ -123,7 +123,7 @@ namespace TheWaningBorder.Systems.Combat
                 }
                 else
                 {
-                    ecb.AddComponent(entity, new GuardPoint
+                    TransientState.Set(ecb, entity, new GuardPoint
                     {
                         Position = transform.ValueRO.Position,
                         Has = 1

@@ -52,11 +52,19 @@ namespace TheWaningBorder.Systems.Sect
         /// shoot through Arrow Slits? True while its owner holds a standing
         /// Stonehold.</summary>
         public static bool ArrowSlits(EntityManager em, Entity building, Faction owner)
-        {
-            if (!em.HasComponent<WallTag>(building) && !em.HasComponent<WatchTowerTag>(building)
-                && !em.HasComponent<WallTowerTag>(building)) return false;
-            return SectQuery.HasStandingSectBuilding(em, owner, SectConfig.BuildingIdFor(SectConfig.Fortitude));
-        }
+            => IsSlitShooter(em, building) && HoldsArrowSlits(em, owner);
+
+        /// <summary>The building half of <see cref="ArrowSlits"/>: is it a wall
+        /// piece or a tower? Split out so a caller handling many towers
+        /// (BuildingCombatSystem) asks the faction half once per faction.</summary>
+        public static bool IsSlitShooter(EntityManager em, Entity building)
+            => em.HasComponent<WallTag>(building) || em.HasComponent<WatchTowerTag>(building)
+               || em.HasComponent<WallTowerTag>(building);
+
+        /// <summary>The faction half of <see cref="ArrowSlits"/>: does
+        /// <paramref name="owner"/> hold a standing Stonehold?</summary>
+        public static bool HoldsArrowSlits(EntityManager em, Faction owner)
+            => SectQuery.HasStandingSectBuilding(em, owner, SectConfig.BuildingIdFor(SectConfig.Fortitude));
 
         /// <summary>How fast a building's production queue runs (Overtime).</summary>
         public static float ProductionSpeed(EntityManager em, Entity building)

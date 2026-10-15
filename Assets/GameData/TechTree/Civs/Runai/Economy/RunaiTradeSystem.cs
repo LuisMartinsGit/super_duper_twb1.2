@@ -106,6 +106,100 @@ namespace TheWaningBorder.Runai
             System.Array.Clear(_payCarry, 0, _payCarry.Length);
         }
 
+        // ── per-tick snapshots (2026-10-15, perf) ──────────────────────
+        // Derived state, re-read from the simulation before every use, so
+        // the decisions are the same as reading live: nothing this system
+        // does changes a culture, a research or the depot set mid-pass.
+
+        /// <summary>Each faction's completed culture, read once per update
+        /// instead of two Hall-array copies per hut / unit / depot.</summary>
+        private static readonly byte[] _cultureOf = new byte[32];
+
+        private static void SnapshotCultures(EntityManager em) => CultureConfig.GetCompletedCultures(em, _cultureOf);
+
+        private static bool IsRunaiNow(Faction f)
+        {
+            int i = (int)f;
+            return i >= 0 && i < _cultureOf.Length && _cultureOf[i] == Cultures.Runai;
+        }
+
+        /// <summary>Per faction, this update: the research-derived numbers a
+        /// depot and a caravan ask for, instead of hashing tech ids per entity.</summary>
+        private struct TradeFlags
+        {
+            public int Cap, Guards, Archers, Riders;
+            public bool SwiftWheels, SwiftWheels2, WagonArchers, HunkerDown;
+        }
+        private static readonly TradeFlags[] _flags = new TradeFlags[Alliances.MaxFactions];
+
+        private static TradeFlags ReadFlags(Faction f)
+        {
+            var t = new TradeFlags { Cap = CaravanCap(f) };
+            EscortSquad(f, out t.Guards, out t.Archers, out t.Riders);
+            t.SwiftWheels = Researched(f, "Runai_SwiftWheels");
+            t.SwiftWheels2 = Researched(f, "Runai_SwiftWheels2");
+            t.WagonArchers = Researched(f, "Runai_WagonArchers");
+            t.HunkerDown = Researched(f, "Runai_HunkerDown");
+            return t;
+        }
+
+        private static void SnapshotFlags()
+        {
+            for (int fi = 0; fi < _flags.Length; fi++)
+                _flags[fi] = IsRunaiNow((Faction)fi) ? ReadFlags((Faction)fi) : default;
+        }
+
+        /// <summary>The snapshot for a Runai faction (every caller has
+        /// already tested IsRunaiNow, or owns a caravan only a Runai faction
+        /// has); a live read for anything else.</summary>
+        private static TradeFlags FlagsOf(Faction f)
+        {
+            int i = (int)f;
+            return i >= 0 && i < _flags.Length && IsRunaiNow(f) ? _flags[i] : ReadFlags(f);
+        }
+
+        /// <summary>Every finished depot (kind != 0), its owner and territory,
+        /// in Entity.Index order — read once per simulation step for all of
+        /// that step's Deposit calls (one per Runai territory), each of which
+        /// re-copied the whole depot query and re-resolved every territory.</summary>
+        private struct DepotRow { public Entity E; public Faction F; public int Territory; public int Kind; }
+        private static readonly List<DepotRow> _depotRows = new List<DepotRow>();
+        private static long _depotRowsStep = -1;
+        private static int _depotRowsEpoch = -1;
+
+        private static void SnapshotDepots(EntityManager em)
+        {
+            if (_depotRowsStep == SimClock.Steps && _depotRowsEpoch == SimCadence.Epoch) return;
+            _depotRowsStep = SimClock.Steps;
+            _depotRowsEpoch = SimCadence.Epoch;
+            _depotRows.Clear();
+            var q = QC_Depots.Get(em, QT_Depots);
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var lts = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            for (int i = 0; i < ents.Length; i++)
+            {
+                int kind = DepotKind(em, ents[i]);
+                if (kind == 0) continue;
+                var p = lts[i].Position;
+                _depotRows.Add(new DepotRow { E = ents[i], F = facs[i].Value, Territory = RegionMap.RegionAt(p.x, p.z), Kind = kind });
+            }
+            _depotRows.Sort(DepotRowByIndex.Instance);
+        }
+
+        private sealed class DepotRowByIndex : IComparer<DepotRow>
+        {
+            public static readonly DepotRowByIndex Instance = new DepotRowByIndex();
+            public int Compare(DepotRow a, DepotRow b) => a.E.Index.CompareTo(b.E.Index);
+        }
+
+        /// <summary>Entity.Index order. Indices are unique among live
+        /// entities, so the unstable sort gives the one order every peer has.</summary>
+        private struct ByIndex : IComparer<Entity>
+        {
+            public int Compare(Entity a, Entity b) => a.Index.CompareTo(b.Index);
+        }
+
         // ═════════════════════════════ public rules ═════════════════════════
 
         /// <summary>True when the faction has COMPLETED its age-up into Runai.</summary>
@@ -118,12 +212,17 @@ namespace TheWaningBorder.Runai
             return r != null && r.HasResearched(f, tech);
         }
 
+        // The tech ids, not "Runai_Caravan" + k: that concat allocated a
+        // string per level per depot per tick.
+        private static readonly string[] CaravanTechs =
+            { null, null, "Runai_Caravan2", "Runai_Caravan3", "Runai_Caravan4", "Runai_Caravan5" };
+
         /// <summary>Caravans each depot of this faction keeps.</summary>
         public static int CaravanCap(Faction f)
         {
             int n = 1;
             for (int k = 2; k <= 5; k++)
-                if (Researched(f, "Runai_Caravan" + k)) n = k;
+                if (Researched(f, CaravanTechs[k])) n = k;
             return math.min(n, math.max(1, Cfg.maxCaravansPerDepot));
         }
 
@@ -185,47 +284,41 @@ namespace TheWaningBorder.Runai
         public static bool Deposit(EntityManager em, int territory, Faction owner,
                                    float supplies, float iron, float veilstone, float veilsteel)
         {
-            var q = QC_Depots.Get(em, QT_Depots);
-            using var ents = q.ToEntityArray(Allocator.Temp);
-            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var lts = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-
-            var here = new NativeList<Entity>(8, Allocator.Temp);
-            for (int i = 0; i < ents.Length; i++)
+            SnapshotDepots(em);
+            _here.Clear();
+            for (int i = 0; i < _depotRows.Count; i++)   // already in Entity.Index order
             {
-                if (facs[i].Value != owner) continue;
-                if (DepotKind(em, ents[i]) == 0) continue;
-                var p = lts[i].Position;
-                if (RegionMap.RegionAt(p.x, p.z) != territory) continue;
-                here.Add(ents[i]);
+                var row = _depotRows[i];
+                if (row.F == owner && row.Territory == territory) _here.Add(row);
             }
-            if (here.Length == 0) { here.Dispose(); return false; }
-            SortByIndex(here);
+            if (_here.Count == 0) return false;
 
             float cap = Capacity(owner) * math.max(1f, Cfg.stockCapLoads);
-            Spread(em, here, 1, cap, supplies, 0);
-            Spread(em, here, 2, cap, iron, 1);
+            Spread(em, _here, 1, cap, supplies, 0);
+            Spread(em, _here, 2, cap, iron, 1);
             // No veilstone or veilsteel rides a caravan: the Runai get veilstone
             // from the Waystation tax and veilsteel from the Sanctuary trade
             // (§3.2, §5.1), so a territory's crystal income is not theirs.
-            here.Dispose();
             return true;
         }
 
-        private static void Spread(EntityManager em, NativeList<Entity> depots, int kind, float cap,
+        private static readonly List<DepotRow> _here = new List<DepotRow>();
+
+        private static void Spread(EntityManager em, List<DepotRow> depots, int kind, float cap,
                                    float amount, int resource)
         {
             if (amount <= 0f) return;
             int matching = 0;
-            for (int i = 0; i < depots.Length; i++) if (DepotKind(em, depots[i]) == kind) matching++;
-            int n = matching > 0 ? matching : depots.Length;
+            for (int i = 0; i < depots.Count; i++) if (depots[i].Kind == kind) matching++;
+            int n = matching > 0 ? matching : depots.Count;
             float share = amount / n;
-            for (int i = 0; i < depots.Length; i++)
+            for (int i = 0; i < depots.Count; i++)
             {
-                if (matching > 0 && DepotKind(em, depots[i]) != kind) continue;
-                var d = em.GetComponentData<RunaiDepot>(depots[i]);
+                if (matching > 0 && depots[i].Kind != kind) continue;
+                var e = depots[i].E;
+                var d = em.GetComponentData<RunaiDepot>(e);
                 Put(ref d, resource, math.min(share, math.max(0f, cap - d.Total)));
-                em.SetComponentData(depots[i], d);
+                em.SetComponentData(e, d);
             }
         }
 
@@ -278,22 +371,15 @@ namespace TheWaningBorder.Runai
         private static bool Arrived(EntityManager em, float3 pos, Entity building)
             => DistanceToFootprint(em, building, pos) <= Cfg.arriveSlack;
 
-        private static void SortByIndex(NativeList<Entity> list)
-        {
-            for (int i = 1; i < list.Length; i++)
-            {
-                var k = list[i];
-                int j = i - 1;
-                while (j >= 0 && list[j].Index > k.Index) { list[j + 1] = list[j]; j--; }
-                list[j + 1] = k;
-            }
-        }
+        // Was an insertion sort — O(n²) over every caravan and escort each
+        // tick. Same order: the keys are unique.
+        private static void SortByIndex(NativeList<Entity> list) => list.Sort(new ByIndex());
 
         private static NativeList<Entity> SortedEntities(EntityManager em, EntityQuery q)
         {
             using var arr = q.ToEntityArray(Allocator.Temp);
             var list = new NativeList<Entity>(arr.Length, Allocator.Temp);
-            for (int i = 0; i < arr.Length; i++) list.Add(arr[i]);
+            list.AddRange(arr);
             SortByIndex(list);
             return list;
         }
@@ -312,6 +398,7 @@ namespace TheWaningBorder.Runai
             ReSync();
             var em = EntityManager;
             float dt = SystemAPI.Time.DeltaTime;
+            SnapshotCultures(em);
 
             if (_tagTick.Due(dt, 1f)) { TagDepots(em); GrantTheCall(em); }
             if (_logTick.Due(dt, 60f)) LogTrade(em);
@@ -323,6 +410,7 @@ namespace TheWaningBorder.Runai
             if (dq.IsEmptyIgnoreFilter && QC_Caravans.Get(em, QT_Caravans).IsEmptyIgnoreFilter) return;
 
             CollectSites(em);
+            SnapshotFlags();
 
             var depotList = SortedEntities(em, dq);
             var caravans = SortedEntities(em, QC_Caravans.Get(em, QT_Caravans));
@@ -350,7 +438,7 @@ namespace TheWaningBorder.Runai
             for (int fi = 0; fi < 8; fi++)
             {
                 var f = (Faction)fi;
-                if (!IsRunai(em, f)) continue;
+                if (!IsRunaiNow(f)) continue;
                 var sb = new System.Text.StringBuilder();
                 for (int i = 0; i < depots.Length; i++)
                 {
@@ -397,8 +485,8 @@ namespace TheWaningBorder.Runai
             for (int i = 0; i < ents.Length; i++)
             {
                 var e = ents[i];
+                if (!IsRunaiNow(facs[i].Value)) continue;   // the cheapest test first
                 if (!em.HasComponent<WorkerTag>(e) && !em.HasComponent<LitharchTag>(e) && !em.HasComponent<HeroLevel>(e)) continue;
-                if (!IsRunai(em, facs[i].Value)) continue;
                 if (em.HasComponent<UnitAbilities>(e))
                 {
                     var ua = em.GetComponentData<UnitAbilities>(e);
@@ -422,8 +510,8 @@ namespace TheWaningBorder.Runai
             var add = new NativeList<Entity>(Allocator.Temp);
             for (int i = 0; i < ents.Length; i++)
             {
+                if (!IsRunaiNow(facs[i].Value)) continue;
                 if (DepotKind(em, ents[i]) == 0) continue;
-                if (!IsRunai(em, facs[i].Value)) continue;
                 var bp = em.GetComponentData<LocalTransform>(ents[i]).Position;
                 if (IsHomeGround(RegionMap.RegionAt(bp.x, bp.z))) continue;   // no wagons at home
                 add.Add(ents[i]);
@@ -441,7 +529,7 @@ namespace TheWaningBorder.Runai
                 var e = ents[i];
                 var f = em.GetComponentData<FactionTag>(e).Value;
                 var p = em.GetComponentData<LocalTransform>(e).Position;
-                if (IsWaystation(em, e) && IsRunai(em, f))
+                if (IsRunaiNow(f) && IsWaystation(em, e))
                     _waystations.Add(new Waystation { F = f, P = p.xz });
                 float mult = MarketMultiplier(em, e, f);
                 if (mult > 0f) _markets.Add(new Market { E = e, F = f, P = p, Mult = mult });
@@ -485,8 +573,9 @@ namespace TheWaningBorder.Runai
                 var e = depots[i];
                 if (DepotKind(em, e) == 0) continue;
                 var f = em.GetComponentData<FactionTag>(e).Value;
-                if (!IsRunai(em, f)) continue;
-                int cap = CaravanCap(f);
+                if (!IsRunaiNow(f)) continue;
+                var fl = FlagsOf(f);
+                int cap = fl.Cap;
                 var d = em.GetComponentData<RunaiDepot>(e);
                 caravanCount.TryGetValue(e, out int haveC);
                 if (haveC < cap)
@@ -496,7 +585,7 @@ namespace TheWaningBorder.Runai
                 }
                 else d.CaravanTimer = 0f;
 
-                EscortSquad(f, out int g, out int a, out int r);
+                int g = fl.Guards, a = fl.Archers, r = fl.Riders;
                 bool owed = false;
                 for (int kind = 0; kind < 3 && !owed; kind++)
                 {
@@ -524,6 +613,9 @@ namespace TheWaningBorder.Runai
 
         // Engine-side: how long a wagon may make no headway before it leaves the road.
         private const float StallSeconds = 20f;
+        // Engine-side: how far an escort's slot beside its wagon may drift
+        // from the goal it is walking to before it is handed a new one.
+        private const float EscortRetargetMetres = 4f;
 
         private static long Key(Entity depot, EscortKind kind) => ((long)depot.Index << 3) | (long)kind;
 
@@ -574,7 +666,7 @@ namespace TheWaningBorder.Runai
             // ── Hunker Down (§7.2): stop at half health, armoured for a while.
             float frac = hp.Max > 0 ? (float)hp.Value / hp.Max : 1f;
             if (frac >= Cfg.hunkerHpFraction) c.HunkerSpent = 0;
-            else if (c.HunkerSpent == 0 && Researched(f, "Runai_HunkerDown"))
+            else if (c.HunkerSpent == 0 && FlagsOf(f).HunkerDown)
             {
                 c.HunkerSpent = 1;
                 c.Hunker = Cfg.hunkerSeconds;
@@ -675,8 +767,9 @@ namespace TheWaningBorder.Runai
 
             // Speed: Swift Wheels I-II, a Waystation, the Caravan Master.
             float mult = 1f;
-            if (Researched(f, "Runai_SwiftWheels")) mult *= 1f + Cfg.swiftWheelsSpeedPct / 100f;
-            if (Researched(f, "Runai_SwiftWheels2")) mult *= 1f + Cfg.swiftWheels2SpeedPct / 100f;
+            var fl = FlagsOf(f);
+            if (fl.SwiftWheels) mult *= 1f + Cfg.swiftWheelsSpeedPct / 100f;
+            if (fl.SwiftWheels2) mult *= 1f + Cfg.swiftWheels2SpeedPct / 100f;
             if (NearWaystation(f, pos.xz)) mult *= 1f + Cfg.waystationSpeedPct / 100f;
             if (NearMaster(f, pos.xz)) mult *= 1f + Cfg.caravanMasterSpeedPct / 100f;
             em.SetComponentData(e, new MoveSpeed { Value = c.BaseSpeed * mult });
@@ -689,7 +782,7 @@ namespace TheWaningBorder.Runai
         {
             if (!em.HasComponent<Damage>(e)) return;
             int want = c.Armed > 0f ? (int)Cfg.caravanOfSwordsDamage
-                     : Researched(f, "Runai_WagonArchers") ? (int)Cfg.wagonArcherDamage : 0;
+                     : FlagsOf(f).WagonArchers ? (int)Cfg.wagonArcherDamage : 0;
             var dmg = em.GetComponentData<Damage>(e);
             if (dmg.Value != want) { dmg.Value = want; em.SetComponentData(e, dmg); }
         }
@@ -874,7 +967,13 @@ namespace TheWaningBorder.Runai
                     float ang = e.Index * 1.1f;
                     var to = new float3(anchor.x + math.cos(ang) * Cfg.escortOffset, anchor.y,
                                         anchor.z + math.sin(ang) * Cfg.escortOffset);
-                    em.SetComponentData(e, new DesiredDestination { Position = to, Has = 1 });
+                    // HYSTERESIS (2026-10-15): a fresh goal only once the slot
+                    // has drifted EscortRetargetMetres from the one being
+                    // walked to. A new goal every tick behind a rolling wagon
+                    // rebuilt the escort's flow-field goal every tick.
+                    var dd = em.GetComponentData<DesiredDestination>(e);
+                    if (dd.Has == 0 || math.distancesq(dd.Position.xz, to.xz) > EscortRetargetMetres * EscortRetargetMetres)
+                        em.SetComponentData(e, new DesiredDestination { Position = to, Has = 1 });
                 }
             }
             riding.Dispose();
@@ -917,6 +1016,7 @@ namespace TheWaningBorder.Runai
         {
             var sys = em.World.GetExistingSystemManaged<RunaiTradeSystem>();
             if (sys == null) return;
+            SnapshotCultures(em);   // called from an ability, outside OnUpdate
             sys.CollectSites(em);
             var ents = SortedEntities(em, QC_Caravans.Get(em, QT_Caravans));
             float r2 = radius * radius;

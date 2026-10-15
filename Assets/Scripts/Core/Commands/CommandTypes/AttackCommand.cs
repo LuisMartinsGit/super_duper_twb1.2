@@ -90,7 +90,7 @@ namespace TheWaningBorder.Core.Commands.Types
             // dropped by stuck recovery (docs/Design/Stances.md §5). Clearing
             // the auto record is what makes it so — even when the order names
             // the very enemy the unit had auto-acquired.
-            if (em.HasComponent<UnitEngagement>(unit))
+            if (TransientState.Active<UnitEngagement>(em, unit))
             {
                 var eng = em.GetComponentData<UnitEngagement>(unit);
                 eng.AutoTarget = Entity.Null;
@@ -105,7 +105,7 @@ namespace TheWaningBorder.Core.Commands.Types
             // If the unit already has a guard point (e.g., from a move command),
             // keep it — the unit should return to its intended destination after combat,
             // not to where it happened to be when attacked.
-            if (em.HasComponent<GuardPoint>(unit))
+            if (TransientState.Active<GuardPoint>(em, unit))
             {
                 var existing = em.GetComponentData<GuardPoint>(unit);
                 if (existing.Has != 0) return; // Preserve existing guard point
@@ -113,7 +113,7 @@ namespace TheWaningBorder.Core.Commands.Types
 
             var pos = em.GetComponentData<LocalTransform>(unit).Position;
 
-            if (em.HasComponent<GuardPoint>(unit))
+            if (TransientState.Active<GuardPoint>(em, unit))
             {
                 em.SetComponentData(unit, new GuardPoint
                 {
@@ -123,7 +123,7 @@ namespace TheWaningBorder.Core.Commands.Types
             }
             else
             {
-                em.AddComponentData(unit, new GuardPoint
+                TransientState.Set(em, unit, new GuardPoint
                 {
                     Position = pos,
                     Has = 1

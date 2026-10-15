@@ -59,8 +59,8 @@ namespace TheWaningBorder.Entities
     public static class FeraldisOverseer
     {
         public const int PresentationID = 427;   // Overseer.prefab (Knight variant) on its SO
-        public static Entity Create(EntityManager em, float3 p, Faction f) => Make(new EmCreator(em), p, f);
-        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => Make(new EcbCreator(ecb), p, f);
+        public static Entity Create(EntityManager em, float3 p, Faction f) => EntityBuild.Done(Make(new EmCreator(em), p, f));
+        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => EntityBuild.Done(Make(new EcbCreator(ecb), p, f));
         private static Entity Make<T>(T c, float3 p, Faction f) where T : struct, IEntityCreator
         {
             var def = TechCatalog.Unit("Feraldis_Overseer");
@@ -74,8 +74,8 @@ namespace TheWaningBorder.Entities
     public static class HarkonFiend
     {
         public const int PresentationID = 425;   // HarkonFiend.prefab (2-handed variant) on its SO
-        public static Entity Create(EntityManager em, float3 p, Faction f) => Make(new EmCreator(em), p, f);
-        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => Make(new EcbCreator(ecb), p, f);
+        public static Entity Create(EntityManager em, float3 p, Faction f) => EntityBuild.Done(Make(new EmCreator(em), p, f));
+        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => EntityBuild.Done(Make(new EcbCreator(ecb), p, f));
         private static Entity Make<T>(T c, float3 p, Faction f) where T : struct, IEntityCreator
         {
             var def = TechCatalog.Unit("Feraldis_HarkonFiend");
@@ -93,8 +93,8 @@ namespace TheWaningBorder.Entities
     public static class FeraldisRamRig
     {
         public const int PresentationID = 422;   // RamRig.prefab on its SO
-        public static Entity Create(EntityManager em, float3 p, Faction f) => Make(new EmCreator(em), p, f);
-        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => Make(new EcbCreator(ecb), p, f);
+        public static Entity Create(EntityManager em, float3 p, Faction f) => EntityBuild.Done(Make(new EmCreator(em), p, f));
+        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => EntityBuild.Done(Make(new EcbCreator(ecb), p, f));
         private static Entity Make<T>(T c, float3 p, Faction f) where T : struct, IEntityCreator
         {
             var def = TechCatalog.Unit("Feraldis_RamRig");
@@ -110,8 +110,8 @@ namespace TheWaningBorder.Entities
     public static class FeraldisHarpoonRig
     {
         public const int PresentationID = 423;   // HarpoonRig.prefab on its SO
-        public static Entity Create(EntityManager em, float3 p, Faction f) => Make(new EmCreator(em), p, f);
-        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => Make(new EcbCreator(ecb), p, f);
+        public static Entity Create(EntityManager em, float3 p, Faction f) => EntityBuild.Done(Make(new EmCreator(em), p, f));
+        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => EntityBuild.Done(Make(new EcbCreator(ecb), p, f));
         private static Entity Make<T>(T c, float3 p, Faction f) where T : struct, IEntityCreator
         {
             var def = TechCatalog.Unit("Feraldis_HarpoonRig");
@@ -127,8 +127,8 @@ namespace TheWaningBorder.Entities
     public static class FeraldisCorpseEngine
     {
         public const int PresentationID = 421;   // CorpseEngine.prefab on its SO
-        public static Entity Create(EntityManager em, float3 p, Faction f) => Make(new EmCreator(em), p, f);
-        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => Make(new EcbCreator(ecb), p, f);
+        public static Entity Create(EntityManager em, float3 p, Faction f) => EntityBuild.Done(Make(new EmCreator(em), p, f));
+        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => EntityBuild.Done(Make(new EcbCreator(ecb), p, f));
         private static Entity Make<T>(T c, float3 p, Faction f) where T : struct, IEntityCreator
         {
             var def = TechCatalog.Unit("Feraldis_CorpseEngine");
@@ -148,13 +148,13 @@ namespace TheWaningBorder.Entities
         public const int PresentationID = 424;   // WarRig.prefab on its SO
         public static Entity Create(EntityManager em, float3 p, Faction f)
         {
-            var e = Make(new EmCreator(em), p, f);
+            var e = EntityBuild.Done(Make(new EmCreator(em), p, f));
             em.AddBuffer<WarRigPassenger>(e);
             return e;
         }
         public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f)
         {
-            var e = Make(new EcbCreator(ecb), p, f);
+            var e = EntityBuild.Done(Make(new EcbCreator(ecb), p, f));
             ecb.AddBuffer<WarRigPassenger>(e);
             return e;
         }

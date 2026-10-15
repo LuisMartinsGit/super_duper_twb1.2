@@ -9,6 +9,125 @@ using TheWaningBorder.Systems.Sect;
 namespace TheWaningBorder.Systems.Combat
 {
     /// <summary>
+    /// The read-only component lookups the per-unit combat loops share
+    /// (MeleeCombatSystem, RangedCombatSystem) — 2026-10-15 perf pass.
+    ///
+    /// Why: EntityManager.HasComponent / GetComponentData find the component
+    /// by walking the entity archetype's type list, ~100-120 types on a
+    /// late-game unit, and the melee loop made ~30 such calls per unit per
+    /// tick before it even knew whether it would swing. A ComponentLookup
+    /// caches the last archetype it saw and answers a repeat in O(1).
+    ///
+    /// Reads only, and a lookup reads the live component memory, so a value
+    /// the loop wrote a moment earlier through the EntityManager (a hit's
+    /// Health) is what the next read sees — the answers are exactly the
+    /// EntityManager's. Writes and structural changes stay on the
+    /// EntityManager / the ECB as before.
+    ///
+    /// Owned by the system: <see cref="Create"/> in OnCreate,
+    /// <see cref="Update"/> at the top of every OnUpdate.
+    /// </summary>
+    public struct CombatLookups
+    {
+        [Unity.Collections.ReadOnly] public ComponentLookup<Health> Health;
+        [Unity.Collections.ReadOnly] public ComponentLookup<FactionTag> Faction;
+        [Unity.Collections.ReadOnly] public ComponentLookup<Unity.Transforms.LocalTransform> Transform;
+        [Unity.Collections.ReadOnly] public ComponentLookup<BuildingSize> Size;
+        [Unity.Collections.ReadOnly] public ComponentLookup<Radius> Radius;
+        [Unity.Collections.ReadOnly] public ComponentLookup<BuildingTag> Building;
+        [Unity.Collections.ReadOnly] public ComponentLookup<WallTag> Wall;
+        [Unity.Collections.ReadOnly] public ComponentLookup<FlyingTag> Flying;
+        [Unity.Collections.ReadOnly] public ComponentLookup<ArcherTag> Archer;
+        [Unity.Collections.ReadOnly] public ComponentLookup<SiegeTag> Siege;
+        [Unity.Collections.ReadOnly] public ComponentLookup<BallistaShooterTag> BallistaShooter;
+        [Unity.Collections.ReadOnly] public ComponentLookup<BuildingsOnlyAttacker> BuildingsOnly;
+        [Unity.Collections.ReadOnly] public ComponentLookup<DamageTypeData> DamageType;
+        [Unity.Collections.ReadOnly] public ComponentLookup<CodexFrozen> CodexFrozen;
+        [Unity.Collections.ReadOnly] public ComponentLookup<FiresOnMove> FiresOnMove;
+        [Unity.Collections.ReadOnly] public ComponentLookup<NavLayerIndex> NavLayer;
+        [Unity.Collections.ReadOnly] public ComponentLookup<DesiredDestination> Destination;
+        [Unity.Collections.ReadOnly] public ComponentLookup<EmplacedEngineTag> Emplaced;
+        [Unity.Collections.ReadOnly] public ComponentLookup<StationaryAutoFire> StationaryFire;
+        [Unity.Collections.ReadOnly] public ComponentLookup<RitualState> Ritual;
+        [Unity.Collections.ReadOnly] public ComponentLookup<UnitEngagement> Engagement;
+        [Unity.Collections.ReadOnly] public ComponentLookup<ChaseAnchor> ChaseAnchor;
+        [Unity.Collections.ReadOnly] public ComponentLookup<Invulnerable> Invulnerable;
+        [Unity.Collections.ReadOnly] public ComponentLookup<TheWaningBorder.Abilities.TempDisarm> TempDisarm;
+        [Unity.Collections.ReadOnly] public ComponentLookup<TheWaningBorder.Core.Commands.Types.AttackCommand> AttackCommand;
+
+        public static CombatLookups Create(ref SystemState state) => new CombatLookups
+        {
+            Health = state.GetComponentLookup<Health>(true),
+            Faction = state.GetComponentLookup<FactionTag>(true),
+            Transform = state.GetComponentLookup<Unity.Transforms.LocalTransform>(true),
+            Size = state.GetComponentLookup<BuildingSize>(true),
+            Radius = state.GetComponentLookup<Radius>(true),
+            Building = state.GetComponentLookup<BuildingTag>(true),
+            Wall = state.GetComponentLookup<WallTag>(true),
+            Flying = state.GetComponentLookup<FlyingTag>(true),
+            Archer = state.GetComponentLookup<ArcherTag>(true),
+            Siege = state.GetComponentLookup<SiegeTag>(true),
+            BallistaShooter = state.GetComponentLookup<BallistaShooterTag>(true),
+            BuildingsOnly = state.GetComponentLookup<BuildingsOnlyAttacker>(true),
+            DamageType = state.GetComponentLookup<DamageTypeData>(true),
+            CodexFrozen = state.GetComponentLookup<CodexFrozen>(true),
+            FiresOnMove = state.GetComponentLookup<FiresOnMove>(true),
+            NavLayer = state.GetComponentLookup<NavLayerIndex>(true),
+            Destination = state.GetComponentLookup<DesiredDestination>(true),
+            Emplaced = state.GetComponentLookup<EmplacedEngineTag>(true),
+            StationaryFire = state.GetComponentLookup<StationaryAutoFire>(true),
+            Ritual = state.GetComponentLookup<RitualState>(true),
+            Engagement = state.GetComponentLookup<UnitEngagement>(true),
+            ChaseAnchor = state.GetComponentLookup<ChaseAnchor>(true),
+            Invulnerable = state.GetComponentLookup<Invulnerable>(true),
+            TempDisarm = state.GetComponentLookup<TheWaningBorder.Abilities.TempDisarm>(true),
+            AttackCommand = state.GetComponentLookup<TheWaningBorder.Core.Commands.Types.AttackCommand>(true),
+        };
+
+        public void Update(ref SystemState state)
+        {
+            Health.Update(ref state);
+            Faction.Update(ref state);
+            Transform.Update(ref state);
+            Size.Update(ref state);
+            Radius.Update(ref state);
+            Building.Update(ref state);
+            Wall.Update(ref state);
+            Flying.Update(ref state);
+            Archer.Update(ref state);
+            Siege.Update(ref state);
+            BallistaShooter.Update(ref state);
+            BuildingsOnly.Update(ref state);
+            DamageType.Update(ref state);
+            CodexFrozen.Update(ref state);
+            FiresOnMove.Update(ref state);
+            NavLayer.Update(ref state);
+            Destination.Update(ref state);
+            Emplaced.Update(ref state);
+            StationaryFire.Update(ref state);
+            Ritual.Update(ref state);
+            Engagement.Update(ref state);
+            ChaseAnchor.Update(ref state);
+            Invulnerable.Update(ref state);
+            TempDisarm.Update(ref state);
+            AttackCommand.Update(ref state);
+        }
+
+        /// <summary>TransientState.Active through a lookup: present AND enabled.</summary>
+        public static bool Active<T>(in ComponentLookup<T> lookup, Entity e)
+            where T : unmanaged, IComponentData, IEnableableComponent
+            => lookup.HasComponent(e) && lookup.IsComponentEnabled(e);
+
+        /// <summary>TargetGeometry.Extent(em, e) through the lookups.</summary>
+        public TheWaningBorder.Core.TargetExtent Extent(Entity target)
+            => TheWaningBorder.Core.TargetGeometry.Extent(target, in Transform, in Size, in Radius);
+
+        /// <summary><see cref="CombatDamageHelper.DealsSiege"/> through the lookup.</summary>
+        public bool DealsSiege(Entity attacker)
+            => DamageType.TryGetComponent(attacker, out var d) && d.Value == global::DamageType.Siege;
+    }
+
+    /// <summary>
     /// Fix #226: central place for the on-hit effect pipeline so Melee and
     /// Ranged combat systems don't have to maintain their own 80-line copies
     /// of the same logic.
@@ -198,6 +317,16 @@ namespace TheWaningBorder.Systems.Combat
         public static bool DealsSiege(EntityManager em, Entity attacker)
             => em.HasComponent<DamageTypeData>(attacker)
                && em.GetComponentData<DamageTypeData>(attacker).Value == DamageType.Siege;
+
+        /// <summary><see cref="CanDamage(EntityManager, Entity, Entity)"/>
+        /// through the shared lookups (the per-unit combat loops).</summary>
+        public static bool CanDamage(in CombatLookups lk, Entity attacker, Entity target)
+        {
+            if (!lk.Faction.TryGetComponent(attacker, out var af)
+                || !lk.Faction.TryGetComponent(target, out var tf))
+                return true;
+            return Alliances.AreHostile(af.Value, tf.Value);
+        }
 
         public static bool CanDamage(EntityManager em, Entity attacker, Entity target)
         {

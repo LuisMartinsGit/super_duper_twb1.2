@@ -37,9 +37,25 @@ namespace TheWaningBorder.Systems.Combat
         private const float MaxHeightBonus = 0.20f;    // Cap at +20%
         private const float MaxHeightPenalty = -0.20f; // Cap at -20%
 
+        /// <summary>The per-unit reads, through lookups (2026-10-15 perf
+        /// pass — see CombatLookups). Created once, refreshed every update.</summary>
+        private CombatLookups _lk;
+
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
+            _lk = CombatLookups.Create(ref state);
+        }
+
+        /// <summary>
+        /// Drop the AttackCommand if it is live — TransientState.Active +
+        /// TransientState.Clear, through the lookup. Active implies present,
+        /// so Clear's own presence guard is already satisfied.
+        /// </summary>
+        private static void DropAttackCommand(in CombatLookups lk, EntityCommandBuffer ecb, Entity e)
+        {
+            if (CombatLookups.Active(in lk.AttackCommand, e))
+                ecb.SetComponentEnabled<AttackCommand>(e, false);
         }
 
         public void OnUpdate(ref SystemState state)
@@ -53,6 +69,8 @@ namespace TheWaningBorder.Systems.Combat
             var dt = SystemAPI.Time.DeltaTime;
             var elapsed = SimCadence.MatchTimeOr(SystemAPI.Time.ElapsedTime); // for BuildingDamageState stamps
             var em = state.EntityManager;
+            _lk.Update(ref state);
+            var lk = _lk;
 
             // Flanking (docs/Design/Combat_Pacing.md § Flanking). Read once per
             // update; the arc test below compares a dot product against the
@@ -103,7 +121,7 @@ namespace TheWaningBorder.Systems.Combat
 
                 // Update cooldown timer. Frozen by Recall the Codex
                 // (Antiquity): cooldowns do not recover while CodexFrozen.
-                if (cd.Timer > 0 && !em.HasComponent<CodexFrozen>(entity))
+                if (cd.Timer > 0 && !lk.CodexFrozen.HasComponent(entity))
                 {
                     cd.Timer -= dt;
                 }
@@ -112,45 +130,34 @@ namespace TheWaningBorder.Systems.Combat
                 if (tgt.Value == Entity.Null || !em.Exists(tgt.Value))
                 {
                     tgt.Value = Entity.Null;
-                    if (TransientState.Active<AttackCommand>(em, entity))
-                    {
-                        TransientState.Clear<AttackCommand>(em, ecb, entity);
-                    }
+                    DropAttackCommand(in lk, ecb, entity);
                     continue;
                 }
 
                 // Fix #212: defensively check HasComponent<Health> before reading.
                 // If the target lost its Health component (e.g. DeathSystem removed
                 // it via ECB playback ordering), GetComponentData would throw.
-                if (!em.HasComponent<Health>(tgt.Value))
+                if (!lk.Health.TryGetComponent(tgt.Value, out var targetHealth))
                 {
                     tgt.Value = Entity.Null;
-                    if (TransientState.Active<AttackCommand>(em, entity))
-                    {
-                        TransientState.Clear<AttackCommand>(em, ecb, entity);
-                    }
+                    DropAttackCommand(in lk, ecb, entity);
                     continue;
                 }
 
                 // Melee cannot reach a FLYING target (Age_1_Runai.md §6.4).
-                if (em.HasComponent<FlyingTag>(tgt.Value)
-                    && !TheWaningBorder.Systems.Combat.TargetingSystem.CanHitFlying(em, entity))
+                if (lk.Flying.HasComponent(tgt.Value)
+                    && !TargetingSystem.CanHitFlying(in lk, entity))
                 {
                     tgt.Value = Entity.Null;
-                    if (TransientState.Active<AttackCommand>(em, entity))
-                        TransientState.Clear<AttackCommand>(em, ecb, entity);
+                    DropAttackCommand(in lk, ecb, entity);
                     continue;
                 }
 
                 // Validate target is alive
-                var targetHealth = em.GetComponentData<Health>(tgt.Value);
                 if (targetHealth.Value <= 0)
                 {
                     tgt.Value = Entity.Null;
-                    if (TransientState.Active<AttackCommand>(em, entity))
-                    {
-                        TransientState.Clear<AttackCommand>(em, ecb, entity);
-                    }
+                    DropAttackCommand(in lk, ecb, entity);
                     continue;
                 }
 
@@ -160,14 +167,11 @@ namespace TheWaningBorder.Systems.Combat
                 // the same way) finds a wall or leaves the ram idle.
                 // DesiredDestination is deliberately untouched — the
                 // chase-arbitration contract stays intact.
-                if (em.HasComponent<BuildingsOnlyAttacker>(entity)
-                    && !em.HasComponent<BuildingTag>(tgt.Value))
+                if (lk.BuildingsOnly.HasComponent(entity)
+                    && !lk.Building.HasComponent(tgt.Value))
                 {
                     tgt.Value = Entity.Null;
-                    if (TransientState.Active<AttackCommand>(em, entity))
-                    {
-                        TransientState.Clear<AttackCommand>(em, ecb, entity);
-                    }
+                    DropAttackCommand(in lk, ecb, entity);
                     continue;
                 }
 
@@ -176,15 +180,10 @@ namespace TheWaningBorder.Systems.Combat
                 // at one even when force-ordered. Same drop contract as the
                 // ram's buildings-only rule above; the targeting pass filters
                 // walls out the same way, so the re-pick lands elsewhere.
-                if (em.HasComponent<WallTag>(tgt.Value)
-                    && (!em.HasComponent<DamageTypeData>(entity)
-                        || em.GetComponentData<DamageTypeData>(entity).Value != DamageType.Siege))
+                if (lk.Wall.HasComponent(tgt.Value) && !lk.DealsSiege(entity))
                 {
                     tgt.Value = Entity.Null;
-                    if (TransientState.Active<AttackCommand>(em, entity))
-                    {
-                        TransientState.Clear<AttackCommand>(em, ecb, entity);
-                    }
+                    DropAttackCommand(in lk, ecb, entity);
                     continue;
                 }
 
@@ -194,27 +193,24 @@ namespace TheWaningBorder.Systems.Combat
                 // relationship that justified it — drop it with the same
                 // contract as the two rules above and let the next targeting
                 // pass re-pick. docs/Design/Teams.md
-                if (!CombatDamageHelper.CanDamage(em, entity, tgt.Value))
+                if (!CombatDamageHelper.CanDamage(in lk, entity, tgt.Value))
                 {
                     tgt.Value = Entity.Null;
-                    if (TransientState.Active<AttackCommand>(em, entity))
-                    {
-                        TransientState.Clear<AttackCommand>(em, ecb, entity);
-                    }
+                    DropAttackCommand(in lk, ecb, entity);
                     continue;
                 }
 
                 // Full Gallop: cavalry mid-sprint cannot swing. They keep chasing —
                 // only the attack is suppressed for the burst's duration.
-                if (TransientState.Active<TheWaningBorder.Abilities.TempDisarm>(em, entity)) continue;
+                if (CombatLookups.Active(in lk.TempDisarm, entity)) continue;
 
                 // Fix #211: skip targets that are currently Invulnerable (set by
                 // SpellBuffSystem). Without this guard, protected units still
                 // took full damage, making the buff a no-op.
-                if (TransientState.Active<Invulnerable>(em, tgt.Value)) continue;
+                if (CombatLookups.Active(in lk.Invulnerable, tgt.Value)) continue;
 
                 var myPos = transform.ValueRO.Position;
-                var targetXf = em.GetComponentData<LocalTransform>(tgt.Value);
+                var targetXf = lk.Transform[tgt.Value];
                 var targetPos = targetXf.Position;
 
                 // SURFACE distance — how far the attacker is from the target's
@@ -222,7 +218,7 @@ namespace TheWaningBorder.Systems.Combat
                 // buildings, circle for everything else. Shared with the
                 // targeting, ranged and arrival paths so a building is the same
                 // size to every system that looks at it.
-                var extent = TargetGeometry.Extent(em, tgt.Value);
+                var extent = lk.Extent(tgt.Value);
                 float surfaceDist = extent.SurfaceDistXZ(myPos);
 
                 // Vertically separated (bridge deck vs underpass): melee
@@ -233,12 +229,11 @@ namespace TheWaningBorder.Systems.Combat
                 // terrain at its centre, not its body (MeleeHeightBlocks).
                 if (surfaceDist <= MeleeRange
                     && TargetingSystem.MeleeHeightBlocks(myPos.y, targetPos.y,
-                        em.HasComponent<BuildingTag>(tgt.Value),
-                        TargetingSystem.IsOnRampart(em, entity)))
+                        lk.Building.HasComponent(tgt.Value),
+                        TargetingSystem.IsOnRampart(in lk, entity)))
                 {
                     tgt.Value = Entity.Null;
-                    if (TransientState.Active<AttackCommand>(em, entity))
-                        TransientState.Clear<AttackCommand>(em, ecb, entity);
+                    DropAttackCommand(in lk, ecb, entity);
                     continue;
                 }
 
@@ -250,8 +245,9 @@ namespace TheWaningBorder.Systems.Combat
                     // tangential, because the approach ends in a sidestep.
                     // Ride-By (Feraldis Rig Yard tech): Raiders strike without
                     // stopping — FiresOnMove is stamped on them by FeraldisTechStampSystem.
-                    if (!em.HasComponent<FiresOnMove>(entity))
-                        TargetGeometry.StopAndFace(ecb, em, entity, targetPos, dt);
+                    if (!lk.FiresOnMove.HasComponent(entity))
+                        TargetGeometry.StopAndFace(ecb, em, in lk.Destination, in lk.Transform,
+                            entity, targetPos, dt);
 
                     // Attack if cooldown is ready
                     if (cd.Timer <= 0)
@@ -436,12 +432,11 @@ namespace TheWaningBorder.Systems.Combat
                     // every frame — the same way the return-to-guard branch
                     // did before it was gated, which broke every measured
                     // channel on 2026-08-07.
-                    if (!TargetingSystem.MayChase(em, entity, tgt.Value))
+                    if (!TargetingSystem.MayChase(in lk, entity, tgt.Value))
                     {
                         // Clear target so unit stays put
                         tgt.Value = Entity.Null;
-                        if (TransientState.Active<AttackCommand>(em, entity))
-                            TransientState.Clear<AttackCommand>(em, ecb, entity);
+                        DropAttackCommand(in lk, ecb, entity);
                         continue;
                     }
 
@@ -466,7 +461,7 @@ namespace TheWaningBorder.Systems.Combat
                     // still WRITE the destination every frame (TargetingSystem
                     // clears Has on attackers) — we just write the same point
                     // until the target actually moves. See ChaseAnchor.
-                    float3 chaseTarget = ResolveChaseAnchor(em, ecb, entity, tgt.Value,
+                    float3 chaseTarget = ResolveChaseAnchor(in lk, ecb, entity, tgt.Value,
                         targetPos, myPos, in extent);
 
                     // No facing write here on purpose: while the unit is moving,
@@ -474,7 +469,7 @@ namespace TheWaningBorder.Systems.Combat
                     // Writing here too would have the two systems fight over
                     // LocalTransform.Rotation every frame.
 
-                    if (!em.HasComponent<DesiredDestination>(entity))
+                    if (!lk.Destination.HasComponent(entity))
                     {
                         ecb.AddComponent(entity, new DesiredDestination
                         {
@@ -553,14 +548,14 @@ namespace TheWaningBorder.Systems.Combat
             }
         }
 
-        private static float3 ResolveChaseAnchor(EntityManager em, EntityCommandBuffer ecb,
+        private static float3 ResolveChaseAnchor(in CombatLookups lk, EntityCommandBuffer ecb,
             Entity self, Entity target, float3 targetPos, float3 myPos,
             in TargetExtent extent)
         {
-            bool hasAnchor = TransientState.Active<ChaseAnchor>(em, self);
+            bool hasAnchor = CombatLookups.Active(in lk.ChaseAnchor, self);
             if (hasAnchor)
             {
-                var a = em.GetComponentData<ChaseAnchor>(self);
+                var a = lk.ChaseAnchor[self];
                 bool sameTarget = a.Target == target;
                 float dx = a.TargetPos.x - targetPos.x;
                 float dz = a.TargetPos.z - targetPos.z;

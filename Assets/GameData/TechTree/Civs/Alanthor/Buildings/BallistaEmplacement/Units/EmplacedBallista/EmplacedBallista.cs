@@ -28,28 +28,28 @@ namespace TheWaningBorder.Entities
             byte shotTrajectory = ShotTrajectory.Flat;
             if (!string.IsNullOrEmpty(def.trajectory)) shotTrajectory = ShotTrajectory.Parse(def.trajectory);
 
-            var entity = em.CreateEntity();
-            em.AddComponentData(entity, new PresentationId { Id = PresentationID });
-            em.AddComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            em.AddComponentData(entity, new FactionTag { Value = faction });
-            em.AddComponentData(entity, new UnitTag { Class = UnitClass.Siege });
-            em.AddComponent<ArcherTag>(entity);
-            em.AddComponent<SiegeTag>(entity);
+            var entity = EntityBuild.CreateEntity(em);
+            EntityBuild.Add(em, entity, new PresentationId { Id = PresentationID });
+            EntityBuild.Add(em, entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            EntityBuild.Add(em, entity, new FactionTag { Value = faction });
+            EntityBuild.Add(em, entity, new UnitTag { Class = UnitClass.Siege });
+            EntityBuild.Add(em, entity, default(ArcherTag));
+            EntityBuild.Add(em, entity, default(SiegeTag));
             // Single-shot fire path + the CatapultVisual-driven projectile,
             // exactly as the mobile Ballista uses.
-            em.AddComponent<CatapultTag>(entity);
-            em.AddComponent<BallistaShooterTag>(entity);
-            em.AddComponent<EmplacedEngineTag>(entity);
+            EntityBuild.Add(em, entity, default(CatapultTag));
+            EntityBuild.Add(em, entity, default(BallistaShooterTag));
+            EntityBuild.Add(em, entity, default(EmplacedEngineTag));
             // Holds for ever: ClearAllCommands keeps this tag on an engine, so
             // no order can make it chase, retreat or return to a guard post.
-            em.AddComponent<HoldPositionTag>(entity);
-            em.AddComponentData(entity, new Health { Value = (int)def.hp, Max = (int)def.hp });
-            em.AddComponentData(entity, new Damage { Value = (int)def.damage });
-            em.AddComponentData(entity, new LineOfSight { Radius = def.lineOfSight });
-            em.AddComponentData(entity, new Target { Value = Entity.Null });
-            em.AddComponentData(entity, new Radius { Value = def.radius });
-            em.AddComponentData(entity, new AttackCooldown { Cooldown = def.attackCooldown, Timer = 0f });
-            em.AddComponentData(entity, new ArcherState
+            EntityBuild.Add(em, entity, default(HoldPositionTag));
+            EntityBuild.Add(em, entity, new Health { Value = (int)def.hp, Max = (int)def.hp });
+            EntityBuild.Add(em, entity, new Damage { Value = (int)def.damage });
+            EntityBuild.Add(em, entity, new LineOfSight { Radius = def.lineOfSight });
+            EntityBuild.Add(em, entity, new Target { Value = Entity.Null });
+            EntityBuild.Add(em, entity, new Radius { Value = def.radius });
+            EntityBuild.Add(em, entity, new AttackCooldown { Cooldown = def.attackCooldown, Timer = 0f });
+            EntityBuild.Add(em, entity, new ArcherState
             {
                 AimTimer = 0,
                 AimTimeRequired = def.aimTime,
@@ -61,20 +61,20 @@ namespace TheWaningBorder.Entities
                 Trajectory = shotTrajectory,
                 ProjectileSpeed = def.projectileSpeed,
             });
-            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.Ranged });
-            em.AddComponentData(entity, new DamageTypeData { Value = DamageType.Siege });
-            em.AddComponentData(entity, new Defense
+            EntityBuild.Add(em, entity, new ArmorTypeData { Value = ArmorType.Ranged });
+            EntityBuild.Add(em, entity, new DamageTypeData { Value = DamageType.Siege });
+            EntityBuild.Add(em, entity, new Defense
             {
                 Melee = def.defense.melee, Ranged = def.defense.ranged,
                 Siege = def.defense.siege, Magic = def.defense.magic,
             });
-            em.AddComponentData(entity, UnitTagParse.Bonus(def.bonusVsTags));
-            em.AddComponentData(entity, new NetworkedEntity
+            EntityBuild.Add(em, entity, UnitTagParse.Bonus(def.bonusVsTags));
+            EntityBuild.Add(em, entity, new NetworkedEntity
             {
                 NetworkId = NetworkIdGenerator.GetNextId(),
                 SpawnTick = 0,
             });
-            return entity;
+            return EntityBuild.Done(entity);
         }
     }
 }

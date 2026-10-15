@@ -18,10 +18,18 @@ namespace TheWaningBorder.Entities
         private const int PresentationID = 200;
 
         public static Entity Create(EntityManager em, float3 position, Faction faction)
-            => CreateInternal(new EmCreator(em), position, faction);
+        {
+            var e = EntityBuild.Done(CreateInternal(new EmCreator(em), position, faction));
+            TransientState.DisableWorkerOrders(em, e);
+            return e;
+        }
 
         public static Entity Create(EntityCommandBuffer ecb, float3 position, Faction faction)
-            => CreateInternal(new EcbCreator(ecb), position, faction);
+        {
+            var e = EntityBuild.Done(CreateInternal(new EcbCreator(ecb), position, faction));
+            TransientState.DisableWorkerOrders(ecb, e);
+            return e;
+        }
 
         private static Entity CreateInternal<TCreator>(TCreator creator, float3 position, Faction faction)
             where TCreator : struct, IEntityCreator
@@ -74,6 +82,18 @@ namespace TheWaningBorder.Entities
             // Combat type tags
             creator.AddComponent(entity, new DamageTypeData { Value = DamageType.Melee });
             creator.AddComponent(entity, new ArmorTypeData { Value = ArmorType.InfantryLight });
+
+            // The work orders, pre-added (2026-10-15) so a worker keeps ONE
+            // archetype for life instead of minting one per order it takes:
+            // BuildCommand / BuildOrder / RepairOrder are enableable and are
+            // DISABLED by Create right after this build commits (disabled
+            // reads as absent everywhere — TransientState.Active, queries,
+            // WithNone); the plan queue is an empty buffer, and an empty
+            // queue is how every reader already spells "nothing queued".
+            creator.AddComponent<TheWaningBorder.Core.Commands.Types.BuildCommand>(entity);
+            creator.AddComponent<BuildOrder>(entity);
+            creator.AddComponent<RepairOrder>(entity);
+            creator.AddBuffer<QueuedBuildSite>(entity);
 
             return entity;
         }

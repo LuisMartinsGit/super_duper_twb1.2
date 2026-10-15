@@ -98,23 +98,26 @@ namespace TheWaningBorder.Entities
         {
             var pos = BuildGrid.Snap(position, buildingId);
             var size = BuildingSizeConfig.GetSize(buildingId);
-            var e = em.CreateEntity();
-            em.AddComponentData(e, new PlannedBuilding
+            // One structural change for the whole plan (EntityBuild), not one
+            // per component — every prefix was an empty archetype.
+            using var build = EntityBuild.Begin(em);
+            var e = EntityBuild.CreateEntity(em);
+            EntityBuild.Add(em, e, new PlannedBuilding
             {
                 BuildingId = new FixedString64Bytes(buildingId),
                 Yaw = yawDegrees,
                 PaidReligion = paidReligion,
             });
-            em.AddComponentData(e, new PaidBuildCost { Value = paid });
-            em.AddComponentData(e, new FactionTag { Value = faction });
-            em.AddComponentData(e, LocalTransform.FromPositionRotationScale(
+            EntityBuild.Add(em, e, new PaidBuildCost { Value = paid });
+            EntityBuild.Add(em, e, new FactionTag { Value = faction });
+            EntityBuild.Add(em, e, LocalTransform.FromPositionRotationScale(
                 pos, quaternion.RotateY(math.radians(yawDegrees)), 1f));
-            em.AddComponentData(e, new BuildingSize { Width = size.x, Height = size.y });
-            em.AddComponentData(e, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(size) });
-            em.AddComponentData(e, new PresentationId { Id = BuildingFactory.GetPresentationId(buildingId) });
-            em.AddComponentData(e, new DisplayName { Value = DisplayNames.ForBuildingFixed(buildingId) });
+            EntityBuild.Add(em, e, new BuildingSize { Width = size.x, Height = size.y });
+            EntityBuild.Add(em, e, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(size) });
+            EntityBuild.Add(em, e, new PresentationId { Id = BuildingFactory.GetPresentationId(buildingId) });
+            EntityBuild.Add(em, e, new DisplayName { Value = DisplayNames.ForBuildingFixed(buildingId) });
             // A Build order can name the plan in the same lockstep tick.
-            em.AddComponentData(e, new NetworkedEntity
+            EntityBuild.Add(em, e, new NetworkedEntity
             {
                 NetworkId = NetworkIdGenerator.GetNextId(),
                 SpawnTick = NetworkIdGenerator.CurrentTick,
@@ -329,7 +332,7 @@ namespace TheWaningBorder.Entities
                         cmd.TargetBuilding = site;
                         em.SetComponentData(workers[i], cmd);
                     }
-                    else em.RemoveComponent<BuildCommand>(workers[i]);
+                    else TransientState.Clear<BuildCommand>(em, workers[i]);
                 }
             }
             var qq = QC_Queues.Get(em, QT_Queues);

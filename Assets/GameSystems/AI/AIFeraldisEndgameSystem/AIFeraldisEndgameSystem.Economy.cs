@@ -94,7 +94,7 @@ namespace TheWaningBorder.AI
             {
                 var w = idle[i];
                 // Never conscript one that is mid-build.
-                if (em.HasComponent<BuildCommand>(w)) continue;
+                if (TransientState.Active<BuildCommand>(em, w)) continue;
 
                 // LATENT MP DESYNC, FIXED 2026-09-13 (found while tracing a
                 // different fork; Feraldis is culture-gated off today, so this

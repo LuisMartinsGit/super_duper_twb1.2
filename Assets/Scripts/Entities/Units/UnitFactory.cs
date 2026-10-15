@@ -218,6 +218,10 @@ namespace TheWaningBorder.Entities
         /// <returns>Created entity</returns>
         public static Entity Create(EntityManager em, string unitId, float3 position, Faction faction)
         {
+            // One structural change per spawn, not one per component — see
+            // EntityBuild (the empty-archetype spam).
+            using var build = EntityBuild.Begin(em);
+
             Entity entity = Recipes.TryGetValue(unitId, out var recipe)
                 ? recipe.CreateEm(em, position, faction)
                 : CreateDefault(em, unitId, position, faction);
@@ -226,7 +230,7 @@ namespace TheWaningBorder.Entities
             // Skip for deferred entities (created via ECB wrapper like Litharch)
             if (entity.Index >= 0)
             {
-                em.AddComponentData(entity, new NetworkedEntity
+                EntityBuild.Add(em, entity, new NetworkedEntity
                 {
                     NetworkId = NetworkIdGenerator.GetNextId(),
                     SpawnTick = NetworkIdGenerator.CurrentTick
@@ -236,7 +240,7 @@ namespace TheWaningBorder.Entities
 
                 // Exact requested id — the generic tech-effects engine matches
                 // "unit:X" targets against this stamp.
-                em.AddComponentData(entity, new UnitTypeId { Value = unitId });
+                EntityBuild.Add(em, entity, new UnitTypeId { Value = unitId });
 
                 StampCounterTags(em, entity, unitId);
 
@@ -265,17 +269,17 @@ namespace TheWaningBorder.Entities
 
             uint mask = UnitTagParse.Mask(def.tags);
             if (mask != 0)
-                em.AddComponentData(entity, new UnitTagsData { Mask = mask });
+                EntityBuild.Add(em, entity, new UnitTagsData { Mask = mask });
 
             var bonus = UnitTagParse.Bonus(def.bonusVsTags);
             if (!bonus.IsEmpty)
-                em.AddComponentData(entity, bonus);
+                EntityBuild.Add(em, entity, bonus);
 
             // Target preference (Combat_Pacing.md § Target preference) —
             // the anti-army siege engines' picks, from the SO.
             var pref = UnitTagParse.Preference(def.preferTargets);
             if (!pref.IsEmpty)
-                em.AddComponentData(entity, pref);
+                EntityBuild.Add(em, entity, pref);
         }
 
         /// <summary>
@@ -287,7 +291,7 @@ namespace TheWaningBorder.Entities
         /// </summary>
         private static void StampDisplayName(EntityManager em, Entity entity, string unitId)
         {
-            em.AddComponentData(entity, new DisplayName
+            EntityBuild.Add(em, entity, new DisplayName
             {
                 Value = TheWaningBorder.Core.DisplayNames.ForUnitFixed(unitId)
             });
@@ -299,25 +303,28 @@ namespace TheWaningBorder.Entities
         /// </summary>
         public static Entity Create(EntityCommandBuffer ecb, string unitId, float3 position, Faction faction)
         {
+            // Same single-change build as the EntityManager overload.
+            using var build = EntityBuild.Begin(ecb);
+
             Entity entity = Recipes.TryGetValue(unitId, out var recipe)
                 ? recipe.CreateEcb(ecb, position, faction)
                 : CreateDefault(ecb, unitId, position, faction);
 
             // Assign network ID for multiplayer lockstep synchronization
-            ecb.AddComponent(entity, new NetworkedEntity
+            EntityBuild.Add(ecb, entity, new NetworkedEntity
             {
                 NetworkId = NetworkIdGenerator.GetNextId(),
                 SpawnTick = NetworkIdGenerator.CurrentTick
             });
 
-            ecb.AddComponent(entity, new DisplayName
+            EntityBuild.Add(ecb, entity, new DisplayName
             {
                 Value = TheWaningBorder.Core.DisplayNames.ForUnitFixed(unitId)
             });
 
             // Exact requested id — the generic tech-effects engine matches
             // "unit:X" targets against this stamp.
-            ecb.AddComponent(entity, new UnitTypeId { Value = unitId });
+            EntityBuild.Add(ecb, entity, new UnitTypeId { Value = unitId });
 
             // Counter-system stamps — same contract as the EM path's
             // StampCounterTags (ECB AddComponent is add-or-set at playback).
@@ -325,15 +332,15 @@ namespace TheWaningBorder.Entities
             {
                 uint mask = UnitTagParse.Mask(def.tags);
                 if (mask != 0)
-                    ecb.AddComponent(entity, new UnitTagsData { Mask = mask });
+                    EntityBuild.Add(ecb, entity, new UnitTagsData { Mask = mask });
 
                 var bonus = UnitTagParse.Bonus(def.bonusVsTags);
                 if (!bonus.IsEmpty)
-                    ecb.AddComponent(entity, bonus);
+                    EntityBuild.Add(ecb, entity, bonus);
 
                 var pref = UnitTagParse.Preference(def.preferTargets);
                 if (!pref.IsEmpty)
-                    ecb.AddComponent(entity, pref);
+                    EntityBuild.Add(ecb, entity, pref);
             }
 
             // Same transient pre-add as the EM path — see TransientState.cs.

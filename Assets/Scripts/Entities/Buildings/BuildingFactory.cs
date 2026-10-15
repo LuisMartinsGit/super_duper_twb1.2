@@ -189,6 +189,9 @@ namespace TheWaningBorder.Entities
             // AlanthorWall.CreateSegment/CreateInstance.
             position = BuildGrid.Snap(position, buildingId);
 
+            // One structural change per spawn — see EntityBuild.
+            using var build = EntityBuild.Begin(em);
+
             Entity entity;
             if (Recipes.TryGetValue(buildingId, out var recipe))
                 entity = recipe.CreateEm(em, position, faction);
@@ -202,13 +205,13 @@ namespace TheWaningBorder.Entities
                 entity = CreateDefault(em, buildingId, position, faction);
 
             // Assign network ID for multiplayer lockstep synchronization
-            em.AddComponentData(entity, new NetworkedEntity
+            EntityBuild.Add(em, entity, new NetworkedEntity
             {
                 NetworkId = NetworkIdGenerator.GetNextId(),
                 SpawnTick = NetworkIdGenerator.CurrentTick
             });
 
-            em.AddComponentData(entity, MakeDisplayName(buildingId));
+            EntityBuild.Add(em, entity, MakeDisplayName(buildingId));
 
             return entity;
         }
@@ -230,6 +233,8 @@ namespace TheWaningBorder.Entities
             // Same build-grid snap as the EntityManager overload above.
             position = BuildGrid.Snap(position, buildingId);
 
+            using var build = EntityBuild.Begin(ecb);
+
             Entity entity;
             if (Recipes.TryGetValue(buildingId, out var recipe) && recipe.CreateEcb != null)
                 entity = recipe.CreateEcb(ecb, position, faction);
@@ -241,13 +246,13 @@ namespace TheWaningBorder.Entities
                 entity = CreateDefault(ecb, buildingId, position, faction);
 
             // Assign network ID for multiplayer lockstep synchronization
-            ecb.AddComponent(entity, new NetworkedEntity
+            EntityBuild.Add(ecb, entity, new NetworkedEntity
             {
                 NetworkId = NetworkIdGenerator.GetNextId(),
                 SpawnTick = NetworkIdGenerator.CurrentTick
             });
 
-            ecb.AddComponent(entity, MakeDisplayName(buildingId));
+            EntityBuild.Add(ecb, entity, MakeDisplayName(buildingId));
 
             return entity;
         }
@@ -406,6 +411,12 @@ namespace TheWaningBorder.Entities
                 case "Hut": built = GetFactionBuildingCount<HutTag>(em, faction); break;
                 case "TempleOfRidan": built = GetFactionBuildingCount<TempleOfRidanTag>(em, faction); break;
                 case "ThessarasCrossing": built = GetFactionBuildingCount<ThessarasCrossingTag>(em, faction); break;
+                case "Feraldis_GreatForge": built = GetFactionBuildingCount<GreatForgeTag>(em, faction); break;
+                // The House of Vaelith sect buildings, one each (Religion.md §3.2).
+                case "Sect_Reliquary": built = GetFactionBuildingCount<ReliquaryTag>(em, faction); break;
+                case "Sect_MendingHall": built = GetFactionBuildingCount<MendingHallTag>(em, faction); break;
+                case "Sect_Stonehold": built = GetFactionBuildingCount<StoneholdTag>(em, faction); break;
+                case "Sect_Treasury": built = GetFactionBuildingCount<TreasuryTag>(em, faction); break;
                 default:
                     if (_uncountedCapWarned.Add(buildingId))
                         UnityEngine.Debug.LogError(

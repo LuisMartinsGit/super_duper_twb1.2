@@ -15,3 +15,10 @@ MonoBehaviour:
   clickRayLength: 1000
   wallDeckLayer: 1
   rampartRayEpsilon: 1e-05
+  dragThresholdPixels: 12
+  previewRefreshDegrees: 1.5
+  previewSlotColor: {r: 1, g: 0.82, b: 0.2, a: 0.55}
+  previewSlotSize: 0.9
+  previewArrowColor: {r: 1, g: 0.82, b: 0.2, a: 0.8}
+  previewArrowWidth: 0.12
+  previewYOffset: 0.15

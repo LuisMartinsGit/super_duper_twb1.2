@@ -119,7 +119,7 @@ namespace TheWaningBorder.Core.Commands.Types
             // bias -- with HasValue=0 it leaves the unit at rest, which is
             // the correct behaviour for "you clicked, but the new path
             // hasn't computed yet".
-            if (em.HasComponent<FlowDesiredDir>(unit))
+            if (TransientState.Active<FlowDesiredDir>(em, unit))
             {
                 em.SetComponentData(unit, new FlowDesiredDir { HasValue = 0, Value = float3.zero });
             }
@@ -160,9 +160,9 @@ namespace TheWaningBorder.Core.Commands.Types
             // Reset stuck/smoothing state so a previously-stuck unit immediately
             // accepts the new order instead of cancelling it on the next frame
             // (MovementSystem stuck recovery cancels DesiredDestination at counter > 30).
-            if (em.HasComponent<StuckState>(unit))
+            if (TransientState.Active<StuckState>(em, unit))
                 em.SetComponentData(unit, new StuckState { Counter = 0, LastAttempt = 0 });
-            if (em.HasComponent<SmoothedDirection>(unit))
+            if (TransientState.Active<SmoothedDirection>(em, unit))
                 em.SetComponentData(unit, new SmoothedDirection { Value = float3.zero });
             // Pre-warm: NavMeshPathRequestSystem picks up the new
             // DesiredDestination next frame and computes the path lazily.
@@ -173,10 +173,10 @@ namespace TheWaningBorder.Core.Commands.Types
             TransientState.SetFlag<UserMoveOrder>(em, unit);
 
             // Update guard point to new destination
-            if (em.HasComponent<GuardPoint>(unit))
+            if (TransientState.Active<GuardPoint>(em, unit))
                 em.SetComponentData(unit, new GuardPoint { Position = destination, Has = 1 });
                 else
-                    em.AddComponentData(unit, new GuardPoint { Position = destination, Has = 1 });
+                    TransientState.Set(em, unit, new GuardPoint { Position = destination, Has = 1 });
         }
 
         /// <summary>

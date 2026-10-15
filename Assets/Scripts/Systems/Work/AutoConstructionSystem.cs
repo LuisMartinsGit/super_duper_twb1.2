@@ -109,8 +109,14 @@ namespace TheWaningBorder.Systems.Work
                 ? em.GetComponentData<UnderConstruction>(site).LastProgressHp
                 : 0;
 
-            em.RemoveComponent<UnderConstruction>(site);
-            em.RemoveComponent<AutoConstructTag>(site);
+            // UnderConstruction, AutoConstructTag and any Buildable leftover go
+            // in ONE structural change (2026-10-15) — they used to be three,
+            // Buildable after the landmark hook below, which reads none of them.
+            var drop = new FixedList128Bytes<ComponentType>();
+            drop.Add(ComponentType.ReadWrite<UnderConstruction>());
+            drop.Add(ComponentType.ReadWrite<AutoConstructTag>());
+            if (em.HasComponent<Buildable>(site)) drop.Add(ComponentType.ReadWrite<Buildable>());
+            em.RemoveComponent(site, new ComponentTypeSet(drop));
 
             // Post-game chart milestone: choice building completed via the
             // self-build path (mirrors BuildingConstructionSystem).
@@ -120,8 +126,6 @@ namespace TheWaningBorder.Systems.Work
                     TheWaningBorder.Core.Diagnostics.GameEventKind.SpecialBuilding);
             // A finished landmark IS the age-up (Age_0.md § Age-up by landmark).
             LandmarkAgeUp.OnConstructionComplete(em, site);
-            if (em.HasComponent<Buildable>(site))
-                em.RemoveComponent<Buildable>(site);
 
             // Finish the HP ramp WITHOUT healing combat damage — add only the
             // progress still owed. Slamming to Max here undid the per-tick

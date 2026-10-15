@@ -32,13 +32,21 @@ namespace TheWaningBorder.Systems.Work
         private const float RepairRatePerWorker = 15.0f; // HP per second per worker
         private const float RepairCostMultiplier = 1.2f;  // 1.2x cost penalty
 
+        private EntityQuery _activeOrders;
+
         public void OnCreate(ref SystemState state)
         {
+            // RepairOrder is enableable and pre-added DISABLED on every Worker
+            // (2026-10-15); RequireForUpdate ignores enable bits, so the
+            // IsEmpty test below restores the old "only while an order is
+            // live" gate.
             state.RequireForUpdate<RepairOrder>();
+            _activeOrders = state.GetEntityQuery(ComponentType.ReadOnly<RepairOrder>());
         }
 
         public void OnUpdate(ref SystemState state)
         {
+            if (_activeOrders.IsEmpty) return;   // see OnCreate
             float dt = SystemAPI.Time.DeltaTime;
             var em = state.EntityManager;
 
@@ -68,21 +76,21 @@ namespace TheWaningBorder.Systems.Work
                 // Validate building still exists
                 if (!em.Exists(site))
                 {
-                    em.RemoveComponent<RepairOrder>(worker);
+                    TransientState.Clear<RepairOrder>(em, worker);
                     continue;
                 }
 
                 // Check if building is under construction (shouldn't repair, use BuildOrder instead)
                 if (em.HasComponent<UnderConstruction>(site))
                 {
-                    em.RemoveComponent<RepairOrder>(worker);
+                    TransientState.Clear<RepairOrder>(em, worker);
                     continue;
                 }
 
                 // Check if building still needs repair
                 if (!em.HasComponent<Health>(site))
                 {
-                    em.RemoveComponent<RepairOrder>(worker);
+                    TransientState.Clear<RepairOrder>(em, worker);
                     continue;
                 }
 
@@ -90,10 +98,10 @@ namespace TheWaningBorder.Systems.Work
                 if (hp.Value >= hp.Max)
                 {
                     // Fully repaired - clear order
-                    em.RemoveComponent<RepairOrder>(worker);
+                    TransientState.Clear<RepairOrder>(em, worker);
 
                     // Update guard point
-                    if (em.HasComponent<GuardPoint>(worker))
+                    if (TransientState.Active<GuardPoint>(em, worker))
                     {
                         em.SetComponentData(worker, new GuardPoint
                         {
@@ -146,7 +154,7 @@ namespace TheWaningBorder.Systems.Work
                         if (!TryPayRepairCost(em, worker, site, hp))
                         {
                             // Can't afford repair - remove order
-                            em.RemoveComponent<RepairOrder>(worker);
+                            TransientState.Clear<RepairOrder>(em, worker);
                             continue;
                         }
 
@@ -164,9 +172,9 @@ namespace TheWaningBorder.Systems.Work
                     if (hp.Value >= hp.Max)
                     {
                         // Repair complete
-                        em.RemoveComponent<RepairOrder>(worker);
+                        TransientState.Clear<RepairOrder>(em, worker);
 
-                        if (em.HasComponent<GuardPoint>(worker))
+                        if (TransientState.Active<GuardPoint>(em, worker))
                         {
                             em.SetComponentData(worker, new GuardPoint
                             {

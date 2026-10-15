@@ -726,8 +726,7 @@ namespace TheWaningBorder.Core.Commands
                     em.GetComponentData<Unity.Transforms.LocalTransform>(node).Position,
                     em.GetComponentData<Unity.Transforms.LocalTransform>(scholar).Position);
                 var gp = new GuardPoint { Position = stand, Has = 1 };
-                if (em.HasComponent<GuardPoint>(scholar)) em.SetComponentData(scholar, gp);
-                else em.AddComponentData(scholar, gp);
+                TransientState.Set(em, scholar, gp);
             }
         }
 
@@ -2383,22 +2382,30 @@ namespace TheWaningBorder.Core.Commands
                 em.SetComponentData(building, lt);
             }
 
+            // The site markers — PaidBuildCost, UnderConstruction and (for a
+            // landmark) AutoConstructTag — land in ONE structural change
+            // (2026-10-15); one add each left two empty archetypes per
+            // building type behind. Values are the same as before.
+            bool siteExists = building != Entity.Null && em.Exists(building);
+            bool selfBuilds = TheWaningBorder.Entities.BuildingFactory.IsChoiceBuilding(buildingId);
+            var siteTypes = new Unity.Collections.FixedList128Bytes<ComponentType>();
+            if (siteExists && !em.HasComponent<PaidBuildCost>(building))
+                siteTypes.Add(ComponentType.ReadWrite<PaidBuildCost>());
+            if (!em.HasComponent<UnderConstruction>(building))
+                siteTypes.Add(ComponentType.ReadWrite<UnderConstruction>());
+            if (selfBuilds && !em.HasComponent<AutoConstructTag>(building))
+                siteTypes.Add(ComponentType.ReadWrite<AutoConstructTag>());
+            if (siteTypes.Length > 0)
+                em.AddComponent(building, new ComponentTypeSet(siteTypes));
+
             // Remember what was charged, so a refund pays back THIS price and
             // not whatever the faction's next Hall would cost by then.
-            if (building != Entity.Null && em.Exists(building))
-            {
-                if (em.HasComponent<PaidBuildCost>(building))
-                    em.SetComponentData(building, new PaidBuildCost { Value = cost });
-                else
-                    em.AddComponentData(building, new PaidBuildCost { Value = cost });
-            }
+            if (siteExists)
+                em.SetComponentData(building, new PaidBuildCost { Value = cost });
 
             // Mark as under construction
             float buildTime = GetBuildTime(buildingId);
-            if (!em.HasComponent<UnderConstruction>(building))
-                em.AddComponentData(building, new UnderConstruction { Progress = 0f, Total = buildTime });
-                else
-                    em.SetComponentData(building, new UnderConstruction { Progress = 0f, Total = buildTime });
+            em.SetComponentData(building, new UnderConstruction { Progress = 0f, Total = buildTime });
 
             // Set HP to 1 during construction; the site completes to the def's
             // own Max. No sect research scales building HP any more - Renewal
@@ -2414,12 +2421,8 @@ namespace TheWaningBorder.Core.Commands
             // Workers can still be sent to accelerate — each contributes
             // +25 % build rate in BuildingConstructionSystem, so 4 workers
             // halve the time. Deterministic across lockstep peers (this
-            // method runs on every client).
-            if (TheWaningBorder.Entities.BuildingFactory.IsChoiceBuilding(buildingId)
-                && !em.HasComponent<AutoConstructTag>(building))
-            {
-                em.AddComponent<AutoConstructTag>(building);
-            }
+            // method runs on every client). AutoConstructTag itself was
+            // added with the other site markers above.
 
             // A worker-placed Fortress (one per territory, Territory_Claims.md
             // §4) inherits the faction's current culture so culture-driven
@@ -2557,12 +2560,9 @@ namespace TheWaningBorder.Core.Commands
         {
             TransientState.Clear<Types.MoveCommand>(em, unit);
             TransientState.Clear<Types.AttackCommand>(em, unit);
-            if (em.HasComponent<Types.BuildCommand>(unit))
-                em.RemoveComponent<Types.BuildCommand>(unit);
-            if (em.HasComponent<BuildOrder>(unit))
-                em.RemoveComponent<BuildOrder>(unit);
-            if (em.HasComponent<RepairOrder>(unit))
-                em.RemoveComponent<RepairOrder>(unit);
+            TransientState.Clear<Types.BuildCommand>(em, unit);
+            TransientState.Clear<BuildOrder>(em, unit);
+            TransientState.Clear<RepairOrder>(em, unit);
             if (em.HasComponent<Types.HealCommand>(unit))
                 em.RemoveComponent<Types.HealCommand>(unit);
             // Clear Litharch healing state (healing system uses LitharchState, not HealCommand)

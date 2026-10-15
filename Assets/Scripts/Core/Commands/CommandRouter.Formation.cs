@@ -8,7 +8,9 @@
 //
 // Lockstep multiplayer: a formation order is ONE replicated command,
 // FormationOrder (docs/Design/Navigation_And_Formations.md §2.12). It carries
-// the unit list, destination, shape and attack-move flag; every peer runs the
+// the unit list, destination, shape, attack-move flag and — since the
+// right-drag order (2026-10-15) — an optional quantised arrival facing in the
+// flag word (PackFacing); every peer runs the
 // same FormationMoveCommandHelper.Execute on identical state, so every peer
 // builds the same FormationGroup. It used to degrade to per-unit slot moves,
 // which arrived in shape but never held it en route.
@@ -39,7 +41,20 @@ namespace TheWaningBorder.Core.Commands
             float3 destination, FormationShape shape,
             CommandSource source = CommandSource.LocalPlayer)
         {
-            IssueFormationOrder(em, units, destination, shape, attackMove: false, source);
+            IssueFormationOrder(em, units, destination, shape, attackMove: false, float3.zero, source);
+        }
+
+        /// <summary>
+        /// Formation move that ARRIVES facing <paramref name="arriveFacing"/>
+        /// (XZ) — the right-drag order. The facing is quantised before it is
+        /// used on ANY path (see <see cref="PackFacing"/>), so the local, the
+        /// replayed and every remote execution lay out the same slots.
+        /// </summary>
+        public static void IssueFormationMove(EntityManager em, IReadOnlyList<Entity> units,
+            float3 destination, FormationShape shape, float3 arriveFacing,
+            CommandSource source = CommandSource.LocalPlayer)
+        {
+            IssueFormationOrder(em, units, destination, shape, attackMove: false, arriveFacing, source);
         }
 
         /// <summary>
@@ -51,12 +66,27 @@ namespace TheWaningBorder.Core.Commands
             float3 destination, FormationShape shape,
             CommandSource source = CommandSource.LocalPlayer)
         {
-            IssueFormationOrder(em, units, destination, shape, attackMove: true, source);
+            IssueFormationOrder(em, units, destination, shape, attackMove: true, float3.zero, source);
+        }
+
+        /// <summary>Formation attack-move with an ordered arrival facing
+        /// (right-drag while attack-move is armed).</summary>
+        public static void IssueFormationAttackMove(EntityManager em, IReadOnlyList<Entity> units,
+            float3 destination, FormationShape shape, float3 arriveFacing,
+            CommandSource source = CommandSource.LocalPlayer)
+        {
+            IssueFormationOrder(em, units, destination, shape, attackMove: true, arriveFacing, source);
         }
 
         private static void IssueFormationOrder(EntityManager em, IReadOnlyList<Entity> units,
-            float3 destination, FormationShape shape, bool attackMove, CommandSource source)
+            float3 destination, FormationShape shape, bool attackMove, float3 arriveFacing,
+            CommandSource source)
         {
+            // Quantise FIRST, whichever path runs the order: the wire can only
+            // carry the packed value, so the direct path uses it too.
+            int facingBits = PackFacing(arriveFacing);
+            arriveFacing = UnpackFacing(facingBits);
+
             if (units == null || units.Count == 0) return;
             if (ShouldDropCommand(source)) return;
 
@@ -84,11 +114,11 @@ namespace TheWaningBorder.Core.Commands
 
             if (ShouldQueueForLockstep(source))
             {
-                QueueFormationOrderForLockstep(em, eligible, destination, shape, attackMove);
+                QueueFormationOrderForLockstep(em, eligible, destination, shape, attackMove, facingBits);
                 return;
             }
 
-            FormationMoveCommandHelper.Execute(em, eligible, destination, shape, attackMove);
+            FormationMoveCommandHelper.Execute(em, eligible, destination, shape, attackMove, arriveFacing);
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -103,8 +133,49 @@ namespace TheWaningBorder.Core.Commands
         private const int FormationFlagAttackMove = 1 << 8;
         private const int FormationFlagMoreFollows = 1 << 9;
 
+        // ── Ordered arrival facing (right-drag, 2026-10-15). ──
+        //
+        // Bit 10 says a facing is present; bits 11-20 and 21-30 hold its X and
+        // Z components as 10-bit two's-complement integers scaled by
+        // FacingScale. Bit 31 stays clear, so TargetEntityId is never
+        // negative. Components rather than an angle on purpose: the executor
+        // rebuilds the vector with one normalize of two small integers — no
+        // trig, nothing a peer's maths library could round differently.
+        private const int FormationFlagHasFacing = 1 << 10;
+        private const int FacingXShift = 11;
+        private const int FacingZShift = 21;
+        private const int FacingMask = 0x3FF;
+        private const float FacingScale = 511f;
+
+        /// <summary>Packs an XZ facing into the FormationOrder flag word
+        /// (0 when the facing is degenerate, i.e. "face the travel
+        /// direction").</summary>
+        internal static int PackFacing(float3 facing)
+        {
+            float len = math.sqrt(facing.x * facing.x + facing.z * facing.z);
+            if (len < 1e-3f) return 0;
+            int qx = (int)math.round(facing.x / len * FacingScale);
+            int qz = (int)math.round(facing.z / len * FacingScale);
+            if (qx == 0 && qz == 0) return 0;
+            return FormationFlagHasFacing
+                | ((qx & FacingMask) << FacingXShift)
+                | ((qz & FacingMask) << FacingZShift);
+        }
+
+        /// <summary>The executor's side of <see cref="PackFacing"/>:
+        /// float3.zero when no facing was packed.</summary>
+        internal static float3 UnpackFacing(int flags)
+        {
+            if ((flags & FormationFlagHasFacing) == 0) return float3.zero;
+            int qx = (flags >> FacingXShift) & FacingMask;
+            int qz = (flags >> FacingZShift) & FacingMask;
+            if (qx > FacingMask / 2) qx -= FacingMask + 1;   // sign-extend 10 bits
+            if (qz > FacingMask / 2) qz -= FacingMask + 1;
+            return math.normalize(new float3(qx, 0f, qz));
+        }
+
         private static void QueueFormationOrderForLockstep(EntityManager em, List<Entity> eligible,
-            float3 destination, FormationShape shape, bool attackMove)
+            float3 destination, FormationShape shape, bool attackMove, int facingBits)
         {
             // Every member must be networked — a unit the other peers cannot
             // resolve would silently change the census, and with it the
@@ -126,7 +197,7 @@ namespace TheWaningBorder.Core.Commands
             int faction = em.HasComponent<FactionTag>(eligible[0])
                 ? (int)em.GetComponentData<FactionTag>(eligible[0]).Value : 0;
 
-            int flags = (int)(byte)shape | (attackMove ? FormationFlagAttackMove : 0);
+            int flags = (int)(byte)shape | (attackMove ? FormationFlagAttackMove : 0) | facingBits;
             for (int start = 0; start < ids.Count; start += MaxIdsPerCommand)
             {
                 int end = math.min(ids.Count, start + MaxIdsPerCommand);
@@ -229,7 +300,8 @@ namespace TheWaningBorder.Core.Commands
 
             var shape = (FormationShape)(byte)(cmd.TargetEntityId & 0xFF);
             bool attackMove = (cmd.TargetEntityId & FormationFlagAttackMove) != 0;
-            FormationMoveCommandHelper.Execute(em, units, cmd.TargetPosition, shape, attackMove);
+            FormationMoveCommandHelper.Execute(em, units, cmd.TargetPosition, shape, attackMove,
+                UnpackFacing(cmd.TargetEntityId));
         }
 
         /// <summary>Per-player buffer for a formation order split over several

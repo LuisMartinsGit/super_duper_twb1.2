@@ -109,6 +109,8 @@ namespace TheWaningBorder.AI
                 _epoch = SimCadence.Epoch;
                 _castPending.Clear();
                 _recentArea.Clear();
+                _heldNext.Clear();
+                _sectHeldNext.Clear();
                 for (int f = 0; f < MaxF; f++)
                 {
                     _nextKite[f] = now + Cfg.microInterval * f / MaxF;
@@ -256,14 +258,18 @@ namespace TheWaningBorder.AI
 
             AIStrengthMap.HostileUnitCandidates(em, faction, c.Pos, scan, _cand);
             // Keep only live, in-radius hostiles so the per-card counts below
-            // are plain distance checks.
-            for (int i = _cand.Count - 1; i >= 0; i--)
+            // are plain distance checks. Compacted in place, order kept (a
+            // RemoveAt per reject shifted the whole tail each time).
+            int kept = 0;
+            for (int i = 0; i < _cand.Count; i++)
             {
                 var h = _cand[i];
-                if (!AITactics.IsLiveHostileUnit(em, faction, h)) { _cand.RemoveAt(i); continue; }
+                if (!AITactics.IsLiveHostileUnit(em, faction, h)) continue;
                 float d2 = math.distancesq(em.GetComponentData<LocalTransform>(h).Position.xz, c.Pos.xz);
-                if (d2 > scan2) { _cand.RemoveAt(i); continue; }
+                if (d2 > scan2) continue;
+                _cand[kept++] = h;
             }
+            _cand.RemoveRange(kept, _cand.Count - kept);
             c.NearestEnemyDist = float.MaxValue;
             for (int i = 0; i < _cand.Count; i++)
             {
@@ -277,15 +283,19 @@ namespace TheWaningBorder.AI
             c.InCombat = c.NearestEnemyDist <= Cfg.contactDistance;
 
             AIStrengthMap.FriendlyUnitCandidates(em, faction, c.Pos, scan, _allies);
-            for (int i = _allies.Count - 1; i >= 0; i--)
+            kept = 0;
+            bool self = false;   // the caster seen among the kept allies (was a Contains scan)
+            for (int i = 0; i < _allies.Count; i++)
             {
                 var a = _allies[i];
-                if (!em.Exists(a) || !em.HasComponent<Health>(a) || em.GetComponentData<Health>(a).Value <= 0)
-                { _allies.RemoveAt(i); continue; }
+                if (!em.Exists(a) || !em.HasComponent<Health>(a) || em.GetComponentData<Health>(a).Value <= 0) continue;
                 float d2 = math.distancesq(em.GetComponentData<LocalTransform>(a).Position.xz, c.Pos.xz);
-                if (d2 > scan2) { _allies.RemoveAt(i); continue; }
+                if (d2 > scan2) continue;
+                _allies[kept++] = a;
+                self |= a == e;
             }
-            if (!_allies.Contains(e)) _allies.Add(e);
+            _allies.RemoveRange(kept, _allies.Count - kept);
+            if (!self) _allies.Add(e);
             for (int i = 0; i < _allies.Count; i++) c.AllyPower += AITactics.LiveStrength(em, _allies[i]);
             return c;
         }
@@ -329,12 +339,23 @@ namespace TheWaningBorder.AI
         // ─────────────────────────────────────────────────────────────────
 
         private readonly int[] _slots = new int[4];
+        /// <summary>The Call's callable escorts per faction, counted at most
+        /// once per pass (-1 = not counted yet): the count walks every escort
+        /// of the map, and every Worker of a Runai AI carries the card.</summary>
+        private readonly int[] _callable = new int[MaxF];
+
+        private int CallableEscorts(EntityManager em, int fi, Faction faction)
+        {
+            if (_callable[fi] < 0) _callable[fi] = TheWaningBorder.Runai.RunaiTradeSystem.CallableEscorts(em, faction);
+            return _callable[fi];
+        }
 
         private void TickUnitAbilities(EntityManager em)
         {
             var q = QC_Casters.Get(em, QT_Casters);
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            for (int f = 0; f < MaxF; f++) _callable[f] = -1;
 
             for (int i = 0; i < ents.Length; i++)
             {
@@ -352,8 +373,9 @@ namespace TheWaningBorder.AI
 
                 var faction = facs[i].Value;
                 ref readonly var skill = ref _skills[fi];
-                bool haveCtx = false;
+                bool haveCtx = false, havePos = false;
                 Ctx ctx = default;
+                float3 pos = default;
                 var abil = em.GetComponentData<UnitAbilities>(e);
 
                 for (int k = 0; k < nSlots; k++)
@@ -362,18 +384,26 @@ namespace TheWaningBorder.AI
                     if (AbilityQuery.CooldownRemaining(em, e, slot) > 0f) continue;
                     var card = AbilityCatalog.Get(abil.Get(slot));
                     if (card == null) continue;
-                    if (!haveCtx) { ctx = ReadContext(em, e, faction); haveCtx = true; }
-                    if (AreaCovered(fi, card, ctx.Pos))
+                    // A card the AI never drives costs no context read (a
+                    // Worker's The Return, a Scout's reveal...).
+                    var kind = KindOf(card);
+                    if (kind == CardKind.Ignore) continue;
+                    if (!havePos) { pos = em.GetComponentData<LocalTransform>(e).Position; havePos = true; }
+                    if (AreaCovered(fi, card, pos))
                     {
-                        LogHeld(em, faction, card.Name, "another cast already covers this ground");
+                        LogHeld(fi, faction, card.Name, "another cast already covers this ground");
                         continue;
                     }
+                    if (!haveCtx) { ctx = ReadContext(em, e, faction); haveCtx = true; }
 
-                    var verdict = EvaluateCard(em, e, card, in ctx, in skill, out string why, out int caught);
+                    // The reason is only spelled out when its log line is due.
+                    bool wantWhy = HeldLogDue(fi, card.Name);
+                    var verdict = EvaluateCard(em, fi, faction, card, kind, in ctx, in skill, wantWhy,
+                                               out string why, out int caught);
                     if (verdict == Verdict.Ignore) continue;
                     if (verdict == Verdict.Hold)
                     {
-                        LogHeld(em, faction, card.Name, why);
+                        LogHeld(fi, faction, card.Name, why);
                         continue;
                     }
                     if (CommandRouter.IssueUnitAbilitySlot(em, e, slot, Entity.Null, null, CommandSource.AI))
@@ -428,117 +458,181 @@ namespace TheWaningBorder.AI
         /// Cards the AI should not drive (reveals, economy, passives) are
         /// ignored without a log line.
         /// </summary>
-        private Verdict EvaluateCard(EntityManager em, Entity e, AbilityCard card, in Ctx ctx,
-            in AITacticsSkill skill, out string why, out int caught)
+        /// <summary>Which rule a card falls under — a pure function of the
+        /// card, so it is worked out once per card, not per caster per pass.</summary>
+        private enum CardKind : byte { Ignore, Enemies, Pledge, Call, Hospital, Escape, SelfDefence, AllyBuff }
+
+        private readonly Dictionary<AbilityCard, CardKind> _cardKind = new Dictionary<AbilityCard, CardKind>();
+
+        private CardKind KindOf(AbilityCard card)
+        {
+            if (_cardKind.TryGetValue(card, out var k)) return k;
+            k = Classify(card);
+            _cardKind[card] = k;
+            return k;
+        }
+
+        /// <summary>The order of the tests is the precedence (the effect-kind
+        /// list in <see cref="EvaluateCard"/>'s summary).</summary>
+        private static CardKind Classify(AbilityCard card)
+        {
+            if (card.IsAimed
+                || card.HasEffect(AbilityEffectKind.RevealFog)
+                || card.HasEffect(AbilityEffectKind.ResourceYieldPct)
+                || card.HasEffect(AbilityEffectKind.NoAutomation)
+                || card.HasEffect(AbilityEffectKind.LosRampWhileStill))
+                return CardKind.Ignore;
+            if (card.HasEffect(AbilityEffectKind.ShardboundFury) || card.Affects == AbilityAffects.Enemies)
+                return CardKind.Enemies;
+            if (card.HasEffect(AbilityEffectKind.SummonPledgeArmy)) return CardKind.Pledge;
+            // Returning the escorts is left to the Call running out.
+            if (card.HasEffect(AbilityEffectKind.RunaiReturnToWagons)) return CardKind.Ignore;
+            if (card.HasEffect(AbilityEffectKind.RunaiTheCall)) return CardKind.Call;
+            if (card.HasEffect(AbilityEffectKind.DeployFieldHospital)) return CardKind.Hospital;
+            if (card.HasEffect(AbilityEffectKind.MoveSpeedPct)
+                && card.EffectValue(AbilityEffectKind.MoveSpeedPct) > 0f
+                && card.HasEffect(AbilityEffectKind.DisarmWhileBuffed))
+                return CardKind.Escape;
+            if (card.Targeting == AbilityTargeting.SelfCast
+                && (card.HasEffect(AbilityEffectKind.DamageTakenPct) || card.HasEffect(AbilityEffectKind.HpFloor)
+                    || card.HasEffect(AbilityEffectKind.ArmorPct) || card.HasEffect(AbilityEffectKind.ArmorFlat)))
+                return CardKind.SelfDefence;
+            if (card.Affects == AbilityAffects.AlliedCavalry || IsRangedBuff(card)
+                || card.Affects == AbilityAffects.AlliedAll || card.Affects == AbilityAffects.AlliedCulture
+                || card.HasEffect(AbilityEffectKind.ChargeDamagePct)
+                || card.HasEffect(AbilityEffectKind.AttackPct))
+                return CardKind.AllyBuff;
+            return CardKind.Ignore;
+        }
+
+        private static bool IsRangedBuff(AbilityCard card)
+            => card.Affects == AbilityAffects.AlliedRanged || card.HasEffect(AbilityEffectKind.FireRatePct);
+
+        /// <summary>
+        /// Is THIS the moment for this card? By effect kind, never by
+        /// "it is off cooldown" (<paramref name="kind"/> from <see cref="KindOf"/>):
+        ///   * area damage / control  — at least aoeMinEnemies inside its radius;
+        ///   * ultimates (Honour thy Pledge) — only when the fight is pivotal;
+        ///   * The Call — a pivotal fight AND enough escorts to call;
+        ///   * heals (Field Hospital) — enough of the allied pool is missing;
+        ///   * ally buffs (War Horn, Volleys, attack / armour) — enough allies
+        ///     affected AND an enemy inside the radius or about to be;
+        ///   * self-defence (Liquid Courage) — in combat and hurt or outnumbered;
+        ///   * escapes (Full Gallop) — in contact, hurt or out-powered.
+        /// Cards the AI should not drive (reveals, economy, passives) are
+        /// ignored without a log line. <paramref name="why"/> is only built
+        /// when <paramref name="wantWhy"/> (its log line is due).
+        /// </summary>
+        private Verdict EvaluateCard(EntityManager em, int fi, Faction faction, AbilityCard card, CardKind kind,
+            in Ctx ctx, in AITacticsSkill skill, bool wantWhy, out string why, out int caught)
         {
             why = null;
             caught = ctx.EnemiesInScan;
             int aoeMin = math.max(1, skill.aoeMinEnemies);
             float radius = card.Radius > 0f ? card.Radius : Cfg.abilityScanRadius;
 
-            if (card.IsAimed
-                || card.HasEffect(AbilityEffectKind.RevealFog)
-                || card.HasEffect(AbilityEffectKind.ResourceYieldPct)
-                || card.HasEffect(AbilityEffectKind.NoAutomation)
-                || card.HasEffect(AbilityEffectKind.LosRampWhileStill))
-                return Verdict.Ignore;
-
-            if (card.HasEffect(AbilityEffectKind.ShardboundFury) || card.Affects == AbilityAffects.Enemies)
+            switch (kind)
             {
-                caught = EnemiesWithin(em, ctx.Pos, radius);
-                if (caught >= aoeMin) return Verdict.Cast;
-                why = $"only {caught}/{aoeMin} enemies in {radius:F0} m";
-                return Verdict.Hold;
-            }
+                case CardKind.Enemies:
+                    caught = EnemiesWithin(em, ctx.Pos, radius);
+                    if (caught >= aoeMin) return Verdict.Cast;
+                    if (wantWhy) why = $"only {caught}/{aoeMin} enemies in {radius:F0} m";
+                    return Verdict.Hold;
 
-            if (card.HasEffect(AbilityEffectKind.SummonPledgeArmy))
-            {
-                if (ctx.InCombat && (ctx.Ratio >= skill.pivotalRatio || ctx.EnemiesInScan >= aoeMin * 2))
+                case CardKind.Pledge:
+                    if (ctx.InCombat && (ctx.Ratio >= skill.pivotalRatio || ctx.EnemiesInScan >= aoeMin * 2))
+                        return Verdict.Cast;
+                    if (wantWhy)
+                        why = ctx.InCombat
+                            ? $"fight not pivotal (power {ctx.EnemyPower} vs {ctx.AllyPower})"
+                            : "not in combat";
+                    return Verdict.Hold;
+
+                // THE CALL (docs/Design/Age_1_Runai.md §8.1, §9): pull the
+                // escorts in when a fight here is pivotal — never a convenience
+                // cast, the caravans ride unescorted meanwhile. The fight is
+                // judged first: it is free, the escort count walks the map.
+                case CardKind.Call:
+                {
+                    if (!ctx.InCombat) { why = "not in combat"; return Verdict.Hold; }
+                    if (!(ctx.Ratio >= skill.pivotalRatio || ctx.EnemiesInScan >= aoeMin * 2))
+                    {
+                        if (wantWhy) why = $"fight not pivotal (power {ctx.EnemyPower} vs {ctx.AllyPower})";
+                        return Verdict.Hold;
+                    }
+                    int callable = CallableEscorts(em, fi, faction);
+                    if (callable < 3) { if (wantWhy) why = $"only {callable} escorts to call"; return Verdict.Hold; }
                     return Verdict.Cast;
-                why = ctx.InCombat
-                    ? $"fight not pivotal (power {ctx.EnemyPower} vs {ctx.AllyPower})"
-                    : "not in combat";
-                return Verdict.Hold;
-            }
+                }
 
-            // THE CALL (docs/Design/Age_1_Runai.md §8.1, §9): pull the escorts
-            // in when a fight here is pivotal — never a convenience cast, the
-            // caravans ride unescorted meanwhile. Returning them is left to
-            // the Call running out.
-            if (card.HasEffect(AbilityEffectKind.RunaiReturnToWagons)) return Verdict.Ignore;
-            if (card.HasEffect(AbilityEffectKind.RunaiTheCall))
-            {
-                int callable = TheWaningBorder.Runai.RunaiTradeSystem.CallableEscorts(em, em.GetComponentData<FactionTag>(e).Value);
-                if (callable < 3) { why = $"only {callable} escorts to call"; return Verdict.Hold; }
-                if (ctx.InCombat && (ctx.Ratio >= skill.pivotalRatio || ctx.EnemiesInScan >= aoeMin * 2))
-                    return Verdict.Cast;
-                why = ctx.InCombat ? $"fight not pivotal (power {ctx.EnemyPower} vs {ctx.AllyPower})" : "not in combat";
-                return Verdict.Hold;
-            }
+                case CardKind.Hospital:
+                {
+                    int n = AlliesWithin(em, ctx.Pos, radius, 0, false, out int miss, out int max, out int wounded);
+                    float frac = max > 0 ? miss / (float)max : 0f;
+                    if (frac >= skill.healMinMissingFraction && wounded >= Cfg.buffMinAllies) return Verdict.Cast;
+                    if (wantWhy) why = $"{frac * 100f:F0}% of {n} allies' hp missing ({wounded} wounded)";
+                    return Verdict.Hold;
+                }
 
-            if (card.HasEffect(AbilityEffectKind.DeployFieldHospital))
-            {
-                int n = AlliesWithin(em, ctx.Pos, radius, 0, false, out int miss, out int max, out int wounded);
-                float frac = max > 0 ? miss / (float)max : 0f;
-                if (frac >= skill.healMinMissingFraction && wounded >= Cfg.buffMinAllies) return Verdict.Cast;
-                why = $"{frac * 100f:F0}% of {n} allies' hp missing ({wounded} wounded)";
-                return Verdict.Hold;
-            }
+                case CardKind.Escape:
+                    if (ctx.InCombat && (ctx.HpFrac <= Cfg.defensiveHpFraction || ctx.Ratio >= skill.pivotalRatio))
+                        return Verdict.Cast;
+                    why = ctx.InCombat ? "holding ground (not hurt, not out-powered)" : "no one to escape from";
+                    return Verdict.Hold;
 
-            bool escape = card.HasEffect(AbilityEffectKind.MoveSpeedPct)
-                          && card.EffectValue(AbilityEffectKind.MoveSpeedPct) > 0f
-                          && card.HasEffect(AbilityEffectKind.DisarmWhileBuffed);
-            if (escape)
-            {
-                if (ctx.InCombat && (ctx.HpFrac <= Cfg.defensiveHpFraction || ctx.Ratio >= skill.pivotalRatio))
-                    return Verdict.Cast;
-                why = ctx.InCombat ? "holding ground (not hurt, not out-powered)" : "no one to escape from";
-                return Verdict.Hold;
-            }
+                case CardKind.SelfDefence:
+                    if (ctx.InCombat && (ctx.HpFrac <= Cfg.defensiveHpFraction
+                                         || ctx.Ratio >= skill.pivotalRatio
+                                         || ctx.EnemiesInScan >= aoeMin))
+                        return Verdict.Cast;
+                    if (wantWhy)
+                        why = ctx.InCombat
+                            ? $"not pressed ({ctx.HpFrac * 100f:F0}% hp, {ctx.EnemiesInScan} enemies)"
+                            : "not in combat";
+                    return Verdict.Hold;
 
-            bool selfDefence = card.Targeting == AbilityTargeting.SelfCast
-                && (card.HasEffect(AbilityEffectKind.DamageTakenPct) || card.HasEffect(AbilityEffectKind.HpFloor)
-                    || card.HasEffect(AbilityEffectKind.ArmorPct) || card.HasEffect(AbilityEffectKind.ArmorFlat));
-            if (selfDefence)
-            {
-                if (ctx.InCombat && (ctx.HpFrac <= Cfg.defensiveHpFraction
-                                     || ctx.Ratio >= skill.pivotalRatio
-                                     || ctx.EnemiesInScan >= aoeMin))
-                    return Verdict.Cast;
-                why = ctx.InCombat
-                    ? $"not pressed ({ctx.HpFrac * 100f:F0}% hp, {ctx.EnemiesInScan} enemies)"
-                    : "not in combat";
-                return Verdict.Hold;
+                case CardKind.AllyBuff:
+                {
+                    // Who is affected, and is a fight here or arriving?
+                    bool cavalryBuff = card.Affects == AbilityAffects.AlliedCavalry;
+                    bool rangedBuff = IsRangedBuff(card);
+                    int affected = card.Targeting == AbilityTargeting.SelfCast ? 1
+                        : AlliesWithin(em, ctx.Pos, radius, cavalryBuff ? (uint)UnitTagBits.Cavalry : 0u,
+                                       rangedBuff, out _, out _, out _);
+                    int need = card.Targeting == AbilityTargeting.SelfCast ? 1 : Cfg.buffMinAllies;
+                    caught = EnemiesWithin(em, ctx.Pos, radius + Cfg.buffEnemyMargin);
+                    if (affected >= need && caught > 0) return Verdict.Cast;
+                    if (wantWhy) why = caught == 0 ? "no enemy in reach" : $"only {affected}/{need} allies affected";
+                    return Verdict.Hold;
+                }
             }
-
-            // Ally buffs: who is affected, and is a fight here or arriving?
-            bool cavalryBuff = card.Affects == AbilityAffects.AlliedCavalry;
-            bool rangedBuff = card.Affects == AbilityAffects.AlliedRanged
-                              || card.HasEffect(AbilityEffectKind.FireRatePct);
-            bool allyBuff = cavalryBuff || rangedBuff
-                || card.Affects == AbilityAffects.AlliedAll || card.Affects == AbilityAffects.AlliedCulture
-                || card.HasEffect(AbilityEffectKind.ChargeDamagePct)
-                || card.HasEffect(AbilityEffectKind.AttackPct);
-            if (allyBuff)
-            {
-                int affected = card.Targeting == AbilityTargeting.SelfCast ? 1
-                    : AlliesWithin(em, ctx.Pos, radius, cavalryBuff ? (uint)UnitTagBits.Cavalry : 0u,
-                                   rangedBuff, out _, out _, out _);
-                int need = card.Targeting == AbilityTargeting.SelfCast ? 1 : Cfg.buffMinAllies;
-                caught = EnemiesWithin(em, ctx.Pos, radius + Cfg.buffEnemyMargin);
-                if (affected >= need && caught > 0) return Verdict.Cast;
-                why = caught == 0 ? "no enemy in reach" : $"only {affected}/{need} allies affected";
-                return Verdict.Hold;
-            }
-
             return Verdict.Ignore;
         }
 
-        private void LogHeld(EntityManager em, Faction faction, string ability, string why)
+        // Held-cast log throttle, kept here so the check allocates nothing:
+        // the shared AITactics.LogDue keys on a string, and "held:" + name
+        // was concatenated per card per caster per pass to ask it.
+        private readonly Dictionary<(int, string), double> _heldNext = new Dictionary<(int, string), double>();
+        private readonly Dictionary<(int, AbilityId), double> _sectHeldNext = new Dictionary<(int, AbilityId), double>();
+
+        private bool HeldLogDue(int fi, string ability)
+            => !_heldNext.TryGetValue((fi, ability), out var next) || _now >= next;
+
+        private void LogHeld(int fi, Faction faction, string ability, string why)
         {
-            if (why == null) return;
-            if (!AITactics.LogDue(em, faction, "held:" + ability, Cfg.abilityHeldLogSeconds)) return;
+            if (why == null || !HeldLogDue(fi, ability)) return;
+            _heldNext[(fi, ability)] = _now + Cfg.abilityHeldLogSeconds;
             AILogger.Log(faction, "ABILITY", $"{ability} held ({why})");
+        }
+
+        private bool SectHeldLogDue(int fi, AbilityId id)
+            => !_sectHeldNext.TryGetValue((fi, id), out var next) || _now >= next;
+
+        private void LogSectHeld(int fi, Faction faction, AbilityId id, string why)
+        {
+            if (why == null || !SectHeldLogDue(fi, id)) return;
+            _sectHeldNext[(fi, id)] = _now + Cfg.abilityHeldLogSeconds;
+            AILogger.Log(faction, "ABILITY", $"{id} held ({why})");
         }
 
         // ─────────────────────────────────────────────────────────────────
@@ -567,6 +661,7 @@ namespace TheWaningBorder.AI
                 var ctx = ReadContext(em, e, faction);
                 int aoeMin = math.max(1, skill.aoeMinEnemies);
                 float aoe = Cfg.legacyAbilityRadius;
+                bool wantWhy = SectHeldLogDue(fi, ab.Id);
 
                 Entity target = Entity.Null;
                 string why = null;
@@ -581,12 +676,12 @@ namespace TheWaningBorder.AI
                     case AbilityId.WarCry:
                         caught = EnemiesWithin(em, ctx.Pos, aoe);
                         cast = caught >= aoeMin;
-                        if (!cast) why = $"only {caught}/{aoeMin} enemies in {aoe:F0} m";
+                        if (!cast && wantWhy) why = $"only {caught}/{aoeMin} enemies in {aoe:F0} m";
                         break;
 
                     case AbilityId.RapidMend:
                         cast = ctx.InCombat && ctx.HpFrac <= Cfg.defensiveHpFraction;
-                        if (!cast) why = $"{ctx.HpFrac * 100f:F0}% hp";
+                        if (!cast && wantWhy) why = $"{ctx.HpFrac * 100f:F0}% hp";
                         break;
 
                     case AbilityId.Fortify:
@@ -600,7 +695,7 @@ namespace TheWaningBorder.AI
                     {
                         int allies = AlliesWithin(em, ctx.Pos, aoe, 0, false, out _, out _, out _);
                         cast = ctx.InCombat && allies >= Cfg.buffMinAllies;
-                        if (!cast) why = ctx.InCombat ? $"only {allies} allies in {aoe:F0} m" : "not in combat";
+                        if (!cast && wantWhy) why = ctx.InCombat ? $"only {allies} allies in {aoe:F0} m" : "not in combat";
                         break;
                     }
 
@@ -635,7 +730,7 @@ namespace TheWaningBorder.AI
                         break;
                 }
 
-                if (!cast) { LogHeld(em, faction, ab.Id.ToString(), why); continue; }
+                if (!cast) { LogSectHeld(fi, faction, ab.Id, why); continue; }
                 CommandRouter.IssueAbility(em, e, target, CommandSource.AI);
                 MarkCast(e);
                 AILogger.Log(faction, "ABILITY",

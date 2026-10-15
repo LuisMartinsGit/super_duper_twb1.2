@@ -20,53 +20,53 @@ namespace TheWaningBorder.Entities
         {
             ReadDef(out float hp, out float los, out var defense);
 
-            var entity = em.CreateEntity(typeof(PresentationId), typeof(LocalTransform),
+            var entity = EntityBuild.CreateEntity(em, typeof(PresentationId), typeof(LocalTransform),
                 typeof(FactionTag), typeof(BuildingTag), typeof(Health),
                 typeof(LineOfSight), typeof(Radius));
-            em.SetComponentData(entity, new PresentationId { Id = PresentationID });
-            em.SetComponentData(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            em.SetComponentData(entity, new FactionTag { Value = faction });
-            em.SetComponentData(entity, new BuildingTag { IsBase = 0 });
-            em.SetComponentData(entity, new Health { Value = (int)hp, Max = (int)hp });
-            em.SetComponentData(entity, new LineOfSight { Radius = los });
+            EntityBuild.Add(em, entity, new PresentationId { Id = PresentationID });
+            EntityBuild.Add(em, entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            EntityBuild.Add(em, entity, new FactionTag { Value = faction });
+            EntityBuild.Add(em, entity, new BuildingTag { IsBase = 0 });
+            EntityBuild.Add(em, entity, new Health { Value = (int)hp, Max = (int)hp });
+            EntityBuild.Add(em, entity, new LineOfSight { Radius = los });
 
             var gridSize = BuildingSizeConfig.GetSize("Mine");
-            em.SetComponentData(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            em.AddComponent<MineTag>(entity);
-            em.AddComponentData(entity, new MineState());
-            em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            em.AddComponentData(entity, defense);
+            EntityBuild.Add(em, entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            EntityBuild.Add(em, entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+            EntityBuild.Add(em, entity, default(MineTag));
+            EntityBuild.Add(em, entity, new MineState());
+            EntityBuild.Add(em, entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            EntityBuild.Add(em, entity, defense);
             // A RESEARCH HOST (2026-10-02): Deep Shafts and Rich Seams are
             // bought here. The buffer is what the research executor accepts;
             // ProductionState is the clock that runs it.
-            em.AddBuffer<ProductionQueueItem>(entity);
-            em.AddComponentData(entity, new ProductionState { Busy = 0, Remaining = 0 });
-            return entity;
+            EntityBuild.AddBuffer<ProductionQueueItem>(em, entity);
+            EntityBuild.Add(em, entity, new ProductionState { Busy = 0, Remaining = 0 });
+            return EntityBuild.Done(entity);
         }
 
         public static Entity Create(EntityCommandBuffer ecb, float3 position, Faction faction)
         {
             ReadDef(out float hp, out float los, out var defense);
 
-            var entity = ecb.CreateEntity();
-            ecb.AddComponent(entity, new PresentationId { Id = PresentationID });
-            ecb.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            ecb.AddComponent(entity, new FactionTag { Value = faction });
-            ecb.AddComponent(entity, new BuildingTag { IsBase = 0 });
-            ecb.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
-            ecb.AddComponent(entity, new LineOfSight { Radius = los });
+            var entity = EntityBuild.CreateEntity(ecb);
+            EntityBuild.Add(ecb, entity, new PresentationId { Id = PresentationID });
+            EntityBuild.Add(ecb, entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
+            EntityBuild.Add(ecb, entity, new FactionTag { Value = faction });
+            EntityBuild.Add(ecb, entity, new BuildingTag { IsBase = 0 });
+            EntityBuild.Add(ecb, entity, new Health { Value = (int)hp, Max = (int)hp });
+            EntityBuild.Add(ecb, entity, new LineOfSight { Radius = los });
 
             var gridSize = BuildingSizeConfig.GetSize("Mine");
-            ecb.AddComponent(entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
-            ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
-            ecb.AddComponent<MineTag>(entity);
-            ecb.AddComponent(entity, new MineState());
-            ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
-            ecb.AddComponent(entity, defense);
-            ecb.AddBuffer<ProductionQueueItem>(entity);
-            ecb.AddComponent(entity, new ProductionState { Busy = 0, Remaining = 0 });
-            return entity;
+            EntityBuild.Add(ecb, entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
+            EntityBuild.Add(ecb, entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
+            EntityBuild.Add(ecb, entity, default(MineTag));
+            EntityBuild.Add(ecb, entity, new MineState());
+            EntityBuild.Add(ecb, entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
+            EntityBuild.Add(ecb, entity, defense);
+            EntityBuild.AddBuffer<ProductionQueueItem>(ecb, entity);
+            EntityBuild.Add(ecb, entity, new ProductionState { Busy = 0, Remaining = 0 });
+            return EntityBuild.Done(entity);
         }
 
         private static void ReadDef(out float hp, out float los, out Defense defense)

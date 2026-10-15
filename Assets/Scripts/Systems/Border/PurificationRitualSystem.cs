@@ -280,8 +280,7 @@ namespace TheWaningBorder.Systems.Border
                         Position = em.GetComponentData<LocalTransform>(scholar).Position,
                         Has = 1,
                     };
-                    if (em.HasComponent<GuardPoint>(scholar)) em.SetComponentData(scholar, gp);
-                    else em.AddComponentData(scholar, gp);
+                    TransientState.Set(em, scholar, gp);
                 }
 
                 // THE WAKING (canon §2.8): touching a well wakes THAT well —

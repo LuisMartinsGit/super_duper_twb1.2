@@ -274,6 +274,13 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         /// finished generating, or the scene swapped) and the cached height
         /// must be re-sampled.</summary>
         public int LastTerrainVersion;
+        /// <summary>What was last WRITTEN to the view's transform (only
+        /// valid while Primed - a new view clears Primed). A frame whose
+        /// computed pose matches exactly skips the write: a Transform write
+        /// is never free (hierarchy-change dispatch), even with an equal value.</summary>
+        public Vector3 WrittenPos;
+        public Quaternion WrittenRot;
+        public float WrittenScale = float.NaN;
 
         // ── Fixed-step interpolation ────────────────────────────────────
         //
@@ -1861,8 +1868,20 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         if (sync.ScaleTag != null && sync.ScaleTag.BaseOffset != Vector3.zero)
             pos -= (sync.RenderRot * sync.ScaleTag.BaseOffset) * finalScale;
 
-        go.transform.SetPositionAndRotation(pos, sync.RenderRot);
-        go.transform.localScale = Vector3.one * finalScale;
+        // Write only what changed (exact compares). A unit standing still
+        // under lockstep, or a building mid-rise, computes the same root
+        // pose frame after frame.
+        if (!sync.Primed || !pos.Equals(sync.WrittenPos) || !sync.RenderRot.Equals(sync.WrittenRot))
+        {
+            go.transform.SetPositionAndRotation(pos, sync.RenderRot);
+            sync.WrittenPos = pos;
+            sync.WrittenRot = sync.RenderRot;
+        }
+        if (!sync.Primed || !finalScale.Equals(sync.WrittenScale))
+        {
+            go.transform.localScale = Vector3.one * finalScale;
+            sync.WrittenScale = finalScale;
+        }
 
         sync.LastPos = lt.Position;
         sync.LastRot = lt.Rotation;

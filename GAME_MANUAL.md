@@ -182,6 +182,17 @@ Right-click does whatever makes sense for the target:
 | Enemy, with a shooting building selected (Shelter/Fortress, tower, Keep, wall tower) | Direct its fire: the enemy takes one of the building's target slots while in range; the rest keep auto-firing. The order holds if the target walks out of range, and ends when it dies or you press **Stop**. On an emplacement, its engine attacks. |
 | Enemy wall piece, no siege selected | Nothing — "Only siege can damage walls". Only siege units (and siege-firing buildings) can damage walls. |
 
+**Right-Drag — face the formation.** Press the right button on open ground
+with units selected, drag, and release: the army forms up **centred on the
+point you pressed**, **facing the way you dragged**. While the button is held a
+ghost shows one marker per unit — exactly where each will stand — and an arrow
+for the facing. The army still marches facing its route and turns to the
+ordered facing as it settles at the destination. With **A** armed the drag
+gives an attack-move. A press that barely moves (under about a dozen pixels) is
+an ordinary right-click; so is any press on an enemy, a building, a wall top or
+a resource, and Shift (queueing) ignores the drag. The camera never uses the
+right button (pan is the middle button), so the two never compete.
+
 **Shift + Right-Click** — Add an order to the END of each selected unit's
 queue instead of replacing what it is doing (up to **15** queued orders per
 unit). The first order starts at once if the unit is idle; the rest run in
@@ -226,7 +237,8 @@ the camera.
 - **Rally Point Display** — Blue marker plus a path line from the source building.
 - **Floating Health Bars** — Above every unit, colored by HP%.
 - **Floating Income** — `+10/s` style readouts above Workers and supply buildings.
-- **Formation Drag Preview** — Hold right-click instead of clicking to see, in real time, where each unit will end up before you commit.
+- **Formation Drag Preview** — Right-drag on the ground instead of clicking: a ghost marker per unit shows where each will stand, and an arrow shows the facing, before you release to commit.
+- **Movement Lines** — A selected unit's order is drawn as a line to its destination (yellow move, red attack, green build / repair / heal), with its queued steps chained on. A formation draws **one** line for the whole army, from its centre to its destination; a unit that leaves the ranks (to fight, or because it was too far away to join) draws its own.
 
 ### Building Placement
 

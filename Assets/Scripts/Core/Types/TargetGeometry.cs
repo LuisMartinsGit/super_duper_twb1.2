@@ -117,6 +117,63 @@ namespace TheWaningBorder.Core
         public static float SurfaceDistXZ(EntityManager em, float3 fromPos, Entity target)
             => Extent(em, target).SurfaceDistXZ(fromPos);
 
+        // ── ComponentLookup overloads (2026-10-15 perf pass) ─────────────
+        // An EntityManager.HasComponent walks the archetype's type list; a
+        // lookup caches the archetype and answers a repeat in O(1). The hot
+        // combat loops (towers, targeting, melee, ranged) use these. Same
+        // rules and the same arithmetic as the EntityManager forms above, so
+        // every answer is bit-identical.
+
+        /// <summary><see cref="Extent(EntityManager, Entity)"/> through
+        /// lookups. A missing or destroyed entity reads as a point at the
+        /// origin, exactly as the EntityManager form does.</summary>
+        public static TargetExtent Extent(Entity target,
+            in ComponentLookup<LocalTransform> transforms,
+            in ComponentLookup<BuildingSize> sizes,
+            in ComponentLookup<Radius> radii)
+        {
+            if (target == Entity.Null) return new TargetExtent();
+            float3 center = transforms.TryGetComponent(target, out var xf) ? xf.Position : float3.zero;
+            return Extent(target, center, in sizes, in radii);
+        }
+
+        /// <summary>Footprint when the caller already holds the target's
+        /// position (a snapshot array), so only the shape is looked up.</summary>
+        public static TargetExtent Extent(Entity target, float3 center,
+            in ComponentLookup<BuildingSize> sizes,
+            in ComponentLookup<Radius> radii)
+        {
+            var e = new TargetExtent { Center = center };
+            if (sizes.TryGetComponent(target, out var bs))
+            {
+                e.IsBox = true;
+                e.HalfW = bs.Width * 0.5f;
+                e.HalfH = bs.Height * 0.5f;
+            }
+            else if (radii.TryGetComponent(target, out var r))
+            {
+                e.Radius = r.Value;
+            }
+            return e;
+        }
+
+        /// <summary><see cref="SurfaceDistXZ(EntityManager, float3, float3, Entity)"/>
+        /// through lookups.</summary>
+        public static float SurfaceDistXZ(float3 fromPos, float3 targetPos, Entity target,
+            in ComponentLookup<BuildingSize> sizes,
+            in ComponentLookup<Radius> radii)
+        {
+            if (sizes.TryGetComponent(target, out var bs))
+            {
+                float dx = math.max(math.abs(fromPos.x - targetPos.x) - bs.Width * 0.5f, 0f);
+                float dz = math.max(math.abs(fromPos.z - targetPos.z) - bs.Height * 0.5f, 0f);
+                return math.sqrt(dx * dx + dz * dz);
+            }
+
+            float radius = radii.TryGetComponent(target, out var r) ? r.Value : 0f;
+            return math.max(MathUtil.DistXZ(fromPos, targetPos) - radius, 0f);
+        }
+
         /// <summary>
         /// Surface distance when the caller ALREADY has the target's position —
         /// for hot scan loops (TargetingSystem's per-candidate sweep) where
@@ -164,6 +221,27 @@ namespace TheWaningBorder.Core
                 ecb.SetComponent(self, new DesiredDestination { Has = 0 });
 
             Face(em, self, targetPos, dt);
+        }
+
+        /// <summary>
+        /// <see cref="StopAndFace(EntityCommandBuffer, EntityManager, Entity, float3, float)"/>
+        /// with its two reads through lookups (the per-unit combat loops). The
+        /// rotation write still goes through the EntityManager, unchanged.
+        /// </summary>
+        public static void StopAndFace(EntityCommandBuffer ecb, EntityManager em,
+            in ComponentLookup<DesiredDestination> destinations,
+            in ComponentLookup<LocalTransform> transforms,
+            Entity self, float3 targetPos, float dt)
+        {
+            if (destinations.HasComponent(self))
+                ecb.SetComponent(self, new DesiredDestination { Has = 0 });
+
+            if (!transforms.TryGetComponent(self, out var xf)) return;
+            var turned = MathUtil.TurnTowardXZ(xf.Rotation, xf.Position, targetPos, dt, MathUtil.DefaultTurnSpeed);
+            if (turned.Equals(xf.Rotation)) return;
+
+            xf.Rotation = turned;
+            em.SetComponentData(self, xf);
         }
 
         /// <summary>Turn toward a world position without touching movement state.</summary>

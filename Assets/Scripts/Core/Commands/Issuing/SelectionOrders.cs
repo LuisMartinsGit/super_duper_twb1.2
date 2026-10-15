@@ -625,6 +625,51 @@ namespace TheWaningBorder.Core.Commands.Issuing
         }
 
         /// <summary>
+        /// Right-drag (2026-10-15): a formation move centred on
+        /// <paramref name="centre"/> that ARRIVES facing
+        /// <paramref name="arriveFacing"/> (XZ, the drag direction).
+        /// </summary>
+        public void IssueFormationMove(float3 centre, float3 arriveFacing)
+        {
+            var units = CollectOwnedMovableSelection();
+            if (units.Count == 0) return;
+            CommandRouter.IssueFormationMove(_em, units, centre,
+                Shape, arriveFacing, CommandSource.LocalPlayer);
+        }
+
+        /// <summary>
+        /// Where the right-drag order would put each unit: the ghost preview.
+        /// Runs the SAME FormationMoveCommandHelper.BuildPlan the order will
+        /// (read-only), with the facing quantised exactly as the command
+        /// quantises it, so the ghost is the layout the units will stand in —
+        /// not a second copy of the arithmetic. Fills <paramref name="slots"/>
+        /// and returns false when nothing in the selection can move.
+        /// </summary>
+        public bool PreviewFormationSlots(float3 centre, float3 arriveFacing, List<float3> slots)
+        {
+            slots.Clear();
+            var units = CollectOwnedMovableSelection();
+            if (units.Count == 0) return false;
+            float3 facing = CommandRouter.UnpackFacing(CommandRouter.PackFacing(arriveFacing));
+            if (!FormationMoveCommandHelper.BuildPlan(_em, units, centre, Shape, facing, out var plan))
+                return false;
+            slots.AddRange(plan.SlotWorld);
+            return true;
+        }
+
+        /// <summary>True when the selection holds at least one owned unit
+        /// (not a building) — i.e. a ground press can become a move.</summary>
+        public bool HasOwnedMovableUnit()
+        {
+            foreach (var e in CurrentSelection)
+            {
+                if (!_em.Exists(e) || _em.HasComponent<BuildingTag>(e)) continue;
+                if (IsOwnedByLocalPlayer(e)) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
         /// AoE4: selecting a new formation rearranges the units immediately,
         /// even when standing still — re-issue a formation move to the
         /// selection's own centroid.
@@ -745,6 +790,16 @@ namespace TheWaningBorder.Core.Commands.Issuing
             if (units.Count == 0) return;
             CommandRouter.IssueFormationAttackMove(_em, units, clickWorld,
                 Shape, CommandSource.LocalPlayer);
+        }
+
+        /// <summary>Right-drag while attack-move is armed: the formation
+        /// attack-move, arriving facing <paramref name="arriveFacing"/>.</summary>
+        public void IssueAttackMoveFormation(float3 centre, float3 arriveFacing)
+        {
+            var units = CollectOwnedMovableSelection();
+            if (units.Count == 0) return;
+            CommandRouter.IssueFormationAttackMove(_em, units, centre,
+                Shape, arriveFacing, CommandSource.LocalPlayer);
         }
 
 

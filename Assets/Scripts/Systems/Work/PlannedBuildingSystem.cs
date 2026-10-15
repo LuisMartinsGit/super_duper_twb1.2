@@ -96,7 +96,7 @@ namespace TheWaningBorder.Systems.Work
 
             for (int i = 0; i < retarget.Length; i++)
             {
-                if (!em.Exists(retarget[i]) || !em.HasComponent<BuildCommand>(retarget[i])) continue;
+                if (!em.Exists(retarget[i]) || !TransientState.Active<BuildCommand>(em, retarget[i])) continue;
                 var c = em.GetComponentData<BuildCommand>(retarget[i]);
                 c.TargetBuilding = retargetTo[i];
                 em.SetComponentData(retarget[i], c);
@@ -129,7 +129,7 @@ namespace TheWaningBorder.Systems.Work
                 .WithAll<CanBuild>()
                 .WithEntityAccess())
             {
-                if (em.HasComponent<BuildCommand>(entity))
+                if (TransientState.Active<BuildCommand>(em, entity))
                 {
                     attended.Add(em.GetComponentData<BuildCommand>(entity).TargetBuilding);
                     continue;
@@ -141,7 +141,7 @@ namespace TheWaningBorder.Systems.Work
                     for (int k = 0; k < buf.Length; k++) { attended.Add(buf[k].TargetBuilding); queuedAny = true; }
                 }
                 if (queuedAny) continue;
-                if (em.HasComponent<BuildOrder>(entity) || em.HasComponent<RepairOrder>(entity)) continue;
+                if (TransientState.Active<BuildOrder>(em, entity) || TransientState.Active<RepairOrder>(em, entity)) continue;
                 if (em.HasComponent<UserMoveOrder>(entity) && em.IsComponentEnabled<UserMoveOrder>(entity)) continue;
                 idle.Add(entity);
                 idlePos.Add(xf.ValueRO.Position);

@@ -44,14 +44,14 @@ namespace TheWaningBorder.Entities
         /// <param name="originalBazaarMaxHP">The Bazaar's max HP (for unpacking)</param>
         public static Entity Create(EntityManager em, float3 position, Faction faction,
             int currentHP, int originalBazaarMaxHP)
-            => CreateInternal(new EmCreator(em), position, faction, currentHP, originalBazaarMaxHP);
+            => EntityBuild.Done(CreateInternal(new EmCreator(em), position, faction, currentHP, originalBazaarMaxHP));
 
         /// <summary>
         /// Create a Bazaar Wagon using EntityCommandBuffer for deferred creation.
         /// </summary>
         public static Entity Create(EntityCommandBuffer ecb, float3 position, Faction faction,
             int currentHP, int originalBazaarMaxHP)
-            => CreateInternal(new EcbCreator(ecb), position, faction, currentHP, originalBazaarMaxHP);
+            => EntityBuild.Done(CreateInternal(new EcbCreator(ecb), position, faction, currentHP, originalBazaarMaxHP));
 
         private static Entity CreateInternal<TCreator>(TCreator creator, float3 position, Faction faction,
             int currentHP, int originalBazaarMaxHP)

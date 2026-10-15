@@ -17,8 +17,8 @@ namespace TheWaningBorder.Entities
         public const string BuildingId = "ThessarasCrossing";
         public const int PresentationID = 590;   // ThessarasCrossing.asset (borrows the Bazaar's model)
 
-        public static Entity Create(EntityManager em, float3 p, Faction f) => Make(new EmCreator(em), p, f);
-        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => Make(new EcbCreator(ecb), p, f);
+        public static Entity Create(EntityManager em, float3 p, Faction f) => EntityBuild.Done(Make(new EmCreator(em), p, f));
+        public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => EntityBuild.Done(Make(new EcbCreator(ecb), p, f));
 
         private static Entity Make<T>(T c, float3 p, Faction f) where T : struct, IEntityCreator
         {

@@ -69,6 +69,16 @@ namespace TheWaningBorder.World.Roads
                 }
             }
 
+            // The lune test asks only the points of a uniform grid near i: a
+            // blocker k is strictly nearer i than j is, so it sits inside the
+            // circle of radius |ij| round i. Same exact test, same verdict —
+            // the grid only skips points that could never pass it.
+            var grid = scratch.Grid;
+            var gp = scratch.GridPts;
+            gp.Clear();
+            for (int i = 0; i < n; i++) gp.Add(new float2(pts[i].x, pts[i].y));
+            grid.Build(gp);
+
             cand.Sort();
             long prev = long.MinValue;
             for (int c = 0; c < cand.Count; c++)
@@ -79,14 +89,106 @@ namespace TheWaningBorder.World.Roads
                 int i = (int)(key >> 32), j = (int)(key & 0xffffffffL);
                 float dij = (pts[i] - pts[j]).sqrMagnitude;
                 bool blocked = false;
-                for (int k = 0; k < n && !blocked; k++)
+                // Padded so float rounding of the radius never drops a blocker.
+                float reach = math.sqrt(dij) * 1.0001f + 0.01f;
+                grid.Range(gp[i], reach, out int2 lo, out int2 hi);
+                for (int cy = lo.y; cy <= hi.y && !blocked; cy++)
+                for (int cx = lo.x; cx <= hi.x && !blocked; cx++)
+                for (int k = grid.First(cx, cy); k >= 0; k = grid.Next(k))
                 {
                     if (k == i || k == j) continue;
                     if ((pts[i] - pts[k]).sqrMagnitude < dij && (pts[j] - pts[k]).sqrMagnitude < dij)
-                        blocked = true;
+                    { blocked = true; break; }
                 }
                 if (!blocked) edges.Add(new int2(i, j));
             }
+        }
+
+        /// <summary>
+        /// A uniform bucket grid over a point set (2026-10-15, perf): each cell
+        /// links its points, so "every point within r of p" walks a few cells
+        /// instead of the whole set. Cell coordinates are CLAMPED to the grid,
+        /// which keeps range queries exact for points outside the box it was
+        /// sized for (a clamped point lands in an edge cell the clamped query
+        /// range still covers). Callers always re-test exact distances; the
+        /// grid only decides which points are worth testing.
+        /// </summary>
+        public sealed class PointGrid
+        {
+            public float Cell { get; private set; } = 1f;
+            public float2 Min { get; private set; }
+            public int Width { get; private set; }
+            public int Height { get; private set; }
+            private int[] _head = new int[0];
+            private int[] _next = new int[0];
+
+            /// <summary>Size the grid to <paramref name="pts"/> (about one point
+            /// per cell) and insert them all, index = list position.</summary>
+            public void Build(List<float2> pts)
+            {
+                float2 mn = new float2(float.MaxValue), mx = new float2(float.MinValue);
+                for (int i = 0; i < pts.Count; i++) { mn = math.min(mn, pts[i]); mx = math.max(mx, pts[i]); }
+                if (pts.Count == 0) { mn = mx = float2.zero; }
+                Reset(mn, mx, pts.Count, pts.Count);
+                for (int i = 0; i < pts.Count; i++) Insert(i, pts[i]);
+            }
+
+            /// <summary>Empty grid over the box [mn, mx], cells sized for
+            /// <paramref name="expected"/> points.</summary>
+            public void Reset(float2 mn, float2 mx, int expected, int capacity)
+            {
+                float2 ext = math.max(mx - mn, new float2(0f));
+                float span = math.max(ext.x, ext.y);
+                Cell = math.max(1f, span / math.max(1f, math.ceil(math.sqrt(expected))));
+                Min = mn;
+                Width = (int)math.floor(ext.x / Cell) + 1;
+                Height = (int)math.floor(ext.y / Cell) + 1;
+                int cells = Width * Height;
+                if (_head.Length < cells) _head = new int[cells];
+                for (int c = 0; c < cells; c++) _head[c] = -1;
+                if (_next.Length < capacity) _next = new int[math.max(capacity, 16)];
+            }
+
+            public void Insert(int idx, float2 p)
+            {
+                if (idx >= _next.Length)
+                {
+                    var grown = new int[math.max(idx + 1, _next.Length * 2)];
+                    System.Array.Copy(_next, grown, _next.Length);
+                    _next = grown;
+                }
+                int2 c = CellOf(p);
+                int ci = c.y * Width + c.x;
+                _next[idx] = _head[ci];
+                _head[ci] = idx;
+            }
+
+            /// <summary>The (clamped) cell holding <paramref name="p"/>.</summary>
+            public int2 CellOf(float2 p)
+            {
+                float2 f = math.floor((p - Min) / Cell);
+                f = math.clamp(f, float2.zero, new float2(Width - 1, Height - 1));
+                return (int2)f;
+            }
+
+            /// <summary>The unclamped cell coordinate of <paramref name="p"/>
+            /// (may lie outside the grid), for ring searches.</summary>
+            public int2 RawCellOf(float2 p)
+            {
+                float2 f = math.floor((p - Min) / Cell);
+                f = math.clamp(f, new float2(-1e6f), new float2(1e6f));
+                return (int2)f;
+            }
+
+            /// <summary>Clamped cell range covering the disc (p, r).</summary>
+            public void Range(float2 p, float r, out int2 lo, out int2 hi)
+            {
+                lo = CellOf(p - r);
+                hi = CellOf(p + r);
+            }
+
+            public int First(int cx, int cy) => _head[cy * Width + cx];
+            public int Next(int idx) => _next[idx];
         }
 
         /// <summary>
@@ -124,6 +226,8 @@ namespace TheWaningBorder.World.Roads
             public readonly List<int2> Tied = new List<int2>();
             public readonly int[] SectorBest = new int[6];
             public readonly float[] SectorBestD = new float[6];
+            public readonly PointGrid Grid = new PointGrid();
+            public readonly List<float2> GridPts = new List<float2>();
         }
 
         // ── Routing ───────────────────────────────────────────────────────

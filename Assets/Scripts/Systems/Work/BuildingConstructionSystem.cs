@@ -32,10 +32,18 @@ namespace TheWaningBorder.Systems.Work
 
         // Cached EntityQueries — initialized in OnCreate()
         private EntityQuery _unfinishedBuildingQuery;
+        private EntityQuery _activeOrders;
 
         public void OnCreate(ref SystemState state)
         {
+            // BuildOrder is enableable and pre-added DISABLED on every Worker
+            // (2026-10-15). RequireForUpdate ignores enable bits (it tests
+            // IsEmptyIgnoreFilter), so it now passes whenever a Worker exists;
+            // the IsEmpty test at the top of OnUpdate restores the old gate —
+            // the system (adoption scan and its timer included) runs only
+            // while some worker holds an ACTIVE build order.
             state.RequireForUpdate<BuildOrder>();
+            _activeOrders = state.GetEntityQuery(ComponentType.ReadOnly<BuildOrder>());
 
             // Use state.GetEntityQuery so the SystemState owns the query lifetime
             // and disposes on system teardown. Earlier this called
@@ -54,6 +62,7 @@ namespace TheWaningBorder.Systems.Work
 
         public void OnUpdate(ref SystemState state)
         {
+            if (_activeOrders.IsEmpty) return;   // see OnCreate
             float dt = SystemAPI.Time.DeltaTime;
             var em = state.EntityManager;
 
@@ -87,7 +96,7 @@ namespace TheWaningBorder.Systems.Work
                 if (!em.Exists(site))
                 {
                     // Site destroyed - clear order
-                    em.RemoveComponent<BuildOrder>(worker);
+                    TransientState.Clear<BuildOrder>(em, worker);
                     continue;
                 }
 
@@ -95,7 +104,7 @@ namespace TheWaningBorder.Systems.Work
                 if (!em.HasComponent<UnderConstruction>(site))
                 {
                     // Already finished - clear order
-                    em.RemoveComponent<BuildOrder>(worker);
+                    TransientState.Clear<BuildOrder>(em, worker);
                     continue;
                 }
 
@@ -173,21 +182,21 @@ namespace TheWaningBorder.Systems.Work
                     {
                         // Construction complete!
                         CompleteConstruction(em, site);
-                        em.RemoveComponent<BuildOrder>(worker);
+                        TransientState.Clear<BuildOrder>(em, worker);
 
                         // Auto-build nearby unfinished structures within LOS
                         Entity nextSite = FindNearbyUnfinishedBuilding(em, worker, bPos);
                         if (nextSite != Entity.Null)
                         {
-                            if (!em.HasComponent<BuildOrder>(worker))
-                                em.AddComponentData(worker, new BuildOrder { Site = nextSite });
+                            if (!TransientState.Active<BuildOrder>(em, worker))
+                                TransientState.Set(em, worker, new BuildOrder { Site = nextSite });
                                 else
                                     em.SetComponentData(worker, new BuildOrder { Site = nextSite });
                         }
                         else
                         {
                             // No nearby sites — update guard point so worker stays here
-                            if (em.HasComponent<GuardPoint>(worker))
+                            if (TransientState.Active<GuardPoint>(em, worker))
                             {
                                 em.SetComponentData(worker, new GuardPoint
                                 {
@@ -271,7 +280,7 @@ namespace TheWaningBorder.Systems.Work
             {
                 // WithNone takes at most three types here, so the remaining
                 // exclusions are checked inline.
-                if (em.HasComponent<TheWaningBorder.Core.Commands.Types.BuildCommand>(entity))
+                if (TransientState.Active<TheWaningBorder.Core.Commands.Types.BuildCommand>(em, entity))
                     continue;
 
                 // A VILLAGER MID-JOB IS NOT IDLE. A worker that is mining
@@ -306,7 +315,7 @@ namespace TheWaningBorder.Systems.Work
                 Entity site = FindNearbyUnfinishedBuilding(em, idle[i], idlePos[i]);
                 if (site == Entity.Null) continue;
 
-                em.AddComponentData(idle[i], new BuildOrder { Site = site });
+                TransientState.Set(em, idle[i], new BuildOrder { Site = site });
             }
 
             idle.Dispose();
@@ -350,8 +359,18 @@ namespace TheWaningBorder.Systems.Work
                 ? em.GetComponentData<UnderConstruction>(building).LastProgressHp
                 : 0;
 
-            // Remove construction marker
-            em.RemoveComponent<UnderConstruction>(building);
+            // Remove the construction markers — UnderConstruction, plus the
+            // AutoConstructTag (a worker can finish a self-constructing site
+            // — choice building / wall extension — before
+            // AutoConstructionSystem does) and the Buildable leftover from
+            // CreateUnderConstruction — in ONE structural change
+            // (2026-10-15). They used to go one at a time, the two optional
+            // ones after the landmark hook below, which reads neither.
+            var drop = new FixedList128Bytes<ComponentType>();
+            drop.Add(ComponentType.ReadWrite<UnderConstruction>());
+            if (em.HasComponent<AutoConstructTag>(building)) drop.Add(ComponentType.ReadWrite<AutoConstructTag>());
+            if (em.HasComponent<Buildable>(building)) drop.Add(ComponentType.ReadWrite<Buildable>());
+            em.RemoveComponent(building, new ComponentTypeSet(drop));
 
             // Post-game chart milestone: landmark (Vault/Keep)
             // completed. Only one completion path can fire per site — the
@@ -362,14 +381,7 @@ namespace TheWaningBorder.Systems.Work
                     TheWaningBorder.Core.Diagnostics.GameEventKind.SpecialBuilding);
             // A finished landmark IS the age-up (Age_0.md § Age-up by landmark).
             LandmarkAgeUp.OnConstructionComplete(em, building);
-            // Also remove Buildable if present (leftover from CreateUnderConstruction)
-            if (em.HasComponent<Buildable>(building))
-                em.RemoveComponent<Buildable>(building);
-            // A worker can finish a self-constructing site (choice building /
-            // wall extension) before AutoConstructionSystem does — drop the
-            // auto tag so it doesn't linger on the completed building.
-            if (em.HasComponent<AutoConstructTag>(building))
-                em.RemoveComponent<AutoConstructTag>(building);
+            // (Buildable / AutoConstructTag went with UnderConstruction above.)
 
             // Finish the HP ramp WITHOUT healing combat damage.
             //
@@ -565,21 +577,21 @@ namespace TheWaningBorder.Systems.Work
                         else if (em.HasComponent<UnderConstruction>(targetBuilding))
                         {
                             // Add BuildOrder and remove BuildCommand
-                            if (!em.HasComponent<BuildOrder>(entity))
+                            if (!TransientState.Active<BuildOrder>(em, entity))
                             {
-                                ecb.AddComponent(entity, new BuildOrder { Site = targetBuilding });
+                                TransientState.Set(ecb, entity, new BuildOrder { Site = targetBuilding });
                             }
                             else
                             {
                                 ecb.SetComponent(entity, new BuildOrder { Site = targetBuilding });
                             }
                             
-                            ecb.RemoveComponent<BuildCommand>(entity);
+                            TransientState.Clear<BuildCommand>(em, ecb, entity);
                         }
                         else
                         {
                             // Building already complete - clear command
-                            ecb.RemoveComponent<BuildCommand>(entity);
+                            TransientState.Clear<BuildCommand>(em, ecb, entity);
                         }
                     }
                     else
@@ -592,11 +604,11 @@ namespace TheWaningBorder.Systems.Work
                                 ? em.GetComponentData<FactionTag>(entity).Value : Faction.Border);
                         if (nearest != Entity.Null)
                         {
-                            if (!em.HasComponent<BuildOrder>(entity))
-                                ecb.AddComponent(entity, new BuildOrder { Site = nearest });
+                            if (!TransientState.Active<BuildOrder>(em, entity))
+                                TransientState.Set(ecb, entity, new BuildOrder { Site = nearest });
                                 else
                                     ecb.SetComponent(entity, new BuildOrder { Site = nearest });
-                            ecb.RemoveComponent<BuildCommand>(entity);
+                            TransientState.Clear<BuildCommand>(em, ecb, entity);
                         }
                         // else: building not placed yet — keep waiting (don't clear command)
                     }

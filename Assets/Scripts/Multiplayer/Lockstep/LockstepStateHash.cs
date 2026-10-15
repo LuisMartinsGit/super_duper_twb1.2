@@ -436,7 +436,7 @@ namespace TheWaningBorder.Multiplayer
                 anyNav = true;
             }
 
-            if (em.HasComponent<FlowDesiredDir>(e))
+            if (TransientState.Active<FlowDesiredDir>(em, e))
             {
                 var f = em.GetComponentData<FlowDesiredDir>(e);
                 snap.HasFlow = f.HasValue;
@@ -446,7 +446,7 @@ namespace TheWaningBorder.Multiplayer
                 anyNav = true;
             }
 
-            if (em.HasComponent<SteeringDesiredDir>(e))
+            if (TransientState.Active<SteeringDesiredDir>(em, e))
             {
                 var s = em.GetComponentData<SteeringDesiredDir>(e);
                 snap.HasSteer = s.HasValue;
@@ -456,7 +456,7 @@ namespace TheWaningBorder.Multiplayer
                 anyNav = true;
             }
 
-            if (em.HasComponent<SmoothedDirection>(e))
+            if (TransientState.Active<SmoothedDirection>(em, e))
             {
                 var sm = em.GetComponentData<SmoothedDirection>(e);
                 snap.SmX = math.asuint(sm.Value.x);
@@ -465,7 +465,7 @@ namespace TheWaningBorder.Multiplayer
                 anyNav = true;
             }
 
-            if (em.HasComponent<StuckState>(e))
+            if (TransientState.Active<StuckState>(em, e))
             {
                 var st = em.GetComponentData<StuckState>(e);
                 snap.Stuck = st.Counter; snap.StuckAttempt = st.LastAttempt;
@@ -504,7 +504,7 @@ namespace TheWaningBorder.Multiplayer
 
             snap.ArchTypes = em.GetChunk(e).Archetype.TypesCount;
 
-            if (em.HasComponent<GuardPoint>(e))
+            if (TransientState.Active<GuardPoint>(em, e))
             {
                 var g = em.GetComponentData<GuardPoint>(e);
                 snap.HasGuard = g.Has;
@@ -571,7 +571,7 @@ namespace TheWaningBorder.Multiplayer
                 Mix(ref hWork, (uint)snap.WorkTarget);
             }
 
-            if (em.HasComponent<BuildOrder>(e))
+            if (TransientState.Active<BuildOrder>(em, e))
             {
                 var bo = em.GetComponentData<BuildOrder>(e);
                 snap.WorkTarget = (bo.Site != Entity.Null && em.Exists(bo.Site)

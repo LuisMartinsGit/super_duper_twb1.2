@@ -49,11 +49,11 @@ namespace TheWaningBorder.Systems.Combat
 
                 // Default stance — only if nothing set one already (a scenario
                 // that adds HoldPositionTag directly is on Hold).
-                if (!em.HasComponent<UnitStance>(e))
+                if (!TransientState.Active<UnitStance>(em, e))
                 {
                     UnitStanceMode mode = DefaultFor(em, e);
                     if (TransientState.Active<HoldPositionTag>(em, e)) mode = UnitStanceMode.Hold;
-                    em.AddComponentData(e, new UnitStance { Value = mode });
+                    TransientState.Set(em, e, new UnitStance { Value = mode });
                 }
 
                 // Stagger phase from the NETWORK id — the one identity every
@@ -64,7 +64,7 @@ namespace TheWaningBorder.Systems.Combat
                     : e.Index;
                 int hp = em.HasComponent<Health>(e) ? em.GetComponentData<Health>(e).Value : 0;
 
-                em.AddComponentData(e, new UnitEngagement
+                TransientState.Set(em, e, new UnitEngagement
                 {
                     AutoTarget = Entity.Null,
                     LastHealth = hp,

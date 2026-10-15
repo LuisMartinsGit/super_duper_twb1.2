@@ -117,6 +117,9 @@ namespace TheWaningBorder.Systems.Buildings
         /// UnitFactory's recipe table.</summary>
         private static Entity Raise(EntityManager em, string engineId, float3 at, Faction faction)
         {
+            // One structural change per engine, not one per component —
+            // see EntityBuild (the empty-archetype spam).
+            using var build = TheWaningBorder.Entities.EntityBuild.Begin(em);
             switch (engineId)
             {
                 case EmplacedBallista.Id:  return EmplacedBallista.Create(em, at, faction);

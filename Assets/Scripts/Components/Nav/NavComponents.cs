@@ -196,7 +196,7 @@ public static class NavFlowConstants
 /// <see cref="HasValue"/> = 1 means <see cref="Value"/> is a valid unit
 /// vector in the XZ plane (y component held at 0).
 /// </summary>
-public struct FlowDesiredDir : IComponentData
+public struct FlowDesiredDir : IComponentData, IEnableableComponent
 {
     public float3 Value;
     public byte HasValue;

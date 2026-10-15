@@ -65,9 +65,9 @@ namespace TheWaningBorder.Input
         /// </summary>
         private static bool IsIdle(EntityManager em, Entity e)
         {
-            if (em.HasComponent<BuildCommand>(e)
-                || em.HasComponent<BuildOrder>(e)
-                || em.HasComponent<RepairOrder>(e)) return false;
+            if (TransientState.Active<BuildCommand>(em, e)
+                || TransientState.Active<BuildOrder>(em, e)
+                || TransientState.Active<RepairOrder>(em, e)) return false;
             if (em.HasBuffer<QueuedBuildSite>(e) && em.GetBuffer<QueuedBuildSite>(e).Length > 0) return false;
             if (em.HasBuffer<QueuedCommand>(e) && em.GetBuffer<QueuedCommand>(e).Length > 0) return false;
             if (TransientState.Active<MoveCommand>(em, e)

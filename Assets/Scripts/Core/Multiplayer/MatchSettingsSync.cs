@@ -48,7 +48,10 @@ namespace TheWaningBorder.Core.Multiplayer
         // 5 (2026-10-15): sect adoption is instant (SectAdopt carries no build
         // time) and power unlocks are independent (ReligionPurchase kinds 3/4
         // replace 1) -- the same command stream means something else.
-        public const int ProtocolVersion = 5;
+        // 6 (2026-10-15): FormationOrder carries an arrival facing in its flag
+        // word (right-drag), and the flow-field / road-graph / tower-targeting
+        // performance pass changes sim results -- a 0.0.42 peer would fork.
+        public const int ProtocolVersion = 6;
 
         // ═══════════════════════════════════════════════════════════════
         // BUILD FINGERPRINT

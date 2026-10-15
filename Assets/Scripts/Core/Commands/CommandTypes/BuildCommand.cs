@@ -14,7 +14,7 @@ namespace TheWaningBorder.Core.Commands.Types
     /// ECS Component representing a build command for a worker unit.
     /// When attached to an entity, construction systems will process it.
     /// </summary>
-    public struct BuildCommand : IComponentData
+    public struct BuildCommand : IComponentData, IEnableableComponent
     {
         /// <summary>ID of the building to construct (e.g., "Barracks", "GatherersHut")</summary>
         public FixedString64Bytes BuildingId;
@@ -470,8 +470,8 @@ namespace TheWaningBorder.Core.Commands.Types
         /// or actively constructing one (BuildOrder).
         /// </summary>
         private static bool IsBusy(EntityManager em, Entity worker)
-            => em.HasComponent<BuildCommand>(worker)
-            || em.HasComponent<BuildOrder>(worker);
+            => TransientState.Active<BuildCommand>(em, worker)
+            || TransientState.Active<BuildOrder>(em, worker);
 
         /// <summary>
         /// Start the next queued site, if any. Returns true when one was
@@ -510,10 +510,9 @@ namespace TheWaningBorder.Core.Commands.Types
                 TargetBuilding = targetBuilding
             };
 
-            if (!em.HasComponent<BuildCommand>(worker))
-                em.AddComponentData(worker, cmd);
-                else
-                    em.SetComponentData(worker, cmd);
+            // Enableable, pre-added disabled on every Worker (Worker.cs):
+            // Set enables it, adding it only for a unit without the pre-add.
+            TransientState.Set(em, worker, cmd);
 
             // Set destination to build position
             if (em.HasComponent<DesiredDestination>(worker))

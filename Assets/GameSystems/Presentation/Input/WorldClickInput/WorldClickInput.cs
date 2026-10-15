@@ -52,8 +52,21 @@ namespace TheWaningBorder.Input
             // sect Fire buttons in ReligionHUD don't use a mouse-targeting
             // mode (they fire at a fixed target / self position).
 
+            // Right-DRAG (2026-10-15): a press on open ground arms a facing
+            // drag; past the pixel threshold it shows the ghost formation.
+            if (UnityEngine.Input.GetMouseButtonDown(1)) BeginPress();
+            if (_press.Tracked && UnityEngine.Input.GetMouseButton(1)) UpdateDrag();
+
             // Right-click issues the move/attack on release.
             if (!UnityEngine.Input.GetMouseButtonUp(1)) return;
+
+            // Read the gesture, then forget it — whatever happens below, the
+            // press is over and the ghost goes away.
+            bool dragged = _press.Tracked && _press.Dragging && _press.HasFacing;
+            float3 dragCentre = _press.World;
+            float3 dragFacing = _press.Facing;
+            bool dragAttackMove = _press.AttackMove;
+            ResetPress();
 
             if (Cfg == null) return;   // the error is already logged by Require
 
@@ -66,6 +79,27 @@ namespace TheWaningBorder.Input
             // Only issue commands if at least one selected entity belongs to the local player
             if (!_orders.HasAnyOwnedEntity())
                 return;
+
+            // ── The drag order: a formation move centred on the PRESS point,
+            //    arriving facing along the drag. Only a press that would have
+            //    been a plain ground move (or an armed attack-move) gets here —
+            //    BeginPress decided that — so every context order is untouched.
+            //    Shift at release means "queue", which carries no facing:
+            //    fall through to the ordinary queued click. ──
+            bool shiftNow = UnityEngine.Input.GetKey(KeyCode.LeftShift) || UnityEngine.Input.GetKey(KeyCode.RightShift);
+            if (dragged && !shiftNow)
+            {
+                if (dragAttackMove && _modes.AttackMove)
+                {
+                    _modes.Disarm();
+                    _orders.IssueAttackMoveFormation(dragCentre, dragFacing);
+                }
+                else
+                {
+                    _orders.IssueFormationMove(dragCentre, dragFacing);
+                }
+                return;
+            }
 
             if (!TryGetClickPoint(out float3 clickWorld)) return;
 
@@ -329,6 +363,249 @@ namespace TheWaningBorder.Input
             if (target == Entity.Null || !_em.Exists(target)) return true;
             return targetType == SelectionOrders.TargetType.FriendlyBuilding
                    && _orders.IsWallPiece(target);
+        }
+
+        #endregion
+
+        #region Right-drag facing
+
+        // ── RIGHT-DRAG ORIENTS THE FORMATION (2026-10-15). ──
+        //
+        // Press on open ground with units selected, drag, release: the army
+        // forms up centred on the PRESS point, facing along the drag, and the
+        // ghost shows exactly where each unit will stand while the button is
+        // held. The ghost is FormationMoveCommandHelper.BuildPlan itself (via
+        // SelectionOrders.PreviewFormationSlots), never a copy of the layout.
+        //
+        // A press that does not travel Cfg.dragThresholdPixels is a plain
+        // right-click and routes exactly as before; so does any press that is
+        // NOT a ground move (an enemy, a building, a rally, a wall top, a
+        // queued Shift-click, planning mode, patrol). The camera does not use
+        // the right button (it pans on the middle one), so nothing competes
+        // for the drag.
+
+        private struct PressState
+        {
+            public bool Tracked;      // this press may become a facing drag
+            public bool Dragging;     // the cursor passed the pixel threshold
+            public bool AttackMove;   // attack-move was armed at the press
+            public bool HasFacing;    // the drag has a usable direction yet
+            public Vector2 Screen;    // where the press landed on screen
+            public float3 World;      // ... and on the ground: the formation centre
+            public float3 Facing;     // press -> cursor, unit length (XZ)
+            public float3 PreviewFacing;
+            public bool HavePreview;
+        }
+
+        private PressState _press;
+        private readonly System.Collections.Generic.List<float3> _previewSlots
+            = new System.Collections.Generic.List<float3>();
+        private FormationDragPreview _preview;
+
+        /// <summary>
+        /// Called by the input pump BEFORE its UI-block guard: a drag whose
+        /// button came up while the pointer was over the HUD (so
+        /// <see cref="Tick"/> never saw the release) is dropped, and its ghost
+        /// with it — the same thing a plain click released over the HUD does.
+        /// </summary>
+        public void CancelDragIfReleased()
+        {
+            if (!_press.Tracked) return;
+            if (UnityEngine.Input.GetMouseButton(1) || UnityEngine.Input.GetMouseButtonUp(1)) return;
+            ResetPress();
+        }
+
+        private void BeginPress()
+        {
+            ResetPress();
+            if (Cfg == null) return;
+            if (PlanningModeOverlay.IsActive) return;
+            if (_modes.Patrol) return;
+            if (UnityEngine.Input.GetKey(KeyCode.LeftShift) || UnityEngine.Input.GetKey(KeyCode.RightShift)) return;
+            if (!_orders.HasOwnedMovableUnit()) return;
+
+            // Only OPEN GROUND drags: the same pick the release would make.
+            var target = ScreenPick.EntityUnderMouse(_clickMask, _em);
+            var targetType = _orders.DetermineTargetType(target);
+            if (targetType != SelectionOrders.TargetType.Ground) return;
+
+            // A friendly wall top under the cursor is a wall-top order, not a
+            // ground move (same test, same order as the release path).
+            if (!_modes.AnyArmed
+                && RampartClickAllowedOn(target, targetType)
+                && TryGetRampartClick(out float3 rampartPoint)
+                && _orders.IsFriendlyRampartDeck(rampartPoint))
+                return;
+
+            if (!TryGetClickPoint(out float3 at)) return;
+
+            _press.Tracked = true;
+            _press.AttackMove = _modes.AttackMove;
+            _press.Screen = UnityEngine.Input.mousePosition;
+            _press.World = at;
+        }
+
+        private void UpdateDrag()
+        {
+            if (!_press.Dragging)
+            {
+                Vector2 travelled = (Vector2)UnityEngine.Input.mousePosition - _press.Screen;
+                float thr = Cfg.dragThresholdPixels;
+                if (travelled.sqrMagnitude < thr * thr) return;
+                _press.Dragging = true;
+            }
+
+            if (!TryGetClickPoint(out float3 cursor)) return;
+            float3 d = cursor - _press.World;
+            d.y = 0f;
+            // Cursor still on the press point (a steep camera, a tiny drag):
+            // keep the last direction rather than snapping to an arbitrary one.
+            if (math.lengthsq(d) > 0.04f)
+            {
+                _press.Facing = math.normalize(d);
+                _press.HasFacing = true;
+            }
+            if (!_press.HasFacing) return;
+
+            // Rebuild the ghost layout only when the direction has turned
+            // enough to matter — BuildPlan allocates, the arrow does not.
+            float cosRefresh = math.cos(math.radians(Cfg.previewRefreshDegrees));
+            if (!_press.HavePreview || math.dot(_press.Facing, _press.PreviewFacing) < cosRefresh)
+            {
+                _press.HavePreview = _orders.PreviewFormationSlots(_press.World, _press.Facing, _previewSlots);
+                _press.PreviewFacing = _press.Facing;
+            }
+            if (!_press.HavePreview) return;
+
+            if (_preview == null) _preview = new FormationDragPreview();
+            _preview.Show(_previewSlots, _press.World, cursor, Cfg);
+        }
+
+        private void ResetPress()
+        {
+            _press = default;
+            _preview?.Hide();
+        }
+
+        /// <summary>
+        /// The ghost of a right-drag: one flat disc per formation slot and an
+        /// arrow from the press point along the drag. Pooled — discs are
+        /// created once, reused for every later drag, and only hidden between
+        /// drags.
+        /// </summary>
+        private sealed class FormationDragPreview
+        {
+            private GameObject _root;
+            private Material _slotMat;
+            private Material _arrowMat;
+            private LineRenderer _arrow;
+            private readonly System.Collections.Generic.List<GameObject> _discs
+                = new System.Collections.Generic.List<GameObject>();
+            private int _shown;
+
+            public void Show(System.Collections.Generic.List<float3> slots, float3 centre,
+                             float3 cursor, WorldClickInputConfig cfg)
+            {
+                Ensure(cfg);
+                if (!_root.activeSelf) _root.SetActive(true);
+
+                float y = cfg.previewYOffset;
+                for (int i = 0; i < slots.Count; i++)
+                {
+                    if (i >= _discs.Count) _discs.Add(MakeDisc(cfg));
+                    var disc = _discs[i];
+                    if (!disc.activeSelf) disc.SetActive(true);
+                    float3 s = slots[i];
+                    disc.transform.position = new Vector3(s.x,
+                        TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(s.x, s.z) + y, s.z);
+                }
+                for (int i = slots.Count; i < _shown; i++)
+                    if (i < _discs.Count) _discs[i].SetActive(false);
+                _shown = slots.Count;
+
+                // Arrow: press point -> cursor, with a two-wing head.
+                Vector3 a = new Vector3(centre.x, 0f, centre.z);
+                Vector3 b = new Vector3(cursor.x, 0f, cursor.z);
+                Vector3 dir = b - a;
+                float len = dir.magnitude;
+                if (len < 1e-3f) { _arrow.enabled = false; return; }
+                dir /= len;
+                Vector3 side = new Vector3(dir.z, 0f, -dir.x);
+                float head = Mathf.Min(1.5f, len * 0.35f);
+                Vector3 wingL = b - dir * head + side * head * 0.6f;
+                Vector3 wingR = b - dir * head - side * head * 0.6f;
+                _arrow.enabled = true;
+                _arrow.SetPosition(0, Lift(a, y));
+                _arrow.SetPosition(1, Lift(b, y));
+                _arrow.SetPosition(2, Lift(wingL, y));
+                _arrow.SetPosition(3, Lift(b, y));
+                _arrow.SetPosition(4, Lift(wingR, y));
+            }
+
+            public void Hide()
+            {
+                if (_root != null && _root.activeSelf) _root.SetActive(false);
+            }
+
+            private static Vector3 Lift(Vector3 p, float y)
+                => new Vector3(p.x, TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(p.x, p.z) + y, p.z);
+
+            private void Ensure(WorldClickInputConfig cfg)
+            {
+                if (_root != null) return;
+                _root = new GameObject("FormationDragPreview");
+                _slotMat = MakeTransparent(cfg.previewSlotColor);
+                _arrowMat = MakeTransparent(cfg.previewArrowColor);
+
+                var arrowGo = new GameObject("FacingArrow");
+                arrowGo.transform.SetParent(_root.transform, false);
+                _arrow = arrowGo.AddComponent<LineRenderer>();
+                _arrow.sharedMaterial = _arrowMat;
+                _arrow.startColor = _arrow.endColor = cfg.previewArrowColor;
+                _arrow.startWidth = _arrow.endWidth = cfg.previewArrowWidth;
+                _arrow.useWorldSpace = true;
+                _arrow.positionCount = 5;
+                _arrow.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                _arrow.receiveShadows = false;
+            }
+
+            private GameObject MakeDisc(WorldClickInputConfig cfg)
+            {
+                var disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                disc.name = "GhostSlot";
+                disc.transform.SetParent(_root.transform, false);
+                disc.transform.localScale = new Vector3(cfg.previewSlotSize, 0.02f, cfg.previewSlotSize);
+                var col = disc.GetComponent<Collider>();
+                if (col != null) UnityEngine.Object.Destroy(col);   // must never catch a click ray
+                var r = disc.GetComponent<Renderer>();
+                r.sharedMaterial = _slotMat;
+                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                r.receiveShadows = false;
+                return disc;
+            }
+
+            private static Material MakeTransparent(Color color)
+            {
+                var shader = Shader.Find("Universal Render Pipeline/Unlit")
+                          ?? Shader.Find("Unlit/Color")
+                          ?? Shader.Find("Sprites/Default");
+                var mat = new Material(shader);
+                if (mat.HasProperty("_Surface"))
+                {
+                    // URP Unlit, transparent: the property alone does not
+                    // switch the blend state, so set it the way the material
+                    // inspector would.
+                    mat.SetFloat("_Surface", 1f);
+                    mat.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                    mat.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                    mat.SetFloat("_ZWrite", 0f);
+                    mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+                }
+                if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
+                if (mat.HasProperty("_Color")) mat.SetColor("_Color", color);
+                mat.renderQueue = 3000;
+                return mat;
+            }
         }
 
         #endregion

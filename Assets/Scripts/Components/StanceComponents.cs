@@ -27,7 +27,7 @@ public enum UnitStanceMode : byte
 /// keeps the two in step. The tag wins when they disagree (a scenario that adds
 /// the tag directly is on Hold).
 /// </summary>
-public struct UnitStance : IComponentData
+public struct UnitStance : IComponentData, IEnableableComponent
 {
     public UnitStanceMode Value;
 }
@@ -40,7 +40,7 @@ public struct UnitStance : IComponentData
 /// player's (or the AI's) explicit attack order — which installs a Target
 /// without touching this — is never leashed. AttackCommandHelper clears it.
 /// </summary>
-public struct UnitEngagement : IComponentData
+public struct UnitEngagement : IComponentData, IEnableableComponent
 {
     /// <summary>The target TargetingSystem acquired on its own; Null when the
     /// current target (if any) was ordered.</summary>

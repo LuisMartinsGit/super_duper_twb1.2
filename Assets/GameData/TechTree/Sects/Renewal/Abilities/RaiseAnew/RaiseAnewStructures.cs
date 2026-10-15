@@ -27,12 +27,12 @@ namespace TheWaningBorder.Entities
         public static Entity Create<TTag>(EntityManager em, string buildingId, int presentationId,
             float3 position, Faction faction)
             where TTag : unmanaged, IComponentData
-            => CreateInternal<EmCreator, TTag>(new EmCreator(em), buildingId, presentationId, position, faction);
+            => EntityBuild.Done(CreateInternal<EmCreator, TTag>(new EmCreator(em), buildingId, presentationId, position, faction));
 
         public static Entity Create<TTag>(EntityCommandBuffer ecb, string buildingId, int presentationId,
             float3 position, Faction faction)
             where TTag : unmanaged, IComponentData
-            => CreateInternal<EcbCreator, TTag>(new EcbCreator(ecb), buildingId, presentationId, position, faction);
+            => EntityBuild.Done(CreateInternal<EcbCreator, TTag>(new EcbCreator(ecb), buildingId, presentationId, position, faction));
 
         private static Entity CreateInternal<TCreator, TTag>(TCreator creator, string buildingId,
             int presentationId, float3 position, Faction faction)

@@ -253,7 +253,7 @@ namespace TheWaningBorder.Systems.World
                 // a market (RunaiTradeSystem). A territory with no depot pays
                 // nothing. EXCEPT the start territory (2026-10-14): it spawns no
                 // wagons and pays the bank directly, as in Age 0.
-                if (CultureConfig.GetCompletedCulture(em, (Faction)owner) == Cultures.Runai
+                if (census.CultureOf((Faction)owner) == Cultures.Runai
                     && !TheWaningBorder.Runai.RunaiTradeSystem.IsHomeGround(t))
                 {
                     TheWaningBorder.Runai.RunaiTradeSystem.Deposit(em, t, (Faction)owner,
@@ -821,7 +821,7 @@ namespace TheWaningBorder.Systems.World
             var y = new TerritoryYield();
             if (territory < 0 || !RegionMap.Ready) return y;
 
-            byte culture = CultureConfig.GetCompletedCulture(em, owner);
+            byte culture = c.CultureOf(owner);
 
             // Supply slots: 10 empty, the hut's ladder with one on it.
             var hutLadder = LadderFor(HutId, culture);
@@ -1002,9 +1002,21 @@ namespace TheWaningBorder.Systems.World
             private readonly List<Entity> _builtEntity = new List<Entity>();
             /// <summary>Per built extractor: the Feraldis crew share of its income (docs/Design/Age_1_Feraldis.md §3.1).</summary>
             private readonly List<float> _builtCrew = new List<float>();
+            /// <summary>Each faction's completed culture, read ONCE per census
+            /// (2026-10-15, perf): Yield and the Runai branch asked
+            /// GetCompletedCulture — two Hall-array copies — per territory.
+            /// Same first-Hall-wins answer, so the tick is bit-identical.</summary>
+            public readonly byte[] Culture = new byte[32];
+
+            public byte CultureOf(Faction f)
+            {
+                int i = (int)f;
+                return i >= 0 && i < Culture.Length ? Culture[i] : Cultures.None;
+            }
 
             public void Build(EntityManager em)
             {
+                CultureConfig.GetCompletedCultures(em, Culture);
                 SupplyRegion.Clear(); SupplyHutLevel.Clear(); SupplyPurity.Clear(); SupplyNode.Clear(); SupplyCrew.Clear();
                 HallRegion.Clear(); HallLevel.Clear(); HallFaction.Clear(); HallSuppliesPerMinute.Clear();
                 GuildRegion.Clear(); GuildFaction.Clear(); GuildLevel.Clear();

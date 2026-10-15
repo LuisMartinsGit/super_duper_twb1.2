@@ -164,7 +164,12 @@ namespace TheWaningBorder.Systems.Buildings
                 // we set the same fields whether the component is new or old.
                 if (!em.HasComponent<BuildingRangedAttack>(building))
                 {
-                    em.AddComponentData(building, new BuildingRangedAttack
+                    // Barracks is normally not a damager — give it the standard
+                    // ranged damage type so the projectile path treats arrows
+                    // correctly. Both land in one structural change.
+                    bool addDamageType = !em.HasComponent<DamageTypeData>(building);
+                    AddAttackTypes(em, building, addDamageType);
+                    em.SetComponentData(building, new BuildingRangedAttack
                     {
                         Range      = BarracksAttackRange,
                         Damage     = BarracksAttackDamage,
@@ -172,10 +177,8 @@ namespace TheWaningBorder.Systems.Buildings
                         Timer      = 0f,
                         MaxTargets = 1,
                     });
-                    // Barracks is normally not a damager — give it the standard
-                    // ranged damage type so the projectile path treats arrows correctly.
-                    if (!em.HasComponent<DamageTypeData>(building))
-                        em.AddComponentData(building, new DamageTypeData { Value = DamageType.Ranged });
+                    if (addDamageType)
+                        em.SetComponentData(building, new DamageTypeData { Value = DamageType.Ranged });
                 }
                 else
                 {
@@ -190,6 +193,19 @@ namespace TheWaningBorder.Systems.Buildings
             // Hut + Barracks below lvl 3 — no attack changes.
 
             ApplyAuthoredLevel(em, building, level, stats.Def);
+        }
+
+        /// <summary>A newly granted attack: BuildingRangedAttack (and, when
+        /// the building has none, DamageTypeData) in ONE structural change
+        /// rather than one each (2026-10-15). Values are set by the caller.</summary>
+        private static void AddAttackTypes(EntityManager em, Entity building, bool withDamageType)
+        {
+            if (withDamageType)
+                em.AddComponent(building, new ComponentTypeSet(
+                    ComponentType.ReadWrite<BuildingRangedAttack>(),
+                    ComponentType.ReadWrite<DamageTypeData>()));
+            else
+                em.AddComponent<BuildingRangedAttack>(building);
         }
 
         /// <summary>
@@ -237,9 +253,11 @@ namespace TheWaningBorder.Systems.Buildings
             if (em.HasComponent<BuildingRangedAttack>(building)) em.SetComponentData(building, atk);
             else
             {
-                em.AddComponentData(building, atk);
-                if (!em.HasComponent<DamageTypeData>(building))
-                    em.AddComponentData(building, new DamageTypeData { Value = DamageType.Ranged });
+                bool addDamageType = !em.HasComponent<DamageTypeData>(building);
+                AddAttackTypes(em, building, addDamageType);
+                em.SetComponentData(building, atk);
+                if (addDamageType)
+                    em.SetComponentData(building, new DamageTypeData { Value = DamageType.Ranged });
             }
 
             if (attack.siegeShotDamage > 0)

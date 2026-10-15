@@ -2100,7 +2100,7 @@ namespace TheWaningBorder.AI
                 // are precisely the bodies this reinforcement wants.
                 if (TransientState.Active<AttackCommand>(em, e)) { committed++; continue; }
                 if (TransientState.Active<UserMoveOrder>(em, e)) continue;
-                if (em.HasComponent<BuildCommand>(e)) continue;
+                if (TransientState.Active<BuildCommand>(em, e)) continue;
 
                 // Serving in a live mission: marching, mustering or fighting
                 // with a body that already has orders. Drafting it again is

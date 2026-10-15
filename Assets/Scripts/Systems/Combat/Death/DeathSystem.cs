@@ -262,7 +262,7 @@ namespace TheWaningBorder.Systems.Combat
                             dd.Has = 0;
                             ecb.SetComponent(dead, dd);
                         }
-                        if (state.EntityManager.HasComponent<SmoothedDirection>(dead))
+                        if (TransientState.Active<SmoothedDirection>(state.EntityManager, dead))
                             ecb.SetComponent(dead, new SmoothedDirection { Value = float3.zero });
 
                         // --- Terrain Influence: Feraldis blood accumulation ---
